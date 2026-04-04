@@ -4,6 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
+import { useLang } from "@/lib/i18n/context";
+import { LangToggle } from "@/lib/i18n/lang-toggle";
+import { CONTACT } from "@/lib/contact";
 
 const NAV_LINKS = [
   { href: "/", ar: "الرئيسية", en: "Home" },
@@ -17,6 +20,7 @@ const NAV_LINKS = [
 
 export function PublicNav() {
   const pathname = usePathname();
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
 
   return (
@@ -25,15 +29,10 @@ export function PublicNav() {
       <div className="border-b border-gold/20 bg-gold/5 px-4 py-2">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 text-xs text-muted">
           <div className="flex items-center gap-4">
-            <a href="https://wa.me/966500000000" className="transition-colors hover:text-gold">🇸🇦 +966 50 000 0000</a>
-            <a href="https://wa.me/447400000000" className="transition-colors hover:text-gold">🇬🇧 +44 74 0000 0000</a>
+            <a href={CONTACT.whatsappUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 transition-colors hover:text-gold">{CONTACT.flag} {CONTACT.whatsapp}</a>
           </div>
-          <span className="hidden sm:inline">info@furqan.academy</span>
-          <div className="flex gap-3">
-            <span className="cursor-pointer transition-colors hover:text-gold">FB</span>
-            <span className="cursor-pointer transition-colors hover:text-gold">IG</span>
-            <span className="cursor-pointer transition-colors hover:text-gold">YT</span>
-          </div>
+          <a href={CONTACT.emailUrl} className="hidden transition-colors hover:text-gold sm:inline">{CONTACT.email}</a>
+          {/* Social links — add back when accounts are ready */}
         </div>
       </div>
 
@@ -52,7 +51,7 @@ export function PublicNav() {
                   href={link.href}
                   className={`px-3 py-2 text-sm transition-colors ${active ? "font-medium text-gold" : "text-muted hover:text-foreground"}`}
                 >
-                  {link.ar}
+                  {t(link.ar, link.en)}
                 </Link>
               );
             })}
@@ -60,23 +59,29 @@ export function PublicNav() {
 
           {/* Desktop CTAs */}
           <div className="hidden items-center gap-3 lg:flex">
-            <Link href="/login" className="text-sm text-muted transition-colors hover:text-gold">تسجيل الدخول</Link>
+            <LangToggle />
+            <Link href="/login" className="text-sm text-muted transition-colors hover:text-gold">
+              {t("تسجيل الدخول", "Sign In")}
+            </Link>
             <Link
               href="/contact"
               className="rounded border border-gold bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background"
             >
-              جلسة تجريبية مجانية
+              {t("جلسة تجريبية مجانية", "Free Trial")}
             </Link>
           </div>
 
           {/* Mobile hamburger */}
-          <button
-            onClick={() => setOpen(!open)}
-            className="lg:hidden text-foreground focus-ring"
-            aria-label={open ? "إغلاق القائمة" : "فتح القائمة"}
-          >
-            {open ? <X size={24} /> : <Menu size={24} />}
-          </button>
+          <div className="flex items-center gap-2 lg:hidden">
+            <LangToggle />
+            <button
+              onClick={() => setOpen(!open)}
+              className="text-foreground focus-ring"
+              aria-label={open ? "Close menu" : "Open menu"}
+            >
+              {open ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile dropdown */}
@@ -89,13 +94,13 @@ export function PublicNav() {
                 onClick={() => setOpen(false)}
                 className={`block py-2.5 text-sm ${pathname === link.href ? "font-medium text-gold" : "text-muted"}`}
               >
-                {link.ar} <span className="text-xs opacity-50">{link.en}</span>
+                {t(link.ar, link.en)}
               </Link>
             ))}
             <div className="mt-4 flex flex-col gap-2 border-t border-card-border pt-4">
-              <Link href="/login" className="text-sm text-muted">تسجيل الدخول</Link>
+              <Link href="/login" className="text-sm text-muted">{t("تسجيل الدخول", "Sign In")}</Link>
               <Link href="/contact" className="rounded bg-gold px-4 py-2.5 text-center text-sm font-medium text-background">
-                جلسة تجريبية مجانية
+                {t("جلسة تجريبية مجانية", "Free Trial")}
               </Link>
             </div>
           </div>

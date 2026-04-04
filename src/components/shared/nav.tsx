@@ -12,14 +12,18 @@ const LINKS: Record<Role, { href: string; ar: string; en: string }[]> = {
     { href: "/student/teachers", ar: "المعلمون", en: "Teachers" },
     { href: "/student/bookings", ar: "حجوزاتي", en: "Bookings" },
     { href: "/student/sessions", ar: "جلساتي", en: "Sessions" },
+    { href: "/student/messages", ar: "الرسائل", en: "Messages" },
   ],
   teacher: [
     { href: "/teacher/dashboard", ar: "لوحتي", en: "Dashboard" },
     { href: "/teacher/sessions", ar: "جلساتي", en: "Sessions" },
     { href: "/teacher/availability", ar: "المواعيد", en: "Availability" },
+    { href: "/teacher/students", ar: "طلابي", en: "Students" },
+    { href: "/teacher/messages", ar: "الرسائل", en: "Messages" },
   ],
   admin: [
     { href: "/admin/dashboard", ar: "لوحة الإدارة", en: "Dashboard" },
+    { href: "/admin/blog", ar: "المدونة", en: "Blog" },
   ],
 };
 
@@ -42,7 +46,7 @@ export function Nav({ role }: { role: Role }) {
           </Link>
 
           {LINKS[role].map((link) => {
-            const active = pathname.startsWith(link.href);
+            const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
               <Link
                 key={link.href}

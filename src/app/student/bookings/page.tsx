@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "حجوزاتي | فرقان" };
+export const metadata: Metadata = { title: "حجوزاتي" };
 import Link from "next/link";
 import { CalendarCheck, Plus, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";

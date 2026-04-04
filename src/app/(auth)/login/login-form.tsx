@@ -85,7 +85,6 @@ export function LoginForm() {
               onClick={() => setShowPassword(!showPassword)}
               aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
               className="absolute end-3 top-1/2 -translate-y-1/2 text-muted transition-colors hover:text-foreground focus-ring"
-              tabIndex={-1}
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
