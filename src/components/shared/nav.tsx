@@ -23,7 +23,14 @@ const LINKS: Record<Role, { href: string; ar: string; en: string }[]> = {
   ],
   admin: [
     { href: "/admin/dashboard", ar: "لوحة الإدارة", en: "Dashboard" },
+    { href: "/admin/users", ar: "المستخدمون", en: "Users" },
+    { href: "/admin/teachers", ar: "المعلمون", en: "Teachers" },
+    { href: "/admin/bookings", ar: "الحجوزات", en: "Bookings" },
+    { href: "/admin/sessions", ar: "الجلسات", en: "Sessions" },
+    { href: "/admin/payments", ar: "المالية", en: "Payments" },
+    { href: "/admin/reviews", ar: "التقييمات", en: "Reviews" },
     { href: "/admin/blog", ar: "المدونة", en: "Blog" },
+    { href: "/admin/settings", ar: "الإعدادات", en: "Settings" },
   ],
 };
 
