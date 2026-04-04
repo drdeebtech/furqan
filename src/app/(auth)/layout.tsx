@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { CheckCircle } from "lucide-react";
 
 export default function AuthLayout({
@@ -12,7 +13,7 @@ export default function AuthLayout({
       <div className="hidden flex-col justify-center border-l border-surface-border bg-surface p-12 md:flex md:w-1/2">
         <div className="mx-auto max-w-sm">
           <Link href="/" className="flex items-center gap-3">
-            <img src="/logo-192.png" alt="فرقان" className="h-12 w-12 rounded-full" />
+            <Image src="/logo-192.png" alt="فرقان" width={48} height={48} className="rounded-full" priority />
             <span className="font-display text-4xl font-bold text-gold">فُرقان</span>
           </Link>
           <p className="mt-3 text-lg">أكاديمية القرآن الكريم</p>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useLang } from "@/lib/i18n/context";
 import { CONTACT } from "@/lib/contact";
 
@@ -12,7 +13,7 @@ export function PublicFooter() {
       <div className="mx-auto grid max-w-7xl gap-8 px-6 py-12 md:grid-cols-4">
         <div>
           <div className="flex items-center gap-2">
-            <img src="/logo-192.png" alt="فرقان" className="h-8 w-8 rounded-full" />
+            <Image src="/logo-192.png" alt="فرقان" width={32} height={32} className="rounded-full" />
             <span className="font-display text-2xl font-bold text-gold">فُرقان</span>
           </div>
           <p className="mt-3 text-sm text-foreground">{t("أكاديمية القرآن الكريم عبر الإنترنت", "Online Quran Learning Academy")}</p>
@@ -20,7 +21,7 @@ export function PublicFooter() {
         </div>
 
         <div>
-          <h4 className="mb-3 text-sm font-bold text-gold">{t("روابط سريعة", "Quick Links")}</h4>
+          <h3 className="mb-3 text-sm font-bold text-gold">{t("روابط سريعة", "Quick Links")}</h3>
           <ul className="space-y-2 text-sm text-muted">
             {[
               { href: "/", ar: "الرئيسية", en: "Home" },
@@ -37,7 +38,7 @@ export function PublicFooter() {
         </div>
 
         <div>
-          <h4 className="mb-3 text-sm font-bold text-gold">{t("خدماتنا", "Our Services")}</h4>
+          <h3 className="mb-3 text-sm font-bold text-gold">{t("خدماتنا", "Our Services")}</h3>
           <ul className="space-y-2 text-sm text-muted">
             {[
               { ar: "حفظ القرآن", en: "Quran Memorization" },
@@ -53,7 +54,7 @@ export function PublicFooter() {
         </div>
 
         <div>
-          <h4 className="mb-3 text-sm font-bold text-gold">{t("تواصل معنا", "Contact Us")}</h4>
+          <h3 className="mb-3 text-sm font-bold text-gold">{t("تواصل معنا", "Contact Us")}</h3>
           <ul className="space-y-2 text-sm text-muted">
             <li><a href={CONTACT.whatsappUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 transition-colors hover:text-gold">{CONTACT.flag} {t("واتساب:", "WhatsApp:")} {CONTACT.whatsapp}</a></li>
             <li><a href={CONTACT.emailUrl} className="transition-colors hover:text-gold">{CONTACT.email}</a></li>

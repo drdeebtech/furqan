@@ -48,7 +48,7 @@ export function TeachersContent() {
                 <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-gold/30 bg-gold/10 font-display text-2xl font-bold text-gold">
                   {teacher.initial}
                 </div>
-                <h3 className="mt-4 text-lg font-bold">{t(teacher.ar, teacher.en)}</h3>
+                <h2 className="mt-4 text-lg font-bold">{t(teacher.ar, teacher.en)}</h2>
                 <p className="mt-1 text-sm text-muted">{t(teacher.titleAr, teacher.titleEn)}</p>
                 {teacher.noteAr && <p className="mt-1 text-xs text-gold">({t(teacher.noteAr, teacher.noteEn!)})</p>}
                 <p className="mt-1 text-xs text-muted">{t(teacher.uniAr, teacher.uniEn)}</p>

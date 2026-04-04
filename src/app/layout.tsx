@@ -4,9 +4,10 @@ import "./globals.css";
 
 const amiri = Amiri({
   variable: "--font-display",
-  subsets: ["arabic", "latin"],
+  subsets: ["arabic"],
   weight: ["400", "700"],
   display: "swap",
+  preload: true,
 });
 
 const body = IBM_Plex_Sans_Arabic({
@@ -14,6 +15,8 @@ const body = IBM_Plex_Sans_Arabic({
   subsets: ["arabic", "latin"],
   weight: ["300", "400", "500", "600", "700"],
   display: "swap",
+  preload: true,
+  adjustFontFallback: false,
 });
 
 export const metadata: Metadata = {

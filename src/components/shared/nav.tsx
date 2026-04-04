@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "./logout-button";
 
@@ -56,7 +57,7 @@ export function Nav({ role }: { role: Role }) {
             href={`/${role}/dashboard`}
             className="ml-4 flex shrink-0 items-center gap-2"
           >
-            <img src="/logo-192.png" alt="فرقان" className="h-7 w-7 rounded-full" />
+            <Image src="/logo-192.png" alt="فرقان" width={28} height={28} className="rounded-full" />
             <span className="text-lg font-bold text-gold">فُرقان</span>
           </Link>
 
