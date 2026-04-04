@@ -62,8 +62,41 @@ export default async function TeacherDetailPage({ params }: Props) {
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">التخصصات</label>
-            <input name="specialties" defaultValue={tp.specialties.join(",")} className={input} />
+            <label className="mb-2 block text-sm font-medium">التخصصات</label>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              {[
+                { value: "hifz", ar: "حفظ القرآن" },
+                { value: "tajweed", ar: "التجويد" },
+                { value: "muraja", ar: "المراجعة" },
+                { value: "tilawa", ar: "التلاوة" },
+                { value: "qiraat", ar: "القراءات" },
+                { value: "tafsir", ar: "التفسير" },
+                { value: "combined", ar: "حفظ + مراجعة" },
+                { value: "other", ar: "أخرى" },
+              ].map(s => (
+                <label key={s.value} className="flex cursor-pointer items-center gap-2 rounded-lg border border-input-border bg-input px-3 py-2.5 text-sm transition-colors has-[:checked]:border-gold has-[:checked]:bg-gold/10">
+                  <input type="checkbox" name="specialties" value={s.value} defaultChecked={tp.specialties.includes(s.value)} className="h-4 w-4 accent-gold" />
+                  <span>{s.ar}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium">معايير القراءة</label>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+              {[
+                { value: "hafs", ar: "حفص عن عاصم" },
+                { value: "warsh", ar: "ورش عن نافع" },
+                { value: "qalon", ar: "قالون عن نافع" },
+                { value: "al_duri", ar: "الدوري" },
+                { value: "shu_ba", ar: "شعبة" },
+              ].map(r => (
+                <label key={r.value} className="flex cursor-pointer items-center gap-2 rounded-lg border border-input-border bg-input px-3 py-2.5 text-sm transition-colors has-[:checked]:border-gold has-[:checked]:bg-gold/10">
+                  <input type="checkbox" name="recitation_standards" value={r.value} defaultChecked={tp.recitation_standards.includes(r.value)} className="h-4 w-4 accent-gold" />
+                  <span>{r.ar}</span>
+                </label>
+              ))}
+            </div>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">اللغات</label>
