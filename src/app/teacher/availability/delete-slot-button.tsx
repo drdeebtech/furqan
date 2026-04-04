@@ -4,6 +4,15 @@ import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { deleteSlot } from "./actions";
 
+/**
+ * Renders a button to delete the given slot and reflects deletion state in the UI.
+ *
+ * Shows a trash icon that becomes a spinner while the deletion is in progress, disables interaction during the request,
+ * and replaces the button with a small "deleted" label after successful deletion.
+ *
+ * @param slotId - Identifier of the slot to delete
+ * @returns The button element (or a "deleted" label) for the specified slot
+ */
 export function DeleteSlotButton({ slotId }: { slotId: string }) {
   const [loading, setLoading] = useState(false);
   const [deleted, setDeleted] = useState(false);

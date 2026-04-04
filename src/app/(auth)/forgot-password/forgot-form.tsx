@@ -5,6 +5,11 @@ import Link from "next/link";
 import { Mail, ArrowRight } from "lucide-react";
 import { forgotPassword, type AuthResult } from "../actions";
 
+/**
+ * Render the password-reset UI: headings, conditional success/error messages, an email input form that submits via the bound action, and a link back to the login page.
+ *
+ * @returns The component's JSX element representing the forgot-password UI, including a required email field, a submit button that is disabled while the action is pending, conditional success/error panels, and a login link.
+ */
 export function ForgotForm() {
   const [state, formAction, pending] = useActionState<AuthResult, FormData>(
     forgotPassword,

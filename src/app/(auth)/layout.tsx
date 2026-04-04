@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { CheckCircle } from "lucide-react";
 
+/**
+ * Renders a two-panel, right-to-left authentication page layout with a desktop-only branding panel and a form/content panel that displays the provided children.
+ *
+ * @param children - Content to render inside the form panel's card (e.g., sign-in or sign-up form).
+ * @returns The authentication layout JSX element wrapping `children`.
+ */
 export default function AuthLayout({
   children,
 }: {

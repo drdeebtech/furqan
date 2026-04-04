@@ -18,6 +18,11 @@ interface SessionBooking {
   student_id: string;
 }
 
+/**
+ * Renders the teacher "My Sessions" page listing confirmed and completed bookings including student names, localized date/time, status badges, amounts, and links to session pages when available. If the user is not authenticated, redirects to "/login".
+ *
+ * @returns A React element representing the teacher sessions page.
+ */
 export default async function TeacherSessionsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

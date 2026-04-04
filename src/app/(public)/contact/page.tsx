@@ -6,6 +6,13 @@ import { FAQ } from "./faq";
 
 export const metadata: Metadata = { title: "اتصل بنا" };
 
+/**
+ * Render the contact page in RTL containing header, contact details, a contact form, FAQ, and a trial banner.
+ *
+ * The page includes a breadcrumb header, two-column main content with WhatsApp and email contact information (including a CTA that opens WhatsApp), the embedded ContactForm component, an FAQ section, and the FreeTrialBanner. Layout and text direction are set for right-to-left languages.
+ *
+ * @returns The React element for the contact page containing contact info, the ContactForm, FAQ, and FreeTrialBanner.
+ */
 export default function ContactPage() {
   return (
     <div dir="rtl">

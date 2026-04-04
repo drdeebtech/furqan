@@ -18,6 +18,14 @@ interface BookingRow {
   teacher_id: string;
 }
 
+/**
+ * Renders the student's bookings page with a list of their bookings or an empty-state prompt.
+ *
+ * If the user is not authenticated, the page redirects to the login route. When authenticated,
+ * it displays each booking's teacher name, session type, duration, status, amount, and scheduled date/time.
+ *
+ * @returns The page's React element showing the bookings list or an empty-state panel prompting the student to browse teachers.
+ */
 export default async function StudentBookingsPage() {
   const supabase = await createClient();
 

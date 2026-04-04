@@ -15,6 +15,17 @@ import type { BookingStatus, SessionType } from "@/types/database";
 
 export const metadata: Metadata = { title: "لوحتي" };
 
+/**
+ * Render the student dashboard page showing a welcome header, usage stats, and upcoming bookings.
+ *
+ * Fetches the current user and, if absent, redirects to "/login". Loads the student's profile,
+ * up to three upcoming bookings, and all booking statuses to compute totals and completed sessions.
+ * If upcoming bookings reference teachers, their names are fetched and mapped for display.
+ * When the student has no bookings, renders a first-use onboarding panel; otherwise renders stats
+ * and a list of upcoming bookings with localized Arabic date/time and status labels.
+ *
+ * @returns The React element for the student's dashboard page.
+ */
 export default async function StudentDashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

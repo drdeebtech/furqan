@@ -36,6 +36,15 @@ interface SlotRow {
   is_active: boolean;
 }
 
+/**
+ * Render the teacher availability management page.
+ *
+ * Fetches the authenticated teacher's availability slots, groups them by weekday,
+ * and renders the current slots alongside a form to add new slots. If no user
+ * is authenticated, redirects to "/login".
+ *
+ * @returns The page's JSX element containing the availability list and create form.
+ */
 export default async function TeacherAvailabilityPage() {
   const supabase = await createClient();
 

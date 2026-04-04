@@ -9,6 +9,11 @@ const REVIEWS = [
   { name: "فاطمة السيد", loc: "الكويت 🇰🇼", text: "أتممت حفظ جزء عمّ في ثلاثة أشهر بفضل الله ثم بفضل معلمي المتميز في فرقان." },
 ];
 
+/**
+ * Renders a testimonials section containing a heading, subheading, and a responsive grid of testimonial cards driven by the `REVIEWS` array.
+ *
+ * @returns A JSX element representing the testimonials section.
+ */
 export function Testimonials() {
   return (
     <section className="py-24">

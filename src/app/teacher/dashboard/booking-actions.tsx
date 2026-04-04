@@ -4,6 +4,18 @@ import { useState } from "react";
 import { Check, X, ExternalLink } from "lucide-react";
 import { updateBookingStatus } from "./actions";
 
+/**
+ * Render action controls for confirming or declining a booking and manage the related async state.
+ *
+ * The component renders:
+ * - Confirm and decline buttons (decline opens an inline confirmation prompt).
+ * - Inline confirmation UI for decline with its own confirm/cancel buttons.
+ * - Success badges for confirmed or cancelled states; when confirmed, optionally shows a session link if available.
+ * - Error messages and loading spinners for in-progress actions.
+ *
+ * @param bookingId - The booking identifier used when calling the status update API
+ * @returns The component UI for booking action controls
+ */
 export function BookingActions({ bookingId }: { bookingId: string }) {
   const [loading, setLoading] = useState<"confirm" | "decline" | null>(null);
   const [done, setDone] = useState<"confirmed" | "cancelled" | null>(null);

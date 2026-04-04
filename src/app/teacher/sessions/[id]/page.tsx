@@ -14,6 +14,17 @@ interface Props {
   params: Promise<{ id: string }>;
 }
 
+/**
+ * Render the teacher-facing session page for the specified session id.
+ *
+ * Performs authentication and loads session, booking, and student data from Supabase;
+ * redirects to "/login" if the user is not authenticated, and to "/teacher/sessions"
+ * if the session is missing or the authenticated user is not the booking's teacher.
+ *
+ * @param params - A promise that resolves to route parameters containing `id` (the session id)
+ * @returns The JSX for the teacher session view, showing student and booking details and either
+ *          the post-session form (if the session is completed) or the video room (if ongoing)
+ */
 export default async function TeacherSessionPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();

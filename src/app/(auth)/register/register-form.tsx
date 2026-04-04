@@ -5,6 +5,13 @@ import Link from "next/link";
 import { Eye, EyeOff, UserPlus } from "lucide-react";
 import { register, type AuthResult } from "../actions";
 
+/**
+ * Renders the Arabic user registration form with full name, email, password, and confirm password fields, including a password visibility toggle and async submit handling.
+ *
+ * Displays a submission error banner when present, disables the submit button and shows a loading spinner while the action is pending, and includes a link to the login page.
+ *
+ * @returns The registration form as a React element
+ */
 export function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [state, formAction, pending] = useActionState<AuthResult, FormData>(

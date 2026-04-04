@@ -3,6 +3,17 @@
 import { useEffect, useRef, useState } from "react";
 import { Video, VideoOff } from "lucide-react";
 
+/**
+ * Embeds a Daily video meeting into a container and provides UI to join, monitor, and leave the call.
+ *
+ * Renders an error alert when a join or connection error occurs, a pre-join card with an "join" button
+ * when not in a meeting, the video iframe container (kept in the DOM but hidden until joined), and in-call
+ * status with a leave button when joined.
+ *
+ * @param roomUrl - Daily room URL used to join the meeting
+ * @param userName - Display name sent to the meeting when joining
+ * @returns The video room UI (pre-join card, error alert, video container, and in-call controls)
+ */
 export function VideoRoom({
   roomUrl,
   userName,

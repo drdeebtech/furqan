@@ -13,6 +13,20 @@ interface Props {
   params: Promise<{ id: string }>;
 }
 
+/**
+ * Render the student-facing session page for a specific session id.
+ *
+ * Fetches the authenticated user and then loads the session, its booking, and the teacher profile,
+ * then renders session details and either an active VideoRoom or a completed-session view with
+ * teacher notes and homework.
+ *
+ * @param params - A promise resolving to route params containing the session `id`
+ * @returns The page JSX that displays session information and either the live video room or the completed session UI
+ *
+ * Behavior:
+ * - Redirects to `/login` if there is no authenticated user.
+ * - Redirects to `/student/sessions` if the session is not found or the current user does not own the booking.
+ */
 export default async function SessionPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();

@@ -6,6 +6,13 @@ import Link from "next/link";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { login, type AuthResult } from "../actions";
 
+/**
+ * Renders a localized login form with email and password fields, a password visibility toggle, and submission state indicators.
+ *
+ * Reads `redirect` and `registered` from the URL search params to include a hidden redirect input and optionally show a post-registration notice, displays server error messages returned by the form action, and disables the submit button while submission is pending.
+ *
+ * @returns The JSX element for the login form.
+ */
 export function LoginForm() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") ?? "";

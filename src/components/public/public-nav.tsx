@@ -15,6 +15,13 @@ const NAV_LINKS = [
   { href: "/contact", ar: "اتصل بنا", en: "Contact" },
 ];
 
+/**
+ * Renders the public website header including a top info bar, a sticky main navigation, and a mobile dropdown menu.
+ *
+ * The header shows contact links and social placeholders in the top bar, displays brand, desktop navigation links and CTAs, and provides a hamburger toggle that opens a mobile menu with the same links (selecting a link closes the menu).
+ *
+ * @returns The header/navigation React element with desktop and responsive mobile layouts.
+ */
 export function PublicNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);

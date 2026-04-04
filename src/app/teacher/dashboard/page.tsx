@@ -25,6 +25,16 @@ interface PendingBooking {
   student_id: string;
 }
 
+/**
+ * Renders the teacher dashboard page showing profile-based stats, today's confirmed sessions, and pending bookings.
+ *
+ * This server component ensures the user is authenticated (redirects to "/login" when not), loads the teacher's
+ * profile and statistics, fetches pending bookings, all booking statuses (to compute pending count), confirmed
+ * bookings for today (and associated session room URLs), and student names used in the UI.
+ *
+ * @returns The JSX element for the teacher dashboard, rendered in RTL and including stats, a "Today's Sessions" list
+ *          with join links when available, and a "Pending Bookings" list with action controls.
+ */
 export default async function TeacherDashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

@@ -32,6 +32,12 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * Root layout component that renders the application's top-level HTML and BODY elements configured for Arabic (right-to-left) content and theme fonts.
+ *
+ * @param children - React nodes to be rendered inside the document body
+ * @returns The top-level `<html lang="ar" dir="rtl">` element with font CSS variables applied and a `<body>` that wraps `children`
+ */
 export default function RootLayout({
   children,
 }: Readonly<{

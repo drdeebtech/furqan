@@ -15,6 +15,11 @@ const TEACHERS = [
   { name: "الشيخ أحمد البكري", initial: "أ", title: "متخصص في تعليم الأطفال", uni: "خريج دار الحديث بالمدينة", spec: ["حفظ", "تجويد", "أطفال"], riwaya: "حفص عن عاصم", exp: "٩ سنوات", sessions: "٤٢٠+", langs: "العربية · English" },
 ];
 
+/**
+ * Renders the "Teachers" page showing a directory of teacher profiles, trust badges, a hiring call-to-action, testimonials, and a free-trial banner.
+ *
+ * @returns The rendered Teachers page element.
+ */
 export default function TeachersPage() {
   return (
     <div dir="rtl">

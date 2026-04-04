@@ -28,6 +28,14 @@ interface BookingRow {
   teacher_id: string;
 }
 
+/**
+ * Renders the student's "جلساتي" page: fetches the authenticated user, their confirmed/completed bookings,
+ * related session records, and teacher names, then displays a localized RTL list of sessions or an empty state.
+ *
+ * Redirects to `/login` when there is no authenticated user.
+ *
+ * @returns The page JSX that lists bookings with session details (date/time, teacher, session type, status, room link, post-session notes, homework, and actual duration) or an empty-state card when there are no bookings.
+ */
 export default async function StudentSessionsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

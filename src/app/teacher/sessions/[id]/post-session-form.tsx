@@ -4,6 +4,14 @@ import { useState } from "react";
 import { CheckCircle, Save } from "lucide-react";
 import { savePostSessionNotes } from "./actions";
 
+/**
+ * Renders a form for entering and saving post-session notes and homework for a given session.
+ *
+ * @param sessionId - The session identifier to associate saved notes and homework with
+ * @param existingNotes - Initial session notes; use an empty string when `null`
+ * @param existingHomework - Initial homework text; use an empty string when `null`
+ * @returns The React element for the post-session form UI
+ */
 export function PostSessionForm({
   sessionId,
   existingNotes,

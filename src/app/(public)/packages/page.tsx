@@ -7,6 +7,14 @@ import { CurrencyPackages } from "./currency-packages";
 
 export const metadata: Metadata = { title: "باقاتنا" };
 
+/**
+ * Render the RTL packages landing page with hero, packages list, discounts, referral, testimonials, and a free-trial banner.
+ *
+ * The page includes a breadcrumb hero (Arabic title and English subtitle), the packages listing, a discounts grid
+ * (annual, semi-annual, quarterly), a referral callout with tiered discounts, a testimonials section, and a free-trial banner.
+ *
+ * @returns The rendered page element containing the complete packages layout
+ */
 export default function PackagesPage() {
   return (
     <div dir="rtl">

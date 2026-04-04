@@ -1,5 +1,13 @@
 import Link from "next/link";
 
+/**
+ * Render the public site footer containing brand, navigation, services, and contact sections.
+ *
+ * Renders a styled <footer> with a four-column top section (brand, quick links, services, contact)
+ * and a bottom bar with copyright text.
+ *
+ * @returns The footer as a JSX element containing brand info, internal links, external contact links, and copyright.
+ */
 export function PublicFooter() {
   return (
     <footer className="border-t border-card-border bg-card">

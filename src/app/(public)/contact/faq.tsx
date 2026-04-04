@@ -14,6 +14,14 @@ const FAQS = [
   { q: "كيف أتابع تقدم طفلي؟", a: "يحصل ولي الأمر على تقرير تقدم مفصل بعد كل جلسة، ويمكنه متابعة لوحة التقدم في حساب الطالب." },
 ];
 
+/**
+ * Render an accordion-style FAQ section containing Arabic questions and answers.
+ *
+ * Renders a titled section that lists FAQ items; each item can be toggled open or closed
+ * to reveal its answer and shows a rotating chevron to indicate expanded state.
+ *
+ * @returns A React element containing the FAQ section and its interactive accordion items.
+ */
 export function FAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 

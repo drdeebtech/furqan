@@ -45,6 +45,13 @@ const SERVICES = [
   },
 ];
 
+/**
+ * Renders the Services landing page in a right-to-left layout, including header, mapped service entries with features and CTAs, testimonials, and a free-trial banner.
+ *
+ * Each service entry alternates visual order on medium+ screens, displays an English label, Arabic title and description, a feature list with icons, a contact CTA, and a visual placeholder.
+ *
+ * @returns A JSX element representing the Services page.
+ */
 export default function ServicesPage() {
   return (
     <div dir="rtl">

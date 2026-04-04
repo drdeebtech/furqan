@@ -20,6 +20,13 @@ const DURATIONS = [
   { value: 60, label: "٦٠ دقيقة" },
 ];
 
+/**
+ * Render the form for creating a new availability slot.
+ *
+ * The form includes inputs for day, start time, end time, and slot duration, displays a server-side error banner when present, and reflects submission state by disabling the submit button and showing a spinner while pending.
+ *
+ * @returns A JSX element containing the slot creation form.
+ */
 export function SlotForm() {
   const [state, formAction, pending] = useActionState<
     AvailabilityResult,

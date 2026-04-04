@@ -6,6 +6,13 @@ import { FreeTrialBanner } from "@/components/public/free-trial-banner";
 
 export const metadata: Metadata = { title: "من نحن" };
 
+/**
+ * Renders the Arabic "About FURQAN Academy" page UI in a right-to-left layout.
+ *
+ * Includes a breadcrumb header, about narrative, a grid of statistic cards, core values cards, a testimonials section, and a free-trial banner.
+ *
+ * @returns The page's JSX element.
+ */
 export default function AboutPage() {
   return (
     <div dir="rtl">

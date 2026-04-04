@@ -2,6 +2,13 @@
 
 import { MessageCircle } from "lucide-react";
 
+/**
+ * Renders a fixed-position WhatsApp action button with a prefilled Arabic message.
+ *
+ * The button is an anchor element styled as a circular floating action button, contains a message icon and a responsive Arabic label (hidden on small screens), and opens the WhatsApp chat URL with a prefilled message.
+ *
+ * @returns An anchor JSX element representing the floating WhatsApp button that links to a prefilled chat.
+ */
 export function WhatsAppButton() {
   return (
     <a

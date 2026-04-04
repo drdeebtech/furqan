@@ -13,6 +13,11 @@ const ARTICLES = [
   { cat: "تجويد", catColor: "text-sky-400 border-sky-500/30 bg-sky-500/10", title: "مخارج الحروف: دليل شامل للمبتدئين", en: "Arabic Letter Articulation Points: A Beginner's Guide", excerpt: "تعرف على مخارج الحروف العربية بالتفصيل لتحسين تلاوتك للقرآن الكريم.", date: "١٥ مارس ٢٠٢٥", time: "١٠ دقائق" },
 ];
 
+/**
+ * Renders the Arabic (RTL) blog landing page with a breadcrumb header, a featured article, an articles grid, a newsletter signup, and a free-trial banner.
+ *
+ * @returns A JSX element containing the complete blog page layout.
+ */
 export default function BlogPage() {
   return (
     <div dir="rtl">

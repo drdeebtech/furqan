@@ -47,6 +47,15 @@ const PACKAGES = [
   },
 ];
 
+/**
+ * Renders a responsive pricing section with currency selection tabs and a grid of subscription package cards.
+ *
+ * The displayed package prices and currency symbol update when a different currency tab is selected. Featured
+ * packages receive distinct styling and a badge; each card includes package metadata, a feature list, and a CTA
+ * link that navigates to the contact page with the package identifier.
+ *
+ * @returns The JSX element for the currency-selectable packages pricing section.
+ */
 export function CurrencyPackages() {
   const [currency, setCurrency] = useState<"USD" | "GBP" | "SAR" | "AUD">("USD");
   const curr = CURRENCIES.find((c) => c.code === currency)!;

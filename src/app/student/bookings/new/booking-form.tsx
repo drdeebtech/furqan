@@ -22,6 +22,16 @@ interface TeacherData {
   bio: string | null;
 }
 
+/**
+ * Render a booking form for scheduling a session with a specific teacher.
+ *
+ * The form allows selecting session type, duration, date, time, and optional notes;
+ * it computes a duration-based price preview and submits the booking via a server action.
+ *
+ * @param teacher - Teacher data used to populate the form (expects `id`, `name`, `hourlyRate`, `specialties`, and optional `bio`)
+ * @param studentId - The current student's ID included as a hidden form field
+ * @returns The booking form JSX element for selecting session details and submitting a booking
+ */
 export function BookingForm({
   teacher,
   studentId,

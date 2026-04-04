@@ -2,6 +2,11 @@
 
 import { LogOut } from "lucide-react";
 
+/**
+ * Renders a form with a logout button that submits a POST request to the logout API.
+ *
+ * @returns A JSX element containing a form that posts to `/api/auth/logout` and an accessible logout button (icon + responsive label).
+ */
 export function LogoutButton() {
   return (
     <form action="/api/auth/logout" method="POST">

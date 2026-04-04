@@ -17,6 +17,15 @@ import { FreeTrialBanner } from "@/components/public/free-trial-banner";
 
 export const metadata: Metadata = { title: "فرقان — أكاديمية القرآن الكريم" };
 
+/**
+ * Render the right-to-left Arabic public homepage for the Furqan online Quran academy.
+ *
+ * Renders the complete homepage layout including the hero with CTAs and stats, a three-step
+ * "how it works" section, reasons to choose Furqan, a courses preview, testimonials,
+ * package previews, and a free trial banner. The layout and text are tailored for RTL Arabic.
+ *
+ * @returns The JSX element for the public homepage containing all primary sections and navigation links.
+ */
 export default function HomePage() {
   return (
     <div dir="rtl">

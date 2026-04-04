@@ -1,6 +1,14 @@
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
 
+/**
+ * Renders a centered call-to-action banner promoting a free Quran trial.
+ *
+ * The banner includes an icon, Arabic and English headings, a Quran verse line,
+ * two CTA links (contact and packages), and a short free-trial disclaimer.
+ *
+ * @returns A JSX element containing the styled free trial banner.
+ */
 export function FreeTrialBanner() {
   return (
     <section className="px-4 py-16">

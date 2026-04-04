@@ -23,6 +23,12 @@ const LINKS: Record<Role, { href: string; ar: string; en: string }[]> = {
   ],
 };
 
+/**
+ * Render the responsive right-to-left main navigation bar for the given user role.
+ *
+ * @param role - The user's role which determines the set of navigation links to display
+ * @returns The navigation `<nav>` element containing role-specific links and a logout control
+ */
 export function Nav({ role }: { role: Role }) {
   const pathname = usePathname();
 

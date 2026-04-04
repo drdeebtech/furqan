@@ -4,6 +4,17 @@ import { useState } from "react";
 import { Archive, ArchiveRestore } from "lucide-react";
 import { toggleArchiveTeacher } from "./actions";
 
+/**
+ * Renders a control for archiving or restoring a teacher.
+ *
+ * Shows a single button for restore or archive; when initiating an archive it first shows an inline
+ * destructive confirmation with "Yes, archive" and "Cancel" actions. While an operation is in
+ * progress the control disables interactions and displays a spinner.
+ *
+ * @param teacherId - The identifier of the teacher to archive or restore
+ * @param isArchived - Initial archived state used to initialize the component's local state
+ * @returns The JSX element for the archive/restore toggle or the inline confirmation UI
+ */
 export function ArchiveToggle({
   teacherId,
   isArchived,

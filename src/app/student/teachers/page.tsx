@@ -40,6 +40,12 @@ function Stars({ rating }: { rating: number }) {
   );
 }
 
+/**
+ * Renders a circular avatar showing the first non-whitespace character of a name.
+ *
+ * @param name - The display name from which to extract the initial
+ * @returns A JSX element: a circular avatar containing the first character of `name`, or `"؟"` if `name` is empty
+ */
 function Initials({ name }: { name: string }) {
   const letter = name.trim().charAt(0) || "؟";
   return (
@@ -49,6 +55,15 @@ function Initials({ name }: { name: string }) {
   );
 }
 
+/**
+ * Render the teachers listing page for students, displaying available teacher profiles and booking links.
+ *
+ * Redirects unauthenticated users to `/login`. Loads active, accepting teacher profiles and their display names,
+ * then renders either an empty state or a responsive grid of teacher cards showing avatar initials, name, rating,
+ * hourly rate, completed sessions, specialties, recitation standards, and a "Book Session" link for each teacher.
+ *
+ * @returns The page's JSX element
+ */
 export default async function TeachersPage() {
   const supabase = await createClient();
 

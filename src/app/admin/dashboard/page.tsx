@@ -15,6 +15,15 @@ interface TeacherRow {
   is_archived: boolean;
 }
 
+/**
+ * Admin dashboard page that displays platform statistics and provides teacher management controls.
+ *
+ * Redirects unauthenticated users to "/login". Fetches counts and lists for students, teachers, bookings,
+ * and completed booking revenue, resolves teacher display names, and renders a right-to-left UI with
+ * a stats grid and a list of teacher cards (including archive and acceptance status and an ArchiveToggle).
+ *
+ * @returns The React element for the admin dashboard page.
+ */
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
