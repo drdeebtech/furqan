@@ -17,13 +17,23 @@ const body = IBM_Plex_Sans_Arabic({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://furqan.today"),
   title: {
-    default: "فرقان — أكاديمية القرآن الكريم",
+    default: "فرقان — تعلم القرآن الكريم مع معلمين معتمدين",
     template: "%s | فرقان",
   },
   description:
-    "تعلّم القرآن الكريم مع معلمين متخصصين عبر الإنترنت — حفظ وتجويد وتلاوة. انضم إلى آلاف الطلاب من حول العالم.",
-  keywords: ["Quran", "Hifz", "Tajweed", "Online Quran Academy", "فرقان", "حفظ القرآن", "تجويد"],
+    "أكاديمية فرقان لتعليم القرآن الكريم عبر الإنترنت. تعلّم الحفظ والتجويد والتلاوة مع معلمين حاصلين على الإجازة. جلسات فيديو مباشرة، جدول مرن، جلسة تجريبية مجانية.",
+  keywords: [
+    "تعلم القرآن اون لاين", "حفظ القرآن", "تجويد القرآن", "معلم قرآن", "أكاديمية قرآن",
+    "Quran online academy", "learn Quran online", "Quran memorization", "Tajweed classes",
+    "online Quran teacher", "Hifz program", "Quran for kids", "female Quran teacher",
+    "furqan academy", "فرقان",
+  ],
+  authors: [{ name: "FURQAN Academy", url: "https://furqan.today" }],
+  creator: "FURQAN Academy",
+  publisher: "FURQAN Academy",
+  formatDetection: { email: false, address: false, telephone: false },
   icons: {
     icon: [
       { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
@@ -32,11 +42,29 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "فرقان — أكاديمية القرآن الكريم",
-    description: "تعلّم القرآن مع أمهر المعلمين عبر الإنترنت",
-    locale: "ar_AR",
     type: "website",
-    images: [{ url: "/logo-512.png", width: 512, height: 512 }],
+    locale: "ar_AR",
+    alternateLocale: "en_US",
+    url: "https://furqan.today",
+    siteName: "فرقان — FURQAN Academy",
+    title: "فرقان — تعلم القرآن الكريم مع معلمين معتمدين",
+    description: "تعلّم الحفظ والتجويد مع معلمين حاصلين على الإجازة. جلسة تجريبية مجانية.",
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "فرقان — أكاديمية القرآن الكريم" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "فرقان — تعلم القرآن الكريم",
+    description: "تعلّم الحفظ والتجويد مع معلمين معتمدين. جلسة مجانية.",
+    images: ["/og-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-video-preview": -1, "max-image-preview": "large", "max-snippet": -1 },
+  },
+  alternates: {
+    canonical: "https://furqan.today",
+    languages: { ar: "https://furqan.today", en: "https://furqan.today" },
   },
 };
 

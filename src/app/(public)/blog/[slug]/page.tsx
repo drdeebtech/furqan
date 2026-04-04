@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
@@ -6,6 +7,31 @@ import { FreeTrialBanner } from "@/components/public/free-trial-banner";
 
 interface Props {
   params: Promise<{ slug: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const supabase = await createClient();
+  const { data: post } = await supabase
+    .from("blog_posts")
+    .select("title_ar, excerpt_ar, slug")
+    .eq("slug", slug)
+    .eq("is_published", true)
+    .single<{ title_ar: string; excerpt_ar: string; slug: string }>();
+
+  if (!post) return { title: "مقال" };
+
+  return {
+    title: post.title_ar,
+    description: post.excerpt_ar,
+    alternates: { canonical: `https://furqan.today/blog/${post.slug}` },
+    openGraph: {
+      title: post.title_ar,
+      description: post.excerpt_ar,
+      type: "article",
+      url: `https://furqan.today/blog/${post.slug}`,
+    },
+  };
 }
 
 export default async function ArticlePage({ params }: Props) {

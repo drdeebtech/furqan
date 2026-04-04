@@ -3,7 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import type { BlogPost } from "@/types/blog";
 import { BlogContent } from "./content";
 
-export const metadata: Metadata = { title: "المدونة" };
+export const metadata: Metadata = {
+  title: "المدونة — مقالات في علوم القرآن",
+  description: "مقالات ونصائح في حفظ القرآن والتجويد والتلاوة من معلمي أكاديمية فرقان.",
+  alternates: { canonical: "https://furqan.today/blog" },
+};
 
 export default async function BlogPage() {
   const supabase = await createClient();
