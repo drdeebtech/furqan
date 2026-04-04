@@ -22,7 +22,7 @@ export async function login(
 
   const supabase = await createClient();
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
@@ -31,8 +31,20 @@ export async function login(
     return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
   }
 
-  // redirect() throws internally — must be outside try/catch
-  redirect(redirectTo || "/");
+  // If caller provided an explicit redirect (e.g. from ?redirect=/student/bookings), use it
+  if (redirectTo) {
+    redirect(redirectTo);
+  }
+
+  // Otherwise, redirect to the user's role-based dashboard
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", data.user.id)
+    .single<{ role: string }>();
+
+  const role = profile?.role ?? "student";
+  redirect(`/${role}/dashboard`);
 }
 
 export async function register(

@@ -63,6 +63,16 @@ export async function proxy(request: NextRequest) {
     break;
   }
 
+  // Authenticated user on root "/" → redirect to their dashboard
+  if (pathname === "/" && user) {
+    const role = await getUserRole(supabase, user.id);
+    if (role) {
+      return NextResponse.redirect(
+        new URL(`/${role}/dashboard`, request.url),
+      );
+    }
+  }
+
   return supabaseResponse;
 }
 
