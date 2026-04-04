@@ -13,6 +13,7 @@ export function ArchiveToggle({
 }) {
   const [archived, setArchived] = useState(isArchived);
   const [loading, setLoading] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
 
   async function handle() {
     setLoading(true);
@@ -21,11 +22,41 @@ export function ArchiveToggle({
       setArchived(!archived);
     }
     setLoading(false);
+    setConfirmArchive(false);
+  }
+
+  // Inline confirmation for archiving (destructive)
+  if (!archived && confirmArchive) {
+    return (
+      <div className="flex flex-col items-end gap-2">
+        <p className="text-xs text-error">هل أنت متأكد من أرشفة هذا المعلم؟</p>
+        <div className="flex gap-2">
+          <button
+            onClick={handle}
+            disabled={loading}
+            className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+          >
+            {loading ? (
+              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            ) : (
+              "نعم، أرشف"
+            )}
+          </button>
+          <button
+            onClick={() => setConfirmArchive(false)}
+            disabled={loading}
+            className="rounded-lg border border-card-border px-3 py-1.5 text-xs text-muted transition-colors hover:text-foreground disabled:opacity-50"
+          >
+            إلغاء
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
     <button
-      onClick={handle}
+      onClick={archived ? handle : () => setConfirmArchive(true)}
       disabled={loading}
       className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
         archived

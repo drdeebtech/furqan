@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BookingForm } from "./booking-form";
+
+export const metadata: Metadata = { title: "حجز جديد | فرقان" };
 
 interface Props {
   searchParams: Promise<{ teacher?: string }>;

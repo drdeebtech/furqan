@@ -1,27 +1,12 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+
+export const metadata: Metadata = { title: "المعلمون | فرقان" };
 import Link from "next/link";
 import { GraduationCap, Star, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { SESSION_TYPE_AR, RIWAYA_AR } from "@/lib/constants";
 import type { SessionType, GenderType, RecitationStandard } from "@/types/database";
-
-const SESSION_TYPE_AR: Record<SessionType, string> = {
-  hifz: "حفظ",
-  muraja: "مراجعة",
-  tajweed: "تجويد",
-  tilawa: "تلاوة",
-  qiraat: "قراءات",
-  tafsir: "تفسير",
-  combined: "حفظ + مراجعة",
-  other: "أخرى",
-};
-
-const RIWAYA_AR: Record<RecitationStandard, string> = {
-  hafs: "حفص",
-  warsh: "ورش",
-  qalon: "قالون",
-  al_duri: "الدوري",
-  shu_ba: "شعبة",
-};
 
 interface TeacherRow {
   teacher_id: string;
@@ -58,7 +43,7 @@ function Stars({ rating }: { rating: number }) {
 function Initials({ name }: { name: string }) {
   const letter = name.trim().charAt(0) || "؟";
   return (
-    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gold text-xl font-bold text-black">
+    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-card-border bg-card text-xl font-bold text-foreground">
       {letter}
     </div>
   );

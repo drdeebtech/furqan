@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+
+export const metadata: Metadata = { title: "المواعيد | فرقان" };
 import { Calendar, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SlotForm } from "./slot-form";
@@ -80,7 +83,7 @@ export default async function TeacherAvailabilityPage() {
               <Inbox size={32} className="mx-auto mb-3 text-muted" />
               <p className="text-muted">لا توجد مواعيد بعد</p>
               <p className="mt-1 text-xs text-muted">
-                No availability slots yet
+                أضف مواعيد إتاحتك حتى يتمكن الطلاب من حجز جلسات معك
               </p>
             </div>
           ) : (

@@ -29,37 +29,38 @@ export function Nav({ role }: { role: Role }) {
     <nav
       dir="rtl"
       className="border-b border-card-border bg-card"
+      aria-label="Main navigation"
     >
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4">
-        {/* Logo + Links */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 overflow-x-auto">
           <Link
             href={`/${role}/dashboard`}
-            className="ml-4 text-lg font-bold text-gold"
+            className="ml-4 shrink-0 text-lg font-bold text-gold"
           >
             فُرقان
           </Link>
 
           {LINKS[role].map((link) => {
-            const active = pathname === link.href;
+            const active = pathname.startsWith(link.href);
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`border-b-2 px-3 py-3 text-sm transition-colors ${
+                className={`shrink-0 border-b-2 px-3 py-3 text-sm transition-colors focus-ring ${
                   active
                     ? "border-gold text-gold"
                     : "border-transparent text-muted hover:text-foreground"
                 }`}
               >
                 {link.ar}
-                <span className="mr-1 text-xs opacity-60">{link.en}</span>
+                <span className="mr-1 hidden text-xs opacity-60 sm:inline">
+                  {link.en}
+                </span>
               </Link>
             );
           })}
         </div>
 
-        {/* Logout */}
         <LogoutButton />
       </div>
     </nav>

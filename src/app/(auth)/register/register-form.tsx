@@ -1,32 +1,21 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, LogIn } from "lucide-react";
-import { login, type AuthResult } from "../actions";
+import { Eye, EyeOff, UserPlus } from "lucide-react";
+import { register, type AuthResult } from "../actions";
 
-export function LoginForm() {
-  const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") ?? "";
-  const justRegistered = searchParams.get("registered") === "true";
-
+export function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [state, formAction, pending] = useActionState<AuthResult, FormData>(
-    login,
+    register,
     {},
   );
 
   return (
     <>
-      <h2 className="mb-1 text-xl font-semibold">تسجيل الدخول</h2>
-      <p className="mb-6 text-sm text-muted">Sign in to your account</p>
-
-      {justRegistered && (
-        <div className="mb-4 rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success">
-          تم إنشاء الحساب بنجاح — سجّل دخولك الآن
-        </div>
-      )}
+      <h2 className="mb-1 text-xl font-semibold">إنشاء حساب</h2>
+      <p className="mb-6 text-sm text-muted">انضم إلى أكاديمية فرقان</p>
 
       {state.error && (
         <div className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">
@@ -35,7 +24,22 @@ export function LoginForm() {
       )}
 
       <form action={formAction} className="space-y-4">
-        <input type="hidden" name="redirect" value={redirectTo} />
+        {/* Full Name */}
+        <div>
+          <label htmlFor="full_name" className="mb-1 block text-sm font-medium">
+            الاسم الكامل
+            <span className="mr-2 text-xs text-muted">Full name</span>
+          </label>
+          <input
+            id="full_name"
+            name="full_name"
+            type="text"
+            required
+            autoComplete="name"
+            className="w-full rounded-lg border border-input-border bg-input px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+            placeholder="محمد أحمد"
+          />
+        </div>
 
         {/* Email */}
         <div>
@@ -57,25 +61,20 @@ export function LoginForm() {
 
         {/* Password */}
         <div>
-          <div className="mb-1 flex items-center justify-between">
-            <label htmlFor="password" className="text-sm font-medium">
-              كلمة المرور
-              <span className="mr-2 text-xs text-muted">Password</span>
-            </label>
-            <Link
-              href="/forgot-password"
-              className="text-xs text-gold hover:text-gold-hover"
-            >
-              نسيت كلمة المرور؟
-            </Link>
-          </div>
+          <label htmlFor="password" className="mb-1 block text-sm font-medium">
+            كلمة المرور
+            <span className="mr-2 text-xs text-muted">
+              Password (min 8 characters)
+            </span>
+          </label>
           <div className="relative">
             <input
               id="password"
               name="password"
               type={showPassword ? "text" : "password"}
               required
-              autoComplete="current-password"
+              minLength={8}
+              autoComplete="new-password"
               dir="ltr"
               className="w-full rounded-lg border border-input-border bg-input px-4 py-2.5 pe-10 text-left text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
               placeholder="••••••••"
@@ -92,6 +91,28 @@ export function LoginForm() {
           </div>
         </div>
 
+        {/* Confirm Password */}
+        <div>
+          <label
+            htmlFor="confirm_password"
+            className="mb-1 block text-sm font-medium"
+          >
+            تأكيد كلمة المرور
+            <span className="mr-2 text-xs text-muted">Confirm password</span>
+          </label>
+          <input
+            id="confirm_password"
+            name="confirm_password"
+            type={showPassword ? "text" : "password"}
+            required
+            minLength={8}
+            autoComplete="new-password"
+            dir="ltr"
+            className="w-full rounded-lg border border-input-border bg-input px-4 py-2.5 text-left text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+            placeholder="••••••••"
+          />
+        </div>
+
         {/* Submit */}
         <button
           type="submit"
@@ -102,17 +123,17 @@ export function LoginForm() {
             <span className="h-5 w-5 animate-spin rounded-full border-2 border-black/30 border-t-black" />
           ) : (
             <>
-              <LogIn size={18} />
-              دخول
+              <UserPlus size={18} />
+              إنشاء حساب
             </>
           )}
         </button>
       </form>
 
       <p className="mt-6 text-center text-sm text-muted">
-        ليس لديك حساب؟{" "}
-        <Link href="/register" className="text-gold hover:text-gold-hover">
-          إنشاء حساب جديد
+        لديك حساب بالفعل؟{" "}
+        <Link href="/login" className="text-gold hover:text-gold-hover">
+          تسجيل الدخول
         </Link>
       </p>
     </>

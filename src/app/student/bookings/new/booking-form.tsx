@@ -4,18 +4,8 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, CalendarPlus, Clock } from "lucide-react";
 import { createBooking, type BookingResult } from "./actions";
+import { SESSION_TYPE_AR } from "@/lib/constants";
 import type { SessionType } from "@/types/database";
-
-const SESSION_TYPE_AR: Record<SessionType, string> = {
-  hifz: "حفظ",
-  muraja: "مراجعة",
-  tajweed: "تجويد",
-  tilawa: "تلاوة",
-  qiraat: "قراءات",
-  tafsir: "تفسير",
-  combined: "حفظ + مراجعة",
-  other: "أخرى",
-};
 
 const DURATIONS = [
   { value: 30, label: "٣٠ دقيقة", en: "30 min" },

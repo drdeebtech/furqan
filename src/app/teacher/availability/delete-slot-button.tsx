@@ -27,7 +27,8 @@ export function DeleteSlotButton({ slotId }: { slotId: string }) {
     <button
       onClick={handleDelete}
       disabled={loading}
-      className="rounded-lg border border-card-border p-1.5 text-muted transition-colors hover:border-error/50 hover:text-error disabled:opacity-50"
+      aria-label="حذف هذا الموعد"
+      className="rounded-lg border border-card-border p-1.5 text-muted transition-colors hover:border-error/50 hover:text-error disabled:opacity-50 focus-ring"
     >
       {loading ? (
         <span className="block h-4 w-4 animate-spin rounded-full border-2 border-muted/30 border-t-muted" />

@@ -1,32 +1,11 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+
+export const metadata: Metadata = { title: "جلساتي | فرقان" };
 import { Video, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { SESSION_TYPE_AR, STATUS_STYLE } from "@/lib/constants";
 import type { BookingStatus, SessionType } from "@/types/database";
-
-const SESSION_TYPE_AR: Record<SessionType, string> = {
-  hifz: "حفظ",
-  muraja: "مراجعة",
-  tajweed: "تجويد",
-  tilawa: "تلاوة",
-  qiraat: "قراءات",
-  tafsir: "تفسير",
-  combined: "حفظ + مراجعة",
-  other: "أخرى",
-};
-
-const STATUS_STYLE: Record<
-  "confirmed" | "completed",
-  { label: string; className: string }
-> = {
-  confirmed: {
-    label: "مؤكد",
-    className: "bg-green-500/10 text-green-400 border-green-500/30",
-  },
-  completed: {
-    label: "مكتمل",
-    className: "bg-blue-500/10 text-blue-400 border-blue-500/30",
-  },
-};
 
 interface SessionBooking {
   id: string;
@@ -86,8 +65,8 @@ export default async function TeacherSessionsPage() {
       {list.length === 0 ? (
         <div className="rounded-xl border border-card-border bg-card p-12 text-center">
           <Inbox size={40} className="mx-auto mb-4 text-muted" />
-          <p className="text-lg text-muted">لا توجد جلسات بعد</p>
-          <p className="mt-1 text-sm text-muted">No sessions yet</p>
+          <p className="text-lg text-muted">لا توجد جلسات مؤكدة</p>
+          <p className="mt-1 text-sm text-muted">ستظهر هنا بعد تأكيد الحجوزات</p>
         </div>
       ) : (
         <div className="space-y-3">

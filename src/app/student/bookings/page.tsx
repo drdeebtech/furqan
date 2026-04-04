@@ -1,45 +1,12 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+
+export const metadata: Metadata = { title: "حجوزاتي | فرقان" };
 import Link from "next/link";
 import { CalendarCheck, Plus, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { SESSION_TYPE_AR, STATUS_STYLE } from "@/lib/constants";
 import type { BookingStatus, SessionType } from "@/types/database";
-
-const SESSION_TYPE_AR: Record<SessionType, string> = {
-  hifz: "حفظ",
-  muraja: "مراجعة",
-  tajweed: "تجويد",
-  tilawa: "تلاوة",
-  qiraat: "قراءات",
-  tafsir: "تفسير",
-  combined: "حفظ + مراجعة",
-  other: "أخرى",
-};
-
-const STATUS_STYLE: Record<
-  BookingStatus,
-  { label: string; className: string }
-> = {
-  pending: {
-    label: "بانتظار التأكيد",
-    className: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30",
-  },
-  confirmed: {
-    label: "مؤكد",
-    className: "bg-green-500/10 text-green-400 border-green-500/30",
-  },
-  completed: {
-    label: "مكتمل",
-    className: "bg-blue-500/10 text-blue-400 border-blue-500/30",
-  },
-  cancelled: {
-    label: "ملغى",
-    className: "bg-red-500/10 text-red-400 border-red-500/30",
-  },
-  no_show: {
-    label: "لم يحضر",
-    className: "bg-red-500/10 text-red-400 border-red-500/30",
-  },
-};
 
 interface BookingRow {
   id: string;
@@ -108,8 +75,8 @@ export default async function StudentBookingsPage() {
       {list.length === 0 ? (
         <div className="rounded-xl border border-card-border bg-card p-12 text-center">
           <Inbox size={40} className="mx-auto mb-4 text-muted" />
-          <p className="text-lg text-muted">لا توجد حجوزات بع��</p>
-          <p className="mt-1 text-sm text-muted">No bookings yet</p>
+          <p className="text-lg text-muted">لم تقم بأي حجز حتى الآن</p>
+          <p className="mt-1 text-sm text-muted">ابدأ بتصفح المعلمين واحجز جلستك الأولى</p>
           <Link
             href="/student/teachers"
             className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-gold px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-gold-hover"

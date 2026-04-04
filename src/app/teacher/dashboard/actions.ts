@@ -29,6 +29,7 @@ export async function updateBookingStatus(
   }
 
   // On confirmation, create a Daily.co room and insert session
+  let roomUrl: string | null = null;
   if (status === "confirmed") {
     try {
       const { data: booking } = await supabase
@@ -45,6 +46,7 @@ export async function updateBookingStatus(
         const roomName = `furqan-${bookingId.replace(/-/g, "")}`;
 
         const room = await createRoom(roomName, expiresAt);
+        roomUrl = room.url;
 
         await supabase.from("sessions").insert({
           booking_id: bookingId,
@@ -54,13 +56,12 @@ export async function updateBookingStatus(
           created_via: "auto",
         } as never);
       }
-    } catch (e) {
+    } catch {
       // Don't block the confirmation — booking is already confirmed.
       // Room can be created manually later if Daily API is down.
-      console.error("Failed to create Daily.co room:", e);
     }
   }
 
   revalidatePath("/teacher/dashboard");
-  return { success: true };
+  return { success: true, roomUrl };
 }
