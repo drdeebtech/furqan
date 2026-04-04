@@ -11,6 +11,7 @@ const LINKS: Record<Role, { href: string; ar: string; en: string }[]> = {
     { href: "/student/dashboard", ar: "لوحتي", en: "Dashboard" },
     { href: "/student/teachers", ar: "المعلمون", en: "Teachers" },
     { href: "/student/bookings", ar: "حجوزاتي", en: "Bookings" },
+    { href: "/student/sessions", ar: "جلساتي", en: "Sessions" },
   ],
   teacher: [
     { href: "/teacher/dashboard", ar: "لوحتي", en: "Dashboard" },
