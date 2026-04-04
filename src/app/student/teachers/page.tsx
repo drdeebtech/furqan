@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "المعلمون | فرقان" };
+export const metadata: Metadata = { title: "المعلمون" };
 import Link from "next/link";
 import { GraduationCap, Star, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";

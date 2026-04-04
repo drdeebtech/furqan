@@ -42,7 +42,7 @@ export function Nav({ role }: { role: Role }) {
           </Link>
 
           {LINKS[role].map((link) => {
-            const active = pathname.startsWith(link.href);
+            const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
               <Link
                 key={link.href}

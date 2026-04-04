@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BookingForm } from "./booking-form";
 
-export const metadata: Metadata = { title: "حجز جديد | فرقان" };
+export const metadata: Metadata = { title: "حجز جديد" };
 
 interface Props {
   searchParams: Promise<{ teacher?: string }>;

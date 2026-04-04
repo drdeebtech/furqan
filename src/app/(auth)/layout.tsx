@@ -43,7 +43,7 @@ export default function AuthLayout({
       <div className="flex w-full flex-col justify-center px-4 py-12 md:w-1/2 md:px-12">
         <div className="mx-auto w-full max-w-md">
           <Link href="/" className="mb-6 inline-block text-sm text-gold transition-colors hover:text-gold-light">
-            ← العودة للرئيسية
+            العودة للرئيسية →
           </Link>
           <div className="mb-8 md:hidden">
             <span className="font-display text-2xl font-bold text-gold">فُرقان</span>

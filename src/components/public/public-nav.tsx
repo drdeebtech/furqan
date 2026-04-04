@@ -33,9 +33,9 @@ export function PublicNav() {
           </div>
           <span className="hidden sm:inline">info@furqan.academy</span>
           <div className="flex gap-3">
-            <span className="cursor-pointer transition-colors hover:text-gold">FB</span>
-            <span className="cursor-pointer transition-colors hover:text-gold">IG</span>
-            <span className="cursor-pointer transition-colors hover:text-gold">YT</span>
+            <a href="https://facebook.com/furqanacademy" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gold">FB</a>
+            <a href="https://instagram.com/furqanacademy" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gold">IG</a>
+            <a href="https://youtube.com/@furqanacademy" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gold">YT</a>
           </div>
         </div>
       </div>

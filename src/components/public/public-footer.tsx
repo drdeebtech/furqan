@@ -53,14 +53,14 @@ export function PublicFooter() {
           <ul className="space-y-2 text-sm text-muted">
             <li><a href="https://wa.me/447400000000" className="transition-colors hover:text-gold">🇬🇧 +44 74 0000 0000</a></li>
             <li><a href="https://wa.me/12125550000" className="transition-colors hover:text-gold">🇺🇸 +1 212 555 0000</a></li>
-            <li>info@furqan.academy</li>
+            <li><a href="mailto:info@furqan.academy" className="transition-colors hover:text-gold">info@furqan.academy</a></li>
             <li className="text-xs">{t("متاح ٧ أيام في الأسبوع · ٢٤ ساعة", "Available 7 days a week · 24 hours")}</li>
           </ul>
         </div>
       </div>
 
       <div className="border-t border-card-border px-6 py-6">
-        <p className="text-center text-xs text-muted">{t("© 2025 فرقان · جميع الحقوق محفوظة", "© 2025 FURQAN · All rights reserved")}</p>
+        <p className="text-center text-xs text-muted">© {new Date().getFullYear()} {t("فرقان · جميع الحقوق محفوظة", "FURQAN · All rights reserved")}</p>
       </div>
     </footer>
   );
