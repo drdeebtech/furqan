@@ -8,7 +8,6 @@ import {
   Search,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { LogoutButton } from "@/components/shared/logout-button";
 import type { BookingStatus, SessionType } from "@/types/database";
 
 const SESSION_TYPE_AR: Record<SessionType, string> = {
@@ -120,18 +119,15 @@ export default async function StudentDashboardPage() {
 
   return (
     <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
-      {/* Welcome + Logout */}
-      <div className="mb-8 flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">
-            أهلاً{fullName ? ` ${fullName}` : ""}
-            <span className="mr-2 text-gold">👋</span>
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            Welcome to your dashboard
-          </p>
-        </div>
-        <LogoutButton />
+      {/* Welcome */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold">
+          أهلاً{fullName ? ` ${fullName}` : ""}
+          <span className="mr-2 text-gold">👋</span>
+        </h1>
+        <p className="mt-1 text-sm text-muted">
+          Welcome to your dashboard
+        </p>
       </div>
 
       {/* Stats */}

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createRoom } from "@/lib/daily";
 
 export async function updateBookingStatus(
   bookingId: string,
@@ -25,6 +26,39 @@ export async function updateBookingStatus(
 
   if (error) {
     return { error: "حدث خطأ أثناء تحديث الحجز" };
+  }
+
+  // On confirmation, create a Daily.co room and insert session
+  if (status === "confirmed") {
+    try {
+      const { data: booking } = await supabase
+        .from("bookings")
+        .select("scheduled_at, duration_min")
+        .eq("id", bookingId)
+        .single<{ scheduled_at: string; duration_min: number }>();
+
+      if (booking) {
+        const scheduledAt = new Date(booking.scheduled_at);
+        const expiresAt = new Date(
+          scheduledAt.getTime() + 2 * 60 * 60 * 1000,
+        );
+        const roomName = `furqan-${bookingId.replace(/-/g, "")}`;
+
+        const room = await createRoom(roomName, expiresAt);
+
+        await supabase.from("sessions").insert({
+          booking_id: bookingId,
+          room_name: room.name,
+          room_url: room.url,
+          expires_at: expiresAt.toISOString(),
+          created_via: "auto",
+        } as never);
+      }
+    } catch (e) {
+      // Don't block the confirmation — booking is already confirmed.
+      // Room can be created manually later if Daily API is down.
+      console.error("Failed to create Daily.co room:", e);
+    }
   }
 
   revalidatePath("/teacher/dashboard");

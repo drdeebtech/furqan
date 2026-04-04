@@ -6,7 +6,6 @@ import {
   Star,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { LogoutButton } from "@/components/shared/logout-button";
 import { BookingActions } from "./booking-actions";
 import type { BookingStatus, SessionType } from "@/types/database";
 
@@ -95,18 +94,15 @@ export default async function TeacherDashboardPage() {
 
   return (
     <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
-      {/* Welcome + Logout */}
-      <div className="mb-8 flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">
-            أهلاً{fullName ? ` ${fullName}` : ""}
-            <span className="mr-2 text-gold">👋</span>
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            Teacher dashboard
-          </p>
-        </div>
-        <LogoutButton />
+      {/* Welcome */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold">
+          أهلاً{fullName ? ` ${fullName}` : ""}
+          <span className="mr-2 text-gold">👋</span>
+        </h1>
+        <p className="mt-1 text-sm text-muted">
+          Teacher dashboard
+        </p>
       </div>
 
       {/* Stats */}

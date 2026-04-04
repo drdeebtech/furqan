@@ -6,7 +6,6 @@ import {
   DollarSign,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { LogoutButton } from "@/components/shared/logout-button";
 import { ArchiveToggle } from "./archive-toggle";
 
 interface TeacherRow {
@@ -109,15 +108,12 @@ export default async function AdminDashboardPage() {
   return (
     <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
       {/* Header */}
-      <div className="mb-8 flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">
-            لوحة الإدارة
-            <span className="mr-2 text-gold">⚙</span>
-          </h1>
-          <p className="mt-1 text-sm text-muted">Admin dashboard</p>
-        </div>
-        <LogoutButton />
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold">
+          لوحة الإدارة
+          <span className="mr-2 text-gold">⚙</span>
+        </h1>
+        <p className="mt-1 text-sm text-muted">Admin dashboard</p>
       </div>
 
       {/* Stats grid */}
