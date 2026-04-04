@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
+import { useLang } from "@/lib/i18n/context";
+import { LangToggle } from "@/lib/i18n/lang-toggle";
 
 const NAV_LINKS = [
   { href: "/", ar: "الرئيسية", en: "Home" },
@@ -17,6 +19,7 @@ const NAV_LINKS = [
 
 export function PublicNav() {
   const pathname = usePathname();
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
 
   return (
@@ -52,7 +55,7 @@ export function PublicNav() {
                   href={link.href}
                   className={`px-3 py-2 text-sm transition-colors ${active ? "font-medium text-gold" : "text-muted hover:text-foreground"}`}
                 >
-                  {link.ar}
+                  {t(link.ar, link.en)}
                 </Link>
               );
             })}
@@ -60,23 +63,29 @@ export function PublicNav() {
 
           {/* Desktop CTAs */}
           <div className="hidden items-center gap-3 lg:flex">
-            <Link href="/login" className="text-sm text-muted transition-colors hover:text-gold">تسجيل الدخول</Link>
+            <LangToggle />
+            <Link href="/login" className="text-sm text-muted transition-colors hover:text-gold">
+              {t("تسجيل الدخول", "Sign In")}
+            </Link>
             <Link
               href="/contact"
               className="rounded border border-gold bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background"
             >
-              جلسة تجريبية مجانية
+              {t("جلسة تجريبية مجانية", "Free Trial")}
             </Link>
           </div>
 
           {/* Mobile hamburger */}
-          <button
-            onClick={() => setOpen(!open)}
-            className="lg:hidden text-foreground focus-ring"
-            aria-label={open ? "إغلاق القائمة" : "فتح القائمة"}
-          >
-            {open ? <X size={24} /> : <Menu size={24} />}
-          </button>
+          <div className="flex items-center gap-2 lg:hidden">
+            <LangToggle />
+            <button
+              onClick={() => setOpen(!open)}
+              className="text-foreground focus-ring"
+              aria-label={open ? "Close menu" : "Open menu"}
+            >
+              {open ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile dropdown */}
@@ -89,13 +98,13 @@ export function PublicNav() {
                 onClick={() => setOpen(false)}
                 className={`block py-2.5 text-sm ${pathname === link.href ? "font-medium text-gold" : "text-muted"}`}
               >
-                {link.ar} <span className="text-xs opacity-50">{link.en}</span>
+                {t(link.ar, link.en)}
               </Link>
             ))}
             <div className="mt-4 flex flex-col gap-2 border-t border-card-border pt-4">
-              <Link href="/login" className="text-sm text-muted">تسجيل الدخول</Link>
+              <Link href="/login" className="text-sm text-muted">{t("تسجيل الدخول", "Sign In")}</Link>
               <Link href="/contact" className="rounded bg-gold px-4 py-2.5 text-center text-sm font-medium text-background">
-                جلسة تجريبية مجانية
+                {t("جلسة تجريبية مجانية", "Free Trial")}
               </Link>
             </div>
           </div>

@@ -1,21 +1,42 @@
-import type { Metadata } from "next";
+"use client";
+
 import Link from "next/link";
-import { CheckCircle } from "lucide-react";
+import { useLang } from "@/lib/i18n/context";
 import { Testimonials } from "@/components/public/testimonials";
 import { FreeTrialBanner } from "@/components/public/free-trial-banner";
 import { CurrencyPackages } from "./currency-packages";
 
-export const metadata: Metadata = { title: "باقاتنا" };
-
 export default function PackagesPage() {
+  const { t } = useLang();
+
   return (
-    <div dir="rtl">
+    <div>
       <section className="border-b border-card-border bg-card py-20 text-center">
-        <p className="text-sm text-muted">
-          <Link href="/" className="text-gold hover:text-gold-light">الرئيسية</Link> / باقاتنا
-        </p>
-        <h1 className="font-display mt-4 text-5xl font-bold">باقاتنا</h1>
-        <p className="mt-2 text-muted">Our Packages</p>
+        <p className="text-sm text-muted"><Link href="/" className="text-gold hover:text-gold-light">{t("الرئيسية", "Home")}</Link> / {t("باقاتنا", "Packages")}</p>
+        <h1 className="font-display mt-4 text-5xl font-bold">{t("باقاتنا", "Our Packages")}</h1>
+      </section>
+
+      {/* Free access banner */}
+      <section className="border-b border-gold/30 bg-gold/5 py-8">
+        <div className="mx-auto max-w-3xl px-6 text-center">
+          <span className="mb-3 inline-block rounded-full bg-gold px-4 py-1 text-sm font-bold text-background">
+            {t("عرض لفترة محدودة", "Limited Time Offer")}
+          </span>
+          <h2 className="font-display mt-3 text-2xl font-bold md:text-3xl">
+            {t("استخدام المنصة", "Platform access is")}{" "}
+            <span className="text-gold">{t("مجاني بالكامل", "completely free")}</span>{" "}
+            {t("حالياً", "right now")}
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-muted">
+            {t(
+              "نحن في مرحلة الإطلاق، ونريد أن نتيح لأكبر عدد من المسلمين فرصة تعلّم القرآن بأفضل جودة وبدون أي تكلفة. جميع الباقات والخدمات متاحة مجاناً لفترة محدودة — سجّل الآن واستفد قبل انتهاء العرض.",
+              "We're in our launch phase and want to give as many Muslims as possible the opportunity to learn Quran at the highest quality — completely free. All packages and services are available at no cost for a limited time. Register now before the offer ends.",
+            )}
+          </p>
+          <Link href="/register" className="mt-6 inline-block rounded border border-gold bg-gold px-8 py-3 font-semibold text-background transition-colors hover:bg-gold-hover">
+            {t("سجّل مجاناً الآن", "Register Free Now")}
+          </Link>
+        </div>
       </section>
 
       <CurrencyPackages />
@@ -23,31 +44,28 @@ export default function PackagesPage() {
       {/* Discounts */}
       <section className="border-t border-card-border py-24">
         <div className="mx-auto max-w-4xl px-6">
-          <p className="text-sm font-medium tracking-widest text-gold">❖ خصومات</p>
-          <h2 className="font-display mt-3 text-3xl font-bold">سياسة الخصومات</h2>
-
+          <p className="text-sm font-medium tracking-widest text-gold">❖ {t("خصومات", "Discounts")}</p>
+          <h2 className="font-display mt-3 text-3xl font-bold">{t("سياسة الخصومات", "Discount Policy")}</h2>
           <div className="mt-12 grid gap-4 md:grid-cols-3">
             {[
-              { period: "دفع سنوي", save: "وفّر ٢٠٪" },
-              { period: "دفع نصف سنوي", save: "وفّر ١٠٪" },
-              { period: "دفع ربع سنوي", save: "وفّر ٥٪" },
+              { ar: "دفع سنوي", en: "Annual Payment", save: t("وفّر ٢٠٪", "Save 20%") },
+              { ar: "دفع نصف سنوي", en: "Semi-Annual", save: t("وفّر ١٠٪", "Save 10%") },
+              { ar: "دفع ربع سنوي", en: "Quarterly", save: t("وفّر ٥٪", "Save 5%") },
             ].map((d) => (
-              <div key={d.period} className="rounded-xl border border-card-border bg-card p-6 text-center">
-                <p className="font-bold">{d.period}</p>
+              <div key={d.en} className="rounded-xl border border-card-border bg-card p-6 text-center">
+                <p className="font-bold">{t(d.ar, d.en)}</p>
                 <p className="font-display mt-2 text-2xl font-bold text-gold">{d.save}</p>
               </div>
             ))}
           </div>
 
-          {/* Referral */}
           <div className="mt-12 rounded-xl border border-gold/20 bg-gold/5 p-8">
-            <h3 className="text-lg font-bold">برنامج الإحالة</h3>
-            <p className="mt-2 text-sm text-muted">أحِل أصدقاءك واحصل على خصم:</p>
+            <h3 className="text-lg font-bold">{t("برنامج الإحالة", "Referral Program")}</h3>
+            <p className="mt-2 text-sm text-muted">{t("أحِل أصدقاءك واحصل على خصم:", "Refer friends and get a discount:")}</p>
             <div className="mt-4 flex flex-wrap gap-6 text-sm">
-              <span>إحالة طالب واحد → <strong className="text-gold">خصم ١٥٪</strong></span>
-              <span>إحالة طالبين → <strong className="text-gold">خصم ٢٥٪</strong></span>
+              <span>{t("إحالة طالب واحد →", "Refer 1 student →")} <strong className="text-gold">{t("خصم ١٥٪", "15% off")}</strong></span>
+              <span>{t("إحالة طالبين →", "Refer 2 students →")} <strong className="text-gold">{t("خصم ٢٥٪", "25% off")}</strong></span>
             </div>
-            <Link href="/contact" className="mt-4 inline-block text-sm text-gold hover:text-gold-light">اتصل بنا لمعرفة التفاصيل ←</Link>
           </div>
         </div>
       </section>
