@@ -69,7 +69,7 @@ export function VideoRoom({
       )}
 
       {!joined && (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center">
+        <div className="rounded-2xl border border-card-border bg-card elevation-2 p-12 text-center">
           <Video size={40} className="mx-auto mb-4 text-gold" />
           <h2 className="mb-2 text-xl font-bold">غرفة الجلسة جاهزة</h2>
           <p className="mb-6 text-sm text-muted">
@@ -77,7 +77,7 @@ export function VideoRoom({
           </p>
           <button
             onClick={joinCall}
-            className="inline-flex items-center gap-2 rounded-lg bg-gold px-8 py-3 text-lg font-semibold text-black transition-colors hover:bg-gold-hover focus-ring"
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-8 py-3 text-lg font-semibold text-white neu-btn transition-colors hover:bg-primary-hover focus-ring"
           >
             <Video size={20} />
             انضم للجلسة
@@ -95,7 +95,7 @@ export function VideoRoom({
       />
 
       {joined && (
-        <div className="mt-4 flex items-center justify-between rounded-xl border border-card-border bg-card p-3">
+        <div className="mt-4 flex items-center justify-between rounded-2xl border border-card-border bg-card elevation-2 p-3">
           <div className="flex items-center gap-2 text-sm text-success">
             <span className="h-2 w-2 animate-pulse rounded-full bg-success" />
             الجلسة جارية

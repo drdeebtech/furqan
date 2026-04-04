@@ -78,13 +78,13 @@ export default async function StudentSessionsPage() {
       </h1>
 
       {list.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center">
+        <div className="rounded-2xl border border-card-border bg-card elevation-2 p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-muted">لا توجد جلسات بعد</p>
           <p className="mt-1 text-sm text-muted">ستظهر هنا بعد تأكيد حجوزاتك</p>
           <Link
             href="/student/teachers"
-            className="mt-4 inline-block rounded-lg bg-gold px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-gold-hover focus-ring"
+            className="mt-4 inline-block rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white neu-btn transition-colors hover:bg-primary-hover focus-ring"
           >
             تصفح المعلمين
           </Link>
@@ -141,7 +141,7 @@ export default async function StudentSessionsPage() {
                     {session?.room_url && (isUpcoming || isLive) && (
                       <Link
                         href={`/student/sessions/${session.id}`}
-                        className="flex items-center gap-1.5 rounded-lg bg-gold px-3 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-gold-hover focus-ring"
+                        className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white neu-btn transition-colors hover:bg-primary-hover focus-ring"
                       >
                         <Video size={14} />
                         {isLive ? "انضم الآن" : "غرفة الجلسة"}

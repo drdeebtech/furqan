@@ -50,7 +50,7 @@ export function LoginForm() {
             required
             autoComplete="email"
             dir="ltr"
-            className="w-full rounded-lg border border-input-border bg-input px-4 py-2.5 text-left text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+            className="w-full rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 text-left text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
             placeholder="you@example.com"
           />
         </div>
@@ -77,7 +77,7 @@ export function LoginForm() {
               required
               autoComplete="current-password"
               dir="ltr"
-              className="w-full rounded-lg border border-input-border bg-input px-4 py-2.5 pe-10 text-left text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+              className="w-full rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 pe-10 text-left text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
               placeholder="••••••••"
             />
             <button
@@ -96,10 +96,10 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={pending}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold py-2.5 font-semibold text-black transition-colors hover:bg-gold-hover disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-2.5 font-semibold text-white neu-btn transition-colors hover:bg-primary-hover disabled:opacity-50"
         >
           {pending ? (
-            <span className="h-5 w-5 animate-spin rounded-full border-2 border-black/30 border-t-black" />
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
           ) : (
             <>
               <LogIn size={18} />

@@ -97,21 +97,21 @@ export default async function TeacherDashboardPage() {
 
         {/* Stats row — varied layout */}
         <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
-          <div className="rounded-xl border border-card-border bg-card p-5">
+          <div className="rounded-2xl border border-card-border bg-card elevation-2 p-5">
             <div className="flex items-center gap-2 text-sm text-muted">
               <BookOpen size={16} />
               جلسات مكتملة
             </div>
             <p className="mt-1 text-3xl font-bold text-gold">{totalSessions}</p>
           </div>
-          <div className="rounded-xl border border-card-border bg-card p-5">
+          <div className="rounded-2xl border border-card-border bg-card elevation-2 p-5">
             <div className="flex items-center gap-2 text-sm text-muted">
               <Hourglass size={16} />
               بانتظار التأكيد
             </div>
             <p className="mt-1 text-3xl font-bold text-gold">{pendingCount}</p>
           </div>
-          <div className="rounded-xl border border-card-border bg-card p-5">
+          <div className="rounded-2xl border border-card-border bg-card elevation-2 p-5">
             <div className="flex items-center gap-2 text-sm text-muted">
               <Star size={16} />
               التقييم
@@ -148,7 +148,7 @@ export default async function TeacherDashboardPage() {
                       </div>
                       {url ? (
                         <a href={url} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 rounded-lg bg-gold px-3 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-gold-hover focus-ring">
+                          className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white neu-btn transition-colors hover:bg-primary-hover focus-ring">
                           <Video size={14} />
                           انضم للجلسة
                         </a>
@@ -170,7 +170,7 @@ export default async function TeacherDashboardPage() {
             حجوزات بانتظار التأكيد
           </h2>
           {pending.length === 0 ? (
-            <div className="rounded-xl border border-card-border bg-card p-8 text-center">
+            <div className="rounded-2xl border border-card-border bg-card elevation-2 p-8 text-center">
               <Clock size={28} className="mx-auto mb-3 text-muted" />
               <p className="text-muted">لا توجد حجوزات معلقة</p>
             </div>
@@ -179,7 +179,7 @@ export default async function TeacherDashboardPage() {
               {pending.map((booking) => {
                 const date = new Date(booking.scheduled_at);
                 return (
-                  <div key={booking.id} className="rounded-xl border border-card-border bg-card p-4">
+                  <div key={booking.id} className="rounded-2xl border border-card-border bg-card elevation-2 p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0 flex-1">
                         <p className="font-medium">{studentNames[booking.student_id] ?? "طالب"}</p>

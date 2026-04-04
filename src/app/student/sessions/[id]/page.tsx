@@ -76,7 +76,7 @@ export default async function SessionPage({ params }: Props) {
       </Link>
 
       {/* Session info bar */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-card-border bg-card p-4">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-card-border bg-card elevation-2 p-4">
         <div>
           <h1 className="text-lg font-bold">{teacherName}</h1>
           <p className="mt-1 text-sm text-gold">
@@ -99,13 +99,13 @@ export default async function SessionPage({ params }: Props) {
       {/* Video room or completed state */}
       {isCompleted ? (
         <div className="space-y-4">
-          <div className="rounded-xl border border-card-border bg-card p-8 text-center">
+          <div className="rounded-2xl border border-card-border bg-card elevation-2 p-8 text-center">
             <p className="text-lg font-semibold text-gold">تمت الجلسة بنجاح</p>
             <p className="mt-1 text-sm text-muted">Session completed</p>
           </div>
 
           {session.post_session_notes && (
-            <div className="rounded-xl border border-card-border bg-card p-5">
+            <div className="rounded-2xl border border-card-border bg-card elevation-2 p-5">
               <h2 className="mb-2 text-sm font-semibold text-gold">ملاحظات المعلم</h2>
               <p className="text-sm leading-relaxed text-muted">{session.post_session_notes}</p>
             </div>

@@ -98,7 +98,7 @@ export default async function TeachersPage() {
       </div>
 
       {teacherList.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center">
+        <div className="rounded-2xl border border-card-border bg-card elevation-2 p-12 text-center">
           <Users size={40} className="mx-auto mb-4 text-muted" />
           <p className="text-lg text-muted">لا يوجد معلمون حالياً</p>
           <p className="mt-1 text-sm text-muted">No teachers available yet</p>
@@ -115,7 +115,7 @@ export default async function TeachersPage() {
             return (
               <div
                 key={teacher.teacher_id}
-                className="rounded-xl border border-card-border bg-card p-5"
+                className="rounded-2xl border border-card-border bg-card elevation-2 p-5"
               >
                 {/* Header: avatar + name + rate */}
                 <div className="mb-3 flex items-start gap-3">
@@ -152,7 +152,7 @@ export default async function TeachersPage() {
                     {teacher.specialties.map((s) => (
                       <span
                         key={s}
-                        className="rounded-full border border-gold/30 bg-gold/10 px-2.5 py-0.5 text-xs text-gold"
+                        className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs text-foreground"
                       >
                         {SESSION_TYPE_AR[s as SessionType] ?? s}
                       </span>
@@ -177,7 +177,7 @@ export default async function TeachersPage() {
                 {/* Book button */}
                 <Link
                   href={`/student/bookings/new?teacher=${teacher.teacher_id}`}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold py-2.5 font-semibold text-black transition-colors hover:bg-gold-hover"
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-2.5 font-semibold text-white neu-btn transition-colors hover:bg-primary-hover"
                 >
                   احجز جلسة
                   <span className="text-sm opacity-70">Book Session</span>

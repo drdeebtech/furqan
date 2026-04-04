@@ -1,15 +1,19 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Amiri, IBM_Plex_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const amiri = Amiri({
+  variable: "--font-display",
+  subsets: ["arabic", "latin"],
+  weight: ["400", "700"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const body = IBM_Plex_Sans_Arabic({
+  variable: "--font-body",
+  subsets: ["arabic", "latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -19,15 +23,7 @@ export const metadata: Metadata = {
   },
   description:
     "تعلّم القرآن الكريم مع معلمين متخصصين عبر الإنترنت — حفظ وتجويد وتلاوة. انضم إلى آلاف الطلاب من حول العالم.",
-  keywords: [
-    "Quran",
-    "Hifz",
-    "Tajweed",
-    "Online Quran Academy",
-    "فرقان",
-    "حفظ القرآن",
-    "تجويد",
-  ],
+  keywords: ["Quran", "Hifz", "Tajweed", "Online Quran Academy", "فرقان", "حفظ القرآن", "تجويد"],
   openGraph: {
     title: "فرقان — أكاديمية القرآن الكريم",
     description: "تعلّم القرآن مع أمهر المعلمين عبر الإنترنت",
@@ -45,7 +41,7 @@ export default function RootLayout({
     <html
       lang="ar"
       dir="rtl"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${amiri.variable} ${body.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

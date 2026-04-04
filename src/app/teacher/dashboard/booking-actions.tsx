@@ -30,7 +30,7 @@ export function BookingActions({ bookingId }: { bookingId: string }) {
   if (done === "confirmed") {
     return (
       <div className="flex flex-col items-end gap-1">
-        <span className="rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-xs text-green-400">
+        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400">
           تم التأكيد
         </span>
         {roomUrl && (

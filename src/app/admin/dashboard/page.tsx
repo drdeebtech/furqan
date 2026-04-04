@@ -62,7 +62,7 @@ export default async function AdminDashboardPage() {
             { icon: BookOpen, label: "الحجوزات", value: bookingCount, en: "Bookings" },
             { icon: DollarSign, label: "الإيرادات", value: `$${totalRevenue.toFixed(2)}`, en: "Revenue" },
           ].map((s) => (
-            <div key={s.en} className="rounded-xl border border-card-border bg-card p-5">
+            <div key={s.en} className="rounded-2xl border border-card-border bg-card elevation-2 p-5">
               <div className="flex items-center gap-2 text-sm text-muted">
                 <s.icon size={16} />
                 {s.label}
@@ -81,7 +81,7 @@ export default async function AdminDashboardPage() {
           </h2>
 
           {teacherList.length === 0 ? (
-            <div className="rounded-xl border border-card-border bg-card p-8 text-center">
+            <div className="rounded-2xl border border-card-border bg-card elevation-2 p-8 text-center">
               <GraduationCap size={28} className="mx-auto mb-3 text-muted" />
               <p className="text-muted">لا يوجد معلمون بعد</p>
             </div>
@@ -105,7 +105,7 @@ export default async function AdminDashboardPage() {
                           <span className="rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-xs text-success">يقبل طلاب</span>
                         )}
                         {!teacher.is_archived && !teacher.is_accepting && (
-                          <span className="rounded-full border border-gold/30 bg-gold/10 px-2 py-0.5 text-xs text-gold">مشغول</span>
+                          <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs text-foreground">مشغول</span>
                         )}
                       </div>
                       <p className="mt-1 text-sm text-muted">

@@ -54,7 +54,7 @@ export function BookingForm({
       </Link>
 
       {/* Teacher header */}
-      <div className="mb-6 rounded-xl border border-card-border bg-card p-5">
+      <div className="mb-6 rounded-2xl border border-card-border bg-card elevation-2 p-5">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold">{teacher.name}</h1>
@@ -99,7 +99,7 @@ export function BookingForm({
             {teacher.specialties.map((s) => (
               <label
                 key={s}
-                className="flex cursor-pointer items-center gap-2 rounded-lg border border-input-border bg-input px-3 py-2.5 text-sm transition-colors has-[:checked]:border-gold has-[:checked]:bg-gold/10"
+                className="flex cursor-pointer items-center gap-2 rounded-xl border border-input-border bg-input neu-inset px-3 py-2.5 text-sm transition-colors has-[:checked]:border-gold has-[:checked]:bg-gold/10"
               >
                 <input
                   type="radio"
@@ -153,7 +153,7 @@ export function BookingForm({
             required
             min={minDate}
             dir="ltr"
-            className="w-full rounded-lg border border-input-border bg-input px-4 py-2.5 text-left text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+            className="w-full rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 text-left text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
           />
         </div>
 
@@ -169,7 +169,7 @@ export function BookingForm({
             type="time"
             required
             dir="ltr"
-            className="w-full rounded-lg border border-input-border bg-input px-4 py-2.5 text-left text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+            className="w-full rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 text-left text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
           />
         </div>
 
@@ -183,7 +183,7 @@ export function BookingForm({
             id="notes"
             name="notes"
             rows={3}
-            className="w-full resize-none rounded-lg border border-input-border bg-input px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+            className="w-full resize-none rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
             placeholder="أي ملاحظات للمعلم…"
           />
         </div>
@@ -202,10 +202,10 @@ export function BookingForm({
         <button
           type="submit"
           disabled={pending}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold py-3 text-lg font-semibold text-black transition-colors hover:bg-gold-hover disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 text-lg font-semibold text-white neu-btn transition-colors hover:bg-primary-hover disabled:opacity-50"
         >
           {pending ? (
-            <span className="h-5 w-5 animate-spin rounded-full border-2 border-black/30 border-t-black" />
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
           ) : (
             <>
               <CalendarPlus size={20} />

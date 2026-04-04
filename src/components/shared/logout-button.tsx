@@ -8,7 +8,7 @@ export function LogoutButton() {
       <button
         type="submit"
         aria-label="تسجيل الخروج"
-        className="flex items-center gap-1.5 rounded-lg border border-card-border bg-card px-3 py-1.5 text-sm text-muted transition-colors hover:border-error/50 hover:text-error focus-ring"
+        className="flex items-center gap-1.5 rounded-full border border-surface-border px-3 py-1.5 text-sm text-muted transition-colors hover:border-error/50 hover:text-error focus-ring"
       >
         <LogOut size={14} />
         <span className="hidden sm:inline">خروج</span>

@@ -29,10 +29,10 @@ export function Nav({ role }: { role: Role }) {
   return (
     <nav
       dir="rtl"
-      className="border-b border-card-border bg-card"
+      className="border-b border-surface-border bg-surface elevation-1"
       aria-label="Main navigation"
     >
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-4">
+      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-2">
         <div className="flex items-center gap-1 overflow-x-auto">
           <Link
             href={`/${role}/dashboard`}
@@ -47,14 +47,14 @@ export function Nav({ role }: { role: Role }) {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`shrink-0 border-b-2 px-3 py-3 text-sm transition-colors focus-ring ${
+                className={`shrink-0 rounded-full px-4 py-1.5 text-sm transition-all focus-ring ${
                   active
-                    ? "border-gold text-gold"
-                    : "border-transparent text-muted hover:text-foreground"
+                    ? "bg-primary/20 font-medium text-foreground"
+                    : "text-muted hover:bg-background hover:text-foreground"
                 }`}
               >
                 {link.ar}
-                <span className="mr-1 hidden text-xs opacity-60 sm:inline">
+                <span className="mr-1 hidden text-xs opacity-50 sm:inline">
                   {link.en}
                 </span>
               </Link>

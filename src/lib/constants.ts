@@ -29,11 +29,11 @@ export const STATUS_STYLE: Record<
   },
   confirmed: {
     label: "مؤكد",
-    className: "bg-green-500/10 text-green-400 border-green-500/30",
+    className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
   },
   completed: {
     label: "مكتمل",
-    className: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+    className: "bg-sky-500/10 text-sky-400 border-sky-500/30",
   },
   cancelled: {
     label: "ملغى",

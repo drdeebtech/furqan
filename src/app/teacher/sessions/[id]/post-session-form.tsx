@@ -34,7 +34,7 @@ export function PostSessionForm({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-card-border bg-card p-6 text-center">
+      <div className="rounded-2xl border border-card-border bg-card elevation-2 p-6 text-center">
         <CheckCircle size={32} className="mx-auto mb-2 text-success" />
         <p className="text-lg font-semibold">تمت الجلسة بنجاح</p>
         <p className="mt-1 text-sm text-muted">أضف ملاحظاتك والواجب للطالب</p>
@@ -56,7 +56,7 @@ export function PostSessionForm({
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={4}
-          className="w-full resize-none rounded-lg border border-input-border bg-input px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+          className="w-full resize-none rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
           placeholder="ملاحظات عن أداء الطالب في هذه الجلسة…"
         />
       </div>
@@ -71,7 +71,7 @@ export function PostSessionForm({
           value={homework}
           onChange={(e) => setHomework(e.target.value)}
           rows={3}
-          className="w-full resize-none rounded-lg border border-input-border bg-input px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+          className="w-full resize-none rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
           placeholder="حفظ سورة الفاتحة، مراجعة أحكام النون الساكنة…"
         />
       </div>
@@ -79,10 +79,10 @@ export function PostSessionForm({
       <button
         onClick={handleSave}
         disabled={saving}
-        className="flex items-center gap-2 rounded-lg bg-gold px-6 py-2.5 font-semibold text-black transition-colors hover:bg-gold-hover disabled:opacity-50 focus-ring"
+        className="flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 font-semibold text-white neu-btn transition-colors hover:bg-primary-hover disabled:opacity-50 focus-ring"
       >
         {saving ? (
-          <span className="h-5 w-5 animate-spin rounded-full border-2 border-black/30 border-t-black" />
+          <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
         ) : saved ? (
           <>
             <CheckCircle size={18} />

@@ -60,7 +60,7 @@ export function ArchiveToggle({
       disabled={loading}
       className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
         archived
-          ? "border-green-500/30 text-green-400 hover:bg-green-500/10"
+          ? "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
           : "border-red-500/30 text-red-400 hover:bg-red-500/10"
       }`}
     >

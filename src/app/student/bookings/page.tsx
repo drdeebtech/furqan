@@ -65,7 +65,7 @@ export default async function StudentBookingsPage() {
         </h1>
         <Link
           href="/student/teachers"
-          className="flex items-center gap-1.5 rounded-lg bg-gold px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-gold-hover"
+          className="flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white neu-btn transition-colors hover:bg-primary-hover"
         >
           <Plus size={16} />
           حجز جديد
@@ -73,13 +73,13 @@ export default async function StudentBookingsPage() {
       </div>
 
       {list.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center">
+        <div className="rounded-2xl border border-card-border bg-card elevation-2 p-12 text-center">
           <Inbox size={40} className="mx-auto mb-4 text-muted" />
           <p className="text-lg text-muted">لم تقم بأي حجز حتى الآن</p>
           <p className="mt-1 text-sm text-muted">ابدأ بتصفح المعلمين واحجز جلستك الأولى</p>
           <Link
             href="/student/teachers"
-            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-gold px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-gold-hover"
+            className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white neu-btn transition-colors hover:bg-primary-hover"
           >
             تصفح المعلمين
           </Link>
@@ -93,7 +93,7 @@ export default async function StudentBookingsPage() {
             return (
               <div
                 key={booking.id}
-                className="rounded-xl border border-card-border bg-card p-4"
+                className="rounded-2xl border border-card-border bg-card elevation-2 p-4"
               >
                 <div className="flex items-start justify-between">
                   <div>

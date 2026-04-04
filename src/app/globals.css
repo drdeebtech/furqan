@@ -1,19 +1,22 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-  --gold: #D4AF37;
-  --gold-hover: #C5A028;
-  --gold-muted: #B8962E;
-  --card: #141414;
-  --card-border: #1f1f1f;
-  --input: #1a1a1a;
-  --input-border: #2a2a2a;
-  --input-focus: #D4AF37;
-  --muted: #888888;
-  --error: #ef4444;
-  --success: #22c55e;
+  --background: #0F0F0F;
+  --foreground: #F5F0E8;
+  --gold: #C8A652;
+  --gold-hover: #B8963E;
+  --gold-light: #D4B76A;
+  --gold-dim: rgba(200,166,82,0.15);
+  --surface: #1A1A1A;
+  --surface-border: #2A2A2A;
+  --surface-light: #222222;
+  --input-bg: #181818;
+  --input-border: #333333;
+  --focus-ring: #C8A652;
+  --muted: #9C9488;
+  --error: #E05555;
+  --warning: #E0A830;
+  --success: #4CAF7D;
 }
 
 @theme inline {
@@ -21,22 +24,32 @@
   --color-foreground: var(--foreground);
   --color-gold: var(--gold);
   --color-gold-hover: var(--gold-hover);
-  --color-gold-muted: var(--gold-muted);
-  --color-card: var(--card);
-  --color-card-border: var(--card-border);
-  --color-input: var(--input);
+  --color-gold-light: var(--gold-light);
+  --color-gold-dim: var(--gold-dim);
+  --color-gold-muted: #A08840;
+  --color-primary: var(--gold);
+  --color-primary-hover: var(--gold-hover);
+  --color-primary-muted: var(--gold-dim);
+  --color-primary-light: rgba(200,166,82,0.1);
+  --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-light);
+  --color-surface-border: var(--surface-border);
+  --color-card: var(--surface);
+  --color-card-border: var(--surface-border);
+  --color-input: var(--input-bg);
   --color-input-border: var(--input-border);
-  --color-input-focus: var(--input-focus);
+  --color-input-focus: var(--gold);
   --color-muted: var(--muted);
   --color-error: var(--error);
   --color-success: var(--success);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-warning: var(--warning);
+  --color-accent: var(--gold);
+  --font-display: var(--font-display);
+  --font-sans: var(--font-body);
+  --font-latin: var(--font-body);
 }
 
-html {
-  scroll-behavior: smooth;
-}
+html { scroll-behavior: smooth; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
@@ -49,15 +62,34 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Focus ring utility for interactive elements without built-in focus */
-.focus-ring {
-  outline: none;
+/* Display font for headings */
+.font-display {
+  font-family: var(--font-display), serif;
 }
+
+.focus-ring { outline: none; }
 .focus-ring:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+/* Clean elevation for dark theme */
+.elevation-1 { box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.elevation-2 { box-shadow: 0 4px 16px rgba(0,0,0,0.35); }
+.elevation-3 { box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+.elevation-4 { box-shadow: 0 16px 40px rgba(0,0,0,0.45); }
+
+.neu-inset { box-shadow: none; }
+.neu-btn { transition: transform 0.1s; }
+.neu-btn:active { transform: scale(0.98); }
+
+/* Gold decorative line */
+.gold-line {
+  height: 2px;
+  background: linear-gradient(to left, transparent, var(--gold), transparent);
 }

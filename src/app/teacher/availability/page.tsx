@@ -79,7 +79,7 @@ export default async function TeacherAvailabilityPage() {
           </h2>
 
           {list.length === 0 ? (
-            <div className="rounded-xl border border-card-border bg-card p-8 text-center">
+            <div className="rounded-2xl border border-card-border bg-card elevation-2 p-8 text-center">
               <Inbox size={32} className="mx-auto mb-3 text-muted" />
               <p className="text-muted">لا توجد مواعيد بعد</p>
               <p className="mt-1 text-xs text-muted">

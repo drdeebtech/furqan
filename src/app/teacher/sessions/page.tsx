@@ -64,7 +64,7 @@ export default async function TeacherSessionsPage() {
       </h1>
 
       {list.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center">
+        <div className="rounded-2xl border border-card-border bg-card elevation-2 p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-muted">لا توجد جلسات مؤكدة</p>
           <p className="mt-1 text-sm text-muted">ستظهر هنا بعد تأكيد الحجوزات</p>
@@ -78,7 +78,7 @@ export default async function TeacherSessionsPage() {
             const isConfirmed = booking.status === "confirmed";
 
             return (
-              <div key={booking.id} className="rounded-xl border border-card-border bg-card p-4">
+              <div key={booking.id} className="rounded-2xl border border-card-border bg-card elevation-2 p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="font-medium">{nameMap[booking.student_id] ?? "طالب"}</p>
@@ -96,7 +96,7 @@ export default async function TeacherSessionsPage() {
                     {sessionId && (
                       <Link
                         href={`/teacher/sessions/${sessionId}`}
-                        className="flex items-center gap-1.5 rounded-lg bg-gold px-3 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-gold-hover focus-ring"
+                        className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white neu-btn transition-colors hover:bg-primary-hover focus-ring"
                       >
                         <Video size={14} />
                         {isConfirmed ? "انضم للجلسة" : "تفاصيل"}

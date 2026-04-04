@@ -84,7 +84,7 @@ export default async function StudentDashboardPage() {
             </div>
             <Link
               href="/student/teachers"
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold py-3 font-semibold text-black transition-colors hover:bg-gold-hover focus-ring"
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 font-semibold text-white neu-btn transition-colors hover:bg-primary-hover focus-ring"
             >
               <Search size={18} />
               تصفح المعلمين الآن
@@ -94,17 +94,17 @@ export default async function StudentDashboardPage() {
           <>
             {/* Stats — asymmetric layout, not identical cards */}
             <div className="mt-8 flex gap-4">
-              <div className="flex-1 rounded-xl border border-card-border bg-card p-5">
+              <div className="flex-1 rounded-2xl border border-card-border bg-card elevation-2 p-5">
                 <p className="text-sm text-muted">إجمالي الحجوزات</p>
                 <p className="mt-1 text-3xl font-bold text-gold">{totalBookings}</p>
               </div>
-              <div className="flex-1 rounded-xl border border-card-border bg-card p-5">
+              <div className="flex-1 rounded-2xl border border-card-border bg-card elevation-2 p-5">
                 <p className="text-sm text-muted">جلسات مكتملة</p>
                 <p className="mt-1 text-3xl font-bold text-gold">{completedSessions}</p>
               </div>
               <Link
                 href="/student/teachers"
-                className="flex items-center gap-2 rounded-xl bg-gold px-6 font-semibold text-black transition-colors hover:bg-gold-hover focus-ring"
+                className="flex items-center gap-2 rounded-xl bg-primary px-6 font-semibold text-white neu-btn transition-colors hover:bg-primary-hover focus-ring"
               >
                 <Search size={18} />
                 <span className="hidden sm:inline">تصفح المعلمين</span>
@@ -124,7 +124,7 @@ export default async function StudentDashboardPage() {
               </div>
 
               {upcoming.length === 0 ? (
-                <div className="rounded-xl border border-card-border bg-card p-8 text-center">
+                <div className="rounded-2xl border border-card-border bg-card elevation-2 p-8 text-center">
                   <Clock size={28} className="mx-auto mb-3 text-muted" />
                   <p className="text-muted">لا توجد حجوزات قادمة</p>
                 </div>
@@ -134,7 +134,7 @@ export default async function StudentDashboardPage() {
                     const date = new Date(booking.scheduled_at);
                     const statusInfo = STATUS_STYLE[booking.status];
                     return (
-                      <div key={booking.id} className="rounded-xl border border-card-border bg-card p-4">
+                      <div key={booking.id} className="rounded-2xl border border-card-border bg-card elevation-2 p-4">
                         <div className="flex items-start justify-between">
                           <div>
                             <p className="font-medium">{teacherNames[booking.teacher_id] ?? "معلم"}</p>
