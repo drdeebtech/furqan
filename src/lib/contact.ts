@@ -15,3 +15,10 @@ export const CONTACT = {
     en: "Kuwait",
   },
 } as const;
+
+// TODO: Add real social media accounts when ready
+// export const SOCIAL = {
+//   facebook: "https://facebook.com/furqanacademy",
+//   instagram: "https://instagram.com/furqanacademy",
+//   youtube: "https://youtube.com/@furqanacademy",
+// };

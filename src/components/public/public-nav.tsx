@@ -32,11 +32,7 @@ export function PublicNav() {
             <a href={CONTACT.whatsappUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 transition-colors hover:text-gold">{CONTACT.flag} {CONTACT.whatsapp}</a>
           </div>
           <a href={CONTACT.emailUrl} className="hidden transition-colors hover:text-gold sm:inline">{CONTACT.email}</a>
-          <div className="flex gap-3">
-            <a href="https://facebook.com/furqanacademy" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gold">FB</a>
-            <a href="https://instagram.com/furqanacademy" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gold">IG</a>
-            <a href="https://youtube.com/@furqanacademy" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gold">YT</a>
-          </div>
+          {/* Social links — add back when accounts are ready */}
         </div>
       </div>
 
