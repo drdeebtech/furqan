@@ -11,7 +11,10 @@ export function PublicFooter() {
     <footer className="border-t border-card-border bg-card">
       <div className="mx-auto grid max-w-7xl gap-8 px-6 py-12 md:grid-cols-4">
         <div>
-          <span className="font-display text-2xl font-bold text-gold">فُرقان</span>
+          <div className="flex items-center gap-2">
+            <img src="/logo-192.png" alt="فرقان" className="h-8 w-8 rounded-full" />
+            <span className="font-display text-2xl font-bold text-gold">فُرقان</span>
+          </div>
           <p className="mt-3 text-sm text-foreground">{t("أكاديمية القرآن الكريم عبر الإنترنت", "Online Quran Learning Academy")}</p>
           <p className="mt-1 text-xs text-muted">{t("نربط الطلاب بأفضل معلمي القرآن المعتمدين حول العالم", "Connecting students with certified Quran teachers worldwide")}</p>
         </div>

@@ -54,9 +54,10 @@ export function Nav({ role }: { role: Role }) {
         <div className="flex items-center gap-1 overflow-x-auto">
           <Link
             href={`/${role}/dashboard`}
-            className="ml-4 shrink-0 text-lg font-bold text-gold"
+            className="ml-4 flex shrink-0 items-center gap-2"
           >
-            فُرقان
+            <img src="/logo-192.png" alt="فرقان" className="h-7 w-7 rounded-full" />
+            <span className="text-lg font-bold text-gold">فُرقان</span>
           </Link>
 
           {LINKS[role].map((link) => {

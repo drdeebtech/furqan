@@ -39,7 +39,10 @@ export function PublicNav() {
       {/* Main nav */}
       <nav className="sticky top-0 z-50 border-b border-card-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-          <Link href="/" className="font-display text-2xl font-bold text-gold">فُرقان</Link>
+          <Link href="/" className="flex items-center gap-2">
+            <img src="/logo-192.png" alt="فرقان" className="h-8 w-8 rounded-full" />
+            <span className="font-display text-2xl font-bold text-gold">فُرقان</span>
+          </Link>
 
           {/* Desktop links */}
           <div className="hidden items-center gap-1 lg:flex">

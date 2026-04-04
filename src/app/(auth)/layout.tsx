@@ -11,8 +11,9 @@ export default function AuthLayout({
       {/* Branding panel */}
       <div className="hidden flex-col justify-center border-l border-surface-border bg-surface p-12 md:flex md:w-1/2">
         <div className="mx-auto max-w-sm">
-          <Link href="/" className="font-display text-4xl font-bold text-gold">
-            فُرقان
+          <Link href="/" className="flex items-center gap-3">
+            <img src="/logo-192.png" alt="فرقان" className="h-12 w-12 rounded-full" />
+            <span className="font-display text-4xl font-bold text-gold">فُرقان</span>
           </Link>
           <p className="mt-3 text-lg">أكاديمية القرآن الكريم</p>
           <p className="mt-1 text-sm text-muted">FURQAN Online Quran Academy</p>

@@ -24,11 +24,19 @@ export const metadata: Metadata = {
   description:
     "تعلّم القرآن الكريم مع معلمين متخصصين عبر الإنترنت — حفظ وتجويد وتلاوة. انضم إلى آلاف الطلاب من حول العالم.",
   keywords: ["Quran", "Hifz", "Tajweed", "Online Quran Academy", "فرقان", "حفظ القرآن", "تجويد"],
+  icons: {
+    icon: [
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
   openGraph: {
     title: "فرقان — أكاديمية القرآن الكريم",
     description: "تعلّم القرآن مع أمهر المعلمين عبر الإنترنت",
     locale: "ar_AR",
     type: "website",
+    images: [{ url: "/logo-512.png", width: 512, height: 512 }],
   },
 };
 
