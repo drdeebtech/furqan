@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { LangToggle } from "@/lib/i18n/lang-toggle";
+import { CONTACT } from "@/lib/contact";
 
 const NAV_LINKS = [
   { href: "/", ar: "الرئيسية", en: "Home" },
@@ -28,10 +29,9 @@ export function PublicNav() {
       <div className="border-b border-gold/20 bg-gold/5 px-4 py-2">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 text-xs text-muted">
           <div className="flex items-center gap-4">
-            <a href="https://wa.me/966500000000" className="transition-colors hover:text-gold">🇸🇦 +966 50 000 0000</a>
-            <a href="https://wa.me/447400000000" className="transition-colors hover:text-gold">🇬🇧 +44 74 0000 0000</a>
+            <a href={CONTACT.whatsappUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 transition-colors hover:text-gold">{CONTACT.flag} {CONTACT.whatsapp}</a>
           </div>
-          <span className="hidden sm:inline">info@furqan.academy</span>
+          <a href={CONTACT.emailUrl} className="hidden transition-colors hover:text-gold sm:inline">{CONTACT.email}</a>
           <div className="flex gap-3">
             <a href="https://facebook.com/furqanacademy" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gold">FB</a>
             <a href="https://instagram.com/furqanacademy" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-gold">IG</a>

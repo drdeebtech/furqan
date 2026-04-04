@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useLang } from "@/lib/i18n/context";
+import { CONTACT } from "@/lib/contact";
 import { FreeTrialBanner } from "@/components/public/free-trial-banner";
 import { ContactForm } from "./contact-form";
 import { FAQ } from "./faq";
@@ -24,31 +25,23 @@ export function ContactContent() {
 
             <div className="mt-8 space-y-6">
               <div>
-                <p className="text-sm font-bold">{t("واتساب UK", "WhatsApp UK")}</p>
-                <a href="https://wa.me/447400000000" className="text-sm text-gold hover:text-gold-light">+44 74 0000 0000</a>
-                <p className="text-xs text-muted">{t("متاح ٧ أيام · ٩ص - ١١م", "Available 7 days · 9am - 11pm")}</p>
-              </div>
-              <div>
-                <p className="text-sm font-bold">{t("واتساب US", "WhatsApp US")}</p>
-                <a href="https://wa.me/12125550000" className="text-sm text-gold hover:text-gold-light">+1 212 555 0000</a>
+                <p className="text-sm font-bold">{t("واتساب", "WhatsApp")}</p>
+                <a href={CONTACT.whatsappUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-gold hover:text-gold-light">{CONTACT.flag} {CONTACT.whatsapp}</a>
+                <p className="text-xs text-muted">{t(CONTACT.availability.ar, CONTACT.availability.en)}</p>
               </div>
               <div>
                 <p className="text-sm font-bold">{t("البريد الإلكتروني", "Email")}</p>
-                <p className="text-sm text-muted">info@furqan.academy</p>
-              </div>
-              <div>
-                <p className="text-sm font-bold">{t("ساعات العمل", "Working Hours")}</p>
-                <p className="text-xs text-muted">{t("الإثنين - السبت: ٦ص - ١١م (بتوقيت السعودية)", "Mon - Sat: 6am - 11pm (KSA Time)")}</p>
+                <a href={CONTACT.emailUrl} className="text-sm text-gold hover:text-gold-light">{CONTACT.email}</a>
               </div>
             </div>
 
             <a
-              href="https://wa.me/447400000000"
+              href={CONTACT.whatsappUrlWithMessage}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-8 flex items-center justify-center gap-2 rounded-xl bg-green-600 py-4 font-medium text-white transition-colors hover:bg-green-700"
             >
-              {t("تحدث معنا على واتساب الآن", "Chat with us on WhatsApp")}
+              {t(`تحدث معنا على واتساب · ${CONTACT.whatsapp}`, `Chat on WhatsApp · ${CONTACT.whatsapp}`)}
             </a>
           </div>
 
