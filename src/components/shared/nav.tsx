@@ -6,7 +6,14 @@ import { LogoutButton } from "./logout-button";
 
 type Role = "student" | "teacher" | "admin";
 
-const LINKS: Record<Role, { href: string; ar: string; en: string }[]> = {
+interface NavLink {
+  href: string;
+  ar: string;
+  en: string;
+  separator?: boolean;
+}
+
+const LINKS: Record<Role, NavLink[]> = {
   student: [
     { href: "/student/dashboard", ar: "لوحتي", en: "Dashboard" },
     { href: "/student/teachers", ar: "المعلمون", en: "Teachers" },
@@ -25,14 +32,14 @@ const LINKS: Record<Role, { href: string; ar: string; en: string }[]> = {
   ],
   admin: [
     { href: "/admin/dashboard", ar: "لوحة الإدارة", en: "Dashboard" },
-    { href: "/admin/users", ar: "المستخدمون", en: "Users" },
+    { href: "/admin/users", ar: "المستخدمون", en: "Users", separator: true },
     { href: "/admin/teachers", ar: "المعلمون", en: "Teachers" },
-    { href: "/admin/bookings", ar: "الحجوزات", en: "Bookings" },
+    { href: "/admin/bookings", ar: "الحجوزات", en: "Bookings", separator: true },
     { href: "/admin/sessions", ar: "الجلسات", en: "Sessions" },
-    { href: "/admin/payments", ar: "المالية", en: "Payments" },
-    { href: "/admin/reviews", ar: "التقييمات", en: "Reviews" },
+    { href: "/admin/payments", ar: "المالية", en: "Payments", separator: true },
+    { href: "/admin/reviews", ar: "التقييمات", en: "Reviews", separator: true },
     { href: "/admin/blog", ar: "المدونة", en: "Blog" },
-    { href: "/admin/settings", ar: "الإعدادات", en: "Settings" },
+    { href: "/admin/settings", ar: "الإعدادات", en: "Settings", separator: true },
   ],
 };
 
@@ -57,20 +64,24 @@ export function Nav({ role }: { role: Role }) {
           {LINKS[role].map((link) => {
             const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`shrink-0 rounded-full px-4 py-1.5 text-sm transition-all focus-ring ${
-                  active
-                    ? "bg-primary/20 font-medium text-foreground"
-                    : "text-muted hover:bg-background hover:text-foreground"
-                }`}
-              >
-                {link.ar}
-                <span className="mr-1 hidden text-xs opacity-50 sm:inline">
-                  {link.en}
-                </span>
-              </Link>
+              <span key={link.href} className="flex items-center">
+                {link.separator && (
+                  <div className="h-4 w-px bg-card-border mx-1" />
+                )}
+                <Link
+                  href={link.href}
+                  className={`shrink-0 rounded-full px-4 py-1.5 text-sm transition-all focus-ring ${
+                    active
+                      ? "bg-primary/20 font-medium text-foreground"
+                      : "text-muted hover:bg-background hover:text-foreground"
+                  }`}
+                >
+                  {link.ar}
+                  <span className="mr-1 hidden text-xs opacity-50 sm:inline">
+                    {link.en}
+                  </span>
+                </Link>
+              </span>
             );
           })}
         </div>
