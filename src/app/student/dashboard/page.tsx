@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { BookOpen, Calendar, CheckCircle, Clock, Search, Users, Video } from "lucide-react";
+import { Calendar, CheckCircle, Clock, Search, Star, TrendingUp, Video } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { SESSION_TYPE_AR, STATUS_STYLE } from "@/lib/constants";
+import { SESSION_TYPE_AR } from "@/lib/constants";
 import type { BookingStatus, SessionType } from "@/types/database";
 
 export const metadata: Metadata = { title: "لوحتي" };
@@ -15,7 +15,7 @@ export default async function StudentDashboardPage() {
 
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
 
-  const [profileRes, nextBookingRes, totalRes, monthRes, pendingRes, teacherSessionsRes, recentRes] = await Promise.all([
+  const [profileRes, nextBookingRes, totalRes, monthRes, pendingRes, recentRes] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", user.id).single<{ full_name: string | null }>(),
     supabase.from("bookings")
       .select("id, teacher_id, scheduled_at, duration_min, session_type, status")
@@ -26,7 +26,6 @@ export default async function StudentDashboardPage() {
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("student_id", user.id).eq("status", "completed"),
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("student_id", user.id).eq("status", "completed").gte("created_at", monthStart),
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("student_id", user.id).eq("status", "pending"),
-    supabase.from("bookings").select("teacher_id").eq("student_id", user.id).eq("status", "completed").returns<{ teacher_id: string }[]>(),
     supabase.from("bookings")
       .select("id, teacher_id, scheduled_at, duration_min, session_type")
       .eq("student_id", user.id).eq("status", "completed")
@@ -39,7 +38,6 @@ export default async function StudentDashboardPage() {
   const totalSessions = totalRes.count ?? 0;
   const monthSessions = monthRes.count ?? 0;
   const pendingBookings = pendingRes.count ?? 0;
-  const uniqueTeachers = new Set((teacherSessionsRes.data ?? []).map(s => s.teacher_id)).size;
   const recent = recentRes.data ?? [];
 
   // Fetch teacher names for next booking + recent
@@ -82,7 +80,7 @@ export default async function StudentDashboardPage() {
         {/* Next Session Widget */}
         {nextBooking ? (
           <div className="mt-8 rounded-2xl border border-gold/30 bg-card p-8">
-            <p className="mb-2 text-sm font-bold text-gold">🌟 جلستك القادمة</p>
+            <p className="mb-2 text-sm font-bold text-gold"><Star size={14} className="inline text-gold" /> جلستك القادمة</p>
             <p className="text-lg font-bold">مع {nameMap[nextBooking.teacher_id] ?? "معلم"}</p>
             <p className="mt-1 text-sm text-muted">
               {SESSION_TYPE_AR[nextBooking.session_type]} · {nextBooking.duration_min} دقيقة
@@ -102,8 +100,11 @@ export default async function StudentDashboardPage() {
                   <Video size={16} /> انضم للجلسة
                 </a>
               )}
-              <Link href="/student/bookings" className="rounded-lg border border-card-border px-4 py-2.5 text-sm text-muted transition-colors hover:border-gold/40 hover:text-gold">
-                إعادة جدولة
+              {!canJoin && roomUrl && (
+                <p className="mt-2 text-xs text-muted">ينشط قبل ١٥ دقيقة من الجلسة</p>
+              )}
+              <Link href={`/student/sessions`} className="rounded-lg border border-card-border px-4 py-2.5 text-sm text-muted transition-colors hover:border-gold/40 hover:text-gold">
+                تفاصيل الحجز
               </Link>
             </div>
           </div>
@@ -124,7 +125,6 @@ export default async function StudentDashboardPage() {
             { v: totalSessions, l: "إجمالي الجلسات", icon: CheckCircle },
             { v: monthSessions, l: "جلسات هذا الشهر", icon: Calendar },
             { v: pendingBookings, l: "حجوزات معلّقة", icon: Clock },
-            { v: uniqueTeachers, l: "معلمون", icon: Users },
           ].map(s => (
             <div key={s.l} className="rounded-xl border border-card-border bg-card p-4">
               <s.icon size={16} className="mb-1 text-gold" />
@@ -132,6 +132,11 @@ export default async function StudentDashboardPage() {
               <p className="text-xs text-muted">{s.l}</p>
             </div>
           ))}
+          <Link href="/student/progress" className="rounded-xl border border-gold/20 bg-gold/5 p-4 transition-colors hover:border-gold/40">
+            <TrendingUp size={16} className="mb-1 text-gold" />
+            <p className="text-sm font-bold text-gold">تقدمي</p>
+            <p className="text-xs text-muted">عرض رحلتي مع القرآن</p>
+          </Link>
         </div>
 
         {/* Recent Sessions */}
@@ -143,14 +148,15 @@ export default async function StudentDashboardPage() {
             </div>
             <div className="space-y-2">
               {recent.map(r => (
-                <div key={r.id} className="flex items-center gap-3 rounded-lg border border-card-border bg-card px-4 py-3">
+                <Link key={r.id} href="/student/sessions" className="flex items-center gap-3 rounded-lg border border-card-border bg-card px-4 py-3 transition-colors hover:border-gold/30">
                   <CheckCircle size={16} className="shrink-0 text-gold" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{nameMap[r.teacher_id] ?? "معلم"}</p>
                     <p className="text-xs text-muted">{SESSION_TYPE_AR[r.session_type]} · {r.duration_min} د</p>
                   </div>
                   <p className="text-xs text-muted">{new Date(r.scheduled_at).toLocaleDateString("ar-SA")}</p>
-                </div>
+                  <span className="text-xs text-gold">←</span>
+                </Link>
               ))}
             </div>
           </div>

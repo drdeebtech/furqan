@@ -18,9 +18,7 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/student/dashboard", ar: "لوحتي", en: "Dashboard" },
     { href: "/student/teachers", ar: "المعلمون", en: "Teachers" },
     { href: "/student/bookings", ar: "حجوزاتي", en: "Bookings" },
-    { href: "/student/sessions", ar: "جلساتي", en: "Sessions" },
     { href: "/student/progress", ar: "تقدمي", en: "Progress" },
-    { href: "/student/notes", ar: "الملاحظات", en: "Notes" },
     { href: "/student/messages", ar: "الرسائل", en: "Messages" },
   ],
   teacher: [
