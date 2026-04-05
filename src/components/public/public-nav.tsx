@@ -14,7 +14,6 @@ const NAV_LINKS = [
   { href: "/about", ar: "من نحن", en: "About" },
   { href: "/services", ar: "خدماتنا", en: "Services" },
   { href: "/packages", ar: "باقاتنا", en: "Packages" },
-  { href: "/teachers-page", ar: "المعلمون", en: "Teachers" },
   { href: "/blog", ar: "المدونة", en: "Blog" },
   { href: "/contact", ar: "اتصل بنا", en: "Contact" },
 ];

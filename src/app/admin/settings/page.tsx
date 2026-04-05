@@ -80,6 +80,12 @@ export default async function AdminSettingsPage() {
             description="إخفاء الأسعار من الصفحات العامة"
             initialValue={settingsMap["hide_prices"] === "true"}
           />
+          <FeatureToggle
+            settingKey="hide_teachers_page"
+            label="إخفاء صفحة المعلمين"
+            description="إخفاء صفحة المعلمين من القائمة العامة (الصفحة لا تزال متاحة بالرابط المباشر)"
+            initialValue={settingsMap["hide_teachers_page"] === "true"}
+          />
         </div>
       </div>
 
