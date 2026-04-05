@@ -3,13 +3,18 @@
 import { useState } from "react";
 import { CheckCircle, Save } from "lucide-react";
 import { savePostSessionNotes } from "./actions";
+import { EvalForm } from "@/app/teacher/students/[studentId]/eval-form";
 
 export function PostSessionForm({
   sessionId,
+  studentId,
+  studentName,
   existingNotes,
   existingHomework,
 }: {
   sessionId: string;
+  studentId: string;
+  studentName: string;
   existingNotes: string | null;
   existingHomework: string | null;
 }) {
@@ -95,6 +100,12 @@ export function PostSessionForm({
           </>
         )}
       </button>
+
+      {/* Quick Evaluation */}
+      <div className="border-t border-card-border pt-6">
+        <p className="mb-3 text-sm text-muted">هل تريد تقييم الطالب بعد هذه الجلسة؟</p>
+        <EvalForm studentId={studentId} studentName={studentName} compact />
+      </div>
     </div>
   );
 }

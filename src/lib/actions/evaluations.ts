@@ -62,6 +62,59 @@ export async function createEvaluation(formData: FormData) {
   return { success: true };
 }
 
+// Teacher-friendly version: takes direct params, allows teacher role
+export async function createTeacherEvaluation(
+  studentId: string,
+  evaluationType: string,
+  periodStart: string,
+  periodEnd: string,
+  scores: { hifz?: number; tajweed?: number; akhlaq?: number; attendance?: number; overall: number },
+  text: { strengths?: string | null; weaknesses?: string | null; recommendations?: string | null },
+) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "غير مصرح" };
+
+  const { data: profile } = await supabase
+    .from("profiles").select("role").eq("id", user.id)
+    .single<{ role: string }>();
+  if (!profile || !["admin", "moderator", "teacher"].includes(profile.role)) {
+    return { error: "ليس لديك صلاحية" };
+  }
+
+  const { error } = await supabase.from("session_evaluations").insert({
+    student_id: studentId,
+    teacher_id: user.id,
+    evaluator_id: user.id,
+    evaluation_type: evaluationType,
+    period_start: periodStart,
+    period_end: periodEnd,
+    hifz_score: scores.hifz ?? null,
+    tajweed_score: scores.tajweed ?? null,
+    akhlaq_score: scores.akhlaq ?? null,
+    attendance_score: scores.attendance ?? null,
+    overall_score: scores.overall,
+    strengths: text.strengths ?? null,
+    weaknesses: text.weaknesses ?? null,
+    recommendations: text.recommendations ?? null,
+  } as never);
+
+  if (error) return { error: "فشل إنشاء التقييم" };
+
+  try {
+    await supabase.from("notifications").insert({
+      user_id: studentId, type: "system",
+      title: "تقييم جديد من معلمك",
+      body: "أضاف معلمك تقييماً جديداً — يمكنك الاطلاع عليه من صفحة التقييمات",
+      channel: ["in_app"],
+    } as never);
+  } catch { /* non-blocking */ }
+
+  revalidatePath("/teacher/evaluations");
+  revalidatePath("/teacher/students");
+  return { success: true };
+}
+
 export async function updateEvaluation(evaluationId: string, formData: FormData) {
   const supabase = await createClient();
   await requireAdminOrMod(supabase);

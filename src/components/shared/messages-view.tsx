@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { MessageCircle, Send, Inbox } from "lucide-react";
+import { MessageCircle, Send, Inbox, Plus } from "lucide-react";
 import { sendMessage, getMessages } from "./message-actions";
+import { createConversation, getContactsForRole } from "./messages-actions";
 
 interface Conversation {
   id: string;
@@ -20,8 +21,13 @@ interface Message {
   is_read: boolean;
 }
 
+interface Contact {
+  id: string;
+  name: string;
+}
+
 export function MessagesView({
-  conversations,
+  conversations: initialConvos,
   currentUserId,
   role,
 }: {
@@ -29,11 +35,15 @@ export function MessagesView({
   currentUserId: string;
   role: "student" | "teacher";
 }) {
-  const [activeConvo, setActiveConvo] = useState<string | null>(conversations[0]?.id ?? null);
+  const [conversations, setConversations] = useState(initialConvos);
+  const [activeConvo, setActiveConvo] = useState<string | null>(initialConvos[0]?.id ?? null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMsg, setNewMsg] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showNewConvo, setShowNewConvo] = useState(false);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const activeConvoData = conversations.find((c) => c.id === activeConvo);
@@ -55,7 +65,6 @@ export function MessagesView({
     e.preventDefault();
     if (!newMsg.trim() || !activeConvo) return;
     setSending(true);
-
     const result = await sendMessage(activeConvo, newMsg.trim());
     if (result.success) {
       setMessages((prev) => [
@@ -74,24 +83,84 @@ export function MessagesView({
     setSending(false);
   }
 
+  async function openNewConvoDialog() {
+    setShowNewConvo(true);
+    setLoadingContacts(true);
+    const c = await getContactsForRole(role);
+    // Filter out contacts who already have conversations
+    const existingIds = new Set(conversations.map(cv => cv.otherUserId));
+    setContacts(c.filter(contact => !existingIds.has(contact.id)));
+    setLoadingContacts(false);
+  }
+
+  async function startConversation(contact: Contact) {
+    const result = await createConversation(contact.id, role);
+    if (result.conversationId) {
+      // Add to conversations list and switch to it
+      const newConvo: Conversation = {
+        id: result.conversationId,
+        otherUserId: contact.id,
+        otherUserName: contact.name,
+        lastMessageAt: null,
+      };
+      setConversations(prev => [newConvo, ...prev]);
+      setActiveConvo(result.conversationId);
+      setShowNewConvo(false);
+    }
+  }
+
   return (
     <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold">
-        <MessageCircle size={24} className="text-gold" />
-        الرسائل
-      </h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="flex items-center gap-2 text-2xl font-bold">
+          <MessageCircle size={24} className="text-gold" />
+          الرسائل
+        </h1>
+        <button
+          onClick={openNewConvoDialog}
+          className="flex items-center gap-2 rounded-lg bg-gold px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-gold-hover"
+        >
+          <Plus size={16} />
+          محادثة جديدة
+        </button>
+      </div>
 
-      {conversations.length === 0 ? (
+      {/* New Conversation Dialog */}
+      {showNewConvo && (
+        <div className="mb-4 rounded-xl border border-gold/30 bg-card p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm font-bold text-gold">اختر {role === "teacher" ? "طالباً" : "معلماً"} لبدء محادثة</p>
+            <button onClick={() => setShowNewConvo(false)} className="text-xs text-muted hover:text-foreground">إغلاق</button>
+          </div>
+          {loadingContacts ? (
+            <p className="text-sm text-muted">جاري التحميل...</p>
+          ) : contacts.length === 0 ? (
+            <p className="text-sm text-muted">لديك محادثات مع جميع {role === "teacher" ? "طلابك" : "معلميك"} بالفعل</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {contacts.map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => startConversation(c)}
+                  className="rounded-lg border border-card-border bg-surface px-3 py-2 text-sm transition-colors hover:border-gold/40 hover:text-gold"
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {conversations.length === 0 && !showNewConvo ? (
         <div className="rounded-xl border border-card-border bg-card p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-muted">لا توجد محادثات بعد</p>
           <p className="mt-1 text-sm text-muted">
-            {role === "student"
-              ? "ستُنشأ محادثة تلقائياً عند حجز جلسة مع معلم"
-              : "ستُنشأ محادثة تلقائياً عند تأكيد حجز طالب"}
+            اضغط &quot;محادثة جديدة&quot; لبدء التواصل
           </p>
         </div>
-      ) : (
+      ) : conversations.length > 0 && (
         <div className="flex gap-4 rounded-xl border border-card-border bg-card" style={{ height: "70vh" }}>
           {/* Conversations sidebar */}
           <div className="w-64 shrink-0 overflow-y-auto border-l border-card-border">
@@ -117,14 +186,12 @@ export function MessagesView({
 
           {/* Messages area */}
           <div className="flex flex-1 flex-col">
-            {/* Header */}
             {activeConvoData && (
               <div className="border-b border-card-border px-4 py-3">
                 <p className="font-medium">{activeConvoData.otherUserName}</p>
               </div>
             )}
 
-            {/* Messages */}
             <div className="flex-1 overflow-y-auto px-4 py-4">
               {loading ? (
                 <p className="py-8 text-center text-sm text-muted">جاري التحميل...</p>
@@ -152,7 +219,6 @@ export function MessagesView({
               )}
             </div>
 
-            {/* Input */}
             {activeConvo && (
               <form onSubmit={handleSend} className="border-t border-card-border px-4 py-3">
                 <div className="flex gap-2">

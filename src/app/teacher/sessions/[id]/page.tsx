@@ -106,6 +106,8 @@ export default async function TeacherSessionPage({ params }: Props) {
       {isCompleted ? (
         <PostSessionForm
           sessionId={session.id}
+          studentId={booking.student_id}
+          studentName={studentName}
           existingNotes={session.post_session_notes}
           existingHomework={session.homework}
         />

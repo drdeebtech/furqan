@@ -4,13 +4,15 @@ import { ArrowRight, Phone, Mail, User, BarChart3, AlertTriangle } from "lucide-
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import type { SessionType, StudentLevel } from "@/types/database";
+import { EvalForm } from "./eval-form";
+import { ResolveErrorButton } from "./resolve-error-button";
 
 interface Props { params: Promise<{ studentId: string }>; }
 
 interface BookingRow { id: string; scheduled_at: string; duration_min: number; session_type: SessionType; status: string; }
 interface SessionRow { booking_id: string; post_session_notes: string | null; homework: string | null; }
 interface ProgressRow { level: StudentLevel; quality_rating: number | null; teacher_notes: string | null; created_at: string; surah_from: number | null; surah_to: number | null; }
-interface ErrorRow { error_type: string; note: string | null; resolved: boolean; surah_num: number | null; ayah_num: number; }
+interface ErrorRow { id: string; error_type: string; note: string | null; resolved: boolean; surah_num: number | null; ayah_num: number; }
 interface ParentInfo { parent_name: string | null; parent_phone: string | null; parent_email: string | null; }
 
 const LEVEL_AR: Record<StudentLevel, string> = { beginner: "مبتدئ", intermediate: "متوسط", advanced: "متقدم" };
@@ -68,7 +70,7 @@ export default async function StudentDetailPage({ params }: Props) {
       .returns<{ id: string }[]>();
     if (progressIds && progressIds.length > 0) {
       const { data: errs } = await supabase.from("recitation_errors")
-        .select("error_type, note, resolved, surah_num, ayah_num")
+        .select("id, error_type, note, resolved, surah_num, ayah_num")
         .in("progress_id", progressIds.map(p => p.id))
         .eq("resolved", false)
         .returns<ErrorRow[]>();
@@ -126,6 +128,11 @@ export default async function StudentDetailPage({ params }: Props) {
         </div>
       </div>
 
+      {/* Evaluate Student */}
+      <div className="mb-6">
+        <EvalForm studentId={studentId} studentName={student.full_name ?? "الطالب"} />
+      </div>
+
       {/* Parent Contact */}
       {(student.parent_name || student.parent_phone || student.parent_email) && (
         <div className="mb-6 rounded-2xl border border-card-border bg-card p-6">
@@ -149,13 +156,14 @@ export default async function StudentDetailPage({ params }: Props) {
         <div className="mb-6 rounded-2xl border border-card-border bg-card p-6">
           <h2 className="mb-3 flex items-center gap-2 text-lg font-bold"><AlertTriangle size={18} className="text-amber-400" /> أخطاء التلاوة المعلقة</h2>
           <div className="space-y-2">
-            {errors.map((e, i) => (
-              <div key={i} className="flex items-center gap-3 rounded-lg border border-card-border bg-surface px-3 py-2 text-sm">
+            {errors.map((e) => (
+              <div key={e.id} className="flex items-center gap-3 rounded-lg border border-card-border bg-surface px-3 py-2 text-sm">
                 <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-400">
                   {ERROR_TYPE_AR[e.error_type] ?? e.error_type}
                 </span>
                 {e.surah_num && <span className="text-xs text-muted">سورة {e.surah_num} : آية {e.ayah_num}</span>}
-                {e.note && <span className="text-xs text-muted">{e.note}</span>}
+                {e.note && <span className="flex-1 text-xs text-muted">{e.note}</span>}
+                <ResolveErrorButton errorId={e.id} />
               </div>
             ))}
           </div>
