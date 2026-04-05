@@ -45,7 +45,6 @@ export function VideoRoom({
     setError(null);
 
     try {
-      // Fix #1: Get a scoped meeting token from the server
       const result = await generateSessionToken(sessionId);
       if (result.error) {
         setError(result.error);
@@ -68,32 +67,7 @@ export function VideoRoom({
 
       frameRef.current = frame;
 
-      frame.on("joined-meeting", () => {
-        setJoined(true);
-        setLoading(false);
-        // Set started_at for timer if not already set
-        if (!activeStartedAt) {
-          setActiveStartedAt(new Date().toISOString());
-        }
-        // Fix #7: Track join event
-        trackSessionEvent(sessionId, "joined");
-      });
-
-      frame.on("left-meeting", () => {
-        setJoined(false);
-        frame.destroy();
-        frameRef.current = null;
-        // Fix #7: Track leave event
-        trackSessionEvent(sessionId, "left");
-      });
-
-      frame.on("error", () => {
-        setError("حدث خطأ في الاتصال — حاول مرة أخرى");
-        setJoined(false);
-        setLoading(false);
-      });
-
-      // Join with token instead of raw URL — timeout after 30s
+      // Timeout after 30s
       const joinTimeout = setTimeout(() => {
         if (!frameRef.current) return;
         setError("انتهت مهلة الاتصال — حاول مرة أخرى");
@@ -102,8 +76,29 @@ export function VideoRoom({
         frameRef.current = null;
       }, 30000);
 
-      frame.on("joined-meeting", () => clearTimeout(joinTimeout));
-      frame.on("error", () => clearTimeout(joinTimeout));
+      frame.on("joined-meeting", () => {
+        clearTimeout(joinTimeout);
+        setJoined(true);
+        setLoading(false);
+        if (!activeStartedAt) {
+          setActiveStartedAt(new Date().toISOString());
+        }
+        trackSessionEvent(sessionId, "joined");
+      });
+
+      frame.on("left-meeting", () => {
+        setJoined(false);
+        frame.destroy();
+        frameRef.current = null;
+        trackSessionEvent(sessionId, "left");
+      });
+
+      frame.on("error", () => {
+        clearTimeout(joinTimeout);
+        setError("حدث خطأ في الاتصال — حاول مرة أخرى");
+        setJoined(false);
+        setLoading(false);
+      });
 
       await frame.join({ url: roomUrl, token: result.token, userName });
     } catch (e) {
@@ -122,7 +117,6 @@ export function VideoRoom({
     };
   }, []);
 
-  // Show appropriate message for expired/time-window issues
   if (isExpired) {
     return (
       <div className="rounded-2xl border border-error/30 bg-error/10 p-8 text-center">
@@ -134,7 +128,6 @@ export function VideoRoom({
       </div>
     );
   }
-
 
   return (
     <div>
@@ -165,19 +158,18 @@ export function VideoRoom({
         </div>
       )}
 
-      {/* Video container — visible during loading and when joined */}
-      <div className={`relative ${joined || loading ? "" : "h-0"}`}>
-        {loading && !joined && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-xl bg-card/80">
-            <span className="mb-4 block h-8 w-8 animate-spin rounded-full border-4 border-gold/30 border-t-gold" />
-            <p className="text-sm text-muted">جاري الاتصال...</p>
-          </div>
-        )}
-        <div
-          ref={containerRef}
-          className={`overflow-hidden rounded-xl ${joined || loading ? "aspect-video" : "h-0"}`}
-        />
-      </div>
+      {loading && !joined && (
+        <div className="text-center py-4">
+          <span className="mx-auto mb-2 block h-6 w-6 animate-spin rounded-full border-3 border-gold/30 border-t-gold" />
+          <p className="text-xs text-muted">جاري الاتصال...</p>
+        </div>
+      )}
+
+      {/* Video container — ALWAYS full size so Daily.co iframe can render */}
+      <div
+        ref={containerRef}
+        className={`overflow-hidden rounded-xl aspect-video ${!joined && !loading ? "hidden" : ""}`}
+      />
 
       {joined && (
         <div className="mt-4 flex items-center justify-between rounded-2xl border border-card-border bg-card elevation-2 p-3">
