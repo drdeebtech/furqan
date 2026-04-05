@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {
   Award,
   BookOpen,
   Calendar,
   CheckCircle,
   Globe,
+  GraduationCap,
+  Play,
   Shield,
   Star,
   TrendingUp,
@@ -22,99 +25,147 @@ export default function HomePage() {
 
   return (
     <div>
-      {/* ── HERO ── */}
-      <section className="relative overflow-hidden pb-20 pt-28">
-        <div className="gold-line absolute inset-x-0 top-0" />
-        <div className="pointer-events-none absolute left-1/2 top-1/3 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-gold/5 blur-3xl" />
+      {/* ══════════════════════════════════════════
+          HERO — Islamic pattern bg + radial glow
+          ══════════════════════════════════════════ */}
+      <section className="islamic-pattern relative min-h-[90vh] overflow-hidden pt-28 pb-24">
+        {/* Layered background effects */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/60 via-transparent to-background" />
+        <div className="pointer-events-none absolute left-1/2 top-1/4 h-[600px] w-[600px] -translate-x-1/2 rounded-full bg-gold/8 blur-[120px]" />
+        <div className="pointer-events-none absolute right-0 top-0 h-[300px] w-[300px] rounded-full bg-gold/5 blur-[80px]" />
 
-        <div className="relative mx-auto max-w-4xl px-6 text-center">
-          <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/10 px-4 py-1.5 text-sm text-gold">
-            {t("✦ أكاديمية القرآن الكريم عبر الإنترنت", "✦ Online Quran Learning Academy")}
+        <div className="relative mx-auto max-w-5xl px-6">
+          <div className="text-center">
+            {/* Badge */}
+            <div className="mb-8 inline-flex items-center gap-3 rounded-full border border-gold/30 bg-gold/10 px-5 py-2 text-sm">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-gold" />
+              <span className="text-gold">{t("✦ أكاديمية القرآن الكريم عبر الإنترنت", "✦ Online Quran Learning Academy")}</span>
+            </div>
+
+            {/* Logo */}
+            <div className="mb-6 flex justify-center">
+              <Image src="/logo-192.png" alt="فرقان" width={80} height={80} className="rounded-full border-2 border-gold/30" priority />
+            </div>
+
+            {/* Heading */}
+            <h1 className="font-display text-5xl font-bold leading-[1.15] md:text-7xl lg:text-8xl">
+              {t("تعلّم", "Learn")}{" "}
+              <span className="text-gold">{t("القرآن", "Quran")}</span>
+              <br />
+              {t("مع أمهر المعلمين", "With Expert Teachers")}
+            </h1>
+
+            {/* Subtitle */}
+            <p className="mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-muted md:text-xl">
+              {t(
+                "معلمون حاصلون على الإجازة · جلسات فيديو مباشرة · جدول يناسبك · من أي مكان في العالم",
+                "Certified teachers with Ijazah · Live video sessions · Flexible schedule · From anywhere in the world",
+              )}
+            </p>
+
+            {/* CTA buttons — large, prominent */}
+            <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+              <Link
+                href="/contact"
+                className="flex items-center gap-2 rounded-xl bg-gold px-10 py-4 text-lg font-bold text-background transition-all hover:bg-gold-hover hover:shadow-lg hover:shadow-gold/20"
+              >
+                <Play size={20} />
+                {t("احجز جلسة تجريبية مجانية", "Book a Free Trial Session")}
+              </Link>
+              <Link
+                href="/services"
+                className="rounded-xl border-2 border-card-border px-8 py-4 text-lg text-muted transition-colors hover:border-gold/40 hover:text-gold"
+              >
+                {t("تعرف على خدماتنا", "Explore Our Services")}
+              </Link>
+            </div>
+
+            {/* Trust micro-copy */}
+            <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm text-muted">
+              <span className="flex items-center gap-1"><CheckCircle size={14} className="text-gold" /> {t("مجاني للبدء", "Free to start")}</span>
+              <span className="flex items-center gap-1"><CheckCircle size={14} className="text-gold" /> {t("بدون بطاقة ائتمان", "No credit card")}</span>
+              <span className="flex items-center gap-1"><CheckCircle size={14} className="text-gold" /> {t("إلغاء في أي وقت", "Cancel anytime")}</span>
+            </div>
           </div>
 
-          <h1 className="font-display text-5xl font-bold leading-[1.2] md:text-7xl">
-            {t("تعلّم", "Learn")}{" "}
-            <span className="text-gold">{t("القرآن", "Quran")}</span>
-            <br />
-            {t("مع أمهر المعلمين", "With Expert Teachers")}
-          </h1>
-
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-muted">
-            {t(
-              "معلمون حاصلون على الإجازة · جلسات فيديو مباشرة · جدول يناسبك · من أي مكان في العالم",
-              "Certified teachers with Ijazah · Live video sessions · Flexible schedule · From anywhere in the world",
-            )}
-          </p>
-
-          <div className="mt-10 flex flex-wrap justify-center gap-4">
-            <Link href="/contact" className="rounded border border-gold bg-gold px-8 py-3.5 font-semibold text-background transition-colors hover:bg-gold-hover">
-              {t("احجز جلسة تجريبية مجانية", "Book a Free Trial Session")}
-            </Link>
-            <Link href="/services" className="rounded border border-card-border px-8 py-3.5 text-muted transition-colors hover:border-gold/40 hover:text-gold">
-              {t("تعرف على خدماتنا", "Explore Our Services")}
-            </Link>
-          </div>
-
-          <p className="mt-6 text-sm text-muted">
-            {t("✓ مجاني للبدء · ✓ بدون بطاقة ائتمان · ✓ إلغاء في أي وقت", "✓ Free to start · ✓ No credit card · ✓ Cancel anytime")}
-          </p>
-
-          <div className="mx-auto mt-14 grid max-w-lg grid-cols-3 gap-4">
+          {/* ── STATS — with gold shimmer effect ── */}
+          <div className="mt-16 grid grid-cols-3 gap-4 md:gap-6">
             {[
-              { num: t("١٥K+", "15K+"), label: t("طالب مسجل", "Students") },
-              { num: t("٩٨٪", "98%"), label: t("رضا الطلاب", "Satisfaction") },
-              { num: t("٥٠+", "50+"), label: t("معلم معتمد", "Certified Teachers") },
+              { num: t("١٥,٠٠٠+", "15,000+"), label: t("طالب مسجل", "Registered Students"), icon: Users },
+              { num: t("٩٨٪", "98%"), label: t("رضا الطلاب", "Student Satisfaction"), icon: Star },
+              { num: t("٥٠+", "50+"), label: t("معلم معتمد", "Certified Teachers"), icon: GraduationCap },
             ].map((s) => (
-              <div key={s.label} className="rounded-xl border border-card-border bg-card p-4">
-                <p className="font-display text-2xl font-bold text-gold">{s.num}</p>
-                <p className="text-xs text-muted">{s.label}</p>
+              <div key={s.label} className="rounded-2xl border border-gold/20 bg-card/80 p-6 text-center backdrop-blur-sm">
+                <s.icon size={24} className="mx-auto mb-2 text-gold" />
+                <p className="stat-shimmer text-3xl font-bold md:text-4xl">{s.num}</p>
+                <p className="mt-1 text-sm text-muted">{s.label}</p>
               </div>
             ))}
           </div>
         </div>
+
+        {/* Bottom fade into next section */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent" />
       </section>
 
-      {/* ── 3 STEPS ── */}
-      <section className="border-t border-card-border py-24">
-        <div className="mx-auto max-w-7xl px-6">
-          <p className="text-sm font-medium tracking-widest text-gold">❖ {t("كيف يعمل", "How It Works")}</p>
-          <h2 className="font-display mt-3 text-4xl font-bold">{t("ابدأ في ٣ خطوات بسيطة", "Start in 3 Simple Steps")}</h2>
+      {/* ── ORNAMENTAL DIVIDER ── */}
+      <div className="ornament-divider py-4">
+        <span className="text-gold/40">✦</span>
+      </div>
 
-          <div className="mt-16 grid gap-px overflow-hidden rounded-xl border border-card-border md:grid-cols-3">
+      {/* ══════════════════════════════════════════
+          HOW IT WORKS — alternating bg
+          ══════════════════════════════════════════ */}
+      <section className="section-light py-24">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="text-center">
+            <p className="text-sm font-medium tracking-widest text-gold">❖ {t("كيف يعمل", "How It Works")}</p>
+            <h2 className="font-display mt-3 text-4xl font-bold">{t("ابدأ في ٣ خطوات بسيطة", "Start in 3 Simple Steps")}</h2>
+          </div>
+
+          <div className="mt-16 grid gap-8 md:grid-cols-3">
             {[
-              { icon: Users, title: t("سجّل حسابك", "Create Account"), desc: t("أنشئ حسابك المجاني واحجز جلسة تجريبية بدون بطاقة ائتمان.", "Create your free account and book a trial session — no credit card needed.") },
-              { icon: Calendar, title: t("اختر معلمك", "Choose Teacher"), desc: t("تصفح المعلمين المعتمدين واختر الأنسب لمستواك وأهدافك.", "Browse certified teachers and pick the best match for your level and goals.") },
-              { icon: Video, title: t("ابدأ التعلم", "Start Learning"), desc: t("انضم لجلستك عبر الفيديو المدمج وتابع تقدمك في الحفظ.", "Join your session via built-in video and track your memorization progress.") },
-            ].map((s, i) => (
-              <div key={i} className="bg-card p-8 md:border-l md:border-card-border md:first:border-l-0">
-                <s.icon size={28} className="mb-4 text-gold" />
-                <h3 className="text-lg font-bold">{s.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted">{s.desc}</p>
+              { num: "01", icon: Users, ar: "سجّل حسابك", en: "Create Account", dAr: "أنشئ حسابك المجاني واحجز جلسة تجريبية بدون بطاقة ائتمان.", dEn: "Create your free account and book a trial session — no credit card needed." },
+              { num: "02", icon: Calendar, ar: "اختر معلمك", en: "Choose Teacher", dAr: "تصفح المعلمين المعتمدين واختر الأنسب لمستواك وأهدافك.", dEn: "Browse certified teachers and pick the best match for your level and goals." },
+              { num: "03", icon: Video, ar: "ابدأ التعلم", en: "Start Learning", dAr: "انضم لجلستك عبر الفيديو المدمج وتابع تقدمك في الحفظ.", dEn: "Join your session via built-in video and track your memorization progress." },
+            ].map((step) => (
+              <div key={step.num} className="group relative rounded-2xl border border-card-border bg-card p-8 transition-all hover:border-gold/30 hover:shadow-lg hover:shadow-gold/5">
+                <span className="absolute -top-4 right-6 rounded-full bg-gold px-3 py-1 text-sm font-bold text-background">{step.num}</span>
+                <step.icon size={32} className="mb-4 text-gold transition-transform group-hover:scale-110" />
+                <h3 className="text-lg font-bold">{t(step.ar, step.en)}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted">{t(step.dAr, step.dEn)}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── WHY FURQAN ── */}
-      <section className="border-t border-card-border bg-card/30 py-24">
-        <div className="mx-auto max-w-7xl px-6">
-          <p className="text-sm font-medium tracking-widest text-gold">❖ {t("لماذا فرقان", "Why FURQAN")}</p>
-          <h2 className="font-display mt-3 text-4xl font-bold">{t("لماذا تختار فرقان؟", "Why Choose FURQAN?")}</h2>
+      {/* ══════════════════════════════════════════
+          WHY FURQAN — warm accent background
+          ══════════════════════════════════════════ */}
+      <section className="section-accent islamic-pattern relative py-24">
+        <div className="pointer-events-none absolute inset-0 bg-background/80" />
+        <div className="relative mx-auto max-w-7xl px-6">
+          <div className="text-center">
+            <p className="text-sm font-medium tracking-widest text-gold">❖ {t("لماذا فرقان", "Why FURQAN")}</p>
+            <h2 className="font-display mt-3 text-4xl font-bold">{t("لماذا تختار فرقان؟", "Why Choose FURQAN?")}</h2>
+          </div>
 
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { icon: Shield, ar: "معلمون معتمدون بالإجازة", en: "Certified Teachers with Ijazah", dAr: "جميع معلمينا حاصلون على إجازة من كبار العلماء", dEn: "All our teachers hold Ijazah from senior scholars" },
-              { icon: Video, ar: "جلسات فيديو مدمجة", en: "Built-in Video Sessions", dAr: "لا حاجة لزوم أو سكايب — الفيديو مدمج في المنصة", dEn: "No Zoom or Skype needed — video is built into the platform" },
+              { icon: Shield, ar: "معلمون معتمدون بالإجازة", en: "Certified with Ijazah", dAr: "جميع معلمينا حاصلون على إجازة من كبار العلماء", dEn: "All teachers hold Ijazah from senior scholars" },
+              { icon: Video, ar: "جلسات فيديو مدمجة", en: "Built-in Video", dAr: "لا حاجة لزوم أو سكايب — الفيديو مدمج في المنصة", dEn: "No Zoom or Skype — video is built into the platform" },
               { icon: Calendar, ar: "جدول مرن يناسبك", en: "Flexible Schedule", dAr: "احجز في أي وقت — صباحاً أو مساءً، ٧ أيام", dEn: "Book any time — morning or evening, 7 days a week" },
               { icon: Users, ar: "جلسات فردية ١:١", en: "1-on-1 Sessions", dAr: "كل طالب يحصل على اهتمام كامل من معلمه", dEn: "Every student gets full attention from their teacher" },
-              { icon: Star, ar: "معلمات للأخوات والأطفال", en: "Female Teachers Available", dAr: "متاح معلمات متخصصات في بيئة آمنة", dEn: "Female teachers available for sisters and children" },
-              { icon: TrendingUp, ar: "تتبع تقدمك", en: "Track Your Progress", dAr: "لوحة تحكم تعرض تقدمك في الحفظ والجلسات", dEn: "Dashboard showing your memorization and session progress" },
-              { icon: Globe, ar: "يخدم ٥٠+ دولة", en: "Serving 50+ Countries", dAr: "طلابنا في أمريكا وأوروبا والخليج وأستراليا", dEn: "Students in USA, Europe, Gulf, Australia and more" },
-              { icon: Award, ar: "جلسة تجريبية مجانية", en: "Free Trial Session", dAr: "ابدأ بجلسة مجانية بدون أي التزام", dEn: "Start with a free session — no commitment required" },
+              { icon: Star, ar: "معلمات للأخوات والأطفال", en: "Female Teachers", dAr: "متاح معلمات متخصصات في بيئة آمنة", dEn: "Female teachers available for sisters and children" },
+              { icon: TrendingUp, ar: "تتبع تقدمك", en: "Track Progress", dAr: "لوحة تحكم تعرض تقدمك في الحفظ والجلسات", dEn: "Dashboard showing your memorization progress" },
+              { icon: Globe, ar: "يخدم ٥٠+ دولة", en: "50+ Countries", dAr: "طلابنا في أمريكا وأوروبا والخليج وأستراليا", dEn: "Students in USA, Europe, Gulf, Australia" },
+              { icon: Award, ar: "جلسة تجريبية مجانية", en: "Free Trial", dAr: "ابدأ بجلسة مجانية بدون أي التزام", dEn: "Start with a free session — no commitment" },
             ].map((f) => (
-              <div key={f.en} className="rounded-xl border border-card-border bg-surface p-5 transition-colors hover:border-gold/30">
-                <f.icon size={22} className="mb-3 text-gold" />
+              <div key={f.en} className="rounded-xl border border-card-border bg-card/90 p-5 backdrop-blur-sm transition-all hover:border-gold/30 hover:-translate-y-1">
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gold/10">
+                  <f.icon size={20} className="text-gold" />
+                </div>
                 <h3 className="text-sm font-bold">{t(f.ar, f.en)}</h3>
                 <p className="mt-1 text-xs leading-relaxed text-muted">{t(f.dAr, f.dEn)}</p>
               </div>
@@ -123,24 +174,34 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── COURSES ── */}
-      <section className="border-t border-card-border py-24">
+      {/* ── ORNAMENTAL DIVIDER ── */}
+      <div className="ornament-divider py-4">
+        <span className="text-gold/40">✦</span>
+      </div>
+
+      {/* ══════════════════════════════════════════
+          COURSES — clean section
+          ══════════════════════════════════════════ */}
+      <section className="py-24">
         <div className="mx-auto max-w-7xl px-6">
           <p className="text-sm font-medium tracking-widest text-gold">❖ {t("التخصصات", "Courses")}</p>
           <h2 className="font-display mt-3 text-4xl font-bold">{t("ما نُعلّمه في فرقان", "What We Teach at FURQAN")}</h2>
 
           <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-3">
             {[
-              { ar: "حفظ القرآن", en: "Quran Memorization", dAr: "احفظ كتاب الله مع معلم متخصص بمنهج تدريجي", dEn: "Memorize the Quran with a specialist teacher using a gradual method" },
-              { ar: "التجويد", en: "Tajweed", dAr: "أتقن أحكام التلاوة بأسلوب علمي ممنهج", dEn: "Master the rules of recitation with a structured scientific approach" },
-              { ar: "المراجعة", en: "Revision", dAr: "راجع محفوظاتك مع معلم يتابع تقدمك", dEn: "Review your memorization with a teacher who tracks your progress" },
-              { ar: "التلاوة", en: "Recitation", dAr: "حسّن أداءك مع شيخ متخصص في المقامات", dEn: "Improve your recitation with a specialized sheikh" },
-              { ar: "القراءات", en: "Qira'at", dAr: "تعلّم روايات حفص وورش وقالون والدوري", dEn: "Learn the readings of Hafs, Warsh, Qalun and Al-Duri" },
-              { ar: "التفسير", en: "Tafsir", dAr: "افهم معاني القرآن وتدبّر آياته", dEn: "Understand the meanings of the Quran and reflect on its verses" },
+              { ar: "حفظ القرآن", en: "Quran Memorization", dAr: "احفظ كتاب الله مع معلم متخصص بمنهج تدريجي", dEn: "Memorize the Quran with a specialist teacher", icon: BookOpen },
+              { ar: "التجويد", en: "Tajweed", dAr: "أتقن أحكام التلاوة بأسلوب علمي ممنهج", dEn: "Master recitation rules with a structured approach", icon: CheckCircle },
+              { ar: "المراجعة", en: "Revision", dAr: "راجع محفوظاتك مع معلم يتابع تقدمك", dEn: "Review memorization with progress tracking", icon: TrendingUp },
+              { ar: "التلاوة", en: "Recitation", dAr: "حسّن أداءك مع شيخ متخصص في المقامات", dEn: "Improve recitation with a specialized sheikh", icon: Star },
+              { ar: "القراءات", en: "Qira'at", dAr: "تعلّم روايات حفص وورش وقالون والدوري", dEn: "Learn readings: Hafs, Warsh, Qalun, Al-Duri", icon: Globe },
+              { ar: "التفسير", en: "Tafsir", dAr: "افهم معاني القرآن وتدبّر آياته", dEn: "Understand Quran meanings and reflect", icon: Award },
             ].map((c) => (
-              <Link key={c.en} href="/services" className="rounded-xl border border-card-border bg-card p-5 transition-colors hover:border-gold/30">
+              <Link key={c.en} href="/services" className="group rounded-xl border border-card-border bg-card p-6 transition-all hover:border-gold/30 hover:shadow-lg hover:shadow-gold/5">
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gold/10 transition-colors group-hover:bg-gold/20">
+                  <c.icon size={20} className="text-gold" />
+                </div>
                 <h3 className="font-bold text-gold">{t(c.ar, c.en)}</h3>
-                <p className="mt-2 text-xs text-muted">{t(c.dAr, c.dEn)}</p>
+                <p className="mt-2 text-xs leading-relaxed text-muted">{t(c.dAr, c.dEn)}</p>
               </Link>
             ))}
           </div>
@@ -153,29 +214,54 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── TESTIMONIALS ── */}
-      <div className="border-t border-card-border">
+      {/* ══════════════════════════════════════════
+          TRUST BADGES — certification bar
+          ══════════════════════════════════════════ */}
+      <section className="border-y border-gold/10 bg-gold/5 py-8">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-8 px-6">
+          {[
+            { icon: GraduationCap, ar: "خريجو جامعة الأزهر", en: "Al-Azhar Graduates" },
+            { icon: Shield, ar: "إجازة في رواية حفص", en: "Hafs Ijazah Certified" },
+            { icon: Globe, ar: "طلاب من ٥٠+ دولة", en: "Students from 50+ Countries" },
+            { icon: Award, ar: "جلسة تجريبية مجانية", en: "Free Trial Session" },
+          ].map((b) => (
+            <div key={b.en} className="flex items-center gap-2 text-sm">
+              <b.icon size={18} className="text-gold" />
+              <span className="text-foreground">{t(b.ar, b.en)}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════
+          TESTIMONIALS — with pattern bg
+          ══════════════════════════════════════════ */}
+      <div className="section-light">
         <Testimonials />
       </div>
 
-      {/* ── PACKAGES PREVIEW ── */}
-      <section className="border-t border-card-border py-24">
+      {/* ══════════════════════════════════════════
+          PACKAGES PREVIEW
+          ══════════════════════════════════════════ */}
+      <section className="py-24">
         <div className="mx-auto max-w-5xl px-6">
-          <p className="text-sm font-medium tracking-widest text-gold">❖ {t("الباقات", "Packages")}</p>
-          <h2 className="font-display mt-3 text-4xl font-bold">{t("باقاتنا", "Our Packages")}</h2>
+          <div className="text-center">
+            <p className="text-sm font-medium tracking-widest text-gold">❖ {t("الباقات", "Packages")}</p>
+            <h2 className="font-display mt-3 text-4xl font-bold">{t("باقاتنا", "Our Packages")}</h2>
+          </div>
 
-          <div className="mt-12 grid gap-4 md:grid-cols-3">
+          <div className="mt-12 grid gap-6 md:grid-cols-3">
             {[
               { ar: "الباقة الأساسية", en: "Starter", price: "$40", freq: t("٢ أيام/أسبوع", "2 days/week") },
               { ar: "الباقة المتقدمة", en: "Premium", price: "$65", freq: t("٥ أيام/أسبوع", "5 days/week"), featured: true },
               { ar: "باقة نهاية الأسبوع", en: "Weekend", price: "$60", freq: t("السبت والأحد", "Sat & Sun") },
             ].map((p) => (
-              <div key={p.en} className={`rounded-2xl p-6 ${p.featured ? "border-2 border-gold bg-card" : "border border-card-border bg-card"}`}>
+              <div key={p.en} className={`rounded-2xl p-6 transition-all hover:-translate-y-1 ${p.featured ? "border-2 border-gold bg-card shadow-lg shadow-gold/10" : "border border-card-border bg-card"}`}>
                 {p.featured && <span className="mb-3 inline-block rounded-full bg-gold px-3 py-1 text-xs font-bold text-background">{t("الأكثر طلباً", "Most Popular")}</span>}
                 <h3 className="text-lg font-bold">{t(p.ar, p.en)}</h3>
                 <p className="font-display mt-2 text-3xl font-bold text-gold">{p.price}<span className="text-sm font-normal text-muted">{t("/شهر", "/mo")}</span></p>
                 <p className="mt-1 text-xs text-muted">{p.freq}</p>
-                <Link href="/packages" className="mt-4 block rounded border border-gold bg-gold/10 py-2 text-center text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background">
+                <Link href="/packages" className="mt-4 block rounded-lg border border-gold bg-gold/10 py-2.5 text-center text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background">
                   {t("التفاصيل", "View Details")}
                 </Link>
               </div>
@@ -190,6 +276,7 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── FINAL CTA ── */}
       <FreeTrialBanner />
     </div>
   );
