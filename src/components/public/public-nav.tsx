@@ -7,13 +7,19 @@ import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { LangToggle } from "@/lib/i18n/lang-toggle";
+import { useFeatureFlags } from "@/lib/feature-flags-context";
 import { CONTACT } from "@/lib/contact";
 
-const NAV_LINKS = [
+const BASE_LINKS = [
   { href: "/", ar: "الرئيسية", en: "Home" },
   { href: "/about", ar: "من نحن", en: "About" },
   { href: "/services", ar: "خدماتنا", en: "Services" },
   { href: "/packages", ar: "باقاتنا", en: "Packages" },
+];
+
+const TEACHERS_LINK = { href: "/teachers-page", ar: "المعلمون", en: "Teachers" };
+
+const TAIL_LINKS = [
   { href: "/blog", ar: "المدونة", en: "Blog" },
   { href: "/contact", ar: "اتصل بنا", en: "Contact" },
 ];
@@ -21,6 +27,8 @@ const NAV_LINKS = [
 export function PublicNav() {
   const pathname = usePathname();
   const { t } = useLang();
+  const { hideTeachersPage } = useFeatureFlags();
+  const NAV_LINKS = [...BASE_LINKS, ...(!hideTeachersPage ? [TEACHERS_LINK] : []), ...TAIL_LINKS];
   const [open, setOpen] = useState(false);
 
   return (

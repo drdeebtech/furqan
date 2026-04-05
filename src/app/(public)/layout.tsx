@@ -16,6 +16,7 @@ export default async function PublicLayout({
   const flags = {
     hideReviews: settings["hide_reviews"] === "true",
     hidePrices: settings["hide_prices"] === "true",
+    hideTeachersPage: settings["hide_teachers_page"] === "true",
   };
 
   return (

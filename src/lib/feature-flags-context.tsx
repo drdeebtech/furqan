@@ -5,11 +5,13 @@ import { createContext, useContext } from "react";
 interface FeatureFlags {
   hideReviews: boolean;
   hidePrices: boolean;
+  hideTeachersPage: boolean;
 }
 
 const FeatureFlagsContext = createContext<FeatureFlags>({
   hideReviews: false,
   hidePrices: false,
+  hideTeachersPage: false,
 });
 
 export function FeatureFlagsProvider({
