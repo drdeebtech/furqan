@@ -91,9 +91,9 @@ export default function HomePage() {
           {/* ── STATS — with gold shimmer effect ── */}
           <div className="mt-16 grid grid-cols-3 gap-4 md:gap-6">
             {[
-              { num: t("١٥,٠٠٠+", "15,000+"), label: t("طالب مسجل", "Registered Students"), icon: Users },
-              { num: t("٩٨٪", "98%"), label: t("رضا الطلاب", "Student Satisfaction"), icon: Star },
-              { num: t("٥٠+", "50+"), label: t("معلم معتمد", "Certified Teachers"), icon: GraduationCap },
+              { num: t("٢٤/٧", "24/7"), label: t("متاح على مدار الساعة", "Available Anytime"), icon: Users },
+              { num: t("١:١", "1:1"), label: t("جلسات فردية مباشرة", "Live Private Sessions"), icon: Star },
+              { num: t("إجازة", "Ijazah"), label: t("معلمون حاصلون على الإجازة", "Certified Teachers"), icon: GraduationCap },
             ].map((s) => (
               <div key={s.label} className="rounded-2xl border border-gold/20 bg-card/80 p-6 text-center backdrop-blur-sm">
                 <s.icon size={24} className="mx-auto mb-2 text-gold" />
@@ -159,7 +159,7 @@ export default function HomePage() {
               { icon: Users, ar: "جلسات فردية ١:١", en: "1-on-1 Sessions", dAr: "كل طالب يحصل على اهتمام كامل من معلمه", dEn: "Every student gets full attention from their teacher" },
               { icon: Star, ar: "معلمات للأخوات والأطفال", en: "Female Teachers", dAr: "متاح معلمات متخصصات في بيئة آمنة", dEn: "Female teachers available for sisters and children" },
               { icon: TrendingUp, ar: "تتبع تقدمك", en: "Track Progress", dAr: "لوحة تحكم تعرض تقدمك في الحفظ والجلسات", dEn: "Dashboard showing your memorization progress" },
-              { icon: Globe, ar: "يخدم ٥٠+ دولة", en: "50+ Countries", dAr: "طلابنا في أمريكا وأوروبا والخليج وأستراليا", dEn: "Students in USA, Europe, Gulf, Australia" },
+              { icon: Globe, ar: "نخدم طلاباً حول العالم", en: "Worldwide Access", dAr: "تعلّم من أي مكان — أمريكا، أوروبا، الخليج، أستراليا", dEn: "Learn from anywhere — USA, Europe, Gulf, Australia" },
               { icon: Award, ar: "جلسة تجريبية مجانية", en: "Free Trial", dAr: "ابدأ بجلسة مجانية بدون أي التزام", dEn: "Start with a free session — no commitment" },
             ].map((f) => (
               <div key={f.en} className="rounded-xl border border-card-border bg-card/90 p-5 backdrop-blur-sm transition-all hover:border-gold/30 hover:-translate-y-1">
@@ -222,7 +222,7 @@ export default function HomePage() {
           {[
             { icon: GraduationCap, ar: "خريجو جامعة الأزهر", en: "Al-Azhar Graduates" },
             { icon: Shield, ar: "إجازة في رواية حفص", en: "Hafs Ijazah Certified" },
-            { icon: Globe, ar: "طلاب من ٥٠+ دولة", en: "Students from 50+ Countries" },
+            { icon: Globe, ar: "متاح لطلاب حول العالم", en: "Available Worldwide" },
             { icon: Award, ar: "جلسة تجريبية مجانية", en: "Free Trial Session" },
           ].map((b) => (
             <div key={b.en} className="flex items-center gap-2 text-sm">

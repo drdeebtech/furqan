@@ -38,10 +38,10 @@ export function AboutContent() {
           </div>
           <div className="mt-12 grid grid-cols-2 gap-4 md:mt-0 md:w-80">
             {[
-              { num: t("١٥٠٠٠+", "15,000+"), label: t("طالب مسجل", "Registered Students") },
-              { num: t("٥٠+", "50+"), label: t("معلم معتمد", "Certified Teachers") },
-              { num: t("٥٠+", "50+"), label: t("دولة حول العالم", "Countries Worldwide") },
-              { num: t("٩٨٪", "98%"), label: t("نسبة رضا الطلاب", "Student Satisfaction") },
+              { num: t("٢٤/٧", "24/7"), label: t("متاح على مدار الساعة", "Available Anytime") },
+              { num: t("إجازة", "Ijazah"), label: t("معلمون معتمدون", "Certified Teachers") },
+              { num: t("١:١", "1:1"), label: t("جلسات فردية مباشرة", "Live Private Sessions") },
+              { num: t("مجاناً", "Free"), label: t("جلسة تجريبية", "Trial Session") },
             ].map((s) => (
               <div key={s.label} className="rounded-xl border border-card-border bg-card p-5 text-center">
                 <p className="font-display text-2xl font-bold text-gold">{s.num}</p>
