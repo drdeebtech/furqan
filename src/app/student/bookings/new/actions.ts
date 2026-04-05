@@ -71,8 +71,8 @@ export async function createBooking(
     return { error: "المعلم غير متاح حالياً" };
   }
 
-  // Validate session type is in teacher's specialties
-  if (!teacherProfile.specialties.includes(sessionType)) {
+  // Validate session type is in teacher's specialties (skip if teacher has no specialties set)
+  if (teacherProfile.specialties.length > 0 && !teacherProfile.specialties.includes(sessionType)) {
     return { error: "نوع الجلسة غير مدعوم من هذا المعلم" };
   }
 

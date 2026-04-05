@@ -138,7 +138,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
 
                 {teacher.recitation_standards.length > 0 && (
                   <div className="mb-4 flex flex-wrap gap-1.5">
-                    {teacher.recitation_standards.map((r) => (
+                    {[...new Set(teacher.recitation_standards)].map((r) => (
                       <span key={r} className="rounded-full border border-card-border px-2 py-0.5 text-xs text-muted">
                         {RIWAYA_AR[r as RecitationStandard] ?? r}
                       </span>

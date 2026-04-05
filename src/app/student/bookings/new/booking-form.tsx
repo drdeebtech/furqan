@@ -12,10 +12,14 @@ const DAY_AR: Record<number, string> = {
   4: "الخميس", 5: "الجمعة", 6: "السبت",
 };
 
-const DURATIONS = [
+const ALL_DURATIONS = [
   { value: 30, label: "٣٠ دقيقة", en: "30 min" },
   { value: 45, label: "٤٥ دقيقة", en: "45 min" },
   { value: 60, label: "٦٠ دقيقة", en: "60 min" },
+];
+
+const ALL_SESSION_TYPES: SessionType[] = [
+  "hifz", "tajweed", "muraja", "tilawa", "qiraat", "tafsir", "combined", "other",
 ];
 
 interface TeacherData {
@@ -41,15 +45,29 @@ export function BookingForm({
   teacher: TeacherData;
   availability: AvailSlot[];
 }) {
-  const [duration, setDuration] = useState(60);
+  // Fix #2: Filter durations based on teacher's max slot duration
+  const maxSlotDuration = availability.length > 0
+    ? Math.max(...availability.map((s) => s.slotDuration))
+    : 60;
+  const durations = ALL_DURATIONS.filter((d) => d.value <= maxSlotDuration);
+  const defaultDuration = durations.length > 0 ? durations[durations.length - 1].value : 30;
+
+  // Fix #1: If teacher has no specialties, show all session types
+  const sessionTypes = teacher.specialties.length > 0
+    ? teacher.specialties
+    : ALL_SESSION_TYPES;
+
+  const [duration, setDuration] = useState(defaultDuration);
   const [selectedDate, setSelectedDate] = useState("");
   const [state, formAction, pending] = useActionState<BookingResult, FormData>(createBooking, {});
 
   const price = Number((teacher.hourlyRate * (duration / 60)).toFixed(2));
 
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const minDate = tomorrow.toISOString().split("T")[0];
+  const minDateObj = new Date();
+  if (process.env.NODE_ENV !== "development") {
+    minDateObj.setDate(minDateObj.getDate() + 1);
+  }
+  const minDate = minDateObj.toISOString().split("T")[0];
 
   // Get available time slots for selected date
   const selectedDayOfWeek = selectedDate ? new Date(selectedDate).getDay() : null;
@@ -124,9 +142,9 @@ export function BookingForm({
             نوع الجلسة <span className="text-xs text-muted">Session type</span>
           </label>
           <div className="grid grid-cols-2 gap-2">
-            {teacher.specialties.map((s) => (
+            {sessionTypes.map((s) => (
               <label key={s} className="flex cursor-pointer items-center gap-2 rounded-xl border border-input-border bg-input neu-inset px-3 py-2.5 text-sm transition-colors has-[:checked]:border-gold has-[:checked]:bg-gold/10">
-                <input type="radio" name="session_type" value={s} defaultChecked={s === teacher.specialties[0]} className="accent-gold" />
+                <input type="radio" name="session_type" value={s} defaultChecked={s === sessionTypes[0]} className="accent-gold" />
                 {SESSION_TYPE_AR[s as SessionType] ?? s}
               </label>
             ))}
@@ -139,8 +157,8 @@ export function BookingForm({
             <Clock size={14} className="ml-1 inline text-gold" />
             المدة <span className="text-xs text-muted">Duration</span>
           </label>
-          <div className="grid grid-cols-3 gap-2">
-            {DURATIONS.map((d) => (
+          <div className={`grid gap-2 ${durations.length === 1 ? "grid-cols-1" : durations.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+            {durations.map((d) => (
               <button
                 key={d.value}
                 type="button"
