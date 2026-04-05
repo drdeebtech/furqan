@@ -65,7 +65,7 @@ const ROLE_LABEL: Record<Role, { ar: string; en: string }> = {
   student: { ar: "الطالب", en: "Student" },
 };
 
-export function Nav({ role }: { role: Role }) {
+export function Nav({ role, userName }: { role: Role; userName?: string }) {
   const pathname = usePathname();
   const { lang } = useLang();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -90,6 +90,7 @@ export function Nav({ role }: { role: Role }) {
           <Image src="/logo-192.png" alt="فرقان" width={28} height={28} className="rounded-full" />
           <span className="text-lg font-bold text-gold">فُرقان</span>
           <span className="text-xs text-muted">({lang === "ar" ? ROLE_LABEL[role].ar : ROLE_LABEL[role].en})</span>
+          {userName && <span className="hidden text-sm font-medium sm:inline">{userName}</span>}
         </Link>
 
         <div className="flex items-center gap-2">
