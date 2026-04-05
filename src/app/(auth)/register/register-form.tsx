@@ -76,14 +76,14 @@ export function RegisterForm() {
               minLength={8}
               autoComplete="new-password"
               dir="ltr"
-              className="w-full rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 pe-10 text-left text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+              className="w-full rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 pl-10 text-left text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
               placeholder="••••••••"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
-              className="absolute end-3 top-1/2 -translate-y-1/2 text-muted transition-colors hover:text-foreground focus-ring"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted transition-colors hover:text-foreground focus-ring"
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
