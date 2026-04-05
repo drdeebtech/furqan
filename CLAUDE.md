@@ -1,5 +1,8 @@
 @AGENTS.md
 
+# currentDate
+Today's date is 2026-04-05.
+
 # Git Identity Rule
 
 Before making ANY git commit, you MUST ensure the git author matches the GitHub account:
@@ -8,6 +11,15 @@ git config user.email "drdeebtech@gmail.com"
 git config user.name "drdeebtech"
 ```
 Run this at the start of every conversation before committing. Vercel Hobby plan blocks deployments from unrecognized git authors on private repos. Do NOT rely on the machine default identity.
+
+# Deployment Rules
+
+- **Platform**: Vercel Hobby plan → furqan.today
+- **Node version**: 20.x (set in `.nvmrc`, do NOT use 24.x)
+- After pushing, verify deployment status: `npx vercel ls furqan --prod`
+- If deployment is "Blocked", check git author email matches `drdeebtech@gmail.com`
+- The `vercel.json` has `installCommand: "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install"` — do not remove this
+- Edge functions in `supabase/functions/` are excluded from `tsconfig.json` (Deno imports)
 
 # Project Overview
 
@@ -43,6 +55,8 @@ Original 20 tables + 5 V9 tables:
 - `session_notes_history` — notes edit audit trail
 - `session_observers` — observation tracking
 
+V9 migration file: `src/lib/supabase/migrations/v9_001_schema.sql`
+
 ## V9 Enums
 - `cv_status`: draft | pending_review | approved | rejected
 - `evaluation_type`: weekly | biweekly | monthly | quarterly
@@ -57,6 +71,15 @@ Original 20 tables + 5 V9 tables:
 - `auto-complete` — auto-end stale sessions (2x duration)
 - `no-show-detector` — flag missed sessions
 - `weekly-report` — admin weekly summary
+
+## Coding Patterns
+- All server actions use `"use server"` directive
+- Use `as never` for Supabase `.insert()` / `.update()` calls
+- Use `useActionState` from `"react"` (NOT from `"react-dom"`)
+- All user-facing text in Arabic, bilingual labels optional (Arabic + English hint)
+- `revalidatePath()` after every mutation
+- Audit logging for admin destructive actions (write to `audit_log` table)
+- Notifications are non-blocking (`try/catch` with empty catch)
 
 ## File Structure (key paths)
 ```
@@ -94,4 +117,13 @@ supabase/functions/      — 4 edge functions (auto-reminder, auto-complete, no-
 - Inputs: `w-full rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5`
 - Status badges: `rounded-full border px-2 py-0.5 text-xs` with color variants
 - Gold accent: `text-gold`, `bg-gold`, `border-gold/30`
+- Buttons: `rounded bg-gold px-4 py-2 text-sm font-medium text-white`
+- Primary CTA: `rounded-full bg-primary px-8 py-3 text-lg font-semibold text-white neu-btn`
 - All user-facing text in Arabic
+
+## Verification Checklist
+After any code change:
+1. `npx next build` — must pass with zero errors
+2. `npm run lint` — no new errors
+3. `npx playwright test` — all existing tests pass
+4. `npx vercel ls furqan --prod` — verify deployment succeeds
