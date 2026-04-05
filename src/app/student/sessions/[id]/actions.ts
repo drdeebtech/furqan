@@ -167,30 +167,17 @@ export async function trackSessionEvent(
       .update(updates as never)
       .eq("id", sessionId);
   } else if (event === "left") {
-    // If both have joined and one leaves, consider session ended
-    // We'll update ended_at — the last person to leave sets it
-    const { data: currentSession } = await supabase
-      .from("sessions")
-      .select("started_at, teacher_joined, student_joined")
-      .eq("id", sessionId)
-      .single<{
-        started_at: string | null;
-        teacher_joined: boolean;
-        student_joined: boolean;
-      }>();
+    // Don't auto-end the session when a participant leaves.
+    // The teacher explicitly ends the session via the "إنهاء الجلسة" button
+    // which calls endSession() in teacher/dashboard/actions.ts.
+    // Only track that the participant left by unsetting their joined flag.
+    const updates: Record<string, unknown> = {};
+    if (isStudent) updates.student_joined = false;
+    if (isTeacher) updates.teacher_joined = false;
 
-    if (currentSession?.started_at) {
-      const startedAt = new Date(currentSession.started_at);
-      const actualDuration = Math.round(
-        (Date.now() - startedAt.getTime()) / 60000,
-      );
-      await supabase
-        .from("sessions")
-        .update({
-          ended_at: now,
-          actual_duration: actualDuration,
-        } as never)
-        .eq("id", sessionId);
-    }
+    await supabase
+      .from("sessions")
+      .update(updates as never)
+      .eq("id", sessionId);
   }
 }
