@@ -84,8 +84,9 @@ export function CurrencyPackages() {
               )}
               <h3 className="text-lg font-bold">{t(pkg.ar, pkg.en)}</h3>
               {hidePrices ? (
-                <p className="font-display mt-3 text-lg font-bold text-gold">
-                  {t("تواصل معنا للأسعار", "Contact us for pricing")}
+                <p className="font-display mt-3 text-3xl font-bold text-gold">
+                  {t("مجاناً", "Free")}
+                  <span className="mr-2 text-sm font-normal text-muted">{t("لفترة محدودة", "limited time")}</span>
                 </p>
               ) : (
                 <p className="font-display mt-3 text-3xl font-bold text-gold">

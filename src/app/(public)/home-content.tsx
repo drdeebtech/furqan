@@ -252,15 +252,15 @@ export default function HomePage() {
 
           <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {[
-              { ar: "الباقة الأساسية", en: "Starter", price: "$40", freq: t("٢ أيام/أسبوع · ٨ جلسات", "2 days/week · 8 sessions") },
-              { ar: "الباقة المتوسطة", en: "Standard", price: "$50", freq: t("٣ أيام/أسبوع · ١٢ جلسة", "3 days/week · 12 sessions") },
-              { ar: "الباقة المتقدمة", en: "Premium", price: "$65", freq: t("٥ أيام/أسبوع · ٢٠ جلسة", "5 days/week · 20 sessions"), featured: true },
-              { ar: "باقة نهاية الأسبوع", en: "Weekend", price: "$60", freq: t("السبت والأحد · ٨ جلسات", "Sat & Sun · 8 sessions") },
+              { ar: "الباقة الأساسية", en: "Starter", freq: t("٢ أيام/أسبوع · ٨ جلسات", "2 days/week · 8 sessions") },
+              { ar: "الباقة المتوسطة", en: "Standard", freq: t("٣ أيام/أسبوع · ١٢ جلسة", "3 days/week · 12 sessions") },
+              { ar: "الباقة المتقدمة", en: "Premium", freq: t("٥ أيام/أسبوع · ٢٠ جلسة", "5 days/week · 20 sessions"), featured: true },
+              { ar: "باقة نهاية الأسبوع", en: "Weekend", freq: t("السبت والأحد · ٨ جلسات", "Sat & Sun · 8 sessions") },
             ].map((p) => (
               <div key={p.en} className={`rounded-2xl p-6 transition-all hover:-translate-y-1 ${p.featured ? "border-2 border-gold bg-card shadow-lg shadow-gold/10" : "border border-card-border bg-card"}`}>
                 {p.featured && <span className="mb-3 inline-block rounded-full bg-gold px-3 py-1 text-xs font-bold text-background">{t("الأكثر طلباً", "Most Popular")}</span>}
                 <h3 className="text-lg font-bold">{t(p.ar, p.en)}</h3>
-                <p className="font-display mt-2 text-3xl font-bold text-gold">{p.price}<span className="text-sm font-normal text-muted">{t("/شهر", "/mo")}</span></p>
+                <p className="font-display mt-2 text-2xl font-bold text-gold">{t("مجاناً", "Free")}</p>
                 <p className="mt-1 text-xs text-muted">{p.freq}</p>
                 <Link href="/packages" className="mt-4 block rounded-lg border border-gold bg-gold/10 py-2.5 text-center text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background">
                   {t("التفاصيل", "View Details")}
