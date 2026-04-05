@@ -136,6 +136,8 @@ export function BlogContent({ posts }: { posts: Post[] }) {
           ) : (
             <form onSubmit={(e) => { e.preventDefault(); if (email) { setSubscribed(true); setEmail(""); } }} className="mt-6 flex gap-2">
               <input
+                id="subscribe_email"
+                name="subscribe_email"
                 type="email"
                 required
                 value={email}

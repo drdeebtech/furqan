@@ -24,25 +24,25 @@ export function ContactForm() {
 
       <form onSubmit={(e) => { e.preventDefault(); setSent(true); }} className="mt-6 space-y-4">
         <div>
-          <label className="mb-1 block text-sm font-medium">{t("الاسم الكامل", "Full Name")}</label>
-          <input type="text" required className={inputClass} placeholder={t("محمد أحمد", "Mohammed Ahmed")} />
+          <label htmlFor="full_name" className="mb-1 block text-sm font-medium">{t("الاسم الكامل", "Full Name")}</label>
+          <input id="full_name" name="full_name" type="text" required className={inputClass} placeholder={t("محمد أحمد", "Mohammed Ahmed")} />
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm font-medium">{t("البريد الإلكتروني", "Email")}</label>
-            <input type="email" required dir="ltr" className={`${inputClass} text-left`} placeholder="you@example.com" />
+            <label htmlFor="email" className="mb-1 block text-sm font-medium">{t("البريد الإلكتروني", "Email")}</label>
+            <input id="email" name="email" type="email" required dir="ltr" className={`${inputClass} text-left`} placeholder="you@example.com" />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">{t("رقم واتساب", "WhatsApp Number")}</label>
-            <input type="tel" dir="ltr" className={`${inputClass} text-left`} placeholder="+44 7400 000000" />
+            <label htmlFor="whatsapp" className="mb-1 block text-sm font-medium">{t("رقم واتساب", "WhatsApp Number")}</label>
+            <input id="whatsapp" name="whatsapp" type="tel" dir="ltr" className={`${inputClass} text-left`} placeholder="+44 7400 000000" />
           </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm font-medium">{t("الدولة", "Country")}</label>
-            <select required className={inputClass}>
+            <label htmlFor="country" className="mb-1 block text-sm font-medium">{t("الدولة", "Country")}</label>
+            <select id="country" name="country" required className={inputClass}>
               <option value="">{t("اختر الدولة", "Select Country")}</option>
               {[
                 { ar: "المملكة المتحدة", en: "United Kingdom" },
@@ -58,8 +58,8 @@ export function ContactForm() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">{t("عمر الطالب", "Student Age")}</label>
-            <select className={inputClass}>
+            <label htmlFor="student_age" className="mb-1 block text-sm font-medium">{t("عمر الطالب", "Student Age")}</label>
+            <select id="student_age" name="student_age" className={inputClass}>
               <option value="">{t("اختر الفئة العمرية", "Select Age Range")}</option>
               {["3-5", "6-10", "11-15", "16-20", "21+"].map((a) => (
                 <option key={a} value={a}>{a} {t("سنوات", "years")}</option>
@@ -69,8 +69,8 @@ export function ContactForm() {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">{t("الباقة المهتم بها", "Package Interest")}</label>
-          <select className={inputClass}>
+          <label htmlFor="package" className="mb-1 block text-sm font-medium">{t("الباقة المهتم بها", "Package Interest")}</label>
+          <select id="package" name="package" className={inputClass}>
             <option value="">{t("اختر الباقة", "Select Package")}</option>
             {[
               { ar: "جلسة تجريبية مجانية", en: "Free Trial Session" },
@@ -84,8 +84,8 @@ export function ContactForm() {
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">{t("رسالتك", "Your Message")} <span className="text-xs text-muted">({t("اختياري", "optional")})</span></label>
-          <textarea rows={4} className={`${inputClass} resize-none`} placeholder={t("أخبرنا عن أهدافك...", "Tell us about your goals...")} />
+          <label htmlFor="message" className="mb-1 block text-sm font-medium">{t("رسالتك", "Your Message")} <span className="text-xs text-muted">({t("اختياري", "optional")})</span></label>
+          <textarea id="message" name="message" rows={4} className={`${inputClass} resize-none`} placeholder={t("أخبرنا عن أهدافك...", "Tell us about your goals...")} />
         </div>
 
         <button type="submit" className="w-full rounded bg-gold py-3 font-semibold text-background transition-colors hover:bg-gold-hover">
