@@ -4,7 +4,9 @@ import Link from "next/link";
 import { Calendar, CheckCircle, Clock, Search, Star, TrendingUp, Video } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
-import type { BookingStatus, SessionType } from "@/types/database";
+import type { SessionType } from "@/types/database";
+import { GuidanceBanner } from "./guidance-banner";
+import { QuickActions } from "./quick-actions";
 
 export const metadata: Metadata = { title: "لوحتي" };
 
@@ -22,7 +24,7 @@ export default async function StudentDashboardPage() {
       .eq("student_id", user.id).eq("status", "confirmed")
       .gt("scheduled_at", new Date().toISOString())
       .order("scheduled_at", { ascending: true }).limit(1)
-      .returns<{ id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: SessionType; status: BookingStatus }[]>(),
+      .returns<{ id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: SessionType }[]>(),
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("student_id", user.id).eq("status", "completed"),
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("student_id", user.id).eq("status", "completed").gte("created_at", monthStart),
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("student_id", user.id).eq("status", "pending"),
@@ -40,7 +42,7 @@ export default async function StudentDashboardPage() {
   const pendingBookings = pendingRes.count ?? 0;
   const recent = recentRes.data ?? [];
 
-  // Fetch teacher names for next booking + recent
+  // Fetch teacher names
   const allTeacherIds = [...new Set([nextBooking?.teacher_id, ...recent.map(r => r.teacher_id)].filter(Boolean) as string[])];
   let nameMap: Record<string, string> = {};
   if (allTeacherIds.length > 0) {
@@ -49,15 +51,13 @@ export default async function StudentDashboardPage() {
   }
 
   // Fetch session for next booking
-  let roomUrl: string | null = null;
   let sessionId: string | null = null;
   if (nextBooking) {
-    const { data: session } = await supabase.from("sessions").select("id, room_url").eq("booking_id", nextBooking.id).single<{ id: string; room_url: string }>();
-    roomUrl = session?.room_url ?? null;
+    const { data: session } = await supabase.from("sessions").select("id").eq("booking_id", nextBooking.id).single<{ id: string }>();
     sessionId = session?.id ?? null;
   }
 
-  // Countdown calc
+  // Countdown
   let countdown = "";
   let countdownColor = "text-muted";
   if (nextBooking) {
@@ -70,16 +70,17 @@ export default async function StudentDashboardPage() {
     else { countdown = `بعد ${days} يوم`; }
   }
 
-  const canJoin = !!nextBooking && !!roomUrl;
-
   return (
     <>
       <div className="h-0.5 bg-gradient-to-l from-gold/0 via-gold/30 to-gold/0" />
       <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
+        {/* ── Section 1: Greeting + Guidance ── */}
         <h1 className="text-2xl font-bold">أهلاً{fullName ? ` ${fullName}` : ""}</h1>
-        <p className="mt-1 text-sm text-muted">Welcome to your dashboard</p>
+        <p className="mt-1 text-sm text-muted">مرحباً بك في أكاديمية فُرقان</p>
 
-        {/* Next Session Widget */}
+        {totalSessions === 0 && !nextBooking && <GuidanceBanner />}
+
+        {/* ── Section 2: Next Session Hero ── */}
         {nextBooking ? (
           <div className="mt-8 rounded-2xl border border-gold/30 bg-card p-8">
             <p className="mb-2 text-sm font-bold text-gold"><Star size={14} className="inline text-gold" /> جلستك القادمة</p>
@@ -93,7 +94,7 @@ export default async function StudentDashboardPage() {
               {new Date(nextBooking.scheduled_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
             </p>
             <p className={`mt-2 text-sm font-medium ${countdownColor}`}>{countdown}</p>
-            <div className="mt-4 flex flex-wrap gap-3">
+            <div className="mt-4 flex flex-wrap items-center gap-3">
               {sessionId && (
                 <Link
                   href={`/student/sessions/${sessionId}`}
@@ -102,35 +103,44 @@ export default async function StudentDashboardPage() {
                   <Video size={16} /> انضم للجلسة
                 </Link>
               )}
-              <Link href={`/student/sessions`} className="rounded-lg border border-card-border px-4 py-2.5 text-sm text-muted transition-colors hover:border-gold/40 hover:text-gold">
+              <Link href="/student/sessions" className="rounded-lg border border-card-border px-4 py-2.5 text-sm text-muted transition-colors hover:border-gold/40 hover:text-gold">
                 تفاصيل الحجز
+              </Link>
+              <Link href="/student/teachers" className="text-sm text-gold hover:text-gold-hover">
+                احجز جلسة أخرى ←
               </Link>
             </div>
           </div>
-        ) : (
+        ) : totalSessions > 0 ? (
           <div className="mt-8 rounded-2xl border-2 border-dashed border-card-border p-8 text-center">
             <Calendar size={28} className="mx-auto mb-3 text-muted" />
             <p className="text-muted">لا توجد جلسات قادمة</p>
-            <p className="mt-1 text-sm text-muted">احجز جلستك الأولى مع معلم مؤهل</p>
             <Link href="/student/teachers" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-gold px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gold-hover">
               <Search size={16} /> احجز جلسة الآن
             </Link>
           </div>
-        )}
+        ) : null}
 
-        {/* Stats */}
-        <div className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-4">
-          {[
-            { v: totalSessions, l: "إجمالي الجلسات", icon: CheckCircle },
-            { v: monthSessions, l: "جلسات هذا الشهر", icon: Calendar },
-            { v: pendingBookings, l: "حجوزات معلّقة", icon: Clock },
-          ].map(s => (
-            <div key={s.l} className="rounded-xl border border-card-border bg-card p-4">
-              <s.icon size={16} className="mb-1 text-gold" />
-              <p className="text-2xl font-bold text-gold">{s.v}</p>
-              <p className="text-xs text-muted">{s.l}</p>
-            </div>
-          ))}
+        {/* ── Section 3: Quick Actions ── */}
+        <QuickActions />
+
+        {/* ── Section 4: Stats (clickable) ── */}
+        <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Link href="/student/sessions" className="rounded-xl border border-card-border bg-card p-4 transition-colors hover:border-gold/40">
+            <CheckCircle size={16} className="mb-1 text-gold" />
+            <p className="text-2xl font-bold text-gold">{totalSessions}</p>
+            <p className="text-xs text-muted">إجمالي الجلسات</p>
+          </Link>
+          <Link href="/student/sessions" className="rounded-xl border border-card-border bg-card p-4 transition-colors hover:border-gold/40">
+            <Calendar size={16} className="mb-1 text-gold" />
+            <p className="text-2xl font-bold text-gold">{monthSessions}</p>
+            <p className="text-xs text-muted">جلسات هذا الشهر</p>
+          </Link>
+          <Link href="/student/bookings" className="rounded-xl border border-card-border bg-card p-4 transition-colors hover:border-gold/40">
+            <Clock size={16} className="mb-1 text-gold" />
+            <p className="text-2xl font-bold text-gold">{pendingBookings}</p>
+            <p className="text-xs text-muted">حجوزات معلّقة</p>
+          </Link>
           <Link href="/student/progress" className="rounded-xl border border-gold/20 bg-gold/5 p-4 transition-colors hover:border-gold/40">
             <TrendingUp size={16} className="mb-1 text-gold" />
             <p className="text-sm font-bold text-gold">تقدمي</p>
@@ -138,12 +148,12 @@ export default async function StudentDashboardPage() {
           </Link>
         </div>
 
-        {/* Recent Sessions */}
+        {/* ── Section 5: Recent Sessions ── */}
         {recent.length > 0 && (
           <div className="mt-8">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="flex items-center gap-2 text-lg font-semibold"><CheckCircle size={18} className="text-gold" /> آخر الجلسات</h2>
-              <Link href="/student/bookings" className="text-sm text-gold hover:text-gold-hover">عرض الكل ←</Link>
+              <Link href="/student/sessions" className="text-sm text-gold hover:text-gold-hover">عرض الكل ←</Link>
             </div>
             <div className="space-y-2">
               {recent.map(r => (

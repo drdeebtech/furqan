@@ -20,17 +20,16 @@ const LINKS: Record<Role, NavLink[]> = {
   student: [
     { href: "/student/dashboard", ar: "لوحتي", en: "Dashboard" },
     { href: "/student/teachers", ar: "المعلمون", en: "Teachers" },
-    { href: "/student/bookings", ar: "حجوزاتي", en: "Bookings" },
+    { href: "/student/sessions", ar: "جلساتي", en: "Sessions" },
     { href: "/student/progress", ar: "تقدمي", en: "Progress" },
     { href: "/student/messages", ar: "الرسائل", en: "Messages" },
   ],
   teacher: [
     { href: "/teacher/dashboard", ar: "لوحتي", en: "Dashboard" },
-    { href: "/teacher/sessions", ar: "جلساتي", en: "Sessions" },
     { href: "/teacher/availability", ar: "المواعيد", en: "Availability" },
+    { href: "/teacher/sessions", ar: "جلساتي", en: "Sessions" },
     { href: "/teacher/students", ar: "طلابي", en: "Students" },
-    { href: "/teacher/cv", ar: "السيرة الذاتية", en: "CV" },
-    { href: "/teacher/evaluations", ar: "التقييمات", en: "Evaluations", separator: true },
+    { href: "/teacher/evaluations", ar: "التقييمات", en: "Evaluations" },
     { href: "/teacher/messages", ar: "الرسائل", en: "Messages" },
   ],
   admin: [
