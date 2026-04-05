@@ -85,3 +85,26 @@ export async function updateEvaluation(evaluationId: string, formData: FormData)
   revalidatePath("/moderator/evaluations");
   return { success: true };
 }
+
+export async function deleteEvaluation(evaluationId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "غير مصرح" };
+
+  const { data: profile } = await supabase
+    .from("profiles").select("role").eq("id", user.id)
+    .single<{ role: string }>();
+  if (!profile || !["admin", "moderator"].includes(profile.role)) {
+    return { error: "ليس لديك صلاحية" };
+  }
+
+  const { error } = await supabase
+    .from("session_evaluations")
+    .delete()
+    .eq("id", evaluationId);
+
+  if (error) return { error: "فشل حذف التقييم" };
+  revalidatePath("/admin/evaluations");
+  revalidatePath("/moderator/evaluations");
+  return { success: true };
+}

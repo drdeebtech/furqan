@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { toggleUserActive, changeUserRole } from "./actions";
 
 interface Props {
@@ -23,7 +24,9 @@ export function UserRow({ user }: Props) {
 
   return (
     <tr className="border-b border-card-border last:border-b-0">
-      <td className="px-4 py-3 font-medium">{user.full_name ?? "—"}</td>
+      <td className="px-4 py-3 font-medium">
+        <Link href={`/admin/users/${user.id}`} className="hover:text-gold">{user.full_name ?? "—"}</Link>
+      </td>
       <td className="px-4 py-3">
         {pendingRole ? (
           <div className="flex flex-col gap-1">

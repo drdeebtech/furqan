@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { Star, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ReviewToggle } from "./review-toggle";
+import { DeleteReviewButton } from "./delete-review";
 
-export const metadata: Metadata = { title: "التقييمات" };
+export const metadata: Metadata = { title: "المراجعات" };
 
 interface ReviewRow { id: string; student_id: string; teacher_id: string; rating: number; comment: string | null; teacher_reply: string | null; is_public: boolean; created_at: string; }
 
@@ -29,14 +31,14 @@ export default async function AdminReviewsPage() {
 
   return (
     <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><Star size={24} className="text-gold" /> التقييمات</h1>
+      <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><Star size={24} className="text-gold" /> المراجعات</h1>
       <div className="mb-6 grid grid-cols-3 gap-3">
         <div className="rounded-xl border border-card-border bg-card p-4 text-center"><p className="text-2xl font-bold text-gold">{reviews.length}</p><p className="text-xs text-muted">إجمالي</p></div>
         <div className="rounded-xl border border-card-border bg-card p-4 text-center"><p className="text-2xl font-bold text-gold">{avgRating}</p><p className="text-xs text-muted">متوسط التقييم</p></div>
         <div className="rounded-xl border border-card-border bg-card p-4 text-center"><p className="text-2xl font-bold text-gold">{publicCount}</p><p className="text-xs text-muted">عامة</p></div>
       </div>
       {reviews.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center"><Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا توجد تقييمات</p></div>
+        <div className="rounded-xl border border-card-border bg-card p-12 text-center"><Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا توجد مراجعات</p></div>
       ) : (
         <div className="space-y-3">
           {reviews.map(r => (
@@ -44,8 +46,9 @@ export default async function AdminReviewsPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <div className="flex items-center gap-2">
-                    <p className="font-medium">{nameMap[r.student_id] ?? "طالب"}</p>
-                    <span className="text-xs text-muted">→ {nameMap[r.teacher_id] ?? "معلم"}</span>
+                    <Link href={`/admin/users/${r.student_id}`} className="font-medium hover:text-gold">{nameMap[r.student_id] ?? "طالب"}</Link>
+                    <span className="text-xs text-muted">→</span>
+                    <Link href={`/admin/users/${r.teacher_id}`} className="text-sm text-muted hover:text-gold">{nameMap[r.teacher_id] ?? "معلم"}</Link>
                   </div>
                   <div className="mt-1 flex items-center gap-0.5">
                     {[1,2,3,4,5].map(i => <Star key={i} size={12} className={i <= r.rating ? "fill-gold text-gold" : "text-card-border"} />)}
@@ -54,7 +57,10 @@ export default async function AdminReviewsPage() {
                   {r.teacher_reply && <p className="mt-1 text-sm text-gold/70">رد المعلم: {r.teacher_reply}</p>}
                   <p className="mt-1 text-xs text-muted">{new Date(r.created_at).toLocaleDateString("ar-SA")}</p>
                 </div>
-                <ReviewToggle reviewId={r.id} isPublic={r.is_public} />
+                <div className="flex items-center gap-2">
+                  <ReviewToggle reviewId={r.id} isPublic={r.is_public} />
+                  <DeleteReviewButton reviewId={r.id} />
+                </div>
               </div>
             </div>
           ))}

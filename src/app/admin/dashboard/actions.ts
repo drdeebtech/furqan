@@ -15,6 +15,9 @@ export async function toggleArchiveTeacher(
 
   if (!user) return { error: "غير مصرح" };
 
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single<{ role: string }>();
+  if (!profile || profile.role !== "admin") return { error: "ليس لديك صلاحية" };
+
   const { error } = await supabase
     .from("teacher_profiles")
     .update({
