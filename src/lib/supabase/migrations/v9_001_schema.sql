@@ -127,18 +127,28 @@ CREATE TABLE IF NOT EXISTS session_observers (
 -- ═══════════════════════════════════════════════════════════════════════════════
 
 CREATE OR REPLACE FUNCTION is_moderator() RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER AS $$
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
   SELECT EXISTS (
     SELECT 1 FROM profiles
-    WHERE id = auth.uid() AND role = 'moderator'
+    WHERE id = (SELECT auth.uid())
+      AND role = 'moderator'
+      AND deleted_at IS NULL
+      AND is_active = true
   );
 $$;
 
 CREATE OR REPLACE FUNCTION is_admin_or_mod() RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER AS $$
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
   SELECT EXISTS (
     SELECT 1 FROM profiles
-    WHERE id = auth.uid() AND role IN ('admin', 'moderator')
+    WHERE id = (SELECT auth.uid())
+      AND role IN ('admin', 'moderator')
+      AND deleted_at IS NULL
+      AND is_active = true
   );
 $$;
 
