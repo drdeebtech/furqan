@@ -19,12 +19,10 @@ const SPECIALTIES: { key: string; ar: string }[] = [
 
 export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
   const [specialty, setSpecialty] = useState("all");
-  const [maxPrice, setMaxPrice] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   const filtered = teachers.filter((t) => {
     if (specialty !== "all" && !t.specialties.includes(specialty)) return false;
-    if (maxPrice && t.hourly_rate > maxPrice) return false;
     if (searchQuery && !t.name.includes(searchQuery)) return false;
     return true;
   });
@@ -71,17 +69,6 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
             ))}
           </div>
 
-          {/* Price filter */}
-          <select
-            value={maxPrice ?? ""}
-            onChange={(e) => setMaxPrice(e.target.value ? Number(e.target.value) : null)}
-            className="rounded-lg border border-input-border bg-input px-3 py-1.5 text-xs text-foreground focus:border-gold focus:outline-none"
-          >
-            <option value="">كل الأسعار</option>
-            <option value="20">حتى $20/ساعة</option>
-            <option value="30">حتى $30/ساعة</option>
-            <option value="50">حتى $50/ساعة</option>
-          </select>
         </div>
 
         <p className="text-xs text-muted">{filtered.length} معلم</p>
@@ -92,7 +79,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
         <div className="rounded-xl border border-card-border bg-card p-12 text-center">
           <Users size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-muted">لا يوجد معلمون مطابقون</p>
-          <button onClick={() => { setSpecialty("all"); setMaxPrice(null); setSearchQuery(""); }} className="mt-3 text-sm text-gold hover:text-gold-light">
+          <button onClick={() => { setSpecialty("all"); setSearchQuery(""); }} className="mt-3 text-sm text-gold hover:text-gold-light">
             إعادة ضبط الفلاتر
           </button>
         </div>
@@ -115,10 +102,6 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
                       ))}
                       <span className="mr-1.5 text-xs text-muted">{Number(teacher.rating_avg) > 0 ? Number(teacher.rating_avg).toFixed(1) : "—"}</span>
                     </div>
-                  </div>
-                  <div className="text-left">
-                    <span className="text-xl font-bold text-gold">${teacher.hourly_rate}</span>
-                    <span className="text-xs text-muted">/ساعة</span>
                   </div>
                 </div>
 

@@ -175,7 +175,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
                         {!teacher.is_archived && !teacher.is_accepting && <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs">{t("مشغول", "Busy")}</span>}
                       </div>
                       <p className="mt-1 text-sm text-muted">
-                        ${teacher.hourly_rate}/{t("ساعة", "hr")} · {teacher.total_sessions} {t("جلسة", "sessions")} · {t("تقييم", "Rating")} {Number(teacher.rating_avg) > 0 ? Number(teacher.rating_avg).toFixed(1) : "—"}
+                        {teacher.total_sessions} {t("جلسة", "sessions")} · {t("تقييم", "Rating")} {Number(teacher.rating_avg) > 0 ? Number(teacher.rating_avg).toFixed(1) : "—"}
                       </p>
                     </div>
                     <ArchiveToggle teacherId={teacher.teacher_id} isArchived={teacher.is_archived} />

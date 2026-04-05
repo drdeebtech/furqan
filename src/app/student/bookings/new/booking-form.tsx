@@ -61,8 +61,6 @@ export function BookingForm({
   const [selectedDate, setSelectedDate] = useState("");
   const [state, formAction, pending] = useActionState<BookingResult, FormData>(createBooking, {});
 
-  const price = Number((teacher.hourlyRate * (duration / 60)).toFixed(2));
-
   const minDate = new Date().toISOString().split("T")[0];
 
   // Get available time slots for selected date
@@ -91,10 +89,6 @@ export function BookingForm({
                 {teacher.bio.length > 120 ? teacher.bio.slice(0, 120) + "…" : teacher.bio}
               </p>
             )}
-          </div>
-          <div className="text-left">
-            <span className="text-2xl font-bold text-gold">${teacher.hourlyRate}</span>
-            <span className="text-sm text-muted">/ساعة</span>
           </div>
         </div>
       </div>
@@ -241,14 +235,6 @@ export function BookingForm({
             className="w-full resize-none rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
             placeholder="أي ملاحظات للمعلم…"
           />
-        </div>
-
-        {/* Price summary */}
-        <div className="rounded-xl border border-gold/20 bg-gold/5 p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted">${teacher.hourlyRate}/ساعة × {duration} دقيقة</span>
-            <span className="text-2xl font-bold text-gold">${price}</span>
-          </div>
         </div>
 
         {/* Submit */}

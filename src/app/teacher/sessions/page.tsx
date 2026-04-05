@@ -102,7 +102,6 @@ export default async function TeacherSessionsPage() {
                         {isConfirmed ? "انضم للجلسة" : "تفاصيل"}
                       </Link>
                     )}
-                    <span className="text-sm font-semibold text-gold">${booking.amount_usd}</span>
                   </div>
                 </div>
                 <p dir="ltr" className="mt-3 text-left text-sm text-muted">

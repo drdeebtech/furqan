@@ -74,10 +74,6 @@ export default async function ModeratorCvDetailPage({ params }: { params: Promis
                 <span key={s} className="rounded-full border border-card-border bg-surface px-2 py-0.5 text-xs">{s}</span>
               ))}</div>
             </div>
-            <div>
-              <p className="text-xs font-medium text-gold">السعر/ساعة</p>
-              <p className="mt-1 text-sm">${teacher.hourly_rate}</p>
-            </div>
           </div>
           {teacher.intro_video_url && (
             <div>

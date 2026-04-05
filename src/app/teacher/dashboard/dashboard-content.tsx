@@ -112,7 +112,7 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
                       <p className="font-medium">{nameMap[b.student_id] ?? t("طالب", "Student")}</p>
-                      <p className="mt-1 text-sm text-gold">{st(b.session_type)} · {b.duration_min} {t("دقيقة", "min")} · ${b.amount_usd}</p>
+                      <p className="mt-1 text-sm text-gold">{st(b.session_type)} · {b.duration_min} {t("دقيقة", "min")}</p>
                       <p dir="ltr" className="mt-1 text-left text-sm text-muted">
                         {new Date(b.scheduled_at).toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
                         {" · "}

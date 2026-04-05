@@ -166,10 +166,6 @@ export default async function AdminUserDetailPage({ params }: Props) {
         {isTeacher && teacherProfile && (
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
             <div className="rounded-lg border border-card-border p-3 text-center">
-              <p className="text-lg font-bold text-gold">${teacherProfile.hourly_rate}</p>
-              <p className="text-xs text-muted">السعر/ساعة</p>
-            </div>
-            <div className="rounded-lg border border-card-border p-3 text-center">
               <p className="text-lg font-bold text-gold">{teacherProfile.rating_avg > 0 ? teacherProfile.rating_avg.toFixed(1) : "—"}</p>
               <p className="text-xs text-muted">التقييم</p>
             </div>
@@ -226,7 +222,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
                         {isStudent ? "المعلم" : "الطالب"}: {otherName}
                       </p>
                       <p className="mt-1 text-xs text-muted">
-                        {SESSION_TYPE_AR[b.session_type]} · {b.duration_min} د · ${b.amount_usd}
+                        {SESSION_TYPE_AR[b.session_type]} · {b.duration_min} د
                         {note?.actual_duration ? ` · فعلي: ${note.actual_duration} د` : ""}
                       </p>
                     </div>

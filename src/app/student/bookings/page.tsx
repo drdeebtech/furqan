@@ -113,9 +113,6 @@ export default async function StudentBookingsPage() {
                     >
                       {statusInfo.label}
                     </span>
-                    <span className="text-sm font-semibold text-gold">
-                      ${booking.amount_usd}
-                    </span>
                   </div>
                 </div>
 
