@@ -1,7 +1,8 @@
 "use client";
 
 import { useTransition } from "react";
-import { StopCircle, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { StopCircle, RefreshCw, Eye } from "lucide-react";
 import { forceEndSession, adminRecreateRoom } from "../actions";
 
 export function SessionDetailActions({
@@ -37,14 +38,23 @@ export function SessionDetailActions({
   return (
     <div className="flex flex-wrap gap-3">
       {isActive && (
-        <button
-          onClick={handleForceEnd}
-          disabled={isPending}
-          className="inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
-        >
-          <StopCircle size={16} />
-          إنهاء الجلسة
-        </button>
+        <>
+          <button
+            onClick={handleForceEnd}
+            disabled={isPending}
+            className="inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+          >
+            <StopCircle size={16} />
+            إنهاء الجلسة
+          </button>
+          <Link
+            href={`/admin/sessions/${sessionId}/observe`}
+            className="inline-flex items-center gap-2 rounded-xl border border-gold/30 bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold/20"
+          >
+            <Eye size={16} />
+            مراقبة
+          </Link>
+        </>
       )}
       {isExpired && (
         <button

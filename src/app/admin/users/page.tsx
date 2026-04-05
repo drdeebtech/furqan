@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Users, Inbox } from "lucide-react";
+import Link from "next/link";
+import { Users, Inbox, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { UserRow } from "./user-row";
 
@@ -22,7 +23,12 @@ export default async function AdminUsersPage() {
 
   return (
     <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><Users size={24} className="text-gold" /> المستخدمون</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="flex items-center gap-2 text-2xl font-bold"><Users size={24} className="text-gold" /> المستخدمون</h1>
+        <Link href="/admin/users/new" className="flex items-center gap-2 rounded bg-gold px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gold-hover">
+          <Plus size={16} /> إنشاء مستخدم
+        </Link>
+      </div>
       <div className="mb-6 grid grid-cols-4 gap-3">
         {[{ l: "الكل", v: users.length }, { l: "طلاب", v: students }, { l: "معلمون", v: teachers }, { l: "مدراء", v: admins }].map(s => (
           <div key={s.l} className="rounded-xl border border-card-border bg-card p-4 text-center">

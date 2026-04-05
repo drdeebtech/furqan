@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { createRoom, deleteRoom } from "@/lib/daily";
+import { createRoom, deleteRoom, updateRoomMaxParticipants, createObserverToken } from "@/lib/daily";
 
 /* ── Row types for query results ──────────────────────────────────────────── */
 
@@ -27,7 +27,7 @@ async function requireAdmin(supabase: Awaited<ReturnType<typeof createClient>>) 
     .single()
     .then((r) => ({ data: r.data as ProfileRole | null }));
 
-  if (!profile || profile.role !== "admin") throw new Error("غير مصرح");
+  if (!profile || !["admin", "moderator"].includes(profile.role)) throw new Error("غير مصرح");
   return user;
 }
 
@@ -255,4 +255,55 @@ export async function adminRecreateRoom(sessionId: string) {
 
   revalidatePath("/admin/sessions");
   return { success: true };
+}
+
+/* ── joinAsObserver ─────────────────────────────────────────────────────── */
+
+interface SessionForObserve { id: string; booking_id: string; room_name: string; room_url: string; expires_at: string | null; is_observable: boolean; ended_at: string | null }
+
+export async function joinAsObserver(sessionId: string) {
+  const supabase = await createClient();
+  const user = await requireAdmin(supabase);
+
+  // Fetch session
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("id, booking_id, room_name, room_url, expires_at, is_observable, ended_at")
+    .eq("id", sessionId)
+    .single()
+    .then(r => ({ data: r.data as SessionForObserve | null }));
+
+  if (!session) return { error: "الجلسة غير موجودة" };
+  if (session.ended_at) return { error: "الجلسة منتهية" };
+  if (!session.is_observable) return { error: "هذه الجلسة غير قابلة للمراقبة" };
+
+  // Bump max participants to 3
+  try {
+    await updateRoomMaxParticipants(session.room_name, 3);
+  } catch {
+    return { error: "فشل تحديث إعدادات الغرفة" };
+  }
+
+  // Generate observer token
+  const expiresAt = session.expires_at ? new Date(session.expires_at) : new Date(Date.now() + 2 * 60 * 60 * 1000);
+  let token: string;
+  try {
+    token = await createObserverToken(session.room_name, "مراقب", expiresAt);
+  } catch {
+    return { error: "فشل إنشاء رمز المراقبة" };
+  }
+
+  // Record observer
+  await supabase.from("sessions").update({
+    admin_observer_id: user.id,
+    observer_joined_at: new Date().toISOString(),
+  } as never).eq("id", sessionId);
+
+  await supabase.from("session_observers").insert({
+    session_id: sessionId,
+    observer_id: user.id,
+    joined_at: new Date().toISOString(),
+  } as never);
+
+  return { success: true, token, roomUrl: session.room_url };
 }

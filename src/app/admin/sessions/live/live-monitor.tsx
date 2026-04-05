@@ -2,7 +2,8 @@
 
 import { useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Radio, User, GraduationCap, StopCircle } from "lucide-react";
+import Link from "next/link";
+import { Radio, User, GraduationCap, StopCircle, Eye } from "lucide-react";
 import { SessionTimer } from "@/components/shared/session-timer";
 import { forceEndSession } from "../actions";
 
@@ -109,6 +110,14 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
             <StopCircle size={14} />
             إنهاء الجلسة
           </button>
+
+          {/* Observe */}
+          <Link
+            href={`/admin/sessions/${s.id}/observe`}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-gold/30 bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold/20"
+          >
+            <Eye size={14} /> مراقبة
+          </Link>
         </div>
       ))}
     </div>

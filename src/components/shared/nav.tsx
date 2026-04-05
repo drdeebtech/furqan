@@ -5,7 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "./logout-button";
 
-type Role = "student" | "teacher" | "admin";
+type Role = "student" | "teacher" | "admin" | "moderator";
 
 interface NavLink {
   href: string;
@@ -27,6 +27,8 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/teacher/sessions", ar: "جلساتي", en: "Sessions" },
     { href: "/teacher/availability", ar: "المواعيد", en: "Availability" },
     { href: "/teacher/students", ar: "طلابي", en: "Students" },
+    { href: "/teacher/cv", ar: "السيرة الذاتية", en: "CV" },
+    { href: "/teacher/evaluations", ar: "التقييمات", en: "Evaluations", separator: true },
     { href: "/teacher/messages", ar: "الرسائل", en: "Messages" },
   ],
   admin: [
@@ -35,10 +37,19 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/admin/teachers", ar: "المعلمون", en: "Teachers" },
     { href: "/admin/bookings", ar: "الحجوزات", en: "Bookings", separator: true },
     { href: "/admin/sessions", ar: "الجلسات", en: "Sessions" },
+    { href: "/admin/evaluations", ar: "التقييمات", en: "Evaluations" },
     { href: "/admin/payments", ar: "المالية", en: "Payments", separator: true },
     { href: "/admin/reviews", ar: "التقييمات", en: "Reviews", separator: true },
     { href: "/admin/blog", ar: "المدونة", en: "Blog" },
     { href: "/admin/settings", ar: "الإعدادات", en: "Settings", separator: true },
+  ],
+  moderator: [
+    { href: "/moderator/dashboard", ar: "لوحة المشرف", en: "Dashboard" },
+    { href: "/moderator/users", ar: "المستخدمون", en: "Users", separator: true },
+    { href: "/moderator/cv-review", ar: "مراجعة السير", en: "CV Review" },
+    { href: "/moderator/sessions", ar: "الجلسات", en: "Sessions", separator: true },
+    { href: "/moderator/evaluations", ar: "التقييمات", en: "Evaluations" },
+    { href: "/moderator/audit", ar: "سجل المراجعة", en: "Audit Log", separator: true },
   ],
 };
 

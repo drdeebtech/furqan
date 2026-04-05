@@ -1,6 +1,7 @@
 "use client";
 
 import { useLang } from "@/lib/i18n/context";
+import { useFeatureFlags } from "@/lib/feature-flags-context";
 
 const REVIEWS = [
   { name: { ar: "أم حبيبة", en: "Umm Habiba" }, loc: "London 🇬🇧", ar: "ابني عمره ٥ سنوات ويحب جلساته كثيراً. معلمته رائعة جداً، ماشاء الله!", en: "My 5-year-old son loves his sessions so much. His teacher is amazing, MashaAllah!" },
@@ -15,6 +16,9 @@ const REVIEWS = [
 
 export function Testimonials() {
   const { t } = useLang();
+  const { hideReviews } = useFeatureFlags();
+
+  if (hideReviews) return null;
 
   return (
     <section className="py-24">

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { GraduationCap, Plus, Star, Inbox } from "lucide-react";
+import { GraduationCap, Plus, Star, Inbox, FileText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "إدارة المعلمين" };
@@ -18,6 +18,11 @@ export default async function AdminTeachersPage() {
     .order("total_sessions", { ascending: false }).returns<TeacherRow[]>();
   const list = teachers ?? [];
 
+  // Count pending CVs
+  const { count: pendingCvCount } = await supabase.from("teacher_profiles")
+    .select("teacher_id", { count: "exact", head: true })
+    .eq("cv_status", "pending_review");
+
   let nameMap: Record<string, string> = {};
   if (list.length > 0) {
     const ids = list.map(t => t.teacher_id);
@@ -30,9 +35,18 @@ export default async function AdminTeachersPage() {
     <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold"><GraduationCap size={24} className="text-gold" /> إدارة المعلمين</h1>
-        <Link href="/admin/teachers/new" className="flex items-center gap-2 rounded bg-gold px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gold-hover">
-          <Plus size={16} /> إضافة معلم
-        </Link>
+        <div className="flex items-center gap-3">
+          {(pendingCvCount ?? 0) > 0 && (
+            <Link href="/admin/teachers/cv" className="flex items-center gap-2 rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-400 transition-colors hover:bg-amber-500/20">
+              <FileText size={16} />
+              سير ذاتية معلقة
+              <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-xs font-bold text-white">{pendingCvCount}</span>
+            </Link>
+          )}
+          <Link href="/admin/teachers/new" className="flex items-center gap-2 rounded bg-gold px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gold-hover">
+            <Plus size={16} /> إضافة معلم
+          </Link>
+        </div>
       </div>
       {list.length === 0 ? (
         <div className="rounded-xl border border-card-border bg-card p-12 text-center"><Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا يوجد معلمون</p></div>

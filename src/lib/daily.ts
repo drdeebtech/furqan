@@ -16,6 +16,7 @@ function getApiKey(): string {
 export async function createRoom(
   roomName: string,
   expiresAt: Date,
+  maxParticipants: number = 2,
 ): Promise<DailyRoom> {
   const apiKey = getApiKey();
 
@@ -32,7 +33,7 @@ export async function createRoom(
         exp: Math.floor(expiresAt.getTime() / 1000),
         enable_chat: true,
         enable_screenshare: false,
-        max_participants: 2,
+        max_participants: maxParticipants,
       },
     }),
   });
@@ -114,6 +115,65 @@ export async function updateRoomExpiry(roomName: string, newExpiry: Date) {
     },
     body: JSON.stringify({
       properties: { exp: Math.floor(newExpiry.getTime() / 1000) },
+    }),
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Daily.co update error (${response.status}): ${body}`);
+  }
+  return true;
+}
+
+/**
+ * Delete a room.
+ */
+/**
+ * Generate an observer token (camera/mic off by default).
+ */
+export async function createObserverToken(
+  roomName: string,
+  userName: string,
+  expiresAt: Date,
+): Promise<string> {
+  const apiKey = getApiKey();
+  const response = await fetch(`${DAILY_API_BASE}/meeting-tokens`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      properties: {
+        room_name: roomName,
+        user_name: userName,
+        exp: Math.floor(expiresAt.getTime() / 1000),
+        is_owner: false,
+        start_video_off: true,
+        start_audio_off: true,
+      },
+    }),
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Daily.co observer-token error (${response.status}): ${body}`);
+  }
+  const data = await response.json();
+  return data.token as string;
+}
+
+/**
+ * Update max_participants on a room (e.g. bump to 3 for observer).
+ */
+export async function updateRoomMaxParticipants(roomName: string, maxParticipants: number) {
+  const apiKey = getApiKey();
+  const response = await fetch(`${DAILY_API_BASE}/rooms/${roomName}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      properties: { max_participants: maxParticipants },
     }),
   });
   if (!response.ok) {

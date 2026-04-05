@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CheckCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
+import { useFeatureFlags } from "@/lib/feature-flags-context";
 
 const CURRENCIES = [
   { code: "USD", symbol: "$", label: "USD ($)" },
@@ -51,24 +52,27 @@ const PACKAGES = [
 export function CurrencyPackages() {
   const [currency, setCurrency] = useState<"USD" | "GBP" | "SAR" | "AUD">("USD");
   const { t } = useLang();
+  const { hidePrices } = useFeatureFlags();
   const curr = CURRENCIES.find((c) => c.code === currency)!;
 
   return (
     <section className="py-24">
       <div className="mx-auto max-w-6xl px-6">
-        <div className="mb-12 flex flex-wrap justify-center gap-2">
-          {CURRENCIES.map((c) => (
-            <button
-              key={c.code}
-              onClick={() => setCurrency(c.code as typeof currency)}
-              className={`rounded-full px-4 py-2 text-sm transition-colors ${
-                currency === c.code ? "bg-gold font-medium text-background" : "border border-card-border text-muted hover:border-gold/40 hover:text-gold"
-              }`}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
+        {!hidePrices && (
+          <div className="mb-12 flex flex-wrap justify-center gap-2">
+            {CURRENCIES.map((c) => (
+              <button
+                key={c.code}
+                onClick={() => setCurrency(c.code as typeof currency)}
+                className={`rounded-full px-4 py-2 text-sm transition-colors ${
+                  currency === c.code ? "bg-gold font-medium text-background" : "border border-card-border text-muted hover:border-gold/40 hover:text-gold"
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {PACKAGES.map((pkg) => (
@@ -79,10 +83,16 @@ export function CurrencyPackages() {
                 </span>
               )}
               <h3 className="text-lg font-bold">{t(pkg.ar, pkg.en)}</h3>
-              <p className="font-display mt-3 text-3xl font-bold text-gold">
-                {curr.symbol}{pkg.prices[currency]}
-                <span className="text-sm font-normal text-muted"> {t("/شهر", "/mo")}</span>
-              </p>
+              {hidePrices ? (
+                <p className="font-display mt-3 text-lg font-bold text-gold">
+                  {t("تواصل معنا للأسعار", "Contact us for pricing")}
+                </p>
+              ) : (
+                <p className="font-display mt-3 text-3xl font-bold text-gold">
+                  {curr.symbol}{pkg.prices[currency]}
+                  <span className="text-sm font-normal text-muted"> {t("/شهر", "/mo")}</span>
+                </p>
+              )}
               <p className="mt-1 text-xs text-muted">{t(pkg.freqAr, pkg.freqEn)}</p>
               <p className="text-xs text-muted">{t(pkg.durAr, pkg.durEn)}</p>
 

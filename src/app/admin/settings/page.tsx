@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Settings, CheckCircle, XCircle, Database } from "lucide-react";
+import { Settings, CheckCircle, XCircle, Database, ToggleRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { FeatureToggle } from "./feature-toggle";
 
 export const metadata: Metadata = { title: "الإعدادات" };
 
@@ -10,6 +11,13 @@ export default async function AdminSettingsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  // Fetch feature flags
+  const { data: settings } = await supabase
+    .from("platform_settings")
+    .select("key, value, description")
+    .returns<{ key: string; value: string; description: string | null }[]>();
+  const settingsMap = Object.fromEntries((settings ?? []).map(s => [s.key, s.value]));
 
   const { data: migrations } = await supabase.from("schema_migrations").select("version, description, applied_at")
     .order("applied_at", { ascending: false }).returns<{ version: string; description: string | null; applied_at: string }[]>();
@@ -53,6 +61,25 @@ export default async function AdminSettingsPage() {
           <div><p className="text-2xl font-bold text-gold">{userCount ?? 0}</p><p className="text-xs text-muted">مستخدم</p></div>
           <div><p className="text-2xl font-bold text-gold">{teacherCount ?? 0}</p><p className="text-xs text-muted">معلم</p></div>
           <div><p className="text-2xl font-bold text-gold">{bookingCount ?? 0}</p><p className="text-xs text-muted">حجز</p></div>
+        </div>
+      </div>
+
+      {/* Feature Flags */}
+      <div className="mb-6 rounded-xl border border-card-border bg-card p-6">
+        <h2 className="mb-4 flex items-center gap-2 font-bold"><ToggleRight size={16} className="text-gold" /> إعدادات الميزات</h2>
+        <div className="space-y-3">
+          <FeatureToggle
+            settingKey="hide_reviews"
+            label="إخفاء التقييمات"
+            description="إخفاء قسم التقييمات من الصفحات العامة"
+            initialValue={settingsMap["hide_reviews"] === "true"}
+          />
+          <FeatureToggle
+            settingKey="hide_prices"
+            label="إخفاء الأسعار"
+            description="إخفاء الأسعار من الصفحات العامة"
+            initialValue={settingsMap["hide_prices"] === "true"}
+          />
         </div>
       </div>
 

@@ -57,6 +57,7 @@ export function UserRow({ user }: Props) {
           >
             <option value="student">طالب</option>
             <option value="teacher">معلم</option>
+            <option value="moderator">مشرف</option>
             <option value="admin">مدير</option>
           </select>
         )}

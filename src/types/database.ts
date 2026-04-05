@@ -1,6 +1,6 @@
 // ─── Enums (Postgres ENUM types) ─────────────────────────────────────────────
 
-export type UserRole = "student" | "teacher" | "admin";
+export type UserRole = "student" | "teacher" | "admin" | "moderator";
 export type GenderType = "male" | "female";
 export type BookingStatus = "pending" | "confirmed" | "completed" | "cancelled" | "no_show";
 export type SessionType = "hifz" | "muraja" | "tajweed" | "tilawa" | "qiraat" | "tafsir" | "combined" | "other";
@@ -8,6 +8,12 @@ export type PaymentStatus = "pending" | "succeeded" | "failed" | "refunded";
 export type MsgType = "text" | "audio" | "file";
 export type NotifType = "booking" | "payment" | "message" | "reminder" | "system";
 export type StudentLevel = "beginner" | "intermediate" | "advanced";
+
+// ─── V9 new enums ───────────────────────────────────────────────────────────
+
+export type CvStatus = "draft" | "pending_review" | "approved" | "rejected";
+export type EvaluationType = "weekly" | "biweekly" | "monthly" | "quarterly";
+export type ReportType = "session_summary" | "evaluation" | "custom" | "missed_session" | "schedule_change";
 
 // ─── Text CHECK unions (not Postgres ENUMs, but typed for safety) ────────────
 
@@ -35,6 +41,11 @@ export interface Profile {
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  // V9: parent/guardian fields
+  parent_name: string | null;
+  parent_phone: string | null;
+  parent_email: string | null;
+  date_of_birth: string | null;
 }
 
 // ─── Table 2: teacher_profiles ───────────────────────────────────────────────
@@ -57,6 +68,12 @@ export interface TeacherProfile {
   archived_at: string | null;
   created_at: string;
   updated_at: string;
+  // V9: CV workflow fields
+  cv_status: CvStatus;
+  cv_submitted_at: string | null;
+  cv_reviewed_by: string | null;
+  cv_reviewed_at: string | null;
+  cv_rejection_reason: string | null;
 }
 
 // ─── Table 3: teacher_ijaza ──────────────────────────────────────────────────
@@ -187,6 +204,10 @@ export interface Booking {
   cancelled_at: string | null;
   deleted_at: string | null;
   created_at: string;
+  // V9: teacher confirmation fields
+  teacher_confirmed: boolean;
+  teacher_confirmed_at: string | null;
+  decline_reason: string | null;
 }
 
 // ─── Table 11: sessions ──────────────────────────────────────────────────────
@@ -207,6 +228,11 @@ export interface Session {
   post_session_notes: string | null;
   homework: string | null;
   created_at: string;
+  // V9: observation fields
+  admin_observer_id: string | null;
+  is_observable: boolean;
+  observer_joined_at: string | null;
+  observer_notes: string | null;
 }
 
 // ─── Table 12: conversations ─────────────────────────────────────────────────
@@ -339,6 +365,77 @@ export interface SchemaMigration {
   applied_by: string | null;
 }
 
+// ─── V9 Table: platform_settings ─────────────────────────────────────────────
+
+export interface PlatformSetting {
+  key: string;
+  value: string;
+  description: string | null;
+  updated_at: string;
+  updated_by: string | null;
+}
+
+// ─── V9 Table: session_evaluations ───────────────────────────────────────────
+
+export interface SessionEvaluation {
+  id: string;
+  student_id: string;
+  teacher_id: string;
+  evaluator_id: string;
+  evaluation_type: EvaluationType;
+  period_start: string;
+  period_end: string;
+  hifz_score: number | null;
+  tajweed_score: number | null;
+  akhlaq_score: number | null;
+  attendance_score: number | null;
+  overall_score: number | null;
+  strengths: string | null;
+  weaknesses: string | null;
+  recommendations: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─── V9 Table: parent_reports ────────────────────────────────────────────────
+
+export interface ParentReport {
+  id: string;
+  student_id: string;
+  teacher_id: string | null;
+  report_type: ReportType;
+  title: string;
+  body: string;
+  sent_to_email: string | null;
+  sent_to_phone: string | null;
+  sent_at: string | null;
+  created_by: string;
+  created_at: string;
+}
+
+// ─── V9 Table: session_notes_history ─────────────────────────────────────────
+
+export interface SessionNotesHistory {
+  id: string;
+  session_id: string;
+  notes: string;
+  saved_by: string;
+  created_at: string;
+}
+
+// ─── V9 Table: session_observers ─────────────────────────────────────────────
+
+export interface SessionObserver {
+  id: string;
+  session_id: string;
+  observer_id: string;
+  joined_at: string | null;
+  left_at: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
 // ─── Supabase Database Type ──────────────────────────────────────────────────
 // Row   = what you read back from a SELECT
 // Insert = what you send to an INSERT (auto-generated fields are optional)
@@ -353,6 +450,10 @@ export interface Database {
         Insert: Omit<Profile, "created_at" | "updated_at"> & {
           created_at?: string;
           updated_at?: string;
+          parent_name?: string | null;
+          parent_phone?: string | null;
+          parent_email?: string | null;
+          date_of_birth?: string | null;
         };
         Update: Partial<Omit<Profile, "id">>;
         Relationships: [];
@@ -361,13 +462,18 @@ export interface Database {
         Row: TeacherProfile;
         Insert: Omit<
           TeacherProfile,
-          "id" | "rating_avg" | "total_sessions" | "created_at" | "updated_at"
+          "id" | "rating_avg" | "total_sessions" | "created_at" | "updated_at" | "cv_status" | "cv_submitted_at" | "cv_reviewed_by" | "cv_reviewed_at" | "cv_rejection_reason"
         > & {
           id?: string;
           rating_avg?: number;
           total_sessions?: number;
           created_at?: string;
           updated_at?: string;
+          cv_status?: CvStatus;
+          cv_submitted_at?: string | null;
+          cv_reviewed_by?: string | null;
+          cv_reviewed_at?: string | null;
+          cv_rejection_reason?: string | null;
         };
         Update: Partial<Omit<TeacherProfile, "id">>;
         Relationships: [];
@@ -452,7 +558,7 @@ export interface Database {
         Row: Booking;
         Insert: Omit<
           Booking,
-          "id" | "status" | "session_type" | "tax_rate" | "tax_amount" | "created_at"
+          "id" | "status" | "session_type" | "tax_rate" | "tax_amount" | "created_at" | "teacher_confirmed" | "teacher_confirmed_at" | "decline_reason"
         > & {
           id?: string;
           status?: BookingStatus;
@@ -460,6 +566,9 @@ export interface Database {
           tax_rate?: number;
           tax_amount?: number;
           created_at?: string;
+          teacher_confirmed?: boolean;
+          teacher_confirmed_at?: string | null;
+          decline_reason?: string | null;
         };
         Update: Partial<Omit<Booking, "id">>;
         Relationships: [];
@@ -468,7 +577,7 @@ export interface Database {
         Row: Session;
         Insert: Omit<
           Session,
-          "id" | "room_name" | "created_via" | "teacher_joined" | "student_joined" | "created_at"
+          "id" | "room_name" | "created_via" | "teacher_joined" | "student_joined" | "created_at" | "admin_observer_id" | "is_observable" | "observer_joined_at" | "observer_notes"
         > & {
           id?: string;
           room_name?: string;
@@ -476,6 +585,10 @@ export interface Database {
           teacher_joined?: boolean;
           student_joined?: boolean;
           created_at?: string;
+          admin_observer_id?: string | null;
+          is_observable?: boolean;
+          observer_joined_at?: string | null;
+          observer_notes?: string | null;
         };
         Update: Partial<Omit<Session, "id">>;
         Relationships: [];
@@ -573,12 +686,64 @@ export interface Database {
         Update: Partial<SchemaMigration>;
         Relationships: [];
       };
+      // V9 tables
+      platform_settings: {
+        Row: PlatformSetting;
+        Insert: PlatformSetting;
+        Update: Partial<PlatformSetting>;
+        Relationships: [];
+      };
+      session_evaluations: {
+        Row: SessionEvaluation;
+        Insert: Omit<SessionEvaluation, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<SessionEvaluation, "id">>;
+        Relationships: [];
+      };
+      parent_reports: {
+        Row: ParentReport;
+        Insert: Omit<ParentReport, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Omit<ParentReport, "id">>;
+        Relationships: [];
+      };
+      session_notes_history: {
+        Row: SessionNotesHistory;
+        Insert: Omit<SessionNotesHistory, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Omit<SessionNotesHistory, "id">>;
+        Relationships: [];
+      };
+      session_observers: {
+        Row: SessionObserver;
+        Insert: Omit<SessionObserver, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Omit<SessionObserver, "id">>;
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
       is_admin: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
+      is_moderator: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
+      is_admin_or_mod: {
         Args: Record<string, never>;
         Returns: boolean;
       };
@@ -592,6 +757,9 @@ export interface Database {
       msg_type: MsgType;
       notif_type: NotifType;
       student_level: StudentLevel;
+      cv_status: CvStatus;
+      evaluation_type: EvaluationType;
+      report_type: ReportType;
     };
     CompositeTypes: {
       [_ in never]: never;

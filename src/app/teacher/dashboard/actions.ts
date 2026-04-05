@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createRoom, updateRoomExpiry } from "@/lib/daily";
+import { notifyParentSessionComplete, notifyParentNoShow } from "@/lib/notifications/parent";
 
 export async function updateBookingStatus(
   bookingId: string,
@@ -36,14 +37,70 @@ export async function updateBookingStatus(
 
   // The validate_booking_status trigger guards invalid transitions.
   // RLS ensures only booking parties can update.
+  const updateData: Record<string, unknown> = { status };
+
+  // V9: Set teacher_confirmed fields on confirmation
+  if (status === "confirmed") {
+    updateData.teacher_confirmed = true;
+    updateData.teacher_confirmed_at = new Date().toISOString();
+  }
+
   const { error } = await supabase
     .from("bookings")
-    .update({ status } as never)
+    .update(updateData as never)
     .eq("id", bookingId)
     .eq("teacher_id", user.id);
 
   if (error) {
     return { error: "حدث خطأ أثناء تحديث الحجز" };
+  }
+
+  // V9: Auto-cancel other pending bookings at overlapping times for this teacher
+  if (status === "confirmed") {
+    const scheduledStart = new Date(booking.scheduled_at);
+    const scheduledEnd = new Date(scheduledStart.getTime() + booking.duration_min * 60 * 1000);
+
+    // Find other pending bookings for this teacher that overlap
+    const { data: overlapping } = await supabase
+      .from("bookings")
+      .select("id, student_id, scheduled_at, duration_min")
+      .eq("teacher_id", user.id)
+      .eq("status", "pending")
+      .neq("id", bookingId)
+      .returns<{ id: string; student_id: string; scheduled_at: string; duration_min: number }[]>();
+
+    if (overlapping) {
+      for (const other of overlapping) {
+        const otherStart = new Date(other.scheduled_at);
+        const otherEnd = new Date(otherStart.getTime() + other.duration_min * 60 * 1000);
+
+        // Check overlap: two intervals overlap if start1 < end2 AND start2 < end1
+        if (scheduledStart < otherEnd && otherStart < scheduledEnd) {
+          await supabase
+            .from("bookings")
+            .update({
+              status: "cancelled",
+              cancelled_by: user.id,
+              cancel_reason: "تم إلغاؤه تلقائياً بسبب تعارض مع حجز مؤكد آخر",
+              cancelled_at: new Date().toISOString(),
+              decline_reason: "تعارض مع حجز مؤكد",
+            } as never)
+            .eq("id", other.id);
+
+          // Notify student of auto-cancellation
+          try {
+            await supabase.from("notifications").insert({
+              user_id: other.student_id,
+              type: "booking",
+              title: "تم إلغاء حجزك تلقائياً",
+              body: "تم إلغاء حجزك بسبب تعارض مع حجز آخر مؤكد — يمكنك حجز موعد بديل",
+              data: { booking_id: other.id },
+              channel: ["in_app"],
+            } as never);
+          } catch { /* non-blocking */ }
+        }
+      }
+    }
   }
 
   let roomUrl: string | null = null;
@@ -153,6 +210,11 @@ export async function markNoShow(bookingId: string) {
     // Non-blocking
   }
 
+  // V9: Notify parent of no-show
+  try {
+    await notifyParentNoShow(booking.student_id, user.id, new Date().toISOString(), user.id);
+  } catch { /* non-blocking */ }
+
   revalidatePath("/teacher/dashboard");
   revalidatePath("/teacher/sessions");
   return { success: true };
@@ -227,6 +289,15 @@ export async function endSession(sessionId: string) {
   } catch {
     // Non-blocking
   }
+
+  // V9: Notify parent of session completion
+  try {
+    await notifyParentSessionComplete(
+      booking.student_id, user.id,
+      session.started_at ?? now.toISOString(),
+      actualDuration, user.id,
+    );
+  } catch { /* non-blocking */ }
 
   revalidatePath("/teacher/dashboard");
   revalidatePath(`/teacher/sessions/${sessionId}`);

@@ -6,6 +6,7 @@ const PROTECTED_ROUTES: Record<string, UserRole> = {
   "/student": "student",
   "/teacher": "teacher",
   "/admin": "admin",
+  "/moderator": "moderator",
 };
 
 const PUBLIC_ROUTES = ["/login", "/register", "/forgot-password"];
@@ -32,9 +33,8 @@ export async function proxy(request: NextRequest) {
     if (user) {
       const role = await getUserRole(supabase, user.id);
       if (role) {
-        return NextResponse.redirect(
-          new URL(`/${role}/dashboard`, request.url),
-        );
+        const dashboard = role === "moderator" ? "/moderator/dashboard" : `/${role}/dashboard`;
+        return NextResponse.redirect(new URL(dashboard, request.url));
       }
     }
     return supabaseResponse;
@@ -53,6 +53,11 @@ export async function proxy(request: NextRequest) {
 
     // Fetch user role
     const role = await getUserRole(supabase, user.id);
+
+    // Admin can access moderator routes
+    if (prefix === "/moderator" && role === "admin") {
+      break;
+    }
 
     if (role !== requiredRole) {
       // Wrong role → redirect to their own dashboard or login
