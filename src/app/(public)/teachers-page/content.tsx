@@ -6,16 +6,32 @@ import { useLang } from "@/lib/i18n/context";
 import { Testimonials } from "@/components/public/testimonials";
 import { FreeTrialBanner } from "@/components/public/free-trial-banner";
 
-const TEACHERS = [
-  { ar: "الشيخ محمد العمري", en: "Sheikh Mohammed Al-Omari", initial: "م", titleAr: "متخصص في الحفظ والتجويد", titleEn: "Hifz & Tajweed Specialist", uniAr: "خريج جامعة الأزهر الشريف", uniEn: "Al-Azhar University Graduate", specAr: ["حفظ", "تجويد", "مراجعة"], specEn: ["Hifz", "Tajweed", "Revision"], riwaya: "Hafs", exp: "10", sessions: "500+" },
-  { ar: "الشيخة أمينة الشريف", en: "Sheikha Amina Al-Sharif", initial: "أ", titleAr: "متخصصة في تعليم الأطفال والأخوات", titleEn: "Children & Sisters Specialist", uniAr: "خريجة جامعة أم القرى", uniEn: "Umm Al-Qura University Graduate", specAr: ["تجويد", "تلاوة", "أطفال"], specEn: ["Tajweed", "Tilawa", "Children"], riwaya: "Hafs", exp: "8", sessions: "350+", noteAr: "للأخوات والأطفال فقط", noteEn: "Sisters & children only" },
-  { ar: "الشيخ عبدالرحمن فارس", en: "Sheikh Abdulrahman Faris", initial: "ع", titleAr: "متخصص في الحفظ والمراجعة", titleEn: "Memorization & Revision Specialist", uniAr: "خريج الجامعة الإسلامية بالمدينة", uniEn: "Islamic University of Madinah Graduate", specAr: ["حفظ", "مراجعة"], specEn: ["Hifz", "Revision"], riwaya: "Hafs", exp: "12", sessions: "600+" },
-  { ar: "الشيخ يوسف الحسني", en: "Sheikh Yusuf Al-Hasani", initial: "ي", titleAr: "متخصص في القراءات", titleEn: "Qira'at Specialist", uniAr: "خريج جامعة الأزهر", uniEn: "Al-Azhar University Graduate", specAr: ["قراءات", "تجويد"], specEn: ["Qira'at", "Tajweed"], riwaya: "Hafs · Warsh · Qalun", exp: "15", sessions: "700+" },
-  { ar: "الشيخة مريم السالم", en: "Sheikha Maryam Al-Salem", initial: "م", titleAr: "متخصصة في التفسير والتلاوة", titleEn: "Tafsir & Recitation Specialist", uniAr: "خريجة جامعة الملك سعود", uniEn: "King Saud University Graduate", specAr: ["تفسير", "تلاوة"], specEn: ["Tafsir", "Tilawa"], riwaya: "Hafs", exp: "7", sessions: "280+", noteAr: "للأخوات فقط", noteEn: "Sisters only" },
-  { ar: "الشيخ أحمد البكري", en: "Sheikh Ahmed Al-Bakri", initial: "أ", titleAr: "متخصص في تعليم الأطفال", titleEn: "Children's Quran Specialist", uniAr: "خريج دار الحديث بالمدينة", uniEn: "Dar Al-Hadith, Madinah Graduate", specAr: ["حفظ", "تجويد", "أطفال"], specEn: ["Hifz", "Tajweed", "Children"], riwaya: "Hafs", exp: "9", sessions: "420+" },
-];
+const SPECIALTY: Record<string, { ar: string; en: string }> = {
+  hifz: { ar: "حفظ", en: "Hifz" }, muraja: { ar: "مراجعة", en: "Revision" },
+  tajweed: { ar: "تجويد", en: "Tajweed" }, tilawa: { ar: "تلاوة", en: "Tilawa" },
+  qiraat: { ar: "قراءات", en: "Qira'at" }, tafsir: { ar: "تفسير", en: "Tafsir" },
+  combined: { ar: "حفظ + مراجعة", en: "Hifz + Revision" }, other: { ar: "أخرى", en: "Other" },
+};
 
-export function TeachersContent() {
+const RIWAYA: Record<string, { ar: string; en: string }> = {
+  hafs: { ar: "حفص", en: "Hafs" }, warsh: { ar: "ورش", en: "Warsh" },
+  qalon: { ar: "قالون", en: "Qalun" }, al_duri: { ar: "الدوري", en: "Al-Duri" },
+  shu_ba: { ar: "شعبة", en: "Shu'ba" },
+};
+
+interface Teacher {
+  id: string;
+  name: string;
+  bio: string | null;
+  specialties: string[];
+  recitationStandards: string[];
+  hourlyRate: number;
+  ratingAvg: number;
+  totalSessions: number;
+  gender: string | null;
+}
+
+export function TeachersContent({ teachers }: { teachers: Teacher[] }) {
   const { t } = useLang();
 
   return (
@@ -23,6 +39,7 @@ export function TeachersContent() {
       <section className="border-b border-card-border bg-card py-20 text-center">
         <p className="text-sm text-muted"><Link href="/" className="text-gold hover:text-gold-light">{t("الرئيسية", "Home")}</Link> / {t("المعلمون", "Teachers")}</p>
         <h1 className="font-display mt-4 text-5xl font-bold">{t("معلمونا", "Our Teachers")}</h1>
+        <p className="mt-3 text-sm text-muted">{t(`${teachers.length} معلم معتمد`, `${teachers.length} certified teachers`)}</p>
       </section>
 
       <section className="border-b border-card-border py-8">
@@ -30,7 +47,7 @@ export function TeachersContent() {
           {[
             { icon: Award, ar: "حاصلون على الإجازة", en: "Certified with Ijazah" },
             { icon: GraduationCap, ar: "خريجو أفضل الجامعات الإسلامية", en: "Top Islamic University Graduates" },
-            { icon: Star, ar: "خبرة ٥+ سنوات في التدريس", en: "5+ Years Teaching Experience" },
+            { icon: Star, ar: "جلسات فيديو مباشرة", en: "Live Video Sessions" },
           ].map((b) => (
             <div key={b.en} className="flex items-center gap-2 text-sm text-muted">
               <b.icon size={18} className="text-gold" />
@@ -42,34 +59,69 @@ export function TeachersContent() {
 
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-6">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {TEACHERS.map((teacher) => (
-              <div key={teacher.en} className="rounded-2xl border border-card-border bg-card p-6">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-gold/30 bg-gold/10 font-display text-2xl font-bold text-gold">
-                  {teacher.initial}
+          {teachers.length === 0 ? (
+            <div className="rounded-2xl border border-card-border bg-card p-12 text-center">
+              <GraduationCap size={32} className="mx-auto mb-3 text-muted" />
+              <p className="text-muted">{t("نعمل على إضافة معلمين جدد — ترقبوا!", "We're adding new teachers — stay tuned!")}</p>
+            </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {teachers.map((teacher) => (
+                <div key={teacher.id} className="rounded-2xl border border-card-border bg-card p-6">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-gold/30 bg-gold/10 font-display text-2xl font-bold text-gold">
+                    {teacher.name.charAt(0)}
+                  </div>
+                  <h2 className="mt-4 text-lg font-bold">{teacher.name}</h2>
+                  {teacher.bio && (
+                    <p className="mt-1 text-sm text-muted">
+                      {teacher.bio.length > 100 ? teacher.bio.slice(0, 100) + "…" : teacher.bio}
+                    </p>
+                  )}
+                  {teacher.gender === "female" && (
+                    <p className="mt-1 text-xs text-gold">({t("للأخوات والأطفال", "Sisters & children")})</p>
+                  )}
+
+                  {teacher.specialties.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {teacher.specialties.map((s) => (
+                        <span key={s} className="rounded-full border border-card-border bg-surface px-2.5 py-0.5 text-xs text-muted">
+                          {SPECIALTY[s] ? t(SPECIALTY[s].ar, SPECIALTY[s].en) : s}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {teacher.recitationStandards.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {[...new Set(teacher.recitationStandards)].map((r) => (
+                        <span key={r} className="rounded-full border border-card-border px-2 py-0.5 text-xs text-muted">
+                          {RIWAYA[r] ? t(RIWAYA[r].ar, RIWAYA[r].en) : r}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-3 text-xs text-muted">
+                    <p>{teacher.totalSessions} {t("جلسة مكتملة", "completed sessions")}</p>
+                  </div>
+
+                  <div className="mt-2 flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <Star key={i} size={12} className={i <= Math.round(teacher.ratingAvg) ? "fill-gold text-gold" : "text-card-border"} />
+                    ))}
+                    {teacher.ratingAvg > 0 && <span className="mr-1 text-xs text-muted">{teacher.ratingAvg.toFixed(1)}</span>}
+                  </div>
+
+                  <Link
+                    href={`/contact?teacher=${encodeURIComponent(teacher.name)}`}
+                    className="mt-4 block rounded border border-gold bg-gold/10 py-2 text-center text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background"
+                  >
+                    {t("احجز مع هذا المعلم", "Book with this Teacher")}
+                  </Link>
                 </div>
-                <h2 className="mt-4 text-lg font-bold">{t(teacher.ar, teacher.en)}</h2>
-                <p className="mt-1 text-sm text-muted">{t(teacher.titleAr, teacher.titleEn)}</p>
-                {teacher.noteAr && <p className="mt-1 text-xs text-gold">({t(teacher.noteAr, teacher.noteEn!)})</p>}
-                <p className="mt-1 text-xs text-muted">{t(teacher.uniAr, teacher.uniEn)}</p>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {(t(teacher.specAr.join("|||"), teacher.specEn.join("|||"))).split("|||").map((s) => (
-                    <span key={s} className="rounded-full border border-card-border bg-surface px-2.5 py-0.5 text-xs text-muted">{s}</span>
-                  ))}
-                </div>
-                <div className="mt-3 text-xs text-muted">
-                  <p>{t("رواية:", "Reading:")} <span className="text-foreground">{teacher.riwaya}</span></p>
-                  <p>{t(`خبرة: ${teacher.exp} سنوات`, `Experience: ${teacher.exp} years`)} · {teacher.sessions} {t("جلسة", "sessions")}</p>
-                </div>
-                <div className="mt-3 flex items-center gap-0.5">
-                  {[1,2,3,4,5].map((i) => <Star key={i} size={12} className="fill-gold text-gold" />)}
-                </div>
-                <Link href="/contact" className="mt-4 block rounded border border-gold bg-gold/10 py-2 text-center text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background">
-                  {t("احجز مع هذا المعلم", "Book with this Teacher")}
-                </Link>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
