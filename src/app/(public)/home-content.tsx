@@ -250,11 +250,12 @@ export default function HomePage() {
             <h2 className="font-display mt-3 text-4xl font-bold">{t("باقاتنا", "Our Packages")}</h2>
           </div>
 
-          <div className="mt-12 grid gap-6 md:grid-cols-3">
+          <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {[
-              { ar: "الباقة الأساسية", en: "Starter", price: "$40", freq: t("٢ أيام/أسبوع", "2 days/week") },
-              { ar: "الباقة المتقدمة", en: "Premium", price: "$65", freq: t("٥ أيام/أسبوع", "5 days/week"), featured: true },
-              { ar: "باقة نهاية الأسبوع", en: "Weekend", price: "$60", freq: t("السبت والأحد", "Sat & Sun") },
+              { ar: "الباقة الأساسية", en: "Starter", price: "$40", freq: t("٢ أيام/أسبوع · ٨ جلسات", "2 days/week · 8 sessions") },
+              { ar: "الباقة المتوسطة", en: "Standard", price: "$50", freq: t("٣ أيام/أسبوع · ١٢ جلسة", "3 days/week · 12 sessions") },
+              { ar: "الباقة المتقدمة", en: "Premium", price: "$65", freq: t("٥ أيام/أسبوع · ٢٠ جلسة", "5 days/week · 20 sessions"), featured: true },
+              { ar: "باقة نهاية الأسبوع", en: "Weekend", price: "$60", freq: t("السبت والأحد · ٨ جلسات", "Sat & Sun · 8 sessions") },
             ].map((p) => (
               <div key={p.en} className={`rounded-2xl p-6 transition-all hover:-translate-y-1 ${p.featured ? "border-2 border-gold bg-card shadow-lg shadow-gold/10" : "border border-card-border bg-card"}`}>
                 {p.featured && <span className="mb-3 inline-block rounded-full bg-gold px-3 py-1 text-xs font-bold text-background">{t("الأكثر طلباً", "Most Popular")}</span>}
