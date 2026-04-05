@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { LogoutButton } from "./logout-button";
 import { LangToggle } from "@/lib/i18n/lang-toggle";
+import { useLang } from "@/lib/i18n/context";
 
 type Role = "student" | "teacher" | "admin" | "moderator";
 
@@ -57,15 +58,16 @@ const LINKS: Record<Role, NavLink[]> = {
   ],
 };
 
-const ROLE_AR: Record<Role, string> = {
-  admin: "الإدارة",
-  teacher: "المعلم",
-  moderator: "المشرف",
-  student: "الطالب",
+const ROLE_LABEL: Record<Role, { ar: string; en: string }> = {
+  admin: { ar: "الإدارة", en: "Admin" },
+  teacher: { ar: "المعلم", en: "Teacher" },
+  moderator: { ar: "المشرف", en: "Moderator" },
+  student: { ar: "الطالب", en: "Student" },
 };
 
 export function Nav({ role }: { role: Role }) {
   const pathname = usePathname();
+  const { lang } = useLang();
   const [menuOpen, setMenuOpen] = useState(false);
   const [lastPath, setLastPath] = useState(pathname);
   if (pathname !== lastPath) {
@@ -87,7 +89,7 @@ export function Nav({ role }: { role: Role }) {
         >
           <Image src="/logo-192.png" alt="فرقان" width={28} height={28} className="rounded-full" />
           <span className="text-lg font-bold text-gold">فُرقان</span>
-          <span className="text-xs text-muted">({ROLE_AR[role]})</span>
+          <span className="text-xs text-muted">({lang === "ar" ? ROLE_LABEL[role].ar : ROLE_LABEL[role].en})</span>
         </Link>
 
         <div className="flex items-center gap-2">
@@ -129,10 +131,7 @@ export function Nav({ role }: { role: Role }) {
                       : "text-muted hover:bg-background hover:text-foreground"
                   }`}
                 >
-                  {link.ar}
-                  <span className="mr-1 hidden text-xs opacity-50 sm:inline">
-                    {link.en}
-                  </span>
+                  {lang === "ar" ? link.ar : link.en}
                 </Link>
               </span>
             );
