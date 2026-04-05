@@ -1,28 +1,33 @@
-# FURQAN Academy — Schema FINAL (V7 + V8 Complete)
+# FURQAN Academy — Schema FINAL (V7 + V8 + V9 Complete)
 
 ## Stack
-Next.js 15 App Router · Supabase (PostgreSQL) · Stripe · Daily.co · Vercel
+Next.js 16 App Router · Supabase (PostgreSQL 17) · Stripe · Daily.co · Vercel
 
 ## Overview
 - **Mode**: Academy Phase 1 — admin-appointed teachers, no marketplace
-- **Tables**: 20 (14 from V7 + 6 new in V8)
+- **Roles**: 4 (student, teacher, admin, moderator)
+- **Tables**: 25 (14 from V7 + 6 from V8 + 5 from V9)
 - **Triggers**: 16
-- **RLS Policies**: 22
-- **This file**: Complete merged schema — V7 base + all V8 additions
+- **RLS Policies**: 32 (22 from V7/V8 + 10 from V9)
+- **Edge Functions**: 4 (auto-reminder, auto-complete, no-show-detector, weekly-report)
+- **This file**: Complete merged schema — V7 base + V8 + V9 additions
 
 ---
 
 ## ENUMS
 
 ```sql
-user_role:      student | teacher | admin
-gender_type:    male | female
-booking_status: pending | confirmed | completed | cancelled | no_show
-session_type:   hifz | muraja | tajweed | tilawa | qiraat | tafsir | combined | other
-payment_status: pending | succeeded | failed | refunded
-msg_type:       text | audio | file
-notif_type:     booking | payment | message | reminder | system
-student_level:  beginner | intermediate | advanced
+user_role:       student | teacher | admin | moderator        -- V9: added moderator
+gender_type:     male | female
+booking_status:  pending | confirmed | completed | cancelled | no_show
+session_type:    hifz | muraja | tajweed | tilawa | qiraat | tafsir | combined | other
+payment_status:  pending | succeeded | failed | refunded
+msg_type:        text | audio | file
+notif_type:      booking | payment | message | reminder | system
+student_level:   beginner | intermediate | advanced
+cv_status:       draft | pending_review | approved | rejected       -- V9 NEW
+evaluation_type: weekly | biweekly | monthly | quarterly            -- V9 NEW
+report_type:     session_summary | evaluation | custom | missed_session | schedule_change  -- V9 NEW
 ```
 
 ---
@@ -45,6 +50,10 @@ Auto-created on signup via trigger from auth.users.
 | deleted_at | timestamptz | | Soft delete — NULL = active |
 | created_at | timestamptz | NOT NULL DEFAULT NOW() | |
 | updated_at | timestamptz | NOT NULL DEFAULT NOW() | AUTO via trigger |
+| parent_name | text | | V9: guardian name |
+| parent_phone | text | | V9: guardian phone |
+| parent_email | text | | V9: guardian email |
+| date_of_birth | date | | V9: student DOB |
 
 **Trigger**: `handle_new_user` — AFTER INSERT ON auth.users → inserts into profiles
 **Trigger**: `t_profiles_upd` — BEFORE UPDATE → set_updated_at()
@@ -77,6 +86,11 @@ Extended data for teachers — created manually by admin.
 | archived_at | timestamptz | | V8 addition |
 | created_at | timestamptz | NOT NULL DEFAULT NOW() | |
 | updated_at | timestamptz | NOT NULL DEFAULT NOW() | AUTO via trigger |
+| cv_status | cv_status | DEFAULT 'draft' | V9: CV workflow status |
+| cv_submitted_at | timestamptz | | V9: when CV was submitted for review |
+| cv_reviewed_by | uuid | REFERENCES profiles(id) | V9: admin/mod who reviewed |
+| cv_reviewed_at | timestamptz | | V9: when CV was reviewed |
+| cv_rejection_reason | text | | V9: reason if rejected |
 
 **Trigger**: `t_tp_upd` — BEFORE UPDATE → set_updated_at()
 **Trigger**: `update_teacher_rating` — AFTER INSERT/UPDATE/DELETE ON reviews → updates rating_avg
@@ -297,6 +311,9 @@ Core booking table — most complex table in the system.
 | cancelled_at | timestamptz | | AUTO SET by trigger |
 | deleted_at | timestamptz | | Soft delete |
 | created_at | timestamptz | NOT NULL DEFAULT NOW() | |
+| teacher_confirmed | boolean | DEFAULT false | V9: teacher explicitly confirmed |
+| teacher_confirmed_at | timestamptz | | V9: when teacher confirmed |
+| decline_reason | text | | V9: reason if declined |
 
 **Key Constraints**:
 ```sql
@@ -364,6 +381,10 @@ Daily.co video session — one per confirmed booking.
 | post_session_notes | text | | Teacher notes after session |
 | homework | text | | Assigned to student |
 | created_at | timestamptz | NOT NULL DEFAULT NOW() | |
+| admin_observer_id | uuid | REFERENCES profiles(id) | V9: observer currently watching |
+| is_observable | boolean | DEFAULT true | V9: can admin/mod observe |
+| observer_joined_at | timestamptz | | V9: when observer joined |
+| observer_notes | text | | V9: observer's notes |
 
 **Constraint**: CHECK(ended_at IS NULL OR started_at IS NULL OR ended_at > started_at)
 **Trigger**: `guard_session` — BEFORE INSERT: raises exception if booking not confirmed/completed
@@ -617,6 +638,118 @@ INSERT INTO schema_migrations VALUES
 
 ---
 
+## TABLE 21 — platform_settings *(V9 NEW)*
+
+Key-value store for feature flags and platform configuration.
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| key | text | PK | e.g. 'hide_reviews', 'hide_prices' |
+| value | text | NOT NULL DEFAULT '' | |
+| description | text | | |
+| updated_at | timestamptz | DEFAULT NOW() | |
+| updated_by | uuid | REFERENCES profiles(id) | |
+
+**Seed**: `hide_reviews=true`, `hide_prices=true`
+**RLS**:
+- SELECT: `true` (anyone can read)
+- ALL: `is_admin_or_mod()`
+
+---
+
+## TABLE 22 — session_evaluations *(V9 NEW)*
+
+Student evaluation scores by admin/moderator.
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| id | uuid | PK DEFAULT gen_random_uuid() | |
+| student_id | uuid | NOT NULL REFERENCES profiles(id) | |
+| teacher_id | uuid | NOT NULL REFERENCES profiles(id) | |
+| evaluator_id | uuid | NOT NULL REFERENCES profiles(id) | admin/mod who created |
+| evaluation_type | evaluation_type | NOT NULL | weekly/biweekly/monthly/quarterly |
+| period_start | date | NOT NULL | |
+| period_end | date | NOT NULL | |
+| hifz_score | smallint | CHECK(BETWEEN 1 AND 10) | |
+| tajweed_score | smallint | CHECK(BETWEEN 1 AND 10) | |
+| akhlaq_score | smallint | CHECK(BETWEEN 1 AND 10) | |
+| attendance_score | smallint | CHECK(BETWEEN 1 AND 10) | |
+| overall_score | smallint | CHECK(BETWEEN 1 AND 10) | |
+| strengths | text | | |
+| weaknesses | text | | |
+| recommendations | text | | |
+| notes | text | | |
+| created_at | timestamptz | DEFAULT NOW() | |
+| updated_at | timestamptz | DEFAULT NOW() | |
+
+**RLS**:
+- ALL: `is_admin_or_mod()`
+- SELECT: `teacher_id = auth.uid()` (teacher reads own)
+- SELECT: `student_id = auth.uid()` (student reads own)
+
+---
+
+## TABLE 23 — parent_reports *(V9 NEW)*
+
+Reports sent to parents/guardians.
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| id | uuid | PK DEFAULT gen_random_uuid() | |
+| student_id | uuid | NOT NULL REFERENCES profiles(id) | |
+| teacher_id | uuid | REFERENCES profiles(id) | |
+| report_type | report_type | NOT NULL | session_summary/evaluation/custom/missed_session/schedule_change |
+| title | text | NOT NULL | |
+| body | text | NOT NULL | |
+| sent_to_email | text | | |
+| sent_to_phone | text | | |
+| sent_at | timestamptz | | NULL until actually sent |
+| created_by | uuid | NOT NULL REFERENCES profiles(id) | |
+| created_at | timestamptz | DEFAULT NOW() | |
+
+**RLS**:
+- ALL: `is_admin_or_mod()`
+- SELECT: `teacher_id = auth.uid()`
+
+---
+
+## TABLE 24 — session_notes_history *(V9 NEW)*
+
+Audit trail for session notes edits.
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| id | uuid | PK DEFAULT gen_random_uuid() | |
+| session_id | uuid | NOT NULL REFERENCES sessions(id) | |
+| notes | text | NOT NULL | |
+| saved_by | uuid | NOT NULL REFERENCES profiles(id) | |
+| created_at | timestamptz | DEFAULT NOW() | |
+
+**RLS**:
+- ALL: `is_admin_or_mod()`
+- SELECT: `saved_by = auth.uid()`
+
+---
+
+## TABLE 25 — session_observers *(V9 NEW)*
+
+Tracks who observed which session.
+
+| Column | Type | Constraints | Notes |
+|--------|------|-------------|-------|
+| id | uuid | PK DEFAULT gen_random_uuid() | |
+| session_id | uuid | NOT NULL REFERENCES sessions(id) | |
+| observer_id | uuid | NOT NULL REFERENCES profiles(id) | |
+| joined_at | timestamptz | | |
+| left_at | timestamptz | | |
+| notes | text | | |
+| created_at | timestamptz | DEFAULT NOW() | |
+
+**RLS**:
+- ALL: `is_admin_or_mod()`
+
+---
+
 ## SHARED FUNCTIONS & TRIGGERS
 
 ### set_updated_at()
@@ -640,6 +773,25 @@ CREATE OR REPLACE FUNCTION is_admin() RETURNS BOOLEAN AS $$
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 ```
 Used in: all lock triggers, status transition trigger, RLS policies.
+
+### is_moderator() *(V9 NEW)*
+```sql
+CREATE OR REPLACE FUNCTION is_moderator() RETURNS BOOLEAN AS $$
+  SELECT EXISTS(
+    SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'moderator'
+  );
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
+```
+
+### is_admin_or_mod() *(V9 NEW)*
+```sql
+CREATE OR REPLACE FUNCTION is_admin_or_mod() RETURNS BOOLEAN AS $$
+  SELECT EXISTS(
+    SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'moderator')
+  );
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
+```
+Used in: V9 RLS policies for evaluations, reports, observers, settings.
 
 ---
 
@@ -688,6 +840,13 @@ ALTER TABLE payments ADD CONSTRAINT fk_payments_booking
 14. Reviews — only for completed bookings; rating immutable after submit
 15. Soft deletes — use `deleted_at` / `is_archived` — NEVER hard delete user data
 16. Admin bypass — is_admin() allows overriding all immutable locks
+17. V9: Teacher CV workflow — draft → pending_review → approved/rejected (by admin/mod)
+18. V9: Auto-decline — confirming a booking auto-cancels overlapping pending bookings for same teacher
+19. V9: teacher_confirmed — explicit confirmation flag + timestamp on booking
+20. V9: Session observation — admin/mod can join as observer (mic/camera off, max_participants bumped to 3)
+21. V9: Feature flags — platform_settings table controls UI visibility (reviews, prices)
+22. V9: Parent reports — created on session complete, evaluation, no-show (email/SMS integration pending)
+23. V9: Moderator — same as admin but cannot manage admins, create users, or access settings
 
 ---
 
@@ -776,83 +935,101 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 src/
 ├── app/
-│   ├── (auth)/
-│   │   ├── login/
-│   │   ├── register/
-│   │   └── forgot-password/
-│   ├── (student)/
+│   ├── (auth)/           — login, register, forgot-password
+│   ├── (public)/         — landing, about, contact, packages, teachers, blog, services
+│   ├── admin/
+│   │   ├── dashboard/
+│   │   ├── users/        — list + new (from-scratch creation)
+│   │   ├── teachers/     — list + cv review queue
+│   │   ├── bookings/
+│   │   ├── sessions/     — list + live monitor + [id]/observe
+│   │   ├── evaluations/  — list + new
+│   │   ├── payments/
+│   │   ├── reviews/
+│   │   ├── blog/
+│   │   └── settings/     — health check + feature flags
+│   ├── moderator/        — V9 NEW
+│   │   ├── dashboard/
+│   │   ├── users/        — students + teachers only
+│   │   ├── cv-review/    — CV approval queue + detail
+│   │   ├── sessions/     — list + [id]/observe
+│   │   ├── evaluations/  — list + new
+│   │   └── audit/        — read-only audit log
+│   ├── student/
 │   │   ├── dashboard/
 │   │   ├── teachers/
-│   │   ├── bookings/
-│   │   ├── sessions/
+│   │   ├── bookings/     — list + new
+│   │   ├── sessions/     — list + [id] with video room
 │   │   ├── progress/
 │   │   └── messages/
-│   ├── (teacher)/
-│   │   ├── dashboard/
-│   │   ├── availability/
-│   │   ├── students/
+│   ├── teacher/
+│   │   ├── dashboard/    — booking actions + session controls
 │   │   ├── sessions/
+│   │   ├── availability/
+│   │   ├── students/     — list + [studentId] with enhanced file
+│   │   ├── cv/           — V9 NEW — CV form + submit for review
+│   │   ├── evaluations/  — V9 NEW — read-only evaluations
 │   │   └── messages/
-│   ├── (admin)/
-│   │   └── dashboard/
 │   └── api/
 │       ├── stripe/webhook/
-│       ├── daily/create-room/
 │       └── bookings/
 ├── components/
-│   ├── ui/
-│   ├── auth/
-│   ├── booking/
-│   ├── session/
-│   └── shared/
+│   ├── shared/           — nav, session-timer, session-status, device-check
+│   └── public/           — testimonials, public-nav, public-footer
 ├── lib/
 │   ├── supabase/
 │   │   ├── client.ts
 │   │   ├── server.ts
-│   │   └── middleware.ts
-│   ├── stripe/
-│   ├── daily/
-│   └── utils/
+│   │   ├── middleware.ts
+│   │   └── admin.ts      — V9 NEW — service-role client
+│   ├── actions/
+│   │   └── evaluations.ts — V9 NEW — shared admin+moderator actions
+│   ├── notifications/
+│   │   └── parent.ts      — V9 NEW — parent report system
+│   ├── i18n/             — context + lang-toggle
+│   ├── daily.ts          — rooms, tokens, observer tokens
+│   ├── settings.ts       — V9 NEW — feature flag utilities
+│   ├── feature-flags-context.tsx — V9 NEW — client-side flags
+│   └── constants.ts
 ├── types/
-│   └── database.ts
-├── hooks/
-└── middleware.ts
+│   └── database.ts       — 25 tables, 11 enums, 3 SQL functions
+└── proxy.ts              — route protection middleware
+supabase/
+└── functions/             — V9 NEW — 4 edge functions
+    ├── auto-reminder/
+    ├── auto-complete/
+    ├── no-show-detector/
+    └── weekly-report/
 ```
 
 ---
 
-## IMPLEMENTATION ORDER
+## IMPLEMENTATION STATUS
+
+All phases complete as of V9.
 
 ```
-Phase 1A — Foundation
-  1. Supabase client setup (client.ts, server.ts)
-  2. TypeScript types from this schema (database.ts)
-  3. Auth middleware + role-based routing
-  4. Login / Register / Forgot password pages
-
-Phase 1B — Teacher Side
-  5. Teacher profile page
-  6. Availability management (weekly schedule + exceptions)
-  7. Teacher dashboard
-
-Phase 1C — Student Side
-  8. Browse teachers
-  9. Booking flow (select slot → payment → confirmation)
-  10. Stripe payment integration
-  11. Student dashboard + booking history
-
-Phase 1D — Sessions
-  12. Daily.co room creation (API route)
-  13. Video session page
-  14. Post-session notes + homework
-
-Phase 1E — Progress & Communication
-  15. Student progress tracking
-  16. Recitation errors logging
-  17. Realtime messaging
-  18. Realtime notifications
-
-Phase 1F — Admin
-  19. Basic admin dashboard
-  20. Teacher management
+✅ Phase 1A — Foundation (auth, types, middleware, routing)
+✅ Phase 1B — Teacher Side (profile, availability, dashboard)
+✅ Phase 1C — Student Side (teachers, booking, payments, dashboard)
+✅ Phase 1D — Sessions (Daily.co rooms, video, notes)
+✅ Phase 1E — Progress & Communication (progress, errors, messaging, notifications)
+✅ Phase 1F — Admin (14 management pages)
+✅ Phase 2  — Session Controls (device check, timer, force-end, no-show, extend room)
+✅ Phase 3  — Security (meeting tokens, time windows, rate limiting, availability validation)
+✅ Phase 4  — E2E Tests (Playwright, 6 tests passing)
+✅ V9.0 — Moderator role + CV workflow
+✅ V9.1 — Admin from-scratch user creation
+✅ V9.2 — Evaluation system
+✅ V9.3 — Booking auto-decline on overlap
+✅ V9.4 — Session observation (admin/mod)
+✅ V9.5 — Parent notifications
+✅ V9.6 — Feature flags (hide_reviews, hide_prices)
+✅ V9.7 — Student file enhancement
+✅ V9.8 — AI automations (4 edge functions)
 ```
+
+## PENDING (requires manual action)
+- Run `src/lib/supabase/migrations/v9_001_schema.sql` against Supabase
+- Configure cron schedules for edge functions in Supabase dashboard
+- Set `SUPABASE_SERVICE_ROLE_KEY` in Vercel env (already done)
