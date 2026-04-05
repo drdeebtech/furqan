@@ -3,6 +3,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { Menu, X } from "lucide-react";
 import { LogoutButton } from "./logout-button";
 
 type Role = "student" | "teacher" | "admin" | "moderator";
@@ -53,8 +55,21 @@ const LINKS: Record<Role, NavLink[]> = {
   ],
 };
 
+const ROLE_AR: Record<Role, string> = {
+  admin: "الإدارة",
+  teacher: "المعلم",
+  moderator: "المشرف",
+  student: "الطالب",
+};
+
 export function Nav({ role }: { role: Role }) {
   const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [lastPath, setLastPath] = useState(pathname);
+  if (pathname !== lastPath) {
+    setLastPath(pathname);
+    setMenuOpen(false);
+  }
 
   return (
     <nav
@@ -62,16 +77,40 @@ export function Nav({ role }: { role: Role }) {
       className="border-b border-surface-border bg-surface elevation-1"
       aria-label="Main navigation"
     >
+      {/* Row 1: Logo + Role label + Hamburger + Logout */}
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-2">
-        <div className="flex items-center gap-1 overflow-x-auto">
-          <Link
-            href={`/${role}/dashboard`}
-            className="ml-4 flex shrink-0 items-center gap-2"
-          >
-            <Image src="/logo-192.png" alt="فرقان" width={28} height={28} className="rounded-full" />
-            <span className="text-lg font-bold text-gold">فُرقان</span>
-          </Link>
+        <Link
+          href={`/${role}/dashboard`}
+          className="flex shrink-0 items-center gap-2"
+        >
+          <Image src="/logo-192.png" alt="فرقان" width={28} height={28} className="rounded-full" />
+          <span className="text-lg font-bold text-gold">فُرقان</span>
+          <span className="text-xs text-muted">({ROLE_AR[role]})</span>
+        </Link>
 
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((v) => !v)}
+            className="rounded-full border border-surface-border p-2 text-muted hover:text-foreground md:hidden focus-ring"
+            aria-label="القائمة"
+            aria-expanded={menuOpen}
+            aria-controls="nav-links"
+          >
+            {menuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+          <LogoutButton />
+        </div>
+      </div>
+
+      {/* Row 2: Nav links — wrapping on desktop, toggled on mobile */}
+      <div
+        id="nav-links"
+        className={`mx-auto max-w-5xl border-t border-surface-border px-4 pb-2 pt-1 ${
+          menuOpen ? "block" : "hidden"
+        } md:block`}
+      >
+        <div className="flex flex-wrap items-center gap-1">
           {LINKS[role].map((link) => {
             const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
@@ -81,7 +120,7 @@ export function Nav({ role }: { role: Role }) {
                 )}
                 <Link
                   href={link.href}
-                  className={`shrink-0 rounded-full px-4 py-1.5 text-sm transition-all focus-ring ${
+                  className={`rounded-full px-4 py-1.5 text-sm transition-all focus-ring ${
                     active
                       ? "bg-primary/20 font-medium text-foreground"
                       : "text-muted hover:bg-background hover:text-foreground"
@@ -96,8 +135,6 @@ export function Nav({ role }: { role: Role }) {
             );
           })}
         </div>
-
-        <LogoutButton />
       </div>
     </nav>
   );
