@@ -48,11 +48,13 @@ export default async function StudentDashboardPage() {
     if (profiles) nameMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name ?? "معلم"]));
   }
 
-  // Fetch session room URL for next booking
+  // Fetch session for next booking
   let roomUrl: string | null = null;
+  let sessionId: string | null = null;
   if (nextBooking) {
-    const { data: session } = await supabase.from("sessions").select("room_url").eq("booking_id", nextBooking.id).single<{ room_url: string }>();
+    const { data: session } = await supabase.from("sessions").select("id, room_url").eq("booking_id", nextBooking.id).single<{ id: string; room_url: string }>();
     roomUrl = session?.room_url ?? null;
+    sessionId = session?.id ?? null;
   }
 
   // Countdown calc
@@ -68,7 +70,7 @@ export default async function StudentDashboardPage() {
     else { countdown = `بعد ${days} يوم`; }
   }
 
-  const canJoin = nextBooking && (new Date(nextBooking.scheduled_at).getTime() - Date.now()) < 15 * 60000;
+  const canJoin = !!nextBooking && !!roomUrl;
 
   return (
     <>
@@ -92,16 +94,13 @@ export default async function StudentDashboardPage() {
             </p>
             <p className={`mt-2 text-sm font-medium ${countdownColor}`}>{countdown}</p>
             <div className="mt-4 flex flex-wrap gap-3">
-              {roomUrl && (
-                <a
-                  href={canJoin ? roomUrl : undefined}
-                  className={`flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold text-white transition-colors ${canJoin ? "bg-green-600 hover:bg-green-700" : "cursor-not-allowed bg-green-600/50 opacity-50"}`}
+              {sessionId && (
+                <Link
+                  href={`/student/sessions/${sessionId}`}
+                  className="flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-700"
                 >
                   <Video size={16} /> انضم للجلسة
-                </a>
-              )}
-              {!canJoin && roomUrl && (
-                <p className="mt-2 text-xs text-muted">ينشط قبل ١٥ دقيقة من الجلسة</p>
+                </Link>
               )}
               <Link href={`/student/sessions`} className="rounded-lg border border-card-border px-4 py-2.5 text-sm text-muted transition-colors hover:border-gold/40 hover:text-gold">
                 تفاصيل الحجز

@@ -454,3 +454,83 @@ export async function saveQuickNotes(sessionId: string, notes: string) {
   revalidatePath("/teacher/dashboard");
   return { success: true };
 }
+
+/* ------------------------------------------------------------------ */
+/*  startInstantSession – create booking + room in one step           */
+/* ------------------------------------------------------------------ */
+export async function startInstantSession(studentId: string, durationMin: number = 30) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "غير مصرح" };
+
+  // Validate duration
+  if (![30, 45, 60].includes(durationMin)) return { error: "مدة غير صالحة" };
+
+  // Get teacher's hourly rate
+  const { data: tp } = await supabase
+    .from("teacher_profiles")
+    .select("hourly_rate")
+    .eq("teacher_id", user.id)
+    .single<{ hourly_rate: number }>();
+  if (!tp) return { error: "ملف المعلم غير موجود" };
+
+  const rate = Number(tp.hourly_rate);
+  const amountUsd = Number((rate * (durationMin / 60)).toFixed(2));
+  const scheduledAt = new Date();
+
+  // Create booking (already confirmed)
+  const { data: booking, error: bookingError } = await supabase
+    .from("bookings")
+    .insert({
+      student_id: studentId,
+      teacher_id: user.id,
+      session_type: "hifz",
+      duration_min: durationMin,
+      rate_snapshot: rate,
+      amount_usd: amountUsd,
+      scheduled_at: scheduledAt.toISOString(),
+      status: "confirmed",
+      teacher_confirmed: true,
+      teacher_confirmed_at: scheduledAt.toISOString(),
+    } as never)
+    .select("id")
+    .single<{ id: string }>();
+
+  if (bookingError || !booking) return { error: "حدث خطأ في إنشاء الحجز" };
+
+  // Create Daily.co room
+  let sessionId: string | null = null;
+  try {
+    const expiresAt = new Date(scheduledAt.getTime() + 2 * 60 * 60 * 1000);
+    const roomName = `furqan-${booking.id.replace(/-/g, "")}`;
+    const room = await createRoom(roomName, expiresAt);
+
+    const { data: sess } = await supabase.from("sessions").insert({
+      booking_id: booking.id,
+      room_name: room.name,
+      room_url: room.url,
+      expires_at: expiresAt.toISOString(),
+      created_via: "manual",
+    } as never).select("id").single<{ id: string }>();
+
+    sessionId = sess?.id ?? null;
+  } catch {
+    return { error: "تم إنشاء الحجز لكن فشل إنشاء غرفة الفيديو" };
+  }
+
+  // Notify student
+  try {
+    await supabase.from("notifications").insert({
+      user_id: studentId,
+      type: "booking",
+      title: "جلسة فورية",
+      body: "المعلم بدأ جلسة فورية — انضم الآن!",
+      data: { booking_id: booking.id },
+      channel: ["in_app"],
+    } as never);
+  } catch { /* non-blocking */ }
+
+  revalidatePath("/teacher/dashboard");
+  revalidatePath("/teacher/sessions");
+  return { success: true, sessionId };
+}

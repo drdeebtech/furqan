@@ -115,7 +115,6 @@ export default async function TeacherSessionPage({ params }: Props) {
           roomUrl={session.room_url}
           userName={user.user_metadata?.full_name ?? "معلم"}
           expiresAt={session.expires_at}
-          scheduledAt={booking.scheduled_at}
           durationMin={booking.duration_min}
         />
       )}

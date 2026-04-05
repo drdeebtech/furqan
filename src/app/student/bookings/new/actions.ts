@@ -84,8 +84,10 @@ export async function createBooking(
     return { error: "تاريخ أو وقت غير صالح" };
   }
 
-  if (scheduledAt <= new Date()) {
-    return { error: "يجب اختيار وقت في المستقبل" };
+  // Allow bookings up to 30 minutes in the past (for instant/agreed sessions)
+  const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
+  if (scheduledAt < thirtyMinsAgo) {
+    return { error: "يجب اختيار وقت صالح" };
   }
 
   // Validate against teacher availability (Fix #8)

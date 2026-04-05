@@ -11,7 +11,6 @@ export function VideoRoom({
   roomUrl,
   userName,
   expiresAt,
-  scheduledAt,
   durationMin,
   startedAt,
 }: {
@@ -19,7 +18,6 @@ export function VideoRoom({
   roomUrl: string;
   userName: string;
   expiresAt: string | null;
-  scheduledAt: string;
   durationMin: number;
   startedAt?: string | null;
 }) {
@@ -37,19 +35,9 @@ export function VideoRoom({
     setDevicesReady(ok);
   }, []);
 
-  // Fix #5: Check if room is expired
+  // Check if room is expired
   const isExpired = expiresAt ? new Date(expiresAt) < new Date() : false;
-
-  // Fix #10: Time window enforcement — joinable 10 min before scheduled time
-  const scheduled = new Date(scheduledAt);
-  const windowStart = new Date(scheduled.getTime() - 10 * 60 * 1000);
-  const windowEnd = new Date(
-    scheduled.getTime() + (durationMin + 30) * 60 * 1000,
-  );
-  const now = new Date();
-  const tooEarly = now < windowStart;
-  const tooLate = now > windowEnd;
-  const canJoin = !isExpired && !tooEarly && !tooLate;
+  const canJoin = !isExpired;
 
   async function joinCall() {
     if (!containerRef.current || frameRef.current || loading) return;
@@ -135,35 +123,6 @@ export function VideoRoom({
     );
   }
 
-  if (tooEarly) {
-    const minsUntil = Math.ceil(
-      (windowStart.getTime() - Date.now()) / 60000,
-    );
-    return (
-      <div className="rounded-2xl border border-gold/30 bg-gold/5 p-8 text-center">
-        <Video size={32} className="mx-auto mb-3 text-gold" />
-        <p className="font-semibold text-gold">الجلسة لم تبدأ بعد</p>
-        <p className="mt-1 text-sm text-muted">
-          يمكنك الانضمام قبل الموعد بـ ١٠ دقائق — متبقي{" "}
-          {minsUntil > 60
-            ? `${Math.floor(minsUntil / 60)} ساعة و ${minsUntil % 60} دقيقة`
-            : `${minsUntil} دقيقة`}
-        </p>
-      </div>
-    );
-  }
-
-  if (tooLate) {
-    return (
-      <div className="rounded-2xl border border-error/30 bg-error/10 p-8 text-center">
-        <AlertCircle size={32} className="mx-auto mb-3 text-error" />
-        <p className="font-semibold text-error">انتهى وقت الجلسة</p>
-        <p className="mt-1 text-sm text-muted">
-          تجاوز الوقت المحدد للجلسة
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div>

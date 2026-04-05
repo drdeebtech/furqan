@@ -63,11 +63,7 @@ export function BookingForm({
 
   const price = Number((teacher.hourlyRate * (duration / 60)).toFixed(2));
 
-  const minDateObj = new Date();
-  if (process.env.NODE_ENV !== "development") {
-    minDateObj.setDate(minDateObj.getDate() + 1);
-  }
-  const minDate = minDateObj.toISOString().split("T")[0];
+  const minDate = new Date().toISOString().split("T")[0];
 
   // Get available time slots for selected date
   const selectedDayOfWeek = selectedDate ? new Date(selectedDate).getDay() : null;

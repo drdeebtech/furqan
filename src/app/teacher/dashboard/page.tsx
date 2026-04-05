@@ -4,6 +4,7 @@ import { Calendar, Clock, Hourglass, Star, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { BookingActions } from "./booking-actions";
 import { TeacherSessionCard } from "./teacher-session-card";
+import { InstantSessionButton } from "./instant-session";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import type { BookingStatus, SessionType } from "@/types/database";
 
@@ -81,6 +82,13 @@ export default async function TeacherDashboardPage() {
               <p className="text-xs text-muted">{s.l}</p>
             </div>
           ))}
+        </div>
+
+        {/* Instant Session */}
+        <div className="mt-6">
+          <InstantSessionButton
+            students={Object.entries(nameMap).map(([id, name]) => ({ id, name }))}
+          />
         </div>
 
         {/* Today's Sessions */}

@@ -164,7 +164,6 @@ export default async function SessionPage({ params }: Props) {
           roomUrl={session.room_url}
           userName={user.user_metadata?.full_name ?? "طالب"}
           expiresAt={session.expires_at}
-          scheduledAt={booking.scheduled_at}
           durationMin={booking.duration_min}
           startedAt={session.started_at}
         />
