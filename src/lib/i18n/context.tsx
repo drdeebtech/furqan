@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 
 export type Lang = "ar" | "en";
 
@@ -18,11 +18,27 @@ const LangContext = createContext<LangContextType>({
   dir: "rtl",
 });
 
+function getStoredLang(): Lang {
+  if (typeof window === "undefined") return "ar";
+  const stored = localStorage.getItem("furqan-lang");
+  return stored === "en" ? "en" : "ar";
+}
+
 export function LangProvider({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Lang>("ar");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setLang(getStoredLang());
+    setMounted(true);
+  }, []);
 
   const toggle = useCallback(() => {
-    setLang((prev) => (prev === "ar" ? "en" : "ar"));
+    setLang((prev) => {
+      const next = prev === "ar" ? "en" : "ar";
+      localStorage.setItem("furqan-lang", next);
+      return next;
+    });
   }, []);
 
   const t = useCallback(
@@ -31,6 +47,15 @@ export function LangProvider({ children }: { children: ReactNode }) {
   );
 
   const dir = lang === "ar" ? "rtl" : "ltr";
+
+  // Prevent flash of wrong language
+  if (!mounted) {
+    return (
+      <LangContext.Provider value={{ lang: "ar", toggle, t: (ar) => ar, dir: "rtl" }}>
+        {children}
+      </LangContext.Provider>
+    );
+  }
 
   return (
     <LangContext.Provider value={{ lang, toggle, t, dir }}>

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { LogoutButton } from "./logout-button";
+import { LangToggle } from "@/lib/i18n/lang-toggle";
 
 type Role = "student" | "teacher" | "admin" | "moderator";
 
@@ -100,6 +101,7 @@ export function Nav({ role }: { role: Role }) {
           >
             {menuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
+          <LangToggle />
           <LogoutButton />
         </div>
       </div>

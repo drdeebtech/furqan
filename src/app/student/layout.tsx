@@ -1,4 +1,5 @@
 import { Nav } from "@/components/shared/nav";
+import { LangProvider } from "@/lib/i18n/context";
 
 export default function StudentLayout({
   children,
@@ -6,9 +7,11 @@ export default function StudentLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen">
-      <Nav role="student" />
-      {children}
-    </div>
+    <LangProvider>
+      <div className="min-h-screen">
+        <Nav role="student" />
+        {children}
+      </div>
+    </LangProvider>
   );
 }
