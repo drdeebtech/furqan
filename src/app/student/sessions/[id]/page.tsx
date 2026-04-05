@@ -119,7 +119,14 @@ export default async function SessionPage({ params }: Props) {
           )}
         </div>
       ) : (
-        <VideoRoom roomUrl={session.room_url} userName={user.user_metadata?.full_name ?? "طالب"} />
+        <VideoRoom
+          sessionId={session.id}
+          roomUrl={session.room_url}
+          userName={user.user_metadata?.full_name ?? "طالب"}
+          expiresAt={session.expires_at}
+          scheduledAt={booking.scheduled_at}
+          durationMin={booking.duration_min}
+        />
       )}
     </div>
   );

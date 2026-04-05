@@ -23,6 +23,7 @@ export function BookingActions({ bookingId }: { bookingId: string }) {
     } else {
       setDone(status);
       if (result.roomUrl) setRoomUrl(result.roomUrl);
+      if (result.warning) setError(result.warning);
       setLoading(null);
     }
   }
@@ -43,6 +44,9 @@ export function BookingActions({ bookingId }: { bookingId: string }) {
             رابط الجلسة
             <ExternalLink size={12} />
           </a>
+        )}
+        {error && (
+          <p className="mt-1 text-xs text-amber-400">{error}</p>
         )}
       </div>
     );

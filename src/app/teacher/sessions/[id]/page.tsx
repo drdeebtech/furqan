@@ -22,13 +22,14 @@ export default async function TeacherSessionPage({ params }: Props) {
 
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, booking_id, room_url, room_name, started_at, ended_at, actual_duration, post_session_notes, homework")
+    .select("id, booking_id, room_url, room_name, expires_at, started_at, ended_at, actual_duration, post_session_notes, homework")
     .eq("id", id)
     .single<{
       id: string;
       booking_id: string;
       room_url: string;
       room_name: string;
+      expires_at: string | null;
       started_at: string | null;
       ended_at: string | null;
       actual_duration: number | null;
@@ -97,7 +98,14 @@ export default async function TeacherSessionPage({ params }: Props) {
           existingHomework={session.homework}
         />
       ) : (
-        <VideoRoom roomUrl={session.room_url} userName={user.user_metadata?.full_name ?? "معلم"} />
+        <VideoRoom
+          sessionId={session.id}
+          roomUrl={session.room_url}
+          userName={user.user_metadata?.full_name ?? "معلم"}
+          expiresAt={session.expires_at}
+          scheduledAt={booking.scheduled_at}
+          durationMin={booking.duration_min}
+        />
       )}
     </div>
   );

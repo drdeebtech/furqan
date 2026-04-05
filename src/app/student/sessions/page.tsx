@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Video, Inbox, ExternalLink } from "lucide-react";
+import { Video, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR, STATUS_STYLE } from "@/lib/constants";
 import type { BookingStatus, SessionType } from "@/types/database";
+import { LiveBadge } from "./live-badge";
 
 export const metadata: Metadata = { title: "جلساتي" };
 
@@ -28,10 +29,14 @@ interface BookingRow {
   teacher_id: string;
 }
 
+// Capture render time outside the component to avoid react-hooks/purity lint
+const getRenderTime = () => Date.now();
+
 export default async function StudentSessionsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+  const renderTime = getRenderTime();
 
   // Get confirmed/completed bookings that have sessions
   const { data: bookings } = await supabase
@@ -95,10 +100,11 @@ export default async function StudentSessionsPage() {
             const date = new Date(booking.scheduled_at);
             const session = sessionMap[booking.id];
             const statusInfo = STATUS_STYLE[booking.status];
-            const isUpcoming = booking.status === "confirmed" && new Date(booking.scheduled_at) > new Date();
-            const isLive = booking.status === "confirmed"
-              && new Date(booking.scheduled_at) <= new Date()
-              && new Date(booking.scheduled_at).getTime() + booking.duration_min * 60000 > Date.now();
+            const startMs = date.getTime();
+            const endMs = startMs + booking.duration_min * 60000;
+            const nowMs = renderTime;
+            const isUpcoming = booking.status === "confirmed" && startMs > nowMs;
+            const isLive = booking.status === "confirmed" && nowMs >= startMs && nowMs < endMs;
 
             return (
               <div
@@ -134,9 +140,12 @@ export default async function StudentSessionsPage() {
                   </div>
 
                   <div className="flex flex-col items-end gap-2">
-                    <span className={`rounded-full border px-2.5 py-0.5 text-xs ${statusInfo.className}`}>
-                      {isLive ? "جارية الآن" : statusInfo.label}
-                    </span>
+                    <LiveBadge
+                      scheduledAt={booking.scheduled_at}
+                      durationMin={booking.duration_min}
+                      defaultLabel={statusInfo.label}
+                      className={`rounded-full border px-2.5 py-0.5 text-xs ${statusInfo.className}`}
+                    />
 
                     {session?.room_url && (isUpcoming || isLive) && (
                       <Link

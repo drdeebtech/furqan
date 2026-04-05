@@ -71,7 +71,7 @@ export default async function NewBookingPage({ searchParams }: Props) {
 
   return (
     <div dir="rtl" className="mx-auto max-w-2xl px-4 py-8">
-      <BookingForm teacher={teacher} studentId={user.id} availability={availability} />
+      <BookingForm teacher={teacher} availability={availability} />
     </div>
   );
 }

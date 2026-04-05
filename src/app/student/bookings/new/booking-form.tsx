@@ -36,11 +36,9 @@ interface AvailSlot {
 
 export function BookingForm({
   teacher,
-  studentId,
   availability,
 }: {
   teacher: TeacherData;
-  studentId: string;
   availability: AvailSlot[];
 }) {
   const [duration, setDuration] = useState(60);
@@ -117,9 +115,7 @@ export function BookingForm({
       )}
 
       <form action={formAction} className="space-y-5">
-        <input type="hidden" name="student_id" value={studentId} />
         <input type="hidden" name="teacher_id" value={teacher.id} />
-        <input type="hidden" name="rate_snapshot" value={teacher.hourlyRate} />
         <input type="hidden" name="duration_min" value={duration} />
 
         {/* Session Type */}
