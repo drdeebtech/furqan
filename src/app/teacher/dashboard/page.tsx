@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { BookOpen, Calendar, CheckCircle, Clock, Hourglass, Star, Users, Video } from "lucide-react";
+import { Calendar, Clock, Hourglass, Star, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { BookingActions } from "./booking-actions";
+import { TeacherSessionCard } from "./teacher-session-card";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import type { BookingStatus, SessionType } from "@/types/database";
 
@@ -42,12 +43,12 @@ export default async function TeacherDashboardPage() {
   const uniqueStudents = new Set((allStudentsRes.data ?? []).map(s => s.student_id)).size;
   const pendingCount = pending.length;
 
-  // Session room URLs for today
-  let roomUrlMap: Record<string, string | null> = {};
+  // Session data for today (full details for TeacherSessionCard)
+  let sessionDataMap: Record<string, { id: string; room_url: string; expires_at: string | null; started_at: string | null; ended_at: string | null }> = {};
   if (todaySessions.length > 0) {
     const bIds = todaySessions.map(b => b.id);
-    const { data: sessions } = await supabase.from("sessions").select("booking_id, room_url").in("booking_id", bIds).returns<{ booking_id: string; room_url: string }[]>();
-    if (sessions) roomUrlMap = Object.fromEntries(sessions.map(s => [s.booking_id, s.room_url]));
+    const { data: sessions } = await supabase.from("sessions").select("id, booking_id, room_url, expires_at, started_at, ended_at").in("booking_id", bIds).returns<{ id: string; booking_id: string; room_url: string; expires_at: string | null; started_at: string | null; ended_at: string | null }[]>();
+    if (sessions) sessionDataMap = Object.fromEntries(sessions.map(s => [s.booking_id, s]));
   }
 
   // Student names
@@ -88,26 +89,21 @@ export default async function TeacherDashboardPage() {
             <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold"><Calendar size={18} className="text-gold" /> جلسات اليوم</h2>
             <div className="space-y-3">
               {todaySessions.map(b => {
-                const url = roomUrlMap[b.id];
+                const sess = sessionDataMap[b.id];
                 return (
-                  <div key={b.id} className="rounded-xl border border-gold/20 bg-card p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-medium">{nameMap[b.student_id] ?? "طالب"}</p>
-                        <p className="mt-1 text-sm text-gold">{SESSION_TYPE_AR[b.session_type]} · {b.duration_min} دقيقة</p>
-                        <p dir="ltr" className="mt-1 text-left text-sm text-muted">
-                          {new Date(b.scheduled_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                      </div>
-                      {url ? (
-                        <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-green-700">
-                          <Video size={14} /> انضم
-                        </a>
-                      ) : (
-                        <span className="text-xs text-muted">لم يُنشأ رابط</span>
-                      )}
-                    </div>
-                  </div>
+                  <TeacherSessionCard
+                    key={b.id}
+                    sessionId={sess?.id ?? null}
+                    bookingId={b.id}
+                    studentName={nameMap[b.student_id] ?? "طالب"}
+                    sessionType={b.session_type}
+                    scheduledAt={b.scheduled_at}
+                    durationMin={b.duration_min}
+                    roomUrl={sess?.room_url ?? null}
+                    expiresAt={sess?.expires_at ?? null}
+                    startedAt={sess?.started_at ?? null}
+                    endedAt={sess?.ended_at ?? null}
+                  />
                 );
               })}
             </div>

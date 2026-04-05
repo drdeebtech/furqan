@@ -82,3 +82,55 @@ export async function createMeetingToken(
   const data = await response.json();
   return data.token as string;
 }
+
+/**
+ * Get room info (status, expiry, participants).
+ */
+export async function getRoomInfo(roomName: string) {
+  const apiKey = getApiKey();
+  const response = await fetch(`${DAILY_API_BASE}/rooms/${roomName}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!response.ok) return null;
+  const data = await response.json();
+  return {
+    name: data.name as string,
+    url: data.url as string,
+    exp: data.config?.exp as number | undefined,
+    maxParticipants: data.config?.max_participants as number | undefined,
+  };
+}
+
+/**
+ * Update room expiry (extend session).
+ */
+export async function updateRoomExpiry(roomName: string, newExpiry: Date) {
+  const apiKey = getApiKey();
+  const response = await fetch(`${DAILY_API_BASE}/rooms/${roomName}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      properties: { exp: Math.floor(newExpiry.getTime() / 1000) },
+    }),
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Daily.co update error (${response.status}): ${body}`);
+  }
+  return true;
+}
+
+/**
+ * Delete a room.
+ */
+export async function deleteRoom(roomName: string) {
+  const apiKey = getApiKey();
+  const response = await fetch(`${DAILY_API_BASE}/rooms/${roomName}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  return response.ok;
+}

@@ -5,7 +5,9 @@ import { ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import type { SessionType } from "@/types/database";
+import { SessionTimer } from "@/components/shared/session-timer";
 import { VideoRoom } from "./video-room";
+import { RateTeacherForm } from "./rate-teacher-form";
 
 export const metadata: Metadata = { title: "الجلسة" };
 
@@ -65,6 +67,18 @@ export default async function SessionPage({ params }: Props) {
   const scheduledDate = new Date(booking.scheduled_at);
   const isCompleted = session.ended_at !== null;
 
+  // Fetch existing review if session is completed
+  let existingReview: { rating: number; comment: string | null } | null = null;
+  if (isCompleted) {
+    const { data: review } = await supabase
+      .from("reviews")
+      .select("rating, comment")
+      .eq("booking_id", session.booking_id)
+      .eq("student_id", user.id)
+      .single<{ rating: number; comment: string | null }>();
+    existingReview = review;
+  }
+
   return (
     <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
       <Link
@@ -89,6 +103,9 @@ export default async function SessionPage({ params }: Props) {
             {scheduledDate.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
           </p>
         </div>
+        {session.started_at && !session.ended_at && (
+          <SessionTimer startedAt={session.started_at} durationMin={booking.duration_min} />
+        )}
         {isCompleted && session.actual_duration && (
           <div className="rounded-full border border-card-border px-3 py-1 text-sm text-muted">
             مدة الجلسة: {session.actual_duration} دقيقة
@@ -117,6 +134,29 @@ export default async function SessionPage({ params }: Props) {
               <p className="text-sm leading-relaxed text-muted">{session.homework}</p>
             </div>
           )}
+
+          {/* Review section */}
+          {existingReview ? (
+            <div className="rounded-2xl border border-card-border bg-card elevation-2 p-5">
+              <h2 className="mb-2 text-sm font-semibold text-gold">تقييمك</h2>
+              <div className="mb-2 flex gap-1">
+                {Array.from({ length: 5 }, (_, i) => (
+                  <span key={i} className={i < existingReview.rating ? "text-gold" : "text-muted/40"}>
+                    {i < existingReview.rating ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    )}
+                  </span>
+                ))}
+              </div>
+              {existingReview.comment && (
+                <p className="text-sm leading-relaxed text-muted">{existingReview.comment}</p>
+              )}
+            </div>
+          ) : (
+            <RateTeacherForm sessionId={session.id} teacherName={teacherName} />
+          )}
         </div>
       ) : (
         <VideoRoom
@@ -126,6 +166,7 @@ export default async function SessionPage({ params }: Props) {
           expiresAt={session.expires_at}
           scheduledAt={booking.scheduled_at}
           durationMin={booking.duration_min}
+          startedAt={session.started_at}
         />
       )}
     </div>

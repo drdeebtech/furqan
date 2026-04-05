@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Video, VideoOff, AlertCircle } from "lucide-react";
+import { DeviceCheck } from "@/components/shared/device-check";
+import { SessionTimer } from "@/components/shared/session-timer";
 import { generateSessionToken, trackSessionEvent } from "./actions";
 
 export function VideoRoom({
@@ -11,6 +13,7 @@ export function VideoRoom({
   expiresAt,
   scheduledAt,
   durationMin,
+  startedAt,
 }: {
   sessionId: string;
   roomUrl: string;
@@ -18,6 +21,7 @@ export function VideoRoom({
   expiresAt: string | null;
   scheduledAt: string;
   durationMin: number;
+  startedAt?: string | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<ReturnType<
@@ -26,6 +30,12 @@ export function VideoRoom({
   const [joined, setJoined] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [devicesReady, setDevicesReady] = useState(false);
+  const [activeStartedAt, setActiveStartedAt] = useState(startedAt ?? null);
+
+  const handleDeviceReady = useCallback((ok: boolean) => {
+    setDevicesReady(ok);
+  }, []);
 
   // Fix #5: Check if room is expired
   const isExpired = expiresAt ? new Date(expiresAt) < new Date() : false;
@@ -73,6 +83,10 @@ export function VideoRoom({
       frame.on("joined-meeting", () => {
         setJoined(true);
         setLoading(false);
+        // Set started_at for timer if not already set
+        if (!activeStartedAt) {
+          setActiveStartedAt(new Date().toISOString());
+        }
         // Fix #7: Track join event
         trackSessionEvent(sessionId, "joined");
       });
@@ -166,17 +180,17 @@ export function VideoRoom({
           <p className="mb-6 text-sm text-muted">
             اضغط للانضمام إلى جلسة الفيديو مع معلمك
           </p>
+          <div className="mx-auto mb-6 max-w-sm">
+            <DeviceCheck onReady={handleDeviceReady} />
+          </div>
           <button
             onClick={joinCall}
-            disabled={!canJoin}
+            disabled={!canJoin || !devicesReady}
             className="inline-flex items-center gap-2 rounded-full bg-primary px-8 py-3 text-lg font-semibold text-white neu-btn transition-colors hover:bg-primary-hover focus-ring disabled:opacity-50"
           >
             <Video size={20} />
             انضم للجلسة
           </button>
-          <p className="mt-3 text-xs text-muted">
-            سيطلب المتصفح إذن الكاميرا والميكروفون
-          </p>
         </div>
       )}
 
@@ -195,9 +209,14 @@ export function VideoRoom({
 
       {joined && (
         <div className="mt-4 flex items-center justify-between rounded-2xl border border-card-border bg-card elevation-2 p-3">
-          <div className="flex items-center gap-2 text-sm text-success">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-success" />
-            الجلسة جارية
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-sm text-success">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-success" />
+              الجلسة جارية
+            </div>
+            {activeStartedAt && (
+              <SessionTimer startedAt={activeStartedAt} durationMin={durationMin} />
+            )}
           </div>
           <button
             onClick={() => frameRef.current?.leave()}

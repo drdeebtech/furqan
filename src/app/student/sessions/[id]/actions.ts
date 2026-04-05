@@ -65,6 +65,62 @@ export async function generateSessionToken(sessionId: string) {
   }
 }
 
+export async function submitReview(
+  sessionId: string,
+  rating: number,
+  comment: string | null,
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "غير مصرح" };
+
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return { error: "التقييم يجب أن يكون بين ١ و ٥" };
+  }
+
+  // Fetch session to get booking_id
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("id, booking_id")
+    .eq("id", sessionId)
+    .single<{ id: string; booking_id: string }>();
+
+  if (!session) return { error: "الجلسة غير موجودة" };
+
+  // Fetch booking to verify student and get teacher_id
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("student_id, teacher_id")
+    .eq("id", session.booking_id)
+    .single<{ student_id: string; teacher_id: string }>();
+
+  if (!booking) return { error: "الحجز غير موجود" };
+
+  if (booking.student_id !== user.id) {
+    return { error: "ليس لديك صلاحية لتقييم هذه الجلسة" };
+  }
+
+  // Insert review — handle duplicate constraint gracefully
+  const { error } = await supabase.from("reviews").insert({
+    booking_id: session.booking_id,
+    student_id: user.id,
+    teacher_id: booking.teacher_id,
+    rating,
+    comment,
+  } as never);
+
+  if (error) {
+    if (error.code === "23505") {
+      return { error: "لقد قمت بتقييم هذه الجلسة مسبقاً" };
+    }
+    return { error: "حدث خطأ أثناء حفظ التقييم" };
+  }
+
+  return { success: true };
+}
+
 export async function trackSessionEvent(
   sessionId: string,
   event: "joined" | "left",

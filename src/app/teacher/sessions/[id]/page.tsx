@@ -7,6 +7,7 @@ import { SESSION_TYPE_AR } from "@/lib/constants";
 import type { SessionType } from "@/types/database";
 import { VideoRoom } from "@/app/student/sessions/[id]/video-room";
 import { PostSessionForm } from "./post-session-form";
+import { SessionDetailControls } from "./session-detail-controls";
 
 export const metadata: Metadata = { title: "الجلسة" };
 
@@ -90,6 +91,17 @@ export default async function TeacherSessionPage({ params }: Props) {
           </div>
         )}
       </div>
+
+      {/* Session controls (timer + end/extend buttons) when active */}
+      {!isCompleted && (
+        <SessionDetailControls
+          sessionId={session.id}
+          startedAt={session.started_at}
+          expiresAt={session.expires_at}
+          durationMin={booking.duration_min}
+          scheduledAt={booking.scheduled_at}
+        />
+      )}
 
       {isCompleted ? (
         <PostSessionForm

@@ -12,6 +12,8 @@ import {
   Plus,
   Bell,
   CalendarDays,
+  Radio,
+  Video,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ArchiveToggle } from "./archive-toggle";
@@ -94,6 +96,7 @@ export default async function AdminDashboardPage() {
     pendingListRes,
     newStudentsRes,
     todayBookingsRes,
+    activeSessionsRes,
   ] = await Promise.all([
     /* Stats: total students */
     supabase
@@ -155,6 +158,13 @@ export default async function AdminDashboardPage() {
       .lte("scheduled_at", todayEnd)
       .order("scheduled_at", { ascending: true })
       .returns<TodayBookingRow[]>(),
+
+    /* Active sessions count */
+    supabase
+      .from("sessions")
+      .select("id", { count: "exact", head: true })
+      .not("started_at", "is", null)
+      .is("ended_at", null),
   ]);
 
   /* ── Derived values ──────────────────────────────────────────── */
@@ -169,6 +179,7 @@ export default async function AdminDashboardPage() {
   const pendingBookings = pendingListRes.data ?? [];
   const newStudentCount = newStudentsRes.count ?? 0;
   const todayBookings = todayBookingsRes.data ?? [];
+  const activeSessionCount = activeSessionsRes.count ?? 0;
 
   /* ── Name resolution (two-query pattern) ─────────────────────── */
   const allIds = new Set<string>();
@@ -402,6 +413,31 @@ export default async function AdminDashboardPage() {
           )}
         </div>
 
+        {/* ═══════ Section 3.5 — Active Sessions ═══════ */}
+        {activeSessionCount > 0 && (
+          <div className="mt-6">
+            <Link
+              href="/admin/sessions/live"
+              className="group flex items-center gap-4 rounded-2xl border-2 border-emerald-500/30 bg-emerald-500/5 p-5 transition-colors hover:border-emerald-500/50 hover:bg-emerald-500/10"
+            >
+              <div className="rounded-xl bg-emerald-500/15 p-3">
+                <Radio size={24} className="animate-pulse text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-lg font-bold text-emerald-400">
+                  {activeSessionCount} جلسات نشطة الآن
+                </p>
+                <p className="mt-0.5 text-sm text-muted">
+                  {activeSessionCount} active sessions — click to monitor
+                </p>
+              </div>
+              <span className="mr-auto text-sm font-medium text-emerald-400/80 group-hover:text-emerald-400">
+                المراقبة المباشرة &larr;
+              </span>
+            </Link>
+          </div>
+        )}
+
         {/* ═══════ Section 4 — Quick Actions ═══════ */}
         <div className="mt-10">
           <h2 className="mb-4 text-lg font-semibold">إجراءات سريعة</h2>
@@ -426,6 +462,13 @@ export default async function AdminDashboardPage() {
             >
               <BookOpen size={16} />
               عرض الحجوزات
+            </Link>
+            <Link
+              href="/admin/sessions"
+              className="neu-btn inline-flex items-center gap-2 rounded-xl border border-card-border px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-surface-alt"
+            >
+              <Video size={16} />
+              الجلسات
             </Link>
           </div>
         </div>
