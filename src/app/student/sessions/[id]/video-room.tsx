@@ -93,10 +93,22 @@ export function VideoRoom({
         setLoading(false);
       });
 
-      // Join with token instead of raw URL
+      // Join with token instead of raw URL — timeout after 30s
+      const joinTimeout = setTimeout(() => {
+        if (!frameRef.current) return;
+        setError("انتهت مهلة الاتصال — حاول مرة أخرى");
+        setLoading(false);
+        try { frame.destroy(); } catch { /* ignore */ }
+        frameRef.current = null;
+      }, 30000);
+
+      frame.on("joined-meeting", () => clearTimeout(joinTimeout));
+      frame.on("error", () => clearTimeout(joinTimeout));
+
       await frame.join({ url: roomUrl, token: result.token, userName });
-    } catch {
-      setError("تعذر الانضمام للجلسة — تأكد من اتصالك بالإنترنت");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      setError(`تعذر الانضمام للجلسة — ${msg || "تأكد من اتصالك بالإنترنت"}`);
       setLoading(false);
     }
   }
@@ -153,18 +165,19 @@ export function VideoRoom({
         </div>
       )}
 
-      {loading && !joined && (
-        <div className="rounded-2xl border border-card-border bg-card elevation-2 p-12 text-center">
-          <span className="mx-auto mb-4 block h-8 w-8 animate-spin rounded-full border-4 border-gold/30 border-t-gold" />
-          <p className="text-sm text-muted">جاري الاتصال...</p>
-        </div>
-      )}
-
-      {/* Video container — always in DOM, hidden until joined */}
-      <div
-        ref={containerRef}
-        className={`overflow-hidden rounded-xl ${joined ? "aspect-video" : "h-0"}`}
-      />
+      {/* Video container — visible during loading and when joined */}
+      <div className={`relative ${joined || loading ? "" : "h-0"}`}>
+        {loading && !joined && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-xl bg-card/80">
+            <span className="mb-4 block h-8 w-8 animate-spin rounded-full border-4 border-gold/30 border-t-gold" />
+            <p className="text-sm text-muted">جاري الاتصال...</p>
+          </div>
+        )}
+        <div
+          ref={containerRef}
+          className={`overflow-hidden rounded-xl ${joined || loading ? "aspect-video" : "h-0"}`}
+        />
+      </div>
 
       {joined && (
         <div className="mt-4 flex items-center justify-between rounded-2xl border border-card-border bg-card elevation-2 p-3">
