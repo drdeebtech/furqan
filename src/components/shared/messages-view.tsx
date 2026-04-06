@@ -113,14 +113,20 @@ export function MessagesView({
     setMessages((prev) =>
       prev.map((m) => (m.id === msgId ? { ...m, status: "sending" } : m)),
     );
-    const result = await sendMessage(activeConvo, content);
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === msgId
-          ? { ...m, status: result.success ? "delivered" : "failed" }
-          : m,
-      ),
-    );
+    try {
+      const result = await sendMessage(activeConvo, content);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msgId
+            ? { ...m, status: result.success ? "delivered" : "failed" }
+            : m,
+        ),
+      );
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === msgId ? { ...m, status: "failed" } : m)),
+      );
+    }
   }
 
   async function openNewConvoDialog() {

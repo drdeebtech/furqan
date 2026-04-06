@@ -42,7 +42,7 @@ export async function proxy(request: NextRequest) {
 
   // Check protected routes
   for (const [prefix, requiredRole] of Object.entries(PROTECTED_ROUTES)) {
-    if (!pathname.startsWith(prefix)) continue;
+    if (pathname !== prefix && !pathname.startsWith(`${prefix}/`)) continue;
 
     // Not authenticated → redirect to login
     if (!user) {
