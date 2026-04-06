@@ -19,13 +19,13 @@ export function MobileRegisterBar() {
       <div className="flex items-center gap-3">
         <Link
           href="/login"
-          className="rounded-lg border border-card-border px-4 py-2.5 text-sm font-medium text-muted transition-colors hover:text-gold"
+          className="focus-ring rounded-lg border border-card-border px-4 py-2.5 text-sm font-medium text-muted transition-colors hover:text-gold"
         >
           {t("دخول", "Sign In")}
         </Link>
         <Link
           href="/register"
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-gold py-2.5 text-sm font-bold text-background transition-colors hover:bg-gold-hover"
+          className="focus-ring flex flex-1 items-center justify-center gap-2 rounded-lg bg-gold py-2.5 text-sm font-bold text-background transition-colors hover:bg-gold-hover"
         >
           <UserPlus size={16} />
           {t("سجّل الآن", "Register Now")}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { X, UserPlus, BookOpen } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
@@ -17,20 +17,32 @@ export function WelcomePopup() {
     }
   }, []);
 
-  function dismiss() {
+  const dismiss = useCallback(() => {
     setShow(false);
     localStorage.setItem("furqan-welcome-seen", "1");
-  }
+  }, []);
+
+  useEffect(() => {
+    if (!show) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") dismiss();
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [show, dismiss]);
 
   if (!show) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={dismiss}>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("مرحباً بك في فُرقان", "Welcome to FURQAN")}
         onClick={(e) => e.stopPropagation()}
         className="relative mx-4 w-full max-w-md animate-in rounded-2xl border border-gold/30 bg-card p-8 shadow-2xl shadow-gold/10"
       >
-        <button onClick={dismiss} className="absolute left-4 top-4 text-muted hover:text-foreground">
+        <button onClick={dismiss} className="focus-ring absolute left-4 top-4 text-muted hover:text-foreground">
           <X size={20} />
         </button>
 
@@ -53,14 +65,14 @@ export function WelcomePopup() {
             <Link
               href="/register"
               onClick={dismiss}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-3.5 text-lg font-bold text-background transition-colors hover:bg-gold-hover"
+              className="focus-ring flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-3.5 text-lg font-bold text-background transition-colors hover:bg-gold-hover"
             >
               <UserPlus size={20} />
               {t("سجّل الآن مجاناً", "Register Now — Free")}
             </Link>
             <button
               onClick={dismiss}
-              className="w-full rounded-xl border border-card-border py-3 text-sm text-muted transition-colors hover:border-gold/40 hover:text-gold"
+              className="focus-ring w-full rounded-xl border border-card-border py-3 text-sm text-muted transition-colors hover:border-gold/40 hover:text-gold"
             >
               {t("تصفح الموقع أولاً", "Browse the site first")}
             </button>

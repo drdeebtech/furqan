@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { BlogPost } from "@/types/blog";
-import { RegisterBanner } from "@/components/public/free-trial-banner";
+import { RegisterBanner } from "@/components/public/register-banner";
 
 interface Props {
   params: Promise<{ slug: string }>;

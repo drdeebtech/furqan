@@ -8,8 +8,8 @@ export const metadata: Metadata = { title: "رسائل التواصل" };
 
 export default async function AdminContactsPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { data: authData } = await supabase.auth.getUser();
+  if (!authData?.user) redirect("/login");
 
   const { data } = await supabase
     .from("contact_submissions")

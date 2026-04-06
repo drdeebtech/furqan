@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useLang } from "@/lib/i18n/context";
 import { Testimonials } from "@/components/public/testimonials";
-import { RegisterBanner } from "@/components/public/free-trial-banner";
+import { RegisterBanner } from "@/components/public/register-banner";
 import { CurrencyPackages } from "./currency-packages";
 
 export function PackagesContent() {

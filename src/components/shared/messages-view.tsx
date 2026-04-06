@@ -132,26 +132,30 @@ export function MessagesView({
       return;
     }
 
-    const result = await createConversation(contact.id, role);
-    if (result.error) {
-      toastError(result.error);
-      return;
-    }
-    if (result.conversationId) {
-      const newConvo: Conversation = {
-        id: result.conversationId,
-        otherUserId: contact.id,
-        otherUserName: contact.name,
-        lastMessageAt: null,
-      };
-      // Only add if not already in list
-      setConversations(prev => {
-        if (prev.some(c => c.id === result.conversationId)) return prev;
-        return [newConvo, ...prev];
-      });
-      setActiveConvo(result.conversationId);
-      setShowNewConvo(false);
-      toastSuccess("تم إنشاء المحادثة");
+    try {
+      const result = await createConversation(contact.id, role);
+      if (result.error) {
+        toastError(result.error);
+        return;
+      }
+      if (result.conversationId) {
+        const newConvo: Conversation = {
+          id: result.conversationId,
+          otherUserId: contact.id,
+          otherUserName: contact.name,
+          lastMessageAt: null,
+        };
+        // Only add if not already in list
+        setConversations(prev => {
+          if (prev.some(c => c.id === result.conversationId)) return prev;
+          return [newConvo, ...prev];
+        });
+        setActiveConvo(result.conversationId);
+        setShowNewConvo(false);
+        toastSuccess("تم إنشاء المحادثة");
+      }
+    } catch {
+      toastError("فشل إنشاء المحادثة — حاول مرة أخرى");
     }
   }
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useLang } from "@/lib/i18n/context";
 import { CONTACT } from "@/lib/contact";
-import { RegisterBanner } from "@/components/public/free-trial-banner";
+import { RegisterBanner } from "@/components/public/register-banner";
 import { ContactForm } from "./contact-form";
 import { FAQ } from "./faq";
 

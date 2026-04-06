@@ -42,6 +42,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
   const [selectedType, setSelectedType] = useState(sessionTypes[0]);
+  const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [state, formAction, pending] = useActionState<BookingResult, FormData>(createBooking, {});
@@ -129,10 +130,11 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
             <input type="hidden" name="session_type" value={selectedType} />
             <input type="hidden" name="date" value={selectedDate} />
             <input type="hidden" name="time" value={selectedTime} />
+            <input type="hidden" name="notes" value={notes} />
             <button
               type="submit"
               disabled={pending}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-4 text-lg font-bold text-background transition-colors hover:bg-gold-hover disabled:opacity-50"
+              className="focus-ring flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-4 text-lg font-bold text-background transition-colors hover:bg-gold-hover disabled:opacity-50"
             >
               {pending ? (
                 <span className="h-5 w-5 animate-spin rounded-full border-2 border-background/30 border-t-background" />
@@ -142,7 +144,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
             </button>
           </form>
 
-          <button onClick={() => setShowConfirm(false)} className="w-full text-center text-sm text-muted hover:text-gold">
+          <button onClick={() => setShowConfirm(false)} className="focus-ring w-full text-center text-sm text-muted hover:text-gold">
             ← تعديل التفاصيل
           </button>
         </div>
@@ -206,8 +208,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
                 </button>
               ))}
             </div>
-            {/* Fallback date input for dates beyond 14 days */}
-            <input type="hidden" name="date" value={selectedDate} />
+            {/* Date value is passed via hidden input inside the confirmation form */}
             {selectedDate && !isDateAvailable(selectedDate) && availability.length > 0 && (
               <p className="mt-1 text-xs text-amber-400"><AlertCircle size={12} className="inline" /> المعلم غير متاح في هذا اليوم</p>
             )}
@@ -247,7 +248,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
               ) : (
                 <p className="text-xs text-amber-400"><AlertCircle size={12} className="inline" /> لا توجد أوقات متاحة في هذا اليوم</p>
               )}
-              <input type="hidden" name="time" value={selectedTime} />
+              {/* Time value is passed via hidden input inside the confirmation form */}
             </div>
           )}
 
@@ -259,7 +260,8 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
             </button>
             {showNotes && (
               <textarea
-                name="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
                 rows={3}
                 className="mt-2 w-full resize-none rounded-xl border border-input-border bg-input px-4 py-2.5 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none"
                 placeholder="أي ملاحظات للمعلم…"
@@ -272,7 +274,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
             type="button"
             onClick={() => setShowConfirm(true)}
             disabled={!isComplete}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-4 text-lg font-bold text-background transition-colors hover:bg-gold-hover disabled:opacity-40"
+            className="focus-ring flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-4 text-lg font-bold text-background transition-colors hover:bg-gold-hover disabled:opacity-40"
           >
             التالي — مراجعة الحجز
           </button>

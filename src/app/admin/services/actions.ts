@@ -24,13 +24,15 @@ export async function saveService(_prev: { success?: boolean }, formData: FormDa
     features_ar: (formData.get("features_ar") as string || "").split("\n").map(s => s.trim()).filter(Boolean),
     icon: formData.get("icon") as string || null,
     image_url: formData.get("image_url") as string || null,
-    display_order: Number(formData.get("display_order") || 0),
+    display_order: parseInt(String(formData.get("display_order") ?? "0"), 10) || 0,
     is_active: formData.get("is_active") === "on",
   };
 
   if (id) {
+    // as never: Supabase-generated types don't match runtime schema; safe workaround
     await supabase.from("services").update(data as never).eq("id", id);
   } else {
+    // as never: Supabase-generated types don't match runtime schema; safe workaround
     await supabase.from("services").insert(data as never);
   }
 
@@ -53,6 +55,7 @@ export async function deleteService(serviceId: string) {
 
 export async function toggleServiceActive(serviceId: string, isActive: boolean) {
   const supabase = await requireAdmin();
+  // as never: Supabase-generated types don't match runtime schema; safe workaround
   const { error } = await supabase.from("services").update({ is_active: isActive } as never).eq("id", serviceId);
   if (error) {
     console.error("Failed to toggle service active:", error);

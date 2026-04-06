@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Clock, Globe, Heart, Users } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { Testimonials } from "@/components/public/testimonials";
-import { RegisterBanner } from "@/components/public/free-trial-banner";
+import { RegisterBanner } from "@/components/public/register-banner";
 
 export function AboutContent() {
   const { t } = useLang();
