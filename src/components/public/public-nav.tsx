@@ -82,8 +82,14 @@ export function PublicNav() {
             </Link>
           </div>
 
-          {/* Mobile hamburger */}
+          {/* Mobile: register button + hamburger */}
           <div className="flex items-center gap-2 lg:hidden">
+            <Link
+              href="/register"
+              className="rounded-lg bg-gold px-3 py-1.5 text-xs font-bold text-background transition-colors hover:bg-gold-hover"
+            >
+              {t("سجّل", "Register")}
+            </Link>
             <LangToggle />
             <button
               onClick={() => setOpen(!open)}
