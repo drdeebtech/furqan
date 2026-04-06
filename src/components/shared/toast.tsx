@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from "react";
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from "lucide-react";
 
 type ToastType = "success" | "error" | "warning" | "info";
@@ -43,17 +43,33 @@ const STYLES = {
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const timeoutRefs = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  useEffect(() => {
+    const refs = timeoutRefs.current;
+    return () => {
+      refs.forEach((timer) => clearTimeout(timer));
+      refs.clear();
+    };
+  }, []);
 
   const addToast = useCallback((type: ToastType, message: string) => {
     const id = crypto.randomUUID();
     setToasts((prev) => [...prev, { id, type, message }]);
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
+      timeoutRefs.current.delete(id);
     }, 4000);
+    timeoutRefs.current.set(id, timer);
   }, []);
 
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
+    const existing = timeoutRefs.current.get(id);
+    if (existing) {
+      clearTimeout(existing);
+      timeoutRefs.current.delete(id);
+    }
   }, []);
 
   const value: ToastContextType = {

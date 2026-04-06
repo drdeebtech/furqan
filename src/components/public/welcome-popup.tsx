@@ -28,7 +28,7 @@ export function WelcomePopup() {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={dismiss}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="mx-4 w-full max-w-md animate-in rounded-2xl border border-gold/30 bg-card p-8 shadow-2xl shadow-gold/10"
+        className="relative mx-4 w-full max-w-md animate-in rounded-2xl border border-gold/30 bg-card p-8 shadow-2xl shadow-gold/10"
       >
         <button onClick={dismiss} className="absolute left-4 top-4 text-muted hover:text-foreground">
           <X size={20} />

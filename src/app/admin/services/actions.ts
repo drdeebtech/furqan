@@ -41,7 +41,11 @@ export async function saveService(_prev: { success?: boolean }, formData: FormDa
 
 export async function deleteService(serviceId: string) {
   const supabase = await requireAdmin();
-  await supabase.from("services").delete().eq("id", serviceId);
+  const { error } = await supabase.from("services").delete().eq("id", serviceId);
+  if (error) {
+    console.error("Failed to delete service:", error);
+    return { error: "فشل حذف الخدمة" };
+  }
   revalidatePath("/admin/services");
   revalidatePath("/services");
   return { success: true };
@@ -49,7 +53,11 @@ export async function deleteService(serviceId: string) {
 
 export async function toggleServiceActive(serviceId: string, isActive: boolean) {
   const supabase = await requireAdmin();
-  await supabase.from("services").update({ is_active: isActive } as never).eq("id", serviceId);
+  const { error } = await supabase.from("services").update({ is_active: isActive } as never).eq("id", serviceId);
+  if (error) {
+    console.error("Failed to toggle service active:", error);
+    return { error: "فشل تحديث حالة الخدمة" };
+  }
   revalidatePath("/admin/services");
   revalidatePath("/services");
   return { success: true };

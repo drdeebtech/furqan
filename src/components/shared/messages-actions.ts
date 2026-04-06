@@ -32,27 +32,42 @@ export async function createConversation(otherUserId: string, role: "student" | 
 }
 
 export async function getContactsForRole(role: "student" | "teacher") {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
 
-  // Fetch bookings to find the other party
-  const { data: bookings } = await supabase
-    .from("bookings")
-    .select("student_id, teacher_id")
-    .eq(role === "student" ? "student_id" : "teacher_id", user.id)
-    .in("status", ["confirmed", "completed"])
-    .returns<{ student_id: string; teacher_id: string }[]>();
+    // Fetch bookings to find the other party
+    const { data: bookings, error: bookingsError } = await supabase
+      .from("bookings")
+      .select("student_id, teacher_id")
+      .eq(role === "student" ? "student_id" : "teacher_id", user.id)
+      .in("status", ["confirmed", "completed"])
+      .returns<{ student_id: string; teacher_id: string }[]>();
 
-  if (!bookings || bookings.length === 0) return [];
+    if (bookingsError) {
+      console.error("Failed to fetch bookings:", bookingsError);
+      return [];
+    }
 
-  const otherIds = [...new Set(bookings.map(b => role === "student" ? b.teacher_id : b.student_id))];
+    if (!bookings || bookings.length === 0) return [];
 
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, full_name")
-    .in("id", otherIds)
-    .returns<{ id: string; full_name: string | null }[]>();
+    const otherIds = [...new Set(bookings.map(b => role === "student" ? b.teacher_id : b.student_id))];
 
-  return (profiles ?? []).map(p => ({ id: p.id, name: p.full_name ?? "—" }));
+    const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", otherIds)
+      .returns<{ id: string; full_name: string | null }[]>();
+
+    if (profilesError) {
+      console.error("Failed to fetch profiles:", profilesError);
+      return [];
+    }
+
+    return (profiles ?? []).map(p => ({ id: p.id, name: p.full_name ?? "—" }));
+  } catch (error) {
+    console.error("getContactsForRole failed:", error);
+    return [];
+  }
 }
