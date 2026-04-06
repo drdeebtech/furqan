@@ -100,6 +100,11 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
 
         <div id="pending" className="mt-8">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold"><Clock size={18} className="text-gold" /> {t("حجوزات بانتظار التأكيد", "Pending Bookings")}</h2>
+          {uniqueStudents === 0 && pending.length > 0 && (
+            <div className="mb-3 rounded-lg border border-gold/30 bg-gold/5 p-3 text-center text-sm text-gold">
+              {t("🎉 لديك حجز جديد! اضغط تأكيد لقبول الطالب", "🎉 You have a new booking! Tap Confirm to accept.")}
+            </div>
+          )}
           {pending.length === 0 ? (
             <div className="rounded-xl border border-card-border bg-card p-8 text-center">
               <Clock size={24} className="mx-auto mb-2 text-muted" />
@@ -119,7 +124,7 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
                         {new Date(b.scheduled_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
                       </p>
                     </div>
-                    <BookingActions bookingId={b.id} />
+                    <BookingActions bookingId={b.id} isFirst={uniqueStudents === 0} />
                   </div>
                 </div>
               ))}

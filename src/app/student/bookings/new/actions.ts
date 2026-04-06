@@ -199,5 +199,5 @@ export async function createBooking(
     );
   } catch { /* non-blocking */ }
 
-  redirect("/student/bookings");
+  redirect("/student/dashboard?booked=1");
 }

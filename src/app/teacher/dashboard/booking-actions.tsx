@@ -5,7 +5,7 @@ import { Check, X, ExternalLink } from "lucide-react";
 import { updateBookingStatus } from "./actions";
 import { useToast } from "@/components/shared/toast";
 
-export function BookingActions({ bookingId }: { bookingId: string }) {
+export function BookingActions({ bookingId, isFirst }: { bookingId: string; isFirst?: boolean }) {
   const [loading, setLoading] = useState<"confirm" | "decline" | null>(null);
   const [done, setDone] = useState<"confirmed" | "cancelled" | null>(null);
   const [roomUrl, setRoomUrl] = useState<string | null>(null);
@@ -100,7 +100,7 @@ export function BookingActions({ bookingId }: { bookingId: string }) {
         <button
           onClick={() => handle("confirmed")}
           disabled={loading !== null}
-          className="flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
+          className={`flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50 ${isFirst ? "animate-pulse-slow ring-2 ring-green-400/50" : ""}`}
         >
           {loading === "confirm" ? (
             <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />

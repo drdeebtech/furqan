@@ -44,6 +44,11 @@ export default async function StudentDashboardPage() {
   const recent = recentRes.data ?? [];
   const evaluations = evalsRes.data ?? [];
 
+  // New students with no activity → guide them to teachers page
+  if (totalSessions === 0 && pendingBookings === 0 && !nextBooking) {
+    redirect("/student/teachers?new=1");
+  }
+
   const allTeacherIds = [...new Set([
     nextBooking?.teacher_id,
     ...recent.map(r => r.teacher_id),

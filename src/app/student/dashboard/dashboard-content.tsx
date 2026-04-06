@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Calendar, CheckCircle, Clock, Search, Star, TrendingUp, Video, BookOpen, FileText } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
+import { useToast } from "@/components/shared/toast";
 import { GuidanceBanner } from "./guidance-banner";
 import { QuickActions } from "./quick-actions";
 
@@ -32,7 +35,17 @@ interface DashboardData {
 
 export function StudentDashboardContent({ data }: { data: DashboardData }) {
   const { t, dir } = useLang();
+  const toast = useToast();
+  const searchParams = useSearchParams();
   const { fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, recent, evaluations, nameMap, notesMap } = data;
+
+  // Show success toast after booking redirect
+  useEffect(() => {
+    if (searchParams.get("booked") === "1") {
+      toast.success(t("تم الحجز بنجاح! سيتم تأكيده من المعلم", "Booking submitted! Teacher will confirm soon."));
+      window.history.replaceState(null, "", "/student/dashboard");
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pendingHomework = Object.entries(notesMap).filter(([, n]) => n.homework);
 
