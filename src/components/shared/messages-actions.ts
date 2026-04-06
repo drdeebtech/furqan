@@ -36,19 +36,17 @@ export async function getContactsForRole(role: "student" | "teacher") {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
 
-  const filterKey = role === "teacher" ? "teacher_id" : "student_id";
-  const otherKey = role === "teacher" ? "student_id" : "teacher_id";
-
+  // Fetch bookings to find the other party
   const { data: bookings } = await supabase
     .from("bookings")
-    .select(otherKey)
-    .eq(filterKey, user.id)
+    .select("student_id, teacher_id")
+    .eq(role === "student" ? "student_id" : "teacher_id", user.id)
     .in("status", ["confirmed", "completed"])
-    .returns<Record<string, string>[]>();
+    .returns<{ student_id: string; teacher_id: string }[]>();
 
   if (!bookings || bookings.length === 0) return [];
 
-  const otherIds = [...new Set(bookings.map(b => b[otherKey]))];
+  const otherIds = [...new Set(bookings.map(b => role === "student" ? b.teacher_id : b.student_id))];
 
   const { data: profiles } = await supabase
     .from("profiles")

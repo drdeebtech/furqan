@@ -87,23 +87,35 @@ export function MessagesView({
     setShowNewConvo(true);
     setLoadingContacts(true);
     const c = await getContactsForRole(role);
-    // Filter out contacts who already have conversations
-    const existingIds = new Set(conversations.map(cv => cv.otherUserId));
-    setContacts(c.filter(contact => !existingIds.has(contact.id)));
+    setContacts(c);
     setLoadingContacts(false);
   }
 
   async function startConversation(contact: Contact) {
+    // Check if conversation already exists locally
+    const existing = conversations.find(cv => cv.otherUserId === contact.id);
+    if (existing) {
+      setActiveConvo(existing.id);
+      setShowNewConvo(false);
+      return;
+    }
+
     const result = await createConversation(contact.id, role);
+    if (result.error) {
+      return; // silently fail — conversation might already exist server-side
+    }
     if (result.conversationId) {
-      // Add to conversations list and switch to it
       const newConvo: Conversation = {
         id: result.conversationId,
         otherUserId: contact.id,
         otherUserName: contact.name,
         lastMessageAt: null,
       };
-      setConversations(prev => [newConvo, ...prev]);
+      // Only add if not already in list
+      setConversations(prev => {
+        if (prev.some(c => c.id === result.conversationId)) return prev;
+        return [newConvo, ...prev];
+      });
       setActiveConvo(result.conversationId);
       setShowNewConvo(false);
     }
