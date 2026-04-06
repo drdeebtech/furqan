@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Radio, User, GraduationCap, StopCircle, Eye } from "lucide-react";
+import { Radio, User, GraduationCap, StopCircle, Eye, Check, X } from "lucide-react";
 import { SessionTimer } from "@/components/shared/session-timer";
 import { forceEndSession } from "../actions";
+import { useToast } from "@/components/shared/toast";
 
 interface ActiveSession {
   id: string;
@@ -33,6 +34,9 @@ function cardColor(s: ActiveSession): string {
 export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [endingId, setEndingId] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  const toast = useToast();
 
   /* Auto-refresh every 30s */
   useEffect(() => {
@@ -43,10 +47,16 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
   }, [router, startTransition]);
 
   async function handleForceEnd(sessionId: string) {
-    const reason = prompt("سبب إنهاء الجلسة:");
-    if (!reason) return;
-    const result = await forceEndSession(sessionId, reason);
-    if (result.error) alert(result.error);
+    if (endingId !== sessionId) {
+      setEndingId(sessionId);
+      setReason("");
+      return;
+    }
+    if (!reason.trim()) return;
+    const result = await forceEndSession(sessionId, reason.trim());
+    if (result.error) toast.error(result.error);
+    setEndingId(null);
+    setReason("");
   }
 
   if (sessions.length === 0) {
@@ -102,19 +112,40 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
           </div>
 
           {/* Force End */}
-          <button
-            onClick={() => handleForceEnd(s.id)}
-            disabled={isPending}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
-          >
-            <StopCircle size={14} />
-            إنهاء الجلسة
-          </button>
+          {endingId === s.id ? (
+            <div className="mb-2 flex items-center gap-2">
+              <input
+                type="text"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleForceEnd(s.id)}
+                placeholder="سبب الإنهاء..."
+                className="flex-1 rounded-xl border border-input-border bg-input px-3 py-2 text-sm"
+                autoFocus
+                aria-label="سبب إنهاء الجلسة"
+              />
+              <button onClick={() => handleForceEnd(s.id)} disabled={isPending || !reason.trim()} className="rounded-lg p-1.5 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50" aria-label="تأكيد">
+                <Check size={16} />
+              </button>
+              <button onClick={() => { setEndingId(null); setReason(""); }} className="rounded-lg p-1.5 text-muted hover:bg-surface-alt" aria-label="إلغاء">
+                <X size={16} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => handleForceEnd(s.id)}
+              disabled={isPending}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+            >
+              <StopCircle size={14} />
+              إنهاء الجلسة
+            </button>
+          )}
 
           {/* Observe */}
           <Link
             href={`/admin/sessions/${s.id}/observe`}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-gold/30 bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold/20"
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-gold/30 bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold/20"
           >
             <Eye size={14} /> مراقبة
           </Link>

@@ -175,13 +175,13 @@ export default async function AdminSessionsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-card-border bg-card">
-                <th className="px-3 py-3 text-right font-medium text-muted">الطالب</th>
-                <th className="px-3 py-3 text-right font-medium text-muted">المعلم</th>
-                <th className="px-3 py-3 text-right font-medium text-muted">الموعد</th>
-                <th className="px-3 py-3 text-right font-medium text-muted">الحالة</th>
-                <th className="px-3 py-3 text-right font-medium text-muted">المدة</th>
-                <th className="px-3 py-3 text-right font-medium text-muted">الحضور</th>
-                <th className="px-3 py-3 text-right font-medium text-muted">إجراءات</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الطالب</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">المعلم</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الموعد</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الحالة</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">المدة</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الحضور</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">إجراءات</th>
               </tr>
             </thead>
             <tbody>

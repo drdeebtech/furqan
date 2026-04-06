@@ -60,6 +60,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="ابحث بالاسم..."
+            aria-label="بحث"
             className="w-full rounded-lg border border-input-border bg-input py-2 pe-4 ps-10 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none"
           />
         </div>

@@ -95,12 +95,12 @@ export default async function AdminEvaluationsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-card-border bg-card">
-                <th className="px-3 py-3 text-right font-medium text-muted">الطالب</th>
-                <th className="px-3 py-3 text-right font-medium text-muted">المعلم</th>
-                <th className="px-3 py-3 text-right font-medium text-muted">النوع</th>
-                <th className="px-3 py-3 text-right font-medium text-muted">الفترة</th>
-                <th className="px-3 py-3 text-right font-medium text-muted">الدرجة الكلية</th>
-                <th className="px-3 py-3 text-right font-medium text-muted">التاريخ</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الطالب</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">المعلم</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">النوع</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الفترة</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الدرجة الكلية</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">التاريخ</th>
               </tr>
             </thead>
             <tbody>

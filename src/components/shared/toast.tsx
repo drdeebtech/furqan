@@ -96,7 +96,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             >
               <Icon size={18} className="shrink-0" />
               <p className="flex-1 text-sm">{t.message}</p>
-              <button onClick={() => removeToast(t.id)} className="focus-ring shrink-0 rounded-full opacity-60 transition-opacity hover:opacity-100">
+              <button onClick={() => removeToast(t.id)} aria-label="إغلاق" className="focus-ring shrink-0 rounded-full opacity-60 transition-opacity hover:opacity-100">
                 <X size={14} />
               </button>
             </div>

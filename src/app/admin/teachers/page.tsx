@@ -54,12 +54,12 @@ export default async function AdminTeachersPage() {
         <div className="overflow-hidden rounded-xl border border-card-border">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-card-border bg-card">
-              <th className="px-4 py-3 text-right font-medium text-muted">المعلم</th>
-              <th className="px-4 py-3 text-right font-medium text-muted">السعر</th>
-              <th className="px-4 py-3 text-right font-medium text-muted">التقييم</th>
-              <th className="px-4 py-3 text-right font-medium text-muted">الجلسات</th>
-              <th className="px-4 py-3 text-right font-medium text-muted">الحالة</th>
-              <th className="px-4 py-3 text-right font-medium text-muted">إجراءات</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">المعلم</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">السعر</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">التقييم</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الجلسات</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الحالة</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">إجراءات</th>
             </tr></thead>
             <tbody>
               {list.map(t => (

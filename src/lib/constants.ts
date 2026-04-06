@@ -11,6 +11,17 @@ export const SESSION_TYPE_AR: Record<SessionType, string> = {
   other: "أخرى",
 };
 
+export const SESSION_TYPE_BILINGUAL: Record<SessionType, { ar: string; en: string }> = {
+  hifz: { ar: "حفظ", en: "Hifz" },
+  muraja: { ar: "مراجعة", en: "Muraja'a" },
+  tajweed: { ar: "تجويد", en: "Tajweed" },
+  tilawa: { ar: "تلاوة", en: "Tilawa" },
+  qiraat: { ar: "قراءات", en: "Qira'at" },
+  tafsir: { ar: "تفسير", en: "Tafsir" },
+  combined: { ar: "حفظ + مراجعة", en: "Hifz + Muraja'a" },
+  other: { ar: "أخرى", en: "Other" },
+};
+
 export const RIWAYA_AR: Record<RecitationStandard, string> = {
   hafs: "حفص",
   warsh: "ورش",

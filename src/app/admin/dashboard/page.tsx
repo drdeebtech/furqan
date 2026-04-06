@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { fetchNameMap } from "@/lib/supabase/helpers";
 import { AdminDashboardContent } from "./dashboard-content";
 
 export const metadata: Metadata = { title: "لوحة الإدارة" };
@@ -9,7 +10,7 @@ interface TeacherRow { teacher_id: string; hourly_rate: number; rating_avg: numb
 interface PendingBookingRow { id: string; student_id: string; teacher_id: string; scheduled_at: string; session_type: string; created_at: string }
 interface TodayBookingRow { id: string; student_id: string; teacher_id: string; scheduled_at: string; session_type: string; status: string; duration_min: number }
 interface RevenueRow { amount_usd: number }
-interface ProfileNameRow { id: string; full_name: string | null }
+
 
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
@@ -43,12 +44,7 @@ export default async function AdminDashboardPage() {
   for (const b of pendingBookings) { allIds.add(b.student_id); allIds.add(b.teacher_id); }
   for (const b of todayBookings) { allIds.add(b.student_id); allIds.add(b.teacher_id); }
 
-  let nameMap: Record<string, string> = {};
-  const idsArray = Array.from(allIds);
-  if (idsArray.length > 0) {
-    const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", idsArray).returns<ProfileNameRow[]>();
-    if (profiles) nameMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name ?? "—"]));
-  }
+  const nameMap = await fetchNameMap(supabase, Array.from(allIds));
 
   return (
     <AdminDashboardContent

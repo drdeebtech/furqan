@@ -42,11 +42,11 @@ export default async function AdminUsersPage() {
         <div className="overflow-hidden rounded-xl border border-card-border">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-card-border bg-card">
-              <th className="px-4 py-3 text-right font-medium text-muted">الاسم</th>
-              <th className="px-4 py-3 text-right font-medium text-muted">الدور</th>
-              <th className="px-4 py-3 text-right font-medium text-muted">الدولة</th>
-              <th className="px-4 py-3 text-right font-medium text-muted">الحالة</th>
-              <th className="px-4 py-3 text-right font-medium text-muted">التسجيل</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الاسم</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الدور</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الدولة</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الحالة</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">التسجيل</th>
             </tr></thead>
             <tbody>{users.map(u => <UserRow key={u.id} user={u} />)}</tbody>
           </table>

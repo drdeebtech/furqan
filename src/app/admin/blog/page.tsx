@@ -44,11 +44,11 @@ export default async function AdminBlogPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-card-border bg-card">
-                <th className="px-4 py-3 text-right font-medium text-muted">العنوان</th>
-                <th className="px-4 py-3 text-right font-medium text-muted">التصنيف</th>
-                <th className="px-4 py-3 text-right font-medium text-muted">الحالة</th>
-                <th className="px-4 py-3 text-right font-medium text-muted">تاريخ النشر</th>
-                <th className="px-4 py-3 text-right font-medium text-muted">إجراءات</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium text-muted">العنوان</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium text-muted">التصنيف</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الحالة</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium text-muted">تاريخ النشر</th>
+                <th scope="col" className="px-4 py-3 text-right font-medium text-muted">إجراءات</th>
               </tr>
             </thead>
             <tbody>

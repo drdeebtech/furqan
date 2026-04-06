@@ -75,6 +75,9 @@ export function SessionStatus({
     const check = () =>
       setState(computeState(scheduledAt, durationMin, expiresAt, endedAt));
     check();
+    // Stop polling for terminal states
+    const currentState = computeState(scheduledAt, durationMin, expiresAt, endedAt);
+    if (currentState === "ended" || currentState === "expired") return;
     const id = setInterval(check, 15_000);
     return () => clearInterval(id);
   }, [scheduledAt, durationMin, expiresAt, endedAt]);

@@ -39,12 +39,12 @@ export default async function AdminAuditPage() {
         <div className="overflow-x-auto rounded-xl border border-card-border">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-card-border bg-card">
-              <th className="px-3 py-3 text-right font-medium text-muted">المستخدم</th>
-              <th className="px-3 py-3 text-right font-medium text-muted">الجدول</th>
-              <th className="px-3 py-3 text-right font-medium text-muted">الإجراء</th>
-              <th className="px-3 py-3 text-right font-medium text-muted">السبب</th>
-              <th className="px-3 py-3 text-right font-medium text-muted">IP</th>
-              <th className="px-3 py-3 text-right font-medium text-muted">التاريخ</th>
+              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">المستخدم</th>
+              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الجدول</th>
+              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الإجراء</th>
+              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">السبب</th>
+              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">IP</th>
+              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">التاريخ</th>
             </tr></thead>
             <tbody>
               {logs.map(l => (

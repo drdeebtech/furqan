@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { GenderType } from "@/types/database";
+import { Skeleton } from "@/components/shared/skeleton";
 import { TeacherList } from "./teacher-list";
 
 export const metadata: Metadata = { title: "المعلمون" };
@@ -49,5 +51,21 @@ export default async function TeachersPage() {
     name: nameMap[t.teacher_id] ?? "معلم",
   }));
 
-  return <TeacherList teachers={teacherData} />;
+  return (
+    <Suspense
+      fallback={
+        <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
+          <Skeleton className="mb-6 h-8 w-40" />
+          <Skeleton className="mb-6 h-24 w-full" />
+          <div className="grid gap-4 md:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-48 w-full" />
+            ))}
+          </div>
+        </div>
+      }
+    >
+      <TeacherList teachers={teacherData} />
+    </Suspense>
+  );
 }

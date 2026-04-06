@@ -49,12 +49,12 @@ export default async function ModeratorEvaluationsPage() {
         <div className="overflow-hidden rounded-xl border border-card-border">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-card-border bg-card">
-              <th className="px-4 py-3 text-right font-medium text-muted">الطالب</th>
-              <th className="px-4 py-3 text-right font-medium text-muted">المعلم</th>
-              <th className="px-4 py-3 text-right font-medium text-muted">النوع</th>
-              <th className="px-4 py-3 text-right font-medium text-muted">الفترة</th>
-              <th className="px-4 py-3 text-right font-medium text-muted">الدرجة</th>
-              <th className="px-4 py-3 text-right font-medium text-muted">التاريخ</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الطالب</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">المعلم</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">النوع</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الفترة</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الدرجة</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">التاريخ</th>
             </tr></thead>
             <tbody>
               {list.map(e => (

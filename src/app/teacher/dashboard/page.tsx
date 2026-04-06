@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { fetchNameMap } from "@/lib/supabase/helpers";
 import type { SessionType } from "@/types/database";
 import { TeacherDashboardContent } from "./dashboard-content";
 
@@ -47,11 +48,7 @@ export default async function TeacherDashboardPage() {
   }
 
   const allStudentIds = [...new Set([...pending.map(b => b.student_id), ...todaySessions.map(b => b.student_id)])];
-  let nameMap: Record<string, string> = {};
-  if (allStudentIds.length > 0) {
-    const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", [...new Set(allStudentIds)]).returns<{ id: string; full_name: string | null }[]>();
-    if (profiles) nameMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name ?? "—"]));
-  }
+  const nameMap = await fetchNameMap(supabase, allStudentIds);
 
   return (
     <TeacherDashboardContent

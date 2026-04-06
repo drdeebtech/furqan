@@ -14,7 +14,7 @@ export function PublicFooter() {
       <div className="mx-auto grid max-w-7xl gap-8 px-6 py-12 md:grid-cols-4">
         <div>
           <div className="flex items-center gap-2">
-            <Image src="/logo-192.png" alt="فرقان" width={32} height={32} className="rounded-full" loading="lazy" />
+            <Image src="/logo-192.png" alt="فرقان" width={32} height={32} sizes="32px" className="rounded-full" loading="lazy" />
             <span className="font-display text-2xl font-bold text-gold">فُرقان</span>
           </div>
           <p className="mt-3 text-sm text-foreground">{t("أكاديمية القرآن الكريم عبر الإنترنت", "Online Quran Learning Academy")}</p>
@@ -65,7 +65,7 @@ export function PublicFooter() {
       </div>
 
       <div className="border-t border-card-border px-6 py-6">
-        <p className="text-center text-xs text-muted">© {new Date().getFullYear()} {t("فرقان · جميع الحقوق محفوظة", "FURQAN · All rights reserved")}</p>
+        <p className="text-center text-xs text-muted">© 2026 {t("فرقان · جميع الحقوق محفوظة", "FURQAN · All rights reserved")}</p>
       </div>
     </footer>
   );

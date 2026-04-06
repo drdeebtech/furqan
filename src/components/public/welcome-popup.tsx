@@ -1,13 +1,18 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { X, UserPlus, BookOpen } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 
+const FOCUSABLE_SELECTOR =
+  'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
 export function WelcomePopup() {
   const { t } = useLang();
   const [show, setShow] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const seen = localStorage.getItem("furqan-welcome-seen");
@@ -22,13 +27,58 @@ export function WelcomePopup() {
     localStorage.setItem("furqan-welcome-seen", "1");
   }, []);
 
+  // Focus trap: capture focus on open, cycle Tab, handle Escape, restore on close
   useEffect(() => {
     if (!show) return;
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") dismiss();
+
+    // Save the element that was focused before the dialog opened
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+
+    // Focus the first interactive element inside the dialog
+    const dialog = dialogRef.current;
+    if (dialog) {
+      const focusable = dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+      if (focusable.length > 0) {
+        focusable[0].focus();
+      }
     }
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        dismiss();
+        return;
+      }
+
+      if (e.key === "Tab" && dialog) {
+        const focusable = dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+        if (focusable.length === 0) return;
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey) {
+          // Shift+Tab: if on first element, wrap to last
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          // Tab: if on last element, wrap to first
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    }
+
     document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      // Restore focus to the previously focused element
+      previouslyFocusedRef.current?.focus();
+    };
   }, [show, dismiss]);
 
   if (!show) return null;
@@ -36,13 +86,14 @@ export function WelcomePopup() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={dismiss}>
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={t("مرحباً بك في فُرقان", "Welcome to FURQAN")}
         onClick={(e) => e.stopPropagation()}
         className="relative mx-4 w-full max-w-md animate-in rounded-2xl border border-gold/30 bg-card p-8 shadow-2xl shadow-gold/10"
       >
-        <button onClick={dismiss} className="focus-ring absolute left-4 top-4 text-muted hover:text-foreground">
+        <button onClick={dismiss} aria-label="إغلاق" className="focus-ring absolute left-4 top-4 text-muted hover:text-foreground">
           <X size={20} />
         </button>
 

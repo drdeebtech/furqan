@@ -48,7 +48,7 @@ export function PublicNav() {
       <nav className="sticky top-0 z-50 border-b border-card-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
           <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo-192.png" alt="فرقان" width={32} height={32} className="rounded-full" priority />
+            <Image src="/logo-192.png" alt="فرقان" width={32} height={32} sizes="32px" className="rounded-full" priority />
             <span className="font-display text-2xl font-bold text-gold">فُرقان</span>
           </Link>
 

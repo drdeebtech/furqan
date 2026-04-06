@@ -86,6 +86,7 @@ export function BookingsTable({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="بحث باسم الطالب أو المعلم..."
+            aria-label="بحث"
             className="w-full rounded-lg border border-card-border bg-surface py-2 pr-9 pl-3 text-sm text-foreground placeholder:text-muted focus:border-gold focus:outline-none sm:w-72"
           />
         </div>
@@ -123,22 +124,22 @@ export function BookingsTable({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-card-border bg-card">
-                <th className="px-3 py-3 text-right font-medium text-muted">
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
                   الطالب
                 </th>
-                <th className="px-3 py-3 text-right font-medium text-muted">
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
                   المعلم
                 </th>
-                <th className="px-3 py-3 text-right font-medium text-muted">
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
                   النوع
                 </th>
-                <th className="px-3 py-3 text-right font-medium text-muted">
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
                   الموعد
                 </th>
-                <th className="px-3 py-3 text-right font-medium text-muted">
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
                   المبلغ
                 </th>
-                <th className="px-3 py-3 text-right font-medium text-muted">
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
                   الحالة
                 </th>
               </tr>

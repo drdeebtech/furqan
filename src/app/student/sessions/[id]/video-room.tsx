@@ -211,6 +211,7 @@ export function VideoRoom({
               onClick={toggleFullscreen}
               className="flex items-center gap-1 rounded-lg border border-card-border px-2 py-1.5 text-xs text-muted transition-colors hover:text-gold md:px-3"
               title="ملء الشاشة"
+              aria-label="ملء الشاشة"
             >
               <Maximize2 size={14} />
               <span className="hidden sm:inline">{isFullscreen ? "تصغير" : "ملء الشاشة"}</span>
@@ -218,6 +219,7 @@ export function VideoRoom({
             <button
               onClick={() => frameRef.current?.leave()}
               className="flex items-center gap-1.5 rounded-lg border border-error/30 px-2 py-1.5 text-xs text-error transition-colors hover:bg-error/10 focus-ring md:px-3"
+              aria-label="مغادرة"
             >
               <VideoOff size={14} />
               <span className="hidden sm:inline">مغادرة</span>

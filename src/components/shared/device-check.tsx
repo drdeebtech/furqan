@@ -80,6 +80,7 @@ export function DeviceCheck({ onReady }: { onReady?: (ok: boolean) => void }) {
             autoPlay
             muted
             playsInline
+            aria-label="معاينة الكاميرا"
             className="h-32 w-full object-cover"
           />
         ) : (

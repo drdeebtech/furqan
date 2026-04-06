@@ -6,19 +6,9 @@ import { useSearchParams } from "next/navigation";
 import { Calendar, CheckCircle, Clock, Search, Star, TrendingUp, Video, BookOpen, FileText } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/components/shared/toast";
+import { SESSION_TYPE_BILINGUAL } from "@/lib/constants";
 import { GuidanceBanner } from "./guidance-banner";
 import { QuickActions } from "./quick-actions";
-
-const SESSION_TYPE: Record<string, { ar: string; en: string }> = {
-  hifz: { ar: "حفظ", en: "Hifz" },
-  muraja: { ar: "مراجعة", en: "Muraja'a" },
-  tajweed: { ar: "تجويد", en: "Tajweed" },
-  tilawa: { ar: "تلاوة", en: "Tilawa" },
-  qiraat: { ar: "قراءات", en: "Qira'at" },
-  tafsir: { ar: "تفسير", en: "Tafsir" },
-  combined: { ar: "حفظ + مراجعة", en: "Hifz + Muraja'a" },
-  other: { ar: "أخرى", en: "Other" },
-};
 
 interface DashboardData {
   fullName: string | null;
@@ -68,7 +58,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
   }
 
   const st = (type: string) => {
-    const s = SESSION_TYPE[type];
+    const s = SESSION_TYPE_BILINGUAL[type as keyof typeof SESSION_TYPE_BILINGUAL];
     return s ? t(s.ar, s.en) : type;
   };
 

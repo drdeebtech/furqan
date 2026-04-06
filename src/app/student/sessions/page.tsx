@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Video, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { fetchNameMap } from "@/lib/supabase/helpers";
 import { SESSION_TYPE_AR, STATUS_STYLE } from "@/lib/constants";
 import type { BookingStatus, SessionType } from "@/types/database";
 import { LiveBadge } from "./live-badge";
@@ -64,16 +65,11 @@ export default async function StudentSessionsPage() {
   }
 
   // Fetch teacher names
-  let nameMap: Record<string, string> = {};
-  if (list.length > 0) {
-    const ids = [...new Set(list.map((b) => b.teacher_id))];
-    const { data: profiles } = await supabase
-      .from("profiles").select("id, full_name").in("id", ids)
-      .returns<{ id: string; full_name: string | null }[]>();
-    if (profiles) {
-      nameMap = Object.fromEntries(profiles.map((p) => [p.id, p.full_name ?? "معلم"]));
-    }
-  }
+  const nameMap = await fetchNameMap(
+    supabase,
+    list.map((b) => b.teacher_id),
+    "معلم",
+  );
 
   return (
     <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">

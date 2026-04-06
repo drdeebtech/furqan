@@ -26,10 +26,10 @@ export default async function AdminRefundPoliciesPage() {
         <div className="overflow-hidden rounded-xl border border-card-border">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-card-border bg-card">
-              <th className="px-4 py-3 text-right font-medium text-muted">الفترة</th>
-              <th className="px-4 py-3 text-right font-medium text-muted">نسبة الاسترداد</th>
-              <th className="px-4 py-3 text-right font-medium text-muted">الوصف</th>
-              <th className="px-4 py-3 text-right font-medium text-muted">الحالة</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الفترة</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">نسبة الاسترداد</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الوصف</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الحالة</th>
             </tr></thead>
             <tbody>
               {policies.map(p => (

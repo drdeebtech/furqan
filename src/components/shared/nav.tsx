@@ -89,7 +89,7 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
           href={`/${role}/dashboard`}
           className="flex shrink-0 items-center gap-2"
         >
-          <Image src="/logo-192.png" alt="فرقان" width={28} height={28} className="rounded-full" />
+          <Image src="/logo-192.png" alt="فرقان" width={28} height={28} sizes="28px" className="rounded-full" />
           <span className="text-lg font-bold text-gold">فُرقان</span>
           <span className="text-xs text-muted">({lang === "ar" ? ROLE_LABEL[role].ar : ROLE_LABEL[role].en})</span>
           {userName && <span className="hidden text-sm font-medium sm:inline">{userName}</span>}

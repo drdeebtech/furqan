@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { SessionType } from "@/types/database";
+import { Skeleton } from "@/components/shared/skeleton";
 import { StudentDashboardContent } from "./dashboard-content";
 
 export const metadata: Metadata = { title: "لوحتي" };
@@ -76,19 +78,34 @@ export default async function StudentDashboardPage() {
   }
 
   return (
-    <StudentDashboardContent
-      data={{
-        fullName,
-        nextBooking,
-        sessionId,
-        totalSessions,
-        monthSessions,
-        pendingBookings,
-        recent,
-        evaluations,
-        nameMap,
-        notesMap,
-      }}
-    />
+    <Suspense
+      fallback={
+        <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
+          <Skeleton className="mb-2 h-8 w-48" />
+          <Skeleton className="mb-8 h-4 w-64" />
+          <Skeleton className="mb-6 h-40 w-full" />
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-24 w-full" />
+            ))}
+          </div>
+        </div>
+      }
+    >
+      <StudentDashboardContent
+        data={{
+          fullName,
+          nextBooking,
+          sessionId,
+          totalSessions,
+          monthSessions,
+          pendingBookings,
+          recent,
+          evaluations,
+          nameMap,
+          notesMap,
+        }}
+      />
+    </Suspense>
   );
 }

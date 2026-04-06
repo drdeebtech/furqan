@@ -59,11 +59,11 @@ export default async function AdminPaymentsPage() {
         <div className="mb-8 overflow-x-auto rounded-xl border border-card-border">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-card-border bg-card">
-              <th className="px-3 py-3 text-right font-medium text-muted">الطالب</th>
-              <th className="px-3 py-3 text-right font-medium text-muted">المبلغ</th>
-              <th className="px-3 py-3 text-right font-medium text-muted">الحالة</th>
-              <th className="px-3 py-3 text-right font-medium text-muted">Stripe</th>
-              <th className="px-3 py-3 text-right font-medium text-muted">التاريخ</th>
+              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الطالب</th>
+              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">المبلغ</th>
+              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الحالة</th>
+              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">Stripe</th>
+              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">التاريخ</th>
             </tr></thead>
             <tbody>
               {payments.map(p => (
@@ -88,11 +88,11 @@ export default async function AdminPaymentsPage() {
         <div className="overflow-x-auto rounded-xl border border-card-border">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-card-border bg-card">
-              <th className="px-3 py-3 text-right font-medium text-muted">رقم الفاتورة</th>
-              <th className="px-3 py-3 text-right font-medium text-muted">الطالب</th>
-              <th className="px-3 py-3 text-right font-medium text-muted">المبلغ</th>
-              <th className="px-3 py-3 text-right font-medium text-muted">العملة</th>
-              <th className="px-3 py-3 text-right font-medium text-muted">التاريخ</th>
+              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">رقم الفاتورة</th>
+              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الطالب</th>
+              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">المبلغ</th>
+              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">العملة</th>
+              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">التاريخ</th>
             </tr></thead>
             <tbody>
               {invoices.map(inv => (
