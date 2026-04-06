@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
 import { toggleServiceActive, deleteService } from "./actions";
+import { useToast } from "@/components/shared/toast";
 
 interface Props {
   service: { id: string; title: string; title_ar: string | null; description: string; display_order: number; is_active: boolean; created_at: string };
@@ -13,6 +14,7 @@ export function ServiceRow({ service }: Props) {
   const [active, setActive] = useState(service.is_active);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const toast = useToast();
 
   return (
     <div className={`rounded-xl border bg-card p-4 ${active ? "border-card-border" : "border-error/20 opacity-60"}`}>
@@ -27,7 +29,7 @@ export function ServiceRow({ service }: Props) {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={async () => { setActive(!active); await toggleServiceActive(service.id, !active); }}
+            onClick={async () => { const prev = active; setActive(!prev); const res = await toggleServiceActive(service.id, !prev); if (res?.error) { setActive(prev); toast.error(res.error); } }}
             className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${active ? "border border-green-500/30 bg-green-500/10 text-green-400" : "border border-red-500/30 bg-red-500/10 text-red-400"}`}
           >
             {active ? "نشط" : "مخفي"}
@@ -38,7 +40,7 @@ export function ServiceRow({ service }: Props) {
           {confirmDelete ? (
             <div className="flex items-center gap-1">
               <button
-                onClick={async () => { setDeleting(true); await deleteService(service.id); }}
+                onClick={async () => { setDeleting(true); const res = await deleteService(service.id); if (res?.error) { toast.error(res.error); setDeleting(false); setConfirmDelete(false); } }}
                 disabled={deleting}
                 className="rounded bg-error/10 px-2 py-1 text-xs text-error hover:bg-error/20 disabled:opacity-50"
               >

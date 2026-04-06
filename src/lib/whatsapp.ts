@@ -13,9 +13,9 @@ interface WhatsAppRecipient {
 
 function getRecipients(): WhatsAppRecipient[] {
   return [
-    { phone: "96598759229", apiKey: process.env.CALLMEBOT_KEY_KW },
-    { phone: "201220210300", apiKey: process.env.CALLMEBOT_KEY_EG },
-  ].filter(r => r.apiKey);
+    { phone: process.env.CALLMEBOT_PHONE_KW ?? "", apiKey: process.env.CALLMEBOT_KEY_KW },
+    { phone: process.env.CALLMEBOT_PHONE_EG ?? "", apiKey: process.env.CALLMEBOT_KEY_EG },
+  ].filter(r => r.apiKey && r.phone);
 }
 
 export async function sendWhatsAppNotification(message: string) {

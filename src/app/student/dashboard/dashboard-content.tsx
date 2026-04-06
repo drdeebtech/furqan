@@ -34,7 +34,7 @@ interface DashboardData {
 }
 
 export function StudentDashboardContent({ data }: { data: DashboardData }) {
-  const { t, dir } = useLang();
+  const { t, dir, lang } = useLang();
   const toast = useToast();
   const searchParams = useSearchParams();
   const { fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, recent, evaluations, nameMap, notesMap } = data;
@@ -53,12 +53,17 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
   let countdownColor = "text-muted";
   if (nextBooking) {
     const diff = new Date(nextBooking.scheduled_at).getTime() - Date.now();
-    const mins = Math.floor(diff / 60000);
-    const hours = Math.floor(mins / 60);
-    const days = Math.floor(hours / 24);
-    if (mins < 60) { countdown = t(`بعد ${mins} دقيقة`, `In ${mins} min`); countdownColor = "text-red-400"; }
-    else if (hours < 24) { countdown = t(`بعد ${hours} ساعة`, `In ${hours} hours`); countdownColor = "text-amber-400"; }
-    else { countdown = t(`بعد ${days} يوم`, `In ${days} days`); }
+    if (diff < 0) {
+      countdown = t("الآن", "Now");
+      countdownColor = "text-red-400";
+    } else {
+      const mins = Math.floor(diff / 60000);
+      const hours = Math.floor(mins / 60);
+      const days = Math.floor(hours / 24);
+      if (mins < 60) { countdown = t(`بعد ${mins} دقيقة`, `In ${mins} min`); countdownColor = "text-red-400"; }
+      else if (hours < 24) { countdown = t(`بعد ${hours} ساعة`, `In ${hours} hours`); countdownColor = "text-amber-400"; }
+      else { countdown = t(`بعد ${days} يوم`, `In ${days} days`); }
+    }
   }
 
   const st = (type: string) => {
@@ -83,9 +88,9 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
               {st(nextBooking.session_type)} · {nextBooking.duration_min} {t("دقيقة", "min")}
             </p>
             <p dir="ltr" className="mt-2 text-left text-sm text-muted">
-              {new Date(nextBooking.scheduled_at).toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+              {new Date(nextBooking.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
               {" · "}
-              {new Date(nextBooking.scheduled_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+              {new Date(nextBooking.scheduled_at).toLocaleTimeString(lang === "ar" ? "ar-SA" : "en-US", { hour: "2-digit", minute: "2-digit" })}
             </p>
             <p className={`mt-2 text-sm font-medium ${countdownColor}`}>{countdown}</p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -149,7 +154,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                         <p className="text-sm font-medium">{booking ? nameMap[booking.teacher_id] ?? t("معلم", "Teacher") : t("معلم", "Teacher")}</p>
                         <p className="mt-1 text-sm">{h.homework}</p>
                       </div>
-                      {booking && <p className="shrink-0 text-xs text-muted">{new Date(booking.scheduled_at).toLocaleDateString("ar-SA")}</p>}
+                      {booking && <p className="shrink-0 text-xs text-muted">{new Date(booking.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}</p>}
                     </div>
                   </div>
                 );
@@ -176,8 +181,8 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                     </span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-3 text-xs">
-                    {ev.hifz_score && <span className="rounded border border-card-border px-2 py-0.5">{t("حفظ", "Hifz")}: {ev.hifz_score}/10</span>}
-                    {ev.tajweed_score && <span className="rounded border border-card-border px-2 py-0.5">{t("تجويد", "Tajweed")}: {ev.tajweed_score}/10</span>}
+                    {ev.hifz_score != null && <span className="rounded border border-card-border px-2 py-0.5">{t("حفظ", "Hifz")}: {ev.hifz_score}/10</span>}
+                    {ev.tajweed_score != null && <span className="rounded border border-card-border px-2 py-0.5">{t("تجويد", "Tajweed")}: {ev.tajweed_score}/10</span>}
                   </div>
                   {ev.strengths && <p className="mt-2 text-xs"><span className="text-green-400">{t("نقاط القوة:", "Strengths:")}</span> {ev.strengths}</p>}
                   {ev.weaknesses && <p className="mt-1 text-xs"><span className="text-amber-400">{t("نقاط الضعف:", "Weaknesses:")}</span> {ev.weaknesses}</p>}
@@ -204,7 +209,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                         <p className="text-sm font-medium">{nameMap[r.teacher_id] ?? t("معلم", "Teacher")}</p>
                         <p className="text-xs text-muted">{st(r.session_type)} · {r.duration_min} {t("د", "min")}</p>
                       </div>
-                      <p className="text-xs text-muted">{new Date(r.scheduled_at).toLocaleDateString("ar-SA")}</p>
+                      <p className="text-xs text-muted">{new Date(r.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}</p>
                     </div>
                     {note?.post_session_notes && (
                       <div className="mt-2 rounded-lg border border-gold/20 bg-gold/5 p-2">

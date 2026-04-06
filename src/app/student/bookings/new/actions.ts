@@ -176,28 +176,30 @@ export async function createBooking(
     return { error: "حدث خطأ أثناء إنشاء الحجز" };
   }
 
-  // Notify teacher about new booking
-  try {
-    await supabase.from("notifications").insert({
+  // Send notifications in parallel (non-blocking)
+  await Promise.allSettled([
+    // Notify teacher about new booking (in-app)
+    supabase.from("notifications").insert({
       user_id: teacherId,
       type: "booking",
       title: "حجز جديد",
       body: `لديك حجز جديد بتاريخ ${scheduledAt.toLocaleDateString("ar-SA")} — يرجى التأكيد`,
       data: { booking_id: newBooking?.id ?? null },
       channel: ["in_app"],
-    } as never);
-  } catch { /* non-blocking */ }
-
-  // WhatsApp notification to admin
-  try {
-    const { data: studentProfile } = await supabase.from("profiles").select("full_name").eq("id", studentId).single<{ full_name: string | null }>();
-    const { data: teacherName } = await supabase.from("profiles").select("full_name").eq("id", teacherId).single<{ full_name: string | null }>();
-    await notifyNewBooking(
-      studentProfile?.full_name ?? "طالب",
-      teacherName?.full_name ?? "معلم",
-      scheduledAt.toLocaleDateString("ar-SA"),
-    );
-  } catch { /* non-blocking */ }
+    } as never),
+    // WhatsApp notification to admin
+    (async () => {
+      const [{ data: studentProfile }, { data: teacherName }] = await Promise.all([
+        supabase.from("profiles").select("full_name").eq("id", studentId).single<{ full_name: string | null }>(),
+        supabase.from("profiles").select("full_name").eq("id", teacherId).single<{ full_name: string | null }>(),
+      ]);
+      await notifyNewBooking(
+        studentProfile?.full_name ?? "طالب",
+        teacherName?.full_name ?? "معلم",
+        scheduledAt.toLocaleDateString("ar-SA"),
+      );
+    })(),
+  ]);
 
   redirect("/student/dashboard?booked=1");
 }

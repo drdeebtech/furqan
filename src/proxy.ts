@@ -3,10 +3,10 @@ import { updateSession } from "@/lib/supabase/middleware";
 import type { UserRole } from "@/types/database";
 
 const PROTECTED_ROUTES: Record<string, UserRole> = {
-  "/student/": "student",
-  "/teacher/": "teacher",
-  "/admin/": "admin",
-  "/moderator/": "moderator",
+  "/student": "student",
+  "/teacher": "teacher",
+  "/admin": "admin",
+  "/moderator": "moderator",
 };
 
 const PUBLIC_ROUTES = ["/login", "/register", "/forgot-password"];

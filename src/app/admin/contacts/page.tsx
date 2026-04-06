@@ -11,7 +11,7 @@ export default async function AdminContactsPage() {
   const { data: authData } = await supabase.auth.getUser();
   if (!authData?.user) redirect("/login");
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("contact_submissions")
     .select("id, full_name, email, whatsapp, country, student_age, package_interest, message, is_read, is_replied, created_at")
     .order("created_at", { ascending: false })
@@ -21,6 +21,10 @@ export default async function AdminContactsPage() {
       country: string | null; student_age: string | null; package_interest: string | null;
       message: string | null; is_read: boolean; is_replied: boolean; created_at: string;
     }[]>();
+
+  if (error) {
+    console.error("Failed to fetch contact submissions:", error.message);
+  }
 
   const submissions = data ?? [];
   const unreadCount = submissions.filter(s => !s.is_read).length;

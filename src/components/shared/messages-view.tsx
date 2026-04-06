@@ -87,16 +87,24 @@ export function MessagesView({
     ]);
     setNewMsg("");
 
-    const result = await sendMessage(activeConvo, content);
+    try {
+      const result = await sendMessage(activeConvo, content);
 
-    // Update status to delivered or failed
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === tempId
-          ? { ...m, status: result.success ? "delivered" : "failed" }
-          : m,
-      ),
-    );
+      // Update status to delivered or failed
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === tempId
+            ? { ...m, status: result.success ? "delivered" : "failed" }
+            : m,
+        ),
+      );
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === tempId ? { ...m, status: "failed" } : m,
+        ),
+      );
+    }
     setSending(false);
   }
 

@@ -39,9 +39,11 @@ export function ServicesContent({ services }: { services: Service[] }) {
             services.map((s, i) => {
               const title = t(s.title_ar ?? s.title, s.title);
               const desc = t(s.description_ar ?? s.description, s.description);
+              const featuresAr = s.features_ar ?? [];
+              const features = s.features ?? [];
               const feats = t(
-                (s.features_ar.length > 0 ? s.features_ar : s.features).join("|||"),
-                s.features.join("|||"),
+                (featuresAr.length > 0 ? featuresAr : features).join("|||"),
+                features.join("|||"),
               ).split("|||");
 
               return (

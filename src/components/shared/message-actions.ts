@@ -24,7 +24,7 @@ export async function sendMessage(conversationId: string, content: string) {
 export async function getMessages(conversationId: string) {
   const supabase = await createClient();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("messages")
     .select("id, sender_id, content, msg_type, created_at, is_read")
     .eq("conversation_id", conversationId)
@@ -38,6 +38,10 @@ export async function getMessages(conversationId: string) {
       created_at: string;
       is_read: boolean;
     }[]>();
+
+  if (error) {
+    console.error("Failed to fetch messages:", error.message);
+  }
 
   return data ?? [];
 }
