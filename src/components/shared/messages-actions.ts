@@ -23,7 +23,7 @@ export async function createConversation(otherUserId: string, role: "student" | 
   // Create new conversation
   const { data: conv, error } = await supabase
     .from("conversations")
-    .insert({ student_id: studentId, teacher_id: teacherId } as never)
+    .insert({ student_id: studentId, teacher_id: teacherId, initiated_by: user.id } as never)
     .select("id")
     .single<{ id: string }>();
 
