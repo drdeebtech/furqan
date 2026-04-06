@@ -5,7 +5,7 @@ import { ChevronDown } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 
 const FAQS = [
-  { ar: "هل الجلسة التجريبية مجانية تماماً؟", en: "Is the trial session completely free?", aAr: "نعم، الجلسة التجريبية مجانية بالكامل بدون أي التزامات أو بطاقة ائتمان. ستدوم الجلسة ٣٠ دقيقة مع معلم متخصص.", aEn: "Yes, the trial session is completely free with no obligations or credit card required. The session lasts 30 minutes with a specialized teacher." },
+  { ar: "كيف أسجل في الأكاديمية؟", en: "How do I register?", aAr: "أنشئ حساباً مجانياً على المنصة، ثم اختر معلمك واحجز جلستك الأولى. التسجيل سهل ولا يستغرق أكثر من دقيقة.", aEn: "Create a free account on the platform, then choose your teacher and book your first session. Registration is easy and takes less than a minute." },
   { ar: "كيف تتم الجلسات؟", en: "How do sessions work?", aAr: "تتم الجلسات عبر نظام الفيديو المدمج في منصة فرقان. بعد تأكيد الحجز ستحصل على رابط الجلسة مباشرة.", aEn: "Sessions are conducted via the built-in video system in the FURQAN platform. After booking confirmation, you'll receive a session link directly." },
   { ar: "هل يتوفر معلمات للأخوات؟", en: "Are female teachers available?", aAr: "نعم، لدينا معلمات متخصصات ومعتمدات للأخوات والأطفال في بيئة آمنة تماماً.", aEn: "Yes, we have specialized and certified female teachers for sisters and children in a completely safe environment." },
   { ar: "ما هي مؤهلات المعلمين؟", en: "What are the teachers' qualifications?", aAr: "جميع معلمينا حاصلون على إجازة في رواية حفص عن عاصم من علماء معتمدين، وخريجو جامعات إسلامية مرموقة.", aEn: "All our teachers hold Ijazah in Hafs narration from certified scholars and are graduates of prestigious Islamic universities." },

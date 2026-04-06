@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Clock, Globe, Heart, Users } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { Testimonials } from "@/components/public/testimonials";
-import { FreeTrialBanner } from "@/components/public/free-trial-banner";
+import { RegisterBanner } from "@/components/public/free-trial-banner";
 
 export function AboutContent() {
   const { t } = useLang();
@@ -41,7 +41,7 @@ export function AboutContent() {
               { num: t("٢٤/٧", "24/7"), label: t("متاح على مدار الساعة", "Available Anytime") },
               { num: t("إجازة", "Ijazah"), label: t("معلمون معتمدون", "Certified Teachers") },
               { num: t("١:١", "1:1"), label: t("جلسات فردية مباشرة", "Live Private Sessions") },
-              { num: t("مجاناً", "Free"), label: t("جلسة تجريبية", "Trial Session") },
+              { num: t("مجاناً", "Free"), label: t("التسجيل", "Registration") },
             ].map((s) => (
               <div key={s.label} className="rounded-xl border border-card-border bg-card p-5 text-center">
                 <p className="font-display text-2xl font-bold text-gold">{s.num}</p>
@@ -74,7 +74,7 @@ export function AboutContent() {
       </section>
 
       <div className="border-t border-card-border"><Testimonials /></div>
-      <FreeTrialBanner />
+      <RegisterBanner />
     </div>
   );
 }

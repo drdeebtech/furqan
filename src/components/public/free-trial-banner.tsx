@@ -4,7 +4,10 @@ import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 
-export function FreeTrialBanner() {
+/** @deprecated Use RegisterBanner instead */
+export const FreeTrialBanner = RegisterBanner;
+
+export function RegisterBanner() {
   const { t } = useLang();
 
   return (
@@ -14,14 +17,14 @@ export function FreeTrialBanner() {
         <h2 className="font-display text-3xl font-bold">{t("ابدأ رحلتك مع القرآن اليوم", "Start Your Quran Journey Today")}</h2>
         <p className="font-display mt-4 text-lg text-gold/50">﴿ وَرَتِّلِ الْقُرْآنَ تَرْتِيلًا ﴾</p>
         <div className="mt-8 flex flex-wrap justify-center gap-4">
-          <Link href="/contact" className="rounded border border-gold bg-gold px-8 py-3 font-semibold text-background transition-colors hover:bg-gold-hover">
-            {t("احجز جلسة تجريبية مجانية", "Book a Free Trial Session")}
+          <Link href="/register" className="rounded border border-gold bg-gold px-8 py-3 font-semibold text-background transition-colors hover:bg-gold-hover">
+            {t("سجّل الآن", "Register Now")}
           </Link>
           <Link href="/packages" className="rounded border border-card-border px-8 py-3 text-muted transition-colors hover:border-gold/40 hover:text-gold">
             {t("تعرف على باقاتنا", "View Our Packages")}
           </Link>
         </div>
-        <p className="mt-4 text-xs text-muted">{t("✓ مجاني · ✓ بدون بطاقة ائتمان · ✓ خلال ٢٤ ساعة", "✓ Free · ✓ No credit card · ✓ Within 24 hours")}</p>
+        <p className="mt-4 text-xs text-muted">{t("✓ التسجيل مجاني · ✓ ابدأ خلال ٢٤ ساعة", "✓ Free registration · ✓ Start within 24 hours")}</p>
       </div>
     </section>
   );

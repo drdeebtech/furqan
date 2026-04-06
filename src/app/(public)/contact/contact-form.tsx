@@ -80,7 +80,7 @@ export function ContactForm() {
           <select id="package" name="package" className={inputClass}>
             <option value="">{t("اختر الباقة", "Select Package")}</option>
             {[
-              { ar: "جلسة تجريبية مجانية", en: "Free Trial Session" },
+              { ar: "استفسار عام", en: "General Inquiry" },
               { ar: "الباقة الأساسية", en: "Starter Package" },
               { ar: "الباقة المتوسطة", en: "Standard Package" },
               { ar: "الباقة المتقدمة", en: "Premium Package" },

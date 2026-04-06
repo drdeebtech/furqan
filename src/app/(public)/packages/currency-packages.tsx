@@ -114,7 +114,6 @@ export function CurrencyPackages() {
               >
                 {t("احجز الآن", "Book Now")}
               </Link>
-              <p className="mt-2 text-center text-xs text-muted">{t("جلسة تجريبية مجانية متاحة", "Free trial session available")}</p>
             </div>
           ))}
         </div>

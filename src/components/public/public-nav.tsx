@@ -75,10 +75,10 @@ export function PublicNav() {
               {t("تسجيل الدخول", "Sign In")}
             </Link>
             <Link
-              href="/contact"
+              href="/register"
               className="rounded border border-gold bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background"
             >
-              {t("جلسة تجريبية مجانية", "Free Trial")}
+              {t("سجّل الآن", "Register Now")}
             </Link>
           </div>
 
@@ -110,8 +110,8 @@ export function PublicNav() {
             ))}
             <div className="mt-4 flex flex-col gap-2 border-t border-card-border pt-4">
               <Link href="/login" className="text-sm text-muted">{t("تسجيل الدخول", "Sign In")}</Link>
-              <Link href="/contact" className="rounded bg-gold px-4 py-2.5 text-center text-sm font-medium text-background">
-                {t("جلسة تجريبية مجانية", "Free Trial")}
+              <Link href="/register" className="rounded bg-gold px-4 py-2.5 text-center text-sm font-medium text-background">
+                {t("سجّل الآن", "Register Now")}
               </Link>
             </div>
           </div>

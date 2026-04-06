@@ -18,7 +18,7 @@ export function OrganizationSchema() {
       price: "0",
       priceCurrency: "USD",
       availability: "https://schema.org/InStock",
-      name: "Free Trial Session",
+      name: "Free Registration",
     },
     hasOfferCatalog: {
       "@type": "OfferCatalog",
@@ -40,7 +40,7 @@ export function FAQSchema() {
     "@context": "https://schema.org",
     "@type": "FAQPage",
     mainEntity: [
-      { "@type": "Question", name: "Is the trial session free?", acceptedAnswer: { "@type": "Answer", text: "Yes, the trial session is completely free with no obligations or credit card required." } },
+      { "@type": "Question", name: "How do I register?", acceptedAnswer: { "@type": "Answer", text: "Create a free account on the platform, then choose your teacher and book your first session. Registration is easy and takes less than a minute." } },
       { "@type": "Question", name: "Are female teachers available?", acceptedAnswer: { "@type": "Answer", text: "Yes, we have certified female teachers available for sisters and children." } },
       { "@type": "Question", name: "What qualifications do teachers have?", acceptedAnswer: { "@type": "Answer", text: "All teachers hold Ijazah from certified scholars and are graduates of prestigious Islamic universities." } },
       { "@type": "Question", name: "How do sessions work?", acceptedAnswer: { "@type": "Answer", text: "Sessions are conducted via built-in video. After booking confirmation, you receive a session link directly." } },

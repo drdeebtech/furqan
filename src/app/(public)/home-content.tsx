@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { Testimonials } from "@/components/public/testimonials";
-import { FreeTrialBanner } from "@/components/public/free-trial-banner";
+import { RegisterBanner } from "@/components/public/free-trial-banner";
 
 export default function HomePage() {
   const { t } = useLang();
@@ -66,11 +66,11 @@ export default function HomePage() {
             {/* CTA buttons — large, prominent */}
             <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
               <Link
-                href="/contact"
+                href="/register"
                 className="flex items-center gap-2 rounded-xl bg-gold px-10 py-4 text-lg font-bold text-background transition-all hover:bg-gold-hover hover:shadow-lg hover:shadow-gold/20"
               >
                 <Play size={20} />
-                {t("احجز جلسة تجريبية مجانية", "Book a Free Trial Session")}
+                {t("سجّل الآن", "Register Now")}
               </Link>
               <Link
                 href="/services"
@@ -82,8 +82,8 @@ export default function HomePage() {
 
             {/* Trust micro-copy */}
             <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm text-muted">
-              <span className="flex items-center gap-1"><CheckCircle size={14} className="text-gold" /> {t("مجاني للبدء", "Free to start")}</span>
-              <span className="flex items-center gap-1"><CheckCircle size={14} className="text-gold" /> {t("بدون بطاقة ائتمان", "No credit card")}</span>
+              <span className="flex items-center gap-1"><CheckCircle size={14} className="text-gold" /> {t("التسجيل مجاني", "Free registration")}</span>
+              <span className="flex items-center gap-1"><CheckCircle size={14} className="text-gold" /> {t("معلمون معتمدون", "Certified teachers")}</span>
               <span className="flex items-center gap-1"><CheckCircle size={14} className="text-gold" /> {t("إلغاء في أي وقت", "Cancel anytime")}</span>
             </div>
           </div>
@@ -125,7 +125,7 @@ export default function HomePage() {
 
           <div className="mt-16 grid gap-8 md:grid-cols-3">
             {[
-              { num: "01", icon: Users, ar: "سجّل حسابك", en: "Create Account", dAr: "أنشئ حسابك المجاني واحجز جلسة تجريبية بدون بطاقة ائتمان.", dEn: "Create your free account and book a trial session — no credit card needed." },
+              { num: "01", icon: Users, ar: "سجّل حسابك", en: "Create Account", dAr: "أنشئ حسابك وابدأ التعلم", dEn: "Create your account and start learning" },
               { num: "02", icon: Calendar, ar: "اختر معلمك", en: "Choose Teacher", dAr: "تصفح المعلمين المعتمدين واختر الأنسب لمستواك وأهدافك.", dEn: "Browse certified teachers and pick the best match for your level and goals." },
               { num: "03", icon: Video, ar: "ابدأ التعلم", en: "Start Learning", dAr: "انضم لجلستك عبر الفيديو المدمج وتابع تقدمك في الحفظ.", dEn: "Join your session via built-in video and track your memorization progress." },
             ].map((step) => (
@@ -160,7 +160,7 @@ export default function HomePage() {
               { icon: Star, ar: "معلمات للأخوات والأطفال", en: "Female Teachers", dAr: "متاح معلمات متخصصات في بيئة آمنة", dEn: "Female teachers available for sisters and children" },
               { icon: TrendingUp, ar: "تتبع تقدمك", en: "Track Progress", dAr: "لوحة تحكم تعرض تقدمك في الحفظ والجلسات", dEn: "Dashboard showing your memorization progress" },
               { icon: Globe, ar: "نخدم طلاباً حول العالم", en: "Worldwide Access", dAr: "تعلّم من أي مكان — أمريكا، أوروبا، الخليج، أستراليا", dEn: "Learn from anywhere — USA, Europe, Gulf, Australia" },
-              { icon: Award, ar: "جلسة تجريبية مجانية", en: "Free Trial", dAr: "ابدأ بجلسة مجانية بدون أي التزام", dEn: "Start with a free session — no commitment" },
+              { icon: Award, ar: "سجّل واحجز جلستك", en: "Register & Book Your Session", dAr: "سجّل الآن وابدأ رحلتك مع القرآن", dEn: "Register now and start your Quran journey" },
             ].map((f) => (
               <div key={f.en} className="rounded-xl border border-card-border bg-card/90 p-5 backdrop-blur-sm transition-all hover:border-gold/30 hover:-translate-y-1">
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gold/10">
@@ -223,7 +223,7 @@ export default function HomePage() {
             { icon: GraduationCap, ar: "خريجو جامعة الأزهر", en: "Al-Azhar Graduates" },
             { icon: Shield, ar: "إجازة في رواية حفص", en: "Hafs Ijazah Certified" },
             { icon: Globe, ar: "متاح لطلاب حول العالم", en: "Available Worldwide" },
-            { icon: Award, ar: "جلسة تجريبية مجانية", en: "Free Trial Session" },
+            { icon: Award, ar: "سجّل مجاناً", en: "Free Registration" },
           ].map((b) => (
             <div key={b.en} className="flex items-center gap-2 text-sm">
               <b.icon size={18} className="text-gold" />
@@ -278,7 +278,7 @@ export default function HomePage() {
       </section>
 
       {/* ── FINAL CTA ── */}
-      <FreeTrialBanner />
+      <RegisterBanner />
     </div>
   );
 }

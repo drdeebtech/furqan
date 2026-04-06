@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useLang } from "@/lib/i18n/context";
 import { Testimonials } from "@/components/public/testimonials";
-import { FreeTrialBanner } from "@/components/public/free-trial-banner";
+import { RegisterBanner } from "@/components/public/free-trial-banner";
 import { CurrencyPackages } from "./currency-packages";
 
 export function PackagesContent() {
@@ -71,7 +71,7 @@ export function PackagesContent() {
       </section>
 
       <div className="border-t border-card-border"><Testimonials /></div>
-      <FreeTrialBanner />
+      <RegisterBanner />
     </div>
   );
 }

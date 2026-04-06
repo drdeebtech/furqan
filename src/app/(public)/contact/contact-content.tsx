@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useLang } from "@/lib/i18n/context";
 import { CONTACT } from "@/lib/contact";
-import { FreeTrialBanner } from "@/components/public/free-trial-banner";
+import { RegisterBanner } from "@/components/public/free-trial-banner";
 import { ContactForm } from "./contact-form";
 import { FAQ } from "./faq";
 
@@ -52,7 +52,7 @@ export function ContactContent() {
       </section>
 
       <div className="border-t border-card-border"><FAQ /></div>
-      <FreeTrialBanner />
+      <RegisterBanner />
     </div>
   );
 }

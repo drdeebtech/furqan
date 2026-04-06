@@ -4,7 +4,7 @@ import Link from "next/link";
 import { CheckCircle, Inbox } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { Testimonials } from "@/components/public/testimonials";
-import { FreeTrialBanner } from "@/components/public/free-trial-banner";
+import { RegisterBanner } from "@/components/public/free-trial-banner";
 
 interface Service {
   id: string;
@@ -59,7 +59,7 @@ export function ServicesContent({ services }: { services: Service[] }) {
                       ))}
                     </ul>
                     <Link href="/contact" className="mt-6 inline-block rounded border border-gold bg-gold/10 px-5 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background">
-                      {t("احجز جلسة تجريبية", "Book a Trial Session")}
+                      {t("سجّل وابدأ التعلم", "Register & Start Learning")}
                     </Link>
                   </div>
                   <div className="mt-8 flex-1 md:mt-0">
@@ -81,7 +81,7 @@ export function ServicesContent({ services }: { services: Service[] }) {
       </section>
 
       <div className="border-t border-card-border"><Testimonials /></div>
-      <FreeTrialBanner />
+      <RegisterBanner />
     </div>
   );
 }

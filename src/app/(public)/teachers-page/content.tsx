@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Award, GraduationCap, Star } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { Testimonials } from "@/components/public/testimonials";
-import { FreeTrialBanner } from "@/components/public/free-trial-banner";
+import { RegisterBanner } from "@/components/public/free-trial-banner";
 
 const SPECIALTY: Record<string, { ar: string; en: string }> = {
   hifz: { ar: "حفظ", en: "Hifz" }, muraja: { ar: "مراجعة", en: "Revision" },
@@ -136,7 +136,7 @@ export function TeachersContent({ teachers }: { teachers: Teacher[] }) {
       </section>
 
       <div className="border-t border-card-border"><Testimonials /></div>
-      <FreeTrialBanner />
+      <RegisterBanner />
     </div>
   );
 }

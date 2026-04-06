@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/i18n/context";
-import { FreeTrialBanner } from "@/components/public/free-trial-banner";
+import { RegisterBanner } from "@/components/public/free-trial-banner";
 
 interface Post {
   slug: string;
@@ -155,7 +155,7 @@ export function BlogContent({ posts }: { posts: Post[] }) {
         </div>
       </section>
 
-      <FreeTrialBanner />
+      <RegisterBanner />
     </div>
   );
 }
