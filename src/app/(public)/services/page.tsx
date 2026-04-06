@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { ServicesContent } from "./content";
+import { BreadcrumbSchema } from "@/components/seo/structured-data";
 
 export const metadata: Metadata = {
   title: "خدماتنا — حفظ وتجويد وتلاوة",
@@ -23,5 +24,13 @@ export default async function ServicesPage() {
       icon: string | null; image_url: string | null;
     }[]>();
 
-  return <ServicesContent services={data ?? []} />;
+  return (
+    <>
+      <BreadcrumbSchema items={[
+        { name: "الرئيسية", url: "https://furqan.today" },
+        { name: "خدماتنا", url: "https://furqan.today/services" },
+      ]} />
+      <ServicesContent services={data ?? []} />
+    </>
+  );
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PackagesContent } from "./packages-content";
+import { BreadcrumbSchema } from "@/components/seo/structured-data";
 
 export const metadata: Metadata = {
   title: "باقاتنا — أسعار تعلم القرآن",
@@ -8,5 +9,13 @@ export const metadata: Metadata = {
 };
 
 export default function PackagesPage() {
-  return <PackagesContent />;
+  return (
+    <>
+      <BreadcrumbSchema items={[
+        { name: "الرئيسية", url: "https://furqan.today" },
+        { name: "باقاتنا", url: "https://furqan.today/packages" },
+      ]} />
+      <PackagesContent />
+    </>
+  );
 }

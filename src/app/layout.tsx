@@ -43,6 +43,7 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-touch-icon.png",
   },
+  manifest: "/manifest.json",
   openGraph: {
     type: "website",
     locale: "ar_AR",
@@ -51,13 +52,11 @@ export const metadata: Metadata = {
     siteName: "فرقان — FURQAN Academy",
     title: "فرقان — تعلم القرآن الكريم مع معلمين معتمدين",
     description: "تعلّم الحفظ والتجويد مع معلمين حاصلين على الإجازة. سجّل الآن وابدأ.",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "فرقان — أكاديمية القرآن الكريم" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "فرقان — تعلم القرآن الكريم",
     description: "تعلّم الحفظ والتجويد مع معلمين معتمدين. سجّل الآن وابدأ.",
-    images: ["/og-image.png"],
   },
   robots: {
     index: true,

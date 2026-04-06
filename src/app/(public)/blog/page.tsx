@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import type { BlogPost } from "@/types/blog";
 import { BlogContent } from "./content";
+import { BreadcrumbSchema } from "@/components/seo/structured-data";
 
 export const metadata: Metadata = {
   title: "المدونة — مقالات في علوم القرآن",
@@ -19,5 +20,13 @@ export default async function BlogPage() {
     .order("published_at", { ascending: false })
     .returns<Omit<BlogPost, "id" | "body_ar" | "body_en" | "is_published" | "created_at" | "updated_at">[]>();
 
-  return <BlogContent posts={posts ?? []} />;
+  return (
+    <>
+      <BreadcrumbSchema items={[
+        { name: "الرئيسية", url: "https://furqan.today" },
+        { name: "المدونة", url: "https://furqan.today/blog" },
+      ]} />
+      <BlogContent posts={posts ?? []} />
+    </>
+  );
 }
