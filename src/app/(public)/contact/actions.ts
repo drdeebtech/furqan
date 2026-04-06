@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { sendContactNotification } from "@/lib/email";
 
 export async function submitContactForm(
@@ -19,24 +19,29 @@ export async function submitContactForm(
     return { error: "الاسم والبريد الإلكتروني مطلوبان" };
   }
 
-  const supabase = await createClient();
+  try {
+    const supabase = createAdminClient();
 
-  // Save to database
-  const { error: dbError } = await supabase.from("contact_submissions").insert({
-    full_name: fullName,
-    email,
-    whatsapp,
-    country,
-    student_age: studentAge,
-    package_interest: packageInterest,
-    message,
-  } as never);
+    const { error: dbError } = await supabase.from("contact_submissions").insert({
+      full_name: fullName,
+      email,
+      whatsapp,
+      country,
+      student_age: studentAge,
+      package_interest: packageInterest,
+      message,
+    } as never);
 
-  if (dbError) {
+    if (dbError) {
+      console.error("Contact form DB error:", dbError);
+      return { error: "حدث خطأ — حاول مرة أخرى" };
+    }
+  } catch (e) {
+    console.error("Contact form error:", e);
     return { error: "حدث خطأ — حاول مرة أخرى" };
   }
 
-  // Send email notification (non-blocking)
+  // Send email notification (non-blocking, don't fail form)
   try {
     await sendContactNotification({
       fullName,
