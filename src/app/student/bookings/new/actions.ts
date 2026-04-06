@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { SessionType } from "@/types/database";
+import { notifyNewBooking } from "@/lib/whatsapp";
 
 export type BookingResult = {
   error?: string;
@@ -185,9 +186,18 @@ export async function createBooking(
       data: { booking_id: newBooking?.id ?? null },
       channel: ["in_app"],
     } as never);
-  } catch {
-    // Don't block booking creation if notification fails
-  }
+  } catch { /* non-blocking */ }
+
+  // WhatsApp notification to admin
+  try {
+    const { data: studentProfile } = await supabase.from("profiles").select("full_name").eq("id", studentId).single<{ full_name: string | null }>();
+    const { data: teacherName } = await supabase.from("profiles").select("full_name").eq("id", teacherId).single<{ full_name: string | null }>();
+    await notifyNewBooking(
+      studentProfile?.full_name ?? "طالب",
+      teacherName?.full_name ?? "معلم",
+      scheduledAt.toLocaleDateString("ar-SA"),
+    );
+  } catch { /* non-blocking */ }
 
   redirect("/student/bookings");
 }

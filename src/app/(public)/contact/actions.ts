@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendContactNotification } from "@/lib/email";
+import { notifyNewContact } from "@/lib/whatsapp";
 
 export async function submitContactForm(
   _prev: { success?: boolean; error?: string },
@@ -40,6 +41,9 @@ export async function submitContactForm(
     console.error("Contact form error:", e);
     return { error: "حدث خطأ — حاول مرة أخرى" };
   }
+
+  // Send WhatsApp notification (non-blocking)
+  try { await notifyNewContact(fullName, email, packageInterest ?? undefined); } catch { /* non-blocking */ }
 
   // Send email notification (non-blocking, don't fail form)
   try {
