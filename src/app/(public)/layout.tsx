@@ -3,6 +3,7 @@ import { PublicNav } from "@/components/public/public-nav";
 import { PublicFooter } from "@/components/public/public-footer";
 import { WhatsAppButton } from "@/components/public/whatsapp-button";
 import { MobileRegisterBar } from "@/components/public/mobile-register-bar";
+import { WelcomePopup } from "@/components/public/welcome-popup";
 import { OrganizationSchema, FAQSchema } from "@/components/seo/structured-data";
 import { PublicDirWrapper } from "./dir-wrapper";
 import { FeatureFlagsProvider } from "@/lib/feature-flags-context";
@@ -31,6 +32,7 @@ export default async function PublicLayout({
           <PublicFooter />
           <WhatsAppButton />
           <MobileRegisterBar />
+          <WelcomePopup />
         </PublicDirWrapper>
       </FeatureFlagsProvider>
     </LangProvider>

@@ -63,18 +63,18 @@ export default function HomePage() {
               )}
             </p>
 
-            {/* CTA buttons — large, prominent */}
-            <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+            {/* CTA buttons — full-width on mobile, prominent */}
+            <div className="mt-10 flex w-full flex-col items-center gap-4 px-4 sm:w-auto sm:flex-row sm:justify-center sm:px-0">
               <Link
                 href="/register"
-                className="flex items-center gap-2 rounded-xl bg-gold px-10 py-4 text-lg font-bold text-background transition-all hover:bg-gold-hover hover:shadow-lg hover:shadow-gold/20"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold px-10 py-4 text-lg font-bold text-background shadow-lg shadow-gold/20 transition-all hover:bg-gold-hover hover:shadow-xl hover:shadow-gold/30 sm:w-auto animate-pulse-slow"
               >
                 <Play size={20} />
                 {t("سجّل الآن", "Register Now")}
               </Link>
               <Link
                 href="/services"
-                className="rounded-xl border-2 border-card-border px-8 py-4 text-lg text-muted transition-colors hover:border-gold/40 hover:text-gold"
+                className="w-full rounded-xl border-2 border-card-border px-8 py-4 text-center text-lg text-muted transition-colors hover:border-gold/40 hover:text-gold sm:w-auto"
               >
                 {t("تعرف على خدماتنا", "Explore Our Services")}
               </Link>
