@@ -19,6 +19,7 @@ interface Message {
   msg_type: string;
   created_at: string;
   is_read: boolean;
+  status?: "sending" | "delivered" | "failed";
 }
 
 interface Contact {
@@ -65,22 +66,51 @@ export function MessagesView({
     e.preventDefault();
     if (!newMsg.trim() || !activeConvo) return;
     setSending(true);
-    const result = await sendMessage(activeConvo, newMsg.trim());
-    if (result.success) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          sender_id: currentUserId,
-          content: newMsg.trim(),
-          msg_type: "text",
-          created_at: new Date().toISOString(),
-          is_read: false,
-        },
-      ]);
-      setNewMsg("");
-    }
+
+    const tempId = crypto.randomUUID();
+    const content = newMsg.trim();
+
+    // Optimistic: add message with "sending" status
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: tempId,
+        sender_id: currentUserId,
+        content,
+        msg_type: "text",
+        created_at: new Date().toISOString(),
+        is_read: false,
+        status: "sending",
+      },
+    ]);
+    setNewMsg("");
+
+    const result = await sendMessage(activeConvo, content);
+
+    // Update status to delivered or failed
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === tempId
+          ? { ...m, status: result.success ? "delivered" : "failed" }
+          : m,
+      ),
+    );
     setSending(false);
+  }
+
+  async function retryMessage(msgId: string, content: string) {
+    if (!activeConvo) return;
+    setMessages((prev) =>
+      prev.map((m) => (m.id === msgId ? { ...m, status: "sending" } : m)),
+    );
+    const result = await sendMessage(activeConvo, content);
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === msgId
+          ? { ...m, status: result.success ? "delivered" : "failed" }
+          : m,
+      ),
+    );
   }
 
   async function openNewConvoDialog() {
@@ -216,12 +246,33 @@ export function MessagesView({
                     return (
                       <div key={msg.id} className={`flex ${isMine ? "justify-start" : "justify-end"}`}>
                         <div className={`max-w-[70%] rounded-xl px-4 py-2 text-sm ${
-                          isMine ? "bg-gold/10 text-foreground" : "bg-surface text-foreground"
-                        }`}>
+                          msg.status === "failed"
+                            ? "border border-error/30 bg-error/5 text-foreground"
+                            : isMine ? "bg-gold/10 text-foreground" : "bg-surface text-foreground"
+                        } ${msg.status === "sending" ? "opacity-60" : ""}`}>
                           <p>{msg.content}</p>
-                          <p className="mt-1 text-xs text-muted">
-                            {new Date(msg.created_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
-                          </p>
+                          <div className="mt-1 flex items-center gap-1.5">
+                            <span className="text-xs text-muted">
+                              {new Date(msg.created_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                            {isMine && msg.status === "sending" && (
+                              <span className="h-3 w-3 animate-spin rounded-full border border-muted/30 border-t-muted" />
+                            )}
+                            {isMine && msg.status === "delivered" && (
+                              <span className="text-xs text-green-400">✓</span>
+                            )}
+                            {isMine && !msg.status && (
+                              <span className="text-xs text-green-400">✓</span>
+                            )}
+                            {isMine && msg.status === "failed" && (
+                              <button
+                                onClick={() => retryMessage(msg.id, msg.content)}
+                                className="text-xs text-error hover:text-error/80"
+                              >
+                                ✕ فشل — اضغط لإعادة الإرسال
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
