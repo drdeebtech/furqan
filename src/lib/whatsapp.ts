@@ -20,16 +20,30 @@ function getRecipients(): WhatsAppRecipient[] {
 
 export async function sendWhatsAppNotification(message: string) {
   const recipients = getRecipients();
-  if (recipients.length === 0) return;
+  if (recipients.length === 0) {
+    console.warn("[WhatsApp] No recipients configured — check CALLMEBOT_KEY_KW / CALLMEBOT_KEY_EG env vars");
+    return;
+  }
 
   const encoded = encodeURIComponent(message);
 
-  await Promise.allSettled(
-    recipients.map(r =>
-      fetch(`https://api.callmebot.com/whatsapp.php?phone=${r.phone}&text=${encoded}&apikey=${r.apiKey}`)
-        .catch(() => {}) // non-blocking
-    ),
+  const results = await Promise.allSettled(
+    recipients.map(async r => {
+      const url = `https://api.callmebot.com/whatsapp.php?phone=${r.phone}&text=${encoded}&apikey=${r.apiKey}`;
+      const res = await fetch(url);
+      const text = await res.text();
+      if (!text.includes("queued")) {
+        console.error(`[WhatsApp] Failed for ${r.phone}:`, text);
+      }
+      return text;
+    }),
   );
+
+  for (const r of results) {
+    if (r.status === "rejected") {
+      console.error("[WhatsApp] Send failed:", r.reason);
+    }
+  }
 }
 
 // Pre-formatted notification helpers
