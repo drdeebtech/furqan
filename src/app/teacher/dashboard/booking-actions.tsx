@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, X, ExternalLink } from "lucide-react";
 import { updateBookingStatus } from "./actions";
+import { useToast } from "@/components/shared/toast";
 
 export function BookingActions({ bookingId }: { bookingId: string }) {
   const [loading, setLoading] = useState<"confirm" | "decline" | null>(null);
@@ -10,6 +11,7 @@ export function BookingActions({ bookingId }: { bookingId: string }) {
   const [roomUrl, setRoomUrl] = useState<string | null>(null);
   const [confirmDecline, setConfirmDecline] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   async function handle(status: "confirmed" | "cancelled") {
     setLoading(status === "confirmed" ? "confirm" : "decline");
@@ -19,11 +21,13 @@ export function BookingActions({ bookingId }: { bookingId: string }) {
 
     if (result.error) {
       setError(result.error);
+      toast.error(result.error);
       setLoading(null);
     } else {
       setDone(status);
       if (result.roomUrl) setRoomUrl(result.roomUrl);
-      if (result.warning) setError(result.warning);
+      if (result.warning) { setError(result.warning); toast.warning(result.warning); }
+      else { toast.success(status === "confirmed" ? "تم تأكيد الحجز بنجاح" : "تم رفض الحجز"); }
       setLoading(null);
     }
   }

@@ -1,5 +1,6 @@
 import { Nav } from "@/components/shared/nav";
 import { LangProvider } from "@/lib/i18n/context";
+import { ToastProvider } from "@/components/shared/toast";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function StudentLayout({
@@ -17,10 +18,12 @@ export default async function StudentLayout({
 
   return (
     <LangProvider>
-      <div className="min-h-screen">
-        <Nav role="student" userName={userName} />
-        {children}
-      </div>
+      <ToastProvider>
+        <div className="min-h-screen">
+          <Nav role="student" userName={userName} />
+          {children}
+        </div>
+      </ToastProvider>
     </LangProvider>
   );
 }

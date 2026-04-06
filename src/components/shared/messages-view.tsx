@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { MessageCircle, Send, Inbox, Plus } from "lucide-react";
 import { sendMessage, getMessages } from "./message-actions";
 import { createConversation, getContactsForRole } from "./messages-actions";
+import { useToast } from "./toast";
 
 interface Conversation {
   id: string;
@@ -47,6 +48,7 @@ export function MessagesView({
   const [loadingContacts, setLoadingContacts] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  const { success: toastSuccess, error: toastError } = useToast();
   const activeConvoData = conversations.find((c) => c.id === activeConvo);
 
   useEffect(() => {
@@ -132,7 +134,8 @@ export function MessagesView({
 
     const result = await createConversation(contact.id, role);
     if (result.error) {
-      return; // silently fail — conversation might already exist server-side
+      toastError(result.error);
+      return;
     }
     if (result.conversationId) {
       const newConvo: Conversation = {
@@ -148,6 +151,7 @@ export function MessagesView({
       });
       setActiveConvo(result.conversationId);
       setShowNewConvo(false);
+      toastSuccess("تم إنشاء المحادثة");
     }
   }
 

@@ -1,5 +1,6 @@
 import { Nav } from "@/components/shared/nav";
 import { LangProvider } from "@/lib/i18n/context";
+import { ToastProvider } from "@/components/shared/toast";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function AdminLayout({
@@ -17,10 +18,12 @@ export default async function AdminLayout({
 
   return (
     <LangProvider>
-      <div className="min-h-screen">
-        <Nav role="admin" userName={userName} />
-        {children}
-      </div>
+      <ToastProvider>
+        <div className="min-h-screen">
+          <Nav role="admin" userName={userName} />
+          {children}
+        </div>
+      </ToastProvider>
     </LangProvider>
   );
 }
