@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Video, VideoOff, AlertCircle } from "lucide-react";
+import { Video, VideoOff, AlertCircle, Maximize2 } from "lucide-react";
 import { DeviceCheck } from "@/components/shared/device-check";
 import { SessionTimer } from "@/components/shared/session-timer";
 import { generateSessionToken, trackSessionEvent } from "./actions";
@@ -30,14 +30,24 @@ export function VideoRoom({
   const [loading, setLoading] = useState(false);
   const [devicesReady, setDevicesReady] = useState(false);
   const [activeStartedAt, setActiveStartedAt] = useState(startedAt ?? null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const handleDeviceReady = useCallback((ok: boolean) => {
     setDevicesReady(ok);
   }, []);
 
-  // Check if room is expired
   const isExpired = expiresAt ? new Date(expiresAt) < new Date() : false;
   const canJoin = !isExpired;
+
+  function toggleFullscreen() {
+    if (!containerRef.current) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    } else {
+      containerRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    }
+  }
 
   async function joinCall() {
     if (!containerRef.current || frameRef.current || loading) return;
@@ -63,11 +73,12 @@ export function VideoRoom({
         },
         showLeaveButton: true,
         showFullscreenButton: true,
+        showLocalVideo: true,
+        showParticipantsBar: true,
       });
 
       frameRef.current = frame;
 
-      // Timeout after 30s
       const joinTimeout = setTimeout(() => {
         if (!frameRef.current) return;
         setError("انتهت مهلة الاتصال — حاول مرة أخرى");
@@ -90,6 +101,8 @@ export function VideoRoom({
         setJoined(false);
         frame.destroy();
         frameRef.current = null;
+        if (document.fullscreenElement) document.exitFullscreen();
+        setIsFullscreen(false);
         trackSessionEvent(sessionId, "left");
       });
 
@@ -117,14 +130,21 @@ export function VideoRoom({
     };
   }, []);
 
+  // Listen for fullscreen changes
+  useEffect(() => {
+    function handleFsChange() {
+      setIsFullscreen(!!document.fullscreenElement);
+    }
+    document.addEventListener("fullscreenchange", handleFsChange);
+    return () => document.removeEventListener("fullscreenchange", handleFsChange);
+  }, []);
+
   if (isExpired) {
     return (
       <div className="rounded-2xl border border-error/30 bg-error/10 p-8 text-center">
         <AlertCircle size={32} className="mx-auto mb-3 text-error" />
         <p className="font-semibold text-error">انتهت صلاحية غرفة الجلسة</p>
-        <p className="mt-1 text-sm text-muted">
-          يرجى التواصل مع المعلم لإعادة جدولة الجلسة
-        </p>
+        <p className="mt-1 text-sm text-muted">يرجى التواصل مع المعلم لإعادة جدولة الجلسة</p>
       </div>
     );
   }
@@ -132,18 +152,14 @@ export function VideoRoom({
   return (
     <div>
       {error && (
-        <div className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">
-          {error}
-        </div>
+        <div className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</div>
       )}
 
       {!joined && !loading && (
-        <div className="rounded-2xl border border-card-border bg-card elevation-2 p-12 text-center">
+        <div className="rounded-2xl border border-card-border bg-card elevation-2 p-8 text-center md:p-12">
           <Video size={40} className="mx-auto mb-4 text-gold" />
           <h2 className="mb-2 text-xl font-bold">غرفة الجلسة جاهزة</h2>
-          <p className="mb-6 text-sm text-muted">
-            اضغط للانضمام إلى جلسة الفيديو مع معلمك
-          </p>
+          <p className="mb-6 text-sm text-muted">اضغط للانضمام إلى جلسة الفيديو</p>
           <div className="mx-auto mb-6 max-w-sm">
             <DeviceCheck onReady={handleDeviceReady} />
           </div>
@@ -159,36 +175,54 @@ export function VideoRoom({
       )}
 
       {loading && !joined && (
-        <div className="text-center py-4">
-          <span className="mx-auto mb-2 block h-6 w-6 animate-spin rounded-full border-3 border-gold/30 border-t-gold" />
+        <div className="py-4 text-center">
+          <span className="mx-auto mb-2 block h-6 w-6 animate-spin rounded-full border-4 border-gold/30 border-t-gold" />
           <p className="text-xs text-muted">جاري الاتصال...</p>
         </div>
       )}
 
-      {/* Video container — ALWAYS full size so Daily.co iframe can render */}
+      {/* Video container — optimized for mobile and desktop */}
       <div
         ref={containerRef}
-        className={`overflow-hidden rounded-xl aspect-video ${!joined && !loading ? "hidden" : ""}`}
+        className={`overflow-hidden rounded-xl bg-black ${!joined && !loading ? "hidden" : ""}`}
+        style={{
+          // On mobile: use nearly full viewport height minus nav/controls
+          // On desktop: 16:9 aspect ratio
+          height: joined ? "calc(100vh - 200px)" : undefined,
+          minHeight: joined ? "300px" : undefined,
+          maxHeight: joined ? "800px" : undefined,
+        }}
       />
 
+      {/* Session controls bar */}
       {joined && (
-        <div className="mt-4 flex items-center justify-between rounded-2xl border border-card-border bg-card elevation-2 p-3">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-sm text-success">
+        <div className="mt-2 flex items-center justify-between rounded-xl border border-card-border bg-card p-2 md:mt-4 md:rounded-2xl md:p-3">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex items-center gap-1.5 text-xs text-success md:text-sm">
               <span className="h-2 w-2 animate-pulse rounded-full bg-success" />
-              الجلسة جارية
+              <span className="hidden sm:inline">الجلسة جارية</span>
             </div>
             {activeStartedAt && (
               <SessionTimer startedAt={activeStartedAt} durationMin={durationMin} />
             )}
           </div>
-          <button
-            onClick={() => frameRef.current?.leave()}
-            className="flex items-center gap-1.5 rounded-lg border border-error/30 px-3 py-1.5 text-xs text-error transition-colors hover:bg-error/10 focus-ring"
-          >
-            <VideoOff size={14} />
-            مغادرة
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleFullscreen}
+              className="flex items-center gap-1 rounded-lg border border-card-border px-2 py-1.5 text-xs text-muted transition-colors hover:text-gold md:px-3"
+              title="ملء الشاشة"
+            >
+              <Maximize2 size={14} />
+              <span className="hidden sm:inline">{isFullscreen ? "تصغير" : "ملء الشاشة"}</span>
+            </button>
+            <button
+              onClick={() => frameRef.current?.leave()}
+              className="flex items-center gap-1.5 rounded-lg border border-error/30 px-2 py-1.5 text-xs text-error transition-colors hover:bg-error/10 focus-ring md:px-3"
+            >
+              <VideoOff size={14} />
+              <span className="hidden sm:inline">مغادرة</span>
+            </button>
+          </div>
         </div>
       )}
     </div>
