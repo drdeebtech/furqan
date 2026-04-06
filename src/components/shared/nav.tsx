@@ -46,6 +46,7 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/admin/payments", ar: "المالية", en: "Payments", separator: true },
     { href: "/admin/services", ar: "الخدمات", en: "Services" },
     { href: "/admin/blog", ar: "المدونة", en: "Blog" },
+    { href: "/admin/contacts", ar: "رسائل التواصل", en: "Contacts" },
     { href: "/admin/notifications", ar: "الإشعارات", en: "Notifications" },
     { href: "/admin/settings", ar: "الإعدادات", en: "Settings", separator: true },
   ],

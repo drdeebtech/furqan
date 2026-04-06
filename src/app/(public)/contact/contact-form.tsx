@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState } from "react";
 import { useLang } from "@/lib/i18n/context";
+import { submitContactForm } from "./actions";
 
 const inputClass = "w-full rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold";
 
 export function ContactForm() {
-  const [sent, setSent] = useState(false);
   const { t } = useLang();
+  const [state, formAction, pending] = useActionState<{ success?: boolean; error?: string }, FormData>(submitContactForm, {});
 
-  if (sent) {
+  if (state.success) {
     return (
       <div className="rounded-2xl border border-gold/20 bg-card p-12 text-center">
         <p className="font-display text-2xl font-bold text-gold">{t("شكراً لتواصلك!", "Thank you!")}</p>
@@ -22,7 +23,13 @@ export function ContactForm() {
     <div className="rounded-2xl border border-card-border bg-card p-8">
       <h3 className="text-lg font-bold">{t("أرسل لنا رسالة", "Send us a Message")}</h3>
 
-      <form onSubmit={(e) => { e.preventDefault(); setSent(true); }} className="mt-6 space-y-4">
+      {state.error && (
+        <div className="mt-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">
+          {state.error}
+        </div>
+      )}
+
+      <form action={formAction} className="mt-6 space-y-4">
         <div>
           <label htmlFor="full_name" className="mb-1 block text-sm font-medium">{t("الاسم الكامل", "Full Name")}</label>
           <input id="full_name" name="full_name" type="text" required className={inputClass} placeholder={t("محمد أحمد", "Mohammed Ahmed")} />
@@ -88,8 +95,8 @@ export function ContactForm() {
           <textarea id="message" name="message" rows={4} className={`${inputClass} resize-none`} placeholder={t("أخبرنا عن أهدافك...", "Tell us about your goals...")} />
         </div>
 
-        <button type="submit" className="w-full rounded bg-gold py-3 font-semibold text-background transition-colors hover:bg-gold-hover">
-          {t("أرسل طلبك", "Submit Request")}
+        <button type="submit" disabled={pending} className="w-full rounded bg-gold py-3 font-semibold text-background transition-colors hover:bg-gold-hover disabled:opacity-50">
+          {pending ? t("جاري الإرسال...", "Sending...") : t("أرسل طلبك", "Submit Request")}
         </button>
       </form>
     </div>
