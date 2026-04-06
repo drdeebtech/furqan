@@ -26,7 +26,7 @@ export function SessionDetailControls({
   const [currentExpiresAt, setCurrentExpiresAt] = useState(expiresAt);
   const [extendSuccess, setExtendSuccess] = useState(false);
 
-  const now = Date.now();
+  const [now] = useState(() => Date.now());
   const expiresMs = currentExpiresAt
     ? new Date(currentExpiresAt).getTime()
     : null;
@@ -69,7 +69,7 @@ export function SessionDetailControls({
     );
   }
 
-  const Spinner = () => <Loader2 size={14} className="animate-spin" />;
+  const spinner = <Loader2 size={14} className="animate-spin" />;
 
   return (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-card-border bg-card p-4">
@@ -88,7 +88,7 @@ export function SessionDetailControls({
             disabled={loading !== null}
             className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
           >
-            {loading === "end" ? <Spinner /> : <PhoneOff size={14} />}
+            {loading === "end" ? spinner : <PhoneOff size={14} />}
             إنهاء الجلسة
           </button>
         )}
@@ -99,7 +99,7 @@ export function SessionDetailControls({
             disabled={loading !== null}
             className="inline-flex items-center gap-1.5 rounded-lg border border-gold/30 px-3 py-1.5 text-xs font-medium text-gold transition-colors hover:bg-gold/10 disabled:opacity-50"
           >
-            {loading === "extend" ? <Spinner /> : <TimerReset size={14} />}
+            {loading === "extend" ? spinner : <TimerReset size={14} />}
             {extendSuccess ? "تم التمديد" : "تمديد الغرفة"}
           </button>
         )}

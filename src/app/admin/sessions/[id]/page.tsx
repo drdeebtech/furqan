@@ -119,8 +119,10 @@ export default async function SessionDetailPage({
   };
 
   /* Determine states for actions */
+  // eslint-disable-next-line react-hooks/purity -- server component, Date.now() is fine
+  const now = Date.now();
   const isActive = !!session.started_at && !session.ended_at;
-  const isExpired = session.expires_at && new Date(session.expires_at).getTime() < Date.now() && !session.ended_at;
+  const isExpired = session.expires_at && new Date(session.expires_at).getTime() < now && !session.ended_at;
 
   const formatDT = (d: string | null) =>
     d ? new Date(d).toLocaleString("ar-SA") : "—";

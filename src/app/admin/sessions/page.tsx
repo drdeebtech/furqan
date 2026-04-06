@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Video, Inbox, Radio, BarChart3, Users, Clock, TrendingUp } from "lucide-react";
+import { Video, Inbox, Radio, BarChart3, Users, TrendingUp } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SessionStatus } from "@/components/shared/session-status";
 import { SessionRowActions } from "./session-row-actions";
@@ -98,6 +98,9 @@ export default async function AdminSessionsPage() {
         )
       : 0;
 
+  // eslint-disable-next-line react-hooks/purity -- server component, Date.now() is fine
+  const now = Date.now();
+
   return (
     <div dir="rtl" className="mx-auto max-w-6xl px-4 py-8">
       {/* Header */}
@@ -187,7 +190,7 @@ export default async function AdminSessionsPage() {
                 const isActive = !!s.started_at && !s.ended_at;
                 const isExpired =
                   s.expires_at &&
-                  new Date(s.expires_at).getTime() < Date.now() &&
+                  new Date(s.expires_at).getTime() < now &&
                   !s.ended_at;
 
                 return (

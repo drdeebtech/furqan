@@ -81,7 +81,7 @@ async function login(page: Page, email: string, password: string) {
   await page.waitForLoadState("networkidle");
 }
 
-async function logout(page: Page) {
+async function _logout(page: Page) {
   await page.goto("/api/auth/logout");
   await page.waitForURL((url) => url.pathname.includes("/login"), {
     timeout: 10_000,

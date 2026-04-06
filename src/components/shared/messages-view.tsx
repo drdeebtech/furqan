@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useTransition } from "react";
 import { MessageCircle, Send, Inbox, Plus } from "lucide-react";
 import { sendMessage, getMessages } from "./message-actions";
 import { createConversation, getContactsForRole } from "./messages-actions";
@@ -42,7 +42,7 @@ export function MessagesView({
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMsg, setNewMsg] = useState("");
   const [sending, setSending] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, startLoadTransition] = useTransition();
   const [showNewConvo, setShowNewConvo] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(false);
@@ -53,12 +53,11 @@ export function MessagesView({
 
   useEffect(() => {
     if (!activeConvo) return;
-    setLoading(true);
-    getMessages(activeConvo).then((msgs) => {
+    startLoadTransition(async () => {
+      const msgs = await getMessages(activeConvo);
       setMessages(msgs);
-      setLoading(false);
     });
-  }, [activeConvo]);
+  }, [activeConvo, startLoadTransition]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

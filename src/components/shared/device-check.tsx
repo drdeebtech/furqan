@@ -5,6 +5,16 @@ import { Camera, Mic, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 
 type DeviceState = "checking" | "granted" | "denied" | "error";
 
+function StatusIcon({ state }: { state: DeviceState }) {
+  return state === "checking" ? (
+    <span className="h-4 w-4 animate-spin rounded-full border-2 border-gold/30 border-t-gold" />
+  ) : state === "granted" ? (
+    <CheckCircle size={16} className="text-emerald-400" />
+  ) : (
+    <XCircle size={16} className="text-red-400" />
+  );
+}
+
 export function DeviceCheck({ onReady }: { onReady?: (ok: boolean) => void }) {
   const [camera, setCamera] = useState<DeviceState>("checking");
   const [mic, setMic] = useState<DeviceState>("checking");
@@ -55,15 +65,6 @@ export function DeviceCheck({ onReady }: { onReady?: (ok: boolean) => void }) {
       onReady?.(camera === "granted" && mic === "granted");
     }
   }, [camera, mic, onReady]);
-
-  const StatusIcon = ({ state }: { state: DeviceState }) =>
-    state === "checking" ? (
-      <span className="h-4 w-4 animate-spin rounded-full border-2 border-gold/30 border-t-gold" />
-    ) : state === "granted" ? (
-      <CheckCircle size={16} className="text-emerald-400" />
-    ) : (
-      <XCircle size={16} className="text-red-400" />
-    );
 
   const allDenied = camera === "denied" && mic === "denied";
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, User, Calendar, Star, FileText, BookOpen, MessageSquare } from "lucide-react";
+import { ArrowRight, Calendar, Star, FileText, BookOpen, MessageSquare } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import type { SessionType } from "@/types/database";
@@ -31,7 +31,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
   if (!profile) redirect("/admin/users");
 
   // Email from auth
-  const { data: authUser } = await supabase.from("profiles").select("id").eq("id", id).single();
+  const { data: _authUser } = await supabase.from("profiles").select("id").eq("id", id).single();
   // We can't query auth.users from client, so skip email for now
 
   const isStudent = profile.role === "student";

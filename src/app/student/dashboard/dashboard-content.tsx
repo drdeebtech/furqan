@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Calendar, CheckCircle, Clock, Search, Star, TrendingUp, Video, BookOpen, FileText } from "lucide-react";
@@ -49,10 +49,11 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
 
   const pendingHomework = Object.entries(notesMap).filter(([, n]) => n.homework);
 
+  const [initialNow] = useState(() => Date.now());
   let countdown = "";
   let countdownColor = "text-muted";
   if (nextBooking) {
-    const diff = new Date(nextBooking.scheduled_at).getTime() - Date.now();
+    const diff = new Date(nextBooking.scheduled_at).getTime() - initialNow;
     if (diff < 0) {
       countdown = t("الآن", "Now");
       countdownColor = "text-red-400";

@@ -47,7 +47,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
   const [showConfirm, setShowConfirm] = useState(false);
   const [state, formAction, pending] = useActionState<BookingResult, FormData>(createBooking, {});
 
-  const minDate = new Date().toISOString().split("T")[0];
+  const _minDate = new Date().toISOString().split("T")[0];
 
   // Available days of week from teacher's schedule
   const availableDays = new Set(availability.map((s) => s.dayOfWeek));

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { CheckCircle, Inbox } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
@@ -67,7 +68,7 @@ export function ServicesContent({ services }: { services: Service[] }) {
                   <div className="mt-8 flex-1 md:mt-0">
                     <div className="flex h-full items-center justify-center rounded-2xl border border-card-border bg-card p-12">
                       {s.image_url ? (
-                        <img src={s.image_url} alt={title} className="max-h-48 rounded-xl object-contain" />
+                        <Image src={s.image_url} alt={title} width={384} height={192} className="max-h-48 rounded-xl object-contain" />
                       ) : (
                         <span className="font-display text-6xl text-gold/10">
                           {(s.title_ar ?? s.title).charAt(0)}

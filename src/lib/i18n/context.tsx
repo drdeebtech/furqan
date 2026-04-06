@@ -25,12 +25,14 @@ function getStoredLang(): Lang {
 }
 
 export function LangProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<Lang>("ar");
+  const [lang, setLang] = useState<Lang>(() => {
+    if (typeof window !== "undefined") return getStoredLang();
+    return "ar";
+  });
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setLang(getStoredLang());
-    setMounted(true);
+    queueMicrotask(() => setMounted(true));
   }, []);
 
   const toggle = useCallback(() => {
