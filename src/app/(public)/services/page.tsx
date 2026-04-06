@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { createClient } from "@/lib/supabase/server";
 import { ServicesContent } from "./content";
 
 export const metadata: Metadata = {
@@ -7,6 +8,20 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://furqan.today/services" },
 };
 
-export default function ServicesPage() {
-  return <ServicesContent />;
+export default async function ServicesPage() {
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("services")
+    .select("id, title, title_ar, description, description_ar, features, features_ar, icon, image_url")
+    .eq("is_active", true)
+    .order("display_order", { ascending: true })
+    .returns<{
+      id: string; title: string; title_ar: string | null;
+      description: string; description_ar: string | null;
+      features: string[]; features_ar: string[];
+      icon: string | null; image_url: string | null;
+    }[]>();
+
+  return <ServicesContent services={data ?? []} />;
 }
