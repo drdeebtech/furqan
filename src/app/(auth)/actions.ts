@@ -32,7 +32,8 @@ export async function login(
   }
 
   // If caller provided an explicit redirect (e.g. from ?redirect=/student/bookings), use it
-  if (redirectTo) {
+  // Validate: must be a relative path (starts with /) and not protocol-relative (//)
+  if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
     redirect(redirectTo);
   }
 

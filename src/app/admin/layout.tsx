@@ -21,7 +21,7 @@ export default async function AdminLayout({
       <ToastProvider>
         <div className="min-h-screen">
           <Nav role="admin" userName={userName} />
-          {children}
+          <main id="main-content">{children}</main>
         </div>
       </ToastProvider>
     </LangProvider>

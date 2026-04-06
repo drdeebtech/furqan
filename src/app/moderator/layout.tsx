@@ -21,7 +21,7 @@ export default async function ModeratorLayout({
       <ToastProvider>
         <div className="min-h-screen">
           <Nav role="moderator" userName={userName} />
-          {children}
+          <main id="main-content">{children}</main>
         </div>
       </ToastProvider>
     </LangProvider>

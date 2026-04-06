@@ -28,7 +28,7 @@ export default async function PublicLayout({
         <FAQSchema />
         <PublicDirWrapper>
           <PublicNav />
-          <main className="pb-20 lg:pb-0">{children}</main>
+          <main id="main-content" className="pb-20 lg:pb-0">{children}</main>
           <PublicFooter />
           <WhatsAppButton />
           <MobileRegisterBar />

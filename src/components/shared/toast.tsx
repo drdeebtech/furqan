@@ -84,12 +84,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       {/* Toast container */}
-      <div className="fixed left-4 top-4 z-50 flex flex-col gap-2" dir="rtl">
+      <div className="fixed left-4 top-4 z-50 flex flex-col gap-2" dir="rtl" aria-live="polite" role="log">
         {toasts.map((t) => {
           const Icon = ICONS[t.type];
           return (
             <div
               key={t.id}
+              role="alert"
               className={`flex items-center gap-3 rounded-xl border px-4 py-3 shadow-lg backdrop-blur-sm animate-in slide-in-from-left duration-300 ${STYLES[t.type]}`}
               style={{ minWidth: 280, maxWidth: 420 }}
             >

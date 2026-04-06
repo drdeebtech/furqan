@@ -81,7 +81,15 @@ export default function RootLayout({
       dir="rtl"
       className={`${amiri.variable} ${body.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-0 focus:left-0 focus:z-[9999] focus:w-full focus:bg-gold focus:px-4 focus:py-3 focus:text-center focus:text-sm focus:font-medium focus:text-white"
+        >
+          تخطي إلى المحتوى
+        </a>
+        {children}
+      </body>
     </html>
   );
 }

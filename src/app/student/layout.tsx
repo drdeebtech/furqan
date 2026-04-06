@@ -21,7 +21,7 @@ export default async function StudentLayout({
       <ToastProvider>
         <div className="min-h-screen">
           <Nav role="student" userName={userName} />
-          {children}
+          <main id="main-content">{children}</main>
         </div>
       </ToastProvider>
     </LangProvider>
