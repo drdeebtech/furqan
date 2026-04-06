@@ -99,7 +99,7 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="rounded-full border border-surface-border p-2 text-muted hover:text-foreground md:hidden focus-ring"
+            className="rounded-full border border-surface-border p-2 text-muted transition-colors hover:text-foreground md:hidden focus-ring"
             aria-label="القائمة"
             aria-expanded={menuOpen}
             aria-controls="nav-links"
@@ -137,7 +137,7 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
                 )}
                 <Link
                   href={link.href}
-                  className={`rounded-full px-4 py-1.5 text-sm transition-all focus-ring ${
+                  className={`rounded-full px-4 py-1.5 text-sm transition-colors focus-ring ${
                     active
                       ? "bg-primary/20 font-medium text-foreground"
                       : "text-muted hover:bg-background hover:text-foreground"

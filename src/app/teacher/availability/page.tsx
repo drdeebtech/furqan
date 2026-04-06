@@ -113,7 +113,7 @@ export default async function TeacherAvailabilityPage() {
                               {slot.end_time.slice(0, 5)}
                             </span>
                             <span className="mr-3 text-xs text-muted">
-                              {slot.slot_duration} min
+                              {slot.slot_duration} دقيقة
                             </span>
                           </div>
                           <DeleteSlotButton slotId={slot.id} />

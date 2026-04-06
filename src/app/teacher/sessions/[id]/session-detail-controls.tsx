@@ -106,7 +106,7 @@ export function SessionDetailControls({
       </div>
 
       {error && (
-        <div className="w-full rounded-lg border border-error/30 bg-error/10 p-2 text-xs text-error">
+        <div className="w-full rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">
           {error}
         </div>
       )}

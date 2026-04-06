@@ -44,13 +44,13 @@ export function CvForm({
       </h2>
 
       {state.error && (
-        <div className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">
+        <div className="mb-4 rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">
           {state.error}
         </div>
       )}
 
       {state.success && (
-        <div className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-400">
+        <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-400">
           تم حفظ المسودة بنجاح
         </div>
       )}

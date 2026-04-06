@@ -85,9 +85,9 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
             { icon: BookOpen, ar: "حجوزات الشهر", en: "Monthly Bookings", value: bookingsMonth },
             { icon: DollarSign, ar: "إيرادات الشهر", en: "Monthly Revenue", value: `$${revenueMonth.toFixed(2)}` },
           ].map(s => (
-            <div key={s.en} className="rounded-2xl border border-card-border bg-card elevation-2 p-5">
-              <div className="flex items-center gap-2 text-sm text-muted"><s.icon size={16} />{t(s.ar, s.en)}</div>
-              <p className="mt-1 text-2xl font-bold text-gold">{s.value}</p>
+            <div key={s.en} className="rounded-2xl border border-card-border bg-card elevation-2 p-3 sm:p-5">
+              <div className="flex items-center gap-2 text-xs text-muted sm:text-sm"><s.icon size={16} />{t(s.ar, s.en)}</div>
+              <p className="mt-1 text-xl font-bold text-gold sm:text-2xl">{s.value}</p>
             </div>
           ))}
         </div>
@@ -97,15 +97,15 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
             <CalendarDays size={20} className="text-gold" /> {t("نشاط اليوم", "Today's Activity")}
           </h2>
           {todayBookings.length === 0 ? (
-            <div className="rounded-2xl border border-card-border bg-card p-8 text-center">
+            <div className="rounded-2xl border border-card-border bg-card p-5 text-center sm:p-8">
               <CalendarDays size={28} className="mx-auto mb-3 text-muted" />
               <p className="text-muted">{t("لا توجد حجوزات اليوم", "No bookings today")}</p>
             </div>
           ) : (
             <div className="space-y-2">
               {todayBookings.map(b => (
-                <div key={b.id} className="flex items-center gap-4 rounded-xl border border-card-border bg-card p-4">
-                  <div className="flex min-w-[4.5rem] flex-col items-center rounded-lg bg-gold/10 px-3 py-2">
+                <div key={b.id} className="flex flex-col gap-3 rounded-xl border border-card-border bg-card p-3 sm:flex-row sm:items-center sm:gap-4 sm:p-4">
+                  <div className="flex min-w-[4.5rem] flex-row items-center gap-2 sm:flex-col sm:gap-0 sm:rounded-lg sm:bg-gold/10 sm:px-3 sm:py-2">
                     <span className="text-sm font-bold text-gold">{formatTime(b.scheduled_at)}</span>
                     <span className="text-[10px] text-muted">{b.duration_min} {t("د", "m")}</span>
                   </div>
@@ -113,7 +113,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
                     <p className="text-sm font-medium">{nameMap[b.student_id] ?? t("طالب", "Student")} <span className="text-muted">{t("مع", "with")}</span> {nameMap[b.teacher_id] ?? t("معلم", "Teacher")}</p>
                     <p className="mt-0.5 text-xs text-muted">{b.session_type}</p>
                   </div>
-                  <span className={`rounded-full border px-2 py-0.5 text-xs ${b.status === "confirmed" ? "border-success/30 bg-success/10 text-success" : b.status === "pending" ? "border-warning/30 bg-warning/10 text-warning" : "border-muted/30 text-muted"}`}>
+                  <span className={`w-fit shrink-0 rounded-full border px-2 py-0.5 text-xs ${b.status === "confirmed" ? "border-success/30 bg-success/10 text-success" : b.status === "pending" ? "border-warning/30 bg-warning/10 text-warning" : "border-muted/30 text-muted"}`}>
                     {b.status === "confirmed" ? t("مؤكد", "Confirmed") : b.status === "pending" ? t("معلق", "Pending") : b.status}
                   </span>
                 </div>
@@ -124,11 +124,11 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
 
         {activeSessionCount > 0 && (
           <div className="mt-6">
-            <Link href="/admin/sessions/live" className="group flex items-center gap-4 rounded-2xl border-2 border-emerald-500/30 bg-emerald-500/5 p-5 transition-colors hover:border-emerald-500/50">
-              <div className="rounded-xl bg-emerald-500/15 p-3"><Radio size={24} className="animate-pulse text-emerald-400" /></div>
-              <div>
-                <p className="text-lg font-bold text-emerald-400">{activeSessionCount} {t("جلسات نشطة الآن", "active sessions now")}</p>
-                <p className="mt-0.5 text-sm text-muted">{t("اضغط للمراقبة المباشرة", "Click to monitor live")}</p>
+            <Link href="/admin/sessions/live" className="group flex items-center gap-3 rounded-2xl border-2 border-emerald-500/30 bg-emerald-500/5 p-4 transition-colors hover:border-emerald-500/50 sm:gap-4 sm:p-5">
+              <div className="shrink-0 rounded-xl bg-emerald-500/15 p-2.5 sm:p-3"><Radio size={24} className="animate-pulse text-emerald-400" /></div>
+              <div className="min-w-0">
+                <p className="text-base font-bold text-emerald-400 sm:text-lg">{activeSessionCount} {t("جلسات نشطة الآن", "active sessions now")}</p>
+                <p className="mt-0.5 text-xs text-muted sm:text-sm">{t("اضغط للمراقبة المباشرة", "Click to monitor live")}</p>
               </div>
             </Link>
           </div>
@@ -136,17 +136,17 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
 
         <div className="mt-10">
           <h2 className="mb-4 text-lg font-semibold">{t("إجراءات سريعة", "Quick Actions")}</h2>
-          <div className="flex flex-wrap gap-3">
-            <Link href="/admin/teachers/new" className="neu-btn inline-flex items-center gap-2 rounded-xl bg-gold px-5 py-2.5 text-sm font-semibold text-background hover:bg-gold-hover">
+          <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
+            <Link href="/admin/teachers/new" className="neu-btn inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-gold px-5 py-2.5 text-sm font-semibold text-background hover:bg-gold-hover">
               <Plus size={16} /> {t("إضافة معلم", "Add Teacher")}
             </Link>
-            <Link href="/admin/notifications" className="neu-btn inline-flex items-center gap-2 rounded-xl border border-card-border px-5 py-2.5 text-sm font-medium hover:bg-surface-alt">
+            <Link href="/admin/notifications" className="neu-btn inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-card-border px-5 py-2.5 text-sm font-medium hover:bg-surface-alt">
               <Bell size={16} /> {t("إرسال إشعار", "Send Notification")}
             </Link>
-            <Link href="/admin/bookings" className="neu-btn inline-flex items-center gap-2 rounded-xl border border-card-border px-5 py-2.5 text-sm font-medium hover:bg-surface-alt">
+            <Link href="/admin/bookings" className="neu-btn inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-card-border px-5 py-2.5 text-sm font-medium hover:bg-surface-alt">
               <BookOpen size={16} /> {t("عرض الحجوزات", "View Bookings")}
             </Link>
-            <Link href="/admin/sessions" className="neu-btn inline-flex items-center gap-2 rounded-xl border border-card-border px-5 py-2.5 text-sm font-medium hover:bg-surface-alt">
+            <Link href="/admin/sessions" className="neu-btn inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-card-border px-5 py-2.5 text-sm font-medium hover:bg-surface-alt">
               <Video size={16} /> {t("الجلسات", "Sessions")}
             </Link>
           </div>
@@ -158,15 +158,15 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
             <span className="text-sm font-normal text-muted">{teacherList.length} {t("معلم", "teachers")}</span>
           </h2>
           {teacherList.length === 0 ? (
-            <div className="rounded-2xl border border-card-border bg-card p-8 text-center">
+            <div className="rounded-2xl border border-card-border bg-card p-5 text-center sm:p-8">
               <GraduationCap size={28} className="mx-auto mb-3 text-muted" />
               <p className="text-muted">{t("لا يوجد معلمون بعد", "No teachers yet")}</p>
             </div>
           ) : (
             <div className="space-y-3">
               {teacherList.map(teacher => (
-                <div key={teacher.teacher_id} className={`rounded-xl border bg-card p-4 ${teacher.is_archived ? "border-error/20 opacity-60" : "border-card-border"}`}>
-                  <div className="flex items-center justify-between gap-4">
+                <div key={teacher.teacher_id} className={`rounded-xl border bg-card p-3 sm:p-4 ${teacher.is_archived ? "border-error/20 opacity-60" : "border-card-border"}`}>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <Link href={`/admin/users/${teacher.teacher_id}`} className="font-medium hover:text-gold">{nameMap[teacher.teacher_id] ?? t("معلم", "Teacher")}</Link>

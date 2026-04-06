@@ -158,7 +158,7 @@ export function VideoRoom({
       {!joined && !loading && (
         <div className="rounded-2xl border border-card-border bg-card elevation-2 p-8 text-center md:p-12">
           <Video size={40} className="mx-auto mb-4 text-gold" />
-          <h2 className="mb-2 text-xl font-bold">غرفة الجلسة جاهزة</h2>
+          <h2 className="mb-2 font-display text-xl font-bold">غرفة الجلسة جاهزة</h2>
           <p className="mb-6 text-sm text-muted">اضغط للانضمام إلى جلسة الفيديو</p>
           <div className="mx-auto mb-6 max-w-sm">
             <DeviceCheck onReady={handleDeviceReady} />

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, Phone, Mail, User, BarChart3, AlertTriangle } from "lucide-react";
+import { ArrowRight, Phone, Mail, User, BarChart3, AlertTriangle, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import type { SessionType, StudentLevel } from "@/types/database";
@@ -94,10 +94,10 @@ export default async function StudentDetailPage({ params }: Props) {
       <div className="mb-6 rounded-2xl border border-card-border bg-card p-6">
         <div className="flex items-center gap-4">
           <div className="flex h-16 w-16 items-center justify-center rounded-full border border-gold/30 bg-gold/10 font-display text-2xl font-bold text-gold">
-            {(student.full_name ?? "ط").charAt(0)}
+            {(student.full_name || "ط").charAt(0)}
           </div>
           <div className="flex-1">
-            <h1 className="text-xl font-bold">{student.full_name ?? "طالب"}</h1>
+            <h1 className="text-xl font-bold">{student.full_name || "طالب"}</h1>
             <p className="text-sm text-muted">{completedCount} جلسة مكتملة{student.country ? ` · ${student.country}` : ""}</p>
             {latestLevel && (
               <span className={`mt-1 inline-block rounded-full border px-2.5 py-0.5 text-xs ${LEVEL_COLOR[latestLevel]}`}>
@@ -130,7 +130,7 @@ export default async function StudentDetailPage({ params }: Props) {
 
       {/* Evaluate Student */}
       <div className="mb-6">
-        <EvalForm studentId={studentId} studentName={student.full_name ?? "الطالب"} />
+        <EvalForm studentId={studentId} studentName={student.full_name || "الطالب"} />
       </div>
 
       {/* Parent Contact */}
@@ -162,7 +162,7 @@ export default async function StudentDetailPage({ params }: Props) {
                   {ERROR_TYPE_AR[e.error_type] ?? e.error_type}
                 </span>
                 {e.surah_num && <span className="text-xs text-muted">سورة {e.surah_num} : آية {e.ayah_num}</span>}
-                {e.note && <span className="flex-1 text-xs text-muted">{e.note}</span>}
+                {e.note && <span className="flex-1 truncate text-xs text-muted" title={e.note}>{e.note}</span>}
                 <ResolveErrorButton errorId={e.id} />
               </div>
             ))}
@@ -192,7 +192,10 @@ export default async function StudentDetailPage({ params }: Props) {
       {/* Session History */}
       <h2 className="mb-4 text-lg font-bold">سجل الجلسات</h2>
       {bookings.length === 0 ? (
-        <p className="text-sm text-muted">لا توجد جلسات</p>
+        <div className="rounded-2xl border border-card-border bg-card p-8 text-center">
+          <Inbox size={28} className="mx-auto mb-2 text-muted" />
+          <p className="text-sm text-muted">لا توجد جلسات مسجلة مع هذا الطالب</p>
+        </div>
       ) : (
         <div className="space-y-3">
           {bookings.map(b => {
@@ -211,13 +214,13 @@ export default async function StudentDetailPage({ params }: Props) {
                 {session?.post_session_notes && (
                   <div className="mt-3 rounded-lg border border-card-border bg-surface p-3">
                     <p className="mb-1 text-xs font-medium text-gold">ملاحظات</p>
-                    <p className="text-sm text-muted">{session.post_session_notes}</p>
+                    <p className="text-sm text-muted break-words whitespace-pre-wrap">{session.post_session_notes}</p>
                   </div>
                 )}
                 {session?.homework && (
                   <div className="mt-2 rounded-lg border border-gold/20 bg-gold/5 p-3">
                     <p className="mb-1 text-xs font-medium text-gold">واجب</p>
-                    <p className="text-sm text-muted">{session.homework}</p>
+                    <p className="text-sm text-muted break-words whitespace-pre-wrap">{session.homework}</p>
                   </div>
                 )}
               </div>

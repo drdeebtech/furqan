@@ -75,25 +75,25 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
 
         <TeacherQuickActions students={Object.entries(nameMap).map(([id, name]) => ({ id, name }))} />
 
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Link href="/teacher/students" className="rounded-xl border border-card-border bg-card p-4 transition-colors hover:border-gold/40">
+        <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Link href="/teacher/students" className="min-h-[44px] rounded-xl border border-card-border bg-card p-3 transition-colors hover:border-gold/40 sm:p-4">
             <Users size={16} className="mb-1 text-gold" />
-            <p className="text-2xl font-bold text-gold">{uniqueStudents}</p>
+            <p className="text-xl font-bold text-gold sm:text-2xl">{uniqueStudents}</p>
             <p className="text-xs text-muted">{t("طلابي", "My Students")}</p>
           </Link>
-          <Link href="/teacher/sessions" className="rounded-xl border border-card-border bg-card p-4 transition-colors hover:border-gold/40">
+          <Link href="/teacher/sessions" className="min-h-[44px] rounded-xl border border-card-border bg-card p-3 transition-colors hover:border-gold/40 sm:p-4">
             <Calendar size={16} className="mb-1 text-gold" />
-            <p className="text-2xl font-bold text-gold">{monthSessions}</p>
+            <p className="text-xl font-bold text-gold sm:text-2xl">{monthSessions}</p>
             <p className="text-xs text-muted">{t("جلسات هذا الشهر", "This Month")}</p>
           </Link>
-          <Link href="#pending" className="rounded-xl border border-card-border bg-card p-4 transition-colors hover:border-gold/40">
+          <Link href="#pending" className="min-h-[44px] rounded-xl border border-card-border bg-card p-3 transition-colors hover:border-gold/40 sm:p-4">
             <Hourglass size={16} className="mb-1 text-gold" />
-            <p className="text-2xl font-bold text-gold">{pendingCount}</p>
+            <p className="text-xl font-bold text-gold sm:text-2xl">{pendingCount}</p>
             <p className="text-xs text-muted">{t("طلبات معلّقة", "Pending Requests")}</p>
           </Link>
-          <Link href="/teacher/evaluations" className="rounded-xl border border-card-border bg-card p-4 transition-colors hover:border-gold/40">
+          <Link href="/teacher/evaluations" className="min-h-[44px] rounded-xl border border-card-border bg-card p-3 transition-colors hover:border-gold/40 sm:p-4">
             <Star size={16} className="mb-1 text-gold" />
-            <p className="text-2xl font-bold text-gold">{ratingAvg > 0 ? ratingAvg.toFixed(1) : "—"}</p>
+            <p className="text-xl font-bold text-gold sm:text-2xl">{ratingAvg > 0 ? ratingAvg.toFixed(1) : "—"}</p>
             <p className="text-xs text-muted">{t("التقييم", "Rating")}</p>
           </Link>
         </div>
@@ -106,7 +106,7 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
             </div>
           )}
           {pending.length === 0 ? (
-            <div className="rounded-xl border border-card-border bg-card p-8 text-center">
+            <div className="rounded-xl border border-card-border bg-card p-5 text-center sm:p-8">
               <Clock size={24} className="mx-auto mb-2 text-muted" />
               <p className="text-sm text-muted">{t("لا توجد حجوزات معلقة", "No pending bookings")}</p>
             </div>
@@ -118,7 +118,7 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
                     <div className="min-w-0 flex-1">
                       <p className="font-medium">{nameMap[b.student_id] ?? t("طالب", "Student")}</p>
                       <p className="mt-1 text-sm text-gold">{st(b.session_type)} · {b.duration_min} {t("دقيقة", "min")}</p>
-                      <p dir="ltr" className="mt-1 text-left text-sm text-muted">
+                      <p dir="ltr" className="mt-1 text-start text-sm text-muted">
                         {new Date(b.scheduled_at).toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
                         {" · "}
                         {new Date(b.scheduled_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}

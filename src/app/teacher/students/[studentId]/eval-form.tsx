@@ -103,7 +103,7 @@ export function EvalForm({
       </h3>
 
       {error && (
-        <div className="mb-3 rounded-lg border border-error/30 bg-error/10 p-2 text-xs text-error">{error}</div>
+        <div className="mb-3 rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</div>
       )}
 
       {/* Eval type */}
@@ -164,7 +164,10 @@ export function EvalForm({
           disabled={loading}
           className="rounded-lg bg-gold px-5 py-2 text-sm font-semibold text-background transition-colors hover:bg-gold-hover disabled:opacity-50"
         >
-          {loading ? "جاري الحفظ..." : "حفظ التقييم"}
+          {loading ? (
+            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-background/30 border-t-background" />
+          ) : null}
+          {loading ? "جاري الحفظ…" : "حفظ التقييم"}
         </button>
         <button
           onClick={() => setOpen(false)}

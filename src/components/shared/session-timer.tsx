@@ -34,9 +34,9 @@ export function SessionTimer({
 
   return (
     <div
-      className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-mono font-semibold ${
+      className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-mono font-semibold transition-colors ${
         overtime
-          ? "border border-red-500/30 bg-red-500/10 text-red-400"
+          ? "border border-error/30 bg-error/10 text-error"
           : "border border-gold/30 bg-gold/10 text-gold"
       }`}
     >

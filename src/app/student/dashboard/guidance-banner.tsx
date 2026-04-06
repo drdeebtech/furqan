@@ -18,7 +18,7 @@ export function GuidanceBanner() {
             <p className="text-sm font-medium">{t("تصفح المعلمين", "Browse Teachers")}</p>
             <p className="text-xs text-muted">{t("اختر معلمك المناسب", "Pick your teacher")}</p>
           </div>
-          <Search size={16} className="mr-auto text-gold" />
+          <Search size={16} className="ms-auto text-gold" />
         </div>
         <div className="flex items-center gap-3 rounded-xl border border-card-border bg-card p-4">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold/20 text-sm font-bold text-gold">٢</div>
@@ -26,7 +26,7 @@ export function GuidanceBanner() {
             <p className="text-sm font-medium">{t("احجز جلسة", "Book a Session")}</p>
             <p className="text-xs text-muted">{t("اختر الوقت المناسب", "Choose your time")}</p>
           </div>
-          <CalendarPlus size={16} className="mr-auto text-gold" />
+          <CalendarPlus size={16} className="ms-auto text-gold" />
         </div>
         <div className="flex items-center gap-3 rounded-xl border border-card-border bg-card p-4">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold/20 text-sm font-bold text-gold">٣</div>
@@ -34,7 +34,7 @@ export function GuidanceBanner() {
             <p className="text-sm font-medium">{t("انضم للجلسة", "Join Session")}</p>
             <p className="text-xs text-muted">{t("تعلّم مع معلمك مباشرة", "Learn live with your teacher")}</p>
           </div>
-          <Video size={16} className="mr-auto text-gold" />
+          <Video size={16} className="ms-auto text-gold" />
         </div>
       </div>
       <Link

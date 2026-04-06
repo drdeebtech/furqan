@@ -48,7 +48,7 @@ export async function saveCvDraft(
     } as never)
     .eq("teacher_id", user.id);
 
-  if (error) return { error: "فشل حفظ المسودة" };
+  if (error) return { error: "فشل حفظ المسودة — يرجى المحاولة مرة أخرى" };
   revalidatePath("/teacher/cv");
   return { success: true };
 }
@@ -68,7 +68,7 @@ export async function submitCvForReview(): Promise<CvResult> {
     } as never)
     .eq("teacher_id", user.id);
 
-  if (error) return { error: "فشل إرسال السيرة الذاتية" };
+  if (error) return { error: "فشل إرسال السيرة الذاتية — يرجى المحاولة مرة أخرى" };
   revalidatePath("/teacher/cv");
   return { success: true };
 }

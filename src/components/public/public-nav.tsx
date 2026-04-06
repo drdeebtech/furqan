@@ -60,7 +60,7 @@ export function PublicNav() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`px-3 py-2 text-sm transition-colors ${active ? "font-medium text-gold" : "text-muted hover:text-foreground"}`}
+                  className={`rounded-lg px-3 py-2 text-sm transition-all duration-200 ${active ? "font-medium text-gold" : "text-muted hover:text-foreground hover:bg-gold/5"}`}
                 >
                   {t(link.ar, link.en)}
                 </Link>
@@ -76,7 +76,7 @@ export function PublicNav() {
             </Link>
             <Link
               href="/register"
-              className="rounded border border-gold bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background"
+              className="neu-btn rounded border border-gold bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition-all duration-200 hover:bg-gold hover:text-background"
             >
               {t("سجّل الآن", "Register Now")}
             </Link>
@@ -86,7 +86,7 @@ export function PublicNav() {
           <div className="flex items-center gap-2 lg:hidden">
             <Link
               href="/register"
-              className="rounded-lg bg-gold px-3 py-1.5 text-xs font-bold text-background transition-colors hover:bg-gold-hover"
+              className="neu-btn rounded-lg bg-gold px-3 py-1.5 text-xs font-bold text-background transition-all duration-200 hover:bg-gold-hover"
             >
               {t("سجّل", "Register")}
             </Link>
@@ -109,14 +109,14 @@ export function PublicNav() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
-                className={`block py-2.5 text-sm ${pathname === link.href ? "font-medium text-gold" : "text-muted"}`}
+                className={`block py-2.5 text-sm transition-colors duration-200 ${pathname === link.href ? "font-medium text-gold" : "text-muted hover:text-foreground"}`}
               >
                 {t(link.ar, link.en)}
               </Link>
             ))}
             <div className="mt-4 flex flex-col gap-2 border-t border-card-border pt-4">
               <Link href="/login" className="text-sm text-muted">{t("تسجيل الدخول", "Sign In")}</Link>
-              <Link href="/register" className="rounded bg-gold px-4 py-2.5 text-center text-sm font-medium text-background">
+              <Link href="/register" className="neu-btn rounded bg-gold px-4 py-2.5 text-center text-sm font-medium text-background transition-colors duration-200 hover:bg-gold-hover">
                 {t("سجّل الآن", "Register Now")}
               </Link>
             </div>

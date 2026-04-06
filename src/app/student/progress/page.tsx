@@ -46,10 +46,10 @@ export default async function StudentProgressPage() {
 
   return (
     <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-2 flex items-center gap-2 text-2xl font-bold">
+      <h1 className="mb-2 flex items-center gap-2 font-display text-2xl font-bold">
         <TrendingUp size={24} className="text-gold" /> تقدمي في تعلم القرآن
       </h1>
-      <p className="mb-8 text-sm text-muted">My Quran Learning Progress</p>
+      <p className="mb-8 text-xs text-muted">My Quran Learning Progress</p>
 
       {/* Current Level */}
       <div className="mb-8 rounded-2xl border border-gold/30 bg-gold/5 p-8 text-center">
@@ -61,7 +61,7 @@ export default async function StudentProgressPage() {
       {/* Sessions Progress */}
       <div className="mb-8 rounded-2xl border border-card-border bg-card p-6">
         <div className="flex items-center justify-between">
-          <p className="font-bold">جلسات مكتملة</p>
+          <p className="font-display font-bold">جلسات مكتملة</p>
           <p className="text-2xl font-bold text-gold">{count}</p>
         </div>
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-card-border">
@@ -72,10 +72,10 @@ export default async function StudentProgressPage() {
 
       {/* Tajweed Topics */}
       <div className="mb-8">
-        <h2 className="mb-4 flex items-center gap-2 text-lg font-bold"><BookOpen size={18} className="text-gold" /> مواضيع التجويد</h2>
+        <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-bold"><BookOpen size={18} className="text-gold" /> مواضيع التجويد</h2>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
           {TOPICS.map(t => (
-            <div key={t.en} className="rounded-xl border border-card-border bg-card p-4">
+            <div key={t.en} className="rounded-2xl border border-card-border bg-card p-4">
               <p className="text-sm font-medium">{t.ar}</p>
               <p className="mt-1 text-xs text-muted">{t.en}</p>
               <span className="mt-2 inline-block rounded-full border border-muted/30 px-2 py-0.5 text-xs text-muted">لم يُدرَس</span>
@@ -86,7 +86,7 @@ export default async function StudentProgressPage() {
 
       {/* Quran Journey — 30 Juz */}
       <div className="mb-8">
-        <h2 className="mb-4 text-lg font-bold">رحلتك مع القرآن</h2>
+        <h2 className="mb-4 font-display text-lg font-bold">رحلتك مع القرآن</h2>
         <div className="grid grid-cols-6 gap-2 md:grid-cols-10">
           {Array.from({ length: 30 }, (_, i) => (
             <div key={i} className="flex aspect-square items-center justify-center rounded-lg border border-card-border bg-card text-sm font-medium text-muted">
@@ -100,7 +100,7 @@ export default async function StudentProgressPage() {
       {/* Recent Sessions */}
       {(recent ?? []).length > 0 && (
         <div>
-          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold"><CheckCircle size={18} className="text-gold" /> آخر الجلسات</h2>
+          <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-bold"><CheckCircle size={18} className="text-gold" /> آخر الجلسات</h2>
           <div className="space-y-2">
             {(recent ?? []).map(r => (
               <div key={r.id} className="flex items-center gap-3 rounded-lg border border-card-border bg-card px-4 py-3">

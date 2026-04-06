@@ -21,7 +21,7 @@ export async function savePostSessionNotes(
     .eq("id", sessionId);
 
   if (error) {
-    return { error: "حدث خطأ أثناء حفظ الملاحظات" };
+    return { error: "حدث خطأ أثناء حفظ الملاحظات — يرجى المحاولة مرة أخرى" };
   }
 
   revalidatePath(`/teacher/sessions/${sessionId}`);

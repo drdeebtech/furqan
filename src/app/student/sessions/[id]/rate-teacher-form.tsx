@@ -64,7 +64,7 @@ export function RateTeacherForm({
 
   return (
     <div className="rounded-2xl border border-card-border bg-card elevation-2 p-5">
-      <h2 className="mb-1 text-sm font-semibold text-gold">
+      <h2 className="mb-1 font-display text-sm font-semibold text-gold">
         قيّم جلستك مع {teacherName}
       </h2>
       <p className="mb-4 text-xs text-muted">كيف كانت تجربتك؟</p>

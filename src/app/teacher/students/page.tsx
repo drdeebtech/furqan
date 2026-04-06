@@ -45,7 +45,7 @@ export default async function TeacherStudentsPage() {
 
   const students = studentIds.map(id => ({
     id,
-    name: profileMap[id]?.full_name ?? "طالب",
+    name: profileMap[id]?.full_name || "طالب",
     phone: profileMap[id]?.phone,
     ...studentStats.get(id)!,
   }));

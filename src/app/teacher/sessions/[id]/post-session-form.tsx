@@ -46,7 +46,7 @@ export function PostSessionForm({
       </div>
 
       {error && (
-        <div className="rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">
+        <div className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">
           {error}
         </div>
       )}

@@ -48,7 +48,7 @@ export function TeacherGuidanceBanner({ cvStatus, hasStudents }: { cvStatus: CvS
               <p className="text-sm font-medium">{t("أضف مواعيدك", "Set Availability")}</p>
               <p className="text-xs text-muted">{t("حدد أوقات إتاحتك", "Define your schedule")}</p>
             </div>
-            <Calendar size={16} className="mr-auto text-gold" />
+            <Calendar size={16} className="ms-auto text-gold" />
           </div>
           <div className="flex items-center gap-3 rounded-xl border border-card-border bg-card p-4">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold/20 text-sm font-bold text-gold">٢</div>
@@ -56,7 +56,7 @@ export function TeacherGuidanceBanner({ cvStatus, hasStudents }: { cvStatus: CvS
               <p className="text-sm font-medium">{t("انتظر حجزاً", "Wait for Bookings")}</p>
               <p className="text-xs text-muted">{t("سيحجز الطلاب معك", "Students will book with you")}</p>
             </div>
-            <Clock size={16} className="mr-auto text-gold" />
+            <Clock size={16} className="ms-auto text-gold" />
           </div>
           <div className="flex items-center gap-3 rounded-xl border border-card-border bg-card p-4">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold/20 text-sm font-bold text-gold">٣</div>
@@ -64,7 +64,7 @@ export function TeacherGuidanceBanner({ cvStatus, hasStudents }: { cvStatus: CvS
               <p className="text-sm font-medium">{t("أكّد وابدأ", "Confirm & Start")}</p>
               <p className="text-xs text-muted">{t("أكّد الحجز وابدأ التدريس", "Confirm and start teaching")}</p>
             </div>
-            <CheckCircle size={16} className="mr-auto text-gold" />
+            <CheckCircle size={16} className="ms-auto text-gold" />
           </div>
         </div>
         <Link href="/teacher/availability" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-gold px-6 py-2.5 text-sm font-semibold text-background transition-colors hover:bg-gold-hover">

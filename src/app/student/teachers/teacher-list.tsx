@@ -43,15 +43,15 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
         </>
       )}
       <div className="mb-6">
-        <h1 className="flex items-center gap-2 text-2xl font-bold">
+        <h1 className="flex items-center gap-2 font-display text-2xl font-bold">
           <GraduationCap size={24} className="text-gold" />
           المعلمون
         </h1>
-        <p className="mt-1 text-sm text-muted">Browse teachers and book a session</p>
+        <p className="mt-1 text-xs text-muted">Browse teachers and book a session</p>
       </div>
 
       {/* Filters */}
-      <div className="mb-6 space-y-3 rounded-xl border border-card-border bg-card p-4">
+      <div className="mb-6 space-y-3 rounded-2xl border border-card-border bg-card p-4">
         {/* Search */}
         <div className="relative">
           <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted" />
@@ -89,7 +89,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
 
       {/* Results */}
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center">
+        <div className="rounded-2xl border border-card-border bg-card p-12 text-center">
           <Users size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-muted">لا يوجد معلمون مطابقون</p>
           <button onClick={() => { setSpecialty("all"); setSearchQuery(""); }} className="mt-3 text-sm text-gold hover:text-gold-light">
@@ -102,7 +102,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
             const bio = teacher.bio && teacher.bio.length > 100 ? teacher.bio.slice(0, 100) + "…" : teacher.bio;
 
             return (
-              <div key={teacher.teacher_id} className="rounded-xl border border-card-border bg-card p-4 md:p-5">
+              <div key={teacher.teacher_id} className="rounded-2xl border border-card-border bg-card p-4 md:p-5">
                 {/* Compact mobile layout */}
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-card-border bg-surface text-lg font-bold md:h-14 md:w-14 md:text-xl">

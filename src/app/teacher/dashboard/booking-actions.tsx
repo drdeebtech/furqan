@@ -100,7 +100,7 @@ export function BookingActions({ bookingId, isFirst }: { bookingId: string; isFi
         <button
           onClick={() => handle("confirmed")}
           disabled={loading !== null}
-          className={`flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50 ${isFirst ? "animate-pulse-slow ring-2 ring-green-400/50" : ""}`}
+          className={`flex min-h-[44px] items-center gap-1 rounded-lg bg-green-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50 sm:px-3 sm:py-1.5 ${isFirst ? "animate-pulse-slow ring-2 ring-green-400/50" : ""}`}
         >
           {loading === "confirm" ? (
             <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -112,7 +112,7 @@ export function BookingActions({ bookingId, isFirst }: { bookingId: string; isFi
         <button
           onClick={() => setConfirmDecline(true)}
           disabled={loading !== null}
-          className="flex items-center gap-1 rounded-lg border border-red-500/30 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+          className="flex min-h-[44px] items-center gap-1 rounded-lg border border-red-500/30 px-4 py-2 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50 sm:px-3 sm:py-1.5"
         >
           <X size={14} />
           رفض

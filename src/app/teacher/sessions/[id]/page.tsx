@@ -58,7 +58,7 @@ export default async function TeacherSessionPage({ params }: Props) {
     .from("profiles").select("full_name").eq("id", booking.student_id)
     .single<{ full_name: string | null }>();
 
-  const studentName = student?.full_name ?? "الطالب";
+  const studentName = student?.full_name || "الطالب";
   const scheduledDate = new Date(booking.scheduled_at);
   const isCompleted = session.ended_at !== null;
 

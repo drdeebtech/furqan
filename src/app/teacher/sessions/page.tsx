@@ -52,7 +52,7 @@ export default async function TeacherSessionsPage() {
       .from("profiles").select("id, full_name").in("id", ids)
       .returns<{ id: string; full_name: string | null }[]>();
     if (profiles) {
-      nameMap = Object.fromEntries(profiles.map((p) => [p.id, p.full_name ?? "طالب"]));
+      nameMap = Object.fromEntries(profiles.map((p) => [p.id, p.full_name || "طالب"]));
     }
   }
 

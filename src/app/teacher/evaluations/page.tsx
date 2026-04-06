@@ -70,7 +70,7 @@ export default async function TeacherEvaluationsPage() {
       .in("id", ids)
       .returns<{ id: string; full_name: string | null }[]>();
     if (profiles) {
-      nameMap = Object.fromEntries(profiles.map((p) => [p.id, p.full_name ?? "طالب"]));
+      nameMap = Object.fromEntries(profiles.map((p) => [p.id, p.full_name || "طالب"]));
     }
   }
 
@@ -134,25 +134,25 @@ export default async function TeacherEvaluationsPage() {
                   {ev.strengths && (
                     <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
                       <p className="mb-1 text-xs font-semibold text-emerald-400">نقاط القوة</p>
-                      <p className="text-sm">{ev.strengths}</p>
+                      <p className="break-words whitespace-pre-wrap text-sm">{ev.strengths}</p>
                     </div>
                   )}
                   {ev.weaknesses && (
                     <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3">
                       <p className="mb-1 text-xs font-semibold text-red-400">نقاط الضعف</p>
-                      <p className="text-sm">{ev.weaknesses}</p>
+                      <p className="break-words whitespace-pre-wrap text-sm">{ev.weaknesses}</p>
                     </div>
                   )}
                   {ev.recommendations && (
                     <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3">
                       <p className="mb-1 text-xs font-semibold text-blue-400">التوصيات</p>
-                      <p className="text-sm">{ev.recommendations}</p>
+                      <p className="break-words whitespace-pre-wrap text-sm">{ev.recommendations}</p>
                     </div>
                   )}
                   {ev.notes && (
                     <div className="rounded-xl border border-card-border bg-card p-3">
                       <p className="mb-1 text-xs font-semibold text-muted">ملاحظات</p>
-                      <p className="text-sm">{ev.notes}</p>
+                      <p className="break-words whitespace-pre-wrap text-sm">{ev.notes}</p>
                     </div>
                   )}
                 </div>

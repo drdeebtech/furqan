@@ -13,7 +13,7 @@ export async function resolveRecitationError(errorId: string) {
     .update({ resolved: true, resolved_at: new Date().toISOString() } as never)
     .eq("id", errorId);
 
-  if (error) return { error: "فشل تحديث الخطأ" };
+  if (error) return { error: "فشل تحديث الخطأ — يرجى المحاولة مرة أخرى" };
   revalidatePath("/teacher/students");
   return { success: true };
 }
@@ -21,14 +21,14 @@ export async function resolveRecitationError(errorId: string) {
 export async function updateSessionNotes(sessionId: string, notes: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "غير مصرح" };
+  if (!user) return { error: "غير مصرح — يرجى تسجيل الدخول مرة أخرى" };
 
   const { error } = await supabase
     .from("sessions")
     .update({ post_session_notes: notes || null } as never)
     .eq("id", sessionId);
 
-  if (error) return { error: "فشل تحديث الملاحظات" };
+  if (error) return { error: "فشل تحديث الملاحظات — يرجى المحاولة مرة أخرى" };
   revalidatePath("/teacher/students");
   return { success: true };
 }

@@ -19,15 +19,15 @@ export function BookingSteps({ current }: { current: 1 | 2 | 3 }) {
         const isDone = num < current;
         return (
           <div key={step.en} className="flex items-center gap-1 sm:gap-2">
-            {i > 0 && <span className={`hidden sm:inline ${isDone || isActive ? "text-gold" : "text-muted/30"}`}>←</span>}
-            <div className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 ${
+            {i > 0 && <span className={`hidden transition-colors sm:inline ${isDone || isActive ? "text-gold" : "text-muted/30"}`}>←</span>}
+            <div className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors ${
               isActive ? "bg-gold/20 font-bold text-gold" :
-              isDone ? "bg-green-500/10 text-green-400" :
+              isDone ? "bg-success/10 text-success" :
               "text-muted/50"
             }`}>
-              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${
+              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold transition-colors ${
                 isActive ? "bg-gold text-background" :
-                isDone ? "bg-green-500 text-background" :
+                isDone ? "bg-success text-background" :
                 "bg-card-border text-muted"
               }`}>
                 {isDone ? "✓" : num}

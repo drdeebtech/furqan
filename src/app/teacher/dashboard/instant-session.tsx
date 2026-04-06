@@ -40,7 +40,7 @@ export function InstantSessionButton({ students }: { students: Student[] }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-700"
+        className="flex min-h-[44px] items-center gap-2 rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-700"
       >
         <Zap size={16} />
         جلسة فورية

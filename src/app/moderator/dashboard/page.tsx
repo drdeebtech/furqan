@@ -34,19 +34,19 @@ export default async function ModeratorDashboardPage() {
   ];
 
   return (
-    <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold">
+    <div dir="rtl" className="mx-auto max-w-5xl px-4 py-6 sm:py-8">
+      <h1 className="mb-6 flex items-center gap-2 text-xl font-bold sm:text-2xl">
         <LayoutDashboard size={24} className="text-gold" /> لوحة المشرف
       </h1>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
         {stats.map((s) => (
-          <Link key={s.label} href={s.href} className="rounded-2xl border border-card-border bg-card p-6 transition-colors hover:border-gold/30">
+          <Link key={s.label} href={s.href} className="min-h-[44px] rounded-2xl border border-card-border bg-card p-4 transition-colors hover:border-gold/30 sm:p-6">
             <div className="flex items-center gap-3">
-              <s.icon size={20} className="text-gold" />
-              <div>
-                <p className="text-2xl font-bold text-gold">{s.value}</p>
-                <p className="text-sm text-muted">{s.label}</p>
+              <s.icon size={20} className="shrink-0 text-gold" />
+              <div className="min-w-0">
+                <p className="text-xl font-bold text-gold sm:text-2xl">{s.value}</p>
+                <p className="truncate text-xs text-muted sm:text-sm">{s.label}</p>
               </div>
             </div>
           </Link>

@@ -82,13 +82,13 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
         {totalSessions === 0 && !nextBooking && <GuidanceBanner />}
 
         {nextBooking ? (
-          <div className="mt-8 rounded-2xl border border-gold/30 bg-card p-8">
+          <div className="mt-8 rounded-2xl border border-gold/30 bg-card p-5 sm:p-8">
             <p className="mb-2 text-sm font-bold text-gold"><Star size={14} className="inline text-gold" /> {t("جلستك القادمة", "Your Next Session")}</p>
             <p className="text-lg font-bold">{t("مع", "With")} {nameMap[nextBooking.teacher_id] ?? t("معلم", "Teacher")}</p>
             <p className="mt-1 text-sm text-muted">
               {st(nextBooking.session_type)} · {nextBooking.duration_min} {t("دقيقة", "min")}
             </p>
-            <p dir="ltr" className="mt-2 text-left text-sm text-muted">
+            <p dir="ltr" className="mt-2 text-start text-sm text-muted">
               {new Date(nextBooking.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
               {" · "}
               {new Date(nextBooking.scheduled_at).toLocaleTimeString(lang === "ar" ? "ar-SA" : "en-US", { hour: "2-digit", minute: "2-digit" })}
@@ -106,7 +106,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
             </div>
           </div>
         ) : totalSessions > 0 ? (
-          <div className="mt-8 rounded-2xl border-2 border-dashed border-card-border p-8 text-center">
+          <div className="mt-8 rounded-2xl border-2 border-dashed border-card-border p-5 text-center sm:p-8">
             <Calendar size={28} className="mx-auto mb-3 text-muted" />
             <p className="text-muted">{t("لا توجد جلسات قادمة", "No upcoming sessions")}</p>
             <Link href="/student/teachers" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-gold px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gold-hover">
@@ -118,22 +118,22 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
         <QuickActions />
 
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Link href="/student/sessions" className="rounded-xl border border-card-border bg-card p-4 transition-colors hover:border-gold/40">
+          <Link href="/student/sessions" className="min-h-[44px] rounded-xl border border-card-border bg-card p-3 transition-colors hover:border-gold/40 sm:p-4">
             <CheckCircle size={16} className="mb-1 text-gold" />
-            <p className="text-2xl font-bold text-gold">{totalSessions}</p>
+            <p className="text-xl font-bold text-gold sm:text-2xl">{totalSessions}</p>
             <p className="text-xs text-muted">{t("إجمالي الجلسات", "Total Sessions")}</p>
           </Link>
-          <Link href="/student/sessions" className="rounded-xl border border-card-border bg-card p-4 transition-colors hover:border-gold/40">
+          <Link href="/student/sessions" className="min-h-[44px] rounded-xl border border-card-border bg-card p-3 transition-colors hover:border-gold/40 sm:p-4">
             <Calendar size={16} className="mb-1 text-gold" />
-            <p className="text-2xl font-bold text-gold">{monthSessions}</p>
+            <p className="text-xl font-bold text-gold sm:text-2xl">{monthSessions}</p>
             <p className="text-xs text-muted">{t("جلسات هذا الشهر", "This Month")}</p>
           </Link>
-          <Link href="/student/bookings" className="rounded-xl border border-card-border bg-card p-4 transition-colors hover:border-gold/40">
+          <Link href="/student/bookings" className="min-h-[44px] rounded-xl border border-card-border bg-card p-3 transition-colors hover:border-gold/40 sm:p-4">
             <Clock size={16} className="mb-1 text-gold" />
-            <p className="text-2xl font-bold text-gold">{pendingBookings}</p>
+            <p className="text-xl font-bold text-gold sm:text-2xl">{pendingBookings}</p>
             <p className="text-xs text-muted">{t("حجوزات معلّقة", "Pending Bookings")}</p>
           </Link>
-          <Link href="/student/progress" className="rounded-xl border border-gold/20 bg-gold/5 p-4 transition-colors hover:border-gold/40">
+          <Link href="/student/progress" className="min-h-[44px] rounded-xl border border-gold/20 bg-gold/5 p-3 transition-colors hover:border-gold/40 sm:p-4">
             <TrendingUp size={16} className="mb-1 text-gold" />
             <p className="text-sm font-bold text-gold">{t("تقدمي", "My Progress")}</p>
             <p className="text-xs text-muted">{t("عرض رحلتي مع القرآن", "View my Quran journey")}</p>

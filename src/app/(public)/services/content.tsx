@@ -68,7 +68,7 @@ export function ServicesContent({ services }: { services: Service[] }) {
                   <div className="mt-8 flex-1 md:mt-0">
                     <div className="flex h-full items-center justify-center rounded-2xl border border-card-border bg-card p-12">
                       {s.image_url ? (
-                        <Image src={s.image_url} alt={title} width={384} height={192} className="max-h-48 rounded-xl object-contain" />
+                        <Image src={s.image_url} alt={title} width={384} height={192} className="max-h-48 rounded-xl object-contain" loading="lazy" sizes="(max-width: 768px) 100vw, 384px" />
                       ) : (
                         <span className="font-display text-6xl text-gold/10">
                           {(s.title_ar ?? s.title).charAt(0)}

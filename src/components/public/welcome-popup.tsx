@@ -47,7 +47,7 @@ export function WelcomePopup() {
         </button>
 
         <div className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-gold/30 bg-gold/10">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-gold/30 bg-gold/10 animate-pulse-slow">
             <BookOpen size={28} className="text-gold" />
           </div>
 
@@ -65,14 +65,14 @@ export function WelcomePopup() {
             <Link
               href="/register"
               onClick={dismiss}
-              className="focus-ring flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-3.5 text-lg font-bold text-background transition-colors hover:bg-gold-hover"
+              className="focus-ring neu-btn flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-3.5 text-lg font-bold text-background transition-all duration-200 hover:bg-gold-hover hover:shadow-lg hover:shadow-gold/20"
             >
               <UserPlus size={20} />
               {t("سجّل الآن مجاناً", "Register Now — Free")}
             </Link>
             <button
               onClick={dismiss}
-              className="focus-ring w-full rounded-xl border border-card-border py-3 text-sm text-muted transition-colors hover:border-gold/40 hover:text-gold"
+              className="focus-ring neu-btn w-full rounded-xl border border-card-border py-3 text-sm text-muted transition-all duration-200 hover:border-gold/40 hover:text-gold"
             >
               {t("تصفح الموقع أولاً", "Browse the site first")}
             </button>

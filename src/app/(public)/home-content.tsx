@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import {
   Award,
   BookOpen,
@@ -17,8 +18,11 @@ import {
   Video,
 } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
-import { Testimonials } from "@/components/public/testimonials";
 import { RegisterBanner } from "@/components/public/register-banner";
+
+const Testimonials = dynamic(
+  () => import("@/components/public/testimonials").then((m) => m.Testimonials),
+);
 
 export default function HomePage() {
   const { t } = useLang();
@@ -67,14 +71,14 @@ export default function HomePage() {
             <div className="mt-10 flex w-full flex-col items-center gap-4 px-4 sm:w-auto sm:flex-row sm:justify-center sm:px-0">
               <Link
                 href="/register"
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gold px-10 py-4 text-lg font-bold text-background shadow-lg shadow-gold/20 transition-all hover:bg-gold-hover hover:shadow-xl hover:shadow-gold/30 sm:w-auto animate-pulse-slow"
+                className="neu-btn flex w-full items-center justify-center gap-2 rounded-xl bg-gold px-10 py-4 text-lg font-bold text-background shadow-lg shadow-gold/20 transition-all duration-200 hover:bg-gold-hover hover:shadow-xl hover:shadow-gold/30 sm:w-auto animate-pulse-slow"
               >
                 <Play size={20} />
                 {t("سجّل الآن", "Register Now")}
               </Link>
               <Link
                 href="/services"
-                className="w-full rounded-xl border-2 border-card-border px-8 py-4 text-center text-lg text-muted transition-colors hover:border-gold/40 hover:text-gold sm:w-auto"
+                className="neu-btn w-full rounded-xl border-2 border-card-border px-8 py-4 text-center text-lg text-muted transition-all duration-200 hover:border-gold/40 hover:text-gold sm:w-auto"
               >
                 {t("تعرف على خدماتنا", "Explore Our Services")}
               </Link>
@@ -95,7 +99,7 @@ export default function HomePage() {
               { num: t("١:١", "1:1"), label: t("جلسات فردية مباشرة", "Live Private Sessions"), icon: Star },
               { num: t("إجازة", "Ijazah"), label: t("معلمون حاصلون على الإجازة", "Certified Teachers"), icon: GraduationCap },
             ].map((s) => (
-              <div key={s.label} className="rounded-2xl border border-gold/20 bg-card/80 p-6 text-center backdrop-blur-sm">
+              <div key={s.label} className="rounded-2xl border border-gold/20 bg-card/80 p-6 text-center backdrop-blur-sm transition-all duration-300 hover:border-gold/40 hover:elevation-1">
                 <s.icon size={24} className="mx-auto mb-2 text-gold" />
                 <p className="stat-shimmer text-3xl font-bold md:text-4xl">{s.num}</p>
                 <p className="mt-1 text-sm text-muted">{s.label}</p>
@@ -129,7 +133,7 @@ export default function HomePage() {
               { num: "02", icon: Calendar, ar: "اختر معلمك", en: "Choose Teacher", dAr: "تصفح المعلمين المعتمدين واختر الأنسب لمستواك وأهدافك.", dEn: "Browse certified teachers and pick the best match for your level and goals." },
               { num: "03", icon: Video, ar: "ابدأ التعلم", en: "Start Learning", dAr: "انضم لجلستك عبر الفيديو المدمج وتابع تقدمك في الحفظ.", dEn: "Join your session via built-in video and track your memorization progress." },
             ].map((step) => (
-              <div key={step.num} className="group relative rounded-2xl border border-card-border bg-card p-8 transition-all hover:border-gold/30 hover:shadow-lg hover:shadow-gold/5">
+              <div key={step.num} className="group relative rounded-2xl border border-card-border bg-card p-8 transition-all duration-300 hover:border-gold/30 hover:shadow-lg hover:shadow-gold/5 hover:-translate-y-1">
                 <span className="absolute -top-4 right-6 rounded-full bg-gold px-3 py-1 text-sm font-bold text-background">{step.num}</span>
                 <step.icon size={32} className="mb-4 text-gold transition-transform group-hover:scale-110" />
                 <h3 className="text-lg font-bold">{t(step.ar, step.en)}</h3>
@@ -162,7 +166,7 @@ export default function HomePage() {
               { icon: Globe, ar: "نخدم طلاباً حول العالم", en: "Worldwide Access", dAr: "تعلّم من أي مكان — أمريكا، أوروبا، الخليج، أستراليا", dEn: "Learn from anywhere — USA, Europe, Gulf, Australia" },
               { icon: Award, ar: "سجّل واحجز جلستك", en: "Register & Book Your Session", dAr: "سجّل الآن وابدأ رحلتك مع القرآن", dEn: "Register now and start your Quran journey" },
             ].map((f) => (
-              <div key={f.en} className="rounded-xl border border-card-border bg-card/90 p-5 backdrop-blur-sm transition-all hover:border-gold/30 hover:-translate-y-1">
+              <div key={f.en} className="rounded-xl border border-card-border bg-card/90 p-5 backdrop-blur-sm transition-all duration-300 hover:border-gold/30 hover:-translate-y-1 hover:elevation-1">
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gold/10">
                   <f.icon size={20} className="text-gold" />
                 </div>
@@ -196,7 +200,7 @@ export default function HomePage() {
               { ar: "القراءات", en: "Qira'at", dAr: "تعلّم روايات حفص وورش وقالون والدوري", dEn: "Learn readings: Hafs, Warsh, Qalun, Al-Duri", icon: Globe },
               { ar: "التفسير", en: "Tafsir", dAr: "افهم معاني القرآن وتدبّر آياته", dEn: "Understand Quran meanings and reflect", icon: Award },
             ].map((c) => (
-              <Link key={c.en} href="/services" className="group rounded-xl border border-card-border bg-card p-6 transition-all hover:border-gold/30 hover:shadow-lg hover:shadow-gold/5">
+              <Link key={c.en} href="/services" className="group rounded-xl border border-card-border bg-card p-6 transition-all duration-300 hover:border-gold/30 hover:shadow-lg hover:shadow-gold/5 hover:-translate-y-1">
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gold/10 transition-colors group-hover:bg-gold/20">
                   <c.icon size={20} className="text-gold" />
                 </div>
@@ -240,6 +244,11 @@ export default function HomePage() {
         <Testimonials />
       </div>
 
+      {/* ── ORNAMENTAL DIVIDER ── */}
+      <div className="ornament-divider py-4">
+        <span className="text-gold/40">✦</span>
+      </div>
+
       {/* ══════════════════════════════════════════
           PACKAGES PREVIEW
           ══════════════════════════════════════════ */}
@@ -257,12 +266,12 @@ export default function HomePage() {
               { ar: "الباقة المتقدمة", en: "Premium", freq: t("٥ أيام/أسبوع · ٢٠ جلسة", "5 days/week · 20 sessions"), featured: true },
               { ar: "باقة نهاية الأسبوع", en: "Weekend", freq: t("السبت والأحد · ٨ جلسات", "Sat & Sun · 8 sessions") },
             ].map((p) => (
-              <div key={p.en} className={`rounded-2xl p-6 transition-all hover:-translate-y-1 ${p.featured ? "border-2 border-gold bg-card shadow-lg shadow-gold/10" : "border border-card-border bg-card"}`}>
+              <div key={p.en} className={`rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:elevation-2 ${p.featured ? "border-2 border-gold bg-card shadow-lg shadow-gold/10" : "border border-card-border bg-card"}`}>
                 {p.featured && <span className="mb-3 inline-block rounded-full bg-gold px-3 py-1 text-xs font-bold text-background">{t("الأكثر طلباً", "Most Popular")}</span>}
                 <h3 className="text-lg font-bold">{t(p.ar, p.en)}</h3>
                 <p className="font-display mt-2 text-2xl font-bold text-gold">{t("مجاناً", "Free")}</p>
                 <p className="mt-1 text-xs text-muted">{p.freq}</p>
-                <Link href="/packages" className="mt-4 block rounded-lg border border-gold bg-gold/10 py-2.5 text-center text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background">
+                <Link href="/packages" className="neu-btn mt-4 block rounded-lg border border-gold bg-gold/10 py-2.5 text-center text-sm font-medium text-gold transition-all duration-200 hover:bg-gold hover:text-background">
                   {t("التفاصيل", "View Details")}
                 </Link>
               </div>
@@ -276,6 +285,11 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ── ORNAMENTAL DIVIDER ── */}
+      <div className="ornament-divider py-4">
+        <span className="text-gold/40">✦</span>
+      </div>
 
       {/* ── FINAL CTA ── */}
       <RegisterBanner />

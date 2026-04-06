@@ -159,7 +159,7 @@ export function TeacherSessionCard({
           <p className="mt-1 text-sm text-gold">
             {SESSION_TYPE_AR[sessionType]} · {durationMin} دقيقة
           </p>
-          <p dir="ltr" className="mt-1 text-left text-sm text-muted">
+          <p dir="ltr" className="mt-1 text-start text-sm text-muted">
             {new Date(scheduledAt).toLocaleTimeString("ar-SA", {
               hour: "2-digit",
               minute: "2-digit",
@@ -192,7 +192,7 @@ export function TeacherSessionCard({
           {currentRoomUrl && sessionId && (inWindow || isLive) && (
             <Link
               href={`/teacher/sessions/${sessionId}`}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-green-700"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-green-700 sm:px-3 sm:py-1.5"
             >
               <Video size={14} />
               انضم للجلسة
@@ -204,7 +204,7 @@ export function TeacherSessionCard({
             <button
               onClick={handleEndSession}
               disabled={loading !== null}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-red-500/30 px-4 py-2 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50 sm:px-3 sm:py-1.5"
             >
               {loading === "end" ? spinner : <PhoneOff size={14} />}
               إنهاء الجلسة
@@ -215,7 +215,7 @@ export function TeacherSessionCard({
           <button
             onClick={handleMarkNoShow}
             disabled={loading !== null}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 px-3 py-1.5 text-xs font-medium text-amber-400 transition-colors hover:bg-amber-500/10 disabled:opacity-50"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-amber-500/30 px-4 py-2 text-xs font-medium text-amber-400 transition-colors hover:bg-amber-500/10 disabled:opacity-50 sm:px-3 sm:py-1.5"
           >
             {loading === "noshow" ? spinner : <UserX size={14} />}
             لم يحضر
@@ -226,7 +226,7 @@ export function TeacherSessionCard({
             <button
               onClick={handleExtendRoom}
               disabled={loading !== null}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gold/30 px-3 py-1.5 text-xs font-medium text-gold transition-colors hover:bg-gold/10 disabled:opacity-50"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-gold/30 px-4 py-2 text-xs font-medium text-gold transition-colors hover:bg-gold/10 disabled:opacity-50 sm:px-3 sm:py-1.5"
             >
               {loading === "extend" ? spinner : <TimerReset size={14} />}
               تمديد الغرفة
@@ -238,7 +238,7 @@ export function TeacherSessionCard({
             <button
               onClick={handleRecreateRoom}
               disabled={loading !== null}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gold/30 px-3 py-1.5 text-xs font-medium text-gold transition-colors hover:bg-gold/10 disabled:opacity-50"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-gold/30 px-4 py-2 text-xs font-medium text-gold transition-colors hover:bg-gold/10 disabled:opacity-50 sm:px-3 sm:py-1.5"
             >
               {loading === "recreate" ? (
                 spinner

@@ -23,12 +23,15 @@ export function Testimonials() {
   return (
     <section className="py-24">
       <div className="mx-auto max-w-7xl px-6">
-        <p className="text-sm font-medium tracking-widest text-gold">❖ {t("آراء الطلاب", "Student Reviews")}</p>
+        <div className="ornament-divider mb-6">
+          <span className="text-gold/40">❖</span>
+        </div>
+        <p className="text-sm font-medium tracking-widest text-gold">{t("آراء الطلاب", "Student Reviews")}</p>
         <h2 className="font-display mt-3 text-4xl font-bold">{t("ماذا يقول طلابنا؟", "What Our Students Say")}</h2>
 
         <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {REVIEWS.map((r) => (
-            <div key={r.en} className="rounded-2xl border border-card-border bg-card p-6">
+            <div key={r.en} className="rounded-2xl border border-card-border bg-card p-6 transition-all duration-300 hover:border-gold/30 hover:elevation-2">
               <span className="text-3xl leading-none text-gold/20">❝</span>
               <p className="mt-2 text-sm leading-relaxed text-muted">{t(r.ar, r.en)}</p>
               <div className="mt-4 border-t border-card-border pt-3">

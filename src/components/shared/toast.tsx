@@ -35,9 +35,9 @@ const ICONS = {
 };
 
 const STYLES = {
-  success: "border-green-500/30 bg-green-500/10 text-green-400",
+  success: "border-success/30 bg-success/10 text-success",
   error: "border-error/30 bg-error/10 text-error",
-  warning: "border-amber-500/30 bg-amber-500/10 text-amber-400",
+  warning: "border-warning/30 bg-warning/10 text-warning",
   info: "border-blue-500/30 bg-blue-500/10 text-blue-400",
 };
 
@@ -95,7 +95,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             >
               <Icon size={18} className="shrink-0" />
               <p className="flex-1 text-sm">{t.message}</p>
-              <button onClick={() => removeToast(t.id)} className="focus-ring shrink-0 opacity-60 hover:opacity-100">
+              <button onClick={() => removeToast(t.id)} className="focus-ring shrink-0 rounded-full opacity-60 transition-opacity hover:opacity-100">
                 <X size={14} />
               </button>
             </div>

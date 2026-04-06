@@ -10,10 +10,11 @@ export function PublicFooter() {
 
   return (
     <footer className="border-t border-card-border bg-card">
+      <div className="gold-line" />
       <div className="mx-auto grid max-w-7xl gap-8 px-6 py-12 md:grid-cols-4">
         <div>
           <div className="flex items-center gap-2">
-            <Image src="/logo-192.png" alt="فرقان" width={32} height={32} className="rounded-full" />
+            <Image src="/logo-192.png" alt="فرقان" width={32} height={32} className="rounded-full" loading="lazy" />
             <span className="font-display text-2xl font-bold text-gold">فُرقان</span>
           </div>
           <p className="mt-3 text-sm text-foreground">{t("أكاديمية القرآن الكريم عبر الإنترنت", "Online Quran Learning Academy")}</p>
@@ -32,7 +33,7 @@ export function PublicFooter() {
               { href: "/contact", ar: "اتصل بنا", en: "Contact" },
               { href: "/login", ar: "🔒 بوابة الطلاب", en: "🔒 Student Portal" },
             ].map((l) => (
-              <li key={l.href}><Link href={l.href} className="transition-colors hover:text-gold">{t(l.ar, l.en)}</Link></li>
+              <li key={l.href}><Link href={l.href} className="inline-block transition-all duration-200 hover:text-gold">{t(l.ar, l.en)}</Link></li>
             ))}
           </ul>
         </div>
@@ -48,7 +49,7 @@ export function PublicFooter() {
               { ar: "القراءات", en: "Qira'at" },
               { ar: "تفسير القرآن", en: "Tafsir" },
             ].map((s) => (
-              <li key={s.en}><Link href="/services" className="transition-colors hover:text-gold">{t(s.ar, s.en)}</Link></li>
+              <li key={s.en}><Link href="/services" className="inline-block transition-all duration-200 hover:text-gold">{t(s.ar, s.en)}</Link></li>
             ))}
           </ul>
         </div>
@@ -56,8 +57,8 @@ export function PublicFooter() {
         <div>
           <h3 className="mb-3 text-sm font-bold text-gold">{t("تواصل معنا", "Contact Us")}</h3>
           <ul className="space-y-2 text-sm text-muted">
-            <li><a href={CONTACT.whatsappUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 transition-colors hover:text-gold">{CONTACT.flag} {t("واتساب:", "WhatsApp:")} {CONTACT.whatsapp}</a></li>
-            <li><a href={CONTACT.emailUrl} className="transition-colors hover:text-gold">{CONTACT.email}</a></li>
+            <li><a href={CONTACT.whatsappUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 transition-all duration-200 hover:text-gold">{CONTACT.flag} {t("واتساب:", "WhatsApp:")} {CONTACT.whatsapp}</a></li>
+            <li><a href={CONTACT.emailUrl} className="transition-all duration-200 hover:text-gold">{CONTACT.email}</a></li>
             <li className="text-xs">{t(CONTACT.availability.ar, CONTACT.availability.en)}</li>
           </ul>
         </div>

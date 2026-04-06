@@ -92,7 +92,7 @@ export default async function SessionPage({ params }: Props) {
       {/* Session info bar */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-card-border bg-card elevation-2 p-4">
         <div>
-          <h1 className="text-lg font-bold">{teacherName}</h1>
+          <h1 className="font-display text-xl font-bold">{teacherName}</h1>
           <p className="mt-1 text-sm text-gold">
             {SESSION_TYPE_AR[booking.session_type]}
             <span className="mr-2 text-muted">· {booking.duration_min} دقيقة</span>
@@ -123,14 +123,14 @@ export default async function SessionPage({ params }: Props) {
 
           {session.post_session_notes && (
             <div className="rounded-2xl border border-card-border bg-card elevation-2 p-5">
-              <h2 className="mb-2 text-sm font-semibold text-gold">ملاحظات المعلم</h2>
+              <h2 className="mb-2 font-display text-sm font-semibold text-gold">ملاحظات المعلم</h2>
               <p className="text-sm leading-relaxed text-muted">{session.post_session_notes}</p>
             </div>
           )}
 
           {session.homework && (
             <div className="rounded-xl border border-gold/20 bg-gold/5 p-5">
-              <h2 className="mb-2 text-sm font-semibold text-gold">الواجب</h2>
+              <h2 className="mb-2 font-display text-sm font-semibold text-gold">الواجب</h2>
               <p className="text-sm leading-relaxed text-muted">{session.homework}</p>
             </div>
           )}
@@ -138,7 +138,7 @@ export default async function SessionPage({ params }: Props) {
           {/* Review section */}
           {existingReview ? (
             <div className="rounded-2xl border border-card-border bg-card elevation-2 p-5">
-              <h2 className="mb-2 text-sm font-semibold text-gold">تقييمك</h2>
+              <h2 className="mb-2 font-display text-sm font-semibold text-gold">تقييمك</h2>
               <div className="mb-2 flex gap-1">
                 {Array.from({ length: 5 }, (_, i) => (
                   <span key={i} className={i < existingReview.rating ? "text-gold" : "text-muted/40"}>

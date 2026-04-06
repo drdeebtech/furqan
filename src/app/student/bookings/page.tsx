@@ -59,8 +59,8 @@ export default async function StudentBookingsPage() {
     <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">
-          <CalendarCheck size={24} className="ml-2 inline text-gold" />
+        <h1 className="flex items-center gap-2 font-display text-2xl font-bold">
+          <CalendarCheck size={24} className="text-gold" />
           حجوزاتي
         </h1>
         <Link

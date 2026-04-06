@@ -34,7 +34,7 @@ export function SlotForm() {
       </h2>
 
       {state.error && (
-        <div className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">
+        <div className="mb-4 rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">
           {state.error}
         </div>
       )}
@@ -134,7 +134,7 @@ export function SlotForm() {
           ) : (
             <>
               <Plus size={18} />
-              إضافة
+              إضافة موعد
             </>
           )}
         </button>

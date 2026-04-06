@@ -45,13 +45,13 @@ export default async function StudentNotesPage() {
 
   return (
     <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-2 flex items-center gap-2 text-2xl font-bold"><FileText size={24} className="text-gold" /> ملاحظات المعلم</h1>
-      <p className="mb-8 text-sm text-muted">تجد هنا ملاحظات معلمك بعد كل جلسة</p>
+      <h1 className="mb-2 flex items-center gap-2 font-display text-2xl font-bold"><FileText size={24} className="text-gold" /> ملاحظات المعلم</h1>
+      <p className="mb-8 text-xs text-muted">تجد هنا ملاحظات معلمك بعد كل جلسة</p>
 
       {sessions.length === 0 ? (
-        <div className="rounded-2xl border border-card-border bg-card p-12 text-center">
+        <div className="rounded-2xl border border-card-border bg-card elevation-2 p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
-          <p className="text-muted">📝 لا توجد ملاحظات بعد</p>
+          <p className="text-muted">لا توجد ملاحظات بعد</p>
           <p className="mt-1 text-sm text-muted">ستظهر ملاحظات معلمك هنا بعد كل جلسة مكتملة</p>
         </div>
       ) : (

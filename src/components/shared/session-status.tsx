@@ -13,13 +13,13 @@ const STATE_CONFIG: Record<
     label: "قادمة",
     en: "Upcoming",
     icon: Clock,
-    className: "border-sky-500/30 bg-sky-500/10 text-sky-400",
+    className: "border-blue-500/30 bg-blue-500/10 text-blue-400",
   },
   live: {
     label: "جارية الآن",
     en: "Live",
     icon: Radio,
-    className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+    className: "border-success/30 bg-success/10 text-success",
   },
   ended: {
     label: "مكتملة",
@@ -31,7 +31,7 @@ const STATE_CONFIG: Record<
     label: "منتهية الصلاحية",
     en: "Expired",
     icon: XCircle,
-    className: "border-red-500/30 bg-red-500/10 text-red-400",
+    className: "border-error/30 bg-error/10 text-error",
   },
 };
 
@@ -85,7 +85,7 @@ export function SessionStatus({
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors ${
         size === "md" ? "text-sm" : "text-xs"
       } ${config.className}`}
     >

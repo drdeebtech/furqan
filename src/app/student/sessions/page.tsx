@@ -77,7 +77,7 @@ export default async function StudentSessionsPage() {
 
   return (
     <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold">
+      <h1 className="mb-6 flex items-center gap-2 font-display text-2xl font-bold">
         <Video size={24} className="text-gold" />
         جلساتي
       </h1>
@@ -109,7 +109,7 @@ export default async function StudentSessionsPage() {
             return (
               <div
                 key={booking.id}
-                className={`rounded-xl border bg-card p-4 ${isLive ? "border-gold/40" : "border-card-border"}`}
+                className={`rounded-2xl border bg-card p-4 ${isLive ? "border-gold/40" : "border-card-border"}`}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">

@@ -44,7 +44,7 @@ export async function addSlot(
     if (error.message.includes("avail_unique")) {
       return { error: "هذا الموعد موجود بالفعل" };
     }
-    return { error: "حدث خطأ أثناء إضافة الموعد" };
+    return { error: "حدث خطأ أثناء إضافة الموعد — يرجى المحاولة مرة أخرى" };
   }
 
   revalidatePath("/teacher/availability");
@@ -67,7 +67,7 @@ export async function deleteSlot(slotId: string) {
     .eq("teacher_id", user.id);
 
   if (error) {
-    return { error: "حدث خطأ أثناء حذف الموعد" };
+    return { error: "حدث خطأ أثناء حذف الموعد — يرجى المحاولة مرة أخرى" };
   }
 
   revalidatePath("/teacher/availability");

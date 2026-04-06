@@ -15,17 +15,17 @@ export function MobileRegisterBar() {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gold/30 bg-background/95 px-4 py-3 backdrop-blur-sm lg:hidden">
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gold/30 bg-background/95 px-4 py-3 backdrop-blur-sm elevation-2 lg:hidden">
       <div className="flex items-center gap-3">
         <Link
           href="/login"
-          className="focus-ring rounded-lg border border-card-border px-4 py-2.5 text-sm font-medium text-muted transition-colors hover:text-gold"
+          className="focus-ring neu-btn rounded-lg border border-card-border px-4 py-2.5 text-sm font-medium text-muted transition-all duration-200 hover:text-gold"
         >
           {t("دخول", "Sign In")}
         </Link>
         <Link
           href="/register"
-          className="focus-ring flex flex-1 items-center justify-center gap-2 rounded-lg bg-gold py-2.5 text-sm font-bold text-background transition-colors hover:bg-gold-hover"
+          className="focus-ring neu-btn flex flex-1 items-center justify-center gap-2 rounded-lg bg-gold py-2.5 text-sm font-bold text-background transition-all duration-200 hover:bg-gold-hover"
         >
           <UserPlus size={16} />
           {t("سجّل الآن", "Register Now")}
