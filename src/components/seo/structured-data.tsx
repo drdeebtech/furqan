@@ -50,6 +50,46 @@ export function OrganizationSchema() {
   return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />;
 }
 
+export function ArticleSchema({
+  headline,
+  image,
+  datePublished,
+  dateModified,
+  description,
+  url,
+}: {
+  headline: string;
+  image: string;
+  datePublished: string;
+  dateModified: string;
+  description: string;
+  url: string;
+}) {
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline,
+    image,
+    datePublished,
+    dateModified,
+    description,
+    url,
+    mainEntityOfPage: { "@type": "WebPage", "@id": url },
+    author: {
+      "@type": "Organization",
+      name: "FURQAN Academy",
+      url: "https://furqan.today",
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "FURQAN Academy",
+      logo: { "@type": "ImageObject", url: "https://furqan.today/logo-512.png" },
+    },
+  };
+
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />;
+}
+
 export function FAQSchema() {
   const schema = {
     "@context": "https://schema.org",

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import type { BlogPost } from "@/types/blog";
 import { RegisterBanner } from "@/components/public/register-banner";
-import { BreadcrumbSchema } from "@/components/seo/structured-data";
+import { BreadcrumbSchema, ArticleSchema } from "@/components/seo/structured-data";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -76,6 +76,14 @@ export default async function ArticlePage({ params }: Props) {
         { name: "المدونة", url: "https://furqan.today/blog" },
         { name: post.title_ar, url: `https://furqan.today/blog/${post.slug}` },
       ]} />
+      <ArticleSchema
+        headline={post.title_ar}
+        image={`https://furqan.today/blog/${post.slug}/opengraph-image`}
+        datePublished={post.published_at}
+        dateModified={post.updated_at}
+        description={post.excerpt_ar}
+        url={`https://furqan.today/blog/${post.slug}`}
+      />
       <section className="border-b border-card-border bg-card py-16 text-center">
         <p className="text-sm text-muted">
           <Link href="/" className="text-gold hover:text-gold-light">الرئيسية</Link>
