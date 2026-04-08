@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
-import { Amiri, Cairo } from "next/font/google";
+import { Inter, Amiri, Cairo } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme/context";
+
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  display: "swap",
+  preload: true,
+});
 
 const amiri = Amiri({
   variable: "--font-display",
@@ -79,7 +86,7 @@ export default function RootLayout({
     <html
       lang="ar"
       dir="rtl"
-      className={`${amiri.variable} ${body.variable} h-full antialiased`}
+      className={`${inter.variable} ${amiri.variable} ${body.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <a
