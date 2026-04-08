@@ -23,7 +23,7 @@ export default async function ModeratorObservePage({ params }: { params: Promise
   return (
     <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center gap-3">
-        <Link href={`/moderator/sessions/${id}`} className="rounded-lg border border-card-border p-2 text-muted transition-colors hover:bg-surface-alt">
+        <Link href={`/moderator/sessions/${id}`} className="glass rounded-lg p-2 text-muted transition-colors hover:bg-white/10">
           <ArrowRight size={16} />
         </Link>
         <h1 className="flex items-center gap-2 text-2xl font-bold"><Eye size={24} className="text-gold" /> مراقبة الجلسة</h1>

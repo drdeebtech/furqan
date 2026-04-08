@@ -9,15 +9,15 @@ export function RegisterBanner() {
 
   return (
     <section className="px-4 py-16">
-      <div className="mx-auto max-w-4xl rounded-3xl border border-gold/20 bg-gradient-to-l from-gold/5 via-gold/10 to-gold/5 p-12 text-center md:p-16">
+      <div className="mx-auto max-w-4xl glass-card p-12 text-center md:p-16">
         <BookOpen size={40} className="mx-auto mb-4 text-gold" />
         <h2 className="font-display text-3xl font-bold">{t("ابدأ رحلتك مع القرآن اليوم", "Start Your Quran Journey Today")}</h2>
         <p className="font-display mt-4 text-lg text-gold/50">﴿ وَرَتِّلِ الْقُرْآنَ تَرْتِيلًا ﴾</p>
         <div className="mt-8 flex flex-wrap justify-center gap-4">
-          <Link href="/register" className="focus-ring neu-btn rounded border border-gold bg-gold px-8 py-3 font-semibold text-background transition-all duration-200 hover:bg-gold-hover hover:shadow-lg hover:shadow-gold/20 animate-pulse-slow">
+          <Link href="/register" className="focus-ring glass-gold glass-pill px-8 py-3 font-semibold transition-all duration-200 animate-pulse-slow">
             {t("سجّل الآن", "Register Now")}
           </Link>
-          <Link href="/packages" className="focus-ring neu-btn rounded border border-card-border px-8 py-3 text-muted transition-all duration-200 hover:border-gold/40 hover:text-gold">
+          <Link href="/packages" className="focus-ring glass glass-pill px-8 py-3 text-muted transition-all duration-200 hover:text-gold">
             {t("تعرف على باقاتنا", "View Our Packages")}
           </Link>
         </div>

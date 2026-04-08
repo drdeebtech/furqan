@@ -28,7 +28,7 @@ export default async function AdminBlogPage() {
         <h1 className="text-2xl font-bold">إدارة المدونة</h1>
         <Link
           href="/admin/blog/new"
-          className="flex items-center gap-2 rounded bg-gold px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-gold-hover"
+          className="flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-medium"
         >
           <Plus size={16} />
           مقال جديد
@@ -36,14 +36,14 @@ export default async function AdminBlogPage() {
       </div>
 
       {list.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center">
+        <div className="glass-card rounded-xl p-12 text-center">
           <p className="text-muted">لا توجد مقالات بعد</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-card-border">
+        <div className="overflow-hidden rounded-xl glass-card">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-card-border bg-card">
+              <tr className="border-b border-white/10 bg-white/5">
                 <th scope="col" className="px-4 py-3 text-right font-medium text-muted">العنوان</th>
                 <th scope="col" className="px-4 py-3 text-right font-medium text-muted">التصنيف</th>
                 <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الحالة</th>
@@ -53,7 +53,7 @@ export default async function AdminBlogPage() {
             </thead>
             <tbody>
               {list.map((post) => (
-                <tr key={post.id} className="border-b border-card-border last:border-b-0">
+                <tr key={post.id} className="border-b border-white/10 last:border-b-0">
                   <td className="px-4 py-3 font-medium">{post.title_ar}</td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full border px-2 py-0.5 text-xs ${post.color}`}>{post.category_ar}</span>

@@ -91,7 +91,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <div
               key={t.id}
               role="alert"
-              className={`flex items-center gap-3 rounded-xl border px-4 py-3 shadow-lg backdrop-blur-sm animate-in slide-in-from-left duration-300 ${STYLES[t.type]}`}
+              className={`flex items-center gap-3 glass rounded-xl px-4 py-3 animate-in slide-in-from-left duration-300 ${STYLES[t.type]}`}
               style={{ minWidth: 280, maxWidth: 420 }}
             >
               <Icon size={18} className="shrink-0" />

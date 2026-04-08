@@ -72,7 +72,7 @@ export default async function TeacherSessionPage({ params }: Props) {
         العودة للجلسات
       </Link>
 
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-card-border bg-card elevation-2 p-4">
+      <div className="glass-card mb-6 flex flex-wrap items-center justify-between gap-4 p-4">
         <div>
           <h1 className="text-lg font-bold">{studentName}</h1>
           <p className="mt-1 text-sm text-gold">
@@ -86,7 +86,7 @@ export default async function TeacherSessionPage({ params }: Props) {
           </p>
         </div>
         {isCompleted && session.actual_duration && (
-          <div className="rounded-full border border-card-border px-3 py-1 text-sm text-muted">
+          <div className="glass glass-pill px-3 py-1 text-sm text-muted">
             مدة الجلسة: {session.actual_duration} دقيقة
           </div>
         )}

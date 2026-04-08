@@ -34,11 +34,11 @@ export default async function AdminAuditPage() {
     <div dir="rtl" className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><Shield size={24} className="text-gold" /> سجل المراجعة</h1>
       {logs.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center"><Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا توجد سجلات</p></div>
+        <div className="glass-card rounded-xl p-12 text-center"><Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا توجد سجلات</p></div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-card-border">
+        <div className="overflow-x-auto rounded-xl glass-card">
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-card-border bg-card">
+            <thead><tr className="border-b border-white/10 bg-white/5">
               <th scope="col" className="px-3 py-3 text-right font-medium text-muted">المستخدم</th>
               <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الجدول</th>
               <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الإجراء</th>
@@ -48,7 +48,7 @@ export default async function AdminAuditPage() {
             </tr></thead>
             <tbody>
               {logs.map(l => (
-                <tr key={l.id} className="border-b border-card-border last:border-b-0">
+                <tr key={l.id} className="border-b border-white/10 last:border-b-0">
                   <td className="px-3 py-3">{l.changed_by ? nameMap[l.changed_by] ?? "—" : "نظام"}</td>
                   <td className="px-3 py-3 text-xs text-muted" dir="ltr">{l.table_name}</td>
                   <td className="px-3 py-3"><span className={`text-xs font-medium ${actionColor[l.action] ?? "text-muted"}`}>{l.action}</span></td>

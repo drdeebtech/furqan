@@ -33,7 +33,7 @@ export function BookingStatusSelect({ bookingId, currentStatus }: { bookingId: s
           <button
             onClick={confirmStatusChange}
             disabled={loading}
-            className="rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+            className="glass-danger glass-pill px-2 py-0.5 text-xs font-medium transition-colors disabled:opacity-50"
           >
             {loading ? "..." : "تأكيد"}
           </button>
@@ -58,7 +58,7 @@ export function BookingStatusSelect({ bookingId, currentStatus }: { bookingId: s
           setPendingStatus(e.target.value);
         }
       }}
-      className="rounded border border-card-border bg-surface px-2 py-1 text-xs text-foreground disabled:opacity-50"
+      className="glass-input rounded px-2 py-1 text-xs text-foreground disabled:opacity-50"
     >
       {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
     </select>

@@ -61,7 +61,7 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
 
   if (sessions.length === 0) {
     return (
-      <div className="rounded-2xl border border-card-border bg-card p-12 text-center">
+      <div className="glass-card p-12 text-center">
         <Radio size={32} className="mx-auto mb-3 text-muted" />
         <p className="text-muted">لا توجد جلسات نشطة حالياً</p>
         <p className="mt-1 text-xs text-muted">No active sessions right now</p>
@@ -86,10 +86,10 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
             <User size={14} className="text-muted" />
             <span className="font-medium">{s.student_name}</span>
             <span
-              className={`mr-auto rounded-full px-2 py-0.5 text-xs ${
+              className={`mr-auto glass-badge ${
                 s.student_joined
-                  ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                  : "border border-red-500/30 bg-red-500/10 text-red-400"
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                  : "border-red-500/30 bg-red-500/10 text-red-400"
               }`}
             >
               {s.student_joined ? "متصل" : "غير متصل"}
@@ -101,10 +101,10 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
             <GraduationCap size={14} className="text-muted" />
             <span className="font-medium">{s.teacher_name}</span>
             <span
-              className={`mr-auto rounded-full px-2 py-0.5 text-xs ${
+              className={`mr-auto glass-badge ${
                 s.teacher_joined
-                  ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                  : "border border-red-500/30 bg-red-500/10 text-red-400"
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                  : "border-red-500/30 bg-red-500/10 text-red-400"
               }`}
             >
               {s.teacher_joined ? "متصل" : "غير متصل"}
@@ -120,7 +120,7 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
                 onChange={(e) => setReason(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleForceEnd(s.id)}
                 placeholder="سبب الإنهاء..."
-                className="flex-1 rounded-xl border border-input-border bg-input px-3 py-2 text-sm"
+                className="flex-1 rounded-xl glass-input px-3 py-2 text-sm"
                 autoFocus
                 aria-label="سبب إنهاء الجلسة"
               />

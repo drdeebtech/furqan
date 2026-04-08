@@ -25,7 +25,7 @@ export default async function ObserveSessionPage({ params }: { params: Promise<{
   return (
     <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center gap-3">
-        <Link href={`/admin/sessions/${id}`} className="rounded-lg border border-card-border p-2 text-muted transition-colors hover:bg-surface-alt">
+        <Link href={`/admin/sessions/${id}`} className="glass rounded-lg p-2 text-muted transition-colors">
           <ArrowRight size={16} />
         </Link>
         <h1 className="flex items-center gap-2 text-2xl font-bold">

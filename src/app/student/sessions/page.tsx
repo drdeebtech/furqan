@@ -79,13 +79,13 @@ export default async function StudentSessionsPage() {
       </h1>
 
       {list.length === 0 ? (
-        <div className="rounded-2xl border border-card-border bg-card elevation-2 p-12 text-center">
+        <div className="glass-card p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-muted">لا توجد جلسات بعد</p>
           <p className="mt-1 text-sm text-muted">ستظهر هنا بعد تأكيد حجوزاتك</p>
           <Link
             href="/student/teachers"
-            className="mt-4 inline-block rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white neu-btn transition-colors hover:bg-primary-hover focus-ring"
+            className="mt-4 inline-block glass-gold glass-pill px-5 py-2.5 text-sm font-semibold text-white transition-colors focus-ring"
           >
             تصفح المعلمين
           </Link>
@@ -105,7 +105,7 @@ export default async function StudentSessionsPage() {
             return (
               <div
                 key={booking.id}
-                className={`rounded-2xl border bg-card p-4 ${isLive ? "border-gold/40" : "border-card-border"}`}
+                className={`glass-card p-4 ${isLive ? "border-gold/40" : ""}`}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
@@ -122,13 +122,13 @@ export default async function StudentSessionsPage() {
 
                     {/* Post-session content */}
                     {session?.post_session_notes && (
-                      <div className="mt-3 rounded-lg border border-card-border bg-background p-3">
+                      <div className="mt-3 glass rounded-lg p-3">
                         <p className="mb-1 text-xs font-medium text-gold">ملاحظات المعلم</p>
                         <p className="text-sm text-muted">{session.post_session_notes}</p>
                       </div>
                     )}
                     {session?.homework && (
-                      <div className="mt-2 rounded-lg border border-gold/20 bg-gold/5 p-3">
+                      <div className="mt-2 glass rounded-lg p-3">
                         <p className="mb-1 text-xs font-medium text-gold">الواجب</p>
                         <p className="text-sm text-muted">{session.homework}</p>
                       </div>
@@ -140,13 +140,13 @@ export default async function StudentSessionsPage() {
                       scheduledAt={booking.scheduled_at}
                       durationMin={booking.duration_min}
                       defaultLabel={statusInfo.label}
-                      className={`rounded-full border px-2.5 py-0.5 text-xs ${statusInfo.className}`}
+                      className={`glass-badge px-2.5 py-0.5 text-xs ${statusInfo.className}`}
                     />
 
                     {session?.room_url && (isUpcoming || isLive) && (
                       <Link
                         href={`/student/sessions/${session.id}`}
-                        className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white neu-btn transition-colors hover:bg-primary-hover focus-ring"
+                        className="flex items-center gap-1.5 glass-gold glass-pill px-3 py-1.5 text-xs font-semibold text-white transition-colors focus-ring"
                       >
                         <Video size={14} />
                         {isLive ? "انضم الآن" : "غرفة الجلسة"}

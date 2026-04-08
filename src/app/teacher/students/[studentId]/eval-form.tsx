@@ -74,7 +74,7 @@ export function EvalForm({
 
   if (done) {
     return (
-      <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-4 text-center">
+      <div className="glass-success glass-card p-4 text-center">
         <CheckCircle size={24} className="mx-auto mb-2 text-green-400" />
         <p className="text-sm font-medium text-green-400">تم حفظ التقييم بنجاح</p>
       </div>
@@ -93,10 +93,10 @@ export function EvalForm({
     );
   }
 
-  const input = "w-full rounded-lg border border-input-border bg-input px-3 py-2 text-sm focus:border-gold focus:outline-none";
+  const input = "glass-input w-full px-3 py-2 text-sm focus:border-gold focus:outline-none";
 
   return (
-    <div className="rounded-xl border border-gold/30 bg-card p-5">
+    <div className="glass-card border-gold/30 p-5">
       <h3 className="mb-4 flex items-center gap-2 text-sm font-bold">
         <Star size={16} className="text-gold" />
         تقييم {studentName}
@@ -115,7 +115,7 @@ export function EvalForm({
               key={t.value}
               type="button"
               onClick={() => setEvalType(t.value)}
-              className={`rounded-lg border px-3 py-1.5 text-xs transition-colors ${evalType === t.value ? "border-gold bg-gold/10 text-gold" : "border-input-border text-muted hover:border-gold/50"}`}
+              className={`rounded-lg border px-3 py-1.5 text-xs transition-colors ${evalType === t.value ? "glass glass-pill text-gold" : "border-white/10 text-muted hover:border-gold/50"}`}
             >
               {t.ar}
             </button>
@@ -162,7 +162,7 @@ export function EvalForm({
         <button
           onClick={handleSubmit}
           disabled={loading}
-          className="rounded-lg bg-gold px-5 py-2 text-sm font-semibold text-background transition-colors hover:bg-gold-hover disabled:opacity-50"
+          className="glass-gold glass-pill px-5 py-2 text-sm font-semibold transition-colors hover:bg-gold-hover disabled:opacity-50"
         >
           {loading ? (
             <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-background/30 border-t-background" />
@@ -171,7 +171,7 @@ export function EvalForm({
         </button>
         <button
           onClick={() => setOpen(false)}
-          className="rounded-lg border border-card-border px-4 py-2 text-sm text-muted hover:text-foreground"
+          className="glass glass-pill px-4 py-2 text-sm text-muted hover:text-foreground"
         >
           إلغاء
         </button>

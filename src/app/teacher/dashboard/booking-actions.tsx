@@ -35,7 +35,7 @@ export function BookingActions({ bookingId, isFirst }: { bookingId: string; isFi
   if (done === "confirmed") {
     return (
       <div className="flex flex-col items-end gap-1">
-        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400">
+        <span className="glass-success glass-badge rounded-full px-3 py-1 text-xs text-emerald-400">
           تم التأكيد
         </span>
         {roomUrl && (
@@ -58,7 +58,7 @@ export function BookingActions({ bookingId, isFirst }: { bookingId: string; isFi
 
   if (done === "cancelled") {
     return (
-      <span className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs text-red-400">
+      <span className="glass-danger glass-badge rounded-full px-3 py-1 text-xs text-red-400">
         تم الرفض
       </span>
     );
@@ -73,7 +73,7 @@ export function BookingActions({ bookingId, isFirst }: { bookingId: string; isFi
           <button
             onClick={() => handle("cancelled")}
             disabled={loading !== null}
-            className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+            className="glass-danger glass-pill px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
           >
             {loading === "decline" ? (
               <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -84,7 +84,7 @@ export function BookingActions({ bookingId, isFirst }: { bookingId: string; isFi
           <button
             onClick={() => setConfirmDecline(false)}
             disabled={loading !== null}
-            className="rounded-lg border border-card-border px-3 py-1.5 text-xs text-muted transition-colors hover:text-foreground disabled:opacity-50"
+            className="glass glass-pill px-3 py-1.5 text-xs text-muted transition-colors hover:text-foreground disabled:opacity-50"
           >
             إلغاء
           </button>
@@ -100,7 +100,7 @@ export function BookingActions({ bookingId, isFirst }: { bookingId: string; isFi
         <button
           onClick={() => handle("confirmed")}
           disabled={loading !== null}
-          className={`flex min-h-[44px] items-center gap-1 rounded-lg bg-green-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50 sm:px-3 sm:py-1.5 ${isFirst ? "animate-pulse-slow ring-2 ring-green-400/50" : ""}`}
+          className={`glass-success glass-pill flex min-h-[44px] items-center gap-1 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50 sm:px-3 sm:py-1.5 ${isFirst ? "animate-pulse-slow ring-2 ring-green-400/50" : ""}`}
         >
           {loading === "confirm" ? (
             <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />

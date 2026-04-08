@@ -65,7 +65,7 @@ export function CurrencyPackages() {
                 key={c.code}
                 onClick={() => setCurrency(c.code as typeof currency)}
                 className={`rounded-full px-4 py-2 text-sm transition-colors ${
-                  currency === c.code ? "bg-gold font-medium text-background" : "border border-card-border text-muted hover:border-gold/40 hover:text-gold"
+                  currency === c.code ? "glass-gold glass-pill font-medium" : "glass glass-pill text-muted hover:border-gold/40 hover:text-gold"
                 }`}
               >
                 {c.label}
@@ -76,9 +76,9 @@ export function CurrencyPackages() {
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {PACKAGES.map((pkg) => (
-            <div key={pkg.en} className={`flex flex-col rounded-2xl p-6 ${pkg.featured ? "border-2 border-gold bg-card" : "border border-card-border bg-card"}`}>
+            <div key={pkg.en} className={`flex flex-col glass-card p-6 ${pkg.featured ? "border-2 border-gold" : ""}`}>
               {pkg.featured && (
-                <span className="mb-3 inline-block self-start rounded-full bg-gold px-3 py-1 text-xs font-bold text-background">
+                <span className="glass-gold glass-pill mb-3 inline-block self-start px-3 py-1 text-xs font-bold">
                   {t("الأكثر طلباً", "Most Popular")}
                 </span>
               )}
@@ -108,8 +108,8 @@ export function CurrencyPackages() {
 
               <Link
                 href={`/contact?package=${pkg.en}`}
-                className={`mt-6 block rounded py-2.5 text-center text-sm font-medium transition-colors ${
-                  pkg.featured ? "bg-gold text-background hover:bg-gold-hover" : "border border-gold bg-gold/10 text-gold hover:bg-gold hover:text-background"
+                className={`mt-6 block rounded-full py-2.5 text-center text-sm font-medium transition-colors ${
+                  pkg.featured ? "glass-gold glass-pill hover:bg-gold-hover" : "glass glass-pill text-gold hover:bg-gold hover:text-background"
                 }`}
               >
                 {t("احجز الآن", "Book Now")}

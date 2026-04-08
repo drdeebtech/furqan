@@ -45,7 +45,7 @@ export function PublicNav() {
       </div>
 
       {/* Main nav */}
-      <nav className="sticky top-0 z-50 border-b border-card-border bg-background/95 backdrop-blur">
+      <nav className="sticky top-0 z-50 glass">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
           <Link href="/" className="flex items-center gap-2">
             <Image src="/logo-192.png" alt="فرقان" width={32} height={32} sizes="32px" className="rounded-full" priority />
@@ -60,7 +60,7 @@ export function PublicNav() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`rounded-lg px-3 py-2 text-sm transition-all duration-200 ${active ? "font-medium text-gold" : "text-muted hover:text-foreground hover:bg-gold/5"}`}
+                  className={`glass-nav-item px-3 py-2 text-sm transition-all duration-200 ${active ? "font-medium text-gold" : "text-muted hover:text-foreground"}`}
                 >
                   {t(link.ar, link.en)}
                 </Link>
@@ -76,7 +76,7 @@ export function PublicNav() {
             </Link>
             <Link
               href="/register"
-              className="neu-btn rounded border border-gold bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition-all duration-200 hover:bg-gold hover:text-background"
+              className="glass glass-pill px-4 py-2 text-sm font-medium text-gold transition-all duration-200 hover:bg-gold hover:text-background"
             >
               {t("سجّل الآن", "Register Now")}
             </Link>
@@ -86,7 +86,7 @@ export function PublicNav() {
           <div className="flex items-center gap-2 lg:hidden">
             <Link
               href="/register"
-              className="neu-btn rounded-lg bg-gold px-3 py-1.5 text-xs font-bold text-background transition-all duration-200 hover:bg-gold-hover"
+              className="glass-gold glass-pill px-3 py-1.5 text-xs font-bold transition-all duration-200"
             >
               {t("سجّل", "Register")}
             </Link>
@@ -103,7 +103,7 @@ export function PublicNav() {
 
         {/* Mobile dropdown */}
         {open && (
-          <div className="border-t border-card-border bg-surface px-4 py-4 lg:hidden">
+          <div className="glass-card px-4 py-4 lg:hidden">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
@@ -114,9 +114,9 @@ export function PublicNav() {
                 {t(link.ar, link.en)}
               </Link>
             ))}
-            <div className="mt-4 flex flex-col gap-2 border-t border-card-border pt-4">
+            <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4">
               <Link href="/login" className="text-sm text-muted">{t("تسجيل الدخول", "Sign In")}</Link>
-              <Link href="/register" className="neu-btn rounded bg-gold px-4 py-2.5 text-center text-sm font-medium text-background transition-colors duration-200 hover:bg-gold-hover">
+              <Link href="/register" className="glass-gold glass-pill px-4 py-2.5 text-center text-sm font-medium transition-colors duration-200">
                 {t("سجّل الآن", "Register Now")}
               </Link>
             </div>

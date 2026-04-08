@@ -40,7 +40,7 @@ export function CvReviewControls({ teacherId }: { teacherId: string }) {
   };
 
   return (
-    <div className="rounded-2xl border border-card-border bg-card p-6">
+    <div className="glass-card p-6">
       <h3 className="mb-4 text-lg font-semibold">
         إجراء المراجعة
         <span className="mr-2 text-sm font-normal text-muted">
@@ -59,7 +59,7 @@ export function CvReviewControls({ teacherId }: { teacherId: string }) {
           <button
             onClick={handleApprove}
             disabled={approvePending}
-            className="flex items-center gap-2 rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+            className="flex items-center gap-2 glass-success glass-pill px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
           >
             {approvePending ? (
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -71,7 +71,7 @@ export function CvReviewControls({ teacherId }: { teacherId: string }) {
 
           <button
             onClick={() => setShowRejectForm(true)}
-            className="flex items-center gap-2 rounded bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
+            className="flex items-center gap-2 glass-danger glass-pill px-4 py-2 text-sm font-medium transition-colors"
           >
             <X size={16} />
             رفض
@@ -93,7 +93,7 @@ export function CvReviewControls({ teacherId }: { teacherId: string }) {
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="اكتب سبب رفض السيرة الذاتية..."
-              className="w-full rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+              className="w-full rounded-xl glass-input px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
             />
           </div>
 
@@ -101,7 +101,7 @@ export function CvReviewControls({ teacherId }: { teacherId: string }) {
             <button
               onClick={handleReject}
               disabled={rejectPending}
-              className="flex items-center gap-2 rounded bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+              className="flex items-center gap-2 glass-danger glass-pill px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
             >
               {rejectPending ? (
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -117,7 +117,7 @@ export function CvReviewControls({ teacherId }: { teacherId: string }) {
                 setReason("");
                 setError(null);
               }}
-              className="rounded border border-card-border px-4 py-2 text-sm font-medium text-muted transition-colors hover:text-foreground"
+              className="glass glass-pill px-4 py-2 text-sm font-medium text-muted transition-colors hover:text-foreground"
             >
               إلغاء
             </button>

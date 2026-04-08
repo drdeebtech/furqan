@@ -23,13 +23,13 @@ export function LoginForm() {
       <p className="mb-6 text-sm text-muted">Sign in to your account</p>
 
       {justRegistered && (
-        <div className="mb-4 rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success">
+        <div className="mb-4 rounded-lg glass-success p-3 text-sm text-success">
           تم إنشاء الحساب بنجاح — سجّل دخولك الآن
         </div>
       )}
 
       {state.error && (
-        <div className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">
+        <div className="mb-4 rounded-lg glass-danger p-3 text-sm text-error">
           {state.error}
         </div>
       )}
@@ -50,7 +50,7 @@ export function LoginForm() {
             required
             autoComplete="email"
             dir="ltr"
-            className="w-full rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 text-left text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+            className="w-full rounded-xl glass-input px-4 py-2.5 text-left text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
             placeholder="you@example.com"
           />
         </div>
@@ -77,7 +77,7 @@ export function LoginForm() {
               required
               autoComplete="current-password"
               dir="ltr"
-              className="w-full rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 pl-10 text-left text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+              className="w-full rounded-xl glass-input px-4 py-2.5 pl-10 text-left text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
               placeholder="••••••••"
             />
             <button
@@ -95,7 +95,7 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={pending}
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-2.5 font-semibold text-white neu-btn transition-colors hover:bg-primary-hover disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-full glass-gold glass-pill py-2.5 font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
         >
           {pending ? (
             <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />

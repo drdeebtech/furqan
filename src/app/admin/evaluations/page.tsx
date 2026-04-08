@@ -22,7 +22,7 @@ function scoreBadge(score: number | null) {
         ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
         : "border-red-500/30 bg-red-500/10 text-red-400";
   return (
-    <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-semibold ${color}`}>
+    <span className={`inline-block glass-badge font-semibold ${color}`}>
       {score}/10
     </span>
   );
@@ -76,7 +76,7 @@ export default async function AdminEvaluationsPage() {
         </h1>
         <Link
           href="/admin/evaluations/new"
-          className="mr-auto inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
+          className="mr-auto inline-flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-semibold transition-colors"
         >
           <Plus size={16} />
           إنشاء تقييم
@@ -85,16 +85,16 @@ export default async function AdminEvaluationsPage() {
 
       {/* Table */}
       {list.length === 0 ? (
-        <div className="rounded-2xl border border-card-border bg-card p-12 text-center">
+        <div className="glass-card p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-muted">لا توجد تقييمات بعد</p>
           <p className="mt-1 text-sm text-muted">ابدأ بإنشاء تقييم جديد للطلاب</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-card-border">
+        <div className="overflow-x-auto rounded-xl glass-card">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-card-border bg-card">
+              <tr className="border-b border-white/10 bg-white/5">
                 <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الطالب</th>
                 <th scope="col" className="px-3 py-3 text-right font-medium text-muted">المعلم</th>
                 <th scope="col" className="px-3 py-3 text-right font-medium text-muted">النوع</th>
@@ -105,11 +105,11 @@ export default async function AdminEvaluationsPage() {
             </thead>
             <tbody>
               {list.map((ev) => (
-                <tr key={ev.id} className="border-b border-card-border last:border-b-0 hover:bg-surface-alt/50">
+                <tr key={ev.id} className="border-b border-white/10 last:border-b-0 hover:bg-surface-alt/50">
                   <td className="px-3 py-3 font-medium">{nameMap[ev.student_id] ?? "—"}</td>
                   <td className="px-3 py-3">{nameMap[ev.teacher_id] ?? "—"}</td>
                   <td className="px-3 py-3">
-                    <span className="rounded-full border border-card-border bg-card px-2 py-0.5 text-xs">
+                    <span className="glass-badge">
                       {TYPE_AR[ev.evaluation_type] ?? ev.evaluation_type}
                     </span>
                   </td>

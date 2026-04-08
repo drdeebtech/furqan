@@ -34,12 +34,12 @@ export default async function ModeratorCvReviewPage() {
       <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold">
         <FileText size={24} className="text-gold" /> مراجعة السير الذاتية
         {list.length > 0 && (
-          <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-sm text-amber-400">{list.length}</span>
+          <span className="glass-badge rounded-full px-3 py-1 text-sm text-amber-400">{list.length}</span>
         )}
       </h1>
 
       {list.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center">
+        <div className="glass-card rounded-xl p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-muted">لا توجد سير ذاتية بانتظار المراجعة</p>
         </div>
@@ -47,14 +47,14 @@ export default async function ModeratorCvReviewPage() {
         <div className="space-y-3">
           {list.map(cv => (
             <Link key={cv.teacher_id} href={`/moderator/cv-review/${cv.teacher_id}`}
-              className="block rounded-xl border border-card-border bg-card p-4 transition-colors hover:border-gold/30">
+              className="glass-card block rounded-xl p-4 transition-colors hover:border-gold/30">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium">{nameMap[cv.teacher_id] ?? "معلم"}</p>
                   <p className="text-xs text-muted">{cv.bio ? cv.bio.slice(0, 80) + "..." : "بدون نبذة"}</p>
                 </div>
                 <div className="text-left">
-                  <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-400">بانتظار المراجعة</span>
+                  <span className="glass-badge rounded-full px-2 py-0.5 text-xs text-amber-400">بانتظار المراجعة</span>
                   {cv.cv_submitted_at && <p className="mt-1 text-xs text-muted">{new Date(cv.cv_submitted_at).toLocaleDateString("ar-SA")}</p>}
                 </div>
               </div>

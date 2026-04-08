@@ -15,7 +15,7 @@ const CATEGORIES = [
   { ar: "تفسير", en: "Tafsir" },
 ];
 
-const input = "w-full rounded-xl border border-input-border bg-input px-4 py-3 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none";
+const input = "w-full rounded-xl glass-input px-4 py-3 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none";
 
 function slugify(text: string) {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -106,7 +106,7 @@ export function PostForm({ post }: { post?: BlogPost }) {
         <textarea name="body_en" required dir="ltr" rows={10} defaultValue={post?.body_en} className={`${input} resize-y text-left`} placeholder="Write the full article content here..." />
       </div>
 
-      <div className="flex items-center gap-3 rounded-xl border border-card-border bg-card p-4">
+      <div className="flex items-center gap-3 glass-card rounded-xl p-4">
         <input type="checkbox" name="is_published" id="is_published" defaultChecked={post?.is_published} className="h-4 w-4 accent-gold" />
         <label htmlFor="is_published" className="cursor-pointer text-sm font-medium">
           نشر المقال الآن
@@ -117,7 +117,7 @@ export function PostForm({ post }: { post?: BlogPost }) {
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-xl bg-gold py-3 font-semibold text-background transition-colors hover:bg-gold-hover disabled:opacity-50"
+        className="w-full glass-gold glass-pill py-3 font-semibold transition-colors disabled:opacity-50"
       >
         {pending ? "جاري الحفظ..." : post ? "حفظ التعديلات" : "حفظ المقال"}
       </button>

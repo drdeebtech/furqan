@@ -24,7 +24,7 @@ export function ReviewToggle({ reviewId, isPublic }: { reviewId: string; isPubli
           <button
             onClick={() => handleToggle(false)}
             disabled={loading}
-            className="rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+            className="glass-danger glass-pill px-2 py-0.5 text-xs font-medium transition-colors disabled:opacity-50"
           >
             {loading ? "..." : "تأكيد"}
           </button>
@@ -52,7 +52,7 @@ export function ReviewToggle({ reviewId, isPublic }: { reviewId: string; isPubli
         }
       }}
       disabled={loading}
-      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${pub ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-red-500/10 text-red-400 border border-red-500/30"}`}
+      className={`glass-badge ${pub ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-red-500/10 text-red-400 border-red-500/30"}`}
     >
       {loading ? "..." : pub ? "عام" : "مخفي"}
     </button>

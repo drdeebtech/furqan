@@ -40,7 +40,7 @@ export function InstantSessionButton({ students }: { students: Student[] }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="flex min-h-[44px] items-center gap-2 rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-700"
+        className="glass-success glass-pill flex min-h-[44px] items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-700"
       >
         <Zap size={16} />
         جلسة فورية
@@ -49,7 +49,7 @@ export function InstantSessionButton({ students }: { students: Student[] }) {
   }
 
   return (
-    <div className="rounded-xl border border-gold/30 bg-card p-5">
+    <div className="glass-card border-gold/30 p-5">
       <h3 className="mb-3 flex items-center gap-2 text-sm font-bold">
         <Zap size={16} className="text-green-400" />
         بدء جلسة فورية
@@ -69,7 +69,7 @@ export function InstantSessionButton({ students }: { students: Student[] }) {
             name="instant-student"
             value={selectedStudent}
             onChange={(e) => setSelectedStudent(e.target.value)}
-            className="w-full rounded-lg border border-input-border bg-input px-3 py-2 text-sm focus:border-gold focus:outline-none"
+            className="glass-input w-full px-3 py-2 text-sm focus:border-gold focus:outline-none"
           >
             <option value="">— اختر طالباً —</option>
             {students.map((s) => (
@@ -88,8 +88,8 @@ export function InstantSessionButton({ students }: { students: Student[] }) {
                 onClick={() => setDuration(d)}
                 className={`flex-1 rounded-lg border px-2 py-1.5 text-xs transition-colors ${
                   duration === d
-                    ? "border-gold bg-gold/10 text-gold"
-                    : "border-input-border text-muted hover:border-gold/50"
+                    ? "glass glass-pill text-gold"
+                    : "border-white/10 text-muted hover:border-gold/50"
                 }`}
               >
                 {d} د
@@ -102,7 +102,7 @@ export function InstantSessionButton({ students }: { students: Student[] }) {
           <button
             onClick={handleStart}
             disabled={!selectedStudent || loading}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-50"
+            className="glass-success glass-pill flex flex-1 items-center justify-center gap-2 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-50"
           >
             {loading ? (
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -115,7 +115,7 @@ export function InstantSessionButton({ students }: { students: Student[] }) {
           </button>
           <button
             onClick={() => { setOpen(false); setError(null); }}
-            className="rounded-lg border border-card-border px-4 py-2 text-sm text-muted transition-colors hover:text-foreground"
+            className="glass glass-pill px-4 py-2 text-sm text-muted transition-colors hover:text-foreground"
           >
             إلغاء
           </button>

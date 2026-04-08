@@ -36,19 +36,19 @@ export default async function ModeratorEvaluationsPage() {
     <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold"><ClipboardCheck size={24} className="text-gold" /> التقييمات</h1>
-        <Link href="/moderator/evaluations/new" className="flex items-center gap-2 rounded bg-gold px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gold-hover">
+        <Link href="/moderator/evaluations/new" className="glass-gold glass-pill flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors">
           <Plus size={16} /> تقييم جديد
         </Link>
       </div>
 
       {list.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center">
+        <div className="glass-card rounded-xl p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا توجد تقييمات</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-card-border">
+        <div className="glass-card overflow-hidden rounded-xl p-0">
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-card-border bg-card">
+            <thead><tr className="border-b border-white/10 bg-white/5">
               <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الطالب</th>
               <th scope="col" className="px-4 py-3 text-right font-medium text-muted">المعلم</th>
               <th scope="col" className="px-4 py-3 text-right font-medium text-muted">النوع</th>
@@ -58,14 +58,14 @@ export default async function ModeratorEvaluationsPage() {
             </tr></thead>
             <tbody>
               {list.map(e => (
-                <tr key={e.id} className="border-b border-card-border last:border-b-0">
+                <tr key={e.id} className="border-b border-white/10 last:border-b-0">
                   <td className="px-4 py-3 font-medium">{nameMap[e.student_id] ?? "—"}</td>
                   <td className="px-4 py-3">{nameMap[e.teacher_id] ?? "—"}</td>
-                  <td className="px-4 py-3"><span className="rounded-full border border-card-border bg-surface px-2 py-0.5 text-xs">{TYPE_AR[e.evaluation_type] ?? e.evaluation_type}</span></td>
+                  <td className="px-4 py-3"><span className="glass-badge rounded-full px-2 py-0.5 text-xs">{TYPE_AR[e.evaluation_type] ?? e.evaluation_type}</span></td>
                   <td className="px-4 py-3 text-xs text-muted">{e.period_start} — {e.period_end}</td>
                   <td className="px-4 py-3">
                     {e.overall_score ? (
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${e.overall_score >= 7 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : e.overall_score >= 4 ? "bg-amber-500/10 text-amber-400 border border-amber-500/30" : "bg-red-500/10 text-red-400 border border-red-500/30"}`}>
+                      <span className={`glass-badge rounded-full px-2 py-0.5 text-xs font-medium ${e.overall_score >= 7 ? "glass-success" : e.overall_score >= 4 ? "text-amber-400" : "glass-danger"}`}>
                         {e.overall_score}/10
                       </span>
                     ) : "—"}

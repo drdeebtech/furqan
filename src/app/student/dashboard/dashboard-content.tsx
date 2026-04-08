@@ -72,7 +72,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
         {totalSessions === 0 && !nextBooking && <GuidanceBanner />}
 
         {nextBooking ? (
-          <div className="mt-8 rounded-2xl border border-gold/30 bg-card p-5 sm:p-8">
+          <div className="mt-8 glass-card p-5 sm:p-8">
             <p className="mb-2 text-sm font-bold text-gold"><Star size={14} className="inline text-gold" /> {t("جلستك القادمة", "Your Next Session")}</p>
             <p className="text-lg font-bold">{t("مع", "With")} {nameMap[nextBooking.teacher_id] ?? t("معلم", "Teacher")}</p>
             <p className="mt-1 text-sm text-muted">
@@ -86,7 +86,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
             <p className={`mt-2 text-sm font-medium ${countdownColor}`}>{countdown}</p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               {sessionId && (
-                <Link href={`/student/sessions/${sessionId}`} className="flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-700">
+                <Link href={`/student/sessions/${sessionId}`} className="flex items-center gap-2 glass-success glass-pill px-6 py-2.5 text-sm font-semibold text-white transition-colors">
                   <Video size={16} /> {t("انضم للجلسة", "Join Session")}
                 </Link>
               )}
@@ -96,10 +96,10 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
             </div>
           </div>
         ) : totalSessions > 0 ? (
-          <div className="mt-8 rounded-2xl border-2 border-dashed border-card-border p-5 text-center sm:p-8">
+          <div className="mt-8 glass-card border-dashed p-5 text-center sm:p-8">
             <Calendar size={28} className="mx-auto mb-3 text-muted" />
             <p className="text-muted">{t("لا توجد جلسات قادمة", "No upcoming sessions")}</p>
-            <Link href="/student/teachers" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-gold px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-gold-hover">
+            <Link href="/student/teachers" className="mt-4 inline-flex items-center gap-2 glass-gold glass-pill px-6 py-2.5 text-sm font-semibold text-white transition-colors">
               <Search size={16} /> {t("احجز جلسة الآن", "Book a Session")}
             </Link>
           </div>
@@ -108,22 +108,22 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
         <QuickActions />
 
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Link href="/student/sessions" className="min-h-[44px] rounded-xl border border-card-border bg-card p-3 transition-colors hover:border-gold/40 sm:p-4">
+          <Link href="/student/sessions" className="min-h-[44px] glass-card p-3 transition-colors hover:border-gold/40 sm:p-4">
             <CheckCircle size={16} className="mb-1 text-gold" />
             <p className="text-xl font-bold text-gold sm:text-2xl">{totalSessions}</p>
             <p className="text-xs text-muted">{t("إجمالي الجلسات", "Total Sessions")}</p>
           </Link>
-          <Link href="/student/sessions" className="min-h-[44px] rounded-xl border border-card-border bg-card p-3 transition-colors hover:border-gold/40 sm:p-4">
+          <Link href="/student/sessions" className="min-h-[44px] glass-card p-3 transition-colors hover:border-gold/40 sm:p-4">
             <Calendar size={16} className="mb-1 text-gold" />
             <p className="text-xl font-bold text-gold sm:text-2xl">{monthSessions}</p>
             <p className="text-xs text-muted">{t("جلسات هذا الشهر", "This Month")}</p>
           </Link>
-          <Link href="/student/bookings" className="min-h-[44px] rounded-xl border border-card-border bg-card p-3 transition-colors hover:border-gold/40 sm:p-4">
+          <Link href="/student/bookings" className="min-h-[44px] glass-card p-3 transition-colors hover:border-gold/40 sm:p-4">
             <Clock size={16} className="mb-1 text-gold" />
             <p className="text-xl font-bold text-gold sm:text-2xl">{pendingBookings}</p>
             <p className="text-xs text-muted">{t("حجوزات معلّقة", "Pending Bookings")}</p>
           </Link>
-          <Link href="/student/progress" className="min-h-[44px] rounded-xl border border-gold/20 bg-gold/5 p-3 transition-colors hover:border-gold/40 sm:p-4">
+          <Link href="/student/progress" className="min-h-[44px] glass-card p-3 transition-colors hover:border-gold/40 sm:p-4">
             <TrendingUp size={16} className="mb-1 text-gold" />
             <p className="text-sm font-bold text-gold">{t("تقدمي", "My Progress")}</p>
             <p className="text-xs text-muted">{t("عرض رحلتي مع القرآن", "View my Quran journey")}</p>
@@ -139,7 +139,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
               {pendingHomework.map(([bookingId, h]) => {
                 const booking = recent.find(r => r.id === bookingId);
                 return (
-                  <div key={bookingId} className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4">
+                  <div key={bookingId} className="glass-card p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="text-sm font-medium">{booking ? nameMap[booking.teacher_id] ?? t("معلم", "Teacher") : t("معلم", "Teacher")}</p>
@@ -161,19 +161,19 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
             </h2>
             <div className="space-y-3">
               {evaluations.map(ev => (
-                <div key={ev.id} className="rounded-xl border border-card-border bg-card p-4">
+                <div key={ev.id} className="glass-card p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-sm font-medium">{nameMap[ev.teacher_id] ?? t("معلم", "Teacher")}</p>
                       <p className="mt-0.5 text-xs text-muted">{ev.evaluation_type}</p>
                     </div>
-                    <span className={`rounded-full border px-3 py-1 text-sm font-bold ${ev.overall_score >= 8 ? "border-green-500/30 text-green-400" : ev.overall_score >= 5 ? "border-amber-500/30 text-amber-400" : "border-red-500/30 text-red-400"}`}>
+                    <span className={`glass-badge px-3 py-1 text-sm font-bold ${ev.overall_score >= 8 ? "text-green-400" : ev.overall_score >= 5 ? "text-amber-400" : "text-red-400"}`}>
                       {ev.overall_score}/10
                     </span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-3 text-xs">
-                    {ev.hifz_score != null && <span className="rounded border border-card-border px-2 py-0.5">{t("حفظ", "Hifz")}: {ev.hifz_score}/10</span>}
-                    {ev.tajweed_score != null && <span className="rounded border border-card-border px-2 py-0.5">{t("تجويد", "Tajweed")}: {ev.tajweed_score}/10</span>}
+                    {ev.hifz_score != null && <span className="glass-badge px-2 py-0.5">{t("حفظ", "Hifz")}: {ev.hifz_score}/10</span>}
+                    {ev.tajweed_score != null && <span className="glass-badge px-2 py-0.5">{t("تجويد", "Tajweed")}: {ev.tajweed_score}/10</span>}
                   </div>
                   {ev.strengths && <p className="mt-2 text-xs"><span className="text-green-400">{t("نقاط القوة:", "Strengths:")}</span> {ev.strengths}</p>}
                   {ev.weaknesses && <p className="mt-1 text-xs"><span className="text-amber-400">{t("نقاط الضعف:", "Weaknesses:")}</span> {ev.weaknesses}</p>}
@@ -194,7 +194,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
               {recent.map(r => {
                 const note = notesMap[r.id];
                 return (
-                  <div key={r.id} className="rounded-xl border border-card-border bg-card p-4">
+                  <div key={r.id} className="glass-card p-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium">{nameMap[r.teacher_id] ?? t("معلم", "Teacher")}</p>
@@ -203,13 +203,13 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                       <p className="text-xs text-muted">{new Date(r.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}</p>
                     </div>
                     {note?.post_session_notes && (
-                      <div className="mt-2 rounded-lg border border-gold/20 bg-gold/5 p-2">
+                      <div className="mt-2 glass rounded-lg p-2">
                         <p className="text-xs font-medium text-gold"><FileText size={10} className="inline" /> {t("ملاحظات المعلم:", "Teacher Notes:")}</p>
                         <p className="mt-0.5 text-xs text-muted">{note.post_session_notes.length > 120 ? note.post_session_notes.slice(0, 120) + "…" : note.post_session_notes}</p>
                       </div>
                     )}
                     {note?.homework && (
-                      <div className="mt-1 rounded-lg border border-blue-500/20 bg-blue-500/5 p-2">
+                      <div className="mt-1 glass rounded-lg p-2">
                         <p className="text-xs font-medium text-blue-400"><BookOpen size={10} className="inline" /> {t("واجب:", "Homework:")}</p>
                         <p className="mt-0.5 text-xs text-muted">{note.homework.length > 100 ? note.homework.slice(0, 100) + "…" : note.homework}</p>
                       </div>

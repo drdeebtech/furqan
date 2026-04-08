@@ -156,7 +156,7 @@ export function VideoRoom({
       )}
 
       {!joined && !loading && (
-        <div className="rounded-2xl border border-card-border bg-card elevation-2 p-8 text-center md:p-12">
+        <div className="glass-card p-8 text-center md:p-12">
           <Video size={40} className="mx-auto mb-4 text-gold" />
           <h2 className="mb-2 font-display text-xl font-bold">غرفة الجلسة جاهزة</h2>
           <p className="mb-6 text-sm text-muted">اضغط للانضمام إلى جلسة الفيديو</p>
@@ -166,7 +166,7 @@ export function VideoRoom({
           <button
             onClick={joinCall}
             disabled={!canJoin || !devicesReady}
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-8 py-3 text-lg font-semibold text-white neu-btn transition-colors hover:bg-primary-hover focus-ring disabled:opacity-50"
+            className="inline-flex items-center gap-2 glass-gold glass-pill px-8 py-3 text-lg font-semibold text-white transition-colors focus-ring disabled:opacity-50"
           >
             <Video size={20} />
             انضم للجلسة
@@ -196,7 +196,7 @@ export function VideoRoom({
 
       {/* Session controls bar */}
       {joined && (
-        <div className="mt-2 flex items-center justify-between rounded-xl border border-card-border bg-card p-2 md:mt-4 md:rounded-2xl md:p-3">
+        <div className="mt-2 flex items-center justify-between glass-card p-2 md:mt-4 md:p-3">
           <div className="flex items-center gap-2 md:gap-3">
             <div className="flex items-center gap-1.5 text-xs text-success md:text-sm">
               <span className="h-2 w-2 animate-pulse rounded-full bg-success" />
@@ -209,7 +209,7 @@ export function VideoRoom({
           <div className="flex items-center gap-2">
             <button
               onClick={toggleFullscreen}
-              className="flex items-center gap-1 rounded-lg border border-card-border px-2 py-1.5 text-xs text-muted transition-colors hover:text-gold md:px-3"
+              className="flex items-center gap-1 rounded-lg glass px-2 py-1.5 text-xs text-muted transition-colors hover:text-gold md:px-3"
               title="ملء الشاشة"
               aria-label="ملء الشاشة"
             >

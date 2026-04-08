@@ -18,7 +18,7 @@ interface ServiceData {
   is_active: boolean;
 }
 
-const input = "w-full rounded-lg border border-input-border bg-input px-3 py-2 text-sm focus:border-gold focus:outline-none";
+const input = "w-full rounded-lg glass-input px-3 py-2 text-sm focus:border-gold focus:outline-none";
 
 export function ServiceForm({ service }: { service?: ServiceData }) {
   const [, formAction, pending] = useActionState<{ success?: boolean }, FormData>(saveService, {});
@@ -80,7 +80,7 @@ export function ServiceForm({ service }: { service?: ServiceData }) {
         <label htmlFor="is_active" className="text-sm">نشط / Active</label>
       </div>
 
-      <button type="submit" disabled={pending} className="flex items-center gap-2 rounded-lg bg-gold px-6 py-2.5 text-sm font-semibold text-background hover:bg-gold-hover disabled:opacity-50">
+      <button type="submit" disabled={pending} className="flex items-center gap-2 glass-gold glass-pill px-6 py-2.5 text-sm font-semibold disabled:opacity-50">
         <Save size={16} />
         {pending ? "جاري الحفظ..." : "حفظ"}
       </button>

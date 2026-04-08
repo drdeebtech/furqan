@@ -36,13 +36,13 @@ export function TeachersContent({ teachers }: { teachers: Teacher[] }) {
 
   return (
     <div>
-      <section className="border-b border-card-border bg-card py-20 text-center">
+      <section className="glass-card border-b border-white/10 py-20 text-center">
         <p className="text-sm text-muted"><Link href="/" className="text-gold hover:text-gold-light">{t("الرئيسية", "Home")}</Link> / {t("المعلمون", "Teachers")}</p>
         <h1 className="font-display mt-4 text-5xl font-bold">{t("معلمونا", "Our Teachers")}</h1>
         <p className="mt-3 text-sm text-muted">{t(`${teachers.length} معلم معتمد`, `${teachers.length} certified teachers`)}</p>
       </section>
 
-      <section className="border-b border-card-border py-8">
+      <section className="border-b border-white/10 py-8">
         <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-8 px-6">
           {[
             { icon: Award, ar: "حاصلون على الإجازة", en: "Certified with Ijazah" },
@@ -60,14 +60,14 @@ export function TeachersContent({ teachers }: { teachers: Teacher[] }) {
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-6">
           {teachers.length === 0 ? (
-            <div className="rounded-2xl border border-card-border bg-card p-12 text-center">
+            <div className="glass-card p-12 text-center">
               <GraduationCap size={32} className="mx-auto mb-3 text-muted" />
               <p className="text-muted">{t("نعمل على إضافة معلمين جدد — ترقبوا!", "We're adding new teachers — stay tuned!")}</p>
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {teachers.map((teacher) => (
-                <div key={teacher.id} className="rounded-2xl border border-card-border bg-card p-6">
+                <div key={teacher.id} className="glass-card p-6">
                   <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-gold/30 bg-gold/10 font-display text-2xl font-bold text-gold">
                     {teacher.name.charAt(0)}
                   </div>
@@ -84,7 +84,7 @@ export function TeachersContent({ teachers }: { teachers: Teacher[] }) {
                   {teacher.specialties.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {teacher.specialties.map((s) => (
-                        <span key={s} className="rounded-full border border-card-border bg-surface px-2.5 py-0.5 text-xs text-muted">
+                        <span key={s} className="glass-badge px-2.5 py-0.5 text-xs text-muted">
                           {SPECIALTY[s] ? t(SPECIALTY[s].ar, SPECIALTY[s].en) : s}
                         </span>
                       ))}
@@ -94,7 +94,7 @@ export function TeachersContent({ teachers }: { teachers: Teacher[] }) {
                   {teacher.recitationStandards.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {[...new Set(teacher.recitationStandards)].map((r) => (
-                        <span key={r} className="rounded-full border border-card-border px-2 py-0.5 text-xs text-muted">
+                        <span key={r} className="glass-badge px-2 py-0.5 text-xs text-muted">
                           {RIWAYA[r] ? t(RIWAYA[r].ar, RIWAYA[r].en) : r}
                         </span>
                       ))}
@@ -114,7 +114,7 @@ export function TeachersContent({ teachers }: { teachers: Teacher[] }) {
 
                   <Link
                     href={`/contact?teacher=${encodeURIComponent(teacher.name)}`}
-                    className="mt-4 block rounded border border-gold bg-gold/10 py-2 text-center text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background"
+                    className="glass glass-pill mt-4 block py-2 text-center text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background"
                   >
                     {t("احجز مع هذا المعلم", "Book with this Teacher")}
                   </Link>
@@ -125,17 +125,17 @@ export function TeachersContent({ teachers }: { teachers: Teacher[] }) {
         </div>
       </section>
 
-      <section className="border-t border-card-border bg-card/30 py-16">
+      <section className="border-t border-white/10 bg-card/30 py-16">
         <div className="mx-auto max-w-2xl px-6 text-center">
           <h2 className="font-display text-2xl font-bold">{t("هل أنت معلم قرآن متخصص؟", "Are you a qualified Quran teacher?")}</h2>
           <p className="mt-2 text-sm text-muted">{t("انضم إلى فريقنا وساهم في تعليم القرآن للمسلمين حول العالم", "Join our team and help teach Quran to Muslims worldwide")}</p>
-          <Link href="/contact?type=teacher" className="mt-6 inline-block rounded border border-gold bg-gold/10 px-6 py-2.5 text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background">
+          <Link href="/contact?type=teacher" className="glass glass-pill mt-6 inline-block px-6 py-2.5 text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background">
             {t("تقدم الآن", "Apply Now")}
           </Link>
         </div>
       </section>
 
-      <div className="border-t border-card-border"><Testimonials /></div>
+      <div className="border-t border-white/10"><Testimonials /></div>
       <RegisterBanner />
     </div>
   );

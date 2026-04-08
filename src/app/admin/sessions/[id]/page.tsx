@@ -140,7 +140,7 @@ export default async function SessionDetailPage({
       <div className="mb-6 flex items-center gap-3">
         <Link
           href="/admin/sessions"
-          className="rounded-lg border border-card-border p-2 text-muted transition-colors hover:bg-surface-alt"
+          className="glass rounded-lg p-2 text-muted transition-colors"
         >
           <ArrowRight size={16} />
         </Link>
@@ -167,7 +167,7 @@ export default async function SessionDetailPage({
       />
 
       {/* Session info card */}
-      <div className="mt-6 rounded-2xl border border-card-border bg-card p-6">
+      <div className="mt-6 glass-card p-6">
         <h2 className="mb-4 text-lg font-semibold">معلومات الجلسة</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -199,7 +199,7 @@ export default async function SessionDetailPage({
 
       {/* Booking info card */}
       {booking && (
-        <div className="mt-4 rounded-2xl border border-card-border bg-card p-6">
+        <div className="mt-4 glass-card p-6">
           <h2 className="mb-4 text-lg font-semibold">معلومات الحجز</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex items-center gap-2">
@@ -237,7 +237,7 @@ export default async function SessionDetailPage({
       )}
 
       {/* Timeline */}
-      <div className="mt-4 rounded-2xl border border-card-border bg-card p-6">
+      <div className="mt-4 glass-card p-6">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
           <Clock size={18} className="text-gold" />
           الجدول الزمني
@@ -269,7 +269,7 @@ export default async function SessionDetailPage({
 
       {/* Notes */}
       {(session.post_session_notes || session.homework) && (
-        <div className="mt-4 rounded-2xl border border-card-border bg-card p-6">
+        <div className="mt-4 glass-card p-6">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
             <FileText size={18} className="text-gold" />
             ملاحظات
@@ -290,7 +290,7 @@ export default async function SessionDetailPage({
       )}
 
       {/* Audit log */}
-      <div className="mt-4 rounded-2xl border border-card-border bg-card p-6">
+      <div className="mt-4 glass-card p-6">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
           <Shield size={18} className="text-gold" />
           سجل التعديلات
@@ -300,7 +300,7 @@ export default async function SessionDetailPage({
         ) : (
           <div className="space-y-3">
             {logs.map((l) => (
-              <div key={l.id} className="rounded-xl border border-card-border bg-surface-alt p-3">
+              <div key={l.id} className="glass-card rounded-xl p-3">
                 <div className="flex items-center gap-2 text-sm">
                   <span className={`font-medium ${actionColor[l.action] ?? "text-muted"}`}>
                     {l.action}

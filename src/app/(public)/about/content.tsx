@@ -11,7 +11,7 @@ export function AboutContent() {
 
   return (
     <div>
-      <section className="border-b border-card-border bg-card py-20 text-center">
+      <section className="glass-card border-b border-white/10 py-20 text-center">
         <p className="text-sm text-muted"><Link href="/" className="text-gold hover:text-gold-light">{t("الرئيسية", "Home")}</Link> / {t("من نحن", "About")}</p>
         <h1 className="font-display mt-4 text-5xl font-bold">{t("من نحن", "About Us")}</h1>
       </section>
@@ -43,7 +43,7 @@ export function AboutContent() {
               { num: t("١:١", "1:1"), label: t("جلسات فردية مباشرة", "Live Private Sessions") },
               { num: t("مجاناً", "Free"), label: t("التسجيل", "Registration") },
             ].map((s) => (
-              <div key={s.label} className="rounded-xl border border-card-border bg-card p-5 text-center">
+              <div key={s.label} className="glass-card p-5 text-center">
                 <p className="font-display text-2xl font-bold text-gold">{s.num}</p>
                 <p className="mt-1 text-xs text-muted">{s.label}</p>
               </div>
@@ -52,7 +52,7 @@ export function AboutContent() {
         </div>
       </section>
 
-      <section className="border-t border-card-border bg-card/30 py-24">
+      <section className="border-t border-white/10 bg-card/30 py-24">
         <div className="mx-auto max-w-7xl px-6">
           <p className="text-sm font-medium tracking-widest text-gold">❖ {t("قيمنا", "Our Values")}</p>
           <h2 className="font-display mt-3 text-3xl font-bold">{t("ما نؤمن به", "What We Believe")}</h2>
@@ -63,7 +63,7 @@ export function AboutContent() {
               { icon: Clock, ar: "المرونة والالتزام", en: "Flexibility & Commitment", dAr: "نحترم وقتك ونلتزم بالمواعيد مع مرونة كاملة في الجدولة", dEn: "We respect your time and commit to schedules with full scheduling flexibility" },
               { icon: Globe, ar: "خدمة الأمة", en: "Serving the Ummah", dAr: "نسعى لخدمة المسلمين في كل مكان وتسهيل تعلم القرآن للجميع", dEn: "We strive to serve Muslims everywhere and make Quran learning accessible to all" },
             ].map((v) => (
-              <div key={v.en} className="rounded-xl border border-card-border bg-surface p-6">
+              <div key={v.en} className="glass-card p-6">
                 <v.icon size={24} className="mb-3 text-gold" />
                 <h3 className="font-bold">{t(v.ar, v.en)}</h3>
                 <p className="mt-2 text-sm text-muted">{t(v.dAr, v.dEn)}</p>
@@ -73,7 +73,7 @@ export function AboutContent() {
         </div>
       </section>
 
-      <div className="border-t border-card-border"><Testimonials /></div>
+      <div className="border-t border-white/10"><Testimonials /></div>
       <RegisterBanner />
     </div>
   );

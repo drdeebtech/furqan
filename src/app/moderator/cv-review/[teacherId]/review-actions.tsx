@@ -29,7 +29,7 @@ export function CvReviewActions({ teacherId }: { teacherId: string }) {
   }
 
   return (
-    <div className="mt-6 rounded-2xl border border-card-border bg-card p-6">
+    <div className="glass-card mt-6 p-6">
       {error && (
         <div className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</div>
       )}
@@ -41,14 +41,14 @@ export function CvReviewActions({ teacherId }: { teacherId: string }) {
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
-            className="w-full rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none"
+            className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none"
             placeholder="اكتب سبب الرفض..."
           />
           <div className="flex gap-3">
             <button
               onClick={handleReject}
               disabled={isPending || !reason.trim()}
-              className="flex items-center gap-2 rounded bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+              className="glass-danger glass-pill flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
             >
               <XCircle size={16} /> تأكيد الرفض
             </button>
@@ -66,14 +66,14 @@ export function CvReviewActions({ teacherId }: { teacherId: string }) {
           <button
             onClick={handleApprove}
             disabled={isPending}
-            className="flex items-center gap-2 rounded bg-emerald-600 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+            className="glass-success glass-pill flex items-center gap-2 px-6 py-2 text-sm font-medium transition-colors disabled:opacity-50"
           >
             <CheckCircle size={16} /> قبول السيرة الذاتية
           </button>
           <button
             onClick={() => setShowReject(true)}
             disabled={isPending}
-            className="flex items-center gap-2 rounded border border-red-500/30 bg-red-500/10 px-6 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+            className="glass-danger glass-pill flex items-center gap-2 px-6 py-2 text-sm font-medium transition-colors disabled:opacity-50"
           >
             <XCircle size={16} /> رفض
           </button>

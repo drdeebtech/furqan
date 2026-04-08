@@ -49,7 +49,7 @@ export function BlogContent({ posts }: { posts: Post[] }) {
   return (
     <div>
       {/* Header */}
-      <section className="border-b border-card-border bg-card py-20 text-center">
+      <section className="glass-card border-b border-white/10 py-20 text-center">
         <p className="text-sm text-muted">
           <Link href="/" className="text-gold hover:text-gold-light">{t("الرئيسية", "Home")}</Link> / {t("المدونة", "Blog")}
         </p>
@@ -63,8 +63,8 @@ export function BlogContent({ posts }: { posts: Post[] }) {
         <div className="mx-auto max-w-7xl px-6">
           {/* Featured */}
           {featured && (
-            <Link href={`/blog/${featured.slug}`} className="block rounded-2xl border border-gold/30 bg-card p-8 transition-all hover:border-gold/50 md:p-12">
-              <span className={`inline-block rounded-full border px-3 py-1 text-xs ${featured.color}`}>
+            <Link href={`/blog/${featured.slug}`} className="block glass-card p-8 transition-all hover:border-gold/50 md:p-12">
+              <span className={`glass-badge inline-block px-3 py-1 text-xs ${featured.color}`}>
                 {t(featured.category_ar, featured.category_en)}
               </span>
               <h2 className="font-display mt-4 text-3xl font-bold">{t(featured.title_ar, featured.title_en)}</h2>
@@ -87,8 +87,8 @@ export function BlogContent({ posts }: { posts: Post[] }) {
                 onClick={() => setFilter(c.key)}
                 className={`rounded-full px-4 py-1.5 text-sm transition-all ${
                   filter === c.key
-                    ? "bg-gold font-medium text-background"
-                    : "border border-card-border text-muted hover:border-gold/40 hover:text-foreground"
+                    ? "glass-gold glass-pill font-medium"
+                    : "glass glass-pill text-muted hover:border-gold/40 hover:text-foreground"
                 }`}
               >
                 {t(c.ar, c.en)}
@@ -105,9 +105,9 @@ export function BlogContent({ posts }: { posts: Post[] }) {
                 <Link
                   key={a.slug}
                   href={`/blog/${a.slug}`}
-                  className="block rounded-xl border border-card-border bg-card p-5 transition-all hover:border-gold/30 hover:shadow-sm"
+                  className="block glass-card p-5 transition-all hover:border-gold/30 hover:shadow-sm"
                 >
-                  <span className={`inline-block rounded-full border px-2.5 py-0.5 text-xs ${a.color}`}>
+                  <span className={`glass-badge inline-block px-2.5 py-0.5 text-xs ${a.color}`}>
                     {t(a.category_ar, a.category_en)}
                   </span>
                   <h3 className="mt-3 font-bold">{t(a.title_ar, a.title_en)}</h3>
@@ -124,7 +124,7 @@ export function BlogContent({ posts }: { posts: Post[] }) {
       </section>
 
       {/* Newsletter */}
-      <section className="border-t border-card-border bg-card/30 py-16">
+      <section className="border-t border-white/10 bg-card/30 py-16">
         <div className="mx-auto max-w-lg px-6 text-center">
           <h2 className="font-display text-2xl font-bold">{t("اشترك في نشرتنا البريدية", "Subscribe to Our Newsletter")}</h2>
           <p className="mt-2 text-sm text-muted">{t("نصائح أسبوعية لتعلم القرآن", "Weekly Quran learning tips in your inbox")}</p>
@@ -144,9 +144,9 @@ export function BlogContent({ posts }: { posts: Post[] }) {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={t("بريدك الإلكتروني", "Your email")}
                 dir="ltr"
-                className="flex-1 rounded border border-input-border bg-input px-4 py-2.5 text-left text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none"
+                className="glass-input flex-1 rounded-xl px-4 py-2.5 text-left text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none"
               />
-              <button type="submit" className="rounded bg-gold px-5 py-2.5 text-sm font-medium text-background transition-colors hover:bg-gold-hover">
+              <button type="submit" className="glass-gold glass-pill px-5 py-2.5 text-sm font-medium transition-colors hover:bg-gold-hover">
                 {t("اشترك", "Subscribe")}
               </button>
             </form>

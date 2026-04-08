@@ -12,7 +12,7 @@ export function ContactContent() {
 
   return (
     <div>
-      <section className="border-b border-card-border bg-card py-20 text-center">
+      <section className="glass-card border-b border-white/10 py-20 text-center">
         <p className="text-sm text-muted"><Link href="/" className="text-gold hover:text-gold-light">{t("الرئيسية", "Home")}</Link> / {t("اتصل بنا", "Contact")}</p>
         <h1 className="font-display mt-4 text-5xl font-bold">{t("اتصل بنا", "Contact Us")}</h1>
       </section>
@@ -51,7 +51,7 @@ export function ContactContent() {
         </div>
       </section>
 
-      <div className="border-t border-card-border"><FAQ /></div>
+      <div className="border-t border-white/10"><FAQ /></div>
       <RegisterBanner />
     </div>
   );

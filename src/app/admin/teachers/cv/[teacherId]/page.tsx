@@ -56,7 +56,7 @@ export default async function AdminCvReviewPage({
         {items.map((item) => (
           <span
             key={item}
-            className="rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs text-gold"
+            className="glass glass-pill px-3 py-1 text-xs text-gold"
           >
             {item}
           </span>
@@ -81,7 +81,7 @@ export default async function AdminCvReviewPage({
       </div>
 
       {/* CV Details */}
-      <div className="mb-6 space-y-5 rounded-2xl border border-card-border bg-card p-6">
+      <div className="mb-6 space-y-5 glass-card p-6">
         {/* Bio */}
         <div>
           <h3 className="mb-2 text-sm font-medium text-muted">
@@ -144,7 +144,7 @@ export default async function AdminCvReviewPage({
         </div>
 
         {/* Submitted date */}
-        <div className="border-t border-card-border pt-4 text-xs text-muted">
+        <div className="border-t border-white/10 pt-4 text-xs text-muted">
           تاريخ الإرسال:{" "}
           {profile.cv_submitted_at
             ? new Date(profile.cv_submitted_at).toLocaleDateString("ar-SA", {
@@ -162,7 +162,7 @@ export default async function AdminCvReviewPage({
       )}
 
       {profile.cv_status !== "pending_review" && (
-        <div className="rounded-xl border border-card-border bg-card p-4 text-center text-sm text-muted">
+        <div className="glass-card rounded-xl p-4 text-center text-sm text-muted">
           هذه السيرة الذاتية{" "}
           {profile.cv_status === "approved" ? "تمت الموافقة عليها" : "تمت مراجعتها"}{" "}
           بالفعل.

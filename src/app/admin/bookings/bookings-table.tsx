@@ -66,7 +66,7 @@ export function BookingsTable({
         ].map((s) => (
           <div
             key={s.l}
-            className="rounded-xl border border-card-border bg-card p-3 text-center"
+            className="glass-card rounded-xl p-3 text-center"
           >
             <p className="text-xl font-bold text-gold">{s.v}</p>
             <p className="text-xs text-muted">{s.l}</p>
@@ -115,15 +115,15 @@ export function BookingsTable({
 
       {/* Table or empty state */}
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center">
+        <div className="glass-card rounded-xl p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-muted">لا توجد حجوزات مطابقة</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-card-border">
+        <div className="overflow-x-auto rounded-xl glass-card">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-card-border bg-card">
+              <tr className="border-b border-white/10 bg-white/5">
                 <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
                   الطالب
                 </th>
@@ -148,7 +148,7 @@ export function BookingsTable({
               {filtered.map((b) => (
                 <tr
                   key={b.id}
-                  className="border-b border-card-border last:border-b-0"
+                  className="border-b border-white/10 last:border-b-0"
                 >
                   <td className="px-3 py-3">
                     {nameMap[b.student_id] ?? "\u2014"}

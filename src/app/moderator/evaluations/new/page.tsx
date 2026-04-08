@@ -25,7 +25,7 @@ export default async function ModeratorNewEvaluationPage() {
   return (
     <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/moderator/evaluations" className="rounded-lg border border-card-border p-2 text-muted transition-colors hover:bg-surface-alt">
+        <Link href="/moderator/evaluations" className="glass rounded-lg p-2 text-muted transition-colors hover:bg-white/10">
           <ArrowRight size={16} />
         </Link>
         <h1 className="flex items-center gap-2 text-2xl font-bold"><ClipboardCheck size={24} className="text-gold" /> تقييم جديد</h1>

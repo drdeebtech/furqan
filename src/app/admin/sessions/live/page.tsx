@@ -86,7 +86,7 @@ export default async function LiveSessionsPage() {
       <div className="mb-6 flex items-center gap-3">
         <Link
           href="/admin/sessions"
-          className="rounded-lg border border-card-border p-2 text-muted transition-colors hover:bg-surface-alt"
+          className="glass rounded-lg p-2 text-muted transition-colors"
         >
           <ArrowRight size={16} />
         </Link>
@@ -94,7 +94,7 @@ export default async function LiveSessionsPage() {
           <Radio size={24} className="animate-pulse text-emerald-400" />
           الجلسات النشطة
         </h1>
-        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-400">
+        <span className="glass-badge border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-400">
           {activeSessions.length}
         </span>
       </div>

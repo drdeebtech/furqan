@@ -36,13 +36,13 @@ export default async function ModeratorAuditPage() {
       <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><Shield size={24} className="text-gold" /> سجل المراجعة</h1>
 
       {list.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center">
+        <div className="glass-card rounded-xl p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا توجد سجلات</p>
         </div>
       ) : (
         <div className="space-y-2">
           {list.map(l => (
-            <div key={l.id} className="rounded-xl border border-card-border bg-card p-3">
+            <div key={l.id} className="glass-card rounded-xl p-3">
               <div className="flex items-center gap-2 text-sm">
                 <span className={`font-medium ${actionColor[l.action] ?? "text-muted"}`}>{l.action}</span>
                 <span className="text-muted">—</span>

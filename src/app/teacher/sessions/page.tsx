@@ -64,7 +64,7 @@ export default async function TeacherSessionsPage() {
       </h1>
 
       {list.length === 0 ? (
-        <div className="rounded-2xl border border-card-border bg-card elevation-2 p-12 text-center">
+        <div className="glass-card p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-muted">لا توجد جلسات مؤكدة</p>
           <p className="mt-1 text-sm text-muted">ستظهر هنا بعد تأكيد الحجوزات</p>
@@ -78,7 +78,7 @@ export default async function TeacherSessionsPage() {
             const isConfirmed = booking.status === "confirmed";
 
             return (
-              <div key={booking.id} className="rounded-2xl border border-card-border bg-card elevation-2 p-4">
+              <div key={booking.id} className="glass-card p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="font-medium">{nameMap[booking.student_id] ?? "طالب"}</p>
@@ -89,14 +89,14 @@ export default async function TeacherSessionsPage() {
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     {statusInfo && (
-                      <span className={`rounded-full border px-2.5 py-0.5 text-xs ${statusInfo.className}`}>
+                      <span className={`glass-badge rounded-full px-2.5 py-0.5 text-xs ${statusInfo.className}`}>
                         {statusInfo.label}
                       </span>
                     )}
                     {sessionId && (
                       <Link
                         href={`/teacher/sessions/${sessionId}`}
-                        className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white neu-btn transition-colors hover:bg-primary-hover focus-ring"
+                        className="glass-gold glass-pill flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-primary-hover focus-ring"
                       >
                         <Video size={14} />
                         {isConfirmed ? "انضم للجلسة" : "تفاصيل"}

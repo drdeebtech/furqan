@@ -79,7 +79,7 @@ export default async function TeacherAvailabilityPage() {
           </h2>
 
           {list.length === 0 ? (
-            <div className="rounded-2xl border border-card-border bg-card elevation-2 p-8 text-center">
+            <div className="glass-card p-8 text-center">
               <Inbox size={32} className="mx-auto mb-3 text-muted" />
               <p className="text-muted">لا توجد مواعيد بعد</p>
               <p className="mt-1 text-xs text-muted">
@@ -102,7 +102,7 @@ export default async function TeacherAvailabilityPage() {
                       {daySlots.map((slot) => (
                         <div
                           key={slot.id}
-                          className="flex items-center justify-between rounded-lg border border-card-border bg-card px-4 py-3"
+                          className="glass-card flex items-center justify-between px-4 py-3"
                         >
                           <div dir="ltr" className="text-left text-sm">
                             <span className="font-medium text-foreground">

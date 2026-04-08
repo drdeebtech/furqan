@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { X, UserPlus, BookOpen } from "lucide-react";
+import { GlassButton } from "@/components/ui/GlassButton";
 import { useLang } from "@/lib/i18n/context";
 
 const FOCUSABLE_SELECTOR =
@@ -91,14 +92,14 @@ export function WelcomePopup() {
         aria-modal="true"
         aria-label={t("مرحباً بك في فُرقان", "Welcome to FURQAN")}
         onClick={(e) => e.stopPropagation()}
-        className="relative mx-4 w-full max-w-md animate-in rounded-2xl border border-gold/30 bg-card p-8 shadow-2xl shadow-gold/10"
+        className="relative mx-4 w-full max-w-md animate-in glass-modal p-8"
       >
         <button onClick={dismiss} aria-label="إغلاق" className="focus-ring absolute left-4 top-4 text-muted hover:text-foreground">
           <X size={20} />
         </button>
 
         <div className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-gold/30 bg-gold/10 animate-pulse-slow">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center glass glass-pill animate-pulse-slow">
             <BookOpen size={28} className="text-gold" />
           </div>
 
@@ -116,17 +117,19 @@ export function WelcomePopup() {
             <Link
               href="/register"
               onClick={dismiss}
-              className="focus-ring neu-btn flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-3.5 text-lg font-bold text-background transition-all duration-200 hover:bg-gold-hover hover:shadow-lg hover:shadow-gold/20"
+              className="focus-ring glass-gold glass-pill flex w-full items-center justify-center gap-2 py-3.5 text-lg font-bold transition-all duration-200"
             >
               <UserPlus size={20} />
               {t("سجّل الآن مجاناً", "Register Now — Free")}
             </Link>
-            <button
+            <GlassButton
               onClick={dismiss}
-              className="focus-ring neu-btn w-full rounded-xl border border-card-border py-3 text-sm text-muted transition-all duration-200 hover:border-gold/40 hover:text-gold"
+              variant="ghost"
+              pill
+              className="w-full py-3 text-sm text-muted transition-all duration-200 hover:text-gold"
             >
               {t("تصفح الموقع أولاً", "Browse the site first")}
-            </button>
+            </GlassButton>
           </div>
 
           <p className="mt-4 text-xs text-muted">

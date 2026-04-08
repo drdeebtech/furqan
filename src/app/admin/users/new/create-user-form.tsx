@@ -6,7 +6,7 @@ import { UserPlus, ArrowRight, CheckCircle } from "lucide-react";
 import { createUserFromScratch } from "../actions";
 
 const inputClass =
-  "w-full rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus";
+  "w-full rounded-xl glass-input px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus";
 
 export function CreateUserForm() {
   const [role, setRole] = useState("student");
@@ -18,20 +18,20 @@ export function CreateUserForm() {
   if (state.success) {
     return (
       <div dir="rtl" className="mx-auto max-w-lg px-4 py-12">
-        <div className="rounded-xl border border-card-border bg-card p-8 text-center">
+        <div className="glass-card rounded-xl p-8 text-center">
           <CheckCircle size={48} className="mx-auto mb-4 text-emerald-400" />
           <h2 className="mb-2 text-xl font-bold text-gold">تم إنشاء المستخدم بنجاح</h2>
           <p className="mb-6 text-sm text-muted">يمكن للمستخدم الآن تسجيل الدخول بالبريد الإلكتروني وكلمة المرور</p>
           <div className="flex items-center justify-center gap-4">
             <Link
               href="/admin/users"
-              className="flex items-center gap-2 rounded bg-gold px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gold-hover"
+              className="flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-medium"
             >
               العودة للمستخدمين
             </Link>
             <Link
               href="/admin/users/new"
-              className="rounded border border-card-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface"
+              className="glass glass-pill px-4 py-2 text-sm font-medium text-foreground"
             >
               إنشاء مستخدم آخر
             </Link>
@@ -51,7 +51,7 @@ export function CreateUserForm() {
         العودة للمستخدمين
       </Link>
 
-      <div className="rounded-xl border border-card-border bg-card p-6">
+      <div className="glass-card rounded-xl p-6">
         <h1 className="mb-1 text-xl font-bold text-gold">إنشاء مستخدم جديد</h1>
         <p className="mb-6 text-sm text-muted">إضافة حساب جديد للأكاديمية</p>
 
@@ -166,7 +166,7 @@ export function CreateUserForm() {
 
           {/* Student-specific parent fields */}
           {role === "student" && (
-            <div className="space-y-4 rounded-xl border border-card-border bg-surface p-4">
+            <div className="space-y-4 glass-card rounded-xl p-4">
               <p className="text-sm font-medium text-gold">
                 بيانات ولي الأمر
                 <span className="mr-2 text-xs text-muted">Parent info (optional)</span>
@@ -236,7 +236,7 @@ export function CreateUserForm() {
           <button
             type="submit"
             disabled={pending}
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-2.5 font-semibold text-white neu-btn transition-colors hover:bg-primary-hover disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 glass-gold glass-pill py-2.5 font-semibold transition-colors disabled:opacity-50"
           >
             {pending ? (
               <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />

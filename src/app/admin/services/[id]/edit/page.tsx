@@ -33,7 +33,7 @@ export default async function EditServicePage({ params }: Props) {
         <ArrowRight size={14} /> العودة للخدمات
       </Link>
       <h1 className="mb-6 text-2xl font-bold">تعديل: {service.title_ar ?? service.title}</h1>
-      <div className="rounded-xl border border-card-border bg-card p-6">
+      <div className="glass-card rounded-xl p-6">
         <ServiceForm service={service} />
       </div>
     </div>

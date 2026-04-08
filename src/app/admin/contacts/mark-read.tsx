@@ -17,7 +17,7 @@ export function MarkReadButton({ submissionId }: { submissionId: string }) {
   return (
     <button
       onClick={handleClick}
-      className="flex items-center gap-1 rounded border border-card-border px-2 py-1 text-xs text-muted hover:text-gold"
+      className="flex items-center gap-1 glass glass-pill px-2 py-1 text-xs text-muted hover:text-gold"
     >
       <Check size={12} /> تم القراءة
     </button>

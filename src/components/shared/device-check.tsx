@@ -69,7 +69,7 @@ export function DeviceCheck({ onReady }: { onReady?: (ok: boolean) => void }) {
   const allDenied = camera === "denied" && mic === "denied";
 
   return (
-    <div className="rounded-xl border border-card-border bg-card p-4">
+    <div className="glass-card rounded-xl p-4">
       <p className="mb-3 text-sm font-medium">فحص الأجهزة قبل الانضمام</p>
 
       {/* Camera preview */}
@@ -110,7 +110,7 @@ export function DeviceCheck({ onReady }: { onReady?: (ok: boolean) => void }) {
       </div>
 
       {allDenied && (
-        <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/5 p-2 text-xs text-red-400">
+        <div className="mt-3 flex items-start gap-2 rounded-lg glass glass-danger p-2 text-xs text-red-400">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           يرجى السماح بالوصول للكاميرا والميكروفون من إعدادات المتصفح
         </div>

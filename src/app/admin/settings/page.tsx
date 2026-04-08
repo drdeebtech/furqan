@@ -37,7 +37,7 @@ export default async function AdminSettingsPage() {
       <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><Settings size={24} className="text-gold" /> إعدادات المنصة</h1>
 
       {/* Health check */}
-      <div className="mb-6 rounded-xl border border-card-border bg-card p-6">
+      <div className="mb-6 glass-card rounded-xl p-6">
         <h2 className="mb-4 font-bold">صحة النظام</h2>
         <div className="space-y-2">
           {[
@@ -55,7 +55,7 @@ export default async function AdminSettingsPage() {
       </div>
 
       {/* Platform stats */}
-      <div className="mb-6 rounded-xl border border-card-border bg-card p-6">
+      <div className="mb-6 glass-card rounded-xl p-6">
         <h2 className="mb-4 font-bold">إحصائيات المنصة</h2>
         <div className="grid grid-cols-3 gap-4">
           <div><p className="text-2xl font-bold text-gold">{userCount ?? 0}</p><p className="text-xs text-muted">مستخدم</p></div>
@@ -65,7 +65,7 @@ export default async function AdminSettingsPage() {
       </div>
 
       {/* Feature Flags */}
-      <div className="mb-6 rounded-xl border border-card-border bg-card p-6">
+      <div className="mb-6 glass-card rounded-xl p-6">
         <h2 className="mb-4 flex items-center gap-2 font-bold"><ToggleRight size={16} className="text-gold" /> إعدادات الميزات</h2>
         <div className="space-y-3">
           <FeatureToggle
@@ -90,24 +90,24 @@ export default async function AdminSettingsPage() {
       </div>
 
       {/* Currencies */}
-      <div className="mb-6 rounded-xl border border-card-border bg-card p-6">
+      <div className="mb-6 glass-card rounded-xl p-6">
         <h2 className="mb-4 font-bold">العملات المدعومة</h2>
         <div className="flex flex-wrap gap-2">
           {currencies.map(c => (
-            <span key={c} className="rounded-full border border-card-border px-3 py-1 text-xs text-muted">{c}</span>
+            <span key={c} className="glass-badge px-3 py-1 text-xs text-muted">{c}</span>
           ))}
         </div>
       </div>
 
       {/* Schema migrations */}
-      <div className="mb-6 rounded-xl border border-card-border bg-card p-6">
+      <div className="mb-6 glass-card rounded-xl p-6">
         <h2 className="mb-4 flex items-center gap-2 font-bold"><Database size={16} className="text-gold" /> إصدارات قاعدة البيانات</h2>
         {(migrations ?? []).length === 0 ? (
           <p className="text-sm text-muted">لا توجد سجلات ترحيل</p>
         ) : (
           <div className="space-y-2">
             {(migrations ?? []).map(m => (
-              <div key={m.version} className="flex items-center justify-between rounded-lg border border-card-border bg-surface px-4 py-2">
+              <div key={m.version} className="flex items-center justify-between glass-card rounded-lg px-4 py-2">
                 <div>
                   <p className="text-sm font-medium text-gold">{m.version}</p>
                   <p className="text-xs text-muted">{m.description}</p>
@@ -120,7 +120,7 @@ export default async function AdminSettingsPage() {
       </div>
 
       {/* Quick links */}
-      <div className="rounded-xl border border-card-border bg-card p-6">
+      <div className="glass-card rounded-xl p-6">
         <h2 className="mb-4 font-bold">روابط سريعة</h2>
         <div className="flex flex-wrap gap-3">
           <Link href="/admin/audit" className="text-sm text-gold hover:text-gold-light">سجل المراجعة ←</Link>

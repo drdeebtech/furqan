@@ -47,14 +47,14 @@ export default async function ModeratorSessionsPage() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold"><Video size={24} className="text-gold" /> الجلسات</h1>
         {activeSessions.length > 0 && (
-          <span className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-sm text-emerald-400">
+          <span className="glass-badge glass-success flex items-center gap-2 rounded-full px-3 py-1 text-sm">
             <Radio size={14} className="animate-pulse" /> {activeSessions.length} نشطة
           </span>
         )}
       </div>
 
       {list.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center">
+        <div className="glass-card rounded-xl p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا توجد جلسات</p>
         </div>
       ) : (
@@ -63,7 +63,7 @@ export default async function ModeratorSessionsPage() {
             const b = bookingMap[s.booking_id];
             const isActive = !!s.started_at && !s.ended_at;
             return (
-              <div key={s.id} className={`rounded-xl border p-4 ${isActive ? "border-emerald-500/30 bg-emerald-500/5" : "border-card-border bg-card"}`}>
+              <div key={s.id} className={`rounded-xl p-4 ${isActive ? "glass-card border-emerald-500/30 bg-emerald-500/5" : "glass-card"}`}>
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">
@@ -74,7 +74,7 @@ export default async function ModeratorSessionsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     {isActive && s.is_observable && (
-                      <Link href={`/moderator/sessions/${s.id}/observe`} className="flex items-center gap-1 rounded border border-gold/30 bg-gold/10 px-3 py-1 text-xs text-gold transition-colors hover:bg-gold/20">
+                      <Link href={`/moderator/sessions/${s.id}/observe`} className="glass glass-pill flex items-center gap-1 px-3 py-1 text-xs text-gold transition-colors hover:bg-white/10">
                         <Eye size={12} /> مراقبة
                       </Link>
                     )}

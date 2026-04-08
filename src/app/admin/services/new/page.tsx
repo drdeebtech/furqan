@@ -12,7 +12,7 @@ export default function NewServicePage() {
         <ArrowRight size={14} /> العودة للخدمات
       </Link>
       <h1 className="mb-6 text-2xl font-bold">إضافة خدمة جديدة</h1>
-      <div className="rounded-xl border border-card-border bg-card p-6">
+      <div className="glass-card rounded-xl p-6">
         <ServiceForm />
       </div>
     </div>

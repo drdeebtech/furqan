@@ -52,19 +52,19 @@ export default async function StudentProgressPage() {
       <p className="mb-8 text-xs text-muted">My Quran Learning Progress</p>
 
       {/* Current Level */}
-      <div className="mb-8 rounded-2xl border border-gold/30 bg-gold/5 p-8 text-center">
+      <div className="mb-8 glass-card p-8 text-center">
         <p className="text-sm text-muted">مستواك الحالي</p>
         <p className="mt-2 text-2xl font-bold text-gold">مبتدئ</p>
         <p className="font-display mt-4 text-sm text-gold/50">﴿ وَرَتِّلِ الْقُرْآنَ تَرْتِيلًا ﴾</p>
       </div>
 
       {/* Sessions Progress */}
-      <div className="mb-8 rounded-2xl border border-card-border bg-card p-6">
+      <div className="mb-8 glass-card p-6">
         <div className="flex items-center justify-between">
           <p className="font-display font-bold">جلسات مكتملة</p>
           <p className="text-2xl font-bold text-gold">{count}</p>
         </div>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-card-border">
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
           <div className="h-2 rounded-full bg-gold transition-all" style={{ width: `${progressPercent}%` }} />
         </div>
         <p className="mt-2 text-xs text-muted">بعد {nextMilestone} جلسات تصل للمستوى التالي</p>
@@ -75,10 +75,10 @@ export default async function StudentProgressPage() {
         <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-bold"><BookOpen size={18} className="text-gold" /> مواضيع التجويد</h2>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
           {TOPICS.map(t => (
-            <div key={t.en} className="rounded-2xl border border-card-border bg-card p-4">
+            <div key={t.en} className="glass-card p-4">
               <p className="text-sm font-medium">{t.ar}</p>
               <p className="mt-1 text-xs text-muted">{t.en}</p>
-              <span className="mt-2 inline-block rounded-full border border-muted/30 px-2 py-0.5 text-xs text-muted">لم يُدرَس</span>
+              <span className="mt-2 inline-block glass-badge px-2 py-0.5 text-xs text-muted">لم يُدرَس</span>
             </div>
           ))}
         </div>
@@ -89,7 +89,7 @@ export default async function StudentProgressPage() {
         <h2 className="mb-4 font-display text-lg font-bold">رحلتك مع القرآن</h2>
         <div className="grid grid-cols-6 gap-2 md:grid-cols-10">
           {Array.from({ length: 30 }, (_, i) => (
-            <div key={i} className="flex aspect-square items-center justify-center rounded-lg border border-card-border bg-card text-sm font-medium text-muted">
+            <div key={i} className="flex aspect-square items-center justify-center rounded-lg glass text-sm font-medium text-muted">
               {ARABIC_NUMS[i + 1]}
             </div>
           ))}
@@ -103,7 +103,7 @@ export default async function StudentProgressPage() {
           <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-bold"><CheckCircle size={18} className="text-gold" /> آخر الجلسات</h2>
           <div className="space-y-2">
             {(recent ?? []).map(r => (
-              <div key={r.id} className="flex items-center gap-3 rounded-lg border border-card-border bg-card px-4 py-3">
+              <div key={r.id} className="flex items-center gap-3 glass-card px-4 py-3">
                 <CheckCircle size={14} className="shrink-0 text-gold" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm">{nameMap[r.teacher_id] ?? "معلم"}</p>
