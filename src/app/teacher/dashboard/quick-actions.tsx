@@ -15,15 +15,15 @@ export function TeacherQuickActions({ students }: { students: Student[] }) {
       <div className="flex items-center">
         <InstantSessionButton students={students} />
       </div>
-      <Link href="/teacher/availability" className="flex min-h-[44px] items-center gap-3 rounded-xl border border-card-border bg-card p-4 transition-colors hover:border-gold/40">
+      <Link href="/teacher/availability" className="glass-card flex min-h-[44px] items-center gap-3 p-4 transition-colors hover:border-gold/40">
         <Calendar size={18} className="shrink-0 text-gold" />
         <span className="text-sm font-medium">{t("إدارة المواعيد", "Manage Schedule")}</span>
       </Link>
-      <Link href="/teacher/students" className="flex min-h-[44px] items-center gap-3 rounded-xl border border-card-border bg-card p-4 transition-colors hover:border-gold/40">
+      <Link href="/teacher/students" className="glass-card flex min-h-[44px] items-center gap-3 p-4 transition-colors hover:border-gold/40">
         <Users size={18} className="shrink-0 text-gold" />
         <span className="text-sm font-medium">{t("طلابي", "My Students")}</span>
       </Link>
-      <Link href="/teacher/messages" className="flex min-h-[44px] items-center gap-3 rounded-xl border border-card-border bg-card p-4 transition-colors hover:border-gold/40">
+      <Link href="/teacher/messages" className="glass-card flex min-h-[44px] items-center gap-3 p-4 transition-colors hover:border-gold/40">
         <MessageSquare size={18} className="shrink-0 text-gold" />
         <span className="text-sm font-medium">{t("الرسائل", "Messages")}</span>
       </Link>

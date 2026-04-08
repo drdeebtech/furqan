@@ -46,19 +46,19 @@ export default async function AdminPaymentsPage() {
       <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><DollarSign size={24} className="text-gold" /> المالية</h1>
 
       <div className="mb-6 grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-card-border bg-card p-4"><p className="text-sm text-muted">إجمالي الإيرادات</p><p className="mt-1 text-2xl font-bold text-gold">${totalRevenue.toFixed(2)}</p></div>
-        <div className="rounded-xl border border-card-border bg-card p-4"><p className="text-sm text-muted">معلقة</p><p className="mt-1 text-2xl font-bold text-gold">{pendingCount}</p></div>
-        <div className="rounded-xl border border-card-border bg-card p-4"><p className="text-sm text-muted">مسترجعة</p><p className="mt-1 text-2xl font-bold text-gold">${refundedAmount.toFixed(2)}</p></div>
+        <div className="glass-card rounded-xl p-4"><p className="text-sm text-muted">إجمالي الإيرادات</p><p className="mt-1 text-2xl font-bold text-gold">${totalRevenue.toFixed(2)}</p></div>
+        <div className="glass-card rounded-xl p-4"><p className="text-sm text-muted">معلقة</p><p className="mt-1 text-2xl font-bold text-gold">{pendingCount}</p></div>
+        <div className="glass-card rounded-xl p-4"><p className="text-sm text-muted">مسترجعة</p><p className="mt-1 text-2xl font-bold text-gold">${refundedAmount.toFixed(2)}</p></div>
       </div>
 
       {/* Payments */}
       <h2 className="mb-4 text-lg font-bold">المدفوعات</h2>
       {payments.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-8 text-center"><Inbox size={28} className="mx-auto mb-2 text-muted" /><p className="text-sm text-muted">لا توجد مدفوعات</p></div>
+        <div className="glass-card rounded-xl p-8 text-center"><Inbox size={28} className="mx-auto mb-2 text-muted" /><p className="text-sm text-muted">لا توجد مدفوعات</p></div>
       ) : (
-        <div className="mb-8 overflow-x-auto rounded-xl border border-card-border">
+        <div className="mb-8 overflow-x-auto rounded-xl glass-card">
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-card-border bg-card">
+            <thead><tr className="border-b border-white/10 bg-white/5">
               <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الطالب</th>
               <th scope="col" className="px-3 py-3 text-right font-medium text-muted">المبلغ</th>
               <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الحالة</th>
@@ -67,10 +67,10 @@ export default async function AdminPaymentsPage() {
             </tr></thead>
             <tbody>
               {payments.map(p => (
-                <tr key={p.id} className="border-b border-card-border last:border-b-0">
+                <tr key={p.id} className="border-b border-white/10 last:border-b-0">
                   <td className="px-3 py-3">{nameMap[p.student_id] ?? "—"}</td>
                   <td className="px-3 py-3 font-bold text-gold">${Number(p.amount_usd).toFixed(2)}</td>
-                  <td className="px-3 py-3"><span className={`rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[p.status] ?? ""}`}>{p.status}</span></td>
+                  <td className="px-3 py-3"><span className={`glass-badge ${STATUS_COLORS[p.status] ?? ""}`}>{p.status}</span></td>
                   <td className="px-3 py-3 text-xs text-muted" dir="ltr">{p.stripe_payment_intent.slice(0, 20)}...</td>
                   <td className="px-3 py-3 text-xs text-muted">{new Date(p.created_at).toLocaleDateString("ar-SA")}</td>
                 </tr>
@@ -83,11 +83,11 @@ export default async function AdminPaymentsPage() {
       {/* Invoices */}
       <h2 className="mb-4 text-lg font-bold">الفواتير</h2>
       {invoices.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-8 text-center"><p className="text-sm text-muted">لا توجد فواتير</p></div>
+        <div className="glass-card rounded-xl p-8 text-center"><p className="text-sm text-muted">لا توجد فواتير</p></div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-card-border">
+        <div className="overflow-x-auto rounded-xl glass-card">
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-card-border bg-card">
+            <thead><tr className="border-b border-white/10 bg-white/5">
               <th scope="col" className="px-3 py-3 text-right font-medium text-muted">رقم الفاتورة</th>
               <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الطالب</th>
               <th scope="col" className="px-3 py-3 text-right font-medium text-muted">المبلغ</th>
@@ -96,7 +96,7 @@ export default async function AdminPaymentsPage() {
             </tr></thead>
             <tbody>
               {invoices.map(inv => (
-                <tr key={inv.id} className="border-b border-card-border last:border-b-0">
+                <tr key={inv.id} className="border-b border-white/10 last:border-b-0">
                   <td className="px-3 py-3 font-medium text-gold" dir="ltr">{inv.invoice_number}</td>
                   <td className="px-3 py-3">{inv.student_name_snapshot}</td>
                   <td className="px-3 py-3">${Number(inv.amount_usd).toFixed(2)}</td>

@@ -49,7 +49,7 @@ export default async function StudentNotesPage() {
       <p className="mb-8 text-xs text-muted">تجد هنا ملاحظات معلمك بعد كل جلسة</p>
 
       {sessions.length === 0 ? (
-        <div className="rounded-2xl border border-card-border bg-card elevation-2 p-12 text-center">
+        <div className="glass-card p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-muted">لا توجد ملاحظات بعد</p>
           <p className="mt-1 text-sm text-muted">ستظهر ملاحظات معلمك هنا بعد كل جلسة مكتملة</p>
@@ -60,7 +60,7 @@ export default async function StudentNotesPage() {
             const booking = bookingMap[s.booking_id];
             if (!booking) return null;
             return (
-              <div key={s.id} className="rounded-2xl border border-card-border bg-card p-6">
+              <div key={s.id} className="glass-card p-6">
                 <div className="mb-4 flex items-center justify-between text-sm">
                   <div>
                     <span className="font-medium">{nameMap[booking.teacher_id] ?? "معلم"}</span>
@@ -68,12 +68,12 @@ export default async function StudentNotesPage() {
                   </div>
                   <span className="text-xs text-muted">{new Date(booking.scheduled_at).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" })}</span>
                 </div>
-                <div className="border-t border-card-border pt-4">
+                <div className="border-t border-white/10 pt-4">
                   <p className="mb-2 text-xs font-medium text-gold">ملاحظات الجلسة</p>
                   <p className="whitespace-pre-line text-sm leading-relaxed text-muted">{s.post_session_notes}</p>
                 </div>
                 {s.homework && (
-                  <div className="mt-4 rounded-lg border border-gold/20 bg-gold/5 p-3">
+                  <div className="mt-4 glass rounded-lg p-3">
                     <p className="mb-1 text-xs font-medium text-gold">الواجب</p>
                     <p className="text-sm text-muted">{s.homework}</p>
                   </div>

@@ -43,7 +43,7 @@ export function RateTeacherForm({
 
   if (success) {
     return (
-      <div className="rounded-2xl border border-gold/30 bg-gold/5 p-8 text-center">
+      <div className="glass-card p-8 text-center">
         <div className="mb-2 flex justify-center gap-1">
           {Array.from({ length: 5 }, (_, i) => (
             <Star
@@ -63,7 +63,7 @@ export function RateTeacherForm({
   }
 
   return (
-    <div className="rounded-2xl border border-card-border bg-card elevation-2 p-5">
+    <div className="glass-card p-5">
       <h2 className="mb-1 font-display text-sm font-semibold text-gold">
         قيّم جلستك مع {teacherName}
       </h2>
@@ -100,7 +100,7 @@ export function RateTeacherForm({
         onChange={(e) => setComment(e.target.value)}
         placeholder="أضف تعليقاً (اختياري)..."
         rows={3}
-        className="mb-4 w-full resize-none rounded-xl border border-card-border bg-background px-4 py-3 text-sm placeholder:text-muted/60 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
+        className="mb-4 w-full resize-none rounded-xl glass-input px-4 py-3 text-sm placeholder:text-muted/60 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
       />
 
       {error && (
@@ -110,7 +110,7 @@ export function RateTeacherForm({
       <button
         onClick={handleSubmit}
         disabled={loading || rating === 0}
-        className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-white neu-btn transition-colors hover:bg-primary-hover focus-ring disabled:opacity-50"
+        className="inline-flex items-center gap-2 glass-gold glass-pill px-6 py-2.5 text-sm font-semibold text-white transition-colors focus-ring disabled:opacity-50"
       >
         {loading ? "جاري الإرسال..." : "إرسال التقييم"}
       </button>

@@ -88,7 +88,7 @@ export function SessionStatus({
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors ${
+      className={`inline-flex items-center gap-1 glass-badge rounded-full px-2 py-0.5 transition-colors ${
         size === "md" ? "text-sm" : "text-xs"
       } ${config.className}`}
     >

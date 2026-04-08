@@ -56,7 +56,7 @@ export default async function TeacherStudentsPage() {
       <p className="mb-6 text-sm text-muted">{students.length} طالب</p>
 
       {students.length === 0 ? (
-        <div className="rounded-2xl border border-card-border bg-card p-12 text-center">
+        <div className="glass-card p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-muted">لا يوجد طلاب بعد</p>
           <p className="mt-1 text-sm text-muted">ستجد طلابك هنا بعد تأكيد أول حجز</p>
@@ -64,7 +64,7 @@ export default async function TeacherStudentsPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {students.map(s => (
-            <div key={s.id} className="rounded-2xl border border-card-border bg-card p-6">
+            <div key={s.id} className="glass-card p-6">
               <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-gold/30 bg-gold/10 font-display text-xl font-bold text-gold">
                 {s.name.charAt(0)}
               </div>
@@ -73,12 +73,12 @@ export default async function TeacherStudentsPage() {
                 آخر جلسة: {new Date(s.lastSession).toLocaleDateString("ar-SA")}
               </p>
               <p className="text-sm text-muted">{s.total} جلسة مكتملة · {s.thisMonth} هذا الشهر</p>
-              <div className="mt-4 flex gap-2 border-t border-card-border pt-4">
-                <Link href={`/teacher/students/${s.id}`} className="flex-1 rounded-lg border border-card-border py-2 text-center text-xs text-muted transition-colors hover:border-gold/40 hover:text-gold">
+              <div className="mt-4 flex gap-2 border-t border-white/10 pt-4">
+                <Link href={`/teacher/students/${s.id}`} className="glass glass-pill flex-1 py-2 text-center text-xs text-muted transition-colors hover:border-gold/40 hover:text-gold">
                   عرض التفاصيل
                 </Link>
                 {s.phone && (
-                  <a href={`https://wa.me/${s.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-green-600 px-3 py-2 text-xs text-white transition-colors hover:bg-green-700">
+                  <a href={`https://wa.me/${s.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer" className="glass-success glass-pill px-3 py-2 text-xs text-white transition-colors hover:bg-green-700">
                     واتساب
                   </a>
                 )}

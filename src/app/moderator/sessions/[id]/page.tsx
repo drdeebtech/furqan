@@ -43,7 +43,7 @@ export default async function ModeratorSessionDetailPage({ params }: { params: P
   return (
     <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/moderator/sessions" className="rounded-lg border border-card-border p-2 text-muted transition-colors hover:bg-surface-alt">
+        <Link href="/moderator/sessions" className="glass rounded-lg p-2 text-muted transition-colors hover:bg-white/10">
           <ArrowRight size={16} />
         </Link>
         <h1 className="flex items-center gap-2 text-2xl font-bold"><Video size={24} className="text-gold" /> تفاصيل الجلسة</h1>
@@ -52,12 +52,12 @@ export default async function ModeratorSessionDetailPage({ params }: { params: P
 
       {isActive && session.is_observable && (
         <Link href={`/moderator/sessions/${id}/observe`}
-          className="mb-6 flex items-center justify-center gap-2 rounded-xl border border-gold/30 bg-gold/10 px-6 py-3 text-sm font-medium text-gold transition-colors hover:bg-gold/20">
+          className="glass glass-pill mb-6 flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-medium text-gold transition-colors hover:bg-white/10">
           <Eye size={16} /> مراقبة الجلسة
         </Link>
       )}
 
-      <div className="rounded-2xl border border-card-border bg-card p-6">
+      <div className="glass-card p-6">
         <h2 className="mb-4 text-lg font-semibold">معلومات الجلسة</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <div><p className="text-xs text-muted">معرف الجلسة</p><p className="mt-0.5 text-sm font-mono" dir="ltr">{session.id}</p></div>
@@ -68,7 +68,7 @@ export default async function ModeratorSessionDetailPage({ params }: { params: P
       </div>
 
       {booking && (
-        <div className="mt-4 rounded-2xl border border-card-border bg-card p-6">
+        <div className="mt-4 glass-card p-6">
           <h2 className="mb-4 text-lg font-semibold">معلومات الحجز</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex items-center gap-2"><User size={14} className="text-muted" /><div><p className="text-xs text-muted">الطالب</p><p className="mt-0.5 text-sm font-medium">{nameMap[booking.student_id] ?? "—"}</p></div></div>
@@ -79,7 +79,7 @@ export default async function ModeratorSessionDetailPage({ params }: { params: P
         </div>
       )}
 
-      <div className="mt-4 rounded-2xl border border-card-border bg-card p-6">
+      <div className="mt-4 glass-card p-6">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold"><Clock size={18} className="text-gold" /> الجدول الزمني</h2>
         <div className="space-y-3">
           {[

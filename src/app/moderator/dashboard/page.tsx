@@ -41,7 +41,7 @@ export default async function ModeratorDashboardPage() {
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
         {stats.map((s) => (
-          <Link key={s.label} href={s.href} className="min-h-[44px] rounded-2xl border border-card-border bg-card p-4 transition-colors hover:border-gold/30 sm:p-6">
+          <Link key={s.label} href={s.href} className="glass-card min-h-[44px] p-4 transition-colors hover:border-gold/30 sm:p-6">
             <div className="flex items-center gap-3">
               <s.icon size={20} className="shrink-0 text-gold" />
               <div className="min-w-0">

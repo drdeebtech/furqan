@@ -11,7 +11,7 @@ export function PackagesContent() {
 
   return (
     <div>
-      <section className="border-b border-card-border bg-card py-20 text-center">
+      <section className="glass-card border-b border-white/10 py-20 text-center">
         <p className="text-sm text-muted"><Link href="/" className="text-gold hover:text-gold-light">{t("الرئيسية", "Home")}</Link> / {t("باقاتنا", "Packages")}</p>
         <h1 className="font-display mt-4 text-5xl font-bold">{t("باقاتنا", "Our Packages")}</h1>
       </section>
@@ -19,7 +19,7 @@ export function PackagesContent() {
       {/* Free access banner */}
       <section className="border-b border-gold/30 bg-gold/5 py-8">
         <div className="mx-auto max-w-3xl px-6 text-center">
-          <span className="mb-3 inline-block rounded-full bg-gold px-4 py-1 text-sm font-bold text-background">
+          <span className="glass-gold glass-pill mb-3 inline-block px-4 py-1 text-sm font-bold">
             {t("عرض لفترة محدودة", "Limited Time Offer")}
           </span>
           <h2 className="font-display mt-3 text-2xl font-bold md:text-3xl">
@@ -33,7 +33,7 @@ export function PackagesContent() {
               "We're in our launch phase and want to give as many Muslims as possible the opportunity to learn Quran at the highest quality — completely free. All packages and services are available at no cost for a limited time. Register now before the offer ends.",
             )}
           </p>
-          <Link href="/register" className="mt-6 inline-block rounded border border-gold bg-gold px-8 py-3 font-semibold text-background transition-colors hover:bg-gold-hover">
+          <Link href="/register" className="glass-gold glass-pill mt-6 inline-block px-8 py-3 font-semibold transition-colors hover:bg-gold-hover">
             {t("سجّل مجاناً الآن", "Register Free Now")}
           </Link>
         </div>
@@ -42,7 +42,7 @@ export function PackagesContent() {
       <CurrencyPackages />
 
       {/* Discounts */}
-      <section className="border-t border-card-border py-24">
+      <section className="border-t border-white/10 py-24">
         <div className="mx-auto max-w-4xl px-6">
           <p className="text-sm font-medium tracking-widest text-gold">❖ {t("خصومات", "Discounts")}</p>
           <h2 className="font-display mt-3 text-3xl font-bold">{t("سياسة الخصومات", "Discount Policy")}</h2>
@@ -52,14 +52,14 @@ export function PackagesContent() {
               { ar: "دفع نصف سنوي", en: "Semi-Annual", save: t("وفّر ١٠٪", "Save 10%") },
               { ar: "دفع ربع سنوي", en: "Quarterly", save: t("وفّر ٥٪", "Save 5%") },
             ].map((d) => (
-              <div key={d.en} className="rounded-xl border border-card-border bg-card p-6 text-center">
+              <div key={d.en} className="glass-card p-6 text-center">
                 <p className="font-bold">{t(d.ar, d.en)}</p>
                 <p className="font-display mt-2 text-2xl font-bold text-gold">{d.save}</p>
               </div>
             ))}
           </div>
 
-          <div className="mt-12 rounded-xl border border-gold/20 bg-gold/5 p-8">
+          <div className="glass-card mt-12 p-8">
             <h3 className="text-lg font-bold">{t("برنامج الإحالة", "Referral Program")}</h3>
             <p className="mt-2 text-sm text-muted">{t("أحِل أصدقاءك واحصل على خصم:", "Refer friends and get a discount:")}</p>
             <div className="mt-4 flex flex-wrap gap-6 text-sm">
@@ -70,7 +70,7 @@ export function PackagesContent() {
         </div>
       </section>
 
-      <div className="border-t border-card-border"><Testimonials /></div>
+      <div className="border-t border-white/10"><Testimonials /></div>
       <RegisterBanner />
     </div>
   );

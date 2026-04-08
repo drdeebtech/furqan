@@ -27,7 +27,7 @@ export function FAQ() {
 
         <div className="mt-12 space-y-2">
           {FAQS.map((faq, i) => (
-            <div key={i} className="rounded-xl border border-card-border bg-card">
+            <div key={i} className="glass-card">
               <button
                 onClick={() => setOpenIndex(openIndex === i ? null : i)}
                 className="flex w-full items-center justify-between px-6 py-4 text-right text-sm font-medium transition-colors hover:text-gold focus-ring"
@@ -36,7 +36,7 @@ export function FAQ() {
                 <ChevronDown size={18} className={`shrink-0 text-muted transition-transform ${openIndex === i ? "rotate-180" : ""}`} />
               </button>
               {openIndex === i && (
-                <div className="border-t border-card-border px-6 py-4">
+                <div className="border-t border-white/10 px-6 py-4">
                   <p className="text-sm leading-relaxed text-muted">{t(faq.aAr, faq.aEn)}</p>
                 </div>
               )}

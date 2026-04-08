@@ -29,7 +29,7 @@ export function FeatureToggle({
   }
 
   return (
-    <div className="flex items-center justify-between rounded-xl border border-card-border bg-surface px-4 py-3">
+    <div className="flex items-center justify-between glass-card rounded-xl px-4 py-3">
       <div>
         <p className="text-sm font-medium">{label}</p>
         <p className="text-xs text-muted">{description}</p>

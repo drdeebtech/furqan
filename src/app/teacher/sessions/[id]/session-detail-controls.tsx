@@ -63,7 +63,7 @@ export function SessionDetailControls({
 
   if (ended) {
     return (
-      <div className="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center text-sm text-emerald-400">
+      <div className="glass-success glass-card mb-6 p-4 text-center text-sm text-emerald-400">
         تم إنهاء الجلسة بنجاح
       </div>
     );
@@ -72,7 +72,7 @@ export function SessionDetailControls({
   const spinner = <Loader2 size={14} className="animate-spin" />;
 
   return (
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-card-border bg-card p-4">
+    <div className="glass-card mb-6 flex flex-wrap items-center justify-between gap-3 p-4">
       {/* Timer */}
       <div className="flex items-center gap-3">
         {isActive && startedAt && (

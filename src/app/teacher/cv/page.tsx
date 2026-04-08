@@ -70,7 +70,7 @@ export default async function TeacherCvPage() {
           <span className="text-sm font-normal text-muted">Teacher CV</span>
         </h1>
         <span
-          className={`rounded-full border px-2 py-0.5 text-xs ${badge.classes}`}
+          className={`glass-badge rounded-full px-2 py-0.5 text-xs ${badge.classes}`}
         >
           {badge.label}
         </span>

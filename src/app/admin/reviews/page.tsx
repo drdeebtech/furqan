@@ -33,16 +33,16 @@ export default async function AdminReviewsPage() {
     <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
       <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><Star size={24} className="text-gold" /> المراجعات</h1>
       <div className="mb-6 grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-card-border bg-card p-4 text-center"><p className="text-2xl font-bold text-gold">{reviews.length}</p><p className="text-xs text-muted">إجمالي</p></div>
-        <div className="rounded-xl border border-card-border bg-card p-4 text-center"><p className="text-2xl font-bold text-gold">{avgRating}</p><p className="text-xs text-muted">متوسط التقييم</p></div>
-        <div className="rounded-xl border border-card-border bg-card p-4 text-center"><p className="text-2xl font-bold text-gold">{publicCount}</p><p className="text-xs text-muted">عامة</p></div>
+        <div className="glass-card rounded-xl p-4 text-center"><p className="text-2xl font-bold text-gold">{reviews.length}</p><p className="text-xs text-muted">إجمالي</p></div>
+        <div className="glass-card rounded-xl p-4 text-center"><p className="text-2xl font-bold text-gold">{avgRating}</p><p className="text-xs text-muted">متوسط التقييم</p></div>
+        <div className="glass-card rounded-xl p-4 text-center"><p className="text-2xl font-bold text-gold">{publicCount}</p><p className="text-xs text-muted">عامة</p></div>
       </div>
       {reviews.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center"><Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا توجد مراجعات</p></div>
+        <div className="glass-card rounded-xl p-12 text-center"><Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا توجد مراجعات</p></div>
       ) : (
         <div className="space-y-3">
           {reviews.map(r => (
-            <div key={r.id} className="rounded-xl border border-card-border bg-card p-4">
+            <div key={r.id} className="glass-card rounded-xl p-4">
               <div className="flex items-start justify-between">
                 <div>
                   <div className="flex items-center gap-2">

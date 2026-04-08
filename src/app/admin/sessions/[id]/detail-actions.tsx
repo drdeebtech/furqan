@@ -55,7 +55,7 @@ export function SessionDetailActions({
                 onChange={(e) => setReason(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleForceEnd()}
                 placeholder="سبب إنهاء الجلسة..."
-                className="w-48 rounded-xl border border-input-border bg-input px-3 py-2 text-sm"
+                className="w-48 rounded-xl glass-input px-3 py-2 text-sm"
                 autoFocus
                 aria-label="سبب إنهاء الجلسة"
               />

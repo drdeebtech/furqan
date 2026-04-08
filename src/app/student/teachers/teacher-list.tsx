@@ -36,7 +36,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
       {isNew && (
         <>
           <BookingSteps current={1} />
-          <div className="mb-6 rounded-2xl border border-gold/30 bg-gold/5 p-5 text-center">
+          <div className="mb-6 glass-card p-5 text-center">
             <p className="text-lg font-bold text-gold">مرحباً! اختر معلمك لتبدأ رحلتك مع القرآن</p>
             <p className="mt-1 text-sm text-muted">تصفح المعلمين واضغط &quot;احجز&quot; لحجز جلستك الأولى</p>
           </div>
@@ -51,7 +51,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
       </div>
 
       {/* Filters */}
-      <div className="mb-6 space-y-3 rounded-2xl border border-card-border bg-card p-4">
+      <div className="mb-6 space-y-3 glass-card p-4">
         {/* Search */}
         <div className="relative">
           <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted" />
@@ -61,7 +61,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="ابحث بالاسم..."
             aria-label="بحث"
-            className="w-full rounded-lg border border-input-border bg-input py-2 pe-4 ps-10 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none"
+            className="w-full rounded-lg glass-input py-2 pe-4 ps-10 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none"
           />
         </div>
 
@@ -74,8 +74,8 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
                 onClick={() => setSpecialty(s.key)}
                 className={`rounded-full px-3 py-1 text-xs transition-colors ${
                   specialty === s.key
-                    ? "bg-gold font-medium text-background"
-                    : "border border-card-border text-muted hover:border-gold/40"
+                    ? "glass-gold font-medium text-white"
+                    : "glass text-muted hover:border-gold/40"
                 }`}
               >
                 {s.ar}
@@ -90,7 +90,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
 
       {/* Results */}
       {filtered.length === 0 ? (
-        <div className="rounded-2xl border border-card-border bg-card p-12 text-center">
+        <div className="glass-card p-12 text-center">
           <Users size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-muted">لا يوجد معلمون مطابقون</p>
           <button onClick={() => { setSpecialty("all"); setSearchQuery(""); }} className="mt-3 text-sm text-gold hover:text-gold-light">
@@ -103,10 +103,10 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
             const bio = teacher.bio && teacher.bio.length > 100 ? teacher.bio.slice(0, 100) + "…" : teacher.bio;
 
             return (
-              <div key={teacher.teacher_id} className="rounded-2xl border border-card-border bg-card p-4 md:p-5">
+              <div key={teacher.teacher_id} className="glass-card p-4 md:p-5">
                 {/* Compact mobile layout */}
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-card-border bg-surface text-lg font-bold md:h-14 md:w-14 md:text-xl">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full glass text-lg font-bold md:h-14 md:w-14 md:text-xl">
                     {teacher.name.trim().charAt(0) || "؟"}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -121,7 +121,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
                   {/* Mobile: inline book button */}
                   <Link
                     href={`/student/bookings/new?teacher=${teacher.teacher_id}`}
-                    className="shrink-0 rounded-lg bg-gold px-4 py-2 text-sm font-bold text-background transition-colors hover:bg-gold-hover md:hidden"
+                    className="shrink-0 rounded-lg glass-gold px-4 py-2 text-sm font-bold text-white transition-colors md:hidden"
                   >
                     احجز
                   </Link>
@@ -135,7 +135,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
                 {teacher.specialties.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {teacher.specialties.slice(0, 3).map((s) => (
-                      <span key={s} className="rounded-full border border-gold/30 bg-gold/10 px-2 py-0.5 text-xs text-gold">
+                      <span key={s} className="glass glass-pill px-2 py-0.5 text-xs text-gold">
                         {SESSION_TYPE_AR[s as SessionType] ?? s}
                       </span>
                     ))}
@@ -143,7 +143,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
                       <span className="rounded-full px-2 py-0.5 text-xs text-muted md:hidden">+{teacher.specialties.length - 3}</span>
                     )}
                     {teacher.specialties.slice(3).map((s) => (
-                      <span key={s} className="hidden rounded-full border border-gold/30 bg-gold/10 px-2 py-0.5 text-xs text-gold md:inline">
+                      <span key={s} className="hidden glass glass-pill px-2 py-0.5 text-xs text-gold md:inline">
                         {SESSION_TYPE_AR[s as SessionType] ?? s}
                       </span>
                     ))}
@@ -154,7 +154,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
                 {teacher.recitation_standards.length > 0 && (
                   <div className="mt-2 hidden flex-wrap gap-1.5 md:flex">
                     {[...new Set(teacher.recitation_standards)].map((r) => (
-                      <span key={r} className="rounded-full border border-card-border px-2 py-0.5 text-xs text-muted">
+                      <span key={r} className="glass-badge px-2 py-0.5 text-xs text-muted">
                         {RIWAYA_AR[r as RecitationStandard] ?? r}
                       </span>
                     ))}
@@ -164,7 +164,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
                 {/* Desktop: full-width book button */}
                 <Link
                   href={`/student/bookings/new?teacher=${teacher.teacher_id}`}
-                  className="mt-4 hidden w-full items-center justify-center gap-2 rounded-lg bg-gold py-2.5 font-semibold text-white transition-colors hover:bg-gold-hover md:flex"
+                  className="mt-4 hidden w-full items-center justify-center gap-2 rounded-lg glass-gold py-2.5 font-semibold text-white transition-colors md:flex"
                 >
                   احجز جلسة
                 </Link>

@@ -80,17 +80,17 @@ export default async function AdminNotesPage() {
 
       {/* Stats */}
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-card-border bg-card p-4">
+        <div className="glass-card rounded-xl p-4">
           <FileText size={16} className="mb-1 text-gold" />
           <p className="text-2xl font-bold text-gold">{allSessions.length}</p>
           <p className="text-xs text-muted">إجمالي الجلسات بملاحظات</p>
         </div>
-        <div className="rounded-xl border border-card-border bg-card p-4">
+        <div className="glass-card rounded-xl p-4">
           <FileText size={16} className="mb-1 text-gold" />
           <p className="text-2xl font-bold text-gold">{notesCount}</p>
           <p className="text-xs text-muted">ملاحظات المعلمين</p>
         </div>
-        <div className="rounded-xl border border-card-border bg-card p-4">
+        <div className="glass-card rounded-xl p-4">
           <BookOpen size={16} className="mb-1 text-gold" />
           <p className="text-2xl font-bold text-gold">{homeworkCount}</p>
           <p className="text-xs text-muted">واجبات منزلية</p>
@@ -100,7 +100,7 @@ export default async function AdminNotesPage() {
       {/* Notes list */}
       <div className="mt-8 space-y-4">
         {allSessions.length === 0 ? (
-          <div className="rounded-xl border border-card-border bg-card p-8 text-center">
+          <div className="glass-card rounded-xl p-8 text-center">
             <FileText size={24} className="mx-auto mb-2 text-muted" />
             <p className="text-sm text-muted">لا توجد ملاحظات بعد</p>
           </div>
@@ -109,12 +109,12 @@ export default async function AdminNotesPage() {
             const b = bookingMap[s.booking_id];
             if (!b) return null;
             return (
-              <div key={s.id} className="rounded-xl border border-card-border bg-card p-5">
+              <div key={s.id} className="glass-card rounded-xl p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium">
                       <span className="text-gold">المعلم:</span> {nameMap[b.teacher_id] ?? "—"}
-                      <span className="mx-3 text-card-border">|</span>
+                      <span className="mx-3 text-white/10">|</span>
                       <span className="text-gold">الطالب:</span>{" "}
                       <Link href={`/admin/users/${b.student_id}`} className="text-foreground hover:text-gold">
                         {nameMap[b.student_id] ?? "—"}

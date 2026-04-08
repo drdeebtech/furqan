@@ -121,7 +121,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
       </Link>
 
       {/* Profile Header */}
-      <div className="rounded-2xl border border-card-border bg-card p-6">
+      <div className="glass-card p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gold/20 text-xl font-bold text-gold">
@@ -130,8 +130,8 @@ export default async function AdminUserDetailPage({ params }: Props) {
             <div>
               <h1 className="text-xl font-bold">{profile.full_name ?? "—"}</h1>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-                <span className="rounded-full border border-gold/30 bg-gold/10 px-2 py-0.5 text-xs text-gold">{profile.role}</span>
-                <span className={`rounded-full border px-2 py-0.5 text-xs ${profile.is_active ? "border-green-500/30 bg-green-500/10 text-green-400" : "border-red-500/30 bg-red-500/10 text-red-400"}`}>
+                <span className="glass-badge border-gold/30 bg-gold/10 text-gold">{profile.role}</span>
+                <span className={`glass-badge ${profile.is_active ? "border-green-500/30 bg-green-500/10 text-green-400" : "border-red-500/30 bg-red-500/10 text-red-400"}`}>
                   {profile.is_active ? "نشط" : "معطل"}
                 </span>
               </div>
@@ -152,7 +152,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
 
         {/* Parent info (students) */}
         {isStudent && (profile.parent_name || profile.parent_phone || profile.parent_email) && (
-          <div className="mt-4 rounded-lg border border-card-border bg-surface p-3">
+          <div className="mt-4 glass-card rounded-lg p-3">
             <p className="mb-1 text-xs font-medium text-gold">معلومات ولي الأمر:</p>
             <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
               {profile.parent_name && <div><span className="text-muted">الاسم:</span> {profile.parent_name}</div>}
@@ -165,15 +165,15 @@ export default async function AdminUserDetailPage({ params }: Props) {
         {/* Teacher profile summary */}
         {isTeacher && teacherProfile && (
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-            <div className="rounded-lg border border-card-border p-3 text-center">
+            <div className="glass-card rounded-lg p-3 text-center">
               <p className="text-lg font-bold text-gold">{teacherProfile.rating_avg > 0 ? teacherProfile.rating_avg.toFixed(1) : "—"}</p>
               <p className="text-xs text-muted">التقييم</p>
             </div>
-            <div className="rounded-lg border border-card-border p-3 text-center">
+            <div className="glass-card rounded-lg p-3 text-center">
               <p className="text-lg font-bold text-gold">{teacherProfile.total_sessions}</p>
               <p className="text-xs text-muted">الجلسات</p>
             </div>
-            <div className="rounded-lg border border-card-border p-3 text-center">
+            <div className="glass-card rounded-lg p-3 text-center">
               <p className={`text-lg font-bold ${teacherProfile.cv_status === "approved" ? "text-green-400" : "text-amber-400"}`}>
                 {teacherProfile.cv_status === "approved" ? "معتمد" : teacherProfile.cv_status === "pending_review" ? "قيد المراجعة" : "مسودة"}
               </p>
@@ -185,17 +185,17 @@ export default async function AdminUserDetailPage({ params }: Props) {
 
       {/* Quick stats */}
       <div className="mt-6 grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-card-border bg-card p-4 text-center">
+        <div className="glass-card rounded-xl p-4 text-center">
           <Calendar size={16} className="mx-auto mb-1 text-gold" />
           <p className="text-xl font-bold text-gold">{(bookings ?? []).length}</p>
           <p className="text-xs text-muted">الحجوزات</p>
         </div>
-        <div className="rounded-xl border border-card-border bg-card p-4 text-center">
+        <div className="glass-card rounded-xl p-4 text-center">
           <Star size={16} className="mx-auto mb-1 text-gold" />
           <p className="text-xl font-bold text-gold">{completedCount}</p>
           <p className="text-xs text-muted">جلسات مكتملة</p>
         </div>
-        <div className="rounded-xl border border-card-border bg-card p-4 text-center">
+        <div className="glass-card rounded-xl p-4 text-center">
           <MessageSquare size={16} className="mx-auto mb-1 text-gold" />
           <p className="text-xl font-bold text-gold">{(reviews ?? []).length}</p>
           <p className="text-xs text-muted">المراجعات</p>
@@ -215,7 +215,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
               const note = notesMap[b.id];
               const otherName = nameMap[isStudent ? b.teacher_id : b.student_id] ?? "—";
               return (
-                <div key={b.id} className="rounded-xl border border-card-border bg-card p-4">
+                <div key={b.id} className="glass-card rounded-xl p-4">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="text-sm font-medium">
@@ -227,7 +227,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
                       </p>
                     </div>
                     <div className="text-left">
-                      <span className={`rounded-full border px-2 py-0.5 text-xs ${statusColors[b.status] ?? "text-muted"}`}>
+                      <span className={`glass-badge ${statusColors[b.status] ?? "text-muted"}`}>
                         {b.status}
                       </span>
                       <p dir="ltr" className="mt-1 text-xs text-muted">
@@ -262,14 +262,14 @@ export default async function AdminUserDetailPage({ params }: Props) {
           </h2>
           <div className="space-y-2">
             {(evaluations ?? []).map(e => (
-              <div key={e.id} className="flex items-center justify-between rounded-lg border border-card-border bg-card px-4 py-3">
+              <div key={e.id} className="flex items-center justify-between glass-card rounded-lg px-4 py-3">
                 <div>
                   <p className="text-sm font-medium">
                     {isStudent ? "بواسطة" : "للطالب"}: {nameMap[isStudent ? e.teacher_id : e.student_id] ?? "—"}
                   </p>
                   <p className="text-xs text-muted">{e.evaluation_type} · {new Date(e.period_start).toLocaleDateString("ar-SA")} — {new Date(e.period_end).toLocaleDateString("ar-SA")}</p>
                 </div>
-                <span className={`rounded-full border px-3 py-1 text-sm font-bold ${e.overall_score >= 8 ? "border-green-500/30 text-green-400" : e.overall_score >= 5 ? "border-amber-500/30 text-amber-400" : "border-red-500/30 text-red-400"}`}>
+                <span className={`glass-badge px-3 py-1 text-sm font-bold ${e.overall_score >= 8 ? "border-green-500/30 text-green-400" : e.overall_score >= 5 ? "border-amber-500/30 text-amber-400" : "border-red-500/30 text-red-400"}`}>
                   {e.overall_score}/10
                 </span>
               </div>
@@ -286,7 +286,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
           </h2>
           <div className="space-y-3">
             {(reviews ?? []).map(r => (
-              <div key={r.id} className="rounded-xl border border-card-border bg-card p-4">
+              <div key={r.id} className="glass-card rounded-xl p-4">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-sm font-medium">
@@ -299,7 +299,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`rounded-full border px-2 py-0.5 text-xs ${r.is_public ? "border-green-500/30 text-green-400" : "border-muted/30 text-muted"}`}>
+                    <span className={`glass-badge ${r.is_public ? "border-green-500/30 text-green-400" : "border-muted/30 text-muted"}`}>
                       {r.is_public ? "عام" : "خاص"}
                     </span>
                     <span className="text-xs text-muted">{new Date(r.created_at).toLocaleDateString("ar-SA")}</span>
@@ -307,7 +307,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
                 </div>
                 {r.comment && <p className="mt-2 text-sm">{r.comment}</p>}
                 {r.teacher_reply && (
-                  <div className="mt-2 rounded-lg border border-card-border bg-surface p-2">
+                  <div className="mt-2 glass-card rounded-lg p-2">
                     <p className="text-xs text-gold">رد المعلم:</p>
                     <p className="mt-1 text-xs">{r.teacher_reply}</p>
                   </div>

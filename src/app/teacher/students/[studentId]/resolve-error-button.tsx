@@ -31,7 +31,7 @@ export function ResolveErrorButton({ errorId }: { errorId: string }) {
       <button
         onClick={handleResolve}
         disabled={loading}
-        className="flex shrink-0 items-center gap-1 rounded border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-xs text-green-400 transition-colors hover:bg-green-500/20 disabled:opacity-50"
+        className="glass-success glass-badge flex shrink-0 items-center gap-1 rounded px-2 py-0.5 text-xs text-green-400 transition-colors hover:bg-green-500/20 disabled:opacity-50"
       >
         {loading ? (
           <span className="block h-3 w-3 animate-spin rounded-full border-2 border-green-400/30 border-t-green-400" />

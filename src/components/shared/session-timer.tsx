@@ -36,8 +36,8 @@ export function SessionTimer({
     <div
       className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-mono font-semibold transition-colors ${
         overtime
-          ? "border border-error/30 bg-error/10 text-error"
-          : "border border-gold/30 bg-gold/10 text-gold"
+          ? "glass glass-danger text-error"
+          : "glass glass-gold text-gold"
       }`}
     >
       <Timer size={14} className={overtime ? "animate-pulse" : ""} />

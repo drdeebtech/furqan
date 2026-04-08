@@ -90,7 +90,7 @@ export default async function SessionPage({ params }: Props) {
       </Link>
 
       {/* Session info bar */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-card-border bg-card elevation-2 p-4">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 glass-card p-4">
         <div>
           <h1 className="font-display text-xl font-bold">{teacherName}</h1>
           <p className="mt-1 text-sm text-gold">
@@ -107,7 +107,7 @@ export default async function SessionPage({ params }: Props) {
           <SessionTimer startedAt={session.started_at} durationMin={booking.duration_min} />
         )}
         {isCompleted && session.actual_duration && (
-          <div className="rounded-full border border-card-border px-3 py-1 text-sm text-muted">
+          <div className="glass-badge px-3 py-1 text-sm text-muted">
             مدة الجلسة: {session.actual_duration} دقيقة
           </div>
         )}
@@ -116,20 +116,20 @@ export default async function SessionPage({ params }: Props) {
       {/* Video room or completed state */}
       {isCompleted ? (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-card-border bg-card elevation-2 p-8 text-center">
+          <div className="glass-card p-8 text-center">
             <p className="text-lg font-semibold text-gold">تمت الجلسة بنجاح</p>
             <p className="mt-1 text-sm text-muted">Session completed</p>
           </div>
 
           {session.post_session_notes && (
-            <div className="rounded-2xl border border-card-border bg-card elevation-2 p-5">
+            <div className="glass-card p-5">
               <h2 className="mb-2 font-display text-sm font-semibold text-gold">ملاحظات المعلم</h2>
               <p className="text-sm leading-relaxed text-muted">{session.post_session_notes}</p>
             </div>
           )}
 
           {session.homework && (
-            <div className="rounded-xl border border-gold/20 bg-gold/5 p-5">
+            <div className="glass-card p-5">
               <h2 className="mb-2 font-display text-sm font-semibold text-gold">الواجب</h2>
               <p className="text-sm leading-relaxed text-muted">{session.homework}</p>
             </div>
@@ -137,7 +137,7 @@ export default async function SessionPage({ params }: Props) {
 
           {/* Review section */}
           {existingReview ? (
-            <div className="rounded-2xl border border-card-border bg-card elevation-2 p-5">
+            <div className="glass-card p-5">
               <h2 className="mb-2 font-display text-sm font-semibold text-gold">تقييمك</h2>
               <div className="mb-2 flex gap-1">
                 {Array.from({ length: 5 }, (_, i) => (

@@ -13,7 +13,7 @@ export default async function NewPostPage() {
   return (
     <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="mb-6 text-2xl font-bold">مقال جديد</h1>
-      <div className="rounded-xl border border-card-border bg-card p-6">
+      <div className="glass-card rounded-xl p-6">
         <PostForm />
       </div>
     </div>

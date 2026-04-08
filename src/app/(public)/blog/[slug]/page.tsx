@@ -84,7 +84,7 @@ export default async function ArticlePage({ params }: Props) {
         description={post.excerpt_ar}
         url={`https://furqan.today/blog/${post.slug}`}
       />
-      <section className="border-b border-card-border bg-card py-16 text-center">
+      <section className="glass-card border-b border-white/10 py-16 text-center">
         <p className="text-sm text-muted">
           <Link href="/" className="text-gold hover:text-gold-light">الرئيسية</Link>
           {" / "}
@@ -92,7 +92,7 @@ export default async function ArticlePage({ params }: Props) {
           {" / "}
           {post.title_ar}
         </p>
-        <span className={`mt-4 inline-block rounded-full border px-3 py-1 text-xs ${post.color}`}>
+        <span className={`glass-badge mt-4 inline-block px-3 py-1 text-xs ${post.color}`}>
           {post.category_ar}
         </span>
         <h1 className="font-display mx-auto mt-4 max-w-2xl text-4xl font-bold">
@@ -112,7 +112,7 @@ export default async function ArticlePage({ params }: Props) {
           </div>
 
           {/* English body */}
-          <div dir="ltr" className="mt-12 border-t border-card-border pt-8 text-left">
+          <div dir="ltr" className="mt-12 border-t border-white/10 pt-8 text-left">
             <p className="mb-4 text-xs font-medium text-gold">English Version</p>
             <div className="whitespace-pre-line text-sm leading-relaxed text-muted">
               {post.body_en}

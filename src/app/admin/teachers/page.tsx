@@ -43,17 +43,17 @@ export default async function AdminTeachersPage() {
               <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-xs font-bold text-white">{pendingCvCount}</span>
             </Link>
           )}
-          <Link href="/admin/teachers/new" className="flex items-center gap-2 rounded bg-gold px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gold-hover">
+          <Link href="/admin/teachers/new" className="flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-medium">
             <Plus size={16} /> إضافة معلم
           </Link>
         </div>
       </div>
       {list.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center"><Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا يوجد معلمون</p></div>
+        <div className="glass-card rounded-xl p-12 text-center"><Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا يوجد معلمون</p></div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-card-border">
+        <div className="overflow-hidden rounded-xl glass-card">
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-card-border bg-card">
+            <thead><tr className="border-b border-white/10 bg-white/5">
               <th scope="col" className="px-4 py-3 text-right font-medium text-muted">المعلم</th>
               <th scope="col" className="px-4 py-3 text-right font-medium text-muted">السعر</th>
               <th scope="col" className="px-4 py-3 text-right font-medium text-muted">التقييم</th>
@@ -63,15 +63,15 @@ export default async function AdminTeachersPage() {
             </tr></thead>
             <tbody>
               {list.map(t => (
-                <tr key={t.teacher_id} className={`border-b border-card-border last:border-b-0 ${t.is_archived ? "opacity-50" : ""}`}>
+                <tr key={t.teacher_id} className={`border-b border-white/10 last:border-b-0 ${t.is_archived ? "opacity-50" : ""}`}>
                   <td className="px-4 py-3 font-medium">{nameMap[t.teacher_id] ?? "معلم"}</td>
                   <td className="px-4 py-3 text-gold">${t.hourly_rate}</td>
                   <td className="px-4 py-3"><span className="flex items-center gap-1"><Star size={12} className="fill-gold text-gold" />{Number(t.rating_avg).toFixed(1)}</span></td>
                   <td className="px-4 py-3 text-muted">{t.total_sessions}</td>
                   <td className="px-4 py-3">
-                    {t.is_archived ? <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-xs text-red-400">مؤرشف</span>
-                      : t.is_accepting ? <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-400">يقبل طلاب</span>
-                      : <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-400">مشغول</span>}
+                    {t.is_archived ? <span className="glass-badge border-red-500/30 bg-red-500/10 text-red-400">مؤرشف</span>
+                      : t.is_accepting ? <span className="glass-badge border-emerald-500/30 bg-emerald-500/10 text-emerald-400">يقبل طلاب</span>
+                      : <span className="glass-badge border-amber-500/30 bg-amber-500/10 text-amber-400">مشغول</span>}
                   </td>
                   <td className="px-4 py-3"><Link href={`/admin/teachers/${t.teacher_id}`} className="text-xs text-gold hover:text-gold-light">تفاصيل ←</Link></td>
                 </tr>

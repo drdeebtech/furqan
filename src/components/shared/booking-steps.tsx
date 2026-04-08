@@ -21,14 +21,14 @@ export function BookingSteps({ current }: { current: 1 | 2 | 3 }) {
           <div key={step.en} className="flex items-center gap-1 sm:gap-2">
             {i > 0 && <span className={`hidden transition-colors sm:inline ${isDone || isActive ? "text-gold" : "text-muted/30"}`}>←</span>}
             <div className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors ${
-              isActive ? "bg-gold/20 font-bold text-gold" :
-              isDone ? "bg-success/10 text-success" :
+              isActive ? "glass glass-gold font-bold text-gold" :
+              isDone ? "glass glass-success text-success" :
               "text-muted/50"
             }`}>
               <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold transition-colors ${
                 isActive ? "bg-gold text-background" :
                 isDone ? "bg-success text-background" :
-                "bg-card-border text-muted"
+                "bg-white/10 text-muted"
               }`}>
                 {isDone ? "✓" : num}
               </span>

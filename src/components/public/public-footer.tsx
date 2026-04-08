@@ -9,7 +9,7 @@ export function PublicFooter() {
   const { t } = useLang();
 
   return (
-    <footer className="border-t border-card-border bg-card">
+    <footer className="glass-card">
       <div className="gold-line" />
       <div className="mx-auto grid max-w-7xl gap-8 px-6 py-12 md:grid-cols-4">
         <div>
@@ -64,7 +64,7 @@ export function PublicFooter() {
         </div>
       </div>
 
-      <div className="border-t border-card-border px-6 py-6">
+      <div className="border-t border-white/10 px-6 py-6">
         <p className="text-center text-xs text-muted">© 2026 {t("فرقان · جميع الحقوق محفوظة", "FURQAN · All rights reserved")}</p>
       </div>
     </footer>

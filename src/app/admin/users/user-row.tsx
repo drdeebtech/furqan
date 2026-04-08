@@ -23,7 +23,7 @@ export function UserRow({ user }: Props) {
   }
 
   return (
-    <tr className="border-b border-card-border last:border-b-0">
+    <tr className="border-b border-white/10 last:border-b-0">
       <td className="px-4 py-3 font-medium">
         <Link href={`/admin/users/${user.id}`} className="hover:text-gold">{user.full_name ?? "—"}</Link>
       </td>
@@ -35,7 +35,7 @@ export function UserRow({ user }: Props) {
               <button
                 onClick={confirmRoleChange}
                 disabled={roleLoading}
-                className="rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                className="glass-danger glass-pill px-2 py-0.5 text-xs font-medium transition-colors disabled:opacity-50"
               >
                 {roleLoading ? "..." : "تأكيد"}
               </button>
@@ -56,7 +56,7 @@ export function UserRow({ user }: Props) {
                 setPendingRole(e.target.value);
               }
             }}
-            className="rounded border border-card-border bg-surface px-2 py-1 text-xs text-foreground"
+            className="glass-input rounded px-2 py-1 text-xs text-foreground"
           >
             <option value="student">طالب</option>
             <option value="teacher">معلم</option>
@@ -69,7 +69,7 @@ export function UserRow({ user }: Props) {
       <td className="px-4 py-3">
         <button
           onClick={async () => { setActive(!active); await toggleUserActive(user.id, !active); }}
-          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${active ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-red-500/10 text-red-400 border border-red-500/30"}`}
+          className={`glass-badge ${active ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-red-500/10 text-red-400 border-red-500/30"}`}
         >
           {active ? "نشط" : "معطل"}
         </button>

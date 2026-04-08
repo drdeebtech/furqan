@@ -60,7 +60,7 @@ export default async function NewEvaluationPage() {
         إنشاء تقييم جديد
       </h1>
 
-      <div className="rounded-2xl border border-card-border bg-card p-6">
+      <div className="glass-card p-6">
         <EvaluationForm students={students} teachers={teachers} />
       </div>
     </div>

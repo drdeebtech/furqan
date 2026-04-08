@@ -31,10 +31,10 @@ export function Testimonials() {
 
         <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {REVIEWS.map((r) => (
-            <div key={r.en} className="rounded-2xl border border-card-border bg-card p-6 transition-all duration-300 hover:border-gold/30 hover:elevation-2">
+            <div key={r.en} className="glass-card p-6 transition-all duration-300 hover:border-gold/30">
               <span className="text-3xl leading-none text-gold/20">❝</span>
               <p className="mt-2 text-sm leading-relaxed text-muted">{t(r.ar, r.en)}</p>
-              <div className="mt-4 border-t border-card-border pt-3">
+              <div className="mt-4 border-t border-white/10 pt-3">
                 <p className="text-sm font-bold">{t(r.name.ar, r.name.en)}</p>
                 <p className="text-xs text-muted">{r.loc}</p>
               </div>

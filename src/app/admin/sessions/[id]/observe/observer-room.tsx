@@ -57,18 +57,18 @@ export function ObserverRoom({ sessionId }: { sessionId: string }) {
       )}
 
       {!joined && !loading && (
-        <div className="rounded-2xl border border-card-border bg-card elevation-2 p-12 text-center">
+        <div className="glass-card p-12 text-center">
           <Eye size={40} className="mx-auto mb-4 text-gold" />
           <h2 className="mb-2 text-xl font-bold">مراقبة الجلسة</h2>
           <p className="mb-6 text-sm text-muted">ستنضم كمراقب بدون صوت أو كاميرا</p>
-          <button onClick={startObserving} className="inline-flex items-center gap-2 rounded-full bg-primary px-8 py-3 text-lg font-semibold text-white neu-btn transition-colors hover:bg-primary-hover focus-ring">
+          <button onClick={startObserving} className="inline-flex items-center gap-2 glass-gold glass-pill px-8 py-3 text-lg font-semibold transition-colors focus-ring">
             <Eye size={20} /> بدء المراقبة
           </button>
         </div>
       )}
 
       {loading && !joined && (
-        <div className="rounded-2xl border border-card-border bg-card elevation-2 p-12 text-center">
+        <div className="glass-card p-12 text-center">
           <span className="mx-auto mb-4 block h-8 w-8 animate-spin rounded-full border-4 border-gold/30 border-t-gold" />
           <p className="text-sm text-muted">جاري الاتصال...</p>
         </div>
@@ -77,7 +77,7 @@ export function ObserverRoom({ sessionId }: { sessionId: string }) {
       <div ref={containerRef} className={`overflow-hidden rounded-xl ${joined ? "aspect-video" : "h-0"}`} />
 
       {joined && (
-        <div className="mt-4 flex items-center justify-between rounded-2xl border border-card-border bg-card elevation-2 p-3">
+        <div className="mt-4 flex items-center justify-between glass-card p-3">
           <div className="flex items-center gap-2 text-sm text-amber-400">
             <Eye size={14} />
             وضع المراقبة — الصوت والكاميرا مغلقان

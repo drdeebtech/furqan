@@ -181,7 +181,7 @@ export function MessagesView({
         </h1>
         <button
           onClick={openNewConvoDialog}
-          className="flex items-center gap-2 rounded-lg bg-gold px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-gold-hover"
+          className="flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gold-hover"
         >
           <Plus size={16} />
           محادثة جديدة
@@ -190,7 +190,7 @@ export function MessagesView({
 
       {/* New Conversation Dialog */}
       {showNewConvo && (
-        <div className="mb-4 rounded-xl border border-gold/30 bg-card p-4">
+        <div className="mb-4 rounded-xl glass-card p-4">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-bold text-gold">اختر {role === "teacher" ? "طالباً" : "معلماً"} لبدء محادثة</p>
             <button onClick={() => setShowNewConvo(false)} className="text-xs text-muted hover:text-foreground">إغلاق</button>
@@ -205,7 +205,7 @@ export function MessagesView({
                 <button
                   key={c.id}
                   onClick={() => startConversation(c)}
-                  className="rounded-lg border border-card-border bg-surface px-3 py-2 text-sm transition-colors hover:border-gold/40 hover:text-gold"
+                  className="rounded-lg glass px-3 py-2 text-sm transition-colors hover:border-gold/40 hover:text-gold"
                 >
                   {c.name}
                 </button>
@@ -216,7 +216,7 @@ export function MessagesView({
       )}
 
       {conversations.length === 0 && !showNewConvo ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center">
+        <div className="glass-card rounded-xl p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-muted">لا توجد محادثات بعد</p>
           <p className="mt-1 text-sm text-muted">
@@ -224,15 +224,15 @@ export function MessagesView({
           </p>
         </div>
       ) : conversations.length > 0 && (
-        <div className="flex gap-4 rounded-xl border border-card-border bg-card" style={{ height: "70vh" }}>
+        <div className="flex gap-4 glass-card rounded-xl" style={{ height: "70vh" }}>
           {/* Conversations sidebar */}
-          <div className="w-64 shrink-0 overflow-y-auto border-l border-card-border">
+          <div className="w-64 shrink-0 overflow-y-auto border-l border-white/10">
             {conversations.map((c) => (
               <button
                 key={c.id}
                 onClick={() => setActiveConvo(c.id)}
-                className={`w-full border-b border-card-border px-4 py-3 text-right transition-colors ${
-                  activeConvo === c.id ? "bg-gold/10" : "hover:bg-surface"
+                className={`w-full border-b border-white/10 px-4 py-3 text-right transition-colors ${
+                  activeConvo === c.id ? "glass glass-gold" : "hover:bg-white/5"
                 }`}
               >
                 <p className={`text-sm font-medium ${activeConvo === c.id ? "text-gold" : ""}`}>
@@ -250,7 +250,7 @@ export function MessagesView({
           {/* Messages area */}
           <div className="flex flex-1 flex-col">
             {activeConvoData && (
-              <div className="border-b border-card-border px-4 py-3">
+              <div className="border-b border-white/10 px-4 py-3">
                 <p className="font-medium">{activeConvoData.otherUserName}</p>
               </div>
             )}
@@ -268,8 +268,8 @@ export function MessagesView({
                       <div key={msg.id} className={`flex ${isMine ? "justify-start" : "justify-end"}`}>
                         <div className={`max-w-[70%] rounded-xl px-4 py-2 text-sm ${
                           msg.status === "failed"
-                            ? "border border-error/30 bg-error/5 text-foreground"
-                            : isMine ? "bg-gold/10 text-foreground" : "bg-surface text-foreground"
+                            ? "glass glass-danger text-foreground"
+                            : isMine ? "glass glass-gold text-foreground" : "glass text-foreground"
                         } ${msg.status === "sending" ? "opacity-60" : ""}`}>
                           <p>{msg.content}</p>
                           <div className="mt-1 flex items-center gap-1.5">
@@ -304,20 +304,20 @@ export function MessagesView({
             </div>
 
             {activeConvo && (
-              <form onSubmit={handleSend} className="border-t border-card-border px-4 py-3">
+              <form onSubmit={handleSend} className="border-t border-white/10 px-4 py-3">
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={newMsg}
                     onChange={(e) => setNewMsg(e.target.value)}
                     placeholder="اكتب رسالتك..."
-                    className="flex-1 rounded-xl border border-input-border bg-input px-4 py-2.5 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none"
+                    className="flex-1 glass-input rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none"
                   />
                   <button
                     type="submit"
                     disabled={sending || !newMsg.trim()}
                     aria-label="إرسال"
-                    className="rounded-xl bg-gold px-4 py-2.5 text-white transition-colors hover:bg-gold-hover disabled:opacity-50"
+                    className="glass-gold rounded-xl px-4 py-2.5 text-white transition-colors hover:bg-gold-hover disabled:opacity-50"
                   >
                     <Send size={16} />
                   </button>

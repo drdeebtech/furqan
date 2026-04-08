@@ -124,7 +124,7 @@ export default async function AdminSessionsPage() {
 
       {/* ── Metrics Summary ─────────────────────────────────────────── */}
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <div className="rounded-2xl border border-card-border bg-card p-4">
+        <div className="glass-card p-4">
           <div className="flex items-center gap-2 text-sm text-muted">
             <BarChart3 size={14} />
             إجمالي الجلسات
@@ -145,7 +145,7 @@ export default async function AdminSessionsPage() {
           <p className="mt-0.5 text-xs text-muted">Active now</p>
         </Link>
 
-        <div className="rounded-2xl border border-card-border bg-card p-4">
+        <div className="glass-card p-4">
           <div className="flex items-center gap-2 text-sm text-muted">
             <Users size={14} />
             نسبة الحضور
@@ -154,7 +154,7 @@ export default async function AdminSessionsPage() {
           <p className="mt-0.5 text-xs text-muted">Attendance rate</p>
         </div>
 
-        <div className="rounded-2xl border border-card-border bg-card p-4">
+        <div className="glass-card p-4">
           <div className="flex items-center gap-2 text-sm text-muted">
             <TrendingUp size={14} />
             نسبة المدة
@@ -166,15 +166,15 @@ export default async function AdminSessionsPage() {
 
       {/* ── Sessions Table ──────────────────────────────────────────── */}
       {list.length === 0 ? (
-        <div className="rounded-2xl border border-card-border bg-card p-12 text-center">
+        <div className="glass-card p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-muted">لا توجد جلسات</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-card-border">
+        <div className="overflow-x-auto rounded-2xl glass-card">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-card-border bg-card">
+              <tr className="border-b border-white/10 bg-white/5">
                 <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الطالب</th>
                 <th scope="col" className="px-3 py-3 text-right font-medium text-muted">المعلم</th>
                 <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الموعد</th>
@@ -194,7 +194,7 @@ export default async function AdminSessionsPage() {
                   !s.ended_at;
 
                 return (
-                  <tr key={s.id} className="border-b border-card-border last:border-b-0 hover:bg-surface-alt/50">
+                  <tr key={s.id} className="border-b border-white/10 last:border-b-0 hover:bg-surface-alt/50">
                     <td className="px-3 py-3">
                       <Link href={`/admin/sessions/${s.id}`} className="text-gold hover:underline">
                         {b ? nameMap[b.student_id] ?? "—" : "—"}

@@ -88,14 +88,14 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
       </Link>
 
       {/* Teacher header - compact */}
-      <div className="mb-4 rounded-xl border border-card-border bg-card p-4">
+      <div className="mb-4 glass-card p-4">
         <h1 className="text-lg font-bold">{teacher.name}</h1>
         {availability.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {[...new Set(availability.map((s) => s.dayOfWeek))].sort().map((day) => {
               const slots = availability.filter((s) => s.dayOfWeek === day);
               return (
-                <span key={day} className="rounded-full border border-gold/20 bg-gold/5 px-2 py-0.5 text-xs text-gold">
+                <span key={day} className="glass glass-pill px-2 py-0.5 text-xs text-gold">
                   {DAY_AR[day]} {slots[0].startTime.slice(0, 5)}
                 </span>
               );
@@ -111,7 +111,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
       {/* Confirmation Summary */}
       {showConfirm && isComplete ? (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-gold/30 bg-gold/5 p-6 text-center">
+          <div className="glass-card p-6 text-center">
             <p className="text-sm text-gold">تأكيد الحجز</p>
             <h2 className="mt-2 text-xl font-bold">{teacher.name}</h2>
             <div className="mt-3 space-y-1 text-sm">
@@ -134,7 +134,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
             <button
               type="submit"
               disabled={pending}
-              className="focus-ring flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-4 text-lg font-bold text-background transition-colors hover:bg-gold-hover disabled:opacity-50"
+              className="focus-ring flex w-full items-center justify-center gap-2 rounded-xl glass-gold py-4 text-lg font-bold text-white transition-colors disabled:opacity-50"
             >
               {pending ? (
                 <span className="h-5 w-5 animate-spin rounded-full border-2 border-background/30 border-t-background" />
@@ -160,7 +160,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
                   type="button"
                   onClick={() => setSelectedType(s)}
                   className={`rounded-xl border px-3 py-3 text-sm transition-colors ${
-                    selectedType === s ? "border-gold bg-gold/10 font-medium text-gold" : "border-input-border bg-input hover:border-gold/50"
+                    selectedType === s ? "border-gold bg-gold/10 font-medium text-gold" : "glass-input hover:border-gold/50"
                   }`}
                 >
                   {SESSION_TYPE_AR[s as SessionType] ?? s}
@@ -179,7 +179,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
                   type="button"
                   onClick={() => setDuration(d.value)}
                   className={`rounded-xl border px-3 py-3 text-sm transition-colors ${
-                    duration === d.value ? "border-gold bg-gold/10 font-medium text-gold" : "border-input-border bg-input hover:border-gold/50"
+                    duration === d.value ? "border-gold bg-gold/10 font-medium text-gold" : "glass-input hover:border-gold/50"
                   }`}
                 >
                   {d.label}
@@ -200,8 +200,8 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
                   onClick={() => { setSelectedDate(d.value); setSelectedTime(""); }}
                   className={`shrink-0 rounded-xl border px-3 py-2.5 text-xs transition-colors ${
                     selectedDate === d.value ? "border-gold bg-gold/10 font-bold text-gold" :
-                    d.available ? "border-input-border bg-input hover:border-gold/50" :
-                    "border-input-border bg-input text-muted/30 line-through"
+                    d.available ? "glass-input hover:border-gold/50" :
+                    "glass-input text-muted/30 line-through"
                   }`}
                 >
                   {d.label}
@@ -228,7 +228,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
                         type="button"
                         onClick={() => setSelectedTime(start)}
                         className={`rounded-xl border px-3 py-3 text-sm transition-colors ${
-                          selectedTime === start ? "border-gold bg-gold/10 font-bold text-gold" : "border-input-border bg-input hover:border-gold/50"
+                          selectedTime === start ? "border-gold bg-gold/10 font-bold text-gold" : "glass-input hover:border-gold/50"
                         }`}
                       >
                         {start}
@@ -243,7 +243,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
                   dir="ltr"
                   value={selectedTime}
                   onChange={(e) => setSelectedTime(e.target.value)}
-                  className="w-full rounded-xl border border-input-border bg-input px-4 py-3 text-left text-foreground focus:border-gold focus:outline-none"
+                  className="w-full rounded-xl glass-input px-4 py-3 text-left text-foreground focus:border-gold focus:outline-none"
                 />
               ) : (
                 <p className="text-xs text-amber-400"><AlertCircle size={12} className="inline" /> لا توجد أوقات متاحة في هذا اليوم</p>
@@ -263,7 +263,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
-                className="mt-2 w-full resize-none rounded-xl border border-input-border bg-input px-4 py-2.5 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none"
+                className="mt-2 w-full resize-none rounded-xl glass-input px-4 py-2.5 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none"
                 placeholder="أي ملاحظات للمعلم…"
               />
             )}
@@ -274,7 +274,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
             type="button"
             onClick={() => setShowConfirm(true)}
             disabled={!isComplete}
-            className="focus-ring flex w-full items-center justify-center gap-2 rounded-xl bg-gold py-4 text-lg font-bold text-background transition-colors hover:bg-gold-hover disabled:opacity-40"
+            className="focus-ring flex w-full items-center justify-center gap-2 rounded-xl glass-gold py-4 text-lg font-bold text-white transition-colors disabled:opacity-40"
           >
             التالي — مراجعة الحجز
           </button>

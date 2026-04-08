@@ -11,11 +11,11 @@ interface Props {
 }
 
 const input =
-  "w-full rounded-xl border border-input-border bg-input px-4 py-3 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none";
+  "w-full rounded-xl glass-input px-4 py-3 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none";
 const select =
-  "w-full rounded-xl border border-input-border bg-input px-4 py-3 text-sm text-foreground focus:border-gold focus:outline-none";
+  "w-full rounded-xl glass-input px-4 py-3 text-sm text-foreground focus:border-gold focus:outline-none";
 const textarea =
-  "w-full rounded-xl border border-input-border bg-input px-4 py-3 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none min-h-[80px] resize-y";
+  "w-full rounded-xl glass-input px-4 py-3 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none min-h-[80px] resize-y";
 
 const EVAL_TYPES = [
   { value: "weekly", label: "أسبوعي" },
@@ -42,7 +42,7 @@ export function EvaluationForm({ students, teachers }: Props) {
         <p className="text-lg font-semibold text-emerald-400">تم إنشاء التقييم بنجاح</p>
         <a
           href="/admin/evaluations"
-          className="mt-3 inline-block rounded-xl bg-primary px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
+          className="mt-3 inline-block glass-gold glass-pill px-6 py-2 text-sm font-semibold transition-colors"
         >
           العودة للتقييمات
         </a>
@@ -155,7 +155,7 @@ export function EvaluationForm({ students, teachers }: Props) {
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+        className="w-full glass-gold glass-pill px-6 py-3 text-sm font-semibold transition-colors disabled:opacity-50"
       >
         {pending ? "جارٍ الحفظ..." : "حفظ التقييم"}
       </button>

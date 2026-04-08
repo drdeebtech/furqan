@@ -32,7 +32,7 @@ export default async function AdminServicesPage() {
     <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold"><Settings size={24} className="text-gold" /> إدارة الخدمات</h1>
-        <Link href="/admin/services/new" className="flex items-center gap-2 rounded-lg bg-gold px-5 py-2.5 text-sm font-semibold text-background hover:bg-gold-hover">
+        <Link href="/admin/services/new" className="flex items-center gap-2 glass-gold glass-pill px-5 py-2.5 text-sm font-semibold">
           <Plus size={16} /> إضافة خدمة
         </Link>
       </div>
@@ -40,7 +40,7 @@ export default async function AdminServicesPage() {
       <div className="mb-4 text-sm text-muted">{services.length} خدمة</div>
 
       {services.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center">
+        <div className="glass-card rounded-xl p-12 text-center">
           <Settings size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-muted">لا توجد خدمات — أضف خدمة جديدة</p>
         </div>

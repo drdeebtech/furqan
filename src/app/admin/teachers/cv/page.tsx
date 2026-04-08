@@ -59,7 +59,7 @@ export default async function AdminCvQueuePage() {
       </div>
 
       {list.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center">
+        <div className="glass-card rounded-xl p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-muted">لا توجد سير ذاتية بانتظار المراجعة</p>
         </div>
@@ -69,7 +69,7 @@ export default async function AdminCvQueuePage() {
             <Link
               key={cv.teacher_id}
               href={`/admin/teachers/cv/${cv.teacher_id}`}
-              className="block rounded-2xl border border-card-border bg-card p-5 transition-colors hover:border-gold/30"
+              className="block glass-card p-5 transition-colors hover:border-gold/30"
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -85,7 +85,7 @@ export default async function AdminCvQueuePage() {
                       : "غير محدد"}
                   </p>
                 </div>
-                <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-400">
+                <span className="glass-badge border-amber-500/30 bg-amber-500/10 text-amber-400">
                   بانتظار المراجعة
                 </span>
               </div>

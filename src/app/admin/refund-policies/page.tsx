@@ -21,11 +21,11 @@ export default async function AdminRefundPoliciesPage() {
     <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><Shield size={24} className="text-gold" /> سياسات الاسترداد</h1>
       {policies.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center"><Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا توجد سياسات</p></div>
+        <div className="glass-card rounded-xl p-12 text-center"><Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا توجد سياسات</p></div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-card-border">
+        <div className="overflow-hidden rounded-xl glass-card">
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-card-border bg-card">
+            <thead><tr className="border-b border-white/10 bg-white/5">
               <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الفترة</th>
               <th scope="col" className="px-4 py-3 text-right font-medium text-muted">نسبة الاسترداد</th>
               <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الوصف</th>
@@ -33,7 +33,7 @@ export default async function AdminRefundPoliciesPage() {
             </tr></thead>
             <tbody>
               {policies.map(p => (
-                <tr key={p.id} className="border-b border-card-border last:border-b-0">
+                <tr key={p.id} className="border-b border-white/10 last:border-b-0">
                   <td className="px-4 py-3 font-medium">{p.hours_before_min}h — {p.hours_before_max ? `${p.hours_before_max}h` : "∞"}</td>
                   <td className="px-4 py-3 text-gold font-bold">{p.refund_percentage}%</td>
                   <td className="px-4 py-3 text-muted">{p.description ?? "—"}</td>

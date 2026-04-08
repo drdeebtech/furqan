@@ -37,7 +37,7 @@ export function CvForm({
   const isPendingReview = cvStatus === "pending_review";
 
   return (
-    <div className="rounded-2xl border border-card-border bg-card p-6">
+    <div className="glass-card p-6">
       <h2 className="mb-4 text-lg font-semibold">
         بيانات السيرة الذاتية
         <span className="mr-2 text-sm font-normal text-muted">CV Details</span>
@@ -68,7 +68,7 @@ export function CvForm({
             rows={5}
             defaultValue={bio}
             placeholder="اكتب نبذة عن نفسك وخبراتك في التعليم..."
-            className="w-full rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+            className="glass-input w-full px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
           />
         </div>
 
@@ -89,7 +89,7 @@ export function CvForm({
             type="text"
             defaultValue={specialties.join(", ")}
             placeholder="تجويد, حفظ, تفسير"
-            className="w-full rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+            className="glass-input w-full px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
           />
         </div>
 
@@ -107,7 +107,7 @@ export function CvForm({
             type="text"
             defaultValue={languages.join(", ")}
             placeholder="العربية, الإنجليزية"
-            className="w-full rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+            className="glass-input w-full px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
           />
         </div>
 
@@ -128,7 +128,7 @@ export function CvForm({
             type="text"
             defaultValue={recitationStandards.join(", ")}
             placeholder="حفص عن عاصم, ورش عن نافع"
-            className="w-full rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+            className="glass-input w-full px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
           />
         </div>
 
@@ -148,7 +148,7 @@ export function CvForm({
             dir="ltr"
             defaultValue={introVideoUrl}
             placeholder="https://youtube.com/watch?v=..."
-            className="w-full rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5 text-left text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+            className="glass-input w-full px-4 py-2.5 text-left text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
           />
         </div>
 
@@ -157,7 +157,7 @@ export function CvForm({
           <button
             type="submit"
             disabled={pending}
-            className="flex items-center gap-2 rounded bg-gold px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gold-hover disabled:opacity-50"
+            className="glass-gold glass-pill flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:bg-gold-hover disabled:opacity-50"
           >
             {pending ? (
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -171,7 +171,7 @@ export function CvForm({
             type="button"
             disabled={isPendingReview || submitPending}
             onClick={handleSubmitForReview}
-            className="flex items-center gap-2 rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+            className="glass-success glass-pill flex items-center gap-2 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
           >
             {submitPending ? (
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />

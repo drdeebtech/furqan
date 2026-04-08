@@ -34,7 +34,7 @@ export function ArchiveToggle({
           <button
             onClick={handle}
             disabled={loading}
-            className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+            className="glass-danger glass-pill px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50"
           >
             {loading ? (
               <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -45,7 +45,7 @@ export function ArchiveToggle({
           <button
             onClick={() => setConfirmArchive(false)}
             disabled={loading}
-            className="rounded-lg border border-card-border px-3 py-1.5 text-xs text-muted transition-colors hover:text-foreground disabled:opacity-50"
+            className="glass glass-pill px-3 py-1.5 text-xs text-muted transition-colors hover:text-foreground disabled:opacity-50"
           >
             إلغاء
           </button>

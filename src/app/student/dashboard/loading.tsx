@@ -10,7 +10,7 @@ export default function StudentDashboardLoading() {
         <Skeleton className="mt-2 h-4 w-52" />
 
         {/* Next session card */}
-        <div className="mt-8 rounded-2xl border border-gold/30 bg-card p-5 sm:p-8">
+        <div className="mt-8 glass-card p-5 sm:p-8">
           <Skeleton className="h-4 w-28" />
           <Skeleton className="mt-3 h-5 w-40" />
           <Skeleton className="mt-2 h-4 w-32" />
@@ -21,7 +21,7 @@ export default function StudentDashboardLoading() {
         {/* Stat cards — 4 columns */}
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="rounded-xl border border-card-border bg-card p-3 sm:p-4">
+            <div key={i} className="glass-card p-3 sm:p-4">
               <Skeleton className="h-4 w-4" />
               <Skeleton className="mt-1 h-7 w-12" />
               <Skeleton className="mt-1 h-3 w-20" />
@@ -34,7 +34,7 @@ export default function StudentDashboardLoading() {
           <Skeleton className="mb-4 h-6 w-28" />
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="rounded-xl border border-card-border bg-card p-4">
+              <div key={i} className="glass-card p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <Skeleton className="h-4 w-28" />

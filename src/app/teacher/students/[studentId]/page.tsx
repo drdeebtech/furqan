@@ -91,7 +91,7 @@ export default async function StudentDetailPage({ params }: Props) {
       </Link>
 
       {/* Profile Card */}
-      <div className="mb-6 rounded-2xl border border-card-border bg-card p-6">
+      <div className="glass-card mb-6 p-6">
         <div className="flex items-center gap-4">
           <div className="flex h-16 w-16 items-center justify-center rounded-full border border-gold/30 bg-gold/10 font-display text-2xl font-bold text-gold">
             {(student.full_name || "ط").charAt(0)}
@@ -100,7 +100,7 @@ export default async function StudentDetailPage({ params }: Props) {
             <h1 className="text-xl font-bold">{student.full_name || "طالب"}</h1>
             <p className="text-sm text-muted">{completedCount} جلسة مكتملة{student.country ? ` · ${student.country}` : ""}</p>
             {latestLevel && (
-              <span className={`mt-1 inline-block rounded-full border px-2.5 py-0.5 text-xs ${LEVEL_COLOR[latestLevel]}`}>
+              <span className={`glass-badge mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs ${LEVEL_COLOR[latestLevel]}`}>
                 {LEVEL_AR[latestLevel]}
               </span>
             )}
@@ -110,19 +110,19 @@ export default async function StudentDetailPage({ params }: Props) {
 
       {/* Stats Grid */}
       <div className="mb-6 grid grid-cols-4 gap-3">
-        <div className="rounded-xl border border-card-border bg-card p-4 text-center">
+        <div className="glass-card p-4 text-center">
           <p className="text-2xl font-bold text-gold">{completedCount}</p>
           <p className="text-xs text-muted">جلسة مكتملة</p>
         </div>
-        <div className="rounded-xl border border-card-border bg-card p-4 text-center">
+        <div className="glass-card p-4 text-center">
           <p className="text-2xl font-bold text-gold">{Math.round(totalMinutes / 60)}</p>
           <p className="text-xs text-muted">ساعة تعليم</p>
         </div>
-        <div className="rounded-xl border border-card-border bg-card p-4 text-center">
+        <div className="glass-card p-4 text-center">
           <p className="text-2xl font-bold text-gold">{avgQuality ? avgQuality.toFixed(1) : "—"}</p>
           <p className="text-xs text-muted">متوسط الجودة</p>
         </div>
-        <div className="rounded-xl border border-card-border bg-card p-4 text-center">
+        <div className="glass-card p-4 text-center">
           <p className="text-2xl font-bold text-gold">{errors.length}</p>
           <p className="text-xs text-muted">أخطاء معلقة</p>
         </div>
@@ -135,7 +135,7 @@ export default async function StudentDetailPage({ params }: Props) {
 
       {/* Parent Contact */}
       {(student.parent_name || student.parent_phone || student.parent_email) && (
-        <div className="mb-6 rounded-2xl border border-card-border bg-card p-6">
+        <div className="glass-card mb-6 p-6">
           <h2 className="mb-3 flex items-center gap-2 text-lg font-bold"><User size={18} className="text-gold" /> ولي الأمر</h2>
           <div className="space-y-2">
             {student.parent_name && (
@@ -153,12 +153,12 @@ export default async function StudentDetailPage({ params }: Props) {
 
       {/* Recitation Errors */}
       {errors.length > 0 && (
-        <div className="mb-6 rounded-2xl border border-card-border bg-card p-6">
+        <div className="glass-card mb-6 p-6">
           <h2 className="mb-3 flex items-center gap-2 text-lg font-bold"><AlertTriangle size={18} className="text-amber-400" /> أخطاء التلاوة المعلقة</h2>
           <div className="space-y-2">
             {errors.map((e) => (
-              <div key={e.id} className="flex items-center gap-3 rounded-lg border border-card-border bg-surface px-3 py-2 text-sm">
-                <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs text-amber-400">
+              <div key={e.id} className="glass flex items-center gap-3 rounded-lg px-3 py-2 text-sm">
+                <span className="glass-badge rounded-full border-amber-500/30 px-2 py-0.5 text-xs text-amber-400">
                   {ERROR_TYPE_AR[e.error_type] ?? e.error_type}
                 </span>
                 {e.surah_num && <span className="text-xs text-muted">سورة {e.surah_num} : آية {e.ayah_num}</span>}
@@ -172,13 +172,13 @@ export default async function StudentDetailPage({ params }: Props) {
 
       {/* Progress Summary */}
       {progress.length > 0 && (
-        <div className="mb-6 rounded-2xl border border-card-border bg-card p-6">
+        <div className="glass-card mb-6 p-6">
           <h2 className="mb-3 flex items-center gap-2 text-lg font-bold"><BarChart3 size={18} className="text-gold" /> ملخص التقدم</h2>
           <div className="space-y-2">
             {progress.slice(0, 5).map((p, i) => (
-              <div key={i} className="flex items-center justify-between rounded-lg border border-card-border bg-surface px-3 py-2">
+              <div key={i} className="glass flex items-center justify-between rounded-lg px-3 py-2">
                 <div>
-                  <span className={`rounded-full border px-2 py-0.5 text-xs ${LEVEL_COLOR[p.level]}`}>{LEVEL_AR[p.level]}</span>
+                  <span className={`glass-badge rounded-full px-2 py-0.5 text-xs ${LEVEL_COLOR[p.level]}`}>{LEVEL_AR[p.level]}</span>
                   {p.surah_from && <span className="mr-2 text-xs text-muted">سورة {p.surah_from}{p.surah_to && p.surah_to !== p.surah_from ? ` — ${p.surah_to}` : ""}</span>}
                   {p.quality_rating && <span className="mr-2 text-xs text-gold">جودة: {p.quality_rating}/5</span>}
                 </div>
@@ -192,7 +192,7 @@ export default async function StudentDetailPage({ params }: Props) {
       {/* Session History */}
       <h2 className="mb-4 text-lg font-bold">سجل الجلسات</h2>
       {bookings.length === 0 ? (
-        <div className="rounded-2xl border border-card-border bg-card p-8 text-center">
+        <div className="glass-card p-8 text-center">
           <Inbox size={28} className="mx-auto mb-2 text-muted" />
           <p className="text-sm text-muted">لا توجد جلسات مسجلة مع هذا الطالب</p>
         </div>
@@ -201,18 +201,18 @@ export default async function StudentDetailPage({ params }: Props) {
           {bookings.map(b => {
             const session = sessionMap[b.id];
             return (
-              <div key={b.id} className="rounded-xl border border-card-border bg-card p-4">
+              <div key={b.id} className="glass-card p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium">{SESSION_TYPE_AR[b.session_type]} · {b.duration_min} دقيقة</p>
                     <p className="text-xs text-muted">{new Date(b.scheduled_at).toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
                   </div>
-                  <span className={`rounded-full px-2 py-0.5 text-xs ${b.status === "completed" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-amber-500/10 text-amber-400 border border-amber-500/30"}`}>
+                  <span className={`glass-badge rounded-full px-2 py-0.5 text-xs ${b.status === "completed" ? "text-emerald-400 border-emerald-500/30" : "text-amber-400 border-amber-500/30"}`}>
                     {b.status === "completed" ? "مكتمل" : "مؤكد"}
                   </span>
                 </div>
                 {session?.post_session_notes && (
-                  <div className="mt-3 rounded-lg border border-card-border bg-surface p-3">
+                  <div className="glass mt-3 rounded-lg p-3">
                     <p className="mb-1 text-xs font-medium text-gold">ملاحظات</p>
                     <p className="text-sm text-muted break-words whitespace-pre-wrap">{session.post_session_notes}</p>
                   </div>

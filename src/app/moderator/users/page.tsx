@@ -25,17 +25,17 @@ export default async function ModeratorUsersPage() {
       <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><Users size={24} className="text-gold" /> المستخدمون</h1>
       <div className="mb-6 grid grid-cols-3 gap-3">
         {[{ l: "الكل", v: users.length }, { l: "طلاب", v: students }, { l: "معلمون", v: teachers }].map(s => (
-          <div key={s.l} className="rounded-xl border border-card-border bg-card p-4 text-center">
+          <div key={s.l} className="glass-card rounded-xl p-4 text-center">
             <p className="text-2xl font-bold text-gold">{s.v}</p><p className="text-xs text-muted">{s.l}</p>
           </div>
         ))}
       </div>
       {users.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center"><Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا يوجد مستخدمون</p></div>
+        <div className="glass-card rounded-xl p-12 text-center"><Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا يوجد مستخدمون</p></div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-card-border">
+        <div className="glass-card overflow-hidden rounded-xl p-0">
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-card-border bg-card">
+            <thead><tr className="border-b border-white/10 bg-white/5">
               <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الاسم</th>
               <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الدور</th>
               <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الدولة</th>
@@ -44,16 +44,16 @@ export default async function ModeratorUsersPage() {
             </tr></thead>
             <tbody>
               {users.map(u => (
-                <tr key={u.id} className="border-b border-card-border last:border-b-0">
+                <tr key={u.id} className="border-b border-white/10 last:border-b-0">
                   <td className="px-4 py-3 font-medium">{u.full_name ?? "—"}</td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full border px-2 py-0.5 text-xs ${u.role === "teacher" ? "border-gold/30 bg-gold/10 text-gold" : "border-card-border bg-surface text-muted"}`}>
+                    <span className={`glass-badge rounded-full px-2 py-0.5 text-xs ${u.role === "teacher" ? "glass glass-pill text-gold" : "text-muted"}`}>
                       {u.role === "teacher" ? "معلم" : "طالب"}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs text-muted">{u.country ?? "—"}</td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${u.is_active ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-red-500/10 text-red-400 border border-red-500/30"}`}>
+                    <span className={`glass-badge rounded-full px-2.5 py-0.5 text-xs font-medium ${u.is_active ? "glass-success" : "glass-danger"}`}>
                       {u.is_active ? "نشط" : "معطل"}
                     </span>
                   </td>

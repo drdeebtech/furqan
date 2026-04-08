@@ -65,7 +65,7 @@ export default async function StudentBookingsPage() {
         </h1>
         <Link
           href="/student/teachers"
-          className="flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white neu-btn transition-colors hover:bg-primary-hover"
+          className="flex items-center gap-1.5 glass-gold glass-pill px-4 py-2 text-sm font-semibold text-white transition-colors"
         >
           <Plus size={16} />
           حجز جديد
@@ -73,13 +73,13 @@ export default async function StudentBookingsPage() {
       </div>
 
       {list.length === 0 ? (
-        <div className="rounded-2xl border border-card-border bg-card elevation-2 p-12 text-center">
+        <div className="glass-card p-12 text-center">
           <Inbox size={40} className="mx-auto mb-4 text-muted" />
           <p className="text-lg text-muted">لم تقم بأي حجز حتى الآن</p>
           <p className="mt-1 text-sm text-muted">ابدأ بتصفح المعلمين واحجز جلستك الأولى</p>
           <Link
             href="/student/teachers"
-            className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white neu-btn transition-colors hover:bg-primary-hover"
+            className="mt-4 inline-flex items-center gap-1.5 glass-gold glass-pill px-5 py-2.5 text-sm font-semibold text-white transition-colors"
           >
             تصفح المعلمين
           </Link>
@@ -93,7 +93,7 @@ export default async function StudentBookingsPage() {
             return (
               <div
                 key={booking.id}
-                className="rounded-2xl border border-card-border bg-card elevation-2 p-4"
+                className="glass-card p-4"
               >
                 <div className="flex items-start justify-between">
                   <div>
@@ -109,7 +109,7 @@ export default async function StudentBookingsPage() {
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     <span
-                      className={`rounded-full border px-2.5 py-0.5 text-xs ${statusInfo.className}`}
+                      className={`glass-badge px-2.5 py-0.5 text-xs ${statusInfo.className}`}
                     >
                       {statusInfo.label}
                     </span>

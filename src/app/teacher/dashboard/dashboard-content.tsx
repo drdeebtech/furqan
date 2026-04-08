@@ -76,22 +76,22 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
         <TeacherQuickActions students={Object.entries(nameMap).map(([id, name]) => ({ id, name }))} />
 
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Link href="/teacher/students" className="min-h-[44px] rounded-xl border border-card-border bg-card p-3 transition-colors hover:border-gold/40 sm:p-4">
+          <Link href="/teacher/students" className="glass-card min-h-[44px] p-3 transition-colors hover:border-gold/40 sm:p-4">
             <Users size={16} className="mb-1 text-gold" />
             <p className="text-xl font-bold text-gold sm:text-2xl">{uniqueStudents}</p>
             <p className="text-xs text-muted">{t("طلابي", "My Students")}</p>
           </Link>
-          <Link href="/teacher/sessions" className="min-h-[44px] rounded-xl border border-card-border bg-card p-3 transition-colors hover:border-gold/40 sm:p-4">
+          <Link href="/teacher/sessions" className="glass-card min-h-[44px] p-3 transition-colors hover:border-gold/40 sm:p-4">
             <Calendar size={16} className="mb-1 text-gold" />
             <p className="text-xl font-bold text-gold sm:text-2xl">{monthSessions}</p>
             <p className="text-xs text-muted">{t("جلسات هذا الشهر", "This Month")}</p>
           </Link>
-          <Link href="#pending" className="min-h-[44px] rounded-xl border border-card-border bg-card p-3 transition-colors hover:border-gold/40 sm:p-4">
+          <Link href="#pending" className="glass-card min-h-[44px] p-3 transition-colors hover:border-gold/40 sm:p-4">
             <Hourglass size={16} className="mb-1 text-gold" />
             <p className="text-xl font-bold text-gold sm:text-2xl">{pendingCount}</p>
             <p className="text-xs text-muted">{t("طلبات معلّقة", "Pending Requests")}</p>
           </Link>
-          <Link href="/teacher/evaluations" className="min-h-[44px] rounded-xl border border-card-border bg-card p-3 transition-colors hover:border-gold/40 sm:p-4">
+          <Link href="/teacher/evaluations" className="glass-card min-h-[44px] p-3 transition-colors hover:border-gold/40 sm:p-4">
             <Star size={16} className="mb-1 text-gold" />
             <p className="text-xl font-bold text-gold sm:text-2xl">{ratingAvg > 0 ? ratingAvg.toFixed(1) : "—"}</p>
             <p className="text-xs text-muted">{t("التقييم", "Rating")}</p>
@@ -101,19 +101,19 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
         <div id="pending" className="mt-8">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold"><Clock size={18} className="text-gold" /> {t("حجوزات بانتظار التأكيد", "Pending Bookings")}</h2>
           {uniqueStudents === 0 && pending.length > 0 && (
-            <div className="mb-3 rounded-lg border border-gold/30 bg-gold/5 p-3 text-center text-sm text-gold">
+            <div className="glass glass-pill mb-3 p-3 text-center text-sm text-gold">
               {t("🎉 لديك حجز جديد! اضغط تأكيد لقبول الطالب", "🎉 You have a new booking! Tap Confirm to accept.")}
             </div>
           )}
           {pending.length === 0 ? (
-            <div className="rounded-xl border border-card-border bg-card p-5 text-center sm:p-8">
+            <div className="glass-card p-5 text-center sm:p-8">
               <Clock size={24} className="mx-auto mb-2 text-muted" />
               <p className="text-sm text-muted">{t("لا توجد حجوزات معلقة", "No pending bookings")}</p>
             </div>
           ) : (
             <div className="space-y-3">
               {pending.map(b => (
-                <div key={b.id} className="rounded-xl border border-card-border bg-card p-4">
+                <div key={b.id} className="glass-card p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
                       <p className="font-medium">{nameMap[b.student_id] ?? t("طالب", "Student")}</p>

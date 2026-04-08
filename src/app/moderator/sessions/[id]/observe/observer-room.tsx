@@ -54,18 +54,18 @@ export function ObserverRoom({ sessionId }: { sessionId: string }) {
       {error && <div className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</div>}
 
       {!joined && !loading && (
-        <div className="rounded-2xl border border-card-border bg-card elevation-2 p-12 text-center">
+        <div className="glass-card p-12 text-center">
           <Eye size={40} className="mx-auto mb-4 text-gold" />
           <h2 className="mb-2 text-xl font-bold">مراقبة الجلسة</h2>
           <p className="mb-6 text-sm text-muted">ستنضم كمراقب بدون صوت أو كاميرا</p>
-          <button onClick={startObserving} className="inline-flex items-center gap-2 rounded-full bg-primary px-8 py-3 text-lg font-semibold text-white neu-btn transition-colors hover:bg-primary-hover focus-ring">
+          <button onClick={startObserving} className="glass-gold glass-pill inline-flex items-center gap-2 px-8 py-3 text-lg font-semibold transition-colors focus-ring">
             <Eye size={20} /> بدء المراقبة
           </button>
         </div>
       )}
 
       {loading && !joined && (
-        <div className="rounded-2xl border border-card-border bg-card elevation-2 p-12 text-center">
+        <div className="glass-card p-12 text-center">
           <span className="mx-auto mb-4 block h-8 w-8 animate-spin rounded-full border-4 border-gold/30 border-t-gold" />
           <p className="text-sm text-muted">جاري الاتصال...</p>
         </div>
@@ -74,7 +74,7 @@ export function ObserverRoom({ sessionId }: { sessionId: string }) {
       <div ref={containerRef} className={`overflow-hidden rounded-xl ${joined ? "aspect-video" : "h-0"}`} />
 
       {joined && (
-        <div className="mt-4 flex items-center justify-between rounded-2xl border border-card-border bg-card elevation-2 p-3">
+        <div className="glass-card mt-4 flex items-center justify-between p-3">
           <div className="flex items-center gap-2 text-sm text-amber-400"><Eye size={14} /> وضع المراقبة — الصوت وال��اميرا مغلقان</div>
           <button onClick={() => frameRef.current?.leave()} className="flex items-center gap-1.5 rounded-lg border border-error/30 px-3 py-1.5 text-xs text-error transition-colors hover:bg-error/10 focus-ring">
             <EyeOff size={14} /> مغادرة

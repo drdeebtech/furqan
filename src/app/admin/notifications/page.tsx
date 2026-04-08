@@ -28,7 +28,7 @@ export default async function AdminNotificationsPage() {
           <h2 className="mb-4 text-lg font-bold">آخر الإشعارات المرسلة</h2>
           <div className="space-y-2">
             {recent.map(n => (
-              <div key={n.id} className="rounded-lg border border-card-border bg-card px-4 py-3">
+              <div key={n.id} className="glass-card rounded-lg px-4 py-3">
                 <p className="text-sm font-medium">{n.title}</p>
                 {n.body && <p className="mt-1 text-xs text-muted">{n.body}</p>}
                 <p className="mt-1 text-xs text-muted">{new Date(n.created_at).toLocaleString("ar-SA")}</p>

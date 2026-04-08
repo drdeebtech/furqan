@@ -18,10 +18,10 @@ export function TogglePublished({ postId, isPublished }: { postId: string; isPub
     <button
       onClick={handle}
       disabled={loading}
-      className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+      className={`glass-badge transition-colors disabled:opacity-50 ${
         published
-          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
-          : "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+          : "bg-amber-500/10 text-amber-400 border-amber-500/30"
       }`}
     >
       {published ? "منشور" : "مسودة"}

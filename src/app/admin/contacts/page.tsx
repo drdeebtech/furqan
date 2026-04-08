@@ -35,14 +35,14 @@ export default async function AdminContactsPage() {
       <p className="mb-6 text-sm text-muted">{submissions.length} رسالة · {unreadCount} غير مقروءة</p>
 
       {submissions.length === 0 ? (
-        <div className="rounded-xl border border-card-border bg-card p-12 text-center">
+        <div className="glass-card rounded-xl p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-muted">لا توجد رسائل بعد</p>
         </div>
       ) : (
         <div className="space-y-3">
           {submissions.map(s => (
-            <div key={s.id} className={`rounded-xl border bg-card p-5 ${s.is_read ? "border-card-border" : "border-gold/30 bg-gold/5"}`}>
+            <div key={s.id} className={`glass-card rounded-xl p-5 ${!s.is_read ? "border-gold/30 bg-gold/5" : ""}`}>
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -52,12 +52,12 @@ export default async function AdminContactsPage() {
                   </div>
                   <p className="mt-1 text-sm text-muted" dir="ltr">{s.email}{s.whatsapp ? ` · ${s.whatsapp}` : ""}</p>
                   <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                    {s.country && <span className="rounded border border-card-border px-2 py-0.5">{s.country}</span>}
-                    {s.student_age && <span className="rounded border border-card-border px-2 py-0.5">{s.student_age} سنوات</span>}
-                    {s.package_interest && <span className="rounded border border-gold/30 bg-gold/10 px-2 py-0.5 text-gold">{s.package_interest}</span>}
+                    {s.country && <span className="glass-badge px-2 py-0.5">{s.country}</span>}
+                    {s.student_age && <span className="glass-badge px-2 py-0.5">{s.student_age} سنوات</span>}
+                    {s.package_interest && <span className="glass-badge border-gold/30 bg-gold/10 px-2 py-0.5 text-gold">{s.package_interest}</span>}
                   </div>
                   {s.message && (
-                    <div className="mt-3 rounded-lg border border-card-border bg-surface p-3">
+                    <div className="mt-3 glass-card rounded-lg p-3">
                       <p className="text-sm">{s.message}</p>
                     </div>
                   )}

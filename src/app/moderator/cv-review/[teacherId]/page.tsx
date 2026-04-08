@@ -31,7 +31,7 @@ export default async function ModeratorCvDetailPage({ params }: { params: Promis
   return (
     <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/moderator/cv-review" className="rounded-lg border border-card-border p-2 text-muted transition-colors hover:bg-surface-alt">
+        <Link href="/moderator/cv-review" className="glass rounded-lg p-2 text-muted transition-colors hover:bg-white/10">
           <ArrowRight size={16} />
         </Link>
         <h1 className="flex items-center gap-2 text-2xl font-bold">
@@ -39,9 +39,9 @@ export default async function ModeratorCvDetailPage({ params }: { params: Promis
         </h1>
       </div>
 
-      <div className="rounded-2xl border border-card-border bg-card p-6">
+      <div className="glass-card p-6">
         <div className="mb-4 flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full border border-gold/30 bg-gold/10 font-display text-xl font-bold text-gold">
+          <div className="glass flex h-14 w-14 items-center justify-center rounded-full font-display text-xl font-bold text-gold">
             {(profile?.full_name ?? "م").charAt(0)}
           </div>
           <div>
@@ -59,19 +59,19 @@ export default async function ModeratorCvDetailPage({ params }: { params: Promis
             <div>
               <p className="text-xs font-medium text-gold">التخصصات</p>
               <div className="mt-1 flex flex-wrap gap-1">{teacher.specialties.map(s => (
-                <span key={s} className="rounded-full border border-card-border bg-surface px-2 py-0.5 text-xs">{s}</span>
+                <span key={s} className="glass-badge rounded-full px-2 py-0.5 text-xs">{s}</span>
               ))}</div>
             </div>
             <div>
               <p className="text-xs font-medium text-gold">معايير القراءة</p>
               <div className="mt-1 flex flex-wrap gap-1">{teacher.recitation_standards.map(s => (
-                <span key={s} className="rounded-full border border-card-border bg-surface px-2 py-0.5 text-xs">{s}</span>
+                <span key={s} className="glass-badge rounded-full px-2 py-0.5 text-xs">{s}</span>
               ))}</div>
             </div>
             <div>
               <p className="text-xs font-medium text-gold">اللغات</p>
               <div className="mt-1 flex flex-wrap gap-1">{teacher.languages.map(s => (
-                <span key={s} className="rounded-full border border-card-border bg-surface px-2 py-0.5 text-xs">{s}</span>
+                <span key={s} className="glass-badge rounded-full px-2 py-0.5 text-xs">{s}</span>
               ))}</div>
             </div>
           </div>

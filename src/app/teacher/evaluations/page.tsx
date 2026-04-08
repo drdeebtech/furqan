@@ -21,7 +21,7 @@ function scoreBadge(score: number | null) {
         ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
         : "border-red-500/30 bg-red-500/10 text-red-400";
   return (
-    <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-semibold ${color}`}>
+    <span className={`glass-badge inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${color}`}>
       {score}/10
     </span>
   );
@@ -82,7 +82,7 @@ export default async function TeacherEvaluationsPage() {
       </h1>
 
       {list.length === 0 ? (
-        <div className="rounded-2xl border border-card-border bg-card p-12 text-center">
+        <div className="glass-card p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-muted">لا توجد تقييمات بعد</p>
           <p className="mt-1 text-sm text-muted">ستظهر هنا التقييمات الخاصة بطلابك</p>
@@ -90,13 +90,13 @@ export default async function TeacherEvaluationsPage() {
       ) : (
         <div className="space-y-4">
           {list.map((ev) => (
-            <div key={ev.id} className="rounded-2xl border border-card-border bg-card p-6">
+            <div key={ev.id} className="glass-card p-6">
               {/* Header row */}
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold">{nameMap[ev.student_id] ?? "طالب"}</p>
                   <p className="mt-1 text-sm text-muted">
-                    <span className="rounded-full border border-card-border bg-card px-2 py-0.5 text-xs">
+                    <span className="glass-badge rounded-full px-2 py-0.5 text-xs">
                       {TYPE_AR[ev.evaluation_type] ?? ev.evaluation_type}
                     </span>
                     <span className="mr-2 text-xs">
@@ -132,25 +132,25 @@ export default async function TeacherEvaluationsPage() {
               {(ev.strengths || ev.weaknesses || ev.recommendations || ev.notes) && (
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   {ev.strengths && (
-                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+                    <div className="glass-success glass rounded-xl p-3">
                       <p className="mb-1 text-xs font-semibold text-emerald-400">نقاط القوة</p>
                       <p className="break-words whitespace-pre-wrap text-sm">{ev.strengths}</p>
                     </div>
                   )}
                   {ev.weaknesses && (
-                    <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3">
+                    <div className="glass-danger glass rounded-xl p-3">
                       <p className="mb-1 text-xs font-semibold text-red-400">نقاط الضعف</p>
                       <p className="break-words whitespace-pre-wrap text-sm">{ev.weaknesses}</p>
                     </div>
                   )}
                   {ev.recommendations && (
-                    <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3">
+                    <div className="glass rounded-xl border-blue-500/20 p-3">
                       <p className="mb-1 text-xs font-semibold text-blue-400">التوصيات</p>
                       <p className="break-words whitespace-pre-wrap text-sm">{ev.recommendations}</p>
                     </div>
                   )}
                   {ev.notes && (
-                    <div className="rounded-xl border border-card-border bg-card p-3">
+                    <div className="glass rounded-xl p-3">
                       <p className="mb-1 text-xs font-semibold text-muted">ملاحظات</p>
                       <p className="break-words whitespace-pre-wrap text-sm">{ev.notes}</p>
                     </div>

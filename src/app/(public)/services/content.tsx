@@ -24,7 +24,7 @@ export function ServicesContent({ services }: { services: Service[] }) {
 
   return (
     <div>
-      <section className="border-b border-card-border bg-card py-20 text-center">
+      <section className="glass-card border-b border-white/10 py-20 text-center">
         <p className="text-sm text-muted"><Link href="/" className="text-gold hover:text-gold-light">{t("الرئيسية", "Home")}</Link> / {t("خدماتنا", "Services")}</p>
         <h1 className="font-display mt-4 text-5xl font-bold">{t("خدماتنا", "Our Services")}</h1>
       </section>
@@ -32,7 +32,7 @@ export function ServicesContent({ services }: { services: Service[] }) {
       <section className="py-24">
         <div className="mx-auto max-w-5xl space-y-16 px-6">
           {services.length === 0 ? (
-            <div className="rounded-2xl border border-card-border bg-card p-12 text-center">
+            <div className="glass-card p-12 text-center">
               <Inbox size={32} className="mx-auto mb-3 text-muted" />
               <p className="text-muted">{t("لا توجد خدمات حالياً", "No services available")}</p>
             </div>
@@ -61,12 +61,12 @@ export function ServicesContent({ services }: { services: Service[] }) {
                         </li>
                       ))}
                     </ul>
-                    <Link href="/contact" className="mt-6 inline-block rounded border border-gold bg-gold/10 px-5 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background">
+                    <Link href="/contact" className="glass glass-pill mt-6 inline-block px-5 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background">
                       {t("سجّل وابدأ التعلم", "Register & Start Learning")}
                     </Link>
                   </div>
                   <div className="mt-8 flex-1 md:mt-0">
-                    <div className="flex h-full items-center justify-center rounded-2xl border border-card-border bg-card p-12">
+                    <div className="glass-card flex h-full items-center justify-center p-12">
                       {s.image_url ? (
                         <Image src={s.image_url} alt={title} width={384} height={192} className="max-h-48 rounded-xl object-contain" loading="lazy" sizes="(max-width: 768px) 100vw, 384px" />
                       ) : (
@@ -83,7 +83,7 @@ export function ServicesContent({ services }: { services: Service[] }) {
         </div>
       </section>
 
-      <div className="border-t border-card-border"><Testimonials /></div>
+      <div className="border-t border-white/10"><Testimonials /></div>
       <RegisterBanner />
     </div>
   );
