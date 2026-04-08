@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Amiri, Cairo } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/lib/theme/context";
 
 const amiri = Amiri({
   variable: "--font-display",
@@ -87,7 +88,9 @@ export default function RootLayout({
         >
           تخطي إلى المحتوى
         </a>
-        {children}
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

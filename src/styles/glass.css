@@ -502,6 +502,151 @@
   );
 }
 
+/* ============================================
+   LIGHT MODE — frosted white acrylic glass
+   ============================================ */
+
+.light .glass-card {
+  background: linear-gradient(135deg, rgba(255,255,255,0.70) 0%, rgba(255,255,255,0.50) 100%);
+  border-color: rgba(0,0,0,0.08);
+  border-top-color: rgba(255,255,255,0.90);
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.08),
+    0 2px 8px rgba(0,0,0,0.05),
+    inset 0 1.5px 0 rgba(255,255,255,0.80),
+    inset 0 -1px 0 rgba(0,0,0,0.04);
+}
+
+.light .glass-card::before {
+  background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.40) 42%, rgba(255,255,255,0.60) 50%, rgba(255,255,255,0.40) 58%, transparent 65%);
+}
+
+.light .glass-card::after {
+  background: linear-gradient(115deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.10) 50%, transparent 70%);
+}
+
+.light .glass-card-lite {
+  background: linear-gradient(135deg, rgba(255,255,255,0.60) 0%, rgba(255,255,255,0.40) 100%);
+  border-color: rgba(0,0,0,0.06);
+  border-top-color: rgba(255,255,255,0.85);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.70);
+}
+
+.light .glass {
+  background: linear-gradient(135deg, rgba(255,255,255,0.65) 0%, rgba(255,255,255,0.45) 100%);
+  border-color: rgba(0,0,0,0.10);
+  border-top-color: rgba(255,255,255,0.90);
+  box-shadow:
+    0 4px 16px rgba(0,0,0,0.08),
+    0 1px 4px rgba(0,0,0,0.05),
+    inset 0 1.5px 0 rgba(255,255,255,0.80),
+    inset 0 -1px 0 rgba(0,0,0,0.03);
+}
+
+.light .glass::before {
+  background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.35) 42%, rgba(255,255,255,0.55) 50%, rgba(255,255,255,0.35) 58%, transparent 65%);
+}
+
+.light .glass:hover {
+  background: linear-gradient(135deg, rgba(255,255,255,0.80) 0%, rgba(255,255,255,0.60) 100%);
+  border-color: rgba(0,0,0,0.14);
+  border-top-color: rgba(255,255,255,0.95);
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.10),
+    0 12px 48px rgba(0,0,0,0.04),
+    inset 0 2px 0 rgba(255,255,255,0.90);
+}
+
+.light .glass:active {
+  background: linear-gradient(135deg, rgba(255,255,255,0.50) 0%, rgba(255,255,255,0.35) 100%);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.60);
+}
+
+.light .glass-gold {
+  background: linear-gradient(135deg, rgba(184,146,45,0.95) 0%, rgba(184,146,45,0.82) 100%);
+  border-color: rgba(184,146,45,0.30);
+  border-top-color: rgba(255,230,140,0.60);
+  box-shadow:
+    0 6px 20px rgba(184,146,45,0.25),
+    0 2px 6px rgba(0,0,0,0.08),
+    inset 0 2px 0 rgba(255,255,255,0.30);
+  color: #fff;
+}
+
+.light .glass-gold:hover {
+  box-shadow:
+    0 10px 32px rgba(184,146,45,0.35),
+    0 16px 48px rgba(0,0,0,0.06),
+    0 0 24px rgba(184,146,45,0.15),
+    inset 0 2px 0 rgba(255,255,255,0.40);
+}
+
+.light .glass-danger {
+  background: linear-gradient(135deg, rgba(220,53,69,0.10) 0%, rgba(220,53,69,0.04) 100%);
+  border-color: rgba(220,53,69,0.18);
+  border-top-color: rgba(255,200,200,0.50);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,200,200,0.20);
+  color: #DC3545;
+}
+
+.light .glass-success {
+  background: linear-gradient(135deg, rgba(46,139,87,0.10) 0%, rgba(46,139,87,0.04) 100%);
+  border-color: rgba(46,139,87,0.18);
+  border-top-color: rgba(200,255,220,0.50);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06), inset 0 1px 0 rgba(200,255,220,0.20);
+  color: #2E8B57;
+}
+
+.light .glass-input {
+  background: rgba(255,255,255,0.80);
+  border-color: rgba(0,0,0,0.10);
+  border-top-color: rgba(255,255,255,0.90);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.60);
+  color: #1a1510;
+}
+
+.light .glass-input::placeholder { color: rgba(0,0,0,0.30); }
+
+.light .glass-input:focus {
+  border-color: rgba(184,146,45,0.40);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.04), 0 0 0 3px rgba(184,146,45,0.12), 0 0 16px rgba(184,146,45,0.08);
+}
+
+.light .glass-nav-item:hover,
+.light .glass-nav-item[data-active="true"],
+.light .glass-nav-item.active {
+  background: linear-gradient(135deg, rgba(255,255,255,0.60) 0%, rgba(255,255,255,0.40) 100%);
+  border-color: rgba(0,0,0,0.06);
+  border-top-color: rgba(255,255,255,0.80);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.60);
+}
+
+.light .glass-badge {
+  background: linear-gradient(135deg, rgba(255,255,255,0.70) 0%, rgba(255,255,255,0.50) 100%);
+  border-color: rgba(0,0,0,0.08);
+  border-top-color: rgba(255,255,255,0.85);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.60);
+  color: #1a1510;
+}
+
+.light .glass-modal {
+  background: linear-gradient(135deg, rgba(255,255,255,0.80) 0%, rgba(255,255,255,0.65) 100%);
+  border-color: rgba(0,0,0,0.08);
+  border-top-color: rgba(255,255,255,0.95);
+  box-shadow:
+    0 24px 80px rgba(0,0,0,0.12),
+    0 8px 32px rgba(0,0,0,0.08),
+    inset 0 2px 0 rgba(255,255,255,0.90);
+}
+
+/* Light mode RTL specular */
+[dir="rtl"].light .glass-card::before,
+[dir="rtl"].light .glass::before,
+[dir="rtl"].light .glass-gold::before,
+[dir="rtl"].light .glass-modal::before {
+  background: linear-gradient(255deg, transparent 35%, rgba(255,255,255,0.40) 42%, rgba(255,255,255,0.60) 50%, rgba(255,255,255,0.40) 58%, transparent 65%);
+}
+
 /* =====================
    PERFORMANCE FALLBACK
    ===================== */
