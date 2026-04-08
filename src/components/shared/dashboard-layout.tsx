@@ -1,4 +1,5 @@
 import { Nav } from "@/components/shared/nav";
+import { Topbar } from "@/components/shared/topbar";
 import { LangProvider } from "@/lib/i18n/context";
 import { ToastProvider } from "@/components/shared/toast";
 import { createClient } from "@/lib/supabase/server";
@@ -26,6 +27,9 @@ export async function DashboardLayout({
         <div className="min-h-screen">
           <Nav role={role} userName={userName} />
           <main id="main-content" className="min-h-screen pt-14 md:pt-0 md:ms-64">
+            <div className="hidden md:block md:px-6 md:pt-5">
+              <Topbar />
+            </div>
             {children}
           </main>
         </div>

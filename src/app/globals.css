@@ -60,26 +60,32 @@
 
 /* ── Light Mode — Clean white/gray per reference dashboard ── */
 html.light {
-  --background: #f5f6f8;
-  --foreground: #1a1d26;
-  --gold: #2DB77B;
-  --gold-hover: #25a06b;
-  --gold-light: #3cc98e;
-  --gold-dim: rgba(45,183,123,0.10);
-  --surface: #ffffff;
-  --surface-border: #e8eaed;
-  --surface-light: #f9fafb;
+  --background: #F5F5F7;
+  --foreground: #1A1A1F;
+  --gold: #B8922D;
+  --gold-hover: #a07e25;
+  --gold-light: #d4b76a;
+  --gold-dim: rgba(184,146,45,0.10);
+  --surface: #FFFFFF;
+  --surface-border: #EAEAEC;
+  --surface-light: #F5F5F7;
+  --surface-divider: #F0F0F2;
   --input-bg: #ffffff;
-  --input-border: #d1d5db;
-  --focus-ring: #2DB77B;
-  --muted: #6b7280;
+  --input-border: #EAEAEC;
+  --focus-ring: #7C5CFF;
+  --muted: #6B7280;
+  --muted-light: #9CA3AF;
   --error: #dc2626;
   --warning: #d97706;
   --success: #16a34a;
+  --accent-purple: #7C5CFF;
+  --accent-purple-light: rgba(124, 92, 255, 0.1);
+  --accent-green: #22C55E;
+  --accent-green-light: rgba(34, 197, 94, 0.1);
 }
 
 html.light body {
-  background: #f5f6f8;
+  background: #F5F5F7;
 }
 
 html { scroll-behavior: smooth; }

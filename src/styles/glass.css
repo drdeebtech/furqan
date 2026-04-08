@@ -527,34 +527,34 @@
    ============================================ */
 
 .light .glass-card {
-  background: #ffffff;
+  background: var(--surface);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border: 1px solid #e8eaed;
-  border-top-color: #e8eaed;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--surface-border);
+  border-top-color: var(--surface-border);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .light .glass-card::before { display: none; }
 .light .glass-card::after { display: none; }
 
 .light .glass-card-lite {
-  background: #ffffff;
+  background: var(--surface);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border: 1px solid #e8eaed;
-  border-radius: 10px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .light .glass {
-  background: #ffffff;
+  background: var(--surface);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border: 1px solid #e8eaed;
-  border-top-color: #e8eaed;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--surface-border);
+  border-top-color: var(--surface-border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .light .glass::before { display: none; }
@@ -648,21 +648,28 @@
 }
 
 .light .glass-sidebar {
-  background: #ffffff;
+  background: var(--background);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border-inline-end: 1px solid #e8eaed;
-  box-shadow: 1px 0 4px rgba(0, 0, 0, 0.04);
+  border-inline-end: none;
+  box-shadow: none;
 }
 
-.light .glass-nav-item:hover,
-.light .glass-nav-item[data-active="true"],
-.light .glass-nav-item.active {
-  background: #f3f4f6;
+.light .glass-nav-item:hover {
+  background: transparent;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   border-color: transparent;
   box-shadow: none;
+}
+
+.light .glass-nav-item[data-active="true"],
+.light .glass-nav-item.active {
+  background: var(--surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--surface-border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
 }
 
 .light .glass-badge {

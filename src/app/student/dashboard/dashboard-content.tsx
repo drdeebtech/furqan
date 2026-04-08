@@ -8,6 +8,11 @@ import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/components/shared/toast";
 import { SESSION_TYPE_BILINGUAL } from "@/lib/constants";
 import { StatCard } from "@/components/shared/stat-card";
+import { WidgetCard } from "@/components/shared/widget-card";
+import { AnalyticsChart } from "@/components/shared/analytics-chart";
+import { LiveSessionsWidget } from "@/components/shared/live-sessions-widget";
+import { BreakdownBar } from "@/components/shared/breakdown-bar";
+import { DataTable } from "@/components/shared/data-table";
 import { GuidanceBanner } from "./guidance-banner";
 import { QuickActions } from "./quick-actions";
 
@@ -22,13 +27,16 @@ interface DashboardData {
   evaluations: { id: string; teacher_id: string; evaluation_type: string; overall_score: number; hifz_score: number | null; tajweed_score: number | null; strengths: string | null; weaknesses: string | null; recommendations: string | null; created_at: string }[];
   nameMap: Record<string, string>;
   notesMap: Record<string, { post_session_notes: string | null; homework: string | null }>;
+  weeklyData: { day: string; value: number; isActive: boolean }[];
+  liveSessions: { id: string; title: string; subtitle: string; initials: string; timeRemaining?: string; progressPercent?: number }[];
+  recentRecordings: Record<string, unknown>[];
 }
 
 export function StudentDashboardContent({ data }: { data: DashboardData }) {
   const { t, dir, lang } = useLang();
   const toast = useToast();
   const searchParams = useSearchParams();
-  const { fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, recent, evaluations, nameMap, notesMap } = data;
+  const { fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, recent, evaluations, nameMap, notesMap, weeklyData, liveSessions, recentRecordings } = data;
 
   useEffect(() => {
     if (searchParams.get("booked") === "1") {
@@ -108,40 +116,92 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
 
         {/* Row 1: 4 Stat Cards */}
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <StatCard icon={CheckCircle} label={t("إجمالي الجلسات", "Total Sessions")} value={totalSessions} href="/student/sessions" actionLabel={t("عرض الكل", "View All")} />
+          <StatCard
+            icon={CheckCircle}
+            label={t("إجمالي الجلسات", "Total Sessions")}
+            value={totalSessions}
+            href="/student/sessions"
+            actionLabel={t("عرض الكل", "View All")}
+            statusBadge={totalSessions > 0 ? { text: t("نشط", "Active"), type: "active" } : undefined}
+          />
           <StatCard icon={Calendar} label={t("جلسات هذا الشهر", "This Month")} value={monthSessions} href="/student/sessions" actionLabel={t("عرض الكل", "View All")} />
           <StatCard icon={Clock} label={t("حجوزات معلّقة", "Pending Bookings")} value={pendingBookings} href="/student/bookings" actionLabel={t("عرض", "View")} />
           <StatCard icon={TrendingUp} label={t("تقدمي", "My Progress")} value={t("عرض", "View")} href="/student/progress" subtitle={t("رحلتي مع القرآن", "My Quran journey")} actionLabel={t("عرض", "View")} />
         </div>
 
-        {/* Row 2: Two-column layout */}
+        {/* Row 2: Chart (3fr) + Right column (2fr) */}
         <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-5">
-          {/* Left: Recent Sessions */}
+          {/* Left: Analytics chart */}
+          <div className="lg:col-span-3">
+            <WidgetCard title={t("تحليلات التقدم", "Report Analytics")}>
+              <AnalyticsChart
+                data={weeklyData}
+                title={t("تحليلات التقدم", "Report Analytics")}
+              />
+            </WidgetCard>
+          </div>
+
+          {/* Right: Two stacked widgets */}
+          <div className="space-y-4 lg:col-span-2">
+            <LiveSessionsWidget
+              sessions={liveSessions}
+              title={t("الجلسات المباشرة", "Online Classes")}
+              ongoingCount={liveSessions.length}
+            />
+            <BreakdownBar
+              title={t("توزيع الواجبات", "Assignment Breakdown")}
+              segments={[]}
+              emptyMessage={t("ابدأ تتبع الواجبات لرؤية التقدم", "Start tracking homework to see progress")}
+            />
+          </div>
+        </div>
+
+        {/* Row 3: Recent recordings table */}
+        <div className="mt-6">
+          <DataTable
+            title={t("الحصص السابقة", "Continue Watching")}
+            columns={[
+              { key: "id", label: t("رقم", "Id") },
+              { key: "subject", label: t("الموضوع", "Subject") },
+              { key: "date", label: t("التاريخ", "Date"), type: "date" },
+              { key: "progress", label: t("التقدم", "Progress"), type: "progress" },
+              { key: "assignee", label: t("المدرس", "Teacher"), type: "assignee" },
+              { key: "view", label: t("عرض", "View"), type: "actions" },
+            ]}
+            rows={recentRecordings as { id: string; [key: string]: unknown }[]}
+            emptyMessage={t("لا توجد تسجيلات بعد", "No recordings yet")}
+          />
+        </div>
+
+        {/* Row 4: Preserved existing sections */}
+        {/* Recent Sessions table */}
+        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-5">
           <div className="lg:col-span-3">
             {recent.length > 0 ? (
-              <div className="glass-card p-4 sm:p-5">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="flex items-center gap-2 text-base font-semibold"><FileText size={18} className="text-gold" /> {t("آخر الجلسات", "Recent Sessions")}</h2>
+              <WidgetCard
+                title={t("آخر الجلسات", "Recent Sessions")}
+                headerAction={
                   <Link href="/student/sessions" className="text-xs text-gold hover:text-gold-hover">{t("عرض الكل ←", "View All →")}</Link>
-                </div>
+                }
+              >
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-white/10 text-xs text-muted">
+                      <tr className="border-b border-[var(--surface-border)] text-xs text-[var(--muted-light,var(--muted))]">
                         <th className="pb-2 text-start font-medium">{t("المعلم", "Teacher")}</th>
                         <th className="pb-2 text-start font-medium">{t("النوع", "Type")}</th>
                         <th className="pb-2 text-start font-medium">{t("التاريخ", "Date")}</th>
                         <th className="pb-2 text-start font-medium">{t("ملاحظات", "Notes")}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5">
+                    <tbody className="divide-y divide-[var(--surface-divider,#F0F0F2)]">
                       {recent.map(r => {
                         const note = notesMap[r.id];
                         return (
                           <tr key={r.id} className="text-sm">
                             <td className="py-3 font-medium">{nameMap[r.teacher_id] ?? t("معلم", "Teacher")}</td>
-                            <td className="py-3 text-muted">{st(r.session_type)}</td>
-                            <td className="py-3 text-muted">{new Date(r.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { month: "short", day: "numeric" })}</td>
+                            <td className="py-3 text-[var(--muted)]">{st(r.session_type)}</td>
+                            <td className="py-3 text-[var(--muted)]">{new Date(r.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { month: "short", day: "numeric" })}</td>
                             <td className="py-3">
                               <div className="flex gap-1.5">
                                 {note?.post_session_notes && (
@@ -162,14 +222,16 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                     </tbody>
                   </table>
                 </div>
-              </div>
+              </WidgetCard>
             ) : (
-              <div className="glass-card flex min-h-[200px] items-center justify-center p-5 text-center">
-                <div>
-                  <FileText size={28} className="mx-auto mb-3 text-muted" />
-                  <p className="text-sm text-muted">{t("لا توجد جلسات سابقة", "No recent sessions")}</p>
+              <WidgetCard title={t("آخر الجلسات", "Recent Sessions")}>
+                <div className="flex min-h-[120px] items-center justify-center text-center">
+                  <div>
+                    <FileText size={28} className="mx-auto mb-3 text-[var(--muted)]" />
+                    <p className="text-sm text-[var(--muted)]">{t("لا توجد جلسات سابقة", "No recent sessions")}</p>
+                  </div>
                 </div>
-              </div>
+              </WidgetCard>
             )}
           </div>
 
@@ -178,70 +240,66 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
             <QuickActions />
 
             {pendingHomework.length > 0 && (
-              <div className="glass-card p-4 sm:p-5">
-                <h2 className="mb-3 flex items-center gap-2 text-base font-semibold">
-                  <BookOpen size={18} className="text-gold" /> {t("الواجبات المنزلية", "Homework")}
-                </h2>
+              <WidgetCard title={t("الواجبات المنزلية", "Homework")}>
                 <div className="space-y-2">
                   {pendingHomework.map(([bookingId, h]) => {
                     const booking = recent.find(r => r.id === bookingId);
                     return (
-                      <div key={bookingId} className="rounded-xl border border-white/10 p-3">
+                      <div key={bookingId} className="rounded-xl border border-[var(--surface-border)] p-3">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <p className="text-xs font-medium">{booking ? nameMap[booking.teacher_id] ?? t("معلم", "Teacher") : t("معلم", "Teacher")}</p>
-                            <p className="mt-1 text-xs text-muted">{h.homework}</p>
+                            <p className="mt-1 text-xs text-[var(--muted)]">{h.homework}</p>
                           </div>
-                          {booking && <p className="shrink-0 text-[10px] text-muted">{new Date(booking.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}</p>}
+                          {booking && <p className="shrink-0 text-[10px] text-[var(--muted)]">{new Date(booking.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}</p>}
                         </div>
                       </div>
                     );
                   })}
                 </div>
-              </div>
+              </WidgetCard>
             )}
           </div>
         </div>
 
-        {/* Row 3: Evaluations */}
+        {/* Row 5: Evaluations */}
         {evaluations.length > 0 && (
-          <div className="mt-6 glass-card p-4 sm:p-5">
-            <h2 className="mb-4 flex items-center gap-2 text-base font-semibold">
-              <Star size={18} className="text-gold" /> {t("تقييمات معلمك", "Teacher Evaluations")}
-            </h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-white/10 text-xs text-muted">
-                    <th className="pb-2 text-start font-medium">{t("المعلم", "Teacher")}</th>
-                    <th className="pb-2 text-start font-medium">{t("النوع", "Type")}</th>
-                    <th className="pb-2 text-start font-medium">{t("التقييم", "Score")}</th>
-                    <th className="pb-2 text-start font-medium">{t("حفظ", "Hifz")}</th>
-                    <th className="pb-2 text-start font-medium">{t("تجويد", "Tajweed")}</th>
-                    <th className="pb-2 text-start font-medium">{t("ملاحظات", "Notes")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {evaluations.map(ev => (
-                    <tr key={ev.id}>
-                      <td className="py-3 font-medium">{nameMap[ev.teacher_id] ?? t("معلم", "Teacher")}</td>
-                      <td className="py-3 text-muted">{ev.evaluation_type}</td>
-                      <td className="py-3">
-                        <span className={`glass-badge px-2 py-0.5 text-xs font-bold ${ev.overall_score >= 8 ? "text-green-400" : ev.overall_score >= 5 ? "text-amber-400" : "text-red-400"}`}>
-                          {ev.overall_score}/10
-                        </span>
-                      </td>
-                      <td className="py-3 text-muted">{ev.hifz_score != null ? `${ev.hifz_score}/10` : "—"}</td>
-                      <td className="py-3 text-muted">{ev.tajweed_score != null ? `${ev.tajweed_score}/10` : "—"}</td>
-                      <td className="max-w-[200px] py-3">
-                        {ev.strengths && <p className="truncate text-xs"><span className="text-green-400">{t("قوة:", "S:")}</span> {ev.strengths}</p>}
-                        {ev.weaknesses && <p className="truncate text-xs"><span className="text-amber-400">{t("ضعف:", "W:")}</span> {ev.weaknesses}</p>}
-                      </td>
+          <div className="mt-6">
+            <WidgetCard title={t("تقييمات معلمك", "Teacher Evaluations")}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[var(--surface-border)] text-xs text-[var(--muted-light,var(--muted))]">
+                      <th className="pb-2 text-start font-medium">{t("المعلم", "Teacher")}</th>
+                      <th className="pb-2 text-start font-medium">{t("النوع", "Type")}</th>
+                      <th className="pb-2 text-start font-medium">{t("التقييم", "Score")}</th>
+                      <th className="pb-2 text-start font-medium">{t("حفظ", "Hifz")}</th>
+                      <th className="pb-2 text-start font-medium">{t("تجويد", "Tajweed")}</th>
+                      <th className="pb-2 text-start font-medium">{t("ملاحظات", "Notes")}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--surface-divider,#F0F0F2)]">
+                    {evaluations.map(ev => (
+                      <tr key={ev.id}>
+                        <td className="py-3 font-medium">{nameMap[ev.teacher_id] ?? t("معلم", "Teacher")}</td>
+                        <td className="py-3 text-[var(--muted)]">{ev.evaluation_type}</td>
+                        <td className="py-3">
+                          <span className={`glass-badge px-2 py-0.5 text-xs font-bold ${ev.overall_score >= 8 ? "text-green-400" : ev.overall_score >= 5 ? "text-amber-400" : "text-red-400"}`}>
+                            {ev.overall_score}/10
+                          </span>
+                        </td>
+                        <td className="py-3 text-[var(--muted)]">{ev.hifz_score != null ? `${ev.hifz_score}/10` : "—"}</td>
+                        <td className="py-3 text-[var(--muted)]">{ev.tajweed_score != null ? `${ev.tajweed_score}/10` : "—"}</td>
+                        <td className="max-w-[200px] py-3">
+                          {ev.strengths && <p className="truncate text-xs"><span className="text-green-400">{t("قوة:", "S:")}</span> {ev.strengths}</p>}
+                          {ev.weaknesses && <p className="truncate text-xs"><span className="text-amber-400">{t("ضعف:", "W:")}</span> {ev.weaknesses}</p>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </WidgetCard>
           </div>
         )}
       </div>

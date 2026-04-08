@@ -5,6 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 import type { SessionType } from "@/types/database";
 import { Skeleton } from "@/components/shared/skeleton";
 import { StudentDashboardContent } from "./dashboard-content";
+import {
+  getStudentWeeklyStudyTime,
+  getStudentLiveSessions,
+  getStudentRecentRecordings,
+} from "@/lib/dashboard-queries";
 
 export const metadata: Metadata = { title: "لوحتي" };
 
@@ -77,6 +82,12 @@ export default async function StudentDashboardPage() {
     sessionId = session?.id ?? null;
   }
 
+  const [weeklyData, liveSessions, recentRecordings] = await Promise.all([
+    getStudentWeeklyStudyTime(user.id),
+    getStudentLiveSessions(user.id),
+    getStudentRecentRecordings(user.id),
+  ]);
+
   return (
     <Suspense
       fallback={
@@ -104,6 +115,9 @@ export default async function StudentDashboardPage() {
           evaluations,
           nameMap,
           notesMap,
+          weeklyData,
+          liveSessions,
+          recentRecordings,
         }}
       />
     </Suspense>
