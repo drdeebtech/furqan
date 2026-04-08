@@ -75,10 +75,10 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
 
         {/* Row 1: 4 Stat Cards */}
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <StatCard icon={Users} label={t("الطلاب", "Students")} value={studentCount} href="/admin/users" />
-          <StatCard icon={GraduationCap} label={t("المعلمون", "Teachers")} value={teacherList.length} href="/admin/teachers" />
-          <StatCard icon={BookOpen} label={t("حجوزات الشهر", "Monthly Bookings")} value={bookingsMonth} href="/admin/bookings" />
-          <StatCard icon={DollarSign} label={t("إيرادات الشهر", "Monthly Revenue")} value={`$${revenueMonth.toFixed(2)}`} href="/admin/payments" />
+          <StatCard icon={Users} label={t("الطلاب", "Students")} value={studentCount} href="/admin/users" actionLabel={t("عرض", "View")} />
+          <StatCard icon={GraduationCap} label={t("المعلمون", "Teachers")} value={teacherList.length} href="/admin/teachers" actionLabel={t("عرض", "View")} />
+          <StatCard icon={BookOpen} label={t("حجوزات الشهر", "Monthly Bookings")} value={bookingsMonth} href="/admin/bookings" actionLabel={t("عرض", "View")} />
+          <StatCard icon={DollarSign} label={t("إيرادات الشهر", "Monthly Revenue")} value={`$${revenueMonth.toFixed(2)}`} href="/admin/payments" actionLabel={t("عرض", "View")} />
         </div>
 
         {/* Row 2: Two-column layout */}

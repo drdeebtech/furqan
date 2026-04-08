@@ -108,10 +108,10 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
 
         {/* Row 1: 4 Stat Cards */}
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <StatCard icon={CheckCircle} label={t("إجمالي الجلسات", "Total Sessions")} value={totalSessions} href="/student/sessions" />
-          <StatCard icon={Calendar} label={t("جلسات هذا الشهر", "This Month")} value={monthSessions} href="/student/sessions" />
-          <StatCard icon={Clock} label={t("حجوزات معلّقة", "Pending Bookings")} value={pendingBookings} href="/student/bookings" />
-          <StatCard icon={TrendingUp} label={t("تقدمي", "My Progress")} value={t("عرض", "View")} href="/student/progress" subtitle={t("رحلتي مع القرآن", "My Quran journey")} />
+          <StatCard icon={CheckCircle} label={t("إجمالي الجلسات", "Total Sessions")} value={totalSessions} href="/student/sessions" actionLabel={t("عرض الكل", "View All")} />
+          <StatCard icon={Calendar} label={t("جلسات هذا الشهر", "This Month")} value={monthSessions} href="/student/sessions" actionLabel={t("عرض الكل", "View All")} />
+          <StatCard icon={Clock} label={t("حجوزات معلّقة", "Pending Bookings")} value={pendingBookings} href="/student/bookings" actionLabel={t("عرض", "View")} />
+          <StatCard icon={TrendingUp} label={t("تقدمي", "My Progress")} value={t("عرض", "View")} href="/student/progress" subtitle={t("رحلتي مع القرآن", "My Quran journey")} actionLabel={t("عرض", "View")} />
         </div>
 
         {/* Row 2: Two-column layout */}

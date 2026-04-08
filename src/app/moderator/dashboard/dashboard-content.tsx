@@ -25,15 +25,15 @@ export function ModeratorDashboardContent({ data }: { data: ModeratorDashboardDa
 
         {/* Row 1: 4 Stat Cards */}
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <StatCard icon={Users} label={t("طلاب", "Students")} value={studentCount} href="/moderator/users" />
-          <StatCard icon={Users} label={t("معلمون", "Teachers")} value={teacherCount} href="/moderator/users" />
-          <StatCard icon={FileText} label={t("سير ذاتية معلقة", "Pending CVs")} value={pendingCvCount} href="/moderator/cv-review" />
-          <StatCard icon={Video} label={t("جلسات نشطة", "Active Sessions")} value={activeSessionCount} href="/moderator/sessions" />
+          <StatCard icon={Users} label={t("طلاب", "Students")} value={studentCount} href="/moderator/users" actionLabel={t("عرض", "View")} />
+          <StatCard icon={Users} label={t("معلمون", "Teachers")} value={teacherCount} href="/moderator/users" actionLabel={t("عرض", "View")} />
+          <StatCard icon={FileText} label={t("سير ذاتية معلقة", "Pending CVs")} value={pendingCvCount} href="/moderator/cv-review" actionLabel={t("عرض", "View")} />
+          <StatCard icon={Video} label={t("جلسات نشطة", "Active Sessions")} value={activeSessionCount} href="/moderator/sessions" actionLabel={t("عرض", "View")} />
         </div>
 
         {/* Row 2: Additional stat */}
         <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <StatCard icon={ClipboardCheck} label={t("تقييمات", "Evaluations")} value={evalCount} href="/moderator/evaluations" />
+          <StatCard icon={ClipboardCheck} label={t("تقييمات", "Evaluations")} value={evalCount} href="/moderator/evaluations" actionLabel={t("عرض", "View")} />
         </div>
       </div>
     </>

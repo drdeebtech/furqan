@@ -50,10 +50,10 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
 
         {/* Row 1: 4 Stat Cards */}
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <StatCard icon={Users} label={t("طلابي", "My Students")} value={uniqueStudents} href="/teacher/students" />
-          <StatCard icon={Calendar} label={t("جلسات هذا الشهر", "This Month")} value={monthSessions} href="/teacher/sessions" />
-          <StatCard icon={Hourglass} label={t("طلبات معلّقة", "Pending Requests")} value={pendingCount} href="#pending" />
-          <StatCard icon={Star} label={t("التقييم", "Rating")} value={ratingAvg > 0 ? ratingAvg.toFixed(1) : "—"} href="/teacher/evaluations" />
+          <StatCard icon={Users} label={t("طلابي", "My Students")} value={uniqueStudents} href="/teacher/students" actionLabel={t("عرض", "View")} />
+          <StatCard icon={Calendar} label={t("جلسات هذا الشهر", "This Month")} value={monthSessions} href="/teacher/sessions" actionLabel={t("عرض", "View")} />
+          <StatCard icon={Hourglass} label={t("طلبات معلّقة", "Pending Requests")} value={pendingCount} href="#pending" actionLabel={t("عرض", "View")} />
+          <StatCard icon={Star} label={t("التقييم", "Rating")} value={ratingAvg > 0 ? ratingAvg.toFixed(1) : "—"} href="/teacher/evaluations" actionLabel={t("عرض", "View")} />
         </div>
 
         {/* Row 2: Two-column layout */}
