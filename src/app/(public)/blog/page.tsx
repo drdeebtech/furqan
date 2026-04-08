@@ -7,7 +7,10 @@ import { BreadcrumbSchema } from "@/components/seo/structured-data";
 export const metadata: Metadata = {
   title: "المدونة — مقالات في علوم القرآن",
   description: "مقالات ونصائح في حفظ القرآن والتجويد والتلاوة من معلمي أكاديمية فرقان.",
-  alternates: { canonical: "https://furqan.today/blog" },
+  alternates: {
+    canonical: "https://furqan.today/blog",
+    types: { "application/rss+xml": "https://furqan.today/feed.xml" },
+  },
 };
 
 export default async function BlogPage() {
