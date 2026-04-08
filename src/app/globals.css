@@ -58,34 +58,28 @@
   --font-latin: var(--font-body);
 }
 
-/* ── Light Mode — Blue Glassmorphism (frosted cards on blue gradient) ── */
+/* ── Light Mode — Clean white/gray per reference dashboard ── */
 html.light {
-  --background: #C3D8F0;
-  --foreground: #1a2744;
-  --gold: #2c5282;
-  --gold-hover: #1e3a5f;
-  --gold-light: #3b6baa;
-  --gold-dim: rgba(44,82,130,0.12);
-  --surface: rgba(255,255,255,0.45);
-  --surface-border: rgba(255,255,255,0.55);
-  --surface-light: rgba(255,255,255,0.35);
-  --input-bg: rgba(255,255,255,0.50);
-  --input-border: rgba(255,255,255,0.60);
-  --focus-ring: #2c5282;
-  --muted: #4a6a8a;
-  --error: #c0392b;
-  --warning: #d68910;
-  --success: #27ae60;
+  --background: #f5f6f8;
+  --foreground: #1a1d26;
+  --gold: #2DB77B;
+  --gold-hover: #25a06b;
+  --gold-light: #3cc98e;
+  --gold-dim: rgba(45,183,123,0.10);
+  --surface: #ffffff;
+  --surface-border: #e8eaed;
+  --surface-light: #f9fafb;
+  --input-bg: #ffffff;
+  --input-border: #d1d5db;
+  --focus-ring: #2DB77B;
+  --muted: #6b7280;
+  --error: #dc2626;
+  --warning: #d97706;
+  --success: #16a34a;
 }
 
 html.light body {
-  background: linear-gradient(135deg, #a8d0f0 0%, #7ab8e8 30%, #9ac4ee 60%, #b8d8f5 100%);
-  background-image:
-    radial-gradient(circle 300px at 10% 20%, rgba(120,180,240,0.5) 0%, transparent 100%),
-    radial-gradient(circle 250px at 85% 70%, rgba(100,170,235,0.4) 0%, transparent 100%),
-    radial-gradient(circle 200px at 50% 10%, rgba(140,195,250,0.35) 0%, transparent 100%),
-    linear-gradient(135deg, #a8d0f0 0%, #7ab8e8 30%, #9ac4ee 60%, #b8d8f5 100%);
-  background-attachment: fixed;
+  background: #f5f6f8;
 }
 
 html { scroll-behavior: smooth; }

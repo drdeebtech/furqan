@@ -522,223 +522,174 @@
 }
 
 /* ============================================
-   LIGHT MODE — Blue Glassmorphism
-   Frosted white cards on blue gradient bg
-   Ref: semi-transparent white, visible blur, white borders
+   LIGHT MODE — Clean white/gray per reference
+   Solid white cards, subtle borders, no blur
    ============================================ */
 
 .light .glass-card {
-  background: rgba(255, 255, 255, 0.45);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  border: 1.5px solid rgba(255, 255, 255, 0.60);
-  border-radius: 24px;
-  box-shadow:
-    0 8px 32px rgba(30, 60, 110, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.70);
+  background: #ffffff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #e8eaed;
+  border-top-color: #e8eaed;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
-.light .glass-card::before {
-  background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.30) 42%, rgba(255,255,255,0.50) 50%, rgba(255,255,255,0.30) 58%, transparent 65%);
-  mix-blend-mode: normal;
-}
-
-.light .glass-card::after {
-  background: linear-gradient(115deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.08) 50%, transparent 70%);
-}
+.light .glass-card::before { display: none; }
+.light .glass-card::after { display: none; }
 
 .light .glass-card-lite {
-  background: rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(12px) saturate(130%);
-  -webkit-backdrop-filter: blur(12px) saturate(130%);
-  border: 1px solid rgba(255, 255, 255, 0.50);
-  border-radius: 20px;
-  box-shadow:
-    0 4px 16px rgba(30, 60, 110, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  background: #ffffff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #e8eaed;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .light .glass {
-  background: rgba(255, 255, 255, 0.40);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  border: 1.5px solid rgba(255, 255, 255, 0.55);
-  box-shadow:
-    0 4px 16px rgba(30, 60, 110, 0.10),
-    inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  background: #ffffff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #e8eaed;
+  border-top-color: #e8eaed;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
-.light .glass::before {
-  background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.25) 42%, rgba(255,255,255,0.45) 50%, rgba(255,255,255,0.25) 58%, transparent 65%);
-  mix-blend-mode: normal;
-}
+.light .glass::before { display: none; }
 
 .light .glass:hover {
-  background: rgba(255, 255, 255, 0.55);
-  border-color: rgba(255, 255, 255, 0.70);
-  box-shadow:
-    0 8px 28px rgba(30, 60, 110, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.80);
-  transform: translateY(-2px);
+  background: #f9fafb;
+  border-color: #d1d5db;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
 }
 
 .light .glass:active {
-  background: rgba(255, 255, 255, 0.30);
-  box-shadow:
-    0 2px 8px rgba(30, 60, 110, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.40);
-  transform: translateY(0) scale(0.985);
+  background: #f3f4f6;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transform: translateY(0) scale(0.99);
 }
 
-/* Gold → Navy blue in light mode (accent color per ref) */
 .light .glass-gold {
-  background: linear-gradient(135deg, #2c5282 0%, #1e3a5f 100%);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(44, 82, 130, 0.30);
-  box-shadow:
-    0 6px 20px rgba(30, 58, 95, 0.30),
-    inset 0 1px 0 rgba(255, 255, 255, 0.20);
+  background: #2DB77B;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #25a06b;
+  border-top-color: #25a06b;
+  box-shadow: 0 2px 8px rgba(45, 183, 123, 0.25);
   color: #fff;
 }
 
-.light .glass-gold::before {
-  background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.10) 42%, rgba(255,255,255,0.20) 50%, rgba(255,255,255,0.10) 58%, transparent 65%);
-  mix-blend-mode: soft-light;
-}
+.light .glass-gold::before { display: none; }
 
 .light .glass-gold:hover {
-  background: linear-gradient(135deg, #345d94 0%, #2c5282 100%);
-  border-color: rgba(44, 82, 130, 0.45);
-  box-shadow:
-    0 10px 28px rgba(30, 58, 95, 0.40),
-    inset 0 1px 0 rgba(255, 255, 255, 0.30);
-  transform: translateY(-2px);
+  background: #25a06b;
+  border-color: #1e8a5c;
+  box-shadow: 0 4px 14px rgba(45, 183, 123, 0.35);
+  transform: translateY(-1px);
 }
 
 .light .glass-gold:active {
-  box-shadow:
-    0 2px 8px rgba(30, 58, 95, 0.20),
-    inset 0 1px 0 rgba(255, 255, 255, 0.10);
-  transform: translateY(0) scale(0.985);
+  background: #1e8a5c;
+  box-shadow: 0 1px 4px rgba(45, 183, 123, 0.20);
+  transform: translateY(0) scale(0.99);
 }
 
 .light .glass-danger {
-  background: rgba(255, 255, 255, 0.40);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1.5px solid rgba(192, 57, 43, 0.25);
-  box-shadow:
-    0 4px 16px rgba(30, 60, 110, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.50);
-  color: #c0392b;
+  background: #fff5f5;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #fecaca;
+  box-shadow: none;
+  color: #dc2626;
 }
 
-.light .glass-danger::before {
-  background: linear-gradient(105deg, transparent 35%, rgba(255,200,200,0.15) 42%, rgba(255,200,200,0.25) 50%, rgba(255,200,200,0.15) 58%, transparent 65%);
-  mix-blend-mode: normal;
-}
+.light .glass-danger::before { display: none; }
 
 .light .glass-danger:hover {
-  background: rgba(255, 255, 255, 0.50);
-  border-color: rgba(192, 57, 43, 0.40);
-  box-shadow: 0 8px 28px rgba(30, 60, 110, 0.12);
+  background: #fee2e2;
+  border-color: #f87171;
 }
 
 .light .glass-success {
-  background: rgba(255, 255, 255, 0.40);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1.5px solid rgba(39, 174, 96, 0.25);
-  box-shadow:
-    0 4px 16px rgba(30, 60, 110, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.50);
-  color: #27ae60;
+  background: #f0fdf4;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #bbf7d0;
+  box-shadow: none;
+  color: #16a34a;
 }
 
-.light .glass-success::before {
-  background: linear-gradient(105deg, transparent 35%, rgba(200,255,220,0.15) 42%, rgba(200,255,220,0.25) 50%, rgba(200,255,220,0.15) 58%, transparent 65%);
-  mix-blend-mode: normal;
-}
+.light .glass-success::before { display: none; }
 
 .light .glass-success:hover {
-  background: rgba(255, 255, 255, 0.50);
-  border-color: rgba(39, 174, 96, 0.40);
-  box-shadow: 0 8px 28px rgba(30, 60, 110, 0.12);
+  background: #dcfce7;
+  border-color: #4ade80;
 }
 
 .light .glass-input {
-  background: rgba(255, 255, 255, 0.50);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1.5px solid rgba(255, 255, 255, 0.60);
-  box-shadow:
-    inset 0 2px 4px rgba(30, 60, 110, 0.06),
-    0 1px 0 rgba(255, 255, 255, 0.50);
-  color: #1a2744;
+  background: #ffffff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #d1d5db;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+  color: #1a1d26;
 }
 
-.light .glass-input::placeholder { color: #4a6a8a; }
+.light .glass-input::placeholder { color: #9ca3af; }
 
 .light .glass-input:focus {
-  border-color: rgba(44, 82, 130, 0.45);
+  border-color: #2DB77B;
   box-shadow:
-    inset 0 2px 4px rgba(30, 60, 110, 0.04),
-    0 0 0 3px rgba(44, 82, 130, 0.15),
-    0 0 16px rgba(44, 82, 130, 0.08);
+    inset 0 1px 2px rgba(0, 0, 0, 0.04),
+    0 0 0 3px rgba(45, 183, 123, 0.12);
 }
 
 .light .glass-sidebar {
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  border-inline-end: 1.5px solid rgba(255, 255, 255, 0.60);
-  box-shadow:
-    4px 0 16px rgba(30, 60, 110, 0.08),
-    inset -1px 0 0 rgba(255, 255, 255, 0.40);
+  background: #ffffff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-inline-end: 1px solid #e8eaed;
+  box-shadow: 1px 0 4px rgba(0, 0, 0, 0.04);
 }
 
 .light .glass-nav-item:hover,
 .light .glass-nav-item[data-active="true"],
 .light .glass-nav-item.active {
-  background: rgba(255, 255, 255, 0.40);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-color: rgba(255, 255, 255, 0.50);
-  box-shadow: 0 2px 8px rgba(30, 60, 110, 0.08), inset 0 1px 0 rgba(255,255,255,0.50);
+  background: #f3f4f6;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .light .glass-badge {
-  background: rgba(255, 255, 255, 0.45);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow: 0 2px 6px rgba(30, 60, 110, 0.06);
-  color: #1a2744;
+  background: #f3f4f6;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #e5e7eb;
+  box-shadow: none;
+  color: #374151;
 }
 
 .light .glass-modal {
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(32px) saturate(160%);
-  -webkit-backdrop-filter: blur(32px) saturate(160%);
-  border: 1.5px solid rgba(255, 255, 255, 0.65);
-  box-shadow:
-    0 24px 64px rgba(30, 60, 110, 0.20),
-    0 8px 24px rgba(30, 60, 110, 0.10),
-    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  background: #ffffff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
-.light .glass-modal::before {
-  background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.25) 42%, rgba(255,255,255,0.45) 50%, rgba(255,255,255,0.25) 58%, transparent 65%);
-  mix-blend-mode: normal;
-}
+.light .glass-modal::before { display: none; }
 
-/* Light mode RTL specular */
+/* Light mode RTL specular — disabled in clean mode */
 [dir="rtl"].light .glass-card::before,
 [dir="rtl"].light .glass::before,
 [dir="rtl"].light .glass-gold::before,
 [dir="rtl"].light .glass-modal::before {
-  background: linear-gradient(255deg, transparent 35%, rgba(255,255,255,0.30) 42%, rgba(255,255,255,0.50) 50%, rgba(255,255,255,0.30) 58%, transparent 65%);
+  display: none;
 }
 
 /* =====================
