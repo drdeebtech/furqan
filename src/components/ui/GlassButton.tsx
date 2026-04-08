@@ -54,7 +54,7 @@ export const GlassButton = forwardRef<HTMLButtonElement, GlassButtonProps>(
       disabled={disabled || loading}
       className={cn(
         "relative overflow-hidden inline-flex items-center justify-center font-medium select-none",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8A652]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8922D]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent",
         "disabled:opacity-40 disabled:cursor-not-allowed disabled:!transform-none disabled:!shadow-none",
         variantMap[variant],
         sizeMap[size],
