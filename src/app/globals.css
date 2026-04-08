@@ -58,28 +58,28 @@
   --font-latin: var(--font-body);
 }
 
-/* ── Light Mode Token Overrides — Neumorphic ── */
+/* ── Light Mode Token Overrides — Neumorphic (cool blue-gray per ref) ── */
 html.light {
-  --background: #E4E4E8;
-  --foreground: #2d2d32;
+  --background: #ECF0F3;
+  --foreground: #31344B;
   --gold: #B8922D;
   --gold-hover: #A07D25;
   --gold-light: #C9A43A;
-  --gold-dim: rgba(184,146,45,0.12);
-  --surface: #E4E4E8;
+  --gold-dim: rgba(184,146,45,0.10);
+  --surface: #ECF0F3;
   --surface-border: transparent;
-  --surface-light: #ECECF0;
-  --input-bg: #E4E4E8;
+  --surface-light: #F4F7FA;
+  --input-bg: #ECF0F3;
   --input-border: transparent;
   --focus-ring: #B8922D;
-  --muted: #8a8a94;
+  --muted: #7B8794;
   --error: #E05555;
   --warning: #D4940A;
   --success: #3DAA6D;
 }
 
 html.light body {
-  background: #E4E4E8;
+  background: #ECF0F3;
   background-image: none;
 }
 
