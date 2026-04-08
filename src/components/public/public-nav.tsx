@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { LangToggle } from "@/lib/i18n/lang-toggle";
+import { ThemeToggle } from "@/lib/theme/theme-toggle";
 import { useFeatureFlags } from "@/lib/feature-flags-context";
 import { CONTACT } from "@/lib/contact";
 
@@ -70,6 +71,7 @@ export function PublicNav() {
 
           {/* Desktop CTAs */}
           <div className="hidden items-center gap-3 lg:flex">
+            <ThemeToggle />
             <LangToggle />
             <Link href="/login" className="text-sm text-muted transition-colors hover:text-gold">
               {t("تسجيل الدخول", "Sign In")}
@@ -90,6 +92,7 @@ export function PublicNav() {
             >
               {t("سجّل", "Register")}
             </Link>
+            <ThemeToggle />
             <LangToggle />
             <button
               onClick={() => setOpen(!open)}
