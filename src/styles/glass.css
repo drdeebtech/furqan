@@ -1,0 +1,357 @@
+/* ============================================
+   FURQAN — LIQUID GLASS UTILITY CLASSES
+   Thick 3D glass pill cards with specular highlights
+   Gold adapted to site brand #C8A652
+   ============================================ */
+
+/* =====================
+   BASE GLASS — default
+   ===================== */
+.glass {
+  position: relative;
+  overflow: hidden;
+  background: var(--glass-fill);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-top-color: var(--glass-border-top);
+  box-shadow: var(--glass-shadow-md);
+  border-radius: var(--glass-radius-md);
+  transition: var(--glass-spring);
+}
+
+.glass::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,255,255,0.70) 30%,
+    rgba(255,255,255,0.90) 50%,
+    rgba(255,255,255,0.70) 70%,
+    transparent 100%
+  );
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.glass::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -40%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    115deg,
+    rgba(255,255,255,0.10) 0%,
+    rgba(255,255,255,0.04) 40%,
+    transparent 60%
+  );
+  pointer-events: none;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.glass:hover {
+  background: var(--glass-fill-hover);
+  border-color: var(--glass-border-hover);
+  border-top-color: rgba(255,255,255,0.70);
+  box-shadow: var(--glass-shadow-lg), var(--glass-reflection);
+  transform: translateY(-2px) scale(1.005);
+}
+
+.glass:active {
+  background: var(--glass-fill-active);
+  box-shadow: var(--glass-shadow-sm);
+  transform: translateY(0) scale(0.982);
+  transition: var(--glass-ease);
+}
+
+/* =====================
+   PILL variant
+   ===================== */
+.glass-pill {
+  border-radius: var(--glass-radius-pill) !important;
+}
+
+/* =====================
+   GOLD primary — uses site gold #C8A652
+   ===================== */
+.glass-gold {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    160deg,
+    rgba(200,166,82,0.25) 0%,
+    rgba(200,166,82,0.10) 60%,
+    rgba(200,166,82,0.05) 100%
+  );
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid rgba(200,166,82,0.45);
+  border-top-color: rgba(255,215,110,0.60);
+  box-shadow:
+    var(--glass-shadow-md),
+    0 0 0 0 var(--gold-glow),
+    inset 0 2px 0 rgba(255,215,110,0.35);
+  color: var(--gold);
+  border-radius: var(--glass-radius-md);
+  transition: var(--glass-spring);
+}
+
+.glass-gold::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255,215,110,0.80) 30%,
+    rgba(255,225,130,0.95) 50%,
+    rgba(255,215,110,0.80) 70%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.glass-gold::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -40%;
+  width: 60%; height: 100%;
+  background: linear-gradient(
+    115deg,
+    rgba(255,215,110,0.12) 0%,
+    rgba(255,215,110,0.04) 40%,
+    transparent 60%
+  );
+  pointer-events: none;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.glass-gold:hover {
+  background: linear-gradient(
+    160deg,
+    rgba(200,166,82,0.35) 0%,
+    rgba(200,166,82,0.16) 60%,
+    rgba(200,166,82,0.08) 100%
+  );
+  border-color: rgba(200,166,82,0.65);
+  border-top-color: rgba(255,225,130,1);
+  box-shadow:
+    var(--glass-shadow-lg),
+    0 0 28px var(--gold-glow),
+    var(--glass-reflection),
+    inset 0 2px 0 rgba(255,215,110,0.50);
+  transform: translateY(-2px) scale(1.005);
+  color: var(--gold-light);
+}
+
+.glass-gold:active {
+  transform: translateY(0) scale(0.982);
+  box-shadow: var(--glass-shadow-sm);
+  transition: var(--glass-ease);
+}
+
+/* =====================
+   DANGER
+   ===================== */
+.glass-danger {
+  position: relative;
+  overflow: hidden;
+  background: rgba(239,68,68,0.09);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid rgba(239,68,68,0.28);
+  border-top-color: rgba(255,120,120,0.55);
+  box-shadow: var(--glass-shadow-md), inset 0 2px 0 rgba(255,120,120,0.25);
+  color: #f87171;
+  border-radius: var(--glass-radius-md);
+  transition: var(--glass-spring);
+}
+
+.glass-danger::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 8%; right: 8%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,150,150,0.75) 50%, transparent);
+  pointer-events: none; z-index: 2;
+}
+
+.glass-danger:hover {
+  background: rgba(239,68,68,0.15);
+  border-color: rgba(239,68,68,0.45);
+  box-shadow: var(--glass-shadow-lg), 0 0 24px rgba(239,68,68,0.22), var(--glass-reflection);
+  transform: translateY(-2px) scale(1.005);
+}
+
+.glass-danger:active {
+  transform: translateY(0) scale(0.982);
+  transition: var(--glass-ease);
+}
+
+/* =====================
+   SUCCESS
+   ===================== */
+.glass-success {
+  position: relative;
+  overflow: hidden;
+  background: rgba(34,197,94,0.09);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid rgba(34,197,94,0.28);
+  border-top-color: rgba(100,255,160,0.55);
+  box-shadow: var(--glass-shadow-md), inset 0 2px 0 rgba(100,255,160,0.25);
+  color: #4ade80;
+  border-radius: var(--glass-radius-md);
+  transition: var(--glass-spring);
+}
+
+.glass-success::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 8%; right: 8%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(100,255,160,0.75) 50%, transparent);
+  pointer-events: none; z-index: 2;
+}
+
+.glass-success:hover {
+  background: rgba(34,197,94,0.15);
+  border-color: rgba(34,197,94,0.45);
+  box-shadow: var(--glass-shadow-lg), 0 0 24px rgba(34,197,94,0.22), var(--glass-reflection);
+  transform: translateY(-2px) scale(1.005);
+}
+
+/* =====================
+   CARD / PANEL
+   ===================== */
+.glass-card {
+  position: relative;
+  overflow: hidden;
+  background: var(--glass-fill);
+  backdrop-filter: var(--glass-blur-heavy);
+  -webkit-backdrop-filter: var(--glass-blur-heavy);
+  border: 1px solid var(--glass-border);
+  border-top-color: var(--glass-border-top);
+  box-shadow: var(--glass-shadow-lg), var(--glass-reflection);
+  border-radius: var(--glass-radius-lg);
+}
+
+.glass-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 5%; right: 5%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.65) 40%, rgba(255,255,255,0.85) 50%, rgba(255,255,255,0.65) 60%, transparent);
+  pointer-events: none; z-index: 2;
+}
+
+.glass-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -40%;
+  width: 55%; height: 100%;
+  background: linear-gradient(115deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 40%, transparent 60%);
+  pointer-events: none; z-index: 1;
+  border-radius: inherit;
+}
+
+/* =====================
+   INPUT
+   ===================== */
+.glass-input {
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  border: 1px solid var(--glass-border);
+  border-top-color: rgba(255,255,255,0.25);
+  box-shadow:
+    inset 0 2px 6px rgba(0,0,0,0.25),
+    inset 0 1px 0 rgba(0,0,0,0.10);
+  border-radius: var(--glass-radius-md);
+  color: rgba(255,255,255,0.90);
+  transition: var(--glass-ease);
+}
+
+.glass-input::placeholder {
+  color: rgba(255,255,255,0.28);
+}
+
+.glass-input:focus {
+  outline: none;
+  border-color: rgba(200,166,82,0.45);
+  border-top-color: rgba(255,215,110,0.50);
+  box-shadow:
+    inset 0 2px 6px rgba(0,0,0,0.25),
+    0 0 0 3px rgba(200,166,82,0.14),
+    0 0 16px rgba(200,166,82,0.12);
+}
+
+/* =====================
+   NAVBAR / SIDEBAR ITEMS
+   ===================== */
+.glass-nav-item {
+  position: relative;
+  overflow: hidden;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--glass-radius-sm);
+  transition: var(--glass-spring);
+}
+
+.glass-nav-item:hover,
+.glass-nav-item[data-active="true"],
+.glass-nav-item.active {
+  background: var(--glass-fill);
+  border-color: var(--glass-border);
+  border-top-color: rgba(255,255,255,0.35);
+  box-shadow: var(--glass-shadow-sm);
+}
+
+/* =====================
+   BADGE / CHIP / TAG
+   ===================== */
+.glass-badge {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255,255,255,0.07);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.16);
+  border-top-color: rgba(255,255,255,0.38);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.30);
+  border-radius: var(--glass-radius-pill);
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 2px 10px;
+  transition: var(--glass-ease);
+}
+
+/* =====================
+   MODAL / DIALOG
+   ===================== */
+.glass-modal {
+  position: relative;
+  overflow: hidden;
+  background: rgba(10, 10, 10, 0.65);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: 1px solid var(--glass-border);
+  border-top-color: rgba(255,255,255,0.30);
+  box-shadow:
+    0 24px 80px rgba(0,0,0,0.70),
+    0 8px 32px rgba(0,0,0,0.50),
+    inset 0 2px 0 rgba(255,255,255,0.45),
+    inset 0 -1px 0 rgba(0,0,0,0.30);
+  border-radius: var(--glass-radius-lg);
+}
