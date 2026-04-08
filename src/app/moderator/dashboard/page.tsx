@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { LayoutDashboard, Users, FileText, Video, ClipboardCheck } from "lucide-react";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { ModeratorDashboardContent } from "./dashboard-content";
 
 export const metadata: Metadata = { title: "لوحة المشرف" };
 
@@ -25,33 +24,15 @@ export default async function ModeratorDashboardPage() {
     supabase.from("session_evaluations").select("id", { count: "exact", head: true }),
   ]);
 
-  const stats = [
-    { label: "طلاب", value: studentCount ?? 0, icon: Users, href: "/moderator/users" },
-    { label: "معلمون", value: teacherCount ?? 0, icon: Users, href: "/moderator/users" },
-    { label: "سير ذاتية معلقة", value: pendingCvCount ?? 0, icon: FileText, href: "/moderator/cv-review" },
-    { label: "جلسات نشطة", value: activeSessionCount ?? 0, icon: Video, href: "/moderator/sessions" },
-    { label: "تقييمات", value: evalCount ?? 0, icon: ClipboardCheck, href: "/moderator/evaluations" },
-  ];
-
   return (
-    <div dir="rtl" className="mx-auto max-w-5xl px-4 py-6 sm:py-8">
-      <h1 className="mb-6 flex items-center gap-2 text-xl font-bold sm:text-2xl">
-        <LayoutDashboard size={24} className="text-gold" /> لوحة المشرف
-      </h1>
-
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-        {stats.map((s) => (
-          <Link key={s.label} href={s.href} className="glass-card min-h-[44px] p-4 transition-colors hover:border-gold/30 sm:p-6">
-            <div className="flex items-center gap-3">
-              <s.icon size={20} className="shrink-0 text-gold" />
-              <div className="min-w-0">
-                <p className="text-xl font-bold text-gold sm:text-2xl">{s.value}</p>
-                <p className="truncate text-xs text-muted sm:text-sm">{s.label}</p>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
-    </div>
+    <ModeratorDashboardContent
+      data={{
+        studentCount: studentCount ?? 0,
+        teacherCount: teacherCount ?? 0,
+        pendingCvCount: pendingCvCount ?? 0,
+        activeSessionCount: activeSessionCount ?? 0,
+        evalCount: evalCount ?? 0,
+      }}
+    />
   );
 }

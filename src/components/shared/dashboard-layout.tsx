@@ -25,7 +25,9 @@ export async function DashboardLayout({
       <ToastProvider>
         <div className="min-h-screen">
           <Nav role={role} userName={userName} />
-          <main id="main-content">{children}</main>
+          <main id="main-content" className="min-h-screen pt-14 md:pt-0 md:ms-64">
+            {children}
+          </main>
         </div>
       </ToastProvider>
     </LangProvider>

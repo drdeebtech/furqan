@@ -7,6 +7,7 @@ import { Calendar, CheckCircle, Clock, Search, Star, TrendingUp, Video, BookOpen
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/components/shared/toast";
 import { SESSION_TYPE_BILINGUAL } from "@/lib/constants";
+import { StatCard } from "@/components/shared/stat-card";
 import { GuidanceBanner } from "./guidance-banner";
 import { QuickActions } from "./quick-actions";
 
@@ -29,7 +30,6 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
   const searchParams = useSearchParams();
   const { fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, recent, evaluations, nameMap, notesMap } = data;
 
-  // Show success toast after booking redirect
   useEffect(() => {
     if (searchParams.get("booked") === "1") {
       toast.success(t("تم الحجز بنجاح! سيتم تأكيده من المعلم", "Booking submitted! Teacher will confirm soon."));
@@ -65,14 +65,15 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
   return (
     <>
       <div className="h-0.5 bg-gradient-to-l from-gold/0 via-gold/30 to-gold/0" />
-      <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
+      <div dir={dir} className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        {/* Row 0: Welcome + Hero */}
         <h1 className="text-2xl font-bold">{t("أهلاً", "Welcome")}{fullName ? ` ${fullName}` : ""}</h1>
         <p className="mt-1 text-sm text-muted">{t("مرحباً بك في أكاديمية فُرقان", "Welcome to FURQAN Academy")}</p>
 
         {totalSessions === 0 && !nextBooking && <GuidanceBanner />}
 
         {nextBooking ? (
-          <div className="mt-8 glass-card p-5 sm:p-8">
+          <div className="mt-6 glass-card p-5 sm:p-8">
             <p className="mb-2 text-sm font-bold text-gold"><Star size={14} className="inline text-gold" /> {t("جلستك القادمة", "Your Next Session")}</p>
             <p className="text-lg font-bold">{t("مع", "With")} {nameMap[nextBooking.teacher_id] ?? t("معلم", "Teacher")}</p>
             <p className="mt-1 text-sm text-muted">
@@ -96,7 +97,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
             </div>
           </div>
         ) : totalSessions > 0 ? (
-          <div className="mt-8 glass-card border-dashed p-5 text-center sm:p-8">
+          <div className="mt-6 glass-card border-dashed p-5 text-center sm:p-8">
             <Calendar size={28} className="mx-auto mb-3 text-muted" />
             <p className="text-muted">{t("لا توجد جلسات قادمة", "No upcoming sessions")}</p>
             <Link href="/student/teachers" className="mt-4 inline-flex items-center gap-2 glass-gold glass-pill px-6 py-2.5 text-sm font-semibold text-white transition-colors">
@@ -105,118 +106,141 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
           </div>
         ) : null}
 
-        <QuickActions />
-
+        {/* Row 1: 4 Stat Cards */}
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Link href="/student/sessions" className="min-h-[44px] glass-card p-3 transition-colors hover:border-gold/40 sm:p-4">
-            <CheckCircle size={16} className="mb-1 text-gold" />
-            <p className="text-xl font-bold text-gold sm:text-2xl">{totalSessions}</p>
-            <p className="text-xs text-muted">{t("إجمالي الجلسات", "Total Sessions")}</p>
-          </Link>
-          <Link href="/student/sessions" className="min-h-[44px] glass-card p-3 transition-colors hover:border-gold/40 sm:p-4">
-            <Calendar size={16} className="mb-1 text-gold" />
-            <p className="text-xl font-bold text-gold sm:text-2xl">{monthSessions}</p>
-            <p className="text-xs text-muted">{t("جلسات هذا الشهر", "This Month")}</p>
-          </Link>
-          <Link href="/student/bookings" className="min-h-[44px] glass-card p-3 transition-colors hover:border-gold/40 sm:p-4">
-            <Clock size={16} className="mb-1 text-gold" />
-            <p className="text-xl font-bold text-gold sm:text-2xl">{pendingBookings}</p>
-            <p className="text-xs text-muted">{t("حجوزات معلّقة", "Pending Bookings")}</p>
-          </Link>
-          <Link href="/student/progress" className="min-h-[44px] glass-card p-3 transition-colors hover:border-gold/40 sm:p-4">
-            <TrendingUp size={16} className="mb-1 text-gold" />
-            <p className="text-sm font-bold text-gold">{t("تقدمي", "My Progress")}</p>
-            <p className="text-xs text-muted">{t("عرض رحلتي مع القرآن", "View my Quran journey")}</p>
-          </Link>
+          <StatCard icon={CheckCircle} label={t("إجمالي الجلسات", "Total Sessions")} value={totalSessions} href="/student/sessions" />
+          <StatCard icon={Calendar} label={t("جلسات هذا الشهر", "This Month")} value={monthSessions} href="/student/sessions" />
+          <StatCard icon={Clock} label={t("حجوزات معلّقة", "Pending Bookings")} value={pendingBookings} href="/student/bookings" />
+          <StatCard icon={TrendingUp} label={t("تقدمي", "My Progress")} value={t("عرض", "View")} href="/student/progress" subtitle={t("رحلتي مع القرآن", "My Quran journey")} />
         </div>
 
-        {pendingHomework.length > 0 && (
-          <div className="mt-8">
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-              <BookOpen size={18} className="text-gold" /> {t("الواجبات المنزلية", "Homework")}
-            </h2>
-            <div className="space-y-2">
-              {pendingHomework.map(([bookingId, h]) => {
-                const booking = recent.find(r => r.id === bookingId);
-                return (
-                  <div key={bookingId} className="glass-card p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-medium">{booking ? nameMap[booking.teacher_id] ?? t("معلم", "Teacher") : t("معلم", "Teacher")}</p>
-                        <p className="mt-1 text-sm">{h.homework}</p>
-                      </div>
-                      {booking && <p className="shrink-0 text-xs text-muted">{new Date(booking.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}</p>}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+        {/* Row 2: Two-column layout */}
+        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-5">
+          {/* Left: Recent Sessions */}
+          <div className="lg:col-span-3">
+            {recent.length > 0 ? (
+              <div className="glass-card p-4 sm:p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="flex items-center gap-2 text-base font-semibold"><FileText size={18} className="text-gold" /> {t("آخر الجلسات", "Recent Sessions")}</h2>
+                  <Link href="/student/sessions" className="text-xs text-gold hover:text-gold-hover">{t("عرض الكل ←", "View All →")}</Link>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/10 text-xs text-muted">
+                        <th className="pb-2 text-start font-medium">{t("المعلم", "Teacher")}</th>
+                        <th className="pb-2 text-start font-medium">{t("النوع", "Type")}</th>
+                        <th className="pb-2 text-start font-medium">{t("التاريخ", "Date")}</th>
+                        <th className="pb-2 text-start font-medium">{t("ملاحظات", "Notes")}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {recent.map(r => {
+                        const note = notesMap[r.id];
+                        return (
+                          <tr key={r.id} className="text-sm">
+                            <td className="py-3 font-medium">{nameMap[r.teacher_id] ?? t("معلم", "Teacher")}</td>
+                            <td className="py-3 text-muted">{st(r.session_type)}</td>
+                            <td className="py-3 text-muted">{new Date(r.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { month: "short", day: "numeric" })}</td>
+                            <td className="py-3">
+                              <div className="flex gap-1.5">
+                                {note?.post_session_notes && (
+                                  <span className="glass-badge border-gold/30 bg-gold/10 text-gold" title={note.post_session_notes}>
+                                    <FileText size={10} className="inline" /> {t("ملاحظة", "Note")}
+                                  </span>
+                                )}
+                                {note?.homework && (
+                                  <span className="glass-badge border-blue-400/30 bg-blue-400/10 text-blue-400" title={note.homework}>
+                                    <BookOpen size={10} className="inline" /> {t("واجب", "HW")}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="glass-card flex min-h-[200px] items-center justify-center p-5 text-center">
+                <div>
+                  <FileText size={28} className="mx-auto mb-3 text-muted" />
+                  <p className="text-sm text-muted">{t("لا توجد جلسات سابقة", "No recent sessions")}</p>
+                </div>
+              </div>
+            )}
           </div>
-        )}
 
+          {/* Right: Quick Actions + Homework */}
+          <div className="space-y-4 lg:col-span-2">
+            <QuickActions />
+
+            {pendingHomework.length > 0 && (
+              <div className="glass-card p-4 sm:p-5">
+                <h2 className="mb-3 flex items-center gap-2 text-base font-semibold">
+                  <BookOpen size={18} className="text-gold" /> {t("الواجبات المنزلية", "Homework")}
+                </h2>
+                <div className="space-y-2">
+                  {pendingHomework.map(([bookingId, h]) => {
+                    const booking = recent.find(r => r.id === bookingId);
+                    return (
+                      <div key={bookingId} className="rounded-xl border border-white/10 p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium">{booking ? nameMap[booking.teacher_id] ?? t("معلم", "Teacher") : t("معلم", "Teacher")}</p>
+                            <p className="mt-1 text-xs text-muted">{h.homework}</p>
+                          </div>
+                          {booking && <p className="shrink-0 text-[10px] text-muted">{new Date(booking.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}</p>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Row 3: Evaluations */}
         {evaluations.length > 0 && (
-          <div className="mt-8">
-            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+          <div className="mt-6 glass-card p-4 sm:p-5">
+            <h2 className="mb-4 flex items-center gap-2 text-base font-semibold">
               <Star size={18} className="text-gold" /> {t("تقييمات معلمك", "Teacher Evaluations")}
             </h2>
-            <div className="space-y-3">
-              {evaluations.map(ev => (
-                <div key={ev.id} className="glass-card p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-medium">{nameMap[ev.teacher_id] ?? t("معلم", "Teacher")}</p>
-                      <p className="mt-0.5 text-xs text-muted">{ev.evaluation_type}</p>
-                    </div>
-                    <span className={`glass-badge px-3 py-1 text-sm font-bold ${ev.overall_score >= 8 ? "text-green-400" : ev.overall_score >= 5 ? "text-amber-400" : "text-red-400"}`}>
-                      {ev.overall_score}/10
-                    </span>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-3 text-xs">
-                    {ev.hifz_score != null && <span className="glass-badge px-2 py-0.5">{t("حفظ", "Hifz")}: {ev.hifz_score}/10</span>}
-                    {ev.tajweed_score != null && <span className="glass-badge px-2 py-0.5">{t("تجويد", "Tajweed")}: {ev.tajweed_score}/10</span>}
-                  </div>
-                  {ev.strengths && <p className="mt-2 text-xs"><span className="text-green-400">{t("نقاط القوة:", "Strengths:")}</span> {ev.strengths}</p>}
-                  {ev.weaknesses && <p className="mt-1 text-xs"><span className="text-amber-400">{t("نقاط الضعف:", "Weaknesses:")}</span> {ev.weaknesses}</p>}
-                  {ev.recommendations && <p className="mt-1 text-xs"><span className="text-gold">{t("توصيات:", "Recommendations:")}</span> {ev.recommendations}</p>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {recent.length > 0 && (
-          <div className="mt-8">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-lg font-semibold"><FileText size={18} className="text-gold" /> {t("آخر الجلسات", "Recent Sessions")}</h2>
-              <Link href="/student/sessions" className="text-sm text-gold hover:text-gold-hover">{t("عرض الكل ←", "View All →")}</Link>
-            </div>
-            <div className="space-y-3">
-              {recent.map(r => {
-                const note = notesMap[r.id];
-                return (
-                  <div key={r.id} className="glass-card p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">{nameMap[r.teacher_id] ?? t("معلم", "Teacher")}</p>
-                        <p className="text-xs text-muted">{st(r.session_type)} · {r.duration_min} {t("د", "min")}</p>
-                      </div>
-                      <p className="text-xs text-muted">{new Date(r.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}</p>
-                    </div>
-                    {note?.post_session_notes && (
-                      <div className="mt-2 glass rounded-lg p-2">
-                        <p className="text-xs font-medium text-gold"><FileText size={10} className="inline" /> {t("ملاحظات المعلم:", "Teacher Notes:")}</p>
-                        <p className="mt-0.5 text-xs text-muted">{note.post_session_notes.length > 120 ? note.post_session_notes.slice(0, 120) + "…" : note.post_session_notes}</p>
-                      </div>
-                    )}
-                    {note?.homework && (
-                      <div className="mt-1 glass rounded-lg p-2">
-                        <p className="text-xs font-medium text-blue-400"><BookOpen size={10} className="inline" /> {t("واجب:", "Homework:")}</p>
-                        <p className="mt-0.5 text-xs text-muted">{note.homework.length > 100 ? note.homework.slice(0, 100) + "…" : note.homework}</p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/10 text-xs text-muted">
+                    <th className="pb-2 text-start font-medium">{t("المعلم", "Teacher")}</th>
+                    <th className="pb-2 text-start font-medium">{t("النوع", "Type")}</th>
+                    <th className="pb-2 text-start font-medium">{t("التقييم", "Score")}</th>
+                    <th className="pb-2 text-start font-medium">{t("حفظ", "Hifz")}</th>
+                    <th className="pb-2 text-start font-medium">{t("تجويد", "Tajweed")}</th>
+                    <th className="pb-2 text-start font-medium">{t("ملاحظات", "Notes")}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {evaluations.map(ev => (
+                    <tr key={ev.id}>
+                      <td className="py-3 font-medium">{nameMap[ev.teacher_id] ?? t("معلم", "Teacher")}</td>
+                      <td className="py-3 text-muted">{ev.evaluation_type}</td>
+                      <td className="py-3">
+                        <span className={`glass-badge px-2 py-0.5 text-xs font-bold ${ev.overall_score >= 8 ? "text-green-400" : ev.overall_score >= 5 ? "text-amber-400" : "text-red-400"}`}>
+                          {ev.overall_score}/10
+                        </span>
+                      </td>
+                      <td className="py-3 text-muted">{ev.hifz_score != null ? `${ev.hifz_score}/10` : "—"}</td>
+                      <td className="py-3 text-muted">{ev.tajweed_score != null ? `${ev.tajweed_score}/10` : "—"}</td>
+                      <td className="max-w-[200px] py-3">
+                        {ev.strengths && <p className="truncate text-xs"><span className="text-green-400">{t("قوة:", "S:")}</span> {ev.strengths}</p>}
+                        {ev.weaknesses && <p className="truncate text-xs"><span className="text-amber-400">{t("ضعف:", "W:")}</span> {ev.weaknesses}</p>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

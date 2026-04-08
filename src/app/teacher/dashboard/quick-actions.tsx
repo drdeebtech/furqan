@@ -11,22 +11,25 @@ export function TeacherQuickActions({ students }: { students: Student[] }) {
   const { t } = useLang();
 
   return (
-    <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
-      <div className="flex items-center">
-        <InstantSessionButton students={students} />
+    <div className="glass-card p-4 sm:p-5">
+      <h2 className="mb-3 text-base font-semibold">{t("إجراءات سريعة", "Quick Actions")}</h2>
+      <div className="space-y-1">
+        <div className="flex items-center rounded-xl px-3 py-2.5">
+          <InstantSessionButton students={students} />
+        </div>
+        <Link href="/teacher/availability" className="flex min-h-[40px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-white/5">
+          <Calendar size={16} className="shrink-0 text-gold" />
+          <span>{t("إدارة المواعيد", "Manage Schedule")}</span>
+        </Link>
+        <Link href="/teacher/students" className="flex min-h-[40px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-white/5">
+          <Users size={16} className="shrink-0 text-gold" />
+          <span>{t("طلابي", "My Students")}</span>
+        </Link>
+        <Link href="/teacher/messages" className="flex min-h-[40px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-white/5">
+          <MessageSquare size={16} className="shrink-0 text-gold" />
+          <span>{t("الرسائل", "Messages")}</span>
+        </Link>
       </div>
-      <Link href="/teacher/availability" className="glass-card flex min-h-[44px] items-center gap-3 p-4 transition-colors hover:border-gold/40">
-        <Calendar size={18} className="shrink-0 text-gold" />
-        <span className="text-sm font-medium">{t("إدارة المواعيد", "Manage Schedule")}</span>
-      </Link>
-      <Link href="/teacher/students" className="glass-card flex min-h-[44px] items-center gap-3 p-4 transition-colors hover:border-gold/40">
-        <Users size={18} className="shrink-0 text-gold" />
-        <span className="text-sm font-medium">{t("طلابي", "My Students")}</span>
-      </Link>
-      <Link href="/teacher/messages" className="glass-card flex min-h-[44px] items-center gap-3 p-4 transition-colors hover:border-gold/40">
-        <MessageSquare size={18} className="shrink-0 text-gold" />
-        <span className="text-sm font-medium">{t("الرسائل", "Messages")}</span>
-      </Link>
     </div>
   );
 }
