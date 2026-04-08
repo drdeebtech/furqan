@@ -58,29 +58,34 @@
   --font-latin: var(--font-body);
 }
 
-/* ── Light Mode Token Overrides — Neumorphic (cool blue-gray per ref) ── */
+/* ── Light Mode — Blue Glassmorphism (frosted cards on blue gradient) ── */
 html.light {
-  --background: #ECF0F3;
-  --foreground: #31344B;
-  --gold: #B8922D;
-  --gold-hover: #A07D25;
-  --gold-light: #C9A43A;
-  --gold-dim: rgba(184,146,45,0.10);
-  --surface: #ECF0F3;
-  --surface-border: transparent;
-  --surface-light: #F4F7FA;
-  --input-bg: #ECF0F3;
-  --input-border: transparent;
-  --focus-ring: #B8922D;
-  --muted: #7B8794;
-  --error: #E05555;
-  --warning: #D4940A;
-  --success: #3DAA6D;
+  --background: #C3D8F0;
+  --foreground: #1a2744;
+  --gold: #2c5282;
+  --gold-hover: #1e3a5f;
+  --gold-light: #3b6baa;
+  --gold-dim: rgba(44,82,130,0.12);
+  --surface: rgba(255,255,255,0.45);
+  --surface-border: rgba(255,255,255,0.55);
+  --surface-light: rgba(255,255,255,0.35);
+  --input-bg: rgba(255,255,255,0.50);
+  --input-border: rgba(255,255,255,0.60);
+  --focus-ring: #2c5282;
+  --muted: #4a6a8a;
+  --error: #c0392b;
+  --warning: #d68910;
+  --success: #27ae60;
 }
 
 html.light body {
-  background: #ECF0F3;
-  background-image: none;
+  background: linear-gradient(135deg, #a8d0f0 0%, #7ab8e8 30%, #9ac4ee 60%, #b8d8f5 100%);
+  background-image:
+    radial-gradient(circle 300px at 10% 20%, rgba(120,180,240,0.5) 0%, transparent 100%),
+    radial-gradient(circle 250px at 85% 70%, rgba(100,170,235,0.4) 0%, transparent 100%),
+    radial-gradient(circle 200px at 50% 10%, rgba(140,195,250,0.35) 0%, transparent 100%),
+    linear-gradient(135deg, #a8d0f0 0%, #7ab8e8 30%, #9ac4ee 60%, #b8d8f5 100%);
+  background-attachment: fixed;
 }
 
 html { scroll-behavior: smooth; }
