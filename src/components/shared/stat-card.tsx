@@ -26,7 +26,7 @@ export function StatCard({ icon: Icon, label, value, href, subtitle, actionLabel
   return (
     <Link
       href={href}
-      className="glass-card flex min-h-[192px] flex-col p-7 transition-colors"
+      className="glass-card flex min-h-[168px] flex-col p-5 transition-colors"
     >
       <div>
         <div className="flex items-center gap-2.5">
@@ -43,7 +43,7 @@ export function StatCard({ icon: Icon, label, value, href, subtitle, actionLabel
             </div>
           )}
         </div>
-        <p className="mt-4 text-[60px] font-bold tracking-tight leading-none tabular-nums text-[var(--foreground)]">{value}</p>
+        <p className="mt-3 text-4xl font-bold tracking-tight leading-none tabular-nums text-[var(--foreground)]">{value}</p>
         {subtitle && <p className="mt-0.5 text-xs text-[var(--muted)]">{subtitle}</p>}
       </div>
 
