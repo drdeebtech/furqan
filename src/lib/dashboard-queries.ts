@@ -433,3 +433,224 @@ export async function getTeacherRecentStudents(
     view: "view",
   }));
 }
+
+// ============================================
+// ADMIN DASHBOARD QUERIES
+// ============================================
+
+export async function getAdminDailyRevenue(
+  lang: "ar" | "en" = "en"
+): Promise<ChartDataPoint[]> {
+  const supabase = await createClient();
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const { data: bookings } = await supabase
+    .from("bookings")
+    .select("amount_usd, created_at")
+    .eq("status", "completed")
+    .gte("created_at", sevenDaysAgo.toISOString())
+    .returns<{ amount_usd: number; created_at: string }[]>();
+
+  if (!bookings || bookings.length === 0) return generateEmptyWeek(lang);
+
+  const days = lang === "ar" ? AR_DAYS : EN_DAYS;
+  const order = [1, 2, 3, 4, 5, 6, 0]; // Mon–Sun
+  const buckets: Record<number, number> = {};
+
+  for (const b of bookings) {
+    const dayIndex = new Date(b.created_at).getDay();
+    buckets[dayIndex] = (buckets[dayIndex] ?? 0) + Number(b.amount_usd);
+  }
+
+  const result = order.map((i) => ({
+    day: days[i],
+    value: Math.round((buckets[i] ?? 0) * 100) / 100,
+    isActive: false,
+  }));
+
+  let maxVal = 0;
+  let maxIdx = -1;
+  for (let i = 0; i < result.length; i++) {
+    if (result[i].value > maxVal) {
+      maxVal = result[i].value;
+      maxIdx = i;
+    }
+  }
+  if (maxIdx >= 0) result[maxIdx].isActive = true;
+
+  return result;
+}
+
+export async function getAdminLiveSessions(): Promise<LiveSessionItem[]> {
+  const supabase = await createClient();
+
+  const { data: sessions } = await supabase
+    .from("sessions")
+    .select("id, booking_id, started_at")
+    .not("started_at", "is", null)
+    .is("ended_at", null)
+    .returns<{ id: string; booking_id: string; started_at: string }[]>();
+
+  if (!sessions || sessions.length === 0) return [];
+
+  const bookingIds = sessions.map((s) => s.booking_id);
+
+  const { data: bookings } = await supabase
+    .from("bookings")
+    .select("id, student_id, teacher_id, session_type")
+    .in("id", bookingIds)
+    .returns<{
+      id: string;
+      student_id: string;
+      teacher_id: string;
+      session_type: string;
+    }[]>();
+
+  if (!bookings || bookings.length === 0) return [];
+
+  const allIds = new Set<string>();
+  for (const b of bookings) {
+    allIds.add(b.student_id);
+    allIds.add(b.teacher_id);
+  }
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", Array.from(allIds))
+    .returns<{ id: string; full_name: string | null }[]>();
+
+  const nameMap: Record<string, string> = {};
+  if (profiles) {
+    for (const p of profiles) {
+      nameMap[p.id] = p.full_name ?? "—";
+    }
+  }
+
+  const now = Date.now();
+  return sessions.map((s) => {
+    const booking = bookings.find((b) => b.id === s.booking_id);
+    const studentName = booking ? (nameMap[booking.student_id] ?? "—") : "—";
+    const teacherName = booking ? (nameMap[booking.teacher_id] ?? "—") : "—";
+    const initials = teacherName.slice(0, 2);
+    const elapsed = now - new Date(s.started_at).getTime();
+    const hrs = Math.floor(elapsed / 3600000);
+    const mins = Math.floor((elapsed % 3600000) / 60000);
+    const secs = Math.floor((elapsed % 60000) / 1000);
+    const timeStr = `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+
+    return {
+      id: s.id,
+      title: `${studentName} ← ${teacherName}`,
+      subtitle: booking?.session_type ?? "session",
+      initials,
+      timeRemaining: timeStr,
+      progressPercent: undefined,
+    };
+  });
+}
+
+const BOOKING_STATUS_COLORS: Record<string, { label: string; color: string }> =
+  {
+    completed: { label: "Completed", color: "#22C55E" },
+    confirmed: { label: "Confirmed", color: "#7C5CFF" },
+    pending: { label: "Pending", color: "#F59E0B" },
+    cancelled: { label: "Cancelled", color: "#EF4444" },
+    no_show: { label: "No Show", color: "#9CA3AF" },
+  };
+
+export async function getAdminBookingStatusBreakdown(): Promise<
+  { label: string; value: number; color: string }[]
+> {
+  const supabase = await createClient();
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const { data: bookings } = await supabase
+    .from("bookings")
+    .select("status")
+    .gte("created_at", thirtyDaysAgo.toISOString())
+    .returns<{ status: string }[]>();
+
+  if (!bookings || bookings.length === 0) return [];
+
+  const counts: Record<string, number> = {};
+  for (const b of bookings) {
+    counts[b.status] = (counts[b.status] ?? 0) + 1;
+  }
+
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([status, count]) => {
+      const meta = BOOKING_STATUS_COLORS[status] ?? {
+        label: status,
+        color: "#9CA3AF",
+      };
+      return { label: meta.label, value: count, color: meta.color };
+    });
+}
+
+export async function getAdminRecentBookings(
+  limit = 6
+): Promise<{ id: string; [key: string]: unknown }[]> {
+  const supabase = await createClient();
+
+  const { data: bookings } = await supabase
+    .from("bookings")
+    .select(
+      "id, student_id, teacher_id, session_type, amount_usd, status, created_at"
+    )
+    .order("created_at", { ascending: false })
+    .limit(limit)
+    .returns<{
+      id: string;
+      student_id: string;
+      teacher_id: string;
+      session_type: string;
+      amount_usd: number;
+      status: string;
+      created_at: string;
+    }[]>();
+
+  if (!bookings || bookings.length === 0) return [];
+
+  const allIds = new Set<string>();
+  for (const b of bookings) {
+    allIds.add(b.student_id);
+    allIds.add(b.teacher_id);
+  }
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", Array.from(allIds))
+    .returns<{ id: string; full_name: string | null }[]>();
+
+  const nameMap: Record<string, string> = {};
+  if (profiles) {
+    for (const p of profiles) {
+      nameMap[p.id] = p.full_name ?? "—";
+    }
+  }
+
+  return bookings.map((b) => ({
+    id: b.id.slice(0, 6).toUpperCase(),
+    subject: b.session_type ?? "—",
+    date: new Date(b.created_at).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+    }),
+    progress:
+      b.status === "completed"
+        ? 100
+        : b.status === "confirmed"
+          ? 60
+          : b.status === "pending"
+            ? 30
+            : 0,
+    assignee: nameMap[b.student_id] ?? "—",
+    view: "view",
+  }));
+}

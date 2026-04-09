@@ -3,6 +3,12 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { fetchNameMap } from "@/lib/supabase/helpers";
 import { AdminDashboardContent } from "./dashboard-content";
+import {
+  getAdminDailyRevenue,
+  getAdminLiveSessions,
+  getAdminBookingStatusBreakdown,
+  getAdminRecentBookings,
+} from "@/lib/dashboard-queries";
 
 export const metadata: Metadata = { title: "لوحة الإدارة" };
 
@@ -46,6 +52,13 @@ export default async function AdminDashboardPage() {
 
   const nameMap = await fetchNameMap(supabase, Array.from(allIds));
 
+  const [dailyRevenue, adminLiveSessions, bookingBreakdown, recentBookings] = await Promise.all([
+    getAdminDailyRevenue(),
+    getAdminLiveSessions(),
+    getAdminBookingStatusBreakdown(),
+    getAdminRecentBookings(),
+  ]);
+
   return (
     <AdminDashboardContent
       data={{
@@ -59,6 +72,10 @@ export default async function AdminDashboardPage() {
         todayBookings,
         activeSessionCount: activeSessionsRes.count ?? 0,
         nameMap,
+        dailyRevenue,
+        adminLiveSessions,
+        bookingBreakdown,
+        recentBookings,
       }}
     />
   );
