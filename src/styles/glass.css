@@ -527,16 +527,19 @@
    ============================================ */
 
 .light .glass-card {
-  background: var(--surface);
+  background: linear-gradient(180deg, #FFFFFF 0%, #FAFAF9 100%);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border: 1px solid var(--surface-border);
-  border-top-color: rgba(255, 255, 255, 0.8);
-  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-top-color: rgba(255, 255, 255, 0.9);
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
   box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.04),
-    0 4px 12px rgba(0, 0, 0, 0.03),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.05),
+    0 12px 32px rgba(0, 0, 0, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.02);
 }
 
 .light .glass-card::before { display: none; }
@@ -659,23 +662,25 @@
 }
 
 .light .glass-nav-item:hover {
-  background: transparent;
+  background: rgba(0, 0, 0, 0.02);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   border-color: transparent;
-  box-shadow: none;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
 }
 
 .light .glass-nav-item[data-active="true"],
 .light .glass-nav-item.active {
-  background: var(--surface);
+  background: linear-gradient(180deg, #FFFFFF 0%, #FAFAF9 100%);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border: 1px solid var(--surface-border);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-top-color: rgba(255, 255, 255, 0.9);
   box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.06),
-    0 6px 16px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    0 2px 4px rgba(0, 0, 0, 0.06),
+    0 8px 20px rgba(0, 0, 0, 0.06),
+    0 16px 40px rgba(0, 0, 0, 0.02),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .light .glass-badge {
