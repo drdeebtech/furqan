@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createRoom, updateRoomExpiry } from "@/lib/daily";
 import { notifyParentSessionComplete, notifyParentNoShow } from "@/lib/notifications/parent";
+import { emitEvent } from "@/lib/automation/emit";
 
 export async function updateBookingStatus(
   bookingId: string,
@@ -160,6 +161,7 @@ export async function updateBookingStatus(
   }
 
   revalidatePath("/teacher/dashboard");
+  try { await emitEvent("booking.confirmed", "booking", bookingId, { student_id: booking.student_id, teacher_id: user.id }); } catch {}
   return { success: true, roomUrl, warning: roomWarning };
 }
 
@@ -217,6 +219,7 @@ export async function markNoShow(bookingId: string) {
 
   revalidatePath("/teacher/dashboard");
   revalidatePath("/teacher/sessions");
+  try { await emitEvent("session.no_show", "booking", bookingId, { student_id: booking.student_id, teacher_id: user.id }); } catch {}
   return { success: true };
 }
 
@@ -302,6 +305,7 @@ export async function endSession(sessionId: string) {
   revalidatePath("/teacher/dashboard");
   revalidatePath(`/teacher/sessions/${sessionId}`);
   revalidatePath("/teacher/sessions");
+  try { await emitEvent("session.ended", "session", sessionId, { booking_id: session.booking_id, teacher_id: user.id, actual_duration: actualDuration }); } catch {}
   return { success: true };
 }
 

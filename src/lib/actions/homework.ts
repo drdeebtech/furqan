@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notifyParentHomeworkNotDone } from "@/lib/notifications/parent";
 import { HOMEWORK_STATUS_AR } from "@/lib/constants";
 import type { HomeworkStatus, HomeworkAssignment } from "@/types/database";
+import { emitEvent } from "@/lib/automation/emit";
 
 // ─── Auth helpers ───────────────────────────────────────────────────────────
 
@@ -99,6 +100,7 @@ export async function createHomework(formData: FormData) {
   } catch { /* non-blocking */ }
 
   revalidateHomeworkPaths();
+  try { await emitEvent("homework.assigned", "homework", booking_id, { student_id, teacher_id: user.id, homework_type, title }); } catch {}
   return { success: true };
 }
 
@@ -144,6 +146,7 @@ export async function markStudentReady(homeworkId: string) {
   } catch { /* non-blocking */ }
 
   revalidateHomeworkPaths();
+  try { await emitEvent("homework.student_ready", "homework", homeworkId, { student_id: user.id, teacher_id: hw.teacher_id }); } catch {}
   return { success: true };
 }
 
@@ -248,6 +251,7 @@ export async function gradeHomework(homeworkId: string, formData: FormData) {
   }
 
   revalidateHomeworkPaths();
+  try { await emitEvent("homework.graded", "homework", homeworkId, { student_id: hw.student_id, teacher_id: hw.teacher_id, grade }); } catch {}
   return { success: true };
 }
 

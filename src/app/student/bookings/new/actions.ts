@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { SessionType } from "@/types/database";
 import { notifyNewBooking } from "@/lib/whatsapp";
+import { emitEvent } from "@/lib/automation/emit";
 
 export type BookingResult = {
   error?: string;
@@ -199,6 +200,7 @@ export async function createBooking(
         scheduledAt.toLocaleDateString("ar-SA"),
       );
     })(),
+    emitEvent("booking.created", "booking", newBooking?.id ?? "", { student_id: studentId, teacher_id: teacherId, session_type: sessionType, scheduled_at: scheduledAt.toISOString() }).catch(() => {}),
   ]);
 
   redirect("/student/dashboard?booked=1");

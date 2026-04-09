@@ -61,7 +61,8 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/admin/blog", ar: "المدونة", en: "Blog", icon: FileText },
     { href: "/admin/contacts", ar: "رسائل التواصل", en: "Contacts", icon: Mail },
     { href: "/admin/notifications", ar: "الإشعارات", en: "Notifications", icon: Bell },
-    { href: "/admin/settings", ar: "الإعدادات", en: "Settings", icon: Settings, group: { ar: "الإعدادات", en: "SETTINGS" } },
+    { href: "/admin/automation", ar: "الأتمتة", en: "Automation", icon: Settings, group: { ar: "الإعدادات", en: "SETTINGS" } },
+    { href: "/admin/settings", ar: "الإعدادات", en: "Settings", icon: Settings },
   ],
   moderator: [
     { href: "/moderator/dashboard", ar: "لوحة المشرف", en: "Dashboard", icon: LayoutDashboard, group: { ar: "الرئيسية", en: "MAIN" } },

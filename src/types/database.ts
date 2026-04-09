@@ -513,6 +513,28 @@ export interface StudentPackage {
   created_at: string;
 }
 
+// ─── V12 Table: automation_logs ──────────────────────────────────────────────
+
+export type AutomationLogStatus = "started" | "succeeded" | "failed" | "skipped";
+
+export interface AutomationLog {
+  id: string;
+  workflow_name: string;
+  event_name: string | null;
+  entity_type: string | null;
+  entity_id: string | null;
+  idempotency_key: string | null;
+  status: AutomationLogStatus;
+  channel: string | null;
+  payload_json: Record<string, unknown> | null;
+  result_json: Record<string, unknown> | null;
+  error_message: string | null;
+  attempt_count: number;
+  started_at: string;
+  finished_at: string | null;
+  trace_id: string;
+}
+
 // ─── Supabase Database Type ──────────────────────────────────────────────────
 // Row   = what you read back from a SELECT
 // Insert = what you send to an INSERT (auto-generated fields are optional)
@@ -847,6 +869,19 @@ export interface Database {
         Update: Partial<Omit<StudentPackage, "id">>;
         Relationships: [];
       };
+      // V12 tables
+      automation_logs: {
+        Row: AutomationLog;
+        Insert: Omit<AutomationLog, "id" | "status" | "attempt_count" | "started_at" | "trace_id"> & {
+          id?: string;
+          status?: AutomationLogStatus;
+          attempt_count?: number;
+          started_at?: string;
+          trace_id?: string;
+        };
+        Update: Partial<Omit<AutomationLog, "id">>;
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -881,6 +916,7 @@ export interface Database {
       homework_status: HomeworkStatus;
       package_type: PackageType;
       student_package_status: StudentPackageStatus;
+      automation_log_status: AutomationLogStatus;
     };
     CompositeTypes: {
       [_ in never]: never;
