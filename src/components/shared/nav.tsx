@@ -32,6 +32,7 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/student/homework", ar: "الواجبات", en: "Homework", icon: BookOpen },
     { href: "/student/packages", ar: "باقاتي", en: "Packages", icon: Briefcase },
     { href: "/student/progress", ar: "تقدمي", en: "Progress", icon: TrendingUp },
+    { href: "/student/notifications", ar: "الإشعارات", en: "Notifications", icon: Bell },
     { href: "/student/messages", ar: "الرسائل", en: "Messages", icon: MessageSquare },
   ],
   teacher: [
@@ -41,6 +42,7 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/teacher/students", ar: "طلابي", en: "Students", icon: Users, group: { ar: "الطلاب", en: "STUDENTS" } },
     { href: "/teacher/homework", ar: "الواجبات", en: "Homework", icon: BookOpen },
     { href: "/teacher/evaluations", ar: "التقييمات", en: "Evaluations", icon: ClipboardCheck },
+    { href: "/teacher/notifications", ar: "الإشعارات", en: "Notifications", icon: Bell },
     { href: "/teacher/messages", ar: "الرسائل", en: "Messages", icon: MessageSquare },
   ],
   admin: [

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Search, CalendarDays, ChevronDown, MoreHorizontal } from "lucide-react";
 import { ThemeToggle } from "@/lib/theme/theme-toggle";
 import { LangToggle } from "@/lib/i18n/lang-toggle";
+import { NotificationBell } from "@/components/shared/notification-bell";
 import { useLang } from "@/lib/i18n/context";
 
 export function Topbar() {
@@ -46,6 +47,9 @@ export function Topbar() {
         <span className="text-sm font-medium">{new Date().getFullYear()}</span>
         <ChevronDown size={14} className="text-[var(--muted)]" />
       </div>
+
+      {/* Notification bell */}
+      <NotificationBell />
 
       {/* Theme toggle */}
       <div className="glass flex h-11 w-11 items-center justify-center rounded-xl">
