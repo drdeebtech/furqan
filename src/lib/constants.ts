@@ -1,4 +1,4 @@
-import type { BookingStatus, SessionType, RecitationStandard } from "@/types/database";
+import type { BookingStatus, SessionType, RecitationStandard, HomeworkType, HomeworkStatus } from "@/types/database";
 
 export const SESSION_TYPE_AR: Record<SessionType, string> = {
   hifz: "حفظ",
@@ -54,4 +54,51 @@ export const STATUS_STYLE: Record<
     label: "لم يحضر",
     className: "bg-red-500/10 text-red-400 border-red-500/30",
   },
+};
+
+// ─── V10: Homework labels ───────────────────────────────────────────────────
+
+export const HOMEWORK_TYPE_AR: Record<HomeworkType, string> = {
+  hifz: "حفظ",
+  muraja: "مراجعة",
+  recitation: "تلاوة",
+  tajweed: "تجويد",
+  writing: "كتابة",
+  listening: "استماع",
+};
+
+export const HOMEWORK_TYPE_BILINGUAL: Record<HomeworkType, { ar: string; en: string }> = {
+  hifz: { ar: "حفظ", en: "Hifz (Memorization)" },
+  muraja: { ar: "مراجعة", en: "Muraja'a (Review)" },
+  recitation: { ar: "تلاوة", en: "Recitation" },
+  tajweed: { ar: "تجويد", en: "Tajweed" },
+  writing: { ar: "كتابة", en: "Writing" },
+  listening: { ar: "استماع", en: "Listening" },
+};
+
+export const HOMEWORK_STATUS_AR: Record<HomeworkStatus, string> = {
+  assigned: "تم التكليف",
+  student_ready: "جاهز",
+  completed_excellent: "ممتاز",
+  completed_good: "جيد",
+  completed_needs_work: "يحتاج تحسين",
+  completed_not_done: "لم يُنجز",
+};
+
+export const HOMEWORK_STATUS_BILINGUAL: Record<HomeworkStatus, { ar: string; en: string }> = {
+  assigned: { ar: "تم التكليف", en: "Assigned" },
+  student_ready: { ar: "جاهز", en: "Ready" },
+  completed_excellent: { ar: "ممتاز", en: "Excellent" },
+  completed_good: { ar: "جيد", en: "Good" },
+  completed_needs_work: { ar: "يحتاج تحسين", en: "Needs Work" },
+  completed_not_done: { ar: "لم يُنجز", en: "Not Done" },
+};
+
+export const HOMEWORK_STATUS_STYLE: Record<HomeworkStatus, { label: string; className: string }> = {
+  assigned: { label: "تم التكليف", className: "bg-blue-500/10 text-blue-400 border-blue-500/30" },
+  student_ready: { label: "جاهز", className: "bg-amber-500/10 text-amber-400 border-amber-500/30" },
+  completed_excellent: { label: "ممتاز", className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
+  completed_good: { label: "جيد", className: "bg-sky-500/10 text-sky-400 border-sky-500/30" },
+  completed_needs_work: { label: "يحتاج تحسين", className: "bg-orange-500/10 text-orange-400 border-orange-500/30" },
+  completed_not_done: { label: "لم يُنجز", className: "bg-red-500/10 text-red-400 border-red-500/30" },
 };

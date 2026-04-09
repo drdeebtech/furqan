@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
-import type { SessionType } from "@/types/database";
+import type { SessionType, HomeworkAssignment } from "@/types/database";
 import { VideoRoom } from "@/app/student/sessions/[id]/video-room";
 import { PostSessionForm } from "./post-session-form";
 import { SessionDetailControls } from "./session-detail-controls";
@@ -58,6 +58,14 @@ export default async function TeacherSessionPage({ params }: Props) {
     .from("profiles").select("full_name").eq("id", booking.student_id)
     .single<{ full_name: string | null }>();
 
+  // Fetch structured homework assignments for this booking
+  const { data: hwAssignments } = await supabase
+    .from("homework_assignments")
+    .select("*")
+    .eq("booking_id", session.booking_id)
+    .order("assigned_at", { ascending: false })
+    .returns<HomeworkAssignment[]>();
+
   const studentName = student?.full_name || "الطالب";
   const scheduledDate = new Date(booking.scheduled_at);
   const isCompleted = session.ended_at !== null;
@@ -106,10 +114,12 @@ export default async function TeacherSessionPage({ params }: Props) {
       {isCompleted ? (
         <PostSessionForm
           sessionId={session.id}
+          bookingId={session.booking_id}
           studentId={booking.student_id}
           studentName={studentName}
           existingNotes={session.post_session_notes}
           existingHomework={session.homework}
+          existingAssignments={hwAssignments ?? []}
         />
       ) : (
         <VideoRoom

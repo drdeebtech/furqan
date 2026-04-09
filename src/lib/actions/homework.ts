@@ -1,0 +1,379 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { notifyParentHomeworkNotDone } from "@/lib/notifications/parent";
+import { HOMEWORK_STATUS_AR } from "@/lib/constants";
+import type { HomeworkStatus, HomeworkAssignment } from "@/types/database";
+
+// ─── Auth helpers ───────────────────────────────────────────────────────────
+
+async function requireTeacherOrAbove(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("غير مسجل الدخول");
+  const { data: profile } = await supabase
+    .from("profiles").select("role").eq("id", user.id)
+    .single().then(r => ({ data: r.data as { role: string } | null }));
+  if (!profile || !["admin", "moderator", "teacher"].includes(profile.role)) {
+    throw new Error("غير مصرح");
+  }
+  return { user, role: profile.role };
+}
+
+async function requireStudent(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("غير مسجل الدخول");
+  return user;
+}
+
+function revalidateHomeworkPaths() {
+  revalidatePath("/teacher/homework");
+  revalidatePath("/teacher/sessions");
+  revalidatePath("/student/homework");
+  revalidatePath("/student/dashboard");
+  revalidatePath("/student/sessions");
+}
+
+// ─── 1. Create Homework ─────────────────────────────────────────────────────
+
+export async function createHomework(formData: FormData) {
+  const supabase = await createClient();
+  const { user } = await requireTeacherOrAbove(supabase);
+
+  const booking_id = formData.get("booking_id") as string;
+  const student_id = formData.get("student_id") as string;
+  const session_id = (formData.get("session_id") as string) || null;
+  const homework_type = formData.get("homework_type") as string;
+  const title = formData.get("title") as string;
+  const description = (formData.get("description") as string) || null;
+  const surah_number = formData.get("surah_number") ? Number(formData.get("surah_number")) : null;
+  const ayah_start = formData.get("ayah_start") ? Number(formData.get("ayah_start")) : null;
+  const ayah_end = formData.get("ayah_end") ? Number(formData.get("ayah_end")) : null;
+  const pages_count = formData.get("pages_count") ? Number(formData.get("pages_count")) : null;
+  const due_date = (formData.get("due_date") as string) || null;
+
+  if (!booking_id || !student_id || !homework_type || !title) {
+    return { error: "جميع الحقول المطلوبة يجب ملؤها" };
+  }
+
+  // Verify teacher owns the booking
+  const { data: booking } = await supabase
+    .from("bookings").select("teacher_id").eq("id", booking_id)
+    .single<{ teacher_id: string }>();
+  if (!booking || booking.teacher_id !== user.id) {
+    // Allow admin/mod to bypass ownership check
+    const { data: p } = await supabase
+      .from("profiles").select("role").eq("id", user.id)
+      .single<{ role: string }>();
+    if (!p || !["admin", "moderator"].includes(p.role)) {
+      return { error: "ليس لديك صلاحية على هذا الحجز" };
+    }
+  }
+
+  const { error } = await supabase.from("homework_assignments").insert({
+    booking_id,
+    student_id,
+    session_id,
+    teacher_id: user.id,
+    homework_type,
+    title,
+    description,
+    surah_number,
+    ayah_start,
+    ayah_end,
+    pages_count,
+    due_date,
+  } as never);
+
+  if (error) return { error: "فشل إنشاء الواجب" };
+
+  // Notify student
+  try {
+    await supabase.from("notifications").insert({
+      user_id: student_id,
+      type: "homework",
+      title: "واجب جديد",
+      body: `كلّفك معلمك بواجب جديد — ${title}`,
+      channel: ["in_app"],
+    } as never);
+  } catch { /* non-blocking */ }
+
+  revalidateHomeworkPaths();
+  return { success: true };
+}
+
+// ─── 2. Mark Student Ready ──────────────────────────────────────────────────
+
+export async function markStudentReady(homeworkId: string) {
+  const supabase = await createClient();
+  const user = await requireStudent(supabase);
+
+  // Verify ownership and current status
+  const { data: hw } = await supabase
+    .from("homework_assignments")
+    .select("student_id, teacher_id, status, title")
+    .eq("id", homeworkId)
+    .returns<{ student_id: string; teacher_id: string; status: string; title: string }[]>()
+    .single();
+
+  if (!hw) return { error: "الواجب غير موجود" };
+  if (hw.student_id !== user.id) return { error: "غير مصرح" };
+  if (hw.status !== "assigned") return { error: "حالة الواجب لا تسمح بهذا الإجراء" };
+
+  const { error } = await supabase
+    .from("homework_assignments")
+    .update({ status: "student_ready", ready_at: new Date().toISOString() } as never)
+    .eq("id", homeworkId);
+
+  if (error) return { error: "فشل تحديث حالة الواجب" };
+
+  // Notify teacher
+  try {
+    const { data: student } = await supabase
+      .from("profiles").select("full_name").eq("id", user.id)
+      .single<{ full_name: string | null }>();
+    const studentName = student?.full_name ?? "الطالب";
+
+    await supabase.from("notifications").insert({
+      user_id: hw.teacher_id,
+      type: "homework",
+      title: "طالب جاهز",
+      body: `${studentName} جاهز لتسميع الواجب: ${hw.title}`,
+      channel: ["in_app"],
+    } as never);
+  } catch { /* non-blocking */ }
+
+  revalidateHomeworkPaths();
+  return { success: true };
+}
+
+// ─── 3. Grade Homework ──────────────────────────────────────────────────────
+
+export async function gradeHomework(homeworkId: string, formData: FormData) {
+  const supabase = await createClient();
+  const { user } = await requireTeacherOrAbove(supabase);
+
+  const grade = formData.get("grade") as HomeworkStatus;
+  const teacher_notes = (formData.get("teacher_notes") as string) || null;
+
+  const validGrades: HomeworkStatus[] = [
+    "completed_excellent", "completed_good", "completed_needs_work", "completed_not_done",
+  ];
+  if (!grade || !validGrades.includes(grade)) {
+    return { error: "يرجى اختيار تقييم صحيح" };
+  }
+
+  // Fetch current homework
+  const { data: hw } = await supabase
+    .from("homework_assignments")
+    .select("*")
+    .eq("id", homeworkId)
+    .returns<HomeworkAssignment[]>()
+    .single();
+
+  if (!hw) return { error: "الواجب غير موجود" };
+  if (hw.teacher_id !== user.id) {
+    const { data: p } = await supabase
+      .from("profiles").select("role").eq("id", user.id)
+      .single<{ role: string }>();
+    if (!p || !["admin", "moderator"].includes(p.role)) {
+      return { error: "غير مصرح" };
+    }
+  }
+  if (hw.status !== "student_ready") {
+    return { error: "الطالب لم يؤكد جاهزيته بعد" };
+  }
+
+  // Update grade
+  const { error } = await supabase
+    .from("homework_assignments")
+    .update({
+      status: grade,
+      completed_at: new Date().toISOString(),
+      teacher_notes,
+    } as never)
+    .eq("id", homeworkId);
+
+  if (error) return { error: "فشل تقييم الواجب" };
+
+  const gradeLabel = HOMEWORK_STATUS_AR[grade];
+
+  // Notify student
+  try {
+    await supabase.from("notifications").insert({
+      user_id: hw.student_id,
+      type: "homework",
+      title: "تم تقييم واجبك",
+      body: `تم تقييم واجب "${hw.title}" — النتيجة: ${gradeLabel}`,
+      channel: ["in_app"],
+    } as never);
+  } catch { /* non-blocking */ }
+
+  // Auto-regeneration for needs_work / not_done
+  if (grade === "completed_needs_work" || grade === "completed_not_done") {
+    try {
+      // Create new assignment linked to the original
+      await supabase.from("homework_assignments").insert({
+        booking_id: hw.booking_id,
+        student_id: hw.student_id,
+        teacher_id: hw.teacher_id,
+        homework_type: hw.homework_type,
+        title: hw.title,
+        description: hw.description,
+        surah_number: hw.surah_number,
+        ayah_start: hw.ayah_start,
+        ayah_end: hw.ayah_end,
+        pages_count: hw.pages_count,
+        parent_assignment_id: homeworkId,
+      } as never);
+
+      // Notify student about re-assignment
+      await supabase.from("notifications").insert({
+        user_id: hw.student_id,
+        type: "homework",
+        title: "تم إعادة تكليفك بالواجب",
+        body: `تمت إعادة تكليفك بواجب "${hw.title}" — يرجى المحاولة مجدداً`,
+        channel: ["in_app"],
+      } as never);
+
+      // Notify parent
+      await notifyParentHomeworkNotDone(
+        hw.student_id,
+        hw.teacher_id,
+        hw.title,
+        grade,
+        user.id,
+      );
+    } catch { /* non-blocking */ }
+  }
+
+  revalidateHomeworkPaths();
+  return { success: true };
+}
+
+// ─── 4. Edit Homework ───────────────────────────────────────────────────────
+
+export async function editHomework(homeworkId: string, formData: FormData) {
+  const supabase = await createClient();
+  const { user } = await requireTeacherOrAbove(supabase);
+
+  // Fetch homework
+  const { data: hw } = await supabase
+    .from("homework_assignments")
+    .select("teacher_id, student_id, assigned_at")
+    .eq("id", homeworkId)
+    .returns<{ teacher_id: string; student_id: string; assigned_at: string }[]>()
+    .single();
+
+  if (!hw) return { error: "الواجب غير موجود" };
+  if (hw.teacher_id !== user.id) {
+    const { data: p } = await supabase
+      .from("profiles").select("role").eq("id", user.id)
+      .single<{ role: string }>();
+    if (!p || !["admin", "moderator"].includes(p.role)) {
+      return { error: "غير مصرح" };
+    }
+  }
+
+  // Check edit window: find next session between same teacher+student
+  const { data: nextBooking } = await supabase
+    .from("bookings")
+    .select("id")
+    .eq("teacher_id", hw.teacher_id)
+    .eq("student_id", hw.student_id)
+    .eq("status", "confirmed")
+    .gt("scheduled_at", hw.assigned_at)
+    .order("scheduled_at", { ascending: true })
+    .limit(1)
+    .single<{ id: string }>();
+
+  if (nextBooking) {
+    const { data: nextSession } = await supabase
+      .from("sessions")
+      .select("started_at")
+      .eq("booking_id", nextBooking.id)
+      .single<{ started_at: string | null }>();
+
+    if (nextSession?.started_at) {
+      return { error: "انتهت فترة التعديل — بدأت الجلسة التالية" };
+    }
+  }
+
+  // Build update object
+  const updates: Record<string, unknown> = {};
+  const title = formData.get("title") as string;
+  if (title) updates.title = title;
+  const description = formData.get("description") as string;
+  if (description !== null) updates.description = description || null;
+  const homework_type = formData.get("homework_type") as string;
+  if (homework_type) updates.homework_type = homework_type;
+  const surah_number = formData.get("surah_number");
+  if (surah_number !== null) updates.surah_number = surah_number ? Number(surah_number) : null;
+  const ayah_start = formData.get("ayah_start");
+  if (ayah_start !== null) updates.ayah_start = ayah_start ? Number(ayah_start) : null;
+  const ayah_end = formData.get("ayah_end");
+  if (ayah_end !== null) updates.ayah_end = ayah_end ? Number(ayah_end) : null;
+  const pages_count = formData.get("pages_count");
+  if (pages_count !== null) updates.pages_count = pages_count ? Number(pages_count) : null;
+  const due_date = formData.get("due_date") as string;
+  if (due_date !== null) updates.due_date = due_date || null;
+  const teacher_notes = formData.get("teacher_notes") as string;
+  if (teacher_notes !== null) updates.teacher_notes = teacher_notes || null;
+
+  updates.updated_at = new Date().toISOString();
+
+  const { error } = await supabase
+    .from("homework_assignments")
+    .update(updates as never)
+    .eq("id", homeworkId);
+
+  if (error) return { error: "فشل تعديل الواجب" };
+
+  revalidateHomeworkPaths();
+  return { success: true };
+}
+
+// ─── 5. Delete Homework ─────────────────────────────────────────────────────
+
+export async function deleteHomework(homeworkId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "غير مصرح" };
+
+  // Fetch homework
+  const { data: hw } = await supabase
+    .from("homework_assignments")
+    .select("teacher_id")
+    .eq("id", homeworkId)
+    .returns<{ teacher_id: string }[]>()
+    .single();
+
+  if (!hw) return { error: "الواجب غير موجود" };
+
+  // Verify ownership or admin/mod
+  if (hw.teacher_id !== user.id) {
+    const { data: profile } = await supabase
+      .from("profiles").select("role").eq("id", user.id)
+      .single<{ role: string }>();
+    if (!profile || !["admin", "moderator"].includes(profile.role)) {
+      return { error: "ليس لديك صلاحية" };
+    }
+  }
+
+  // Delete children first (auto-regenerated assignments)
+  await supabase
+    .from("homework_assignments")
+    .delete()
+    .eq("parent_assignment_id", homeworkId);
+
+  // Delete the homework
+  const { error } = await supabase
+    .from("homework_assignments")
+    .delete()
+    .eq("id", homeworkId);
+
+  if (error) return { error: "فشل حذف الواجب" };
+
+  revalidateHomeworkPaths();
+  return { success: true };
+}

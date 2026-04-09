@@ -80,6 +80,17 @@ export default async function StudentDashboardPage() {
     sessionId = session?.id ?? null;
   }
 
+  // Homework counts by status
+  const { data: hwRaw } = await supabase
+    .from("homework_assignments")
+    .select("status")
+    .eq("student_id", user.id)
+    .returns<{ status: string }[]>();
+  const hwCounts: Record<string, number> = {};
+  for (const h of hwRaw ?? []) {
+    hwCounts[h.status] = (hwCounts[h.status] ?? 0) + 1;
+  }
+
   const [weeklyData, liveSessions, recentRecordings] = await Promise.all([
     getStudentWeeklyStudyTime(user.id),
     getStudentLiveSessions(user.id),
@@ -102,6 +113,7 @@ export default async function StudentDashboardPage() {
         weeklyData,
         liveSessions,
         recentRecordings,
+        hwCounts,
       }}
     />
   );

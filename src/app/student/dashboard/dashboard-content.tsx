@@ -30,13 +30,14 @@ interface DashboardData {
   weeklyData: { day: string; value: number; isActive: boolean }[];
   liveSessions: { id: string; title: string; subtitle: string; initials: string; timeRemaining?: string; progressPercent?: number }[];
   recentRecordings: Record<string, unknown>[];
+  hwCounts: Record<string, number>;
 }
 
 export function StudentDashboardContent({ data }: { data: DashboardData }) {
   const { t, dir, lang } = useLang();
   const toast = useToast();
   const searchParams = useSearchParams();
-  const { fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, recent, evaluations, nameMap, notesMap, weeklyData, liveSessions, recentRecordings } = data;
+  const { fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, recent, evaluations, nameMap, notesMap, weeklyData, liveSessions, recentRecordings, hwCounts } = data;
 
   useEffect(() => {
     if (searchParams.get("booked") === "1") {
@@ -150,7 +151,14 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
             />
             <BreakdownBar
               title={t("توزيع الواجبات", "Assignment Breakdown")}
-              segments={[]}
+              segments={[
+                ...(hwCounts.assigned ? [{ label: t("تم التكليف", "Assigned"), value: hwCounts.assigned, color: "#3B82F6" }] : []),
+                ...(hwCounts.student_ready ? [{ label: t("جاهز", "Ready"), value: hwCounts.student_ready, color: "#F59E0B" }] : []),
+                ...(hwCounts.completed_excellent ? [{ label: t("ممتاز", "Excellent"), value: hwCounts.completed_excellent, color: "#10B981" }] : []),
+                ...(hwCounts.completed_good ? [{ label: t("جيد", "Good"), value: hwCounts.completed_good, color: "#06B6D4" }] : []),
+                ...(hwCounts.completed_needs_work ? [{ label: t("يحتاج تحسين", "Needs Work"), value: hwCounts.completed_needs_work, color: "#F97316" }] : []),
+                ...(hwCounts.completed_not_done ? [{ label: t("لم يُنجز", "Not Done"), value: hwCounts.completed_not_done, color: "#EF4444" }] : []),
+              ]}
               emptyMessage={t("ابدأ تتبع الواجبات لرؤية التقدم", "Start tracking homework to see progress")}
             />
           </div>
@@ -239,9 +247,28 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
           <div className="space-y-4 lg:col-span-2">
             <QuickActions />
 
-            {pendingHomework.length > 0 && (
-              <WidgetCard title={t("الواجبات المنزلية", "Homework")}>
+            {/* Structured Homework Widget */}
+            {(hwCounts.assigned || hwCounts.student_ready || pendingHomework.length > 0) && (
+              <WidgetCard
+                title={t("الواجبات", "Homework")}
+                headerAction={
+                  <Link href="/student/homework" className="text-xs text-gold hover:text-gold-hover">{t("عرض الكل ←", "View All →")}</Link>
+                }
+              >
                 <div className="space-y-2">
+                  {(hwCounts.assigned ?? 0) > 0 && (
+                    <div className="flex items-center justify-between rounded-xl border border-blue-500/20 bg-blue-500/5 p-3">
+                      <span className="text-sm">{t("واجبات جديدة", "New assignments")}</span>
+                      <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-bold text-blue-400">{hwCounts.assigned}</span>
+                    </div>
+                  )}
+                  {(hwCounts.student_ready ?? 0) > 0 && (
+                    <div className="flex items-center justify-between rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
+                      <span className="text-sm">{t("بانتظار التسميع", "Awaiting grading")}</span>
+                      <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-bold text-amber-400">{hwCounts.student_ready}</span>
+                    </div>
+                  )}
+                  {/* Legacy text homework fallback */}
                   {pendingHomework.map(([bookingId, h]) => {
                     const booking = recent.find(r => r.id === bookingId);
                     return (

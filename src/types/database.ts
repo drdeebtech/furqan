@@ -6,7 +6,7 @@ export type BookingStatus = "pending" | "confirmed" | "completed" | "cancelled" 
 export type SessionType = "hifz" | "muraja" | "tajweed" | "tilawa" | "qiraat" | "tafsir" | "combined" | "other";
 export type PaymentStatus = "pending" | "succeeded" | "failed" | "refunded";
 export type MsgType = "text" | "audio" | "file";
-export type NotifType = "booking" | "payment" | "message" | "reminder" | "system";
+export type NotifType = "booking" | "payment" | "message" | "reminder" | "system" | "homework";
 export type StudentLevel = "beginner" | "intermediate" | "advanced";
 
 // ─── V9 new enums ───────────────────────────────────────────────────────────
@@ -14,6 +14,11 @@ export type StudentLevel = "beginner" | "intermediate" | "advanced";
 export type CvStatus = "draft" | "pending_review" | "approved" | "rejected";
 export type EvaluationType = "weekly" | "biweekly" | "monthly" | "quarterly";
 export type ReportType = "session_summary" | "evaluation" | "custom" | "missed_session" | "schedule_change";
+
+// ─── V10 new enums ──────────────────────────────────────────────────────────
+
+export type HomeworkType = "hifz" | "muraja" | "recitation" | "tajweed" | "writing" | "listening";
+export type HomeworkStatus = "assigned" | "student_ready" | "completed_excellent" | "completed_good" | "completed_needs_work" | "completed_not_done";
 
 // ─── Text CHECK unions (not Postgres ENUMs, but typed for safety) ────────────
 
@@ -436,6 +441,32 @@ export interface SessionObserver {
   created_at: string;
 }
 
+// ─── V10 Table: homework_assignments ────────────────────────────────────────
+
+export interface HomeworkAssignment {
+  id: string;
+  session_id: string | null;
+  booking_id: string;
+  teacher_id: string;
+  student_id: string;
+  homework_type: HomeworkType;
+  status: HomeworkStatus;
+  title: string;
+  description: string | null;
+  surah_number: number | null;
+  ayah_start: number | null;
+  ayah_end: number | null;
+  pages_count: number | null;
+  due_date: string | null;
+  assigned_at: string;
+  ready_at: string | null;
+  completed_at: string | null;
+  teacher_notes: string | null;
+  parent_assignment_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ─── Supabase Database Type ──────────────────────────────────────────────────
 // Row   = what you read back from a SELECT
 // Insert = what you send to an INSERT (auto-generated fields are optional)
@@ -730,6 +761,19 @@ export interface Database {
         Update: Partial<Omit<SessionObserver, "id">>;
         Relationships: [];
       };
+      // V10 tables
+      homework_assignments: {
+        Row: HomeworkAssignment;
+        Insert: Omit<HomeworkAssignment, "id" | "status" | "assigned_at" | "created_at" | "updated_at"> & {
+          id?: string;
+          status?: HomeworkStatus;
+          assigned_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<HomeworkAssignment, "id">>;
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -760,6 +804,8 @@ export interface Database {
       cv_status: CvStatus;
       evaluation_type: EvaluationType;
       report_type: ReportType;
+      homework_type: HomeworkType;
+      homework_status: HomeworkStatus;
     };
     CompositeTypes: {
       [_ in never]: never;

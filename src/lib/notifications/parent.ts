@@ -121,3 +121,24 @@ export async function notifyParentNoShow(
     createdBy,
   });
 }
+
+/**
+ * Notify parent when homework is graded as needs_work or not_done.
+ */
+export async function notifyParentHomeworkNotDone(
+  studentId: string,
+  teacherId: string,
+  homeworkTitle: string,
+  grade: string,
+  createdBy: string,
+) {
+  const gradeLabel = grade === "completed_not_done" ? "لم يُنجز" : "يحتاج تحسين";
+  await createParentReport({
+    studentId,
+    teacherId,
+    reportType: "custom",
+    title: `واجب ${gradeLabel}`,
+    body: `تم تقييم واجب "${homeworkTitle}" لابنكم/ابنتكم: ${gradeLabel}. تم إعادة تكليفه بالواجب.`,
+    createdBy,
+  });
+}
