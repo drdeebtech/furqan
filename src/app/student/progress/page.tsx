@@ -1,120 +1,136 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { BookOpen, CheckCircle, TrendingUp } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { ProgressContent } from "./progress-content";
 
 export const metadata: Metadata = { title: "تقدمي" };
 
-const TOPICS = [
-  { ar: "مخارج الحروف", en: "Makharij" },
-  { ar: "النون الساكنة والتنوين", en: "Noon Saakin" },
-  { ar: "أحكام المد", en: "Madd Rules" },
-  { ar: "الميم الساكنة", en: "Meem Saakin" },
-  { ar: "التفخيم والترقيق", en: "Tafkheem" },
-  { ar: "الوقف والابتداء", en: "Waqf Rules" },
-];
-
-const ARABIC_NUMS = ["٠","١","٢","٣","٤","٥","٦","٧","٨","٩","١٠","١١","١٢","١٣","١٤","١٥","١٦","١٧","١٨","١٩","٢٠","٢١","٢٢","٢٣","٢٤","٢٥","٢٦","٢٧","٢٨","٢٩","٣٠"];
+// Map surah numbers to juz (simplified — surah start boundaries)
+const SURAH_TO_JUZ: Record<number, number> = {
+  1:1, 2:1, 3:3, 4:4, 5:6, 6:7, 7:8, 8:9, 9:10, 10:11,
+  11:11, 12:12, 13:13, 14:13, 15:14, 16:14, 17:15, 18:15, 19:16, 20:16,
+  21:17, 22:17, 23:18, 24:18, 25:18, 26:19, 27:19, 28:20, 29:20, 30:21,
+  31:21, 32:21, 33:21, 34:22, 35:22, 36:22, 37:23, 38:23, 39:23, 40:24,
+  41:24, 42:25, 43:25, 44:25, 45:25, 46:26, 47:26, 48:26, 49:26, 50:26,
+  51:26, 52:27, 53:27, 54:27, 55:27, 56:27, 57:27, 58:28, 59:28, 60:28,
+  61:28, 62:28, 63:28, 64:28, 65:28, 66:28, 67:29, 68:29, 69:29, 70:29,
+  71:29, 72:29, 73:29, 74:29, 75:29, 76:29, 77:29, 78:30, 79:30, 80:30,
+  81:30, 82:30, 83:30, 84:30, 85:30, 86:30, 87:30, 88:30, 89:30, 90:30,
+  91:30, 92:30, 93:30, 94:30, 95:30, 96:30, 97:30, 98:30, 99:30, 100:30,
+  101:30, 102:30, 103:30, 104:30, 105:30, 106:30, 107:30, 108:30, 109:30, 110:30,
+  111:30, 112:30, 113:30, 114:30,
+};
 
 export default async function StudentProgressPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { count: completedCount } = await supabase.from("bookings")
-    .select("id", { count: "exact", head: true })
-    .eq("student_id", user.id).eq("status", "completed");
+  // Parallel queries
+  const [
+    completedRes,
+    progressRes,
+    evalsRes,
+    hwRes,
+    _errorsRes,
+    totalHoursRes,
+  ] = await Promise.all([
+    // Completed sessions count
+    supabase.from("bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("student_id", user.id).eq("status", "completed"),
+    // Student progress records
+    supabase.from("student_progress")
+      .select("id, surah_from, surah_to, ayah_from, ayah_to, quality_rating, level, progress_type, teacher_notes, created_at")
+      .eq("student_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(50)
+      .returns<{ id: string; surah_from: number | null; surah_to: number | null; ayah_from: number | null; ayah_to: number | null; quality_rating: number | null; level: string; progress_type: string; teacher_notes: string | null; created_at: string }[]>(),
+    // Evaluations
+    supabase.from("session_evaluations")
+      .select("id, evaluation_type, hifz_score, tajweed_score, akhlaq_score, attendance_score, overall_score, strengths, weaknesses, recommendations, created_at")
+      .eq("student_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(10)
+      .returns<{ id: string; evaluation_type: string; hifz_score: number | null; tajweed_score: number | null; akhlaq_score: number | null; attendance_score: number | null; overall_score: number | null; strengths: string | null; weaknesses: string | null; recommendations: string | null; created_at: string }[]>(),
+    // Homework stats
+    supabase.from("homework_assignments")
+      .select("status")
+      .eq("student_id", user.id)
+      .returns<{ status: string }[]>(),
+    // Recitation errors
+    supabase.from("recitation_errors")
+      .select("error_type, resolved")
+      .in("progress_id", []) // placeholder — we'll compute from progress IDs
+      .returns<{ error_type: string; resolved: boolean }[]>(),
+    // Total study hours
+    supabase.from("sessions")
+      .select("actual_duration, booking_id")
+      .not("actual_duration", "is", null)
+      .returns<{ actual_duration: number | null; booking_id: string }[]>(),
+  ]);
 
-  const count = completedCount ?? 0;
-  const progressPercent = (count % 10) * 10;
-  const nextMilestone = 10 - (count % 10);
+  const completedCount = completedRes.count ?? 0;
+  const progressRecords = progressRes.data ?? [];
+  const evaluations = evalsRes.data ?? [];
+  const homeworkRaw = hwRes.data ?? [];
 
-  // Recent sessions
-  const { data: recent } = await supabase.from("bookings")
-    .select("id, teacher_id, scheduled_at, duration_min, session_type")
-    .eq("student_id", user.id).eq("status", "completed")
-    .order("scheduled_at", { ascending: false }).limit(10)
-    .returns<{ id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: string }[]>();
-
-  const teacherIds = [...new Set((recent ?? []).map(r => r.teacher_id))];
-  let nameMap: Record<string, string> = {};
-  if (teacherIds.length > 0) {
-    const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", teacherIds).returns<{ id: string; full_name: string | null }[]>();
-    if (profiles) nameMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name ?? "معلم"]));
+  // Compute juz touched from progress records
+  const juzTouched = new Set<number>();
+  for (const p of progressRecords) {
+    if (p.surah_from) {
+      const juz = SURAH_TO_JUZ[p.surah_from];
+      if (juz) juzTouched.add(juz);
+    }
+    if (p.surah_to) {
+      const juz = SURAH_TO_JUZ[p.surah_to];
+      if (juz) juzTouched.add(juz);
+    }
   }
 
+  // Compute quality average
+  const ratings = progressRecords.filter(p => p.quality_rating != null).map(p => p.quality_rating!);
+  const avgQuality = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : null;
+
+  // Current level (most recent)
+  const currentLevel = progressRecords[0]?.level ?? "beginner";
+
+  // Homework stats
+  const hwStats = { total: homeworkRaw.length, excellent: 0, good: 0, needsWork: 0, notDone: 0 };
+  for (const h of homeworkRaw) {
+    if (h.status === "completed_excellent") hwStats.excellent++;
+    else if (h.status === "completed_good") hwStats.good++;
+    else if (h.status === "completed_needs_work") hwStats.needsWork++;
+    else if (h.status === "completed_not_done") hwStats.notDone++;
+  }
+
+  // Evaluation scores for chart (last 6, chronological)
+  const evalScores = evaluations.slice(0, 6).reverse().map(e => ({
+    date: new Date(e.created_at).toLocaleDateString("ar-SA", { month: "short", day: "numeric" }),
+    hifz: e.hifz_score,
+    tajweed: e.tajweed_score,
+    overall: e.overall_score,
+  }));
+
+  // Total study hours
+  const totalMinutes = (totalHoursRes.data ?? [])
+    .filter(s => s.actual_duration)
+    .reduce((sum, s) => sum + (s.actual_duration ?? 0), 0);
+  const totalHours = Math.round(totalMinutes / 60);
+
   return (
-    <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-2 flex items-center gap-2 font-display text-2xl font-bold">
-        <TrendingUp size={24} className="text-gold" /> تقدمي في تعلم القرآن
-      </h1>
-      <p className="mb-8 text-xs text-muted">My Quran Learning Progress</p>
-
-      {/* Current Level */}
-      <div className="mb-8 glass-card p-8 text-center">
-        <p className="text-sm text-muted">مستواك الحالي</p>
-        <p className="mt-2 text-2xl font-bold text-gold">مبتدئ</p>
-        <p className="font-display mt-4 text-sm text-gold/50">﴿ وَرَتِّلِ الْقُرْآنَ تَرْتِيلًا ﴾</p>
-      </div>
-
-      {/* Sessions Progress */}
-      <div className="mb-8 glass-card p-6">
-        <div className="flex items-center justify-between">
-          <p className="font-display font-bold">جلسات مكتملة</p>
-          <p className="text-2xl font-bold text-gold">{count}</p>
-        </div>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
-          <div className="h-2 rounded-full bg-gold transition-all" style={{ width: `${progressPercent}%` }} />
-        </div>
-        <p className="mt-2 text-xs text-muted">بعد {nextMilestone} جلسات تصل للمستوى التالي</p>
-      </div>
-
-      {/* Tajweed Topics */}
-      <div className="mb-8">
-        <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-bold"><BookOpen size={18} className="text-gold" /> مواضيع التجويد</h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          {TOPICS.map(t => (
-            <div key={t.en} className="glass-card p-4">
-              <p className="text-sm font-medium">{t.ar}</p>
-              <p className="mt-1 text-xs text-muted">{t.en}</p>
-              <span className="mt-2 inline-block glass-badge px-2 py-0.5 text-xs text-muted">لم يُدرَس</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Quran Journey — 30 Juz */}
-      <div className="mb-8">
-        <h2 className="mb-4 font-display text-lg font-bold">رحلتك مع القرآن</h2>
-        <div className="grid grid-cols-6 gap-2 md:grid-cols-10">
-          {Array.from({ length: 30 }, (_, i) => (
-            <div key={i} className="flex aspect-square items-center justify-center rounded-lg glass text-sm font-medium text-muted">
-              {ARABIC_NUMS[i + 1]}
-            </div>
-          ))}
-        </div>
-        <p className="mt-3 text-xs text-muted">الأجزاء المظللة بالذهبي تعني أنك أتممت حفظها — سيحدثها معلمك</p>
-      </div>
-
-      {/* Recent Sessions */}
-      {(recent ?? []).length > 0 && (
-        <div>
-          <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-bold"><CheckCircle size={18} className="text-gold" /> آخر الجلسات</h2>
-          <div className="space-y-2">
-            {(recent ?? []).map(r => (
-              <div key={r.id} className="flex items-center gap-3 glass-card px-4 py-3">
-                <CheckCircle size={14} className="shrink-0 text-gold" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm">{nameMap[r.teacher_id] ?? "معلم"}</p>
-                </div>
-                <p className="text-xs text-muted">{new Date(r.scheduled_at).toLocaleDateString("ar-SA")}</p>
-              </div>
-            ))}
-          </div>
-          <Link href="/student/bookings" className="mt-4 inline-block text-sm text-gold hover:text-gold-hover">عرض كل الجلسات ←</Link>
-        </div>
-      )}
-    </div>
+    <ProgressContent
+      data={{
+        completedCount,
+        currentLevel,
+        avgQuality,
+        juzTouched: [...juzTouched],
+        totalHours,
+        evalScores,
+        hwStats,
+        latestEval: evaluations[0] ?? null,
+        progressRecords: progressRecords.slice(0, 10),
+      }}
+    />
   );
 }
