@@ -46,7 +46,7 @@ export function StatCard({ icon: Icon, label, value, href, subtitle, progress, a
             </div>
           )}
         </div>
-        <p className="mt-4 text-5xl font-bold tracking-tight text-[var(--foreground)]">{value}</p>
+        <p className="mt-4 text-[56px] font-bold tracking-tight leading-none text-[var(--foreground)]">{value}</p>
         {subtitle && <p className="mt-0.5 text-xs text-[var(--muted)]">{subtitle}</p>}
       </div>
 

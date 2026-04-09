@@ -97,7 +97,7 @@ function renderCell(col: DataTableColumn, value: unknown) {
       const pct = typeof value === "number" ? value : parseInt(str) || 0;
       return (
         <div className="flex items-center gap-2">
-          <div className="h-1.5 w-[100px] overflow-hidden rounded-full bg-[var(--surface-divider,#F0F0F2)]">
+          <div className="h-1.5 w-[140px] overflow-hidden rounded-full bg-[var(--surface-divider,#F0F0F2)]">
             <div
               className="h-full rounded-full bg-[var(--data-progress,#3B82F6)]"
               style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
@@ -110,8 +110,13 @@ function renderCell(col: DataTableColumn, value: unknown) {
 
     case "assignee": {
       const initials = typeof value === "string" ? value.slice(0, 2) : "??";
+      const avatarColors = ["bg-purple-500", "bg-blue-500", "bg-orange-500", "bg-teal-500", "bg-pink-500", "bg-emerald-500"];
+      let hash = 0;
+      const s = String(value ?? "");
+      for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash);
+      const avatarBg = avatarColors[Math.abs(hash) % avatarColors.length];
       return (
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gold text-[10px] font-bold text-white ring-2 ring-white">
+        <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold text-white ring-2 ring-white ${avatarBg}`}>
           {initials}
         </div>
       );

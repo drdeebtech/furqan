@@ -30,7 +30,7 @@ export function ModeratorDashboardContent({ data }: { data: ModeratorDashboardDa
   return (
     <>
       <div className="h-0.5 bg-gradient-to-l from-gold/0 via-gold/30 to-gold/0" />
-      <div dir={dir} className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <div dir={dir} className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         {/* Row 0: Welcome */}
         <h1 className="text-2xl font-bold">{t("لوحة المشرف", "Moderator Dashboard")}</h1>
         <p className="mt-1 text-sm text-muted">{t("مراقبة الجودة ومراجعة المحتوى", "Quality monitoring & content review")}</p>
@@ -73,7 +73,7 @@ export function ModeratorDashboardContent({ data }: { data: ModeratorDashboardDa
         <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-5">
           <div className="lg:col-span-3">
             <WidgetCard title={t("نشاط السير الذاتية", "CV Submissions Activity")}>
-              <AnalyticsChart data={weeklyCVActivity} title={t("السير المقدمة", "Submissions")} />
+              <AnalyticsChart data={weeklyCVActivity} title={t("السير المقدمة", "Submissions")} unit="#" />
             </WidgetCard>
           </div>
           <div className="space-y-4 lg:col-span-2">

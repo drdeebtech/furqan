@@ -97,17 +97,17 @@ export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsCha
       {/* Chart */}
       <div className="mt-4">
         <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={data} barCategoryGap="20%">
+          <BarChart data={data} barCategoryGap="12%">
             <defs>
               <pattern
                 id="stripedPattern"
                 patternUnits="userSpaceOnUse"
-                width="8"
-                height="8"
+                width="5"
+                height="5"
                 patternTransform="rotate(45)"
               >
-                <rect width="8" height="8" fill="var(--chart-stripe, #E5E5E0)" fillOpacity="0.6" />
-                <line x1="0" y1="0" x2="0" y2="8" stroke="#D8D7D2" strokeWidth="1" />
+                <rect width="5" height="5" fill="var(--chart-stripe, #E5E5E0)" fillOpacity="0.6" />
+                <line x1="0" y1="0" x2="0" y2="5" stroke="#D8D7D2" strokeWidth="1" />
               </pattern>
             </defs>
             <CartesianGrid
@@ -128,7 +128,7 @@ export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsCha
               tickFormatter={(v: number) => formatValue(v)}
               domain={[0, "auto"]}
             />
-            <Bar dataKey="value" maxBarSize={48} radius={[8, 8, 0, 0]}>
+            <Bar dataKey="value" maxBarSize={56} radius={[8, 8, 0, 0]}>
               {data.map((entry, index) => (
                 <Cell
                   key={index}
