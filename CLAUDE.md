@@ -177,12 +177,12 @@ assigned (teacher creates)
 - **Teacher onboarding checklist** — 5-step progress tracker (profile, CV, review, availability, first student) with visual progress bar
 - **Student discovery** — teacher browse with gender filter, sort (rating/experience/price), specialty filter, search
 - **Messaging enhancements** — read receipts (mark-as-read on open), unread counts, message notifications via bell
+- **PWA support** — service worker (cache-first statics, network-first pages), viewport + iOS meta tags, install prompt banner
 
 ## Future Roadmap (ordered by priority)
-1. **Phase H: Mobile** — PWA service worker, install prompt, push notifications
-2. **Phase I: Automation** — remaining ~30 n8n workflows
-3. **Phase J: Advanced** — AI suggestions, recording transcription, Quran text display, gamification
-4. **Stripe Integration** — connect Stripe Checkout + webhook to complete package purchases (final stage, deferred until API keys ready)
+1. **Phase I: Automation** — remaining ~30 n8n workflows across 9 platform areas
+2. **Phase J: Advanced** — AI suggestions, recording transcription, Quran text display, gamification
+3. **Stripe Integration** — connect Stripe Checkout + webhook to complete package purchases (final stage, deferred until API keys ready)
 4. **Phase E: Teacher Onboarding Polish** — signup flow, availability calendar, specializations, Stripe Connect payouts
 5. **Phase F: Student Discovery** — teacher browse/filter, public profiles, reviews/ratings, booking flow
 6. **Phase G: Communication** — student↔teacher messaging, file sharing, booking-tied conversations
