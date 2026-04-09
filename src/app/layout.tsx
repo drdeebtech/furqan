@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Rakkas, IBM_Plex_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme/context";
+import { PwaInstallPrompt } from "@/components/shared/pwa-install-prompt";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -26,6 +27,17 @@ const body = IBM_Plex_Sans_Arabic({
   preload: true,
   adjustFontFallback: false,
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0F0F0F" },
+    { media: "(prefers-color-scheme: light)", color: "#FFFFFF" },
+  ],
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://furqan.today"),
@@ -76,6 +88,14 @@ export const metadata: Metadata = {
     canonical: "https://furqan.today",
     languages: { ar: "https://furqan.today", en: "https://furqan.today" },
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "فرقان",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export default function RootLayout({
@@ -89,6 +109,13 @@ export default function RootLayout({
       dir="rtl"
       className={`${inter.variable} ${rakkas.variable} ${body.variable} h-full antialiased`}
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'))}`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <a
           href="#main-content"
@@ -98,6 +125,7 @@ export default function RootLayout({
         </a>
         <ThemeProvider>
           {children}
+          <PwaInstallPrompt />
         </ThemeProvider>
       </body>
     </html>
