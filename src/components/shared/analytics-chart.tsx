@@ -94,16 +94,23 @@ export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsCha
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={data} barCategoryGap="14%">
             <defs>
+              {/* Dense crosshatch — two diagonal line sets for textured look */}
               <pattern
                 id="hatch"
                 patternUnits="userSpaceOnUse"
-                width="4"
-                height="4"
+                width="6"
+                height="6"
                 patternTransform="rotate(45)"
               >
-                <rect width="4" height="4" fill="var(--chart-stripe, #E8E8E3)" />
-                <line x1="0" y1="0" x2="0" y2="4" stroke="#D5D4CF" strokeWidth="1.5" />
+                <rect width="6" height="6" fill="#ECEAE4" />
+                <line x1="0" y1="0" x2="0" y2="6" stroke="#D6D4CE" strokeWidth="2" />
+                <line x1="3" y1="0" x2="3" y2="6" stroke="#E2E0DA" strokeWidth="1" />
               </pattern>
+              {/* Active bar gradient for depth */}
+              <linearGradient id="activeGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#8B6FFF" />
+                <stop offset="100%" stopColor="#6B4FDF" />
+              </linearGradient>
             </defs>
             <CartesianGrid
               vertical={false}
@@ -128,8 +135,8 @@ export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsCha
               {data.map((entry, index) => (
                 <Cell
                   key={index}
-                  fill={entry.isActive ? "var(--accent-purple, #7C5CFF)" : "url(#hatch)"}
-                  fillOpacity={entry.isActive ? 1 : 0.85}
+                  fill={entry.isActive ? "url(#activeGrad)" : "url(#hatch)"}
+                  fillOpacity={entry.isActive ? 1 : 0.9}
                 />
               ))}
               <LabelList dataKey="value" position="top" content={Tooltip as never} />

@@ -12,7 +12,7 @@ interface WidgetCardProps {
 export function WidgetCard({ title, subtitle, headerAction, children, className, variant = "default" }: WidgetCardProps) {
   const base = variant === "flush"
     ? "rounded-[14px] bg-[var(--surface)] py-5"
-    : "rounded-[14px] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-shadow duration-200 hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)]";
+    : "rounded-[14px] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[0_2px_8px_rgba(0,0,0,0.04),0_0_0_1px_rgba(0,0,0,0.02)] transition-shadow duration-200 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08),0_0_0_1px_rgba(0,0,0,0.03)]";
 
   return (
     <div className={`${base} ${className ?? ""}`}>
