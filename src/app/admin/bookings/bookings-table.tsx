@@ -96,10 +96,10 @@ export function BookingsTable({
             <button
               key={pill.value}
               onClick={() => setStatusFilter(pill.value)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              className={`glass-pill rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 statusFilter === pill.value
-                  ? "bg-gold/20 text-gold"
-                  : "bg-card text-muted hover:bg-card-border hover:text-foreground"
+                  ? "glass-gold !text-white"
+                  : "text-muted hover:text-foreground"
               }`}
             >
               {pill.label}

@@ -437,6 +437,23 @@
 }
 
 /* =====================
+   GLASS ROW — table row hover
+   ===================== */
+.glass-row {
+  transition: background 0.15s ease;
+}
+.glass-row:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.01) 100%
+  );
+}
+.light .glass-row:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+/* =====================
    BADGE / CHIP / TAG
    ===================== */
 .glass-badge {

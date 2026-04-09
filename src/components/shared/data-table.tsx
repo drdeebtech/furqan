@@ -47,7 +47,7 @@ export function DataTable({ title, columns, rows, emptyMessage }: DataTableProps
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.id} className="border-t border-[var(--surface-divider,#F0F0F2)]">
+                <tr key={row.id} className="border-t border-[var(--surface-divider,#F0F0F2)] transition-colors hover:bg-[var(--surface-hover,rgba(0,0,0,0.02))]">
                   {columns.map((col) => (
                     <td key={col.key} className="py-4 text-[13px] tabular-nums">
                       {renderCell(col, row[col.key])}

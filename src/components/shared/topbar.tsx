@@ -17,7 +17,7 @@ export function Topbar() {
 
   return (
     <div className="mb-5 flex h-[52px] items-center gap-3">
-      {/* Search input — visual only */}
+      {/* Search input */}
       <div className="relative flex-1">
         <Search
           size={18}
@@ -28,7 +28,7 @@ export function Topbar() {
           readOnly
           onClick={handleSearchClick}
           placeholder={t("عن ماذا تعمل...", "What are you working on...")}
-          className="h-11 w-full cursor-pointer rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] pe-10 ps-11 text-sm placeholder:text-[var(--muted-light,var(--muted))] focus:outline-none"
+          className="glass-input h-11 w-full cursor-pointer rounded-xl pe-10 ps-11 text-sm placeholder:text-[var(--muted-light,var(--muted))] focus:outline-none"
         />
         <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 rounded border border-[var(--surface-border)] px-1.5 py-0.5 text-[11px] text-[var(--muted-light,var(--muted))]">
           /
@@ -40,25 +40,25 @@ export function Topbar() {
         )}
       </div>
 
-      {/* Year selector — visual only */}
-      <div className="flex h-11 items-center gap-2 rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] px-3.5">
+      {/* Year selector */}
+      <div className="glass flex h-11 items-center gap-2 rounded-xl px-3.5">
         <CalendarDays size={16} className="text-[var(--muted)]" />
         <span className="text-sm font-medium">{new Date().getFullYear()}</span>
         <ChevronDown size={14} className="text-[var(--muted)]" />
       </div>
 
       {/* Theme toggle */}
-      <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--surface-border)] bg-[var(--surface)]">
+      <div className="glass flex h-11 w-11 items-center justify-center rounded-xl">
         <ThemeToggle />
       </div>
 
       {/* Lang toggle */}
-      <div className="flex h-11 items-center justify-center rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] px-2">
+      <div className="glass flex h-11 items-center justify-center rounded-xl px-2">
         <LangToggle />
       </div>
 
-      {/* Menu dots — visual only */}
-      <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--surface-border)] bg-[var(--surface)]">
+      {/* Menu dots */}
+      <div className="glass flex h-11 w-11 items-center justify-center rounded-xl">
         <MoreHorizontal size={18} className="text-[var(--muted)]" />
       </div>
     </div>

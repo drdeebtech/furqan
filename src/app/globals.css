@@ -18,6 +18,13 @@
   --error: #E05555;
   --warning: #E0A830;
   --success: #4CAF7D;
+  --surface-hover: rgba(255,255,255,0.04);
+  --surface-divider: #2A2A2A;
+  --data-progress: #34D399;
+  --chart-stripe: #2A2A28;
+  --accent-purple: #7C5CFF;
+  --accent-green: #22C55E;
+  --muted-light: #7A7A72;
 
   /* ── Liquid Glass Design System v2 ── */
   --glass-radius-pill: 9999px;
