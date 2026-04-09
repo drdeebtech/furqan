@@ -2,6 +2,12 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ModeratorDashboardContent } from "./dashboard-content";
+import {
+  getModeratorWeeklyCVActivity,
+  getModeratorRatingDistribution,
+  getModeratorFlaggedEvaluations,
+  getAdminLiveSessions,
+} from "@/lib/dashboard-queries";
 
 export const metadata: Metadata = { title: "لوحة المشرف" };
 
@@ -24,6 +30,13 @@ export default async function ModeratorDashboardPage() {
     supabase.from("session_evaluations").select("id", { count: "exact", head: true }),
   ]);
 
+  const [weeklyCVActivity, liveSessions, ratingDistribution, flaggedEvaluations] = await Promise.all([
+    getModeratorWeeklyCVActivity(),
+    getAdminLiveSessions(),
+    getModeratorRatingDistribution(),
+    getModeratorFlaggedEvaluations(),
+  ]);
+
   return (
     <ModeratorDashboardContent
       data={{
@@ -32,6 +45,11 @@ export default async function ModeratorDashboardPage() {
         pendingCvCount: pendingCvCount ?? 0,
         activeSessionCount: activeSessionCount ?? 0,
         evalCount: evalCount ?? 0,
+        flaggedEvalCount: flaggedEvaluations.length,
+        weeklyCVActivity,
+        liveSessions,
+        ratingDistribution,
+        flaggedEvaluations,
       }}
     />
   );

@@ -654,3 +654,147 @@ export async function getAdminRecentBookings(
     view: "view",
   }));
 }
+
+// ============================================
+// MODERATOR DASHBOARD QUERIES
+// ============================================
+
+export async function getModeratorWeeklyCVActivity(
+  lang: "ar" | "en" = "en"
+): Promise<ChartDataPoint[]> {
+  const supabase = await createClient();
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  sevenDaysAgo.setHours(0, 0, 0, 0);
+
+  const { data: submissions } = await supabase
+    .from("teacher_profiles")
+    .select("cv_submitted_at")
+    .not("cv_submitted_at", "is", null)
+    .gte("cv_submitted_at", sevenDaysAgo.toISOString())
+    .returns<{ cv_submitted_at: string | null }[]>();
+
+  const days = lang === "ar" ? AR_DAYS : EN_DAYS;
+  const order = [1, 2, 3, 4, 5, 6, 0]; // Mon–Sun
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayDow = (today.getDay() + 6) % 7; // Mon=0..Sun=6
+
+  const buckets = order.map((_, i) => ({
+    day: days[order[i]],
+    value: 0,
+    isActive: i === todayDow,
+  }));
+
+  if (submissions) {
+    for (const s of submissions) {
+      if (!s.cv_submitted_at) continue;
+      const d = new Date(s.cv_submitted_at);
+      d.setHours(0, 0, 0, 0);
+      const dow = (d.getDay() + 6) % 7;
+      if (dow >= 0 && dow < 7) buckets[dow].value += 1;
+    }
+  }
+
+  return buckets;
+}
+
+const RATING_COLORS: Record<string, string> = {
+  "5": "#22C55E",
+  "4": "#7C5CFF",
+  "3": "#F59E0B",
+  "2": "#EF6820",
+  "1": "#EF4444",
+};
+
+export async function getModeratorRatingDistribution(): Promise<
+  { label: string; value: number; color: string }[]
+> {
+  const supabase = await createClient();
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const { data: evals } = await supabase
+    .from("session_evaluations")
+    .select("overall_score")
+    .not("overall_score", "is", null)
+    .gte("created_at", thirtyDaysAgo.toISOString())
+    .returns<{ overall_score: number }[]>();
+
+  if (!evals || evals.length === 0) return [];
+
+  const buckets: Record<string, number> = {};
+  for (const e of evals) {
+    const score = Math.round(Number(e.overall_score));
+    if (score >= 1 && score <= 5) {
+      buckets[String(score)] = (buckets[String(score)] ?? 0) + 1;
+    }
+  }
+
+  return Object.entries(buckets)
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => Number(b[0]) - Number(a[0]))
+    .map(([score, count]) => ({
+      label: `${score}★`,
+      value: count,
+      color: RATING_COLORS[score] ?? "#9CA3AF",
+    }));
+}
+
+export async function getModeratorFlaggedEvaluations(
+  limit = 6
+): Promise<{ id: string; [key: string]: unknown }[]> {
+  const supabase = await createClient();
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const { data: evals } = await supabase
+    .from("session_evaluations")
+    .select("id, student_id, teacher_id, overall_score, evaluation_type, created_at")
+    .lte("overall_score", 3)
+    .gte("created_at", sevenDaysAgo.toISOString())
+    .order("overall_score", { ascending: true })
+    .limit(limit)
+    .returns<{
+      id: string;
+      student_id: string;
+      teacher_id: string;
+      overall_score: number;
+      evaluation_type: string;
+      created_at: string;
+    }[]>();
+
+  if (!evals || evals.length === 0) return [];
+
+  const allIds = new Set<string>();
+  for (const e of evals) {
+    allIds.add(e.student_id);
+    allIds.add(e.teacher_id);
+  }
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", Array.from(allIds))
+    .returns<{ id: string; full_name: string | null }[]>();
+
+  const nameMap: Record<string, string> = {};
+  if (profiles) {
+    for (const p of profiles) {
+      nameMap[p.id] = p.full_name ?? "—";
+    }
+  }
+
+  return evals.map((e) => ({
+    id: e.id.slice(0, 6).toUpperCase(),
+    subject: e.evaluation_type ?? "—",
+    date: new Date(e.created_at).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+    }),
+    progress: Math.round((Number(e.overall_score) / 5) * 100),
+    assignee: nameMap[e.teacher_id] ?? "—",
+    view: "view",
+  }));
+}
