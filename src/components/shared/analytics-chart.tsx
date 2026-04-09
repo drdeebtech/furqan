@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   BarChart,
   Bar,
@@ -26,23 +27,37 @@ interface AnalyticsChartProps {
 
 export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsChartProps) {
   const { t } = useLang();
+  const [activeTab, setActiveTab] = useState(1);
+  const [toast, setToast] = useState<number | null>(null);
 
-  const formatValue = (v: number) => {
+  const handleTab = (i: number) => {
+    if (i === 1) { setActiveTab(i); return; }
+    setToast(i);
+    setTimeout(() => setToast(null), 2000);
+  };
+
+  const tabs = [
+    { label: t("يومي", "Daily"), i: 0 },
+    { label: t("أسبوعي", "Weekly"), i: 1 },
+    { label: t("شهري", "Monthly"), i: 2 },
+  ];
+
+  const fmt = (v: number) => {
     if (unit === "$") return `$${v}`;
     if (unit === "#") return `${v}`;
     return `${v}h`;
   };
 
-  function ActiveBarLabel(props: { x?: string | number; y?: string | number; width?: string | number; value?: string | number; index?: number }) {
+  function Tooltip(props: { x?: string | number; y?: string | number; width?: string | number; value?: string | number; index?: number }) {
     const entry = data[props.index ?? 0];
     if (!entry?.isActive || !entry.value) return null;
     const cx = Number(props.x ?? 0) + Number(props.width ?? 0) / 2;
-    const cy = Number(props.y ?? 0) - 20;
-    const label = formatValue(Number(props.value ?? 0));
+    const cy = Number(props.y ?? 0) - 22;
+    const label = `🔥 ${fmt(Number(props.value ?? 0))}`;
     return (
       <g>
-        <rect x={cx - 36} y={cy - 12} width="72" height="24" rx="12" fill="#1A1A1F" />
-        <text x={cx} y={cy + 4} textAnchor="middle" fill="#FFF" fontSize="12" fontWeight="600">
+        <rect x={cx - 40} y={cy - 13} width="80" height="26" rx="13" fill="#1A1A1F" />
+        <text x={cx} y={cy + 5} textAnchor="middle" fill="#FFF" fontSize="12" fontWeight="600">
           {label}
         </text>
       </g>
@@ -51,25 +66,43 @@ export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsCha
 
   return (
     <div>
-      {/* Period label */}
-      <span className="inline-block rounded-md bg-[var(--surface-light,#F5F5F7)] px-3 py-1.5 text-[13px] font-medium text-[var(--foreground)]">
-        {t("أسبوعي", "Weekly")}
-      </span>
+      {/* Tabs — matches reference: Daily | Weekly | Monthly */}
+      <div className="relative inline-flex gap-0 rounded-[10px] bg-[var(--surface-light,#F5F5F7)] p-1">
+        {tabs.map((tab) => (
+          <button
+            key={tab.i}
+            type="button"
+            onClick={() => handleTab(tab.i)}
+            className={`relative rounded-md px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
+              activeTab === tab.i
+                ? "bg-white text-[var(--foreground)] shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
+                : "text-[var(--muted)] hover:text-[var(--foreground)]"
+            }`}
+          >
+            {tab.label}
+            {toast === tab.i && (
+              <span className="absolute -bottom-8 start-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#1A1A1F] px-2.5 py-1 text-[11px] text-white shadow-lg">
+                {t("قريباً", "Coming soon")}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
 
       {/* Chart */}
       <div className="mt-4">
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={data} barCategoryGap="12%">
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={data} barCategoryGap="14%">
             <defs>
               <pattern
-                id="stripedPattern"
+                id="hatch"
                 patternUnits="userSpaceOnUse"
-                width="5"
-                height="5"
+                width="4"
+                height="4"
                 patternTransform="rotate(45)"
               >
-                <rect width="5" height="5" fill="var(--chart-stripe, #E5E5E0)" fillOpacity="0.6" />
-                <line x1="0" y1="0" x2="0" y2="5" stroke="#D8D7D2" strokeWidth="1" />
+                <rect width="4" height="4" fill="var(--chart-stripe, #E8E8E3)" />
+                <line x1="0" y1="0" x2="0" y2="4" stroke="#D5D4CF" strokeWidth="1.5" />
               </pattern>
             </defs>
             <CartesianGrid
@@ -81,25 +114,25 @@ export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsCha
               dataKey="day"
               axisLine={false}
               tickLine={false}
-              tick={{ fontSize: 12, fill: "#6B7280" }}
+              tick={{ fontSize: 13, fill: "#6B7280" }}
             />
             <YAxis
               axisLine={false}
               tickLine={false}
-              tick={{ fontSize: 11, fill: "#9CA3AF" }}
-              tickFormatter={(v: number) => formatValue(v)}
+              tick={{ fontSize: 12, fill: "#9CA3AF" }}
+              tickFormatter={fmt}
               domain={[0, "auto"]}
               allowDecimals={unit !== "#"}
             />
-            <Bar dataKey="value" maxBarSize={56} radius={[12, 12, 0, 0]}>
+            <Bar dataKey="value" maxBarSize={52} radius={[10, 10, 4, 4]}>
               {data.map((entry, index) => (
                 <Cell
                   key={index}
-                  fill={entry.isActive ? "var(--accent-purple, #7C5CFF)" : "url(#stripedPattern)"}
-                  fillOpacity={entry.isActive ? 1 : 0.7}
+                  fill={entry.isActive ? "var(--accent-purple, #7C5CFF)" : "url(#hatch)"}
+                  fillOpacity={entry.isActive ? 1 : 0.85}
                 />
               ))}
-              <LabelList dataKey="value" position="top" content={ActiveBarLabel as never} />
+              <LabelList dataKey="value" position="top" content={Tooltip as never} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>

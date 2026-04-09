@@ -74,7 +74,7 @@ function renderCell(col: DataTableColumn, value: unknown) {
       const pct = typeof value === "number" ? value : parseInt(str) || 0;
       return (
         <div className="flex items-center gap-2">
-          <div className="h-1.5 w-[140px] overflow-hidden rounded-full bg-[var(--surface-divider,#F0F0F2)]">
+          <div className="h-2 w-[160px] overflow-hidden rounded-full bg-[var(--surface-divider,#F0F0F2)]">
             <div
               className="h-full rounded-full bg-[var(--data-progress,#3B82F6)]"
               style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
