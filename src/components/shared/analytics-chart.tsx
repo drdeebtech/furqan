@@ -112,18 +112,20 @@ export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsCha
                 <line x1="0" y1="0" x2="0" y2="5" stroke="rgba(255,255,255,0.5)" strokeWidth="1" />
                 <line x1="2.5" y1="0" x2="2.5" y2="5" stroke="rgba(0,0,0,0.06)" strokeWidth="0.5" />
               </pattern>
-              {/* Active bar: 3D glass purple gradient */}
+              {/* Active bar: intense 3D glass purple — visible in both light and dark */}
               <linearGradient id="activeGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#A78BFF" />
-                <stop offset="25%" stopColor="#8B6FFF" />
-                <stop offset="70%" stopColor="#6B4FDF" />
-                <stop offset="100%" stopColor="#7C5CFF" />
+                <stop offset="0%" stopColor="#C4B5FF" />
+                <stop offset="15%" stopColor="#A78BFF" />
+                <stop offset="50%" stopColor="#7C5CFF" />
+                <stop offset="80%" stopColor="#5A3AD4" />
+                <stop offset="100%" stopColor="#7050E8" />
               </linearGradient>
-              {/* Glass highlight overlay for active bar */}
-              <linearGradient id="glassHighlight" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="rgba(255,255,255,0.25)" />
-                <stop offset="40%" stopColor="rgba(255,255,255,0.05)" />
-                <stop offset="100%" stopColor="rgba(255,255,255,0.15)" />
+              {/* Glass shine — bright horizontal streak at top of bar */}
+              <linearGradient id="glassShine" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgba(255,255,255,0.5)" />
+                <stop offset="8%" stopColor="rgba(255,255,255,0.2)" />
+                <stop offset="20%" stopColor="rgba(255,255,255,0)" />
+                <stop offset="100%" stopColor="rgba(0,0,0,0.1)" />
               </linearGradient>
             </defs>
             <CartesianGrid
@@ -151,8 +153,9 @@ export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsCha
                   key={index}
                   fill={entry.isActive ? "url(#activeGrad)" : "url(#hatch)"}
                   fillOpacity={entry.isActive ? 1 : 0.9}
-                  stroke={entry.isActive ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.04)"}
-                  strokeWidth={entry.isActive ? 1 : 0.5}
+                  stroke={entry.isActive ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.04)"}
+                  strokeWidth={entry.isActive ? 1.5 : 0.5}
+                  style={entry.isActive ? { filter: "drop-shadow(0 2px 6px rgba(124,92,255,0.4))" } : undefined}
                 />
               ))}
               <LabelList dataKey="value" position="top" content={Tooltip as never} />
