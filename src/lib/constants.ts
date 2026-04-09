@@ -1,4 +1,4 @@
-import type { BookingStatus, SessionType, RecitationStandard, HomeworkType, HomeworkStatus } from "@/types/database";
+import type { BookingStatus, SessionType, RecitationStandard, HomeworkType, HomeworkStatus, PackageType, StudentPackageStatus } from "@/types/database";
 
 export const SESSION_TYPE_AR: Record<SessionType, string> = {
   hifz: "حفظ",
@@ -101,4 +101,28 @@ export const HOMEWORK_STATUS_STYLE: Record<HomeworkStatus, { label: string; clas
   completed_good: { label: "جيد", className: "bg-sky-500/10 text-sky-400 border-sky-500/30" },
   completed_needs_work: { label: "يحتاج تحسين", className: "bg-orange-500/10 text-orange-400 border-orange-500/30" },
   completed_not_done: { label: "لم يُنجز", className: "bg-red-500/10 text-red-400 border-red-500/30" },
+};
+
+// ─── V11: Package labels ────────────────────────────────────────────────────
+
+export const PACKAGE_TYPE_AR: Record<PackageType, string> = {
+  single_session: "جلسة واحدة",
+  pack_4: "٤ جلسات",
+  pack_8: "٨ جلسات",
+  pack_12: "١٢ جلسة",
+  full_course: "دورة كاملة",
+};
+
+export const PACKAGE_TYPE_BILINGUAL: Record<PackageType, { ar: string; en: string }> = {
+  single_session: { ar: "جلسة واحدة", en: "Single Session" },
+  pack_4: { ar: "٤ جلسات", en: "4 Sessions" },
+  pack_8: { ar: "٨ جلسات", en: "8 Sessions" },
+  pack_12: { ar: "١٢ جلسة", en: "12 Sessions" },
+  full_course: { ar: "دورة كاملة", en: "Full Course" },
+};
+
+export const STUDENT_PACKAGE_STATUS_STYLE: Record<StudentPackageStatus, { label: string; className: string }> = {
+  active: { label: "نشطة", className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" },
+  expired: { label: "منتهية", className: "bg-amber-500/10 text-amber-400 border-amber-500/30" },
+  cancelled: { label: "ملغاة", className: "bg-red-500/10 text-red-400 border-red-500/30" },
 };

@@ -80,6 +80,14 @@ export default async function StudentDashboardPage() {
     sessionId = session?.id ?? null;
   }
 
+  // Active student packages
+  const { data: activePackages } = await supabase
+    .from("student_packages")
+    .select("id, sessions_total, sessions_used, status, expires_at")
+    .eq("student_id", user.id)
+    .eq("status", "active")
+    .returns<{ id: string; sessions_total: number; sessions_used: number; status: string; expires_at: string | null }[]>();
+
   // Homework counts by status
   const { data: hwRaw } = await supabase
     .from("homework_assignments")
@@ -114,6 +122,7 @@ export default async function StudentDashboardPage() {
         liveSessions,
         recentRecordings,
         hwCounts,
+        activePackages: activePackages ?? [],
       }}
     />
   );

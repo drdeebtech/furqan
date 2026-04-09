@@ -31,13 +31,14 @@ interface DashboardData {
   liveSessions: { id: string; title: string; subtitle: string; initials: string; timeRemaining?: string; progressPercent?: number }[];
   recentRecordings: Record<string, unknown>[];
   hwCounts: Record<string, number>;
+  activePackages: { id: string; sessions_total: number; sessions_used: number; status: string; expires_at: string | null }[];
 }
 
 export function StudentDashboardContent({ data }: { data: DashboardData }) {
   const { t, dir, lang } = useLang();
   const toast = useToast();
   const searchParams = useSearchParams();
-  const { fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, recent, evaluations, nameMap, notesMap, weeklyData, liveSessions, recentRecordings, hwCounts } = data;
+  const { fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, recent, evaluations, nameMap, notesMap, weeklyData, liveSessions, recentRecordings, hwCounts, activePackages } = data;
 
   useEffect(() => {
     if (searchParams.get("booked") === "1") {
@@ -245,6 +246,34 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
 
           {/* Right: Quick Actions + Homework */}
           <div className="space-y-4 lg:col-span-2">
+            {/* Active Packages Widget */}
+            {activePackages.length > 0 && (
+              <WidgetCard
+                title={t("باقاتي", "My Packages")}
+                headerAction={
+                  <Link href="/student/packages" className="text-xs text-gold hover:text-gold-hover">{t("عرض الكل ←", "View All →")}</Link>
+                }
+              >
+                <div className="space-y-2">
+                  {activePackages.map(sp => {
+                    const remaining = sp.sessions_total - sp.sessions_used;
+                    const pct = Math.round((sp.sessions_used / sp.sessions_total) * 100);
+                    return (
+                      <div key={sp.id} className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">{remaining} {t("جلسات متبقية", "sessions left")}</span>
+                          <span className="text-xs text-muted">{sp.sessions_used}/{sp.sessions_total}</span>
+                        </div>
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+                          <div className="h-full rounded-full bg-emerald-400/60" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </WidgetCard>
+            )}
+
             <QuickActions />
 
             {/* Structured Homework Widget */}

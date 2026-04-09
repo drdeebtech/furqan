@@ -5,8 +5,9 @@ import { useLang } from "@/lib/i18n/context";
 import { Testimonials } from "@/components/public/testimonials";
 import { RegisterBanner } from "@/components/public/register-banner";
 import { CurrencyPackages } from "./currency-packages";
+import type { Package } from "@/types/database";
 
-export function PackagesContent() {
+export function PackagesContent({ packages }: { packages: Package[] }) {
   const { t } = useLang();
 
   return (
@@ -39,7 +40,7 @@ export function PackagesContent() {
         </div>
       </section>
 
-      <CurrencyPackages />
+      <CurrencyPackages packages={packages} />
 
       {/* Discounts */}
       <section className="border-t border-white/10 py-24">

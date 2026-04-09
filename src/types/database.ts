@@ -20,6 +20,11 @@ export type ReportType = "session_summary" | "evaluation" | "custom" | "missed_s
 export type HomeworkType = "hifz" | "muraja" | "recitation" | "tajweed" | "writing" | "listening";
 export type HomeworkStatus = "assigned" | "student_ready" | "completed_excellent" | "completed_good" | "completed_needs_work" | "completed_not_done";
 
+// ─── V11 new enums ──────────────────────────────────────────────────────────
+
+export type PackageType = "single_session" | "pack_4" | "pack_8" | "pack_12" | "full_course";
+export type StudentPackageStatus = "active" | "expired" | "cancelled";
+
 // ─── Text CHECK unions (not Postgres ENUMs, but typed for safety) ────────────
 
 export type ConversationStatus = "active" | "archived";
@@ -213,6 +218,8 @@ export interface Booking {
   teacher_confirmed: boolean;
   teacher_confirmed_at: string | null;
   decline_reason: string | null;
+  // V11: package link
+  student_package_id: string | null;
 }
 
 // ─── Table 11: sessions ──────────────────────────────────────────────────────
@@ -467,6 +474,45 @@ export interface HomeworkAssignment {
   updated_at: string;
 }
 
+// ─── V11 Table: packages ────────────────────────────────────────────────────
+
+export interface Package {
+  id: string;
+  package_type: PackageType;
+  name: string;
+  name_ar: string | null;
+  description: string | null;
+  description_ar: string | null;
+  session_count: number;
+  duration_min: number;
+  price_usd: number;
+  price_gbp: number | null;
+  price_sar: number | null;
+  price_aud: number | null;
+  features: string[];
+  features_ar: string[];
+  is_featured: boolean;
+  is_active: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─── V11 Table: student_packages ────────────────────────────────────────────
+
+export interface StudentPackage {
+  id: string;
+  student_id: string;
+  package_id: string;
+  payment_id: string | null;
+  sessions_total: number;
+  sessions_used: number;
+  status: StudentPackageStatus;
+  purchased_at: string;
+  expires_at: string | null;
+  created_at: string;
+}
+
 // ─── Supabase Database Type ──────────────────────────────────────────────────
 // Row   = what you read back from a SELECT
 // Insert = what you send to an INSERT (auto-generated fields are optional)
@@ -600,6 +646,7 @@ export interface Database {
           teacher_confirmed?: boolean;
           teacher_confirmed_at?: string | null;
           decline_reason?: string | null;
+          student_package_id?: string | null;
         };
         Update: Partial<Omit<Booking, "id">>;
         Relationships: [];
@@ -774,6 +821,32 @@ export interface Database {
         Update: Partial<Omit<HomeworkAssignment, "id">>;
         Relationships: [];
       };
+      // V11 tables
+      packages: {
+        Row: Package;
+        Insert: Omit<Package, "id" | "is_featured" | "is_active" | "display_order" | "created_at" | "updated_at"> & {
+          id?: string;
+          is_featured?: boolean;
+          is_active?: boolean;
+          display_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<Package, "id">>;
+        Relationships: [];
+      };
+      student_packages: {
+        Row: StudentPackage;
+        Insert: Omit<StudentPackage, "id" | "sessions_used" | "status" | "purchased_at" | "created_at"> & {
+          id?: string;
+          sessions_used?: number;
+          status?: StudentPackageStatus;
+          purchased_at?: string;
+          created_at?: string;
+        };
+        Update: Partial<Omit<StudentPackage, "id">>;
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -806,6 +879,8 @@ export interface Database {
       report_type: ReportType;
       homework_type: HomeworkType;
       homework_status: HomeworkStatus;
+      package_type: PackageType;
+      student_package_status: StudentPackageStatus;
     };
     CompositeTypes: {
       [_ in never]: never;
