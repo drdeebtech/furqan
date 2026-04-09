@@ -1,79 +1,148 @@
 "use client";
 
 import Link from "next/link";
-import { FileText, Calendar, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { FileText, Calendar, Clock, CheckCircle, AlertCircle, User, BookOpen } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 
 type CvStatus = "draft" | "pending_review" | "approved" | "rejected";
 
-export function TeacherGuidanceBanner({ cvStatus, hasStudents }: { cvStatus: CvStatus; hasStudents: boolean }) {
+interface OnboardingState {
+  cvStatus: CvStatus;
+  hasProfile: boolean;
+  hasBio: boolean;
+  hasAvailability: boolean;
+  hasStudents: boolean;
+}
+
+export function TeacherGuidanceBanner({ cvStatus, hasStudents, hasProfile, hasBio, hasAvailability }: OnboardingState) {
   const { t } = useLang();
 
-  if (cvStatus !== "approved") {
-    const statusMsg: Record<string, { ar: string; en: string; color: string }> = {
-      draft: { ar: "سيرتك الذاتية غير مكتملة", en: "Your CV is incomplete", color: "text-amber-400" },
-      pending_review: { ar: "سيرتك الذاتية قيد المراجعة", en: "Your CV is under review", color: "text-blue-400" },
-      rejected: { ar: "سيرتك الذاتية مرفوضة — يرجى التعديل وإعادة الإرسال", en: "Your CV was rejected — please revise and resubmit", color: "text-error" },
-    };
-    const s = statusMsg[cvStatus] ?? statusMsg.draft;
+  // If fully onboarded with students, no banner needed
+  if (cvStatus === "approved" && hasStudents) return null;
 
-    return (
-      <div className="glass-card mt-6 border-amber-500/30 p-6">
-        <div className="flex items-start gap-3">
-          <AlertCircle size={20} className={`mt-0.5 shrink-0 ${s.color}`} />
-          <div>
-            <p className={`font-bold ${s.color}`}>{t(s.ar, s.en)}</p>
-            <p className="mt-1 text-sm text-muted">{t("أكمل سيرتك الذاتية لبدء استقبال الطلاب", "Complete your CV to start receiving students")}</p>
-            {cvStatus !== "pending_review" && (
-              <Link href="/teacher/cv" className="glass-gold glass-pill mt-3 inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold transition-colors hover:bg-gold-hover">
-                <FileText size={16} />
-                {t("أكمل السيرة الذاتية", "Complete CV")}
-              </Link>
-            )}
-          </div>
+  // Compute checklist
+  const steps = [
+    {
+      key: "profile",
+      label: t("أكمل بياناتك الشخصية", "Complete your profile"),
+      description: t("الاسم والهاتف والمنطقة الزمنية", "Name, phone, timezone"),
+      done: hasProfile,
+      href: "/teacher/cv",
+      icon: User,
+    },
+    {
+      key: "cv",
+      label: t("أكمل السيرة الذاتية", "Complete your CV"),
+      description: t("التخصصات والسيرة والقراءات", "Specialties, bio, recitations"),
+      done: hasBio && (cvStatus === "pending_review" || cvStatus === "approved"),
+      href: "/teacher/cv",
+      icon: FileText,
+    },
+    {
+      key: "review",
+      label: t("مراجعة الإدارة", "Admin review"),
+      description: cvStatus === "pending_review"
+        ? t("قيد المراجعة — سنرد عليك قريباً", "Under review — we'll get back to you soon")
+        : cvStatus === "rejected"
+        ? t("مرفوضة — يرجى التعديل", "Rejected — please revise")
+        : t("أرسل سيرتك الذاتية للمراجعة", "Submit your CV for review"),
+      done: cvStatus === "approved",
+      href: cvStatus === "rejected" ? "/teacher/cv" : undefined,
+      icon: CheckCircle,
+      pending: cvStatus === "pending_review",
+      error: cvStatus === "rejected",
+    },
+    {
+      key: "availability",
+      label: t("أضف مواعيدك", "Set availability"),
+      description: t("حدد أوقات إتاحتك للتدريس", "Define your teaching schedule"),
+      done: hasAvailability,
+      href: "/teacher/availability",
+      icon: Calendar,
+    },
+    {
+      key: "students",
+      label: t("استقبل أول طالب", "Get your first student"),
+      description: t("سيحجز الطلاب معك بعد إتمام الخطوات", "Students will book once you're set up"),
+      done: hasStudents,
+      icon: BookOpen,
+    },
+  ];
+
+  const completedSteps = steps.filter(s => s.done).length;
+  const totalSteps = steps.length;
+  const pct = Math.round((completedSteps / totalSteps) * 100);
+
+  return (
+    <div className="glass-card mt-6 border-gold/20 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold">
+            {completedSteps === totalSteps
+              ? t("مبارك! أنت جاهز للتدريس", "You're ready to teach!")
+              : t("إعداد حسابك", "Account Setup")}
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            {t(`${completedSteps} من ${totalSteps} خطوات مكتملة`, `${completedSteps} of ${totalSteps} steps complete`)}
+          </p>
+        </div>
+        <div className="text-center">
+          <p className="font-display text-2xl font-bold text-gold">{pct}%</p>
         </div>
       </div>
-    );
-  }
 
-  if (!hasStudents) {
-    return (
-      <div className="glass-card mt-6 border-gold/30 p-6">
-        <h2 className="text-lg font-bold text-gold">{t("ابدأ التدريس", "Start Teaching")}</h2>
-        <p className="mt-1 text-sm text-muted">{t("اتبع هذه الخطوات لاستقبال طلابك", "Follow these steps to receive students")}</p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <div className="glass-card flex items-center gap-3 p-4">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold/20 text-sm font-bold text-gold">١</div>
-            <div>
-              <p className="text-sm font-medium">{t("أضف مواعيدك", "Set Availability")}</p>
-              <p className="text-xs text-muted">{t("حدد أوقات إتاحتك", "Define your schedule")}</p>
-            </div>
-            <Calendar size={16} className="ms-auto text-gold" />
-          </div>
-          <div className="glass-card flex items-center gap-3 p-4">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold/20 text-sm font-bold text-gold">٢</div>
-            <div>
-              <p className="text-sm font-medium">{t("انتظر حجزاً", "Wait for Bookings")}</p>
-              <p className="text-xs text-muted">{t("سيحجز الطلاب معك", "Students will book with you")}</p>
-            </div>
-            <Clock size={16} className="ms-auto text-gold" />
-          </div>
-          <div className="glass-card flex items-center gap-3 p-4">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold/20 text-sm font-bold text-gold">٣</div>
-            <div>
-              <p className="text-sm font-medium">{t("أكّد وابدأ", "Confirm & Start")}</p>
-              <p className="text-xs text-muted">{t("أكّد الحجز وابدأ التدريس", "Confirm and start teaching")}</p>
-            </div>
-            <CheckCircle size={16} className="ms-auto text-gold" />
-          </div>
-        </div>
-        <Link href="/teacher/availability" className="glass-gold glass-pill mt-4 inline-flex items-center gap-2 px-6 py-2.5 text-sm font-semibold transition-colors hover:bg-gold-hover">
-          <Calendar size={16} />
-          {t("أضف مواعيدك", "Set Availability")}
-        </Link>
+      {/* Progress bar */}
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+        <div className="h-full rounded-full bg-gradient-to-l from-gold to-gold/60 transition-all" style={{ width: `${pct}%` }} />
       </div>
-    );
-  }
 
-  return null;
+      {/* Checklist */}
+      <div className="mt-5 space-y-3">
+        {steps.map(step => {
+          const Icon = step.icon;
+          const isActive = !step.done && !step.pending;
+
+          return (
+            <div key={step.key} className={`flex items-center gap-3 rounded-xl p-3 transition-colors ${
+              step.done ? "bg-emerald-500/5" : step.error ? "bg-error/5" : step.pending ? "bg-blue-500/5" : "bg-white/5"
+            }`}>
+              {/* Status icon */}
+              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                step.done ? "bg-emerald-500/20" : step.error ? "bg-error/20" : step.pending ? "bg-blue-500/20" : "bg-white/10"
+              }`}>
+                {step.done ? (
+                  <CheckCircle size={16} className="text-emerald-400" />
+                ) : step.error ? (
+                  <AlertCircle size={16} className="text-error" />
+                ) : step.pending ? (
+                  <Clock size={16} className="text-blue-400 animate-pulse" />
+                ) : (
+                  <Icon size={16} className="text-muted" />
+                )}
+              </div>
+
+              {/* Content */}
+              <div className="min-w-0 flex-1">
+                <p className={`text-sm font-medium ${step.done ? "text-emerald-400 line-through" : step.error ? "text-error" : ""}`}>
+                  {step.label}
+                </p>
+                <p className="text-xs text-muted">{step.description}</p>
+              </div>
+
+              {/* Action */}
+              {step.href && isActive && (
+                <Link
+                  href={step.href}
+                  className="shrink-0 rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-medium text-gold transition-colors hover:bg-gold/20"
+                >
+                  {step.error ? t("تعديل", "Fix") : t("ابدأ", "Start")}
+                </Link>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }

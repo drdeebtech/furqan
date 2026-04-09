@@ -21,6 +21,9 @@ interface PendingBooking { id: string; scheduled_at: string; duration_min: numbe
 interface TeacherDashboardData {
   fullName: string | null;
   cvStatus: "draft" | "pending_review" | "approved" | "rejected";
+  hasProfile: boolean;
+  hasBio: boolean;
+  hasAvailability: boolean;
   uniqueStudents: number;
   monthSessions: number;
   pendingCount: number;
@@ -37,7 +40,7 @@ interface TeacherDashboardData {
 
 export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }) {
   const { t, dir } = useLang();
-  const { fullName, cvStatus, uniqueStudents, monthSessions, pendingCount, ratingAvg, todaySessions, pending, sessionDataMap, nameMap, weeklyHours, liveSessions, sessionBreakdown, recentStudents } = data;
+  const { fullName, cvStatus, hasProfile, hasBio, hasAvailability, uniqueStudents, monthSessions, pendingCount, ratingAvg, todaySessions, pending, sessionDataMap, nameMap, weeklyHours, liveSessions, sessionBreakdown, recentStudents } = data;
 
   const st = (type: string) => {
     const s = SESSION_TYPE_BILINGUAL[type as SessionType];
@@ -52,7 +55,7 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
         <h1 className="font-display text-3xl font-bold">{t("أهلاً", "Welcome")}{fullName ? ` ${fullName}` : ""}</h1>
         <p className="mt-1 text-sm text-muted">{t("مرحباً بك في لوحة المعلم", "Welcome to the Teacher Dashboard")}</p>
 
-        <TeacherGuidanceBanner cvStatus={cvStatus} hasStudents={uniqueStudents > 0} />
+        <TeacherGuidanceBanner cvStatus={cvStatus} hasStudents={uniqueStudents > 0} hasProfile={hasProfile} hasBio={hasBio} hasAvailability={hasAvailability} />
 
         {/* Row 1: 4 Stat Cards */}
         <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4 stagger-children">

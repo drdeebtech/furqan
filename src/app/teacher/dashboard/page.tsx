@@ -24,10 +24,10 @@ export default async function TeacherDashboardPage() {
   const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
 
-  const [profileRes, tpRes, pendingRes, todayRes, monthRes, allStudentsRes] = await Promise.all([
-    supabase.from("profiles").select("full_name").eq("id", user.id).single<{ full_name: string | null }>(),
-    supabase.from("teacher_profiles").select("total_sessions, rating_avg, cv_status").eq("teacher_id", user.id)
-      .single<{ total_sessions: number; rating_avg: number; cv_status: string }>(),
+  const [profileRes, tpRes, pendingRes, todayRes, monthRes, allStudentsRes, availRes] = await Promise.all([
+    supabase.from("profiles").select("full_name, phone").eq("id", user.id).single<{ full_name: string | null; phone: string | null }>(),
+    supabase.from("teacher_profiles").select("total_sessions, rating_avg, cv_status, bio").eq("teacher_id", user.id)
+      .single<{ total_sessions: number; rating_avg: number; cv_status: string; bio: string | null }>(),
     supabase.from("bookings").select("id, scheduled_at, duration_min, session_type, amount_usd, student_id")
       .eq("teacher_id", user.id).eq("status", "pending").order("scheduled_at", { ascending: true }).returns<PendingBooking[]>(),
     supabase.from("bookings").select("id, scheduled_at, duration_min, session_type, student_id")
@@ -36,9 +36,13 @@ export default async function TeacherDashboardPage() {
       .order("scheduled_at", { ascending: true }).returns<PendingBooking[]>(),
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("teacher_id", user.id).eq("status", "completed").gte("created_at", monthStart),
     supabase.from("bookings").select("student_id").eq("teacher_id", user.id).eq("status", "completed").returns<{ student_id: string }[]>(),
+    supabase.from("teacher_availability").select("id", { count: "exact", head: true }).eq("teacher_id", user.id).eq("is_active", true),
   ]);
 
   const fullName = profileRes.data?.full_name ?? null;
+  const hasProfile = !!(profileRes.data?.full_name && profileRes.data?.phone);
+  const hasBio = !!(tpRes.data?.bio);
+  const hasAvailability = (availRes.count ?? 0) > 0;
   const ratingAvg = Number(tpRes.data?.rating_avg ?? 0);
   const cvStatus = (tpRes.data?.cv_status ?? "draft") as "draft" | "pending_review" | "approved" | "rejected";
   const pending = pendingRes.data ?? [];
@@ -68,6 +72,9 @@ export default async function TeacherDashboardPage() {
       data={{
         fullName,
         cvStatus,
+        hasProfile,
+        hasBio,
+        hasAvailability,
         uniqueStudents,
         monthSessions,
         pendingCount: pending.length,
