@@ -38,7 +38,7 @@ export function DataTable({ title, columns, rows, emptyMessage }: DataTableProps
                 {columns.map((col) => (
                   <th
                     key={col.key}
-                    className={`pb-3 text-start text-[11px] font-medium uppercase tracking-wide text-[var(--muted-light,#9CA3AF)] ${col.className ?? ""}`}
+                    className={`pb-3 text-start text-xs font-medium uppercase tracking-wide text-[var(--muted-light,#9CA3AF)] ${col.className ?? ""}`}
                   >
                     {col.label}
                   </th>

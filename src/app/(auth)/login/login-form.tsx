@@ -19,7 +19,7 @@ export function LoginForm() {
 
   return (
     <>
-      <h2 className="mb-1 text-xl font-semibold">تسجيل الدخول</h2>
+      <h2 className="font-display mb-1 text-2xl font-bold leading-tight">تسجيل الدخول</h2>
       <p className="mb-6 text-sm text-muted">Sign in to your account</p>
 
       {justRegistered && (

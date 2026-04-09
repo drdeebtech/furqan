@@ -124,7 +124,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-6">
           <div className="text-center">
             <p className="text-sm font-medium tracking-widest text-gold">❖ {t("كيف يعمل", "How It Works")}</p>
-            <h2 className="font-display mt-3 text-4xl font-bold">{t("ابدأ في ٣ خطوات بسيطة", "Start in 3 Simple Steps")}</h2>
+            <h2 className="font-display mt-3 text-4xl font-bold leading-tight">{t("ابدأ في ٣ خطوات بسيطة", "Start in 3 Simple Steps")}</h2>
           </div>
 
           <div className="mt-16 grid gap-8 md:grid-cols-3">
@@ -152,7 +152,7 @@ export default function HomePage() {
         <div className="relative mx-auto max-w-7xl px-6">
           <div className="text-center">
             <p className="text-sm font-medium tracking-widest text-gold">❖ {t("لماذا فرقان", "Why FURQAN")}</p>
-            <h2 className="font-display mt-3 text-4xl font-bold">{t("لماذا تختار فرقان؟", "Why Choose FURQAN?")}</h2>
+            <h2 className="font-display mt-3 text-4xl font-bold leading-tight">{t("لماذا تختار فرقان؟", "Why Choose FURQAN?")}</h2>
           </div>
 
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -189,7 +189,7 @@ export default function HomePage() {
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-6">
           <p className="text-sm font-medium tracking-widest text-gold">❖ {t("التخصصات", "Courses")}</p>
-          <h2 className="font-display mt-3 text-4xl font-bold">{t("ما نُعلّمه في فرقان", "What We Teach at FURQAN")}</h2>
+          <h2 className="font-display mt-3 text-4xl font-bold leading-tight">{t("ما نُعلّمه في فرقان", "What We Teach at FURQAN")}</h2>
 
           <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-3">
             {[
@@ -256,7 +256,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-5xl px-6">
           <div className="text-center">
             <p className="text-sm font-medium tracking-widest text-gold">❖ {t("الباقات", "Packages")}</p>
-            <h2 className="font-display mt-3 text-4xl font-bold">{t("باقاتنا", "Our Packages")}</h2>
+            <h2 className="font-display mt-3 text-4xl font-bold leading-tight">{t("باقاتنا", "Our Packages")}</h2>
           </div>
 
           <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">

@@ -14,7 +14,7 @@ export function RegisterForm() {
 
   return (
     <>
-      <h2 className="mb-1 text-xl font-semibold">إنشاء حساب</h2>
+      <h2 className="font-display mb-1 text-2xl font-bold leading-tight">إنشاء حساب</h2>
       <p className="mb-6 text-sm text-muted">انضم إلى أكاديمية فرقان</p>
 
       {state.error && (

@@ -95,7 +95,7 @@ export default async function ArticlePage({ params }: Props) {
         <span className={`glass-badge mt-4 inline-block px-3 py-1 text-xs ${post.color}`}>
           {post.category_ar}
         </span>
-        <h1 className="font-display mx-auto mt-4 max-w-2xl text-4xl font-bold">
+        <h1 className="font-display mx-auto mt-4 max-w-2xl text-4xl font-bold leading-tight">
           {post.title_ar}
         </h1>
         <p className="mt-2 text-sm text-muted">{post.title_en}</p>

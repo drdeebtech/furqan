@@ -14,14 +14,14 @@ export function ContactContent() {
     <div>
       <section className="glass-card border-b border-white/10 py-20 text-center">
         <p className="text-sm text-muted"><Link href="/" className="text-gold hover:text-gold-light">{t("الرئيسية", "Home")}</Link> / {t("اتصل بنا", "Contact")}</p>
-        <h1 className="font-display mt-4 text-5xl font-bold">{t("اتصل بنا", "Contact Us")}</h1>
+        <h1 className="font-display mt-4 text-5xl font-bold leading-tight">{t("اتصل بنا", "Contact Us")}</h1>
       </section>
 
       <section className="py-24">
         <div className="mx-auto max-w-7xl gap-12 px-6 md:flex">
           <div className="mb-12 md:mb-0 md:w-2/5">
             <p className="text-sm font-medium tracking-widest text-gold">❖ {t("تواصل معنا", "Get in Touch")}</p>
-            <h2 className="font-display mt-3 text-3xl font-bold">{t("نسعد بخدمتك", "We'd Love to Hear from You")}</h2>
+            <h2 className="font-display mt-3 text-3xl font-bold leading-tight">{t("نسعد بخدمتك", "We'd Love to Hear from You")}</h2>
 
             <div className="mt-8 space-y-6">
               <div>

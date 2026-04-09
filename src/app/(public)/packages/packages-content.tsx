@@ -13,7 +13,7 @@ export function PackagesContent() {
     <div>
       <section className="glass-card border-b border-white/10 py-20 text-center">
         <p className="text-sm text-muted"><Link href="/" className="text-gold hover:text-gold-light">{t("الرئيسية", "Home")}</Link> / {t("باقاتنا", "Packages")}</p>
-        <h1 className="font-display mt-4 text-5xl font-bold">{t("باقاتنا", "Our Packages")}</h1>
+        <h1 className="font-display mt-4 text-5xl font-bold leading-tight">{t("باقاتنا", "Our Packages")}</h1>
       </section>
 
       {/* Free access banner */}
@@ -45,7 +45,7 @@ export function PackagesContent() {
       <section className="border-t border-white/10 py-24">
         <div className="mx-auto max-w-4xl px-6">
           <p className="text-sm font-medium tracking-widest text-gold">❖ {t("خصومات", "Discounts")}</p>
-          <h2 className="font-display mt-3 text-3xl font-bold">{t("سياسة الخصومات", "Discount Policy")}</h2>
+          <h2 className="font-display mt-3 text-3xl font-bold leading-tight">{t("سياسة الخصومات", "Discount Policy")}</h2>
           <div className="mt-12 grid gap-4 md:grid-cols-3">
             {[
               { ar: "دفع سنوي", en: "Annual Payment", save: t("وفّر ٢٠٪", "Save 20%") },

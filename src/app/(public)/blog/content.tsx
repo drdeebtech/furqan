@@ -53,7 +53,7 @@ export function BlogContent({ posts }: { posts: Post[] }) {
         <p className="text-sm text-muted">
           <Link href="/" className="text-gold hover:text-gold-light">{t("الرئيسية", "Home")}</Link> / {t("المدونة", "Blog")}
         </p>
-        <h1 className="font-display mt-4 text-5xl font-bold">{t("المدونة", "Blog")}</h1>
+        <h1 className="font-display mt-4 text-5xl font-bold leading-tight">{t("المدونة", "Blog")}</h1>
         <p className="mt-3 text-sm text-muted">
           {t(`${posts.length} مقالة`, `${posts.length} Articles`)}
         </p>
@@ -67,7 +67,7 @@ export function BlogContent({ posts }: { posts: Post[] }) {
               <span className={`glass-badge inline-block px-3 py-1 text-xs ${featured.color}`}>
                 {t(featured.category_ar, featured.category_en)}
               </span>
-              <h2 className="font-display mt-4 text-3xl font-bold">{t(featured.title_ar, featured.title_en)}</h2>
+              <h2 className="font-display mt-4 text-3xl font-bold leading-tight">{t(featured.title_ar, featured.title_en)}</h2>
               <p className="mt-4 text-sm leading-relaxed text-muted">{t(featured.excerpt_ar, featured.excerpt_en)}</p>
               <div className="mt-4 flex items-center gap-4 text-xs text-muted">
                 <span>{formatDate(featured.published_at)}</span>

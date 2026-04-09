@@ -26,7 +26,7 @@ export function ServicesContent({ services }: { services: Service[] }) {
     <div>
       <section className="glass-card border-b border-white/10 py-20 text-center">
         <p className="text-sm text-muted"><Link href="/" className="text-gold hover:text-gold-light">{t("الرئيسية", "Home")}</Link> / {t("خدماتنا", "Services")}</p>
-        <h1 className="font-display mt-4 text-5xl font-bold">{t("خدماتنا", "Our Services")}</h1>
+        <h1 className="font-display mt-4 text-5xl font-bold leading-tight">{t("خدماتنا", "Our Services")}</h1>
       </section>
 
       <section className="py-24">
@@ -51,7 +51,7 @@ export function ServicesContent({ services }: { services: Service[] }) {
                 <div key={s.id} className={`gap-12 md:flex ${i % 2 === 1 ? "md:flex-row-reverse" : ""}`}>
                   <div className="flex-1">
                     <p className="text-sm font-medium tracking-widest text-gold">❖ {s.title}</p>
-                    <h2 className="font-display mt-2 text-3xl font-bold">{title}</h2>
+                    <h2 className="font-display mt-2 text-3xl font-bold leading-tight">{title}</h2>
                     <p className="mt-4 text-sm leading-relaxed text-muted">{desc}</p>
                     <ul className="mt-6 space-y-2">
                       {feats.map((f) => (

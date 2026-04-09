@@ -13,14 +13,14 @@ export function AboutContent() {
     <div>
       <section className="glass-card border-b border-white/10 py-20 text-center">
         <p className="text-sm text-muted"><Link href="/" className="text-gold hover:text-gold-light">{t("الرئيسية", "Home")}</Link> / {t("من نحن", "About")}</p>
-        <h1 className="font-display mt-4 text-5xl font-bold">{t("من نحن", "About Us")}</h1>
+        <h1 className="font-display mt-4 text-5xl font-bold leading-tight">{t("من نحن", "About Us")}</h1>
       </section>
 
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-6 md:flex md:gap-16">
           <div className="flex-1">
             <p className="text-sm font-medium tracking-widest text-gold">❖ {t("قصتنا", "Our Story")}</p>
-            <h2 className="font-display mt-3 text-3xl font-bold">{t("عن أكاديمية فرقان", "About FURQAN Academy")}</h2>
+            <h2 className="font-display mt-3 text-3xl font-bold leading-tight">{t("عن أكاديمية فرقان", "About FURQAN Academy")}</h2>
             <div className="mt-8 space-y-6 text-sm leading-relaxed text-muted">
               <p>{t(
                 "أكاديمية فرقان كيان مستقل يديره فريق من المتخصصين المتفانين. نرحب بالجميع لتعلم تعاليم القرآن الكريم بغض النظر عن جنسياتهم أو خلفياتهم. هدفنا أن يفهم كل مسلم أصول دينه ويطبق تعاليم القرآن في حياته اليومية.",
@@ -55,7 +55,7 @@ export function AboutContent() {
       <section className="border-t border-white/10 bg-card/30 py-24">
         <div className="mx-auto max-w-7xl px-6">
           <p className="text-sm font-medium tracking-widest text-gold">❖ {t("قيمنا", "Our Values")}</p>
-          <h2 className="font-display mt-3 text-3xl font-bold">{t("ما نؤمن به", "What We Believe")}</h2>
+          <h2 className="font-display mt-3 text-3xl font-bold leading-tight">{t("ما نؤمن به", "What We Believe")}</h2>
           <div className="mt-12 grid gap-6 md:grid-cols-4">
             {[
               { icon: Heart, ar: "الإخلاص في الخدمة", en: "Sincere Service", dAr: "نؤمن بأن تعليم القرآن أمانة عظيمة نسعى لأدائها بإتقان", dEn: "We believe teaching Quran is a great trust we strive to fulfill with excellence" },

@@ -13,7 +13,7 @@ export function ForgotForm() {
 
   return (
     <>
-      <h2 className="mb-1 text-xl font-semibold">استعادة كلمة المرور</h2>
+      <h2 className="font-display mb-1 text-2xl font-bold leading-tight">استعادة كلمة المرور</h2>
       <p className="mb-6 text-sm text-muted">Reset your password</p>
 
       {state.success && (

@@ -38,7 +38,7 @@ export function TeachersContent({ teachers }: { teachers: Teacher[] }) {
     <div>
       <section className="glass-card border-b border-white/10 py-20 text-center">
         <p className="text-sm text-muted"><Link href="/" className="text-gold hover:text-gold-light">{t("الرئيسية", "Home")}</Link> / {t("المعلمون", "Teachers")}</p>
-        <h1 className="font-display mt-4 text-5xl font-bold">{t("معلمونا", "Our Teachers")}</h1>
+        <h1 className="font-display mt-4 text-5xl font-bold leading-tight">{t("معلمونا", "Our Teachers")}</h1>
         <p className="mt-3 text-sm text-muted">{t(`${teachers.length} معلم معتمد`, `${teachers.length} certified teachers`)}</p>
       </section>
 

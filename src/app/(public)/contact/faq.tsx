@@ -23,7 +23,7 @@ export function FAQ() {
     <section className="py-24">
       <div className="mx-auto max-w-3xl px-6">
         <p className="text-sm font-medium tracking-widest text-gold">❖ {t("أسئلة شائعة", "FAQ")}</p>
-        <h2 className="font-display mt-3 text-3xl font-bold">{t("الأسئلة الشائعة", "Frequently Asked Questions")}</h2>
+        <h2 className="font-display mt-3 text-3xl font-bold leading-tight">{t("الأسئلة الشائعة", "Frequently Asked Questions")}</h2>
 
         <div className="mt-12 space-y-2">
           {FAQS.map((faq, i) => (
