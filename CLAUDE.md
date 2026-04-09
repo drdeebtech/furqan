@@ -172,11 +172,11 @@ assigned (teacher creates)
 - Stripe payment integration (basic)
 - **Homework system** (V10) — structured assignments, state machine, grading, auto-regeneration
 - **Package & pricing system** (V11) — DB-driven packages, admin CRUD, student packages page, dashboard widget (Stripe deferred)
+- **In-app notifications** — NotificationBell in topbar with unread badge + dropdown, /student/notifications + /teacher/notifications pages, mark-read/delete actions
+- **Student progress page** — real data from student_progress/evaluations/homework, juz tracker, evaluation chart, milestones, homework performance
 
 ## Future Roadmap (ordered by priority)
-1. **Phase B: Stripe Integration** — connect Stripe Checkout + webhook to complete package purchases (deferred until API keys ready)
-2. **Phase C: Notifications** — in-app bell, email (Resend), WhatsApp (n8n), user preferences
-3. **Phase D: Student Progress & Reports** — hifz juz tracking, PDF reports, parent view, achievement milestones
+1. **Stripe Integration** — connect Stripe Checkout + webhook to complete package purchases (deferred until API keys ready)
 4. **Phase E: Teacher Onboarding Polish** — signup flow, availability calendar, specializations, Stripe Connect payouts
 5. **Phase F: Student Discovery** — teacher browse/filter, public profiles, reviews/ratings, booking flow
 6. **Phase G: Communication** — student↔teacher messaging, file sharing, booking-tied conversations
