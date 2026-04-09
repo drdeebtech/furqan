@@ -210,3 +210,226 @@ export async function getStudentRecentRecordings(
     view: "view",
   }));
 }
+
+// ============================================
+// TEACHER DASHBOARD QUERIES
+// ============================================
+
+export async function getTeacherWeeklyHours(
+  teacherId: string,
+  lang: "ar" | "en" = "en"
+): Promise<ChartDataPoint[]> {
+  const supabase = await createClient();
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const { data: bookings } = await supabase
+    .from("bookings")
+    .select("id")
+    .eq("teacher_id", teacherId)
+    .returns<{ id: string }[]>();
+
+  if (!bookings || bookings.length === 0) return generateEmptyWeek(lang);
+
+  const bookingIds = bookings.map((b) => b.id);
+
+  const { data: sessions } = await supabase
+    .from("sessions")
+    .select("actual_duration, started_at")
+    .in("booking_id", bookingIds)
+    .not("ended_at", "is", null)
+    .gte("started_at", sevenDaysAgo.toISOString())
+    .returns<{ actual_duration: number | null; started_at: string | null }[]>();
+
+  return groupSessionsByDay(sessions ?? [], lang);
+}
+
+export async function getTeacherLiveSessions(
+  teacherId: string
+): Promise<LiveSessionItem[]> {
+  const supabase = await createClient();
+
+  const { data: bookings } = await supabase
+    .from("bookings")
+    .select("id, student_id, session_type")
+    .eq("teacher_id", teacherId)
+    .eq("status", "confirmed")
+    .returns<{ id: string; student_id: string; session_type: string }[]>();
+
+  if (!bookings || bookings.length === 0) return [];
+
+  const bookingIds = bookings.map((b) => b.id);
+
+  const { data: sessions } = await supabase
+    .from("sessions")
+    .select("id, booking_id, started_at, ended_at")
+    .in("booking_id", bookingIds)
+    .not("started_at", "is", null)
+    .is("ended_at", null)
+    .returns<{
+      id: string;
+      booking_id: string;
+      started_at: string;
+      ended_at: string | null;
+    }[]>();
+
+  if (!sessions || sessions.length === 0) return [];
+
+  const studentIds = [...new Set(bookings.map((b) => b.student_id))];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", studentIds)
+    .returns<{ id: string; full_name: string | null }[]>();
+
+  const nameMap: Record<string, string> = {};
+  if (profiles) {
+    for (const p of profiles) {
+      nameMap[p.id] = p.full_name ?? "—";
+    }
+  }
+
+  const now = Date.now();
+  return sessions.map((s) => {
+    const booking = bookings.find((b) => b.id === s.booking_id);
+    const studentName = booking ? (nameMap[booking.student_id] ?? "—") : "—";
+    const initials = studentName.slice(0, 2);
+    const elapsed = now - new Date(s.started_at).getTime();
+    const hrs = Math.floor(elapsed / 3600000);
+    const mins = Math.floor((elapsed % 3600000) / 60000);
+    const secs = Math.floor((elapsed % 60000) / 1000);
+    const timeStr = `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+
+    return {
+      id: s.id,
+      title: studentName,
+      subtitle: booking?.session_type ?? "session",
+      initials,
+      timeRemaining: timeStr,
+      progressPercent: undefined,
+    };
+  });
+}
+
+const BREAKDOWN_COLORS: Record<
+  string,
+  { label: string; color: string }
+> = {
+  hifz: { label: "Memorization", color: "#7C5CFF" },
+  muraja: { label: "Review", color: "#22C55E" },
+  tajweed: { label: "Tajweed", color: "#F59E0B" },
+  tilawa: { label: "Recitation", color: "#3B82F6" },
+  qiraat: { label: "Qira'at", color: "#EC4899" },
+  tafsir: { label: "Tafsir", color: "#14B8A6" },
+  combined: { label: "Combined", color: "#A855F7" },
+  other: { label: "Other", color: "#9CA3AF" },
+};
+
+export async function getTeacherSessionTypeBreakdown(
+  teacherId: string
+): Promise<{ label: string; value: number; color: string }[]> {
+  const supabase = await createClient();
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const { data: bookings } = await supabase
+    .from("bookings")
+    .select("session_type")
+    .eq("teacher_id", teacherId)
+    .eq("status", "completed")
+    .gte("created_at", thirtyDaysAgo.toISOString())
+    .returns<{ session_type: string }[]>();
+
+  if (!bookings || bookings.length === 0) return [];
+
+  const counts: Record<string, number> = {};
+  for (const b of bookings) {
+    const type = b.session_type ?? "other";
+    counts[type] = (counts[type] ?? 0) + 1;
+  }
+
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([type, count]) => {
+      const meta = BREAKDOWN_COLORS[type] ?? BREAKDOWN_COLORS.other;
+      return { label: meta.label, value: count, color: meta.color };
+    });
+}
+
+export async function getTeacherRecentStudents(
+  teacherId: string,
+  limit = 6
+): Promise<{ id: string; [key: string]: unknown }[]> {
+  const supabase = await createClient();
+
+  const { data: bookings } = await supabase
+    .from("bookings")
+    .select("id, student_id, session_type, scheduled_at")
+    .eq("teacher_id", teacherId)
+    .eq("status", "completed")
+    .order("scheduled_at", { ascending: false })
+    .limit(limit * 3)
+    .returns<{
+      id: string;
+      student_id: string;
+      session_type: string;
+      scheduled_at: string;
+    }[]>();
+
+  if (!bookings || bookings.length === 0) return [];
+
+  const seenStudents = new Set<string>();
+  const uniqueBookings: typeof bookings = [];
+  for (const b of bookings) {
+    if (!seenStudents.has(b.student_id)) {
+      seenStudents.add(b.student_id);
+      uniqueBookings.push(b);
+      if (uniqueBookings.length >= limit) break;
+    }
+  }
+
+  const studentIds = [...new Set(uniqueBookings.map((b) => b.student_id))];
+
+  const [profilesRes, sessionCountsRes] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", studentIds)
+      .returns<{ id: string; full_name: string | null }[]>(),
+    supabase
+      .from("bookings")
+      .select("student_id")
+      .eq("teacher_id", teacherId)
+      .eq("status", "completed")
+      .in("student_id", studentIds)
+      .returns<{ student_id: string }[]>(),
+  ]);
+
+  const nameMap: Record<string, string> = {};
+  if (profilesRes.data) {
+    for (const p of profilesRes.data) {
+      nameMap[p.id] = p.full_name ?? "—";
+    }
+  }
+
+  const countMap: Record<string, number> = {};
+  if (sessionCountsRes.data) {
+    for (const b of sessionCountsRes.data) {
+      countMap[b.student_id] = (countMap[b.student_id] ?? 0) + 1;
+    }
+  }
+
+  return uniqueBookings.map((b) => ({
+    id: b.student_id.slice(0, 6).toUpperCase(),
+    subject: b.session_type ?? "—",
+    date: new Date(b.scheduled_at).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+    }),
+    progress: Math.min(100, (countMap[b.student_id] ?? 0) * 10),
+    assignee: nameMap[b.student_id] ?? "—",
+    view: "view",
+  }));
+}

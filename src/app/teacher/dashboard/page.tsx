@@ -4,6 +4,12 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchNameMap } from "@/lib/supabase/helpers";
 import type { SessionType } from "@/types/database";
 import { TeacherDashboardContent } from "./dashboard-content";
+import {
+  getTeacherWeeklyHours,
+  getTeacherLiveSessions,
+  getTeacherSessionTypeBreakdown,
+  getTeacherRecentStudents,
+} from "@/lib/dashboard-queries";
 
 export const metadata: Metadata = { title: "لوحة المعلم" };
 
@@ -50,6 +56,13 @@ export default async function TeacherDashboardPage() {
   const allStudentIds = [...new Set([...pending.map(b => b.student_id), ...todaySessions.map(b => b.student_id)])];
   const nameMap = await fetchNameMap(supabase, allStudentIds);
 
+  const [weeklyHours, liveSessions, sessionBreakdown, recentStudents] = await Promise.all([
+    getTeacherWeeklyHours(user.id),
+    getTeacherLiveSessions(user.id),
+    getTeacherSessionTypeBreakdown(user.id),
+    getTeacherRecentStudents(user.id),
+  ]);
+
   return (
     <TeacherDashboardContent
       data={{
@@ -63,6 +76,10 @@ export default async function TeacherDashboardPage() {
         pending,
         sessionDataMap,
         nameMap,
+        weeklyHours,
+        liveSessions,
+        sessionBreakdown,
+        recentStudents,
       }}
     />
   );
