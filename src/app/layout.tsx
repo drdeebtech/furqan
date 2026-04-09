@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Aref_Ruqaa, Tajawal } from "next/font/google";
+import { Inter, Rakkas, IBM_Plex_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme/context";
 
@@ -10,18 +10,18 @@ const inter = Inter({
   preload: true,
 });
 
-const arefRuqaa = Aref_Ruqaa({
+const rakkas = Rakkas({
   variable: "--font-display",
-  subsets: ["arabic"],
-  weight: ["400", "700"],
+  subsets: ["arabic", "latin"],
+  weight: ["400"],
   display: "swap",
   preload: true,
 });
 
-const body = Tajawal({
+const body = IBM_Plex_Sans_Arabic({
   variable: "--font-body",
-  subsets: ["arabic", "latin"],
-  weight: ["300", "400", "500", "700", "800"],
+  subsets: ["arabic"],
+  weight: ["300", "400", "500", "600", "700"],
   display: "swap",
   preload: true,
   adjustFontFallback: false,
@@ -87,7 +87,7 @@ export default function RootLayout({
     <html
       lang="ar"
       dir="rtl"
-      className={`${inter.variable} ${arefRuqaa.variable} ${body.variable} h-full antialiased`}
+      className={`${inter.variable} ${rakkas.variable} ${body.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <a
