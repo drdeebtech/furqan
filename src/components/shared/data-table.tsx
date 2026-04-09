@@ -74,13 +74,19 @@ function renderCell(col: DataTableColumn, value: unknown) {
       const pct = typeof value === "number" ? value : parseInt(str) || 0;
       return (
         <div className="flex items-center gap-2.5">
-          <div className="relative h-3 w-[160px] overflow-hidden rounded-full bg-[var(--surface-divider,#E8E8E4)]" style={{ boxShadow: "inset 0 1px 3px rgba(0,0,0,0.1)" }}>
+          <div
+            className="relative h-3.5 w-[160px] overflow-hidden rounded-full"
+            style={{
+              background: "linear-gradient(180deg, #E0DFD9 0%, #ECEAE5 50%, #E4E3DD 100%)",
+              boxShadow: "inset 0 2px 4px rgba(0,0,0,0.1), inset 0 -1px 0 rgba(255,255,255,0.5), 0 1px 0 rgba(255,255,255,0.8)",
+            }}
+          >
             <div
               className="h-full rounded-full"
               style={{
                 width: `${Math.min(100, Math.max(0, pct))}%`,
-                background: "linear-gradient(180deg, #5BE08A 0%, #22A355 40%, #1A8A45 70%, #28B860 100%)",
-                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.4), 0 1px 2px rgba(0,0,0,0.1)",
+                background: "linear-gradient(180deg, #6EE89E 0%, #2DBF62 30%, #1A8A45 65%, #25A858 100%)",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -1px 0 rgba(0,0,0,0.1)",
               }}
             />
           </div>

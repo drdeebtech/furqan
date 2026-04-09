@@ -16,6 +16,17 @@ interface BreakdownBarProps {
   emptyMessage?: string;
 }
 
+function glassGradient(color: string) {
+  // Parse hex to create lighter/darker variants for 3D glass effect
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  const light = `rgb(${Math.min(255, r + 60)}, ${Math.min(255, g + 60)}, ${Math.min(255, b + 60)})`;
+  const dark = `rgb(${Math.max(0, r - 40)}, ${Math.max(0, g - 40)}, ${Math.max(0, b - 40)})`;
+  const mid = `rgb(${Math.max(0, r - 15)}, ${Math.max(0, g - 15)}, ${Math.max(0, b - 15)})`;
+  return `linear-gradient(180deg, ${light} 0%, ${color} 35%, ${dark} 70%, ${mid} 100%)`;
+}
+
 export function BreakdownBar({ title, segments, total, emptyMessage }: BreakdownBarProps) {
   const sum = segments.reduce((acc, s) => acc + s.value, 0);
   const isEmpty = segments.length === 0 || sum === 0;
@@ -34,14 +45,19 @@ export function BreakdownBar({ title, segments, total, emptyMessage }: Breakdown
           {total != null && (
             <p className="mb-3 text-xs text-[var(--muted)]">{total} items</p>
           )}
-          <div className="flex h-7 overflow-hidden rounded-[8px] bg-[var(--surface-divider,#F0F0F2)]">
+          <div
+            className="flex h-8 overflow-hidden rounded-[10px]"
+            style={{ boxShadow: "inset 0 2px 4px rgba(0,0,0,0.08), 0 1px 0 rgba(255,255,255,0.6)" }}
+          >
             {segments.map((seg, i) => (
               <div
                 key={i}
                 className="h-full transition-all"
                 style={{
                   flexBasis: `${(seg.value / sum) * 100}%`,
-                  backgroundColor: seg.color,
+                  background: glassGradient(seg.color),
+                  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -1px 0 rgba(0,0,0,0.1)",
+                  borderInlineEnd: i < segments.length - 1 ? "1px solid rgba(0,0,0,0.1)" : "none",
                 }}
               />
             ))}
@@ -50,8 +66,11 @@ export function BreakdownBar({ title, segments, total, emptyMessage }: Breakdown
             {segments.map((seg, i) => (
               <div key={i} className="flex items-center gap-1.5">
                 <span
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ backgroundColor: seg.color }}
+                  className="h-2.5 w-2.5 rounded-[3px]"
+                  style={{
+                    background: glassGradient(seg.color),
+                    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3)",
+                  }}
                 />
                 <span className="text-[11px] text-[var(--muted)]">{seg.label} <span className="font-medium text-[var(--foreground)]">{seg.value}</span></span>
               </div>

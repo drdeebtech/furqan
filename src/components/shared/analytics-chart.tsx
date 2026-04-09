@@ -94,22 +94,36 @@ export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsCha
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={data} barCategoryGap="14%">
             <defs>
-              {/* Dense crosshatch — two diagonal line sets for textured look */}
+              {/* Inactive bar: glass texture with crosshatch overlay */}
+              <linearGradient id="inactiveGlass" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#E8E7E2" />
+                <stop offset="30%" stopColor="#DDDCD7" />
+                <stop offset="70%" stopColor="#D0CFC9" />
+                <stop offset="100%" stopColor="#DDDCD7" />
+              </linearGradient>
               <pattern
                 id="hatch"
                 patternUnits="userSpaceOnUse"
-                width="6"
-                height="6"
+                width="5"
+                height="5"
                 patternTransform="rotate(45)"
               >
-                <rect width="6" height="6" fill="#ECEAE4" />
-                <line x1="0" y1="0" x2="0" y2="6" stroke="#D6D4CE" strokeWidth="2" />
-                <line x1="3" y1="0" x2="3" y2="6" stroke="#E2E0DA" strokeWidth="1" />
+                <rect width="5" height="5" fill="url(#inactiveGlass)" />
+                <line x1="0" y1="0" x2="0" y2="5" stroke="rgba(255,255,255,0.5)" strokeWidth="1" />
+                <line x1="2.5" y1="0" x2="2.5" y2="5" stroke="rgba(0,0,0,0.06)" strokeWidth="0.5" />
               </pattern>
-              {/* Active bar gradient for depth */}
+              {/* Active bar: 3D glass purple gradient */}
               <linearGradient id="activeGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#8B6FFF" />
-                <stop offset="100%" stopColor="#6B4FDF" />
+                <stop offset="0%" stopColor="#A78BFF" />
+                <stop offset="25%" stopColor="#8B6FFF" />
+                <stop offset="70%" stopColor="#6B4FDF" />
+                <stop offset="100%" stopColor="#7C5CFF" />
+              </linearGradient>
+              {/* Glass highlight overlay for active bar */}
+              <linearGradient id="glassHighlight" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="rgba(255,255,255,0.25)" />
+                <stop offset="40%" stopColor="rgba(255,255,255,0.05)" />
+                <stop offset="100%" stopColor="rgba(255,255,255,0.15)" />
               </linearGradient>
             </defs>
             <CartesianGrid
@@ -137,6 +151,8 @@ export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsCha
                   key={index}
                   fill={entry.isActive ? "url(#activeGrad)" : "url(#hatch)"}
                   fillOpacity={entry.isActive ? 1 : 0.9}
+                  stroke={entry.isActive ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.04)"}
+                  strokeWidth={entry.isActive ? 1 : 0.5}
                 />
               ))}
               <LabelList dataKey="value" position="top" content={Tooltip as never} />
