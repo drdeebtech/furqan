@@ -36,7 +36,7 @@ export function ModeratorDashboardContent({ data }: { data: ModeratorDashboardDa
         <p className="mt-1 text-sm text-muted">{t("مراقبة الجودة ومراجعة المحتوى", "Quality monitoring & content review")}</p>
 
         {/* Row 1: 4 Stat Cards */}
-        <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4 stagger-children">
           <StatCard
             icon={FileCheck}
             label={t("السير الذاتية المعلقة", "Pending CVs")}

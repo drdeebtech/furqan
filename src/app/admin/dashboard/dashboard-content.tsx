@@ -83,7 +83,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
         )}
 
         {/* Row 1: 4 Stat Cards */}
-        <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4 stagger-children">
           <StatCard icon={Users} label={t("الطلاب", "Students")} value={studentCount} href="/admin/users" actionLabel={t("عرض", "View")} />
           <StatCard icon={GraduationCap} label={t("المعلمون", "Teachers")} value={teacherList.length} href="/admin/teachers" actionLabel={t("عرض", "View")} />
           <StatCard icon={BookOpen} label={t("حجوزات الشهر", "Monthly Bookings")} value={bookingsMonth} href="/admin/bookings" actionLabel={t("عرض", "View")} />

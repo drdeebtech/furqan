@@ -26,7 +26,7 @@ export function StatCard({ icon: Icon, label, value, href, subtitle, actionLabel
   return (
     <Link
       href={href}
-      className="glass-card flex min-h-[172px] flex-col p-5 sm:p-6 transition-colors"
+      className="glass-card hover-lift flex min-h-[172px] flex-col p-5 sm:p-6"
     >
       <div>
         <div className="flex items-center gap-2.5">

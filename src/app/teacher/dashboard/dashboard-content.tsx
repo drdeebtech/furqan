@@ -55,7 +55,7 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
         <TeacherGuidanceBanner cvStatus={cvStatus} hasStudents={uniqueStudents > 0} />
 
         {/* Row 1: 4 Stat Cards */}
-        <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4 stagger-children">
           <StatCard icon={Users} label={t("طلابي", "My Students")} value={uniqueStudents} href="/teacher/students" actionLabel={t("عرض", "View")} statusBadge={uniqueStudents > 0 ? { text: t("نشط", "Active"), type: "active" as const } : undefined} />
           <StatCard icon={Calendar} label={t("جلسات هذا الشهر", "This Month")} value={monthSessions} href="/teacher/sessions" actionLabel={t("عرض", "View")} />
           <StatCard icon={Hourglass} label={t("طلبات معلّقة", "Pending Requests")} value={pendingCount} href="#pending" actionLabel={t("عرض", "View")} />
