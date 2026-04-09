@@ -115,7 +115,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
         ) : null}
 
         {/* Row 1: 4 Stat Cards */}
-        <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
           <StatCard
             icon={CheckCircle}
             label={t("إجمالي الجلسات", "Total Sessions")}

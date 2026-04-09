@@ -27,26 +27,24 @@ export function StatCard({ icon: Icon, label, value, href, subtitle, progress, a
   return (
     <Link
       href={href}
-      className="glass-card flex min-h-[180px] flex-col p-6 transition-colors"
+      className="glass-card flex min-h-[192px] flex-col p-7 transition-colors"
     >
       <div>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[var(--surface-light,#F5F5F7)]">
-              <Icon size={18} className="text-[var(--muted)]" />
-            </div>
-            <span className="text-[13px] font-medium text-[var(--muted)]">{label}</span>
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[var(--surface-light,#F5F5F7)]">
+            <Icon size={18} className="text-[var(--muted)]" />
           </div>
+          <span className="text-sm text-[var(--muted)]">{label}</span>
           {statusBadge && (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium">
               {statusBadge.type === "active" && (
                 <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent-green,#22C55E)]" />
               )}
-              <span className="text-[12px] text-[var(--accent-green,#22C55E)]">{statusBadge.text}</span>
+              <span className="text-[var(--accent-green,#22C55E)]">{statusBadge.text}</span>
             </div>
           )}
         </div>
-        <p className="mt-4 text-[56px] font-bold tracking-tight leading-none text-[var(--foreground)]">{value}</p>
+        <p className="mt-4 text-[60px] font-bold tracking-tight leading-none text-[var(--foreground)]">{value}</p>
         {subtitle && <p className="mt-0.5 text-xs text-[var(--muted)]">{subtitle}</p>}
       </div>
 

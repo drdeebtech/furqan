@@ -137,7 +137,7 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
                     href={link.href}
                     className={`flex min-h-[40px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all focus-ring ${
                       active
-                        ? "glass-nav-item active font-medium text-[var(--foreground)] shadow-sm"
+                        ? "glass-nav-item active font-medium text-[var(--foreground)] shadow-[0_2px_8px_rgba(0,0,0,0.08)]"
                         : "text-[var(--muted)] hover:text-[var(--foreground)]"
                     }`}
                     data-active={active ? "true" : undefined}

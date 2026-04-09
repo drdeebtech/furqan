@@ -110,13 +110,13 @@ function renderCell(col: DataTableColumn, value: unknown) {
 
     case "assignee": {
       const initials = typeof value === "string" ? value.slice(0, 2) : "??";
-      const avatarColors = ["bg-purple-500", "bg-blue-500", "bg-orange-500", "bg-teal-500", "bg-pink-500", "bg-emerald-500"];
+      const avatarColors = ["bg-[#C7B9F0]", "bg-[#A5C7F0]", "bg-[#F5B8A0]", "bg-[#9FD6C8]", "bg-[#F0B8C4]", "bg-[#A8D8B5]"];
       let hash = 0;
       const s = String(value ?? "");
       for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash);
       const avatarBg = avatarColors[Math.abs(hash) % avatarColors.length];
       return (
-        <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold text-white ring-2 ring-white ${avatarBg}`}>
+        <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-bold text-[#1A1A1F] ring-2 ring-white ${avatarBg}`}>
           {initials}
         </div>
       );

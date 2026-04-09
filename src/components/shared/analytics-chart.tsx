@@ -128,11 +128,12 @@ export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsCha
               tickFormatter={(v: number) => formatValue(v)}
               domain={[0, "auto"]}
             />
-            <Bar dataKey="value" maxBarSize={56} radius={[8, 8, 0, 0]}>
+            <Bar dataKey="value" maxBarSize={56} radius={[12, 12, 0, 0]}>
               {data.map((entry, index) => (
                 <Cell
                   key={index}
                   fill={entry.isActive ? "var(--accent-purple, #7C5CFF)" : "url(#stripedPattern)"}
+                  fillOpacity={entry.isActive ? 1 : 0.7}
                 />
               ))}
               <LabelList dataKey="value" position="top" content={ActiveBarLabel as never} />
