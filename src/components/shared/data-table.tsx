@@ -73,20 +73,18 @@ function renderCell(col: DataTableColumn, value: unknown) {
     case "progress": {
       const pct = typeof value === "number" ? value : parseInt(str) || 0;
       return (
-        <div className="flex items-center gap-2">
-          <div className="relative h-2 w-[160px] rounded-full bg-[var(--surface-divider,#F0F0F2)]">
+        <div className="flex items-center gap-2.5">
+          <div className="relative h-3 w-[160px] overflow-hidden rounded-full bg-[var(--surface-divider,#E8E8E4)]" style={{ boxShadow: "inset 0 1px 3px rgba(0,0,0,0.1)" }}>
             <div
-              className="h-full rounded-full bg-[var(--data-progress,#3B82F6)]"
-              style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+              className="h-full rounded-full"
+              style={{
+                width: `${Math.min(100, Math.max(0, pct))}%`,
+                background: "linear-gradient(180deg, #5BE08A 0%, #22A355 40%, #1A8A45 70%, #28B860 100%)",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.4), 0 1px 2px rgba(0,0,0,0.1)",
+              }}
             />
-            {pct > 0 && pct < 100 && (
-              <span
-                className="absolute top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full border-2 border-white bg-[#EF4444]"
-                style={{ insetInlineStart: `calc(${Math.min(100, pct)}% - 5px)` }}
-              />
-            )}
           </div>
-          <span className="text-[var(--muted)]">{pct}%</span>
+          <span className="text-sm font-medium text-[var(--foreground)]">{pct}%</span>
         </div>
       );
     }
