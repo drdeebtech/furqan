@@ -174,6 +174,8 @@ assigned (teacher creates)
 - **Package & pricing system** (V11) — DB-driven packages, admin CRUD, student packages page, dashboard widget (Stripe deferred)
 - **In-app notifications** — NotificationBell in topbar with unread badge + dropdown, /student/notifications + /teacher/notifications pages, mark-read/delete actions
 - **Student progress page** — real data from student_progress/evaluations/homework, juz tracker, evaluation chart, milestones, homework performance
+- **Teacher onboarding checklist** — 5-step progress tracker (profile, CV, review, availability, first student) with visual progress bar
+- **Student discovery** — teacher browse with gender filter, sort (rating/experience/price), specialty filter, search
 
 ## Future Roadmap (ordered by priority)
 1. **Stripe Integration** — connect Stripe Checkout + webhook to complete package purchases (deferred until API keys ready)
