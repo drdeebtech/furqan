@@ -48,8 +48,8 @@ FURQAN Academy — Online Quran teaching platform (V10)
 - **Session observation**: Daily.co observer tokens with mic/camera off, max_participants bumped to 3
 - **Homework system**: `src/lib/actions/homework.ts` — 5 server actions (create, markReady, grade, edit, delete) with state machine and auto-regeneration
 
-## Database (29 tables)
-Original 20 tables + 5 V9 tables + 2 V10 tables + 2 V11 tables:
+## Database (30 tables)
+Original 20 tables + 5 V9 tables + 2 V10 tables + 2 V11 tables + 1 V12 table:
 
 V9 tables:
 - `platform_settings` — key-value feature flags
@@ -71,6 +71,10 @@ Migration files:
 - `src/lib/supabase/migrations/v10_001_services.sql`
 - `src/lib/supabase/migrations/v10_002_homework.sql`
 - `src/lib/supabase/migrations/v11_001_packages.sql`
+- `src/lib/supabase/migrations/v12_001_automation.sql`
+
+V12 tables:
+- `automation_logs` — n8n workflow execution tracking with idempotency keys
 
 ## V9 Enums
 - `cv_status`: draft | pending_review | approved | rejected
@@ -178,9 +182,17 @@ assigned (teacher creates)
 - **Student discovery** — teacher browse with gender filter, sort (rating/experience/price), specialty filter, search
 - **Messaging enhancements** — read receipts (mark-as-read on open), unread counts, message notifications via bell
 - **PWA support** — service worker (cache-first statics, network-first pages), viewport + iOS meta tags, install prompt banner
+- **Automation infrastructure** (V12) — automation_logs table, event emission from server actions, n8n webhook endpoint, admin automation dashboard, feature flags, BLUEPRINT.md with 52 workflows
+
+## Key Architecture: Automation
+- **Event emission**: `src/lib/automation/emit.ts` — non-blocking webhook calls to n8n on business events
+- **n8n callback**: `src/app/api/webhooks/n8n/route.ts` — log, notify, idempotency check actions
+- **Admin dashboard**: `/admin/automation` — logs, stats, feature flags
+- **Blueprint**: `automation/BLUEPRINT.md` — 52 workflows across 12 areas
+- **Events emitted**: booking.created/confirmed/cancelled, session.ended/no_show/notes_saved, homework.assigned/student_ready/graded
 
 ## Future Roadmap (ordered by priority)
-1. **Phase I: Automation** — remaining ~30 n8n workflows across 9 platform areas
+1. **n8n Workflows** — build first 8 critical workflows on VPS (health check, reminders, no-show, parent reports, package alerts)
 2. **Phase J: Advanced** — AI suggestions, recording transcription, Quran text display, gamification
 3. **Stripe Integration** — connect Stripe Checkout + webhook to complete package purchases (final stage, deferred until API keys ready)
 4. **Phase E: Teacher Onboarding Polish** — signup flow, availability calendar, specializations, Stripe Connect payouts
