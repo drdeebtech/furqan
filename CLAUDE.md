@@ -48,8 +48,8 @@ FURQAN Academy — Online Quran teaching platform (V10)
 - **Session observation**: Daily.co observer tokens with mic/camera off, max_participants bumped to 3
 - **Homework system**: `src/lib/actions/homework.ts` — 5 server actions (create, markReady, grade, edit, delete) with state machine and auto-regeneration
 
-## Database (27 tables)
-Original 20 tables + 5 V9 tables + 1 V10 table + 1 V10.1 table:
+## Database (29 tables)
+Original 20 tables + 5 V9 tables + 2 V10 tables + 2 V11 tables:
 
 V9 tables:
 - `platform_settings` — key-value feature flags
@@ -62,10 +62,15 @@ V10 tables:
 - `services` — dynamic service definitions (bilingual)
 - `homework_assignments` — structured homework with state machine, grading, auto-regeneration
 
+V11 tables:
+- `packages` — package definitions (5 types, 4 currencies, bilingual, admin CRUD)
+- `student_packages` — student purchased packages with session tracking (sessions_total/used)
+
 Migration files:
 - `src/lib/supabase/migrations/v9_001_schema.sql`
 - `src/lib/supabase/migrations/v10_001_services.sql`
 - `src/lib/supabase/migrations/v10_002_homework.sql`
+- `src/lib/supabase/migrations/v11_001_packages.sql`
 
 ## V9 Enums
 - `cv_status`: draft | pending_review | approved | rejected
@@ -76,9 +81,14 @@ Migration files:
 - `homework_type`: hifz | muraja | recitation | tajweed | writing | listening
 - `homework_status`: assigned | student_ready | completed_excellent | completed_good | completed_needs_work | completed_not_done
 
+## V11 Enums (text CHECK, not Postgres ENUM)
+- `package_type`: single_session | pack_4 | pack_8 | pack_12 | full_course
+- `student_package_status`: active | expired | cancelled
+
 ## SQL Functions
 - `is_moderator()` — checks if user has moderator role
 - `is_admin_or_mod()` — checks if user is admin or moderator
+- `deduct_package_session(uuid)` — atomic session deduction from student_packages (prevents race conditions)
 
 ## Edge Functions (Supabase)
 - `auto-reminder` — 24h + 1h session reminders
@@ -101,9 +111,9 @@ src/
 ├── app/
 │   ├── (auth)/          — login, register, forgot-password
 │   ├── (public)/        — landing, about, contact, packages, teachers, blog
-│   ├── admin/           — full admin dashboard (users, teachers, bookings, sessions, evaluations, settings)
+│   ├── admin/           — full admin dashboard (users, teachers, bookings, sessions, evaluations, packages, settings)
 │   ├── moderator/       — moderator dashboard (users, cv-review, sessions, evaluations, audit)
-│   ├── student/         — student portal (dashboard, teachers, bookings, sessions, homework, progress, messages)
+│   ├── student/         — student portal (dashboard, teachers, bookings, sessions, homework, packages, progress, messages)
 │   ├── teacher/         — teacher portal (dashboard, sessions, availability, students, homework, cv, evaluations, messages)
 │   └── api/             — webhooks (stripe, bookings)
 ├── components/
@@ -119,7 +129,7 @@ src/
 │   ├── feature-flags-context.tsx — client-side flags provider
 │   └── constants.ts     — Arabic labels for session types, statuses, homework types/statuses
 ├── types/
-│   └── database.ts      — all TypeScript types (27 tables, 13 enums)
+│   └── database.ts      — all TypeScript types (29 tables, 15 enums)
 └── proxy.ts             — middleware route protection
 supabase/functions/      — 4 edge functions (auto-reminder, auto-complete, no-show-detector, weekly-report)
 ```
@@ -161,9 +171,10 @@ assigned (teacher creates)
 - Basic booking + sessions with Daily.co video
 - Stripe payment integration (basic)
 - **Homework system** (V10) — structured assignments, state machine, grading, auto-regeneration
+- **Package & pricing system** (V11) — DB-driven packages, admin CRUD, student packages page, dashboard widget (Stripe deferred)
 
 ## Future Roadmap (ordered by priority)
-1. **Phase B: Package & Pricing** — 5 package types, student checkout, Stripe integration, admin management
+1. **Phase B: Stripe Integration** — connect Stripe Checkout + webhook to complete package purchases (deferred until API keys ready)
 2. **Phase C: Notifications** — in-app bell, email (Resend), WhatsApp (n8n), user preferences
 3. **Phase D: Student Progress & Reports** — hifz juz tracking, PDF reports, parent view, achievement milestones
 4. **Phase E: Teacher Onboarding Polish** — signup flow, availability calendar, specializations, Stripe Connect payouts
