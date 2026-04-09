@@ -116,7 +116,8 @@ body {
     radial-gradient(ellipse 50% 30% at 50% 50%, rgba(200,166,82,0.04) 0%, transparent 70%);
   color: var(--foreground);
   font-family: var(--font-body), var(--font-inter), "Segoe UI", system-ui, sans-serif;
-  font-weight: 500;
+  font-weight: 400;
+  font-kerning: normal;
   -webkit-font-smoothing: antialiased;
 }
 
