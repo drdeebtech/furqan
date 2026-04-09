@@ -6,21 +6,24 @@ interface WidgetCardProps {
   headerAction?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  variant?: "default" | "flush";
 }
 
-export function WidgetCard({ title, subtitle, headerAction, children, className }: WidgetCardProps) {
+export function WidgetCard({ title, subtitle, headerAction, children, className, variant = "default" }: WidgetCardProps) {
+  const base = variant === "flush"
+    ? "rounded-[14px] bg-[var(--surface)] py-5"
+    : "rounded-[14px] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[0_1px_2px_rgba(0,0,0,0.03)]";
+
   return (
-    <div
-      className={`rounded-[14px] border border-[var(--surface-border)] bg-[var(--surface)] p-6 shadow-[0_1px_2px_rgba(0,0,0,0.03)] ${className ?? ""}`}
-    >
-      <div className="mb-5 flex items-center justify-between">
+    <div className={`${base} ${className ?? ""}`}>
+      <div className={`mb-5 flex items-center justify-between ${variant === "flush" ? "px-6" : ""}`}>
         <div>
-          <h3 className="text-base font-semibold text-[var(--foreground)]">{title}</h3>
-          {subtitle && <p className="text-xs text-[var(--muted)]">{subtitle}</p>}
+          <h3 className="text-[15px] font-semibold tracking-tight text-[var(--foreground)]">{title}</h3>
+          {subtitle && <p className="mt-0.5 text-xs text-[var(--muted)]">{subtitle}</p>}
         </div>
         {headerAction}
       </div>
-      <div>{children}</div>
+      <div className={variant === "flush" ? "px-6" : ""}>{children}</div>
     </div>
   );
 }

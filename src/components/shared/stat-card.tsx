@@ -15,12 +15,11 @@ interface StatCardProps {
   value: string | number;
   href: string;
   subtitle?: string;
-  progress?: number;
   actionLabel?: string;
   statusBadge?: StatusBadge;
 }
 
-export function StatCard({ icon: Icon, label, value, href, subtitle, progress, actionLabel, statusBadge }: StatCardProps) {
+export function StatCard({ icon: Icon, label, value, href, subtitle, actionLabel, statusBadge }: StatCardProps) {
   const { dir } = useLang();
   const Arrow = dir === "rtl" ? ArrowLeft : ArrowRight;
 
@@ -44,24 +43,9 @@ export function StatCard({ icon: Icon, label, value, href, subtitle, progress, a
             </div>
           )}
         </div>
-        <p className="mt-4 text-[60px] font-bold tracking-tight leading-none text-[var(--foreground)]">{value}</p>
+        <p className="mt-4 text-[60px] font-bold tracking-tight leading-none tabular-nums text-[var(--foreground)]">{value}</p>
         {subtitle && <p className="mt-0.5 text-xs text-[var(--muted)]">{subtitle}</p>}
       </div>
-
-      {progress !== undefined && (
-        <div className="mt-3">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-[var(--muted)]">Progress</span>
-            <span className="text-[var(--muted)]">{progress}%</span>
-          </div>
-          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-divider,#F0F0F2)]">
-            <div
-              className="h-full rounded-full bg-[var(--accent-purple,#7C5CFF)] transition-all"
-              style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
-            />
-          </div>
-        </div>
-      )}
 
       <div className="mt-auto flex items-center justify-between rounded-xl border border-[var(--surface-border)] px-3 py-2 transition-colors hover:bg-[var(--surface-hover,rgba(0,0,0,0.03))]">
         <span className="text-xs font-medium text-[var(--muted)]">{actionLabel}</span>

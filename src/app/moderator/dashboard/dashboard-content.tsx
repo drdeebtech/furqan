@@ -32,7 +32,7 @@ export function ModeratorDashboardContent({ data }: { data: ModeratorDashboardDa
       <div className="h-0.5 bg-gradient-to-l from-gold/0 via-gold/30 to-gold/0" />
       <div dir={dir} className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         {/* Row 0: Welcome */}
-        <h1 className="text-2xl font-bold">{t("لوحة المشرف", "Moderator Dashboard")}</h1>
+        <h1 className="font-display text-3xl font-bold">{t("لوحة المشرف", "Moderator Dashboard")}</h1>
         <p className="mt-1 text-sm text-muted">{t("مراقبة الجودة ومراجعة المحتوى", "Quality monitoring & content review")}</p>
 
         {/* Row 1: 4 Stat Cards */}

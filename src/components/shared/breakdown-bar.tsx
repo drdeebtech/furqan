@@ -53,7 +53,7 @@ export function BreakdownBar({ title, segments, total, emptyMessage }: Breakdown
                   className="h-1.5 w-1.5 rounded-full"
                   style={{ backgroundColor: seg.color }}
                 />
-                <span className="text-[11px] text-[var(--muted)]">{seg.label}</span>
+                <span className="text-[11px] text-[var(--muted)]">{seg.label} <span className="font-medium text-[var(--foreground)]">{seg.value}</span></span>
               </div>
             ))}
           </div>

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   BarChart,
   Bar,
@@ -25,27 +24,8 @@ interface AnalyticsChartProps {
   unit?: string;
 }
 
-const TABS = ["Daily", "Weekly", "Monthly"] as const;
-const TABS_AR = ["يومي", "أسبوعي", "شهري"] as const;
-
 export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsChartProps) {
   const { t } = useLang();
-  const [activeTab, setActiveTab] = useState<number>(1); // Weekly default
-  const [tabTooltip, setTabTooltip] = useState<number | null>(null);
-
-  const handleTabClick = (index: number) => {
-    if (index === 1) {
-      setActiveTab(index);
-      return;
-    }
-    setTabTooltip(index);
-    setTimeout(() => setTabTooltip(null), 2000);
-  };
-
-  const tabs = TABS.map((tab, i) => ({
-    label: t(TABS_AR[i], tab),
-    index: i,
-  }));
 
   const formatValue = (v: number) => {
     if (unit === "$") return `$${v}`;
@@ -58,10 +38,10 @@ export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsCha
     if (!entry?.isActive || !entry.value) return null;
     const cx = Number(props.x ?? 0) + Number(props.width ?? 0) / 2;
     const cy = Number(props.y ?? 0) - 20;
-    const label = `🔥 ${formatValue(Number(props.value ?? 0))}`;
+    const label = formatValue(Number(props.value ?? 0));
     return (
       <g>
-        <rect x={cx - 44} y={cy - 12} width="88" height="24" rx="12" fill="#1A1A1F" />
+        <rect x={cx - 36} y={cy - 12} width="72" height="24" rx="12" fill="#1A1A1F" />
         <text x={cx} y={cy + 4} textAnchor="middle" fill="#FFF" fontSize="12" fontWeight="600">
           {label}
         </text>
@@ -71,28 +51,10 @@ export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsCha
 
   return (
     <div>
-      {/* Tabs */}
-      <div className="relative flex gap-0 rounded-[10px] bg-[var(--surface-light,#F5F5F7)] p-1">
-        {tabs.map((tab) => (
-          <button
-            key={tab.index}
-            type="button"
-            onClick={() => handleTabClick(tab.index)}
-            className={`relative rounded-md px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
-              activeTab === tab.index
-                ? "bg-white text-[var(--foreground)] shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
-                : "text-[var(--muted)] hover:text-[var(--foreground)]"
-            }`}
-          >
-            {tab.label}
-            {tabTooltip === tab.index && (
-              <span className="absolute -bottom-8 start-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-lg bg-[#1A1A1F] px-2.5 py-1 text-[11px] text-white shadow-lg">
-                {t("قريباً", "Coming soon")}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      {/* Period label */}
+      <span className="inline-block rounded-md bg-[var(--surface-light,#F5F5F7)] px-3 py-1.5 text-[13px] font-medium text-[var(--foreground)]">
+        {t("أسبوعي", "Weekly")}
+      </span>
 
       {/* Chart */}
       <div className="mt-4">
@@ -127,6 +89,7 @@ export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsCha
               tick={{ fontSize: 11, fill: "#9CA3AF" }}
               tickFormatter={(v: number) => formatValue(v)}
               domain={[0, "auto"]}
+              allowDecimals={unit !== "#"}
             />
             <Bar dataKey="value" maxBarSize={56} radius={[12, 12, 0, 0]}>
               {data.map((entry, index) => (
