@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { GraduationCap, Star, Users, Search } from "lucide-react";
+import { GraduationCap, Star, Users, Search, SlidersHorizontal } from "lucide-react";
+import { useLang } from "@/lib/i18n/context";
 import { SESSION_TYPE_AR, RIWAYA_AR } from "@/lib/constants";
 import type { SessionType, RecitationStandard } from "@/types/database";
 import type { TeacherData } from "./page";
@@ -19,17 +20,33 @@ const SPECIALTIES: { key: string; ar: string }[] = [
   { key: "tafsir", ar: "تفسير" },
 ];
 
+const GENDER_FILTERS: { key: string; ar: string; en: string }[] = [
+  { key: "all", ar: "الكل", en: "All" },
+  { key: "male", ar: "ذكر", en: "Male" },
+  { key: "female", ar: "أنثى", en: "Female" },
+];
+
 export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
   const [specialty, setSpecialty] = useState("all");
+  const [gender, setGender] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"rating" | "sessions" | "price">("rating");
   const searchParams = useSearchParams();
+  const { t } = useLang();
   const isNew = searchParams.get("new") === "1";
 
-  const filtered = teachers.filter((t) => {
-    if (specialty !== "all" && !t.specialties.includes(specialty)) return false;
-    if (searchQuery && !t.name.includes(searchQuery)) return false;
-    return true;
-  });
+  const filtered = teachers
+    .filter((tc) => {
+      if (specialty !== "all" && !tc.specialties.includes(specialty)) return false;
+      if (gender !== "all" && tc.gender !== gender) return false;
+      if (searchQuery && !tc.name.includes(searchQuery)) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "rating") return Number(b.rating_avg) - Number(a.rating_avg);
+      if (sortBy === "sessions") return b.total_sessions - a.total_sessions;
+      return a.hourly_rate - b.hourly_rate;
+    });
 
   return (
     <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
@@ -82,10 +99,39 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
               </button>
             ))}
           </div>
-
         </div>
 
-        <p className="text-xs text-muted">{filtered.length} معلم</p>
+        {/* Gender + Sort */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted">{t("الجنس:", "Gender:")}</span>
+            {GENDER_FILTERS.map((g) => (
+              <button
+                key={g.key}
+                onClick={() => setGender(g.key)}
+                className={`rounded-full px-2.5 py-0.5 text-xs transition-colors ${
+                  gender === g.key ? "glass-gold font-medium text-white" : "glass text-muted hover:border-gold/40"
+                }`}
+              >
+                {t(g.ar, g.en)}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal size={12} className="text-muted" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="glass-input rounded-lg px-2 py-1 text-xs"
+            >
+              <option value="rating">{t("الأعلى تقييماً", "Top rated")}</option>
+              <option value="sessions">{t("الأكثر خبرة", "Most experienced")}</option>
+              <option value="price">{t("الأقل سعراً", "Lowest price")}</option>
+            </select>
+          </div>
+        </div>
+
+        <p className="text-xs text-muted">{filtered.length} {t("معلم", "teachers")}</p>
       </div>
 
       {/* Results */}
