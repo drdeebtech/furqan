@@ -43,7 +43,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
   return (
     <>
       <div className="h-0.5 bg-gradient-to-l from-gold/0 via-gold/30 to-gold/0" />
-      <div dir={dir} className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div dir={dir} className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         {/* Row 0: Title + Alerts */}
         <h1 className="font-display text-3xl font-bold">{t("لوحة الإدارة", "Admin Dashboard")}</h1>
         <p className="mt-1 text-sm text-muted">{t("مركز التحكم", "Command Center")}</p>
