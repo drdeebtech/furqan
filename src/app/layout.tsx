@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Amiri, Cairo } from "next/font/google";
+import { Inter, Aref_Ruqaa, Tajawal } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme/context";
 
@@ -10,7 +10,7 @@ const inter = Inter({
   preload: true,
 });
 
-const amiri = Amiri({
+const arefRuqaa = Aref_Ruqaa({
   variable: "--font-display",
   subsets: ["arabic"],
   weight: ["400", "700"],
@@ -18,9 +18,10 @@ const amiri = Amiri({
   preload: true,
 });
 
-const body = Cairo({
+const body = Tajawal({
   variable: "--font-body",
   subsets: ["arabic", "latin"],
+  weight: ["300", "400", "500", "700", "800"],
   display: "swap",
   preload: true,
   adjustFontFallback: false,
@@ -86,7 +87,7 @@ export default function RootLayout({
     <html
       lang="ar"
       dir="rtl"
-      className={`${inter.variable} ${amiri.variable} ${body.variable} h-full antialiased`}
+      className={`${inter.variable} ${arefRuqaa.variable} ${body.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <a
