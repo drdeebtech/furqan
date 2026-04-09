@@ -23,7 +23,7 @@ Run this at the start of every conversation before committing. Vercel Hobby plan
 
 # Project Overview
 
-FURQAN Academy — Online Quran teaching platform (V9)
+FURQAN Academy — Online Quran teaching platform (V10)
 
 ## Stack
 - **Next.js 16.2.2** (App Router, Turbopack) · **React 19** · **TypeScript 5**
@@ -46,23 +46,37 @@ FURQAN Academy — Online Quran teaching platform (V9)
 - **Feature flags**: `src/lib/settings.ts` + `platform_settings` table (`hide_reviews`, `hide_prices`)
 - **Parent notifications**: `src/lib/notifications/parent.ts` — report system for parents
 - **Session observation**: Daily.co observer tokens with mic/camera off, max_participants bumped to 3
+- **Homework system**: `src/lib/actions/homework.ts` — 5 server actions (create, markReady, grade, edit, delete) with state machine and auto-regeneration
 
-## Database (25 tables)
-Original 20 tables + 5 V9 tables:
+## Database (27 tables)
+Original 20 tables + 5 V9 tables + 1 V10 table + 1 V10.1 table:
+
+V9 tables:
 - `platform_settings` — key-value feature flags
 - `session_evaluations` — student evaluation scores
 - `parent_reports` — parent notification reports
 - `session_notes_history` — notes edit audit trail
 - `session_observers` — observation tracking
 
-V9 migration file: `src/lib/supabase/migrations/v9_001_schema.sql`
+V10 tables:
+- `services` — dynamic service definitions (bilingual)
+- `homework_assignments` — structured homework with state machine, grading, auto-regeneration
+
+Migration files:
+- `src/lib/supabase/migrations/v9_001_schema.sql`
+- `src/lib/supabase/migrations/v10_001_services.sql`
+- `src/lib/supabase/migrations/v10_002_homework.sql`
 
 ## V9 Enums
 - `cv_status`: draft | pending_review | approved | rejected
 - `evaluation_type`: weekly | biweekly | monthly | quarterly
 - `report_type`: session_summary | evaluation | custom | missed_session | schedule_change
 
-## V9 SQL Functions
+## V10 Enums
+- `homework_type`: hifz | muraja | recitation | tajweed | writing | listening
+- `homework_status`: assigned | student_ready | completed_excellent | completed_good | completed_needs_work | completed_not_done
+
+## SQL Functions
 - `is_moderator()` — checks if user has moderator role
 - `is_admin_or_mod()` — checks if user is admin or moderator
 
@@ -89,23 +103,23 @@ src/
 │   ├── (public)/        — landing, about, contact, packages, teachers, blog
 │   ├── admin/           — full admin dashboard (users, teachers, bookings, sessions, evaluations, settings)
 │   ├── moderator/       — moderator dashboard (users, cv-review, sessions, evaluations, audit)
-│   ├── student/         — student portal (dashboard, teachers, bookings, sessions, progress, messages)
-│   ├── teacher/         — teacher portal (dashboard, sessions, availability, students, cv, evaluations, messages)
+│   ├── student/         — student portal (dashboard, teachers, bookings, sessions, homework, progress, messages)
+│   ├── teacher/         — teacher portal (dashboard, sessions, availability, students, homework, cv, evaluations, messages)
 │   └── api/             — webhooks (stripe, bookings)
 ├── components/
 │   ├── shared/          — nav, session-timer, session-status, device-check, logout-button
 │   └── public/          — testimonials, public-nav, public-footer, whatsapp-button
 ├── lib/
 │   ├── supabase/        — client.ts, server.ts, middleware.ts, admin.ts
-│   ├── actions/         — evaluations.ts (shared admin+moderator)
+│   ├── actions/         — evaluations.ts (shared admin+moderator), homework.ts (5 actions)
 │   ├── notifications/   — parent.ts
 │   ├── i18n/            — context.tsx, lang-toggle.tsx
 │   ├── daily.ts         — Daily.co API (rooms, tokens, observer tokens)
 │   ├── settings.ts      — feature flags utilities
 │   ├── feature-flags-context.tsx — client-side flags provider
-│   └── constants.ts     — Arabic labels for session types, statuses
+│   └── constants.ts     — Arabic labels for session types, statuses, homework types/statuses
 ├── types/
-│   └── database.ts      — all TypeScript types (25 tables, 11 enums)
+│   └── database.ts      — all TypeScript types (27 tables, 13 enums)
 └── proxy.ts             — middleware route protection
 supabase/functions/      — 4 edge functions (auto-reminder, auto-complete, no-show-detector, weekly-report)
 ```
@@ -120,6 +134,44 @@ supabase/functions/      — 4 edge functions (auto-reminder, auto-complete, no-
 - Buttons: `rounded bg-gold px-4 py-2 text-sm font-medium text-white`
 - Primary CTA: `rounded-full bg-primary px-8 py-3 text-lg font-semibold text-white neu-btn`
 - All user-facing text in Arabic
+
+## Homework State Machine (V10)
+```
+assigned (teacher creates)
+  → student_ready (student clicks "I'm Ready")
+    → completed_excellent | completed_good (graded — done)
+    → completed_needs_work | completed_not_done (graded — auto-creates new homework via parent_assignment_id)
+```
+- 6 types: hifz, muraja, recitation, tajweed, writing, listening
+- Edit window: teacher can edit until next session starts
+- Notifications: assignment created → student, ready → teacher, graded → student, not_done → parent report
+- Legacy `sessions.homework` text field preserved for backward compatibility
+
+## Completed Features (shipped to main)
+- 4 role dashboards (Student, Teacher, Admin, Moderator) with real Supabase data
+- Shared widget system (StatCard, AnalyticsChart, DataTable, LiveSessions, BreakdownBar, WidgetCard)
+- Bilingual RTL/LTR with Arabic/English toggle
+- Dark + light mode
+- Database schema V9 + V10 (sessions, evaluations, CV status, homework)
+- Blog CMS with 6 seeded articles
+- SEO (sitemap, robots, structured data, OG images)
+- RLS policies audited
+- n8n instance at n8n.drdeeb.tech (2 workflows imported)
+- CV review workflow for moderators
+- Basic booking + sessions with Daily.co video
+- Stripe payment integration (basic)
+- **Homework system** (V10) — structured assignments, state machine, grading, auto-regeneration
+
+## Future Roadmap (ordered by priority)
+1. **Phase B: Package & Pricing** — 5 package types, student checkout, Stripe integration, admin management
+2. **Phase C: Notifications** — in-app bell, email (Resend), WhatsApp (n8n), user preferences
+3. **Phase D: Student Progress & Reports** — hifz juz tracking, PDF reports, parent view, achievement milestones
+4. **Phase E: Teacher Onboarding Polish** — signup flow, availability calendar, specializations, Stripe Connect payouts
+5. **Phase F: Student Discovery** — teacher browse/filter, public profiles, reviews/ratings, booking flow
+6. **Phase G: Communication** — student↔teacher messaging, file sharing, booking-tied conversations
+7. **Phase H: Mobile** — PWA or native app decision
+8. **Phase I: Automation** — remaining ~30 n8n workflows
+9. **Phase J: Advanced** — AI suggestions, recording transcription, Quran text display, gamification
 
 ## Verification Checklist
 After any code change:
