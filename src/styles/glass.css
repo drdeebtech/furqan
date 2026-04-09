@@ -654,7 +654,7 @@
   background: var(--background);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border-inline-end: none;
+  border-inline-end: 1px solid var(--surface-border);
   box-shadow: none;
 }
 
