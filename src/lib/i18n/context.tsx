@@ -35,6 +35,11 @@ export function LangProvider({ children }: { children: ReactNode }) {
     queueMicrotask(() => setMounted(true));
   }, []);
 
+  useEffect(() => {
+    if (!mounted) return;
+    document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+  }, [lang, mounted]);
+
   const toggle = useCallback(() => {
     setLang((prev) => {
       const next = prev === "ar" ? "en" : "ar";
