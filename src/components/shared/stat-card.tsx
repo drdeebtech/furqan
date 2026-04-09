@@ -27,7 +27,7 @@ export function StatCard({ icon: Icon, label, value, href, subtitle, progress, a
   return (
     <Link
       href={href}
-      className="glass-card flex min-h-[168px] flex-col p-5 transition-colors"
+      className="glass-card flex min-h-[180px] flex-col p-6 transition-colors"
     >
       <div>
         <div className="flex items-center justify-between">
@@ -46,7 +46,7 @@ export function StatCard({ icon: Icon, label, value, href, subtitle, progress, a
             </div>
           )}
         </div>
-        <p className="mt-4 text-4xl font-semibold text-[var(--foreground)]">{value}</p>
+        <p className="mt-4 text-5xl font-bold tracking-tight text-[var(--foreground)]">{value}</p>
         {subtitle && <p className="mt-0.5 text-xs text-[var(--muted)]">{subtitle}</p>}
       </div>
 
@@ -65,9 +65,9 @@ export function StatCard({ icon: Icon, label, value, href, subtitle, progress, a
         </div>
       )}
 
-      <div className="mt-auto flex items-center justify-between border-t border-[var(--surface-border)] pt-3">
-        <span className="text-[13px] font-medium text-[var(--muted)]">{actionLabel}</span>
-        <Arrow size={16} className="text-[var(--muted)]" />
+      <div className="mt-auto flex items-center justify-between rounded-xl border border-[var(--surface-border)] px-3 py-2 transition-colors hover:bg-[var(--surface-hover,rgba(0,0,0,0.03))]">
+        <span className="text-xs font-medium text-[var(--muted)]">{actionLabel}</span>
+        <Arrow size={14} className="text-[var(--muted)]" />
       </div>
     </Link>
   );

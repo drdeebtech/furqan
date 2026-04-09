@@ -60,18 +60,19 @@
 
 /* ── Light Mode — Clean white/gray per reference dashboard ── */
 html.light {
-  --background: #F5F5F7;
+  --background: #FAFAF7;
   --foreground: #1A1A1F;
   --gold: #B8922D;
   --gold-hover: #a07e25;
   --gold-light: #d4b76a;
   --gold-dim: rgba(184,146,45,0.10);
   --surface: #FFFFFF;
-  --surface-border: #EAEAEC;
-  --surface-light: #F5F5F7;
-  --surface-divider: #F0F0F2;
+  --surface-border: #EEEDE8;
+  --surface-light: #F5F5F2;
+  --surface-divider: #F2F1EC;
+  --surface-hover: rgba(0,0,0,0.04);
   --input-bg: #ffffff;
-  --input-border: #EAEAEC;
+  --input-border: #EEEDE8;
   --focus-ring: #7C5CFF;
   --muted: #6B7280;
   --muted-light: #9CA3AF;
@@ -82,10 +83,12 @@ html.light {
   --accent-purple-light: rgba(124, 92, 255, 0.1);
   --accent-green: #22C55E;
   --accent-green-light: rgba(34, 197, 94, 0.1);
+  --data-progress: #3B82F6;
+  --chart-stripe: #E5E5E0;
 }
 
 html.light body {
-  background: #F5F5F7;
+  background: #FAFAF7;
 }
 
 html { scroll-behavior: smooth; }
