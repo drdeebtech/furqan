@@ -34,6 +34,22 @@ export interface N8nWorkflow {
   updatedAt: string;
 }
 
+export interface N8nNode {
+  id: string;
+  name: string;
+  type: string;
+  typeVersion?: number;
+  parameters: Record<string, unknown>;
+  credentials?: Record<string, { id: string; name: string }>;
+  position: [number, number];
+}
+
+export interface N8nWorkflowDetail extends N8nWorkflow {
+  nodes: N8nNode[];
+  connections: Record<string, unknown>;
+  settings?: Record<string, unknown>;
+}
+
 export interface N8nExecution {
   id: string;
   workflowId: string;
@@ -41,6 +57,22 @@ export interface N8nExecution {
   startedAt: string;
   stoppedAt: string | null;
   data?: { resultData?: { error?: { message: string } } };
+}
+
+export interface N8nNodeRunData {
+  startTime: number;
+  executionTime: number;
+  error?: { message: string; stack?: string; node?: string };
+  data?: unknown;
+}
+
+export interface N8nExecutionDetail extends N8nExecution {
+  data: {
+    resultData: {
+      runData?: Record<string, N8nNodeRunData[]>;
+      error?: { message: string; stack?: string; node?: string };
+    };
+  };
 }
 
 export async function getWorkflows(): Promise<N8nWorkflow[]> {
@@ -59,6 +91,23 @@ export async function activateWorkflow(id: string): Promise<void> {
 
 export async function deactivateWorkflow(id: string): Promise<void> {
   await n8nFetch(`/workflows/${id}/deactivate`, { method: "POST" });
+}
+
+export async function getWorkflowDetail(id: string): Promise<N8nWorkflowDetail> {
+  return n8nFetch<N8nWorkflowDetail>(`/workflows/${id}`);
+}
+
+export async function getAllExecutions(limit = 200): Promise<{ data: N8nExecution[]; nextCursor?: string }> {
+  return n8nFetch<{ data: N8nExecution[]; nextCursor?: string }>(`/executions?limit=${limit}`);
+}
+
+export async function getExecutionDetail(id: string): Promise<N8nExecutionDetail> {
+  return n8nFetch<N8nExecutionDetail>(`/executions/${id}?includeData=true`);
+}
+
+export async function getWorkflowExecutions(workflowId: string, limit = 50): Promise<N8nExecution[]> {
+  const res = await n8nFetch<{ data: N8nExecution[] }>(`/executions?workflowId=${workflowId}&limit=${limit}`);
+  return res.data;
 }
 
 export async function sendTelegramAlert(message: string): Promise<void> {
