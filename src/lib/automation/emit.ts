@@ -39,12 +39,21 @@ export async function emitEvent(
     data,
   };
 
+  // Map events to specific n8n webhook paths
+  const WEBHOOK_ROUTES: Record<string, string> = {
+    "booking.confirmed": "/webhook/furqan-booking-confirmed",
+    "session.notes_saved": "/webhook/furqan-session-notes-saved",
+  };
+
+  // Send to specific webhook if mapped, otherwise to generic events endpoint
+  const path = WEBHOOK_ROUTES[eventName] ?? "/webhook/furqan-events";
+
   // Fire-and-forget with 5s timeout
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
 
   try {
-    await fetch(`${N8N_WEBHOOK_URL}/furqan-events`, {
+    await fetch(`${N8N_WEBHOOK_URL}${path}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

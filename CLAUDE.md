@@ -66,8 +66,9 @@ Each domain owns its events, validation rules, and downstream triggers:
 - **Parent notifications**: `src/lib/notifications/parent.ts` — report system for parents
 - **Session observation**: Daily.co observer tokens with mic/camera off, max_participants bumped to 3
 - **Homework system**: `src/lib/actions/homework.ts` — 5 server actions with state machine and auto-regeneration
-- **Event emission**: `src/lib/automation/emit.ts` — non-blocking webhook calls to n8n on business events
-- **n8n callback**: `src/app/api/webhooks/n8n/route.ts` — log, notify, idempotency check actions
+- **Event emission**: `src/lib/automation/emit.ts` — non-blocking webhooks to n8n with per-event routing
+- **n8n callback**: `src/app/api/webhooks/n8n/route.ts` — log, notify, idempotency check
+- **n8n instance**: n8n.drdeeb.tech — **26 active FURQAN workflows** deployed across 9 areas
 - **Notification bell**: `src/components/shared/notification-bell.tsx` — topbar dropdown with unread count
 - **Notification dispatcher**: `src/lib/notifications/dispatcher.ts` — multi-channel with preferences, delivery logging
 - **Admin control tower**: `/admin/control-tower` — 7 real-time operational widgets
