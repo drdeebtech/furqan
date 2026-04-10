@@ -69,23 +69,27 @@ export function GradeForm({
         <div className="rounded-xl border border-error/30 bg-error/10 p-2 text-sm text-error">{error}</div>
       )}
 
-      <p className="text-sm font-medium">{t("تقييم", "Grade")}: {homeworkTitle}</p>
+      <fieldset>
+        <legend className="mb-2 text-sm font-medium">{t("تقييم", "Grade")}: {homeworkTitle}</legend>
+        <div className="flex flex-wrap gap-2">
+          {GRADES.map((g) => (
+            <button
+              key={g.value}
+              type="button"
+              onClick={() => setSelectedGrade(g.value)}
+              className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-all ${g.className} ${
+                selectedGrade === g.value ? "ring-2 ring-white/30" : ""
+              }`}
+            >
+              {t(g.ar, g.en)}
+            </button>
+          ))}
+        </div>
+      </fieldset>
 
-      <div className="flex flex-wrap gap-2">
-        {GRADES.map((g) => (
-          <button
-            key={g.value}
-            onClick={() => setSelectedGrade(g.value)}
-            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-all ${g.className} ${
-              selectedGrade === g.value ? "ring-2 ring-white/30" : ""
-            }`}
-          >
-            {t(g.ar, g.en)}
-          </button>
-        ))}
-      </div>
-
+      <label htmlFor="teacher-notes" className="sr-only">{t("ملاحظات المعلم", "Teacher notes")}</label>
       <textarea
+        id="teacher-notes"
         value={teacherNotes}
         onChange={(e) => setTeacherNotes(e.target.value)}
         rows={2}
@@ -94,6 +98,7 @@ export function GradeForm({
       />
 
       <button
+        type="button"
         onClick={handleSubmit}
         disabled={saving || !selectedGrade}
         className="glass-gold glass-pill px-5 py-2 text-sm font-semibold transition-colors hover:bg-primary-hover disabled:opacity-50 focus-ring"

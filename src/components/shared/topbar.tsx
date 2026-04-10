@@ -28,6 +28,7 @@ export function Topbar() {
           type="text"
           readOnly
           onClick={handleSearchClick}
+          aria-label="بحث"
           placeholder={t("عن ماذا تعمل...", "What are you working on...")}
           className="glass-input h-11 w-full cursor-pointer rounded-xl pe-10 ps-11 text-sm placeholder:text-[var(--muted-light,var(--muted))] focus:outline-none"
         />
@@ -42,10 +43,12 @@ export function Topbar() {
       </div>
 
       {/* Year selector */}
-      <div className="glass flex h-11 items-center gap-2 rounded-xl px-3.5">
-        <CalendarDays size={16} className="text-[var(--muted)]" />
-        <span className="text-sm font-medium">{new Date().getFullYear()}</span>
-        <ChevronDown size={14} className="text-[var(--muted)]" />
+      <div className="glass flex h-11 items-center rounded-xl px-3.5">
+        <button type="button" aria-label="السنة" className="flex items-center gap-2">
+          <CalendarDays size={16} className="text-[var(--muted)]" />
+          <span className="text-sm font-medium">{new Date().getFullYear()}</span>
+          <ChevronDown size={14} className="text-[var(--muted)]" />
+        </button>
       </div>
 
       {/* Notification bell */}
@@ -62,7 +65,7 @@ export function Topbar() {
       </div>
 
       {/* Menu dots */}
-      <div className="glass flex h-11 w-11 items-center justify-center rounded-xl">
+      <div className="glass flex h-11 w-11 items-center justify-center rounded-xl" role="button" tabIndex={0} aria-label="المزيد">
         <MoreHorizontal size={18} className="text-[var(--muted)]" />
       </div>
     </div>

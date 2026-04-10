@@ -155,7 +155,7 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
           <WidgetCard title={t("حجوزات بانتظار التأكيد", "Pending Bookings")}>
             {uniqueStudents === 0 && pending.length > 0 && (
               <div className="glass glass-pill mb-3 p-3 text-center text-sm text-gold">
-                {t("🎉 لديك حجز جديد! اضغط تأكيد لقبول الطالب", "🎉 You have a new booking! Tap Confirm to accept.")}
+                {t("لديك حجز جديد! اضغط تأكيد لقبول الطالب", "You have a new booking! Tap Confirm to accept.")}
               </div>
             )}
             {pending.length === 0 ? (

@@ -86,6 +86,7 @@ export function NotificationBell() {
     <div ref={dropdownRef} className="relative">
       {/* Bell button */}
       <button
+        type="button"
         onClick={() => setOpen(!open)}
         className="glass flex h-11 w-11 items-center justify-center rounded-xl transition-colors hover:bg-white/5"
       >
@@ -99,12 +100,13 @@ export function NotificationBell() {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute end-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[var(--card)] shadow-2xl sm:w-96">
+        <div className="absolute end-0 top-full z-50 mt-2 w-[calc(100vw-2rem)] max-w-96 overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[var(--card)] shadow-2xl sm:w-96">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-[var(--surface-border)] px-4 py-3">
             <h3 className="text-sm font-semibold">{t("الإشعارات", "Notifications")}</h3>
             {unreadCount > 0 && (
               <button
+                type="button"
                 onClick={handleMarkAllRead}
                 disabled={loading}
                 className="flex items-center gap-1 text-xs text-gold transition-colors hover:text-gold-hover disabled:opacity-50"
@@ -123,35 +125,39 @@ export function NotificationBell() {
                 <p className="text-sm text-muted">{t("لا توجد إشعارات", "No notifications")}</p>
               </div>
             ) : (
-              notifications.map(n => {
-                const config = TYPE_CONFIG[n.type] ?? TYPE_CONFIG.system;
-                const Icon = config.icon;
-                return (
-                  <button
-                    key={n.id}
-                    onClick={() => !n.is_read && handleMarkRead(n.id)}
-                    className={`flex w-full items-start gap-3 px-4 py-3 text-start transition-colors hover:bg-white/5 ${
-                      !n.is_read ? "bg-gold/5" : ""
-                    }`}
-                  >
-                    <div className={`mt-0.5 shrink-0 ${config.color}`}>
-                      <Icon size={16} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className={`text-sm ${!n.is_read ? "font-semibold" : "text-muted"}`}>{n.title}</p>
-                        {!n.is_read && (
-                          <span className="h-2 w-2 shrink-0 rounded-full bg-gold" />
-                        )}
-                      </div>
-                      {n.body && (
-                        <p className="mt-0.5 line-clamp-2 text-xs text-muted">{n.body}</p>
-                      )}
-                      <p className="mt-1 text-[10px] text-muted/60">{timeAgo(n.created_at)}</p>
-                    </div>
-                  </button>
-                );
-              })
+              <ul role="list">
+                {notifications.map(n => {
+                  const config = TYPE_CONFIG[n.type] ?? TYPE_CONFIG.system;
+                  const Icon = config.icon;
+                  return (
+                    <li key={n.id}>
+                      <button
+                        type="button"
+                        onClick={() => !n.is_read && handleMarkRead(n.id)}
+                        className={`flex w-full items-start gap-3 px-4 py-3 text-start transition-colors hover:bg-white/5 ${
+                          !n.is_read ? "bg-gold/5" : ""
+                        }`}
+                      >
+                        <div className={`mt-0.5 shrink-0 ${config.color}`}>
+                          <Icon size={16} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className={`text-sm ${!n.is_read ? "font-semibold" : "text-muted"}`}>{n.title}</p>
+                            {!n.is_read && (
+                              <span className="h-2 w-2 shrink-0 rounded-full bg-gold" />
+                            )}
+                          </div>
+                          {n.body && (
+                            <p className="mt-0.5 line-clamp-2 text-xs text-muted">{n.body}</p>
+                          )}
+                          <p className="mt-1 text-[10px] text-muted/60">{timeAgo(n.created_at)}</p>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </div>
 

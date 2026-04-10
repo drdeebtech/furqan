@@ -33,6 +33,7 @@ export function DataTable({ title, columns, rows, emptyMessage }: DataTableProps
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
+            <caption className="sr-only">{title}</caption>
             <thead>
               <tr className="border-b border-[var(--surface-border)]">
                 {columns.map((col) => (
@@ -98,6 +99,7 @@ function renderCell(col: DataTableColumn, value: unknown) {
     case "assignee": {
       const name = String(value ?? "—");
       const initials = name.slice(0, 2);
+      // Intentional decorative avatar colors — not part of the theme system
       const avatarColors = ["bg-[#C7B9F0]", "bg-[#A5C7F0]", "bg-[#F5B8A0]", "bg-[#9FD6C8]", "bg-[#F0B8C4]", "bg-[#A8D8B5]"];
       let hash = 0;
       for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
@@ -114,7 +116,9 @@ function renderCell(col: DataTableColumn, value: unknown) {
 
     case "actions":
       return (
-        <Eye size={16} className="text-[var(--muted-light,#9CA3AF)]" />
+        <span role="button" tabIndex={0} aria-label="عرض">
+          <Eye size={16} className="text-[var(--muted-light,#9CA3AF)]" />
+        </span>
       );
 
     default:
