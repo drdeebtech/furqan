@@ -181,16 +181,13 @@ export function VideoRoom({
         </div>
       )}
 
-      {/* Video container — optimized for mobile and desktop */}
+      {/* Video container — full height for both loading (Daily pre-join) and active call */}
       <div
         ref={containerRef}
         className={`overflow-hidden rounded-xl bg-black ${!joined && !loading ? "hidden" : ""}`}
         style={{
-          // On mobile: use nearly full viewport height minus nav/controls
-          // On desktop: 16:9 aspect ratio
-          height: joined ? "calc(100vh - 200px)" : undefined,
-          minHeight: joined ? "300px" : undefined,
-          maxHeight: joined ? "800px" : undefined,
+          height: "calc(100vh - 200px)",
+          minHeight: "400px",
         }}
       />
 
