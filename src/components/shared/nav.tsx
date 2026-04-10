@@ -62,7 +62,8 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/admin/blog", ar: "المدونة", en: "Blog", icon: FileText },
     { href: "/admin/contacts", ar: "رسائل التواصل", en: "Contacts", icon: Mail },
     { href: "/admin/notifications", ar: "الإشعارات", en: "Notifications", icon: Bell },
-    { href: "/admin/automation", ar: "الأتمتة", en: "Automation", icon: Settings, group: { ar: "الإعدادات", en: "SETTINGS" } },
+    { href: "/admin/n8n", ar: "تحكم n8n", en: "n8n Control", icon: Settings, group: { ar: "الإعدادات", en: "SETTINGS" } },
+    { href: "/admin/automation", ar: "سجل الأتمتة", en: "Automation Logs", icon: ScrollText },
     { href: "/admin/settings", ar: "الإعدادات", en: "Settings", icon: Settings },
   ],
   moderator: [
