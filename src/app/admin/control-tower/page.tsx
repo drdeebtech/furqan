@@ -36,12 +36,12 @@ export default async function ControlTowerPage() {
     supabase.from("recitation_errors").select("id", { count: "exact", head: true }).eq("resolved", false),
   ]);
 
-  // Low balance packages — manual query since RPC placeholder
+  // Low balance packages — fetch only the 2 fields needed, limit to active
   const { data: lowPkgs } = await supabase
     .from("student_packages")
-    .select("id, sessions_total, sessions_used")
+    .select("sessions_total, sessions_used")
     .eq("status", "active")
-    .returns<{ id: string; sessions_total: number; sessions_used: number }[]>();
+    .returns<{ sessions_total: number; sessions_used: number }[]>();
   const lowBalanceCount = (lowPkgs ?? []).filter(p => (p.sessions_total - p.sessions_used) <= 2).length;
 
   const widgets = [

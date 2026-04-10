@@ -32,7 +32,6 @@ export default async function StudentProgressPage() {
     progressRes,
     evalsRes,
     hwRes,
-    _errorsRes,
     totalHoursRes,
   ] = await Promise.all([
     // Completed sessions count
@@ -58,22 +57,28 @@ export default async function StudentProgressPage() {
       .select("status")
       .eq("student_id", user.id)
       .returns<{ status: string }[]>(),
-    // Recitation errors
-    supabase.from("recitation_errors")
-      .select("error_type, resolved")
-      .in("progress_id", []) // placeholder — we'll compute from progress IDs
-      .returns<{ error_type: string; resolved: boolean }[]>(),
-    // Total study hours
-    supabase.from("sessions")
-      .select("actual_duration, booking_id")
-      .not("actual_duration", "is", null)
-      .returns<{ actual_duration: number | null; booking_id: string }[]>(),
+    // Total study hours — filtered by student's bookings only
+    supabase.from("bookings")
+      .select("id, scheduled_at")
+      .eq("student_id", user.id).eq("status", "completed")
+      .returns<{ id: string; scheduled_at: string }[]>(),
   ]);
 
   const completedCount = completedRes.count ?? 0;
   const progressRecords = progressRes.data ?? [];
   const evaluations = evalsRes.data ?? [];
   const homeworkRaw = hwRes.data ?? [];
+
+  // Get total study hours from student's completed sessions
+  const completedBookingIds = (totalHoursRes.data ?? []).map(b => b.id);
+  let totalMinutes = 0;
+  if (completedBookingIds.length > 0) {
+    const { data: sessionsData } = await supabase.from("sessions")
+      .select("actual_duration").in("booking_id", completedBookingIds)
+      .not("actual_duration", "is", null)
+      .returns<{ actual_duration: number | null }[]>();
+    totalMinutes = (sessionsData ?? []).reduce((sum, s) => sum + (s.actual_duration ?? 0), 0);
+  }
 
   // Compute juz touched from progress records
   const juzTouched = new Set<number>();
@@ -112,10 +117,6 @@ export default async function StudentProgressPage() {
     overall: e.overall_score,
   }));
 
-  // Total study hours
-  const totalMinutes = (totalHoursRes.data ?? [])
-    .filter(s => s.actual_duration)
-    .reduce((sum, s) => sum + (s.actual_duration ?? 0), 0);
   const totalHours = Math.round(totalMinutes / 60);
 
   return (

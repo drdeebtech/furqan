@@ -80,30 +80,24 @@ export default async function StudentDashboardPage() {
     sessionId = session?.id ?? null;
   }
 
-  // Active student packages
-  const { data: activePackages } = await supabase
-    .from("student_packages")
-    .select("id, sessions_total, sessions_used, status, expires_at")
-    .eq("student_id", user.id)
-    .eq("status", "active")
-    .returns<{ id: string; sessions_total: number; sessions_used: number; status: string; expires_at: string | null }[]>();
-
-  // Homework counts by status
-  const { data: hwRaw } = await supabase
-    .from("homework_assignments")
-    .select("status")
-    .eq("student_id", user.id)
-    .returns<{ status: string }[]>();
-  const hwCounts: Record<string, number> = {};
-  for (const h of hwRaw ?? []) {
-    hwCounts[h.status] = (hwCounts[h.status] ?? 0) + 1;
-  }
-
-  const [weeklyData, liveSessions, recentRecordings] = await Promise.all([
+  // Parallel: packages + homework + dashboard widgets (all independent)
+  const [packagesRes, hwRawRes, weeklyData, liveSessions, recentRecordings] = await Promise.all([
+    supabase.from("student_packages")
+      .select("id, sessions_total, sessions_used, status, expires_at")
+      .eq("student_id", user.id).eq("status", "active")
+      .returns<{ id: string; sessions_total: number; sessions_used: number; status: string; expires_at: string | null }[]>(),
+    supabase.from("homework_assignments")
+      .select("status").eq("student_id", user.id)
+      .returns<{ status: string }[]>(),
     getStudentWeeklyStudyTime(user.id),
     getStudentLiveSessions(user.id),
     getStudentRecentRecordings(user.id),
   ]);
+  const activePackages = packagesRes.data ?? [];
+  const hwCounts: Record<string, number> = {};
+  for (const h of hwRawRes.data ?? []) {
+    hwCounts[h.status] = (hwCounts[h.status] ?? 0) + 1;
+  }
 
   return (
     <StudentDashboardContent
