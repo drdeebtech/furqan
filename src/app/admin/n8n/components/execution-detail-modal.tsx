@@ -12,7 +12,8 @@ interface ExecutionDetailModalProps {
 interface NodeRunData {
   startTime: number;
   executionTime: number;
-  error?: { message: string; stack?: string; node?: string };
+  executionStatus?: "success" | "error";
+  error?: { message: string; stack?: string };
   data?: unknown;
 }
 
@@ -22,10 +23,11 @@ interface ExecutionDetail {
   startedAt: string;
   stoppedAt: string | null;
   workflowId: string;
-  data: {
-    resultData: {
+  data?: {
+    resultData?: {
       runData?: Record<string, NodeRunData[]>;
-      error?: { message: string; stack?: string; node?: string };
+      lastNodeExecuted?: string;
+      error?: { message: string; stack?: string };
     };
   };
 }

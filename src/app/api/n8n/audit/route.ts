@@ -18,6 +18,7 @@ export async function POST() {
 
     // 2. Fetch detail for each workflow, batching 5 at a time
     const detailedWorkflows: N8nWorkflowDetail[] = [];
+    let skippedCount = 0;
     for (let i = 0; i < workflows.length; i += 5) {
       const batch = workflows.slice(i, i + 5);
       const results = await Promise.allSettled(
@@ -26,8 +27,9 @@ export async function POST() {
       for (const result of results) {
         if (result.status === "fulfilled") {
           detailedWorkflows.push(result.value);
+        } else {
+          skippedCount++;
         }
-        // Skip failed fetches gracefully
       }
     }
 
@@ -38,8 +40,9 @@ export async function POST() {
     // 4. Run the full audit
     const report = runFullAudit(detailedWorkflows, allExecutions);
 
-    return NextResponse.json(report);
+    return NextResponse.json({ ...report, _meta: { skippedWorkflows: skippedCount, fetchedWorkflows: detailedWorkflows.length } });
   } catch (err) {
+    console.error("[n8n-audit] Audit scan failed:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

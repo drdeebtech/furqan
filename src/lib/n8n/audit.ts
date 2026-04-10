@@ -242,15 +242,16 @@ export function detectRecurringFailures(executions: N8nExecution[]): AuditIssue[
   }
   const oneHourAgo = Date.now() - 60 * 60 * 1000;
   for (const [wfId, execs] of byWorkflow) {
-    const recentCount = execs.filter(e => new Date(e.startedAt).getTime() > oneHourAgo).length;
+    const sorted = execs.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+    const recentCount = sorted.filter(e => new Date(e.startedAt).getTime() > oneHourAgo).length;
     if (recentCount >= 3) {
       issues.push({
         workflowId: wfId,
-        workflowName: "", // filled later by caller
+        workflowName: wfId, // overwritten by caller with real name if available
         category: "recurring_failure",
         severity: "critical",
         message: `${recentCount} failures in the last hour`,
-        detail: `Latest: ${execs[0]?.startedAt}`,
+        detail: `Latest: ${sorted[0]?.startedAt ?? "unknown"}`,
       });
     }
   }

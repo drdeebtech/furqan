@@ -9,21 +9,29 @@ const N8N_API_KEY = process.env.N8N_API_KEY;
 async function n8nFetch<T>(path: string, options?: RequestInit): Promise<T> {
   if (!N8N_API_KEY) throw new Error("N8N_API_KEY not configured");
 
-  const res = await fetch(`${N8N_API_URL}${path}`, {
-    ...options,
-    headers: {
-      "X-N8N-API-KEY": N8N_API_KEY,
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => "Unknown error");
-    throw new Error(`n8n API ${res.status}: ${text}`);
+  try {
+    const res = await fetch(`${N8N_API_URL}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "X-N8N-API-KEY": N8N_API_KEY,
+        "Content-Type": "application/json",
+        ...options?.headers,
+      },
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "Unknown error");
+      throw new Error(`n8n API ${res.status}: ${text}`);
+    }
+
+    return res.json();
+  } finally {
+    clearTimeout(timeout);
   }
-
-  return res.json();
 }
 
 export interface N8nWorkflow {
@@ -62,7 +70,8 @@ export interface N8nExecution {
 export interface N8nNodeRunData {
   startTime: number;
   executionTime: number;
-  error?: { message: string; stack?: string; node?: string };
+  executionStatus?: "success" | "error";
+  error?: { message: string; stack?: string };
   data?: unknown;
 }
 
@@ -70,7 +79,8 @@ export interface N8nExecutionDetail extends N8nExecution {
   data: {
     resultData: {
       runData?: Record<string, N8nNodeRunData[]>;
-      error?: { message: string; stack?: string; node?: string };
+      lastNodeExecuted?: string;
+      error?: { message: string; stack?: string };
     };
   };
 }

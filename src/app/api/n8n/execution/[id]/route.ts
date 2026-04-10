@@ -18,6 +18,7 @@ export async function GET(
     const execution = await getExecutionDetail(id);
     return NextResponse.json(execution);
   } catch (err) {
+    console.error("[n8n-execution-detail] Failed:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

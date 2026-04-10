@@ -110,9 +110,13 @@ export async function autoRestartAction(): Promise<{
   if (results.length > 0) {
     const ok = results.filter((r) => r.success).length;
     const fail = results.filter((r) => !r.success).length;
-    await sendTelegramAlert(
-      `<b>FURQAN Auto-Restart</b>\n${ok} workflows restarted${fail > 0 ? `\n${fail} failed to restart` : ""}`,
-    );
+    try {
+      await sendTelegramAlert(
+        `<b>FURQAN Auto-Restart</b>\n${ok} workflows restarted${fail > 0 ? `\n${fail} failed to restart` : ""}`,
+      );
+    } catch {
+      // Telegram alert failure should not crash the restart response
+    }
   }
 
   return { restarted: results.length, results };
