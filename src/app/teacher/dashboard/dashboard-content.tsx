@@ -13,6 +13,7 @@ import { BookingActions } from "./booking-actions";
 import { TeacherSessionCard } from "./teacher-session-card";
 import { TeacherGuidanceBanner } from "./guidance-banner";
 import { TeacherQuickActions } from "./quick-actions";
+import { TeacherActionQueue } from "./action-queue";
 
 interface SessionData { id: string; room_url: string; expires_at: string | null; started_at: string | null; ended_at: string | null }
 import type { SessionType } from "@/types/database";
@@ -36,11 +37,12 @@ interface TeacherDashboardData {
   liveSessions: { id: string; title: string; subtitle: string; initials: string; timeRemaining?: string; progressPercent?: number }[];
   sessionBreakdown: { label: string; value: number; color: string }[];
   recentStudents: { id: string; [key: string]: unknown }[];
+  actionQueue: { pendingGrading: number; overdueEvals: number; unreadMessages: number; todaySessionCount: number; lowAvailability: boolean };
 }
 
 export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }) {
   const { t, dir } = useLang();
-  const { fullName, cvStatus, hasProfile, hasBio, hasAvailability, uniqueStudents, monthSessions, pendingCount, ratingAvg, todaySessions, pending, sessionDataMap, nameMap, weeklyHours, liveSessions, sessionBreakdown, recentStudents } = data;
+  const { fullName, cvStatus, hasProfile, hasBio, hasAvailability, uniqueStudents, monthSessions, pendingCount, ratingAvg, todaySessions, pending, sessionDataMap, nameMap, weeklyHours, liveSessions, sessionBreakdown, recentStudents, actionQueue } = data;
 
   const st = (type: string) => {
     const s = SESSION_TYPE_BILINGUAL[type as SessionType];
@@ -56,6 +58,9 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
         <p className="mt-1 text-sm text-muted">{t("مرحباً بك في لوحة المعلم", "Welcome to the Teacher Dashboard")}</p>
 
         <TeacherGuidanceBanner cvStatus={cvStatus} hasStudents={uniqueStudents > 0} hasProfile={hasProfile} hasBio={hasBio} hasAvailability={hasAvailability} />
+
+        {/* Action Queue — shows only when there are pending actions */}
+        {cvStatus === "approved" && <div className="mt-4"><TeacherActionQueue data={actionQueue} /></div>}
 
         {/* Row 1: 4 Stat Cards */}
         <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4 stagger-children">

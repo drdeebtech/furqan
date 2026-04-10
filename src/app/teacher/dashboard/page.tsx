@@ -39,6 +39,18 @@ export default async function TeacherDashboardPage() {
     supabase.from("teacher_availability").select("id", { count: "exact", head: true }).eq("teacher_id", user.id).eq("is_active", true),
   ]);
 
+  // Action queue data (parallel)
+  const [gradingRes, unreadMsgRes] = await Promise.all([
+    supabase.from("homework_assignments").select("id", { count: "exact", head: true }).eq("teacher_id", user.id).eq("status", "student_ready"),
+    supabase.from("messages").select("id", { count: "exact", head: true })
+      .in("conversation_id",
+        (await supabase.from("conversations").select("id").eq("teacher_id", user.id).returns<{id:string}[]>()).data?.map(c => c.id) ?? []
+      )
+      .neq("sender_id", user.id).eq("is_read", false),
+  ]);
+  const pendingGrading = gradingRes.count ?? 0;
+  const unreadMessages = unreadMsgRes.count ?? 0;
+
   const fullName = profileRes.data?.full_name ?? null;
   const hasProfile = !!(profileRes.data?.full_name && profileRes.data?.phone);
   const hasBio = !!(tpRes.data?.bio);
@@ -87,6 +99,13 @@ export default async function TeacherDashboardPage() {
         liveSessions,
         sessionBreakdown,
         recentStudents,
+        actionQueue: {
+          pendingGrading,
+          overdueEvals: 0,
+          unreadMessages,
+          todaySessionCount: todaySessions.length,
+          lowAvailability: !hasAvailability,
+        },
       }}
     />
   );
