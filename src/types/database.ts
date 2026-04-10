@@ -535,6 +535,45 @@ export interface AutomationLog {
   trace_id: string;
 }
 
+// ─── V13 Table: message_delivery_log ─────────────────────────────────────────
+
+export type DeliveryChannel = "in_app" | "email" | "whatsapp" | "telegram" | "sms";
+export type DeliveryStatus = "pending" | "sent" | "delivered" | "failed";
+
+export interface MessageDeliveryLog {
+  id: string;
+  recipient_user_id: string;
+  recipient_channel: DeliveryChannel;
+  template_name: string | null;
+  related_entity_type: string | null;
+  related_entity_id: string | null;
+  status: DeliveryStatus;
+  provider_message_id: string | null;
+  attempted_at: string;
+  delivered_at: string | null;
+  failed_at: string | null;
+  failure_reason: string | null;
+  created_at: string;
+}
+
+// ─── V13 Table: communication_preferences ───────────────────────────────────
+
+export type PreferredLanguage = "ar" | "en" | "bilingual";
+
+export interface CommunicationPreference {
+  id: string;
+  user_id: string;
+  preferred_language: PreferredLanguage;
+  email_enabled: boolean;
+  whatsapp_enabled: boolean;
+  in_app_enabled: boolean;
+  quiet_hours_start: string | null;
+  quiet_hours_end: string | null;
+  important_only_mode: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // ─── Supabase Database Type ──────────────────────────────────────────────────
 // Row   = what you read back from a SELECT
 // Insert = what you send to an INSERT (auto-generated fields are optional)
@@ -882,6 +921,33 @@ export interface Database {
         Update: Partial<Omit<AutomationLog, "id">>;
         Relationships: [];
       };
+      // V13 tables
+      message_delivery_log: {
+        Row: MessageDeliveryLog;
+        Insert: Omit<MessageDeliveryLog, "id" | "status" | "attempted_at" | "created_at"> & {
+          id?: string;
+          status?: DeliveryStatus;
+          attempted_at?: string;
+          created_at?: string;
+        };
+        Update: Partial<Omit<MessageDeliveryLog, "id">>;
+        Relationships: [];
+      };
+      communication_preferences: {
+        Row: CommunicationPreference;
+        Insert: Omit<CommunicationPreference, "id" | "preferred_language" | "email_enabled" | "whatsapp_enabled" | "in_app_enabled" | "important_only_mode" | "created_at" | "updated_at"> & {
+          id?: string;
+          preferred_language?: PreferredLanguage;
+          email_enabled?: boolean;
+          whatsapp_enabled?: boolean;
+          in_app_enabled?: boolean;
+          important_only_mode?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<CommunicationPreference, "id">>;
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -917,6 +983,9 @@ export interface Database {
       package_type: PackageType;
       student_package_status: StudentPackageStatus;
       automation_log_status: AutomationLogStatus;
+      delivery_channel: DeliveryChannel;
+      delivery_status: DeliveryStatus;
+      preferred_language: PreferredLanguage;
     };
     CompositeTypes: {
       [_ in never]: never;

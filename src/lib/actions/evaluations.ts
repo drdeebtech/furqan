@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { notify } from "@/lib/notifications/dispatcher";
 
 // Helper to verify caller is admin or moderator
 async function requireAdminOrMod(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -48,12 +49,7 @@ export async function createEvaluation(formData: FormData) {
   // Notify student and teacher
   try {
     for (const uid of [student_id, teacher_id]) {
-      await supabase.from("notifications").insert({
-        user_id: uid, type: "system",
-        title: "تقييم جديد",
-        body: "تم إضافة تقييم جديد — يمكنك الاطلاع عليه من صفحة التقييمات",
-        channel: ["in_app"],
-      } as never);
+      await notify(uid, "system", "تقييم جديد", "تم إضافة تقييم جديد — يمكنك الاطلاع عليه من صفحة التقييمات");
     }
   } catch { /* non-blocking */ }
 
@@ -102,12 +98,7 @@ export async function createTeacherEvaluation(
   if (error) return { error: "فشل إنشاء التقييم" };
 
   try {
-    await supabase.from("notifications").insert({
-      user_id: studentId, type: "system",
-      title: "تقييم جديد من معلمك",
-      body: "أضاف معلمك تقييماً جديداً — يمكنك الاطلاع عليه من صفحة التقييمات",
-      channel: ["in_app"],
-    } as never);
+    await notify(studentId, "system", "تقييم جديد من معلمك", "أضاف معلمك تقييماً جديداً — يمكنك الاطلاع عليه من صفحة التقييمات");
   } catch { /* non-blocking */ }
 
   revalidatePath("/teacher/evaluations");

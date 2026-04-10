@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { notify } from "@/lib/notifications/dispatcher";
 
 export async function sendMessage(conversationId: string, content: string) {
   const supabase = await createClient();
@@ -31,13 +32,7 @@ export async function sendMessage(conversationId: string, content: string) {
       const senderName = sender?.full_name ?? "مستخدم";
       const preview = content.length > 50 ? content.slice(0, 50) + "…" : content;
 
-      await supabase.from("notifications").insert({
-        user_id: recipientId,
-        type: "message",
-        title: `رسالة جديدة من ${senderName}`,
-        body: preview,
-        channel: ["in_app"],
-      } as never);
+      await notify(recipientId, "message", `رسالة جديدة من ${senderName}`, preview, "conversation", conversationId);
     }
   } catch { /* non-blocking */ }
 

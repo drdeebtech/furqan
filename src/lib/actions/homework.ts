@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { notifyParentHomeworkNotDone } from "@/lib/notifications/parent";
+import { notify } from "@/lib/notifications/dispatcher";
 import { HOMEWORK_STATUS_AR } from "@/lib/constants";
 import type { HomeworkStatus, HomeworkAssignment } from "@/types/database";
 import { emitEvent } from "@/lib/automation/emit";
@@ -90,13 +91,7 @@ export async function createHomework(formData: FormData) {
 
   // Notify student
   try {
-    await supabase.from("notifications").insert({
-      user_id: student_id,
-      type: "homework",
-      title: "واجب جديد",
-      body: `كلّفك معلمك بواجب جديد — ${title}`,
-      channel: ["in_app"],
-    } as never);
+    await notify(student_id, "homework", "واجب جديد", `كلّفك معلمك بواجب جديد — ${title}`, "homework", booking_id);
   } catch { /* non-blocking */ }
 
   revalidateHomeworkPaths();
@@ -136,13 +131,7 @@ export async function markStudentReady(homeworkId: string) {
       .single<{ full_name: string | null }>();
     const studentName = student?.full_name ?? "الطالب";
 
-    await supabase.from("notifications").insert({
-      user_id: hw.teacher_id,
-      type: "homework",
-      title: "طالب جاهز",
-      body: `${studentName} جاهز لتسميع الواجب: ${hw.title}`,
-      channel: ["in_app"],
-    } as never);
+    await notify(hw.teacher_id, "homework", "طالب جاهز", `${studentName} جاهز لتسميع الواجب: ${hw.title}`, "homework", homeworkId);
   } catch { /* non-blocking */ }
 
   revalidateHomeworkPaths();
@@ -203,13 +192,7 @@ export async function gradeHomework(homeworkId: string, formData: FormData) {
 
   // Notify student
   try {
-    await supabase.from("notifications").insert({
-      user_id: hw.student_id,
-      type: "homework",
-      title: "تم تقييم واجبك",
-      body: `تم تقييم واجب "${hw.title}" — النتيجة: ${gradeLabel}`,
-      channel: ["in_app"],
-    } as never);
+    await notify(hw.student_id, "homework", "تم تقييم واجبك", `تم تقييم واجب "${hw.title}" — النتيجة: ${gradeLabel}`, "homework", homeworkId);
   } catch { /* non-blocking */ }
 
   // Auto-regeneration for needs_work / not_done
@@ -231,13 +214,7 @@ export async function gradeHomework(homeworkId: string, formData: FormData) {
       } as never);
 
       // Notify student about re-assignment
-      await supabase.from("notifications").insert({
-        user_id: hw.student_id,
-        type: "homework",
-        title: "تم إعادة تكليفك بالواجب",
-        body: `تمت إعادة تكليفك بواجب "${hw.title}" — يرجى المحاولة مجدداً`,
-        channel: ["in_app"],
-      } as never);
+      await notify(hw.student_id, "homework", "تم إعادة تكليفك بالواجب", `تمت إعادة تكليفك بواجب "${hw.title}" — يرجى المحاولة مجدداً`, "homework", homeworkId);
 
       // Notify parent
       await notifyParentHomeworkNotDone(
