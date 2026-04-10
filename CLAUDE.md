@@ -23,7 +23,7 @@ Run this at the start of every conversation before committing. Vercel Hobby plan
 
 # Project Overview
 
-FURQAN Academy — Online Quran teaching platform (V12)
+FURQAN Academy — Online Quran teaching platform (V13)
 
 **Current phase:** Platform hardening & operational leverage (post-audit)
 **Audit report:** `AUDIT.md` — full platform audit with grades and recommendations
@@ -35,18 +35,17 @@ FURQAN Academy — Online Quran teaching platform (V12)
 - **Daily.co** (Video sessions + observer mode)
 - **Stripe** (Payments — schema ready, checkout flow deferred until API keys provided)
 - **TailwindCSS 4** · **next-intl** (i18n, Arabic/English)
-- **n8n** (n8n.drdeeb.tech — automation engine, 52 workflows planned)
+- **n8n** (n8n.drdeeb.tech — 44+ active automation workflows)
+- **Telegram** (@furqantoday_bot — admin alerts + notifications)
 - **Deployed on Vercel** (Hobby plan, furqan.today)
 
 ## Roles (4)
 - **student** — browse teachers, book sessions, join video, track progress, homework, packages, messages
 - **teacher** — manage availability, confirm bookings, conduct sessions, assign/grade homework, CV workflow, evaluations, messages
-- **admin** — full platform management: users, teachers, bookings, sessions, evaluations, packages, services, blog, payments, notifications, automation, settings
+- **admin** — full platform management: users, teachers, bookings, sessions, evaluations, packages, services, blog, payments, notifications, automation, n8n control, settings
 - **moderator** — users (students+teachers only), CV review, session observation, evaluations, audit log (read-only)
 
 ## Domain Ownership Model
-
-Each domain owns its events, validation rules, and downstream triggers:
 
 | Domain | Source of Truth | Key Tables | Owner Actions |
 |--------|----------------|------------|---------------|
@@ -55,8 +54,8 @@ Each domain owns its events, validation rules, and downstream triggers:
 | **Homework** | `homework_assignments` table | homework_assignments | createHomework, markStudentReady, gradeHomework |
 | **Progress** | `student_progress` + `session_evaluations` | student_progress, recitation_errors, session_evaluations | createEvaluation, createTeacherEvaluation |
 | **Package** | `packages` + `student_packages` | packages, student_packages, payments, invoices | deduct_package_session(), Stripe webhook |
-| **Communication** | `notifications` + `parent_reports` | notifications, parent_reports, messages, conversations | sendMessage, markAsRead, parent notifications |
-| **Automation** | `automation_logs` | automation_logs, platform_settings | emitEvent(), n8n webhook callback |
+| **Communication** | `notifications` + `parent_reports` | notifications, parent_reports, messages, conversations, message_delivery_log, communication_preferences | dispatchNotification(), notify(), parent notifications |
+| **Automation** | `automation_logs` | automation_logs, platform_settings, retention_signals | emitEvent(), n8n webhook callback |
 
 ## Key Architecture
 - **Route protection**: `src/proxy.ts` — role-based middleware, admin can access `/moderator/*`
@@ -64,14 +63,17 @@ Each domain owns its events, validation rules, and downstream triggers:
 - **Admin client**: `src/lib/supabase/admin.ts` — service-role client for user creation
 - **Feature flags**: `src/lib/settings.ts` + `platform_settings` table
 - **Parent notifications**: `src/lib/notifications/parent.ts` — report system for parents
+- **Notification dispatcher**: `src/lib/notifications/dispatcher.ts` — multi-channel with preferences, quiet hours, delivery logging to message_delivery_log
 - **Session observation**: Daily.co observer tokens with mic/camera off, max_participants bumped to 3
 - **Homework system**: `src/lib/actions/homework.ts` — 5 server actions with state machine and auto-regeneration
 - **Event emission**: `src/lib/automation/emit.ts` — non-blocking webhooks to n8n with per-event routing
 - **n8n callback**: `src/app/api/webhooks/n8n/route.ts` — log, notify, idempotency check
-- **n8n instance**: n8n.drdeeb.tech — **26 active FURQAN workflows** deployed across 9 areas
+- **n8n REST client**: `src/lib/n8n/client.ts` — workflows, executions, toggle, Telegram alerts
+- **n8n control panel**: `/admin/n8n` — view/toggle/search/filter/auto-restart all n8n workflows
+- **n8n instance**: n8n.drdeeb.tech — **44+ active FURQAN workflows** across 9 areas
+- **Telegram bot**: @furqantoday_bot — auto-restart alerts, failure notifications, admin digests
 - **Notification bell**: `src/components/shared/notification-bell.tsx` — topbar dropdown with unread count
-- **Notification dispatcher**: `src/lib/notifications/dispatcher.ts` — multi-channel with preferences, delivery logging
-- **Admin control tower**: `/admin/control-tower` — 7 real-time operational widgets
+- **Admin control tower**: `/admin/control-tower` — 7 real-time operational widgets with alert badges
 - **Teacher action queue**: `src/app/teacher/dashboard/action-queue.tsx` — prioritized pending tasks
 - **PWA**: `public/sw.js` — service worker + install prompt
 
@@ -86,9 +88,9 @@ V13: message_delivery_log, communication_preferences, retention_signals
 
 Migration files: v9_001, v10_001, v10_002, v11_001, v12_001, v13_001, v13_002
 
-## Enums (23 total)
+## Enums (26 total)
 Postgres ENUMs: user_role, gender_type, booking_status, session_type, payment_status, msg_type, notif_type, student_level, cv_status, evaluation_type, report_type, homework_type, homework_status
-Text CHECK: package_type, student_package_status, automation_log_status, conversation_status, credit_source, progress_type, recitation_error_type, transaction_type, session_created_via, audit_action, recitation_standard
+Text CHECK: package_type, student_package_status, automation_log_status, delivery_channel, delivery_status, preferred_language, conversation_status, credit_source, progress_type, recitation_error_type, transaction_type, session_created_via, audit_action, recitation_standard
 
 ## SQL Functions
 - `is_admin()`, `is_moderator()`, `is_admin_or_mod()`
@@ -97,7 +99,50 @@ Text CHECK: package_type, student_package_status, automation_log_status, convers
 - `sync_conv_ts()` — auto-update conversation timestamps
 
 ## Events Emitted (to n8n)
-booking.created, booking.confirmed, booking.cancelled, session.ended, session.no_show, session.notes_saved, homework.assigned, homework.student_ready, homework.graded
+booking.created, booking.confirmed, booking.cancelled, session.ended, session.no_show, session.notes_saved, homework.assigned, homework.student_ready, homework.graded, evaluation.created
+
+**Webhook routes** (in emit.ts):
+- booking.confirmed → /webhook/furqan-booking-confirmed
+- session.notes_saved → /webhook/furqan-session-notes-saved
+- session.no_show → /webhook/furqan-no-show-parent
+- homework.graded → /webhook/furqan-homework-graded
+- profile.created → /webhook/furqan-profile-created
+- teacher.cv_* → /webhook/furqan-cv-event
+
+## n8n Workflows (44+ active)
+
+| Area | Count | Key Workflows |
+|------|-------|---------------|
+| Session Lifecycle | 7 | health-check, failure-sentinel, reminder-engine, room-creation, no-show, auto-decline, auto-complete |
+| Parent Communication | 4 | post-session-report (AI+fallback), missed-session-alert, homework-alert, weekly-digest |
+| Student Retention | 7 | low-balance, expiry-countdown, renewal, abandoned-booking, inactivity, at-risk, milestones |
+| Teacher Management | 5 | quality-monitor, onboarding-nudges, cv-approval, eval-compliance, welcome |
+| Admin Operations | 2 | daily-digest, kpi-alerting |
+| Revenue | 3+ | upsell, lapsed-return, trial-to-paid, teacher-payout |
+| Booking Intelligence | 3+ | conflict-detector, recurring-booking, waitlist-fill |
+| Messaging | 3+ | moderation, announcement-broadcaster, telegram-admin-bot |
+| Platform Health | 3+ | old-data-cleanup, broken-link-check, credential-watcher |
+
+## Environment Variables
+
+| Variable | Purpose |
+|----------|---------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase admin key |
+| `NEXT_PUBLIC_APP_URL` | App base URL |
+| `DAILY_API_KEY` | Daily.co video rooms |
+| `RESEND_API_KEY` | Email sending |
+| `ADMIN_EMAIL` | Admin notification email |
+| `N8N_WEBHOOK_URL` | n8n base URL (https://n8n.drdeeb.tech) |
+| `N8N_WEBHOOK_SECRET` | Shared secret for n8n callbacks |
+| `N8N_API_URL` | n8n REST API (https://n8n.drdeeb.tech/api/v1) |
+| `N8N_API_KEY` | n8n API key for control panel |
+| `TG_BOT_TOKEN` | Telegram bot @furqantoday_bot |
+| `TG_ADMIN_CHAT_ID` | Admin Telegram chat (707213038) |
+| `STRIPE_SECRET_KEY` | Stripe payments (deferred) |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe client (deferred) |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook (deferred) |
 
 ## Coding Patterns
 - All server actions use `"use server"` directive
@@ -108,8 +153,8 @@ booking.created, booking.confirmed, booking.cancelled, session.ended, session.no
 - All user-facing text in Arabic, bilingual labels optional (Arabic + English hint)
 - `revalidatePath()` after every mutation
 - Audit logging for admin destructive actions
-- Notifications are non-blocking (`try/catch` with empty catch)
-- **NEW:** All event-emitting server actions must call `emitEvent()` from `src/lib/automation/emit.ts`
+- **All notifications must go through `notify()` or `dispatchNotification()`** — never insert directly into notifications table
+- **All event-emitting server actions must call `emitEvent()`** from `src/lib/automation/emit.ts`
 
 ## File Structure (key paths)
 ```
@@ -117,27 +162,28 @@ src/
 ├── app/
 │   ├── (auth)/          — login, register, forgot-password
 │   ├── (public)/        — landing, about, contact, packages, services, teachers, blog
-│   ├── admin/           — 33+ pages: users, teachers, bookings, sessions, evaluations, packages, services, blog, payments, notifications, automation, settings
+│   ├── admin/           — 35+ pages: users, teachers, bookings, sessions, evaluations, packages, services, blog, payments, notifications, automation, n8n, control-tower, settings
 │   ├── moderator/       — 10 pages: users, cv-review, sessions, evaluations, audit
 │   ├── student/         — 12+ pages: dashboard, teachers, bookings, sessions, homework, packages, progress, notifications, messages, notes
 │   ├── teacher/         — 11+ pages: dashboard, sessions, availability, students, homework, cv, evaluations, notifications, messages
-│   └── api/             — stripe webhook, bookings, n8n webhook
+│   └── api/             — stripe webhook, bookings, n8n (workflows/executions/toggle/auto-restart), webhooks/n8n
 ├── components/
-│   ├── shared/ (20+)    — nav, topbar, notification-bell, stat-card, widget-card, data-table, analytics-chart, breakdown-bar, live-sessions-widget, messages-view, pwa-install-prompt, etc.
+│   ├── shared/ (20+)    — nav, topbar, notification-bell, stat-card, widget-card, data-table, analytics-chart, breakdown-bar, live-sessions-widget, messages-view, pwa-install-prompt
 │   ├── public/ (9)      — public-nav, public-footer, testimonials, register-banner, whatsapp-button
 │   └── seo/ (1)         — structured-data
 ├── lib/
 │   ├── supabase/        — client.ts, server.ts, middleware.ts, admin.ts, helpers.ts, migrations/
 │   ├── actions/         — evaluations.ts, homework.ts, notifications.ts
-│   ├── automation/      — emit.ts (event emission to n8n)
-│   ├── notifications/   — parent.ts
+│   ├── automation/      — emit.ts (event emission to n8n with per-event routing)
+│   ├── notifications/   — parent.ts, dispatcher.ts
+│   ├── n8n/             — client.ts (REST API client for n8n control)
 │   ├── stripe/          — .gitkeep (Stripe integration deferred)
 │   ├── i18n/            — context.tsx, lang-toggle.tsx
 │   ├── theme/           — context.tsx, theme-toggle.tsx
 │   ├── daily.ts, email.ts, whatsapp.ts, settings.ts, constants.ts, dashboard-queries.ts, cn.ts
 │   └── feature-flags-context.tsx
 ├── types/
-│   └── database.ts      — 30 table interfaces, 23 enums
+│   └── database.ts      — 33 table interfaces, 26 enums (~1022 lines)
 └── proxy.ts             — middleware route protection
 automation/
 ├── BLUEPRINT.md         — 52-workflow master plan (12 areas)
@@ -146,11 +192,13 @@ automation/
 supabase/functions/      — 4 edge functions (auto-reminder, auto-complete, no-show-detector, weekly-report)
 ```
 
-## Completed Features (Phases A–I)
+## Completed Features
+
+### Feature Development (Phases A–I)
 - 4 role dashboards with real Supabase data + shared widget system
-- Bilingual RTL/LTR with Arabic/English toggle + dark/light mode
-- Database schema V9→V12 (sessions, evaluations, homework, packages, automation)
-- Blog CMS, SEO, RLS policies, n8n instance
+- Bilingual RTL/LTR with Arabic/English toggle + dark/light mode (Liquid Glass Design System v3)
+- Database schema V9→V13 (sessions, evaluations, homework, packages, automation, communication, retention)
+- Blog CMS, SEO, RLS policies
 - CV review workflow for moderators
 - Basic booking + sessions with Daily.co video
 - **Homework system** (V10) — state machine, 6 types, grading, auto-regeneration
@@ -163,44 +211,49 @@ supabase/functions/      — 4 edge functions (auto-reminder, auto-complete, no-
 - **PWA** — service worker, install prompt, iOS meta tags
 - **Automation infrastructure** (V12) — automation_logs, event emission, n8n webhook endpoint, admin dashboard, feature flags
 
-## Audit Status
-Full platform audit completed: `AUDIT.md`
-- Product Architecture: **A-**
-- Data Model: **A-**
-- UX Direction: **B+**
-- Operational Readiness: **B**
-- Automation Maturity: **B-**
-- Revenue/Payment Readiness: **C+** (Stripe deferred)
-- Scale Readiness: **B-**
+### Hardening (Post-Audit)
+- **Communication infrastructure** (V13) — message_delivery_log, communication_preferences, notification dispatcher with quiet hours
+- **Notification migration** — all direct notification inserts replaced with `notify()` dispatcher
+- **Event catalog + lifecycle docs** — EVENT_CATALOG.md, LIFECYCLES.md (7 state machines)
+- **Teacher action queue** — prioritized pending tasks on teacher dashboard
+- **Retention signals table** — churn scoring foundation
+- **Admin control tower** — 7 operational widgets with alert badges
+- **Dashboard performance** — reduced Supabase round-trips from 5-7 to 2-3 per dashboard
+- **Audit fixes** — 28 issues resolved (accessibility, performance, theming, responsive)
+- **n8n control panel** — `/admin/n8n` with workflow view/toggle/search/filter/auto-restart + Telegram alerts
 
-**Top recommendation:** Platform hardening > new features. See ROADMAP.md.
+### n8n Automation (VPS)
+- **44+ active workflows** on n8n.drdeeb.tech across session lifecycle, parent communication, retention, teacher management, admin operations, revenue, booking, messaging, platform health
+- **Credentials configured**: Supabase, Daily.co, Resend, Telegram (@furqantoday_bot)
+- **Self-healing**: auto-restart failed workflows with Telegram notification
 
-## Priority Roadmap (Audit-Driven)
+## Remaining Work
 
-### P1 — Critical (Do First)
-1. **Stripe payment completion** — checkout, webhook, fulfillment, invoices (blocked on API keys)
-2. **Communication infrastructure** — message_delivery_log, communication_preferences, dispatcher
-3. **Webhook security** — sign all internal webhooks
-4. **Event catalog + lifecycle docs** — EVENT_CATALOG.md, LIFECYCLES.md
-5. **n8n first 8 workflows** — health check, reminders, no-show, parent reports, package alerts
+### Blocked (needs external input)
+1. **Stripe payment flow** — needs Stripe API keys to complete checkout + webhook + fulfillment
+2. **AI workflows** — needs Anthropic API key in n8n for AI parent reports, curriculum advisor
+3. **WhatsApp Business** — needs WhatsApp Cloud API token for parent messaging
+4. **Google Calendar sync** — needs OAuth setup for teacher calendar integration
 
-### P2 — High Value (Next)
-6. **Dashboard UX hardening** — action-oriented by role
-7. **Retention engine** — retention_signals table, churn scoring, trial-to-paid
-8. **Teacher compliance** — grading follow-up, evaluation reminders, health metrics
-9. **Parent report automation** — AI + structured fallback via n8n
+### Feature Flags (toggle from /admin/settings)
+- `automation_enabled` = true
+- `whatsapp_enabled` = true
+- `ai_parent_reports_enabled` = false (enable when AI key ready)
+- `teacher_quality_monitor_enabled` = false (enable when confident)
+- `retention_automation_enabled` = false (enable when confident)
+- `renewal_campaigns_enabled` = false
 
-### P3 — Operational Leverage
-10. **Admin control tower** — exception queues, anomaly monitoring
-11. **Teacher performance intelligence** — weekly snapshots, ranking
-12. **Package renewal campaigns** — exhaustion/expiry flows
-
-### P4 — Advanced/AI
-13. **AI parent narratives** at scale
-14. **AI curriculum advisor**
-15. **Teacher matching**
-16. **Parent self-service chatbot**
-17. **Recording transcription**
+## Documentation Files
+| File | Purpose |
+|------|---------|
+| `CLAUDE.md` | This file — AI assistant instructions |
+| `PROJECT.md` | Full technical reference (563 lines) |
+| `AUDIT.md` | Platform audit report (433 lines) |
+| `ROADMAP.md` | Implementation roadmap — 8 sprints (404 lines) |
+| `EVENT_CATALOG.md` | Event taxonomy — 9 active + 13 planned |
+| `LIFECYCLES.md` | 7 state machine diagrams |
+| `automation/BLUEPRINT.md` | 52-workflow master plan |
+| `automation/VPS_HANDOFF.md` | n8n VPS session context |
 
 ## Verification Checklist
 After any code change:
