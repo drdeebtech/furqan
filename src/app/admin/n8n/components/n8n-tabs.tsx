@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Activity } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { OverviewTab } from "./overview-tab";
@@ -15,9 +15,46 @@ const tabs = [
   { ar: "سجل الإدارة", en: "Admin Log" },
 ] as const;
 
+function useRelativeTime(date: Date | null, t: (ar: string, en: string) => string) {
+  const [label, setLabel] = useState("");
+
+  useEffect(() => {
+    if (!date) return;
+
+    function update() {
+      if (!date) return;
+      const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+      if (seconds < 60) {
+        setLabel(t(`منذ ${seconds} ثانية`, `${seconds}s ago`));
+      } else {
+        const minutes = Math.floor(seconds / 60);
+        setLabel(t(`منذ ${minutes} دقيقة`, `${minutes}m ago`));
+      }
+    }
+
+    update();
+    const id = setInterval(update, 10_000);
+    return () => clearInterval(id);
+  }, [date, t]);
+
+  return label;
+}
+
 export function N8nTabs() {
   const { t } = useLang();
   const [activeTab, setActiveTab] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const isFirstRender = useRef(true);
+
+  // Set lastUpdated when activeTab changes (each tab loads fresh data)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+    }
+    setLastUpdated(new Date());
+  }, [activeTab]);
+
+  const relativeTime = useRelativeTime(lastUpdated, t);
 
   return (
     <div dir="rtl" className="mx-auto max-w-6xl px-4 py-8">
@@ -46,6 +83,13 @@ export function N8nTabs() {
           </button>
         ))}
       </div>
+
+      {/* Last updated indicator */}
+      {lastUpdated && (
+        <p className="mb-4 text-xs text-muted">
+          {t("آخر تحديث", "Last updated")}: {relativeTime}
+        </p>
+      )}
 
       {/* Tab content — lazy render: only mount active tab */}
       {activeTab === 0 && <OverviewTab />}

@@ -58,8 +58,21 @@ export interface AuditReport {
 // --- Detection Functions ---
 
 const JWT_PATTERN = /eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}/;
-const SUPABASE_HOST = "xyqscjnqfeusgrhmwjts.supabase.co";
-const SANDBOX_GLOBALS = ["fetch(", "require(", "import("];
+const CREDENTIAL_HOSTS = [
+  { host: "xyqscjnqfeusgrhmwjts.supabase.co", name: "Supabase" },
+  { host: "api.daily.co", name: "Daily.co" },
+  { host: "api.telegram.org", name: "Telegram" },
+  { host: "api.resend.com", name: "Resend" },
+];
+const FORBIDDEN_PATTERNS = [
+  { pattern: /\bfetch\s*\(/, name: "fetch()", detail: "Use $http.request() instead" },
+  { pattern: /\brequire\s*\(/, name: "require()", detail: "Use built-in n8n nodes" },
+  { pattern: /\bimport\s*\(/, name: "dynamic import()", detail: "Use built-in n8n nodes" },
+  { pattern: /\bprocess\b/, name: "process", detail: "Not available in n8n sandbox" },
+  { pattern: /\bBuffer\b/, name: "Buffer", detail: "Not available in n8n sandbox" },
+  { pattern: /\beval\s*\(/, name: "eval()", detail: "Not allowed in sandbox" },
+  { pattern: /new\s+Function\s*\(/, name: "Function constructor", detail: "Not allowed in sandbox" },
+];
 
 function deepSearch(obj: unknown, test: (val: string) => boolean): string[] {
   const found: string[] = [];
@@ -80,21 +93,30 @@ export function detectDuplicates(workflows: N8nWorkflow[]): AuditIssue[] {
   const issues: AuditIssue[] = [];
   const nameMap = new Map<string, N8nWorkflow[]>();
   for (const wf of workflows) {
-    const list = nameMap.get(wf.name) || [];
+    const key = wf.name.toLowerCase().trim();
+    const list = nameMap.get(key) || [];
     list.push(wf);
-    nameMap.set(wf.name, list);
+    nameMap.set(key, list);
   }
-  for (const [name, wfs] of nameMap) {
+  for (const [, wfs] of nameMap) {
     if (wfs.length <= 1) continue;
     const activeCount = wfs.filter(w => w.active).length;
-    const severity: IssueSeverity = activeCount > 1 ? "critical" : "warning";
+    const inactiveCount = wfs.length - activeCount;
+    let severity: IssueSeverity;
+    if (activeCount >= 2) {
+      severity = "critical";
+    } else if (activeCount === 1 && inactiveCount >= 1) {
+      severity = "info"; // legitimate backup pattern
+    } else {
+      severity = "warning";
+    }
     for (const wf of wfs) {
       issues.push({
         workflowId: wf.id,
         workflowName: wf.name,
         category: "duplicate",
         severity,
-        message: `${activeCount > 1 ? "Multiple active copies" : "Duplicate name"} (${wfs.length}x)`,
+        message: `${activeCount >= 2 ? "Multiple active copies" : activeCount === 1 ? "Active + inactive backup copies" : "Duplicate name"} (${wfs.length}x)`,
         detail: `IDs: ${wfs.map(w => w.id).join(", ")}. ${activeCount} active.`,
       });
     }
@@ -135,19 +157,21 @@ export function detectHardcodedSecrets(workflow: N8nWorkflowDetail): AuditIssue[
         detail: `Found JWT pattern in jsCode`,
       });
     }
-    // Deep search all parameters for Supabase-specific keys
-    const supaMatches = deepSearch(node.parameters, val =>
-      val.includes(SUPABASE_HOST) && JWT_PATTERN.test(val)
-    );
-    if (supaMatches.length > 0 && !issues.some(i => i.node === node.name && i.category === "hardcoded_secret")) {
-      issues.push({
-        workflowId: workflow.id,
-        workflowName: workflow.name,
-        category: "hardcoded_secret",
-        severity: "warning",
-        node: node.name,
-        message: "Hardcoded Supabase key in parameters",
-      });
+    // Deep search all parameters for known-service keys
+    for (const svc of CREDENTIAL_HOSTS) {
+      const svcMatches = deepSearch(node.parameters, val =>
+        val.includes(svc.host) && JWT_PATTERN.test(val)
+      );
+      if (svcMatches.length > 0 && !issues.some(i => i.node === node.name && i.category === "hardcoded_secret")) {
+        issues.push({
+          workflowId: workflow.id,
+          workflowName: workflow.name,
+          category: "hardcoded_secret",
+          severity: "warning",
+          node: node.name,
+          message: `Hardcoded ${svc.name} key in parameters`,
+        });
+      }
     }
   }
   return issues;
@@ -159,16 +183,16 @@ export function detectBrokenNodes(workflow: N8nWorkflowDetail): AuditIssue[] {
     if (node.type !== "n8n-nodes-base.code") continue;
     const jsCode = (node.parameters as Record<string, unknown>)?.jsCode;
     if (typeof jsCode !== "string") continue;
-    for (const g of SANDBOX_GLOBALS) {
-      if (jsCode.includes(g)) {
+    for (const fp of FORBIDDEN_PATTERNS) {
+      if (fp.pattern.test(jsCode)) {
         issues.push({
           workflowId: workflow.id,
           workflowName: workflow.name,
           category: "broken_node",
           severity: "critical",
           node: node.name,
-          message: `Code node uses "${g.replace("(", "")}" which is unavailable in n8n sandbox`,
-          detail: "Use $http.request() instead of fetch(), or restructure as HTTP Request node",
+          message: `Code node uses "${fp.name}" which is unavailable in n8n sandbox`,
+          detail: fp.detail,
         });
       }
     }
@@ -191,9 +215,10 @@ export function detectMissingConnections(workflow: N8nWorkflowDetail): AuditIssu
       }
     }
   }
+  const SKIP_TYPES = /Trigger|trigger|webhook|WebHook|NoOp|noOp|StickyNote|stickyNote|cron|interval/i;
   for (const node of workflow.nodes) {
-    // Skip trigger nodes (they're sources, no input needed)
-    if (node.type.includes("Trigger") || node.type.includes("trigger") || node.type.includes("webhook")) continue;
+    // Skip trigger nodes and non-connectable nodes (they're sources or annotations, no input needed)
+    if (SKIP_TYPES.test(node.type)) continue;
     if (!connectedNodes.has(node.name)) {
       issues.push({
         workflowId: workflow.id,
@@ -214,18 +239,36 @@ export function detectCredentialIssues(workflow: N8nWorkflowDetail): AuditIssue[
   for (const node of workflow.nodes) {
     if (node.type !== "n8n-nodes-base.httpRequest") continue;
     const url = String((node.parameters as Record<string, unknown>)?.url || "");
-    if (!url.includes(SUPABASE_HOST)) continue;
     const auth = (node.parameters as Record<string, unknown>)?.authentication;
-    if (auth !== "predefinedCredentialType") {
-      issues.push({
-        workflowId: workflow.id,
-        workflowName: workflow.name,
-        category: "credential_issue",
-        severity: "warning",
-        node: node.name,
-        message: "Supabase HTTP node without credential-based auth",
-        detail: `Uses authentication="${auth || "none"}" instead of predefinedCredentialType`,
-      });
+    // Check URL against all known service hosts
+    for (const svc of CREDENTIAL_HOSTS) {
+      if (!url.includes(svc.host)) continue;
+      if (auth !== "predefinedCredentialType") {
+        issues.push({
+          workflowId: workflow.id,
+          workflowName: workflow.name,
+          category: "credential_issue",
+          severity: "warning",
+          node: node.name,
+          message: `${svc.name} HTTP node without credential-based auth`,
+          detail: `Uses authentication="${auth || "none"}" instead of predefinedCredentialType`,
+        });
+      }
+    }
+    // Verify predefinedCredentialType nodes actually have credentials configured
+    if (auth === "predefinedCredentialType") {
+      const creds = (node as unknown as Record<string, unknown>).credentials;
+      if (!creds || typeof creds !== "object" || Object.keys(creds).length === 0) {
+        issues.push({
+          workflowId: workflow.id,
+          workflowName: workflow.name,
+          category: "credential_issue",
+          severity: "warning",
+          node: node.name,
+          message: "HTTP node uses predefinedCredentialType but has no credentials configured",
+          detail: "Add a credential entry to avoid runtime authentication failures",
+        });
+      }
     }
   }
   return issues;
@@ -233,24 +276,30 @@ export function detectCredentialIssues(workflow: N8nWorkflowDetail): AuditIssue[
 
 export function detectRecurringFailures(executions: N8nExecution[]): AuditIssue[] {
   const issues: AuditIssue[] = [];
-  const byWorkflow = new Map<string, N8nExecution[]>();
+  // Group all executions by workflow (not just errors)
+  const allByWorkflow = new Map<string, N8nExecution[]>();
   for (const ex of executions) {
-    if (ex.status !== "error") continue;
-    const list = byWorkflow.get(ex.workflowId) || [];
+    const list = allByWorkflow.get(ex.workflowId) || [];
     list.push(ex);
-    byWorkflow.set(ex.workflowId, list);
+    allByWorkflow.set(ex.workflowId, list);
   }
   const oneHourAgo = Date.now() - 60 * 60 * 1000;
-  for (const [wfId, execs] of byWorkflow) {
-    const sorted = execs.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
-    const recentCount = sorted.filter(e => new Date(e.startedAt).getTime() > oneHourAgo).length;
-    if (recentCount >= 3) {
+  for (const [wfId, allExecs] of allByWorkflow) {
+    const recentAll = allExecs.filter(e => new Date(e.startedAt).getTime() > oneHourAgo);
+    const recentErrors = recentAll.filter(e => e.status === "error");
+    const recentErrorCount = recentErrors.length;
+    if (recentErrorCount >= 3) {
+      const totalRecent = recentAll.length;
+      const successRate = totalRecent > 0 ? (totalRecent - recentErrorCount) / totalRecent : 0;
+      // High-volume workflow with occasional failures is less alarming
+      const severity: IssueSeverity = recentErrorCount >= 3 && successRate > 0.9 ? "warning" : "critical";
+      const sorted = recentErrors.sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
       issues.push({
         workflowId: wfId,
         workflowName: wfId, // overwritten by caller with real name if available
         category: "recurring_failure",
-        severity: "critical",
-        message: `${recentCount} failures in the last hour`,
+        severity,
+        message: `${recentErrorCount} failures in the last hour (success rate: ${(successRate * 100).toFixed(0)}% of ${totalRecent} executions)`,
         detail: `Latest: ${sorted[0]?.startedAt ?? "unknown"}`,
       });
     }
@@ -258,15 +307,24 @@ export function detectRecurringFailures(executions: N8nExecution[]): AuditIssue[
   return issues;
 }
 
+const CATEGORY_WEIGHTS: Record<IssueCategory, number> = {
+  hardcoded_secret: 25,
+  broken_node: 25,
+  credential_issue: 20,
+  recurring_failure: 15,
+  duplicate: 12,
+  inactive_alert: 8,
+  missing_connection: 3,
+};
+const SEVERITY_MULTIPLIERS: Record<IssueSeverity, number> = { critical: 1.0, warning: 0.6, info: 0.3 };
+
 export function calculateHealthScore(
   issues: AuditIssue[],
   successRate: number,
 ): number {
   let score = 100;
   for (const issue of issues) {
-    if (issue.severity === "critical") score -= 30;
-    else if (issue.severity === "warning") score -= 10;
-    else score -= 3;
+    score -= CATEGORY_WEIGHTS[issue.category] * SEVERITY_MULTIPLIERS[issue.severity];
   }
   // Deduct for low success rate
   if (successRate < 0.5) score -= 20;
@@ -289,8 +347,10 @@ export function runFullAudit(
     allIssues.push(...detectCredentialIssues(wf));
   }
 
-  // Execution-level detections
-  const recurringIssues = detectRecurringFailures(executions);
+  // Execution-level detections — filter to last 30 days
+  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const recentExecutions = executions.filter(e => new Date(e.startedAt).getTime() > thirtyDaysAgo);
+  const recurringIssues = detectRecurringFailures(recentExecutions);
   // Fill in workflow names for recurring failures
   const nameMap = new Map(workflows.map(w => [w.id, w.name]));
   for (const issue of recurringIssues) {
@@ -310,7 +370,7 @@ export function runFullAudit(
     const wfIssues = allIssues.filter(i => i.workflowId === wf.id);
     const wfExecs = execByWorkflow.get(wf.id) || [];
     const successCount = wfExecs.filter(e => e.status === "success").length;
-    const successRate = wfExecs.length > 0 ? successCount / wfExecs.length : 1;
+    const successRate = wfExecs.length > 0 ? successCount / wfExecs.length : 0.5;
     return {
       workflowId: wf.id,
       workflowName: wf.name,

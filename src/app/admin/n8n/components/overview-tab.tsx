@@ -409,7 +409,7 @@ export function OverviewTab() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium">{wf.name}</p>
-                    {wfSuccessRate !== null && (
+                    {wfSuccessRate !== null ? (
                       <span
                         className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
                           wfSuccessRate >= 80
@@ -420,6 +420,10 @@ export function OverviewTab() {
                         }`}
                       >
                         {wfSuccessRate}%
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-muted">
+                        {t("لم يُنفذ", "Not executed")}
                       </span>
                     )}
                   </div>

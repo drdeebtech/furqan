@@ -19,18 +19,25 @@ async function logAdminAction(
   action: string,
   workflowId: string,
   workflowName: string,
+  status: string = "succeeded",
+  errorMessage?: string,
 ): Promise<void> {
-  const actorId = await getAdminUserId();
-  const admin = createAdminClient();
-  await admin.from("automation_logs").insert({
-    workflow_name: workflowName,
-    event_name: `admin.${action}`,
-    entity_type: "workflow",
-    entity_id: workflowId as never,
-    status: "succeeded",
-    payload_json: { actor_id: actorId, action, workflow_id: workflowId } as never,
-    finished_at: new Date().toISOString(),
-  } as never);
+  try {
+    const actorId = await getAdminUserId();
+    const admin = createAdminClient();
+    await admin.from("automation_logs").insert({
+      workflow_name: workflowName,
+      event_name: `admin.${action}`,
+      entity_type: "workflow",
+      entity_id: workflowId as never,
+      status,
+      error_message: errorMessage,
+      payload_json: { actor_id: actorId, action, workflow_id: workflowId } as never,
+      finished_at: new Date().toISOString(),
+    } as never);
+  } catch (logError) {
+    console.error("Failed to log admin action:", logError);
+  }
 }
 
 export async function toggleWorkflowAction(
@@ -58,6 +65,11 @@ export async function toggleWorkflowAction(
     await logAdminAction(active ? "activate" : "deactivate", id, name);
     return { success: true };
   } catch (err) {
+    try {
+      await logAdminAction(active ? "activate" : "deactivate", id, name, "failed", String(err));
+    } catch {
+      // Logging failure should not mask the original error
+    }
     return { success: false, error: String(err) };
   }
 }
@@ -103,6 +115,7 @@ export async function autoRestartAction(): Promise<{
       results.push({ id: wfId, success: true });
       await logAdminAction("auto_restart", wfId, wfId);
     } catch (err) {
+      await logAdminAction("auto_restart", wfId, wfId, "failed", String(err));
       results.push({ id: wfId, success: false, error: String(err) });
     }
   }

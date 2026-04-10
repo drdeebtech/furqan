@@ -37,6 +37,7 @@ export function ExecutionIntelTab() {
   const { t } = useLang();
   const [allExecs, setAllExecs] = useState<Execution[]>([]);
   const [errorExecs, setErrorExecs] = useState<ErrorExecution[]>([]);
+  const [workflowNameMap, setWorkflowNameMap] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedExecId, setSelectedExecId] = useState<string | null>(null);
@@ -46,14 +47,22 @@ export function ExecutionIntelTab() {
 
     async function fetchData() {
       try {
-        const [allRes, errorRes] = await Promise.all([
+        const [allRes, errorRes, wfRes] = await Promise.all([
           fetch("/api/n8n/executions/all").then((r) => r.json()),
           fetch("/api/n8n/executions").then((r) => r.json()),
+          fetch("/api/n8n/workflows").then((r) => r.json()),
         ]);
         if (!cancelled) {
           startTransition(() => {
             if (allRes.data) setAllExecs(allRes.data);
             if (errorRes.data) setErrorExecs(errorRes.data);
+            if (wfRes.data) {
+              const nameMap = new Map<string, string>();
+              for (const wf of wfRes.data as { id: string; name: string }[]) {
+                nameMap.set(wf.id, wf.name);
+              }
+              setWorkflowNameMap(nameMap);
+            }
             setLoading(false);
           });
         }
@@ -105,11 +114,11 @@ export function ExecutionIntelTab() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10)
       .map(([wfId, count], i) => ({
-        label: `Workflow #${wfId}`,
+        label: workflowNameMap.get(wfId) || wfId,
         value: count,
         color: BREAKDOWN_COLORS[i % BREAKDOWN_COLORS.length],
       }));
-  }, [allExecs]);
+  }, [allExecs, workflowNameMap]);
 
   // Recurring failure alerts: workflows with 3+ failures in last hour
   const recurringAlerts = useMemo(() => {
