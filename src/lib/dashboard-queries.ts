@@ -71,6 +71,7 @@ export async function getStudentWeeklyStudyTime(
     .from("bookings")
     .select("id")
     .eq("student_id", studentId)
+    .gte("scheduled_at", sevenDaysAgo.toISOString())
     .returns<{ id: string }[]>();
 
   if (!bookings || bookings.length === 0) {
@@ -227,6 +228,7 @@ export async function getTeacherWeeklyHours(
     .from("bookings")
     .select("id")
     .eq("teacher_id", teacherId)
+    .gte("scheduled_at", sevenDaysAgo.toISOString())
     .returns<{ id: string }[]>();
 
   if (!bookings || bookings.length === 0) return generateEmptyWeek(lang);
