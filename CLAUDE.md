@@ -69,17 +69,21 @@ Each domain owns its events, validation rules, and downstream triggers:
 - **Event emission**: `src/lib/automation/emit.ts` — non-blocking webhook calls to n8n on business events
 - **n8n callback**: `src/app/api/webhooks/n8n/route.ts` — log, notify, idempotency check actions
 - **Notification bell**: `src/components/shared/notification-bell.tsx` — topbar dropdown with unread count
+- **Notification dispatcher**: `src/lib/notifications/dispatcher.ts` — multi-channel with preferences, delivery logging
+- **Admin control tower**: `/admin/control-tower` — 7 real-time operational widgets
+- **Teacher action queue**: `src/app/teacher/dashboard/action-queue.tsx` — prioritized pending tasks
 - **PWA**: `public/sw.js` — service worker + install prompt
 
-## Database (30 tables)
-Original 20 tables + 5 V9 tables + 2 V10 tables + 2 V11 tables + 1 V12 table.
+## Database (33 tables)
+Original 20 tables + 5 V9 tables + 2 V10 tables + 2 V11 tables + 1 V12 table + 3 V13 tables.
 
 V9: platform_settings, session_evaluations, parent_reports, session_notes_history, session_observers
 V10: services, homework_assignments
 V11: packages, student_packages
 V12: automation_logs
+V13: message_delivery_log, communication_preferences, retention_signals
 
-Migration files: v9_001, v10_001, v10_002, v11_001, v12_001
+Migration files: v9_001, v10_001, v10_002, v11_001, v12_001, v13_001, v13_002
 
 ## Enums (23 total)
 Postgres ENUMs: user_role, gender_type, booking_status, session_type, payment_status, msg_type, notif_type, student_level, cv_status, evaluation_type, report_type, homework_type, homework_status
