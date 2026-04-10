@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, startTransition } from "react";
-import { Activity, Power, PowerOff, Search, AlertTriangle, CheckCircle, RefreshCw, XCircle, Filter } from "lucide-react";
+import { Activity, Power, PowerOff, Search, RefreshCw, XCircle, Filter } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 
 interface Workflow {
@@ -76,6 +76,7 @@ export default function N8nControlPage() {
     });
 
   async function handleToggle(id: string, active: boolean) {
+    if (!active && !confirm(t("هل تريد إيقاف هذا الـ workflow؟", "Stop this workflow?"))) return;
     setTogglingId(id);
     try {
       await fetch("/api/n8n/toggle", {
@@ -99,6 +100,7 @@ export default function N8nControlPage() {
           ? t(`تم إعادة تشغيل ${data.restarted} workflows`, `Restarted ${data.restarted} workflows`)
           : t("لا توجد workflows تحتاج إعادة تشغيل", "No workflows need restart")
       );
+      setTimeout(() => setRestartResult(null), 5000);
       loadData();
     } catch {
       setRestartResult(t("فشل إعادة التشغيل", "Restart failed"));
@@ -120,11 +122,11 @@ export default function N8nControlPage() {
           <h1 className="text-xl font-bold">{t("تحكم n8n", "n8n Control")}</h1>
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={loadData} disabled={loading} className="glass-pill flex items-center gap-1 px-3 py-1.5 text-xs text-muted transition-colors hover:text-gold disabled:opacity-50">
+          <button type="button" onClick={loadData} disabled={loading} className="glass-pill flex items-center gap-1 px-3 py-2 sm:py-1.5 text-xs text-muted transition-colors hover:text-gold disabled:opacity-50">
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
             {t("تحديث", "Refresh")}
           </button>
-          <button type="button" onClick={handleAutoRestart} disabled={restarting} className="glass-gold glass-pill flex items-center gap-1 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-primary-hover disabled:opacity-50">
+          <button type="button" onClick={handleAutoRestart} disabled={restarting} className="glass-gold glass-pill flex items-center gap-1 px-4 py-2 sm:py-1.5 text-xs font-semibold transition-colors hover:bg-primary-hover disabled:opacity-50">
             <RefreshCw size={12} className={restarting ? "animate-spin" : ""} />
             {t("إعادة تشغيل تلقائي", "Auto-Restart")}
           </button>
@@ -132,10 +134,10 @@ export default function N8nControlPage() {
       </div>
 
       {error && (
-        <div className="mb-4 rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</div>
+        <div role="alert" className="mb-4 rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</div>
       )}
       {restartResult && (
-        <div className="mb-4 rounded-xl border border-gold/30 bg-gold/10 p-3 text-sm text-gold">{restartResult}</div>
+        <div aria-live="polite" className="mb-4 rounded-xl border border-gold/30 bg-gold/10 p-3 text-sm text-gold">{restartResult}</div>
       )}
 
       {/* Stats */}
@@ -198,7 +200,9 @@ export default function N8nControlPage() {
             return (
               <div key={wf.id} className={`glass-card flex items-center gap-3 p-4 ${hasError ? "border-red-500/20" : ""}`}>
                 {/* Status indicator */}
-                <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${wf.active ? "bg-emerald-400" : "bg-muted/30"}`} />
+                <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${wf.active ? "bg-emerald-400" : "bg-muted/30"}`}>
+                  <span className="sr-only">{wf.active ? t("نشط", "Active") : t("متوقف", "Inactive")}</span>
+                </div>
 
                 {/* Info */}
                 <div className="min-w-0 flex-1">
@@ -216,7 +220,7 @@ export default function N8nControlPage() {
                   type="button"
                   onClick={() => handleToggle(wf.id, !wf.active)}
                   disabled={togglingId === wf.id}
-                  className={`glass-pill flex items-center gap-1 px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+                  className={`glass-pill flex items-center gap-1 px-3 py-2 sm:py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
                     wf.active
                       ? "text-emerald-400 hover:bg-red-500/10 hover:text-red-400"
                       : "text-muted hover:bg-emerald-500/10 hover:text-emerald-400"
@@ -233,6 +237,12 @@ export default function N8nControlPage() {
               </div>
             );
           })}
+          {filtered.length === 0 && !loading && (
+            <div className="glass-card p-8 text-center text-muted">
+              <Search size={20} className="mx-auto mb-2 text-muted/30" />
+              <p className="text-sm">{showFailedOnly ? t("لا توجد workflows فاشلة", "No failed workflows") : t("لا توجد نتائج للبحث", "No results found")}</p>
+            </div>
+          )}
         </div>
       )}
     </div>
