@@ -48,6 +48,7 @@ const LINKS: Record<Role, NavLink[]> = {
   ],
   admin: [
     { href: "/admin/dashboard", ar: "لوحة الإدارة", en: "Dashboard", icon: LayoutDashboard, group: { ar: "الرئيسية", en: "MAIN" } },
+    { href: "/admin/control-tower", ar: "مركز التحكم", en: "Control Tower", icon: ClipboardCheck },
     { href: "/admin/users", ar: "المستخدمون", en: "Users", icon: Users, group: { ar: "المستخدمون", en: "USERS" } },
     { href: "/admin/teachers", ar: "المعلمون", en: "Teachers", icon: GraduationCap },
     { href: "/admin/bookings", ar: "الحجوزات", en: "Bookings", icon: BookOpen, group: { ar: "الجلسات", en: "SESSIONS" } },

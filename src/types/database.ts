@@ -574,6 +574,24 @@ export interface CommunicationPreference {
   updated_at: string;
 }
 
+// ─── V13.2 Table: retention_signals ──────────────────────────────────────────
+
+export interface RetentionSignal {
+  id: string;
+  student_id: string;
+  last_booking_at: string | null;
+  last_session_at: string | null;
+  last_login_at: string | null;
+  package_remaining: number | null;
+  package_expires_at: string | null;
+  engagement_score: number | null;
+  churn_risk_score: number | null;
+  last_intervention_at: string | null;
+  intervention_type: string | null;
+  computed_at: string;
+  created_at: string;
+}
+
 // ─── Supabase Database Type ──────────────────────────────────────────────────
 // Row   = what you read back from a SELECT
 // Insert = what you send to an INSERT (auto-generated fields are optional)
@@ -931,6 +949,16 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Omit<MessageDeliveryLog, "id">>;
+        Relationships: [];
+      };
+      retention_signals: {
+        Row: RetentionSignal;
+        Insert: Omit<RetentionSignal, "id" | "computed_at" | "created_at"> & {
+          id?: string;
+          computed_at?: string;
+          created_at?: string;
+        };
+        Update: Partial<Omit<RetentionSignal, "id">>;
         Relationships: [];
       };
       communication_preferences: {
