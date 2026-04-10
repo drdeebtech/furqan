@@ -1,7 +1,7 @@
 @AGENTS.md
 
 # currentDate
-Today's date is 2026-04-05.
+Today's date is 2026-04-10.
 
 # Git Identity Rule
 
@@ -23,184 +23,179 @@ Run this at the start of every conversation before committing. Vercel Hobby plan
 
 # Project Overview
 
-FURQAN Academy — Online Quran teaching platform (V10)
+FURQAN Academy — Online Quran teaching platform (V12)
+
+**Current phase:** Platform hardening & operational leverage (post-audit)
+**Audit report:** `AUDIT.md` — full platform audit with grades and recommendations
+**Implementation roadmap:** `ROADMAP.md` — 8 sprints from P1 to P4
 
 ## Stack
 - **Next.js 16.2.2** (App Router, Turbopack) · **React 19** · **TypeScript 5**
 - **Supabase** (PostgreSQL 17, Auth, RLS, Realtime) · **@supabase/ssr**
 - **Daily.co** (Video sessions + observer mode)
-- **Stripe** (Payments)
+- **Stripe** (Payments — schema ready, checkout flow deferred until API keys provided)
 - **TailwindCSS 4** · **next-intl** (i18n, Arabic/English)
+- **n8n** (n8n.drdeeb.tech — automation engine, 52 workflows planned)
 - **Deployed on Vercel** (Hobby plan, furqan.today)
 
 ## Roles (4)
-- **student** — browse teachers, book sessions, join video, track progress
-- **teacher** — manage availability, confirm bookings, conduct sessions, CV workflow
-- **admin** — full platform management, user creation, evaluations, session observation
+- **student** — browse teachers, book sessions, join video, track progress, homework, packages, messages
+- **teacher** — manage availability, confirm bookings, conduct sessions, assign/grade homework, CV workflow, evaluations, messages
+- **admin** — full platform management: users, teachers, bookings, sessions, evaluations, packages, services, blog, payments, notifications, automation, settings
 - **moderator** — users (students+teachers only), CV review, session observation, evaluations, audit log (read-only)
+
+## Domain Ownership Model
+
+Each domain owns its events, validation rules, and downstream triggers:
+
+| Domain | Source of Truth | Key Tables | Owner Actions |
+|--------|----------------|------------|---------------|
+| **Booking** | `bookings` table | bookings, teacher_availability, availability_exceptions | createBooking, updateBookingStatus |
+| **Session** | `sessions` table | sessions, session_observers | endSession, markNoShow, savePostSessionNotes |
+| **Homework** | `homework_assignments` table | homework_assignments | createHomework, markStudentReady, gradeHomework |
+| **Progress** | `student_progress` + `session_evaluations` | student_progress, recitation_errors, session_evaluations | createEvaluation, createTeacherEvaluation |
+| **Package** | `packages` + `student_packages` | packages, student_packages, payments, invoices | deduct_package_session(), Stripe webhook |
+| **Communication** | `notifications` + `parent_reports` | notifications, parent_reports, messages, conversations | sendMessage, markAsRead, parent notifications |
+| **Automation** | `automation_logs` | automation_logs, platform_settings | emitEvent(), n8n webhook callback |
 
 ## Key Architecture
 - **Route protection**: `src/proxy.ts` — role-based middleware, admin can access `/moderator/*`
 - **Server actions**: `"use server"` pattern with `revalidatePath`, `as never` casts for Supabase
 - **Admin client**: `src/lib/supabase/admin.ts` — service-role client for user creation
-- **Feature flags**: `src/lib/settings.ts` + `platform_settings` table (`hide_reviews`, `hide_prices`)
+- **Feature flags**: `src/lib/settings.ts` + `platform_settings` table
 - **Parent notifications**: `src/lib/notifications/parent.ts` — report system for parents
 - **Session observation**: Daily.co observer tokens with mic/camera off, max_participants bumped to 3
-- **Homework system**: `src/lib/actions/homework.ts` — 5 server actions (create, markReady, grade, edit, delete) with state machine and auto-regeneration
+- **Homework system**: `src/lib/actions/homework.ts` — 5 server actions with state machine and auto-regeneration
+- **Event emission**: `src/lib/automation/emit.ts` — non-blocking webhook calls to n8n on business events
+- **n8n callback**: `src/app/api/webhooks/n8n/route.ts` — log, notify, idempotency check actions
+- **Notification bell**: `src/components/shared/notification-bell.tsx` — topbar dropdown with unread count
+- **PWA**: `public/sw.js` — service worker + install prompt
 
 ## Database (30 tables)
-Original 20 tables + 5 V9 tables + 2 V10 tables + 2 V11 tables + 1 V12 table:
+Original 20 tables + 5 V9 tables + 2 V10 tables + 2 V11 tables + 1 V12 table.
 
-V9 tables:
-- `platform_settings` — key-value feature flags
-- `session_evaluations` — student evaluation scores
-- `parent_reports` — parent notification reports
-- `session_notes_history` — notes edit audit trail
-- `session_observers` — observation tracking
+V9: platform_settings, session_evaluations, parent_reports, session_notes_history, session_observers
+V10: services, homework_assignments
+V11: packages, student_packages
+V12: automation_logs
 
-V10 tables:
-- `services` — dynamic service definitions (bilingual)
-- `homework_assignments` — structured homework with state machine, grading, auto-regeneration
+Migration files: v9_001, v10_001, v10_002, v11_001, v12_001
 
-V11 tables:
-- `packages` — package definitions (5 types, 4 currencies, bilingual, admin CRUD)
-- `student_packages` — student purchased packages with session tracking (sessions_total/used)
-
-Migration files:
-- `src/lib/supabase/migrations/v9_001_schema.sql`
-- `src/lib/supabase/migrations/v10_001_services.sql`
-- `src/lib/supabase/migrations/v10_002_homework.sql`
-- `src/lib/supabase/migrations/v11_001_packages.sql`
-- `src/lib/supabase/migrations/v12_001_automation.sql`
-
-V12 tables:
-- `automation_logs` — n8n workflow execution tracking with idempotency keys
-
-## V9 Enums
-- `cv_status`: draft | pending_review | approved | rejected
-- `evaluation_type`: weekly | biweekly | monthly | quarterly
-- `report_type`: session_summary | evaluation | custom | missed_session | schedule_change
-
-## V10 Enums
-- `homework_type`: hifz | muraja | recitation | tajweed | writing | listening
-- `homework_status`: assigned | student_ready | completed_excellent | completed_good | completed_needs_work | completed_not_done
-
-## V11 Enums (text CHECK, not Postgres ENUM)
-- `package_type`: single_session | pack_4 | pack_8 | pack_12 | full_course
-- `student_package_status`: active | expired | cancelled
+## Enums (23 total)
+Postgres ENUMs: user_role, gender_type, booking_status, session_type, payment_status, msg_type, notif_type, student_level, cv_status, evaluation_type, report_type, homework_type, homework_status
+Text CHECK: package_type, student_package_status, automation_log_status, conversation_status, credit_source, progress_type, recitation_error_type, transaction_type, session_created_via, audit_action, recitation_standard
 
 ## SQL Functions
-- `is_moderator()` — checks if user has moderator role
-- `is_admin_or_mod()` — checks if user is admin or moderator
-- `deduct_package_session(uuid)` — atomic session deduction from student_packages (prevents race conditions)
+- `is_admin()`, `is_moderator()`, `is_admin_or_mod()`
+- `deduct_package_session(uuid)` — atomic session deduction
+- `set_updated_at()` — trigger function
+- `sync_conv_ts()` — auto-update conversation timestamps
 
-## Edge Functions (Supabase)
-- `auto-reminder` — 24h + 1h session reminders
-- `auto-complete` — auto-end stale sessions (2x duration)
-- `no-show-detector` — flag missed sessions
-- `weekly-report` — admin weekly summary
+## Events Emitted (to n8n)
+booking.created, booking.confirmed, booking.cancelled, session.ended, session.no_show, session.notes_saved, homework.assigned, homework.student_ready, homework.graded
 
 ## Coding Patterns
 - All server actions use `"use server"` directive
 - Use `as never` for Supabase `.insert()` / `.update()` calls
+- Use `.returns<Type[]>()` for queries on V10+ tables
 - Use `useActionState` from `"react"` (NOT from `"react-dom"`)
+- Use `startTransition` for setState inside useEffect (React compiler compliance)
 - All user-facing text in Arabic, bilingual labels optional (Arabic + English hint)
 - `revalidatePath()` after every mutation
-- Audit logging for admin destructive actions (write to `audit_log` table)
+- Audit logging for admin destructive actions
 - Notifications are non-blocking (`try/catch` with empty catch)
+- **NEW:** All event-emitting server actions must call `emitEvent()` from `src/lib/automation/emit.ts`
 
 ## File Structure (key paths)
 ```
 src/
 ├── app/
 │   ├── (auth)/          — login, register, forgot-password
-│   ├── (public)/        — landing, about, contact, packages, teachers, blog
-│   ├── admin/           — full admin dashboard (users, teachers, bookings, sessions, evaluations, packages, settings)
-│   ├── moderator/       — moderator dashboard (users, cv-review, sessions, evaluations, audit)
-│   ├── student/         — student portal (dashboard, teachers, bookings, sessions, homework, packages, progress, messages)
-│   ├── teacher/         — teacher portal (dashboard, sessions, availability, students, homework, cv, evaluations, messages)
-│   └── api/             — webhooks (stripe, bookings)
+│   ├── (public)/        — landing, about, contact, packages, services, teachers, blog
+│   ├── admin/           — 33+ pages: users, teachers, bookings, sessions, evaluations, packages, services, blog, payments, notifications, automation, settings
+│   ├── moderator/       — 10 pages: users, cv-review, sessions, evaluations, audit
+│   ├── student/         — 12+ pages: dashboard, teachers, bookings, sessions, homework, packages, progress, notifications, messages, notes
+│   ├── teacher/         — 11+ pages: dashboard, sessions, availability, students, homework, cv, evaluations, notifications, messages
+│   └── api/             — stripe webhook, bookings, n8n webhook
 ├── components/
-│   ├── shared/          — nav, session-timer, session-status, device-check, logout-button
-│   └── public/          — testimonials, public-nav, public-footer, whatsapp-button
+│   ├── shared/ (20+)    — nav, topbar, notification-bell, stat-card, widget-card, data-table, analytics-chart, breakdown-bar, live-sessions-widget, messages-view, pwa-install-prompt, etc.
+│   ├── public/ (9)      — public-nav, public-footer, testimonials, register-banner, whatsapp-button
+│   └── seo/ (1)         — structured-data
 ├── lib/
-│   ├── supabase/        — client.ts, server.ts, middleware.ts, admin.ts
-│   ├── actions/         — evaluations.ts (shared admin+moderator), homework.ts (5 actions)
+│   ├── supabase/        — client.ts, server.ts, middleware.ts, admin.ts, helpers.ts, migrations/
+│   ├── actions/         — evaluations.ts, homework.ts, notifications.ts
+│   ├── automation/      — emit.ts (event emission to n8n)
 │   ├── notifications/   — parent.ts
+│   ├── stripe/          — .gitkeep (Stripe integration deferred)
 │   ├── i18n/            — context.tsx, lang-toggle.tsx
-│   ├── daily.ts         — Daily.co API (rooms, tokens, observer tokens)
-│   ├── settings.ts      — feature flags utilities
-│   ├── feature-flags-context.tsx — client-side flags provider
-│   └── constants.ts     — Arabic labels for session types, statuses, homework types/statuses
+│   ├── theme/           — context.tsx, theme-toggle.tsx
+│   ├── daily.ts, email.ts, whatsapp.ts, settings.ts, constants.ts, dashboard-queries.ts, cn.ts
+│   └── feature-flags-context.tsx
 ├── types/
-│   └── database.ts      — all TypeScript types (29 tables, 15 enums)
+│   └── database.ts      — 30 table interfaces, 23 enums
 └── proxy.ts             — middleware route protection
+automation/
+├── BLUEPRINT.md         — 52-workflow master plan (12 areas)
+├── VPS_HANDOFF.md       — Context file for Claude Code on VPS
+└── VPS_ANSWERS.md       — Setup answers and credentials checklist
 supabase/functions/      — 4 edge functions (auto-reminder, auto-complete, no-show-detector, weekly-report)
 ```
 
-## Styling Patterns
-- RTL-first: `dir="rtl"` on root divs
-- Containers: `mx-auto max-w-4xl px-4 py-8` (or max-w-5xl for tables)
-- Cards: `rounded-2xl border border-card-border bg-card p-6`
-- Inputs: `w-full rounded-xl border border-input-border bg-input neu-inset px-4 py-2.5`
-- Status badges: `rounded-full border px-2 py-0.5 text-xs` with color variants
-- Gold accent: `text-gold`, `bg-gold`, `border-gold/30`
-- Buttons: `rounded bg-gold px-4 py-2 text-sm font-medium text-white`
-- Primary CTA: `rounded-full bg-primary px-8 py-3 text-lg font-semibold text-white neu-btn`
-- All user-facing text in Arabic
-
-## Homework State Machine (V10)
-```
-assigned (teacher creates)
-  → student_ready (student clicks "I'm Ready")
-    → completed_excellent | completed_good (graded — done)
-    → completed_needs_work | completed_not_done (graded — auto-creates new homework via parent_assignment_id)
-```
-- 6 types: hifz, muraja, recitation, tajweed, writing, listening
-- Edit window: teacher can edit until next session starts
-- Notifications: assignment created → student, ready → teacher, graded → student, not_done → parent report
-- Legacy `sessions.homework` text field preserved for backward compatibility
-
-## Completed Features (shipped to main)
-- 4 role dashboards (Student, Teacher, Admin, Moderator) with real Supabase data
-- Shared widget system (StatCard, AnalyticsChart, DataTable, LiveSessions, BreakdownBar, WidgetCard)
-- Bilingual RTL/LTR with Arabic/English toggle
-- Dark + light mode
-- Database schema V9 + V10 (sessions, evaluations, CV status, homework)
-- Blog CMS with 6 seeded articles
-- SEO (sitemap, robots, structured data, OG images)
-- RLS policies audited
-- n8n instance at n8n.drdeeb.tech (2 workflows imported)
+## Completed Features (Phases A–I)
+- 4 role dashboards with real Supabase data + shared widget system
+- Bilingual RTL/LTR with Arabic/English toggle + dark/light mode
+- Database schema V9→V12 (sessions, evaluations, homework, packages, automation)
+- Blog CMS, SEO, RLS policies, n8n instance
 - CV review workflow for moderators
 - Basic booking + sessions with Daily.co video
-- Stripe payment integration (basic)
-- **Homework system** (V10) — structured assignments, state machine, grading, auto-regeneration
-- **Package & pricing system** (V11) — DB-driven packages, admin CRUD, student packages page, dashboard widget (Stripe deferred)
-- **In-app notifications** — NotificationBell in topbar with unread badge + dropdown, /student/notifications + /teacher/notifications pages, mark-read/delete actions
-- **Student progress page** — real data from student_progress/evaluations/homework, juz tracker, evaluation chart, milestones, homework performance
-- **Teacher onboarding checklist** — 5-step progress tracker (profile, CV, review, availability, first student) with visual progress bar
-- **Student discovery** — teacher browse with gender filter, sort (rating/experience/price), specialty filter, search
-- **Messaging enhancements** — read receipts (mark-as-read on open), unread counts, message notifications via bell
-- **PWA support** — service worker (cache-first statics, network-first pages), viewport + iOS meta tags, install prompt banner
-- **Automation infrastructure** (V12) — automation_logs table, event emission from server actions, n8n webhook endpoint, admin automation dashboard, feature flags, BLUEPRINT.md with 52 workflows
+- **Homework system** (V10) — state machine, 6 types, grading, auto-regeneration
+- **Package & pricing** (V11) — DB-driven packages, admin CRUD, 5 seed packages, student view
+- **In-app notifications** — bell + dropdown + full pages + mark-read/delete
+- **Student progress** — juz tracker, eval chart, milestones, homework performance
+- **Teacher onboarding** — 5-step checklist with progress bar, CV in nav
+- **Student discovery** — gender/specialty filter, sort controls
+- **Messaging** — read receipts, unread counts, message notifications
+- **PWA** — service worker, install prompt, iOS meta tags
+- **Automation infrastructure** (V12) — automation_logs, event emission, n8n webhook endpoint, admin dashboard, feature flags
 
-## Key Architecture: Automation
-- **Event emission**: `src/lib/automation/emit.ts` — non-blocking webhook calls to n8n on business events
-- **n8n callback**: `src/app/api/webhooks/n8n/route.ts` — log, notify, idempotency check actions
-- **Admin dashboard**: `/admin/automation` — logs, stats, feature flags
-- **Blueprint**: `automation/BLUEPRINT.md` — 52 workflows across 12 areas
-- **Events emitted**: booking.created/confirmed/cancelled, session.ended/no_show/notes_saved, homework.assigned/student_ready/graded
+## Audit Status
+Full platform audit completed: `AUDIT.md`
+- Product Architecture: **A-**
+- Data Model: **A-**
+- UX Direction: **B+**
+- Operational Readiness: **B**
+- Automation Maturity: **B-**
+- Revenue/Payment Readiness: **C+** (Stripe deferred)
+- Scale Readiness: **B-**
 
-## Future Roadmap (ordered by priority)
-1. **n8n Workflows** — build first 8 critical workflows on VPS (health check, reminders, no-show, parent reports, package alerts)
-2. **Phase J: Advanced** — AI suggestions, recording transcription, Quran text display, gamification
-3. **Stripe Integration** — connect Stripe Checkout + webhook to complete package purchases (final stage, deferred until API keys ready)
-4. **Phase E: Teacher Onboarding Polish** — signup flow, availability calendar, specializations, Stripe Connect payouts
-5. **Phase F: Student Discovery** — teacher browse/filter, public profiles, reviews/ratings, booking flow
-6. **Phase G: Communication** — student↔teacher messaging, file sharing, booking-tied conversations
-7. **Phase H: Mobile** — PWA or native app decision
-8. **Phase I: Automation** — remaining ~30 n8n workflows
-9. **Phase J: Advanced** — AI suggestions, recording transcription, Quran text display, gamification
+**Top recommendation:** Platform hardening > new features. See ROADMAP.md.
+
+## Priority Roadmap (Audit-Driven)
+
+### P1 — Critical (Do First)
+1. **Stripe payment completion** — checkout, webhook, fulfillment, invoices (blocked on API keys)
+2. **Communication infrastructure** — message_delivery_log, communication_preferences, dispatcher
+3. **Webhook security** — sign all internal webhooks
+4. **Event catalog + lifecycle docs** — EVENT_CATALOG.md, LIFECYCLES.md
+5. **n8n first 8 workflows** — health check, reminders, no-show, parent reports, package alerts
+
+### P2 — High Value (Next)
+6. **Dashboard UX hardening** — action-oriented by role
+7. **Retention engine** — retention_signals table, churn scoring, trial-to-paid
+8. **Teacher compliance** — grading follow-up, evaluation reminders, health metrics
+9. **Parent report automation** — AI + structured fallback via n8n
+
+### P3 — Operational Leverage
+10. **Admin control tower** — exception queues, anomaly monitoring
+11. **Teacher performance intelligence** — weekly snapshots, ranking
+12. **Package renewal campaigns** — exhaustion/expiry flows
+
+### P4 — Advanced/AI
+13. **AI parent narratives** at scale
+14. **AI curriculum advisor**
+15. **Teacher matching**
+16. **Parent self-service chatbot**
+17. **Recording transcription**
 
 ## Verification Checklist
 After any code change:
