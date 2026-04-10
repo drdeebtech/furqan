@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { notify } from "@/lib/notifications/dispatcher";
+import { emitEvent } from "@/lib/automation/emit";
 
 // Helper to verify caller is admin or moderator
 async function requireAdminOrMod(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -55,6 +56,7 @@ export async function createEvaluation(formData: FormData) {
 
   revalidatePath("/admin/evaluations");
   revalidatePath("/moderator/evaluations");
+  try { await emitEvent("evaluation.created", "evaluation", student_id, { student_id, teacher_id, evaluation_type }); } catch {}
   return { success: true };
 }
 
@@ -103,6 +105,7 @@ export async function createTeacherEvaluation(
 
   revalidatePath("/teacher/evaluations");
   revalidatePath("/teacher/students");
+  try { await emitEvent("evaluation.created", "evaluation", studentId, { student_id: studentId, teacher_id: user.id, evaluation_type: evaluationType }); } catch {}
   return { success: true };
 }
 

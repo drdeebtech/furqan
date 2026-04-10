@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createRoom, updateRoomExpiry } from "@/lib/daily";
 import { notifyParentSessionComplete, notifyParentNoShow } from "@/lib/notifications/parent";
+import { notify } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
 
 export async function updateBookingStatus(
@@ -90,14 +91,7 @@ export async function updateBookingStatus(
 
           // Notify student of auto-cancellation
           try {
-            await supabase.from("notifications").insert({
-              user_id: other.student_id,
-              type: "booking",
-              title: "تم إلغاء حجزك تلقائياً",
-              body: "تم إلغاء حجزك بسبب تعارض مع حجز آخر مؤكد — يمكنك حجز موعد بديل",
-              data: { booking_id: other.id },
-              channel: ["in_app"],
-            } as never);
+            await notify(other.student_id, "booking", "تم إلغاء حجزك تلقائياً", "تم إلغاء حجزك بسبب تعارض مع حجز آخر مؤكد — يمكنك حجز موعد بديل", "booking", other.id);
           } catch { /* non-blocking */ }
         }
       }
@@ -130,34 +124,16 @@ export async function updateBookingStatus(
         "تم تأكيد الحجز لكن حدث خطأ في إنشاء غرفة الفيديو — يرجى المحاولة يدوياً أو التواصل مع الدعم";
     }
 
-    // Fix #11: Notify student that booking is confirmed
+    // Notify student that booking is confirmed
     try {
       const scheduledDate = new Date(booking.scheduled_at).toLocaleDateString("ar-SA");
-      await supabase.from("notifications").insert({
-        user_id: booking.student_id,
-        type: "booking",
-        title: "تم تأكيد حجزك",
-        body: `تم تأكيد جلستك بتاريخ ${scheduledDate} — يمكنك الانضمام من صفحة الجلسات`,
-        data: { booking_id: bookingId },
-        channel: ["in_app"],
-      } as never);
-    } catch {
-      // Non-blocking
-    }
+      await notify(booking.student_id, "booking", "تم تأكيد حجزك", `تم تأكيد جلستك بتاريخ ${scheduledDate} — يمكنك الانضمام من صفحة الجلسات`, "booking", bookingId);
+    } catch { /* non-blocking */ }
   } else if (status === "cancelled") {
-    // Fix #11: Notify student that booking is cancelled
+    // Notify student that booking is cancelled
     try {
-      await supabase.from("notifications").insert({
-        user_id: booking.student_id,
-        type: "booking",
-        title: "تم رفض حجزك",
-        body: "للأسف تم رفض حجزك من قبل المعلم — يمكنك حجز موعد آخر",
-        data: { booking_id: bookingId },
-        channel: ["in_app"],
-      } as never);
-    } catch {
-      // Non-blocking
-    }
+      await notify(booking.student_id, "booking", "تم رفض حجزك", "للأسف تم رفض حجزك من قبل المعلم — يمكنك حجز موعد آخر", "booking", bookingId);
+    } catch { /* non-blocking */ }
   }
 
   revalidatePath("/teacher/dashboard");
@@ -200,17 +176,8 @@ export async function markNoShow(bookingId: string) {
 
   // Notify student
   try {
-    await supabase.from("notifications").insert({
-      user_id: booking.student_id,
-      type: "booking",
-      title: "تم تسجيل غيابك",
-      body: "سجّل المعلم غيابك عن الجلسة — تواصل مع المعلم لإعادة الجدولة",
-      data: { booking_id: bookingId },
-      channel: ["in_app"],
-    } as never);
-  } catch {
-    // Non-blocking
-  }
+    await notify(booking.student_id, "booking", "تم تسجيل غيابك", "سجّل المعلم غيابك عن الجلسة — تواصل مع المعلم لإعادة الجدولة", "booking", bookingId);
+  } catch { /* non-blocking */ }
 
   // V9: Notify parent of no-show
   try {
@@ -281,14 +248,7 @@ export async function endSession(sessionId: string) {
 
   // Notify student
   try {
-    await supabase.from("notifications").insert({
-      user_id: booking.student_id,
-      type: "booking",
-      title: "تمت الجلسة",
-      body: `أنهى المعلم الجلسة — المدة الفعلية: ${actualDuration} دقيقة`,
-      data: { booking_id: session.booking_id },
-      channel: ["in_app"],
-    } as never);
+    await notify(booking.student_id, "booking", "تمت الجلسة", `أنهى المعلم الجلسة — المدة الفعلية: ${actualDuration} دقيقة`, "session", sessionId);
   } catch {
     // Non-blocking
   }
@@ -524,14 +484,7 @@ export async function startInstantSession(studentId: string, durationMin: number
 
   // Notify student
   try {
-    await supabase.from("notifications").insert({
-      user_id: studentId,
-      type: "booking",
-      title: "جلسة فورية",
-      body: "المعلم بدأ جلسة فورية — انضم الآن!",
-      data: { booking_id: booking.id },
-      channel: ["in_app"],
-    } as never);
+    await notify(studentId, "booking", "جلسة فورية", "المعلم بدأ جلسة فورية — انضم الآن!", "booking", booking.id);
   } catch { /* non-blocking */ }
 
   revalidatePath("/teacher/dashboard");

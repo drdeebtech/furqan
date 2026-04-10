@@ -352,14 +352,14 @@ furqan/
 
 | Metric | Count |
 |--------|-------|
-| Total TS/TSX files | 250 |
-| Total lines of code | 25,057 |
-| Route pages (page.tsx) | 77 |
-| Shared components | 30 |
-| Library utilities | 22 |
-| Database tables | 29 |
-| Type aliases/enums | 23 |
-| Database interfaces | 29 |
+| Total TS/TSX files | 256 |
+| Total lines of code | 25,718 |
+| Route pages (page.tsx) | 79 |
+| Shared components | 30+ |
+| Library utilities | 25+ |
+| Database tables | 33 |
+| Type aliases/enums | 26 |
+| Database interfaces | 33 |
 | Server actions files | 3 (+ page-collocated) |
 | Supabase edge functions | 4 |
 | Migration files | 4 |
@@ -546,11 +546,18 @@ SESSION:  created → started → ended
 
 ## 16. Future Roadmap
 
-| Priority | Phase | Scope |
-|----------|-------|-------|
-| 1 | **Automation** | ~30 n8n workflows across 9 platform areas |
-| 2 | **Advanced** | AI suggestions, recording transcription, Quran text display, gamification |
-| 3 | **Stripe Integration** | Checkout sessions, webhook handler, package purchase flow (deferred until API keys ready) |
+See `ROADMAP.md` for detailed 8-sprint implementation plan.
+
+| Priority | Sprint | Scope | Status |
+|----------|--------|-------|--------|
+| P1 | Sprint 1 | Stripe payment completion | Blocked on API keys |
+| P1 | Sprint 2 | Communication infrastructure | Done |
+| P1 | Sprint 3 | Event catalog + lifecycle docs | Done |
+| P2 | Sprint 4 | Dashboard UX hardening | Done |
+| P2 | Sprint 5 | Retention engine | Done (table) |
+| P2 | Sprint 6 | Teacher compliance | Needs n8n VPS session |
+| P3 | Sprint 7 | Admin control tower | Done |
+| P4 | Sprint 8 | AI + advanced | Needs Anthropic key |
 
 ### Completed Phases
 - Phase A: Homework System (V10)
@@ -561,3 +568,5 @@ SESSION:  created → started → ended
 - Phase F: Student Discovery
 - Phase G: Communication Enhancements
 - Phase H: Progressive Web App (PWA)
+- Phase I: Automation Infrastructure (V12)
+- Hardening: Communication (V13), Event Docs, Teacher Action Queue, Retention Signals, Control Tower

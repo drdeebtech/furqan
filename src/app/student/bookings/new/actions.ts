@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { SessionType } from "@/types/database";
 import { notifyNewBooking } from "@/lib/whatsapp";
+import { notify } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
 
 export type BookingResult = {
@@ -179,15 +180,8 @@ export async function createBooking(
 
   // Send notifications in parallel (non-blocking)
   await Promise.allSettled([
-    // Notify teacher about new booking (in-app)
-    supabase.from("notifications").insert({
-      user_id: teacherId,
-      type: "booking",
-      title: "حجز جديد",
-      body: `لديك حجز جديد بتاريخ ${scheduledAt.toLocaleDateString("ar-SA")} — يرجى التأكيد`,
-      data: { booking_id: newBooking?.id ?? null },
-      channel: ["in_app"],
-    } as never),
+    // Notify teacher about new booking
+    notify(teacherId, "booking", "حجز جديد", `لديك حجز جديد بتاريخ ${scheduledAt.toLocaleDateString("ar-SA")} — يرجى التأكيد`, "booking", newBooking?.id ?? undefined),
     // WhatsApp notification to admin
     (async () => {
       const [{ data: studentProfile }, { data: teacherName }] = await Promise.all([
