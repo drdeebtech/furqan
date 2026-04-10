@@ -43,6 +43,12 @@ export async function emitEvent(
   const WEBHOOK_ROUTES: Record<string, string> = {
     "booking.confirmed": "/webhook/furqan-booking-confirmed",
     "session.notes_saved": "/webhook/furqan-session-notes-saved",
+    "session.no_show": "/webhook/furqan-no-show-parent",
+    "homework.graded": "/webhook/furqan-homework-graded",
+    "profile.created": "/webhook/furqan-profile-created",
+    "teacher.cv_submitted": "/webhook/furqan-cv-event",
+    "teacher.cv_approved": "/webhook/furqan-cv-event",
+    "teacher.cv_rejected": "/webhook/furqan-cv-event",
   };
 
   // Send to specific webhook if mapped, otherwise to generic events endpoint
