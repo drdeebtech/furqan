@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
+import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
 import type { SessionType, HomeworkAssignment } from "@/types/database";
 import { VideoRoom } from "@/app/student/sessions/[id]/video-room";
 import { PostSessionForm } from "./post-session-form";
@@ -54,9 +55,14 @@ export default async function TeacherSessionPage({ params }: Props) {
 
   if (!booking || booking.teacher_id !== user.id) redirect("/teacher/sessions");
 
-  const { data: student } = await supabase
-    .from("profiles").select("full_name").eq("id", booking.student_id)
-    .single<{ full_name: string | null }>();
+  const [studentRes, retentionRes] = await Promise.all([
+    supabase.from("profiles").select("full_name").eq("id", booking.student_id)
+      .single<{ full_name: string | null }>(),
+    supabase.from("retention_signals").select("churn_risk_score").eq("student_id", booking.student_id)
+      .maybeSingle<{ churn_risk_score: number | null }>(),
+  ]);
+  const student = studentRes.data;
+  const studentRisk = retentionRes.data?.churn_risk_score ?? null;
 
   // Fetch structured homework assignments for this booking
   const { data: hwAssignments } = await supabase
@@ -82,7 +88,14 @@ export default async function TeacherSessionPage({ params }: Props) {
 
       <div className="glass-card mb-6 flex flex-wrap items-center justify-between gap-4 p-4">
         <div>
-          <h1 className="text-lg font-bold">{studentName}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-bold">{studentName}</h1>
+            {studentRisk != null && studentRisk >= 40 && (
+              <span className={`glass-badge ${riskBadgeClass(studentRisk)}`} title={`خطر التسرب: ${studentRisk.toFixed(0)}`}>
+                {riskLabel(studentRisk)}
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-sm text-gold">
             {SESSION_TYPE_AR[booking.session_type]}
             <span className="mr-2 text-muted">· {booking.duration_min} دقيقة</span>

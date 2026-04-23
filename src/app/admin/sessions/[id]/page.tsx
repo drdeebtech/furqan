@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight, Video, User, GraduationCap, Clock, FileText, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SessionStatus } from "@/components/shared/session-status";
+import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
 import { SessionDetailActions } from "./detail-actions";
 import { SendReportButton } from "./send-report-button";
 
@@ -78,16 +79,25 @@ export default async function SessionDetailPage({
 
   /* Resolve names */
   let nameMap: Record<string, string> = {};
+  let studentRisk: number | null = null;
   if (booking) {
     const ids = [booking.student_id, booking.teacher_id];
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", ids)
-      .returns<{ id: string; full_name: string | null }[]>();
-    if (profiles) {
-      nameMap = Object.fromEntries(profiles.map((p) => [p.id, p.full_name ?? "—"]));
+    const [profilesRes, retentionRes] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", ids)
+        .returns<{ id: string; full_name: string | null }[]>(),
+      supabase
+        .from("retention_signals")
+        .select("churn_risk_score")
+        .eq("student_id", booking.student_id)
+        .maybeSingle<{ churn_risk_score: number | null }>(),
+    ]);
+    if (profilesRes.data) {
+      nameMap = Object.fromEntries(profilesRes.data.map((p) => [p.id, p.full_name ?? "—"]));
     }
+    studentRisk = retentionRes.data?.churn_risk_score ?? null;
   }
 
   /* Fetch audit log entries */
@@ -210,7 +220,14 @@ export default async function SessionDetailPage({
               <User size={14} className="text-muted" />
               <div>
                 <p className="text-xs text-muted">الطالب</p>
-                <p className="mt-0.5 text-sm font-medium">{nameMap[booking.student_id] ?? "—"}</p>
+                <div className="mt-0.5 flex items-center gap-2">
+                  <p className="text-sm font-medium">{nameMap[booking.student_id] ?? "—"}</p>
+                  {studentRisk != null && studentRisk >= 40 && (
+                    <span className={`glass-badge ${riskBadgeClass(studentRisk)}`} title={`خطر التسرب: ${studentRisk.toFixed(0)}`}>
+                      {riskLabel(studentRisk)}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-2">
