@@ -6,7 +6,44 @@ import { createClient } from "@/lib/supabase/server";
 import { riskTone, riskLabel } from "@/lib/retention/ui";
 import { InterventionButton } from "./intervention-button";
 import { RunScorerButton } from "./run-scorer-button";
+import { RetentionFilters } from "./filters";
 import type { InterventionType } from "./actions";
+
+type RiskFilter = "all" | "critical" | "high" | "medium" | "low";
+type PkgFilter = "all" | "active" | "low" | "expiring" | "none";
+type ContactedFilter = "all" | "never" | "recent" | "stale";
+
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+function applyFilters(rows: SignalRow[], f: { risk: RiskFilter; pkg: PkgFilter; contacted: ContactedFilter }): SignalRow[] {
+  const now = Date.now();
+  return rows.filter(r => {
+    const risk = r.churn_risk_score ?? 0;
+    if (f.risk === "critical" && risk < 75) return false;
+    if (f.risk === "high" && (risk < 60 || risk >= 75)) return false;
+    if (f.risk === "medium" && (risk < 40 || risk >= 60)) return false;
+    if (f.risk === "low" && risk >= 40) return false;
+
+    if (f.pkg === "active" && r.package_remaining == null) return false;
+    if (f.pkg === "low" && (r.package_remaining == null || r.package_remaining > 2)) return false;
+    if (f.pkg === "expiring") {
+      if (!r.package_expires_at) return false;
+      const delta = new Date(r.package_expires_at).getTime() - now;
+      if (delta < 0 || delta > SEVEN_DAYS_MS) return false;
+    }
+    if (f.pkg === "none" && r.package_remaining != null) return false;
+
+    if (f.contacted === "never" && r.last_intervention_at) return false;
+    if (f.contacted === "recent" || f.contacted === "stale") {
+      if (!r.last_intervention_at) return false;
+      const age = now - new Date(r.last_intervention_at).getTime();
+      if (f.contacted === "recent" && age >= SEVEN_DAYS_MS) return false;
+      if (f.contacted === "stale" && age < SEVEN_DAYS_MS) return false;
+    }
+
+    return true;
+  });
+}
 
 export const metadata: Metadata = { title: "إشارات البقاء" };
 
@@ -41,7 +78,18 @@ function recommendedAction(s: SignalRow): { type: InterventionType; label: strin
   return null;
 }
 
-export default async function RetentionPage() {
+interface Props {
+  searchParams: Promise<{ risk?: string; pkg?: string; contacted?: string }>;
+}
+
+export default async function RetentionPage({ searchParams }: Props) {
+  const sp = await searchParams;
+  const filters = {
+    risk: (sp.risk as RiskFilter) ?? "all",
+    pkg: (sp.pkg as PkgFilter) ?? "all",
+    contacted: (sp.contacted as ContactedFilter) ?? "all",
+  };
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -55,7 +103,8 @@ export default async function RetentionPage() {
     .limit(100)
     .returns<SignalRow[]>();
 
-  const rows = signals ?? [];
+  const allSignals = signals ?? [];
+  const rows = applyFilters(allSignals, filters);
   const studentIds = rows.map(r => r.student_id);
 
   const { data: profiles } = studentIds.length > 0
@@ -65,9 +114,10 @@ export default async function RetentionPage() {
 
   const nameById = new Map((profiles ?? []).map(p => [p.id, p.full_name ?? "بدون اسم"]));
 
-  const critical = rows.filter(r => (r.churn_risk_score ?? 0) >= 75).length;
-  const high = rows.filter(r => (r.churn_risk_score ?? 0) >= 60 && (r.churn_risk_score ?? 0) < 75).length;
-  const lastComputed = rows[0]?.computed_at ?? null;
+  const critical = allSignals.filter(r => (r.churn_risk_score ?? 0) >= 75).length;
+  const high = allSignals.filter(r => (r.churn_risk_score ?? 0) >= 60 && (r.churn_risk_score ?? 0) < 75).length;
+  const lastComputed = allSignals[0]?.computed_at ?? null;
+  const filtered = rows.length !== allSignals.length;
 
   return (
     <div dir="rtl" className="mx-auto max-w-6xl px-4 py-8">
@@ -86,10 +136,16 @@ export default async function RetentionPage() {
         </div>
       </div>
 
+      <RetentionFilters />
+
       {rows.length === 0 ? (
         <div className="glass-card rounded-xl p-8 text-center">
           <AlertTriangle size={32} className="mx-auto mb-3 text-muted" />
-          <p className="text-sm">لا توجد إشارات محسوبة بعد. سيتم ملء الجدول بعد أول تشغيل لمحرك البقاء عبر n8n.</p>
+          <p className="text-sm">
+            {filtered
+              ? "لا توجد نتائج مطابقة لهذه التصفية. جرّب تعديل المرشحات أو مسحها."
+              : "لا توجد إشارات محسوبة بعد. اضغط 'تشغيل الآن' أو انتظر التشغيل التلقائي لـ n8n."}
+          </p>
         </div>
       ) : (
         <div className="glass-card overflow-hidden rounded-xl">
