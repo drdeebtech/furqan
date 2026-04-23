@@ -53,6 +53,18 @@ export default async function AdminUserDetailPage({ params }: Props) {
         }>()
     : { data: null };
 
+  // Intervention history (students only)
+  const { data: interventionHistory } = isStudent
+    ? await supabase
+        .from("automation_logs")
+        .select("id, payload_json, finished_at")
+        .eq("workflow_name", "retention-intervention")
+        .eq("entity_id", id)
+        .order("finished_at", { ascending: false })
+        .limit(10)
+        .returns<{ id: string; payload_json: { intervention_type?: string; title?: string } | null; finished_at: string | null }[]>()
+    : { data: [] };
+
   // Bookings (student or teacher)
   const bookingFilter = isStudent ? "student_id" : "teacher_id";
   const { data: bookings } = await supabase
@@ -211,6 +223,24 @@ export default async function AdminUserDetailPage({ params }: Props) {
                 </p>
               </div>
             </div>
+
+            {interventionHistory && interventionHistory.length > 0 && (
+              <details className="mt-3 text-xs">
+                <summary className="cursor-pointer text-muted hover:text-foreground">
+                  سجل التدخلات ({interventionHistory.length})
+                </summary>
+                <ul className="mt-2 space-y-1">
+                  {interventionHistory.map(h => (
+                    <li key={h.id} className="flex items-center justify-between gap-3 border-t border-white/5 pt-1">
+                      <span>{h.payload_json?.title ?? h.payload_json?.intervention_type ?? "—"}</span>
+                      <span className="text-muted" dir="ltr">
+                        {h.finished_at ? new Date(h.finished_at).toLocaleString("ar-SA") : "—"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </div>
         )}
 

@@ -81,6 +81,24 @@ export async function logIntervention(formData: FormData): Promise<{ ok: boolean
     return { ok: false, error: stampError.message };
   }
 
+  // Write to automation_logs for per-student intervention history
+  const now = new Date().toISOString();
+  await supabase.from("automation_logs").insert({
+    workflow_name: "retention-intervention",
+    event_name: "retention.intervention_triggered",
+    entity_type: "student",
+    entity_id: studentId,
+    status: "succeeded",
+    payload_json: {
+      intervention_type: type,
+      triggered_by: user.id,
+      template_name: `retention_${type}`,
+      title: tpl.title,
+    },
+    started_at: now,
+    finished_at: now,
+  } as never);
+
   try {
     await emitEvent(
       "retention.intervention_triggered",
@@ -94,5 +112,6 @@ export async function logIntervention(formData: FormData): Promise<{ ok: boolean
   }
 
   revalidatePath("/admin/retention");
+  revalidatePath(`/admin/users/${studentId}`);
   return { ok: true };
 }
