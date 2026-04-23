@@ -28,7 +28,13 @@ export function SendReportButton({ sessionId, actorId }: Props) {
         title={state?.error}
       >
         <Mail size={16} />
-        {pending ? "جاري الإرسال..." : state?.ok ? "✓ أُرسل لولي الأمر" : "إرسال تقرير للوالد"}
+        {pending
+          ? "جاري الإرسال..."
+          : state?.already_sent
+            ? "✓ أُرسل مسبقًا"
+            : state?.ok
+              ? "✓ أُرسل لولي الأمر"
+              : "إرسال تقرير للوالد"}
       </button>
     </form>
   );

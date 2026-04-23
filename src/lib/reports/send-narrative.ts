@@ -16,6 +16,7 @@ export interface SendNarrativeResult {
   ok: boolean;
   parentReportId?: string;
   generated_via?: "template" | "ai";
+  already_sent?: boolean;
   error?: string;
 }
 
@@ -43,6 +44,22 @@ function renderEmailBody(n: SessionNarrative): string {
  * emits session.report_sent event for n8n subscribers.
  */
 export async function sendSessionNarrative(input: SendNarrativeInput): Promise<SendNarrativeResult> {
+  const supabase = createAdminClient();
+
+  // Idempotency: a report for this session should only be sent once across all channels
+  // (admin button, n8n workflow, future Vercel Cron). automation_logs is the guard.
+  const { data: priorSend } = await supabase
+    .from("automation_logs")
+    .select("id")
+    .eq("workflow_name", "parent-session-report")
+    .eq("entity_id", input.sessionId)
+    .eq("status", "succeeded")
+    .maybeSingle<{ id: string }>();
+
+  if (priorSend) {
+    return { ok: true, already_sent: true };
+  }
+
   const narrative = await buildSessionNarrative(input.sessionId);
   if (!narrative) {
     return { ok: false, error: "Session not found or not completed" };
@@ -52,8 +69,6 @@ export async function sendSessionNarrative(input: SendNarrativeInput): Promise<S
   const final: SessionNarrative = input.narrativeOverride
     ? { ...narrative, narrative_paragraph: input.narrativeOverride, generated_via: "ai" }
     : narrative;
-
-  const supabase = createAdminClient();
 
   // Look up student + parent contact
   const { data: session } = await supabase
@@ -98,6 +113,23 @@ export async function sendSessionNarrative(input: SendNarrativeInput): Promise<S
   if (reportErr || !report) {
     return { ok: false, error: reportErr?.message ?? "Failed to persist report" };
   }
+
+  // Idempotency marker — future calls for this session see priorSend and short-circuit
+  const nowIso = new Date().toISOString();
+  await supabase.from("automation_logs").insert({
+    workflow_name: "parent-session-report",
+    event_name: "session.report_sent",
+    entity_type: "session",
+    entity_id: input.sessionId,
+    status: "succeeded",
+    payload_json: {
+      parent_report_id: report.id,
+      generated_via: final.generated_via,
+      triggered_by: input.actorId,
+    },
+    started_at: nowIso,
+    finished_at: nowIso,
+  } as never);
 
   // Dispatch in-app notification to the student (parent emails are handled by n8n / Resend later)
   try {
