@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 export default function Error({
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
@@ -53,6 +54,12 @@ export default function Error({
           العودة للرئيسية
         </Link>
       </div>
+
+      {error.digest && (
+        <p className="mt-8 text-xs text-muted opacity-60">
+          رقم الخطأ: <code dir="ltr" className="font-mono">{error.digest}</code>
+        </p>
+      )}
     </div>
   );
 }

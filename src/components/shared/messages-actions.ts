@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { logError } from "@/lib/logger";
 
 export async function createConversation(otherUserId: string, role: "student" | "teacher") {
   const supabase = await createClient();
@@ -46,7 +47,7 @@ export async function getContactsForRole(role: "student" | "teacher") {
       .returns<{ student_id: string; teacher_id: string }[]>();
 
     if (bookingsError) {
-      console.error("Failed to fetch bookings:", bookingsError);
+      logError("Failed to fetch bookings for contacts list", bookingsError, { tag: "messages-actions" });
       return [];
     }
 
@@ -61,13 +62,13 @@ export async function getContactsForRole(role: "student" | "teacher") {
       .returns<{ id: string; full_name: string | null }[]>();
 
     if (profilesError) {
-      console.error("Failed to fetch profiles:", profilesError);
+      logError("Failed to fetch profiles for contacts list", profilesError, { tag: "messages-actions" });
       return [];
     }
 
     return (profiles ?? []).map(p => ({ id: p.id, name: p.full_name ?? "—" }));
   } catch (error) {
-    console.error("getContactsForRole failed:", error);
+    logError("getContactsForRole failed", error, { tag: "messages-actions" });
     return [];
   }
 }

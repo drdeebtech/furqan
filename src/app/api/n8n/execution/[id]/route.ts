@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getExecutionDetail } from "@/lib/n8n/client";
+import { logError } from "@/lib/logger";
 
 export async function GET(
   _request: Request,
@@ -18,7 +19,7 @@ export async function GET(
     const execution = await getExecutionDetail(id);
     return NextResponse.json(execution);
   } catch (err) {
-    console.error("[n8n-execution-detail] Failed:", err);
+    logError("n8n execution detail fetch failed", err, { tag: "n8n-execution" });
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

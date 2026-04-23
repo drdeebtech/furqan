@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logError } from "@/lib/logger";
 import {
   activateWorkflow,
   deactivateWorkflow,
@@ -35,8 +36,8 @@ async function logAdminAction(
       payload_json: { actor_id: actorId, action, workflow_id: workflowId } as never,
       finished_at: new Date().toISOString(),
     } as never);
-  } catch (logError) {
-    console.error("Failed to log admin action:", logError);
+  } catch (err) {
+    logError("Failed to log n8n admin action", err, { tag: "n8n-admin" });
   }
 }
 

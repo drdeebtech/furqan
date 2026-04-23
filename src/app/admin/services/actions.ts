@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { logError } from "@/lib/logger";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -45,7 +46,7 @@ export async function deleteService(serviceId: string) {
   const supabase = await requireAdmin();
   const { error } = await supabase.from("services").delete().eq("id", serviceId);
   if (error) {
-    console.error("Failed to delete service:", error);
+    logError("Failed to delete service", error, { tag: "admin-services" });
     return { error: "فشل حذف الخدمة" };
   }
   revalidatePath("/admin/services");
@@ -58,7 +59,7 @@ export async function toggleServiceActive(serviceId: string, isActive: boolean) 
   // as never: Supabase-generated types don't match runtime schema; safe workaround
   const { error } = await supabase.from("services").update({ is_active: isActive } as never).eq("id", serviceId);
   if (error) {
-    console.error("Failed to toggle service active:", error);
+    logError("Failed to toggle service active", error, { tag: "admin-services" });
     return { error: "فشل تحديث حالة الخدمة" };
   }
   revalidatePath("/admin/services");

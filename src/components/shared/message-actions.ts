@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { notify } from "@/lib/notifications/dispatcher";
+import { logError } from "@/lib/logger";
 
 export async function sendMessage(conversationId: string, content: string) {
   const supabase = await createClient();
@@ -102,7 +103,7 @@ export async function getMessages(conversationId: string) {
     }[]>();
 
   if (error) {
-    console.error("Failed to fetch messages:", error.message);
+    logError("Failed to fetch messages", error, { tag: "message-actions" });
   }
 
   return data ?? [];

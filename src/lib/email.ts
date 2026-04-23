@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { logError, logWarn } from "@/lib/logger";
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "drdeebtech@gmail.com";
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
@@ -30,7 +31,7 @@ export async function sendContactNotification(data: {
 }) {
   const resend = getResend();
   if (!resend) {
-    console.warn("[Email] RESEND_API_KEY not set — skipping email notification");
+    logWarn("RESEND_API_KEY not set — skipping email notification", { tag: "email" });
     return { error: "مفتاح البريد غير مُعدّ" };
   }
 
@@ -65,7 +66,7 @@ export async function sendContactNotification(data: {
     });
     return { success: true };
   } catch (error) {
-    console.error("Failed to send email:", error);
+    logError("Failed to send email", error, { tag: "email" });
     return { error: "فشل إرسال البريد" };
   }
 }

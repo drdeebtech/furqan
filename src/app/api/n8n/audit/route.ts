@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getWorkflows, getWorkflowDetail, getAllExecutions } from "@/lib/n8n/client";
 import { runFullAudit } from "@/lib/n8n/audit";
+import { logError } from "@/lib/logger";
 import type { N8nWorkflowDetail } from "@/lib/n8n/client";
 
 export async function POST() {
@@ -42,7 +43,7 @@ export async function POST() {
 
     return NextResponse.json({ ...report, _meta: { skippedWorkflows: skippedCount, fetchedWorkflows: detailedWorkflows.length } });
   } catch (err) {
-    console.error("[n8n-audit] Audit scan failed:", err);
+    logError("n8n audit scan failed", err, { tag: "n8n-audit" });
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

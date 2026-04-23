@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 export const alt = "فرقان — مقال";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";

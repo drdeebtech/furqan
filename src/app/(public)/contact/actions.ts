@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendContactNotification } from "@/lib/email";
 import { notifyNewContact } from "@/lib/whatsapp";
+import { logError } from "@/lib/logger";
 
 export async function submitContactForm(
   _prev: { success?: boolean; error?: string },
@@ -34,11 +35,11 @@ export async function submitContactForm(
     } as never);
 
     if (dbError) {
-      console.error("Contact form DB error:", dbError);
+      logError("Contact form DB error", dbError, { tag: "contact-form" });
       return { error: "حدث خطأ — حاول مرة أخرى" };
     }
   } catch (e) {
-    console.error("Contact form error:", e);
+    logError("Contact form error", e, { tag: "contact-form" });
     return { error: "حدث خطأ — حاول مرة أخرى" };
   }
 

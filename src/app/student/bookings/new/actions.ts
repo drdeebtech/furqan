@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { redirect } from "next/navigation";
 import { checkBotId } from "botid/server";
 import { createClient } from "@/lib/supabase/server";
@@ -7,24 +8,59 @@ import type { SessionType } from "@/types/database";
 import { notifyNewBooking } from "@/lib/whatsapp";
 import { notify } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
+import { logError } from "@/lib/logger";
 
 export type BookingResult = {
   error?: string;
 };
 
-// Simple in-memory rate limiter per user (resets on server restart)
-const bookingAttempts = new Map<string, { count: number; resetAt: number }>();
+const SESSION_TYPES = ["hifz", "muraja", "tajweed", "tilawa", "qiraat", "tafsir", "combined", "other"] as const;
+
+const BookingSchema = z.object({
+  teacher_id: z.string().uuid(),
+  session_type: z.enum(SESSION_TYPES),
+  duration_min: z.coerce.number().int().refine((n) => [30, 45, 60].includes(n), { message: "مدة غير صالحة" }),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  time: z.string().regex(/^\d{2}:\d{2}$/),
+  notes: z
+    .string()
+    .max(1000)
+    .nullable()
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : null)),
+});
+
 const MAX_BOOKINGS_PER_HOUR = 10;
 
-function checkRateLimit(userId: string): boolean {
-  const now = Date.now();
-  const entry = bookingAttempts.get(userId);
-  if (!entry || now > entry.resetAt) {
-    bookingAttempts.set(userId, { count: 1, resetAt: now + 60 * 60 * 1000 });
-    return true;
-  }
-  if (entry.count >= MAX_BOOKINGS_PER_HOUR) return false;
-  entry.count++;
+/**
+ * DB-backed rate limiter. Writes each attempt to automation_logs and counts
+ * entries for this user in the last hour. Works across Fluid Compute instances
+ * (no per-instance state) and survives cold starts. Cost: one DB query per call.
+ */
+async function checkRateLimit(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+): Promise<boolean> {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count } = await supabase
+    .from("automation_logs")
+    .select("id", { count: "exact", head: true })
+    .eq("workflow_name", "booking-attempt")
+    .eq("entity_id", userId)
+    .gte("started_at", oneHourAgo);
+
+  if ((count ?? 0) >= MAX_BOOKINGS_PER_HOUR) return false;
+
+  const now = new Date().toISOString();
+  await supabase.from("automation_logs").insert({
+    workflow_name: "booking-attempt",
+    event_name: "booking.attempt",
+    entity_type: "user",
+    entity_id: userId,
+    status: "succeeded",
+    started_at: now,
+    finished_at: now,
+  } as never);
   return true;
 }
 
@@ -37,24 +73,23 @@ export async function createBooking(
     return { error: "تعذر التحقق من الطلب" };
   }
 
-  const teacherId = formData.get("teacher_id") as string;
-  const sessionType = formData.get("session_type") as string;
-  const durationMin = Number(formData.get("duration_min"));
-  const date = formData.get("date") as string;
-  const time = formData.get("time") as string;
-  const notes = (formData.get("notes") as string) || null;
-
-  if (!teacherId || !sessionType || !durationMin || !date || !time) {
-    return { error: "جميع الحقول مطلوبة" };
+  const parsed = BookingSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    const msgMap: Record<string, string> = {
+      teacher_id: "معلم غير صالح",
+      session_type: "نوع الجلسة غير صالح",
+      duration_min: "مدة غير صالحة",
+      date: "تاريخ غير صالح",
+      time: "وقت غير صالح",
+    };
+    const field = firstIssue?.path[0]?.toString() ?? "";
+    return { error: msgMap[field] ?? firstIssue?.message ?? "جميع الحقول مطلوبة" };
   }
-
-  if (![30, 45, 60].includes(durationMin)) {
-    return { error: "مدة غير صالحة" };
-  }
+  const { teacher_id: teacherId, session_type: sessionType, duration_min: durationMin, date, time, notes } = parsed.data;
 
   const supabase = await createClient();
 
-  // Get authenticated user server-side (Fix #2: never trust client-provided student_id)
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -62,9 +97,14 @@ export async function createBooking(
 
   const studentId = user.id;
 
-  // Rate limiting (Fix #13)
-  if (!checkRateLimit(studentId)) {
-    return { error: "لقد تجاوزت الحد المسموح — حاول لاحقاً" };
+  // Durable rate limiting — DB-backed so it works across Fluid Compute instances
+  try {
+    if (!(await checkRateLimit(supabase, studentId))) {
+      return { error: "لقد تجاوزت الحد المسموح — حاول لاحقاً" };
+    }
+  } catch (err) {
+    logError("Booking rate-limit check failed — allowing request", err, { tag: "booking-rate-limit" });
+    // Fail-open so a transient DB blip doesn't block legitimate bookings
   }
 
   // Fetch teacher rate server-side (Fix #3: never trust client-provided rate)

@@ -6,6 +6,8 @@
  * Then add the API key to env vars.
  */
 
+import { logError, logWarn } from "@/lib/logger";
+
 interface WhatsAppRecipient {
   phone: string;
   apiKey: string | undefined;
@@ -21,7 +23,7 @@ function getRecipients(): WhatsAppRecipient[] {
 export async function sendWhatsAppNotification(message: string) {
   const recipients = getRecipients();
   if (recipients.length === 0) {
-    console.warn("[WhatsApp] No recipients configured — check CALLMEBOT_KEY_KW / CALLMEBOT_KEY_EG env vars");
+    logWarn("WhatsApp: no recipients configured — check CALLMEBOT_KEY_KW / CALLMEBOT_KEY_EG env vars", { tag: "whatsapp" });
     return;
   }
 
@@ -33,7 +35,7 @@ export async function sendWhatsAppNotification(message: string) {
       const res = await fetch(url);
       const text = await res.text();
       if (!text.includes("queued")) {
-        console.error(`[WhatsApp] Failed for ${r.phone}:`, text);
+        logError(`WhatsApp failed for ${r.phone}`, new Error(text), { tag: "whatsapp", phone: r.phone });
       }
       return text;
     }),
@@ -41,7 +43,7 @@ export async function sendWhatsAppNotification(message: string) {
 
   for (const r of results) {
     if (r.status === "rejected") {
-      console.error("[WhatsApp] Send failed:", r.reason);
+      logError("WhatsApp send failed", r.reason, { tag: "whatsapp" });
     }
   }
 }

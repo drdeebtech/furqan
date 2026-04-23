@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Mail, Inbox, CheckCircle, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { logError } from "@/lib/logger";
 import { MarkReadButton } from "./mark-read";
 
 export const metadata: Metadata = { title: "رسائل التواصل" };
@@ -23,7 +24,7 @@ export default async function AdminContactsPage() {
     }[]>();
 
   if (error) {
-    console.error("Failed to fetch contact submissions:", error.message);
+    logError("Failed to fetch contact submissions", error, { tag: "admin-contacts" });
   }
 
   const submissions = data ?? [];
