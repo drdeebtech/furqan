@@ -20,9 +20,10 @@ The platform already has enough product surface. The biggest win now is making i
 
 ## Sprint 1: Stripe Payment Completion [P1-CRITICAL]
 
-> **Status:** Blocked until Stripe test-mode API keys are provided
+> **Status:** DB-side scaffolded (Phase 15, 2026-04-23). Final SDK integration blocked until Stripe test-mode keys arrive.
 > **Impact:** Closes the #1 audit gap — revenue/payment readiness (C+ → A-)
-> **Estimated effort:** 1 session
+> **Estimated effort:** originally 1 session; now ~15 min once keys arrive (install `stripe`, uncomment sig verification, set env vars)
+> **Remaining work:** install `stripe` package, uncomment signature verification block in `src/app/api/stripe/webhook/route.ts`, add checkout creation route, wire `currency-packages.tsx` buttons. All DB logic (fulfillment, refund, payment/invoice/package creation) lives in `src/lib/stripe/*` and is unit-callable today.
 
 ### What to build
 
@@ -62,8 +63,9 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 
 ---
 
-## Sprint 2: Communication Infrastructure [P1]
+## Sprint 2: Communication Infrastructure [P1] ✅ SHIPPED
 
+> **Status:** Done. `message_delivery_log` + `communication_preferences` tables live; `dispatchNotification()` dispatcher is the canonical notification path and is used by all retention interventions and parent reports.
 > **Impact:** Enables reliable multi-channel messaging, parent trust, delivery tracking
 > **Estimated effort:** 1 session
 
@@ -126,8 +128,9 @@ Replace direct `supabase.from("notifications").insert(...)` calls with `dispatch
 
 ---
 
-## Sprint 3: Event Contracts + Lifecycle Docs [P1]
+## Sprint 3: Event Contracts + Lifecycle Docs [P1] ✅ SHIPPED
 
+> **Status:** `EVENT_CATALOG.md` + `LIFECYCLES.md` exist and are kept in sync with emit.ts.
 > **Impact:** Reduces logic sprawl risk, makes system predictable
 > **Estimated effort:** Documentation only, no code changes
 
@@ -177,8 +180,9 @@ created → reviewed by student (read-only)
 
 ---
 
-## Sprint 4: Dashboard UX Hardening [P2]
+## Sprint 4: Dashboard UX Hardening [P2] ✅ SHIPPED
 
+> **Status:** Teacher action queue live; admin control tower live with 7 widgets + at-risk widget (Phase 9).
 > **Impact:** Shifts dashboards from data-heavy to action-oriented
 > **Estimated effort:** 1 session
 
@@ -212,10 +216,11 @@ created → reviewed by student (read-only)
 
 ---
 
-## Sprint 5: Retention Engine [P2]
+## Sprint 5: Retention Engine [P2] ✅ SHIPPED (app-side)
 
+> **Status:** App-side DONE across 7 phases (9, 10, 11, 12, 13, 14, 18, 19, 20). `retention_signals` table live; scorer endpoint at `/api/retention/score`; admin page + filters + intervention buttons + cooldown + history; teacher + moderator widgets; session-page risk hints; manual trigger button. Remaining: n8n daily cron on Mac mini → POST to /api/retention/score with X-N8N-Secret header.
 > **Impact:** Reduces churn, increases renewal rates
-> **Estimated effort:** 1 session (DB + types) + VPS session (n8n workflows)
+> **Estimated effort:** 1 session (DB + types) + Mac-mini n8n session (cron + intervention workflow subscribers)
 
 ### New migration: `v13_002_retention.sql`
 
@@ -254,8 +259,9 @@ computed_at (timestamptz), created_at
 
 ---
 
-## Sprint 6: Teacher Compliance & Quality [P2]
+## Sprint 6: Teacher Compliance & Quality [P2] ✅ SHIPPED (app-side)
 
+> **Status:** Teacher action queue live. 90-day health metrics card on `/admin/teachers/[id]` (punctuality, grading lag, eval completion, no-show rate). Remaining: n8n grading-follow-up and eval-compliance workflows on Mac mini.
 > **Impact:** Improves teacher consistency, surfaces issues early
 > **Estimated effort:** 1 session
 
@@ -283,8 +289,9 @@ computed_at (timestamptz), created_at
 
 ---
 
-## Sprint 7: Admin Control Tower [P3]
+## Sprint 7: Admin Control Tower [P3] ✅ SHIPPED
 
+> **Status:** Live at `/admin/control-tower` with 8 widgets including at-risk students. Per-widget alert thresholds + linking to filtered pages.
 > **Impact:** Gives admins operational visibility and exception management
 > **Estimated effort:** 1 session
 
@@ -320,6 +327,7 @@ Each widget links to a filtered list page where admin can take action.
 
 ## Sprint 8: AI & Advanced Features [P4]
 
+> **Status:** Template path scaffolded (Phases 16, 17, 19). `buildSessionNarrative` generates structured reports today; `sendSessionNarrative` dispatches + writes parent_reports + is idempotent. POST `/api/reports/session/[id]/send` accepts optional `narrative_paragraph` override for n8n's AI path. Remaining: Anthropic key + n8n workflow that generates the paragraph with Claude and POSTs with the override.
 > **Impact:** Differentiation, premium experience
 > **Estimated effort:** Multiple sessions, requires Anthropic API key
 
@@ -401,4 +409,36 @@ Sprint 8 (AI) ───────────────── depends on Ant
 | `ROADMAP.md` | This file | Implementation plan |
 | `PROJECT.md` | Done | Technical reference |
 | `automation/BLUEPRINT.md` | Done | 52 n8n workflows |
-| `automation/VPS_HANDOFF.md` | Done | n8n Claude Code context |
+| `automation/VPS_HANDOFF.md` | Done | n8n Claude Code context (Mac mini as of 2026-04-23) |
+
+---
+
+## Post-Roadmap Phases (2026-04-23 session — 15 commits)
+
+Phases shipped beyond the original 8-sprint plan, in a single session that took retention from skeleton to self-healing.
+
+| # | Theme | What landed | Commit |
+|---|---|---|---|
+| 9 | Retention surface | `/admin/retention` ranked page + Control Tower widget + nav | `9c9dbb2` |
+| 10 | Intervention loop | 5 intervention types + cooldown multipliers + `automation_logs` observability | `a97baa8` |
+| 11 | Seed + surface | Run Scorer Now button + risk badges on `/admin/users` list & detail | `5fbe2ad` |
+| 12 | Filters | URL-param filters (risk tier, package, contacted freshness) | `2121ec1` |
+| 13 | Teacher reach | Teacher-scoped at-risk widget on teacher dashboard | `3068479` |
+| 14 | Audit trail | `automation_logs` per-intervention history + collapsible UI | `c0930f5` |
+| 15 | Stripe prep | Fulfillment + refund helpers + webhook shell (no SDK) | `02bacf8` |
+| 16 | Report template | `buildSessionNarrative` + GET endpoint (dual-auth) | `d56ac44` |
+| 17 | Report send | `sendSessionNarrative` + POST with optional AI override | `e73dc68` |
+| 18 | Session-page hint | Risk badge on admin + teacher session detail (≥40 only) | `a4ed636` |
+| 19 | Idempotency | `automation_logs` dedup guard before parent report send | `777782c` |
+| 20 | Moderator reach | Platform-wide at-risk widget on moderator dashboard | `bd1d9a0` |
+
+**Patterns established this session:**
+- Shared helpers in `src/lib/retention/ui.ts` (Rule of Three, extracted at 3rd caller)
+- AI-swappable slot pattern (`narrative_paragraph` field — template today, Claude tomorrow, zero surrounding shape change)
+- Dual-auth endpoints (X-N8N-Secret OR cookie role check) to serve n8n + admin UI from one handler
+- `automation_logs` as domain-visible observability + idempotency backing store (no migrations needed)
+- Fast-read cache + slow-write log (CQRS at the table level) for `retention_signals.last_intervention_at` vs `automation_logs`
+
+**Still blocked (both truly external):**
+- Stripe SDK install + keys → Sprint 1 collapses to ~15 min of integration
+- Anthropic key → Sprint 8's AI paragraph generation slots into the existing send pipeline
