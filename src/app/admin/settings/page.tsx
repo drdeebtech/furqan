@@ -86,6 +86,12 @@ export default async function AdminSettingsPage() {
             description="إخفاء صفحة المعلمين من القائمة العامة (الصفحة لا تزال متاحة بالرابط المباشر)"
             initialValue={settingsMap["hide_teachers_page"] === "true"}
           />
+          <FeatureToggle
+            settingKey="retention_ui_disabled"
+            label="تعطيل واجهة إشارات البقاء"
+            description="إخفاء صفحة /admin/retention والودجات أثناء فترة تسخين البيانات. الحسابات في الخلفية تستمر."
+            initialValue={settingsMap["retention_ui_disabled"] === "true"}
+          />
         </div>
       </div>
 
