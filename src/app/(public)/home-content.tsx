@@ -119,19 +119,31 @@ export default function HomePage() {
             <h2 className="font-display mt-3 text-4xl font-bold leading-tight">{t("ابدأ في ٣ خطوات بسيطة", "Start in 3 Simple Steps")}</h2>
           </div>
 
-          <div className="mt-16 grid gap-8 md:grid-cols-3">
-            {[
-              { num: "01", icon: Users, ar: "سجّل حسابك", en: "Create Account", dAr: "أنشئ حسابك وابدأ التعلم", dEn: "Create your account and start learning" },
-              { num: "02", icon: Calendar, ar: "اختر معلمك", en: "Choose Teacher", dAr: "تصفح المعلمين المعتمدين واختر الأنسب لمستواك وأهدافك.", dEn: "Browse certified teachers and pick the best match for your level and goals." },
-              { num: "03", icon: Video, ar: "ابدأ التعلم", en: "Start Learning", dAr: "انضم لجلستك عبر الفيديو المدمج وتابع تقدمك في الحفظ.", dEn: "Join your session via built-in video and track your memorization progress." },
-            ].map((step) => (
-              <div key={step.num} className="group relative glass-card p-8 transition-all duration-300 hover:border-gold/30 hover:shadow-lg hover:shadow-gold/5 hover:-translate-y-1">
-                <span className="absolute -top-4 right-6 glass-gold glass-pill px-3 py-1 text-sm font-bold">{step.num}</span>
-                <step.icon size={32} className="mb-4 text-gold transition-transform group-hover:scale-110" />
-                <h3 className="text-lg font-bold">{t(step.ar, step.en)}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted">{t(step.dAr, step.dEn)}</p>
-              </div>
-            ))}
+          {/* Horizontal journey flow — dashed connector between large numbered steps.
+              On mobile collapses to a stacked vertical path with a left-side rail. */}
+          <div className="mt-16">
+            <ol className="relative mx-auto grid max-w-4xl gap-10 md:grid-cols-3 md:gap-6">
+              {/* Desktop connector rail — sits behind the number medallions */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute left-0 right-0 top-8 hidden h-px border-t border-dashed border-gold/25 md:block"
+              />
+              {[
+                { num: "١", en_num: "1", icon: Users, ar: "سجّل حسابك", en: "Create Account", dAr: "أنشئ حسابك مجاناً في أقل من دقيقة.", dEn: "Create your free account in under a minute." },
+                { num: "٢", en_num: "2", icon: Calendar, ar: "اختر معلمك", en: "Choose Teacher", dAr: "تصفح المعلمين المعتمدين واختر الأنسب لمستواك.", dEn: "Browse certified teachers and pick the best match." },
+                { num: "٣", en_num: "3", icon: Video, ar: "ابدأ التعلم", en: "Start Learning", dAr: "انضم لجلستك المباشرة عبر الفيديو المدمج.", dEn: "Join your live session via the built-in video." },
+              ].map((step) => (
+                <li key={step.en_num} className="relative flex flex-col items-center text-center">
+                  {/* Number medallion — solid gold, sits on the rail */}
+                  <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full bg-gold font-display text-2xl font-bold text-background ring-8 ring-[var(--section-light-bg,theme(colors.background))]">
+                    {t(step.num, step.en_num)}
+                  </div>
+                  <step.icon size={22} className="mt-5 text-gold/70" />
+                  <h3 className="mt-3 text-lg font-bold">{t(step.ar, step.en)}</h3>
+                  <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted">{t(step.dAr, step.dEn)}</p>
+                </li>
+              ))}
+            </ol>
           </div>
         </div>
       </section>
