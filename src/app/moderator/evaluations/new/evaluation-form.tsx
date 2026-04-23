@@ -32,15 +32,15 @@ export function EvaluationForm({ students, teachers, redirectTo }: Props) {
       <form action={formAction} className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm font-medium">الطالب <span className="text-xs text-muted">Student</span></label>
-            <select name="student_id" required className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none">
+            <label htmlFor="student_id" className="mb-1 block text-sm font-medium">الطالب <span className="text-xs text-muted">Student</span></label>
+            <select id="student_id" name="student_id" required className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none">
               <option value="">اختر الطالب</option>
               {students.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">المعلم <span className="text-xs text-muted">Teacher</span></label>
-            <select name="teacher_id" required className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none">
+            <label htmlFor="teacher_id" className="mb-1 block text-sm font-medium">المعلم <span className="text-xs text-muted">Teacher</span></label>
+            <select id="teacher_id" name="teacher_id" required className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none">
               <option value="">اختر المعلم</option>
               {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
@@ -49,8 +49,8 @@ export function EvaluationForm({ students, teachers, redirectTo }: Props) {
 
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
-            <label className="mb-1 block text-sm font-medium">نوع التقييم</label>
-            <select name="evaluation_type" required className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none">
+            <label htmlFor="evaluation_type" className="mb-1 block text-sm font-medium">نوع التقييم</label>
+            <select id="evaluation_type" name="evaluation_type" required className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none">
               <option value="weekly">أسبوعي</option>
               <option value="biweekly">نصف شهري</option>
               <option value="monthly">شهري</option>
@@ -58,12 +58,12 @@ export function EvaluationForm({ students, teachers, redirectTo }: Props) {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">بداية الفترة</label>
-            <input name="period_start" type="date" required className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none" />
+            <label htmlFor="period_start" className="mb-1 block text-sm font-medium">بداية الفترة</label>
+            <input id="period_start" name="period_start" type="date" required className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none" />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">نهاية الفترة</label>
-            <input name="period_end" type="date" required className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none" />
+            <label htmlFor="period_end" className="mb-1 block text-sm font-medium">نهاية الفترة</label>
+            <input id="period_end" name="period_end" type="date" required className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none" />
           </div>
         </div>
 
@@ -76,27 +76,27 @@ export function EvaluationForm({ students, teachers, redirectTo }: Props) {
             { name: "overall_score", label: "الإجمالي" },
           ].map(f => (
             <div key={f.name}>
-              <label className="mb-1 block text-sm font-medium">{f.label} <span className="text-xs text-muted">/10</span></label>
-              <input name={f.name} type="number" min={1} max={10} className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none" />
+              <label htmlFor={f.name} className="mb-1 block text-sm font-medium">{f.label} <span className="text-xs text-muted">/10</span></label>
+              <input id={f.name} name={f.name} type="number" min={1} max={10} className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none" />
             </div>
           ))}
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium">نقاط القوة</label>
-          <textarea name="strengths" rows={2} className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none" />
+          <label htmlFor="strengths" className="mb-1 block text-sm font-medium">نقاط القوة</label>
+          <textarea id="strengths" name="strengths" rows={2} className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none" />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">نقاط الضعف</label>
-          <textarea name="weaknesses" rows={2} className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none" />
+          <label htmlFor="weaknesses" className="mb-1 block text-sm font-medium">نقاط الضعف</label>
+          <textarea id="weaknesses" name="weaknesses" rows={2} className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none" />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">التوصيات</label>
-          <textarea name="recommendations" rows={2} className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none" />
+          <label htmlFor="recommendations" className="mb-1 block text-sm font-medium">التوصيات</label>
+          <textarea id="recommendations" name="recommendations" rows={2} className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none" />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">ملاحظات إضافية</label>
-          <textarea name="notes" rows={2} className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none" />
+          <label htmlFor="notes" className="mb-1 block text-sm font-medium">ملاحظات إضافية</label>
+          <textarea id="notes" name="notes" rows={2} className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none" />
         </div>
 
         <button type="submit" disabled={pending}

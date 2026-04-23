@@ -263,6 +263,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
+                aria-label="ملاحظات للمعلم"
                 className="mt-2 w-full resize-none rounded-xl glass-input px-4 py-2.5 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none"
                 placeholder="أي ملاحظات للمعلم…"
               />

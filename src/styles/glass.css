@@ -367,6 +367,12 @@
     0 0 24px rgba(184, 146, 45, 0.15);
 }
 
+/* WCAG 2.4.7: visible focus ring for keyboard-only navigation. */
+.glass-input:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
 /* =====================
    SIDEBAR — full-height navigation panel
    ===================== */

@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import { RegisterForm } from "./register-form";
 
-export const metadata: Metadata = { title: "إنشاء حساب" };
+export const metadata: Metadata = {
+  title: "إنشاء حساب",
+  description:
+    "سجّل مجاناً في أكاديمية فرقان وابدأ تعلّم القرآن الكريم مع معلمين حاصلين على الإجازة. Create a free account at FURQAN Quran Academy and start learning with Ijazah-certified teachers.",
+  alternates: { canonical: "https://furqan.today/register" },
+};
 
 export default function RegisterPage() {
   return <RegisterForm />;

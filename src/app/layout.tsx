@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import { Inter, Rakkas, IBM_Plex_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme/context";
@@ -31,8 +32,8 @@ const body = IBM_Plex_Sans_Arabic({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // WCAG 2.5.5: do not disable user zoom. Allow up to 5x for low-vision users.
+  maximumScale: 5,
   themeColor: [
     { media: "(prefers-color-scheme: dark)", color: "#0F0F0F" },
     { media: "(prefers-color-scheme: light)", color: "#FFFFFF" },
@@ -67,8 +68,8 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   openGraph: {
     type: "website",
-    locale: "ar_AR",
-    alternateLocale: "en_US",
+    locale: "ar_SA",
+    alternateLocale: ["en_US"],
     url: "https://furqan.today",
     siteName: "فرقان — FURQAN Academy",
     title: "فرقان — تعلم القرآن الكريم مع معلمين معتمدين",
@@ -86,7 +87,14 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: "https://furqan.today",
-    languages: { ar: "https://furqan.today", en: "https://furqan.today" },
+    // `x-default` tells Google the canonical URL for users whose preferred
+    // language isn't specified. We keep the same origin for both locales but
+    // distinguish via the `?lang=` query so crawlers can pick up both variants.
+    languages: {
+      ar: "https://furqan.today/?lang=ar",
+      en: "https://furqan.today/?lang=en",
+      "x-default": "https://furqan.today",
+    },
   },
   appleWebApp: {
     capable: true,
@@ -98,15 +106,23 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Read the persisted language cookie so `<html lang>` and `dir` match the
+  // user's choice on the first byte — important for screen readers and for
+  // search engines that don't execute JS.
+  const cookieStore = await cookies();
+  const langCookie = cookieStore.get("furqan-lang")?.value;
+  const lang: "ar" | "en" = langCookie === "en" ? "en" : "ar";
+  const dir = lang === "ar" ? "rtl" : "ltr";
+
   return (
     <html
-      lang="ar"
-      dir="rtl"
+      lang={lang}
+      dir={dir}
       className={`${inter.variable} ${rakkas.variable} ${body.variable} h-full antialiased`}
     >
       <head>
@@ -121,7 +137,7 @@ export default function RootLayout({
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:top-0 focus:left-0 focus:z-[9999] focus:w-full focus:bg-gold focus:px-4 focus:py-3 focus:text-center focus:text-sm focus:font-medium focus:text-white"
         >
-          تخطي إلى المحتوى
+          {lang === "ar" ? "تخطي إلى المحتوى" : "Skip to main content"}
         </a>
         <ThemeProvider>
           {children}

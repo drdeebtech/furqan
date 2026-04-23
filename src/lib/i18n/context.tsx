@@ -20,8 +20,19 @@ const LangContext = createContext<LangContextType>({
 
 function getStoredLang(): Lang {
   if (typeof window === "undefined") return "ar";
+  // Prefer cookie (visible to the server) over localStorage (client-only).
+  const cookieMatch = document.cookie.match(/(?:^|; )furqan-lang=(ar|en)/);
+  if (cookieMatch) return cookieMatch[1] as Lang;
   const stored = localStorage.getItem("furqan-lang");
   return stored === "en" ? "en" : "ar";
+}
+
+function persistLang(next: Lang) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("furqan-lang", next);
+  // Cookie lets the server component (root layout) render <html lang="..."> correctly.
+  // 1 year, Lax so cross-site links preserve the choice but CSRF-like flows don't.
+  document.cookie = `furqan-lang=${next}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
 }
 
 export function LangProvider({ children }: { children: ReactNode }) {
@@ -43,7 +54,7 @@ export function LangProvider({ children }: { children: ReactNode }) {
   const toggle = useCallback(() => {
     setLang((prev) => {
       const next = prev === "ar" ? "en" : "ar";
-      localStorage.setItem("furqan-lang", next);
+      persistLang(next);
       return next;
     });
   }, []);

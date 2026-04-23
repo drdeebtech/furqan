@@ -65,7 +65,14 @@ export function PublicFooter() {
       </div>
 
       <div className="border-t border-white/10 px-6 py-6">
-        <p className="text-center text-xs text-muted">© 2026 {t("فرقان · جميع الحقوق محفوظة", "FURQAN · All rights reserved")}</p>
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 text-xs text-muted">
+          <p>© 2026 {t("فرقان · جميع الحقوق محفوظة", "FURQAN · All rights reserved")}</p>
+          <nav aria-label={t("روابط قانونية", "Legal links")} className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <Link href="/privacy" className="transition-colors hover:text-gold">{t("الخصوصية", "Privacy")}</Link>
+            <Link href="/terms" className="transition-colors hover:text-gold">{t("الشروط", "Terms")}</Link>
+            <Link href="/cookies" className="transition-colors hover:text-gold">{t("الكوكيز", "Cookies")}</Link>
+          </nav>
+        </div>
       </div>
     </footer>
   );
