@@ -23,22 +23,22 @@ export function Testimonials() {
   return (
     <section className="py-24">
       <div className="mx-auto max-w-7xl px-6">
-        <div className="ornament-divider mb-6">
-          <span className="text-gold/40">❖</span>
+        <div className="text-center">
+          <p className="text-sm font-medium uppercase tracking-[0.2em] text-gold/80">{t("آراء الطلاب", "Student reviews")}</p>
+          <h2 className="font-display mt-3 text-4xl font-bold">{t("ماذا يقول طلابنا؟", "What Our Students Say")}</h2>
         </div>
-        <p className="text-sm font-medium tracking-widest text-gold">{t("آراء الطلاب", "Student Reviews")}</p>
-        <h2 className="font-display mt-3 text-4xl font-bold">{t("ماذا يقول طلابنا؟", "What Our Students Say")}</h2>
 
         <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {REVIEWS.map((r) => (
-            <div key={r.en} className="glass-card p-6 transition-all duration-300 hover:border-gold/30">
-              <span className="text-3xl leading-none text-gold/20">❝</span>
-              <p className="mt-2 text-sm leading-relaxed text-muted">{t(r.ar, r.en)}</p>
-              <div className="mt-4 border-t border-white/10 pt-3">
-                <p className="text-sm font-bold">{t(r.name.ar, r.name.en)}</p>
-                <p className="text-xs text-muted">{r.loc}</p>
-              </div>
-            </div>
+            <figure key={r.en} className="rounded-2xl border border-surface-border/60 bg-surface/40 p-6 transition-colors duration-200 hover:border-gold/30">
+              <blockquote className="text-sm leading-relaxed text-foreground">
+                {t(r.ar, r.en)}
+              </blockquote>
+              <figcaption className="mt-4 border-t border-surface-border/60 pt-3">
+                <p className="text-sm font-semibold text-foreground">{t(r.name.ar, r.name.en)}</p>
+                <p className="mt-0.5 text-xs text-muted">{r.loc}</p>
+              </figcaption>
+            </figure>
           ))}
         </div>
       </div>
