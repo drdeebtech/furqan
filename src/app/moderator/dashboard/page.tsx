@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ModeratorDashboardContent } from "./dashboard-content";
+import { ModeratorAtRiskStudents } from "./at-risk-students";
 import {
   getModeratorWeeklyCVActivity,
   getModeratorRatingDistribution,
@@ -38,19 +39,24 @@ export default async function ModeratorDashboardPage() {
   ]);
 
   return (
-    <ModeratorDashboardContent
-      data={{
-        studentCount: studentCount ?? 0,
-        teacherCount: teacherCount ?? 0,
-        pendingCvCount: pendingCvCount ?? 0,
-        activeSessionCount: activeSessionCount ?? 0,
-        evalCount: evalCount ?? 0,
-        flaggedEvalCount: flaggedEvaluations.length,
-        weeklyCVActivity,
-        liveSessions,
-        ratingDistribution,
-        flaggedEvaluations,
-      }}
-    />
+    <>
+      <ModeratorDashboardContent
+        data={{
+          studentCount: studentCount ?? 0,
+          teacherCount: teacherCount ?? 0,
+          pendingCvCount: pendingCvCount ?? 0,
+          activeSessionCount: activeSessionCount ?? 0,
+          evalCount: evalCount ?? 0,
+          flaggedEvalCount: flaggedEvaluations.length,
+          weeklyCVActivity,
+          liveSessions,
+          ratingDistribution,
+          flaggedEvaluations,
+        }}
+      />
+      <div className="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
+        <ModeratorAtRiskStudents />
+      </div>
+    </>
   );
 }
