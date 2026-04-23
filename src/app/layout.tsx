@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { Inter, Rakkas, IBM_Plex_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme/context";
+import { ToastProvider } from "@/components/shared/toast";
 import { PwaInstallPrompt } from "@/components/shared/pwa-install-prompt";
 
 const inter = Inter({
@@ -140,8 +141,10 @@ export default async function RootLayout({
           {lang === "ar" ? "تخطي إلى المحتوى" : "Skip to main content"}
         </a>
         <ThemeProvider>
-          {children}
-          <PwaInstallPrompt />
+          <ToastProvider>
+            {children}
+            <PwaInstallPrompt />
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>

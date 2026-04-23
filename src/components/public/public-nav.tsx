@@ -89,7 +89,7 @@ export function PublicNav() {
           <div className="flex items-center gap-2 lg:hidden">
             <Link
               href="/register"
-              className="glass-gold glass-pill px-3 py-1.5 text-xs font-bold transition-all duration-200"
+              className="inline-flex min-h-[44px] items-center justify-center glass-gold glass-pill px-4 py-2 text-sm font-bold transition-all duration-200"
             >
               {t("سجّل", "Register")}
             </Link>
@@ -97,8 +97,10 @@ export function PublicNav() {
             <LangToggle />
             <button
               onClick={() => setOpen(!open)}
-              className="text-foreground focus-ring"
+              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-foreground focus-ring"
               aria-label={open ? "Close menu" : "Open menu"}
+              aria-expanded={open}
+              aria-controls="mobile-nav"
             >
               {open ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -107,20 +109,22 @@ export function PublicNav() {
 
         {/* Mobile dropdown */}
         {open && (
-          <div className="glass-card px-4 py-4 lg:hidden">
+          <div id="mobile-nav" className="glass-card px-4 py-4 lg:hidden">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
-                className={`block py-2.5 text-sm transition-colors duration-200 ${pathname === link.href ? "font-medium text-gold" : "text-muted hover:text-foreground"}`}
+                className={`flex min-h-[44px] items-center py-2 text-sm transition-colors duration-200 ${pathname === link.href ? "font-medium text-gold" : "text-muted hover:text-foreground"}`}
               >
                 {t(link.ar, link.en)}
               </Link>
             ))}
             <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4">
-              <Link href="/login" className="text-sm text-muted">{t("تسجيل الدخول", "Sign In")}</Link>
-              <Link href="/register" className="glass-gold glass-pill px-4 py-2.5 text-center text-sm font-medium transition-colors duration-200">
+              <Link href="/login" className="flex min-h-[44px] items-center text-sm text-muted">
+                {t("تسجيل الدخول", "Sign In")}
+              </Link>
+              <Link href="/register" className="inline-flex min-h-[44px] items-center justify-center glass-gold glass-pill px-4 text-sm font-medium transition-colors duration-200">
                 {t("سجّل الآن", "Register Now")}
               </Link>
             </div>

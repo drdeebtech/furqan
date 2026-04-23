@@ -49,7 +49,7 @@ export default function HomePage() {
             </div>
 
             {/* Heading */}
-            <h1 className="font-display text-4xl font-bold leading-[1.15] md:text-6xl lg:text-7xl">
+            <h1 className="font-display text-4xl font-bold leading-[1.3] md:text-6xl md:leading-[1.2] lg:text-7xl">
               {t("تعلّم", "Learn")}{" "}
               <span className="text-gold">{t("القرآن", "Quran")}</span>
               <br />

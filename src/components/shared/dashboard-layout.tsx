@@ -1,7 +1,6 @@
 import { Nav } from "@/components/shared/nav";
 import { Topbar } from "@/components/shared/topbar";
 import { LangProvider } from "@/lib/i18n/context";
-import { ToastProvider } from "@/components/shared/toast";
 import { createClient } from "@/lib/supabase/server";
 
 type Role = "student" | "teacher" | "admin" | "moderator";
@@ -23,17 +22,15 @@ export async function DashboardLayout({
 
   return (
     <LangProvider>
-      <ToastProvider>
-        <div className="min-h-screen">
-          <Nav role={role} userName={userName} />
-          <main id="main-content" className="min-h-screen pt-14 md:pt-0 md:ms-64">
-            <div className="hidden md:block md:border-b md:border-[var(--surface-border)] md:px-6 md:pt-5 md:pb-4">
-              <Topbar />
-            </div>
-            {children}
-          </main>
-        </div>
-      </ToastProvider>
+      <div className="min-h-screen">
+        <Nav role={role} userName={userName} />
+        <main id="main-content" className="min-h-screen pt-14 md:pt-0 md:ms-64">
+          <div className="hidden md:block md:border-b md:border-[var(--surface-border)] md:px-6 md:pt-5 md:pb-4">
+            <Topbar />
+          </div>
+          {children}
+        </main>
+      </div>
     </LangProvider>
   );
 }
