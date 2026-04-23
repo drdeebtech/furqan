@@ -6,7 +6,7 @@ import { useLang } from "@/lib/i18n/context";
 
 interface StatusBadge {
   text: string;
-  type: "active" | "info";
+  type: "active" | "info" | "warning";
 }
 
 interface StatCardProps {
@@ -34,14 +34,22 @@ export function StatCard({ icon: Icon, label, value, href, subtitle, actionLabel
             <Icon size={18} className="text-[var(--muted)]" />
           </div>
           <span className="text-sm text-[var(--muted)]">{label}</span>
-          {statusBadge && (
-            <div className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium">
-              {statusBadge.type === "active" && (
-                <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent-green,#22C55E)]" />
-              )}
-              <span className="text-[var(--accent-green,#22C55E)]">{statusBadge.text}</span>
-            </div>
-          )}
+          {statusBadge && (() => {
+            const color =
+              statusBadge.type === "warning"
+                ? "var(--warning,#E0A830)"
+                : statusBadge.type === "info"
+                  ? "var(--muted)"
+                  : "var(--accent-green,#22C55E)";
+            return (
+              <div className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium">
+                {(statusBadge.type === "active" || statusBadge.type === "warning") && (
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
+                )}
+                <span style={{ color }}>{statusBadge.text}</span>
+              </div>
+            );
+          })()}
         </div>
         <p className="mt-3 text-[clamp(2rem,4vw,3rem)] font-bold tracking-tight leading-none tabular-nums text-[var(--foreground)]">{value}</p>
         {subtitle && <p className="mt-0.5 text-xs text-[var(--muted)]">{subtitle}</p>}

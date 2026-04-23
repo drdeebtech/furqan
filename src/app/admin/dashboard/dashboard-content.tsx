@@ -20,6 +20,7 @@ interface AdminDashboardData {
   teacherList: TeacherRow[];
   bookingsMonth: number;
   revenueMonth: number;
+  revenueTrend: { currentMonthUsd: number; previousMonthUsd: number; changePct: number };
   pendingCount: number;
   pendingBookings: PendingBookingRow[];
   newStudentCount: number;
@@ -34,7 +35,7 @@ interface AdminDashboardData {
 
 export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
   const { t, dir } = useLang();
-  const { studentCount, teacherList, bookingsMonth, revenueMonth, pendingCount, pendingBookings, newStudentCount, todayBookings, activeSessionCount, nameMap, dailyRevenue, adminLiveSessions, bookingBreakdown, recentBookings } = data;
+  const { studentCount, teacherList, bookingsMonth, revenueMonth, revenueTrend, pendingCount, pendingBookings, newStudentCount, todayBookings, activeSessionCount, nameMap, dailyRevenue, adminLiveSessions, bookingBreakdown, recentBookings } = data;
 
   const hasAlerts = pendingCount > 0 || newStudentCount > 0;
   const formatDate = (d: string) => new Date(d).toLocaleDateString("ar-SA", { day: "numeric", month: "short" });
@@ -87,7 +88,23 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
           <StatCard icon={Users} label={t("الطلاب", "Students")} value={studentCount} href="/admin/users" actionLabel={t("عرض", "View")} />
           <StatCard icon={GraduationCap} label={t("المعلمون", "Teachers")} value={teacherList.length} href="/admin/teachers" actionLabel={t("عرض", "View")} />
           <StatCard icon={BookOpen} label={t("حجوزات الشهر", "Monthly Bookings")} value={bookingsMonth} href="/admin/bookings" actionLabel={t("عرض", "View")} />
-          <StatCard icon={DollarSign} label={t("إيرادات الشهر", "Monthly Revenue")} value={`$${revenueMonth.toFixed(2)}`} href="/admin/payments" actionLabel={t("عرض", "View")} statusBadge={revenueMonth > 0 ? { text: t("نشط", "Active"), type: "active" as const } : undefined} />
+          <StatCard
+            icon={DollarSign}
+            label={t("إيرادات الشهر", "Monthly Revenue")}
+            value={`$${revenueMonth.toFixed(2)}`}
+            href="/admin/payments"
+            actionLabel={t("عرض", "View")}
+            statusBadge={
+              revenueTrend.previousMonthUsd > 0
+                ? {
+                    text: `${revenueTrend.changePct >= 0 ? "+" : ""}${revenueTrend.changePct}% ${t("مقارنة بالشهر الماضي", "vs last month")}`,
+                    type: revenueTrend.changePct >= 0 ? ("active" as const) : ("warning" as const),
+                  }
+                : revenueMonth > 0
+                  ? { text: t("نشط", "Active"), type: "active" as const }
+                  : undefined
+            }
+          />
         </div>
 
         {/* Row 2: Analytics chart + Right widgets */}

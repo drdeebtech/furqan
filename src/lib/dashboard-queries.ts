@@ -440,6 +440,60 @@ export async function getTeacherRecentStudents(
 // ADMIN DASHBOARD QUERIES
 // ============================================
 
+/**
+ * Month-over-month revenue for the admin MRR card.
+ * Returns current-MTD and previous-month-same-period (or full month) totals
+ * so a visible delta can be computed client-side.
+ */
+export interface MonthlyRevenueTrend {
+  currentMonthUsd: number;
+  previousMonthUsd: number;
+  changePct: number; // rounded to integer
+}
+
+export async function getAdminMonthlyRevenueTrend(): Promise<MonthlyRevenueTrend> {
+  const supabase = await createClient();
+  const now = new Date();
+  const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const firstOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonthSameDay = new Date(
+    firstOfLastMonth.getFullYear(),
+    firstOfLastMonth.getMonth(),
+    Math.min(
+      now.getDate(),
+      new Date(firstOfThisMonth.getTime() - 1).getDate(),
+    ),
+    23, 59, 59,
+  );
+
+  const [currentRes, previousRes] = await Promise.all([
+    supabase
+      .from("bookings")
+      .select("amount_usd")
+      .eq("status", "completed")
+      .gte("created_at", firstOfThisMonth.toISOString())
+      .returns<{ amount_usd: number }[]>(),
+    supabase
+      .from("bookings")
+      .select("amount_usd")
+      .eq("status", "completed")
+      .gte("created_at", firstOfLastMonth.toISOString())
+      .lt("created_at", lastMonthSameDay.toISOString())
+      .returns<{ amount_usd: number }[]>(),
+  ]);
+
+  const sum = (rows: { amount_usd: number }[] | null | undefined) =>
+    (rows ?? []).reduce((acc, r) => acc + Number(r.amount_usd || 0), 0);
+
+  const currentMonthUsd = sum(currentRes.data);
+  const previousMonthUsd = sum(previousRes.data);
+  const changePct = previousMonthUsd > 0
+    ? Math.round(((currentMonthUsd - previousMonthUsd) / previousMonthUsd) * 100)
+    : currentMonthUsd > 0 ? 100 : 0;
+
+  return { currentMonthUsd, previousMonthUsd, changePct };
+}
+
 export async function getAdminDailyRevenue(
   lang: "ar" | "en" = "en"
 ): Promise<ChartDataPoint[]> {

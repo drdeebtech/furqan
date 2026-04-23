@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Activity, AlertTriangle, CheckCircle, Clock, Users, Package, BookOpen, XCircle } from "lucide-react";
+import { Activity, AlertTriangle, BookOpen, Clock, Package, Timer, Users, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "مركز التحكم" };
@@ -18,37 +18,45 @@ export default async function ControlTowerPage() {
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
+  // Stuck sessions: scheduled_at + duration_min has passed, session started (started_at set)
+  // but ended_at is null. Grace window 15 min, filter client-side to avoid complex SQL.
+  const fifteenMinAgo = new Date(now.getTime() - 15 * 60 * 1000).toISOString();
+
   const [
     pendingCvRes,
     failedAutoRes,
     noShowTodayRes,
-    lowBalanceRes,
     newSignupsRes,
     pendingGradingRes,
     unresolvedErrorsRes,
+    stuckSessionsRes,
+    deadLetterRes,
   ] = await Promise.all([
     supabase.from("teacher_profiles").select("id", { count: "exact", head: true }).eq("cv_status", "pending_review"),
     supabase.from("automation_logs").select("id", { count: "exact", head: true }).eq("status", "failed").gte("started_at", dayAgo),
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("status", "no_show").gte("scheduled_at", todayStart),
-    Promise.resolve({ count: 0 }), // low balance computed below separately
     supabase.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", weekAgo),
     supabase.from("homework_assignments").select("id", { count: "exact", head: true }).eq("status", "student_ready"),
     supabase.from("recitation_errors").select("id", { count: "exact", head: true }).eq("resolved", false),
+    supabase.from("sessions").select("id", { count: "exact", head: true }).is("ended_at", null).not("started_at", "is", null).lt("started_at", fifteenMinAgo),
+    supabase.from("automation_dead_letter").select("id", { count: "exact", head: true }).is("resolved_at", null),
   ]);
 
-  // Low balance packages — fetch only the 2 fields needed, limit to active
+  // Low balance packages — fetch only the fields needed, limit to active
   const { data: lowPkgs } = await supabase
     .from("student_packages")
-    .select("sessions_total, sessions_used")
+    .select("sessions_total, sessions_used, expires_at")
     .eq("status", "active")
-    .returns<{ sessions_total: number; sessions_used: number }[]>();
+    .returns<{ sessions_total: number; sessions_used: number; expires_at: string | null }[]>();
   const lowBalanceCount = (lowPkgs ?? []).filter(p => (p.sessions_total - p.sessions_used) <= 2).length;
 
   const widgets = [
     { label: "سير ذاتية بانتظار المراجعة", en: "Pending CVs", value: pendingCvRes.count ?? 0, icon: Users, color: "text-amber-400", bg: "bg-amber-500/10", href: "/admin/teachers/cv", threshold: 0 },
     { label: "أتمتة فاشلة (24 ساعة)", en: "Failed Automations", value: failedAutoRes.count ?? 0, icon: XCircle, color: "text-red-400", bg: "bg-red-500/10", href: "/admin/automation", threshold: 0 },
+    { label: "مهام فاشلة نهائياً", en: "Dead-Letter Queue", value: deadLetterRes.count ?? 0, icon: XCircle, color: "text-red-500", bg: "bg-red-500/15", href: "/admin/automation", threshold: 0 },
+    { label: "جلسات متوقفة", en: "Stuck Sessions (>15m)", value: stuckSessionsRes.count ?? 0, icon: Timer, color: "text-red-400", bg: "bg-red-500/10", href: "/admin/sessions/live", threshold: 0 },
     { label: "غياب اليوم", en: "No-Shows Today", value: noShowTodayRes.count ?? 0, icon: AlertTriangle, color: "text-orange-400", bg: "bg-orange-500/10", href: "/admin/sessions", threshold: 0 },
-    { label: "باقات منخفضة الرصيد", en: "Low Balance Packages", value: lowBalanceCount, icon: Package, color: "text-sky-400", bg: "bg-sky-500/10", href: "/admin/payments", threshold: 0 },
+    { label: "باقات منخفضة الرصيد", en: "Low Balance Packages", value: lowBalanceCount, icon: Package, color: "text-sky-400", bg: "bg-sky-500/10", href: "/admin/credits", threshold: 0 },
     { label: "مسجلون جدد (7 أيام)", en: "New Signups", value: newSignupsRes.count ?? 0, icon: Users, color: "text-emerald-400", bg: "bg-emerald-500/10", href: "/admin/users", threshold: -1 },
     { label: "واجبات بانتظار التقييم", en: "Pending Grading", value: pendingGradingRes.count ?? 0, icon: BookOpen, color: "text-purple-400", bg: "bg-purple-500/10", href: "/admin/notes", threshold: 0 },
     { label: "أخطاء تلاوة غير محلولة", en: "Unresolved Errors", value: unresolvedErrorsRes.count ?? 0, icon: AlertTriangle, color: "text-amber-400", bg: "bg-amber-500/10", href: "/admin/sessions", threshold: 10 },

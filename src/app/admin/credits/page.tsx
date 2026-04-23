@@ -1,0 +1,136 @@
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { Package, AlertCircle } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { GrantCreditForm } from "./grant-form";
+
+export const metadata: Metadata = {
+  title: "منح رصيد · Manual Credit Grant",
+};
+
+interface ActivePackageRow {
+  id: string;
+  student_id: string;
+  sessions_total: number;
+  sessions_used: number;
+  expires_at: string | null;
+  status: string;
+  packages: { name: string; name_ar: string } | null;
+  profiles: { full_name: string; email: string } | null;
+}
+
+export default async function AdminCreditsPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single<{ role: string }>();
+  if (!profile || profile.role !== "admin") redirect("/login");
+
+  // Active packages with low balance (≤2 remaining OR expiring within 7 days)
+  const { data: pkgs } = await supabase
+    .from("student_packages")
+    .select("id, student_id, sessions_total, sessions_used, expires_at, status, packages(name, name_ar), profiles!student_packages_student_id_fkey(full_name, email)")
+    .eq("status", "active")
+    .order("expires_at", { ascending: true, nullsFirst: false })
+    .returns<ActivePackageRow[]>();
+
+  const now = Date.now();
+  const lowBalance = (pkgs ?? []).filter((p) => {
+    const remaining = p.sessions_total - p.sessions_used;
+    if (remaining <= 2) return true;
+    if (p.expires_at && new Date(p.expires_at).getTime() - now <= 7 * 24 * 60 * 60 * 1000) return true;
+    return false;
+  });
+
+  return (
+    <div dir="rtl" className="mx-auto max-w-6xl px-4 py-8">
+      <header className="mb-8">
+        <div className="flex items-center gap-3">
+          <Package size={24} className="text-gold" />
+          <h1 className="text-xl font-bold">منح رصيد يدوي</h1>
+          <span className="text-sm text-muted">Manual Credit Grant</span>
+        </div>
+        <p className="mt-2 text-sm text-muted">
+          امنح الطالب جلسات إضافية على باقته النشطة. يُسجل كل منح في سجل المراجعة.
+        </p>
+      </header>
+
+      <GrantCreditForm />
+
+      <section className="mt-10">
+        <div className="mb-4 flex items-center gap-3">
+          <AlertCircle size={18} className="text-amber-400" />
+          <h2 className="text-lg font-bold">باقات منخفضة الرصيد أو قريبة الانتهاء</h2>
+          <span className="text-xs text-muted">({lowBalance.length})</span>
+        </div>
+
+        {lowBalance.length === 0 ? (
+          <p className="rounded-xl border border-surface-border/60 bg-surface/40 p-6 text-center text-sm text-muted">
+            لا توجد باقات بحاجة إلى الانتباه الآن.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-surface-border/60">
+            <table className="w-full text-sm">
+              <thead className="bg-surface/60 text-xs uppercase tracking-wider text-muted">
+                <tr>
+                  <th className="p-3 text-start">الطالب</th>
+                  <th className="p-3 text-start">الباقة</th>
+                  <th className="p-3 text-start">المتبقي</th>
+                  <th className="p-3 text-start">تنتهي</th>
+                  <th className="p-3 text-start"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {lowBalance.map((p) => {
+                  const remaining = p.sessions_total - p.sessions_used;
+                  const expiryDays =
+                    p.expires_at != null
+                      ? Math.ceil((new Date(p.expires_at).getTime() - now) / (24 * 60 * 60 * 1000))
+                      : null;
+                  return (
+                    <tr key={p.id} className="border-t border-surface-border/60">
+                      <td className="p-3">
+                        <p className="font-medium">{p.profiles?.full_name ?? "—"}</p>
+                        <p className="text-xs text-muted">{p.profiles?.email ?? ""}</p>
+                      </td>
+                      <td className="p-3">{p.packages?.name_ar ?? p.packages?.name ?? "—"}</td>
+                      <td className="p-3">
+                        <span className={remaining === 0 ? "text-red-400" : remaining <= 2 ? "text-amber-400" : "text-foreground"}>
+                          {remaining} / {p.sessions_total}
+                        </span>
+                      </td>
+                      <td className="p-3 text-xs">
+                        {p.expires_at ? (
+                          <span className={expiryDays !== null && expiryDays <= 7 ? "text-amber-400" : "text-muted"}>
+                            {expiryDays !== null && expiryDays <= 0
+                              ? "منتهية"
+                              : `خلال ${expiryDays} يوم`}
+                          </span>
+                        ) : (
+                          <span className="text-muted">بدون انتهاء</span>
+                        )}
+                      </td>
+                      <td className="p-3">
+                        <a
+                          href={`#grant-${p.student_id}`}
+                          className="text-xs font-medium text-gold hover:text-gold-light"
+                        >
+                          منح رصيد ←
+                        </a>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}

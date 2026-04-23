@@ -8,6 +8,7 @@ import {
   getAdminLiveSessions,
   getAdminBookingStatusBreakdown,
   getAdminRecentBookings,
+  getAdminMonthlyRevenueTrend,
 } from "@/lib/dashboard-queries";
 
 export const metadata: Metadata = { title: "لوحة الإدارة" };
@@ -52,11 +53,12 @@ export default async function AdminDashboardPage() {
 
   const nameMap = await fetchNameMap(supabase, Array.from(allIds));
 
-  const [dailyRevenue, adminLiveSessions, bookingBreakdown, recentBookings] = await Promise.all([
+  const [dailyRevenue, adminLiveSessions, bookingBreakdown, recentBookings, revenueTrend] = await Promise.all([
     getAdminDailyRevenue(),
     getAdminLiveSessions(),
     getAdminBookingStatusBreakdown(),
     getAdminRecentBookings(),
+    getAdminMonthlyRevenueTrend(),
   ]);
 
   return (
@@ -66,6 +68,7 @@ export default async function AdminDashboardPage() {
         teacherList,
         bookingsMonth: bookingsMonthRes.count ?? 0,
         revenueMonth: (revenueMonthRes.data ?? []).reduce((sum, b) => sum + Number(b.amount_usd), 0),
+        revenueTrend,
         pendingCount: pendingCountRes.count ?? 0,
         pendingBookings,
         newStudentCount: newStudentsRes.count ?? 0,
