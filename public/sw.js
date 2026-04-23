@@ -1,7 +1,9 @@
 // FURQAN Academy — Service Worker
 // Provides offline caching for static assets and app shell
 
-const CACHE_NAME = "furqan-v1";
+// Bump this on any public asset change (logos, manifest, favicons) so installed
+// PWAs invalidate their precache on the next service-worker activation.
+const CACHE_NAME = "furqan-v2-2026-04-24";
 const OFFLINE_URL = "/offline";
 
 // Static assets to cache on install

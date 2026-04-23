@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
 
-export async function GET(_request: Request) {
-  // TODO: List bookings for the authenticated user
-  return NextResponse.json({ bookings: [] });
+/**
+ * Stub endpoint — NOT YET IMPLEMENTED.
+ * Returns 501 instead of an empty array so that:
+ *   - accidental clients see a clear error
+ *   - a future dev cannot silently ship the handler without auth — they must
+ *     replace this body, which forces them to think about auth
+ *
+ * When implementing: add getUser() check + RLS-friendly query scoped to
+ * student_id = user.id.
+ */
+export async function GET() {
+  return NextResponse.json({ error: "Not Implemented" }, { status: 501 });
 }
 
-export async function POST(_request: Request) {
-  // TODO: Create a new booking
-  return NextResponse.json({ booking: null });
+export async function POST() {
+  return NextResponse.json({ error: "Not Implemented" }, { status: 501 });
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
-import { scoreAllStudents } from "@/lib/actions/retention";
+import { scoreRetentionBatch } from "@/lib/actions/retention-batch";
 
 function safeCompare(a: string | null, b: string | undefined): boolean {
   if (!a || !b) return false;
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await scoreAllStudents();
+    const result = await scoreRetentionBatch();
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "scoring failed";

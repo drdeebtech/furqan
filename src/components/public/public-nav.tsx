@@ -98,7 +98,7 @@ export function PublicNav() {
             <button
               onClick={() => setOpen(!open)}
               className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-foreground focus-ring"
-              aria-label={open ? "Close menu" : "Open menu"}
+              aria-label={open ? t("إغلاق القائمة", "Close menu") : t("فتح القائمة", "Open menu")}
               aria-expanded={open}
               aria-controls="mobile-nav"
             >
