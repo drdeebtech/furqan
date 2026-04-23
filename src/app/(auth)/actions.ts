@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { checkBotId } from "botid/server";
 import { createClient } from "@/lib/supabase/server";
 
 export type AuthResult = {
@@ -12,6 +13,11 @@ export async function login(
   _prev: AuthResult,
   formData: FormData,
 ): Promise<AuthResult> {
+  const verification = await checkBotId();
+  if (verification.isBot) {
+    return { error: "تعذر التحقق من الطلب" };
+  }
+
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const redirectTo = formData.get("redirect") as string | null;
@@ -52,6 +58,11 @@ export async function register(
   _prev: AuthResult,
   formData: FormData,
 ): Promise<AuthResult> {
+  const verification = await checkBotId();
+  if (verification.isBot) {
+    return { error: "تعذر التحقق من الطلب" };
+  }
+
   const fullName = formData.get("full_name") as string;
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;

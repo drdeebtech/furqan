@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { checkBotId } from "botid/server";
 import { createClient } from "@/lib/supabase/server";
 import type { SessionType } from "@/types/database";
 import { notifyNewBooking } from "@/lib/whatsapp";
@@ -31,6 +32,11 @@ export async function createBooking(
   _prev: BookingResult,
   formData: FormData,
 ): Promise<BookingResult> {
+  const verification = await checkBotId();
+  if (verification.isBot) {
+    return { error: "تعذر التحقق من الطلب" };
+  }
+
   const teacherId = formData.get("teacher_id") as string;
   const sessionType = formData.get("session_type") as string;
   const durationMin = Number(formData.get("duration_min"));
