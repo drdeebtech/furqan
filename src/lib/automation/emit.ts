@@ -8,6 +8,23 @@
 
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
 
+/**
+ * Exported so the webhook-replay admin tool can route a replay to the same
+ * path the original event used. Keep in sync when new events are added.
+ */
+export const WEBHOOK_ROUTES: Record<string, string> = {
+  "booking.confirmed": "/webhook/furqan-booking-confirmed",
+  "session.notes_saved": "/webhook/furqan-session-notes-saved",
+  "session.no_show": "/webhook/furqan-no-show-parent",
+  "homework.graded": "/webhook/furqan-homework-graded",
+  "profile.created": "/webhook/furqan-profile-created",
+  "teacher.cv_submitted": "/webhook/furqan-cv-event",
+  "teacher.cv_approved": "/webhook/furqan-cv-event",
+  "teacher.cv_rejected": "/webhook/furqan-cv-event",
+};
+
+export const DEFAULT_WEBHOOK_PATH = "/webhook/furqan-events";
+
 interface EventPayload {
   event: string;
   occurred_at: string;
@@ -39,20 +56,8 @@ export async function emitEvent(
     data,
   };
 
-  // Map events to specific n8n webhook paths
-  const WEBHOOK_ROUTES: Record<string, string> = {
-    "booking.confirmed": "/webhook/furqan-booking-confirmed",
-    "session.notes_saved": "/webhook/furqan-session-notes-saved",
-    "session.no_show": "/webhook/furqan-no-show-parent",
-    "homework.graded": "/webhook/furqan-homework-graded",
-    "profile.created": "/webhook/furqan-profile-created",
-    "teacher.cv_submitted": "/webhook/furqan-cv-event",
-    "teacher.cv_approved": "/webhook/furqan-cv-event",
-    "teacher.cv_rejected": "/webhook/furqan-cv-event",
-  };
-
   // Send to specific webhook if mapped, otherwise to generic events endpoint
-  const path = WEBHOOK_ROUTES[eventName] ?? "/webhook/furqan-events";
+  const path = WEBHOOK_ROUTES[eventName] ?? DEFAULT_WEBHOOK_PATH;
 
   // Fire-and-forget with 5s timeout. Failures record to automation_logs
   // rather than bubbling to the caller — the caller already wraps this in
