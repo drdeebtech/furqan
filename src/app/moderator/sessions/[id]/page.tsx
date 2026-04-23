@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight, Video, User, GraduationCap, Clock, Eye } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SessionStatus } from "@/components/shared/session-status";
+import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
 
 export const metadata: Metadata = { title: "تفاصيل الجلسة" };
 
@@ -31,10 +32,16 @@ export default async function ModeratorSessionDetailPage({ params }: { params: P
     .eq("id", session.booking_id).single().then(r => ({ data: r.data as BookingRow | null }));
 
   let nameMap: Record<string, string> = {};
+  let studentRisk: number | null = null;
   if (booking) {
-    const { data: profiles } = await supabase.from("profiles").select("id, full_name")
-      .in("id", [booking.student_id, booking.teacher_id]).returns<{ id: string; full_name: string | null }[]>();
-    if (profiles) nameMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name ?? "—"]));
+    const [profilesRes, retentionRes] = await Promise.all([
+      supabase.from("profiles").select("id, full_name")
+        .in("id", [booking.student_id, booking.teacher_id]).returns<{ id: string; full_name: string | null }[]>(),
+      supabase.from("retention_signals").select("churn_risk_score").eq("student_id", booking.student_id)
+        .maybeSingle<{ churn_risk_score: number | null }>(),
+    ]);
+    if (profilesRes.data) nameMap = Object.fromEntries(profilesRes.data.map(p => [p.id, p.full_name ?? "—"]));
+    studentRisk = retentionRes.data?.churn_risk_score ?? null;
   }
 
   const isActive = !!session.started_at && !session.ended_at;
@@ -71,7 +78,7 @@ export default async function ModeratorSessionDetailPage({ params }: { params: P
         <div className="mt-4 glass-card p-6">
           <h2 className="mb-4 text-lg font-semibold">معلومات الحجز</h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="flex items-center gap-2"><User size={14} className="text-muted" /><div><p className="text-xs text-muted">الطالب</p><p className="mt-0.5 text-sm font-medium">{nameMap[booking.student_id] ?? "—"}</p></div></div>
+            <div className="flex items-center gap-2"><User size={14} className="text-muted" /><div><p className="text-xs text-muted">الطالب</p><div className="mt-0.5 flex items-center gap-2"><p className="text-sm font-medium">{nameMap[booking.student_id] ?? "—"}</p>{studentRisk != null && studentRisk >= 40 && (<span className={`glass-badge ${riskBadgeClass(studentRisk)}`} title={`خطر التسرب: ${studentRisk.toFixed(0)}`}>{riskLabel(studentRisk)}</span>)}</div></div></div>
             <div className="flex items-center gap-2"><GraduationCap size={14} className="text-muted" /><div><p className="text-xs text-muted">المعلم</p><p className="mt-0.5 text-sm font-medium">{nameMap[booking.teacher_id] ?? "—"}</p></div></div>
             <div><p className="text-xs text-muted">الموعد</p><p className="mt-0.5 text-sm">{formatDT(booking.scheduled_at)}</p></div>
             <div><p className="text-xs text-muted">المدة المحددة</p><p className="mt-0.5 text-sm">{booking.duration_min} دقيقة</p></div>

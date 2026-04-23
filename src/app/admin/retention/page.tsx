@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AlertTriangle, TrendingDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { riskTone, riskLabel } from "@/lib/retention/ui";
+import { isFeatureDisabled } from "@/lib/settings";
 import { InterventionButton } from "./intervention-button";
 import { RunScorerButton } from "./run-scorer-button";
 import { RetentionFilters } from "./filters";
@@ -95,6 +96,8 @@ export default async function RetentionPage({ searchParams }: Props) {
   if (!user) redirect("/login");
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single<{ role: string }>();
   if (!profile || (profile.role !== "admin" && profile.role !== "moderator")) redirect("/login");
+
+  if (await isFeatureDisabled("retention_ui_disabled")) redirect("/admin/dashboard");
 
   const { data: signals } = await supabase
     .from("retention_signals")

@@ -38,3 +38,13 @@ export async function isFeatureEnabled(key: string): Promise<boolean> {
   const value = await getSetting(key);
   return value === "true";
 }
+
+/**
+ * Opposite polarity for default-on features: returns true only when
+ * explicitly set to "true". Use when a feature should be live unless
+ * an admin toggles it off (e.g. during data-warmup periods).
+ */
+export async function isFeatureDisabled(key: string): Promise<boolean> {
+  const value = await getSetting(key);
+  return value === "true";
+}
