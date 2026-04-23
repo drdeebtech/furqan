@@ -5,7 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
-  Menu, X, LayoutDashboard, GraduationCap, Calendar, TrendingUp,
+  Menu, X, LayoutDashboard, GraduationCap, Calendar, TrendingUp, TrendingDown,
   MessageSquare, Clock, Users, ClipboardCheck, BookOpen, StickyNote,
   Star, DollarSign, Briefcase, FileText, Mail, Bell, Settings, ScrollText, Video,
   ChevronsUpDown, MoreVertical,
@@ -49,6 +49,7 @@ const LINKS: Record<Role, NavLink[]> = {
   admin: [
     { href: "/admin/dashboard", ar: "لوحة الإدارة", en: "Dashboard", icon: LayoutDashboard, group: { ar: "الرئيسية", en: "MAIN" } },
     { href: "/admin/control-tower", ar: "مركز التحكم", en: "Control Tower", icon: ClipboardCheck },
+    { href: "/admin/retention", ar: "إشارات البقاء", en: "Retention", icon: TrendingDown },
     { href: "/admin/users", ar: "المستخدمون", en: "Users", icon: Users, group: { ar: "المستخدمون", en: "USERS" } },
     { href: "/admin/teachers", ar: "المعلمون", en: "Teachers", icon: GraduationCap },
     { href: "/admin/bookings", ar: "الحجوزات", en: "Bookings", icon: BookOpen, group: { ar: "الجلسات", en: "SESSIONS" } },

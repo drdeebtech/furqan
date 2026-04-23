@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Activity, AlertTriangle, BookOpen, Clock, Package, Timer, Users, XCircle } from "lucide-react";
+import { Activity, AlertTriangle, BookOpen, Clock, Package, Timer, TrendingDown, Users, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "مركز التحكم" };
@@ -42,6 +42,11 @@ export default async function ControlTowerPage() {
     supabase.from("automation_dead_letter").select("id", { count: "exact", head: true }).is("resolved_at", null),
   ]);
 
+  const { count: atRiskCount } = await supabase
+    .from("retention_signals")
+    .select("student_id", { count: "exact", head: true })
+    .gte("churn_risk_score", 60);
+
   // Low balance packages — fetch only the fields needed, limit to active
   const { data: lowPkgs } = await supabase
     .from("student_packages")
@@ -58,6 +63,7 @@ export default async function ControlTowerPage() {
     { label: "غياب اليوم", en: "No-Shows Today", value: noShowTodayRes.count ?? 0, icon: AlertTriangle, color: "text-orange-400", bg: "bg-orange-500/10", href: "/admin/sessions", threshold: 0 },
     { label: "باقات منخفضة الرصيد", en: "Low Balance Packages", value: lowBalanceCount, icon: Package, color: "text-sky-400", bg: "bg-sky-500/10", href: "/admin/credits", threshold: 0 },
     { label: "مسجلون جدد (7 أيام)", en: "New Signups", value: newSignupsRes.count ?? 0, icon: Users, color: "text-emerald-400", bg: "bg-emerald-500/10", href: "/admin/users", threshold: -1 },
+    { label: "طلاب في خطر التسرب", en: "At-Risk Students", value: atRiskCount ?? 0, icon: TrendingDown, color: "text-rose-400", bg: "bg-rose-500/10", href: "/admin/retention", threshold: 0 },
     { label: "واجبات بانتظار التقييم", en: "Pending Grading", value: pendingGradingRes.count ?? 0, icon: BookOpen, color: "text-purple-400", bg: "bg-purple-500/10", href: "/admin/notes", threshold: 0 },
     { label: "أخطاء تلاوة غير محلولة", en: "Unresolved Errors", value: unresolvedErrorsRes.count ?? 0, icon: AlertTriangle, color: "text-amber-400", bg: "bg-amber-500/10", href: "/admin/sessions", threshold: 10 },
   ];
