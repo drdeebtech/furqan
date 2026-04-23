@@ -3,7 +3,8 @@
  * All calls require N8N_API_URL and N8N_API_KEY env vars.
  */
 
-const N8N_API_URL = process.env.N8N_API_URL || "https://n8n.drdeeb.tech/api/v1";
+const RAW_N8N_API_URL = (process.env.N8N_API_URL ?? "").replace(/\\n|\\r/g, "").trim().replace(/\/+$/, "");
+const N8N_API_URL = RAW_N8N_API_URL || "https://n8n.drdeeb.tech/api/v1";
 const N8N_API_KEY = process.env.N8N_API_KEY;
 
 async function n8nFetch<T>(path: string, options?: RequestInit): Promise<T> {
