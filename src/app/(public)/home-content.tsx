@@ -49,7 +49,7 @@ export default function HomePage() {
             </div>
 
             {/* Heading */}
-            <h1 className="font-display text-5xl font-bold leading-[1.15] md:text-7xl lg:text-8xl">
+            <h1 className="font-display text-4xl font-bold leading-[1.15] md:text-6xl lg:text-7xl">
               {t("تعلّم", "Learn")}{" "}
               <span className="text-gold">{t("القرآن", "Quran")}</span>
               <br />
@@ -82,16 +82,10 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* Trust micro-copy */}
-            <div className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-muted">
-              <span className="flex items-center gap-1.5"><CheckCircle size={14} className="text-gold" /> {t("التسجيل مجاني", "Free registration")}</span>
-              <span className="flex items-center gap-1.5"><CheckCircle size={14} className="text-gold" /> {t("معلمون معتمدون", "Certified teachers")}</span>
-              <span className="flex items-center gap-1.5"><CheckCircle size={14} className="text-gold" /> {t("إلغاء في أي وقت", "Cancel anytime")}</span>
-            </div>
           </div>
 
           {/* ── Trust strip — honest descriptors, not fake stats ── */}
-          <div className="mt-14 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+          <div className="mt-12 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
             {[
               { label: t("جلسات فردية ١:١", "1-on-1 live sessions"), icon: Users },
               { label: t("معلمون حاصلون على الإجازة", "Ijazah-certified teachers"), icon: GraduationCap },
@@ -103,6 +97,21 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+
+          {/* ── Hero-level social proof — one strong testimonial ── */}
+          <figure className="mx-auto mt-10 max-w-2xl rounded-2xl border border-surface-border/60 bg-surface/40 px-6 py-5">
+            <blockquote className="text-base leading-relaxed text-foreground">
+              {t(
+                "«أتممتُ حفظ جزء عمّ في ثلاثة أشهر فقط بفضل الله ثم بفضل معلمتي الرائعة.»",
+                "“I completed memorizing Juz Amma in just three months, by the grace of Allah and my wonderful teacher.”",
+              )}
+            </blockquote>
+            <figcaption className="mt-3 flex items-center gap-2 text-xs text-muted">
+              <span className="font-medium text-foreground">{t("فاطمة السيد", "Fatima Al-Sayed")}</span>
+              <span className="text-muted">·</span>
+              <span>{t("الكويت 🇰🇼", "Kuwait 🇰🇼")}</span>
+            </figcaption>
+          </figure>
         </div>
 
         {/* Bottom fade into next section */}
@@ -135,7 +144,7 @@ export default function HomePage() {
               ].map((step) => (
                 <li key={step.en_num} className="relative flex flex-col items-center text-center">
                   {/* Number medallion — solid gold, sits on the rail */}
-                  <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full bg-gold font-display text-2xl font-bold text-background ring-8 ring-[var(--section-light-bg,theme(colors.background))]">
+                  <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full bg-gold font-display text-2xl font-bold text-background shadow-md">
                     {t(step.num, step.en_num)}
                   </div>
                   <step.icon size={22} className="mt-5 text-gold/70" />
@@ -152,7 +161,7 @@ export default function HomePage() {
           WHY FURQAN — warm accent background
           ══════════════════════════════════════════ */}
       <section className="section-accent islamic-pattern relative py-24">
-        <div className="pointer-events-none absolute inset-0 bg-background/80" />
+        <div className="pointer-events-none absolute inset-0 bg-background/40" />
         <div className="relative mx-auto max-w-7xl px-6">
           <div className="text-center">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-gold/80">{t("لماذا فرقان", "Why Furqan")}</p>
@@ -170,7 +179,7 @@ export default function HomePage() {
               { icon: Globe, ar: "نخدم طلاباً حول العالم", en: "Worldwide Access", dAr: "تعلّم من أي مكان — أمريكا، أوروبا، الخليج، أستراليا", dEn: "Learn from anywhere — USA, Europe, Gulf, Australia" },
             ].map((f) => (
               <div key={f.en} className="rounded-2xl border border-surface-border/60 bg-surface/40 p-5 transition-colors duration-200 hover:border-gold/30">
-                <f.icon size={20} className="mb-3 text-gold" />
+                <f.icon size={20} className="mb-3 text-foreground/70" strokeWidth={1.75} />
                 <h3 className="text-sm font-bold">{t(f.ar, f.en)}</h3>
                 <p className="mt-1 text-xs leading-relaxed text-muted">{t(f.dAr, f.dEn)}</p>
               </div>
@@ -184,8 +193,10 @@ export default function HomePage() {
           ══════════════════════════════════════════ */}
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-6">
-          <p className="text-sm font-medium uppercase tracking-[0.2em] text-gold/80">{t("التخصصات", "Courses")}</p>
-          <h2 className="font-display mt-3 text-4xl font-bold leading-tight">{t("ما نُعلّمه في فرقان", "What We Teach at FURQAN")}</h2>
+          <div className="text-center">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-gold/80">{t("التخصصات", "Courses")}</p>
+            <h2 className="font-display mt-3 text-4xl font-bold leading-tight">{t("ما نُعلّمه في فرقان", "What We Teach at FURQAN")}</h2>
+          </div>
 
           <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-3">
             {[
@@ -196,12 +207,10 @@ export default function HomePage() {
               { ar: "القراءات", en: "Qira'at", dAr: "تعلّم روايات حفص وورش وقالون والدوري", dEn: "Learn readings: Hafs, Warsh, Qalun, Al-Duri", icon: Globe },
               { ar: "التفسير", en: "Tafsir", dAr: "افهم معاني القرآن وتدبّر آياته", dEn: "Understand Quran meanings and reflect", icon: Award },
             ].map((c) => (
-              <Link key={c.en} href="/services" className="group glass-card p-6 transition-all duration-300 hover:border-gold/30 hover:shadow-lg hover:shadow-gold/5 hover:-translate-y-1">
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gold/10 transition-colors group-hover:bg-gold/20">
-                  <c.icon size={20} className="text-gold" />
-                </div>
-                <h3 className="font-bold text-gold">{t(c.ar, c.en)}</h3>
-                <p className="mt-2 text-xs leading-relaxed text-muted">{t(c.dAr, c.dEn)}</p>
+              <Link key={c.en} href="/services" className="rounded-2xl border border-surface-border/60 bg-surface/40 p-5 transition-colors duration-200 hover:border-gold/30">
+                <c.icon size={20} className="mb-3 text-foreground/70" strokeWidth={1.75} />
+                <h3 className="text-sm font-bold">{t(c.ar, c.en)}</h3>
+                <p className="mt-1 text-xs leading-relaxed text-muted">{t(c.dAr, c.dEn)}</p>
               </Link>
             ))}
           </div>
@@ -215,21 +224,27 @@ export default function HomePage() {
       </section>
 
       {/* ══════════════════════════════════════════
-          TRUST BADGES — certification bar
+          CREDENTIALS — scholar certification bar
+          (distinct from hero trust strip — this is
+          about institutional authority, not product)
           ══════════════════════════════════════════ */}
-      <section className="border-y border-gold/10 bg-gold/5 py-8">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-8 px-6">
-          {[
-            { icon: GraduationCap, ar: "خريجو جامعة الأزهر", en: "Al-Azhar Graduates" },
-            { icon: Shield, ar: "إجازة في رواية حفص", en: "Hafs Ijazah Certified" },
-            { icon: Globe, ar: "متاح لطلاب حول العالم", en: "Available Worldwide" },
-            { icon: Award, ar: "سجّل مجاناً", en: "Free Registration" },
-          ].map((b) => (
-            <div key={b.en} className="flex items-center gap-2 text-sm">
-              <b.icon size={18} className="text-gold" />
-              <span className="text-foreground">{t(b.ar, b.en)}</span>
-            </div>
-          ))}
+      <section className="border-y border-surface-border/60 bg-surface/30 py-10">
+        <div className="mx-auto max-w-5xl px-6">
+          <p className="text-center text-xs font-medium uppercase tracking-[0.2em] text-muted">
+            {t("الاعتمادات العلمية", "Scholarly credentials")}
+          </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-x-10 gap-y-4">
+            {[
+              { icon: GraduationCap, ar: "خريجو جامعة الأزهر", en: "Al-Azhar Graduates" },
+              { icon: Shield, ar: "إجازة في رواية حفص", en: "Hafs Ijazah Certified" },
+              { icon: Globe, ar: "طلاب من ٣٠+ دولة", en: "Students from 30+ countries" },
+            ].map((b) => (
+              <div key={b.en} className="flex items-center gap-2 text-sm">
+                <b.icon size={18} className="text-foreground/70" strokeWidth={1.75} />
+                <span className="text-foreground">{t(b.ar, b.en)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
