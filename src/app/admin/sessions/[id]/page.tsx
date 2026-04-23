@@ -5,6 +5,7 @@ import { ArrowRight, Video, User, GraduationCap, Clock, FileText, Shield } from 
 import { createClient } from "@/lib/supabase/server";
 import { SessionStatus } from "@/components/shared/session-status";
 import { SessionDetailActions } from "./detail-actions";
+import { SendReportButton } from "./send-report-button";
 
 export const metadata: Metadata = { title: "تفاصيل الجلسة" };
 
@@ -160,11 +161,14 @@ export default async function SessionDetailPage({
       </div>
 
       {/* Action buttons */}
-      <SessionDetailActions
-        sessionId={session.id}
-        isActive={isActive}
-        isExpired={!!isExpired}
-      />
+      <div className="flex flex-wrap items-center gap-3">
+        <SessionDetailActions
+          sessionId={session.id}
+          isActive={isActive}
+          isExpired={!!isExpired}
+        />
+        {session.ended_at && user && <SendReportButton sessionId={session.id} actorId={user.id} />}
+      </div>
 
       {/* Session info card */}
       <div className="mt-6 glass-card p-6">
