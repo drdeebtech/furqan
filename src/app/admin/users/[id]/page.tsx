@@ -137,8 +137,22 @@ export default async function AdminUserDetailPage({ params }: Props) {
               </div>
             </div>
           </div>
-          <div className="text-left text-xs text-muted">
-            انضم: {new Date(profile.created_at).toLocaleDateString("ar-SA")}
+          <div className="flex flex-col items-end gap-2 text-left text-xs text-muted">
+            <span>انضم: {new Date(profile.created_at).toLocaleDateString("ar-SA")}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href={`/admin/users/${profile.id}/timeline`}
+                className="rounded-lg border border-surface-border/60 px-2 py-1 text-xs text-muted transition-colors hover:border-gold/40 hover:text-gold"
+              >
+                الجدول الزمني
+              </Link>
+              <Link
+                href={`/admin/users/${profile.id}/as-user`}
+                className="rounded-lg border border-gold/30 bg-gold/10 px-2 py-1 text-xs text-gold transition-colors hover:bg-gold/20"
+              >
+                معاينة كمستخدم
+              </Link>
+            </div>
           </div>
         </div>
 

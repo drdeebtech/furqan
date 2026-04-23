@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { Inbox, Search } from "lucide-react";
+import { useState, useTransition } from "react";
+import { Inbox, Search, CheckCircle, XCircle, UserX } from "lucide-react";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import type { BookingStatus, SessionType } from "@/types/database";
 import { BookingStatusSelect } from "./booking-status-select";
+import { bulkUpdateBookingStatus, type BulkBookingResult } from "./bulk-actions";
 
 interface BookingRow {
   id: string;
@@ -38,6 +39,10 @@ export function BookingsTable({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkResult, setBulkResult] = useState<BulkBookingResult | null>(null);
+  const [reason, setReason] = useState("");
+  const [pending, start] = useTransition();
 
   const filtered = bookings.filter((b) => {
     if (statusFilter !== "all" && b.status !== statusFilter) return false;
@@ -50,9 +55,34 @@ export function BookingsTable({
     return true;
   });
 
-  const pending = bookings.filter((b) => b.status === "pending").length;
+  const pendingCount = bookings.filter((b) => b.status === "pending").length;
   const confirmed = bookings.filter((b) => b.status === "confirmed").length;
   const completed = bookings.filter((b) => b.status === "completed").length;
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const toggleSelectAll = () => {
+    setSelected((prev) => (prev.size === filtered.length ? new Set() : new Set(filtered.map((b) => b.id))));
+  };
+  const runBulk = (status: BookingStatus) => {
+    if (selected.size === 0) return;
+    start(async () => {
+      const r = await bulkUpdateBookingStatus({
+        ids: Array.from(selected),
+        status,
+        reason: reason || undefined,
+      });
+      setBulkResult(r);
+      setSelected(new Set());
+      setReason("");
+    });
+  };
 
   return (
     <>
@@ -60,7 +90,7 @@ export function BookingsTable({
       <div className="mb-6 grid grid-cols-4 gap-3">
         {[
           { l: "الكل", v: bookings.length },
-          { l: "معلق", v: pending },
+          { l: "معلق", v: pendingCount },
           { l: "مؤكد", v: confirmed },
           { l: "مكتمل", v: completed },
         ].map((s) => (
@@ -108,10 +138,15 @@ export function BookingsTable({
         </div>
       </div>
 
-      {/* Filtered count */}
-      <p className="mb-3 text-xs text-muted">
-        عرض {filtered.length} من {bookings.length} حجز
-      </p>
+      {/* Filtered count + batch result */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted">عرض {filtered.length} من {bookings.length} حجز</p>
+        {bulkResult && (
+          <p className={`text-xs ${bulkResult.failed === 0 ? "text-emerald-400" : "text-amber-400"}`}>
+            تم تحديث {bulkResult.updated}{bulkResult.failed > 0 && ` · فشل ${bulkResult.failed}`}
+          </p>
+        )}
+      </div>
 
       {/* Table or empty state */}
       {filtered.length === 0 ? (
@@ -124,6 +159,15 @@ export function BookingsTable({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 bg-white/5">
+                <th scope="col" className="w-10 px-3 py-3 text-right">
+                  <input
+                    type="checkbox"
+                    aria-label="تحديد الكل"
+                    checked={filtered.length > 0 && selected.size === filtered.length}
+                    onChange={toggleSelectAll}
+                    className="h-4 w-4"
+                  />
+                </th>
                 <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
                   الطالب
                 </th>
@@ -148,8 +192,17 @@ export function BookingsTable({
               {filtered.map((b) => (
                 <tr
                   key={b.id}
-                  className="border-b border-white/10 last:border-b-0"
+                  className={`border-b border-white/10 last:border-b-0 ${selected.has(b.id) ? "bg-gold/5" : ""}`}
                 >
+                  <td className="px-3 py-3">
+                    <input
+                      type="checkbox"
+                      aria-label={`\u062a\u062d\u062f\u064a\u062f ${b.id.slice(0, 8)}`}
+                      checked={selected.has(b.id)}
+                      onChange={() => toggleSelect(b.id)}
+                      className="h-4 w-4"
+                    />
+                  </td>
                   <td className="px-3 py-3">
                     {nameMap[b.student_id] ?? "\u2014"}
                   </td>
@@ -174,6 +227,52 @@ export function BookingsTable({
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {selected.size > 0 && (
+        <div className="fixed bottom-4 start-1/2 z-40 w-[min(42rem,calc(100%-2rem))] -translate-x-1/2 rounded-2xl border border-gold/40 bg-surface/95 p-3 shadow-xl backdrop-blur rtl:translate-x-1/2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-gold">تم تحديد {selected.size}</span>
+            <input
+              type="text"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="السبب (اختياري)"
+              aria-label="سبب"
+              className="glass-input flex-1 rounded-lg px-3 py-1.5 text-xs"
+            />
+            <button
+              onClick={() => runBulk("confirmed")}
+              disabled={pending}
+              className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
+            >
+              <CheckCircle size={14} /> تأكيد
+            </button>
+            <button
+              onClick={() => runBulk("cancelled")}
+              disabled={pending}
+              className="flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/20 disabled:opacity-50"
+            >
+              <XCircle size={14} /> إلغاء
+            </button>
+            <button
+              onClick={() => runBulk("no_show")}
+              disabled={pending}
+              className="flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-500/20 disabled:opacity-50"
+            >
+              <UserX size={14} /> لم يحضر
+            </button>
+            <button
+              onClick={() => {
+                setSelected(new Set());
+                setReason("");
+              }}
+              className="rounded-lg border border-surface-border/60 px-3 py-1.5 text-xs text-muted hover:text-foreground"
+            >
+              إلغاء التحديد
+            </button>
+          </div>
         </div>
       )}
     </>
