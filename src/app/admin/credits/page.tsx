@@ -53,7 +53,6 @@ export default async function AdminCreditsPage() {
         <div className="flex items-center gap-3">
           <Package size={24} className="text-gold" />
           <h1 className="text-xl font-bold">منح رصيد يدوي</h1>
-          <span className="text-sm text-muted">Manual Credit Grant</span>
         </div>
         <p className="mt-2 text-sm text-muted">
           امنح الطالب جلسات إضافية على باقته النشطة. يُسجل كل منح في سجل المراجعة.

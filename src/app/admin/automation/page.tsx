@@ -47,7 +47,6 @@ export default async function AdminAutomationPage() {
       <div className="mb-6 flex items-center gap-3">
         <Activity size={24} className="text-gold" />
         <h1 className="text-xl font-bold">مركز الأتمتة</h1>
-        <span className="text-sm text-muted">Automation Hub</span>
       </div>
 
       {/* Stats */}
@@ -68,7 +67,7 @@ export default async function AdminAutomationPage() {
 
       {/* Feature Flags */}
       <div className="mb-6 glass-card p-5">
-        <h2 className="mb-3 font-semibold">أعلام التحكم <span className="text-xs text-muted">Feature Flags</span></h2>
+        <h2 className="mb-3 font-semibold">أعلام التحكم</h2>
         <div className="grid gap-2 sm:grid-cols-2">
           {(flags ?? []).map(f => (
             <div key={f.key} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
@@ -84,7 +83,7 @@ export default async function AdminAutomationPage() {
 
       {/* Recent Logs */}
       <div className="glass-card p-5">
-        <h2 className="mb-3 font-semibold">آخر العمليات <span className="text-xs text-muted">Recent Logs</span></h2>
+        <h2 className="mb-3 font-semibold">آخر العمليات</h2>
         {allLogs.length === 0 ? (
           <div className="py-8 text-center text-muted">
             <Activity size={32} className="mx-auto mb-2 text-muted/30" />

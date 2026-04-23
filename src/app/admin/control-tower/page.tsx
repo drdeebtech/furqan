@@ -76,7 +76,6 @@ export default async function ControlTowerPage() {
         <div className="flex items-center gap-3">
           <Activity size={24} className="text-gold" />
           <h1 className="text-xl font-bold">مركز التحكم</h1>
-          <span className="text-sm text-muted">Control Tower</span>
         </div>
         {alertCount > 0 && (
           <span className="rounded-full bg-red-500/10 px-3 py-1 text-sm font-bold text-red-400">
@@ -107,11 +106,9 @@ export default async function ControlTowerPage() {
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <Link href="/admin/automation" className="glass-card p-4 text-center transition-colors hover:border-gold/20">
           <p className="text-sm font-medium">سجل الأتمتة</p>
-          <p className="text-xs text-muted">Automation Logs</p>
         </Link>
         <Link href="/admin/audit" className="glass-card p-4 text-center transition-colors hover:border-gold/20">
           <p className="text-sm font-medium">سجل المراجعة</p>
-          <p className="text-xs text-muted">Audit Log</p>
         </Link>
       </div>
     </div>

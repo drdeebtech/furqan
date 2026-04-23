@@ -85,7 +85,6 @@ export function CvReviewControls({ teacherId }: { teacherId: string }) {
               className="mb-1 block text-sm font-medium"
             >
               سبب الرفض
-              <span className="mr-2 text-xs text-muted">Rejection Reason</span>
             </label>
             <textarea
               id="reject_reason"

@@ -66,7 +66,6 @@ export function CreateUserForm() {
           <div>
             <label htmlFor="full_name" className="mb-1 block text-sm font-medium">
               الاسم الكامل
-              <span className="mr-2 text-xs text-muted">Full name</span>
             </label>
             <input
               id="full_name"
@@ -82,7 +81,6 @@ export function CreateUserForm() {
           <div>
             <label htmlFor="email" className="mb-1 block text-sm font-medium">
               البريد الإلكتروني
-              <span className="mr-2 text-xs text-muted">Email</span>
             </label>
             <input
               id="email"
@@ -98,8 +96,7 @@ export function CreateUserForm() {
           {/* Password */}
           <div>
             <label htmlFor="password" className="mb-1 block text-sm font-medium">
-              كلمة المرور
-              <span className="mr-2 text-xs text-muted">Password (min 8 characters)</span>
+              كلمة المرور <span className="text-xs text-muted">(8 أحرف على الأقل)</span>
             </label>
             <input
               id="password"
@@ -117,7 +114,6 @@ export function CreateUserForm() {
           <div>
             <label htmlFor="role" className="mb-1 block text-sm font-medium">
               الدور
-              <span className="mr-2 text-xs text-muted">Role</span>
             </label>
             <select
               id="role"
@@ -136,8 +132,7 @@ export function CreateUserForm() {
           {/* Phone */}
           <div>
             <label htmlFor="phone" className="mb-1 block text-sm font-medium">
-              رقم الهاتف
-              <span className="mr-2 text-xs text-muted">Phone (optional)</span>
+              رقم الهاتف <span className="text-xs text-muted">(اختياري)</span>
             </label>
             <input
               id="phone"
@@ -152,8 +147,7 @@ export function CreateUserForm() {
           {/* Country */}
           <div>
             <label htmlFor="country" className="mb-1 block text-sm font-medium">
-              الدولة
-              <span className="mr-2 text-xs text-muted">Country (optional)</span>
+              الدولة <span className="text-xs text-muted">(اختياري)</span>
             </label>
             <input
               id="country"
@@ -168,14 +162,12 @@ export function CreateUserForm() {
           {role === "student" && (
             <div className="space-y-4 glass-card rounded-xl p-4">
               <p className="text-sm font-medium text-gold">
-                بيانات ولي الأمر
-                <span className="mr-2 text-xs text-muted">Parent info (optional)</span>
+                بيانات ولي الأمر <span className="text-xs text-muted">(اختياري)</span>
               </p>
 
               <div>
                 <label htmlFor="parent_name" className="mb-1 block text-sm font-medium">
                   اسم ولي الأمر
-                  <span className="mr-2 text-xs text-muted">Parent name</span>
                 </label>
                 <input
                   id="parent_name"
@@ -189,7 +181,6 @@ export function CreateUserForm() {
               <div>
                 <label htmlFor="parent_phone" className="mb-1 block text-sm font-medium">
                   هاتف ولي الأمر
-                  <span className="mr-2 text-xs text-muted">Parent phone</span>
                 </label>
                 <input
                   id="parent_phone"
@@ -204,7 +195,6 @@ export function CreateUserForm() {
               <div>
                 <label htmlFor="parent_email" className="mb-1 block text-sm font-medium">
                   بريد ولي الأمر
-                  <span className="mr-2 text-xs text-muted">Parent email</span>
                 </label>
                 <input
                   id="parent_email"
@@ -219,7 +209,6 @@ export function CreateUserForm() {
               <div>
                 <label htmlFor="date_of_birth" className="mb-1 block text-sm font-medium">
                   تاريخ الميلاد
-                  <span className="mr-2 text-xs text-muted">Date of birth</span>
                 </label>
                 <input
                   id="date_of_birth"

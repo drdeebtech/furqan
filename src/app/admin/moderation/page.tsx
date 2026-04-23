@@ -155,7 +155,6 @@ export default async function ModerationPage() {
         <div className="flex items-center gap-3">
           <Shield size={24} className="text-gold" />
           <h1 className="text-xl font-bold">قائمة المراجعة</h1>
-          <span className="text-sm text-muted">Moderation Queue</span>
         </div>
         <p className="mt-2 text-sm text-muted">
           رسائل مُبلّغ عنها وتقييمات منخفضة بحاجة مراجعة.

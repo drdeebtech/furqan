@@ -129,7 +129,7 @@ export default async function RetentionPage({ searchParams }: Props) {
           <TrendingDown size={24} className="text-gold" />
           <div>
             <h1 className="text-xl font-bold">إشارات البقاء</h1>
-            <p className="text-xs text-muted">Retention Signals {lastComputed ? `· آخر حساب ${daysAgo(lastComputed)}` : ""}</p>
+            <p className="text-xs text-muted">{lastComputed ? `آخر حساب ${daysAgo(lastComputed)}` : "لم يُحسب بعد"}</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-sm">

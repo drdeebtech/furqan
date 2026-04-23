@@ -29,7 +29,6 @@ export default async function AdminPackagesPage() {
         <div className="flex items-center gap-3">
           <Package size={24} className="text-gold" />
           <h1 className="text-xl font-bold">إدارة الباقات</h1>
-          <span className="text-sm text-muted">Packages</span>
         </div>
         <Link
           href="/admin/packages/new"

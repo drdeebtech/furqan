@@ -90,7 +90,6 @@ export default async function AdminHomeworkGradePage() {
         <div className="flex items-center gap-3">
           <GraduationCap size={24} className="text-gold" />
           <h1 className="text-xl font-bold">قائمة الواجبات بانتظار التقييم</h1>
-          <span className="text-sm text-muted">Pending Homework Queue</span>
         </div>
         <p className="mt-2 text-sm text-muted">
           تقييم بالنيابة عن المعلمين عندما يتأخرون. كل إجراء يُسجَّل في سجل المراجعة.

@@ -74,7 +74,6 @@ export default async function AdminReplayPage() {
         <div className="flex items-center gap-3">
           <RotateCcw size={24} className="text-gold" />
           <h1 className="text-xl font-bold">إعادة تشغيل الأتمتة</h1>
-          <span className="text-sm text-muted">Webhook Replay</span>
         </div>
         <p className="mt-2 text-sm text-muted">
           إعادة إرسال الأحداث الفاشلة إلى n8n. كل محاولة تُسجَّل كسجل جديد.

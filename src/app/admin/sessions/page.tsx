@@ -130,7 +130,6 @@ export default async function AdminSessionsPage() {
             إجمالي الجلسات
           </div>
           <p className="mt-1 text-2xl font-bold text-gold">{totalSessions}</p>
-          <p className="mt-0.5 text-xs text-muted">Total sessions</p>
         </div>
 
         <Link
@@ -142,7 +141,6 @@ export default async function AdminSessionsPage() {
             نشطة الآن
           </div>
           <p className="mt-1 text-2xl font-bold text-emerald-400">{activeCount}</p>
-          <p className="mt-0.5 text-xs text-muted">Active now</p>
         </Link>
 
         <div className="glass-card p-4">
@@ -151,7 +149,6 @@ export default async function AdminSessionsPage() {
             نسبة الحضور
           </div>
           <p className="mt-1 text-2xl font-bold text-gold">{attendanceRate}%</p>
-          <p className="mt-0.5 text-xs text-muted">Attendance rate</p>
         </div>
 
         <div className="glass-card p-4">
@@ -160,7 +157,6 @@ export default async function AdminSessionsPage() {
             نسبة المدة
           </div>
           <p className="mt-1 text-2xl font-bold text-gold">{avgDurationRatio}%</p>
-          <p className="mt-0.5 text-xs text-muted">Actual vs scheduled</p>
         </div>
       </div>
 

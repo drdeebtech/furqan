@@ -64,7 +64,6 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
       <div className="glass-card p-12 text-center">
         <Radio size={32} className="mx-auto mb-3 text-muted" />
         <p className="text-muted">لا توجد جلسات نشطة حالياً</p>
-        <p className="mt-1 text-xs text-muted">No active sessions right now</p>
       </div>
     );
   }

@@ -50,7 +50,6 @@ export default async function AdminAnnouncementsPage() {
         <div className="flex items-center gap-3">
           <Megaphone size={24} className="text-gold" />
           <h1 className="text-xl font-bold">الإعلانات</h1>
-          <span className="text-sm text-muted">Site-wide Announcements</span>
         </div>
         <Link
           href="/admin/announcements/new"
