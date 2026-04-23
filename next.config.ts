@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import { withBotId } from "botid/next/config";
 import bundleAnalyzer from "@next/bundle-analyzer";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -22,4 +23,22 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withBundleAnalyzer(withBotId(nextConfig));
+const wrapped = withBundleAnalyzer(withBotId(nextConfig));
+
+/**
+ * Sentry wraps the outermost config. When SENTRY_DSN is not set, we skip the
+ * wrapper entirely so there is zero build-time or runtime cost and no source
+ * maps are uploaded. Flip the env var on to activate Sentry — no code changes
+ * required. `silent: true` keeps build logs clean when it is active without a
+ * configured auth token.
+ */
+const shouldEnableSentry = Boolean(process.env.SENTRY_DSN);
+
+export default shouldEnableSentry
+  ? withSentryConfig(wrapped, {
+      silent: true,
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+    })
+  : wrapped;

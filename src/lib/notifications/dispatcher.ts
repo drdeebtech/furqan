@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { NotifType } from "@/types/database";
+import { isInQuietHours } from "./dispatcher-quiet-hours";
 
 export interface DispatchOptions {
   userId: string;
@@ -52,15 +53,7 @@ export async function dispatchNotification(opts: DispatchOptions): Promise<void>
     const hours = now.getHours().toString().padStart(2, "0");
     const mins = now.getMinutes().toString().padStart(2, "0");
     const currentTime = `${hours}:${mins}`;
-    const start = prefs.quiet_hours_start.slice(0, 5);
-    const end = prefs.quiet_hours_end.slice(0, 5);
-
-    if (start <= end) {
-      if (currentTime >= start && currentTime <= end) return;
-    } else {
-      // Overnight quiet hours (e.g., 22:00 → 06:00)
-      if (currentTime >= start || currentTime <= end) return;
-    }
+    if (isInQuietHours(currentTime, prefs.quiet_hours_start, prefs.quiet_hours_end)) return;
   }
 
   // 2. Send in-app notification (primary channel — always attempted)
