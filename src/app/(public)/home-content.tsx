@@ -30,20 +30,17 @@ export default function HomePage() {
   return (
     <div>
       {/* ══════════════════════════════════════════
-          HERO — Islamic pattern bg + radial glow
+          HERO — Islamic pattern, ornament-free
           ══════════════════════════════════════════ */}
-      <section className="islamic-pattern relative min-h-[90vh] overflow-hidden pt-28 pb-24">
-        {/* Layered background effects */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/60 via-transparent to-background" />
-        <div className="pointer-events-none absolute left-1/2 top-1/4 h-[600px] w-[600px] -translate-x-1/2 rounded-full bg-gold/8 blur-[120px]" />
-        <div className="pointer-events-none absolute right-0 top-0 h-[300px] w-[300px] rounded-full bg-gold/5 blur-[80px]" />
+      <section className="islamic-pattern relative min-h-[85vh] overflow-hidden pt-28 pb-24">
+        {/* Soft top-to-bottom fade only — no radial glow */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-background" />
 
         <div className="relative mx-auto max-w-5xl px-6">
           <div className="text-center">
             {/* Badge */}
-            <div className="glass glass-pill mb-8 inline-flex items-center gap-3 px-5 py-2 text-sm">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-gold" />
-              <span className="text-gold">{t("✦ أكاديمية القرآن الكريم عبر الإنترنت", "✦ Online Quran Learning Academy")}</span>
+            <div className="glass glass-pill mb-8 inline-flex items-center gap-2 px-4 py-1.5 text-xs">
+              <span className="text-gold">{t("أكاديمية القرآن الكريم عبر الإنترنت", "Online Quran Learning Academy")}</span>
             </div>
 
             {/* Logo */}
@@ -67,42 +64,42 @@ export default function HomePage() {
               )}
             </p>
 
-            {/* CTA buttons — full-width on mobile, prominent */}
+            {/* CTA buttons — primary filled, secondary text link */}
             <div className="mt-10 flex w-full flex-col items-center gap-4 px-4 sm:w-auto sm:flex-row sm:justify-center sm:px-0">
               <Link
                 href="/register"
-                className="glass-gold glass-pill flex w-full items-center justify-center gap-2 px-10 py-4 text-lg font-bold shadow-lg shadow-gold/20 transition-all duration-200 hover:shadow-xl hover:shadow-gold/30 sm:w-auto animate-pulse-slow"
+                className="glass-gold glass-pill flex w-full items-center justify-center gap-2 px-10 py-4 text-lg font-bold transition-all duration-200 hover:bg-gold-hover sm:w-auto"
               >
-                <Play size={20} />
+                <Play size={18} />
                 {t("سجّل الآن", "Register Now")}
               </Link>
               <Link
                 href="/services"
-                className="glass glass-pill w-full px-8 py-4 text-center text-lg text-muted transition-all duration-200 hover:border-gold/40 hover:text-gold sm:w-auto"
+                className="inline-flex items-center gap-1.5 text-base text-muted transition-colors hover:text-gold sm:w-auto"
               >
-                {t("تعرف على خدماتنا", "Explore Our Services")}
+                {t("تعرف على خدماتنا", "Explore our services")}
+                <span aria-hidden>→</span>
               </Link>
             </div>
 
             {/* Trust micro-copy */}
-            <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm text-muted">
-              <span className="flex items-center gap-1"><CheckCircle size={14} className="text-gold" /> {t("التسجيل مجاني", "Free registration")}</span>
-              <span className="flex items-center gap-1"><CheckCircle size={14} className="text-gold" /> {t("معلمون معتمدون", "Certified teachers")}</span>
-              <span className="flex items-center gap-1"><CheckCircle size={14} className="text-gold" /> {t("إلغاء في أي وقت", "Cancel anytime")}</span>
+            <div className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-muted">
+              <span className="flex items-center gap-1.5"><CheckCircle size={14} className="text-gold" /> {t("التسجيل مجاني", "Free registration")}</span>
+              <span className="flex items-center gap-1.5"><CheckCircle size={14} className="text-gold" /> {t("معلمون معتمدون", "Certified teachers")}</span>
+              <span className="flex items-center gap-1.5"><CheckCircle size={14} className="text-gold" /> {t("إلغاء في أي وقت", "Cancel anytime")}</span>
             </div>
           </div>
 
-          {/* ── STATS — with gold shimmer effect ── */}
-          <div className="mt-16 grid grid-cols-3 gap-4 md:gap-6">
+          {/* ── Trust strip — honest descriptors, not fake stats ── */}
+          <div className="mt-14 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
             {[
-              { num: t("٢٤/٧", "24/7"), label: t("متاح على مدار الساعة", "Available Anytime"), icon: Users },
-              { num: t("١:١", "1:1"), label: t("جلسات فردية مباشرة", "Live Private Sessions"), icon: Star },
-              { num: t("إجازة", "Ijazah"), label: t("معلمون حاصلون على الإجازة", "Certified Teachers"), icon: GraduationCap },
+              { label: t("جلسات فردية ١:١", "1-on-1 live sessions"), icon: Users },
+              { label: t("معلمون حاصلون على الإجازة", "Ijazah-certified teachers"), icon: GraduationCap },
+              { label: t("جدول يناسبك · ٧ أيام", "Flexible schedule · 7 days"), icon: Star },
             ].map((s) => (
-              <div key={s.label} className="glass-card p-6 text-center transition-all duration-300 hover:border-gold/40">
-                <s.icon size={24} className="mx-auto mb-2 text-gold" />
-                <p className="stat-shimmer text-3xl font-bold md:text-4xl">{s.num}</p>
-                <p className="mt-1 text-sm text-muted">{s.label}</p>
+              <div key={s.label} className="flex items-center justify-center gap-3 rounded-xl border border-surface-border/60 bg-surface/40 px-5 py-4 text-sm">
+                <s.icon size={18} className="text-gold shrink-0" />
+                <span className="text-foreground">{s.label}</span>
               </div>
             ))}
           </div>
@@ -112,18 +109,13 @@ export default function HomePage() {
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent" />
       </section>
 
-      {/* ── ORNAMENTAL DIVIDER ── */}
-      <div className="ornament-divider py-4">
-        <span className="text-gold/40">✦</span>
-      </div>
-
       {/* ══════════════════════════════════════════
           HOW IT WORKS — alternating bg
           ══════════════════════════════════════════ */}
       <section className="section-light py-24">
         <div className="mx-auto max-w-7xl px-6">
           <div className="text-center">
-            <p className="text-sm font-medium tracking-widest text-gold">❖ {t("كيف يعمل", "How It Works")}</p>
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-gold/80">{t("كيف يعمل", "How it works")}</p>
             <h2 className="font-display mt-3 text-4xl font-bold leading-tight">{t("ابدأ في ٣ خطوات بسيطة", "Start in 3 Simple Steps")}</h2>
           </div>
 
@@ -151,7 +143,7 @@ export default function HomePage() {
         <div className="pointer-events-none absolute inset-0 bg-background/80" />
         <div className="relative mx-auto max-w-7xl px-6">
           <div className="text-center">
-            <p className="text-sm font-medium tracking-widest text-gold">❖ {t("لماذا فرقان", "Why FURQAN")}</p>
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-gold/80">{t("لماذا فرقان", "Why Furqan")}</p>
             <h2 className="font-display mt-3 text-4xl font-bold leading-tight">{t("لماذا تختار فرقان؟", "Why Choose FURQAN?")}</h2>
           </div>
 
@@ -164,12 +156,9 @@ export default function HomePage() {
               { icon: Star, ar: "معلمات للأخوات والأطفال", en: "Female Teachers", dAr: "متاح معلمات متخصصات في بيئة آمنة", dEn: "Female teachers available for sisters and children" },
               { icon: TrendingUp, ar: "تتبع تقدمك", en: "Track Progress", dAr: "لوحة تحكم تعرض تقدمك في الحفظ والجلسات", dEn: "Dashboard showing your memorization progress" },
               { icon: Globe, ar: "نخدم طلاباً حول العالم", en: "Worldwide Access", dAr: "تعلّم من أي مكان — أمريكا، أوروبا، الخليج، أستراليا", dEn: "Learn from anywhere — USA, Europe, Gulf, Australia" },
-              { icon: Award, ar: "سجّل واحجز جلستك", en: "Register & Book Your Session", dAr: "سجّل الآن وابدأ رحلتك مع القرآن", dEn: "Register now and start your Quran journey" },
             ].map((f) => (
-              <div key={f.en} className="glass-card p-5 transition-all duration-300 hover:border-gold/30 hover:-translate-y-1">
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-gold/10">
-                  <f.icon size={20} className="text-gold" />
-                </div>
+              <div key={f.en} className="rounded-2xl border border-surface-border/60 bg-surface/40 p-5 transition-colors duration-200 hover:border-gold/30">
+                <f.icon size={20} className="mb-3 text-gold" />
                 <h3 className="text-sm font-bold">{t(f.ar, f.en)}</h3>
                 <p className="mt-1 text-xs leading-relaxed text-muted">{t(f.dAr, f.dEn)}</p>
               </div>
@@ -178,17 +167,12 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── ORNAMENTAL DIVIDER ── */}
-      <div className="ornament-divider py-4">
-        <span className="text-gold/40">✦</span>
-      </div>
-
       {/* ══════════════════════════════════════════
           COURSES — clean section
           ══════════════════════════════════════════ */}
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-6">
-          <p className="text-sm font-medium tracking-widest text-gold">❖ {t("التخصصات", "Courses")}</p>
+          <p className="text-sm font-medium uppercase tracking-[0.2em] text-gold/80">{t("التخصصات", "Courses")}</p>
           <h2 className="font-display mt-3 text-4xl font-bold leading-tight">{t("ما نُعلّمه في فرقان", "What We Teach at FURQAN")}</h2>
 
           <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-3">
@@ -244,19 +228,20 @@ export default function HomePage() {
         <Testimonials />
       </div>
 
-      {/* ── ORNAMENTAL DIVIDER ── */}
-      <div className="ornament-divider py-4">
-        <span className="text-gold/40">✦</span>
-      </div>
-
       {/* ══════════════════════════════════════════
           PACKAGES PREVIEW
           ══════════════════════════════════════════ */}
       <section className="py-24">
         <div className="mx-auto max-w-5xl px-6">
           <div className="text-center">
-            <p className="text-sm font-medium tracking-widest text-gold">❖ {t("الباقات", "Packages")}</p>
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-gold/80">{t("الباقات", "Packages")}</p>
             <h2 className="font-display mt-3 text-4xl font-bold leading-tight">{t("باقاتنا", "Our Packages")}</h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm text-muted">
+              {t(
+                "ابدأ بجلسة تجريبية مجانية، ثم اختر الباقة التي تناسبك.",
+                "Start with a free trial session, then choose the plan that fits.",
+              )}
+            </p>
           </div>
 
           <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -266,12 +251,12 @@ export default function HomePage() {
               { ar: "الباقة المتقدمة", en: "Premium", freq: t("٥ أيام/أسبوع · ٢٠ جلسة", "5 days/week · 20 sessions"), featured: true },
               { ar: "باقة نهاية الأسبوع", en: "Weekend", freq: t("السبت والأحد · ٨ جلسات", "Sat & Sun · 8 sessions") },
             ].map((p) => (
-              <div key={p.en} className={`glass-card p-6 transition-all duration-300 hover:-translate-y-1 ${p.featured ? "border-2 border-gold shadow-lg shadow-gold/10" : ""}`}>
+              <div key={p.en} className={`glass-card p-6 transition-all duration-200 ${p.featured ? "border-2 border-gold" : ""}`}>
                 {p.featured && <span className="glass-gold glass-pill mb-3 inline-block px-3 py-1 text-xs font-bold">{t("الأكثر طلباً", "Most Popular")}</span>}
                 <h3 className="text-lg font-bold">{t(p.ar, p.en)}</h3>
-                <p className="font-display mt-2 text-2xl font-bold text-gold">{t("مجاناً", "Free")}</p>
-                <p className="mt-1 text-xs text-muted">{p.freq}</p>
-                <Link href="/packages" className="glass glass-pill mt-4 block py-2.5 text-center text-sm font-medium text-gold transition-all duration-200 hover:bg-gold hover:text-background">
+                <p className="mt-2 text-sm text-muted">{p.freq}</p>
+                <p className="mt-3 text-sm text-gold">{t("تواصل معنا للتسعير", "Contact us for pricing")}</p>
+                <Link href="/packages" className="glass glass-pill mt-4 block py-2.5 text-center text-sm font-medium text-gold transition-colors duration-200 hover:bg-gold hover:text-background">
                   {t("التفاصيل", "View Details")}
                 </Link>
               </div>
@@ -285,11 +270,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* ── ORNAMENTAL DIVIDER ── */}
-      <div className="ornament-divider py-4">
-        <span className="text-gold/40">✦</span>
-      </div>
 
       {/* ── FINAL CTA ── */}
       <RegisterBanner />
