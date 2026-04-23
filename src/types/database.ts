@@ -272,6 +272,12 @@ export interface Message {
   edited_at: string | null;
   deleted_at: string | null;
   created_at: string;
+  // V14.5 moderation fields
+  flagged_at: string | null;
+  flagged_by: string | null;
+  flag_reason: string | null;
+  hidden_at: string | null;
+  hidden_by: string | null;
 }
 
 // ─── Table 14: student_progress ──────────────────────────────────────────────
@@ -590,6 +596,26 @@ export interface RetentionSignal {
   intervention_type: string | null;
   computed_at: string;
   created_at: string;
+}
+
+// ─── V14.5 Table: site_announcements ─────────────────────────────────────────
+
+export type AnnouncementSeverity = "info" | "warning" | "critical";
+
+export interface SiteAnnouncement {
+  id: string;
+  message_ar: string;
+  message_en: string;
+  severity: AnnouncementSeverity;
+  is_dismissible: boolean;
+  active_from: string;
+  active_until: string | null;
+  cta_label_ar: string | null;
+  cta_label_en: string | null;
+  cta_href: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // ─── V14.2 Tables: automation_dead_letter, session_presence_events ──────────
