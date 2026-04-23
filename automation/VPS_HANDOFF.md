@@ -1,7 +1,9 @@
-# FURQAN n8n VPS Handoff — Complete Context for Claude Code
+# FURQAN n8n Handoff — Complete Context for Claude Code
 
-> Give this file to Claude Code on your VPS to build and manage n8n workflows.
-> Last updated: 2026-04-09
+> **2026-04-23 update:** n8n was migrated off the VPS and now runs on a **Mac mini**. `n8n.drdeeb.tech` points at the Mac mini instance. All 44+ workflows migrated. The rest of this doc still applies — substitute "VPS" with "Mac mini" wherever it appears.
+>
+> Give this file to Claude Code on the Mac mini to build and manage n8n workflows.
+> Last updated: 2026-04-09 (host migration noted 2026-04-23)
 
 ---
 

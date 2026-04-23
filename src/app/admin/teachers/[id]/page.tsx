@@ -31,6 +31,59 @@ export default async function TeacherDetailPage({ params }: Props) {
 
   const { count: bookingCount } = await supabase.from("bookings").select("id", { count: "exact", head: true }).eq("teacher_id", id);
 
+  // Health metrics (last 90 days)
+  // eslint-disable-next-line react-hooks/purity -- server component, deterministic per-request
+  const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: recentBookings } = await supabase.from("bookings")
+    .select("id, status, scheduled_at, teacher_confirmed, teacher_confirmed_at")
+    .eq("teacher_id", id)
+    .gte("scheduled_at", since)
+    .returns<{ id: string; status: string; scheduled_at: string; teacher_confirmed: boolean; teacher_confirmed_at: string | null }[]>();
+
+  const bookings90 = recentBookings ?? [];
+  const decided = bookings90.filter(b => b.status !== "pending");
+  const noShows = bookings90.filter(b => b.status === "no_show").length;
+  const noShowRate = decided.length > 0 ? (noShows / decided.length) * 100 : 0;
+
+  const { data: recentSessions } = await supabase.from("sessions")
+    .select("id, started_at, teacher_joined, booking_id, bookings!inner(teacher_id, scheduled_at)")
+    .eq("bookings.teacher_id", id)
+    .gte("bookings.scheduled_at", since)
+    .returns<{ id: string; started_at: string | null; teacher_joined: boolean; booking_id: string; bookings: { scheduled_at: string } }[]>();
+
+  const sessions90 = recentSessions ?? [];
+  const startedSessions = sessions90.filter(s => s.started_at && s.teacher_joined);
+  const onTime = startedSessions.filter(s => {
+    const scheduled = new Date(s.bookings.scheduled_at).getTime();
+    const started = new Date(s.started_at!).getTime();
+    return started - scheduled <= 5 * 60 * 1000;
+  }).length;
+  const punctualityRate = startedSessions.length > 0 ? (onTime / startedSessions.length) * 100 : 0;
+
+  const { data: recentHomework } = await supabase.from("homework_assignments")
+    .select("status, ready_at, completed_at")
+    .eq("teacher_id", id)
+    .gte("assigned_at", since)
+    .returns<{ status: string; ready_at: string | null; completed_at: string | null }[]>();
+
+  const gradedHw = (recentHomework ?? []).filter(h => h.ready_at && h.completed_at);
+  const avgGradingLagHours = gradedHw.length > 0
+    ? gradedHw.reduce((sum, h) => sum + (new Date(h.completed_at!).getTime() - new Date(h.ready_at!).getTime()), 0) / gradedHw.length / (60 * 60 * 1000)
+    : 0;
+
+  const completedCount = sessions90.filter(s => s.started_at).length;
+  const { count: evalCount } = await supabase.from("session_evaluations")
+    .select("id", { count: "exact", head: true })
+    .eq("teacher_id", id)
+    .gte("period_start", since);
+  // Target: ~1 evaluation per 4 completed sessions
+  const evalRate = completedCount > 0 ? Math.min(100, ((evalCount ?? 0) / (completedCount / 4)) * 100) : 0;
+
+  const fmt = (n: number) => n.toFixed(1);
+  const tone = (ok: boolean, warn: boolean) =>
+    ok ? "text-emerald-400" : warn ? "text-amber-400" : "text-rose-400";
+
   return (
     <div dir="rtl" className="mx-auto max-w-3xl px-4 py-8">
       <Link href="/admin/teachers" className="mb-6 inline-block text-sm text-gold hover:text-gold-light">→ العودة للمعلمين</Link>
@@ -40,6 +93,33 @@ export default async function TeacherDetailPage({ params }: Props) {
         <span>{tp.total_sessions} جلسة</span>
         <span>تقييم {Number(tp.rating_avg).toFixed(1)}</span>
         <span>{bookingCount ?? 0} حجز</span>
+      </div>
+
+      {/* Health metrics (last 90 days) */}
+      <div className="mb-6 glass-card rounded-xl p-6">
+        <h2 className="mb-4 font-bold">مؤشرات الأداء (آخر 90 يومًا)</h2>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div>
+            <p className="text-xs text-muted">الالتزام بالمواعيد</p>
+            <p className={`mt-1 text-xl font-bold ${tone(punctualityRate >= 90, punctualityRate >= 75)}`}>{fmt(punctualityRate)}%</p>
+            <p className="text-xs text-muted">{startedSessions.length} جلسة</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted">متوسط تأخر التصحيح</p>
+            <p className={`mt-1 text-xl font-bold ${tone(avgGradingLagHours <= 24, avgGradingLagHours <= 48)}`}>{fmt(avgGradingLagHours)} س</p>
+            <p className="text-xs text-muted">{gradedHw.length} واجب</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted">نسبة إنجاز التقييمات</p>
+            <p className={`mt-1 text-xl font-bold ${tone(evalRate >= 80, evalRate >= 50)}`}>{fmt(evalRate)}%</p>
+            <p className="text-xs text-muted">{evalCount ?? 0} تقييم / {completedCount} جلسة</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted">نسبة الغياب</p>
+            <p className={`mt-1 text-xl font-bold ${tone(noShowRate <= 5, noShowRate <= 15)}`}>{fmt(noShowRate)}%</p>
+            <p className="text-xs text-muted">{noShows} من {decided.length}</p>
+          </div>
+        </div>
       </div>
 
       {/* Edit form */}

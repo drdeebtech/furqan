@@ -70,7 +70,7 @@ FURQAN Academy — Online Quran teaching platform (V13)
 - **n8n callback**: `src/app/api/webhooks/n8n/route.ts` — log, notify, idempotency check
 - **n8n REST client**: `src/lib/n8n/client.ts` — workflows, executions, toggle, Telegram alerts
 - **n8n control panel**: `/admin/n8n` — view/toggle/search/filter/auto-restart all n8n workflows
-- **n8n instance**: n8n.drdeeb.tech — **44+ active FURQAN workflows** across 9 areas
+- **n8n instance**: n8n.drdeeb.tech (self-hosted on Mac mini) — **44+ active FURQAN workflows** across 9 areas
 - **Telegram bot**: @furqantoday_bot — auto-restart alerts, failure notifications, admin digests
 - **Notification bell**: `src/components/shared/notification-bell.tsx` — topbar dropdown with unread count
 - **Admin control tower**: `/admin/control-tower` — 7 real-time operational widgets with alert badges
@@ -187,8 +187,8 @@ src/
 └── proxy.ts             — middleware route protection
 automation/
 ├── BLUEPRINT.md         — 52-workflow master plan (12 areas)
-├── VPS_HANDOFF.md       — Context file for Claude Code on VPS
-└── VPS_ANSWERS.md       — Setup answers and credentials checklist
+├── VPS_HANDOFF.md       — Legacy context (n8n was on VPS, now on Mac mini — kept for history)
+└── VPS_ANSWERS.md       — Legacy setup answers and credentials checklist
 supabase/functions/      — 4 edge functions (auto-reminder, auto-complete, no-show-detector, weekly-report)
 ```
 
