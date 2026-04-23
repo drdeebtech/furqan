@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchNameMap } from "@/lib/supabase/helpers";
 import type { SessionType } from "@/types/database";
 import { TeacherDashboardContent } from "./dashboard-content";
+import { TeacherAtRiskStudents } from "./at-risk-students";
 import {
   getTeacherWeeklyHours,
   getTeacherLiveSessions,
@@ -82,33 +83,40 @@ export default async function TeacherDashboardPage() {
   ]);
 
   return (
-    <TeacherDashboardContent
-      data={{
-        fullName,
-        cvStatus,
-        hasProfile,
-        hasBio,
-        hasAvailability,
-        uniqueStudents,
-        monthSessions,
-        pendingCount: pending.length,
-        ratingAvg,
-        todaySessions,
-        pending,
-        sessionDataMap,
-        nameMap,
-        weeklyHours,
-        liveSessions,
-        sessionBreakdown,
-        recentStudents,
-        actionQueue: {
-          pendingGrading,
-          overdueEvals: 0,
-          unreadMessages,
-          todaySessionCount: todaySessions.length,
-          lowAvailability: !hasAvailability,
-        },
-      }}
-    />
+    <>
+      <TeacherDashboardContent
+        data={{
+          fullName,
+          cvStatus,
+          hasProfile,
+          hasBio,
+          hasAvailability,
+          uniqueStudents,
+          monthSessions,
+          pendingCount: pending.length,
+          ratingAvg,
+          todaySessions,
+          pending,
+          sessionDataMap,
+          nameMap,
+          weeklyHours,
+          liveSessions,
+          sessionBreakdown,
+          recentStudents,
+          actionQueue: {
+            pendingGrading,
+            overdueEvals: 0,
+            unreadMessages,
+            todaySessionCount: todaySessions.length,
+            lowAvailability: !hasAvailability,
+          },
+        }}
+      />
+      {cvStatus === "approved" && (
+        <div className="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
+          <TeacherAtRiskStudents teacherId={user.id} />
+        </div>
+      )}
+    </>
   );
 }
