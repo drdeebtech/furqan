@@ -4,6 +4,7 @@ import { PublicFooter } from "@/components/public/public-footer";
 import { WhatsAppButton } from "@/components/public/whatsapp-button";
 import { MobileRegisterBar } from "@/components/public/mobile-register-bar";
 import { LazyWelcomePopup } from "@/components/public/lazy-welcome-popup";
+import { SiteAnnouncementBanner } from "@/components/public/site-announcement-banner";
 import { OrganizationSchema, FAQSchema } from "@/components/seo/structured-data";
 import { PublicDirWrapper } from "./dir-wrapper";
 import { FeatureFlagsProvider } from "@/lib/feature-flags-context";
@@ -27,6 +28,7 @@ export default async function PublicLayout({
         <OrganizationSchema />
         <FAQSchema />
         <PublicDirWrapper>
+          <SiteAnnouncementBanner />
           <PublicNav />
           <main id="main-content" className="pb-20 lg:pb-0">{children}</main>
           <PublicFooter />
