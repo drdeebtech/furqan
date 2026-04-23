@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AlertTriangle, TrendingDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { riskTone, riskLabel } from "@/lib/retention/ui";
 import { InterventionButton } from "./intervention-button";
+import { RunScorerButton } from "./run-scorer-button";
 import type { InterventionType } from "./actions";
 
 export const metadata: Metadata = { title: "إشارات البقاء" };
@@ -27,22 +29,6 @@ function daysAgo(iso: string | null): string {
   if (days === 0) return "اليوم";
   if (days === 1) return "أمس";
   return `قبل ${days} يوم`;
-}
-
-function riskTone(score: number | null): string {
-  if (score === null) return "text-muted";
-  if (score >= 75) return "text-red-400";
-  if (score >= 60) return "text-orange-400";
-  if (score >= 40) return "text-amber-400";
-  return "text-emerald-400";
-}
-
-function riskLabel(score: number | null): string {
-  if (score === null) return "—";
-  if (score >= 75) return "حرج";
-  if (score >= 60) return "مرتفع";
-  if (score >= 40) return "متوسط";
-  return "منخفض";
 }
 
 function recommendedAction(s: SignalRow): { type: InterventionType; label: string } | null {
@@ -93,9 +79,10 @@ export default async function RetentionPage() {
             <p className="text-xs text-muted">Retention Signals {lastComputed ? `· آخر حساب ${daysAgo(lastComputed)}` : ""}</p>
           </div>
         </div>
-        <div className="flex gap-3 text-sm">
+        <div className="flex flex-wrap items-center gap-3 text-sm">
           <span className="rounded-full bg-red-500/10 px-3 py-1 font-bold text-red-400">{critical} حرج</span>
           <span className="rounded-full bg-orange-500/10 px-3 py-1 font-bold text-orange-400">{high} مرتفع</span>
+          <RunScorerButton />
         </div>
       </div>
 

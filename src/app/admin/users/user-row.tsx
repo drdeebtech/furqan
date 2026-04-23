@@ -2,12 +2,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { toggleUserActive, changeUserRole } from "./actions";
+import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
 
 interface Props {
   user: { id: string; role: string; full_name: string | null; country: string | null; is_active: boolean; created_at: string };
+  churnRisk?: number | null;
 }
 
-export function UserRow({ user }: Props) {
+export function UserRow({ user, churnRisk }: Props) {
   const [active, setActive] = useState(user.is_active);
   const [role, setRole] = useState(user.role);
   const [pendingRole, setPendingRole] = useState<string | null>(null);
@@ -73,6 +75,17 @@ export function UserRow({ user }: Props) {
         >
           {active ? "نشط" : "معطل"}
         </button>
+      </td>
+      <td className="px-4 py-3 text-xs">
+        {user.role === "student" ? (
+          churnRisk != null ? (
+            <span className={`glass-badge ${riskBadgeClass(churnRisk)}`} title={`${churnRisk.toFixed(0)} / 100`}>
+              {riskLabel(churnRisk)}
+            </span>
+          ) : (
+            <span className="text-muted">—</span>
+          )
+        ) : null}
       </td>
       <td className="px-4 py-3 text-xs text-muted">{new Date(user.created_at).toLocaleDateString("ar-SA")}</td>
     </tr>

@@ -17,6 +17,16 @@ export default async function AdminUsersPage() {
   const { data } = await supabase.from("profiles").select("id, role, full_name, country, is_active, created_at")
     .order("created_at", { ascending: false }).returns<ProfileRow[]>();
   const users = data ?? [];
+
+  const studentIds = users.filter(u => u.role === "student").map(u => u.id);
+  const { data: signals } = studentIds.length > 0
+    ? await supabase.from("retention_signals")
+        .select("student_id, churn_risk_score")
+        .in("student_id", studentIds)
+        .returns<{ student_id: string; churn_risk_score: number | null }[]>()
+    : { data: [] };
+  const riskByStudent = new Map((signals ?? []).map(s => [s.student_id, s.churn_risk_score]));
+
   const students = users.filter(u => u.role === "student").length;
   const teachers = users.filter(u => u.role === "teacher").length;
   const admins = users.filter(u => u.role === "admin").length;
@@ -46,9 +56,10 @@ export default async function AdminUsersPage() {
               <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الدور</th>
               <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الدولة</th>
               <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الحالة</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">خطر التسرب</th>
               <th scope="col" className="px-4 py-3 text-right font-medium text-muted">التسجيل</th>
             </tr></thead>
-            <tbody>{users.map(u => <UserRow key={u.id} user={u} />)}</tbody>
+            <tbody>{users.map(u => <UserRow key={u.id} user={u} churnRisk={u.role === "student" ? riskByStudent.get(u.id) ?? null : undefined} />)}</tbody>
           </table>
         </div>
       )}

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, Calendar, Star, FileText, BookOpen, MessageSquare } from "lucide-react";
+import { ArrowRight, Calendar, Star, FileText, BookOpen, MessageSquare, TrendingDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
+import { riskTone, riskLabel } from "@/lib/retention/ui";
 import type { SessionType } from "@/types/database";
 
 export const metadata: Metadata = { title: "تفاصيل المستخدم" };
@@ -36,6 +37,21 @@ export default async function AdminUserDetailPage({ params }: Props) {
 
   const isStudent = profile.role === "student";
   const isTeacher = profile.role === "teacher";
+
+  // Retention signal (students only)
+  const { data: retention } = isStudent
+    ? await supabase
+        .from("retention_signals")
+        .select("churn_risk_score, engagement_score, last_booking_at, last_session_at, package_remaining, package_expires_at, last_intervention_at, intervention_type, computed_at")
+        .eq("student_id", id)
+        .maybeSingle<{
+          churn_risk_score: number | null; engagement_score: number | null;
+          last_booking_at: string | null; last_session_at: string | null;
+          package_remaining: number | null; package_expires_at: string | null;
+          last_intervention_at: string | null; intervention_type: string | null;
+          computed_at: string;
+        }>()
+    : { data: null };
 
   // Bookings (student or teacher)
   const bookingFilter = isStudent ? "student_id" : "teacher_id";
@@ -163,6 +179,40 @@ export default async function AdminUserDetailPage({ params }: Props) {
           {profile.timezone && <div><span className="text-muted">المنطقة الزمنية:</span> {profile.timezone}</div>}
           {profile.date_of_birth && <div><span className="text-muted">تاريخ الميلاد:</span> {profile.date_of_birth}</div>}
         </div>
+
+        {/* Retention signal (students) */}
+        {isStudent && retention && (
+          <div className="mt-4 glass-card rounded-lg p-3">
+            <div className="mb-2 flex items-center gap-2">
+              <TrendingDown size={14} className="text-gold" />
+              <p className="text-xs font-medium text-gold">إشارة البقاء</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+              <div>
+                <p className="text-xs text-muted">خطر التسرب</p>
+                <p className={`font-bold ${riskTone(retention.churn_risk_score)}`}>
+                  {(retention.churn_risk_score ?? 0).toFixed(0)} · {riskLabel(retention.churn_risk_score)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted">التفاعل</p>
+                <p className="font-bold">{(retention.engagement_score ?? 0).toFixed(0)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted">الجلسات المتبقية</p>
+                <p className="font-bold">{retention.package_remaining ?? "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted">آخر تدخل</p>
+                <p className="text-xs">
+                  {retention.last_intervention_at
+                    ? `${retention.intervention_type ?? "—"} · ${new Date(retention.last_intervention_at).toLocaleDateString("ar-SA")}`
+                    : "لا يوجد"}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Parent info (students) */}
         {isStudent && (profile.parent_name || profile.parent_phone || profile.parent_email) && (
