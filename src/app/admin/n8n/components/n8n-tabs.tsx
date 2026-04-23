@@ -1,12 +1,21 @@
 "use client";
 
 import { useState, useEffect, useRef, startTransition } from "react";
+import dynamic from "next/dynamic";
 import { Activity } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
-import { OverviewTab } from "./overview-tab";
-import { HealthAuditTab } from "./health-audit-tab";
-import { ExecutionIntelTab } from "./execution-intel-tab";
-import { AdminLogTab } from "./admin-log-tab";
+
+// Each tab's code loads only when it's first activated, so opening /admin/n8n
+// ships just the tab shell + overview tab — the other three (HealthAudit
+// pulls recharts, ExecutionIntel pulls charts + heavy tables, AdminLog pulls
+// data-table code) stay off the critical path.
+const tabLoading = () => (
+  <div className="mt-6 h-64 animate-pulse rounded-xl bg-surface/40" />
+);
+const OverviewTab = dynamic(() => import("./overview-tab").then((m) => m.OverviewTab), { loading: tabLoading });
+const HealthAuditTab = dynamic(() => import("./health-audit-tab").then((m) => m.HealthAuditTab), { loading: tabLoading });
+const ExecutionIntelTab = dynamic(() => import("./execution-intel-tab").then((m) => m.ExecutionIntelTab), { loading: tabLoading });
+const AdminLogTab = dynamic(() => import("./admin-log-tab").then((m) => m.AdminLogTab), { loading: tabLoading });
 
 const tabs = [
   { ar: "نظرة عامة", en: "Overview" },
