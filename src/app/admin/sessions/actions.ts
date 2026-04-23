@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createRoom, deleteRoom, updateRoomMaxParticipants, createObserverToken } from "@/lib/daily";
+import { notify } from "@/lib/notifications/dispatcher";
 
 /* ── Row types for query results ──────────────────────────────────────────── */
 
@@ -94,14 +95,13 @@ export async function forceEndSession(sessionId: string, reason: string) {
     .then((r) => ({ data: r.data as BookingParties | null }));
 
   if (booking) {
-    const notifs = [booking.student_id, booking.teacher_id].map((uid) => ({
-      user_id: uid,
-      type: "system",
-      title: "تم إنهاء الجلسة",
-      body: reason || "تم إنهاء الجلسة بواسطة المسؤول",
-      channel: ["in_app"],
-    }));
-    await supabase.from("notifications").insert(notifs as never);
+    const title = "تم إنهاء الجلسة";
+    const body = reason || "تم إنهاء الجلسة بواسطة المسؤول";
+    await Promise.all(
+      [booking.student_id, booking.teacher_id].map((uid) =>
+        notify(uid, "system", title, body, "session", sessionId).catch(() => {}),
+      ),
+    );
   }
 
   revalidatePath("/admin/sessions");

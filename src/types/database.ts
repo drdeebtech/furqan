@@ -592,6 +592,38 @@ export interface RetentionSignal {
   created_at: string;
 }
 
+// ─── V14.2 Tables: automation_dead_letter, session_presence_events ──────────
+
+export interface AutomationDeadLetter {
+  id: string;
+  workflow_name: string;
+  event_name: string | null;
+  entity_type: string | null;
+  entity_id: string | null;
+  idempotency_key: string | null;
+  payload_json: Record<string, unknown> | null;
+  last_error: string | null;
+  attempt_count: number;
+  first_failed_at: string;
+  last_failed_at: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  resolution_notes: string | null;
+  created_at: string;
+}
+
+export type PresenceEventType = "joined" | "left" | "rejoined" | "disconnected";
+
+export interface SessionPresenceEvent {
+  id: string;
+  session_id: string;
+  user_id: string;
+  event_type: PresenceEventType;
+  occurred_at: string;
+  client_info: Record<string, unknown> | null;
+  created_at: string;
+}
+
 // ─── Supabase Database Type ──────────────────────────────────────────────────
 // Row   = what you read back from a SELECT
 // Insert = what you send to an INSERT (auto-generated fields are optional)

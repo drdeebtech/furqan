@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { notify } from "@/lib/notifications/dispatcher";
 
 export async function approveCv(teacherId: string) {
   const supabase = await createClient();
@@ -18,13 +19,14 @@ export async function approveCv(teacherId: string) {
   if (error) return { error: "فشل قبول السيرة الذاتية" };
 
   try {
-    await supabase.from("notifications").insert({
-      user_id: teacherId,
-      type: "system",
-      title: "تم قبول سيرتك الذاتية",
-      body: "تمت الموافقة على سيرتك الذاتية — يمكنك الآن استقبال الطلاب",
-      channel: ["in_app"],
-    } as never);
+    await notify(
+      teacherId,
+      "system",
+      "تم قبول سيرتك الذاتية",
+      "تمت الموافقة على سيرتك الذاتية — يمكنك الآن استقبال الطلاب",
+      "teacher_profile",
+      teacherId,
+    );
   } catch { /* non-blocking */ }
 
   revalidatePath("/moderator/cv-review");
@@ -50,13 +52,14 @@ export async function rejectCv(teacherId: string, reason: string) {
   if (error) return { error: "فشل رفض السيرة الذاتية" };
 
   try {
-    await supabase.from("notifications").insert({
-      user_id: teacherId,
-      type: "system",
-      title: "تم رفض سيرتك الذاتية",
-      body: `للأسف تم رفض سيرتك الذاتية — السبب: ${reason}`,
-      channel: ["in_app"],
-    } as never);
+    await notify(
+      teacherId,
+      "system",
+      "تم رفض سيرتك الذاتية",
+      `للأسف تم رفض سيرتك الذاتية — السبب: ${reason}`,
+      "teacher_profile",
+      teacherId,
+    );
   } catch { /* non-blocking */ }
 
   revalidatePath("/moderator/cv-review");

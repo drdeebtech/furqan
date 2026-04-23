@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, startTransition } from "react";
 import { Activity } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { OverviewTab } from "./overview-tab";
@@ -51,7 +51,9 @@ export function N8nTabs() {
     if (isFirstRender.current) {
       isFirstRender.current = false;
     }
-    setLastUpdated(new Date());
+    startTransition(() => {
+      setLastUpdated(new Date());
+    });
   }, [activeTab]);
 
   const relativeTime = useRelativeTime(lastUpdated, t);

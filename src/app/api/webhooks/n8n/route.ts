@@ -38,7 +38,9 @@ export async function POST(request: Request) {
     }
 
     case "notify": {
-      // Create in-app notification
+      // Service-role insert: n8n webhooks bypass RLS by design.
+      // User preference gating (quiet hours, channel prefs) is handled n8n-side
+      // for workflow-driven notifications.
       const { error } = await supabase.from("notifications").insert({
         user_id: data.user_id,
         type: data.type ?? "system",
@@ -47,6 +49,17 @@ export async function POST(request: Request) {
         channel: ["in_app"],
       } as never);
       if (error) return NextResponse.json({ error: "Failed to notify" }, { status: 500 });
+
+      // Mirror to delivery log for observability parity with dispatcher path
+      await supabase.from("message_delivery_log").insert({
+        recipient_user_id: data.user_id,
+        recipient_channel: "in_app",
+        template_name: data.template_name ?? null,
+        related_entity_type: data.entity_type ?? null,
+        related_entity_id: data.entity_id ?? null,
+        status: "sent",
+      } as never);
+
       return NextResponse.json({ notified: true });
     }
 
