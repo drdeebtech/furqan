@@ -1,0 +1,205 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { notify } from "@/lib/notifications/dispatcher";
+import { emitEvent } from "@/lib/automation/emit";
+import { HOMEWORK_STATUS_AR } from "@/lib/constants";
+import type { HomeworkAssignment, HomeworkStatus } from "@/types/database";
+
+export type GradeKey = "excellent" | "good" | "needs_work" | "not_done";
+
+export interface BulkGradeInput {
+  id: string;
+  grade: GradeKey;
+  feedback?: string | null;
+}
+
+export interface BulkGradeResult {
+  graded: number;
+  failed: number;
+  errors: string[];
+}
+
+// Map the UI's 4 grade keys → the corresponding HomeworkStatus enum values.
+// (Mirrors the enum in src/types/database.ts: completed_excellent | completed_good | completed_needs_work | completed_not_done.)
+const GRADE_TO_STATUS: Record<GradeKey, HomeworkStatus> = {
+  excellent: "completed_excellent",
+  good: "completed_good",
+  needs_work: "completed_needs_work",
+  not_done: "completed_not_done",
+};
+
+const VALID_GRADES: ReadonlySet<string> = new Set<GradeKey>([
+  "excellent",
+  "good",
+  "needs_work",
+  "not_done",
+]);
+
+export async function bulkGradeHomework(
+  items: BulkGradeInput[],
+): Promise<BulkGradeResult> {
+  const result: BulkGradeResult = { graded: 0, failed: 0, errors: [] };
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return result;
+  }
+
+  // ─── Auth: admin only ──────────────────────────────────────────────────────
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    result.failed = items.length;
+    result.errors.push("غير مسجل الدخول");
+    return result;
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single<{ role: string }>();
+  if (!profile || profile.role !== "admin") {
+    result.failed = items.length;
+    result.errors.push("ليس لديك صلاحية");
+    return result;
+  }
+
+  // ─── Bulk update via service-role client (homework RLS is teacher-scoped) ──
+  const admin = createAdminClient();
+
+  for (const item of items) {
+    try {
+      if (!item?.id || !item?.grade || !VALID_GRADES.has(item.grade)) {
+        result.failed += 1;
+        result.errors.push(`بيانات غير صحيحة للصف ${item?.id ?? "?"}`);
+        continue;
+      }
+
+      const status = GRADE_TO_STATUS[item.grade];
+      const feedback =
+        typeof item.feedback === "string" && item.feedback.trim()
+          ? item.feedback.trim()
+          : null;
+
+      // Fetch current homework (needed for notify + emit payload)
+      const { data: hw, error: fetchErr } = await admin
+        .from("homework_assignments")
+        .select("id, title, student_id, teacher_id, status")
+        .eq("id", item.id)
+        .returns<
+          Pick<
+            HomeworkAssignment,
+            "id" | "title" | "student_id" | "teacher_id" | "status"
+          >[]
+        >()
+        .single();
+
+      if (fetchErr || !hw) {
+        result.failed += 1;
+        result.errors.push(`الواجب ${item.id} غير موجود`);
+        continue;
+      }
+
+      if (hw.status !== "student_ready") {
+        result.failed += 1;
+        result.errors.push(
+          `الواجب ${item.id} ليس في حالة "جاهز" (الحالة الحالية: ${hw.status})`,
+        );
+        continue;
+      }
+
+      const now = new Date().toISOString();
+
+      // Update the homework row.
+      // Schema has `completed_at` + `teacher_notes` (no graded_at/graded_by/grade_notes columns);
+      // admin actor identity is captured via audit_log.changed_by below.
+      const { error: updateErr } = await admin
+        .from("homework_assignments")
+        .update({
+          status,
+          completed_at: now,
+          teacher_notes: feedback,
+        } as never)
+        .eq("id", item.id);
+
+      if (updateErr) {
+        result.failed += 1;
+        result.errors.push(`تعذّر تحديث ${item.id}: ${updateErr.message}`);
+        continue;
+      }
+
+      // Audit trail — one row per graded homework.
+      try {
+        await admin.from("audit_log").insert({
+          changed_by: user.id,
+          table_name: "homework_assignments",
+          record_id: item.id,
+          action: "UPDATE",
+          old_data: { status: hw.status, completed_at: null },
+          new_data: {
+            status,
+            completed_at: now,
+            teacher_notes: feedback,
+            graded_by: user.id,
+          },
+          reason: "admin bulk-grade",
+        } as never);
+      } catch {
+        /* non-blocking audit */
+      }
+
+      // Notify student (mirror gradeHomework's pattern).
+      try {
+        const gradeLabel = HOMEWORK_STATUS_AR[status];
+        await notify(
+          hw.student_id,
+          "homework",
+          "تم تقييم واجبك",
+          `تم تقييم واجب "${hw.title}" — النتيجة: ${gradeLabel}`,
+          "homework",
+          item.id,
+        );
+      } catch {
+        /* non-blocking notify */
+      }
+
+      // Emit homework.graded event to n8n.
+      try {
+        await emitEvent(
+          "homework.graded",
+          "homework",
+          item.id,
+          {
+            student_id: hw.student_id,
+            teacher_id: hw.teacher_id,
+            grade: item.grade,
+            graded_by_admin: user.id,
+          },
+          user.id,
+        );
+      } catch {
+        /* non-blocking emit */
+      }
+
+      result.graded += 1;
+    } catch (err) {
+      result.failed += 1;
+      result.errors.push(
+        err instanceof Error ? err.message : "فشل غير متوقع",
+      );
+      // Keep going — one bad row must not fail the whole batch.
+    }
+  }
+
+  // Revalidate affected paths so the page reflects the latest queue.
+  revalidatePath("/admin/homework/grade");
+  revalidatePath("/teacher/homework");
+  revalidatePath("/student/homework");
+
+  return result;
+}
