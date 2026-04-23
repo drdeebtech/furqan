@@ -49,6 +49,17 @@ export async function POST(request: Request) {
   const studentIds = students.map(s => s.id);
   const since = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
 
+  // Existing interventions so we can deprioritize recently-contacted students
+  const { data: priorSignals } = await supabase
+    .from("retention_signals")
+    .select("student_id, last_intervention_at")
+    .in("student_id", studentIds)
+    .returns<{ student_id: string; last_intervention_at: string | null }[]>();
+
+  const interventionByStudent = new Map(
+    (priorSignals ?? []).map(s => [s.student_id, s.last_intervention_at]),
+  );
+
   const [bookingsRes, sessionsRes, packagesRes, homeworkRes] = await Promise.all([
     supabase.from("bookings")
       .select("student_id, scheduled_at, status, created_at")
@@ -122,6 +133,13 @@ export async function POST(request: Request) {
     if (packageExpires && daysSince(packageExpires) > -7 && daysSince(packageExpires) < 0) risk += 10;
     if (activePkg === null) risk += 15;
     if (hwFailRate > 0.5 && hwTotal >= 2) risk += 10;
+
+    // Deprioritize recently-contacted students: cooling period of 7 days
+    const lastIntervention = interventionByStudent.get(s.id) ?? null;
+    const daysSinceIntervention = daysSince(lastIntervention);
+    if (daysSinceIntervention <= 2) risk = Math.floor(risk * 0.5);
+    else if (daysSinceIntervention <= 7) risk = Math.floor(risk * 0.75);
+
     risk = Math.min(100, risk);
 
     // Engagement (0–100) — inverse-ish but informed by activity volume
@@ -148,13 +166,35 @@ export async function POST(request: Request) {
     };
   });
 
-  const { error } = await supabase.from("retention_signals").upsert(upserts as never, { onConflict: "student_id" });
+  const startedAt = new Date().toISOString();
+  const traceId = crypto.randomUUID();
+
+  // Upsert but preserve last_intervention_at / intervention_type (we only compute scoring fields)
+  const { error } = await supabase.from("retention_signals").upsert(upserts as never, {
+    onConflict: "student_id",
+    ignoreDuplicates: false,
+  });
+
+  const highRisk = upserts.filter(u => (u.churn_risk_score ?? 0) >= 60).length;
+
+  // Observability: write to automation_logs so this run is visible in /admin/automation
+  await supabase.from("automation_logs").insert({
+    workflow_name: "retention-scorer",
+    event_name: "retention.scored",
+    entity_type: "batch",
+    entity_id: traceId,
+    idempotency_key: `retention-scorer-${new Date().toISOString().slice(0, 10)}`,
+    status: error ? "failed" : "succeeded",
+    payload_json: { scored: upserts.length, high_risk: highRisk },
+    result_json: error ? null : { scored: upserts.length, high_risk: highRisk },
+    error_message: error?.message ?? null,
+    started_at: startedAt,
+    finished_at: new Date().toISOString(),
+  } as never);
+
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({
-    scored: upserts.length,
-    high_risk: upserts.filter(u => (u.churn_risk_score ?? 0) >= 60).length,
-  });
+  return NextResponse.json({ scored: upserts.length, high_risk: highRisk });
 }

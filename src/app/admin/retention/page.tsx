@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AlertTriangle, TrendingDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { InterventionButton } from "./intervention-button";
+import type { InterventionType } from "./actions";
 
 export const metadata: Metadata = { title: "إشارات البقاء" };
 
@@ -14,6 +16,8 @@ interface SignalRow {
   package_expires_at: string | null;
   engagement_score: number | null;
   churn_risk_score: number | null;
+  last_intervention_at: string | null;
+  intervention_type: string | null;
   computed_at: string;
 }
 
@@ -41,14 +45,14 @@ function riskLabel(score: number | null): string {
   return "منخفض";
 }
 
-function recommendedAction(s: SignalRow): string {
+function recommendedAction(s: SignalRow): { type: InterventionType; label: string } | null {
   const risk = s.churn_risk_score ?? 0;
-  if (risk >= 75) return "تواصل فوري";
-  if (s.package_remaining !== null && s.package_remaining <= 2) return "عرض تجديد الباقة";
-  if (s.package_expires_at && new Date(s.package_expires_at).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000) return "تذكير انتهاء الباقة";
-  if (!s.last_session_at || Date.now() - new Date(s.last_session_at).getTime() > 14 * 24 * 60 * 60 * 1000) return "رسالة إعادة تفعيل";
-  if (risk >= 60) return "متابعة أسبوعية";
-  return "مراقبة";
+  if (risk >= 75) return { type: "urgent_contact", label: "تواصل فوري" };
+  if (s.package_remaining !== null && s.package_remaining <= 2) return { type: "renewal_offer", label: "عرض تجديد" };
+  if (s.package_expires_at && new Date(s.package_expires_at).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000) return { type: "expiry_reminder", label: "تذكير انتهاء" };
+  if (!s.last_session_at || Date.now() - new Date(s.last_session_at).getTime() > 14 * 24 * 60 * 60 * 1000) return { type: "re_engagement", label: "إعادة تفعيل" };
+  if (risk >= 60) return { type: "weekly_followup", label: "متابعة أسبوعية" };
+  return null;
 }
 
 export default async function RetentionPage() {
@@ -60,7 +64,7 @@ export default async function RetentionPage() {
 
   const { data: signals } = await supabase
     .from("retention_signals")
-    .select("student_id, last_booking_at, last_session_at, package_remaining, package_expires_at, engagement_score, churn_risk_score, computed_at")
+    .select("student_id, last_booking_at, last_session_at, package_remaining, package_expires_at, engagement_score, churn_risk_score, last_intervention_at, intervention_type, computed_at")
     .order("churn_risk_score", { ascending: false, nullsFirst: false })
     .limit(100)
     .returns<SignalRow[]>();
@@ -118,6 +122,7 @@ export default async function RetentionPage() {
               {rows.map(r => {
                 const risk = r.churn_risk_score ?? 0;
                 const pkg = r.package_remaining === null ? "بدون باقة" : `${r.package_remaining} جلسة`;
+                const action = recommendedAction(r);
                 return (
                   <tr key={r.student_id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
                     <td className="px-4 py-3">
@@ -130,7 +135,18 @@ export default async function RetentionPage() {
                     <td className="px-4 py-3 text-muted">{daysAgo(r.last_session_at)}</td>
                     <td className="px-4 py-3 text-muted">{daysAgo(r.last_booking_at)}</td>
                     <td className="px-4 py-3 text-muted">{pkg}</td>
-                    <td className="px-4 py-3">{recommendedAction(r)}</td>
+                    <td className="px-4 py-3">
+                      {action ? (
+                        <InterventionButton
+                          studentId={r.student_id}
+                          interventionType={action.type}
+                          label={action.label}
+                          lastInterventionAt={r.last_intervention_at}
+                        />
+                      ) : (
+                        <span className="text-xs text-muted">مراقبة</span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
