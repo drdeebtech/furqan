@@ -54,12 +54,14 @@ export async function emitEvent(
   // Send to specific webhook if mapped, otherwise to generic events endpoint
   const path = WEBHOOK_ROUTES[eventName] ?? "/webhook/furqan-events";
 
-  // Fire-and-forget with 5s timeout
+  // Fire-and-forget with 5s timeout. Failures record to automation_logs
+  // rather than bubbling to the caller — the caller already wraps this in
+  // try/catch and discards the error, so without this the failure is invisible.
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
 
   try {
-    await fetch(`${N8N_WEBHOOK_URL}${path}`, {
+    const res = await fetch(`${N8N_WEBHOOK_URL}${path}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -68,7 +70,36 @@ export async function emitEvent(
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
+    if (!res.ok) {
+      await recordFailure(payload, `n8n ${res.status}`);
+    }
+  } catch (err) {
+    await recordFailure(payload, err instanceof Error ? err.message : "fetch failed");
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+/**
+ * Record emitEvent delivery failures to automation_logs so ops has a signal
+ * when n8n is down or rejecting events. Best-effort — never throws.
+ */
+async function recordFailure(payload: EventPayload, reason: string): Promise<void> {
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const supabase = createAdminClient();
+    await supabase.from("automation_logs").insert({
+      workflow_name: "furqan-app:emitEvent",
+      event_name: payload.event,
+      entity_type: payload.entity_type,
+      entity_id: payload.entity_id,
+      idempotency_key: payload.trace_id,
+      status: "failed",
+      payload_json: payload as unknown as Record<string, unknown>,
+      error_message: reason,
+      finished_at: new Date().toISOString(),
+    } as never);
+  } catch {
+    // Swallow — if we can't even log, the caller still gets normal control flow.
   }
 }
