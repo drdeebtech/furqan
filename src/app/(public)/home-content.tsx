@@ -200,16 +200,19 @@ export default function HomePage() {
 
           <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-3">
             {[
-              { ar: "حفظ القرآن", en: "Quran Memorization", dAr: "احفظ كتاب الله مع معلم متخصص بمنهج تدريجي", dEn: "Memorize the Quran with a specialist teacher", icon: BookOpen },
-              { ar: "التجويد", en: "Tajweed", dAr: "أتقن أحكام التلاوة بأسلوب علمي ممنهج", dEn: "Master recitation rules with a structured approach", icon: CheckCircle },
-              { ar: "المراجعة", en: "Revision", dAr: "راجع محفوظاتك مع معلم يتابع تقدمك", dEn: "Review memorization with progress tracking", icon: TrendingUp },
-              { ar: "التلاوة", en: "Recitation", dAr: "حسّن أداءك مع شيخ متخصص في المقامات", dEn: "Improve recitation with a specialized sheikh", icon: Star },
-              { ar: "القراءات", en: "Qira'at", dAr: "تعلّم روايات حفص وورش وقالون والدوري", dEn: "Learn readings: Hafs, Warsh, Qalun, Al-Duri", icon: Globe },
-              { ar: "التفسير", en: "Tafsir", dAr: "افهم معاني القرآن وتدبّر آياته", dEn: "Understand Quran meanings and reflect", icon: Award },
+              { level: { ar: "للمبتدئين", en: "Beginner" }, ar: "التلاوة", en: "Recitation", dAr: "ابدأ بالقراءة الصحيحة مع شيخ متخصص.", dEn: "Start here: correct reading with a specialist sheikh.", icon: Star },
+              { level: { ar: "للمبتدئين", en: "Beginner" }, ar: "التجويد", en: "Tajweed", dAr: "أحكام التلاوة بأسلوب علمي ممنهج.", dEn: "Recitation rules with a structured approach.", icon: CheckCircle },
+              { level: { ar: "مستوى متوسط", en: "Intermediate" }, ar: "حفظ القرآن", en: "Quran Memorization", dAr: "احفظ كتاب الله بمنهج تدريجي.", dEn: "Memorize with a graduated plan.", icon: BookOpen },
+              { level: { ar: "مستوى متوسط", en: "Intermediate" }, ar: "المراجعة", en: "Revision", dAr: "راجع محفوظاتك مع معلم يتابع تقدمك.", dEn: "Review memorization with progress tracking.", icon: TrendingUp },
+              { level: { ar: "مستوى متقدم", en: "Advanced" }, ar: "القراءات", en: "Qira'at", dAr: "روايات حفص وورش وقالون والدوري.", dEn: "Hafs, Warsh, Qalun, and Al-Duri readings.", icon: Globe },
+              { level: { ar: "مستوى متقدم", en: "Advanced" }, ar: "التفسير", en: "Tafsir", dAr: "معاني القرآن وتدبّر آياته.", dEn: "Quran meanings and deep reflection.", icon: Award },
             ].map((c) => (
               <Link key={c.en} href="/services" className="rounded-2xl border border-surface-border/60 bg-surface/40 p-5 transition-colors duration-200 hover:border-gold/30">
                 <c.icon size={20} className="mb-3 text-foreground/70" strokeWidth={1.75} />
-                <h3 className="text-sm font-bold">{t(c.ar, c.en)}</h3>
+                <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-gold/70">
+                  {t(c.level.ar, c.level.en)}
+                </p>
+                <h3 className="mt-1 text-sm font-bold">{t(c.ar, c.en)}</h3>
                 <p className="mt-1 text-xs leading-relaxed text-muted">{t(c.dAr, c.dEn)}</p>
               </Link>
             ))}

@@ -22,6 +22,7 @@ const TEACHERS_LINK = { href: "/teachers-page", ar: "المعلمون", en: "Tea
 
 const TAIL_LINKS = [
   { href: "/blog", ar: "المدونة", en: "Blog" },
+  { href: "/teach", ar: "درّس معنا", en: "Teach With Us" },
   { href: "/contact", ar: "اتصل بنا", en: "Contact" },
 ];
 

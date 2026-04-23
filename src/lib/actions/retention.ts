@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { daysSince, daysUntil, scoreChurn } from "./retention-scoring";
 
 /**
  * Retention scorer.
@@ -34,41 +35,6 @@ interface PackageRow {
   sessions_total: number;
   sessions_used: number;
   expires_at: string | null;
-}
-
-const DAY_MS = 86_400_000;
-
-function daysSince(iso: string | null | undefined): number | null {
-  if (!iso) return null;
-  return Math.floor((Date.now() - new Date(iso).getTime()) / DAY_MS);
-}
-
-function daysUntil(iso: string | null | undefined): number | null {
-  if (!iso) return null;
-  return Math.floor((new Date(iso).getTime() - Date.now()) / DAY_MS);
-}
-
-function scoreChurn(input: {
-  daysSinceSession: number | null;
-  daysSinceBooking: number | null;
-  packageRemaining: number | null;
-  daysUntilExpiry: number | null;
-}): number {
-  let score = 0;
-
-  if (input.daysSinceSession == null || input.daysSinceSession >= 14) score += 40;
-  else if (input.daysSinceSession >= 7) score += 20;
-
-  if (input.daysSinceBooking == null || input.daysSinceBooking >= 14) score += 25;
-  else if (input.daysSinceBooking >= 7) score += 10;
-
-  if (input.packageRemaining === 0) score += 20;
-
-  if (input.daysUntilExpiry != null && input.daysUntilExpiry >= 0 && input.daysUntilExpiry <= 7) {
-    score += 15;
-  }
-
-  return Math.min(100, score);
 }
 
 export interface RetentionScoreResult {
