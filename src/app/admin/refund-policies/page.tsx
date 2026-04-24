@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Shield, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { PolicyToggle } from "./policy-toggle";
 
 export const metadata: Metadata = { title: "سياسات الاسترداد" };
@@ -9,6 +10,7 @@ export const metadata: Metadata = { title: "سياسات الاسترداد" };
 interface PolicyRow { id: string; hours_before_min: number; hours_before_max: number | null; refund_percentage: number; description: string | null; is_active: boolean; sort_order: number; }
 
 export default async function AdminRefundPoliciesPage() {
+  const { t, dir } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -18,18 +20,18 @@ export default async function AdminRefundPoliciesPage() {
   const policies = data ?? [];
 
   return (
-    <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><Shield size={24} className="text-gold" /> سياسات الاسترداد</h1>
+    <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
+      <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><Shield size={24} className="text-gold" /> {t("سياسات الاسترداد", "Refund Policies")}</h1>
       {policies.length === 0 ? (
-        <div className="glass-card rounded-xl p-12 text-center"><Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا توجد سياسات</p></div>
+        <div className="glass-card rounded-xl p-12 text-center"><Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">{t("لا توجد سياسات", "No policies yet")}</p></div>
       ) : (
         <div className="overflow-hidden rounded-xl glass-card">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-white/10 bg-white/5">
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الفترة</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">نسبة الاسترداد</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الوصف</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الحالة</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("الفترة", "Window")}</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("نسبة الاسترداد", "Refund %")}</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("الوصف", "Description")}</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("الحالة", "Status")}</th>
             </tr></thead>
             <tbody>
               {policies.map(p => (

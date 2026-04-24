@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ClipboardCheck, Inbox, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "التقييمات" };
 
@@ -11,6 +12,13 @@ const TYPE_AR: Record<string, string> = {
   biweekly: "نصف شهري",
   monthly: "شهري",
   quarterly: "ربع سنوي",
+};
+
+const TYPE_EN: Record<string, string> = {
+  weekly: "Weekly",
+  biweekly: "Bi-weekly",
+  monthly: "Monthly",
+  quarterly: "Quarterly",
 };
 
 function scoreBadge(score: number | null) {
@@ -40,6 +48,7 @@ interface EvaluationRow {
 }
 
 export default async function AdminEvaluationsPage() {
+  const { t, dir, lang } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -68,18 +77,18 @@ export default async function AdminEvaluationsPage() {
   }
 
   return (
-    <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
       {/* Header */}
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <h1 className="flex items-center gap-2 text-2xl font-bold">
-          <ClipboardCheck size={24} className="text-gold" /> التقييمات
+          <ClipboardCheck size={24} className="text-gold" /> {t("التقييمات", "Evaluations")}
         </h1>
         <Link
           href="/admin/evaluations/new"
           className="mr-auto inline-flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-semibold transition-colors"
         >
           <Plus size={16} />
-          إنشاء تقييم
+          {t("إنشاء تقييم", "New Evaluation")}
         </Link>
       </div>
 
@@ -87,41 +96,44 @@ export default async function AdminEvaluationsPage() {
       {list.length === 0 ? (
         <div className="glass-card p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
-          <p className="text-muted">لا توجد تقييمات بعد</p>
-          <p className="mt-1 text-sm text-muted">ابدأ بإنشاء تقييم جديد للطلاب</p>
+          <p className="text-muted">{t("لا توجد تقييمات بعد", "No evaluations yet")}</p>
+          <p className="mt-1 text-sm text-muted">{t("ابدأ بإنشاء تقييم جديد للطلاب", "Create an evaluation for your students")}</p>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl glass-card">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 bg-white/5">
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الطالب</th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">المعلم</th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">النوع</th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الفترة</th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الدرجة الكلية</th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">التاريخ</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("الطالب", "Student")}</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("المعلم", "Teacher")}</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("النوع", "Type")}</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("الفترة", "Period")}</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("الدرجة الكلية", "Overall Score")}</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("التاريخ", "Date")}</th>
               </tr>
             </thead>
             <tbody>
-              {list.map((ev) => (
+              {list.map((ev) => {
+                const locale = lang === "ar" ? "ar-SA" : "en-US";
+                return (
                 <tr key={ev.id} className="border-b border-white/10 last:border-b-0 hover:bg-surface-alt/50">
                   <td className="px-3 py-3 font-medium">{nameMap[ev.student_id] ?? "—"}</td>
                   <td className="px-3 py-3">{nameMap[ev.teacher_id] ?? "—"}</td>
                   <td className="px-3 py-3">
                     <span className="glass-badge">
-                      {TYPE_AR[ev.evaluation_type] ?? ev.evaluation_type}
+                      {(lang === "ar" ? TYPE_AR : TYPE_EN)[ev.evaluation_type] ?? ev.evaluation_type}
                     </span>
                   </td>
                   <td className="px-3 py-3 text-xs text-muted">
-                    {new Date(ev.period_start).toLocaleDateString("ar-SA")} — {new Date(ev.period_end).toLocaleDateString("ar-SA")}
+                    {new Date(ev.period_start).toLocaleDateString(locale)} — {new Date(ev.period_end).toLocaleDateString(locale)}
                   </td>
                   <td className="px-3 py-3">{scoreBadge(ev.overall_score)}</td>
                   <td className="px-3 py-3 text-xs text-muted">
-                    {new Date(ev.created_at).toLocaleDateString("ar-SA")}
+                    {new Date(ev.created_at).toLocaleDateString(locale)}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
