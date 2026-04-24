@@ -99,7 +99,21 @@ export default async function TeacherDetailPage({ params, searchParams }: Props)
     cv_rejection_reason: string | null;
   } | null;
 
-  if (!tp) redirect("/admin/teachers");
+  if (!tp) {
+    return (
+      <div className="mx-auto max-w-2xl p-6">
+        <h1 className="mb-4 text-xl font-bold text-rose-400">Teacher profile query returned no row</h1>
+        <p className="mb-2 text-sm text-muted">Route param <code>id</code>: <code>{id}</code></p>
+        <p className="mb-2 text-sm text-muted">
+          Supabase error (if any): <code>{JSON.stringify(tpRes.error, null, 2)}</code>
+        </p>
+        <p className="mb-2 text-sm text-muted">
+          Profile row found: <code>{profileRes.data ? "yes" : "no"}</code>
+        </p>
+        <Link href="/admin/teachers" className="text-gold hover:text-gold-light">← Back to list</Link>
+      </div>
+    );
+  }
 
   const profile = profileRes.data as {
     id: string;
