@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Video, Inbox, Radio, Eye } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { SessionStatus } from "@/components/shared/session-status";
 
 export const metadata: Metadata = { title: "الجلسات" };
@@ -14,6 +15,7 @@ interface SessionRow {
 interface BookingRow { id: string; student_id: string; teacher_id: string; scheduled_at: string; duration_min: number; }
 
 export default async function ModeratorSessionsPage() {
+  const { t, dir, lang } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -43,19 +45,19 @@ export default async function ModeratorSessionsPage() {
   const activeSessions = list.filter(s => s.started_at && !s.ended_at);
 
   return (
-    <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold"><Video size={24} className="text-gold" /> الجلسات</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-bold"><Video size={24} className="text-gold" /> {t("الجلسات", "Sessions")}</h1>
         {activeSessions.length > 0 && (
           <span className="glass-badge glass-success flex items-center gap-2 rounded-full px-3 py-1 text-sm">
-            <Radio size={14} className="animate-pulse" /> {activeSessions.length} نشطة
+            <Radio size={14} className="animate-pulse" /> {activeSessions.length} {t("نشطة", "active")}
           </span>
         )}
       </div>
 
       {list.length === 0 ? (
         <div className="glass-card rounded-xl p-12 text-center">
-          <Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا توجد جلسات</p>
+          <Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">{t("لا توجد جلسات", "No sessions yet")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -70,15 +72,15 @@ export default async function ModeratorSessionsPage() {
                       {b && <p className="text-sm font-medium">{nameMap[b.student_id] ?? "—"} ← {nameMap[b.teacher_id] ?? "—"}</p>}
                       {b && <SessionStatus scheduledAt={b.scheduled_at} durationMin={b.duration_min} expiresAt={s.expires_at} endedAt={s.ended_at} size="sm" />}
                     </div>
-                    <p className="text-xs text-muted">{new Date(s.created_at).toLocaleDateString("ar-SA")}</p>
+                    <p className="text-xs text-muted">{new Date(s.created_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     {isActive && s.is_observable && (
                       <Link href={`/moderator/sessions/${s.id}/observe`} className="glass glass-pill flex items-center gap-1 px-3 py-1 text-xs text-gold transition-colors hover:bg-white/10">
-                        <Eye size={12} /> مراقبة
+                        <Eye size={12} /> {t("مراقبة", "Observe")}
                       </Link>
                     )}
-                    <Link href={`/moderator/sessions/${s.id}`} className="text-xs text-gold hover:text-gold-light">تفاصيل ←</Link>
+                    <Link href={`/moderator/sessions/${s.id}`} className="text-xs text-gold hover:text-gold-light">{t("تفاصيل ←", "Details →")}</Link>
                   </div>
                 </div>
               </div>
