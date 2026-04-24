@@ -7,7 +7,7 @@ import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "إدارة المعلمين" };
 
-interface TeacherRow { teacher_id: string; specialties: string[]; hourly_rate: number; rating_avg: number; total_sessions: number; is_accepting: boolean; is_archived: boolean; }
+interface TeacherRow { teacher_id: string; specialties: string[]; hourly_rate: number; rating_avg: number; total_sessions: number; is_accepting: boolean; is_archived: boolean; cv_status: string | null; }
 
 export default async function AdminTeachersPage() {
   const { t, dir } = await getT();
@@ -16,7 +16,7 @@ export default async function AdminTeachersPage() {
   if (!user) redirect("/login");
 
   const { data: teachers } = await supabase.from("teacher_profiles")
-    .select("teacher_id, specialties, hourly_rate, rating_avg, total_sessions, is_accepting, is_archived")
+    .select("teacher_id, specialties, hourly_rate, rating_avg, total_sessions, is_accepting, is_archived, cv_status")
     .order("total_sessions", { ascending: false }).returns<TeacherRow[]>();
   const list = teachers ?? [];
 
@@ -60,6 +60,7 @@ export default async function AdminTeachersPage() {
               <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("التقييم", "Rating")}</th>
               <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الجلسات", "Sessions")}</th>
               <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الحالة", "Status")}</th>
+              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("السيرة الذاتية", "CV")}</th>
               <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("إجراءات", "Actions")}</th>
             </tr></thead>
             <tbody>
@@ -74,7 +75,23 @@ export default async function AdminTeachersPage() {
                       : x.is_accepting ? <span className="glass-badge border-emerald-500/30 bg-emerald-500/10 text-emerald-400">{t("يقبل طلاب", "Accepting")}</span>
                       : <span className="glass-badge border-amber-500/30 bg-amber-500/10 text-amber-400">{t("مشغول", "Busy")}</span>}
                   </td>
-                  <td className="px-4 py-3"><Link href={`/admin/teachers/${x.teacher_id}`} className="text-xs text-gold hover:text-gold-light">{t("تفاصيل ←", "Details →")}</Link></td>
+                  <td className="px-4 py-3">
+                    {x.cv_status === "approved" ? (
+                      <span className="glass-badge border-emerald-500/30 bg-emerald-500/10 text-emerald-400">{t("معتمد", "Approved")}</span>
+                    ) : x.cv_status === "pending_review" ? (
+                      <span className="glass-badge border-amber-500/30 bg-amber-500/10 text-amber-400">{t("قيد المراجعة", "Pending")}</span>
+                    ) : x.cv_status === "rejected" ? (
+                      <span className="glass-badge border-red-500/30 bg-red-500/10 text-red-400">{t("مرفوض", "Rejected")}</span>
+                    ) : (
+                      <span className="glass-badge border-white/20 bg-white/5 text-muted">{t("مسودة", "Draft")}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <Link href={`/admin/teachers/${x.teacher_id}`} className="text-xs text-gold hover:text-gold-light">{t("تفاصيل", "Details")}</Link>
+                      <Link href={`/admin/teachers/cv/${x.teacher_id}`} className="text-xs text-gold hover:text-gold-light">{t("السيرة", "CV")}</Link>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
