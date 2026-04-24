@@ -99,6 +99,11 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
     setMenuOpen(false);
   }
 
+  // Admin + moderator dashboards are Arabic-only (page bodies are hardcoded
+  // Arabic). Force the nav labels to Arabic for those roles so the sidebar
+  // doesn't mix English labels with Arabic page content when the lang toggle
+  // is set to English for public pages.
+  const navLang: "ar" | "en" = role === "admin" || role === "moderator" ? "ar" : lang;
   const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
   const links = LINKS[role];
 
@@ -125,7 +130,7 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
           <Image src="/logo-192.png" alt="فرقان" width={36} height={36} sizes="36px" className="rounded-full" />
           <div className="min-w-0 flex-1">
             {userName && <p className="truncate text-sm font-medium">{userName}</p>}
-            <p className="text-xs text-[var(--muted-light,var(--muted))]">{lang === "ar" ? ROLE_LABEL[role].ar : ROLE_LABEL[role].en}</p>
+            <p className="text-xs text-[var(--muted-light,var(--muted))]">{navLang === "ar" ? ROLE_LABEL[role].ar : ROLE_LABEL[role].en}</p>
           </div>
           <ChevronsUpDown size={14} className="shrink-0 text-[var(--muted)]" />
         </Link>
@@ -138,7 +143,7 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
             {group.label && (
               <div className="mb-2 flex items-center justify-between px-3">
                 <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--muted-light,var(--muted))]">
-                  {lang === "ar" ? group.label.ar : group.label.en}
+                  {navLang === "ar" ? group.label.ar : group.label.en}
                 </p>
                 <MoreVertical size={14} className="text-[var(--muted-light,var(--muted))]" />
               </div>
@@ -159,7 +164,7 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
                     data-active={active ? "true" : undefined}
                   >
                     <Icon size={18} className={active ? "text-[var(--foreground)]" : ""} />
-                    <span>{lang === "ar" ? link.ar : link.en}</span>
+                    <span>{navLang === "ar" ? link.ar : link.en}</span>
                   </Link>
                 );
               })}
