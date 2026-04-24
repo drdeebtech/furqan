@@ -4,15 +4,23 @@ import Link from "next/link";
 import { ArrowRight, Calendar, Star, FileText, BookOpen, MessageSquare, TrendingDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
+import { getT } from "@/lib/i18n/server";
 import { riskTone, riskLabel } from "@/lib/retention/ui";
 import type { SessionType } from "@/types/database";
 
 export const metadata: Metadata = { title: "تفاصيل المستخدم" };
 
+const SESSION_TYPE_EN: Record<SessionType, string> = {
+  hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
+  qiraat: "Qiraat", tafsir: "Tafsir", combined: "Hifz + Review", other: "Other",
+};
+
 interface Props { params: Promise<{ id: string }> }
 
 export default async function AdminUserDetailPage({ params }: Props) {
   const { id } = await params;
+  const { t, dir, lang } = await getT();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const supabase = await createClient();
   const { data: { user: admin } } = await supabase.auth.getUser();
   if (!admin) redirect("/login");
@@ -143,9 +151,9 @@ export default async function AdminUserDetailPage({ params }: Props) {
   const completedCount = (bookings ?? []).filter(b => b.status === "completed").length;
 
   return (
-    <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
       <Link href="/admin/users" className="mb-6 inline-flex items-center gap-1 text-sm text-gold hover:text-gold-hover">
-        <ArrowRight size={14} /> العودة للمستخدمين
+        <ArrowRight size={14} /> {t("العودة للمستخدمين", "Back to Users")}
       </Link>
 
       {/* Profile Header */}
@@ -160,25 +168,25 @@ export default async function AdminUserDetailPage({ params }: Props) {
               <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
                 <span className="glass-badge border-gold/30 bg-gold/10 text-gold">{profile.role}</span>
                 <span className={`glass-badge ${profile.is_active ? "border-green-500/30 bg-green-500/10 text-green-400" : "border-red-500/30 bg-red-500/10 text-red-400"}`}>
-                  {profile.is_active ? "نشط" : "معطل"}
+                  {profile.is_active ? t("نشط", "Active") : t("معطل", "Disabled")}
                 </span>
               </div>
             </div>
           </div>
           <div className="flex flex-col items-end gap-2 text-left text-xs text-muted">
-            <span>انضم: {new Date(profile.created_at).toLocaleDateString("ar-SA")}</span>
+            <span>{t("انضم", "Joined")}: {new Date(profile.created_at).toLocaleDateString(locale)}</span>
             <div className="flex flex-wrap items-center gap-2">
               <Link
                 href={`/admin/users/${profile.id}/timeline`}
                 className="rounded-lg border border-surface-border/60 px-2 py-1 text-xs text-muted transition-colors hover:border-gold/40 hover:text-gold"
               >
-                الجدول الزمني
+                {t("الجدول الزمني", "Timeline")}
               </Link>
               <Link
                 href={`/admin/users/${profile.id}/as-user`}
                 className="rounded-lg border border-gold/30 bg-gold/10 px-2 py-1 text-xs text-gold transition-colors hover:bg-gold/20"
               >
-                معاينة كمستخدم
+                {t("معاينة كمستخدم", "Preview as User")}
               </Link>
             </div>
           </div>
@@ -186,10 +194,10 @@ export default async function AdminUserDetailPage({ params }: Props) {
 
         {/* Info grid */}
         <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-          {profile.phone && <div><span className="text-muted">الهاتف:</span> <span dir="ltr">{profile.phone}</span></div>}
-          {profile.country && <div><span className="text-muted">الدولة:</span> {profile.country}</div>}
-          {profile.timezone && <div><span className="text-muted">المنطقة الزمنية:</span> {profile.timezone}</div>}
-          {profile.date_of_birth && <div><span className="text-muted">تاريخ الميلاد:</span> {profile.date_of_birth}</div>}
+          {profile.phone && <div><span className="text-muted">{t("الهاتف", "Phone")}:</span> <span dir="ltr">{profile.phone}</span></div>}
+          {profile.country && <div><span className="text-muted">{t("الدولة", "Country")}:</span> {profile.country}</div>}
+          {profile.timezone && <div><span className="text-muted">{t("المنطقة الزمنية", "Timezone")}:</span> {profile.timezone}</div>}
+          {profile.date_of_birth && <div><span className="text-muted">{t("تاريخ الميلاد", "Date of Birth")}:</span> {profile.date_of_birth}</div>}
         </div>
 
         {/* Retention signal (students) */}
@@ -197,29 +205,29 @@ export default async function AdminUserDetailPage({ params }: Props) {
           <div className="mt-4 glass-card rounded-lg p-3">
             <div className="mb-2 flex items-center gap-2">
               <TrendingDown size={14} className="text-gold" />
-              <p className="text-xs font-medium text-gold">إشارة البقاء</p>
+              <p className="text-xs font-medium text-gold">{t("إشارة البقاء", "Retention Signal")}</p>
             </div>
             <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
               <div>
-                <p className="text-xs text-muted">خطر التسرب</p>
+                <p className="text-xs text-muted">{t("خطر التسرب", "Churn Risk")}</p>
                 <p className={`font-bold ${riskTone(retention.churn_risk_score)}`}>
                   {(retention.churn_risk_score ?? 0).toFixed(0)} · {riskLabel(retention.churn_risk_score)}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-muted">التفاعل</p>
+                <p className="text-xs text-muted">{t("التفاعل", "Engagement")}</p>
                 <p className="font-bold">{(retention.engagement_score ?? 0).toFixed(0)}</p>
               </div>
               <div>
-                <p className="text-xs text-muted">الجلسات المتبقية</p>
+                <p className="text-xs text-muted">{t("الجلسات المتبقية", "Sessions Remaining")}</p>
                 <p className="font-bold">{retention.package_remaining ?? "—"}</p>
               </div>
               <div>
-                <p className="text-xs text-muted">آخر تدخل</p>
+                <p className="text-xs text-muted">{t("آخر تدخل", "Last Intervention")}</p>
                 <p className="text-xs">
                   {retention.last_intervention_at
-                    ? `${retention.intervention_type ?? "—"} · ${new Date(retention.last_intervention_at).toLocaleDateString("ar-SA")}`
-                    : "لا يوجد"}
+                    ? `${retention.intervention_type ?? "—"} · ${new Date(retention.last_intervention_at).toLocaleDateString(locale)}`
+                    : t("لا يوجد", "None")}
                 </p>
               </div>
             </div>
@@ -227,14 +235,14 @@ export default async function AdminUserDetailPage({ params }: Props) {
             {interventionHistory && interventionHistory.length > 0 && (
               <details className="mt-3 text-xs">
                 <summary className="cursor-pointer text-muted hover:text-foreground">
-                  سجل التدخلات ({interventionHistory.length})
+                  {t("سجل التدخلات", "Intervention History")} ({interventionHistory.length})
                 </summary>
                 <ul className="mt-2 space-y-1">
                   {interventionHistory.map(h => (
                     <li key={h.id} className="flex items-center justify-between gap-3 border-t border-white/5 pt-1">
                       <span>{h.payload_json?.title ?? h.payload_json?.intervention_type ?? "—"}</span>
                       <span className="text-muted" dir="ltr">
-                        {h.finished_at ? new Date(h.finished_at).toLocaleString("ar-SA") : "—"}
+                        {h.finished_at ? new Date(h.finished_at).toLocaleString(locale) : "—"}
                       </span>
                     </li>
                   ))}
@@ -247,11 +255,11 @@ export default async function AdminUserDetailPage({ params }: Props) {
         {/* Parent info (students) */}
         {isStudent && (profile.parent_name || profile.parent_phone || profile.parent_email) && (
           <div className="mt-4 glass-card rounded-lg p-3">
-            <p className="mb-1 text-xs font-medium text-gold">معلومات ولي الأمر:</p>
+            <p className="mb-1 text-xs font-medium text-gold">{t("معلومات ولي الأمر", "Parent Information")}:</p>
             <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
-              {profile.parent_name && <div><span className="text-muted">الاسم:</span> {profile.parent_name}</div>}
-              {profile.parent_phone && <div><span className="text-muted">الهاتف:</span> <span dir="ltr">{profile.parent_phone}</span></div>}
-              {profile.parent_email && <div><span className="text-muted">البريد:</span> <span dir="ltr">{profile.parent_email}</span></div>}
+              {profile.parent_name && <div><span className="text-muted">{t("الاسم", "Name")}:</span> {profile.parent_name}</div>}
+              {profile.parent_phone && <div><span className="text-muted">{t("الهاتف", "Phone")}:</span> <span dir="ltr">{profile.parent_phone}</span></div>}
+              {profile.parent_email && <div><span className="text-muted">{t("البريد", "Email")}:</span> <span dir="ltr">{profile.parent_email}</span></div>}
             </div>
           </div>
         )}
@@ -261,17 +269,17 @@ export default async function AdminUserDetailPage({ params }: Props) {
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
             <div className="glass-card rounded-lg p-3 text-center">
               <p className="text-lg font-bold text-gold">{teacherProfile.rating_avg > 0 ? teacherProfile.rating_avg.toFixed(1) : "—"}</p>
-              <p className="text-xs text-muted">التقييم</p>
+              <p className="text-xs text-muted">{t("التقييم", "Rating")}</p>
             </div>
             <div className="glass-card rounded-lg p-3 text-center">
               <p className="text-lg font-bold text-gold">{teacherProfile.total_sessions}</p>
-              <p className="text-xs text-muted">الجلسات</p>
+              <p className="text-xs text-muted">{t("الجلسات", "Sessions")}</p>
             </div>
             <div className="glass-card rounded-lg p-3 text-center">
               <p className={`text-lg font-bold ${teacherProfile.cv_status === "approved" ? "text-green-400" : "text-amber-400"}`}>
-                {teacherProfile.cv_status === "approved" ? "معتمد" : teacherProfile.cv_status === "pending_review" ? "قيد المراجعة" : "مسودة"}
+                {teacherProfile.cv_status === "approved" ? t("معتمد", "Approved") : teacherProfile.cv_status === "pending_review" ? t("قيد المراجعة", "Under Review") : t("مسودة", "Draft")}
               </p>
-              <p className="text-xs text-muted">حالة السيرة</p>
+              <p className="text-xs text-muted">{t("حالة السيرة", "CV Status")}</p>
             </div>
           </div>
         )}
@@ -282,27 +290,27 @@ export default async function AdminUserDetailPage({ params }: Props) {
         <div className="glass-card rounded-xl p-4 text-center">
           <Calendar size={16} className="mx-auto mb-1 text-gold" />
           <p className="text-xl font-bold text-gold">{(bookings ?? []).length}</p>
-          <p className="text-xs text-muted">الحجوزات</p>
+          <p className="text-xs text-muted">{t("الحجوزات", "Bookings")}</p>
         </div>
         <div className="glass-card rounded-xl p-4 text-center">
           <Star size={16} className="mx-auto mb-1 text-gold" />
           <p className="text-xl font-bold text-gold">{completedCount}</p>
-          <p className="text-xs text-muted">جلسات مكتملة</p>
+          <p className="text-xs text-muted">{t("جلسات مكتملة", "Completed Sessions")}</p>
         </div>
         <div className="glass-card rounded-xl p-4 text-center">
           <MessageSquare size={16} className="mx-auto mb-1 text-gold" />
           <p className="text-xl font-bold text-gold">{(reviews ?? []).length}</p>
-          <p className="text-xs text-muted">المراجعات</p>
+          <p className="text-xs text-muted">{t("المراجعات", "Reviews")}</p>
         </div>
       </div>
 
       {/* Bookings + Session Notes */}
       <div className="mt-8">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-          <Calendar size={18} className="text-gold" /> الحجوزات والجلسات
+          <Calendar size={18} className="text-gold" /> {t("الحجوزات والجلسات", "Bookings & Sessions")}
         </h2>
         {(bookings ?? []).length === 0 ? (
-          <p className="text-sm text-muted">لا توجد حجوزات</p>
+          <p className="text-sm text-muted">{t("لا توجد حجوزات", "No bookings")}</p>
         ) : (
           <div className="space-y-3">
             {(bookings ?? []).map(b => {
@@ -313,11 +321,11 @@ export default async function AdminUserDetailPage({ params }: Props) {
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="text-sm font-medium">
-                        {isStudent ? "المعلم" : "الطالب"}: {otherName}
+                        {isStudent ? t("المعلم", "Teacher") : t("الطالب", "Student")}: {otherName}
                       </p>
                       <p className="mt-1 text-xs text-muted">
-                        {SESSION_TYPE_AR[b.session_type]} · {b.duration_min} د
-                        {note?.actual_duration ? ` · فعلي: ${note.actual_duration} د` : ""}
+                        {lang === "ar" ? SESSION_TYPE_AR[b.session_type] : SESSION_TYPE_EN[b.session_type]} · {b.duration_min} {t("د", "min")}
+                        {note?.actual_duration ? ` · ${t("فعلي", "actual")}: ${note.actual_duration} ${t("د", "min")}` : ""}
                       </p>
                     </div>
                     <div className="text-left">
@@ -325,19 +333,19 @@ export default async function AdminUserDetailPage({ params }: Props) {
                         {b.status}
                       </span>
                       <p dir="ltr" className="mt-1 text-xs text-muted">
-                        {new Date(b.scheduled_at).toLocaleDateString("ar-SA", { month: "short", day: "numeric" })}
+                        {new Date(b.scheduled_at).toLocaleDateString(locale, { month: "short", day: "numeric" })}
                       </p>
                     </div>
                   </div>
                   {note?.post_session_notes && (
                     <div className="mt-2 rounded-lg border border-gold/20 bg-gold/5 p-2">
-                      <p className="text-xs font-medium text-gold"><FileText size={12} className="inline" /> ملاحظات:</p>
+                      <p className="text-xs font-medium text-gold"><FileText size={12} className="inline" /> {t("ملاحظات", "Notes")}:</p>
                       <p className="mt-1 text-xs whitespace-pre-wrap">{note.post_session_notes}</p>
                     </div>
                   )}
                   {note?.homework && (
                     <div className="mt-1 rounded-lg border border-blue-500/20 bg-blue-500/5 p-2">
-                      <p className="text-xs font-medium text-blue-400"><BookOpen size={12} className="inline" /> واجب:</p>
+                      <p className="text-xs font-medium text-blue-400"><BookOpen size={12} className="inline" /> {t("واجب", "Homework")}:</p>
                       <p className="mt-1 text-xs whitespace-pre-wrap">{note.homework}</p>
                     </div>
                   )}
@@ -352,16 +360,16 @@ export default async function AdminUserDetailPage({ params }: Props) {
       {(evaluations ?? []).length > 0 && (
         <div className="mt-8">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-            <Star size={18} className="text-gold" /> التقييمات
+            <Star size={18} className="text-gold" /> {t("التقييمات", "Evaluations")}
           </h2>
           <div className="space-y-2">
             {(evaluations ?? []).map(e => (
               <div key={e.id} className="flex items-center justify-between glass-card rounded-lg px-4 py-3">
                 <div>
                   <p className="text-sm font-medium">
-                    {isStudent ? "بواسطة" : "للطالب"}: {nameMap[isStudent ? e.teacher_id : e.student_id] ?? "—"}
+                    {isStudent ? t("بواسطة", "By") : t("للطالب", "For student")}: {nameMap[isStudent ? e.teacher_id : e.student_id] ?? "—"}
                   </p>
-                  <p className="text-xs text-muted">{e.evaluation_type} · {new Date(e.period_start).toLocaleDateString("ar-SA")} — {new Date(e.period_end).toLocaleDateString("ar-SA")}</p>
+                  <p className="text-xs text-muted">{e.evaluation_type} · {new Date(e.period_start).toLocaleDateString(locale)} — {new Date(e.period_end).toLocaleDateString(locale)}</p>
                 </div>
                 <span className={`glass-badge px-3 py-1 text-sm font-bold ${e.overall_score >= 8 ? "border-green-500/30 text-green-400" : e.overall_score >= 5 ? "border-amber-500/30 text-amber-400" : "border-red-500/30 text-red-400"}`}>
                   {e.overall_score}/10
@@ -376,7 +384,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
       {(reviews ?? []).length > 0 && (
         <div className="mt-8">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
-            <MessageSquare size={18} className="text-gold" /> المراجعات
+            <MessageSquare size={18} className="text-gold" /> {t("المراجعات", "Reviews")}
           </h2>
           <div className="space-y-3">
             {(reviews ?? []).map(r => (
@@ -384,7 +392,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-sm font-medium">
-                      {isStudent ? "للمعلم" : "من الطالب"}: {nameMap[isStudent ? r.teacher_id : r.student_id] ?? "—"}
+                      {isStudent ? t("للمعلم", "For teacher") : t("من الطالب", "From student")}: {nameMap[isStudent ? r.teacher_id : r.student_id] ?? "—"}
                     </p>
                     <div className="mt-1 flex gap-0.5">
                       {[1, 2, 3, 4, 5].map(star => (
@@ -394,15 +402,15 @@ export default async function AdminUserDetailPage({ params }: Props) {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className={`glass-badge ${r.is_public ? "border-green-500/30 text-green-400" : "border-muted/30 text-muted"}`}>
-                      {r.is_public ? "عام" : "خاص"}
+                      {r.is_public ? t("عام", "Public") : t("خاص", "Private")}
                     </span>
-                    <span className="text-xs text-muted">{new Date(r.created_at).toLocaleDateString("ar-SA")}</span>
+                    <span className="text-xs text-muted">{new Date(r.created_at).toLocaleDateString(locale)}</span>
                   </div>
                 </div>
                 {r.comment && <p className="mt-2 text-sm">{r.comment}</p>}
                 {r.teacher_reply && (
                   <div className="mt-2 glass-card rounded-lg p-2">
-                    <p className="text-xs text-gold">رد المعلم:</p>
+                    <p className="text-xs text-gold">{t("رد المعلم", "Teacher reply")}:</p>
                     <p className="mt-1 text-xs">{r.teacher_reply}</p>
                   </div>
                 )}

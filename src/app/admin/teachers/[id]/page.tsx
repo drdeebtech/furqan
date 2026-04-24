@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { updateTeacher } from "../actions";
 
 const input = "w-full rounded-xl glass-input px-4 py-3 text-sm text-foreground focus:border-gold focus:outline-none";
@@ -9,6 +10,7 @@ interface Props { params: Promise<{ id: string }>; }
 
 export default async function TeacherDetailPage({ params }: Props) {
   const { id } = await params;
+  const { t, dir } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -85,64 +87,64 @@ export default async function TeacherDetailPage({ params }: Props) {
     ok ? "text-emerald-400" : warn ? "text-amber-400" : "text-rose-400";
 
   return (
-    <div dir="rtl" className="mx-auto max-w-3xl px-4 py-8">
-      <Link href="/admin/teachers" className="mb-6 inline-block text-sm text-gold hover:text-gold-light">→ العودة للمعلمين</Link>
+    <div dir={dir} className="mx-auto max-w-3xl px-4 py-8">
+      <Link href="/admin/teachers" className="mb-6 inline-block text-sm text-gold hover:text-gold-light">{t("→ العودة للمعلمين", "← Back to Teachers")}</Link>
 
-      <h1 className="mb-2 text-2xl font-bold">{profile?.full_name ?? "معلم"}</h1>
+      <h1 className="mb-2 text-2xl font-bold">{profile?.full_name ?? t("معلم", "Teacher")}</h1>
       <div className="mb-6 flex gap-3 text-sm text-muted">
-        <span>{tp.total_sessions} جلسة</span>
-        <span>تقييم {Number(tp.rating_avg).toFixed(1)}</span>
-        <span>{bookingCount ?? 0} حجز</span>
+        <span>{tp.total_sessions} {t("جلسة", "sessions")}</span>
+        <span>{t("تقييم", "Rating")} {Number(tp.rating_avg).toFixed(1)}</span>
+        <span>{bookingCount ?? 0} {t("حجز", "bookings")}</span>
       </div>
 
       {/* Health metrics (last 90 days) */}
       <div className="mb-6 glass-card rounded-xl p-6">
-        <h2 className="mb-4 font-bold">مؤشرات الأداء (آخر 90 يومًا)</h2>
+        <h2 className="mb-4 font-bold">{t("مؤشرات الأداء (آخر 90 يومًا)", "Performance Metrics (Last 90 Days)")}</h2>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <div>
-            <p className="text-xs text-muted">الالتزام بالمواعيد</p>
+            <p className="text-xs text-muted">{t("الالتزام بالمواعيد", "Punctuality")}</p>
             <p className={`mt-1 text-xl font-bold ${tone(punctualityRate >= 90, punctualityRate >= 75)}`}>{fmt(punctualityRate)}%</p>
-            <p className="text-xs text-muted">{startedSessions.length} جلسة</p>
+            <p className="text-xs text-muted">{startedSessions.length} {t("جلسة", "sessions")}</p>
           </div>
           <div>
-            <p className="text-xs text-muted">متوسط تأخر التصحيح</p>
-            <p className={`mt-1 text-xl font-bold ${tone(avgGradingLagHours <= 24, avgGradingLagHours <= 48)}`}>{fmt(avgGradingLagHours)} س</p>
-            <p className="text-xs text-muted">{gradedHw.length} واجب</p>
+            <p className="text-xs text-muted">{t("متوسط تأخر التصحيح", "Avg Grading Lag")}</p>
+            <p className={`mt-1 text-xl font-bold ${tone(avgGradingLagHours <= 24, avgGradingLagHours <= 48)}`}>{fmt(avgGradingLagHours)} {t("س", "h")}</p>
+            <p className="text-xs text-muted">{gradedHw.length} {t("واجب", "homework")}</p>
           </div>
           <div>
-            <p className="text-xs text-muted">نسبة إنجاز التقييمات</p>
+            <p className="text-xs text-muted">{t("نسبة إنجاز التقييمات", "Evaluation Completion")}</p>
             <p className={`mt-1 text-xl font-bold ${tone(evalRate >= 80, evalRate >= 50)}`}>{fmt(evalRate)}%</p>
-            <p className="text-xs text-muted">{evalCount ?? 0} تقييم / {completedCount} جلسة</p>
+            <p className="text-xs text-muted">{evalCount ?? 0} {t("تقييم", "evals")} / {completedCount} {t("جلسة", "sessions")}</p>
           </div>
           <div>
-            <p className="text-xs text-muted">نسبة الغياب</p>
+            <p className="text-xs text-muted">{t("نسبة الغياب", "No-Show Rate")}</p>
             <p className={`mt-1 text-xl font-bold ${tone(noShowRate <= 5, noShowRate <= 15)}`}>{fmt(noShowRate)}%</p>
-            <p className="text-xs text-muted">{noShows} من {decided.length}</p>
+            <p className="text-xs text-muted">{noShows} {t("من", "of")} {decided.length}</p>
           </div>
         </div>
       </div>
 
       {/* Edit form */}
       <div className="glass-card rounded-xl p-6">
-        <h2 className="mb-4 font-bold">تعديل الملف</h2>
+        <h2 className="mb-4 font-bold">{t("تعديل الملف", "Edit Profile")}</h2>
         <form action={updateTeacher} className="space-y-4">
           <input type="hidden" name="teacher_id" value={tp.teacher_id} />
           <div>
-            <label className="mb-1 block text-sm font-medium">السيرة الذاتية</label>
+            <label className="mb-1 block text-sm font-medium">{t("السيرة الذاتية", "Bio")}</label>
             <textarea name="bio" rows={3} defaultValue={tp.bio ?? ""} className={`${input} resize-none`} />
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium">السعر/ساعة *</label>
+              <label className="mb-1 block text-sm font-medium">{t("السعر/ساعة *", "Hourly Rate *")}</label>
               <input name="hourly_rate" type="number" required defaultValue={tp.hourly_rate} className={input} />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">الجنس</label>
-              <select name="gender" defaultValue={tp.gender ?? ""} className={input}><option value="">—</option><option value="male">ذكر</option><option value="female">أنثى</option></select>
+              <label className="mb-1 block text-sm font-medium">{t("الجنس", "Gender")}</label>
+              <select name="gender" defaultValue={tp.gender ?? ""} className={input}><option value="">—</option><option value="male">{t("ذكر", "Male")}</option><option value="female">{t("أنثى", "Female")}</option></select>
             </div>
           </div>
           <div>
-            <label className="mb-2 block text-sm font-medium">التخصصات</label>
+            <label className="mb-2 block text-sm font-medium">{t("التخصصات", "Specialties")}</label>
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
               {[
                 { value: "hifz", ar: "حفظ القرآن" },
@@ -162,7 +164,7 @@ export default async function TeacherDetailPage({ params }: Props) {
             </div>
           </div>
           <div>
-            <label className="mb-2 block text-sm font-medium">معايير القراءة</label>
+            <label className="mb-2 block text-sm font-medium">{t("معايير القراءة", "Recitation Standards")}</label>
             <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
               {[
                 { value: "hafs", ar: "حفص عن عاصم" },
@@ -179,31 +181,31 @@ export default async function TeacherDetailPage({ params }: Props) {
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">اللغات</label>
+            <label className="mb-1 block text-sm font-medium">{t("اللغات", "Languages")}</label>
             <input name="languages" defaultValue={tp.languages.join(",")} className={input} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">معايير القراءة</label>
+            <label className="mb-1 block text-sm font-medium">{t("معايير القراءة", "Recitation Standards")}</label>
             <input name="recitation_standards" defaultValue={tp.recitation_standards.join(",")} className={input} />
           </div>
           <div className="flex items-center gap-2">
             <input type="checkbox" name="is_accepting" id="accepting" defaultChecked={tp.is_accepting} className="accent-gold" />
-            <label htmlFor="accepting" className="text-sm">يقبل طلاب جدد</label>
+            <label htmlFor="accepting" className="text-sm">{t("يقبل طلاب جدد", "Accepting new students")}</label>
           </div>
-          <button type="submit" className="w-full glass-gold glass-pill py-3 font-semibold transition-colors">حفظ التعديلات</button>
+          <button type="submit" className="w-full glass-gold glass-pill py-3 font-semibold transition-colors">{t("حفظ التعديلات", "Save Changes")}</button>
         </form>
       </div>
 
       {/* Ijaza */}
       {(ijazas ?? []).length > 0 && (
         <div className="mt-6 glass-card rounded-xl p-6">
-          <h2 className="mb-4 font-bold">الإجازات</h2>
+          <h2 className="mb-4 font-bold">{t("الإجازات", "Ijazas")}</h2>
           <div className="space-y-3">
             {(ijazas ?? []).map(ij => (
               <div key={ij.id} className="glass-card rounded-lg p-3 text-sm">
-                <p className="font-medium">{ij.riwaya} — {ij.granted_by ?? "غير محدد"}</p>
+                <p className="font-medium">{ij.riwaya} — {ij.granted_by ?? t("غير محدد", "Unspecified")}</p>
                 <p className="mt-1 text-xs text-muted">{ij.chain_text}</p>
-                <p className="mt-1 text-xs">{ij.verified_at ? <span className="text-emerald-400">✓ موثقة</span> : <span className="text-amber-400">بانتظار التوثيق</span>}</p>
+                <p className="mt-1 text-xs">{ij.verified_at ? <span className="text-emerald-400">{t("✓ موثقة", "✓ Verified")}</span> : <span className="text-amber-400">{t("بانتظار التوثيق", "Pending verification")}</span>}</p>
               </div>
             ))}
           </div>
