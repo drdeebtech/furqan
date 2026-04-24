@@ -11,6 +11,7 @@ export const metadata: Metadata = { title: "مراجعة السيرة الذات
 interface TeacherCv {
   teacher_id: string;
   bio: string | null;
+  bio_en: string | null;
   specialties: string[] | null;
   languages: string[] | null;
   recitation_standards: string[] | null;
@@ -36,7 +37,7 @@ export default async function AdminCvReviewPage({
   const { data: profile } = await supabase
     .from("teacher_profiles")
     .select(
-      "teacher_id, bio, specialties, languages, recitation_standards, intro_video_url, cv_status, cv_submitted_at",
+      "teacher_id, bio, bio_en, specialties, languages, recitation_standards, intro_video_url, cv_status, cv_submitted_at",
     )
     .eq("teacher_id", teacherId)
     .single<TeacherCv>();
@@ -85,14 +86,26 @@ export default async function AdminCvReviewPage({
 
       {/* CV Details */}
       <div className="mb-6 space-y-5 glass-card p-6">
-        {/* Bio */}
+        {/* Bio (Arabic) */}
         <div>
           <h3 className="mb-2 text-sm font-medium text-muted">
-            {t("نبذة تعريفية", "Bio")}
+            {t("نبذة تعريفية (عربي)", "Bio (Arabic)")}
           </h3>
-          <p className="whitespace-pre-wrap text-foreground">
+          <p dir="rtl" className="whitespace-pre-wrap text-foreground">
             {profile.bio || (
               <span className="text-muted">{t("لم يتم إضافة نبذة", "No bio added")}</span>
+            )}
+          </p>
+        </div>
+
+        {/* Bio (English) */}
+        <div>
+          <h3 className="mb-2 text-sm font-medium text-muted">
+            {t("نبذة تعريفية (إنجليزي)", "Bio (English)")}
+          </h3>
+          <p dir="ltr" className="whitespace-pre-wrap text-left text-foreground">
+            {profile.bio_en || (
+              <span className="text-muted">{t("لم يتم إضافة نبذة إنجليزية", "No English bio added")}</span>
             )}
           </p>
         </div>

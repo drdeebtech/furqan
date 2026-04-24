@@ -19,6 +19,7 @@ export async function saveCvDraft(
   if (!user) return { error: "غير مصرح" };
 
   const bio = formData.get("bio") as string;
+  const bio_en = (formData.get("bio_en") as string) || null;
   const specialties =
     (formData.get("specialties") as string)
       ?.split(",")
@@ -41,6 +42,7 @@ export async function saveCvDraft(
     .from("teacher_profiles")
     .update({
       bio,
+      bio_en,
       specialties,
       languages,
       recitation_standards,

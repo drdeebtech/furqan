@@ -9,6 +9,7 @@ export const metadata: Metadata = { title: "السيرة الذاتية" };
 
 interface TeacherProfile {
   bio: string | null;
+  bio_en: string | null;
   specialties: string[] | null;
   languages: string[] | null;
   recitation_standards: string[] | null;
@@ -57,7 +58,7 @@ export default async function TeacherCvPage() {
   const { data: profile } = await supabase
     .from("teacher_profiles")
     .select(
-      "bio, specialties, languages, recitation_standards, intro_video_url, cv_status, cv_submitted_at, cv_reviewed_at, cv_rejection_reason",
+      "bio, bio_en, specialties, languages, recitation_standards, intro_video_url, cv_status, cv_submitted_at, cv_reviewed_at, cv_rejection_reason",
     )
     .eq("teacher_id", user.id)
     .single<TeacherProfile>();
@@ -96,6 +97,7 @@ export default async function TeacherCvPage() {
 
       <CvForm
         bio={profile.bio ?? ""}
+        bioEn={profile.bio_en ?? ""}
         specialties={profile.specialties ?? []}
         languages={profile.languages ?? []}
         recitationStandards={profile.recitation_standards ?? []}

@@ -6,6 +6,7 @@ import { saveCvDraft, submitCvForReview, type CvResult } from "./actions";
 
 interface CvFormProps {
   bio: string;
+  bioEn: string;
   specialties: string[];
   languages: string[];
   recitationStandards: string[];
@@ -15,6 +16,7 @@ interface CvFormProps {
 
 export function CvForm({
   bio,
+  bioEn,
   specialties,
   languages,
   recitationStandards,
@@ -56,20 +58,41 @@ export function CvForm({
       )}
 
       <form action={formAction} className="space-y-5">
-        {/* Bio */}
+        {/* Bio (Arabic) */}
         <div>
           <label htmlFor="bio" className="mb-1 block text-sm font-medium">
-            نبذة تعريفية
-            <span className="mr-2 text-xs text-muted">Bio</span>
+            نبذة تعريفية (عربي)
+            <span className="mr-2 text-xs text-muted">Bio (Arabic)</span>
           </label>
           <textarea
             id="bio"
             name="bio"
             rows={5}
+            dir="rtl"
             defaultValue={bio}
             placeholder="اكتب نبذة عن نفسك وخبراتك في التعليم..."
             className="glass-input w-full px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
           />
+        </div>
+
+        {/* Bio (English) */}
+        <div>
+          <label htmlFor="bio_en" className="mb-1 block text-sm font-medium">
+            نبذة تعريفية (إنجليزي)
+            <span className="mr-2 text-xs text-muted">Bio (English)</span>
+          </label>
+          <textarea
+            id="bio_en"
+            name="bio_en"
+            rows={5}
+            dir="ltr"
+            defaultValue={bioEn}
+            placeholder="Write a short bio about yourself and your teaching experience..."
+            className="glass-input w-full px-4 py-2.5 text-left text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+          />
+          <p className="mt-1 text-xs text-muted">
+            Shown to students browsing in English mode. Falls back to the Arabic bio if left empty.
+          </p>
         </div>
 
         {/* Specialties */}

@@ -25,6 +25,7 @@ export async function createTeacher(formData: FormData): Promise<void> {
   const row = {
     teacher_id: teacherId,
     bio: (formData.get("bio") as string) || null,
+    bio_en: (formData.get("bio_en") as string) || null,
     specialties: specialties.filter(Boolean),
     hourly_rate: Number(formData.get("hourly_rate")) || 20,
     gender: (formData.get("gender") as string) || null,
@@ -61,6 +62,7 @@ export async function updateTeacher(formData: FormData): Promise<void> {
 
   await supabase.from("teacher_profiles").update({
     bio: (formData.get("bio") as string) || null,
+    bio_en: (formData.get("bio_en") as string) || null,
     specialties: specialties.filter(Boolean),
     hourly_rate: Number(formData.get("hourly_rate")) || 20,
     gender: (formData.get("gender") as string) || null,

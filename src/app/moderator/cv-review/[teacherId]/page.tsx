@@ -9,7 +9,7 @@ import { CvReviewActions } from "./review-actions";
 export const metadata: Metadata = { title: "مراجعة السيرة الذاتية" };
 
 interface TeacherCv {
-  teacher_id: string; bio: string | null; specialties: string[]; recitation_standards: string[];
+  teacher_id: string; bio: string | null; bio_en: string | null; specialties: string[]; recitation_standards: string[];
   languages: string[]; hourly_rate: number; intro_video_url: string | null;
   cv_status: string; cv_submitted_at: string | null; cv_rejection_reason: string | null;
 }
@@ -22,7 +22,7 @@ export default async function ModeratorCvDetailPage({ params }: { params: Promis
   if (!user) redirect("/login");
 
   const { data: teacher } = await supabase.from("teacher_profiles")
-    .select("teacher_id, bio, specialties, recitation_standards, languages, hourly_rate, intro_video_url, cv_status, cv_submitted_at, cv_rejection_reason")
+    .select("teacher_id, bio, bio_en, specialties, recitation_standards, languages, hourly_rate, intro_video_url, cv_status, cv_submitted_at, cv_rejection_reason")
     .eq("teacher_id", teacherId).single().then(r => ({ data: r.data as TeacherCv | null }));
 
   if (!teacher) notFound();
@@ -55,7 +55,9 @@ export default async function ModeratorCvDetailPage({ params }: { params: Promis
         <div className="space-y-4">
           <div>
             <p className="text-xs font-medium text-gold">{t("النبذة", "Bio")}</p>
-            <p className="mt-1 text-sm">{teacher.bio || "—"}</p>
+            <p dir="rtl" className="mt-1 text-sm">{teacher.bio || "—"}</p>
+            <p className="mt-3 text-xs font-medium text-gold">{t("النبذة (إنجليزي)", "Bio (English)")}</p>
+            <p dir="ltr" className="mt-1 text-sm text-left">{teacher.bio_en || "—"}</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>

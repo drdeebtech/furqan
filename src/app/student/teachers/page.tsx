@@ -13,6 +13,7 @@ export interface TeacherData {
   teacher_id: string;
   name: string;
   bio: string | null;
+  bio_en: string | null;
   specialties: string[];
   recitation_standards: string[];
   hourly_rate: number;
@@ -29,7 +30,7 @@ export default async function TeachersPage() {
 
   const { data: teachers } = await supabase
     .from("teacher_profiles")
-    .select("teacher_id, bio, specialties, recitation_standards, hourly_rate, rating_avg, total_sessions, gender")
+    .select("teacher_id, bio, bio_en, specialties, recitation_standards, hourly_rate, rating_avg, total_sessions, gender")
     .eq("is_archived", false)
     .eq("is_accepting", true)
     .order("rating_avg", { ascending: false })

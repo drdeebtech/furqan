@@ -16,9 +16,9 @@ export default async function TeacherDetailPage({ params }: Props) {
   if (!user) redirect("/login");
 
   const { data: tp } = await supabase.from("teacher_profiles")
-    .select("teacher_id, bio, specialties, hourly_rate, gender, languages, recitation_standards, is_accepting, is_archived, total_sessions, rating_avg")
+    .select("teacher_id, bio, bio_en, specialties, hourly_rate, gender, languages, recitation_standards, is_accepting, is_archived, total_sessions, rating_avg")
     .eq("teacher_id", id).single<{
-      teacher_id: string; bio: string | null; specialties: string[]; hourly_rate: number;
+      teacher_id: string; bio: string | null; bio_en: string | null; specialties: string[]; hourly_rate: number;
       gender: string | null; languages: string[]; recitation_standards: string[];
       is_accepting: boolean; is_archived: boolean; total_sessions: number; rating_avg: number;
     }>();
@@ -130,8 +130,12 @@ export default async function TeacherDetailPage({ params }: Props) {
         <form action={updateTeacher} className="space-y-4">
           <input type="hidden" name="teacher_id" value={tp.teacher_id} />
           <div>
-            <label className="mb-1 block text-sm font-medium">{t("السيرة الذاتية", "Bio")}</label>
-            <textarea name="bio" rows={3} defaultValue={tp.bio ?? ""} className={`${input} resize-none`} />
+            <label className="mb-1 block text-sm font-medium">{t("السيرة الذاتية (عربي)", "Bio (Arabic)")}</label>
+            <textarea name="bio" rows={3} dir="rtl" defaultValue={tp.bio ?? ""} className={`${input} resize-none`} />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">{t("السيرة الذاتية (إنجليزي)", "Bio (English)")}</label>
+            <textarea name="bio_en" rows={3} dir="ltr" defaultValue={tp.bio_en ?? ""} className={`${input} resize-none text-left`} placeholder="English bio shown to students browsing in English" />
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div>

@@ -155,7 +155,11 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {filtered.map((teacher) => {
-            const bio = teacher.bio && teacher.bio.length > 100 ? teacher.bio.slice(0, 100) + "…" : teacher.bio;
+            const preferred = lang === "ar" ? teacher.bio : teacher.bio_en;
+            const rawBio = preferred?.trim() ? preferred : (lang === "ar" ? teacher.bio_en : teacher.bio);
+            const usedFallback = !!rawBio && !preferred?.trim();
+            const bio = rawBio && rawBio.length > 100 ? rawBio.slice(0, 100) + "…" : rawBio;
+            const bioDir = (usedFallback ? (lang === "ar" ? "ltr" : "rtl") : dir) as "rtl" | "ltr";
 
             return (
               <div key={teacher.teacher_id} className="glass-card p-4 md:p-5">
@@ -183,7 +187,16 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
                 </div>
 
                 {/* Desktop-only details */}
-                {bio && <p className="mt-3 hidden text-sm leading-relaxed text-muted md:block">{bio}</p>}
+                {bio && (
+                  <p dir={bioDir} className="mt-3 hidden text-sm leading-relaxed text-muted md:block">
+                    {bio}
+                    {usedFallback && (
+                      <span className="ms-1 rounded border border-white/10 px-1 py-0.5 align-middle text-[10px] text-muted/60">
+                        {lang === "ar" ? "EN" : "AR"}
+                      </span>
+                    )}
+                  </p>
+                )}
                 <p className="mt-2 hidden text-xs text-muted md:block">{teacher.total_sessions} {t("جلسة مكتملة", "completed sessions")}</p>
 
                 {/* Specialties — show top 3 on mobile, all on desktop */}

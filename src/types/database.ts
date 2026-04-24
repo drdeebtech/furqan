@@ -64,6 +64,7 @@ export interface TeacherProfile {
   id: string;
   teacher_id: string;
   bio: string | null;
+  bio_en: string | null;
   specialties: string[];
   recitation_standards: string[];
   languages: string[];

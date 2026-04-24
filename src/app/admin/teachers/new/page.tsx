@@ -50,8 +50,12 @@ export default async function NewTeacherPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">{t("السيرة الذاتية", "Bio")}</label>
-            <textarea name="bio" rows={3} className={`${input} resize-none`} placeholder={t("نبذة عن المعلم...", "About the teacher...")} />
+            <label className="mb-1 block text-sm font-medium">{t("السيرة الذاتية (عربي)", "Bio (Arabic)")}</label>
+            <textarea name="bio" rows={3} dir="rtl" className={`${input} resize-none`} placeholder={t("نبذة عن المعلم...", "About the teacher...")} />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">{t("السيرة الذاتية (إنجليزي)", "Bio (English)")}</label>
+            <textarea name="bio_en" rows={3} dir="ltr" className={`${input} resize-none text-left`} placeholder="English bio for students browsing in English" />
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
