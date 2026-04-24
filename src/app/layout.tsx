@@ -136,7 +136,7 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col">
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-0 focus:left-0 focus:z-[9999] focus:w-full focus:bg-gold focus:px-4 focus:py-3 focus:text-center focus:text-sm focus:font-medium focus:text-white"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-0 focus:start-0 focus:z-[9999] focus:w-full focus:bg-gold focus:px-4 focus:py-3 focus:text-center focus:text-sm focus:font-medium focus:text-white"
         >
           {lang === "ar" ? "تخطي إلى المحتوى" : "Skip to main content"}
         </a>

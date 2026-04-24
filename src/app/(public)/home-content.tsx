@@ -135,7 +135,7 @@ export default function HomePage() {
               {/* Desktop connector rail — sits behind the number medallions */}
               <div
                 aria-hidden
-                className="pointer-events-none absolute left-0 right-0 top-8 hidden h-px border-t border-dashed border-gold/25 md:block"
+                className="pointer-events-none absolute inset-x-0 top-8 hidden h-px border-t border-dashed border-gold/25 md:block"
               />
               {[
                 { num: "١", en_num: "1", icon: Users, ar: "سجّل حسابك", en: "Create Account", dAr: "أنشئ حسابك مجاناً في أقل من دقيقة.", dEn: "Create your free account in under a minute." },

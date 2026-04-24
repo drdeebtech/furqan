@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useLang } from "@/lib/i18n/context";
 import { updateSetting } from "./actions";
 
 export function FeatureToggle({
@@ -14,6 +15,7 @@ export function FeatureToggle({
   description: string;
   initialValue: boolean;
 }) {
+  const { t } = useLang();
   const [enabled, setEnabled] = useState(initialValue);
   const [isPending, startTransition] = useTransition();
 
@@ -40,11 +42,11 @@ export function FeatureToggle({
         className={`relative h-6 w-11 rounded-full transition-colors disabled:opacity-50 ${
           enabled ? "bg-gold" : "bg-muted/30"
         }`}
-        aria-label={`${label}: ${enabled ? "مفعل" : "معطل"}`}
+        aria-label={`${label}: ${enabled ? t("مفعل", "Enabled") : t("معطل", "Disabled")}`}
       >
         <span
           className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-            enabled ? "right-0.5" : "right-[22px]"
+            enabled ? "end-0.5" : "end-[22px]"
           }`}
         />
       </button>

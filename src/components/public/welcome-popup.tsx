@@ -94,7 +94,7 @@ export function WelcomePopup() {
         onClick={(e) => e.stopPropagation()}
         className="relative mx-4 w-full max-w-md animate-in glass-modal p-8"
       >
-        <button onClick={dismiss} aria-label="إغلاق" className="focus-ring absolute left-4 top-4 text-muted hover:text-foreground">
+        <button onClick={dismiss} aria-label="إغلاق" className="focus-ring absolute start-4 top-4 text-muted hover:text-foreground">
           <X size={20} />
         </button>
 
