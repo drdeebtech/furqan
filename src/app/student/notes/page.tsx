@@ -3,14 +3,21 @@ import { redirect } from "next/navigation";
 import { FileText, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
+import { getT } from "@/lib/i18n/server";
 import type { SessionType } from "@/types/database";
 
 export const metadata: Metadata = { title: "ملاحظات المعلم" };
+
+const SESSION_TYPE_EN: Record<SessionType, string> = {
+  hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
+  qiraat: "Qiraat", tafsir: "Tafsir", combined: "Hifz + Review", other: "Other",
+};
 
 interface SessionRow { id: string; booking_id: string; post_session_notes: string; homework: string | null; created_at: string; }
 interface BookingRow { id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: SessionType; }
 
 export default async function StudentNotesPage() {
+  const { t, dir, lang } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -40,19 +47,19 @@ export default async function StudentNotesPage() {
   let nameMap: Record<string, string> = {};
   if (teacherIds.length > 0) {
     const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", teacherIds).returns<{ id: string; full_name: string | null }[]>();
-    if (profiles) nameMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name ?? "معلم"]));
+    if (profiles) nameMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name ?? t("معلم", "Teacher")]));
   }
 
   return (
-    <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-2 flex items-center gap-2 font-display text-2xl font-bold"><FileText size={24} className="text-gold" /> ملاحظات المعلم</h1>
-      <p className="mb-8 text-xs text-muted">تجد هنا ملاحظات معلمك بعد كل جلسة</p>
+    <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
+      <h1 className="mb-2 flex items-center gap-2 font-display text-2xl font-bold"><FileText size={24} className="text-gold" /> {t("ملاحظات المعلم", "Teacher Notes")}</h1>
+      <p className="mb-8 text-xs text-muted">{t("تجد هنا ملاحظات معلمك بعد كل جلسة", "Find your teacher's notes after each session here")}</p>
 
       {sessions.length === 0 ? (
         <div className="glass-card p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
-          <p className="text-muted">لا توجد ملاحظات بعد</p>
-          <p className="mt-1 text-sm text-muted">ستظهر ملاحظات معلمك هنا بعد كل جلسة مكتملة</p>
+          <p className="text-muted">{t("لا توجد ملاحظات بعد", "No notes yet")}</p>
+          <p className="mt-1 text-sm text-muted">{t("ستظهر ملاحظات معلمك هنا بعد كل جلسة مكتملة", "Your teacher's notes will appear here after each completed session")}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -63,18 +70,21 @@ export default async function StudentNotesPage() {
               <div key={s.id} className="glass-card p-6">
                 <div className="mb-4 flex items-center justify-between text-sm">
                   <div>
-                    <span className="font-medium">{nameMap[booking.teacher_id] ?? "معلم"}</span>
-                    <span className="mr-2 text-muted">· {SESSION_TYPE_AR[booking.session_type]} · {booking.duration_min} د</span>
+                    <span className="font-medium">{nameMap[booking.teacher_id] ?? t("معلم", "Teacher")}</span>
+                    <span className="mr-2 text-muted">
+                      · {lang === "ar" ? SESSION_TYPE_AR[booking.session_type] : SESSION_TYPE_EN[booking.session_type]}
+                      · {booking.duration_min} {t("د", "m")}
+                    </span>
                   </div>
-                  <span className="text-xs text-muted">{new Date(booking.scheduled_at).toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" })}</span>
+                  <span className="text-xs text-muted">{new Date(booking.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { year: "numeric", month: "long", day: "numeric" })}</span>
                 </div>
                 <div className="border-t border-white/10 pt-4">
-                  <p className="mb-2 text-xs font-medium text-gold">ملاحظات الجلسة</p>
+                  <p className="mb-2 text-xs font-medium text-gold">{t("ملاحظات الجلسة", "Session Notes")}</p>
                   <p className="whitespace-pre-line text-sm leading-relaxed text-muted">{s.post_session_notes}</p>
                 </div>
                 {s.homework && (
                   <div className="mt-4 glass rounded-lg p-3">
-                    <p className="mb-1 text-xs font-medium text-gold">الواجب</p>
+                    <p className="mb-1 text-xs font-medium text-gold">{t("الواجب", "Homework")}</p>
                     <p className="text-sm text-muted">{s.homework}</p>
                   </div>
                 )}
