@@ -34,12 +34,13 @@ interface AdminDashboardData {
 }
 
 export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
-  const { t, dir } = useLang();
+  const { t, dir, lang } = useLang();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const { studentCount, teacherList, bookingsMonth, revenueMonth, revenueTrend, pendingCount, pendingBookings, newStudentCount, todayBookings, activeSessionCount, nameMap, dailyRevenue, adminLiveSessions, bookingBreakdown, recentBookings } = data;
 
   const hasAlerts = pendingCount > 0 || newStudentCount > 0;
-  const formatDate = (d: string) => new Date(d).toLocaleDateString("ar-SA", { day: "numeric", month: "short" });
-  const formatTime = (d: string) => new Date(d).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+  const formatDate = (d: string) => new Date(d).toLocaleDateString(locale, { day: "numeric", month: "short" });
+  const formatTime = (d: string) => new Date(d).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 
   return (
     <>

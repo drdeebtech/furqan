@@ -41,7 +41,8 @@ interface TeacherDashboardData {
 }
 
 export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }) {
-  const { t, dir } = useLang();
+  const { t, dir, lang } = useLang();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const { fullName, cvStatus, hasProfile, hasBio, hasAvailability, uniqueStudents, monthSessions, pendingCount, ratingAvg, todaySessions, pending, sessionDataMap, nameMap, weeklyHours, liveSessions, sessionBreakdown, recentStudents, actionQueue } = data;
 
   const st = (type: string) => {
@@ -182,9 +183,9 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
                         <td className="py-3 font-medium">{nameMap[b.student_id] ?? t("طالب", "Student")}</td>
                         <td className="py-3 text-[var(--muted)]">{st(b.session_type)} · {b.duration_min} {t("د", "m")}</td>
                         <td className="py-3 text-[var(--muted)]">
-                          {new Date(b.scheduled_at).toLocaleDateString("ar-SA", { month: "short", day: "numeric" })}
+                          {new Date(b.scheduled_at).toLocaleDateString(locale, { month: "short", day: "numeric" })}
                           {" "}
-                          {new Date(b.scheduled_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+                          {new Date(b.scheduled_at).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}
                         </td>
                         <td className="py-3 text-end">
                           <BookingActions bookingId={b.id} isFirst={uniqueStudents === 0} />

@@ -42,7 +42,8 @@ interface ProgressData {
 }
 
 export function ProgressContent({ data }: { data: ProgressData }) {
-  const { t, dir } = useLang();
+  const { t, dir, lang } = useLang();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const { completedCount, currentLevel, avgQuality, juzTouched, totalHours, evalScores, hwStats, latestEval, progressRecords } = data;
 
   const level = LEVEL_CONFIG[currentLevel] ?? LEVEL_CONFIG.beginner;
@@ -280,7 +281,7 @@ export function ProgressContent({ data }: { data: ProgressData }) {
                   {r.quality_rating && (
                     <span className="font-medium text-gold">{r.quality_rating}/5</span>
                   )}
-                  <span>{new Date(r.created_at).toLocaleDateString("ar-SA", { month: "short", day: "numeric" })}</span>
+                  <span>{new Date(r.created_at).toLocaleDateString(locale, { month: "short", day: "numeric" })}</span>
                 </div>
               </div>
             ))}

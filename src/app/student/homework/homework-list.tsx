@@ -14,7 +14,8 @@ export function HomeworkList({
   assignments: HomeworkAssignment[];
   nameMap: Record<string, string>;
 }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
 
   const pending = assignments.filter(a => a.status === "assigned");
   const ready = assignments.filter(a => a.status === "student_ready");
@@ -105,6 +106,8 @@ function HomeworkCard({
   t: (ar: string, en: string) => string;
   showReadyButton?: boolean;
 }) {
+  const { lang } = useLang();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const [marking, setMarking] = useState(false);
   const [marked, setMarked] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,7 +162,7 @@ function HomeworkCard({
             {hw.due_date && (
               <>
                 <span>·</span>
-                <span>{t("استحقاق", "Due")}: {new Date(hw.due_date).toLocaleDateString("ar-SA")}</span>
+                <span>{t("استحقاق", "Due")}: {new Date(hw.due_date).toLocaleDateString(locale)}</span>
               </>
             )}
           </div>

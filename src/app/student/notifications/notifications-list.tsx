@@ -16,7 +16,8 @@ const TYPE_CONFIG: Record<NotifType, { icon: typeof Bell; color: string; bg: str
 };
 
 export function NotificationsList({ notifications: initial }: { notifications: Notification[] }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const [notifications, setNotifications] = useState(initial);
   const [loading, setLoading] = useState(false);
 
@@ -103,9 +104,9 @@ export function NotificationsList({ notifications: initial }: { notifications: N
                   </div>
                 </div>
                 <p className="mt-1 text-xs text-muted/60">
-                  {date.toLocaleDateString("ar-SA", { weekday: "short", month: "short", day: "numeric" })}
+                  {date.toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" })}
                   {" · "}
-                  {date.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+                  {date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}
                 </p>
               </div>
             </div>

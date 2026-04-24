@@ -14,7 +14,8 @@ export function HomeworkList({
   assignments: HomeworkAssignment[];
   nameMap: Record<string, string>;
 }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const [gradingId, setGradingId] = useState<string | null>(null);
 
   // Group assignments
@@ -32,7 +33,7 @@ export function HomeworkList({
           count={ready.length}
         >
           {ready.map(a => (
-            <HomeworkCard key={a.id} hw={a} nameMap={nameMap} t={t}>
+            <HomeworkCard key={a.id} hw={a} nameMap={nameMap} t={t} locale={locale}>
               {gradingId === a.id ? (
                 <GradeForm
                   homeworkId={a.id}
@@ -60,7 +61,7 @@ export function HomeworkList({
           count={assigned.length}
         >
           {assigned.map(a => (
-            <HomeworkCard key={a.id} hw={a} nameMap={nameMap} t={t} />
+            <HomeworkCard key={a.id} hw={a} nameMap={nameMap} t={t} locale={locale} />
           ))}
         </Section>
       )}
@@ -73,7 +74,7 @@ export function HomeworkList({
           count={completed.length}
         >
           {completed.map(a => (
-            <HomeworkCard key={a.id} hw={a} nameMap={nameMap} t={t} />
+            <HomeworkCard key={a.id} hw={a} nameMap={nameMap} t={t} locale={locale} />
           ))}
         </CollapsibleSection>
       )}
@@ -113,11 +114,13 @@ function HomeworkCard({
   hw,
   nameMap,
   t,
+  locale,
   children,
 }: {
   hw: HomeworkAssignment;
   nameMap: Record<string, string>;
   t: (ar: string, en: string) => string;
+  locale: string;
   children?: React.ReactNode;
 }) {
   const style = HOMEWORK_STATUS_STYLE[hw.status];
@@ -155,7 +158,7 @@ function HomeworkCard({
             {hw.due_date && (
               <>
                 <span>·</span>
-                <span>{t("استحقاق", "Due")}: {new Date(hw.due_date).toLocaleDateString("ar-SA")}</span>
+                <span>{t("استحقاق", "Due")}: {new Date(hw.due_date).toLocaleDateString(locale)}</span>
               </>
             )}
           </div>
