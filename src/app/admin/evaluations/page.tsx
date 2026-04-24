@@ -85,7 +85,7 @@ export default async function AdminEvaluationsPage() {
         </h1>
         <Link
           href="/admin/evaluations/new"
-          className="mr-auto inline-flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-semibold transition-colors"
+          className="me-auto inline-flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-semibold transition-colors"
         >
           <Plus size={16} />
           {t("إنشاء تقييم", "New Evaluation")}

@@ -280,7 +280,7 @@ export default async function SessionDetailPage({
               <p className={`text-sm ${step.active ? "font-medium" : "text-muted"}`}>
                 {step.label}
               </p>
-              <p className="mr-auto text-xs text-muted">
+              <p className="me-auto text-xs text-muted">
                 {step.time ? formatDT(step.time) : "—"}
               </p>
             </div>
@@ -328,7 +328,7 @@ export default async function SessionDetailPage({
                   </span>
                   <span className="text-muted">—</span>
                   <span>{l.changed_by ? auditNameMap[l.changed_by] ?? "—" : t("نظام", "System")}</span>
-                  <span className="mr-auto text-xs text-muted">{formatDT(l.created_at)}</span>
+                  <span className="me-auto text-xs text-muted">{formatDT(l.created_at)}</span>
                 </div>
                 {l.reason && (
                   <p className="mt-1 text-xs text-muted">{t("السبب", "Reason")}: {l.reason}</p>

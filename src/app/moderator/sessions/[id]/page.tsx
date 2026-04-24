@@ -102,7 +102,7 @@ export default async function ModeratorSessionDetailPage({ params }: { params: P
             <div key={i} className="flex items-center gap-3">
               <div className={`h-3 w-3 rounded-full ${step.active ? "bg-emerald-400" : "bg-muted/30"}`} />
               <p className={`text-sm ${step.active ? "font-medium" : "text-muted"}`}>{step.label}</p>
-              <p className="mr-auto text-xs text-muted">{step.time ? formatDT(step.time) : "—"}</p>
+              <p className="me-auto text-xs text-muted">{step.time ? formatDT(step.time) : "—"}</p>
             </div>
           ))}
         </div>

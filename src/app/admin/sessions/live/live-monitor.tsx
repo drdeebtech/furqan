@@ -87,7 +87,7 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
             <User size={14} className="text-muted" />
             <span className="font-medium">{s.student_name}</span>
             <span
-              className={`mr-auto glass-badge ${
+              className={`me-auto glass-badge ${
                 s.student_joined
                   ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
                   : "border-red-500/30 bg-red-500/10 text-red-400"
@@ -102,7 +102,7 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
             <GraduationCap size={14} className="text-muted" />
             <span className="font-medium">{s.teacher_name}</span>
             <span
-              className={`mr-auto glass-badge ${
+              className={`me-auto glass-badge ${
                 s.teacher_joined
                   ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
                   : "border-red-500/30 bg-red-500/10 text-red-400"

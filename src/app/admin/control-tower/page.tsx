@@ -99,7 +99,7 @@ export default async function ControlTowerPage() {
                 <p className="font-display text-2xl font-bold">{w.value}</p>
                 <p className="text-xs text-muted">{w.label}</p>
               </div>
-              {isAlert && <AlertTriangle size={14} className="mr-auto text-red-400" />}
+              {isAlert && <AlertTriangle size={14} className="me-auto text-red-400" />}
             </Link>
           );
         })}

@@ -26,7 +26,7 @@ export function ResolveErrorButton({ errorId }: { errorId: string }) {
   }
 
   return (
-    <div className="mr-auto flex shrink-0 items-center gap-1.5">
+    <div className="me-auto flex shrink-0 items-center gap-1.5">
       {error && <span className="text-xs text-error">{error}</span>}
       <button
         onClick={handleResolve}
