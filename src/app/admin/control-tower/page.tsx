@@ -3,10 +3,12 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Activity, AlertTriangle, BookOpen, Clock, Package, Timer, TrendingDown, Users, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "مركز التحكم" };
 
 export default async function ControlTowerPage() {
+  const { t, dir, lang } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -56,30 +58,30 @@ export default async function ControlTowerPage() {
   const lowBalanceCount = (lowPkgs ?? []).filter(p => (p.sessions_total - p.sessions_used) <= 2).length;
 
   const widgets = [
-    { label: "سير ذاتية بانتظار المراجعة", en: "Pending CVs", value: pendingCvRes.count ?? 0, icon: Users, color: "text-amber-400", bg: "bg-amber-500/10", href: "/admin/teachers/cv", threshold: 0 },
-    { label: "أتمتة فاشلة (24 ساعة)", en: "Failed Automations", value: failedAutoRes.count ?? 0, icon: XCircle, color: "text-red-400", bg: "bg-red-500/10", href: "/admin/automation", threshold: 0 },
-    { label: "مهام فاشلة نهائياً", en: "Dead-Letter Queue", value: deadLetterRes.count ?? 0, icon: XCircle, color: "text-red-500", bg: "bg-red-500/15", href: "/admin/automation", threshold: 0 },
-    { label: "جلسات متوقفة", en: "Stuck Sessions (>15m)", value: stuckSessionsRes.count ?? 0, icon: Timer, color: "text-red-400", bg: "bg-red-500/10", href: "/admin/sessions/live", threshold: 0 },
-    { label: "غياب اليوم", en: "No-Shows Today", value: noShowTodayRes.count ?? 0, icon: AlertTriangle, color: "text-orange-400", bg: "bg-orange-500/10", href: "/admin/sessions", threshold: 0 },
-    { label: "باقات منخفضة الرصيد", en: "Low Balance Packages", value: lowBalanceCount, icon: Package, color: "text-sky-400", bg: "bg-sky-500/10", href: "/admin/credits", threshold: 0 },
-    { label: "مسجلون جدد (7 أيام)", en: "New Signups", value: newSignupsRes.count ?? 0, icon: Users, color: "text-emerald-400", bg: "bg-emerald-500/10", href: "/admin/users", threshold: -1 },
-    { label: "طلاب في خطر التسرب", en: "At-Risk Students", value: atRiskCount ?? 0, icon: TrendingDown, color: "text-rose-400", bg: "bg-rose-500/10", href: "/admin/retention", threshold: 0 },
-    { label: "واجبات بانتظار التقييم", en: "Pending Grading", value: pendingGradingRes.count ?? 0, icon: BookOpen, color: "text-purple-400", bg: "bg-purple-500/10", href: "/admin/notes", threshold: 0 },
-    { label: "أخطاء تلاوة غير محلولة", en: "Unresolved Errors", value: unresolvedErrorsRes.count ?? 0, icon: AlertTriangle, color: "text-amber-400", bg: "bg-amber-500/10", href: "/admin/sessions", threshold: 10 },
+    { key: "pending-cvs", label: t("سير ذاتية بانتظار المراجعة", "Pending CVs"), value: pendingCvRes.count ?? 0, icon: Users, color: "text-amber-400", bg: "bg-amber-500/10", href: "/admin/teachers/cv", threshold: 0 },
+    { key: "failed-auto", label: t("أتمتة فاشلة (24 ساعة)", "Failed Automations (24h)"), value: failedAutoRes.count ?? 0, icon: XCircle, color: "text-red-400", bg: "bg-red-500/10", href: "/admin/automation", threshold: 0 },
+    { key: "dead-letter", label: t("مهام فاشلة نهائياً", "Dead-Letter Queue"), value: deadLetterRes.count ?? 0, icon: XCircle, color: "text-red-500", bg: "bg-red-500/15", href: "/admin/automation", threshold: 0 },
+    { key: "stuck", label: t("جلسات متوقفة", "Stuck Sessions (>15m)"), value: stuckSessionsRes.count ?? 0, icon: Timer, color: "text-red-400", bg: "bg-red-500/10", href: "/admin/sessions/live", threshold: 0 },
+    { key: "no-show", label: t("غياب اليوم", "No-Shows Today"), value: noShowTodayRes.count ?? 0, icon: AlertTriangle, color: "text-orange-400", bg: "bg-orange-500/10", href: "/admin/sessions", threshold: 0 },
+    { key: "low-balance", label: t("باقات منخفضة الرصيد", "Low Balance Packages"), value: lowBalanceCount, icon: Package, color: "text-sky-400", bg: "bg-sky-500/10", href: "/admin/credits", threshold: 0 },
+    { key: "new-signups", label: t("مسجلون جدد (7 أيام)", "New Signups (7d)"), value: newSignupsRes.count ?? 0, icon: Users, color: "text-emerald-400", bg: "bg-emerald-500/10", href: "/admin/users", threshold: -1 },
+    { key: "at-risk", label: t("طلاب في خطر التسرب", "At-Risk Students"), value: atRiskCount ?? 0, icon: TrendingDown, color: "text-rose-400", bg: "bg-rose-500/10", href: "/admin/retention", threshold: 0 },
+    { key: "grading", label: t("واجبات بانتظار التقييم", "Pending Grading"), value: pendingGradingRes.count ?? 0, icon: BookOpen, color: "text-purple-400", bg: "bg-purple-500/10", href: "/admin/notes", threshold: 0 },
+    { key: "recitation", label: t("أخطاء تلاوة غير محلولة", "Unresolved Errors"), value: unresolvedErrorsRes.count ?? 0, icon: AlertTriangle, color: "text-amber-400", bg: "bg-amber-500/10", href: "/admin/sessions", threshold: 10 },
   ];
 
   const alertCount = widgets.filter(w => w.threshold >= 0 && w.value > w.threshold).length;
 
   return (
-    <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Activity size={24} className="text-gold" />
-          <h1 className="text-xl font-bold">مركز التحكم</h1>
+          <h1 className="text-xl font-bold">{t("مركز التحكم", "Control Tower")}</h1>
         </div>
         {alertCount > 0 && (
           <span className="rounded-full bg-red-500/10 px-3 py-1 text-sm font-bold text-red-400">
-            {alertCount} تنبيهات
+            {lang === "ar" ? `${alertCount} تنبيهات` : `${alertCount} alerts`}
           </span>
         )}
       </div>
@@ -89,7 +91,7 @@ export default async function ControlTowerPage() {
           const Icon = w.icon;
           const isAlert = w.threshold >= 0 && w.value > w.threshold;
           return (
-            <Link key={w.label} href={w.href} className={`glass-card flex items-center gap-4 p-5 transition-colors hover:border-gold/20 ${isAlert ? "border-red-500/20" : ""}`}>
+            <Link key={w.key} href={w.href} className={`glass-card flex items-center gap-4 p-5 transition-colors hover:border-gold/20 ${isAlert ? "border-red-500/20" : ""}`}>
               <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${w.bg}`}>
                 <Icon size={22} className={w.color} />
               </div>
@@ -105,10 +107,10 @@ export default async function ControlTowerPage() {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <Link href="/admin/automation" className="glass-card p-4 text-center transition-colors hover:border-gold/20">
-          <p className="text-sm font-medium">سجل الأتمتة</p>
+          <p className="text-sm font-medium">{t("سجل الأتمتة", "Automation Logs")}</p>
         </Link>
         <Link href="/admin/audit" className="glass-card p-4 text-center transition-colors hover:border-gold/20">
-          <p className="text-sm font-medium">سجل المراجعة</p>
+          <p className="text-sm font-medium">{t("سجل المراجعة", "Audit Log")}</p>
         </Link>
       </div>
     </div>
