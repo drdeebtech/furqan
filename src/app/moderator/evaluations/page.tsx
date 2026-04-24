@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ClipboardCheck, Plus, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "التقييمات" };
 
@@ -12,8 +13,10 @@ interface EvalRow {
 }
 
 const TYPE_AR: Record<string, string> = { weekly: "أسبوعي", biweekly: "نصف شهري", monthly: "شهري", quarterly: "ربع سنوي" };
+const TYPE_EN: Record<string, string> = { weekly: "Weekly", biweekly: "Bi-weekly", monthly: "Monthly", quarterly: "Quarterly" };
 
 export default async function ModeratorEvaluationsPage() {
+  const { t, dir, lang } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -33,35 +36,35 @@ export default async function ModeratorEvaluationsPage() {
   }
 
   return (
-    <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold"><ClipboardCheck size={24} className="text-gold" /> التقييمات</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-bold"><ClipboardCheck size={24} className="text-gold" /> {t("التقييمات", "Evaluations")}</h1>
         <Link href="/moderator/evaluations/new" className="glass-gold glass-pill flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors">
-          <Plus size={16} /> تقييم جديد
+          <Plus size={16} /> {t("تقييم جديد", "New Evaluation")}
         </Link>
       </div>
 
       {list.length === 0 ? (
         <div className="glass-card rounded-xl p-12 text-center">
-          <Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا توجد تقييمات</p>
+          <Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">{t("لا توجد تقييمات", "No evaluations yet")}</p>
         </div>
       ) : (
         <div className="glass-card overflow-hidden rounded-xl p-0">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-white/10 bg-white/5">
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الطالب</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">المعلم</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">النوع</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الفترة</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">الدرجة</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">التاريخ</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("الطالب", "Student")}</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("المعلم", "Teacher")}</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("النوع", "Type")}</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("الفترة", "Period")}</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("الدرجة", "Score")}</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("التاريخ", "Date")}</th>
             </tr></thead>
             <tbody>
               {list.map(e => (
                 <tr key={e.id} className="border-b border-white/10 last:border-b-0">
                   <td className="px-4 py-3 font-medium">{nameMap[e.student_id] ?? "—"}</td>
                   <td className="px-4 py-3">{nameMap[e.teacher_id] ?? "—"}</td>
-                  <td className="px-4 py-3"><span className="glass-badge rounded-full px-2 py-0.5 text-xs">{TYPE_AR[e.evaluation_type] ?? e.evaluation_type}</span></td>
+                  <td className="px-4 py-3"><span className="glass-badge rounded-full px-2 py-0.5 text-xs">{(lang === "ar" ? TYPE_AR : TYPE_EN)[e.evaluation_type] ?? e.evaluation_type}</span></td>
                   <td className="px-4 py-3 text-xs text-muted">{e.period_start} — {e.period_end}</td>
                   <td className="px-4 py-3">
                     {e.overall_score ? (
@@ -70,7 +73,7 @@ export default async function ModeratorEvaluationsPage() {
                       </span>
                     ) : "—"}
                   </td>
-                  <td className="px-4 py-3 text-xs text-muted">{new Date(e.created_at).toLocaleDateString("ar-SA")}</td>
+                  <td className="px-4 py-3 text-xs text-muted">{new Date(e.created_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}</td>
                 </tr>
               ))}
             </tbody>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Shield, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "سجل المراجعة" };
 
@@ -11,6 +12,7 @@ interface AuditRow {
 }
 
 export default async function ModeratorAuditPage() {
+  const { t, dir, lang } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -32,12 +34,12 @@ export default async function ModeratorAuditPage() {
   const actionColor: Record<string, string> = { INSERT: "text-emerald-400", UPDATE: "text-amber-400", DELETE: "text-red-400" };
 
   return (
-    <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><Shield size={24} className="text-gold" /> سجل المراجعة</h1>
+    <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
+      <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><Shield size={24} className="text-gold" /> {t("سجل المراجعة", "Audit Log")}</h1>
 
       {list.length === 0 ? (
         <div className="glass-card rounded-xl p-12 text-center">
-          <Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">لا توجد سجلات</p>
+          <Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">{t("لا توجد سجلات", "No records")}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -48,10 +50,10 @@ export default async function ModeratorAuditPage() {
                 <span className="text-muted">—</span>
                 <span className="text-xs text-muted">{l.table_name}</span>
                 <span className="text-muted">—</span>
-                <span>{l.changed_by ? nameMap[l.changed_by] ?? "—" : "نظام"}</span>
-                <span className="mr-auto text-xs text-muted">{new Date(l.created_at).toLocaleString("ar-SA")}</span>
+                <span>{l.changed_by ? nameMap[l.changed_by] ?? "—" : t("نظام", "System")}</span>
+                <span className="mr-auto text-xs text-muted">{new Date(l.created_at).toLocaleString(lang === "ar" ? "ar-SA" : "en-US")}</span>
               </div>
-              {l.reason && <p className="mt-1 text-xs text-muted">السبب: {l.reason}</p>}
+              {l.reason && <p className="mt-1 text-xs text-muted">{t("السبب", "Reason")}: {l.reason}</p>}
             </div>
           ))}
         </div>
