@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { MessagesView } from "@/components/shared/messages-view";
 
 export const metadata: Metadata = { title: "الرسائل" };
 
 export default async function TeacherMessagesPage() {
+  const { t } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -24,13 +26,13 @@ export default async function TeacherMessagesPage() {
     const ids = convos.map((c) => c.student_id);
     const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", ids)
       .returns<{ id: string; full_name: string | null }[]>();
-    if (profiles) nameMap = Object.fromEntries(profiles.map((p) => [p.id, p.full_name || "طالب"]));
+    if (profiles) nameMap = Object.fromEntries(profiles.map((p) => [p.id, p.full_name || t("طالب", "Student")]));
   }
 
   const convList = convos.map((c) => ({
     id: c.id,
     otherUserId: c.student_id,
-    otherUserName: nameMap[c.student_id] ?? "طالب",
+    otherUserName: nameMap[c.student_id] ?? t("طالب", "Student"),
     lastMessageAt: c.last_message_at,
   }));
 
