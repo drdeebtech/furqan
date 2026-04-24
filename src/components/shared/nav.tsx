@@ -91,7 +91,7 @@ const ROLE_LABEL: Record<Role, { ar: string; en: string }> = {
 
 export function Nav({ role, userName }: { role: Role; userName?: string }) {
   const pathname = usePathname();
-  const { lang, dir } = useLang();
+  const { t, lang, dir } = useLang();
   const [menuOpen, setMenuOpen] = useState(false);
   const [lastPath, setLastPath] = useState(pathname);
   if (pathname !== lastPath) {
@@ -200,7 +200,7 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
           className="glass rounded-xl p-2 text-muted transition-colors hover:text-foreground focus-ring"
-          aria-label="القائمة"
+          aria-label={t("القائمة", "Menu")}
           aria-expanded={menuOpen}
           aria-controls="sidebar-nav"
         >
