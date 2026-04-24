@@ -7,6 +7,11 @@ import { GraduationCap, Star, Users, Search, SlidersHorizontal } from "lucide-re
 import { useLang } from "@/lib/i18n/context";
 import { SESSION_TYPE_AR, RIWAYA_AR } from "@/lib/constants";
 import type { SessionType, RecitationStandard } from "@/types/database";
+
+const SESSION_TYPE_EN: Record<SessionType, string> = {
+  hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
+  qiraat: "Qiraat", tafsir: "Tafsir", combined: "Hifz + Review", other: "Other",
+};
 import type { TeacherData } from "./page";
 import { BookingSteps } from "@/components/shared/booking-steps";
 
@@ -32,7 +37,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"rating" | "sessions" | "price">("rating");
   const searchParams = useSearchParams();
-  const { t, dir } = useLang();
+  const { t, dir, lang } = useLang();
   const isNew = searchParams.get("new") === "1";
 
   const filtered = teachers
@@ -182,7 +187,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {teacher.specialties.slice(0, 3).map((s) => (
                       <span key={s} className="glass glass-pill px-2 py-0.5 text-xs text-gold">
-                        {SESSION_TYPE_AR[s as SessionType] ?? s}
+                        {(lang === "ar" ? SESSION_TYPE_AR[s as SessionType] : SESSION_TYPE_EN[s as SessionType]) ?? s}
                       </span>
                     ))}
                     {teacher.specialties.length > 3 && (
@@ -190,7 +195,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
                     )}
                     {teacher.specialties.slice(3).map((s) => (
                       <span key={s} className="hidden glass glass-pill px-2 py-0.5 text-xs text-gold md:inline">
-                        {SESSION_TYPE_AR[s as SessionType] ?? s}
+                        {(lang === "ar" ? SESSION_TYPE_AR[s as SessionType] : SESSION_TYPE_EN[s as SessionType]) ?? s}
                       </span>
                     ))}
                   </div>

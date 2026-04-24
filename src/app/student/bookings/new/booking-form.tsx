@@ -24,6 +24,11 @@ const ALL_SESSION_TYPES: SessionType[] = [
   "hifz", "tajweed", "muraja", "tilawa", "qiraat", "tafsir", "combined", "other",
 ];
 
+const SESSION_TYPE_EN: Record<SessionType, string> = {
+  hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
+  qiraat: "Qiraat", tafsir: "Tafsir", combined: "Hifz + Review", other: "Other",
+};
+
 interface TeacherData {
   id: string; name: string; hourlyRate: number;
   specialties: string[]; recitationStandards: string[]; bio: string | null;
@@ -118,7 +123,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
             <p className="text-sm text-gold">تأكيد الحجز</p>
             <h2 className="mt-2 text-xl font-bold">{teacher.name}</h2>
             <div className="mt-3 space-y-1 text-sm">
-              <p>{SESSION_TYPE_AR[selectedType as SessionType] ?? selectedType} · {duration} دقيقة</p>
+              <p>{(lang === "ar" ? SESSION_TYPE_AR[selectedType as SessionType] : SESSION_TYPE_EN[selectedType as SessionType]) ?? selectedType} · {duration} {lang === "ar" ? "دقيقة" : "min"}</p>
               <p className="text-muted">
                 {new Date(selectedDate).toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" })}
                 {" · "}
@@ -166,7 +171,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
                     selectedType === s ? "border-gold bg-gold/10 font-medium text-gold" : "glass-input hover:border-gold/50"
                   }`}
                 >
-                  {SESSION_TYPE_AR[s as SessionType] ?? s}
+                  {(lang === "ar" ? SESSION_TYPE_AR[s as SessionType] : SESSION_TYPE_EN[s as SessionType]) ?? s}
                 </button>
               ))}
             </div>

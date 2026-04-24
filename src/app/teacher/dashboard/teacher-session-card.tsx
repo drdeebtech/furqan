@@ -18,6 +18,11 @@ import { SessionTimer } from "@/components/shared/session-timer";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import { useLang } from "@/lib/i18n/context";
 import type { SessionType } from "@/types/database";
+
+const SESSION_TYPE_EN: Record<SessionType, string> = {
+  hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
+  qiraat: "Qiraat", tafsir: "Tafsir", combined: "Hifz + Review", other: "Other",
+};
 import {
   endSession,
   markNoShow,
@@ -160,7 +165,7 @@ export function TeacherSessionCard({
             />
           </div>
           <p className="mt-1 text-sm text-gold">
-            {SESSION_TYPE_AR[sessionType]} · {durationMin} دقيقة
+            {lang === "ar" ? SESSION_TYPE_AR[sessionType] : SESSION_TYPE_EN[sessionType]} · {durationMin} {lang === "ar" ? "دقيقة" : "min"}
           </p>
           <p dir="ltr" className="mt-1 text-start text-sm text-muted">
             {new Date(scheduledAt).toLocaleTimeString(locale, {

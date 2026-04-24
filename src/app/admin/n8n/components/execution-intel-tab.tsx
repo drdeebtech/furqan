@@ -279,7 +279,7 @@ export function ExecutionIntelTab() {
                       <td className="px-4 py-2.5 text-xs font-medium">#{ex.id}</td>
                       <td className="px-4 py-2.5 text-xs text-muted">#{ex.workflowId}</td>
                       <td className="px-4 py-2.5 text-xs text-muted">
-                        {new Date(ex.startedAt).toLocaleString("ar-SA")}
+                        {new Date(ex.startedAt).toLocaleString(locale)}
                       </td>
                       <td className="px-4 py-2.5 text-end">
                         <button
