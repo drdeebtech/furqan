@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { RotateCcw } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { ReplayClient } from "./replay-client";
 
 export const metadata: Metadata = {
@@ -37,6 +38,7 @@ interface DeadLetterRow {
 }
 
 export default async function AdminReplayPage() {
+  const { t, dir } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -69,14 +71,17 @@ export default async function AdminReplayPage() {
   const deadLetters = deadLetterRes.data ?? [];
 
   return (
-    <div dir="rtl" className="mx-auto max-w-6xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-6xl px-4 py-8">
       <header className="mb-6">
         <div className="flex items-center gap-3">
           <RotateCcw size={24} className="text-gold" />
-          <h1 className="text-xl font-bold">إعادة تشغيل الأتمتة</h1>
+          <h1 className="text-xl font-bold">{t("إعادة تشغيل الأتمتة", "Automation Replay")}</h1>
         </div>
         <p className="mt-2 text-sm text-muted">
-          إعادة إرسال الأحداث الفاشلة إلى n8n. كل محاولة تُسجَّل كسجل جديد.
+          {t(
+            "إعادة إرسال الأحداث الفاشلة إلى n8n. كل محاولة تُسجَّل كسجل جديد.",
+            "Re-send failed events to n8n. Each attempt is recorded as a new log entry.",
+          )}
         </p>
       </header>
 

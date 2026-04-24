@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { createTeacher } from "../actions";
 
 export const metadata: Metadata = { title: "إضافة معلم" };
@@ -27,6 +28,7 @@ const RIWAYAT = [
 ];
 
 export default async function NewTeacherPage() {
+  const { t, dir, lang } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -35,46 +37,46 @@ export default async function NewTeacherPage() {
     .neq("role", "teacher").order("full_name").returns<{ id: string; full_name: string | null; role: string }[]>();
 
   return (
-    <div dir="rtl" className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold">إضافة معلم جديد</h1>
+    <div dir={dir} className="mx-auto max-w-3xl px-4 py-8">
+      <h1 className="mb-6 text-2xl font-bold">{t("إضافة معلم جديد", "Add New Teacher")}</h1>
       <div className="glass-card rounded-xl p-6">
         <form action={createTeacher} className="space-y-5">
           <div>
-            <label className="mb-1 block text-sm font-medium">اختر المستخدم *</label>
+            <label className="mb-1 block text-sm font-medium">{t("اختر المستخدم *", "Select User *")}</label>
             <select name="teacher_id" required className={input}>
-              <option value="">اختر مستخدم لتحويله لمعلم</option>
+              <option value="">{t("اختر مستخدم لتحويله لمعلم", "Select a user to promote to teacher")}</option>
               {(profiles ?? []).map(p => <option key={p.id} value={p.id}>{p.full_name ?? p.id} ({p.role})</option>)}
             </select>
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">السيرة الذاتية</label>
-            <textarea name="bio" rows={3} className={`${input} resize-none`} placeholder="نبذة عن المعلم..." />
+            <label className="mb-1 block text-sm font-medium">{t("السيرة الذاتية", "Bio")}</label>
+            <textarea name="bio" rows={3} className={`${input} resize-none`} placeholder={t("نبذة عن المعلم...", "About the teacher...")} />
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium">السعر بالساعة (USD) *</label>
+              <label className="mb-1 block text-sm font-medium">{t("السعر بالساعة (USD) *", "Hourly Rate (USD) *")}</label>
               <input name="hourly_rate" type="number" required min={1} max={500} className={input} placeholder="25" />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">الجنس</label>
+              <label className="mb-1 block text-sm font-medium">{t("الجنس", "Gender")}</label>
               <select name="gender" className={input}>
                 <option value="">—</option>
-                <option value="male">ذكر</option>
-                <option value="female">أنثى</option>
+                <option value="male">{t("ذكر", "Male")}</option>
+                <option value="female">{t("أنثى", "Female")}</option>
               </select>
             </div>
           </div>
 
           {/* Specialties — checkboxes */}
           <div>
-            <label className="mb-2 block text-sm font-medium">التخصصات *</label>
+            <label className="mb-2 block text-sm font-medium">{t("التخصصات *", "Specialties *")}</label>
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
               {SPECIALTIES.map(s => (
                 <label key={s.value} className="flex cursor-pointer items-center gap-2 rounded-lg glass-input px-3 py-2.5 text-sm transition-colors has-[:checked]:border-gold has-[:checked]:bg-gold/10">
                   <input type="checkbox" name="specialties" value={s.value} className="h-4 w-4 accent-gold" />
-                  <span>{s.ar}</span>
+                  <span>{lang === "ar" ? s.ar : s.en}</span>
                 </label>
               ))}
             </div>
@@ -82,7 +84,7 @@ export default async function NewTeacherPage() {
 
           {/* Recitation standards — checkboxes */}
           <div>
-            <label className="mb-2 block text-sm font-medium">معايير القراءة</label>
+            <label className="mb-2 block text-sm font-medium">{t("معايير القراءة", "Recitation Standards")}</label>
             <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
               {RIWAYAT.map(r => (
                 <label key={r.value} className="flex cursor-pointer items-center gap-2 rounded-lg glass-input px-3 py-2.5 text-sm transition-colors has-[:checked]:border-gold has-[:checked]:bg-gold/10">
@@ -94,12 +96,12 @@ export default async function NewTeacherPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">اللغات <span className="text-xs text-muted">(مفصولة بفواصل)</span></label>
+            <label className="mb-1 block text-sm font-medium">{t("اللغات", "Languages")} <span className="text-xs text-muted">{t("(مفصولة بفواصل)", "(comma-separated)")}</span></label>
             <input name="languages" className={input} defaultValue="ar" placeholder="ar,en" />
           </div>
 
           <button type="submit" className="w-full glass-gold glass-pill py-3 font-semibold transition-colors">
-            إنشاء ملف المعلم
+            {t("إنشاء ملف المعلم", "Create Teacher Profile")}
           </button>
         </form>
       </div>

@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import type { SiteAnnouncement } from "@/types/database";
 import { AnnouncementForm } from "../../announcement-form";
 
@@ -14,6 +15,7 @@ export default async function EditAnnouncementPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const { t, dir } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -33,15 +35,15 @@ export default async function EditAnnouncementPage({
   if (!ann) notFound();
 
   return (
-    <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
       <header className="mb-6">
         <Link
           href="/admin/announcements"
           className="inline-flex items-center gap-1 text-xs text-muted transition-colors hover:text-gold"
         >
-          <ArrowRight size={12} className="rotate-180" /> العودة للقائمة
+          <ArrowRight size={12} className="rotate-180" /> {t("العودة للقائمة", "Back to List")}
         </Link>
-        <h1 className="mt-3 text-xl font-bold">تعديل تنبيه</h1>
+        <h1 className="mt-3 text-xl font-bold">{t("تعديل تنبيه", "Edit Announcement")}</h1>
       </header>
       <AnnouncementForm mode="edit" announcement={ann} />
     </div>
