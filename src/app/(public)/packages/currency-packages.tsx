@@ -71,7 +71,7 @@ export function CurrencyPackages({ packages }: { packages: Package[] }) {
                 {hidePrices ? (
                   <p className="font-display mt-3 text-3xl font-bold text-gold">
                     {t("مجاناً", "Free")}
-                    <span className="mr-2 text-sm font-normal text-muted">{t("لفترة محدودة", "limited time")}</span>
+                    <span className="me-2 text-sm font-normal text-muted">{t("لفترة محدودة", "limited time")}</span>
                   </p>
                 ) : (
                   <p className="font-display mt-3 text-3xl font-bold text-gold">

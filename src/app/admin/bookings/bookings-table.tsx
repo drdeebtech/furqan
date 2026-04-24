@@ -130,7 +130,7 @@ export function BookingsTable({
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t("بحث باسم الطالب أو المعلم...", "Search by student or teacher name...")}
             aria-label={t("بحث", "Search")}
-            className="w-full rounded-lg border border-card-border bg-surface py-2 pr-9 pl-3 text-sm text-foreground placeholder:text-muted focus:border-gold focus:outline-none sm:w-72"
+            className="w-full rounded-lg border border-card-border bg-surface py-2 pe-9 ps-3 text-sm text-foreground placeholder:text-muted focus:border-gold focus:outline-none sm:w-72"
           />
         </div>
 

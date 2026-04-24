@@ -138,7 +138,7 @@ export default async function StudentPackagesPage() {
                     <div key={sp.id} className="glass-card flex items-center justify-between p-3 opacity-60">
                       <div>
                         <span className={`rounded-full border px-2 py-0.5 text-xs ${style.className}`}>{style.label}</span>
-                        <span className="mr-2 text-sm">{pkgName}</span>
+                        <span className="me-2 text-sm">{pkgName}</span>
                       </div>
                       <span className="text-xs text-muted">
                         {sp.sessions_used}/{sp.sessions_total} {t("جلسات", "sessions")}

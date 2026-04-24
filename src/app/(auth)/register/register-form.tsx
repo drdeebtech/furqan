@@ -28,7 +28,7 @@ export function RegisterForm() {
         <div>
           <label htmlFor="full_name" className="mb-1 block text-sm font-medium">
             الاسم الكامل
-            <span className="mr-2 text-xs text-muted">Full name</span>
+            <span className="me-2 text-xs text-muted">Full name</span>
           </label>
           <input
             id="full_name"
@@ -45,7 +45,7 @@ export function RegisterForm() {
         <div>
           <label htmlFor="email" className="mb-1 block text-sm font-medium">
             البريد الإلكتروني
-            <span className="mr-2 text-xs text-muted">Email</span>
+            <span className="me-2 text-xs text-muted">Email</span>
           </label>
           <input
             id="email"
@@ -63,7 +63,7 @@ export function RegisterForm() {
         <div>
           <label htmlFor="password" className="mb-1 block text-sm font-medium">
             كلمة المرور
-            <span className="mr-2 text-xs text-muted">
+            <span className="me-2 text-xs text-muted">
               Password (min 8 characters)
             </span>
           </label>
@@ -76,7 +76,7 @@ export function RegisterForm() {
               minLength={8}
               autoComplete="new-password"
               dir="ltr"
-              className="w-full rounded-xl glass-input px-4 py-2.5 pl-10 text-left text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+              className="w-full rounded-xl glass-input px-4 py-2.5 ps-10 text-left text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
               placeholder="••••••••"
             />
             <button
@@ -97,7 +97,7 @@ export function RegisterForm() {
             className="mb-1 block text-sm font-medium"
           >
             تأكيد كلمة المرور
-            <span className="mr-2 text-xs text-muted">Confirm password</span>
+            <span className="me-2 text-xs text-muted">Confirm password</span>
           </label>
           <input
             id="confirm_password"

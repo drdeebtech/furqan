@@ -30,7 +30,7 @@ export function SlotForm() {
     <div className="glass-card p-5">
       <h2 className="mb-4 text-lg font-semibold">
         إضافة موعد جديد
-        <span className="mr-2 text-sm font-normal text-muted">Add slot</span>
+        <span className="me-2 text-sm font-normal text-muted">Add slot</span>
       </h2>
 
       {state.error && (
@@ -47,7 +47,7 @@ export function SlotForm() {
             className="mb-1 block text-sm font-medium"
           >
             اليوم
-            <span className="mr-2 text-xs text-muted">Day</span>
+            <span className="me-2 text-xs text-muted">Day</span>
           </label>
           <select
             id="day_of_week"
@@ -71,7 +71,7 @@ export function SlotForm() {
               className="mb-1 block text-sm font-medium"
             >
               من
-              <span className="mr-2 text-xs text-muted">From</span>
+              <span className="me-2 text-xs text-muted">From</span>
             </label>
             <input
               id="start_time"
@@ -88,7 +88,7 @@ export function SlotForm() {
               className="mb-1 block text-sm font-medium"
             >
               إلى
-              <span className="mr-2 text-xs text-muted">To</span>
+              <span className="me-2 text-xs text-muted">To</span>
             </label>
             <input
               id="end_time"
@@ -108,7 +108,7 @@ export function SlotForm() {
             className="mb-1 block text-sm font-medium"
           >
             مدة الحصة
-            <span className="mr-2 text-xs text-muted">Slot duration</span>
+            <span className="me-2 text-xs text-muted">Slot duration</span>
           </label>
           <select
             id="slot_duration"

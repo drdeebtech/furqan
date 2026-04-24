@@ -179,7 +179,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
 
           {/* Duration */}
           <div>
-            <label className="mb-2 block text-sm font-medium"><Clock size={14} className="ml-1 inline text-gold" /> المدة</label>
+            <label className="mb-2 block text-sm font-medium"><Clock size={14} className="ms-1 inline text-gold" /> المدة</label>
             <div className={`grid gap-2 ${durations.length === 1 ? "grid-cols-1" : durations.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
               {durations.map((d) => (
                 <button

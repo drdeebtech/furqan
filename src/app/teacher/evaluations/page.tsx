@@ -110,7 +110,7 @@ export default async function TeacherEvaluationsPage() {
                     <span className="glass-badge rounded-full px-2 py-0.5 text-xs">
                       {(lang === "ar" ? TYPE_AR : TYPE_EN)[ev.evaluation_type] ?? ev.evaluation_type}
                     </span>
-                    <span className="mr-2 text-xs">
+                    <span className="me-2 text-xs">
                       {new Date(ev.period_start).toLocaleDateString(locale)} — {new Date(ev.period_end).toLocaleDateString(locale)}
                     </span>
                   </p>

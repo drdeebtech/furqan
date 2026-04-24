@@ -174,7 +174,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
                       {[1, 2, 3, 4, 5].map((i) => (
                         <Star key={i} size={12} className={i <= Math.round(Number(teacher.rating_avg)) ? "fill-gold text-gold" : "text-card-border"} />
                       ))}
-                      <span className="mr-1 text-xs text-muted">{Number(teacher.rating_avg) > 0 ? Number(teacher.rating_avg).toFixed(1) : "—"}</span>
+                      <span className="me-1 text-xs text-muted">{Number(teacher.rating_avg) > 0 ? Number(teacher.rating_avg).toFixed(1) : "—"}</span>
                     </div>
                   </div>
                   {/* Mobile: inline book button */}

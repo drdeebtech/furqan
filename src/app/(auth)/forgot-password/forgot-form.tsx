@@ -33,7 +33,7 @@ export function ForgotForm() {
           <div>
             <label htmlFor="email" className="mb-1 block text-sm font-medium">
               البريد الإلكتروني
-              <span className="mr-2 text-xs text-muted">Email</span>
+              <span className="me-2 text-xs text-muted">Email</span>
             </label>
             <input
               id="email"

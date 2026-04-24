@@ -42,7 +42,7 @@ export function CvForm({
     <div className="glass-card p-6">
       <h2 className="mb-4 text-lg font-semibold">
         بيانات السيرة الذاتية
-        <span className="mr-2 text-sm font-normal text-muted">CV Details</span>
+        <span className="me-2 text-sm font-normal text-muted">CV Details</span>
       </h2>
 
       {state.error && (
@@ -62,7 +62,7 @@ export function CvForm({
         <div>
           <label htmlFor="bio" className="mb-1 block text-sm font-medium">
             نبذة تعريفية (عربي)
-            <span className="mr-2 text-xs text-muted">Bio (Arabic)</span>
+            <span className="me-2 text-xs text-muted">Bio (Arabic)</span>
           </label>
           <textarea
             id="bio"
@@ -79,7 +79,7 @@ export function CvForm({
         <div>
           <label htmlFor="bio_en" className="mb-1 block text-sm font-medium">
             نبذة تعريفية (إنجليزي)
-            <span className="mr-2 text-xs text-muted">Bio (English)</span>
+            <span className="me-2 text-xs text-muted">Bio (English)</span>
           </label>
           <textarea
             id="bio_en"
@@ -102,7 +102,7 @@ export function CvForm({
             className="mb-1 block text-sm font-medium"
           >
             التخصصات
-            <span className="mr-2 text-xs text-muted">
+            <span className="me-2 text-xs text-muted">
               Specialties (comma-separated)
             </span>
           </label>
@@ -120,7 +120,7 @@ export function CvForm({
         <div>
           <label htmlFor="languages" className="mb-1 block text-sm font-medium">
             اللغات
-            <span className="mr-2 text-xs text-muted">
+            <span className="me-2 text-xs text-muted">
               Languages (comma-separated)
             </span>
           </label>
@@ -141,7 +141,7 @@ export function CvForm({
             className="mb-1 block text-sm font-medium"
           >
             معايير القراءة
-            <span className="mr-2 text-xs text-muted">
+            <span className="me-2 text-xs text-muted">
               Recitation Standards (comma-separated)
             </span>
           </label>
@@ -162,7 +162,7 @@ export function CvForm({
             className="mb-1 block text-sm font-medium"
           >
             رابط فيديو تعريفي
-            <span className="mr-2 text-xs text-muted">Intro Video URL</span>
+            <span className="me-2 text-xs text-muted">Intro Video URL</span>
           </label>
           <input
             id="intro_video_url"

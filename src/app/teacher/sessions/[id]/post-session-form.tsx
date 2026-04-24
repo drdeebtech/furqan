@@ -121,7 +121,7 @@ export function PostSessionForm({
       <div>
         <label htmlFor="notes" className="mb-1 block text-sm font-medium">
           {t("ملاحظات الجلسة", "Session notes")}
-          <span className="mr-2 text-xs text-muted">Session notes</span>
+          <span className="me-2 text-xs text-muted">Session notes</span>
         </label>
         <textarea
           id="notes"
@@ -137,7 +137,7 @@ export function PostSessionForm({
       <div>
         <label htmlFor="homework" className="mb-1 block text-sm font-medium">
           {t("ملاحظات سريعة عن الواجب", "Quick homework notes")}
-          <span className="mr-2 text-xs text-muted">Quick notes</span>
+          <span className="me-2 text-xs text-muted">Quick notes</span>
         </label>
         <textarea
           id="homework"
@@ -173,7 +173,7 @@ export function PostSessionForm({
       <div className="border-t border-white/10 pt-6">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-base font-semibold">
-            <BookOpen size={18} className="ml-2 inline text-gold" />
+            <BookOpen size={18} className="ms-2 inline text-gold" />
             {t("الواجبات المهيكلة", "Structured Homework")}
           </h3>
           {!showHwForm && (
@@ -198,12 +198,12 @@ export function PostSessionForm({
                     <span className={`rounded-full border px-2 py-0.5 text-xs ${style.className}`}>
                       {style.label}
                     </span>
-                    <span className="mr-2 text-sm font-medium">{a.title}</span>
+                    <span className="me-2 text-sm font-medium">{a.title}</span>
                     <span className="text-xs text-muted">
                       {HOMEWORK_TYPE_AR[a.homework_type]}
                     </span>
                     {a.surah_number && (
-                      <span className="mr-1 text-xs text-muted">
+                      <span className="me-1 text-xs text-muted">
                         · {t("سورة", "Surah")} {a.surah_number}
                         {a.ayah_start && ` (${a.ayah_start}${a.ayah_end ? `-${a.ayah_end}` : ""})`}
                       </span>

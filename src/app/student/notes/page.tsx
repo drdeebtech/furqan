@@ -71,7 +71,7 @@ export default async function StudentNotesPage() {
                 <div className="mb-4 flex items-center justify-between text-sm">
                   <div>
                     <span className="font-medium">{nameMap[booking.teacher_id] ?? t("معلم", "Teacher")}</span>
-                    <span className="mr-2 text-muted">
+                    <span className="me-2 text-muted">
                       · {lang === "ar" ? SESSION_TYPE_AR[booking.session_type] : SESSION_TYPE_EN[booking.session_type]}
                       · {booking.duration_min} {t("د", "m")}
                     </span>

@@ -41,7 +41,7 @@ export function LoginForm() {
         <div>
           <label htmlFor="email" className="mb-1 block text-sm font-medium">
             البريد الإلكتروني
-            <span className="mr-2 text-xs text-muted">Email</span>
+            <span className="me-2 text-xs text-muted">Email</span>
           </label>
           <input
             id="email"
@@ -60,7 +60,7 @@ export function LoginForm() {
           <div className="mb-1 flex items-center justify-between">
             <label htmlFor="password" className="text-sm font-medium">
               كلمة المرور
-              <span className="mr-2 text-xs text-muted">Password</span>
+              <span className="me-2 text-xs text-muted">Password</span>
             </label>
             <Link
               href="/forgot-password"
@@ -77,7 +77,7 @@ export function LoginForm() {
               required
               autoComplete="current-password"
               dir="ltr"
-              className="w-full rounded-xl glass-input px-4 py-2.5 pl-10 text-left text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+              className="w-full rounded-xl glass-input px-4 py-2.5 ps-10 text-left text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
               placeholder="••••••••"
             />
             <button

@@ -189,8 +189,8 @@ export default async function StudentDetailPage({ params }: Props) {
               <div key={i} className="glass flex items-center justify-between rounded-lg px-3 py-2">
                 <div>
                   <span className={`glass-badge rounded-full px-2 py-0.5 text-xs ${LEVEL_COLOR[p.level]}`}>{lang === "ar" ? LEVEL_AR[p.level] : LEVEL_EN[p.level]}</span>
-                  {p.surah_from && <span className="mr-2 text-xs text-muted">{t("سورة", "Surah")} {p.surah_from}{p.surah_to && p.surah_to !== p.surah_from ? ` — ${p.surah_to}` : ""}</span>}
-                  {p.quality_rating && <span className="mr-2 text-xs text-gold">{t("جودة", "Quality")}: {p.quality_rating}/5</span>}
+                  {p.surah_from && <span className="me-2 text-xs text-muted">{t("سورة", "Surah")} {p.surah_from}{p.surah_to && p.surah_to !== p.surah_from ? ` — ${p.surah_to}` : ""}</span>}
+                  {p.quality_rating && <span className="me-2 text-xs text-gold">{t("جودة", "Quality")}: {p.quality_rating}/5</span>}
                 </div>
                 <span className="text-xs text-muted">{new Date(p.created_at).toLocaleDateString(locale)}</span>
               </div>

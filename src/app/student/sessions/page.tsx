@@ -120,7 +120,7 @@ export default async function StudentSessionsPage() {
                     <p className="font-medium">{nameMap[booking.teacher_id] ?? t("معلم", "Teacher")}</p>
                     <p className="mt-1 text-sm text-gold">
                       {lang === "ar" ? SESSION_TYPE_AR[booking.session_type] : SESSION_TYPE_EN[booking.session_type]}
-                      <span className="mr-2 text-muted">· {booking.duration_min} {t("دقيقة", "min")}</span>
+                      <span className="me-2 text-muted">· {booking.duration_min} {t("دقيقة", "min")}</span>
                     </p>
                     <p dir="ltr" className="mt-2 text-left text-sm text-muted">
                       {date.toLocaleDateString(locale, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}

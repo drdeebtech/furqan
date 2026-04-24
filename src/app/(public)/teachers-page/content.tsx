@@ -109,7 +109,7 @@ export function TeachersContent({ teachers }: { teachers: Teacher[] }) {
                     {[1, 2, 3, 4, 5].map((i) => (
                       <Star key={i} size={12} className={i <= Math.round(teacher.ratingAvg) ? "fill-gold text-gold" : "text-card-border"} />
                     ))}
-                    {teacher.ratingAvg > 0 && <span className="mr-1 text-xs text-muted">{teacher.ratingAvg.toFixed(1)}</span>}
+                    {teacher.ratingAvg > 0 && <span className="me-1 text-xs text-muted">{teacher.ratingAvg.toFixed(1)}</span>}
                   </div>
 
                   <Link

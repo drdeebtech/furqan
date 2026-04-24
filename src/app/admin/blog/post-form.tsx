@@ -112,7 +112,7 @@ export function PostForm({ post }: { post?: BlogPost }) {
         <input type="checkbox" name="is_published" id="is_published" defaultChecked={post?.is_published} className="h-4 w-4 accent-gold" />
         <label htmlFor="is_published" className="cursor-pointer text-sm font-medium">
           نشر المقال الآن
-          <span className="mr-2 text-xs text-muted">(إذا تركته بدون تفعيل سيُحفظ كمسودة)</span>
+          <span className="me-2 text-xs text-muted">(إذا تركته بدون تفعيل سيُحفظ كمسودة)</span>
         </label>
       </div>
 

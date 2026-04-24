@@ -43,7 +43,7 @@ export function CvReviewControls({ teacherId }: { teacherId: string }) {
     <div className="glass-card p-6">
       <h3 className="mb-4 text-lg font-semibold">
         إجراء المراجعة
-        <span className="mr-2 text-sm font-normal text-muted">
+        <span className="me-2 text-sm font-normal text-muted">
           Review Action
         </span>
       </h3>

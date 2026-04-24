@@ -66,7 +66,7 @@ export default async function TeacherAvailabilityPage() {
   return (
     <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="mb-6 text-2xl font-bold">
-        <Calendar size={24} className="ml-2 inline text-gold" />
+        <Calendar size={24} className="ms-2 inline text-gold" />
         {t("إدارة المواعيد", "Manage Availability")}
       </h1>
 
@@ -108,7 +108,7 @@ export default async function TeacherAvailabilityPage() {
                             <span className="font-medium text-foreground">
                               {slot.end_time.slice(0, 5)}
                             </span>
-                            <span className="mr-3 text-xs text-muted">
+                            <span className="me-3 text-xs text-muted">
                               {slot.slot_duration} {t("دقيقة", "min")}
                             </span>
                           </div>
