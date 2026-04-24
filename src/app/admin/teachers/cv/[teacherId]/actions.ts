@@ -88,6 +88,32 @@ export async function approveCv(teacherId: string) {
   return { success: true };
 }
 
+export async function resetCvToPending(teacherId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "غير مصرح" };
+
+  const { error } = await supabase
+    .from("teacher_profiles")
+    .update({
+      cv_status: "pending_review",
+      cv_reviewed_by: null,
+      cv_reviewed_at: null,
+      cv_rejection_reason: null,
+    } as never)
+    .eq("teacher_id", teacherId);
+
+  if (error) return { error: "فشل إعادة الحالة" };
+
+  revalidatePath("/admin/teachers/cv");
+  revalidatePath(`/admin/teachers/cv/${teacherId}`);
+  revalidatePath(`/admin/teachers/${teacherId}`);
+  revalidatePath("/teacher/cv");
+  return { success: true };
+}
+
 export async function rejectCv(teacherId: string, reason: string) {
   const supabase = await createClient();
   const {

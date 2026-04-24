@@ -1,228 +1,396 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getT } from "@/lib/i18n/server";
-import { updateTeacher } from "../actions";
+import { TabBar } from "./tab-bar";
+import { AccountForm } from "./account-form";
+import { TeacherProfileForm } from "./teacher-profile-form";
+import { CvPanel } from "./cv-panel";
+import { IjazasEditor } from "./ijazas-editor";
+import { AvailabilityEditor } from "./availability-editor";
 
-const input = "w-full rounded-xl glass-input px-4 py-3 text-sm text-foreground focus:border-gold focus:outline-none";
+interface Props {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}
 
-interface Props { params: Promise<{ id: string }>; }
-
-export default async function TeacherDetailPage({ params }: Props) {
+export default async function TeacherDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
+  const { tab } = await searchParams;
+  const activeTab = tab ?? "overview";
+
   const { t, dir } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: tp } = await supabase.from("teacher_profiles")
-    .select("teacher_id, bio, bio_en, specialties, hourly_rate, gender, languages, recitation_standards, is_accepting, is_archived, total_sessions, rating_avg")
-    .eq("teacher_id", id).single<{
-      teacher_id: string; bio: string | null; bio_en: string | null; specialties: string[]; hourly_rate: number;
-      gender: string | null; languages: string[]; recitation_standards: string[];
-      is_accepting: boolean; is_archived: boolean; total_sessions: number; rating_avg: number;
-    }>();
+  // Fetch everything in parallel
+  const [
+    tpRes,
+    profileRes,
+    ijazasRes,
+    availabilityRes,
+    exceptionsRes,
+    bookingCountRes,
+    authUserRes,
+  ] = await Promise.all([
+    supabase
+      .from("teacher_profiles")
+      .select(
+        "teacher_id, bio, bio_en, specialties, hourly_rate, gender, languages, recitation_standards, is_accepting, is_archived, max_active_students, total_sessions, rating_avg, intro_video_url, cv_status, cv_submitted_at, cv_rejection_reason",
+      )
+      .eq("teacher_id", id)
+      .single(),
+    supabase
+      .from("profiles")
+      .select(
+        "id, full_name, phone, country, timezone, lang, avatar_url, date_of_birth, parent_name, parent_phone, parent_email, is_active",
+      )
+      .eq("id", id)
+      .single(),
+    supabase
+      .from("teacher_ijaza")
+      .select(
+        "id, riwaya, chain_text, granted_by, granted_at, document_url, verified_by, verified_at",
+      )
+      .eq("teacher_id", id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("teacher_availability")
+      .select("id, day_of_week, start_time, end_time, slot_duration, is_active")
+      .eq("teacher_id", id),
+    supabase
+      .from("availability_exceptions")
+      .select("id, date, start_time, end_time, is_blocked, reason")
+      .eq("teacher_id", id)
+      .gte("date", new Date().toISOString().slice(0, 10))
+      .order("date", { ascending: true }),
+    supabase.from("bookings").select("id", { count: "exact", head: true }).eq("teacher_id", id),
+    (async () => {
+      try {
+        const admin = createAdminClient();
+        return await admin.auth.admin.getUserById(id);
+      } catch {
+        return { data: { user: null }, error: null };
+      }
+    })(),
+  ]);
+
+  const tp = tpRes.data as {
+    teacher_id: string;
+    bio: string | null;
+    bio_en: string | null;
+    specialties: string[];
+    hourly_rate: number;
+    gender: string | null;
+    languages: string[];
+    recitation_standards: string[];
+    is_accepting: boolean;
+    is_archived: boolean;
+    max_active_students: number | null;
+    total_sessions: number;
+    rating_avg: number;
+    intro_video_url: string | null;
+    cv_status: string | null;
+    cv_submitted_at: string | null;
+    cv_rejection_reason: string | null;
+  } | null;
 
   if (!tp) redirect("/admin/teachers");
 
-  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", id)
-    .single<{ full_name: string | null }>();
+  const profile = profileRes.data as {
+    id: string;
+    full_name: string | null;
+    phone: string | null;
+    country: string | null;
+    timezone: string | null;
+    lang: string | null;
+    avatar_url: string | null;
+    date_of_birth: string | null;
+    parent_name: string | null;
+    parent_phone: string | null;
+    parent_email: string | null;
+    is_active: boolean | null;
+  } | null;
 
-  const { data: ijazas } = await supabase.from("teacher_ijaza").select("id, riwaya, chain_text, granted_by, verified_at")
-    .eq("teacher_id", id).returns<{ id: string; riwaya: string; chain_text: string; granted_by: string | null; verified_at: string | null }[]>();
+  const ijazas = (ijazasRes.data ?? []) as {
+    id: string;
+    riwaya: string;
+    chain_text: string;
+    granted_by: string | null;
+    granted_at: string | null;
+    document_url: string | null;
+    verified_by: string | null;
+    verified_at: string | null;
+  }[];
 
-  const { count: bookingCount } = await supabase.from("bookings").select("id", { count: "exact", head: true }).eq("teacher_id", id);
+  const slots = (availabilityRes.data ?? []) as {
+    id: string;
+    day_of_week: number;
+    start_time: string;
+    end_time: string;
+    slot_duration: number;
+    is_active: boolean;
+  }[];
 
-  // Health metrics (last 90 days)
-  // eslint-disable-next-line react-hooks/purity -- server component, deterministic per-request
+  const exceptions = (exceptionsRes.data ?? []) as {
+    id: string;
+    date: string;
+    start_time: string | null;
+    end_time: string | null;
+    is_blocked: boolean;
+    reason: string | null;
+  }[];
+
+  const currentEmail = authUserRes.data?.user?.email ?? "";
+
+  return (
+    <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
+      <Link
+        href="/admin/teachers"
+        className="mb-4 inline-block text-sm text-gold hover:text-gold-light"
+      >
+        {t("→ العودة للمعلمين", "← Back to Teachers")}
+      </Link>
+
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">
+          {profile?.full_name ?? t("معلم", "Teacher")}
+        </h1>
+        <div className="flex gap-2 text-xs text-muted">
+          <span>{tp.total_sessions} {t("جلسة", "sessions")}</span>
+          <span>· {t("تقييم", "Rating")} {Number(tp.rating_avg).toFixed(1)}</span>
+          <span>· {bookingCountRes.count ?? 0} {t("حجز", "bookings")}</span>
+        </div>
+      </div>
+
+      <TabBar teacherId={id} />
+
+      {activeTab === "overview" && (
+        <OverviewPanel
+          teacherId={id}
+          tp={tp}
+          t={t}
+        />
+      )}
+
+      {activeTab === "account" && profile && (
+        <AccountForm
+          teacherId={id}
+          currentEmail={currentEmail}
+          profile={profile}
+        />
+      )}
+
+      {activeTab === "profile" && (
+        <TeacherProfileForm
+          teacherId={id}
+          profile={{
+            hourly_rate: tp.hourly_rate,
+            gender: tp.gender,
+            max_active_students: tp.max_active_students,
+            is_accepting: tp.is_accepting,
+            is_archived: tp.is_archived,
+          }}
+        />
+      )}
+
+      {activeTab === "cv" && (
+        <CvPanel
+          teacherId={id}
+          profile={{
+            bio: tp.bio,
+            bio_en: tp.bio_en,
+            specialties: tp.specialties,
+            languages: tp.languages,
+            recitation_standards: tp.recitation_standards,
+            intro_video_url: tp.intro_video_url,
+            cv_status: tp.cv_status,
+            cv_submitted_at: tp.cv_submitted_at,
+            cv_rejection_reason: tp.cv_rejection_reason,
+          }}
+        />
+      )}
+
+      {activeTab === "ijazas" && (
+        <IjazasEditor teacherId={id} ijazas={ijazas} />
+      )}
+
+      {activeTab === "availability" && (
+        <AvailabilityEditor teacherId={id} slots={slots} exceptions={exceptions} />
+      )}
+    </div>
+  );
+}
+
+async function OverviewPanel({
+  teacherId,
+  tp,
+  t,
+}: {
+  teacherId: string;
+  tp: { is_accepting: boolean; is_archived: boolean; cv_status: string | null };
+  t: (ar: string, en: string) => string;
+}) {
+  const supabase = await createClient();
   const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data: recentBookings } = await supabase.from("bookings")
-    .select("id, status, scheduled_at, teacher_confirmed, teacher_confirmed_at")
-    .eq("teacher_id", id)
-    .gte("scheduled_at", since)
-    .returns<{ id: string; status: string; scheduled_at: string; teacher_confirmed: boolean; teacher_confirmed_at: string | null }[]>();
+  const [bookingsRes, sessionsRes, homeworkRes, evalsRes] = await Promise.all([
+    supabase
+      .from("bookings")
+      .select("id, status, scheduled_at, teacher_confirmed, teacher_confirmed_at")
+      .eq("teacher_id", teacherId)
+      .gte("scheduled_at", since),
+    supabase
+      .from("sessions")
+      .select(
+        "id, started_at, teacher_joined, booking_id, bookings!inner(teacher_id, scheduled_at)",
+      )
+      .eq("bookings.teacher_id", teacherId)
+      .gte("bookings.scheduled_at", since),
+    supabase
+      .from("homework_assignments")
+      .select("status, ready_at, completed_at")
+      .eq("teacher_id", teacherId)
+      .gte("assigned_at", since),
+    supabase
+      .from("session_evaluations")
+      .select("id", { count: "exact", head: true })
+      .eq("teacher_id", teacherId)
+      .gte("period_start", since),
+  ]);
 
-  const bookings90 = recentBookings ?? [];
-  const decided = bookings90.filter(b => b.status !== "pending");
-  const noShows = bookings90.filter(b => b.status === "no_show").length;
+  const bookings90 = (bookingsRes.data ?? []) as {
+    status: string;
+    scheduled_at: string;
+  }[];
+  const decided = bookings90.filter((b) => b.status !== "pending");
+  const noShows = bookings90.filter((b) => b.status === "no_show").length;
   const noShowRate = decided.length > 0 ? (noShows / decided.length) * 100 : 0;
 
-  const { data: recentSessions } = await supabase.from("sessions")
-    .select("id, started_at, teacher_joined, booking_id, bookings!inner(teacher_id, scheduled_at)")
-    .eq("bookings.teacher_id", id)
-    .gte("bookings.scheduled_at", since)
-    .returns<{ id: string; started_at: string | null; teacher_joined: boolean; booking_id: string; bookings: { scheduled_at: string } }[]>();
-
-  const sessions90 = recentSessions ?? [];
-  const startedSessions = sessions90.filter(s => s.started_at && s.teacher_joined);
-  const onTime = startedSessions.filter(s => {
+  const sessions90 = (sessionsRes.data ?? []) as {
+    started_at: string | null;
+    teacher_joined: boolean;
+    bookings: { scheduled_at: string };
+  }[];
+  const startedSessions = sessions90.filter((s) => s.started_at && s.teacher_joined);
+  const onTime = startedSessions.filter((s) => {
     const scheduled = new Date(s.bookings.scheduled_at).getTime();
     const started = new Date(s.started_at!).getTime();
     return started - scheduled <= 5 * 60 * 1000;
   }).length;
-  const punctualityRate = startedSessions.length > 0 ? (onTime / startedSessions.length) * 100 : 0;
+  const punctualityRate =
+    startedSessions.length > 0 ? (onTime / startedSessions.length) * 100 : 0;
 
-  const { data: recentHomework } = await supabase.from("homework_assignments")
-    .select("status, ready_at, completed_at")
-    .eq("teacher_id", id)
-    .gte("assigned_at", since)
-    .returns<{ status: string; ready_at: string | null; completed_at: string | null }[]>();
+  const gradedHw = (homeworkRes.data ?? []).filter(
+    (h: { ready_at: string | null; completed_at: string | null }) =>
+      h.ready_at && h.completed_at,
+  );
+  const avgGradingLagHours =
+    gradedHw.length > 0
+      ? gradedHw.reduce(
+          (sum: number, h: { ready_at: string | null; completed_at: string | null }) =>
+            sum +
+            (new Date(h.completed_at!).getTime() - new Date(h.ready_at!).getTime()),
+          0,
+        ) /
+        gradedHw.length /
+        (60 * 60 * 1000)
+      : 0;
 
-  const gradedHw = (recentHomework ?? []).filter(h => h.ready_at && h.completed_at);
-  const avgGradingLagHours = gradedHw.length > 0
-    ? gradedHw.reduce((sum, h) => sum + (new Date(h.completed_at!).getTime() - new Date(h.ready_at!).getTime()), 0) / gradedHw.length / (60 * 60 * 1000)
-    : 0;
-
-  const completedCount = sessions90.filter(s => s.started_at).length;
-  const { count: evalCount } = await supabase.from("session_evaluations")
-    .select("id", { count: "exact", head: true })
-    .eq("teacher_id", id)
-    .gte("period_start", since);
-  // Target: ~1 evaluation per 4 completed sessions
-  const evalRate = completedCount > 0 ? Math.min(100, ((evalCount ?? 0) / (completedCount / 4)) * 100) : 0;
+  const completedCount = sessions90.filter((s) => s.started_at).length;
+  const evalRate =
+    completedCount > 0
+      ? Math.min(100, ((evalsRes.count ?? 0) / (completedCount / 4)) * 100)
+      : 0;
 
   const fmt = (n: number) => n.toFixed(1);
   const tone = (ok: boolean, warn: boolean) =>
     ok ? "text-emerald-400" : warn ? "text-amber-400" : "text-rose-400";
 
   return (
-    <div dir={dir} className="mx-auto max-w-3xl px-4 py-8">
-      <Link href="/admin/teachers" className="mb-6 inline-block text-sm text-gold hover:text-gold-light">{t("→ العودة للمعلمين", "← Back to Teachers")}</Link>
-
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">{profile?.full_name ?? t("معلم", "Teacher")}</h1>
-        <Link
-          href={`/admin/teachers/cv/${id}`}
-          className="glass-gold glass-pill px-4 py-2 text-sm font-medium transition-colors hover:bg-gold-hover"
+    <div className="space-y-6">
+      {/* Status row */}
+      <div className="flex flex-wrap gap-2 text-xs">
+        <span
+          className={`glass-badge ${
+            tp.is_archived
+              ? "border-rose-500/30 bg-rose-500/10 text-rose-400"
+              : tp.is_accepting
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                : "border-amber-500/30 bg-amber-500/10 text-amber-400"
+          }`}
         >
-          {t("عرض وتعديل السيرة الذاتية", "View & edit CV")}
-        </Link>
-      </div>
-      <div className="mb-6 flex gap-3 text-sm text-muted">
-        <span>{tp.total_sessions} {t("جلسة", "sessions")}</span>
-        <span>{t("تقييم", "Rating")} {Number(tp.rating_avg).toFixed(1)}</span>
-        <span>{bookingCount ?? 0} {t("حجز", "bookings")}</span>
+          {tp.is_archived
+            ? t("مؤرشف", "Archived")
+            : tp.is_accepting
+              ? t("يقبل طلاب", "Accepting")
+              : t("مشغول", "Busy")}
+        </span>
+        <span
+          className={`glass-badge ${
+            tp.cv_status === "approved"
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+              : tp.cv_status === "pending_review"
+                ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
+                : tp.cv_status === "rejected"
+                  ? "border-rose-500/30 bg-rose-500/10 text-rose-400"
+                  : "border-white/20 bg-white/5 text-muted"
+          }`}
+        >
+          CV: {tp.cv_status ?? "draft"}
+        </span>
       </div>
 
-      {/* Health metrics (last 90 days) */}
-      <div className="mb-6 glass-card rounded-xl p-6">
-        <h2 className="mb-4 font-bold">{t("مؤشرات الأداء (آخر 90 يومًا)", "Performance Metrics (Last 90 Days)")}</h2>
+      {/* Health metrics */}
+      <div className="glass-card rounded-xl p-6">
+        <h2 className="mb-4 font-bold">
+          {t("مؤشرات الأداء (آخر 90 يومًا)", "Performance (Last 90 Days)")}
+        </h2>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <div>
             <p className="text-xs text-muted">{t("الالتزام بالمواعيد", "Punctuality")}</p>
-            <p className={`mt-1 text-xl font-bold ${tone(punctualityRate >= 90, punctualityRate >= 75)}`}>{fmt(punctualityRate)}%</p>
-            <p className="text-xs text-muted">{startedSessions.length} {t("جلسة", "sessions")}</p>
+            <p className={`mt-1 text-xl font-bold ${tone(punctualityRate >= 90, punctualityRate >= 75)}`}>
+              {fmt(punctualityRate)}%
+            </p>
+            <p className="text-xs text-muted">
+              {startedSessions.length} {t("جلسة", "sessions")}
+            </p>
           </div>
           <div>
             <p className="text-xs text-muted">{t("متوسط تأخر التصحيح", "Avg Grading Lag")}</p>
-            <p className={`mt-1 text-xl font-bold ${tone(avgGradingLagHours <= 24, avgGradingLagHours <= 48)}`}>{fmt(avgGradingLagHours)} {t("س", "h")}</p>
-            <p className="text-xs text-muted">{gradedHw.length} {t("واجب", "homework")}</p>
+            <p
+              className={`mt-1 text-xl font-bold ${tone(avgGradingLagHours <= 24, avgGradingLagHours <= 48)}`}
+            >
+              {fmt(avgGradingLagHours)} {t("س", "h")}
+            </p>
+            <p className="text-xs text-muted">
+              {gradedHw.length} {t("واجب", "homework")}
+            </p>
           </div>
           <div>
-            <p className="text-xs text-muted">{t("نسبة إنجاز التقييمات", "Evaluation Completion")}</p>
-            <p className={`mt-1 text-xl font-bold ${tone(evalRate >= 80, evalRate >= 50)}`}>{fmt(evalRate)}%</p>
-            <p className="text-xs text-muted">{evalCount ?? 0} {t("تقييم", "evals")} / {completedCount} {t("جلسة", "sessions")}</p>
+            <p className="text-xs text-muted">{t("نسبة إنجاز التقييمات", "Evaluations")}</p>
+            <p className={`mt-1 text-xl font-bold ${tone(evalRate >= 80, evalRate >= 50)}`}>
+              {fmt(evalRate)}%
+            </p>
+            <p className="text-xs text-muted">
+              {evalsRes.count ?? 0} / {completedCount}
+            </p>
           </div>
           <div>
             <p className="text-xs text-muted">{t("نسبة الغياب", "No-Show Rate")}</p>
-            <p className={`mt-1 text-xl font-bold ${tone(noShowRate <= 5, noShowRate <= 15)}`}>{fmt(noShowRate)}%</p>
-            <p className="text-xs text-muted">{noShows} {t("من", "of")} {decided.length}</p>
+            <p className={`mt-1 text-xl font-bold ${tone(noShowRate <= 5, noShowRate <= 15)}`}>
+              {fmt(noShowRate)}%
+            </p>
+            <p className="text-xs text-muted">
+              {noShows} / {decided.length}
+            </p>
           </div>
         </div>
       </div>
-
-      {/* Edit form */}
-      <div className="glass-card rounded-xl p-6">
-        <h2 className="mb-4 font-bold">{t("تعديل الملف", "Edit Profile")}</h2>
-        <form action={updateTeacher} className="space-y-4">
-          <input type="hidden" name="teacher_id" value={tp.teacher_id} />
-          <div>
-            <label className="mb-1 block text-sm font-medium">{t("السيرة الذاتية (عربي)", "Bio (Arabic)")}</label>
-            <textarea name="bio" rows={3} dir="rtl" defaultValue={tp.bio ?? ""} className={`${input} resize-none`} />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium">{t("السيرة الذاتية (إنجليزي)", "Bio (English)")}</label>
-            <textarea name="bio_en" rows={3} dir="ltr" defaultValue={tp.bio_en ?? ""} className={`${input} resize-none text-left`} placeholder="English bio shown to students browsing in English" />
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-medium">{t("السعر/ساعة *", "Hourly Rate *")}</label>
-              <input name="hourly_rate" type="number" required defaultValue={tp.hourly_rate} className={input} />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">{t("الجنس", "Gender")}</label>
-              <select name="gender" defaultValue={tp.gender ?? ""} className={input}><option value="">—</option><option value="male">{t("ذكر", "Male")}</option><option value="female">{t("أنثى", "Female")}</option></select>
-            </div>
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium">{t("التخصصات", "Specialties")}</label>
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              {[
-                { value: "hifz", ar: "حفظ القرآن" },
-                { value: "tajweed", ar: "التجويد" },
-                { value: "muraja", ar: "المراجعة" },
-                { value: "tilawa", ar: "التلاوة" },
-                { value: "qiraat", ar: "القراءات" },
-                { value: "tafsir", ar: "التفسير" },
-                { value: "combined", ar: "حفظ + مراجعة" },
-                { value: "other", ar: "أخرى" },
-              ].map(s => (
-                <label key={s.value} className="flex cursor-pointer items-center gap-2 rounded-lg glass-input px-3 py-2.5 text-sm transition-colors has-[:checked]:border-gold has-[:checked]:bg-gold/10">
-                  <input type="checkbox" name="specialties" value={s.value} defaultChecked={tp.specialties.includes(s.value)} className="h-4 w-4 accent-gold" />
-                  <span>{s.ar}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium">{t("معايير القراءة", "Recitation Standards")}</label>
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-              {[
-                { value: "hafs", ar: "حفص عن عاصم" },
-                { value: "warsh", ar: "ورش عن نافع" },
-                { value: "qalon", ar: "قالون عن نافع" },
-                { value: "al_duri", ar: "الدوري" },
-                { value: "shu_ba", ar: "شعبة" },
-              ].map(r => (
-                <label key={r.value} className="flex cursor-pointer items-center gap-2 rounded-lg glass-input px-3 py-2.5 text-sm transition-colors has-[:checked]:border-gold has-[:checked]:bg-gold/10">
-                  <input type="checkbox" name="recitation_standards" value={r.value} defaultChecked={tp.recitation_standards.includes(r.value)} className="h-4 w-4 accent-gold" />
-                  <span>{r.ar}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium">{t("اللغات", "Languages")}</label>
-            <input name="languages" defaultValue={tp.languages.join(",")} className={input} />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium">{t("معايير القراءة", "Recitation Standards")}</label>
-            <input name="recitation_standards" defaultValue={tp.recitation_standards.join(",")} className={input} />
-          </div>
-          <div className="flex items-center gap-2">
-            <input type="checkbox" name="is_accepting" id="accepting" defaultChecked={tp.is_accepting} className="accent-gold" />
-            <label htmlFor="accepting" className="text-sm">{t("يقبل طلاب جدد", "Accepting new students")}</label>
-          </div>
-          <button type="submit" className="w-full glass-gold glass-pill py-3 font-semibold transition-colors">{t("حفظ التعديلات", "Save Changes")}</button>
-        </form>
-      </div>
-
-      {/* Ijaza */}
-      {(ijazas ?? []).length > 0 && (
-        <div className="mt-6 glass-card rounded-xl p-6">
-          <h2 className="mb-4 font-bold">{t("الإجازات", "Ijazas")}</h2>
-          <div className="space-y-3">
-            {(ijazas ?? []).map(ij => (
-              <div key={ij.id} className="glass-card rounded-lg p-3 text-sm">
-                <p className="font-medium">{ij.riwaya} — {ij.granted_by ?? t("غير محدد", "Unspecified")}</p>
-                <p className="mt-1 text-xs text-muted">{ij.chain_text}</p>
-                <p className="mt-1 text-xs">{ij.verified_at ? <span className="text-emerald-400">{t("✓ موثقة", "✓ Verified")}</span> : <span className="text-amber-400">{t("بانتظار التوثيق", "Pending verification")}</span>}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
