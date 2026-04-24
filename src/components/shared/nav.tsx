@@ -91,7 +91,7 @@ const ROLE_LABEL: Record<Role, { ar: string; en: string }> = {
 
 export function Nav({ role, userName }: { role: Role; userName?: string }) {
   const pathname = usePathname();
-  const { t, lang, dir } = useLang();
+  const { lang, dir } = useLang();
   const [menuOpen, setMenuOpen] = useState(false);
   const [lastPath, setLastPath] = useState(pathname);
   if (pathname !== lastPath) {
