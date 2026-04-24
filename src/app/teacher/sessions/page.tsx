@@ -4,9 +4,15 @@ import Link from "next/link";
 import { Video, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR, STATUS_STYLE } from "@/lib/constants";
+import { getT } from "@/lib/i18n/server";
 import type { BookingStatus, SessionType } from "@/types/database";
 
 export const metadata: Metadata = { title: "جلساتي" };
+
+const SESSION_TYPE_EN: Record<SessionType, string> = {
+  hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
+  qiraat: "Qiraat", tafsir: "Tafsir", combined: "Hifz + Review", other: "Other",
+};
 
 interface SessionBooking {
   id: string;
@@ -19,6 +25,7 @@ interface SessionBooking {
 }
 
 export default async function TeacherSessionsPage() {
+  const { t, dir, lang } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -52,22 +59,22 @@ export default async function TeacherSessionsPage() {
       .from("profiles").select("id, full_name").in("id", ids)
       .returns<{ id: string; full_name: string | null }[]>();
     if (profiles) {
-      nameMap = Object.fromEntries(profiles.map((p) => [p.id, p.full_name || "طالب"]));
+      nameMap = Object.fromEntries(profiles.map((p) => [p.id, p.full_name || t("طالب", "Student")]));
     }
   }
 
   return (
-    <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold">
         <Video size={24} className="text-gold" />
-        جلساتي
+        {t("جلساتي", "My Sessions")}
       </h1>
 
       {list.length === 0 ? (
         <div className="glass-card p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
-          <p className="text-muted">لا توجد جلسات مؤكدة</p>
-          <p className="mt-1 text-sm text-muted">ستظهر هنا بعد تأكيد الحجوزات</p>
+          <p className="text-muted">{t("لا توجد جلسات مؤكدة", "No confirmed sessions yet")}</p>
+          <p className="mt-1 text-sm text-muted">{t("ستظهر هنا بعد تأكيد الحجوزات", "They'll appear here once bookings are confirmed")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -81,10 +88,10 @@ export default async function TeacherSessionsPage() {
               <div key={booking.id} className="glass-card p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="font-medium">{nameMap[booking.student_id] ?? "طالب"}</p>
+                    <p className="font-medium">{nameMap[booking.student_id] ?? t("طالب", "Student")}</p>
                     <p className="mt-1 text-sm text-gold">
-                      {SESSION_TYPE_AR[booking.session_type]}
-                      <span className="mr-2 text-muted">· {booking.duration_min} دقيقة</span>
+                      {lang === "ar" ? SESSION_TYPE_AR[booking.session_type] : SESSION_TYPE_EN[booking.session_type]}
+                      <span className="mr-2 text-muted">· {booking.duration_min} {t("دقيقة", "min")}</span>
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-2">
@@ -99,15 +106,15 @@ export default async function TeacherSessionsPage() {
                         className="glass-gold glass-pill flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-primary-hover focus-ring"
                       >
                         <Video size={14} />
-                        {isConfirmed ? "انضم للجلسة" : "تفاصيل"}
+                        {isConfirmed ? t("انضم للجلسة", "Join Session") : t("تفاصيل", "Details")}
                       </Link>
                     )}
                   </div>
                 </div>
                 <p dir="ltr" className="mt-3 text-left text-sm text-muted">
-                  {date.toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                  {date.toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
                   <span className="mx-2">·</span>
-                  {date.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+                  {date.toLocaleTimeString(lang === "ar" ? "ar-SA" : "en-US", { hour: "2-digit", minute: "2-digit" })}
                 </p>
               </div>
             );

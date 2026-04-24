@@ -3,10 +3,12 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Users, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "طلابي" };
 
 export default async function TeacherStudentsPage() {
+  const { t, dir, lang } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -45,21 +47,21 @@ export default async function TeacherStudentsPage() {
 
   const students = studentIds.map(id => ({
     id,
-    name: profileMap[id]?.full_name || "طالب",
+    name: profileMap[id]?.full_name || t("طالب", "Student"),
     phone: profileMap[id]?.phone,
     ...studentStats.get(id)!,
   }));
 
   return (
-    <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="mb-2 flex items-center gap-2 text-2xl font-bold"><Users size={24} className="text-gold" /> طلابي</h1>
-      <p className="mb-6 text-sm text-muted">{students.length} طالب</p>
+    <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
+      <h1 className="mb-2 flex items-center gap-2 text-2xl font-bold"><Users size={24} className="text-gold" /> {t("طلابي", "My Students")}</h1>
+      <p className="mb-6 text-sm text-muted">{students.length} {t("طالب", "students")}</p>
 
       {students.length === 0 ? (
         <div className="glass-card p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
-          <p className="text-muted">لا يوجد طلاب بعد</p>
-          <p className="mt-1 text-sm text-muted">ستجد طلابك هنا بعد تأكيد أول حجز</p>
+          <p className="text-muted">{t("لا يوجد طلاب بعد", "No students yet")}</p>
+          <p className="mt-1 text-sm text-muted">{t("ستجد طلابك هنا بعد تأكيد أول حجز", "Your students will appear here after your first confirmed booking")}</p>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -70,16 +72,18 @@ export default async function TeacherStudentsPage() {
               </div>
               <p className="text-lg font-bold">{s.name}</p>
               <p className="mt-1 text-sm text-muted">
-                آخر جلسة: {new Date(s.lastSession).toLocaleDateString("ar-SA")}
+                {t("آخر جلسة", "Last session")}: {new Date(s.lastSession).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}
               </p>
-              <p className="text-sm text-muted">{s.total} جلسة مكتملة · {s.thisMonth} هذا الشهر</p>
+              <p className="text-sm text-muted">
+                {s.total} {t("جلسة مكتملة", "completed")} · {s.thisMonth} {t("هذا الشهر", "this month")}
+              </p>
               <div className="mt-4 flex gap-2 border-t border-white/10 pt-4">
                 <Link href={`/teacher/students/${s.id}`} className="glass glass-pill flex-1 py-2 text-center text-xs text-muted transition-colors hover:border-gold/40 hover:text-gold">
-                  عرض التفاصيل
+                  {t("عرض التفاصيل", "View Details")}
                 </Link>
                 {s.phone && (
                   <a href={`https://wa.me/${s.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer" className="glass-success glass-pill px-3 py-2 text-xs text-white transition-colors hover:bg-green-700">
-                    واتساب
+                    {t("واتساب", "WhatsApp")}
                   </a>
                 )}
               </div>
