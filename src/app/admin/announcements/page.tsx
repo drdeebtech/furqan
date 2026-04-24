@@ -4,9 +4,10 @@ import Link from "next/link";
 import { Megaphone, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import type { SiteAnnouncement } from "@/types/database";
+import { getT } from "@/lib/i18n/server";
 import { AnnouncementRowActions } from "./announcement-row-actions";
 
-export const metadata: Metadata = { title: "الإعلانات · Announcements" };
+export const metadata: Metadata = { title: "الإعلانات" };
 
 const SEVERITY_BADGE: Record<SiteAnnouncement["severity"], string> = {
   info: "border-sky-500/40 bg-sky-500/10 text-sky-300",
@@ -15,6 +16,7 @@ const SEVERITY_BADGE: Record<SiteAnnouncement["severity"], string> = {
 };
 
 export default async function AdminAnnouncementsPage() {
+  const { t, dir, lang } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -45,23 +47,23 @@ export default async function AdminAnnouncementsPage() {
   }
 
   return (
-    <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
       <header className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Megaphone size={24} className="text-gold" />
-          <h1 className="text-xl font-bold">الإعلانات</h1>
+          <h1 className="text-xl font-bold">{t("الإعلانات", "Announcements")}</h1>
         </div>
         <Link
           href="/admin/announcements/new"
           className="glass-gold glass-pill flex items-center gap-2 px-4 py-2 text-sm font-semibold"
         >
-          <Plus size={14} /> إنشاء تنبيه
+          <Plus size={14} /> {t("إنشاء تنبيه", "New Announcement")}
         </Link>
       </header>
 
-      <Section title="نشط · Active" rows={active} severityMap={SEVERITY_BADGE} />
-      <Section title="مجدول · Scheduled" rows={scheduled} severityMap={SEVERITY_BADGE} />
-      <Section title="منتهي · Expired" rows={expired} severityMap={SEVERITY_BADGE} muted />
+      <Section title={t("نشط", "Active")} rows={active} severityMap={SEVERITY_BADGE} lang={lang} />
+      <Section title={t("مجدول", "Scheduled")} rows={scheduled} severityMap={SEVERITY_BADGE} lang={lang} />
+      <Section title={t("منتهي", "Expired")} rows={expired} severityMap={SEVERITY_BADGE} lang={lang} muted />
     </div>
   );
 }
@@ -70,11 +72,13 @@ function Section({
   title,
   rows,
   severityMap,
+  lang,
   muted,
 }: {
   title: string;
   rows: SiteAnnouncement[];
   severityMap: Record<SiteAnnouncement["severity"], string>;
+  lang: "ar" | "en";
   muted?: boolean;
 }) {
   if (rows.length === 0) return null;
@@ -87,6 +91,8 @@ function Section({
           const from = new Date(r.active_from).getTime();
           const until = r.active_until ? new Date(r.active_until).getTime() : null;
           const isLive = from <= now && (until === null || until > now);
+          const locale = lang === "ar" ? "ar-SA" : "en-US";
+          const msg = lang === "ar" ? r.message_ar : (r.message_en || r.message_ar);
           return (
             <li
               key={r.id}
@@ -95,10 +101,10 @@ function Section({
               <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${severityMap[r.severity]}`}>
                 {r.severity}
               </span>
-              <p className="min-w-0 flex-1 truncate text-sm">{r.message_ar}</p>
+              <p className="min-w-0 flex-1 truncate text-sm">{msg}</p>
               <span className="text-xs text-muted">
-                {new Date(r.active_from).toLocaleDateString()}
-                {r.active_until && ` → ${new Date(r.active_until).toLocaleDateString()}`}
+                {new Date(r.active_from).toLocaleDateString(locale)}
+                {r.active_until && ` → ${new Date(r.active_until).toLocaleDateString(locale)}`}
               </span>
               <AnnouncementRowActions id={r.id} canDeactivate={isLive} />
             </li>
