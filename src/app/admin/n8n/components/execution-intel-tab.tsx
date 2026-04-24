@@ -34,7 +34,8 @@ const BREAKDOWN_COLORS = [
 ];
 
 export function ExecutionIntelTab() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const [allExecs, setAllExecs] = useState<Execution[]>([]);
   const [errorExecs, setErrorExecs] = useState<ErrorExecution[]>([]);
   const [workflowNameMap, setWorkflowNameMap] = useState<Map<string, string>>(new Map());
@@ -94,7 +95,7 @@ export function ExecutionIntelTab() {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
       const key = d.toISOString().slice(0, 10);
-      const dayLabel = d.toLocaleDateString("ar-SA", { weekday: "short" });
+      const dayLabel = d.toLocaleDateString(locale, { weekday: "short" });
       const count = allExecs.filter(
         (e) => e.startedAt.slice(0, 10) === key,
       ).length;
@@ -240,7 +241,7 @@ export function ExecutionIntelTab() {
                     <p className="text-xs text-muted">
                       {t(`${alert.count} فشل في الساعة الأخيرة`, `${alert.count} failures in the last hour`)}
                       {" — "}
-                      {t("آخر فشل", "Latest")}: {new Date(alert.latest).toLocaleString("ar-SA")}
+                      {t("آخر فشل", "Latest")}: {new Date(alert.latest).toLocaleString(locale)}
                     </p>
                   </div>
                 </div>

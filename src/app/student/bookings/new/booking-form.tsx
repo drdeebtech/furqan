@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight, CalendarPlus, Clock, AlertCircle, ChevronDown } from "lucide-react";
 import { createBooking, type BookingResult } from "./actions";
 import { SESSION_TYPE_AR } from "@/lib/constants";
+import { useLang } from "@/lib/i18n/context";
 import type { SessionType } from "@/types/database";
 import { BookingSteps } from "@/components/shared/booking-steps";
 
@@ -33,6 +34,8 @@ interface AvailSlot {
 }
 
 export function BookingForm({ teacher, availability }: { teacher: TeacherData; availability: AvailSlot[] }) {
+  const { lang } = useLang();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const maxSlotDuration = availability.length > 0 ? Math.max(...availability.map((s) => s.slotDuration)) : 60;
   const durations = ALL_DURATIONS.filter((d) => d.value <= maxSlotDuration);
   const defaultDuration = durations.length > 0 ? durations[durations.length - 1].value : 30;
@@ -117,7 +120,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
             <div className="mt-3 space-y-1 text-sm">
               <p>{SESSION_TYPE_AR[selectedType as SessionType] ?? selectedType} · {duration} دقيقة</p>
               <p className="text-muted">
-                {new Date(selectedDate).toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "long" })}
+                {new Date(selectedDate).toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" })}
                 {" · "}
                 {selectedTime}
               </p>

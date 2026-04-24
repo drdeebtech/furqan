@@ -30,7 +30,8 @@ function actionIcon(eventName: string) {
 }
 
 export function AdminLogTab() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const [actions, setActions] = useState<AdminAction[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -83,7 +84,7 @@ export function AdminLogTab() {
             const actor = actorId || t("نظام", "System");
             const timestamp = new Date(
               action.finished_at || action.created_at,
-            ).toLocaleString("ar-SA", {
+            ).toLocaleString(locale, {
               year: "numeric",
               month: "short",
               day: "numeric",

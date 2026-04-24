@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { ProgressContent } from "./progress-content";
 
 export const metadata: Metadata = { title: "تقدمي" };
@@ -22,6 +23,8 @@ const SURAH_TO_JUZ: Record<number, number> = {
 };
 
 export default async function StudentProgressPage() {
+  const { lang } = await getT();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -111,7 +114,7 @@ export default async function StudentProgressPage() {
 
   // Evaluation scores for chart (last 6, chronological)
   const evalScores = evaluations.slice(0, 6).reverse().map(e => ({
-    date: new Date(e.created_at).toLocaleDateString("ar-SA", { month: "short", day: "numeric" }),
+    date: new Date(e.created_at).toLocaleDateString(locale, { month: "short", day: "numeric" }),
     hifz: e.hifz_score,
     tajweed: e.tajweed_score,
     overall: e.overall_score,

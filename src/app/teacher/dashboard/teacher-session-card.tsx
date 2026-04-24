@@ -16,6 +16,7 @@ import {
 import { SessionStatus } from "@/components/shared/session-status";
 import { SessionTimer } from "@/components/shared/session-timer";
 import { SESSION_TYPE_AR } from "@/lib/constants";
+import { useLang } from "@/lib/i18n/context";
 import type { SessionType } from "@/types/database";
 import {
   endSession,
@@ -50,6 +51,8 @@ export function TeacherSessionCard({
   startedAt,
   endedAt,
 }: TeacherSessionCardProps) {
+  const { lang } = useLang();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -160,7 +163,7 @@ export function TeacherSessionCard({
             {SESSION_TYPE_AR[sessionType]} · {durationMin} دقيقة
           </p>
           <p dir="ltr" className="mt-1 text-start text-sm text-muted">
-            {new Date(scheduledAt).toLocaleTimeString("ar-SA", {
+            {new Date(scheduledAt).toLocaleTimeString(locale, {
               hour: "2-digit",
               minute: "2-digit",
             })}

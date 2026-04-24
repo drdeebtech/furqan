@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { toggleUserActive, changeUserRole } from "./actions";
 import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
+import { useLang } from "@/lib/i18n/context";
 
 interface Props {
   user: { id: string; role: string; full_name: string | null; country: string | null; is_active: boolean; created_at: string };
@@ -10,6 +11,8 @@ interface Props {
 }
 
 export function UserRow({ user, churnRisk }: Props) {
+  const { lang } = useLang();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const [active, setActive] = useState(user.is_active);
   const [role, setRole] = useState(user.role);
   const [pendingRole, setPendingRole] = useState<string | null>(null);
@@ -87,7 +90,7 @@ export function UserRow({ user, churnRisk }: Props) {
           )
         ) : null}
       </td>
-      <td className="px-4 py-3 text-xs text-muted">{new Date(user.created_at).toLocaleDateString("ar-SA")}</td>
+      <td className="px-4 py-3 text-xs text-muted">{new Date(user.created_at).toLocaleDateString(locale)}</td>
     </tr>
   );
 }

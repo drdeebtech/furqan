@@ -33,7 +33,8 @@ interface ExecutionDetail {
 }
 
 export function ExecutionDetailModal({ executionId, onClose }: ExecutionDetailModalProps) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const [detail, setDetail] = useState<ExecutionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -162,14 +163,14 @@ export function ExecutionDetailModal({ executionId, onClose }: ExecutionDetailMo
               <span>
                 {t("بدأ في", "Started at")}:{" "}
                 <span className="text-foreground">
-                  {new Date(detail.startedAt).toLocaleString("ar-SA")}
+                  {new Date(detail.startedAt).toLocaleString(locale)}
                 </span>
               </span>
               {detail.stoppedAt && (
                 <span>
                   {t("انتهى في", "Stopped at")}:{" "}
                   <span className="text-foreground">
-                    {new Date(detail.stoppedAt).toLocaleString("ar-SA")}
+                    {new Date(detail.stoppedAt).toLocaleString(locale)}
                   </span>
                 </span>
               )}

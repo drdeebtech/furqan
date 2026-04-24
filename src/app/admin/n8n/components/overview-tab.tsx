@@ -28,7 +28,8 @@ interface Execution {
 }
 
 export function OverviewTab() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [errorExecutions, setErrorExecutions] = useState<Execution[]>([]);
   const [allExecutions, setAllExecutions] = useState<Execution[]>([]);
@@ -74,7 +75,7 @@ export function OverviewTab() {
     if (ex.status === "error" && !errorMap.has(ex.workflowId)) {
       errorMap.set(
         ex.workflowId,
-        new Date(ex.startedAt).toLocaleString("ar-SA"),
+        new Date(ex.startedAt).toLocaleString(locale),
       );
     }
   }
@@ -196,7 +197,7 @@ export function OverviewTab() {
   }
 
   const lastExecution = errorExecutions[0]?.startedAt
-    ? new Date(errorExecutions[0].startedAt).toLocaleString("ar-SA")
+    ? new Date(errorExecutions[0].startedAt).toLocaleString(locale)
     : "\u2014";
 
   return (
