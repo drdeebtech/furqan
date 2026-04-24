@@ -6,7 +6,13 @@ import Link from "next/link";
 import { CalendarCheck, Plus, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR, STATUS_STYLE } from "@/lib/constants";
+import { getT } from "@/lib/i18n/server";
 import type { BookingStatus, SessionType } from "@/types/database";
+
+const SESSION_TYPE_EN: Record<SessionType, string> = {
+  hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
+  qiraat: "Qiraat", tafsir: "Tafsir", combined: "Hifz + Review", other: "Other",
+};
 
 interface BookingRow {
   id: string;
@@ -19,6 +25,7 @@ interface BookingRow {
 }
 
 export default async function StudentBookingsPage() {
+  const { t, dir, lang } = await getT();
   const supabase = await createClient();
 
   const {
@@ -50,38 +57,38 @@ export default async function StudentBookingsPage() {
 
     if (profiles) {
       nameMap = Object.fromEntries(
-        profiles.map((p) => [p.id, p.full_name ?? "معلم"]),
+        profiles.map((p) => [p.id, p.full_name ?? t("معلم", "Teacher")]),
       );
     }
   }
 
   return (
-    <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <h1 className="flex items-center gap-2 font-display text-2xl font-bold">
           <CalendarCheck size={24} className="text-gold" />
-          حجوزاتي
+          {t("حجوزاتي", "My Bookings")}
         </h1>
         <Link
           href="/student/teachers"
           className="flex items-center gap-1.5 glass-gold glass-pill px-4 py-2 text-sm font-semibold text-white transition-colors"
         >
           <Plus size={16} />
-          حجز جديد
+          {t("حجز جديد", "New Booking")}
         </Link>
       </div>
 
       {list.length === 0 ? (
         <div className="glass-card p-12 text-center">
           <Inbox size={40} className="mx-auto mb-4 text-muted" />
-          <p className="text-lg text-muted">لم تقم بأي حجز حتى الآن</p>
-          <p className="mt-1 text-sm text-muted">ابدأ بتصفح المعلمين واحجز جلستك الأولى</p>
+          <p className="text-lg text-muted">{t("لم تقم بأي حجز حتى الآن", "You haven't made any bookings yet")}</p>
+          <p className="mt-1 text-sm text-muted">{t("ابدأ بتصفح المعلمين واحجز جلستك الأولى", "Browse teachers and book your first session")}</p>
           <Link
             href="/student/teachers"
             className="mt-4 inline-flex items-center gap-1.5 glass-gold glass-pill px-5 py-2.5 text-sm font-semibold text-white transition-colors"
           >
-            تصفح المعلمين
+            {t("تصفح المعلمين", "Browse Teachers")}
           </Link>
         </div>
       ) : (
@@ -89,6 +96,7 @@ export default async function StudentBookingsPage() {
           {list.map((booking) => {
             const date = new Date(booking.scheduled_at);
             const statusInfo = STATUS_STYLE[booking.status];
+            const locale = lang === "ar" ? "ar-SA" : "en-US";
 
             return (
               <div
@@ -98,12 +106,12 @@ export default async function StudentBookingsPage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="font-medium">
-                      {nameMap[booking.teacher_id] ?? "معلم"}
+                      {nameMap[booking.teacher_id] ?? t("معلم", "Teacher")}
                     </p>
                     <p className="mt-1 text-sm text-gold">
-                      {SESSION_TYPE_AR[booking.session_type]}
+                      {lang === "ar" ? SESSION_TYPE_AR[booking.session_type] : SESSION_TYPE_EN[booking.session_type]}
                       <span className="mr-2 text-muted">
-                        · {booking.duration_min} د��يقة
+                        · {booking.duration_min} {t("دقيقة", "min")}
                       </span>
                     </p>
                   </div>
@@ -117,14 +125,14 @@ export default async function StudentBookingsPage() {
                 </div>
 
                 <div dir="ltr" className="mt-3 text-left text-sm text-muted">
-                  {date.toLocaleDateString("ar-SA", {
+                  {date.toLocaleDateString(locale, {
                     weekday: "long",
                     year: "numeric",
                     month: "long",
                     day: "numeric",
                   })}
                   <span className="mx-2">·</span>
-                  {date.toLocaleTimeString("ar-SA", {
+                  {date.toLocaleTimeString(locale, {
                     hour: "2-digit",
                     minute: "2-digit",
                   })}
