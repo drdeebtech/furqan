@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Video, Inbox, Radio, BarChart3, Users, TrendingUp } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { SessionStatus } from "@/components/shared/session-status";
 import { SessionRowActions } from "./session-row-actions";
 
@@ -31,6 +32,7 @@ interface BookingInfo {
 }
 
 export default async function AdminSessionsPage() {
+  const { t, dir, lang } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -102,18 +104,18 @@ export default async function AdminSessionsPage() {
   const now = Date.now();
 
   return (
-    <div dir="rtl" className="mx-auto max-w-6xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-6xl px-4 py-8">
       {/* Header */}
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <h1 className="flex items-center gap-2 text-2xl font-bold">
-          <Video size={24} className="text-gold" /> إدارة الجلسات
+          <Video size={24} className="text-gold" /> {t("إدارة الجلسات", "Manage Sessions")}
         </h1>
         <Link
           href="/admin/sessions/live"
           className="mr-auto inline-flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-400 transition-colors hover:bg-emerald-500/20"
         >
           <Radio size={14} className="animate-pulse" />
-          المراقبة المباشرة
+          {t("المراقبة المباشرة", "Live Monitor")}
           {activeCount > 0 && (
             <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-bold">
               {activeCount}
@@ -127,7 +129,7 @@ export default async function AdminSessionsPage() {
         <div className="glass-card p-4">
           <div className="flex items-center gap-2 text-sm text-muted">
             <BarChart3 size={14} />
-            إجمالي الجلسات
+            {t("إجمالي الجلسات", "Total Sessions")}
           </div>
           <p className="mt-1 text-2xl font-bold text-gold">{totalSessions}</p>
         </div>
@@ -138,7 +140,7 @@ export default async function AdminSessionsPage() {
         >
           <div className="flex items-center gap-2 text-sm text-muted">
             <Radio size={14} className="text-emerald-400" />
-            نشطة الآن
+            {t("نشطة الآن", "Active Now")}
           </div>
           <p className="mt-1 text-2xl font-bold text-emerald-400">{activeCount}</p>
         </Link>
@@ -146,7 +148,7 @@ export default async function AdminSessionsPage() {
         <div className="glass-card p-4">
           <div className="flex items-center gap-2 text-sm text-muted">
             <Users size={14} />
-            نسبة الحضور
+            {t("نسبة الحضور", "Attendance Rate")}
           </div>
           <p className="mt-1 text-2xl font-bold text-gold">{attendanceRate}%</p>
         </div>
@@ -154,7 +156,7 @@ export default async function AdminSessionsPage() {
         <div className="glass-card p-4">
           <div className="flex items-center gap-2 text-sm text-muted">
             <TrendingUp size={14} />
-            نسبة المدة
+            {t("نسبة المدة", "Duration Ratio")}
           </div>
           <p className="mt-1 text-2xl font-bold text-gold">{avgDurationRatio}%</p>
         </div>
@@ -164,20 +166,20 @@ export default async function AdminSessionsPage() {
       {list.length === 0 ? (
         <div className="glass-card p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
-          <p className="text-muted">لا توجد جلسات</p>
+          <p className="text-muted">{t("لا توجد جلسات", "No sessions yet")}</p>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl glass-card">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 bg-white/5">
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الطالب</th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">المعلم</th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الموعد</th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الحالة</th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">المدة</th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">الحضور</th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">إجراءات</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("الطالب", "Student")}</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("المعلم", "Teacher")}</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("الموعد", "Date")}</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("الحالة", "Status")}</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("المدة", "Duration")}</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("الحضور", "Attendance")}</th>
+                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("إجراءات", "Actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -198,7 +200,7 @@ export default async function AdminSessionsPage() {
                     </td>
                     <td className="px-3 py-3">{b ? nameMap[b.teacher_id] ?? "—" : "—"}</td>
                     <td className="px-3 py-3 text-xs text-muted">
-                      {b ? new Date(b.scheduled_at).toLocaleDateString("ar-SA") : "—"}
+                      {b ? new Date(b.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US") : "—"}
                     </td>
                     <td className="px-3 py-3">
                       {b ? (
@@ -214,19 +216,19 @@ export default async function AdminSessionsPage() {
                     </td>
                     <td className="px-3 py-3 text-xs">
                       {s.actual_duration
-                        ? `${s.actual_duration} د`
+                        ? lang === "ar" ? `${s.actual_duration} د` : `${s.actual_duration}m`
                         : s.ended_at
                           ? "—"
                           : s.started_at
-                            ? <span className="text-emerald-400">جارية</span>
+                            ? <span className="text-emerald-400">{t("جارية", "live")}</span>
                             : "—"}
                     </td>
                     <td className="px-3 py-3 text-xs">
                       <span className={s.teacher_joined ? "text-emerald-400" : "text-red-400"}>
-                        م{s.teacher_joined ? "✓" : "✗"}
+                        {lang === "ar" ? "م" : "T"}{s.teacher_joined ? "✓" : "✗"}
                       </span>{" "}
                       <span className={s.student_joined ? "text-emerald-400" : "text-red-400"}>
-                        ط{s.student_joined ? "✓" : "✗"}
+                        {lang === "ar" ? "ط" : "S"}{s.student_joined ? "✓" : "✗"}
                       </span>
                     </td>
                     <td className="px-3 py-3">
