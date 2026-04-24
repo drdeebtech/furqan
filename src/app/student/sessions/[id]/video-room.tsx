@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Video, VideoOff, AlertCircle, Maximize2 } from "lucide-react";
 import { DeviceCheck } from "@/components/shared/device-check";
 import { SessionTimer } from "@/components/shared/session-timer";
+import { useLang } from "@/lib/i18n/context";
 import { generateSessionToken, trackSessionEvent } from "./actions";
 
 export function VideoRoom({
@@ -21,6 +22,7 @@ export function VideoRoom({
   durationMin: number;
   startedAt?: string | null;
 }) {
+  const { t } = useLang();
   const containerRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<ReturnType<
     typeof import("@daily-co/daily-js").default.createFrame
@@ -207,19 +209,19 @@ export function VideoRoom({
             <button
               onClick={toggleFullscreen}
               className="flex items-center gap-1 rounded-lg glass px-2 py-1.5 text-xs text-muted transition-colors hover:text-gold md:px-3"
-              title="ملء الشاشة"
-              aria-label="ملء الشاشة"
+              title={t("ملء الشاشة", "Fullscreen")}
+              aria-label={t("ملء الشاشة", "Fullscreen")}
             >
               <Maximize2 size={14} />
-              <span className="hidden sm:inline">{isFullscreen ? "تصغير" : "ملء الشاشة"}</span>
+              <span className="hidden sm:inline">{isFullscreen ? t("تصغير", "Exit") : t("ملء الشاشة", "Fullscreen")}</span>
             </button>
             <button
               onClick={() => frameRef.current?.leave()}
               className="flex items-center gap-1.5 rounded-lg border border-error/30 px-2 py-1.5 text-xs text-error transition-colors hover:bg-error/10 focus-ring md:px-3"
-              aria-label="مغادرة"
+              aria-label={t("مغادرة", "Leave")}
             >
               <VideoOff size={14} />
-              <span className="hidden sm:inline">مغادرة</span>
+              <span className="hidden sm:inline">{t("مغادرة", "Leave")}</span>
             </button>
           </div>
         </div>

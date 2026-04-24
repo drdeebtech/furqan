@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Camera, Mic, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { useLang } from "@/lib/i18n/context";
 
 type DeviceState = "checking" | "granted" | "denied" | "error";
 
@@ -16,6 +17,7 @@ function StatusIcon({ state }: { state: DeviceState }) {
 }
 
 export function DeviceCheck({ onReady }: { onReady?: (ok: boolean) => void }) {
+  const { t } = useLang();
   const [camera, setCamera] = useState<DeviceState>("checking");
   const [mic, setMic] = useState<DeviceState>("checking");
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -80,7 +82,7 @@ export function DeviceCheck({ onReady }: { onReady?: (ok: boolean) => void }) {
             autoPlay
             muted
             playsInline
-            aria-label="معاينة الكاميرا"
+            aria-label={t("معاينة الكاميرا", "Camera preview")}
             className="h-32 w-full object-cover"
           />
         ) : (

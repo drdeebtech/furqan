@@ -5,6 +5,7 @@ import { StopCircle, RefreshCw, Eye, X, Check } from "lucide-react";
 import Link from "next/link";
 import { forceEndSession, adminRecreateRoom } from "./actions";
 import { useToast } from "@/components/shared/toast";
+import { useLang } from "@/lib/i18n/context";
 
 export function SessionRowActions({
   sessionId,
@@ -15,6 +16,7 @@ export function SessionRowActions({
   isActive: boolean;
   isExpired: boolean;
 }) {
+  const { t } = useLang();
   const [isPending, startTransition] = useTransition();
   const [showReason, setShowReason] = useState(false);
   const [reason, setReason] = useState("");
@@ -49,15 +51,15 @@ export function SessionRowActions({
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleForceEnd()}
-          placeholder="السبب..."
+          placeholder={t("السبب...", "Reason...")}
           className="w-24 rounded-lg glass-input px-2 py-1 text-xs"
           autoFocus
-          aria-label="سبب إنهاء الجلسة"
+          aria-label={t("سبب إنهاء الجلسة", "Session end reason")}
         />
-        <button onClick={handleForceEnd} disabled={isPending || !reason.trim()} className="rounded-lg p-1 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50" aria-label="تأكيد">
+        <button onClick={handleForceEnd} disabled={isPending || !reason.trim()} className="rounded-lg p-1 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50" aria-label={t("تأكيد", "Confirm")}>
           <Check size={14} />
         </button>
-        <button onClick={() => { setShowReason(false); setReason(""); }} className="rounded-lg p-1 text-muted hover:bg-surface-alt" aria-label="إلغاء">
+        <button onClick={() => { setShowReason(false); setReason(""); }} className="rounded-lg p-1 text-muted hover:bg-surface-alt" aria-label={t("إلغاء", "Cancel")}>
           <X size={14} />
         </button>
       </div>
@@ -69,8 +71,8 @@ export function SessionRowActions({
       <Link
         href={`/admin/sessions/${sessionId}`}
         className="rounded-lg p-1.5 text-muted transition-colors hover:bg-surface-alt hover:text-foreground"
-        title="تفاصيل"
-        aria-label="عرض"
+        title={t("تفاصيل", "Details")}
+        aria-label={t("عرض", "View")}
       >
         <Eye size={14} />
       </Link>
@@ -79,8 +81,8 @@ export function SessionRowActions({
           onClick={handleForceEnd}
           disabled={isPending}
           className="rounded-lg p-1.5 text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
-          title="إنهاء الجلسة"
-          aria-label="إنهاء الجلسة"
+          title={t("إنهاء الجلسة", "End session")}
+          aria-label={t("إنهاء الجلسة", "End session")}
         >
           <StopCircle size={14} />
         </button>
@@ -90,8 +92,8 @@ export function SessionRowActions({
           onClick={handleRecreateRoom}
           disabled={isPending}
           className="rounded-lg p-1.5 text-gold transition-colors hover:bg-gold/10 disabled:opacity-50"
-          title="إعادة إنشاء الغرفة"
-          aria-label="تحديث"
+          title={t("إعادة إنشاء الغرفة", "Recreate room")}
+          aria-label={t("تحديث", "Refresh")}
         >
           <RefreshCw size={14} />
         </button>

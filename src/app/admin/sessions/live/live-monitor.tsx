@@ -7,6 +7,7 @@ import { Radio, User, GraduationCap, StopCircle, Eye, Check, X } from "lucide-re
 import { SessionTimer } from "@/components/shared/session-timer";
 import { forceEndSession } from "../actions";
 import { useToast } from "@/components/shared/toast";
+import { useLang } from "@/lib/i18n/context";
 
 interface ActiveSession {
   id: string;
@@ -32,6 +33,7 @@ function cardColor(s: ActiveSession): string {
 }
 
 export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] }) {
+  const { t } = useLang();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [endingId, setEndingId] = useState<string | null>(null);
@@ -118,15 +120,15 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleForceEnd(s.id)}
-                placeholder="سبب الإنهاء..."
+                placeholder={t("سبب الإنهاء...", "End reason...")}
                 className="flex-1 rounded-xl glass-input px-3 py-2 text-sm"
                 autoFocus
-                aria-label="سبب إنهاء الجلسة"
+                aria-label={t("سبب إنهاء الجلسة", "Session end reason")}
               />
-              <button onClick={() => handleForceEnd(s.id)} disabled={isPending || !reason.trim()} className="rounded-lg p-1.5 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50" aria-label="تأكيد">
+              <button onClick={() => handleForceEnd(s.id)} disabled={isPending || !reason.trim()} className="rounded-lg p-1.5 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50" aria-label={t("تأكيد", "Confirm")}>
                 <Check size={16} />
               </button>
-              <button onClick={() => { setEndingId(null); setReason(""); }} className="rounded-lg p-1.5 text-muted hover:bg-surface-alt" aria-label="إلغاء">
+              <button onClick={() => { setEndingId(null); setReason(""); }} className="rounded-lg p-1.5 text-muted hover:bg-surface-alt" aria-label={t("إلغاء", "Cancel")}>
                 <X size={16} />
               </button>
             </div>
@@ -137,7 +139,7 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
             >
               <StopCircle size={14} />
-              إنهاء الجلسة
+              {t("إنهاء الجلسة", "End Session")}
             </button>
           )}
 
@@ -146,7 +148,7 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
             href={`/admin/sessions/${s.id}/observe`}
             className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-gold/30 bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold/20"
           >
-            <Eye size={14} /> مراقبة
+            <Eye size={14} /> {t("مراقبة", "Observe")}
           </Link>
         </div>
       ))}
