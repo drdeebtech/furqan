@@ -4,7 +4,13 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
+import { getT } from "@/lib/i18n/server";
 import type { SessionType } from "@/types/database";
+
+const SESSION_TYPE_EN: Record<SessionType, string> = {
+  hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
+  qiraat: "Qiraat", tafsir: "Tafsir", combined: "Hifz + Review", other: "Other",
+};
 import { SessionTimer } from "@/components/shared/session-timer";
 import { VideoRoom } from "./video-room";
 import { RateTeacherForm } from "./rate-teacher-form";
@@ -17,6 +23,8 @@ interface Props {
 
 export default async function SessionPage({ params }: Props) {
   const { id } = await params;
+  const { t, dir, lang } = await getT();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -63,7 +71,7 @@ export default async function SessionPage({ params }: Props) {
     .eq("id", booking.teacher_id)
     .single<{ full_name: string | null }>();
 
-  const teacherName = teacher?.full_name ?? "المعلم";
+  const teacherName = teacher?.full_name ?? t("المعلم", "Teacher");
   const scheduledDate = new Date(booking.scheduled_at);
   const isCompleted = session.ended_at !== null;
 
@@ -80,13 +88,13 @@ export default async function SessionPage({ params }: Props) {
   }
 
   return (
-    <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
       <Link
         href="/student/sessions"
         className="mb-6 inline-flex items-center gap-1 text-sm text-gold transition-colors hover:text-gold-hover focus-ring"
       >
         <ArrowRight size={14} />
-        العودة للجلسات
+        {t("العودة للجلسات", "Back to Sessions")}
       </Link>
 
       {/* Session info bar */}
@@ -94,13 +102,13 @@ export default async function SessionPage({ params }: Props) {
         <div>
           <h1 className="font-display text-xl font-bold">{teacherName}</h1>
           <p className="mt-1 text-sm text-gold">
-            {SESSION_TYPE_AR[booking.session_type]}
-            <span className="mr-2 text-muted">· {booking.duration_min} دقيقة</span>
+            {lang === "ar" ? SESSION_TYPE_AR[booking.session_type] : SESSION_TYPE_EN[booking.session_type]}
+            <span className="mr-2 text-muted">· {booking.duration_min} {t("دقيقة", "min")}</span>
           </p>
           <p dir="ltr" className="mt-1 text-left text-sm text-muted">
-            {scheduledDate.toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+            {scheduledDate.toLocaleDateString(locale, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
             <span className="mx-2">·</span>
-            {scheduledDate.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+            {scheduledDate.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}
           </p>
         </div>
         {session.started_at && !session.ended_at && (
@@ -108,7 +116,7 @@ export default async function SessionPage({ params }: Props) {
         )}
         {isCompleted && session.actual_duration && (
           <div className="glass-badge px-3 py-1 text-sm text-muted">
-            مدة الجلسة: {session.actual_duration} دقيقة
+            {t("مدة الجلسة", "Session duration")}: {session.actual_duration} {t("دقيقة", "min")}
           </div>
         )}
       </div>
@@ -117,20 +125,20 @@ export default async function SessionPage({ params }: Props) {
       {isCompleted ? (
         <div className="space-y-4">
           <div className="glass-card p-8 text-center">
-            <p className="text-lg font-semibold text-gold">تمت الجلسة بنجاح</p>
-            <p className="mt-1 text-sm text-muted">Session completed</p>
+            <p className="text-lg font-semibold text-gold">{t("تمت الجلسة بنجاح", "Session completed successfully")}</p>
+            {lang === "ar" && <p className="mt-1 text-sm text-muted">Session completed</p>}
           </div>
 
           {session.post_session_notes && (
             <div className="glass-card p-5">
-              <h2 className="mb-2 font-display text-sm font-semibold text-gold">ملاحظات المعلم</h2>
+              <h2 className="mb-2 font-display text-sm font-semibold text-gold">{t("ملاحظات المعلم", "Teacher Notes")}</h2>
               <p className="text-sm leading-relaxed text-muted">{session.post_session_notes}</p>
             </div>
           )}
 
           {session.homework && (
             <div className="glass-card p-5">
-              <h2 className="mb-2 font-display text-sm font-semibold text-gold">الواجب</h2>
+              <h2 className="mb-2 font-display text-sm font-semibold text-gold">{t("الواجب", "Homework")}</h2>
               <p className="text-sm leading-relaxed text-muted">{session.homework}</p>
             </div>
           )}
@@ -138,7 +146,7 @@ export default async function SessionPage({ params }: Props) {
           {/* Review section */}
           {existingReview ? (
             <div className="glass-card p-5">
-              <h2 className="mb-2 font-display text-sm font-semibold text-gold">تقييمك</h2>
+              <h2 className="mb-2 font-display text-sm font-semibold text-gold">{t("تقييمك", "Your Rating")}</h2>
               <div className="mb-2 flex gap-1">
                 {Array.from({ length: 5 }, (_, i) => (
                   <span key={i} className={i < existingReview.rating ? "text-gold" : "text-muted/40"}>
@@ -162,7 +170,7 @@ export default async function SessionPage({ params }: Props) {
         <VideoRoom
           sessionId={session.id}
           roomUrl={session.room_url}
-          userName={user.user_metadata?.full_name ?? "طالب"}
+          userName={user.user_metadata?.full_name ?? t("طالب", "Student")}
           expiresAt={session.expires_at}
           durationMin={booking.duration_min}
           startedAt={session.started_at}

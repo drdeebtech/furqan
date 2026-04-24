@@ -3,9 +3,17 @@ import Link from "next/link";
 import { ArrowRight, Phone, Mail, User, BarChart3, AlertTriangle, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
+import { getT } from "@/lib/i18n/server";
 import type { SessionType, StudentLevel } from "@/types/database";
 import { EvalForm } from "./eval-form";
 import { ResolveErrorButton } from "./resolve-error-button";
+
+const SESSION_TYPE_EN: Record<SessionType, string> = {
+  hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
+  qiraat: "Qiraat", tafsir: "Tafsir", combined: "Hifz + Review", other: "Other",
+};
+const LEVEL_EN: Record<StudentLevel, string> = { beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" };
+const ERROR_TYPE_EN: Record<string, string> = { makharij: "Makharij", sifat: "Sifat", madd: "Madd", waqf: "Waqf", ghunna: "Ghunna", other: "Other" };
 
 interface Props { params: Promise<{ studentId: string }>; }
 
@@ -25,6 +33,8 @@ const ERROR_TYPE_AR: Record<string, string> = { makharij: "مخارج", sifat: "
 
 export default async function StudentDetailPage({ params }: Props) {
   const { studentId } = await params;
+  const { t, dir, lang } = await getT();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -85,23 +95,23 @@ export default async function StudentDetailPage({ params }: Props) {
   const avgQuality = progress.filter(p => p.quality_rating).reduce((sum, p, _, a) => sum + (p.quality_rating ?? 0) / a.length, 0);
 
   return (
-    <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
       <Link href="/teacher/students" className="mb-6 inline-flex items-center gap-1 text-sm text-gold hover:text-gold-hover">
-        <ArrowRight size={14} /> العودة لطلابي
+        <ArrowRight size={14} /> {t("العودة لطلابي", "Back to My Students")}
       </Link>
 
       {/* Profile Card */}
       <div className="glass-card mb-6 p-6">
         <div className="flex items-center gap-4">
           <div className="flex h-16 w-16 items-center justify-center rounded-full border border-gold/30 bg-gold/10 font-display text-2xl font-bold text-gold">
-            {(student.full_name || "ط").charAt(0)}
+            {(student.full_name || "S").charAt(0)}
           </div>
           <div className="flex-1">
-            <h1 className="text-xl font-bold">{student.full_name || "طالب"}</h1>
-            <p className="text-sm text-muted">{completedCount} جلسة مكتملة{student.country ? ` · ${student.country}` : ""}</p>
+            <h1 className="text-xl font-bold">{student.full_name || t("طالب", "Student")}</h1>
+            <p className="text-sm text-muted">{completedCount} {t("جلسة مكتملة", "completed sessions")}{student.country ? ` · ${student.country}` : ""}</p>
             {latestLevel && (
               <span className={`glass-badge mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs ${LEVEL_COLOR[latestLevel]}`}>
-                {LEVEL_AR[latestLevel]}
+                {lang === "ar" ? LEVEL_AR[latestLevel] : LEVEL_EN[latestLevel]}
               </span>
             )}
           </div>
@@ -112,34 +122,34 @@ export default async function StudentDetailPage({ params }: Props) {
       <div className="mb-6 grid grid-cols-4 gap-3">
         <div className="glass-card p-4 text-center">
           <p className="text-2xl font-bold text-gold">{completedCount}</p>
-          <p className="text-xs text-muted">جلسة مكتملة</p>
+          <p className="text-xs text-muted">{t("جلسة مكتملة", "Sessions")}</p>
         </div>
         <div className="glass-card p-4 text-center">
           <p className="text-2xl font-bold text-gold">{Math.round(totalMinutes / 60)}</p>
-          <p className="text-xs text-muted">ساعة تعليم</p>
+          <p className="text-xs text-muted">{t("ساعة تعليم", "Hours Taught")}</p>
         </div>
         <div className="glass-card p-4 text-center">
           <p className="text-2xl font-bold text-gold">{avgQuality ? avgQuality.toFixed(1) : "—"}</p>
-          <p className="text-xs text-muted">متوسط الجودة</p>
+          <p className="text-xs text-muted">{t("متوسط الجودة", "Avg Quality")}</p>
         </div>
         <div className="glass-card p-4 text-center">
           <p className="text-2xl font-bold text-gold">{errors.length}</p>
-          <p className="text-xs text-muted">أخطاء معلقة</p>
+          <p className="text-xs text-muted">{t("أخطاء معلقة", "Pending Errors")}</p>
         </div>
       </div>
 
       {/* Evaluate Student */}
       <div className="mb-6">
-        <EvalForm studentId={studentId} studentName={student.full_name || "الطالب"} />
+        <EvalForm studentId={studentId} studentName={student.full_name || t("الطالب", "Student")} />
       </div>
 
       {/* Parent Contact */}
       {(student.parent_name || student.parent_phone || student.parent_email) && (
         <div className="glass-card mb-6 p-6">
-          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold"><User size={18} className="text-gold" /> ولي الأمر</h2>
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold"><User size={18} className="text-gold" /> {t("ولي الأمر", "Parent")}</h2>
           <div className="space-y-2">
             {student.parent_name && (
-              <p className="text-sm"><span className="text-muted">الاسم:</span> {student.parent_name}</p>
+              <p className="text-sm"><span className="text-muted">{t("الاسم", "Name")}:</span> {student.parent_name}</p>
             )}
             {student.parent_phone && (
               <p className="flex items-center gap-2 text-sm"><Phone size={14} className="text-muted" /> <span dir="ltr">{student.parent_phone}</span></p>
@@ -154,14 +164,14 @@ export default async function StudentDetailPage({ params }: Props) {
       {/* Recitation Errors */}
       {errors.length > 0 && (
         <div className="glass-card mb-6 p-6">
-          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold"><AlertTriangle size={18} className="text-amber-400" /> أخطاء التلاوة المعلقة</h2>
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold"><AlertTriangle size={18} className="text-amber-400" /> {t("أخطاء التلاوة المعلقة", "Pending Recitation Errors")}</h2>
           <div className="space-y-2">
             {errors.map((e) => (
               <div key={e.id} className="glass flex items-center gap-3 rounded-lg px-3 py-2 text-sm">
                 <span className="glass-badge rounded-full border-amber-500/30 px-2 py-0.5 text-xs text-amber-400">
-                  {ERROR_TYPE_AR[e.error_type] ?? e.error_type}
+                  {(lang === "ar" ? ERROR_TYPE_AR[e.error_type] : ERROR_TYPE_EN[e.error_type]) ?? e.error_type}
                 </span>
-                {e.surah_num && <span className="text-xs text-muted">سورة {e.surah_num} : آية {e.ayah_num}</span>}
+                {e.surah_num && <span className="text-xs text-muted">{t("سورة", "Surah")} {e.surah_num} : {t("آية", "Ayah")} {e.ayah_num}</span>}
                 {e.note && <span className="flex-1 truncate text-xs text-muted" title={e.note}>{e.note}</span>}
                 <ResolveErrorButton errorId={e.id} />
               </div>
@@ -173,16 +183,16 @@ export default async function StudentDetailPage({ params }: Props) {
       {/* Progress Summary */}
       {progress.length > 0 && (
         <div className="glass-card mb-6 p-6">
-          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold"><BarChart3 size={18} className="text-gold" /> ملخص التقدم</h2>
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold"><BarChart3 size={18} className="text-gold" /> {t("ملخص التقدم", "Progress Summary")}</h2>
           <div className="space-y-2">
             {progress.slice(0, 5).map((p, i) => (
               <div key={i} className="glass flex items-center justify-between rounded-lg px-3 py-2">
                 <div>
-                  <span className={`glass-badge rounded-full px-2 py-0.5 text-xs ${LEVEL_COLOR[p.level]}`}>{LEVEL_AR[p.level]}</span>
-                  {p.surah_from && <span className="mr-2 text-xs text-muted">سورة {p.surah_from}{p.surah_to && p.surah_to !== p.surah_from ? ` — ${p.surah_to}` : ""}</span>}
-                  {p.quality_rating && <span className="mr-2 text-xs text-gold">جودة: {p.quality_rating}/5</span>}
+                  <span className={`glass-badge rounded-full px-2 py-0.5 text-xs ${LEVEL_COLOR[p.level]}`}>{lang === "ar" ? LEVEL_AR[p.level] : LEVEL_EN[p.level]}</span>
+                  {p.surah_from && <span className="mr-2 text-xs text-muted">{t("سورة", "Surah")} {p.surah_from}{p.surah_to && p.surah_to !== p.surah_from ? ` — ${p.surah_to}` : ""}</span>}
+                  {p.quality_rating && <span className="mr-2 text-xs text-gold">{t("جودة", "Quality")}: {p.quality_rating}/5</span>}
                 </div>
-                <span className="text-xs text-muted">{new Date(p.created_at).toLocaleDateString("ar-SA")}</span>
+                <span className="text-xs text-muted">{new Date(p.created_at).toLocaleDateString(locale)}</span>
               </div>
             ))}
           </div>
@@ -190,11 +200,11 @@ export default async function StudentDetailPage({ params }: Props) {
       )}
 
       {/* Session History */}
-      <h2 className="mb-4 text-lg font-bold">سجل الجلسات</h2>
+      <h2 className="mb-4 text-lg font-bold">{t("سجل الجلسات", "Session History")}</h2>
       {bookings.length === 0 ? (
         <div className="glass-card p-8 text-center">
           <Inbox size={28} className="mx-auto mb-2 text-muted" />
-          <p className="text-sm text-muted">لا توجد جلسات مسجلة مع هذا الطالب</p>
+          <p className="text-sm text-muted">{t("لا توجد جلسات مسجلة مع هذا الطالب", "No sessions recorded with this student")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -204,22 +214,22 @@ export default async function StudentDetailPage({ params }: Props) {
               <div key={b.id} className="glass-card p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium">{SESSION_TYPE_AR[b.session_type]} · {b.duration_min} دقيقة</p>
-                    <p className="text-xs text-muted">{new Date(b.scheduled_at).toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
+                    <p className="text-sm font-medium">{lang === "ar" ? SESSION_TYPE_AR[b.session_type] : SESSION_TYPE_EN[b.session_type]} · {b.duration_min} {t("دقيقة", "min")}</p>
+                    <p className="text-xs text-muted">{new Date(b.scheduled_at).toLocaleDateString(locale, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
                   </div>
                   <span className={`glass-badge rounded-full px-2 py-0.5 text-xs ${b.status === "completed" ? "text-emerald-400 border-emerald-500/30" : "text-amber-400 border-amber-500/30"}`}>
-                    {b.status === "completed" ? "مكتمل" : "مؤكد"}
+                    {b.status === "completed" ? t("مكتمل", "Completed") : t("مؤكد", "Confirmed")}
                   </span>
                 </div>
                 {session?.post_session_notes && (
                   <div className="glass mt-3 rounded-lg p-3">
-                    <p className="mb-1 text-xs font-medium text-gold">ملاحظات</p>
+                    <p className="mb-1 text-xs font-medium text-gold">{t("ملاحظات", "Notes")}</p>
                     <p className="text-sm text-muted break-words whitespace-pre-wrap">{session.post_session_notes}</p>
                   </div>
                 )}
                 {session?.homework && (
                   <div className="mt-2 rounded-lg border border-gold/20 bg-gold/5 p-3">
-                    <p className="mb-1 text-xs font-medium text-gold">واجب</p>
+                    <p className="mb-1 text-xs font-medium text-gold">{t("واجب", "Homework")}</p>
                     <p className="text-sm text-muted break-words whitespace-pre-wrap">{session.homework}</p>
                   </div>
                 )}

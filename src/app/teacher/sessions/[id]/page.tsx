@@ -4,8 +4,14 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
+import { getT } from "@/lib/i18n/server";
 import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
 import type { SessionType, HomeworkAssignment } from "@/types/database";
+
+const SESSION_TYPE_EN: Record<SessionType, string> = {
+  hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
+  qiraat: "Qiraat", tafsir: "Tafsir", combined: "Hifz + Review", other: "Other",
+};
 import { VideoRoom } from "@/app/student/sessions/[id]/video-room";
 import { PostSessionForm } from "./post-session-form";
 import { SessionDetailControls } from "./session-detail-controls";
@@ -18,6 +24,8 @@ interface Props {
 
 export default async function TeacherSessionPage({ params }: Props) {
   const { id } = await params;
+  const { t, dir, lang } = await getT();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -72,18 +80,18 @@ export default async function TeacherSessionPage({ params }: Props) {
     .order("assigned_at", { ascending: false })
     .returns<HomeworkAssignment[]>();
 
-  const studentName = student?.full_name || "الطالب";
+  const studentName = student?.full_name || t("الطالب", "Student");
   const scheduledDate = new Date(booking.scheduled_at);
   const isCompleted = session.ended_at !== null;
 
   return (
-    <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
       <Link
         href="/teacher/sessions"
         className="mb-6 inline-flex items-center gap-1 text-sm text-gold transition-colors hover:text-gold-hover focus-ring"
       >
         <ArrowRight size={14} />
-        العودة للجلسات
+        {t("العودة للجلسات", "Back to Sessions")}
       </Link>
 
       <div className="glass-card mb-6 flex flex-wrap items-center justify-between gap-4 p-4">
@@ -91,24 +99,24 @@ export default async function TeacherSessionPage({ params }: Props) {
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-bold">{studentName}</h1>
             {studentRisk != null && studentRisk >= 40 && (
-              <span className={`glass-badge ${riskBadgeClass(studentRisk)}`} title={`خطر التسرب: ${studentRisk.toFixed(0)}`}>
+              <span className={`glass-badge ${riskBadgeClass(studentRisk)}`} title={`${t("خطر التسرب", "Churn risk")}: ${studentRisk.toFixed(0)}`}>
                 {riskLabel(studentRisk)}
               </span>
             )}
           </div>
           <p className="mt-1 text-sm text-gold">
-            {SESSION_TYPE_AR[booking.session_type]}
-            <span className="mr-2 text-muted">· {booking.duration_min} دقيقة</span>
+            {lang === "ar" ? SESSION_TYPE_AR[booking.session_type] : SESSION_TYPE_EN[booking.session_type]}
+            <span className="mr-2 text-muted">· {booking.duration_min} {t("دقيقة", "min")}</span>
           </p>
           <p dir="ltr" className="mt-1 text-left text-sm text-muted">
-            {scheduledDate.toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+            {scheduledDate.toLocaleDateString(locale, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
             <span className="mx-2">·</span>
-            {scheduledDate.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+            {scheduledDate.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}
           </p>
         </div>
         {isCompleted && session.actual_duration && (
           <div className="glass glass-pill px-3 py-1 text-sm text-muted">
-            مدة الجلسة: {session.actual_duration} دقيقة
+            {t("مدة الجلسة", "Session duration")}: {session.actual_duration} {t("دقيقة", "min")}
           </div>
         )}
       </div>
@@ -138,7 +146,7 @@ export default async function TeacherSessionPage({ params }: Props) {
         <VideoRoom
           sessionId={session.id}
           roomUrl={session.room_url}
-          userName={user.user_metadata?.full_name ?? "معلم"}
+          userName={user.user_metadata?.full_name ?? t("معلم", "Teacher")}
           expiresAt={session.expires_at}
           durationMin={booking.duration_min}
         />
