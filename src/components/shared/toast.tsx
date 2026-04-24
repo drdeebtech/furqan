@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from "react";
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from "lucide-react";
+import { useLang } from "@/lib/i18n/context";
 
 type ToastType = "success" | "error" | "warning" | "info";
 
@@ -42,6 +43,7 @@ const STYLES = {
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const { dir } = useLang();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const timeoutRefs = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -84,7 +86,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       {/* Toast container */}
-      <div className="fixed left-4 top-4 z-50 flex flex-col gap-2" dir="rtl" aria-live="polite" role="log">
+      <div className="fixed left-4 top-4 z-50 flex flex-col gap-2" dir={dir} aria-live="polite" role="log">
         {toasts.map((t) => {
           const Icon = ICONS[t.type];
           return (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { useLang } from "@/lib/i18n/context";
 import type { BlogPost } from "@/types/blog";
 import { savePost } from "./actions";
 
@@ -22,13 +23,14 @@ function slugify(text: string) {
 }
 
 export function PostForm({ post }: { post?: BlogPost }) {
+  const { dir } = useLang();
   const [state, formAction, pending] = useActionState<State, FormData>(
     savePost,
     null,
   );
 
   return (
-    <form action={formAction} className="space-y-5" dir="rtl">
+    <form action={formAction} className="space-y-5" dir={dir}>
       {post && <input type="hidden" name="id" value={post.id} />}
 
       {state?.error && (

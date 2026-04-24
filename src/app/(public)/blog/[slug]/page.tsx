@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import type { BlogPost } from "@/types/blog";
 import { RegisterBanner } from "@/components/public/register-banner";
 import { BreadcrumbSchema, ArticleSchema } from "@/components/seo/structured-data";
@@ -52,6 +53,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ArticlePage({ params }: Props) {
   const { slug } = await params;
+  const { t, dir, lang } = await getT();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const supabase = await createClient();
 
   const { data: post } = await supabase
@@ -63,65 +66,61 @@ export default async function ArticlePage({ params }: Props) {
 
   if (!post) redirect("/blog");
 
-  const date = new Date(post.published_at).toLocaleDateString("ar-SA", {
+  const title = lang === "ar" ? post.title_ar : post.title_en;
+  const category = lang === "ar" ? post.category_ar : post.category_en;
+  const body = lang === "ar" ? post.body_ar : post.body_en;
+  const readTime = lang === "ar" ? post.read_time_ar : post.read_time_en;
+  const excerpt = lang === "ar" ? post.excerpt_ar : post.excerpt_en;
+
+  const date = new Date(post.published_at).toLocaleDateString(locale, {
     year: "numeric",
     month: "long",
     day: "numeric",
   });
 
   return (
-    <div dir="rtl">
+    <div dir={dir}>
       <BreadcrumbSchema items={[
-        { name: "الرئيسية", url: "https://furqan.today" },
-        { name: "المدونة", url: "https://furqan.today/blog" },
-        { name: post.title_ar, url: `https://furqan.today/blog/${post.slug}` },
+        { name: t("الرئيسية", "Home"), url: "https://furqan.today" },
+        { name: t("المدونة", "Blog"), url: "https://furqan.today/blog" },
+        { name: title, url: `https://furqan.today/blog/${post.slug}` },
       ]} />
       <ArticleSchema
-        headline={post.title_ar}
+        headline={title}
         image={`https://furqan.today/blog/${post.slug}/opengraph-image`}
         datePublished={post.published_at}
         dateModified={post.updated_at}
-        description={post.excerpt_ar}
+        description={excerpt}
         url={`https://furqan.today/blog/${post.slug}`}
       />
       <section className="glass-card border-b border-white/10 py-16 text-center">
         <p className="text-sm text-muted">
-          <Link href="/" className="text-gold hover:text-gold-light">الرئيسية</Link>
+          <Link href="/" className="text-gold hover:text-gold-light">{t("الرئيسية", "Home")}</Link>
           {" / "}
-          <Link href="/blog" className="text-gold hover:text-gold-light">المدونة</Link>
+          <Link href="/blog" className="text-gold hover:text-gold-light">{t("المدونة", "Blog")}</Link>
           {" / "}
-          {post.title_ar}
+          {title}
         </p>
         <span className={`glass-badge mt-4 inline-block px-3 py-1 text-xs ${post.color}`}>
-          {post.category_ar}
+          {category}
         </span>
         <h1 className="font-display mx-auto mt-4 max-w-2xl text-4xl font-bold leading-tight">
-          {post.title_ar}
+          {title}
         </h1>
-        <p className="mt-2 text-sm text-muted">{post.title_en}</p>
         <p className="mt-3 text-sm text-muted">
-          {date} · {post.read_time_ar} للقراءة
+          {date} · {readTime} {t("للقراءة", "read")}
         </p>
       </section>
 
       <section className="py-24">
         <div className="mx-auto max-w-3xl px-6">
-          {/* Arabic body */}
           <div className="whitespace-pre-line text-base leading-loose text-foreground">
-            {post.body_ar}
-          </div>
-
-          {/* English body */}
-          <div dir="ltr" className="mt-12 border-t border-white/10 pt-8 text-left">
-            <p className="mb-4 text-xs font-medium text-gold">English Version</p>
-            <div className="whitespace-pre-line text-sm leading-relaxed text-muted">
-              {post.body_en}
-            </div>
+            {body}
           </div>
 
           <div className="mt-12">
             <Link href="/blog" className="text-sm text-gold transition-colors hover:text-gold-light">
-              → العودة للمدونة · Back to Blog
+              {t("→ العودة للمدونة", "← Back to Blog")}
             </Link>
           </div>
         </div>

@@ -50,7 +50,7 @@ function useRelativeTime(date: Date | null, t: (ar: string, en: string) => strin
 }
 
 export function N8nTabs() {
-  const { t } = useLang();
+  const { t, dir } = useLang();
   const [activeTab, setActiveTab] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const isFirstRender = useRef(true);
@@ -68,7 +68,7 @@ export function N8nTabs() {
   const relativeTime = useRelativeTime(lastUpdated, t);
 
   return (
-    <div dir="rtl" className="mx-auto max-w-6xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-6xl px-4 py-8">
       {/* Header */}
       <div className="mb-6 flex items-center gap-3">
         <Activity size={24} className="text-gold" />

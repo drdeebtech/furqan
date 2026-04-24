@@ -32,7 +32,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"rating" | "sessions" | "price">("rating");
   const searchParams = useSearchParams();
-  const { t } = useLang();
+  const { t, dir } = useLang();
   const isNew = searchParams.get("new") === "1";
 
   const filtered = teachers
@@ -49,7 +49,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
     });
 
   return (
-    <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
       {isNew && (
         <>
           <BookingSteps current={1} />

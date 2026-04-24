@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { BookingForm } from "./booking-form";
 
 export const metadata: Metadata = { title: "حجز جديد" };
@@ -20,6 +21,7 @@ export default async function NewBookingPage({ searchParams }: Props) {
   const { teacher: teacherId } = await searchParams;
   if (!teacherId) redirect("/student/teachers");
 
+  const { t, dir } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -55,7 +57,7 @@ export default async function NewBookingPage({ searchParams }: Props) {
 
   const teacher = {
     id: tpRes.data.teacher_id,
-    name: profileRes.data?.full_name ?? "معلم",
+    name: profileRes.data?.full_name ?? t("معلم", "Teacher"),
     hourlyRate: Number(tpRes.data.hourly_rate),
     specialties: tpRes.data.specialties,
     recitationStandards: tpRes.data.recitation_standards,
@@ -70,7 +72,7 @@ export default async function NewBookingPage({ searchParams }: Props) {
   }));
 
   return (
-    <div dir="rtl" className="mx-auto max-w-2xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-2xl px-4 py-8">
       <BookingForm teacher={teacher} availability={availability} />
     </div>
   );

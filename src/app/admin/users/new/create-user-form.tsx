@@ -3,12 +3,14 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { UserPlus, ArrowRight, CheckCircle } from "lucide-react";
+import { useLang } from "@/lib/i18n/context";
 import { createUserFromScratch } from "../actions";
 
 const inputClass =
   "w-full rounded-xl glass-input px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus";
 
 export function CreateUserForm() {
+  const { t, dir } = useLang();
   const [role, setRole] = useState("student");
   const [state, formAction, pending] = useActionState<
     { success?: boolean; error?: string },
@@ -17,23 +19,23 @@ export function CreateUserForm() {
 
   if (state.success) {
     return (
-      <div dir="rtl" className="mx-auto max-w-lg px-4 py-12">
+      <div dir={dir} className="mx-auto max-w-lg px-4 py-12">
         <div className="glass-card rounded-xl p-8 text-center">
           <CheckCircle size={48} className="mx-auto mb-4 text-emerald-400" />
-          <h2 className="mb-2 text-xl font-bold text-gold">تم إنشاء المستخدم بنجاح</h2>
-          <p className="mb-6 text-sm text-muted">يمكن للمستخدم الآن تسجيل الدخول بالبريد الإلكتروني وكلمة المرور</p>
+          <h2 className="mb-2 text-xl font-bold text-gold">{t("تم إنشاء المستخدم بنجاح", "User created successfully")}</h2>
+          <p className="mb-6 text-sm text-muted">{t("يمكن للمستخدم الآن تسجيل الدخول بالبريد الإلكتروني وكلمة المرور", "The user can now log in with the email and password")}</p>
           <div className="flex items-center justify-center gap-4">
             <Link
               href="/admin/users"
               className="flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-medium"
             >
-              العودة للمستخدمين
+              {t("العودة للمستخدمين", "Back to Users")}
             </Link>
             <Link
               href="/admin/users/new"
               className="glass glass-pill px-4 py-2 text-sm font-medium text-foreground"
             >
-              إنشاء مستخدم آخر
+              {t("إنشاء مستخدم آخر", "Create another user")}
             </Link>
           </div>
         </div>
@@ -42,18 +44,18 @@ export function CreateUserForm() {
   }
 
   return (
-    <div dir="rtl" className="mx-auto max-w-lg px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-lg px-4 py-8">
       <Link
         href="/admin/users"
         className="mb-6 inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
       >
         <ArrowRight size={14} />
-        العودة للمستخدمين
+        {t("العودة للمستخدمين", "Back to Users")}
       </Link>
 
       <div className="glass-card rounded-xl p-6">
-        <h1 className="mb-1 text-xl font-bold text-gold">إنشاء مستخدم جديد</h1>
-        <p className="mb-6 text-sm text-muted">إضافة حساب جديد للأكاديمية</p>
+        <h1 className="mb-1 text-xl font-bold text-gold">{t("إنشاء مستخدم جديد", "Create New User")}</h1>
+        <p className="mb-6 text-sm text-muted">{t("إضافة حساب جديد للأكاديمية", "Add a new account to the academy")}</p>
 
         {state.error && (
           <div className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">
@@ -65,7 +67,7 @@ export function CreateUserForm() {
           {/* Full Name */}
           <div>
             <label htmlFor="full_name" className="mb-1 block text-sm font-medium">
-              الاسم الكامل
+              {t("الاسم الكامل", "Full Name")}
             </label>
             <input
               id="full_name"
@@ -73,14 +75,14 @@ export function CreateUserForm() {
               type="text"
               required
               className={inputClass}
-              placeholder="محمد أحمد"
+              placeholder={t("محمد أحمد", "John Doe")}
             />
           </div>
 
           {/* Email */}
           <div>
             <label htmlFor="email" className="mb-1 block text-sm font-medium">
-              البريد الإلكتروني
+              {t("البريد الإلكتروني", "Email")}
             </label>
             <input
               id="email"
@@ -96,7 +98,7 @@ export function CreateUserForm() {
           {/* Password */}
           <div>
             <label htmlFor="password" className="mb-1 block text-sm font-medium">
-              كلمة المرور <span className="text-xs text-muted">(8 أحرف على الأقل)</span>
+              {t("كلمة المرور", "Password")} <span className="text-xs text-muted">{t("(8 أحرف على الأقل)", "(min 8 characters)")}</span>
             </label>
             <input
               id="password"
@@ -113,7 +115,7 @@ export function CreateUserForm() {
           {/* Role */}
           <div>
             <label htmlFor="role" className="mb-1 block text-sm font-medium">
-              الدور
+              {t("الدور", "Role")}
             </label>
             <select
               id="role"
@@ -123,16 +125,16 @@ export function CreateUserForm() {
               onChange={(e) => setRole(e.target.value)}
               className={inputClass}
             >
-              <option value="student">طالب</option>
-              <option value="teacher">معلم</option>
-              <option value="moderator">مشرف</option>
+              <option value="student">{t("طالب", "Student")}</option>
+              <option value="teacher">{t("معلم", "Teacher")}</option>
+              <option value="moderator">{t("مشرف", "Moderator")}</option>
             </select>
           </div>
 
           {/* Phone */}
           <div>
             <label htmlFor="phone" className="mb-1 block text-sm font-medium">
-              رقم الهاتف <span className="text-xs text-muted">(اختياري)</span>
+              {t("رقم الهاتف", "Phone")} <span className="text-xs text-muted">{t("(اختياري)", "(optional)")}</span>
             </label>
             <input
               id="phone"
@@ -147,14 +149,14 @@ export function CreateUserForm() {
           {/* Country */}
           <div>
             <label htmlFor="country" className="mb-1 block text-sm font-medium">
-              الدولة <span className="text-xs text-muted">(اختياري)</span>
+              {t("الدولة", "Country")} <span className="text-xs text-muted">{t("(اختياري)", "(optional)")}</span>
             </label>
             <input
               id="country"
               name="country"
               type="text"
               className={inputClass}
-              placeholder="السعودية"
+              placeholder={t("السعودية", "Saudi Arabia")}
             />
           </div>
 
@@ -162,25 +164,25 @@ export function CreateUserForm() {
           {role === "student" && (
             <div className="space-y-4 glass-card rounded-xl p-4">
               <p className="text-sm font-medium text-gold">
-                بيانات ولي الأمر <span className="text-xs text-muted">(اختياري)</span>
+                {t("بيانات ولي الأمر", "Parent Information")} <span className="text-xs text-muted">{t("(اختياري)", "(optional)")}</span>
               </p>
 
               <div>
                 <label htmlFor="parent_name" className="mb-1 block text-sm font-medium">
-                  اسم ولي الأمر
+                  {t("اسم ولي الأمر", "Parent Name")}
                 </label>
                 <input
                   id="parent_name"
                   name="parent_name"
                   type="text"
                   className={inputClass}
-                  placeholder="أحمد محمد"
+                  placeholder={t("أحمد محمد", "Ahmed Mohamed")}
                 />
               </div>
 
               <div>
                 <label htmlFor="parent_phone" className="mb-1 block text-sm font-medium">
-                  هاتف ولي الأمر
+                  {t("هاتف ولي الأمر", "Parent Phone")}
                 </label>
                 <input
                   id="parent_phone"
@@ -194,7 +196,7 @@ export function CreateUserForm() {
 
               <div>
                 <label htmlFor="parent_email" className="mb-1 block text-sm font-medium">
-                  بريد ولي الأمر
+                  {t("بريد ولي الأمر", "Parent Email")}
                 </label>
                 <input
                   id="parent_email"
@@ -208,7 +210,7 @@ export function CreateUserForm() {
 
               <div>
                 <label htmlFor="date_of_birth" className="mb-1 block text-sm font-medium">
-                  تاريخ الميلاد
+                  {t("تاريخ الميلاد", "Date of Birth")}
                 </label>
                 <input
                   id="date_of_birth"
@@ -232,7 +234,7 @@ export function CreateUserForm() {
             ) : (
               <>
                 <UserPlus size={18} />
-                إنشاء المستخدم
+                {t("إنشاء المستخدم", "Create User")}
               </>
             )}
           </button>

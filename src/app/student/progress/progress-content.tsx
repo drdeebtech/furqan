@@ -42,7 +42,7 @@ interface ProgressData {
 }
 
 export function ProgressContent({ data }: { data: ProgressData }) {
-  const { t } = useLang();
+  const { t, dir } = useLang();
   const { completedCount, currentLevel, avgQuality, juzTouched, totalHours, evalScores, hwStats, latestEval, progressRecords } = data;
 
   const level = LEVEL_CONFIG[currentLevel] ?? LEVEL_CONFIG.beginner;
@@ -59,7 +59,7 @@ export function ProgressContent({ data }: { data: ProgressData }) {
   ];
 
   return (
-    <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="mb-2 flex items-center gap-2 font-display text-2xl font-bold">
         <TrendingUp size={24} className="text-gold" /> {t("تقدمي في تعلم القرآن", "My Quran Progress")}
       </h1>
