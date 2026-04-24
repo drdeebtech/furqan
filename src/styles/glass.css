@@ -28,12 +28,11 @@
   transition: var(--glass-spring);
 }
 
-/* Subtle diagonal specular highlight.
- * Tuned down from the original 0.18 + overlay: on wide horizontal rows
- * (notifications, table rows) a 20%-wide bright band at mix-blend-mode:overlay
- * read as a dull gray stripe across the whole card. Narrower band, lower
- * alpha, and soft-light instead of overlay keeps the "light catching glass"
- * intent without the distracting horizontal-stripe artefact on long rows. */
+/* Specular streak is HIDDEN at rest and revealed on hover.
+ * Long horizontal lists (notifications, table rows) used to show a dull gray
+ * band on every row — visually noisy and aspect-ratio dependent. Hiding at
+ * rest keeps lists clean; showing on hover turns the streak into a hover
+ * affordance that says "this surface is alive" without being permanent. */
 .glass-card::before {
   content: '';
   position: absolute;
@@ -41,13 +40,30 @@
   border-radius: inherit;
   background: linear-gradient(
     105deg,
-    transparent 45%,
-    rgba(255, 255, 255, 0.08) 50%,
-    transparent 55%
+    transparent 40%,
+    rgba(255, 255, 255, 0.14) 50%,
+    transparent 60%
   );
   pointer-events: none;
   mix-blend-mode: soft-light;
   z-index: 1;
+  opacity: 0;
+  transform: translateX(-8%);
+  transition: opacity 0.35s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* On hover: streak fades in AND glides across the card, like light catching
+ * glass as it tilts. The translate is subtle — the user perceives motion
+ * rather than watches a stripe swipe by. */
+.glass-card:hover::before {
+  opacity: 1;
+  transform: translateX(8%);
+}
+
+/* Subtle border-color lift on hover so non-interactive cards still feel
+ * responsive without implying they're buttons. */
+.glass-card:hover {
+  border-color: rgba(255, 255, 255, 0.26);
 }
 
 /* =====================
