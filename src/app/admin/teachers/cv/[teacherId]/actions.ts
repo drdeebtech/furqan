@@ -4,6 +4,55 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { notify } from "@/lib/notifications/dispatcher";
 
+export type AdminCvSaveResult = { error?: string; success?: boolean };
+
+function parseCsv(raw: FormDataEntryValue | null): string[] {
+  if (typeof raw !== "string") return [];
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+export async function saveCvAsAdmin(
+  teacherId: string,
+  _prev: AdminCvSaveResult,
+  formData: FormData,
+): Promise<AdminCvSaveResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "غير مصرح" };
+
+  const bio = (formData.get("bio") as string | null)?.trim() || null;
+  const bioEn = (formData.get("bio_en") as string | null)?.trim() || null;
+  const introVideoUrl =
+    (formData.get("intro_video_url") as string | null)?.trim() || null;
+  const specialties = parseCsv(formData.get("specialties"));
+  const languages = parseCsv(formData.get("languages"));
+  const recitationStandards = parseCsv(formData.get("recitation_standards"));
+
+  const { error } = await supabase
+    .from("teacher_profiles")
+    .update({
+      bio,
+      bio_en: bioEn,
+      intro_video_url: introVideoUrl,
+      specialties,
+      languages,
+      recitation_standards: recitationStandards,
+    } as never)
+    .eq("teacher_id", teacherId);
+
+  if (error) return { error: "فشل حفظ السيرة الذاتية" };
+
+  revalidatePath(`/admin/teachers/cv/${teacherId}`);
+  revalidatePath("/admin/teachers/cv");
+  revalidatePath("/teacher/cv");
+  return { success: true };
+}
+
 export async function approveCv(teacherId: string) {
   const supabase = await createClient();
   const {

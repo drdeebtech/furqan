@@ -5,6 +5,7 @@ import { FileText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { CvReviewControls } from "./cv-review-controls";
+import { CvEditForm } from "./cv-edit-form";
 
 export const metadata: Metadata = { title: "مراجعة السيرة الذاتية" };
 
@@ -52,22 +53,14 @@ export default async function AdminCvReviewPage({
     .single<{ full_name: string | null }>();
   const teacherName = nameRow?.full_name ?? t("معلم", "Teacher");
 
-  const renderList = (items: string[] | null) => {
-    if (!items || items.length === 0)
-      return <span className="text-muted">{t("غير محدد", "Unspecified")}</span>;
-    return (
-      <div className="flex flex-wrap gap-2">
-        {items.map((item) => (
-          <span
-            key={item}
-            className="glass glass-pill px-3 py-1 text-xs text-gold"
-          >
-            {item}
-          </span>
-        ))}
-      </div>
-    );
-  };
+  const statusLabel =
+    profile.cv_status === "approved"
+      ? t("معتمد", "Approved")
+      : profile.cv_status === "pending_review"
+      ? t("قيد المراجعة", "Pending review")
+      : profile.cv_status === "rejected"
+      ? t("مرفوض", "Rejected")
+      : t("مسودة", "Draft");
 
   return (
     <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
@@ -84,78 +77,12 @@ export default async function AdminCvReviewPage({
         </Link>
       </div>
 
-      {/* CV Details */}
-      <div className="mb-6 space-y-5 glass-card p-6">
-        {/* Bio (Arabic) */}
-        <div>
-          <h3 className="mb-2 text-sm font-medium text-muted">
-            {t("نبذة تعريفية (عربي)", "Bio (Arabic)")}
-          </h3>
-          <p dir="rtl" className="whitespace-pre-wrap text-foreground">
-            {profile.bio || (
-              <span className="text-muted">{t("لم يتم إضافة نبذة", "No bio added")}</span>
-            )}
-          </p>
-        </div>
-
-        {/* Bio (English) */}
-        <div>
-          <h3 className="mb-2 text-sm font-medium text-muted">
-            {t("نبذة تعريفية (إنجليزي)", "Bio (English)")}
-          </h3>
-          <p dir="ltr" className="whitespace-pre-wrap text-left text-foreground">
-            {profile.bio_en || (
-              <span className="text-muted">{t("لم يتم إضافة نبذة إنجليزية", "No English bio added")}</span>
-            )}
-          </p>
-        </div>
-
-        {/* Specialties */}
-        <div>
-          <h3 className="mb-2 text-sm font-medium text-muted">
-            {t("التخصصات", "Specialties")}
-          </h3>
-          {renderList(profile.specialties)}
-        </div>
-
-        {/* Languages */}
-        <div>
-          <h3 className="mb-2 text-sm font-medium text-muted">
-            {t("اللغات", "Languages")}
-          </h3>
-          {renderList(profile.languages)}
-        </div>
-
-        {/* Recitation Standards */}
-        <div>
-          <h3 className="mb-2 text-sm font-medium text-muted">
-            {t("معايير القراءة", "Recitation Standards")}
-          </h3>
-          {renderList(profile.recitation_standards)}
-        </div>
-
-        {/* Intro Video */}
-        <div>
-          <h3 className="mb-2 text-sm font-medium text-muted">
-            {t("رابط فيديو تعريفي", "Intro Video")}
-          </h3>
-          {profile.intro_video_url ? (
-            <a
-              href={profile.intro_video_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              dir="ltr"
-              className="text-sm text-gold hover:text-gold-light"
-            >
-              {profile.intro_video_url}
-            </a>
-          ) : (
-            <span className="text-muted">{t("لم يتم إضافة فيديو", "No video added")}</span>
-          )}
-        </div>
-
-        {/* Submitted date */}
-        <div className="border-t border-white/10 pt-4 text-xs text-muted">
+      {/* Status + submission meta */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 glass-card p-4 text-xs text-muted">
+        <span className="text-foreground">
+          {t("الحالة", "Status")}: <span className="text-gold">{statusLabel}</span>
+        </span>
+        <span>
           {t("تاريخ الإرسال", "Submitted")}:{" "}
           {profile.cv_submitted_at
             ? new Date(profile.cv_submitted_at).toLocaleDateString(locale, {
@@ -164,7 +91,20 @@ export default async function AdminCvReviewPage({
                 day: "numeric",
               })
             : t("غير محدد", "Unspecified")}
-        </div>
+        </span>
+      </div>
+
+      {/* Edit form */}
+      <div className="mb-6">
+        <CvEditForm
+          teacherId={teacherId}
+          bio={profile.bio ?? ""}
+          bioEn={profile.bio_en ?? ""}
+          specialties={profile.specialties ?? []}
+          languages={profile.languages ?? []}
+          recitationStandards={profile.recitation_standards ?? []}
+          introVideoUrl={profile.intro_video_url ?? ""}
+        />
       </div>
 
       {/* Review Controls */}

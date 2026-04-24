@@ -90,7 +90,15 @@ export default async function TeacherDetailPage({ params }: Props) {
     <div dir={dir} className="mx-auto max-w-3xl px-4 py-8">
       <Link href="/admin/teachers" className="mb-6 inline-block text-sm text-gold hover:text-gold-light">{t("→ العودة للمعلمين", "← Back to Teachers")}</Link>
 
-      <h1 className="mb-2 text-2xl font-bold">{profile?.full_name ?? t("معلم", "Teacher")}</h1>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">{profile?.full_name ?? t("معلم", "Teacher")}</h1>
+        <Link
+          href={`/admin/teachers/cv/${id}`}
+          className="glass-gold glass-pill px-4 py-2 text-sm font-medium transition-colors hover:bg-gold-hover"
+        >
+          {t("عرض وتعديل السيرة الذاتية", "View & edit CV")}
+        </Link>
+      </div>
       <div className="mb-6 flex gap-3 text-sm text-muted">
         <span>{tp.total_sessions} {t("جلسة", "sessions")}</span>
         <span>{t("تقييم", "Rating")} {Number(tp.rating_avg).toFixed(1)}</span>
