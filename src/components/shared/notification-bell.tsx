@@ -92,7 +92,13 @@ export function NotificationBell() {
       >
         <Bell size={18} className="text-[var(--muted)]" />
         {unreadCount > 0 && (
-          <span className="absolute -end-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+          <span
+            className="absolute -end-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-gradient-to-b from-rose-500 to-rose-600 px-1.5 text-[10px] font-semibold leading-none text-white ring-1 ring-inset ring-white/25"
+            style={{
+              boxShadow:
+                "0 0 0 2px var(--surface), 0 2px 6px -1px rgba(244,63,94,0.45)",
+            }}
+          >
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
