@@ -10,7 +10,11 @@ import {
   Filter,
   CheckCircle2,
   HeartPulse,
+  ExternalLink,
 } from "lucide-react";
+
+const N8N_UI_BASE =
+  process.env.NEXT_PUBLIC_N8N_UI_URL ?? "https://n8n.drdeeb.tech";
 import { useLang } from "@/lib/i18n/context";
 import { toggleWorkflowAction, autoRestartAction } from "@/lib/n8n/actions";
 
@@ -409,7 +413,19 @@ export function OverviewTab() {
                 {/* Info */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium">{wf.name}</p>
+                    <a
+                      href={`${N8N_UI_BASE}/workflow/${wf.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group inline-flex items-center gap-1 text-sm font-medium hover:text-gold"
+                      title={t("افتح في n8n", "Open in n8n")}
+                    >
+                      {wf.name}
+                      <ExternalLink
+                        size={11}
+                        className="text-muted/60 transition-colors group-hover:text-gold"
+                      />
+                    </a>
                     {wfSuccessRate !== null ? (
                       <span
                         className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${

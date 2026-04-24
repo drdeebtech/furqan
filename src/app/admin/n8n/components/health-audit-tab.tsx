@@ -11,10 +11,14 @@ import {
   Link2Off,
   Flame,
   BellOff,
+  ExternalLink,
 } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { SeverityBadge } from "./severity-badge";
 import type { AuditReport, AuditIssue, IssueCategory } from "@/lib/n8n/audit";
+
+const N8N_UI_BASE =
+  process.env.NEXT_PUBLIC_N8N_UI_URL ?? "https://n8n.drdeeb.tech";
 
 const categoryLabels: Record<IssueCategory, { ar: string; en: string }> = {
   duplicate: { ar: "مكرر", en: "Duplicate" },
@@ -181,7 +185,15 @@ export function HealthAuditTab() {
                           )}
                         </td>
                         <td className="max-w-[160px] truncate px-4 py-2.5 text-xs" title={issue.workflowName}>
-                          {issue.workflowName}
+                          <a
+                            href={`${N8N_UI_BASE}/workflow/${issue.workflowId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 hover:text-gold"
+                          >
+                            {issue.workflowName}
+                            <ExternalLink size={10} className="shrink-0 text-muted/60" />
+                          </a>
                         </td>
                         <td className="max-w-[120px] truncate px-4 py-2.5 text-xs text-muted" title={issue.node ?? ""}>
                           {issue.node ?? "—"}
@@ -224,9 +236,16 @@ export function HealthAuditTab() {
 
                   {/* Name + details */}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium" title={wf.workflowName}>
-                      {wf.workflowName}
-                    </p>
+                    <a
+                      href={`${N8N_UI_BASE}/workflow/${wf.workflowId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group inline-flex items-center gap-1 truncate text-sm font-medium hover:text-gold"
+                      title={wf.workflowName}
+                    >
+                      <span className="truncate">{wf.workflowName}</span>
+                      <ExternalLink size={11} className="shrink-0 text-muted/60 transition-colors group-hover:text-gold" />
+                    </a>
                     <div className="mt-0.5 flex flex-wrap gap-3 text-xs text-muted">
                       <span>
                         {t("نسبة النجاح", "Success Rate")}: {(wf.successRate * 100).toFixed(0)}%
