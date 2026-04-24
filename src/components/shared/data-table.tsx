@@ -1,6 +1,7 @@
 "use client";
 
 import { Eye } from "lucide-react";
+import { useLang } from "@/lib/i18n/context";
 import { WidgetCard } from "./widget-card";
 
 interface DataTableColumn {
@@ -23,6 +24,7 @@ interface DataTableProps {
 }
 
 export function DataTable({ title, columns, rows, emptyMessage }: DataTableProps) {
+  const { t } = useLang();
   return (
     <WidgetCard title={title} subtitle={rows.length > 0 ? `${rows.length}` : undefined}>
       {rows.length === 0 ? (
@@ -51,7 +53,7 @@ export function DataTable({ title, columns, rows, emptyMessage }: DataTableProps
                 <tr key={row.id} className="border-t border-[var(--surface-divider,#F0F0F2)] transition-colors hover:bg-[var(--surface-hover,rgba(0,0,0,0.02))]">
                   {columns.map((col) => (
                     <td key={col.key} className="py-4 text-[13px] tabular-nums">
-                      {renderCell(col, row[col.key])}
+                      {renderCell(col, row[col.key], t)}
                     </td>
                   ))}
                 </tr>
@@ -64,7 +66,7 @@ export function DataTable({ title, columns, rows, emptyMessage }: DataTableProps
   );
 }
 
-function renderCell(col: DataTableColumn, value: unknown) {
+function renderCell(col: DataTableColumn, value: unknown, t: (ar: string, en: string) => string) {
   const str = String(value ?? "—");
 
   switch (col.type) {
@@ -116,7 +118,7 @@ function renderCell(col: DataTableColumn, value: unknown) {
 
     case "actions":
       return (
-        <span role="button" tabIndex={0} aria-label="عرض">
+        <span role="button" tabIndex={0} aria-label={t("عرض", "View")}>
           <Eye size={16} className="text-[var(--muted-light,#9CA3AF)]" />
         </span>
       );

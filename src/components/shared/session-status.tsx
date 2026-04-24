@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Circle, Clock, CheckCircle, XCircle, Radio } from "lucide-react";
+import { useLang } from "@/lib/i18n/context";
 
 type SessionState = "upcoming" | "live" | "ended" | "expired";
 
@@ -67,6 +68,7 @@ export function SessionStatus({
   showLabel?: boolean;
   size?: "sm" | "md";
 }) {
+  const { lang } = useLang();
   const [state, setState] = useState<SessionState>(() =>
     computeState(scheduledAt, durationMin, expiresAt, endedAt),
   );
@@ -96,7 +98,7 @@ export function SessionStatus({
         size={iconSize}
         className={state === "live" ? "animate-pulse" : ""}
       />
-      {showLabel && config.label}
+      {showLabel && (lang === "ar" ? config.label : config.en)}
     </span>
   );
 }
