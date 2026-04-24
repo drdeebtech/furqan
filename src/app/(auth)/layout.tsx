@@ -2,18 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { CheckCircle } from "lucide-react";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function AuthLayout({
+export default async function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { t, dir, lang } = await getT();
   return (
-    <div dir="rtl" className="flex min-h-screen">
+    <div dir={dir} className="flex min-h-screen">
       {/* Branding panel */}
       <div className="hidden flex-col justify-center border-l border-white/10 glass-card p-12 md:flex md:w-1/2">
         <div className="mx-auto max-w-sm">
@@ -21,7 +23,7 @@ export default function AuthLayout({
             <Image src="/logo-192.png" alt="فرقان" width={48} height={48} className="rounded-full" priority />
             <span className="font-display text-4xl font-bold text-gold">فُرقان</span>
           </Link>
-          <p className="mt-3 text-lg">أكاديمية القرآن الكريم</p>
+          <p className="mt-3 text-lg">{t("أكاديمية القرآن الكريم", "Online Quran Academy")}</p>
           <p className="mt-1 text-sm text-muted">FURQAN Online Quran Academy</p>
 
           <div className="my-8 h-px bg-white/10" />
@@ -34,8 +36,8 @@ export default function AuthLayout({
             <div key={f.en} className="mb-4 flex items-start gap-3">
               <CheckCircle size={18} className="mt-0.5 shrink-0 text-gold" />
               <div>
-                <p className="text-sm font-medium">{f.ar}</p>
-                <p className="text-xs text-muted">{f.en}</p>
+                <p className="text-sm font-medium">{lang === "ar" ? f.ar : f.en}</p>
+                {lang === "ar" && <p className="text-xs text-muted">{f.en}</p>}
               </div>
             </div>
           ))}
@@ -50,7 +52,7 @@ export default function AuthLayout({
       <div className="flex w-full flex-col justify-center px-4 py-12 md:w-1/2 md:px-12">
         <div className="mx-auto w-full max-w-md">
           <Link href="/" className="mb-6 inline-block text-sm text-gold transition-colors hover:text-gold-light">
-            العودة للرئيسية →
+            {t("العودة للرئيسية →", "← Back to Home")}
           </Link>
           <div className="mb-8 md:hidden">
             <span className="font-display text-2xl font-bold text-gold">فُرقان</span>

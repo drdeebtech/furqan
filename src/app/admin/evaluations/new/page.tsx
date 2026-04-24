@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ClipboardCheck, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { EvaluationForm } from "./evaluation-form";
 
 export const metadata: Metadata = { title: "إنشاء تقييم جديد" };
@@ -14,6 +15,7 @@ interface ProfileOption {
 }
 
 export default async function NewEvaluationPage() {
+  const { t, dir } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -36,28 +38,28 @@ export default async function NewEvaluationPage() {
 
   const students = (studentsRes.data ?? []).map((p) => ({
     id: p.id,
-    name: p.full_name ?? "طالب",
+    name: p.full_name ?? t("طالب", "Student"),
   }));
 
   const teachers = (teachersRes.data ?? []).map((p) => ({
     id: p.id,
-    name: p.full_name ?? "معلم",
+    name: p.full_name ?? t("معلم", "Teacher"),
   }));
 
   return (
-    <div dir="rtl" className="mx-auto max-w-3xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-3xl px-4 py-8">
       {/* Back link */}
       <Link
         href="/admin/evaluations"
         className="mb-4 inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-foreground"
       >
         <ArrowRight size={14} />
-        العودة للتقييمات
+        {t("العودة للتقييمات", "Back to Evaluations")}
       </Link>
 
       <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold">
         <ClipboardCheck size={24} className="text-gold" />
-        إنشاء تقييم جديد
+        {t("إنشاء تقييم جديد", "New Evaluation")}
       </h1>
 
       <div className="glass-card p-6">
