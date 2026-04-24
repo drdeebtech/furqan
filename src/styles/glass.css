@@ -112,7 +112,10 @@
   transition: var(--glass-spring);
 }
 
-/* Bright diagonal specular */
+/* Specular streak is HIDDEN at rest and revealed on hover — same pattern as
+ * .glass-card::before. On a grid of many small tiles (e.g. the 30-juz
+ * progress tracker) the permanent streak read as 30 competing highlights
+ * rather than a considered finish. Hover-only keeps dense grids calm. */
 .glass::before {
   content: '';
   position: absolute;
@@ -120,15 +123,21 @@
   border-radius: inherit;
   background: linear-gradient(
     105deg,
-    transparent 35%,
-    rgba(255, 255, 255, 0.12) 42%,
-    rgba(255, 255, 255, 0.22) 50%,
-    rgba(255, 255, 255, 0.12) 58%,
-    transparent 65%
+    transparent 40%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 60%
   );
   pointer-events: none;
-  mix-blend-mode: overlay;
+  mix-blend-mode: soft-light;
   z-index: 1;
+  opacity: 0;
+  transform: translateX(-8%);
+  transition: opacity 0.3s ease, transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.glass:hover::before {
+  opacity: 1;
+  transform: translateX(8%);
 }
 
 .glass:hover {
