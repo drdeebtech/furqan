@@ -3,12 +3,14 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { BookOpen, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import type { HomeworkAssignment } from "@/types/database";
 import { HomeworkList } from "./homework-list";
 
 export const metadata: Metadata = { title: "الواجبات" };
 
 export default async function TeacherHomeworkPage() {
+  const { t, dir } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -38,27 +40,26 @@ export default async function TeacherHomeworkPage() {
       .in("id", studentIds)
       .returns<{ id: string; full_name: string | null }[]>();
     for (const p of profiles ?? []) {
-      nameMap[p.id] = p.full_name ?? "طالب";
+      nameMap[p.id] = p.full_name ?? t("طالب", "Student");
     }
   }
 
   return (
-    <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center gap-3">
         <BookOpen size={24} className="text-gold" />
-        <h1 className="text-xl font-bold">الواجبات</h1>
-        <span className="text-sm text-muted">Homework</span>
+        <h1 className="text-xl font-bold">{t("الواجبات", "Homework")}</h1>
       </div>
 
       {!assignments || assignments.length === 0 ? (
         <div className="glass-card p-12 text-center">
           <Inbox size={40} className="mx-auto mb-3 text-muted/40" />
-          <p className="text-muted">لا توجد واجبات بعد</p>
+          <p className="text-muted">{t("لا توجد واجبات بعد", "No homework yet")}</p>
           <p className="mt-1 text-sm text-muted/60">
-            يمكنك إنشاء واجب بعد إكمال أي جلسة من صفحة الجلسات
+            {t("يمكنك إنشاء واجب بعد إكمال أي جلسة من صفحة الجلسات", "Assign homework after completing a session from the sessions page")}
           </p>
           <Link href="/teacher/sessions" className="mt-4 inline-block text-sm text-gold hover:text-gold-hover">
-            الذهاب للجلسات ←
+            {t("الذهاب للجلسات ←", "Go to Sessions →")}
           </Link>
         </div>
       ) : (

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 export const metadata: Metadata = { title: "المواعيد" };
 import { Calendar, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { SlotForm } from "./slot-form";
 import { DeleteSlotButton } from "./delete-slot-button";
 
@@ -37,6 +38,7 @@ interface SlotRow {
 }
 
 export default async function TeacherAvailabilityPage() {
+  const { t, dir, lang } = await getT();
   const supabase = await createClient();
 
   const {
@@ -62,28 +64,25 @@ export default async function TeacherAvailabilityPage() {
   }, {});
 
   return (
-    <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="mb-6 text-2xl font-bold">
         <Calendar size={24} className="ml-2 inline text-gold" />
-        إدارة المواعيد
+        {t("إدارة المواعيد", "Manage Availability")}
       </h1>
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Left: Current slots */}
         <div>
           <h2 className="mb-4 text-lg font-semibold">
-            المواعيد الحالية
-            <span className="mr-2 text-sm font-normal text-muted">
-              Current slots
-            </span>
+            {t("المواعيد الحالية", "Current Slots")}
           </h2>
 
           {list.length === 0 ? (
             <div className="glass-card p-8 text-center">
               <Inbox size={32} className="mx-auto mb-3 text-muted" />
-              <p className="text-muted">لا توجد مواعيد بعد</p>
+              <p className="text-muted">{t("لا توجد مواعيد بعد", "No slots yet")}</p>
               <p className="mt-1 text-xs text-muted">
-                أضف مواعيد إتاحتك حتى يتمكن الطلاب من حجز جلسات معك
+                {t("أضف مواعيد إتاحتك حتى يتمكن الطلاب من حجز جلسات معك", "Add availability slots so students can book sessions with you")}
               </p>
             </div>
           ) : (
@@ -93,10 +92,7 @@ export default async function TeacherAvailabilityPage() {
                 .map(([day, daySlots]) => (
                   <div key={day}>
                     <h3 className="mb-2 text-sm font-medium text-gold">
-                      {DAY_AR[Number(day)]}
-                      <span className="mr-1 text-xs text-muted">
-                        {DAY_EN[Number(day)]}
-                      </span>
+                      {lang === "ar" ? DAY_AR[Number(day)] : DAY_EN[Number(day)]}
                     </h3>
                     <div className="space-y-2">
                       {daySlots.map((slot) => (
@@ -113,7 +109,7 @@ export default async function TeacherAvailabilityPage() {
                               {slot.end_time.slice(0, 5)}
                             </span>
                             <span className="mr-3 text-xs text-muted">
-                              {slot.slot_duration} دقيقة
+                              {slot.slot_duration} {t("دقيقة", "min")}
                             </span>
                           </div>
                           <DeleteSlotButton slotId={slot.id} />
