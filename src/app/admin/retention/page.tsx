@@ -5,10 +5,13 @@ import { AlertTriangle, TrendingDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { riskTone, riskLabel } from "@/lib/retention/ui";
 import { isFeatureDisabled } from "@/lib/settings";
+import { getT } from "@/lib/i18n/server";
 import { InterventionButton } from "./intervention-button";
 import { RunScorerButton } from "./run-scorer-button";
 import { RetentionFilters } from "./filters";
 import type { InterventionType } from "./actions";
+
+type Lang = "ar" | "en";
 
 type RiskFilter = "all" | "critical" | "high" | "medium" | "low";
 type PkgFilter = "all" | "active" | "low" | "expiring" | "none";
@@ -61,21 +64,27 @@ interface SignalRow {
   computed_at: string;
 }
 
-function daysAgo(iso: string | null): string {
+function daysAgo(iso: string | null, lang: Lang): string {
   if (!iso) return "—";
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 60 * 60 * 1000));
-  if (days === 0) return "اليوم";
-  if (days === 1) return "أمس";
-  return `قبل ${days} يوم`;
+  if (lang === "ar") {
+    if (days === 0) return "اليوم";
+    if (days === 1) return "أمس";
+    return `قبل ${days} يوم`;
+  }
+  if (days === 0) return "today";
+  if (days === 1) return "yesterday";
+  return `${days}d ago`;
 }
 
-function recommendedAction(s: SignalRow): { type: InterventionType; label: string } | null {
+function recommendedAction(s: SignalRow, lang: Lang): { type: InterventionType; label: string } | null {
   const risk = s.churn_risk_score ?? 0;
-  if (risk >= 75) return { type: "urgent_contact", label: "تواصل فوري" };
-  if (s.package_remaining !== null && s.package_remaining <= 2) return { type: "renewal_offer", label: "عرض تجديد" };
-  if (s.package_expires_at && new Date(s.package_expires_at).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000) return { type: "expiry_reminder", label: "تذكير انتهاء" };
-  if (!s.last_session_at || Date.now() - new Date(s.last_session_at).getTime() > 14 * 24 * 60 * 60 * 1000) return { type: "re_engagement", label: "إعادة تفعيل" };
-  if (risk >= 60) return { type: "weekly_followup", label: "متابعة أسبوعية" };
+  const labelAr = (ar: string, en: string) => (lang === "ar" ? ar : en);
+  if (risk >= 75) return { type: "urgent_contact", label: labelAr("تواصل فوري", "Urgent contact") };
+  if (s.package_remaining !== null && s.package_remaining <= 2) return { type: "renewal_offer", label: labelAr("عرض تجديد", "Renewal offer") };
+  if (s.package_expires_at && new Date(s.package_expires_at).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000) return { type: "expiry_reminder", label: labelAr("تذكير انتهاء", "Expiry reminder") };
+  if (!s.last_session_at || Date.now() - new Date(s.last_session_at).getTime() > 14 * 24 * 60 * 60 * 1000) return { type: "re_engagement", label: labelAr("إعادة تفعيل", "Re-engage") };
+  if (risk >= 60) return { type: "weekly_followup", label: labelAr("متابعة أسبوعية", "Weekly follow-up") };
   return null;
 }
 
@@ -84,6 +93,7 @@ interface Props {
 }
 
 export default async function RetentionPage({ searchParams }: Props) {
+  const { t, dir, lang } = await getT();
   const sp = await searchParams;
   const filters = {
     risk: (sp.risk as RiskFilter) ?? "all",
@@ -115,7 +125,7 @@ export default async function RetentionPage({ searchParams }: Props) {
         .returns<{ id: string; full_name: string | null; parent_email: string | null }[]>()
     : { data: [] };
 
-  const nameById = new Map((profiles ?? []).map(p => [p.id, p.full_name ?? "بدون اسم"]));
+  const nameById = new Map((profiles ?? []).map(p => [p.id, p.full_name ?? t("بدون اسم", "No name")]));
 
   const critical = allSignals.filter(r => (r.churn_risk_score ?? 0) >= 75).length;
   const high = allSignals.filter(r => (r.churn_risk_score ?? 0) >= 60 && (r.churn_risk_score ?? 0) < 75).length;
@@ -123,18 +133,22 @@ export default async function RetentionPage({ searchParams }: Props) {
   const filtered = rows.length !== allSignals.length;
 
   return (
-    <div dir="rtl" className="mx-auto max-w-6xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <TrendingDown size={24} className="text-gold" />
           <div>
-            <h1 className="text-xl font-bold">إشارات البقاء</h1>
-            <p className="text-xs text-muted">{lastComputed ? `آخر حساب ${daysAgo(lastComputed)}` : "لم يُحسب بعد"}</p>
+            <h1 className="text-xl font-bold">{t("إشارات البقاء", "Retention Signals")}</h1>
+            <p className="text-xs text-muted">
+              {lastComputed
+                ? (lang === "ar" ? `آخر حساب ${daysAgo(lastComputed, lang)}` : `Last run ${daysAgo(lastComputed, lang)}`)
+                : t("لم يُحسب بعد", "Not computed yet")}
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-sm">
-          <span className="rounded-full bg-red-500/10 px-3 py-1 font-bold text-red-400">{critical} حرج</span>
-          <span className="rounded-full bg-orange-500/10 px-3 py-1 font-bold text-orange-400">{high} مرتفع</span>
+          <span className="rounded-full bg-red-500/10 px-3 py-1 font-bold text-red-400">{critical} {t("حرج", "Critical")}</span>
+          <span className="rounded-full bg-orange-500/10 px-3 py-1 font-bold text-orange-400">{high} {t("مرتفع", "High")}</span>
           <RunScorerButton />
         </div>
       </div>
@@ -146,8 +160,14 @@ export default async function RetentionPage({ searchParams }: Props) {
           <AlertTriangle size={32} className="mx-auto mb-3 text-muted" />
           <p className="text-sm">
             {filtered
-              ? "لا توجد نتائج مطابقة لهذه التصفية. جرّب تعديل المرشحات أو مسحها."
-              : "لا توجد إشارات محسوبة بعد. اضغط 'تشغيل الآن' أو انتظر التشغيل التلقائي لـ n8n."}
+              ? t(
+                  "لا توجد نتائج مطابقة لهذه التصفية. جرّب تعديل المرشحات أو مسحها.",
+                  "No results match this filter. Try adjusting or clearing the filters.",
+                )
+              : t(
+                  "لا توجد إشارات محسوبة بعد. اضغط 'تشغيل الآن' أو انتظر التشغيل التلقائي لـ n8n.",
+                  "No signals computed yet. Click 'Run Now' or wait for the n8n cron.",
+                )}
           </p>
         </div>
       ) : (
@@ -155,20 +175,22 @@ export default async function RetentionPage({ searchParams }: Props) {
           <table className="w-full text-sm">
             <thead className="border-b border-white/5 bg-white/[0.02] text-xs text-muted">
               <tr>
-                <th className="px-4 py-3 text-right font-medium">الطالب</th>
-                <th className="px-4 py-3 text-right font-medium">الخطر</th>
-                <th className="px-4 py-3 text-right font-medium">التفاعل</th>
-                <th className="px-4 py-3 text-right font-medium">آخر جلسة</th>
-                <th className="px-4 py-3 text-right font-medium">آخر حجز</th>
-                <th className="px-4 py-3 text-right font-medium">الباقة</th>
-                <th className="px-4 py-3 text-right font-medium">الإجراء المقترح</th>
+                <th className="px-4 py-3 text-right font-medium">{t("الطالب", "Student")}</th>
+                <th className="px-4 py-3 text-right font-medium">{t("الخطر", "Risk")}</th>
+                <th className="px-4 py-3 text-right font-medium">{t("التفاعل", "Engagement")}</th>
+                <th className="px-4 py-3 text-right font-medium">{t("آخر جلسة", "Last Session")}</th>
+                <th className="px-4 py-3 text-right font-medium">{t("آخر حجز", "Last Booking")}</th>
+                <th className="px-4 py-3 text-right font-medium">{t("الباقة", "Package")}</th>
+                <th className="px-4 py-3 text-right font-medium">{t("الإجراء المقترح", "Suggested Action")}</th>
               </tr>
             </thead>
             <tbody>
               {rows.map(r => {
                 const risk = r.churn_risk_score ?? 0;
-                const pkg = r.package_remaining === null ? "بدون باقة" : `${r.package_remaining} جلسة`;
-                const action = recommendedAction(r);
+                const pkg = r.package_remaining === null
+                  ? t("بدون باقة", "No package")
+                  : (lang === "ar" ? `${r.package_remaining} جلسة` : `${r.package_remaining} sessions`);
+                const action = recommendedAction(r, lang);
                 return (
                   <tr key={r.student_id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
                     <td className="px-4 py-3">
@@ -178,8 +200,8 @@ export default async function RetentionPage({ searchParams }: Props) {
                     </td>
                     <td className={`px-4 py-3 font-bold ${riskTone(risk)}`}>{risk.toFixed(0)} · {riskLabel(risk)}</td>
                     <td className="px-4 py-3 text-muted">{(r.engagement_score ?? 0).toFixed(0)}</td>
-                    <td className="px-4 py-3 text-muted">{daysAgo(r.last_session_at)}</td>
-                    <td className="px-4 py-3 text-muted">{daysAgo(r.last_booking_at)}</td>
+                    <td className="px-4 py-3 text-muted">{daysAgo(r.last_session_at, lang)}</td>
+                    <td className="px-4 py-3 text-muted">{daysAgo(r.last_booking_at, lang)}</td>
                     <td className="px-4 py-3 text-muted">{pkg}</td>
                     <td className="px-4 py-3">
                       {action ? (
@@ -190,7 +212,7 @@ export default async function RetentionPage({ searchParams }: Props) {
                           lastInterventionAt={r.last_intervention_at}
                         />
                       ) : (
-                        <span className="text-xs text-muted">مراقبة</span>
+                        <span className="text-xs text-muted">{t("مراقبة", "Monitor")}</span>
                       )}
                     </td>
                   </tr>
