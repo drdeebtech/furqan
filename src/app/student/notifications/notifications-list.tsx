@@ -79,7 +79,7 @@ export function NotificationsList({ notifications: initial }: { notifications: N
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className={`text-sm ${!n.is_read ? "font-semibold" : ""}`}>
-                      {!n.is_read && <span className="ml-1 inline-block h-2 w-2 rounded-full bg-gold" />}
+                      {!n.is_read && <span className="me-1 inline-block h-2 w-2 rounded-full bg-gold align-middle" />}
                       {n.title}
                     </p>
                     {n.body && <p className="mt-1 text-sm text-muted">{n.body}</p>}
