@@ -52,12 +52,12 @@ export default async function ModeratorEvaluationsPage() {
         <div className="glass-card overflow-hidden rounded-xl p-0">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-white/10 bg-white/5">
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("الطالب", "Student")}</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("المعلم", "Teacher")}</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("النوع", "Type")}</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("الفترة", "Period")}</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("الدرجة", "Score")}</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("التاريخ", "Date")}</th>
+              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الطالب", "Student")}</th>
+              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("المعلم", "Teacher")}</th>
+              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("النوع", "Type")}</th>
+              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الفترة", "Period")}</th>
+              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الدرجة", "Score")}</th>
+              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("التاريخ", "Date")}</th>
             </tr></thead>
             <tbody>
               {list.map(e => (

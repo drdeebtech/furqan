@@ -28,10 +28,10 @@ export default async function AdminRefundPoliciesPage() {
         <div className="overflow-hidden rounded-xl glass-card">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-white/10 bg-white/5">
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("الفترة", "Window")}</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("نسبة الاسترداد", "Refund %")}</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("الوصف", "Description")}</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("الحالة", "Status")}</th>
+              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الفترة", "Window")}</th>
+              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("نسبة الاسترداد", "Refund %")}</th>
+              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الوصف", "Description")}</th>
+              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الحالة", "Status")}</th>
             </tr></thead>
             <tbody>
               {policies.map(p => (

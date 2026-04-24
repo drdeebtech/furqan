@@ -59,12 +59,12 @@ export default async function AdminUsersPage() {
         <div className="overflow-hidden rounded-xl glass-card">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-white/10 bg-white/5">
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("الاسم", "Name")}</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("الدور", "Role")}</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("الدولة", "Country")}</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("الحالة", "Status")}</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("خطر التسرب", "Churn Risk")}</th>
-              <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("التسجيل", "Joined")}</th>
+              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الاسم", "Name")}</th>
+              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الدور", "Role")}</th>
+              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الدولة", "Country")}</th>
+              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الحالة", "Status")}</th>
+              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("خطر التسرب", "Churn Risk")}</th>
+              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("التسجيل", "Joined")}</th>
             </tr></thead>
             <tbody>{users.map(u => <UserRow key={u.id} user={u} churnRisk={u.role === "student" ? riskByStudent.get(u.id) ?? null : undefined} />)}</tbody>
           </table>

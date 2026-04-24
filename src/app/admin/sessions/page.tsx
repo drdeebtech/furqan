@@ -173,13 +173,13 @@ export default async function AdminSessionsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 bg-white/5">
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("الطالب", "Student")}</th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("المعلم", "Teacher")}</th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("الموعد", "Date")}</th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("الحالة", "Status")}</th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("المدة", "Duration")}</th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("الحضور", "Attendance")}</th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("إجراءات", "Actions")}</th>
+                <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("الطالب", "Student")}</th>
+                <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("المعلم", "Teacher")}</th>
+                <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("الموعد", "Date")}</th>
+                <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("الحالة", "Status")}</th>
+                <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("المدة", "Duration")}</th>
+                <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("الحضور", "Attendance")}</th>
+                <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("إجراءات", "Actions")}</th>
               </tr>
             </thead>
             <tbody>

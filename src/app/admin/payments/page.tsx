@@ -61,11 +61,11 @@ export default async function AdminPaymentsPage() {
         <div className="mb-8 overflow-x-auto rounded-xl glass-card">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-white/10 bg-white/5">
-              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("الطالب", "Student")}</th>
-              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("المبلغ", "Amount")}</th>
-              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("الحالة", "Status")}</th>
-              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">Stripe</th>
-              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("التاريخ", "Date")}</th>
+              <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("الطالب", "Student")}</th>
+              <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("المبلغ", "Amount")}</th>
+              <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("الحالة", "Status")}</th>
+              <th scope="col" className="px-3 py-3 text-start font-medium text-muted">Stripe</th>
+              <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("التاريخ", "Date")}</th>
             </tr></thead>
             <tbody>
               {payments.map(p => (
@@ -90,11 +90,11 @@ export default async function AdminPaymentsPage() {
         <div className="overflow-x-auto rounded-xl glass-card">
           <table className="w-full text-sm">
             <thead><tr className="border-b border-white/10 bg-white/5">
-              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("رقم الفاتورة", "Invoice #")}</th>
-              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("الطالب", "Student")}</th>
-              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("المبلغ", "Amount")}</th>
-              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("العملة", "Currency")}</th>
-              <th scope="col" className="px-3 py-3 text-right font-medium text-muted">{t("التاريخ", "Date")}</th>
+              <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("رقم الفاتورة", "Invoice #")}</th>
+              <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("الطالب", "Student")}</th>
+              <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("المبلغ", "Amount")}</th>
+              <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("العملة", "Currency")}</th>
+              <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("التاريخ", "Date")}</th>
             </tr></thead>
             <tbody>
               {invoices.map(inv => (

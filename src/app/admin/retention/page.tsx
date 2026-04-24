@@ -175,13 +175,13 @@ export default async function RetentionPage({ searchParams }: Props) {
           <table className="w-full text-sm">
             <thead className="border-b border-white/5 bg-white/[0.02] text-xs text-muted">
               <tr>
-                <th className="px-4 py-3 text-right font-medium">{t("الطالب", "Student")}</th>
-                <th className="px-4 py-3 text-right font-medium">{t("الخطر", "Risk")}</th>
-                <th className="px-4 py-3 text-right font-medium">{t("التفاعل", "Engagement")}</th>
-                <th className="px-4 py-3 text-right font-medium">{t("آخر جلسة", "Last Session")}</th>
-                <th className="px-4 py-3 text-right font-medium">{t("آخر حجز", "Last Booking")}</th>
-                <th className="px-4 py-3 text-right font-medium">{t("الباقة", "Package")}</th>
-                <th className="px-4 py-3 text-right font-medium">{t("الإجراء المقترح", "Suggested Action")}</th>
+                <th className="px-4 py-3 text-start font-medium">{t("الطالب", "Student")}</th>
+                <th className="px-4 py-3 text-start font-medium">{t("الخطر", "Risk")}</th>
+                <th className="px-4 py-3 text-start font-medium">{t("التفاعل", "Engagement")}</th>
+                <th className="px-4 py-3 text-start font-medium">{t("آخر جلسة", "Last Session")}</th>
+                <th className="px-4 py-3 text-start font-medium">{t("آخر حجز", "Last Booking")}</th>
+                <th className="px-4 py-3 text-start font-medium">{t("الباقة", "Package")}</th>
+                <th className="px-4 py-3 text-start font-medium">{t("الإجراء المقترح", "Suggested Action")}</th>
               </tr>
             </thead>
             <tbody>

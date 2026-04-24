@@ -178,7 +178,7 @@ export function BookingsTable({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 bg-white/5">
-                <th scope="col" className="w-10 px-3 py-3 text-right">
+                <th scope="col" className="w-10 px-3 py-3 text-start">
                   <input
                     type="checkbox"
                     aria-label={t("تحديد الكل", "Select all")}
@@ -187,22 +187,22 @@ export function BookingsTable({
                     className="h-4 w-4"
                   />
                 </th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
+                <th scope="col" className="px-3 py-3 text-start font-medium text-muted">
                   {t("الطالب", "Student")}
                 </th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
+                <th scope="col" className="px-3 py-3 text-start font-medium text-muted">
                   {t("المعلم", "Teacher")}
                 </th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
+                <th scope="col" className="px-3 py-3 text-start font-medium text-muted">
                   {t("النوع", "Type")}
                 </th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
+                <th scope="col" className="px-3 py-3 text-start font-medium text-muted">
                   {t("الموعد", "Date")}
                 </th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
+                <th scope="col" className="px-3 py-3 text-start font-medium text-muted">
                   {t("المبلغ", "Amount")}
                 </th>
-                <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
+                <th scope="col" className="px-3 py-3 text-start font-medium text-muted">
                   {t("الحالة", "Status")}
                 </th>
               </tr>

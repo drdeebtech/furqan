@@ -46,11 +46,11 @@ export default async function AdminBlogPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 bg-white/5">
-                <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("العنوان", "Title")}</th>
-                <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("التصنيف", "Category")}</th>
-                <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("الحالة", "Status")}</th>
-                <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("تاريخ النشر", "Published")}</th>
-                <th scope="col" className="px-4 py-3 text-right font-medium text-muted">{t("إجراءات", "Actions")}</th>
+                <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("العنوان", "Title")}</th>
+                <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("التصنيف", "Category")}</th>
+                <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الحالة", "Status")}</th>
+                <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("تاريخ النشر", "Published")}</th>
+                <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("إجراءات", "Actions")}</th>
               </tr>
             </thead>
             <tbody>
