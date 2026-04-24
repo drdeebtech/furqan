@@ -5,6 +5,7 @@ import { MessageCircle, Send, Inbox, Plus } from "lucide-react";
 import { sendMessage, getMessages, markConversationAsRead } from "./message-actions";
 import { createConversation, getContactsForRole } from "./messages-actions";
 import { useToast } from "./toast";
+import { useLang } from "@/lib/i18n/context";
 
 interface Conversation {
   id: string;
@@ -37,6 +38,7 @@ export function MessagesView({
   currentUserId: string;
   role: "student" | "teacher";
 }) {
+  const { t, dir, lang } = useLang();
   const [conversations, setConversations] = useState(initialConvos);
   const [activeConvo, setActiveConvo] = useState<string | null>(initialConvos[0]?.id ?? null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -167,26 +169,26 @@ export function MessagesView({
         });
         setActiveConvo(result.conversationId);
         setShowNewConvo(false);
-        toastSuccess("تم إنشاء المحادثة");
+        toastSuccess(t("تم إنشاء المحادثة", "Conversation created"));
       }
     } catch {
-      toastError("فشل إنشاء المحادثة — حاول مرة أخرى");
+      toastError(t("فشل إنشاء المحادثة — حاول مرة أخرى", "Failed to create conversation — try again"));
     }
   }
 
   return (
-    <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold">
           <MessageCircle size={24} className="text-gold" />
-          الرسائل
+          {t("الرسائل", "Messages")}
         </h1>
         <button
           onClick={openNewConvoDialog}
           className="flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gold-hover"
         >
           <Plus size={16} />
-          محادثة جديدة
+          {t("محادثة جديدة", "New Conversation")}
         </button>
       </div>
 
@@ -194,13 +196,21 @@ export function MessagesView({
       {showNewConvo && (
         <div className="mb-4 rounded-xl glass-card p-4">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-bold text-gold">اختر {role === "teacher" ? "طالباً" : "معلماً"} لبدء محادثة</p>
-            <button onClick={() => setShowNewConvo(false)} className="text-xs text-muted hover:text-foreground">إغلاق</button>
+            <p className="text-sm font-bold text-gold">
+              {role === "teacher"
+                ? t("اختر طالباً لبدء محادثة", "Choose a student to start a conversation")
+                : t("اختر معلماً لبدء محادثة", "Choose a teacher to start a conversation")}
+            </p>
+            <button onClick={() => setShowNewConvo(false)} className="text-xs text-muted hover:text-foreground">{t("إغلاق", "Close")}</button>
           </div>
           {loadingContacts ? (
-            <p className="text-sm text-muted">جاري التحميل...</p>
+            <p className="text-sm text-muted">{t("جاري التحميل...", "Loading...")}</p>
           ) : contacts.length === 0 ? (
-            <p className="text-sm text-muted">لديك محادثات مع جميع {role === "teacher" ? "طلابك" : "معلميك"} بالفعل</p>
+            <p className="text-sm text-muted">
+              {role === "teacher"
+                ? t("لديك محادثات مع جميع طلابك بالفعل", "You already have conversations with all your students")
+                : t("لديك محادثات مع جميع معلميك بالفعل", "You already have conversations with all your teachers")}
+            </p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {contacts.map(c => (
@@ -220,9 +230,9 @@ export function MessagesView({
       {conversations.length === 0 && !showNewConvo ? (
         <div className="glass-card rounded-xl p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
-          <p className="text-muted">لا توجد محادثات بعد</p>
+          <p className="text-muted">{t("لا توجد محادثات بعد", "No conversations yet")}</p>
           <p className="mt-1 text-sm text-muted">
-            اضغط &quot;محادثة جديدة&quot; لبدء التواصل
+            {t("اضغط \"محادثة جديدة\" لبدء التواصل", "Click \"New Conversation\" to start chatting")}
           </p>
         </div>
       ) : conversations.length > 0 && (
@@ -242,7 +252,7 @@ export function MessagesView({
                 </p>
                 {c.lastMessageAt && (
                   <p className="mt-0.5 text-xs text-muted">
-                    {new Date(c.lastMessageAt).toLocaleDateString("ar-SA")}
+                    {new Date(c.lastMessageAt).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}
                   </p>
                 )}
               </button>
@@ -259,9 +269,9 @@ export function MessagesView({
 
             <div className="flex-1 overflow-y-auto px-4 py-4">
               {loading ? (
-                <p className="py-8 text-center text-sm text-muted">جاري التحميل...</p>
+                <p className="py-8 text-center text-sm text-muted">{t("جاري التحميل...", "Loading...")}</p>
               ) : messages.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted">لا توجد رسائل — ابدأ المحادثة</p>
+                <p className="py-8 text-center text-sm text-muted">{t("لا توجد رسائل — ابدأ المحادثة", "No messages — start the conversation")}</p>
               ) : (
                 <div className="space-y-3">
                   {messages.map((msg) => {
@@ -276,7 +286,7 @@ export function MessagesView({
                           <p>{msg.content}</p>
                           <div className="mt-1 flex items-center gap-1.5">
                             <span className="text-xs text-muted">
-                              {new Date(msg.created_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
+                              {new Date(msg.created_at).toLocaleTimeString(lang === "ar" ? "ar-SA" : "en-US", { hour: "2-digit", minute: "2-digit" })}
                             </span>
                             {isMine && msg.status === "sending" && (
                               <span className="h-3 w-3 animate-spin rounded-full border border-muted/30 border-t-muted" />
@@ -292,7 +302,7 @@ export function MessagesView({
                                 onClick={() => retryMessage(msg.id, msg.content)}
                                 className="text-xs text-error hover:text-error/80"
                               >
-                                ✕ فشل — اضغط لإعادة الإرسال
+                                {t("✕ فشل — اضغط لإعادة الإرسال", "✕ Failed — tap to retry")}
                               </button>
                             )}
                           </div>
@@ -312,13 +322,13 @@ export function MessagesView({
                     type="text"
                     value={newMsg}
                     onChange={(e) => setNewMsg(e.target.value)}
-                    placeholder="اكتب رسالتك..."
+                    placeholder={t("اكتب رسالتك...", "Type your message...")}
                     className="flex-1 glass-input rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none"
                   />
                   <button
                     type="submit"
                     disabled={sending || !newMsg.trim()}
-                    aria-label="إرسال"
+                    aria-label={t("إرسال", "Send")}
                     className="glass-gold rounded-xl px-4 py-2.5 text-white transition-colors hover:bg-gold-hover disabled:opacity-50"
                   >
                     <Send size={16} />
