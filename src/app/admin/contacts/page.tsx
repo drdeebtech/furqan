@@ -3,11 +3,13 @@ import { redirect } from "next/navigation";
 import { Mail, Inbox, CheckCircle, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
+import { getT } from "@/lib/i18n/server";
 import { MarkReadButton } from "./mark-read";
 
 export const metadata: Metadata = { title: "رسائل التواصل" };
 
 export default async function AdminContactsPage() {
+  const { t, dir, lang } = await getT();
   const supabase = await createClient();
   const { data: authData } = await supabase.auth.getUser();
   if (!authData?.user) redirect("/login");
@@ -31,14 +33,18 @@ export default async function AdminContactsPage() {
   const unreadCount = submissions.filter(s => !s.is_read).length;
 
   return (
-    <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="mb-2 flex items-center gap-2 text-2xl font-bold"><Mail size={24} className="text-gold" /> رسائل التواصل</h1>
-      <p className="mb-6 text-sm text-muted">{submissions.length} رسالة · {unreadCount} غير مقروءة</p>
+    <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
+      <h1 className="mb-2 flex items-center gap-2 text-2xl font-bold"><Mail size={24} className="text-gold" /> {t("رسائل التواصل", "Contact Messages")}</h1>
+      <p className="mb-6 text-sm text-muted">
+        {lang === "ar"
+          ? `${submissions.length} رسالة · ${unreadCount} غير مقروءة`
+          : `${submissions.length} message${submissions.length === 1 ? "" : "s"} · ${unreadCount} unread`}
+      </p>
 
       {submissions.length === 0 ? (
         <div className="glass-card rounded-xl p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
-          <p className="text-muted">لا توجد رسائل بعد</p>
+          <p className="text-muted">{t("لا توجد رسائل بعد", "No messages yet")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -48,13 +54,13 @@ export default async function AdminContactsPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="font-medium">{s.full_name}</p>
-                    {!s.is_read && <span className="rounded-full bg-gold px-2 py-0.5 text-xs font-bold text-background">جديد</span>}
+                    {!s.is_read && <span className="rounded-full bg-gold px-2 py-0.5 text-xs font-bold text-background">{t("جديد", "New")}</span>}
                     {s.is_replied && <CheckCircle size={14} className="text-green-400" />}
                   </div>
                   <p className="mt-1 text-sm text-muted" dir="ltr">{s.email}{s.whatsapp ? ` · ${s.whatsapp}` : ""}</p>
                   <div className="mt-2 flex flex-wrap gap-2 text-xs">
                     {s.country && <span className="glass-badge px-2 py-0.5">{s.country}</span>}
-                    {s.student_age && <span className="glass-badge px-2 py-0.5">{s.student_age} سنوات</span>}
+                    {s.student_age && <span className="glass-badge px-2 py-0.5">{s.student_age} {t("سنوات", "yrs")}</span>}
                     {s.package_interest && <span className="glass-badge border-gold/30 bg-gold/10 px-2 py-0.5 text-gold">{s.package_interest}</span>}
                   </div>
                   {s.message && (
@@ -65,7 +71,7 @@ export default async function AdminContactsPage() {
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <p className="text-xs text-muted">
-                    <Clock size={12} className="inline" /> {new Date(s.created_at).toLocaleDateString("ar-SA")}
+                    <Clock size={12} className="inline" /> {new Date(s.created_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}
                   </p>
                   {!s.is_read && <MarkReadButton submissionId={s.id} />}
                 </div>
