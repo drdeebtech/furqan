@@ -307,8 +307,21 @@ async function OverviewPanel({
       : 0;
 
   const fmt = (n: number) => n.toFixed(1);
-  const tone = (ok: boolean, warn: boolean) =>
-    ok ? "text-emerald-400" : warn ? "text-amber-400" : "text-rose-400";
+  const tone = (ok: boolean, warn: boolean, insufficient: boolean) =>
+    insufficient
+      ? "text-muted"
+      : ok
+        ? "text-emerald-400"
+        : warn
+          ? "text-amber-400"
+          : "text-rose-400";
+  const MIN_SAMPLE = 5;
+
+  const insufficient =
+    startedSessions.length < MIN_SAMPLE &&
+    gradedHw.length < MIN_SAMPLE &&
+    completedCount < MIN_SAMPLE &&
+    decided.length < MIN_SAMPLE;
 
   return (
     <div className="space-y-6">
@@ -348,48 +361,79 @@ async function OverviewPanel({
       <div className="glass-card rounded-xl p-6">
         <h2 className="mb-4 font-bold">
           {t("مؤشرات الأداء (آخر 90 يومًا)", "Performance (Last 90 Days)")}
+          {insufficient && (
+            <span className="me-2 text-xs font-normal text-muted">
+              {t("(بيانات غير كافية)", "(insufficient data)")}
+            </span>
+          )}
         </h2>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <div>
-            <p className="text-xs text-muted">{t("الالتزام بالمواعيد", "Punctuality")}</p>
-            <p className={`mt-1 text-xl font-bold ${tone(punctualityRate >= 90, punctualityRate >= 75)}`}>
-              {fmt(punctualityRate)}%
-            </p>
-            <p className="text-xs text-muted">
-              {startedSessions.length} {t("جلسة", "sessions")}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted">{t("متوسط تأخر التصحيح", "Avg Grading Lag")}</p>
-            <p
-              className={`mt-1 text-xl font-bold ${tone(avgGradingLagHours <= 24, avgGradingLagHours <= 48)}`}
-            >
-              {fmt(avgGradingLagHours)} {t("س", "h")}
-            </p>
-            <p className="text-xs text-muted">
-              {gradedHw.length} {t("واجب", "homework")}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted">{t("نسبة إنجاز التقييمات", "Evaluations")}</p>
-            <p className={`mt-1 text-xl font-bold ${tone(evalRate >= 80, evalRate >= 50)}`}>
-              {fmt(evalRate)}%
-            </p>
-            <p className="text-xs text-muted">
-              {evalsRes.count ?? 0} / {completedCount}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted">{t("نسبة الغياب", "No-Show Rate")}</p>
-            <p className={`mt-1 text-xl font-bold ${tone(noShowRate <= 5, noShowRate <= 15)}`}>
-              {fmt(noShowRate)}%
-            </p>
-            <p className="text-xs text-muted">
-              {noShows} / {decided.length}
-            </p>
-          </div>
+          <Metric
+            label={t("الالتزام بالمواعيد", "Punctuality")}
+            value={startedSessions.length < MIN_SAMPLE ? "—" : `${fmt(punctualityRate)}%`}
+            sub={`${startedSessions.length} ${t("جلسة", "sessions")}`}
+            toneClass={tone(
+              punctualityRate >= 90,
+              punctualityRate >= 75,
+              startedSessions.length < MIN_SAMPLE,
+            )}
+          />
+          <Metric
+            label={t("متوسط تأخر التصحيح", "Avg Grading Lag")}
+            value={
+              gradedHw.length < MIN_SAMPLE
+                ? "—"
+                : `${fmt(avgGradingLagHours)} ${t("س", "h")}`
+            }
+            sub={`${gradedHw.length} ${t("واجب", "homework")}`}
+            toneClass={tone(
+              avgGradingLagHours <= 24,
+              avgGradingLagHours <= 48,
+              gradedHw.length < MIN_SAMPLE,
+            )}
+          />
+          <Metric
+            label={t("نسبة إنجاز التقييمات", "Evaluations")}
+            value={completedCount < MIN_SAMPLE ? "—" : `${fmt(evalRate)}%`}
+            sub={`${evalsRes.count ?? 0} / ${completedCount}`}
+            toneClass={tone(
+              evalRate >= 80,
+              evalRate >= 50,
+              completedCount < MIN_SAMPLE,
+            )}
+          />
+          <Metric
+            label={t("نسبة الغياب", "No-Show Rate")}
+            value={decided.length < MIN_SAMPLE ? "—" : `${fmt(noShowRate)}%`}
+            sub={`${noShows} / ${decided.length}`}
+            toneClass={tone(
+              noShowRate <= 5,
+              noShowRate <= 15,
+              decided.length < MIN_SAMPLE,
+            )}
+          />
         </div>
       </div>
+    </div>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  sub,
+  toneClass,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  toneClass: string;
+}) {
+  return (
+    <div>
+      <p className="text-xs text-muted">{label}</p>
+      <p className={`mt-1 text-xl font-bold ${toneClass}`}>{value}</p>
+      <p className="text-xs text-muted">{sub}</p>
     </div>
   );
 }
