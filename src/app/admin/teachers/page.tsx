@@ -41,7 +41,7 @@ export default async function AdminTeachersPage() {
             <Link href="/admin/teachers/cv" className="flex items-center gap-2 rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-400 transition-colors hover:bg-amber-500/20">
               <FileText size={16} />
               {t("سير ذاتية معلقة", "Pending CVs")}
-              <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-xs font-bold text-white">{pendingCvCount}</span>
+              <span className="rounded-md bg-amber-500/90 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{pendingCvCount}</span>
             </Link>
           )}
           <Link href="/admin/teachers/new" className="flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-medium">
