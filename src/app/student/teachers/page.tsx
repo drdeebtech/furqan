@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import type { GenderType } from "@/types/database";
 import { Skeleton } from "@/components/shared/skeleton";
 import { TeacherList } from "./teacher-list";
@@ -21,6 +22,7 @@ export interface TeacherData {
 }
 
 export default async function TeachersPage() {
+  const { t, dir } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -42,19 +44,19 @@ export default async function TeachersPage() {
       .from("profiles").select("id, full_name").in("id", ids)
       .returns<{ id: string; full_name: string | null }[]>();
     if (profiles) {
-      nameMap = Object.fromEntries(profiles.map((p) => [p.id, p.full_name ?? "معلم"]));
+      nameMap = Object.fromEntries(profiles.map((p) => [p.id, p.full_name ?? t("معلم", "Teacher")]));
     }
   }
 
-  const teacherData: TeacherData[] = list.map((t) => ({
-    ...t,
-    name: nameMap[t.teacher_id] ?? "معلم",
+  const teacherData: TeacherData[] = list.map((r) => ({
+    ...r,
+    name: nameMap[r.teacher_id] ?? t("معلم", "Teacher"),
   }));
 
   return (
     <Suspense
       fallback={
-        <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
+        <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
           <Skeleton className="mb-6 h-8 w-40" />
           <Skeleton className="mb-6 h-24 w-full" />
           <div className="grid gap-4 md:grid-cols-2">
