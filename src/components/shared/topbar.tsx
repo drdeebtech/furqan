@@ -22,7 +22,7 @@ export function Topbar() {
       <div className="relative flex-1">
         <Search
           size={18}
-          className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-[var(--muted-light,var(--muted))]"
+          className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-muted-light"
         />
         <input
           type="text"
@@ -30,9 +30,9 @@ export function Topbar() {
           onClick={handleSearchClick}
           aria-label={t("بحث", "Search")}
           placeholder={t("عن ماذا تعمل...", "What are you working on...")}
-          className="glass-input h-11 w-full cursor-pointer rounded-xl pe-10 ps-11 text-sm placeholder:text-[var(--muted-light,var(--muted))] focus:outline-none"
+          className="glass-input h-11 w-full cursor-pointer rounded-xl pe-10 ps-11 text-sm placeholder:text-muted-light focus:outline-none"
         />
-        <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 rounded border border-[var(--surface-border)] px-1.5 py-0.5 text-[11px] text-[var(--muted-light,var(--muted))]">
+        <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 rounded border border-[var(--surface-border)] px-1.5 py-0.5 text-[11px] text-muted-light">
           /
         </span>
         {showTooltip && (
@@ -45,9 +45,9 @@ export function Topbar() {
       {/* Year selector */}
       <div className="glass flex h-11 items-center rounded-xl px-3.5">
         <button type="button" aria-label={t("السنة", "Year")} className="flex items-center gap-2">
-          <CalendarDays size={16} className="text-[var(--muted)]" />
+          <CalendarDays size={16} className="text-muted" />
           <span className="text-sm font-medium">{new Date().getFullYear()}</span>
-          <ChevronDown size={14} className="text-[var(--muted)]" />
+          <ChevronDown size={14} className="text-muted" />
         </button>
       </div>
 
@@ -66,7 +66,7 @@ export function Topbar() {
 
       {/* Menu dots */}
       <div className="glass flex h-11 w-11 items-center justify-center rounded-xl" role="button" tabIndex={0} aria-label={t("المزيد", "More")}>
-        <MoreHorizontal size={18} className="text-[var(--muted)]" />
+        <MoreHorizontal size={18} className="text-muted" />
       </div>
     </div>
   );

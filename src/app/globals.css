@@ -56,6 +56,7 @@
   --color-input-border: var(--input-border);
   --color-input-focus: var(--gold);
   --color-muted: var(--muted);
+  --color-muted-light: var(--muted-light);
   --color-error: var(--error);
   --color-success: var(--success);
   --color-warning: var(--warning);

@@ -94,7 +94,7 @@ export function NotificationBell() {
         onClick={() => setOpen(!open)}
         className="glass flex h-11 w-11 items-center justify-center rounded-xl transition-colors hover:bg-white/5"
       >
-        <Bell size={18} className="text-[var(--muted)]" />
+        <Bell size={18} className="text-muted" />
       </button>
       {unreadCount > 0 && (
         <span

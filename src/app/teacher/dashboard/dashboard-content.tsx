@@ -139,8 +139,8 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
               <WidgetCard title={t("جلسات اليوم", "Today's Sessions")}>
                 <div className="flex min-h-[120px] items-center justify-center text-center">
                   <div>
-                    <Calendar size={28} className="mx-auto mb-3 text-[var(--muted)]" />
-                    <p className="text-sm text-[var(--muted)]">{t("لا توجد جلسات اليوم", "No sessions today")}</p>
+                    <Calendar size={28} className="mx-auto mb-3 text-muted" />
+                    <p className="text-sm text-muted">{t("لا توجد جلسات اليوم", "No sessions today")}</p>
                   </div>
                 </div>
               </WidgetCard>
@@ -162,15 +162,15 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
             {pending.length === 0 ? (
               <div className="flex min-h-[120px] items-center justify-center text-center">
                 <div>
-                  <Clock size={24} className="mx-auto mb-2 text-[var(--muted)]" />
-                  <p className="text-sm text-[var(--muted)]">{t("لا توجد حجوزات معلقة", "No pending bookings")}</p>
+                  <Clock size={24} className="mx-auto mb-2 text-muted" />
+                  <p className="text-sm text-muted">{t("لا توجد حجوزات معلقة", "No pending bookings")}</p>
                 </div>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-[var(--surface-border)] text-xs text-[var(--muted-light,var(--muted))]">
+                    <tr className="border-b border-[var(--surface-border)] text-xs text-muted-light">
                       <th className="pb-2 text-start font-medium">{t("الطالب", "Student")}</th>
                       <th className="pb-2 text-start font-medium">{t("النوع", "Type")}</th>
                       <th className="pb-2 text-start font-medium">{t("الموعد", "Date")}</th>
@@ -181,8 +181,8 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
                     {pending.map(b => (
                       <tr key={b.id}>
                         <td className="py-3 font-medium">{nameMap[b.student_id] ?? t("طالب", "Student")}</td>
-                        <td className="py-3 text-[var(--muted)]">{st(b.session_type)} · {b.duration_min} {t("د", "m")}</td>
-                        <td className="py-3 text-[var(--muted)]">
+                        <td className="py-3 text-muted">{st(b.session_type)} · {b.duration_min} {t("د", "m")}</td>
+                        <td className="py-3 text-muted">
                           {new Date(b.scheduled_at).toLocaleDateString(locale, { month: "short", day: "numeric" })}
                           {" "}
                           {new Date(b.scheduled_at).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}

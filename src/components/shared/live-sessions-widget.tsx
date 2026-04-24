@@ -49,7 +49,7 @@ export function LiveSessionsWidget({ sessions, title, ongoingCount }: LiveSessio
   return (
     <WidgetCard title={title} headerAction={headerAction}>
       {sessions.length === 0 ? (
-        <p className="py-4 text-center text-sm text-[var(--muted)]">
+        <p className="py-4 text-center text-sm text-muted">
           {t("لا توجد جلسات مباشرة الآن", "No live sessions right now")}
         </p>
       ) : (
@@ -62,14 +62,14 @@ export function LiveSessionsWidget({ sessions, title, ongoingCount }: LiveSessio
                 {session.initials}
               </div>
               <div className="ms-3 min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-[var(--foreground)]">
+                <p className="truncate text-sm font-semibold text-foreground">
                   {session.title}
                 </p>
-                <p className="mt-0.5 text-xs text-[var(--muted)]">{session.subtitle}</p>
+                <p className="mt-0.5 text-xs text-muted">{session.subtitle}</p>
               </div>
               <div className="text-end">
                 {session.timeRemaining && (
-                  <p className="font-mono text-[13px] text-[var(--foreground)]">
+                  <p className="font-mono text-[13px] text-foreground">
                     {session.timeRemaining}
                   </p>
                 )}

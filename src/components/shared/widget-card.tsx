@@ -18,8 +18,8 @@ export function WidgetCard({ title, subtitle, headerAction, children, className,
     <div className={`${base} ${className ?? ""}`}>
       <div className={`mb-5 flex items-center justify-between ${variant === "flush" ? "px-6" : ""}`}>
         <div>
-          <h3 className="text-base font-bold leading-snug text-[var(--foreground)]">{title}</h3>
-          {subtitle && <p className="mt-0.5 text-xs text-[var(--muted)]">{subtitle}</p>}
+          <h3 className="text-base font-bold leading-snug text-foreground">{title}</h3>
+          {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}
         </div>
         {headerAction}
       </div>

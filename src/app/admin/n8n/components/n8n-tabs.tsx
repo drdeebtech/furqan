@@ -87,7 +87,7 @@ export function N8nTabs() {
             className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
               activeTab === idx
                 ? "bg-gold/15 text-gold border border-gold/30"
-                : "text-muted hover:text-[var(--foreground)]"
+                : "text-muted hover:text-foreground"
             }`}
           >
             {t(tab.ar, tab.en)}

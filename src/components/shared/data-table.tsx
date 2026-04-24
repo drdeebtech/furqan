@@ -30,7 +30,7 @@ export function DataTable({ title, columns, rows, emptyMessage }: DataTableProps
       {rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-10">
           <Eye size={28} className="mb-2 text-[var(--muted-light,#9CA3AF)]" />
-          <p className="text-sm text-[var(--muted)]">{emptyMessage}</p>
+          <p className="text-sm text-muted">{emptyMessage}</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -71,7 +71,7 @@ function renderCell(col: DataTableColumn, value: unknown, t: (ar: string, en: st
 
   switch (col.type) {
     case "date":
-      return <span className="text-[var(--muted)]">{str}</span>;
+      return <span className="text-muted">{str}</span>;
 
     case "progress": {
       const pct = typeof value === "number" ? value : parseInt(str) || 0;
@@ -93,7 +93,7 @@ function renderCell(col: DataTableColumn, value: unknown, t: (ar: string, en: st
               }}
             />
           </div>
-          <span className="text-sm font-medium text-[var(--foreground)]">{pct}%</span>
+          <span className="text-sm font-medium text-foreground">{pct}%</span>
         </div>
       );
     }
@@ -111,7 +111,7 @@ function renderCell(col: DataTableColumn, value: unknown, t: (ar: string, en: st
           <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-[#1A1A1F] ring-2 ring-white ${avatarBg}`}>
             {initials}
           </div>
-          <span className="truncate text-[13px] text-[var(--foreground)]">{name}</span>
+          <span className="truncate text-[13px] text-foreground">{name}</span>
         </div>
       );
     }
@@ -125,7 +125,7 @@ function renderCell(col: DataTableColumn, value: unknown, t: (ar: string, en: st
 
     default:
       return (
-        <span className={col.key === "id" ? "font-medium" : "text-[var(--foreground)]"}>
+        <span className={col.key === "id" ? "font-medium" : "text-foreground"}>
           {str}
         </span>
       );

@@ -196,7 +196,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-[var(--surface-border)] text-xs text-[var(--muted-light,var(--muted))]">
+                      <tr className="border-b border-[var(--surface-border)] text-xs text-muted-light">
                         <th className="pb-2 text-start font-medium">{t("المعلم", "Teacher")}</th>
                         <th className="pb-2 text-start font-medium">{t("النوع", "Type")}</th>
                         <th className="pb-2 text-start font-medium">{t("التاريخ", "Date")}</th>
@@ -209,8 +209,8 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                         return (
                           <tr key={r.id} className="text-sm">
                             <td className="py-3 font-medium">{nameMap[r.teacher_id] ?? t("معلم", "Teacher")}</td>
-                            <td className="py-3 text-[var(--muted)]">{st(r.session_type)}</td>
-                            <td className="py-3 text-[var(--muted)]">{new Date(r.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { month: "short", day: "numeric" })}</td>
+                            <td className="py-3 text-muted">{st(r.session_type)}</td>
+                            <td className="py-3 text-muted">{new Date(r.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { month: "short", day: "numeric" })}</td>
                             <td className="py-3">
                               <div className="flex gap-1.5">
                                 {note?.post_session_notes && (
@@ -236,8 +236,8 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
               <WidgetCard title={t("آخر الجلسات", "Recent Sessions")}>
                 <div className="flex min-h-[120px] items-center justify-center text-center">
                   <div>
-                    <FileText size={28} className="mx-auto mb-3 text-[var(--muted)]" />
-                    <p className="text-sm text-[var(--muted)]">{t("لا توجد جلسات سابقة", "No recent sessions")}</p>
+                    <FileText size={28} className="mx-auto mb-3 text-muted" />
+                    <p className="text-sm text-muted">{t("لا توجد جلسات سابقة", "No recent sessions")}</p>
                   </div>
                 </div>
               </WidgetCard>
@@ -305,9 +305,9 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <p className="text-xs font-medium">{booking ? nameMap[booking.teacher_id] ?? t("معلم", "Teacher") : t("معلم", "Teacher")}</p>
-                            <p className="mt-1 text-xs text-[var(--muted)]">{h.homework}</p>
+                            <p className="mt-1 text-xs text-muted">{h.homework}</p>
                           </div>
-                          {booking && <p className="shrink-0 text-[10px] text-[var(--muted)]">{new Date(booking.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}</p>}
+                          {booking && <p className="shrink-0 text-[10px] text-muted">{new Date(booking.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}</p>}
                         </div>
                       </div>
                     );
@@ -325,7 +325,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-[var(--surface-border)] text-xs text-[var(--muted-light,var(--muted))]">
+                    <tr className="border-b border-[var(--surface-border)] text-xs text-muted-light">
                       <th className="pb-2 text-start font-medium">{t("المعلم", "Teacher")}</th>
                       <th className="pb-2 text-start font-medium">{t("النوع", "Type")}</th>
                       <th className="pb-2 text-start font-medium">{t("التقييم", "Score")}</th>
@@ -338,14 +338,14 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                     {evaluations.map(ev => (
                       <tr key={ev.id}>
                         <td className="py-3 font-medium">{nameMap[ev.teacher_id] ?? t("معلم", "Teacher")}</td>
-                        <td className="py-3 text-[var(--muted)]">{ev.evaluation_type}</td>
+                        <td className="py-3 text-muted">{ev.evaluation_type}</td>
                         <td className="py-3">
                           <span className={`glass-badge px-2 py-0.5 text-xs font-bold ${ev.overall_score >= 8 ? "text-green-400" : ev.overall_score >= 5 ? "text-amber-400" : "text-red-400"}`}>
                             {ev.overall_score}/10
                           </span>
                         </td>
-                        <td className="py-3 text-[var(--muted)]">{ev.hifz_score != null ? `${ev.hifz_score}/10` : "—"}</td>
-                        <td className="py-3 text-[var(--muted)]">{ev.tajweed_score != null ? `${ev.tajweed_score}/10` : "—"}</td>
+                        <td className="py-3 text-muted">{ev.hifz_score != null ? `${ev.hifz_score}/10` : "—"}</td>
+                        <td className="py-3 text-muted">{ev.tajweed_score != null ? `${ev.tajweed_score}/10` : "—"}</td>
                         <td className="max-w-[200px] py-3">
                           {ev.strengths && <p className="truncate text-xs"><span className="text-green-400">{t("قوة:", "S:")}</span> {ev.strengths}</p>}
                           {ev.weaknesses && <p className="truncate text-xs"><span className="text-amber-400">{t("ضعف:", "W:")}</span> {ev.weaknesses}</p>}

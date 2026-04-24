@@ -75,8 +75,8 @@ export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsCha
             onClick={() => handleTab(tab.i)}
             className={`relative rounded-md px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
               activeTab === tab.i
-                ? "bg-white text-[var(--foreground)] shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
-                : "text-[var(--muted)] hover:text-[var(--foreground)]"
+                ? "bg-white text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
+                : "text-muted hover:text-foreground"
             }`}
           >
             {tab.label}

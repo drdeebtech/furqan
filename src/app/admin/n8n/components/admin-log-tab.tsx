@@ -114,7 +114,7 @@ export function AdminLogTab() {
 
                 <div className="shrink-0 text-xs text-muted">
                   {t("المنفذ:", "Actor:")}{" "}
-                  <span className="font-medium text-[var(--foreground)]">
+                  <span className="font-medium text-foreground">
                     {actor}
                   </span>
                 </div>

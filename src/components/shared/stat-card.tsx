@@ -31,9 +31,9 @@ export function StatCard({ icon: Icon, label, value, href, subtitle, actionLabel
       <div>
         <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[var(--surface-light,#F5F5F7)]">
-            <Icon size={18} className="text-[var(--muted)]" />
+            <Icon size={18} className="text-muted" />
           </div>
-          <span className="text-sm text-[var(--muted)]">{label}</span>
+          <span className="text-sm text-muted">{label}</span>
           {statusBadge && (() => {
             const color =
               statusBadge.type === "warning"
@@ -51,13 +51,13 @@ export function StatCard({ icon: Icon, label, value, href, subtitle, actionLabel
             );
           })()}
         </div>
-        <p className="mt-3 text-[clamp(2rem,4vw,3rem)] font-bold tracking-tight leading-none tabular-nums text-[var(--foreground)]">{value}</p>
-        {subtitle && <p className="mt-0.5 text-xs text-[var(--muted)]">{subtitle}</p>}
+        <p className="mt-3 text-[clamp(2rem,4vw,3rem)] font-bold tracking-tight leading-none tabular-nums text-foreground">{value}</p>
+        {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}
       </div>
 
       <div className="mt-auto flex items-center justify-between rounded-xl border border-[var(--surface-border)] px-3 py-2 transition-colors hover:bg-[var(--surface-hover,rgba(0,0,0,0.03))]">
-        <span className="text-xs font-medium text-[var(--muted)]">{actionLabel}</span>
-        <Arrow size={14} className="text-[var(--muted)]" />
+        <span className="text-xs font-medium text-muted">{actionLabel}</span>
+        <Arrow size={14} className="text-muted" />
       </div>
     </Link>
   );

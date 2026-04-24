@@ -153,8 +153,8 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
               {todayBookings.length === 0 ? (
                 <div className="flex min-h-[120px] items-center justify-center text-center">
                   <div>
-                    <CalendarDays size={28} className="mx-auto mb-3 text-[var(--muted)]" />
-                    <p className="text-sm text-[var(--muted)]">{t("لا توجد حجوزات اليوم", "No bookings today")}</p>
+                    <CalendarDays size={28} className="mx-auto mb-3 text-muted" />
+                    <p className="text-sm text-muted">{t("لا توجد حجوزات اليوم", "No bookings today")}</p>
                   </div>
                 </div>
               ) : (
@@ -163,11 +163,11 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
                     <div key={b.id} className="flex items-center gap-3 rounded-xl border border-[var(--surface-border)] p-3">
                       <div className="flex min-w-[3.5rem] flex-col items-center rounded-lg bg-gold/10 px-2 py-1.5">
                         <span className="text-xs font-bold text-gold">{formatTime(b.scheduled_at)}</span>
-                        <span className="text-[10px] text-[var(--muted)]">{b.duration_min}{t("د", "m")}</span>
+                        <span className="text-[10px] text-muted">{b.duration_min}{t("د", "m")}</span>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium">{nameMap[b.student_id] ?? t("طالب", "Student")} <span className="text-[var(--muted)]">{t("مع", "with")}</span> {nameMap[b.teacher_id] ?? t("معلم", "Teacher")}</p>
-                        <p className="mt-0.5 text-xs text-[var(--muted)]">{b.session_type}</p>
+                        <p className="text-sm font-medium">{nameMap[b.student_id] ?? t("طالب", "Student")} <span className="text-muted">{t("مع", "with")}</span> {nameMap[b.teacher_id] ?? t("معلم", "Teacher")}</p>
+                        <p className="mt-0.5 text-xs text-muted">{b.session_type}</p>
                       </div>
                       <span className={`shrink-0 glass-badge ${b.status === "confirmed" ? "border-success/30 bg-success/10 text-success" : b.status === "pending" ? "border-warning/30 bg-warning/10 text-warning" : "border-muted/30 text-muted"}`}>
                         {b.status === "confirmed" ? t("مؤكد", "Confirmed") : b.status === "pending" ? t("معلق", "Pending") : b.status}
@@ -185,7 +185,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
                 <div className="shrink-0 rounded-xl bg-emerald-500/15 p-2.5"><Radio size={20} className="animate-pulse text-emerald-400" /></div>
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-emerald-400">{activeSessionCount} {t("جلسات نشطة الآن", "active sessions now")}</p>
-                  <p className="mt-0.5 text-xs text-[var(--muted)]">{t("اضغط للمراقبة المباشرة", "Click to monitor live")}</p>
+                  <p className="mt-0.5 text-xs text-muted">{t("اضغط للمراقبة المباشرة", "Click to monitor live")}</p>
                 </div>
               </Link>
             )}
@@ -216,15 +216,15 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
             {teacherList.length === 0 ? (
               <div className="flex min-h-[120px] items-center justify-center text-center">
                 <div>
-                  <GraduationCap size={28} className="mx-auto mb-3 text-[var(--muted)]" />
-                  <p className="text-sm text-[var(--muted)]">{t("لا يوجد معلمون بعد", "No teachers yet")}</p>
+                  <GraduationCap size={28} className="mx-auto mb-3 text-muted" />
+                  <p className="text-sm text-muted">{t("لا يوجد معلمون بعد", "No teachers yet")}</p>
                 </div>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-[var(--surface-border)] text-xs text-[var(--muted-light,var(--muted))]">
+                    <tr className="border-b border-[var(--surface-border)] text-xs text-muted-light">
                       <th className="pb-2 text-start font-medium">{t("المعلم", "Teacher")}</th>
                       <th className="pb-2 text-start font-medium">{t("الحالة", "Status")}</th>
                       <th className="pb-2 text-start font-medium">{t("الجلسات", "Sessions")}</th>
@@ -245,8 +245,8 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
                           {!teacher.is_archived && teacher.is_accepting && <span className="glass-badge border-success/30 bg-success/10 text-success">{t("يقبل", "Open")}</span>}
                           {!teacher.is_archived && !teacher.is_accepting && <span className="glass-badge border-primary/30 bg-primary/10">{t("مشغول", "Busy")}</span>}
                         </td>
-                        <td className="py-3 text-[var(--muted)]">{teacher.total_sessions}</td>
-                        <td className="py-3 text-[var(--muted)]">{Number(teacher.rating_avg) > 0 ? Number(teacher.rating_avg).toFixed(1) : "—"}</td>
+                        <td className="py-3 text-muted">{teacher.total_sessions}</td>
+                        <td className="py-3 text-muted">{Number(teacher.rating_avg) > 0 ? Number(teacher.rating_avg).toFixed(1) : "—"}</td>
                         <td className="py-3 text-end">
                           <ArchiveToggle teacherId={teacher.teacher_id} isArchived={teacher.is_archived} />
                         </td>

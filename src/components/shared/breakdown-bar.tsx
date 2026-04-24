@@ -36,14 +36,14 @@ export function BreakdownBar({ title, segments, total, emptyMessage }: Breakdown
       {isEmpty ? (
         <div className="flex flex-col items-center justify-center py-6">
           <ClipboardList size={32} className="mb-2 text-[var(--muted-light,#9CA3AF)]" />
-          <p className="text-sm text-[var(--muted)]">
+          <p className="text-sm text-muted">
             {emptyMessage ?? "No data"}
           </p>
         </div>
       ) : (
         <>
           {total != null && (
-            <p className="mb-3 text-xs text-[var(--muted)]">{total} items</p>
+            <p className="mb-3 text-xs text-muted">{total} items</p>
           )}
           <div
             className="flex h-8 overflow-hidden rounded-[10px]"
@@ -72,7 +72,7 @@ export function BreakdownBar({ title, segments, total, emptyMessage }: Breakdown
                     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3)",
                   }}
                 />
-                <span className="text-[11px] text-[var(--muted)]">{seg.label} <span className="font-medium text-[var(--foreground)]">{seg.value}</span></span>
+                <span className="text-[11px] text-muted">{seg.label} <span className="font-medium text-foreground">{seg.value}</span></span>
               </div>
             ))}
           </div>
