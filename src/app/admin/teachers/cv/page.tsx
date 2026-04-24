@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { FileText, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "مراجعة السير الذاتية" };
 
@@ -12,6 +13,8 @@ interface PendingCv {
 }
 
 export default async function AdminCvQueuePage() {
+  const { t, dir, lang } = await getT();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const supabase = await createClient();
   const {
     data: { user },
@@ -38,30 +41,30 @@ export default async function AdminCvQueuePage() {
       .returns<{ id: string; full_name: string | null }[]>();
     if (profiles)
       nameMap = Object.fromEntries(
-        profiles.map((p) => [p.id, p.full_name ?? "معلم"]),
+        profiles.map((p) => [p.id, p.full_name ?? t("معلم", "Teacher")]),
       );
   }
 
   return (
-    <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold">
           <FileText size={24} className="text-gold" />
-          مراجعة السير الذاتية
-          <span className="text-sm font-normal text-muted">Pending CVs</span>
+          {t("مراجعة السير الذاتية", "CV Review Queue")}
+          {lang === "ar" && <span className="text-sm font-normal text-muted">Pending CVs</span>}
         </h1>
         <Link
           href="/admin/teachers"
           className="text-sm text-gold hover:text-gold-light"
         >
-          العودة للمعلمين
+          {t("العودة للمعلمين", "Back to Teachers")}
         </Link>
       </div>
 
       {list.length === 0 ? (
         <div className="glass-card rounded-xl p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
-          <p className="text-muted">لا توجد سير ذاتية بانتظار المراجعة</p>
+          <p className="text-muted">{t("لا توجد سير ذاتية بانتظار المراجعة", "No CVs awaiting review")}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -74,19 +77,17 @@ export default async function AdminCvQueuePage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium">
-                    {nameMap[cv.teacher_id] ?? "معلم"}
+                    {nameMap[cv.teacher_id] ?? t("معلم", "Teacher")}
                   </p>
                   <p className="mt-1 text-xs text-muted">
-                    تاريخ الإرسال:{" "}
+                    {t("تاريخ الإرسال", "Submitted")}:{" "}
                     {cv.cv_submitted_at
-                      ? new Date(cv.cv_submitted_at).toLocaleDateString(
-                          "ar-SA",
-                        )
-                      : "غير محدد"}
+                      ? new Date(cv.cv_submitted_at).toLocaleDateString(locale)
+                      : t("غير محدد", "Unspecified")}
                   </p>
                 </div>
                 <span className="glass-badge border-amber-500/30 bg-amber-500/10 text-amber-400">
-                  بانتظار المراجعة
+                  {t("بانتظار المراجعة", "Pending Review")}
                 </span>
               </div>
             </Link>

@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   ArrowRight,
   Calendar,
-  CheckCircle,
   BookOpen,
   Package as PackageIcon,
   Star,
@@ -13,6 +12,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = {
   title: "معاينة كمستخدم · Impersonate Preview",
@@ -73,6 +73,7 @@ export default async function AdminAsUserPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const { t, dir } = await getT();
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -158,26 +159,26 @@ export default async function AdminAsUserPage({
     for (const p of teacherProfiles ?? []) teacherNames.set(p.id, p.full_name ?? "—");
 
     return (
-      <PreviewFrame target={target}>
+      <PreviewFrame target={target} dir={dir} t={t}>
         <section className="grid gap-4 md:grid-cols-2">
-          <Card icon={Calendar} label="الجلسات القادمة" value={nextBookings.length}>
+          <Card icon={Calendar} label={t("الجلسات القادمة", "Upcoming Sessions")} value={nextBookings.length}>
             {nextBookings.length === 0 ? (
-              <p className="text-xs text-muted">لا يوجد جلسات قادمة.</p>
+              <p className="text-xs text-muted">{t("لا يوجد جلسات قادمة.", "No upcoming sessions.")}</p>
             ) : (
               <ul className="space-y-2">
                 {nextBookings.map((b) => (
                   <li key={b.id} className="text-xs text-muted">
                     <span className="text-foreground">{teacherNames.get(b.teacher_id) ?? "—"}</span>{" "}
-                    · {new Date(b.scheduled_at).toLocaleString()} · {b.duration_min}د · {b.status}
+                    · {new Date(b.scheduled_at).toLocaleString()} · {b.duration_min}{t("د", "m")} · {b.status}
                   </li>
                 ))}
               </ul>
             )}
           </Card>
 
-          <Card icon={PackageIcon} label="الباقات النشطة" value={packages.filter((p) => p.status === "active").length}>
+          <Card icon={PackageIcon} label={t("الباقات النشطة", "Active Packages")} value={packages.filter((p) => p.status === "active").length}>
             {packages.length === 0 ? (
-              <p className="text-xs text-muted">لا يوجد باقات.</p>
+              <p className="text-xs text-muted">{t("لا يوجد باقات.", "No packages.")}</p>
             ) : (
               <ul className="space-y-2">
                 {packages.map((p) => {
@@ -186,10 +187,10 @@ export default async function AdminAsUserPage({
                     <li key={p.id} className="text-xs text-muted">
                       <span className="text-foreground">{p.packages?.name_ar ?? p.packages?.name ?? "—"}</span>
                       {" · "}
-                      {remaining}/{p.sessions_total} متبقي
+                      {remaining}/{p.sessions_total} {t("متبقي", "left")}
                       {" · "}
                       {p.status}
-                      {p.expires_at && ` · تنتهي ${new Date(p.expires_at).toLocaleDateString()}`}
+                      {p.expires_at && ` · ${t("تنتهي", "expires")} ${new Date(p.expires_at).toLocaleDateString()}`}
                     </li>
                   );
                 })}
@@ -197,24 +198,24 @@ export default async function AdminAsUserPage({
             )}
           </Card>
 
-          <Card icon={BookOpen} label="الواجبات" value={homework.length}>
+          <Card icon={BookOpen} label={t("الواجبات", "Homework")} value={homework.length}>
             {homework.length === 0 ? (
-              <p className="text-xs text-muted">لا يوجد واجبات.</p>
+              <p className="text-xs text-muted">{t("لا يوجد واجبات.", "No homework.")}</p>
             ) : (
               <ul className="space-y-2">
                 {homework.slice(0, 5).map((h) => (
                   <li key={h.id} className="text-xs text-muted">
                     <span className="text-foreground">{h.title}</span> · {h.status}
-                    {h.due_at && ` · يُسلَّم ${new Date(h.due_at).toLocaleDateString()}`}
+                    {h.due_at && ` · ${t("يُسلَّم", "due")} ${new Date(h.due_at).toLocaleDateString()}`}
                   </li>
                 ))}
               </ul>
             )}
           </Card>
 
-          <Card icon={Star} label="آخر التقييمات" value={evaluations.length}>
+          <Card icon={Star} label={t("آخر التقييمات", "Recent Evaluations")} value={evaluations.length}>
             {evaluations.length === 0 ? (
-              <p className="text-xs text-muted">لا يوجد تقييمات.</p>
+              <p className="text-xs text-muted">{t("لا يوجد تقييمات.", "No evaluations.")}</p>
             ) : (
               <ul className="space-y-2">
                 {evaluations.map((e) => (
@@ -236,19 +237,19 @@ export default async function AdminAsUserPage({
         <section className="mt-6 rounded-2xl border border-surface-border/60 bg-surface/40 p-5">
           <div className="mb-3 flex items-center gap-2">
             <Clock size={16} className="text-gold" />
-            <h2 className="text-sm font-bold">آخر 30 يوماً من الحجوزات</h2>
+            <h2 className="text-sm font-bold">{t("آخر 30 يوماً من الحجوزات", "Last 30 Days of Bookings")}</h2>
           </div>
           {recent.length === 0 ? (
-            <p className="text-xs text-muted">لا يوجد نشاط في آخر 30 يوماً.</p>
+            <p className="text-xs text-muted">{t("لا يوجد نشاط في آخر 30 يوماً.", "No activity in the last 30 days.")}</p>
           ) : (
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-muted">
-                  <th className="p-2 text-start">المعلم</th>
-                  <th className="p-2 text-start">الموعد</th>
-                  <th className="p-2 text-start">النوع</th>
-                  <th className="p-2 text-start">الحالة</th>
-                  <th className="p-2 text-start">المبلغ</th>
+                  <th className="p-2 text-start">{t("المعلم", "Teacher")}</th>
+                  <th className="p-2 text-start">{t("الموعد", "Scheduled")}</th>
+                  <th className="p-2 text-start">{t("النوع", "Type")}</th>
+                  <th className="p-2 text-start">{t("الحالة", "Status")}</th>
+                  <th className="p-2 text-start">{t("المبلغ", "Amount")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -271,17 +272,20 @@ export default async function AdminAsUserPage({
 
   // Teacher / admin / moderator preview is just a stub for now.
   return (
-    <PreviewFrame target={target}>
+    <PreviewFrame target={target} dir={dir} t={t}>
       <p className="rounded-2xl border border-surface-border/60 bg-surface/40 p-6 text-sm text-muted">
-        معاينة دور &quot;{target.role}&quot; ستُضاف في المرحلة القادمة.
+        {t(
+          `معاينة دور "${target.role}" ستُضاف في المرحلة القادمة.`,
+          `Preview for role "${target.role}" will be added in a future release.`,
+        )}
         <br />
-        للانتقال إلى الملف الكامل استخدم{" "}
+        {t("للانتقال إلى الملف الكامل استخدم", "For the full profile use")}{" "}
         <Link href={`/admin/users/${target.id}`} className="text-gold hover:text-gold-light">
-          صفحة الملف
+          {t("صفحة الملف", "Profile page")}
         </Link>
-        {" "}أو{" "}
+        {" "}{t("أو", "or")}{" "}
         <Link href={`/admin/users/${target.id}/timeline`} className="text-gold hover:text-gold-light">
-          الجدول الزمني
+          {t("الجدول الزمني", "Timeline")}
         </Link>
         .
       </p>
@@ -292,26 +296,30 @@ export default async function AdminAsUserPage({
 function PreviewFrame({
   target,
   children,
+  dir,
+  t,
 }: {
   target: TargetProfile;
   children: React.ReactNode;
+  dir: "rtl" | "ltr";
+  t: (ar: string, en: string) => string;
 }) {
   return (
-    <div dir="rtl">
+    <div dir={dir}>
       <div className="sticky top-0 z-50 border-b border-gold/40 bg-gold/10 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm">
             <Eye size={16} className="text-gold" />
-            <span className="font-bold text-gold">معاينة كـ {target.full_name ?? "مستخدم"}</span>
+            <span className="font-bold text-gold">{t("معاينة كـ", "Previewing as")} {target.full_name ?? t("مستخدم", "user")}</span>
             <span className="text-xs text-muted">
-              ({target.role}) · {target.email} · للقراءة فقط
+              ({target.role}) · {target.email} · {t("للقراءة فقط", "read-only")}
             </span>
           </div>
           <Link
             href={`/admin/users/${target.id}`}
             className="inline-flex items-center gap-1 rounded-lg border border-surface-border/60 px-3 py-1.5 text-xs text-muted transition-colors hover:border-gold/40 hover:text-gold"
           >
-            <ArrowRight size={12} className="rotate-180" /> الخروج من المعاينة
+            <ArrowRight size={12} className="rotate-180" /> {t("الخروج من المعاينة", "Exit preview")}
           </Link>
         </div>
       </div>
