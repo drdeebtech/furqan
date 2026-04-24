@@ -48,19 +48,23 @@ interface AvailabilityEditorProps {
   exceptions: Exception[];
 }
 
-// TODO(human): slot overlap/conflict detection
-// Given the existing weekly `slots` and a newly-submitted slot (day, start, end),
-// decide whether to allow it, reject it, or auto-merge. Three common strategies:
-//   1. strict: reject any slot that overlaps another on the same day
-//   2. lenient: allow overlaps (teacher can be "double-booked" so long as bookings
-//      themselves don't collide — conflict is handled at booking time)
-//   3. warn: allow it but surface a yellow warning in the UI
-// Implement the strategy that matches how the booking flow treats overlaps today.
-// Called from the form submit handler below — return null if OK, or a string error.
 function detectOverlap(
-  _existing: Slot[],
-  _candidate: { day_of_week: number; start_time: string; end_time: string; id?: string },
+  existing: Slot[],
+  candidate: { day_of_week: number; start_time: string; end_time: string; id?: string },
 ): string | null {
+  const sameDay = existing.filter(
+    (s) => s.day_of_week === candidate.day_of_week && s.id !== candidate.id,
+  );
+  const candStart = candidate.start_time.slice(0, 5);
+  const candEnd = candidate.end_time.slice(0, 5);
+
+  for (const s of sameDay) {
+    const sStart = s.start_time.slice(0, 5);
+    const sEnd = s.end_time.slice(0, 5);
+    if (sStart < candEnd && candStart < sEnd) {
+      return `تتعارض مع فترة موجودة ${sStart}–${sEnd} في نفس اليوم`;
+    }
+  }
   return null;
 }
 
@@ -279,6 +283,7 @@ function SlotForm({
       id: initial?.id,
     });
     setOverlapWarn(overlap);
+    if (overlap) e.preventDefault();
   };
 
   return (
