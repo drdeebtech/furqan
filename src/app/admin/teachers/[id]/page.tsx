@@ -40,7 +40,7 @@ export default async function TeacherDetailPage({ params, searchParams }: Props)
     supabase
       .from("teacher_profiles")
       .select(
-        "teacher_id, bio, bio_en, specialties, hourly_rate, gender, languages, recitation_standards, is_accepting, is_archived, max_active_students, total_sessions, rating_avg, intro_video_url, cv_status, cv_submitted_at, cv_rejection_reason",
+        "teacher_id, bio, specialties, hourly_rate, gender, languages, recitation_standards, is_accepting, is_archived, max_active_students, total_sessions, rating_avg, intro_video_url, cv_status, cv_submitted_at, cv_rejection_reason",
       )
       .eq("teacher_id", id)
       .single(),
@@ -82,7 +82,6 @@ export default async function TeacherDetailPage({ params, searchParams }: Props)
   const tp = tpRes.data as {
     teacher_id: string;
     bio: string | null;
-    bio_en: string | null;
     specialties: string[];
     hourly_rate: number;
     gender: string | null;
@@ -99,21 +98,7 @@ export default async function TeacherDetailPage({ params, searchParams }: Props)
     cv_rejection_reason: string | null;
   } | null;
 
-  if (!tp) {
-    return (
-      <div className="mx-auto max-w-2xl p-6">
-        <h1 className="mb-4 text-xl font-bold text-rose-400">Teacher profile query returned no row</h1>
-        <p className="mb-2 text-sm text-muted">Route param <code>id</code>: <code>{id}</code></p>
-        <p className="mb-2 text-sm text-muted">
-          Supabase error (if any): <code>{JSON.stringify(tpRes.error, null, 2)}</code>
-        </p>
-        <p className="mb-2 text-sm text-muted">
-          Profile row found: <code>{profileRes.data ? "yes" : "no"}</code>
-        </p>
-        <Link href="/admin/teachers" className="text-gold hover:text-gold-light">← Back to list</Link>
-      </div>
-    );
-  }
+  if (!tp) redirect("/admin/teachers");
 
   const profile = profileRes.data as {
     id: string;
@@ -217,7 +202,7 @@ export default async function TeacherDetailPage({ params, searchParams }: Props)
           teacherId={id}
           profile={{
             bio: tp.bio,
-            bio_en: tp.bio_en,
+            bio_en: null,
             specialties: tp.specialties,
             languages: tp.languages,
             recitation_standards: tp.recitation_standards,
