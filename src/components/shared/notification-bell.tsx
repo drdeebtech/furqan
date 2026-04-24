@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef, useCallback, startTransition } from "react";
 import { usePathname } from "next/navigation";
 import { Bell, CheckCheck, BookOpen, Calendar, MessageSquare, Megaphone, CreditCard } from "lucide-react";
+import Link from "next/link";
 import { fetchNotifications, markAsRead, markAllAsRead } from "@/lib/actions/notifications";
+import { notificationHref } from "@/lib/notifications/href";
 import { useLang } from "@/lib/i18n/context";
 import type { Notification, NotifType } from "@/types/database";
 
@@ -135,31 +137,51 @@ export function NotificationBell() {
                 {notifications.map(n => {
                   const config = TYPE_CONFIG[n.type] ?? TYPE_CONFIG.system;
                   const Icon = config.icon;
+                  const href = notificationHref(n, rolePrefix);
+                  const rowClass = `flex w-full items-start gap-3 px-4 py-3 text-start transition-colors hover:bg-white/5 ${
+                    !n.is_read ? "bg-gold/5" : ""
+                  }`;
+                  const inner = (
+                    <>
+                      <div className={`mt-0.5 shrink-0 ${config.color}`}>
+                        <Icon size={16} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className={`text-sm ${!n.is_read ? "font-semibold" : "text-muted"}`}>{n.title}</p>
+                          {!n.is_read && (
+                            <span className="h-2 w-2 shrink-0 rounded-full bg-gold" />
+                          )}
+                        </div>
+                        {n.body && (
+                          <p className="mt-0.5 line-clamp-2 text-xs text-muted">{n.body}</p>
+                        )}
+                        <p className="mt-1 text-[10px] text-muted/60">{timeAgo(n.created_at)}</p>
+                      </div>
+                    </>
+                  );
                   return (
                     <li key={n.id}>
-                      <button
-                        type="button"
-                        onClick={() => !n.is_read && handleMarkRead(n.id)}
-                        className={`flex w-full items-start gap-3 px-4 py-3 text-start transition-colors hover:bg-white/5 ${
-                          !n.is_read ? "bg-gold/5" : ""
-                        }`}
-                      >
-                        <div className={`mt-0.5 shrink-0 ${config.color}`}>
-                          <Icon size={16} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className={`text-sm ${!n.is_read ? "font-semibold" : "text-muted"}`}>{n.title}</p>
-                            {!n.is_read && (
-                              <span className="h-2 w-2 shrink-0 rounded-full bg-gold" />
-                            )}
-                          </div>
-                          {n.body && (
-                            <p className="mt-0.5 line-clamp-2 text-xs text-muted">{n.body}</p>
-                          )}
-                          <p className="mt-1 text-[10px] text-muted/60">{timeAgo(n.created_at)}</p>
-                        </div>
-                      </button>
+                      {href ? (
+                        <Link
+                          href={href}
+                          onClick={() => {
+                            if (!n.is_read) handleMarkRead(n.id);
+                            setOpen(false);
+                          }}
+                          className={rowClass}
+                        >
+                          {inner}
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => !n.is_read && handleMarkRead(n.id)}
+                          className={rowClass}
+                        >
+                          {inner}
+                        </button>
+                      )}
                     </li>
                   );
                 })}

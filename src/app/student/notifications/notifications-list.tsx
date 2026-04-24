@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { Bell, BookOpen, Calendar, MessageSquare, Megaphone, CreditCard, Check, CheckCheck, Trash2 } from "lucide-react";
 import { markAsRead, markAllAsRead, deleteNotification } from "@/lib/actions/notifications";
+import { notificationHref } from "@/lib/notifications/href";
 import { useLang } from "@/lib/i18n/context";
 import type { Notification, NotifType } from "@/types/database";
 
@@ -15,8 +18,25 @@ const TYPE_CONFIG: Record<NotifType, { icon: typeof Bell; color: string; bg: str
   homework: { icon: BookOpen, color: "text-sky-400", bg: "bg-sky-500/10" },
 };
 
-export function NotificationsList({ notifications: initial }: { notifications: Notification[] }) {
+export function NotificationsList({
+  notifications: initial,
+  rolePrefix = "/student",
+}: {
+  notifications: Notification[];
+  rolePrefix?: string;
+}) {
   const { t, lang } = useLang();
+  const router = useRouter();
+  const pathname = usePathname();
+  // Infer the prefix from the current URL if not explicitly set — keeps the
+  // teacher/admin pages working without needing to thread the prop.
+  const inferredPrefix = pathname.startsWith("/teacher")
+    ? "/teacher"
+    : pathname.startsWith("/admin")
+      ? "/admin"
+      : pathname.startsWith("/moderator")
+        ? "/moderator"
+        : rolePrefix;
   const locale = lang === "ar" ? "ar-SA" : "en-US";
   const [notifications, setNotifications] = useState(initial);
   const [loading, setLoading] = useState(false);
@@ -65,12 +85,10 @@ export function NotificationsList({ notifications: initial }: { notifications: N
           const config = TYPE_CONFIG[n.type] ?? TYPE_CONFIG.system;
           const Icon = config.icon;
           const date = new Date(n.created_at);
+          const href = notificationHref(n, inferredPrefix);
 
-          return (
-            <div
-              key={n.id}
-              className={`glass-card flex items-start gap-4 p-4 transition-colors ${!n.is_read ? "border-gold/20 bg-gold/5" : ""}`}
-            >
+          const body = (
+            <>
               <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${config.bg}`}>
                 <Icon size={18} className={config.color} />
               </div>
@@ -87,7 +105,12 @@ export function NotificationsList({ notifications: initial }: { notifications: N
                   <div className="flex shrink-0 items-center gap-1">
                     {!n.is_read && (
                       <button
-                        onClick={() => handleMarkRead(n.id)}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleMarkRead(n.id);
+                        }}
                         className="rounded-lg p-1.5 text-muted transition-colors hover:bg-white/5 hover:text-gold"
                         title={t("تم القراءة", "Mark read")}
                       >
@@ -95,7 +118,12 @@ export function NotificationsList({ notifications: initial }: { notifications: N
                       </button>
                     )}
                     <button
-                      onClick={() => handleDelete(n.id)}
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleDelete(n.id);
+                      }}
                       className="rounded-lg p-1.5 text-muted transition-colors hover:bg-white/5 hover:text-error"
                       title={t("حذف", "Delete")}
                     >
@@ -109,7 +137,40 @@ export function NotificationsList({ notifications: initial }: { notifications: N
                   {date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}
                 </p>
               </div>
-            </div>
+            </>
+          );
+
+          const sharedClass = `glass-card flex items-start gap-4 p-4 text-start transition-colors hover:border-gold/30 ${!n.is_read ? "border-gold/20 bg-gold/5" : ""}`;
+
+          if (href) {
+            return (
+              <Link
+                key={n.id}
+                href={href}
+                onClick={() => {
+                  if (!n.is_read) handleMarkRead(n.id);
+                }}
+                className={sharedClass}
+              >
+                {body}
+              </Link>
+            );
+          }
+
+          // No target — clicking still marks read so the user gets feedback
+          return (
+            <button
+              key={n.id}
+              type="button"
+              onClick={() => {
+                if (!n.is_read) handleMarkRead(n.id);
+                // Refresh the page so server-side unread counts re-render
+                router.refresh();
+              }}
+              className={`${sharedClass} w-full cursor-default`}
+            >
+              {body}
+            </button>
           );
         })}
       </div>
