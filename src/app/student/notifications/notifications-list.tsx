@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Bell, BookOpen, Calendar, MessageSquare, Megaphone, CreditCard, Check, CheckCheck, Trash2 } from "lucide-react";
 import { markAsRead, markAllAsRead, deleteNotification } from "@/lib/actions/notifications";
 import { notificationHref } from "@/lib/notifications/href";
@@ -26,7 +26,6 @@ export function NotificationsList({
   rolePrefix?: string;
 }) {
   const { t, lang } = useLang();
-  const router = useRouter();
   const pathname = usePathname();
   // Infer the prefix from the current URL if not explicitly set — keeps the
   // teacher/admin pages working without needing to thread the prop.
@@ -142,35 +141,17 @@ export function NotificationsList({
 
           const sharedClass = `glass-card flex items-start gap-4 p-4 text-start transition-colors hover:border-gold/30 ${!n.is_read ? "border-gold/20 bg-gold/5" : ""}`;
 
-          if (href) {
-            return (
-              <Link
-                key={n.id}
-                href={href}
-                onClick={() => {
-                  if (!n.is_read) handleMarkRead(n.id);
-                }}
-                className={sharedClass}
-              >
-                {body}
-              </Link>
-            );
-          }
-
-          // No target — clicking still marks read so the user gets feedback
           return (
-            <button
+            <Link
               key={n.id}
-              type="button"
+              href={href}
               onClick={() => {
                 if (!n.is_read) handleMarkRead(n.id);
-                // Refresh the page so server-side unread counts re-render
-                router.refresh();
               }}
-              className={`${sharedClass} w-full cursor-default`}
+              className={sharedClass}
             >
               {body}
-            </button>
+            </Link>
           );
         })}
       </div>

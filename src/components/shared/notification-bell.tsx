@@ -162,26 +162,16 @@ export function NotificationBell() {
                   );
                   return (
                     <li key={n.id}>
-                      {href ? (
-                        <Link
-                          href={href}
-                          onClick={() => {
-                            if (!n.is_read) handleMarkRead(n.id);
-                            setOpen(false);
-                          }}
-                          className={rowClass}
-                        >
-                          {inner}
-                        </Link>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => !n.is_read && handleMarkRead(n.id)}
-                          className={rowClass}
-                        >
-                          {inner}
-                        </button>
-                      )}
+                      <Link
+                        href={href}
+                        onClick={() => {
+                          if (!n.is_read) handleMarkRead(n.id);
+                          setOpen(false);
+                        }}
+                        className={rowClass}
+                      >
+                        {inner}
+                      </Link>
                     </li>
                   );
                 })}

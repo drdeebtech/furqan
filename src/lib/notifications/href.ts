@@ -9,10 +9,14 @@ import type { Notification } from "@/types/database";
  * Used by both the full notifications list page and the topbar bell dropdown
  * so the two surfaces stay in sync.
  */
-export function notificationHref(n: Notification, rolePrefix: string): string | null {
+export function notificationHref(n: Notification, rolePrefix: string): string {
   const d = (n.data ?? {}) as Record<string, unknown>;
   const asId = (v: unknown): string | null =>
     typeof v === "string" && v ? v : null;
+
+  // Fallback for every unlinked notification — the detail page shows the full
+  // body and auto-marks-read, so users always get a clickable target.
+  const detail = `${rolePrefix}/notifications/${n.id}`;
 
   switch (n.type) {
     case "booking":
@@ -30,9 +34,9 @@ export function notificationHref(n: Notification, rolePrefix: string): string | 
         : `${rolePrefix}/messages`;
     }
     case "payment":
-      return rolePrefix === "/student" ? `${rolePrefix}/packages` : null;
+      return rolePrefix === "/student" ? `${rolePrefix}/packages` : detail;
     case "system":
     default:
-      return null;
+      return detail;
   }
 }
