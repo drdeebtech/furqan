@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import type { BookingStatus, SessionType } from "@/types/database";
 import { BookingsTable } from "./bookings-table";
 
@@ -10,6 +11,7 @@ export const metadata: Metadata = { title: "إدارة الحجوزات" };
 interface Row { id: string; student_id: string; teacher_id: string; scheduled_at: string; duration_min: number; status: BookingStatus; session_type: SessionType; amount_usd: number; created_at: string; }
 
 export default async function AdminBookingsPage() {
+  const { t, dir } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -28,8 +30,8 @@ export default async function AdminBookingsPage() {
   }
 
   return (
-    <div dir="rtl" className="mx-auto max-w-6xl px-4 py-8">
-      <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><BookOpen size={24} className="text-gold" /> إدارة الحجوزات</h1>
+    <div dir={dir} className="mx-auto max-w-6xl px-4 py-8">
+      <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><BookOpen size={24} className="text-gold" /> {t("إدارة الحجوزات", "Manage Bookings")}</h1>
       <BookingsTable bookings={bookings} nameMap={nameMap} />
     </div>
   );

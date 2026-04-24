@@ -3,9 +3,21 @@
 import { useState, useTransition } from "react";
 import { Inbox, Search, CheckCircle, XCircle, UserX } from "lucide-react";
 import { SESSION_TYPE_AR } from "@/lib/constants";
+import { useLang } from "@/lib/i18n/context";
 import type { BookingStatus, SessionType } from "@/types/database";
 import { BookingStatusSelect } from "./booking-status-select";
 import { bulkUpdateBookingStatus, type BulkBookingResult } from "./bulk-actions";
+
+const SESSION_TYPE_EN: Record<SessionType, string> = {
+  hifz: "Hifz",
+  muraja: "Review",
+  tajweed: "Tajweed",
+  tilawa: "Tilawa",
+  qiraat: "Qiraat",
+  tafsir: "Tafsir",
+  combined: "Hifz + Review",
+  other: "Other",
+};
 
 interface BookingRow {
   id: string;
@@ -21,13 +33,13 @@ interface BookingRow {
 
 type StatusFilter = "all" | BookingStatus;
 
-const STATUS_PILLS: { value: StatusFilter; label: string }[] = [
-  { value: "all", label: "الكل" },
-  { value: "pending", label: "معلق" },
-  { value: "confirmed", label: "مؤكد" },
-  { value: "completed", label: "مكتمل" },
-  { value: "cancelled", label: "ملغى" },
-  { value: "no_show", label: "لم يحضر" },
+const STATUS_PILLS: { value: StatusFilter; ar: string; en: string }[] = [
+  { value: "all", ar: "الكل", en: "All" },
+  { value: "pending", ar: "معلق", en: "Pending" },
+  { value: "confirmed", ar: "مؤكد", en: "Confirmed" },
+  { value: "completed", ar: "مكتمل", en: "Completed" },
+  { value: "cancelled", ar: "ملغى", en: "Cancelled" },
+  { value: "no_show", ar: "لم يحضر", en: "No-show" },
 ];
 
 export function BookingsTable({
@@ -37,6 +49,7 @@ export function BookingsTable({
   bookings: BookingRow[];
   nameMap: Record<string, string>;
 }) {
+  const { t, lang } = useLang();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -89,13 +102,13 @@ export function BookingsTable({
       {/* Summary cards */}
       <div className="mb-6 grid grid-cols-4 gap-3">
         {[
-          { l: "الكل", v: bookings.length },
-          { l: "معلق", v: pendingCount },
-          { l: "مؤكد", v: confirmed },
-          { l: "مكتمل", v: completed },
+          { key: "all", l: t("الكل", "All"), v: bookings.length },
+          { key: "pending", l: t("معلق", "Pending"), v: pendingCount },
+          { key: "confirmed", l: t("مؤكد", "Confirmed"), v: confirmed },
+          { key: "completed", l: t("مكتمل", "Completed"), v: completed },
         ].map((s) => (
           <div
-            key={s.l}
+            key={s.key}
             className="glass-card rounded-xl p-3 text-center"
           >
             <p className="text-xl font-bold text-gold">{s.v}</p>
@@ -115,8 +128,8 @@ export function BookingsTable({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="بحث باسم الطالب أو المعلم..."
-            aria-label="بحث"
+            placeholder={t("بحث باسم الطالب أو المعلم...", "Search by student or teacher name...")}
+            aria-label={t("بحث", "Search")}
             className="w-full rounded-lg border border-card-border bg-surface py-2 pr-9 pl-3 text-sm text-foreground placeholder:text-muted focus:border-gold focus:outline-none sm:w-72"
           />
         </div>
@@ -132,7 +145,7 @@ export function BookingsTable({
                   : "text-muted hover:text-foreground"
               }`}
             >
-              {pill.label}
+              {lang === "ar" ? pill.ar : pill.en}
             </button>
           ))}
         </div>
@@ -140,10 +153,16 @@ export function BookingsTable({
 
       {/* Filtered count + batch result */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-muted">عرض {filtered.length} من {bookings.length} حجز</p>
+        <p className="text-xs text-muted">
+          {lang === "ar"
+            ? `عرض ${filtered.length} من ${bookings.length} حجز`
+            : `Showing ${filtered.length} of ${bookings.length} bookings`}
+        </p>
         {bulkResult && (
           <p className={`text-xs ${bulkResult.failed === 0 ? "text-emerald-400" : "text-amber-400"}`}>
-            تم تحديث {bulkResult.updated}{bulkResult.failed > 0 && ` · فشل ${bulkResult.failed}`}
+            {lang === "ar"
+              ? `تم تحديث ${bulkResult.updated}${bulkResult.failed > 0 ? ` · فشل ${bulkResult.failed}` : ""}`
+              : `Updated ${bulkResult.updated}${bulkResult.failed > 0 ? ` · ${bulkResult.failed} failed` : ""}`}
           </p>
         )}
       </div>
@@ -152,7 +171,7 @@ export function BookingsTable({
       {filtered.length === 0 ? (
         <div className="glass-card rounded-xl p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" />
-          <p className="text-muted">لا توجد حجوزات مطابقة</p>
+          <p className="text-muted">{t("لا توجد حجوزات مطابقة", "No matching bookings")}</p>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl glass-card">
@@ -162,29 +181,29 @@ export function BookingsTable({
                 <th scope="col" className="w-10 px-3 py-3 text-right">
                   <input
                     type="checkbox"
-                    aria-label="تحديد الكل"
+                    aria-label={t("تحديد الكل", "Select all")}
                     checked={filtered.length > 0 && selected.size === filtered.length}
                     onChange={toggleSelectAll}
                     className="h-4 w-4"
                   />
                 </th>
                 <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
-                  الطالب
+                  {t("الطالب", "Student")}
                 </th>
                 <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
-                  المعلم
+                  {t("المعلم", "Teacher")}
                 </th>
                 <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
-                  النوع
+                  {t("النوع", "Type")}
                 </th>
                 <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
-                  الموعد
+                  {t("الموعد", "Date")}
                 </th>
                 <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
-                  المبلغ
+                  {t("المبلغ", "Amount")}
                 </th>
                 <th scope="col" className="px-3 py-3 text-right font-medium text-muted">
-                  الحالة
+                  {t("الحالة", "Status")}
                 </th>
               </tr>
             </thead>
@@ -210,11 +229,11 @@ export function BookingsTable({
                     {nameMap[b.teacher_id] ?? "\u2014"}
                   </td>
                   <td className="px-3 py-3 text-xs text-gold">
-                    {SESSION_TYPE_AR[b.session_type]}
+                    {lang === "ar" ? SESSION_TYPE_AR[b.session_type] : SESSION_TYPE_EN[b.session_type]}
                   </td>
                   <td className="px-3 py-3 text-xs text-muted">
-                    {new Date(b.scheduled_at).toLocaleDateString("ar-SA")}{" "}
-                    {b.duration_min}د
+                    {new Date(b.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}{" "}
+                    {lang === "ar" ? `${b.duration_min}د` : `${b.duration_min}m`}
                   </td>
                   <td className="px-3 py-3 text-gold">${b.amount_usd}</td>
                   <td className="px-3 py-3">
@@ -233,13 +252,15 @@ export function BookingsTable({
       {selected.size > 0 && (
         <div className="fixed bottom-4 start-1/2 z-40 w-[min(42rem,calc(100%-2rem))] -translate-x-1/2 rounded-2xl border border-gold/40 bg-surface/95 p-3 shadow-xl backdrop-blur rtl:translate-x-1/2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-gold">تم تحديد {selected.size}</span>
+            <span className="text-sm font-medium text-gold">
+              {lang === "ar" ? `تم تحديد ${selected.size}` : `${selected.size} selected`}
+            </span>
             <input
               type="text"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="السبب (اختياري)"
-              aria-label="سبب"
+              placeholder={t("السبب (اختياري)", "Reason (optional)")}
+              aria-label={t("سبب", "Reason")}
               className="glass-input flex-1 rounded-lg px-3 py-1.5 text-xs"
             />
             <button
@@ -247,21 +268,21 @@ export function BookingsTable({
               disabled={pending}
               className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
             >
-              <CheckCircle size={14} /> تأكيد
+              <CheckCircle size={14} /> {t("تأكيد", "Confirm")}
             </button>
             <button
               onClick={() => runBulk("cancelled")}
               disabled={pending}
               className="flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/20 disabled:opacity-50"
             >
-              <XCircle size={14} /> إلغاء
+              <XCircle size={14} /> {t("إلغاء", "Cancel")}
             </button>
             <button
               onClick={() => runBulk("no_show")}
               disabled={pending}
               className="flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-500/20 disabled:opacity-50"
             >
-              <UserX size={14} /> لم يحضر
+              <UserX size={14} /> {t("لم يحضر", "No-show")}
             </button>
             <button
               onClick={() => {
@@ -270,7 +291,7 @@ export function BookingsTable({
               }}
               className="rounded-lg border border-surface-border/60 px-3 py-1.5 text-xs text-muted hover:text-foreground"
             >
-              إلغاء التحديد
+              {t("إلغاء التحديد", "Clear selection")}
             </button>
           </div>
         </div>

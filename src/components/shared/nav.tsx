@@ -99,11 +99,7 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
     setMenuOpen(false);
   }
 
-  // Admin + moderator dashboards are Arabic-only (page bodies are hardcoded
-  // Arabic). Force the nav labels to Arabic for those roles so the sidebar
-  // doesn't mix English labels with Arabic page content when the lang toggle
-  // is set to English for public pages.
-  const navLang: "ar" | "en" = role === "admin" || role === "moderator" ? "ar" : lang;
+  const navLang = lang;
   const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
   const links = LINKS[role];
 
