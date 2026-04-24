@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { ModerationClient } from "./moderation-client";
 
 export const metadata: Metadata = {
@@ -44,6 +45,7 @@ interface ProfileNameRow {
 }
 
 export default async function ModerationPage() {
+  const { t, dir } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -150,14 +152,17 @@ export default async function ModerationPage() {
   }));
 
   return (
-    <div dir="rtl" className="mx-auto max-w-6xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-6xl px-4 py-8">
       <header className="mb-6">
         <div className="flex items-center gap-3">
           <Shield size={24} className="text-gold" />
-          <h1 className="text-xl font-bold">قائمة المراجعة</h1>
+          <h1 className="text-xl font-bold">{t("قائمة المراجعة", "Moderation Queue")}</h1>
         </div>
         <p className="mt-2 text-sm text-muted">
-          رسائل مُبلّغ عنها وتقييمات منخفضة بحاجة مراجعة.
+          {t(
+            "رسائل مُبلّغ عنها وتقييمات منخفضة بحاجة مراجعة.",
+            "Reported messages and low-score evaluations needing review.",
+          )}
         </p>
       </header>
 

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { ServiceForm } from "../../service-form";
 
 export const metadata: Metadata = { title: "تعديل الخدمة" };
@@ -11,6 +12,7 @@ interface Props { params: Promise<{ id: string }> }
 
 export default async function EditServicePage({ params }: Props) {
   const { id } = await params;
+  const { t, dir, lang } = await getT();
   const supabase = await createClient();
 
   const { data: service } = await supabase
@@ -28,11 +30,11 @@ export default async function EditServicePage({ params }: Props) {
   if (!service) redirect("/admin/services");
 
   return (
-    <div dir="rtl" className="mx-auto max-w-3xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-3xl px-4 py-8">
       <Link href="/admin/services" className="mb-6 inline-flex items-center gap-1 text-sm text-gold hover:text-gold-hover">
-        <ArrowRight size={14} /> العودة للخدمات
+        <ArrowRight size={14} /> {t("العودة للخدمات", "Back to Services")}
       </Link>
-      <h1 className="mb-6 text-2xl font-bold">تعديل: {service.title_ar ?? service.title}</h1>
+      <h1 className="mb-6 text-2xl font-bold">{t("تعديل", "Edit")}: {(lang === "ar" ? service.title_ar : service.title) ?? service.title}</h1>
       <div className="glass-card rounded-xl p-6">
         <ServiceForm service={service} />
       </div>
