@@ -84,23 +84,25 @@ export function NotificationBell() {
 
   return (
     <div ref={dropdownRef} className="relative">
-      {/* Bell button */}
+      {/* Bell button. NOTE: the count badge lives as a sibling of this button,
+          not a child, because .glass applies overflow:hidden which clips any
+          absolute child positioned outside the rounded-xl corners. */}
       <button
         type="button"
         onClick={() => setOpen(!open)}
         className="glass flex h-11 w-11 items-center justify-center rounded-xl transition-colors hover:bg-white/5"
       >
         <Bell size={18} className="text-[var(--muted)]" />
-        {unreadCount > 0 && (
-          <span
-            data-testid="notification-badge"
-            className="absolute -end-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-md bg-red-500/90 px-1 text-[9px] font-bold leading-none text-white"
-            style={{ boxShadow: "0 0 0 2px var(--surface)" }}
-          >
-            {unreadCount > 9 ? "9+" : unreadCount}
-          </span>
-        )}
       </button>
+      {unreadCount > 0 && (
+        <span
+          data-testid="notification-badge"
+          className="pointer-events-none absolute -end-1 -top-1 z-10 flex h-4 min-w-4 items-center justify-center rounded-md bg-red-500/90 px-1 text-[9px] font-bold leading-none text-white"
+          style={{ boxShadow: "0 0 0 2px var(--surface)" }}
+        >
+          {unreadCount > 9 ? "9+" : unreadCount}
+        </span>
+      )}
 
       {/* Dropdown */}
       {open && (

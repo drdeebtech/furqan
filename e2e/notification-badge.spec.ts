@@ -116,9 +116,25 @@ test.describe("Notification badge", () => {
     const text = (await badge.textContent())?.trim();
     expect(text).toMatch(/^\d+\+?$/);
 
-    // Snapshot the whole bell button for regression diffs
-    const bellButton = badge.locator("xpath=ancestor::button[1]");
-    await expect(bellButton).toHaveScreenshot("notification-bell-with-badge.png", {
+    // Structural guard: the badge MUST NOT be a descendant of the bell button.
+    // .glass applies overflow:hidden; if the badge is inside it gets clipped
+    // by the button's rounded-xl corners (seen once, never again).
+    const isInsideButton = await badge.evaluate((el) => {
+      return el.closest("button") !== null;
+    });
+    expect(isInsideButton, "badge must be a sibling of the button, not a child").toBe(false);
+
+    // Also guard against the parent that *does* contain the badge having
+    // overflow:hidden — would reintroduce the same bug one level up.
+    const parentOverflow = await badge.evaluate((el) => {
+      const parent = el.parentElement;
+      return parent ? getComputedStyle(parent).overflow : "";
+    });
+    expect(parentOverflow).not.toBe("hidden");
+
+    // Snapshot the wrapping relative container so both bell + badge are framed
+    const bellWrapper = badge.locator("xpath=parent::div");
+    await expect(bellWrapper).toHaveScreenshot("notification-bell-with-badge.png", {
       maxDiffPixelRatio: 0.03,
     });
   });
