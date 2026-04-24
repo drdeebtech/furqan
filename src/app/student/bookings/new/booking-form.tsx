@@ -39,7 +39,7 @@ interface AvailSlot {
 }
 
 export function BookingForm({ teacher, availability }: { teacher: TeacherData; availability: AvailSlot[] }) {
-  const { lang } = useLang();
+  const { t, lang } = useLang();
   const locale = lang === "ar" ? "ar-SA" : "en-US";
   const maxSlotDuration = availability.length > 0 ? Math.max(...availability.map((s) => s.slotDuration)) : 60;
   const durations = ALL_DURATIONS.filter((d) => d.value <= maxSlotDuration);
@@ -271,9 +271,9 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
-                aria-label="ملاحظات للمعلم"
+                aria-label={t("ملاحظات للمعلم", "Notes for teacher")}
                 className="mt-2 w-full resize-none rounded-xl glass-input px-4 py-2.5 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none"
-                placeholder="أي ملاحظات للمعلم…"
+                placeholder={t("أي ملاحظات للمعلم…", "Any notes for the teacher…")}
               />
             )}
           </div>
