@@ -33,6 +33,7 @@ export default async function TeachersPage() {
     .select("teacher_id, bio, bio_en, specialties, recitation_standards, hourly_rate, rating_avg, total_sessions, gender")
     .eq("is_archived", false)
     .eq("is_accepting", true)
+    .eq("cv_status", "approved")
     .order("rating_avg", { ascending: false })
     .returns<Omit<TeacherData, "name">[]>();
 
