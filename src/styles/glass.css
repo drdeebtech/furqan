@@ -28,7 +28,12 @@
   transition: var(--glass-spring);
 }
 
-/* Bright diagonal specular streak */
+/* Subtle diagonal specular highlight.
+ * Tuned down from the original 0.18 + overlay: on wide horizontal rows
+ * (notifications, table rows) a 20%-wide bright band at mix-blend-mode:overlay
+ * read as a dull gray stripe across the whole card. Narrower band, lower
+ * alpha, and soft-light instead of overlay keeps the "light catching glass"
+ * intent without the distracting horizontal-stripe artefact on long rows. */
 .glass-card::before {
   content: '';
   position: absolute;
@@ -36,12 +41,12 @@
   border-radius: inherit;
   background: linear-gradient(
     105deg,
-    transparent 40%,
-    rgba(255, 255, 255, 0.18) 50%,
-    transparent 60%
+    transparent 45%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 55%
   );
   pointer-events: none;
-  mix-blend-mode: overlay;
+  mix-blend-mode: soft-light;
   z-index: 1;
 }
 
