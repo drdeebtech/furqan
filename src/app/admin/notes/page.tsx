@@ -4,9 +4,15 @@ import Link from "next/link";
 import { FileText, BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
+import { getT } from "@/lib/i18n/server";
 import type { SessionType } from "@/types/database";
 
 export const metadata: Metadata = { title: "ملاحظات الجلسات" };
+
+const SESSION_TYPE_EN: Record<SessionType, string> = {
+  hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
+  qiraat: "Qiraat", tafsir: "Tafsir", combined: "Hifz + Review", other: "Other",
+};
 
 interface SessionNote {
   id: string;
@@ -28,6 +34,7 @@ interface Booking {
 }
 
 export default async function AdminNotesPage() {
+  const { t, dir, lang } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -74,26 +81,26 @@ export default async function AdminNotesPage() {
   const homeworkCount = allSessions.filter(s => s.homework).length;
 
   return (
-    <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="text-2xl font-bold">ملاحظات الجلسات</h1>
-      <p className="mt-1 text-sm text-muted">جميع ملاحظات المعلمين والواجبات المنزلية</p>
+    <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
+      <h1 className="text-2xl font-bold">{t("ملاحظات الجلسات", "Session Notes")}</h1>
+      <p className="mt-1 text-sm text-muted">{t("جميع ملاحظات المعلمين والواجبات المنزلية", "All teacher notes and homework")}</p>
 
       {/* Stats */}
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <div className="glass-card rounded-xl p-4">
           <FileText size={16} className="mb-1 text-gold" />
           <p className="text-2xl font-bold text-gold">{allSessions.length}</p>
-          <p className="text-xs text-muted">إجمالي الجلسات بملاحظات</p>
+          <p className="text-xs text-muted">{t("إجمالي الجلسات بملاحظات", "Sessions with notes")}</p>
         </div>
         <div className="glass-card rounded-xl p-4">
           <FileText size={16} className="mb-1 text-gold" />
           <p className="text-2xl font-bold text-gold">{notesCount}</p>
-          <p className="text-xs text-muted">ملاحظات المعلمين</p>
+          <p className="text-xs text-muted">{t("ملاحظات المعلمين", "Teacher notes")}</p>
         </div>
         <div className="glass-card rounded-xl p-4">
           <BookOpen size={16} className="mb-1 text-gold" />
           <p className="text-2xl font-bold text-gold">{homeworkCount}</p>
-          <p className="text-xs text-muted">واجبات منزلية</p>
+          <p className="text-xs text-muted">{t("واجبات منزلية", "Homework")}</p>
         </div>
       </div>
 
@@ -102,7 +109,7 @@ export default async function AdminNotesPage() {
         {allSessions.length === 0 ? (
           <div className="glass-card rounded-xl p-8 text-center">
             <FileText size={24} className="mx-auto mb-2 text-muted" />
-            <p className="text-sm text-muted">لا توجد ملاحظات بعد</p>
+            <p className="text-sm text-muted">{t("لا توجد ملاحظات بعد", "No notes yet")}</p>
           </div>
         ) : (
           allSessions.map(s => {
@@ -113,43 +120,43 @@ export default async function AdminNotesPage() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium">
-                      <span className="text-gold">المعلم:</span> {nameMap[b.teacher_id] ?? "—"}
+                      <span className="text-gold">{t("المعلم", "Teacher")}:</span> {nameMap[b.teacher_id] ?? "—"}
                       <span className="mx-3 text-white/10">|</span>
-                      <span className="text-gold">الطالب:</span>{" "}
+                      <span className="text-gold">{t("الطالب", "Student")}:</span>{" "}
                       <Link href={`/admin/users/${b.student_id}`} className="text-foreground hover:text-gold">
                         {nameMap[b.student_id] ?? "—"}
                       </Link>
                     </p>
                     <p className="mt-1 text-xs text-muted">
-                      {SESSION_TYPE_AR[b.session_type]} · {b.duration_min} دقيقة
-                      {s.actual_duration ? ` · المدة الفعلية: ${s.actual_duration} د` : ""}
+                      {lang === "ar" ? SESSION_TYPE_AR[b.session_type] : SESSION_TYPE_EN[b.session_type]} · {b.duration_min} {t("دقيقة", "min")}
+                      {s.actual_duration ? ` · ${t("المدة الفعلية", "Actual")}: ${s.actual_duration} ${lang === "ar" ? "د" : "m"}` : ""}
                     </p>
                   </div>
                   <p dir="ltr" className="text-left text-xs text-muted">
-                    {new Date(b.scheduled_at).toLocaleDateString("ar-SA", { year: "numeric", month: "short", day: "numeric" })}
+                    {new Date(b.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { year: "numeric", month: "short", day: "numeric" })}
                   </p>
                 </div>
 
                 {s.post_session_notes && (
                   <div className="mt-3 rounded-lg border border-gold/20 bg-gold/5 p-3">
-                    <p className="mb-1 text-xs font-medium text-gold">ملاحظات المعلم:</p>
+                    <p className="mb-1 text-xs font-medium text-gold">{t("ملاحظات المعلم", "Teacher notes")}:</p>
                     <p className="text-sm text-foreground whitespace-pre-wrap">{s.post_session_notes}</p>
                   </div>
                 )}
 
                 {s.homework && (
                   <div className="mt-2 rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
-                    <p className="mb-1 text-xs font-medium text-blue-400">الواجب المنزلي:</p>
+                    <p className="mb-1 text-xs font-medium text-blue-400">{t("الواجب المنزلي", "Homework")}:</p>
                     <p className="text-sm text-foreground whitespace-pre-wrap">{s.homework}</p>
                   </div>
                 )}
 
                 <div className="mt-3 flex gap-2">
                   <Link href={`/admin/sessions/${s.id}`} className="text-xs text-gold hover:text-gold-hover">
-                    تفاصيل الجلسة ←
+                    {t("تفاصيل الجلسة ←", "Session Details →")}
                   </Link>
                   <Link href={`/admin/users/${b.student_id}`} className="text-xs text-muted hover:text-gold">
-                    ملف الطالب ←
+                    {t("ملف الطالب ←", "Student Profile →")}
                   </Link>
                 </div>
               </div>

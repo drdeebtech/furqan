@@ -3,11 +3,13 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Plus, Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { ServiceRow } from "./service-row";
 
 export const metadata: Metadata = { title: "إدارة الخدمات" };
 
 export default async function AdminServicesPage() {
+  const { t, dir } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -29,20 +31,20 @@ export default async function AdminServicesPage() {
   const services = data ?? [];
 
   return (
-    <div dir="rtl" className="mx-auto max-w-5xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold"><Settings size={24} className="text-gold" /> إدارة الخدمات</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-bold"><Settings size={24} className="text-gold" /> {t("إدارة الخدمات", "Manage Services")}</h1>
         <Link href="/admin/services/new" className="flex items-center gap-2 glass-gold glass-pill px-5 py-2.5 text-sm font-semibold">
-          <Plus size={16} /> إضافة خدمة
+          <Plus size={16} /> {t("إضافة خدمة", "Add Service")}
         </Link>
       </div>
 
-      <div className="mb-4 text-sm text-muted">{services.length} خدمة</div>
+      <div className="mb-4 text-sm text-muted">{services.length} {t("خدمة", "services")}</div>
 
       {services.length === 0 ? (
         <div className="glass-card rounded-xl p-12 text-center">
           <Settings size={32} className="mx-auto mb-3 text-muted" />
-          <p className="text-muted">لا توجد خدمات — أضف خدمة جديدة</p>
+          <p className="text-muted">{t("لا توجد خدمات — أضف خدمة جديدة", "No services — add a new one")}</p>
         </div>
       ) : (
         <div className="space-y-3">
