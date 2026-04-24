@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight, Video, User, GraduationCap, Clock, FileText, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SessionStatus } from "@/components/shared/session-status";
+import { getT } from "@/lib/i18n/server";
 import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
 import { SessionDetailActions } from "./detail-actions";
 import { SendReportButton } from "./send-report-button";
@@ -55,6 +56,8 @@ export default async function SessionDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const { t, dir, lang } = await getT();
+  const locale = lang === "ar" ? "ar-SA" : "en-US";
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -136,17 +139,14 @@ export default async function SessionDetailPage({
   const isExpired = session.expires_at && new Date(session.expires_at).getTime() < now && !session.ended_at;
 
   const formatDT = (d: string | null) =>
-    d ? new Date(d).toLocaleString("ar-SA") : "—";
+    d ? new Date(d).toLocaleString(locale) : "—";
 
-  const sessionTypeMap: Record<string, string> = {
-    hifz: "حفظ",
-    tilawa: "تلاوة",
-    tajweed: "تجويد",
-    revision: "مراجعة",
-  };
+  const sessionTypeMap: Record<string, string> = lang === "ar"
+    ? { hifz: "حفظ", tilawa: "تلاوة", tajweed: "تجويد", revision: "مراجعة" }
+    : { hifz: "Hifz", tilawa: "Tilawa", tajweed: "Tajweed", revision: "Review" };
 
   return (
-    <div dir="rtl" className="mx-auto max-w-4xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
       {/* Header */}
       <div className="mb-6 flex items-center gap-3">
         <Link
@@ -157,7 +157,7 @@ export default async function SessionDetailPage({
         </Link>
         <h1 className="flex items-center gap-2 text-2xl font-bold">
           <Video size={24} className="text-gold" />
-          تفاصيل الجلسة
+          {t("تفاصيل الجلسة", "Session Details")}
         </h1>
         {booking && (
           <SessionStatus
@@ -182,30 +182,30 @@ export default async function SessionDetailPage({
 
       {/* Session info card */}
       <div className="mt-6 glass-card p-6">
-        <h2 className="mb-4 text-lg font-semibold">معلومات الجلسة</h2>
+        <h2 className="mb-4 text-lg font-semibold">{t("معلومات الجلسة", "Session Info")}</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <p className="text-xs text-muted">معرف الجلسة</p>
+            <p className="text-xs text-muted">{t("معرف الجلسة", "Session ID")}</p>
             <p className="mt-0.5 text-sm font-mono" dir="ltr">{session.id}</p>
           </div>
           <div>
-            <p className="text-xs text-muted">طريقة الإنشاء</p>
+            <p className="text-xs text-muted">{t("طريقة الإنشاء", "Created Via")}</p>
             <p className="mt-0.5 text-sm">{session.created_via}</p>
           </div>
           <div>
-            <p className="text-xs text-muted">اسم الغرفة</p>
+            <p className="text-xs text-muted">{t("اسم الغرفة", "Room Name")}</p>
             <p className="mt-0.5 text-sm font-mono" dir="ltr">{session.room_name}</p>
           </div>
           <div>
-            <p className="text-xs text-muted">انتهاء صلاحية الغرفة</p>
+            <p className="text-xs text-muted">{t("انتهاء صلاحية الغرفة", "Room Expires")}</p>
             <p className="mt-0.5 text-sm">{formatDT(session.expires_at)}</p>
           </div>
           <div>
-            <p className="text-xs text-muted">المدة الفعلية</p>
-            <p className="mt-0.5 text-sm">{session.actual_duration ? `${session.actual_duration} دقيقة` : "—"}</p>
+            <p className="text-xs text-muted">{t("المدة الفعلية", "Actual Duration")}</p>
+            <p className="mt-0.5 text-sm">{session.actual_duration ? `${session.actual_duration} ${t("دقيقة", "min")}` : "—"}</p>
           </div>
           <div>
-            <p className="text-xs text-muted">تاريخ الإنشاء</p>
+            <p className="text-xs text-muted">{t("تاريخ الإنشاء", "Created At")}</p>
             <p className="mt-0.5 text-sm">{formatDT(session.created_at)}</p>
           </div>
         </div>
@@ -214,16 +214,16 @@ export default async function SessionDetailPage({
       {/* Booking info card */}
       {booking && (
         <div className="mt-4 glass-card p-6">
-          <h2 className="mb-4 text-lg font-semibold">معلومات الحجز</h2>
+          <h2 className="mb-4 text-lg font-semibold">{t("معلومات الحجز", "Booking Info")}</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex items-center gap-2">
               <User size={14} className="text-muted" />
               <div>
-                <p className="text-xs text-muted">الطالب</p>
+                <p className="text-xs text-muted">{t("الطالب", "Student")}</p>
                 <div className="mt-0.5 flex items-center gap-2">
                   <p className="text-sm font-medium">{nameMap[booking.student_id] ?? "—"}</p>
                   {studentRisk != null && studentRisk >= 40 && (
-                    <span className={`glass-badge ${riskBadgeClass(studentRisk)}`} title={`خطر التسرب: ${studentRisk.toFixed(0)}`}>
+                    <span className={`glass-badge ${riskBadgeClass(studentRisk)}`} title={`${t("خطر التسرب", "Churn risk")}: ${studentRisk.toFixed(0)}`}>
                       {riskLabel(studentRisk)}
                     </span>
                   )}
@@ -233,24 +233,24 @@ export default async function SessionDetailPage({
             <div className="flex items-center gap-2">
               <GraduationCap size={14} className="text-muted" />
               <div>
-                <p className="text-xs text-muted">المعلم</p>
+                <p className="text-xs text-muted">{t("المعلم", "Teacher")}</p>
                 <p className="mt-0.5 text-sm font-medium">{nameMap[booking.teacher_id] ?? "—"}</p>
               </div>
             </div>
             <div>
-              <p className="text-xs text-muted">نوع الجلسة</p>
+              <p className="text-xs text-muted">{t("نوع الجلسة", "Session Type")}</p>
               <p className="mt-0.5 text-sm">{sessionTypeMap[booking.session_type] ?? booking.session_type}</p>
             </div>
             <div>
-              <p className="text-xs text-muted">الموعد المحدد</p>
+              <p className="text-xs text-muted">{t("الموعد المحدد", "Scheduled At")}</p>
               <p className="mt-0.5 text-sm">{formatDT(booking.scheduled_at)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted">المدة المحددة</p>
-              <p className="mt-0.5 text-sm">{booking.duration_min} دقيقة</p>
+              <p className="text-xs text-muted">{t("المدة المحددة", "Scheduled Duration")}</p>
+              <p className="mt-0.5 text-sm">{booking.duration_min} {t("دقيقة", "min")}</p>
             </div>
             <div>
-              <p className="text-xs text-muted">المبلغ</p>
+              <p className="text-xs text-muted">{t("المبلغ", "Amount")}</p>
               <p className="mt-0.5 text-sm font-semibold text-gold">${Number(booking.amount_usd).toFixed(2)}</p>
             </div>
           </div>
@@ -261,15 +261,15 @@ export default async function SessionDetailPage({
       <div className="mt-4 glass-card p-6">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
           <Clock size={18} className="text-gold" />
-          الجدول الزمني
+          {t("الجدول الزمني", "Timeline")}
         </h2>
         <div className="space-y-3">
           {[
-            { label: "إنشاء الجلسة", time: session.created_at, active: true },
-            { label: "بدء الجلسة", time: session.started_at, active: !!session.started_at },
-            { label: "انضمام المعلم", time: session.teacher_joined ? session.started_at : null, active: session.teacher_joined },
-            { label: "انضمام الطالب", time: session.student_joined ? session.started_at : null, active: session.student_joined },
-            { label: "انتهاء الجلسة", time: session.ended_at, active: !!session.ended_at },
+            { label: t("إنشاء الجلسة", "Session Created"), time: session.created_at, active: true },
+            { label: t("بدء الجلسة", "Session Started"), time: session.started_at, active: !!session.started_at },
+            { label: t("انضمام المعلم", "Teacher Joined"), time: session.teacher_joined ? session.started_at : null, active: session.teacher_joined },
+            { label: t("انضمام الطالب", "Student Joined"), time: session.student_joined ? session.started_at : null, active: session.student_joined },
+            { label: t("انتهاء الجلسة", "Session Ended"), time: session.ended_at, active: !!session.ended_at },
           ].map((step, i) => (
             <div key={i} className="flex items-center gap-3">
               <div
@@ -293,17 +293,17 @@ export default async function SessionDetailPage({
         <div className="mt-4 glass-card p-6">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
             <FileText size={18} className="text-gold" />
-            ملاحظات
+            {t("ملاحظات", "Notes")}
           </h2>
           {session.post_session_notes && (
             <div className="mb-3">
-              <p className="text-xs text-muted">ملاحظات ما بعد الجلسة</p>
+              <p className="text-xs text-muted">{t("ملاحظات ما بعد الجلسة", "Post-Session Notes")}</p>
               <p className="mt-1 text-sm">{session.post_session_notes}</p>
             </div>
           )}
           {session.homework && (
             <div>
-              <p className="text-xs text-muted">الواجب</p>
+              <p className="text-xs text-muted">{t("الواجب", "Homework")}</p>
               <p className="mt-1 text-sm">{session.homework}</p>
             </div>
           )}
@@ -314,10 +314,10 @@ export default async function SessionDetailPage({
       <div className="mt-4 glass-card p-6">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
           <Shield size={18} className="text-gold" />
-          سجل التعديلات
+          {t("سجل التعديلات", "Audit Log")}
         </h2>
         {logs.length === 0 ? (
-          <p className="text-sm text-muted">لا توجد سجلات</p>
+          <p className="text-sm text-muted">{t("لا توجد سجلات", "No records")}</p>
         ) : (
           <div className="space-y-3">
             {logs.map((l) => (
@@ -327,11 +327,11 @@ export default async function SessionDetailPage({
                     {l.action}
                   </span>
                   <span className="text-muted">—</span>
-                  <span>{l.changed_by ? auditNameMap[l.changed_by] ?? "—" : "نظام"}</span>
+                  <span>{l.changed_by ? auditNameMap[l.changed_by] ?? "—" : t("نظام", "System")}</span>
                   <span className="mr-auto text-xs text-muted">{formatDT(l.created_at)}</span>
                 </div>
                 {l.reason && (
-                  <p className="mt-1 text-xs text-muted">السبب: {l.reason}</p>
+                  <p className="mt-1 text-xs text-muted">{t("السبب", "Reason")}: {l.reason}</p>
                 )}
               </div>
             ))}
