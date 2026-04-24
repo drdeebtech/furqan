@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Package, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { GrantCreditForm } from "./grant-form";
 
 export const metadata: Metadata = {
@@ -20,6 +21,7 @@ interface ActivePackageRow {
 }
 
 export default async function AdminCreditsPage() {
+  const { t, dir, lang } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -48,14 +50,17 @@ export default async function AdminCreditsPage() {
   });
 
   return (
-    <div dir="rtl" className="mx-auto max-w-6xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-6xl px-4 py-8">
       <header className="mb-8">
         <div className="flex items-center gap-3">
           <Package size={24} className="text-gold" />
-          <h1 className="text-xl font-bold">منح رصيد يدوي</h1>
+          <h1 className="text-xl font-bold">{t("منح رصيد يدوي", "Manual Credit Grant")}</h1>
         </div>
         <p className="mt-2 text-sm text-muted">
-          امنح الطالب جلسات إضافية على باقته النشطة. يُسجل كل منح في سجل المراجعة.
+          {t(
+            "امنح الطالب جلسات إضافية على باقته النشطة. يُسجل كل منح في سجل المراجعة.",
+            "Grant additional sessions on the student's active package. Every grant is recorded in the audit log.",
+          )}
         </p>
       </header>
 
@@ -64,23 +69,23 @@ export default async function AdminCreditsPage() {
       <section className="mt-10">
         <div className="mb-4 flex items-center gap-3">
           <AlertCircle size={18} className="text-amber-400" />
-          <h2 className="text-lg font-bold">باقات منخفضة الرصيد أو قريبة الانتهاء</h2>
+          <h2 className="text-lg font-bold">{t("باقات منخفضة الرصيد أو قريبة الانتهاء", "Low-Balance or Expiring Packages")}</h2>
           <span className="text-xs text-muted">({lowBalance.length})</span>
         </div>
 
         {lowBalance.length === 0 ? (
           <p className="rounded-xl border border-surface-border/60 bg-surface/40 p-6 text-center text-sm text-muted">
-            لا توجد باقات بحاجة إلى الانتباه الآن.
+            {t("لا توجد باقات بحاجة إلى الانتباه الآن.", "No packages need attention right now.")}
           </p>
         ) : (
           <div className="overflow-hidden rounded-xl border border-surface-border/60">
             <table className="w-full text-sm">
               <thead className="bg-surface/60 text-xs uppercase tracking-wider text-muted">
                 <tr>
-                  <th className="p-3 text-start">الطالب</th>
-                  <th className="p-3 text-start">الباقة</th>
-                  <th className="p-3 text-start">المتبقي</th>
-                  <th className="p-3 text-start">تنتهي</th>
+                  <th className="p-3 text-start">{t("الطالب", "Student")}</th>
+                  <th className="p-3 text-start">{t("الباقة", "Package")}</th>
+                  <th className="p-3 text-start">{t("المتبقي", "Remaining")}</th>
+                  <th className="p-3 text-start">{t("تنتهي", "Expires")}</th>
                   <th className="p-3 text-start"></th>
                 </tr>
               </thead>
@@ -97,7 +102,7 @@ export default async function AdminCreditsPage() {
                         <p className="font-medium">{p.profiles?.full_name ?? "—"}</p>
                         <p className="text-xs text-muted">{p.profiles?.email ?? ""}</p>
                       </td>
-                      <td className="p-3">{p.packages?.name_ar ?? p.packages?.name ?? "—"}</td>
+                      <td className="p-3">{(lang === "ar" ? p.packages?.name_ar : p.packages?.name) ?? p.packages?.name ?? "—"}</td>
                       <td className="p-3">
                         <span className={remaining === 0 ? "text-red-400" : remaining <= 2 ? "text-amber-400" : "text-foreground"}>
                           {remaining} / {p.sessions_total}
@@ -107,11 +112,11 @@ export default async function AdminCreditsPage() {
                         {p.expires_at ? (
                           <span className={expiryDays !== null && expiryDays <= 7 ? "text-amber-400" : "text-muted"}>
                             {expiryDays !== null && expiryDays <= 0
-                              ? "منتهية"
-                              : `خلال ${expiryDays} يوم`}
+                              ? t("منتهية", "Expired")
+                              : t(`خلال ${expiryDays} يوم`, `in ${expiryDays} days`)}
                           </span>
                         ) : (
-                          <span className="text-muted">بدون انتهاء</span>
+                          <span className="text-muted">{t("بدون انتهاء", "No expiry")}</span>
                         )}
                       </td>
                       <td className="p-3">
@@ -119,7 +124,7 @@ export default async function AdminCreditsPage() {
                           href={`#grant-${p.student_id}`}
                           className="text-xs font-medium text-gold hover:text-gold-light"
                         >
-                          منح رصيد ←
+                          {t("منح رصيد ←", "Grant credit →")}
                         </a>
                       </td>
                     </tr>

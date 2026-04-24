@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Radio, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { LiveSessionsMonitor } from "./live-monitor";
 
 export const metadata: Metadata = { title: "الجلسات النشطة" };
@@ -24,6 +25,7 @@ interface BookingRow {
 }
 
 export default async function LiveSessionsPage() {
+  const { t, dir } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -82,7 +84,7 @@ export default async function LiveSessionsPage() {
   });
 
   return (
-    <div dir="rtl" className="mx-auto max-w-6xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-6 flex items-center gap-3">
         <Link
           href="/admin/sessions"
@@ -92,7 +94,7 @@ export default async function LiveSessionsPage() {
         </Link>
         <h1 className="flex items-center gap-2 text-2xl font-bold">
           <Radio size={24} className="animate-pulse text-emerald-400" />
-          الجلسات النشطة
+          {t("الجلسات النشطة", "Live Sessions")}
         </h1>
         <span className="glass-badge border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-400">
           {activeSessions.length}
