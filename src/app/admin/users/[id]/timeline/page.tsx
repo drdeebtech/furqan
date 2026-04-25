@@ -80,6 +80,7 @@ interface AuditRow {
   record_id: string;
   action: AuditAction;
   reason: string | null;
+  ip_address: string | null;
   created_at: string;
 }
 
@@ -181,7 +182,7 @@ export default async function UserTimelinePage({ params }: Props) {
     // Audit — actions performed BY this user
     supabase
       .from("audit_log")
-      .select("id, changed_by, table_name, record_id, action, reason, created_at")
+      .select("id, changed_by, table_name, record_id, action, reason, ip_address, created_at")
       .eq("changed_by", id)
       .gte("created_at", cutoff90)
       .order("created_at", { ascending: false })
@@ -191,7 +192,7 @@ export default async function UserTimelinePage({ params }: Props) {
     // Audit — actions performed ON this user (record_id = id)
     supabase
       .from("audit_log")
-      .select("id, changed_by, table_name, record_id, action, reason, created_at")
+      .select("id, changed_by, table_name, record_id, action, reason, ip_address, created_at")
       .eq("record_id", id)
       .gte("created_at", cutoff90)
       .order("created_at", { ascending: false })
@@ -394,10 +395,27 @@ export default async function UserTimelinePage({ params }: Props) {
     });
   }
 
-  // Audit — merge both streams, dedupe by id
+  // Audit — merge both streams, dedupe by id. LOGIN/LOGOUT events get
+  // their own type/icon/copy so they read naturally in the timeline.
   const auditMap = new Map<string, AuditRow>();
   for (const a of [...auditByUser, ...auditOnUser]) auditMap.set(a.id, a);
   for (const a of auditMap.values()) {
+    if (a.action === "LOGIN" || a.action === "LOGOUT") {
+      const isLogin = a.action === "LOGIN";
+      const ip = a.ip_address ? ` · ${a.ip_address}` : "";
+      events.push({
+        id: `audit:${a.id}`,
+        type: isLogin ? "auth_login" : "auth_logout",
+        at: a.created_at,
+        title_ar: isLogin ? "تسجيل دخول" : "تسجيل خروج",
+        title_en: isLogin ? "Signed in" : "Signed out",
+        detail: (a.reason ?? "") + ip,
+        href: undefined,
+        icon: isLogin ? "log-in" : "log-out",
+        color: isLogin ? "blue" : "muted",
+      });
+      continue;
+    }
     const actedBySelf = a.changed_by === id;
     events.push({
       id: `audit:${a.id}`,

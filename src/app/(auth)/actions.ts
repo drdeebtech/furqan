@@ -1,9 +1,37 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { checkBotId } from "botid/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
+
+/**
+ * Insert an audit_log row for a successful sign-in. Service-role client
+ * because RLS policy on audit_log is INSERT-by-service-role-only. Fire-and-
+ * forget — login latency must not depend on this.
+ */
+async function recordLogin(userId: string, email: string, role: string | null) {
+  try {
+    const h = await headers();
+    const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+    const userAgent = h.get("user-agent") ?? null;
+    const admin = createAdminClient();
+    await admin.from("audit_log").insert({
+      changed_by: userId,
+      table_name: "auth.users",
+      record_id: userId,
+      action: "LOGIN",
+      old_data: null,
+      new_data: { email, role, user_agent: userAgent },
+      ip_address: ip,
+      reason: "User signed in",
+    } as never);
+  } catch (err) {
+    logError("recordLogin failed (non-blocking)", err, { tag: "auth-audit" });
+  }
+}
 
 export type AuthResult = {
   error?: string;
@@ -97,13 +125,7 @@ export async function login(
     return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
   }
 
-  // If caller provided an explicit redirect (e.g. from ?redirect=/student/bookings), use it
-  // Validate: must be a relative path (starts with /) and not protocol-relative (//)
-  if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
-    redirect(redirectTo);
-  }
-
-  // Otherwise, redirect to the user's role-based dashboard
+  // Resolve role first — needed for both the redirect and the audit-log payload.
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
@@ -111,6 +133,16 @@ export async function login(
     .single<{ role: string }>();
 
   const role = profile?.role ?? "student";
+
+  // Audit the sign-in. Fire-and-forget; never blocks the redirect.
+  await recordLogin(data.user.id, email, role);
+
+  // If caller provided an explicit redirect (e.g. from ?redirect=/student/bookings), use it
+  // Validate: must be a relative path (starts with /) and not protocol-relative (//)
+  if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
+    redirect(redirectTo);
+  }
+
   redirect(`/${role}/dashboard`);
 }
 

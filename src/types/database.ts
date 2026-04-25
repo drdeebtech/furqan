@@ -33,7 +33,7 @@ export type ProgressType = "new" | "muraja" | "correction";
 export type RecitationErrorType = "makharij" | "sifat" | "madd" | "waqf" | "ghunna" | "other";
 export type TransactionType = "charge" | "refund" | "adjustment";
 export type SessionCreatedVia = "webhook" | "manual" | "auto";
-export type AuditAction = "INSERT" | "UPDATE" | "DELETE";
+export type AuditAction = "INSERT" | "UPDATE" | "DELETE" | "LOGIN" | "LOGOUT";
 export type RecitationStandard = "hafs" | "warsh" | "qalon" | "al_duri" | "shu_ba";
 
 // ─── Table 1: profiles ───────────────────────────────────────────────────────

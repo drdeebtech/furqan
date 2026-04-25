@@ -12,6 +12,8 @@ import {
   ChevronRight,
   DollarSign,
   Inbox,
+  LogIn,
+  LogOut,
   MessageSquare,
   Shield,
   Star,
@@ -33,17 +35,19 @@ export interface TimelineEvent {
     | "evaluation_created"
     | "notification_sent"
     | "audit"
+    | "auth_login"
+    | "auth_logout"
     | "payment";
   at: string;
   title_ar: string;
   title_en: string;
   detail?: string;
   href?: string;
-  icon: "calendar" | "video" | "book-open" | "star" | "bell" | "shield" | "dollar-sign";
+  icon: "calendar" | "video" | "book-open" | "star" | "bell" | "shield" | "dollar-sign" | "log-in" | "log-out";
   color: "blue" | "green" | "amber" | "purple" | "gold" | "muted" | "red";
 }
 
-type FilterKey = "all" | "bookings" | "sessions" | "homework" | "evaluations" | "notifications" | "audit";
+type FilterKey = "all" | "bookings" | "sessions" | "homework" | "evaluations" | "notifications" | "audit" | "auth";
 
 interface Props {
   userId: string;
@@ -63,6 +67,8 @@ const ICONS: Record<TimelineEvent["icon"], LucideIcon> = {
   bell: Bell,
   shield: Shield,
   "dollar-sign": DollarSign,
+  "log-in": LogIn,
+  "log-out": LogOut,
 };
 
 // ── Color tokens — keep in sync with project's glass/gold design system ───────
@@ -125,6 +131,7 @@ const FILTER_TYPES: Record<FilterKey, TimelineEvent["type"][] | null> = {
   evaluations: ["evaluation_created"],
   notifications: ["notification_sent"],
   audit: ["audit"],
+  auth: ["auth_login", "auth_logout"],
 };
 
 // ── Relative time formatting (no lib dep) ─────────────────────────────────────
@@ -197,6 +204,7 @@ export function TimelineClient({
     { key: "evaluations", label_ar: "التقييمات", label_en: "Evaluations" },
     { key: "notifications", label_ar: "الإشعارات", label_en: "Notifications" },
     { key: "audit", label_ar: "سجل التدقيق", label_en: "Audit" },
+    { key: "auth", label_ar: "الدخول والخروج", label_en: "Auth" },
   ];
 
   // Count per filter for display in chip
@@ -209,6 +217,7 @@ export function TimelineClient({
       evaluations: 0,
       notifications: 0,
       audit: 0,
+      auth: 0,
     };
     for (const e of events) {
       for (const [key, types] of Object.entries(FILTER_TYPES) as [FilterKey, TimelineEvent["type"][] | null][]) {
