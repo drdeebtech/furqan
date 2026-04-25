@@ -15,14 +15,16 @@ export default async function AdminTeachersPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: teachers } = await supabase.from("teacher_profiles")
-    .select("teacher_id, specialties, hourly_rate, rating_avg, total_sessions, is_accepting, is_archived, cv_status")
-    .order("total_sessions", { ascending: false }).returns<TeacherRow[]>();
-  const list = teachers ?? [];
-
-  const { count: pendingCvCount } = await supabase.from("teacher_profiles")
-    .select("teacher_id", { count: "exact", head: true })
-    .eq("cv_status", "pending_review");
+  const [teachersRes, cvCountRes] = await Promise.all([
+    supabase.from("teacher_profiles")
+      .select("teacher_id, specialties, hourly_rate, rating_avg, total_sessions, is_accepting, is_archived, cv_status")
+      .order("total_sessions", { ascending: false }).returns<TeacherRow[]>(),
+    supabase.from("teacher_profiles")
+      .select("teacher_id", { count: "exact", head: true })
+      .eq("cv_status", "pending_review"),
+  ]);
+  const list = teachersRes.data ?? [];
+  const pendingCvCount = cvCountRes.count;
 
   let nameMap: Record<string, string> = {};
   if (list.length > 0) {

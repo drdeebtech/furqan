@@ -442,3 +442,42 @@ Phases shipped beyond the original 8-sprint plan, in a single session that took 
 **Still blocked (both truly external):**
 - Stripe SDK install + keys → Sprint 1 collapses to ~15 min of integration
 - Anthropic key → Sprint 8's AI paragraph generation slots into the existing send pipeline
+
+---
+
+## Admin Audit Follow-ups (2026-04-25 session — `ec17f78`)
+
+Deferred items from `ADMIN_AUDIT.md`. The audit applied 13 P1 + 18 P2 in waves 1–6; the following P3-and-risky items were intentionally not bundled.
+
+### Needs DB apply
+- `src/lib/supabase/migrations/v14_007_admin_perf.sql` — 6 admin-perf indexes (bookings status+date, sessions status+start, partial CV pending, retention churn-risk, notifications unread, audit_log time). Apply via Supabase SQL editor (separate account; not auto-applied by the repo migrations folder).
+
+### Performance — needs careful per-page testing
+- `/admin/sessions` — three-stage cascade (sessions → bookings → profiles). Collapse via single `Promise.all` with `.in()` on bookingIds and profileIds.
+- `/admin/users` retention join — currently a legitimate two-stage query (need student IDs first). Could collapse with a Postgres view that pre-joins `profiles` and `retention_signals`.
+- `/admin/dashboard` — 14 round-trips per load. Collapse into 2–3 Postgres views (`v_admin_dashboard_today`, `v_admin_dashboard_trends`) or RPCs.
+- `/admin/control-tower` — at-risk packages query is sequential; low-balance filter applied client-side. Move into the existing `Promise.all` and use `.lt("remaining_sessions", 3)` server-side.
+- Add `<Suspense>` boundaries around independent dashboard widgets so the page streams instead of waiting for the slowest query.
+
+### A11y polish
+- RTL logical-property sweep: ~9 admin form files use `text-left` / `ml-*` / `mr-*` / `right-*` / `pl-*` etc. Replace with `text-start` / `ms-*` / `me-*` / `end-*` / `ps-*`. Most current uses are on `dir="ltr"` fields where the behavior is identical, so this is hygiene, not a defect.
+- Status badges on `/admin/teachers` and `/admin/teachers/[id]` rely on red/green color alone — add icons + text labels for color-blind users.
+- Empty states on `/admin/announcements` and `/admin/retention` currently `return null` when no data; render an empty-state card.
+- Hardcoded English service names in `/admin/settings` ("Supabase", "Daily.co", "Stripe") — wrap in `t()` or a constants file.
+- Icon-only buttons across admin still missing `aria-label` in scattered places.
+- Focus management on form modals — no focus trap; route transitions don't move focus to `<h1>`.
+
+### Code quality / dead code
+- ~26 admin files inline `supabase.from("profiles").select("role")` role checks — replace with shared `requireAdmin()` from `src/lib/auth/require-admin.ts` (already canonical).
+- Inline `nameMap` of profile-id → name repeated across `users/page.tsx`, `teachers/page.tsx`, `bookings/page.tsx`, `sessions/page.tsx` — extract to `src/lib/admin/name-map.ts`.
+- Heavy `as never` casts (9× in `sessions/actions.ts`, 8× in `teachers/[id]/actions.ts`, others) — regenerate Supabase Database types and remove.
+- Stale TODO/FIXME and dead imports flagged by lens-1 agent — sweep with `next lint --fix` and a manual pass.
+
+### Audit log gaps
+- `forceEndSession` writes to `audit_log`, but `deleteUser`, force-cancel booking, package price change, settings toggle, automation replay don't. Add `audit_log` insert wrapper or a Postgres trigger.
+
+**Still blocked (external):**
+- Stripe checkout flow — Stripe API keys.
+- AI parent reports — Anthropic API key in n8n.
+- WhatsApp Business — Cloud API token.
+- Google Calendar sync — OAuth setup.
