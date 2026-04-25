@@ -183,8 +183,8 @@ export function AnnouncementForm({
           </span>
         )}
         {state.error && (
-          <span className="flex items-center gap-1 text-sm text-red-400">
-            <AlertCircle size={14} /> {state.error}
+          <span role="alert" className="flex items-center gap-1 text-sm text-red-400">
+            <AlertCircle size={14} aria-hidden="true" /> {state.error}
           </span>
         )}
       </div>

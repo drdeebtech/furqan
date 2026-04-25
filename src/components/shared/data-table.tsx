@@ -41,6 +41,7 @@ export function DataTable({ title, columns, rows, emptyMessage }: DataTableProps
                 {columns.map((col) => (
                   <th
                     key={col.key}
+                    scope="col"
                     className={`pb-3 text-start text-xs font-medium uppercase tracking-wide text-[var(--muted-light,#9CA3AF)] ${col.className ?? ""}`}
                   >
                     {col.label}
@@ -118,9 +119,13 @@ function renderCell(col: DataTableColumn, value: unknown, t: (ar: string, en: st
 
     case "actions":
       return (
-        <span role="button" tabIndex={0} aria-label={t("عرض", "View")}>
-          <Eye size={16} className="text-[var(--muted-light,#9CA3AF)]" />
-        </span>
+        <button
+          type="button"
+          aria-label={t("عرض", "View")}
+          className="inline-flex items-center justify-center rounded p-1 text-[var(--muted-light,#9CA3AF)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+        >
+          <Eye size={16} />
+        </button>
       );
 
     default:

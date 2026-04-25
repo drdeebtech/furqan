@@ -70,10 +70,12 @@ export async function forceEndSession(sessionId: string, reason: string) {
   if (updateErr) return { error: "فشل إنهاء الجلسة" };
 
   /* Update booking status */
-  await supabase
+  const { error: bookingErr } = await supabase
     .from("bookings")
     .update({ status: "completed" } as never)
     .eq("id", session.booking_id);
+
+  if (bookingErr) return { error: "فشل تحديث حالة الحجز" };
 
   /* Audit log */
   await supabase.from("audit_log").insert({
@@ -294,16 +296,22 @@ export async function joinAsObserver(sessionId: string) {
   }
 
   // Record observer
-  await supabase.from("sessions").update({
+  const { error: obsSessionErr } = await supabase.from("sessions").update({
     admin_observer_id: user.id,
     observer_joined_at: new Date().toISOString(),
   } as never).eq("id", sessionId);
 
-  await supabase.from("session_observers").insert({
+  if (obsSessionErr) return { error: "فشل تسجيل المراقب على الجلسة" };
+
+  const { error: obsInsertErr } = await supabase.from("session_observers").insert({
     session_id: sessionId,
     observer_id: user.id,
     joined_at: new Date().toISOString(),
   } as never);
 
+  if (obsInsertErr) return { error: "فشل إنشاء سجل المراقبة" };
+
+  revalidatePath("/admin/sessions");
+  revalidatePath("/admin/sessions/live");
   return { success: true, token, roomUrl: session.room_url };
 }

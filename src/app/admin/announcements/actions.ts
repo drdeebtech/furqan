@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin as requireAdminStrict, ForbiddenError } from "@/lib/auth/require-admin";
 import type { AnnouncementSeverity } from "@/types/database";
 
 export interface AnnouncementResult {
@@ -12,16 +12,15 @@ export interface AnnouncementResult {
 }
 
 async function requireAdmin(): Promise<{ userId?: string; error?: string }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "غير مسجل الدخول" };
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single<{ role: string }>();
-  if (!profile || profile.role !== "admin") return { error: "ليس لديك صلاحية" };
-  return { userId: user.id };
+  try {
+    const { id } = await requireAdminStrict();
+    return { userId: id };
+  } catch (e) {
+    if (e instanceof ForbiddenError) {
+      return { error: e.message === "not authenticated" ? "غير مسجل الدخول" : "ليس لديك صلاحية" };
+    }
+    throw e;
+  }
 }
 
 interface AnnouncementFields {

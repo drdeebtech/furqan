@@ -34,19 +34,20 @@ export function PostForm({ post }: { post?: BlogPost }) {
       {post && <input type="hidden" name="id" value={post.id} />}
 
       {state?.error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
           {state.error}
         </div>
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm font-medium">العنوان بالعربية *</label>
-          <input name="title_ar" required defaultValue={post?.title_ar} className={input} placeholder="عنوان المقال بالعربية" />
+          <label htmlFor="title_ar" className="mb-1 block text-sm font-medium">العنوان بالعربية *</label>
+          <input id="title_ar" name="title_ar" required defaultValue={post?.title_ar} className={input} placeholder="عنوان المقال بالعربية" />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Title in English *</label>
+          <label htmlFor="title_en" className="mb-1 block text-sm font-medium">Title in English *</label>
           <input
+            id="title_en"
             name="title_en"
             required
             dir="ltr"
@@ -62,14 +63,14 @@ export function PostForm({ post }: { post?: BlogPost }) {
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium">الرابط (Slug) *</label>
-        <input name="slug" required dir="ltr" defaultValue={post?.slug} className={`${input} text-left`} placeholder="article-url-slug" />
+        <label htmlFor="slug" className="mb-1 block text-sm font-medium">الرابط (Slug) *</label>
+        <input id="slug" name="slug" required dir="ltr" defaultValue={post?.slug} className={`${input} text-left`} placeholder="article-url-slug" />
         <p className="mt-1 text-xs text-muted">يُستخدم في رابط المقال — أحرف إنجليزية وأرقام وشرطات فقط</p>
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium">التصنيف *</label>
-        <select name="category_en" required defaultValue={post?.category_en} className={input}>
+        <label htmlFor="category_en" className="mb-1 block text-sm font-medium">التصنيف *</label>
+        <select id="category_en" name="category_en" required defaultValue={post?.category_en} className={input}>
           <option value="">اختر التصنيف</option>
           {CATEGORIES.map((c) => (
             <option key={c.en} value={c.en}>{c.ar} / {c.en}</option>
@@ -79,33 +80,33 @@ export function PostForm({ post }: { post?: BlogPost }) {
 
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm font-medium">وقت القراءة بالعربية</label>
-          <input name="read_time_ar" defaultValue={post?.read_time_ar ?? "٥ دقائق"} className={input} placeholder="٥ دقائق" />
+          <label htmlFor="read_time_ar" className="mb-1 block text-sm font-medium">وقت القراءة بالعربية</label>
+          <input id="read_time_ar" name="read_time_ar" defaultValue={post?.read_time_ar ?? "٥ دقائق"} className={input} placeholder="٥ دقائق" />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Read Time (English)</label>
-          <input name="read_time_en" dir="ltr" defaultValue={post?.read_time_en ?? "5 min"} className={`${input} text-left`} placeholder="5 min" />
+          <label htmlFor="read_time_en" className="mb-1 block text-sm font-medium">Read Time (English)</label>
+          <input id="read_time_en" name="read_time_en" dir="ltr" defaultValue={post?.read_time_en ?? "5 min"} className={`${input} text-left`} placeholder="5 min" />
         </div>
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium">مقتطف بالعربية *</label>
-        <textarea name="excerpt_ar" required rows={3} defaultValue={post?.excerpt_ar} className={`${input} resize-none`} placeholder="ملخص قصير للمقال بالعربية..." />
+        <label htmlFor="excerpt_ar" className="mb-1 block text-sm font-medium">مقتطف بالعربية *</label>
+        <textarea id="excerpt_ar" name="excerpt_ar" required rows={3} defaultValue={post?.excerpt_ar} className={`${input} resize-none`} placeholder="ملخص قصير للمقال بالعربية..." />
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium">Excerpt in English *</label>
-        <textarea name="excerpt_en" required dir="ltr" rows={3} defaultValue={post?.excerpt_en} className={`${input} resize-none text-left`} placeholder="Short summary in English..." />
+        <label htmlFor="excerpt_en" className="mb-1 block text-sm font-medium">Excerpt in English *</label>
+        <textarea id="excerpt_en" name="excerpt_en" required dir="ltr" rows={3} defaultValue={post?.excerpt_en} className={`${input} resize-none text-left`} placeholder="Short summary in English..." />
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium">المحتوى الكامل بالعربية *</label>
-        <textarea name="body_ar" required rows={10} defaultValue={post?.body_ar} className={`${input} resize-y`} placeholder="اكتب محتوى المقال بالعربية هنا..." />
+        <label htmlFor="body_ar" className="mb-1 block text-sm font-medium">المحتوى الكامل بالعربية *</label>
+        <textarea id="body_ar" name="body_ar" required rows={10} defaultValue={post?.body_ar} className={`${input} resize-y`} placeholder="اكتب محتوى المقال بالعربية هنا..." />
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium">Full Content in English *</label>
-        <textarea name="body_en" required dir="ltr" rows={10} defaultValue={post?.body_en} className={`${input} resize-y text-left`} placeholder="Write the full article content here..." />
+        <label htmlFor="body_en" className="mb-1 block text-sm font-medium">Full Content in English *</label>
+        <textarea id="body_en" name="body_en" required dir="ltr" rows={10} defaultValue={post?.body_en} className={`${input} resize-y text-left`} placeholder="Write the full article content here..." />
       </div>
 
       <div className="flex items-center gap-3 glass-card rounded-xl p-4">
@@ -119,6 +120,7 @@ export function PostForm({ post }: { post?: BlogPost }) {
       <button
         type="submit"
         disabled={pending}
+        aria-busy={pending}
         className="w-full glass-gold glass-pill py-3 font-semibold transition-colors disabled:opacity-50"
       >
         {pending ? "جاري الحفظ..." : post ? "حفظ التعديلات" : "حفظ المقال"}

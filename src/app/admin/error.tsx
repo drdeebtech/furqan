@@ -12,7 +12,7 @@ export default function AdminError({
 }) {
   return (
     <div dir="rtl" className="flex min-h-[60vh] flex-col items-center justify-center px-4 py-16">
-      <AlertTriangle size={56} className="mb-6 text-red-400" />
+      <AlertTriangle size={56} className="mb-6 text-red-500" aria-hidden="true" />
       <h1 className="mb-3 text-2xl font-bold text-foreground">حدث خطأ في لوحة الإدارة</h1>
       <p className="mb-8 max-w-md text-center text-muted">
         تعذر تحميل هذه الصفحة. جرّب إعادة التحميل أو ارجع للوحة الرئيسية.
