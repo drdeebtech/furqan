@@ -10,6 +10,7 @@ import { LiveSessionsWidget } from "@/components/shared/live-sessions-widget";
 import { BreakdownBar } from "@/components/shared/breakdown-bar";
 import { DataTable } from "@/components/shared/data-table";
 import { ArchiveToggle } from "./archive-toggle";
+import { CacheClearButton } from "./cache-clear-button";
 
 interface TeacherRow { teacher_id: string; hourly_rate: number; rating_avg: number; total_sessions: number; is_accepting: boolean; is_archived: boolean }
 interface PendingBookingRow { id: string; student_id: string; teacher_id: string; scheduled_at: string; session_type: string; created_at: string }
@@ -47,8 +48,13 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
       <div className="h-0.5 bg-gradient-to-l from-gold/0 via-gold/30 to-gold/0" />
       <div dir={dir} className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         {/* Row 0: Title + Alerts */}
-        <h1 className="font-display text-3xl font-bold">{t("لوحة الإدارة", "Admin Dashboard")}</h1>
-        <p className="mt-1 text-sm text-muted">{t("مركز التحكم", "Command Center")}</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="font-display text-3xl font-bold">{t("لوحة الإدارة", "Admin Dashboard")}</h1>
+            <p className="mt-1 text-sm text-muted">{t("مركز التحكم", "Command Center")}</p>
+          </div>
+          <CacheClearButton />
+        </div>
 
         {hasAlerts && (
           <div className="mt-6 grid gap-3 sm:grid-cols-2">

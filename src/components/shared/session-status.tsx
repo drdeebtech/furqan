@@ -69,9 +69,10 @@ export function SessionStatus({
   size?: "sm" | "md";
 }) {
   const { lang } = useLang();
-  const [state, setState] = useState<SessionState>(() =>
-    computeState(scheduledAt, durationMin, expiresAt, endedAt),
-  );
+  // Hydration-safe initial state: deterministic (no Date.now() on server). The
+  // useEffect below immediately recomputes the real state on mount, so the
+  // "upcoming"/"ended" placeholder is invisible (<16ms before useEffect runs).
+  const [state, setState] = useState<SessionState>(endedAt ? "ended" : "upcoming");
 
   useEffect(() => {
     const check = () =>

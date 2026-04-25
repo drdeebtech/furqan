@@ -15,13 +15,13 @@ const input =
   "w-full rounded-xl glass-input px-3 py-2 text-sm text-foreground focus:border-gold focus:outline-none";
 
 const DAYS = [
-  { value: 0, ar: "الأحد" },
-  { value: 1, ar: "الاثنين" },
-  { value: 2, ar: "الثلاثاء" },
-  { value: 3, ar: "الأربعاء" },
-  { value: 4, ar: "الخميس" },
-  { value: 5, ar: "الجمعة" },
-  { value: 6, ar: "السبت" },
+  { value: 0, ar: "الأحد", en: "Sunday" },
+  { value: 1, ar: "الاثنين", en: "Monday" },
+  { value: 2, ar: "الثلاثاء", en: "Tuesday" },
+  { value: 3, ar: "الأربعاء", en: "Wednesday" },
+  { value: 4, ar: "الخميس", en: "Thursday" },
+  { value: 5, ar: "الجمعة", en: "Friday" },
+  { value: 6, ar: "السبت", en: "Saturday" },
 ];
 
 interface Slot {
@@ -62,7 +62,10 @@ function detectOverlap(
     const sStart = s.start_time.slice(0, 5);
     const sEnd = s.end_time.slice(0, 5);
     if (sStart < candEnd && candStart < sEnd) {
-      return `تتعارض مع فترة موجودة ${sStart}–${sEnd} في نفس اليوم`;
+      // i18n: caller picks the language; we return both with a separator the
+      // call site can split, or a single string in admin's primary locale.
+      // Keeping AR primary since admin UI defaults to Arabic.
+      return `تتعارض مع فترة موجودة ${sStart}–${sEnd} في نفس اليوم / Overlaps with existing ${sStart}–${sEnd}`;
     }
   }
   return null;
@@ -84,8 +87,8 @@ export function AvailabilityEditor({ teacherId, slots, exceptions }: Availabilit
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">
-            الجدول الأسبوعي
-            <span className="me-2 text-sm font-normal text-muted">Weekly slots ({slots.length})</span>
+            الجدول الأسبوعي / Weekly slots
+            <span className="me-2 text-sm font-normal text-muted">({slots.length})</span>
           </h2>
           {!addingSlot && !editingSlotId && (
             <button
@@ -209,7 +212,8 @@ function SlotRow({
   onChanged: () => void;
 }) {
   const [pending, startTransition] = useTransition();
-  const dayLabel = DAYS.find((d) => d.value === slot.day_of_week)?.ar ?? "—";
+  const dayMeta = DAYS.find((d) => d.value === slot.day_of_week);
+  const dayLabel = dayMeta ? `${dayMeta.ar} / ${dayMeta.en}` : "—";
 
   const handleDelete = () => {
     if (!confirm("حذف هذه الفترة؟")) return;
@@ -313,7 +317,7 @@ function SlotForm({
           >
             {DAYS.map((d) => (
               <option key={d.value} value={d.value}>
-                {d.ar}
+                {`${d.ar} / ${d.en}`}
               </option>
             ))}
           </select>

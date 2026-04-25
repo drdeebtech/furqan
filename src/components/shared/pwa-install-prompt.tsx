@@ -12,10 +12,10 @@ interface BeforeInstallPromptEvent extends Event {
 export function PwaInstallPrompt() {
   const { t } = useLang();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [dismissed, setDismissed] = useState(() => {
-    if (typeof window !== "undefined") return !!sessionStorage.getItem("pwa-dismissed");
-    return false;
-  });
+  // Hydration-safe: server renders `false`, client reconciles from sessionStorage on mount.
+  // Banner is gated by `deferredPrompt` (always null on SSR until beforeinstallprompt fires),
+  // so this never causes a visible flicker even during the brief mismatch window.
+  const [dismissed, setDismissed] = useState(false);
 
   const handleBeforeInstall = useCallback((e: Event) => {
     e.preventDefault();
@@ -23,6 +23,10 @@ export function PwaInstallPrompt() {
   }, []);
 
   useEffect(() => {
+    if (typeof window !== "undefined" && sessionStorage.getItem("pwa-dismissed")) {
+      setDismissed(true);
+      return;
+    }
     if (dismissed) return;
     window.addEventListener("beforeinstallprompt", handleBeforeInstall);
     return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstall);

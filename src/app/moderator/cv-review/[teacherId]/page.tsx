@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, FileText } from "lucide-react";
+import { ArrowRight, ArrowLeft, FileText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { CvReviewActions } from "./review-actions";
@@ -33,8 +33,12 @@ export default async function ModeratorCvDetailPage({ params }: { params: Promis
   return (
     <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
       <div className="mb-6 flex items-center gap-3">
-        <Link href="/moderator/cv-review" className="glass rounded-lg p-2 text-muted transition-colors hover:bg-white/10">
-          <ArrowRight size={16} />
+        <Link
+          href="/moderator/cv-review"
+          aria-label={t("رجوع", "Back")}
+          className="glass rounded-lg p-2 text-muted transition-colors hover:bg-white/10"
+        >
+          {dir === "rtl" ? <ArrowRight size={16} aria-hidden="true" /> : <ArrowLeft size={16} aria-hidden="true" />}
         </Link>
         <h1 className="flex items-center gap-2 text-2xl font-bold">
           <FileText size={24} className="text-gold" /> {t("مراجعة السيرة الذاتية", "CV Review")}
