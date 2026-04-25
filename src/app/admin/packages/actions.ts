@@ -2,18 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin as requireAdminStrict } from "@/lib/auth/require-admin";
 
-async function requireAdmin() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("غير مصرح");
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single<{ role: string }>();
-  if (!profile || profile.role !== "admin") throw new Error("ليس لديك صلاحية");
-  return supabase;
+async function requireAdminClient() {
+  const { id } = await requireAdminStrict();
+  return { actorId: id, supabase: await createClient() };
 }
 
 export async function savePackage(_prev: { success?: boolean; error?: string }, formData: FormData) {
-  const supabase = await requireAdmin();
+  const { actorId, supabase } = await requireAdminClient();
   const id = formData.get("id") as string | null;
 
   const data = {
@@ -40,9 +37,38 @@ export async function savePackage(_prev: { success?: boolean; error?: string }, 
   }
 
   if (id) {
+    const { data: previous } = await supabase
+      .from("packages")
+      .select("price_usd, name, is_active")
+      .eq("id", id)
+      .single<{ price_usd: number; name: string; is_active: boolean }>();
     await supabase.from("packages").update(data as never).eq("id", id);
+    await supabase.from("audit_log").insert({
+      changed_by: actorId,
+      table_name: "packages",
+      record_id: id,
+      action: "UPDATE",
+      old_data: previous ?? null,
+      new_data: { price_usd: data.price_usd, name: data.name, is_active: data.is_active },
+      reason: "Admin updated package",
+    } as never);
   } else {
-    await supabase.from("packages").insert(data as never);
+    const { data: inserted } = await supabase
+      .from("packages")
+      .insert(data as never)
+      .select("id")
+      .single<{ id: string }>();
+    if (inserted?.id) {
+      await supabase.from("audit_log").insert({
+        changed_by: actorId,
+        table_name: "packages",
+        record_id: inserted.id,
+        action: "INSERT",
+        old_data: null,
+        new_data: { price_usd: data.price_usd, name: data.name, is_active: data.is_active },
+        reason: "Admin created package",
+      } as never);
+    }
   }
 
   revalidatePath("/admin/packages");
@@ -51,18 +77,46 @@ export async function savePackage(_prev: { success?: boolean; error?: string }, 
 }
 
 export async function deletePackage(packageId: string) {
-  const supabase = await requireAdmin();
+  const { actorId, supabase } = await requireAdminClient();
+  const { data: previous } = await supabase
+    .from("packages")
+    .select("name, price_usd")
+    .eq("id", packageId)
+    .single<{ name: string; price_usd: number }>();
+
   const { error } = await supabase.from("packages").delete().eq("id", packageId);
   if (error) return { error: "فشل حذف الباقة — قد تكون مرتبطة بمشتريات طلاب" };
+
+  await supabase.from("audit_log").insert({
+    changed_by: actorId,
+    table_name: "packages",
+    record_id: packageId,
+    action: "DELETE",
+    old_data: previous ?? null,
+    new_data: null,
+    reason: "Admin deleted package",
+  } as never);
+
   revalidatePath("/admin/packages");
   revalidatePath("/packages");
   return { success: true };
 }
 
 export async function togglePackageActive(packageId: string, isActive: boolean) {
-  const supabase = await requireAdmin();
+  const { actorId, supabase } = await requireAdminClient();
   const { error } = await supabase.from("packages").update({ is_active: isActive } as never).eq("id", packageId);
   if (error) return { error: "فشل تحديث حالة الباقة" };
+
+  await supabase.from("audit_log").insert({
+    changed_by: actorId,
+    table_name: "packages",
+    record_id: packageId,
+    action: "UPDATE",
+    old_data: { is_active: !isActive },
+    new_data: { is_active: isActive },
+    reason: isActive ? "Admin enabled package" : "Admin disabled package",
+  } as never);
+
   revalidatePath("/admin/packages");
   revalidatePath("/packages");
   return { success: true };

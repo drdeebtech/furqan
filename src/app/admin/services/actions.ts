@@ -3,14 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
+import { requireAdmin as requireAdminStrict } from "@/lib/auth/require-admin";
 
 async function requireAdmin() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("غير مصرح");
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single<{ role: string }>();
-  if (!profile || profile.role !== "admin") throw new Error("ليس لديك صلاحية");
-  return supabase;
+  await requireAdminStrict();
+  return createClient();
 }
 
 export async function saveService(_prev: { success?: boolean }, formData: FormData) {

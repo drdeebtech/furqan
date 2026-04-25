@@ -2,22 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 
 export async function toggleArchiveTeacher(
   teacherId: string,
   archive: boolean,
 ) {
+  try {
+    await requireAdmin();
+  } catch (e) {
+    if (e instanceof ForbiddenError) return { error: "ليس لديك صلاحية" };
+    throw e;
+  }
+
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return { error: "غير مصرح" };
-
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single<{ role: string }>();
-  if (!profile || profile.role !== "admin") return { error: "ليس لديك صلاحية" };
-
   const { error } = await supabase
     .from("teacher_profiles")
     .update({

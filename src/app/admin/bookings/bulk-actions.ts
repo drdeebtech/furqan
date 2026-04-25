@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import type { BookingStatus } from "@/types/database";
 
 export interface BulkBookingResult {
@@ -40,22 +40,12 @@ export async function bulkUpdateBookingStatus({
     return result;
   }
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
+  let actorId: string;
+  try {
+    ({ id: actorId } = await requireAdmin());
+  } catch (e) {
     result.failed = ids.length;
-    result.errors.push("غير مسجل الدخول");
-    return result;
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single<{ role: string }>();
-  if (!profile || profile.role !== "admin") {
-    result.failed = ids.length;
-    result.errors.push("ليس لديك صلاحية");
+    result.errors.push(e instanceof ForbiddenError ? "ليس لديك صلاحية" : "تعذر التحقق من الصلاحية");
     return result;
   }
 
@@ -96,7 +86,7 @@ export async function bulkUpdateBookingStatus({
       }
 
       await admin.from("audit_log").insert({
-        changed_by: user.id,
+        changed_by: actorId,
         table_name: "bookings",
         record_id: id,
         action: "UPDATE",

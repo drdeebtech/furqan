@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Megaphone, Plus } from "lucide-react";
+import { Megaphone, Plus, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import type { SiteAnnouncement } from "@/types/database";
 import { getT } from "@/lib/i18n/server";
@@ -61,9 +61,21 @@ export default async function AdminAnnouncementsPage() {
         </Link>
       </header>
 
-      <Section title={t("نشط", "Active")} rows={active} severityMap={SEVERITY_BADGE} lang={lang} />
-      <Section title={t("مجدول", "Scheduled")} rows={scheduled} severityMap={SEVERITY_BADGE} lang={lang} />
-      <Section title={t("منتهي", "Expired")} rows={expired} severityMap={SEVERITY_BADGE} lang={lang} muted />
+      {all.length === 0 ? (
+        <div className="glass-card rounded-xl p-12 text-center">
+          <Inbox size={32} className="mx-auto mb-3 text-muted" aria-hidden="true" />
+          <p className="text-muted">{t("لا توجد إعلانات بعد", "No announcements yet")}</p>
+          <p className="mt-1 text-xs text-muted/70">
+            {t("أنشئ تنبيهًا ليظهر في أعلى الموقع للمستخدمين.", "Create an announcement to display at the top of the site.")}
+          </p>
+        </div>
+      ) : (
+        <>
+          <Section title={t("نشط", "Active")} rows={active} severityMap={SEVERITY_BADGE} lang={lang} />
+          <Section title={t("مجدول", "Scheduled")} rows={scheduled} severityMap={SEVERITY_BADGE} lang={lang} />
+          <Section title={t("منتهي", "Expired")} rows={expired} severityMap={SEVERITY_BADGE} lang={lang} muted />
+        </>
+      )}
     </div>
   );
 }

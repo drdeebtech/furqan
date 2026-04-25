@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { notify } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
 import { HOMEWORK_STATUS_AR } from "@/lib/constants";
@@ -48,26 +48,15 @@ export async function bulkGradeHomework(
   }
 
   // ─── Auth: admin only ──────────────────────────────────────────────────────
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
+  let actorId: string;
+  try {
+    ({ id: actorId } = await requireAdmin());
+  } catch (e) {
     result.failed = items.length;
-    result.errors.push("غير مسجل الدخول");
+    result.errors.push(e instanceof ForbiddenError ? "ليس لديك صلاحية" : "تعذر التحقق من الصلاحية");
     return result;
   }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single<{ role: string }>();
-  if (!profile || profile.role !== "admin") {
-    result.failed = items.length;
-    result.errors.push("ليس لديك صلاحية");
-    return result;
-  }
+  const user = { id: actorId };
 
   // ─── Bulk update via service-role client (homework RLS is teacher-scoped) ──
   const admin = createAdminClient();

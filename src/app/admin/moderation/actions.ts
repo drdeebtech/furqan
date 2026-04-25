@@ -1,17 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notify } from "@/lib/notifications/dispatcher";
+import { requireAdmin as requireAdminStrict, ForbiddenError } from "@/lib/auth/require-admin";
 
 export interface ModerationResult {
   success?: string;
   error?: string;
-}
-
-interface ProfileRole {
-  role: string;
 }
 
 interface MessageFlagRow {
@@ -40,18 +36,15 @@ interface AdminRecipient {
 async function requireAdmin(): Promise<
   { userId: string; error?: never } | { userId?: never; error: string }
 > {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "غير مصرح" };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single<ProfileRole>();
-
-  if (!profile || profile.role !== "admin") return { error: "هذا الإجراء للمشرفين فقط" };
-  return { userId: user.id };
+  try {
+    const { id } = await requireAdminStrict();
+    return { userId: id };
+  } catch (e) {
+    if (e instanceof ForbiddenError) {
+      return { error: e.message === "not authenticated" ? "غير مصرح" : "هذا الإجراء للمشرفين فقط" };
+    }
+    throw e;
+  }
 }
 
 /* ── hideMessage ──────────────────────────────────────────────────────────── */
