@@ -178,6 +178,7 @@ function IjazaRow({
             disabled={pending}
             className="glass-pill px-3 py-1.5 text-xs font-medium hover:bg-emerald-500/10 hover:text-emerald-400 disabled:opacity-50"
             title={ijaza.verified_at ? "إلغاء التوثيق" : "توثيق"}
+            aria-label={ijaza.verified_at ? "إلغاء التوثيق" : "توثيق"}
           >
             <Check size={12} />
           </button>
@@ -186,6 +187,7 @@ function IjazaRow({
             onClick={onEdit}
             className="glass-pill px-3 py-1.5 text-xs font-medium hover:bg-gold/10 hover:text-gold"
             title="تعديل"
+            aria-label="تعديل"
           >
             <Pencil size={12} />
           </button>
@@ -195,6 +197,7 @@ function IjazaRow({
             disabled={pending}
             className="glass-pill px-3 py-1.5 text-xs font-medium hover:bg-rose-500/10 hover:text-rose-400 disabled:opacity-50"
             title="حذف"
+            aria-label="حذف"
           >
             <Trash2 size={12} />
           </button>
@@ -227,7 +230,7 @@ function IjazaForm({
       {initial && <input type="hidden" name="id" value={initial.id} />}
 
       {state.error && (
-        <div className="rounded-xl border border-error/30 bg-error/10 p-2 text-xs text-error">
+        <div role="alert" className="rounded-xl border border-error/30 bg-error/10 p-2 text-xs text-error">
           {state.error}
         </div>
       )}

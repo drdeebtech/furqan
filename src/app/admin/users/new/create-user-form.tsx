@@ -58,7 +58,7 @@ export function CreateUserForm() {
         <p className="mb-6 text-sm text-muted">{t("إضافة حساب جديد للأكاديمية", "Add a new account to the academy")}</p>
 
         {state.error && (
-          <div className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">
+          <div role="alert" className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">
             {state.error}
           </div>
         )}

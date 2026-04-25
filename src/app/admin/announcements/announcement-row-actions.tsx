@@ -37,7 +37,7 @@ export function AnnouncementRowActions({
         href={`/admin/announcements/${id}/edit`}
         className="flex items-center gap-1 rounded-lg border border-surface-border/60 px-2 py-1 text-xs text-muted hover:border-gold/40 hover:text-gold"
       >
-        <Pencil size={12} /> {t("تعديل", "Edit")}
+        <Pencil size={12} aria-hidden="true" /> {t("تعديل", "Edit")}
       </Link>
       {canDeactivate && (
         <button
@@ -45,7 +45,7 @@ export function AnnouncementRowActions({
           disabled={pending}
           className="flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs text-amber-300 hover:bg-amber-500/20 disabled:opacity-50"
         >
-          <PowerOff size={12} /> {t("إيقاف", "Deactivate")}
+          <PowerOff size={12} aria-hidden="true" /> {t("إيقاف", "Deactivate")}
         </button>
       )}
       <button
@@ -53,7 +53,7 @@ export function AnnouncementRowActions({
         disabled={pending}
         className="flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-2 py-1 text-xs text-red-300 hover:bg-red-500/20 disabled:opacity-50"
       >
-        <Trash2 size={12} /> {t("حذف", "Delete")}
+        <Trash2 size={12} aria-hidden="true" /> {t("حذف", "Delete")}
       </button>
       {message && <span className="text-xs text-muted">{message}</span>}
     </div>

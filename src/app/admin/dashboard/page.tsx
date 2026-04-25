@@ -30,7 +30,27 @@ export default async function AdminDashboardPage() {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
   const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString();
 
-  const [studentsRes, teachersRes, bookingsMonthRes, revenueMonthRes, pendingCountRes, pendingListRes, newStudentsRes, todayBookingsRes, activeSessionsRes] = await Promise.all([
+  // Single fan-out: all 14 independent queries race from t=0. Previously the
+  // 5 helper queries (dailyRevenue, liveSessions, breakdown, recent, trend)
+  // waited for the first batch + fetchNameMap to finish — none of them
+  // actually depended on that data. Merging shaves the slowest-of-9 +
+  // slowest-of-5 cost down to slowest-of-14.
+  const [
+    studentsRes,
+    teachersRes,
+    bookingsMonthRes,
+    revenueMonthRes,
+    pendingCountRes,
+    pendingListRes,
+    newStudentsRes,
+    todayBookingsRes,
+    activeSessionsRes,
+    dailyRevenue,
+    adminLiveSessions,
+    bookingBreakdown,
+    recentBookings,
+    revenueTrend,
+  ] = await Promise.all([
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "student"),
     supabase.from("teacher_profiles").select("teacher_id, hourly_rate, rating_avg, total_sessions, is_accepting, is_archived").order("is_archived", { ascending: true }).order("total_sessions", { ascending: false }).returns<TeacherRow[]>(),
     supabase.from("bookings").select("id", { count: "exact", head: true }).gte("created_at", startOfMonth),
@@ -40,6 +60,11 @@ export default async function AdminDashboardPage() {
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "student").gte("created_at", sevenDaysAgo.toISOString()),
     supabase.from("bookings").select("id, student_id, teacher_id, scheduled_at, session_type, status, duration_min").gte("scheduled_at", todayStart).lte("scheduled_at", todayEnd).order("scheduled_at", { ascending: true }).returns<TodayBookingRow[]>(),
     supabase.from("sessions").select("id", { count: "exact", head: true }).not("started_at", "is", null).is("ended_at", null),
+    getAdminDailyRevenue(),
+    getAdminLiveSessions(),
+    getAdminBookingStatusBreakdown(),
+    getAdminRecentBookings(),
+    getAdminMonthlyRevenueTrend(),
   ]);
 
   const teacherList = teachersRes.data ?? [];
@@ -51,15 +76,8 @@ export default async function AdminDashboardPage() {
   for (const b of pendingBookings) { allIds.add(b.student_id); allIds.add(b.teacher_id); }
   for (const b of todayBookings) { allIds.add(b.student_id); allIds.add(b.teacher_id); }
 
+  // nameMap genuinely depends on the IDs above — kept sequential.
   const nameMap = await fetchNameMap(supabase, Array.from(allIds));
-
-  const [dailyRevenue, adminLiveSessions, bookingBreakdown, recentBookings, revenueTrend] = await Promise.all([
-    getAdminDailyRevenue(),
-    getAdminLiveSessions(),
-    getAdminBookingStatusBreakdown(),
-    getAdminRecentBookings(),
-    getAdminMonthlyRevenueTrend(),
-  ]);
 
   return (
     <AdminDashboardContent

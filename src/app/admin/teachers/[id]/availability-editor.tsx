@@ -235,6 +235,7 @@ function SlotRow({
         <button
           type="button"
           onClick={onEdit}
+          aria-label="تعديل"
           className="glass-pill px-3 py-1.5 text-xs hover:bg-gold/10 hover:text-gold"
         >
           <Pencil size={12} />
@@ -243,6 +244,7 @@ function SlotRow({
           type="button"
           onClick={handleDelete}
           disabled={pending}
+          aria-label="حذف"
           className="glass-pill px-3 py-1.5 text-xs hover:bg-rose-500/10 hover:text-rose-400 disabled:opacity-50"
         >
           <Trash2 size={12} />
@@ -291,7 +293,7 @@ function SlotForm({
       {initial && <input type="hidden" name="id" value={initial.id} />}
 
       {state.error && (
-        <div className="rounded-xl border border-error/30 bg-error/10 p-2 text-xs text-error">
+        <div role="alert" className="rounded-xl border border-error/30 bg-error/10 p-2 text-xs text-error">
           {state.error}
         </div>
       )}
@@ -424,6 +426,7 @@ function ExceptionRow({
         type="button"
         onClick={handleDelete}
         disabled={pending}
+        aria-label="حذف الاستثناء"
         className="glass-pill px-3 py-1.5 text-xs hover:bg-rose-500/10 hover:text-rose-400 disabled:opacity-50"
       >
         <Trash2 size={12} />
@@ -449,7 +452,7 @@ function ExceptionForm({
   return (
     <form action={formAction} className="glass-card p-4 space-y-3">
       {state.error && (
-        <div className="rounded-xl border border-error/30 bg-error/10 p-2 text-xs text-error">
+        <div role="alert" className="rounded-xl border border-error/30 bg-error/10 p-2 text-xs text-error">
           {state.error}
         </div>
       )}

@@ -96,10 +96,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               className={`flex items-center gap-3 glass rounded-xl px-4 py-3 animate-in slide-in-from-left duration-300 ${STYLES[t.type]}`}
               style={{ minWidth: 280, maxWidth: 420 }}
             >
-              <Icon size={18} className="shrink-0" />
+              <Icon size={18} className="shrink-0" aria-hidden="true" />
               <p className="flex-1 text-sm">{t.message}</p>
               <button onClick={() => removeToast(t.id)} aria-label="إغلاق" className="focus-ring shrink-0 rounded-full opacity-60 transition-opacity hover:opacity-100">
-                <X size={14} />
+                <X size={14} aria-hidden="true" />
               </button>
             </div>
           );

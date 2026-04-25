@@ -109,7 +109,7 @@ export function ExecutionDetailModal({ executionId, onClose }: ExecutionDetailMo
           className="absolute end-4 top-4 rounded-lg p-1.5 text-muted transition-colors hover:bg-white/10 hover:text-foreground"
           aria-label={t("إغلاق", "Close")}
         >
-          <X size={18} />
+          <X size={18} aria-hidden="true" />
         </button>
 
         <h2 className="mb-4 text-lg font-bold">

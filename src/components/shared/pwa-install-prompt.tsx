@@ -49,7 +49,7 @@ export function PwaInstallPrompt() {
   return (
     <div className="fixed bottom-4 start-4 end-4 z-50 mx-auto max-w-sm animate-in slide-in-from-bottom">
       <div className="glass-card flex items-center gap-3 border-gold/30 p-4 shadow-2xl">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/20">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/20" aria-hidden="true">
           <Download size={20} className="text-gold" />
         </div>
         <div className="min-w-0 flex-1">
@@ -64,6 +64,7 @@ export function PwaInstallPrompt() {
         </button>
         <button
           onClick={handleDismiss}
+          aria-label={t("إغلاق", "Dismiss")}
           className="shrink-0 rounded-full p-1 text-muted transition-colors hover:text-foreground"
         >
           <X size={16} />

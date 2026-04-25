@@ -37,7 +37,7 @@ export function CvEditForm({
       </h2>
 
       {state.error && (
-        <div className="mb-4 rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">
+        <div role="alert" className="mb-4 rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">
           {state.error}
         </div>
       )}

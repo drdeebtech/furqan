@@ -180,14 +180,14 @@ export function MessagesView({
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-bold">
-          <MessageCircle size={24} className="text-gold" />
+          <MessageCircle size={24} className="text-gold" aria-hidden="true" />
           {t("الرسائل", "Messages")}
         </h1>
         <button
           onClick={openNewConvoDialog}
           className="flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gold-hover"
         >
-          <Plus size={16} />
+          <Plus size={16} aria-hidden="true" />
           {t("محادثة جديدة", "New Conversation")}
         </button>
       </div>
@@ -229,7 +229,7 @@ export function MessagesView({
 
       {conversations.length === 0 && !showNewConvo ? (
         <div className="glass-card rounded-xl p-12 text-center">
-          <Inbox size={32} className="mx-auto mb-3 text-muted" />
+          <Inbox size={32} className="mx-auto mb-3 text-muted" aria-hidden="true" />
           <p className="text-muted">{t("لا توجد محادثات بعد", "No conversations yet")}</p>
           <p className="mt-1 text-sm text-muted">
             {t("اضغط \"محادثة جديدة\" لبدء التواصل", "Click \"New Conversation\" to start chatting")}

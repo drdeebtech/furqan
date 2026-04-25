@@ -33,6 +33,8 @@ export default async function ControlTowerPage() {
     unresolvedErrorsRes,
     stuckSessionsRes,
     deadLetterRes,
+    atRiskRes,
+    lowBalanceRes,
   ] = await Promise.all([
     supabase.from("teacher_profiles").select("id", { count: "exact", head: true }).eq("cv_status", "pending_review"),
     supabase.from("automation_logs").select("id", { count: "exact", head: true }).eq("status", "failed").gte("started_at", dayAgo),
@@ -42,20 +44,13 @@ export default async function ControlTowerPage() {
     supabase.from("recitation_errors").select("id", { count: "exact", head: true }).eq("resolved", false),
     supabase.from("sessions").select("id", { count: "exact", head: true }).is("ended_at", null).not("started_at", "is", null).lt("started_at", fifteenMinAgo),
     supabase.from("automation_dead_letter").select("id", { count: "exact", head: true }).is("resolved_at", null),
+    supabase.from("retention_signals").select("student_id", { count: "exact", head: true }).gte("churn_risk_score", 60),
+    // Low balance packages — DB filters status=active; cross-column predicate (remaining<=2) finished in JS below
+    supabase.from("student_packages").select("sessions_total, sessions_used").eq("status", "active").returns<{ sessions_total: number; sessions_used: number }[]>(),
   ]);
 
-  const { count: atRiskCount } = await supabase
-    .from("retention_signals")
-    .select("student_id", { count: "exact", head: true })
-    .gte("churn_risk_score", 60);
-
-  // Low balance packages — fetch only the fields needed, limit to active
-  const { data: lowPkgs } = await supabase
-    .from("student_packages")
-    .select("sessions_total, sessions_used, expires_at")
-    .eq("status", "active")
-    .returns<{ sessions_total: number; sessions_used: number; expires_at: string | null }[]>();
-  const lowBalanceCount = (lowPkgs ?? []).filter(p => (p.sessions_total - p.sessions_used) <= 2).length;
+  const atRiskCount = atRiskRes.count;
+  const lowBalanceCount = (lowBalanceRes.data ?? []).filter(p => (p.sessions_total - p.sessions_used) <= 2).length;
 
   const widgets = [
     { key: "pending-cvs", label: t("سير ذاتية بانتظار المراجعة", "Pending CVs"), value: pendingCvRes.count ?? 0, icon: Users, color: "text-amber-400", bg: "bg-amber-500/10", href: "/admin/teachers/cv", threshold: 0 },

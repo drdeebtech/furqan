@@ -53,7 +53,7 @@ export function EvaluationForm({ students, teachers }: Props) {
   return (
     <form action={formAction} className="space-y-5">
       {state?.error && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
           {state.error}
         </div>
       )}

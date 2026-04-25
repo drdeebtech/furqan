@@ -40,7 +40,7 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
       {pkg && <input type="hidden" name="id" value={pkg.id} />}
 
       {state?.error && (
-        <div className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{state.error}</div>
+        <div role="alert" className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{state.error}</div>
       )}
 
       {/* Package type */}

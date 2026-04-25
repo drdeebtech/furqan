@@ -12,7 +12,7 @@ export function LogoutButton() {
         aria-label={t("تسجيل الخروج", "Log out")}
         className="flex items-center gap-1.5 glass glass-pill px-3 py-1.5 text-sm text-muted transition-colors hover:border-error/50 hover:text-error focus-ring"
       >
-        <LogOut size={14} />
+        <LogOut size={14} aria-hidden="true" />
         <span className="hidden sm:inline">{t("خروج", "Log out")}</span>
       </button>
     </form>

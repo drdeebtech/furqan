@@ -57,10 +57,10 @@ export function SessionRowActions({
           aria-label={t("سبب إنهاء الجلسة", "Session end reason")}
         />
         <button onClick={handleForceEnd} disabled={isPending || !reason.trim()} className="rounded-lg p-1 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50" aria-label={t("تأكيد", "Confirm")}>
-          <Check size={14} />
+          <Check size={14} aria-hidden="true" />
         </button>
         <button onClick={() => { setShowReason(false); setReason(""); }} className="rounded-lg p-1 text-muted hover:bg-surface-alt" aria-label={t("إلغاء", "Cancel")}>
-          <X size={14} />
+          <X size={14} aria-hidden="true" />
         </button>
       </div>
     );

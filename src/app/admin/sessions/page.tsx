@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Video, Inbox, Radio, BarChart3, Users, TrendingUp } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
-import { buildNameMap } from "@/lib/admin/name-map";
 import { SessionStatus } from "@/components/shared/session-status";
 import { SessionRowActions } from "./session-row-actions";
 
@@ -30,6 +29,8 @@ interface BookingInfo {
   teacher_id: string;
   scheduled_at: string;
   duration_min: number;
+  student: { id: string; full_name: string | null } | null;
+  teacher: { id: string; full_name: string | null } | null;
 }
 
 export default async function AdminSessionsPage() {
@@ -56,21 +57,25 @@ export default async function AdminSessionsPage() {
   const list = sessionsRes.data ?? [];
   const activeCount = activeCountRes.count ?? 0;
 
-  /* ── Booking + name resolution ─────────────────────────────────── */
+  /* ── Booking + embedded profile names (single round-trip) ──────── */
   let bookingMap: Record<string, BookingInfo> = {};
-  let nameMap: Record<string, string> = {};
+  const nameMap: Record<string, string> = {};
 
   if (list.length > 0) {
     const bIds = list.map((s) => s.booking_id);
     const { data: bookings } = await supabase
       .from("bookings")
-      .select("id, student_id, teacher_id, scheduled_at, duration_min")
+      .select(
+        "id, student_id, teacher_id, scheduled_at, duration_min, student:profiles!student_id(id, full_name), teacher:profiles!teacher_id(id, full_name)",
+      )
       .in("id", bIds)
       .returns<BookingInfo[]>();
     if (bookings) {
       bookingMap = Object.fromEntries(bookings.map((b) => [b.id, b]));
-      const pIds = [...new Set([...bookings.map((b) => b.student_id), ...bookings.map((b) => b.teacher_id)])];
-      nameMap = await buildNameMap(supabase, pIds);
+      for (const b of bookings) {
+        if (b.student) nameMap[b.student.id] = b.student.full_name ?? "—";
+        if (b.teacher) nameMap[b.teacher.id] = b.teacher.full_name ?? "—";
+      }
     }
   }
 

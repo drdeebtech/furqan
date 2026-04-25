@@ -122,6 +122,7 @@ export function BookingsTable({
         <div className="relative">
           <Search
             size={16}
+            aria-hidden="true"
             className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted"
           />
           <input
@@ -170,7 +171,7 @@ export function BookingsTable({
       {/* Table or empty state */}
       {filtered.length === 0 ? (
         <div className="glass-card rounded-xl p-12 text-center">
-          <Inbox size={32} className="mx-auto mb-3 text-muted" />
+          <Inbox size={32} className="mx-auto mb-3 text-muted" aria-hidden="true" />
           <p className="text-muted">{t("لا توجد حجوزات مطابقة", "No matching bookings")}</p>
         </div>
       ) : (
@@ -268,21 +269,21 @@ export function BookingsTable({
               disabled={pending}
               className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
             >
-              <CheckCircle size={14} /> {t("تأكيد", "Confirm")}
+              <CheckCircle size={14} aria-hidden="true" /> {t("تأكيد", "Confirm")}
             </button>
             <button
               onClick={() => runBulk("cancelled")}
               disabled={pending}
               className="flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/20 disabled:opacity-50"
             >
-              <XCircle size={14} /> {t("إلغاء", "Cancel")}
+              <XCircle size={14} aria-hidden="true" /> {t("إلغاء", "Cancel")}
             </button>
             <button
               onClick={() => runBulk("no_show")}
               disabled={pending}
               className="flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-500/20 disabled:opacity-50"
             >
-              <UserX size={14} /> {t("لم يحضر", "No-show")}
+              <UserX size={14} aria-hidden="true" /> {t("لم يحضر", "No-show")}
             </button>
             <button
               onClick={() => {

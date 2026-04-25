@@ -92,9 +92,11 @@ export function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen(!open)}
+        aria-label={t("الإشعارات", "Notifications")}
+        aria-expanded={open}
         className="glass flex h-11 w-11 items-center justify-center rounded-xl transition-colors hover:bg-white/5"
       >
-        <Bell size={18} className="text-muted" />
+        <Bell size={18} className="text-muted" aria-hidden="true" />
       </button>
       {unreadCount > 0 && (
         <span
@@ -119,7 +121,7 @@ export function NotificationBell() {
                 disabled={loading}
                 className="flex items-center gap-1 text-xs text-gold transition-colors hover:text-gold-hover disabled:opacity-50"
               >
-                <CheckCheck size={12} />
+                <CheckCheck size={12} aria-hidden="true" />
                 {t("قراءة الكل", "Mark all read")}
               </button>
             )}
@@ -129,7 +131,7 @@ export function NotificationBell() {
           <div className="max-h-[400px] overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="px-4 py-8 text-center">
-                <Bell size={24} className="mx-auto mb-2 text-muted/30" />
+                <Bell size={24} className="mx-auto mb-2 text-muted/30" aria-hidden="true" />
                 <p className="text-sm text-muted">{t("لا توجد إشعارات", "No notifications")}</p>
               </div>
             ) : (
@@ -143,7 +145,7 @@ export function NotificationBell() {
                   }`;
                   const inner = (
                     <>
-                      <div className={`mt-0.5 shrink-0 ${config.color}`}>
+                      <div className={`mt-0.5 shrink-0 ${config.color}`} aria-hidden="true">
                         <Icon size={16} />
                       </div>
                       <div className="min-w-0 flex-1">

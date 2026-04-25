@@ -79,8 +79,8 @@ export function GrantCreditForm() {
         </div>
       )}
       {state.error && (
-        <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
-          <AlertCircle size={16} className="mt-0.5 shrink-0" />
+        <div role="alert" className="mt-4 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+          <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
           <span>{state.error}</span>
         </div>
       )}

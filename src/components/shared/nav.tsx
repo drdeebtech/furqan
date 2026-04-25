@@ -128,7 +128,7 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
             {userName && <p className="truncate text-sm font-medium">{userName}</p>}
             <p className="text-xs text-muted-light">{navLang === "ar" ? ROLE_LABEL[role].ar : ROLE_LABEL[role].en}</p>
           </div>
-          <ChevronsUpDown size={14} className="shrink-0 text-muted" />
+          <ChevronsUpDown size={14} className="shrink-0 text-muted" aria-hidden="true" />
         </Link>
       </div>
 
@@ -141,7 +141,7 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
                 <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-light">
                   {navLang === "ar" ? group.label.ar : group.label.en}
                 </p>
-                <MoreVertical size={14} className="text-muted-light" />
+                <MoreVertical size={14} className="text-muted-light" aria-hidden="true" />
               </div>
             )}
             <div className="space-y-0.5">
@@ -159,7 +159,7 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
                     }`}
                     data-active={active ? "true" : undefined}
                   >
-                    <Icon size={18} className={active ? "text-foreground" : ""} />
+                    <Icon size={18} className={active ? "text-foreground" : ""} aria-hidden="true" />
                     <span>{navLang === "ar" ? link.ar : link.en}</span>
                   </Link>
                 );
