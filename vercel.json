@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/audit-cleanup",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/n8n-healthcheck",
+      "schedule": "*/5 * * * *"
     }
   ],
   "headers": [
