@@ -40,7 +40,7 @@ interface AvailSlot {
 
 export function BookingForm({ teacher, availability }: { teacher: TeacherData; availability: AvailSlot[] }) {
   const { t, lang } = useLang();
-  const locale = lang === "ar" ? "ar-SA" : "en-US";
+  const locale = lang === "ar" ? "ar" : "en-US";
   const maxSlotDuration = availability.length > 0 ? Math.max(...availability.map((s) => s.slotDuration)) : 60;
   const durations = ALL_DURATIONS.filter((d) => d.value <= maxSlotDuration);
   const defaultDuration = durations.length > 0 ? durations[durations.length - 1].value : 30;

@@ -51,7 +51,7 @@ export default async function ModeratorAuditPage() {
                 <span className="text-xs text-muted">{l.table_name}</span>
                 <span className="text-muted">—</span>
                 <span>{l.changed_by ? nameMap[l.changed_by] ?? "—" : t("نظام", "System")}</span>
-                <span className="me-auto text-xs text-muted">{new Date(l.created_at).toLocaleString(lang === "ar" ? "ar-SA" : "en-US")}</span>
+                <span className="me-auto text-xs text-muted">{new Date(l.created_at).toLocaleString(lang === "ar" ? "ar" : "en-US")}</span>
               </div>
               {l.reason && <p className="mt-1 text-xs text-muted">{t("السبب", "Reason")}: {l.reason}</p>}
             </div>

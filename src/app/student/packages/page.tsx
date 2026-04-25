@@ -115,7 +115,7 @@ export default async function StudentPackagesPage() {
 
                       {sp.expires_at && (
                         <p className="mt-2 text-xs text-muted">
-                          {t("تنتهي", "Expires")}: {new Date(sp.expires_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}
+                          {t("تنتهي", "Expires")}: {new Date(sp.expires_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}
                         </p>
                       )}
                     </div>

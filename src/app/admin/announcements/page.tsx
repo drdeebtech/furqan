@@ -103,7 +103,7 @@ function Section({
           const from = new Date(r.active_from).getTime();
           const until = r.active_until ? new Date(r.active_until).getTime() : null;
           const isLive = from <= now && (until === null || until > now);
-          const locale = lang === "ar" ? "ar-SA" : "en-US";
+          const locale = lang === "ar" ? "ar" : "en-US";
           const msg = lang === "ar" ? r.message_ar : (r.message_en || r.message_ar);
           return (
             <li

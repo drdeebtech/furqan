@@ -149,7 +149,7 @@ function relativeTime(iso: string, lang: "ar" | "en"): string {
     if (mins < 60) return `منذ ${mins} د`;
     if (hours < 24) return `منذ ${hours} س`;
     if (days < 30) return `منذ ${days} ي`;
-    return new Date(iso).toLocaleDateString("ar-SA", { month: "short", day: "numeric" });
+    return new Date(iso).toLocaleDateString("ar", { month: "short", day: "numeric" });
   }
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
@@ -257,7 +257,7 @@ export function TimelineClient({
                   {t("عضو منذ", "Member since")}{" "}
                   <span dir="ltr">
                     {new Date(memberSince).toLocaleDateString(
-                      lang === "ar" ? "ar-SA" : "en-US",
+                      lang === "ar" ? "ar" : "en-US",
                       { year: "numeric", month: "short", day: "numeric" },
                     )}
                   </span>

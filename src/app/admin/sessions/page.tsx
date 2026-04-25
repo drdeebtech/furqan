@@ -201,7 +201,7 @@ export default async function AdminSessionsPage() {
                     </td>
                     <td className="px-3 py-3">{b ? nameMap[b.teacher_id] ?? "—" : "—"}</td>
                     <td className="px-3 py-3 text-xs text-muted">
-                      {b ? new Date(b.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US") : "—"}
+                      {b ? new Date(b.scheduled_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US") : "—"}
                     </td>
                     <td className="px-3 py-3">
                       {b ? (

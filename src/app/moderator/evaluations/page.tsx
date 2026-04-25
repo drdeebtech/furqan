@@ -73,7 +73,7 @@ export default async function ModeratorEvaluationsPage() {
                       </span>
                     ) : "—"}
                   </td>
-                  <td className="px-4 py-3 text-xs text-muted">{new Date(e.created_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}</td>
+                  <td className="px-4 py-3 text-xs text-muted">{new Date(e.created_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}</td>
                 </tr>
               ))}
             </tbody>

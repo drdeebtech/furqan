@@ -121,7 +121,7 @@ export default async function AdminSettingsPage() {
                   <p className="text-sm font-medium text-gold">{m.version}</p>
                   <p className="text-xs text-muted">{m.description}</p>
                 </div>
-                <p className="text-xs text-muted">{new Date(m.applied_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}</p>
+                <p className="text-xs text-muted">{new Date(m.applied_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}</p>
               </div>
             ))}
           </div>

@@ -90,9 +90,9 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
               {st(nextBooking.session_type)} · {nextBooking.duration_min} {t("دقيقة", "min")}
             </p>
             <p dir="ltr" className="mt-2 text-start text-sm text-muted">
-              {new Date(nextBooking.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+              {new Date(nextBooking.scheduled_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
               {" · "}
-              {new Date(nextBooking.scheduled_at).toLocaleTimeString(lang === "ar" ? "ar-SA" : "en-US", { hour: "2-digit", minute: "2-digit" })}
+              {new Date(nextBooking.scheduled_at).toLocaleTimeString(lang === "ar" ? "ar" : "en-US", { hour: "2-digit", minute: "2-digit" })}
             </p>
             <p className={`mt-2 text-sm font-medium ${countdownColor}`}>{countdown}</p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -210,7 +210,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                           <tr key={r.id} className="text-sm">
                             <td className="py-3 font-medium">{nameMap[r.teacher_id] ?? t("معلم", "Teacher")}</td>
                             <td className="py-3 text-muted">{st(r.session_type)}</td>
-                            <td className="py-3 text-muted">{new Date(r.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US", { month: "short", day: "numeric" })}</td>
+                            <td className="py-3 text-muted">{new Date(r.scheduled_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US", { month: "short", day: "numeric" })}</td>
                             <td className="py-3">
                               <div className="flex gap-1.5">
                                 {note?.post_session_notes && (
@@ -307,7 +307,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                             <p className="text-xs font-medium">{booking ? nameMap[booking.teacher_id] ?? t("معلم", "Teacher") : t("معلم", "Teacher")}</p>
                             <p className="mt-1 text-xs text-muted">{h.homework}</p>
                           </div>
-                          {booking && <p className="shrink-0 text-[10px] text-muted">{new Date(booking.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}</p>}
+                          {booking && <p className="shrink-0 text-[10px] text-muted">{new Date(booking.scheduled_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}</p>}
                         </div>
                       </div>
                     );

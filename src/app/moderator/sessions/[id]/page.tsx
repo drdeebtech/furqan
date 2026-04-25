@@ -20,7 +20,7 @@ interface BookingRow { id: string; student_id: string; teacher_id: string; sched
 export default async function ModeratorSessionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { t, dir, lang } = await getT();
-  const locale = lang === "ar" ? "ar-SA" : "en-US";
+  const locale = lang === "ar" ? "ar" : "en-US";
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");

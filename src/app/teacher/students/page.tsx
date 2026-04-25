@@ -72,7 +72,7 @@ export default async function TeacherStudentsPage() {
               </div>
               <p className="text-lg font-bold">{s.name}</p>
               <p className="mt-1 text-sm text-muted">
-                {t("آخر جلسة", "Last session")}: {new Date(s.lastSession).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}
+                {t("آخر جلسة", "Last session")}: {new Date(s.lastSession).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}
               </p>
               <p className="text-sm text-muted">
                 {s.total} {t("جلسة مكتملة", "completed")} · {s.thisMonth} {t("هذا الشهر", "this month")}

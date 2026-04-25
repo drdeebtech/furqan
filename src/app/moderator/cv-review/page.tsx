@@ -57,7 +57,7 @@ export default async function ModeratorCvReviewPage() {
                 </div>
                 <div className="text-left">
                   <span className="glass-badge rounded-full px-2 py-0.5 text-xs text-amber-400">{t("بانتظار المراجعة", "Pending Review")}</span>
-                  {cv.cv_submitted_at && <p className="mt-1 text-xs text-muted">{new Date(cv.cv_submitted_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}</p>}
+                  {cv.cv_submitted_at && <p className="mt-1 text-xs text-muted">{new Date(cv.cv_submitted_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}</p>}
                 </div>
               </div>
             </Link>

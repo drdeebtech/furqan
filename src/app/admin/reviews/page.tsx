@@ -57,7 +57,7 @@ export default async function AdminReviewsPage() {
                   </div>
                   {r.comment && <p className="mt-2 text-sm text-muted">{r.comment}</p>}
                   {r.teacher_reply && <p className="mt-1 text-sm text-gold/70">{t("رد المعلم", "Teacher reply")}: {r.teacher_reply}</p>}
-                  <p className="mt-1 text-xs text-muted">{new Date(r.created_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}</p>
+                  <p className="mt-1 text-xs text-muted">{new Date(r.created_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <ReviewToggle reviewId={r.id} isPublic={r.is_public} />

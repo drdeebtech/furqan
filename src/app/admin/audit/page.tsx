@@ -108,7 +108,7 @@ export default async function AdminAuditPage({
                   <td className="px-3 py-3"><span className={`text-xs font-medium ${actionColor[l.action] ?? "text-muted"}`}>{l.action}</span></td>
                   <td className="px-3 py-3 text-xs text-muted">{l.reason ?? "—"}</td>
                   <td className="px-3 py-3 text-xs text-muted" dir="ltr">{l.ip_address ?? "—"}</td>
-                  <td className="px-3 py-3 text-xs text-muted">{new Date(l.created_at).toLocaleString(lang === "ar" ? "ar-SA" : "en-US")}</td>
+                  <td className="px-3 py-3 text-xs text-muted">{new Date(l.created_at).toLocaleString(lang === "ar" ? "ar" : "en-US")}</td>
                 </tr>
               ))}
             </tbody>

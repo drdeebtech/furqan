@@ -16,7 +16,7 @@ const STATUS_ICON: Record<string, { icon: typeof CheckCircle; color: string }> =
 
 export default async function AdminAutomationPage() {
   const { t, dir, lang } = await getT();
-  const locale = lang === "ar" ? "ar-SA" : "en-US";
+  const locale = lang === "ar" ? "ar" : "en-US";
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");

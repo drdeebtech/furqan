@@ -54,7 +54,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ArticlePage({ params }: Props) {
   const { slug } = await params;
   const { t, dir, lang } = await getT();
-  const locale = lang === "ar" ? "ar-SA" : "en-US";
+  const locale = lang === "ar" ? "ar" : "en-US";
   const supabase = await createClient();
 
   const { data: post } = await supabase

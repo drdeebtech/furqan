@@ -41,7 +41,7 @@ export function BlogContent({ posts }: { posts: Post[] }) {
   const formatDate = (iso: string) => {
     const d = new Date(iso);
     return t(
-      d.toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" }),
+      d.toLocaleDateString("ar", { year: "numeric", month: "long", day: "numeric" }),
       d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }),
     );
   };

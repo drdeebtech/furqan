@@ -62,7 +62,7 @@ export async function notifyParentSessionComplete(
   duration: number,
   createdBy: string,
 ) {
-  const dateStr = new Date(sessionDate).toLocaleDateString("ar-SA");
+  const dateStr = new Date(sessionDate).toLocaleDateString("ar");
   await createParentReport({
     studentId,
     teacherId,
@@ -111,7 +111,7 @@ export async function notifyParentNoShow(
   sessionDate: string,
   createdBy: string,
 ) {
-  const dateStr = new Date(sessionDate).toLocaleDateString("ar-SA");
+  const dateStr = new Date(sessionDate).toLocaleDateString("ar");
   await createParentReport({
     studentId,
     teacherId,

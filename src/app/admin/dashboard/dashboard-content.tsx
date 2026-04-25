@@ -36,7 +36,7 @@ interface AdminDashboardData {
 
 export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
   const { t, dir, lang } = useLang();
-  const locale = lang === "ar" ? "ar-SA" : "en-US";
+  const locale = lang === "ar" ? "ar" : "en-US";
   const { studentCount, teacherList, bookingsMonth, revenueMonth, revenueTrend, pendingCount, pendingBookings, newStudentCount, todayBookings, activeSessionCount, nameMap, dailyRevenue, adminLiveSessions, bookingBreakdown, recentBookings } = data;
 
   const hasAlerts = pendingCount > 0 || newStudentCount > 0;

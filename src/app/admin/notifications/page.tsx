@@ -33,7 +33,7 @@ export default async function AdminNotificationsPage() {
               <div key={n.id} className="glass-card rounded-lg px-4 py-3">
                 <p className="text-sm font-medium">{n.title}</p>
                 {n.body && <p className="mt-1 text-xs text-muted">{n.body}</p>}
-                <p className="mt-1 text-xs text-muted">{new Date(n.created_at).toLocaleString(lang === "ar" ? "ar-SA" : "en-US")}</p>
+                <p className="mt-1 text-xs text-muted">{new Date(n.created_at).toLocaleString(lang === "ar" ? "ar" : "en-US")}</p>
               </div>
             ))}
           </div>

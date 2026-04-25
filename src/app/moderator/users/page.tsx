@@ -62,7 +62,7 @@ export default async function ModeratorUsersPage() {
                       {u.is_active ? t("نشط", "Active") : t("معطل", "Disabled")}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-muted">{new Date(u.created_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}</td>
+                  <td className="px-4 py-3 text-xs text-muted">{new Date(u.created_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}</td>
                 </tr>
               ))}
             </tbody>

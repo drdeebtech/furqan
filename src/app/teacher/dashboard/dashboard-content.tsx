@@ -42,7 +42,7 @@ interface TeacherDashboardData {
 
 export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }) {
   const { t, dir, lang } = useLang();
-  const locale = lang === "ar" ? "ar-SA" : "en-US";
+  const locale = lang === "ar" ? "ar" : "en-US";
   const { fullName, cvStatus, hasProfile, hasBio, hasAvailability, uniqueStudents, monthSessions, pendingCount, ratingAvg, todaySessions, pending, sessionDataMap, nameMap, weeklyHours, liveSessions, sessionBreakdown, recentStudents, actionQueue } = data;
 
   const st = (type: string) => {

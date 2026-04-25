@@ -96,7 +96,7 @@ export default async function StudentBookingsPage() {
           {list.map((booking) => {
             const date = new Date(booking.scheduled_at);
             const statusInfo = STATUS_STYLE[booking.status];
-            const locale = lang === "ar" ? "ar-SA" : "en-US";
+            const locale = lang === "ar" ? "ar" : "en-US";
 
             return (
               <div

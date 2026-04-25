@@ -126,7 +126,7 @@ export async function updateBookingStatus(
 
     // Notify student that booking is confirmed
     try {
-      const scheduledDate = new Date(booking.scheduled_at).toLocaleDateString("ar-SA");
+      const scheduledDate = new Date(booking.scheduled_at).toLocaleDateString("ar");
       await notify(booking.student_id, "booking", "تم تأكيد حجزك", `تم تأكيد جلستك بتاريخ ${scheduledDate} — يمكنك الانضمام من صفحة الجلسات`, "booking", bookingId);
     } catch { /* non-blocking */ }
   } else if (status === "cancelled") {

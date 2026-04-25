@@ -72,7 +72,7 @@ export default async function ModeratorSessionsPage() {
                       {b && <p className="text-sm font-medium">{nameMap[b.student_id] ?? "—"} ← {nameMap[b.teacher_id] ?? "—"}</p>}
                       {b && <SessionStatus scheduledAt={b.scheduled_at} durationMin={b.duration_min} expiresAt={s.expires_at} endedAt={s.ended_at} size="sm" />}
                     </div>
-                    <p className="text-xs text-muted">{new Date(s.created_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}</p>
+                    <p className="text-xs text-muted">{new Date(s.created_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     {isActive && s.is_observable && (

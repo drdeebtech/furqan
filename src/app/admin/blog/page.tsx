@@ -64,7 +64,7 @@ export default async function AdminBlogPage() {
                     <TogglePublished postId={post.id} isPublished={post.is_published} />
                   </td>
                   <td className="px-4 py-3 text-xs text-muted">
-                    {new Date(post.published_at).toLocaleDateString(lang === "ar" ? "ar-SA" : "en-US")}
+                    {new Date(post.published_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">

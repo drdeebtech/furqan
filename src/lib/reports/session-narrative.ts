@@ -100,7 +100,7 @@ export async function buildSessionNarrative(sessionId: string): Promise<SessionN
 
   const studentName = studentRes.data?.full_name ?? "الطالب/ة";
   const teacherName = teacherRes.data?.full_name ?? "المعلم/ة";
-  const sessionDate = new Date(session.ended_at).toLocaleDateString("ar-SA", {
+  const sessionDate = new Date(session.ended_at).toLocaleDateString("ar", {
     weekday: "long",
     year: "numeric",
     month: "long",

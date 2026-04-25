@@ -26,7 +26,7 @@ export default async function TeacherNotificationDetailPage({
 }) {
   const { id } = await params;
   const { t, dir, lang } = await getT();
-  const locale = lang === "ar" ? "ar-SA" : "en-US";
+  const locale = lang === "ar" ? "ar" : "en-US";
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");

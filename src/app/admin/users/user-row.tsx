@@ -12,7 +12,7 @@ interface Props {
 
 export function UserRow({ user, churnRisk }: Props) {
   const { lang } = useLang();
-  const locale = lang === "ar" ? "ar-SA" : "en-US";
+  const locale = lang === "ar" ? "ar" : "en-US";
   const [active, setActive] = useState(user.is_active);
   const [role, setRole] = useState(user.role);
   const [pendingRole, setPendingRole] = useState<string | null>(null);

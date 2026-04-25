@@ -227,7 +227,7 @@ export async function createBooking(
   // Send notifications in parallel (non-blocking)
   await Promise.allSettled([
     // Notify teacher about new booking
-    notify(teacherId, "booking", "حجز جديد", `لديك حجز جديد بتاريخ ${scheduledAt.toLocaleDateString("ar-SA")} — يرجى التأكيد`, "booking", newBooking?.id ?? undefined),
+    notify(teacherId, "booking", "حجز جديد", `لديك حجز جديد بتاريخ ${scheduledAt.toLocaleDateString("ar")} — يرجى التأكيد`, "booking", newBooking?.id ?? undefined),
     // WhatsApp notification to admin
     (async () => {
       const [{ data: studentProfile }, { data: teacherName }] = await Promise.all([
@@ -237,7 +237,7 @@ export async function createBooking(
       await notifyNewBooking(
         studentProfile?.full_name ?? "طالب",
         teacherName?.full_name ?? "معلم",
-        scheduledAt.toLocaleDateString("ar-SA"),
+        scheduledAt.toLocaleDateString("ar"),
       );
     })(),
     emitEvent("booking.created", "booking", newBooking?.id ?? "", { student_id: studentId, teacher_id: teacherId, session_type: sessionType, scheduled_at: scheduledAt.toISOString() }).catch(() => {}),
