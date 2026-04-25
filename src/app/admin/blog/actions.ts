@@ -46,10 +46,10 @@ export async function savePost(
   };
 
   if (id) {
-    const { error } = await supabase.from("blog_posts").update(row as never).eq("id", id);
+    const { error } = await supabase.from("blog_posts").update(row).eq("id", id);
     if (error) return { error: "حدث خطأ أثناء التحديث" };
   } else {
-    const { error } = await supabase.from("blog_posts").insert(row as never);
+    const { error } = await supabase.from("blog_posts").insert(row);
     if (error) return { error: "حدث خطأ أثناء الإنشاء" };
   }
 
@@ -68,7 +68,7 @@ export async function deletePost(postId: string) {
 
 export async function togglePublished(postId: string, isPublished: boolean) {
   const supabase = await createClient();
-  await supabase.from("blog_posts").update({ is_published: isPublished } as never).eq("id", postId);
+  await supabase.from("blog_posts").update({ is_published: isPublished }).eq("id", postId);
   revalidatePath("/admin/blog");
   revalidatePath("/blog");
   return { success: true };

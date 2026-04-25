@@ -93,7 +93,7 @@ export async function createAnnouncement(
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("site_announcements")
-    .insert({ ...parsed.data!, created_by: auth.userId } as never)
+    .insert({ ...parsed.data!, created_by: auth.userId })
     .select("id")
     .returns<{ id: string }[]>()
     .single();
@@ -119,7 +119,7 @@ export async function updateAnnouncement(
   const admin = createAdminClient();
   const { error } = await admin
     .from("site_announcements")
-    .update(parsed.data! as never)
+    .update(parsed.data!)
     .eq("id", id);
 
   if (error) return { error: "تعذر تحديث التنبيه" };
@@ -149,7 +149,7 @@ export async function deactivateAnnouncement(id: string): Promise<AnnouncementRe
   const admin = createAdminClient();
   const { error } = await admin
     .from("site_announcements")
-    .update({ active_until: new Date().toISOString() } as never)
+    .update({ active_until: new Date().toISOString() })
     .eq("id", id);
   if (error) return { error: "تعذر الإيقاف" };
 

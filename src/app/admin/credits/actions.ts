@@ -51,10 +51,15 @@ export async function grantCreditAction(
   // Admin auth already verified above.
   const admin = createAdminClient();
 
+  // email lives on auth.users, not public.profiles — resolve via admin auth.
+  const { data: authList } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+  const authUser = authList?.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+  if (!authUser) return { error: "لم يتم العثور على الطالب بهذا البريد" };
+
   const { data: student } = await admin
     .from("profiles")
     .select("id, full_name")
-    .eq("email", email)
+    .eq("id", authUser.id)
     .eq("role", "student")
     .single<StudentLookup>();
   if (!student) return { error: "لم يتم العثور على الطالب بهذا البريد" };
