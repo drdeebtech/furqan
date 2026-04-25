@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { WEBHOOK_ROUTES, DEFAULT_WEBHOOK_PATH } from "@/lib/automation/emit";
+import { requireAdmin as requireAdminStrict, ForbiddenError } from "@/lib/auth/require-admin";
 
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
 
@@ -18,17 +18,15 @@ interface AdminCheck {
 }
 
 async function requireAdmin(): Promise<AdminCheck> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "غير مسجل الدخول" };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single<{ role: string }>();
-  if (!profile || profile.role !== "admin") return { error: "ليس لديك صلاحية" };
-  return { userId: user.id };
+  try {
+    const { id } = await requireAdminStrict();
+    return { userId: id };
+  } catch (e) {
+    if (e instanceof ForbiddenError) {
+      return { error: e.message === "not authenticated" ? "غير مسجل الدخول" : "ليس لديك صلاحية" };
+    }
+    throw e;
+  }
 }
 
 interface FailedLogRow {
@@ -139,6 +137,16 @@ export async function replayAutomation({
       return { error: `فشل الإرسال: HTTP ${res.status}` };
     }
 
+    await admin.from("audit_log").insert({
+      changed_by: auth.userId,
+      table_name: source === "log" ? "automation_logs" : "automation_dead_letter",
+      record_id: row.id,
+      action: "UPDATE",
+      old_data: { event_name: row.event_name, original_id: row.id },
+      new_data: { replay_key: replayKey, dispatched_to: path },
+      reason: "Admin replayed automation event",
+    } as never);
+
     revalidatePath("/admin/automation/replay");
     return { success: `تم إعادة الإرسال (${replayKey.slice(0, 16)}…)` };
   } catch (err) {
@@ -182,6 +190,16 @@ export async function markDeadLetterResolved({
     .eq("id", id);
 
   if (error) return { error: "فشل تحديث السجل" };
+
+  await admin.from("audit_log").insert({
+    changed_by: auth.userId,
+    table_name: "automation_dead_letter",
+    record_id: id,
+    action: "UPDATE",
+    old_data: { resolved_at: null },
+    new_data: { resolved_at: new Date().toISOString(), notes: notes.trim() || null },
+    reason: "Admin marked dead letter resolved",
+  } as never);
 
   revalidatePath("/admin/automation/replay");
   return { success: "تم تسجيل الحل" };

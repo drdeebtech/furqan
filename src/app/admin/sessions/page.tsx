@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Video, Inbox, Radio, BarChart3, Users, TrendingUp } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
+import { buildNameMap } from "@/lib/admin/name-map";
 import { SessionStatus } from "@/components/shared/session-status";
 import { SessionRowActions } from "./session-row-actions";
 
@@ -69,12 +70,7 @@ export default async function AdminSessionsPage() {
     if (bookings) {
       bookingMap = Object.fromEntries(bookings.map((b) => [b.id, b]));
       const pIds = [...new Set([...bookings.map((b) => b.student_id), ...bookings.map((b) => b.teacher_id)])];
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .in("id", pIds)
-        .returns<{ id: string; full_name: string | null }[]>();
-      if (profiles) nameMap = Object.fromEntries(profiles.map((p) => [p.id, p.full_name ?? "—"]));
+      nameMap = await buildNameMap(supabase, pIds);
     }
   }
 

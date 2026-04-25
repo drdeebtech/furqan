@@ -15,12 +15,30 @@ export async function adminUpdateBookingStatus(bookingId: string, status: string
   }
 
   const supabase = await createClient();
+
+  // Capture old status for audit
+  const { data: before } = await supabase
+    .from("bookings")
+    .select("status")
+    .eq("id", bookingId)
+    .single<{ status: string }>();
+
   const { error } = await supabase
     .from("bookings")
     .update({ status } as never)
     .eq("id", bookingId);
 
   if (error) return { error: "تعذر تحديث الحجز" };
+
+  await supabase.from("audit_log").insert({
+    changed_by: actorId,
+    table_name: "bookings",
+    record_id: bookingId,
+    action: "UPDATE",
+    old_data: { status: before?.status ?? null },
+    new_data: { status },
+    reason: `Admin set booking ${status}`,
+  } as never);
 
   // Fire event for n8n routing (parent reports, alerts, etc.).
   // Per-status event names align with EVENT_CATALOG.md.

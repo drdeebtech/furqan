@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
+import { buildNameMap } from "@/lib/admin/name-map";
 import type { BookingStatus, SessionType } from "@/types/database";
 import { BookingsTable } from "./bookings-table";
 
@@ -22,12 +23,7 @@ export default async function AdminBookingsPage() {
   const bookings = data ?? [];
 
   const allIds = [...new Set([...bookings.map(b => b.student_id), ...bookings.map(b => b.teacher_id)])];
-  let nameMap: Record<string, string> = {};
-  if (allIds.length > 0) {
-    const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", allIds)
-      .returns<{ id: string; full_name: string | null }[]>();
-    if (profiles) nameMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name ?? "—"]));
-  }
+  const nameMap = await buildNameMap(supabase, allIds);
 
   return (
     <div dir={dir} className="mx-auto max-w-6xl px-4 py-8">

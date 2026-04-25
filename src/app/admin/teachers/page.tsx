@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { GraduationCap, Plus, Star, Inbox, FileText } from "lucide-react";
+import { GraduationCap, Plus, Star, Inbox, FileText, Archive, CheckCircle2, Clock, XCircle, Pause } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
+import { buildNameMap } from "@/lib/admin/name-map";
 
 export const metadata: Metadata = { title: "إدارة المعلمين" };
 
@@ -26,13 +27,7 @@ export default async function AdminTeachersPage() {
   const list = teachersRes.data ?? [];
   const pendingCvCount = cvCountRes.count;
 
-  let nameMap: Record<string, string> = {};
-  if (list.length > 0) {
-    const ids = list.map(x => x.teacher_id);
-    const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", ids)
-      .returns<{ id: string; full_name: string | null }[]>();
-    if (profiles) nameMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name ?? t("معلم", "Teacher")]));
-  }
+  const nameMap = await buildNameMap(supabase, list.map(x => x.teacher_id), t("معلم", "Teacher"));
 
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
@@ -73,19 +68,19 @@ export default async function AdminTeachersPage() {
                   <td className="px-4 py-3"><span className="flex items-center gap-1"><Star size={12} className="fill-gold text-gold" />{Number(x.rating_avg).toFixed(1)}</span></td>
                   <td className="px-4 py-3 text-muted">{x.total_sessions}</td>
                   <td className="px-4 py-3">
-                    {x.is_archived ? <span className="glass-badge border-red-500/30 bg-red-500/10 text-red-400">{t("مؤرشف", "Archived")}</span>
-                      : x.is_accepting ? <span className="glass-badge border-emerald-500/30 bg-emerald-500/10 text-emerald-400">{t("يقبل طلاب", "Accepting")}</span>
-                      : <span className="glass-badge border-amber-500/30 bg-amber-500/10 text-amber-400">{t("مشغول", "Busy")}</span>}
+                    {x.is_archived ? <span className="glass-badge inline-flex items-center gap-1 border-red-500/30 bg-red-500/10 text-red-400"><Archive size={11} aria-hidden="true" />{t("مؤرشف", "Archived")}</span>
+                      : x.is_accepting ? <span className="glass-badge inline-flex items-center gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-400"><CheckCircle2 size={11} aria-hidden="true" />{t("يقبل طلاب", "Accepting")}</span>
+                      : <span className="glass-badge inline-flex items-center gap-1 border-amber-500/30 bg-amber-500/10 text-amber-400"><Pause size={11} aria-hidden="true" />{t("مشغول", "Busy")}</span>}
                   </td>
                   <td className="px-4 py-3">
                     {x.cv_status === "approved" ? (
-                      <span className="glass-badge border-emerald-500/30 bg-emerald-500/10 text-emerald-400">{t("معتمد", "Approved")}</span>
+                      <span className="glass-badge inline-flex items-center gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-400"><CheckCircle2 size={11} aria-hidden="true" />{t("معتمد", "Approved")}</span>
                     ) : x.cv_status === "pending_review" ? (
-                      <span className="glass-badge border-amber-500/30 bg-amber-500/10 text-amber-400">{t("قيد المراجعة", "Pending")}</span>
+                      <span className="glass-badge inline-flex items-center gap-1 border-amber-500/30 bg-amber-500/10 text-amber-400"><Clock size={11} aria-hidden="true" />{t("قيد المراجعة", "Pending")}</span>
                     ) : x.cv_status === "rejected" ? (
-                      <span className="glass-badge border-red-500/30 bg-red-500/10 text-red-400">{t("مرفوض", "Rejected")}</span>
+                      <span className="glass-badge inline-flex items-center gap-1 border-red-500/30 bg-red-500/10 text-red-400"><XCircle size={11} aria-hidden="true" />{t("مرفوض", "Rejected")}</span>
                     ) : (
-                      <span className="glass-badge border-white/20 bg-white/5 text-muted">{t("مسودة", "Draft")}</span>
+                      <span className="glass-badge inline-flex items-center gap-1 border-white/20 bg-white/5 text-muted"><FileText size={11} aria-hidden="true" />{t("مسودة", "Draft")}</span>
                     )}
                   </td>
                   <td className="px-4 py-3">

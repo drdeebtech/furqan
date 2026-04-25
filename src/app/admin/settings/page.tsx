@@ -43,13 +43,14 @@ export default async function AdminSettingsPage() {
         <h2 className="mb-4 font-bold">{t("صحة النظام", "System Health")}</h2>
         <div className="space-y-2">
           {[
-            { name: "Supabase", ok: hasSupabase },
-            { name: "Daily.co (Video)", ok: hasDaily },
-            { name: "Stripe (Payments)", ok: hasStripe },
+            { name: "Supabase", role: t("قاعدة البيانات", "Database"), ok: hasSupabase },
+            { name: "Daily.co", role: t("الفيديو", "Video"), ok: hasDaily },
+            { name: "Stripe", role: t("المدفوعات", "Payments"), ok: hasStripe },
           ].map(s => (
             <div key={s.name} className="flex items-center gap-2 text-sm">
-              {s.ok ? <CheckCircle size={16} className="text-emerald-400" /> : <XCircle size={16} className="text-red-400" />}
+              {s.ok ? <CheckCircle size={16} className="text-emerald-400" aria-hidden="true" /> : <XCircle size={16} className="text-red-400" aria-hidden="true" />}
               <span className={s.ok ? "text-foreground" : "text-red-400"}>{s.name}</span>
+              <span className="text-xs text-muted">({s.role})</span>
               <span className="text-xs text-muted">{s.ok ? t("متصل", "Connected") : t("غير مهيأ", "Not configured")}</span>
             </div>
           ))}
