@@ -61,21 +61,24 @@ export async function forceEndSession(sessionId: string, reason: string) {
   };
   const newData = { ended_at: now, actual_duration: actualDuration };
 
-  /* Update session */
-  const { error: updateErr } = await supabase
-    .from("sessions")
-    .update({ ended_at: now, actual_duration: actualDuration } as never)
-    .eq("id", sessionId);
-
-  if (updateErr) return { error: "فشل إنهاء الجلسة" };
-
-  /* Update booking status */
+  /* Order matters: update booking first, session last. The session.ended_at
+   * guard above (line 50) makes the session update idempotent on retry, so a
+   * failed-booking-then-fresh-attempt path stays consistent. The reverse order
+   * traps a partial failure forever — booking stuck in "confirmed" with no
+   * way to retry because the session.ended_at guard would block. */
   const { error: bookingErr } = await supabase
     .from("bookings")
     .update({ status: "completed" } as never)
     .eq("id", session.booking_id);
 
   if (bookingErr) return { error: "فشل تحديث حالة الحجز" };
+
+  const { error: updateErr } = await supabase
+    .from("sessions")
+    .update({ ended_at: now, actual_duration: actualDuration } as never)
+    .eq("id", sessionId);
+
+  if (updateErr) return { error: "فشل إنهاء الجلسة" };
 
   /* Audit log */
   await supabase.from("audit_log").insert({
