@@ -8,7 +8,7 @@ import { UserRow } from "./user-row";
 
 export const metadata: Metadata = { title: "المستخدمون" };
 
-interface ProfileRow { id: string; role: string; full_name: string | null; country: string | null; is_active: boolean; created_at: string; }
+interface ProfileRow { id: string; role: string; full_name: string | null; country: string | null; is_active: boolean; deleted_at: string | null; created_at: string; }
 
 export default async function AdminUsersPage() {
   const { t, dir } = await getT();
@@ -16,7 +16,7 @@ export default async function AdminUsersPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data } = await supabase.from("profiles").select("id, role, full_name, country, is_active, created_at")
+  const { data } = await supabase.from("profiles").select("id, role, full_name, country, is_active, deleted_at, created_at")
     .order("created_at", { ascending: false }).returns<ProfileRow[]>();
   const users = data ?? [];
 

@@ -97,6 +97,135 @@ export async function changeUserRole(userId: string, role: string) {
   return { success: true };
 }
 
+/**
+ * Soft-delete a user. Sets profiles.deleted_at = now() and is_active=false,
+ * AND bans the auth user via the admin SDK so they can no longer sign in.
+ *
+ * Soft delete (not hard) because profiles.id is FK'd from many tables
+ * (bookings, sessions, evaluations, payments, etc.); a hard DELETE would
+ * either fail or cascade-destroy history we want to keep for audit/billing.
+ *
+ * Self-protection: an admin can't delete their own account.
+ *
+ * Reversible via restoreUser().
+ */
+export async function softDeleteUser(userId: string, reason: string) {
+  const auth = await authOrError();
+  if (auth.error) return { error: auth.error };
+  if (auth.id === userId) return { error: "لا يمكنك حذف حسابك الخاص" };
+
+  const trimmed = (reason ?? "").trim();
+  if (trimmed.length < 3) return { error: "يرجى إدخال سبب واضح للحذف" };
+
+  const admin = createAdminClient();
+
+  const { data: existing } = await admin
+    .from("profiles")
+    .select("role, full_name, is_active, deleted_at")
+    .eq("id", userId)
+    .single<{ role: string; full_name: string | null; is_active: boolean; deleted_at: string | null }>();
+
+  if (!existing) return { error: "المستخدم غير موجود" };
+  if (existing.deleted_at) return { error: "المستخدم محذوف بالفعل" };
+
+  const now = new Date().toISOString();
+
+  const { error: profileErr } = await admin.from("profiles").update({
+    is_active: false,
+    deleted_at: now,
+  } as never).eq("id", userId);
+
+  if (profileErr) return { error: "فشل حذف المستخدم: " + profileErr.message };
+
+  // Best-effort: revoke auth so the user can no longer sign in. If this fails,
+  // the profile is still flagged deleted_at + inactive — login still blocked
+  // by middleware role check + is_active filter.
+  try {
+    await admin.auth.admin.updateUserById(userId, { ban_duration: "8760h" }); // 1 year
+  } catch {
+    /* non-blocking */
+  }
+
+  // If the deleted user was a teacher, archive the teacher_profiles row too.
+  if (existing.role === "teacher") {
+    await admin.from("teacher_profiles").update({
+      is_archived: true,
+      archived_at: now,
+    } as never).eq("teacher_id", userId);
+  }
+
+  await admin.from("audit_log").insert({
+    changed_by: auth.id,
+    table_name: "profiles",
+    record_id: userId,
+    action: "DELETE",
+    old_data: { is_active: existing.is_active, deleted_at: null },
+    new_data: { is_active: false, deleted_at: now },
+    reason: `Admin soft-deleted user (${existing.role}): ${trimmed}`,
+  } as never);
+
+  revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${userId}`);
+  if (existing.role === "teacher") revalidatePath("/admin/teachers");
+
+  return { success: true };
+}
+
+/**
+ * Reverse softDeleteUser. Clears deleted_at, sets is_active=true, lifts ban.
+ */
+export async function restoreUser(userId: string) {
+  const auth = await authOrError();
+  if (auth.error) return { error: auth.error };
+
+  const admin = createAdminClient();
+
+  const { data: existing } = await admin
+    .from("profiles")
+    .select("role, deleted_at")
+    .eq("id", userId)
+    .single<{ role: string; deleted_at: string | null }>();
+
+  if (!existing) return { error: "المستخدم غير موجود" };
+  if (!existing.deleted_at) return { error: "المستخدم ليس محذوفاً" };
+
+  const { error: profileErr } = await admin.from("profiles").update({
+    is_active: true,
+    deleted_at: null,
+  } as never).eq("id", userId);
+
+  if (profileErr) return { error: "فشل استعادة المستخدم" };
+
+  try {
+    await admin.auth.admin.updateUserById(userId, { ban_duration: "none" });
+  } catch {
+    /* non-blocking */
+  }
+
+  if (existing.role === "teacher") {
+    await admin.from("teacher_profiles").update({
+      is_archived: false,
+      archived_at: null,
+    } as never).eq("teacher_id", userId);
+  }
+
+  await admin.from("audit_log").insert({
+    changed_by: auth.id,
+    table_name: "profiles",
+    record_id: userId,
+    action: "UPDATE",
+    old_data: { is_active: false, deleted_at: existing.deleted_at },
+    new_data: { is_active: true, deleted_at: null },
+    reason: "Admin restored deleted user",
+  } as never);
+
+  revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${userId}`);
+  if (existing.role === "teacher") revalidatePath("/admin/teachers");
+
+  return { success: true };
+}
+
 export async function createUserFromScratch(
   _prev: { success?: boolean; error?: string },
   formData: FormData

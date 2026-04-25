@@ -7,6 +7,7 @@ import { SESSION_TYPE_AR } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
 import { riskTone, riskLabel } from "@/lib/retention/ui";
 import type { SessionType } from "@/types/database";
+import { DeleteControls } from "./delete-controls";
 
 export const metadata: Metadata = { title: "تفاصيل المستخدم" };
 
@@ -28,12 +29,12 @@ export default async function AdminUserDetailPage({ params }: Props) {
   // Profile
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, full_name, role, phone, country, timezone, lang, is_active, created_at, parent_name, parent_phone, parent_email, date_of_birth")
+    .select("id, full_name, role, phone, country, timezone, lang, is_active, deleted_at, created_at, parent_name, parent_phone, parent_email, date_of_birth")
     .eq("id", id)
     .single<{
       id: string; full_name: string | null; role: string; phone: string | null;
       country: string | null; timezone: string | null; lang: string | null;
-      is_active: boolean; created_at: string; parent_name: string | null;
+      is_active: boolean; deleted_at: string | null; created_at: string; parent_name: string | null;
       parent_phone: string | null; parent_email: string | null; date_of_birth: string | null;
     }>();
 
@@ -170,6 +171,11 @@ export default async function AdminUserDetailPage({ params }: Props) {
                 <span className={`glass-badge ${profile.is_active ? "border-green-500/30 bg-green-500/10 text-green-400" : "border-red-500/30 bg-red-500/10 text-red-400"}`}>
                   {profile.is_active ? t("نشط", "Active") : t("معطل", "Disabled")}
                 </span>
+                {profile.deleted_at && (
+                  <span className="glass-badge border-red-500/40 bg-red-500/10 text-red-400">
+                    {t("محذوف", "Deleted")}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -189,6 +195,12 @@ export default async function AdminUserDetailPage({ params }: Props) {
                 {t("معاينة كمستخدم", "Preview as User")}
               </Link>
             </div>
+            <DeleteControls
+              userId={profile.id}
+              userName={profile.full_name ?? profile.id.slice(0, 6)}
+              isDeleted={!!profile.deleted_at}
+              isSelf={admin.id === profile.id}
+            />
           </div>
         </div>
 

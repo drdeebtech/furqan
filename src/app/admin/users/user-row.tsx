@@ -6,7 +6,7 @@ import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
 import { useLang } from "@/lib/i18n/context";
 
 interface Props {
-  user: { id: string; role: string; full_name: string | null; country: string | null; is_active: boolean; created_at: string };
+  user: { id: string; role: string; full_name: string | null; country: string | null; is_active: boolean; deleted_at: string | null; created_at: string };
   churnRisk?: number | null;
 }
 
@@ -28,9 +28,16 @@ export function UserRow({ user, churnRisk }: Props) {
   }
 
   return (
-    <tr className="border-b border-white/10 last:border-b-0">
+    <tr className={`border-b border-white/10 last:border-b-0 ${user.deleted_at ? "opacity-50" : ""}`}>
       <td className="px-4 py-3 font-medium">
-        <Link href={`/admin/users/${user.id}`} className="hover:text-gold">{user.full_name ?? "—"}</Link>
+        <Link href={`/admin/users/${user.id}`} className="hover:text-gold">
+          {user.full_name ?? "—"}
+          {user.deleted_at && (
+            <span className="ms-2 inline-flex items-center rounded-full border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-red-400">
+              {lang === "ar" ? "محذوف" : "deleted"}
+            </span>
+          )}
+        </Link>
       </td>
       <td className="px-4 py-3">
         {pendingRole ? (
