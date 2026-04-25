@@ -1902,6 +1902,7 @@ export type Database = {
           package_id: string
           payment_id: string | null
           purchased_at: string
+          sessions_remaining: number | null
           sessions_total: number
           sessions_used: number
           status: string
@@ -1914,6 +1915,7 @@ export type Database = {
           package_id: string
           payment_id?: string | null
           purchased_at?: string
+          sessions_remaining?: number | null
           sessions_total: number
           sessions_used?: number
           status?: string
@@ -1926,6 +1928,7 @@ export type Database = {
           package_id?: string
           payment_id?: string | null
           purchased_at?: string
+          sessions_remaining?: number | null
           sessions_total?: number
           sessions_used?: number
           status?: string

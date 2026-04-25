@@ -45,12 +45,14 @@ export default async function ControlTowerPage() {
     supabase.from("sessions").select("id", { count: "exact", head: true }).is("ended_at", null).not("started_at", "is", null).lt("started_at", fifteenMinAgo),
     supabase.from("automation_dead_letter").select("id", { count: "exact", head: true }).is("resolved_at", null),
     supabase.from("retention_signals").select("student_id", { count: "exact", head: true }).gte("churn_risk_score", 60),
-    // Low balance packages — DB filters status=active; cross-column predicate (remaining<=2) finished in JS below
-    supabase.from("student_packages").select("sessions_total, sessions_used").eq("status", "active").returns<{ sessions_total: number; sessions_used: number }[]>(),
+    // v14_008 added sessions_remaining as a STORED generated column with a
+    // partial index covering active + remaining<=2 — filter is now fully
+    // server-side via head:true count.
+    supabase.from("student_packages").select("id", { count: "exact", head: true }).eq("status", "active").lte("sessions_remaining", 2),
   ]);
 
   const atRiskCount = atRiskRes.count;
-  const lowBalanceCount = (lowBalanceRes.data ?? []).filter(p => (p.sessions_total - p.sessions_used) <= 2).length;
+  const lowBalanceCount = lowBalanceRes.count ?? 0;
 
   const widgets = [
     { key: "pending-cvs", label: t("سير ذاتية بانتظار المراجعة", "Pending CVs"), value: pendingCvRes.count ?? 0, icon: Users, color: "text-amber-400", bg: "bg-amber-500/10", href: "/admin/teachers/cv", threshold: 0 },

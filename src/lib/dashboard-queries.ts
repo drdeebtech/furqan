@@ -541,54 +541,33 @@ export async function getAdminDailyRevenue(
 export async function getAdminLiveSessions(): Promise<LiveSessionItem[]> {
   const supabase = await createClient();
 
+  // Single round-trip via FK chain: sessions.booking_id → bookings →
+  // {student, teacher} profiles. Replaces the previous 3-stage cascade.
+  type Row = {
+    id: string;
+    started_at: string;
+    booking: {
+      session_type: string;
+      student: { full_name: string | null } | null;
+      teacher: { full_name: string | null } | null;
+    } | null;
+  };
+
   const { data: sessions } = await supabase
     .from("sessions")
-    .select("id, booking_id, started_at")
+    .select(
+      "id, started_at, booking:bookings(session_type, student:profiles!student_id(full_name), teacher:profiles!teacher_id(full_name))",
+    )
     .not("started_at", "is", null)
     .is("ended_at", null)
-    .returns<{ id: string; booking_id: string; started_at: string }[]>();
+    .returns<Row[]>();
 
   if (!sessions || sessions.length === 0) return [];
 
-  const bookingIds = sessions.map((s) => s.booking_id);
-
-  const { data: bookings } = await supabase
-    .from("bookings")
-    .select("id, student_id, teacher_id, session_type")
-    .in("id", bookingIds)
-    .returns<{
-      id: string;
-      student_id: string;
-      teacher_id: string;
-      session_type: string;
-    }[]>();
-
-  if (!bookings || bookings.length === 0) return [];
-
-  const allIds = new Set<string>();
-  for (const b of bookings) {
-    allIds.add(b.student_id);
-    allIds.add(b.teacher_id);
-  }
-
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, full_name")
-    .in("id", Array.from(allIds))
-    .returns<{ id: string; full_name: string | null }[]>();
-
-  const nameMap: Record<string, string> = {};
-  if (profiles) {
-    for (const p of profiles) {
-      nameMap[p.id] = p.full_name ?? "—";
-    }
-  }
-
   const now = Date.now();
   return sessions.map((s) => {
-    const booking = bookings.find((b) => b.id === s.booking_id);
-    const studentName = booking ? (nameMap[booking.student_id] ?? "—") : "—";
-    const teacherName = booking ? (nameMap[booking.teacher_id] ?? "—") : "—";
+    const studentName = s.booking?.student?.full_name ?? "—";
+    const teacherName = s.booking?.teacher?.full_name ?? "—";
     const initials = teacherName.slice(0, 2);
     const elapsed = now - new Date(s.started_at).getTime();
     const hrs = Math.floor(elapsed / 3600000);
@@ -599,7 +578,7 @@ export async function getAdminLiveSessions(): Promise<LiveSessionItem[]> {
     return {
       id: s.id,
       title: `${studentName} ← ${teacherName}`,
-      subtitle: booking?.session_type ?? "session",
+      subtitle: s.booking?.session_type ?? "session",
       initials,
       timeRemaining: timeStr,
       progressPercent: undefined,
@@ -652,43 +631,26 @@ export async function getAdminRecentBookings(
 ): Promise<{ id: string; [key: string]: unknown }[]> {
   const supabase = await createClient();
 
+  // Single round-trip via FK shorthand. Only student name is shown ('assignee').
+  type Row = {
+    id: string;
+    session_type: string;
+    amount_usd: number;
+    status: string;
+    created_at: string;
+    student: { full_name: string | null } | null;
+  };
+
   const { data: bookings } = await supabase
     .from("bookings")
     .select(
-      "id, student_id, teacher_id, session_type, amount_usd, status, created_at"
+      "id, session_type, amount_usd, status, created_at, student:profiles!student_id(full_name)",
     )
     .order("created_at", { ascending: false })
     .limit(limit)
-    .returns<{
-      id: string;
-      student_id: string;
-      teacher_id: string;
-      session_type: string;
-      amount_usd: number;
-      status: string;
-      created_at: string;
-    }[]>();
+    .returns<Row[]>();
 
   if (!bookings || bookings.length === 0) return [];
-
-  const allIds = new Set<string>();
-  for (const b of bookings) {
-    allIds.add(b.student_id);
-    allIds.add(b.teacher_id);
-  }
-
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, full_name")
-    .in("id", Array.from(allIds))
-    .returns<{ id: string; full_name: string | null }[]>();
-
-  const nameMap: Record<string, string> = {};
-  if (profiles) {
-    for (const p of profiles) {
-      nameMap[p.id] = p.full_name ?? "—";
-    }
-  }
 
   return bookings.map((b) => ({
     id: b.id.slice(0, 6).toUpperCase(),
@@ -706,7 +668,7 @@ export async function getAdminRecentBookings(
           : b.status === "pending"
             ? 30
             : 0,
-    assignee: nameMap[b.student_id] ?? "—",
+    assignee: b.student?.full_name ?? "—",
     view: "view",
   }));
 }
