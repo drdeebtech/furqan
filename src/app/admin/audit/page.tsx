@@ -9,12 +9,13 @@ export const metadata: Metadata = { title: "سجل المراجعة" };
 
 interface AuditRow { id: string; changed_by: string | null; table_name: string; record_id: string; action: string; reason: string | null; ip_address: string | null; created_at: string; }
 
-type FilterType = "all" | "mutations" | "auth";
+type FilterType = "all" | "mutations" | "auth" | "failures";
 
 const FILTER_ACTIONS: Record<FilterType, string[] | null> = {
   all: null,
   mutations: ["INSERT", "UPDATE", "DELETE"],
   auth: ["LOGIN", "LOGOUT"],
+  failures: null, // filtered via reason ILIKE below, not by action
 };
 
 export default async function AdminAuditPage({
@@ -24,7 +25,8 @@ export default async function AdminAuditPage({
 }) {
   const { t, dir, lang } = await getT();
   const sp = await searchParams;
-  const filter: FilterType = sp.type === "mutations" || sp.type === "auth" ? sp.type : "all";
+  const filter: FilterType =
+    sp.type === "mutations" || sp.type === "auth" || sp.type === "failures" ? sp.type : "all";
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -37,6 +39,7 @@ export default async function AdminAuditPage({
 
   const allowed = FILTER_ACTIONS[filter];
   if (allowed) query = query.in("action", allowed);
+  if (filter === "failures") query = query.ilike("reason", "%FAILED%");
 
   const { data } = await query.returns<AuditRow[]>();
   const logs = data ?? [];
@@ -61,6 +64,7 @@ export default async function AdminAuditPage({
     { value: "all", label: t("الكل", "All") },
     { value: "mutations", label: t("التغييرات", "Mutations") },
     { value: "auth", label: t("الدخول والخروج", "Auth events") },
+    { value: "failures", label: t("الإجراءات الفاشلة", "Failures") },
   ];
 
   return (
