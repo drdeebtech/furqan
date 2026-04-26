@@ -87,7 +87,7 @@ export async function sendTeacherWelcome(data: {
 }) {
   const resend = getResend();
   if (!resend) {
-    logWarn("RESEND_API_KEY not set — skipping teacher welcome email", { tag: "email" });
+    logWarn("RESEND_API_KEY not set — skipping teacher application email", { tag: "email" });
     return { error: "no-resend" };
   }
   const safeName = escapeHtml(data.fullName);
@@ -96,24 +96,76 @@ export async function sendTeacherWelcome(data: {
     await resend.emails.send({
       from: `FURQAN Academy <${FROM_EMAIL}>`,
       to: data.to,
-      subject: "أهلاً بك في فرقان أكاديمي — رابط دخول حسابك",
+      subject: "تم استلام طلبك في فرقان أكاديمي — قيد المراجعة",
       html: `
-        <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px;">
-          <h2 style="color: #C8A652;">أهلاً ${safeName} 👋</h2>
-          <p>تم استلام طلب التدريس في أكاديمية فُرقان. اضغط على الرابط أدناه لتسجيل الدخول إلى لوحة المعلم وإكمال ملفك:</p>
+        <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; line-height: 1.7;">
+          <h2 style="color: #C8A652; margin-bottom: 8px;">أهلاً ${safeName} 👋</h2>
+          <p style="color: #444; font-size: 15px;"><strong>تم استلام طلبك بنجاح.</strong></p>
+          <div style="background: #FFF8E7; border-right: 4px solid #C8A652; padding: 14px 18px; border-radius: 6px; margin: 20px 0;">
+            <p style="margin: 0; color: #6B5825;">
+              📋 طلبك الآن <strong>قيد مراجعة فريق الإشراف</strong>.<br>
+              عادةً ما تكتمل المراجعة خلال <strong>٤٨ ساعة</strong>، وستصلك رسالة تأكيد بمجرد قبول طلبك.
+            </p>
+          </div>
+          <p style="color: #444;">يمكنك تسجيل الدخول إلى لوحة المعلم لمتابعة حالة الطلب وتحديث بياناتك:</p>
           <p style="margin: 24px 0;">
             <a href="${safeLink}" style="display: inline-block; padding: 12px 24px; background: #C8A652; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">دخول لوحة المعلم</a>
           </p>
-          <p style="color: #666; font-size: 14px;">إذا لم يعمل الزر، انسخ هذا الرابط:<br><span style="word-break: break-all;">${safeLink}</span></p>
+          <p style="color: #888; font-size: 13px;">إذا لم يعمل الزر، انسخ هذا الرابط:<br><span style="word-break: break-all;">${safeLink}</span></p>
           <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;">
-          <p style="font-size: 13px; color: #666;">سيقوم فريق الإشراف بمراجعة طلبك قريباً، وستصلك إشعارات عبر البريد ولوحة المعلم.</p>
           <p style="margin-top: 24px; font-size: 12px; color: #999;">— أكاديمية فُرقان | furqan.today</p>
         </div>
       `,
     });
     return { success: true };
   } catch (error) {
-    logError("Failed to send teacher welcome email", error, { tag: "email" });
+    logError("Failed to send teacher application email", error, { tag: "email" });
+    return { error: "failed" };
+  }
+}
+
+export async function sendTeacherApprovalEmail(data: {
+  to: string;
+  fullName: string;
+  listingUrl: string;
+}) {
+  const resend = getResend();
+  if (!resend) {
+    logWarn("RESEND_API_KEY not set — skipping teacher approval email", { tag: "email" });
+    return { error: "no-resend" };
+  }
+  const safeName = escapeHtml(data.fullName);
+  const safeLink = escapeHtml(data.listingUrl);
+  try {
+    await resend.emails.send({
+      from: `FURQAN Academy <${FROM_EMAIL}>`,
+      to: data.to,
+      subject: "🎉 أهلاً بك معلماً في فرقان أكاديمي",
+      html: `
+        <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px; line-height: 1.7;">
+          <h2 style="color: #2E7D5B; margin-bottom: 8px;">مبارك ${safeName} 🎉</h2>
+          <p style="color: #444; font-size: 16px;"><strong>تم قبول طلبك. أنت الآن معلم رسمي في أكاديمية فُرقان.</strong></p>
+          <div style="background: #E8F5EE; border-right: 4px solid #2E7D5B; padding: 14px 18px; border-radius: 6px; margin: 20px 0;">
+            <p style="margin: 0; color: #1F5A41;">
+              ✨ ملفك الآن مرئي للطلاب على صفحة المعلمين، وبإمكانهم حجز جلسات معك مباشرة.
+            </p>
+          </div>
+          <p style="color: #444;">شاهد ملفك العام:</p>
+          <p style="margin: 24px 0;">
+            <a href="${safeLink}" style="display: inline-block; padding: 12px 28px; background: #2E7D5B; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">عرض ملفك في صفحة المعلمين</a>
+          </p>
+          <p style="color: #444; margin-top: 32px;">من لوحة المعلم يمكنك إضافة أوقات الإتاحة وإكمال بياناتك:</p>
+          <p style="margin: 12px 0;">
+            <a href="https://furqan.today/teacher/dashboard" style="color: #C8A652; text-decoration: underline; font-size: 14px;">دخول لوحة المعلم ←</a>
+          </p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;">
+          <p style="margin-top: 24px; font-size: 12px; color: #999;">— أكاديمية فُرقان | furqan.today</p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    logError("Failed to send teacher approval email", error, { tag: "email" });
     return { error: "failed" };
   }
 }

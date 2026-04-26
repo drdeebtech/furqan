@@ -1,10 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, useRef } from "react";
 import Link from "next/link";
-import { CheckCircle2, AlertCircle } from "lucide-react";
+import { CheckCircle2, AlertCircle, ImagePlus, X } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { submitTeacherApplication, type ApplyResult } from "./actions";
+
+const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
+const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 const LANGS: Array<{ key: string; ar: string; en: string }> = [
   { key: "ar", ar: "العربية", en: "Arabic" },
@@ -62,15 +65,62 @@ export function ApplyForm() {
     submitTeacherApplication,
     {},
   );
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    setPhotoError(null);
+    if (!file) {
+      setPhotoPreview(null);
+      return;
+    }
+    if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+      setPhotoError(t("الصيغة غير مدعومة (JPG / PNG / WebP فقط)", "Unsupported format (JPG / PNG / WebP only)"));
+      e.target.value = "";
+      setPhotoPreview(null);
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setPhotoError(t("حجم الصورة يجب أن يكون أقل من 2 ميجا", "Image must be under 2 MB"));
+      e.target.value = "";
+      setPhotoPreview(null);
+      return;
+    }
+    setPhotoPreview(URL.createObjectURL(file));
+  }
+
+  function clearPhoto() {
+    if (photoInputRef.current) photoInputRef.current.value = "";
+    setPhotoPreview(null);
+    setPhotoError(null);
+  }
 
   if (state?.success) {
     return (
       <div dir={dir} className="glass-card rounded-2xl p-8 text-center">
-        <CheckCircle2 size={48} className="mx-auto mb-4 text-emerald-400" />
+        <CheckCircle2 size={56} className="mx-auto mb-4 text-emerald-400" />
         <h1 className="font-display text-2xl font-bold text-gold">
-          {t("تم استلام طلبك", "Application received")}
+          {t("تم استلام طلبك بنجاح ✓", "Application received ✓")}
         </h1>
-        <p className="mt-3 text-sm text-muted">{state.success}</p>
+        <div className="mx-auto mt-5 max-w-md rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-start">
+          <p className="text-sm font-medium text-amber-300">
+            {t("📋 طلبك الآن في انتظار موافقة الإدارة", "📋 Your application is awaiting admin approval")}
+          </p>
+          <p className="mt-1 text-xs text-amber-200/80">
+            {t(
+              "عادةً ما تكتمل المراجعة خلال 48 ساعة، وستصلك رسالة تأكيد عند قبول طلبك.",
+              "Review usually completes within 48 hours; you'll receive a confirmation email once accepted.",
+            )}
+          </p>
+        </div>
+        <p className="mt-4 text-sm text-muted">
+          {t(
+            "أرسلنا لك بريداً بتفاصيل الطلب — تحقق من صندوق الوارد (وقد ينتهي في الـ Spam).",
+            "We've sent you an email with the application details — check your inbox (and Spam folder).",
+          )}
+        </p>
         <Link
           href="/"
           className="glass-pill mt-6 inline-block px-6 py-2 text-sm text-gold hover:text-gold-light"
@@ -127,6 +177,59 @@ export function ApplyForm() {
           max={60}
         />
       </div>
+
+      <fieldset>
+        <legend className="mb-2 block text-sm font-medium">
+          {t("الصورة الشخصية (اختياري)", "Profile photo (optional)")}
+        </legend>
+        <div className="flex items-center gap-4">
+          {photoPreview ? (
+            <div className="relative">
+              {/* Blob URL preview — next/image can't optimise client-only object URLs. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={photoPreview}
+                alt=""
+                className="h-20 w-20 rounded-full border-2 border-gold/40 object-cover"
+              />
+              <button
+                type="button"
+                onClick={clearPhoto}
+                aria-label={t("إزالة الصورة", "Remove photo")}
+                className="absolute -top-1 -end-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow hover:bg-red-600"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-muted/40 text-muted">
+              <ImagePlus size={24} />
+            </div>
+          )}
+          <div className="flex-1">
+            <label className="glass-pill inline-flex cursor-pointer items-center gap-2 px-4 py-2 text-sm hover:text-gold">
+              <ImagePlus size={14} />
+              {photoPreview
+                ? t("تغيير الصورة", "Change photo")
+                : t("اختر صورة", "Choose photo")}
+              <input
+                ref={photoInputRef}
+                type="file"
+                name="photo"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handlePhotoChange}
+                className="hidden"
+              />
+            </label>
+            <p className="mt-1.5 text-xs text-muted">
+              {t("JPG / PNG / WebP — أقل من 2 ميجا — مربعة الشكل أفضل.", "JPG / PNG / WebP — under 2 MB — square works best.")}
+            </p>
+            {photoError && (
+              <p role="alert" className="mt-1 text-xs text-red-400">{photoError}</p>
+            )}
+          </div>
+        </div>
+      </fieldset>
 
       <CheckboxGroup
         label={t("لغات التدريس * (اختر واحدة على الأقل)", "Teaching languages * (pick at least one)")}
