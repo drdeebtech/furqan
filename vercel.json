@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/audit-cleanup",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/reconciliation",
+      "schedule": "0 3 * * *"
     }
   ],
   "headers": [
