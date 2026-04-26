@@ -32,19 +32,24 @@ export default async function TeachersPage() {
   const teachers = teacherProfiles ?? [];
 
   let nameMap: Record<string, string> = {};
+  let avatarMap: Record<string, string | null> = {};
   if (teachers.length > 0) {
     const ids = teachers.map(t => t.teacher_id);
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, full_name")
+      .select("id, full_name, avatar_url")
       .in("id", ids)
-      .returns<{ id: string; full_name: string | null }[]>();
-    if (profiles) nameMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name ?? "—"]));
+      .returns<{ id: string; full_name: string | null; avatar_url: string | null }[]>();
+    if (profiles) {
+      nameMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name ?? "—"]));
+      avatarMap = Object.fromEntries(profiles.map(p => [p.id, p.avatar_url ?? null]));
+    }
   }
 
   const teacherData = teachers.map(t => ({
     id: t.teacher_id,
     name: nameMap[t.teacher_id] ?? "—",
+    avatarUrl: avatarMap[t.teacher_id] ?? null,
     bio: t.bio,
     specialties: t.specialties,
     recitationStandards: t.recitation_standards,

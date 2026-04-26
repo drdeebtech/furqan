@@ -22,6 +22,7 @@ const RIWAYA: Record<string, { ar: string; en: string }> = {
 interface Teacher {
   id: string;
   name: string;
+  avatarUrl: string | null;
   bio: string | null;
   specialties: string[];
   recitationStandards: string[];
@@ -67,10 +68,24 @@ export function TeachersContent({ teachers }: { teachers: Teacher[] }) {
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {teachers.map((teacher) => (
-                <div key={teacher.id} className="glass-card p-6">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-gold/30 bg-gold/10 font-display text-2xl font-bold text-gold">
-                    {teacher.name.charAt(0)}
-                  </div>
+                <div
+                  key={teacher.id}
+                  id={`teacher-${teacher.id}`}
+                  className="glass-card p-6 scroll-mt-24 target:ring-2 target:ring-gold"
+                >
+                  {teacher.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={teacher.avatarUrl}
+                      alt={teacher.name}
+                      className="h-20 w-20 rounded-full border-2 border-gold/40 object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-gold/30 bg-gold/10 font-display text-2xl font-bold text-gold">
+                      {teacher.name.charAt(0)}
+                    </div>
+                  )}
                   <h2 className="mt-4 text-lg font-bold">{teacher.name}</h2>
                   {teacher.bio && (
                     <p className="mt-1 text-sm text-muted">

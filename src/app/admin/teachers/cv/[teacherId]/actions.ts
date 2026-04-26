@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { notify } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
 import { sendTelegramAlert } from "@/lib/n8n/client";
+import { sendTeacherApprovalEmail } from "@/lib/email";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
 
 export type AdminCvSaveResult = { error?: string; success?: boolean };
@@ -86,7 +88,15 @@ export async function approveCv(teacherId: string) {
     );
   } catch { /* non-blocking */ }
 
-  // Fan-out to n8n welcome workflows + Telegram audit trail.
+  // Fan-out to n8n welcome workflows + Telegram audit trail + congrats email.
+  const adminCli = createAdminClient();
+  const [{ data: profile }, { data: { user: authUser } = { user: null } }] = await Promise.all([
+    adminCli.from("profiles").select("full_name").eq("id", teacherId).single<{ full_name: string | null }>(),
+    adminCli.auth.admin.getUserById(teacherId),
+  ]);
+  const teacherEmail = authUser?.email;
+  const teacherName = profile?.full_name ?? "";
+
   await Promise.allSettled([
     emitEvent(
       "teacher.cv_approved",
@@ -96,8 +106,15 @@ export async function approveCv(teacherId: string) {
       user.id,
     ).catch((err) => logError("approveCv emitEvent failed", err, { tag: "cv-review" })),
     sendTelegramAlert(
-      `✅ <b>Teacher CV approved</b>\n\nTeacher ID: ${teacherId}\nApproved by: ${user.id}`,
+      `✅ <b>Teacher CV approved</b>\n\nTeacher: ${teacherName || teacherId}\nApproved by: ${user.id}`,
     ).catch((err) => logError("approveCv telegram failed", err, { tag: "cv-review" })),
+    teacherEmail
+      ? sendTeacherApprovalEmail({
+          to: teacherEmail,
+          fullName: teacherName,
+          listingUrl: `https://furqan.today/teachers-page#teacher-${teacherId}`,
+        }).catch((err) => logError("approveCv approval email failed", err, { tag: "cv-review" }))
+      : Promise.resolve(),
   ]);
 
   revalidatePath("/admin/teachers/cv");
