@@ -102,7 +102,7 @@ export function ExecutionIntelTab() {
       days.push({ day: dayLabel, value: count, isActive: count > 0 });
     }
     return days;
-  }, [allExecs]);
+  }, [allExecs, locale]);
 
   // Failure breakdown by workflow
   const failureSegments = useMemo(() => {
