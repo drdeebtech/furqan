@@ -1,3 +1,7 @@
+// This file configures the initialization of Sentry on the client.
+// The added config here will be used whenever a users loads a page in their browser.
+// https://docs.sentry.io/platforms/javascript/guides/nextjs/
+
 import { initBotId } from "botid/client/core";
 import * as Sentry from "@sentry/nextjs";
 
@@ -20,23 +24,30 @@ initBotId({
   ],
 });
 
-/**
- * Sentry browser-side init. Replaces the older `sentry.client.config.ts`
- * pattern, which Next.js 13+ ignores in favor of `instrumentation-client.ts`.
- * Without this, browser/client-component errors silently drop even with the
- * DSN set.
- *
- * NO-OP BEHAVIOR: If NEXT_PUBLIC_SENTRY_DSN is not set, Sentry.init() is
- * never called. Set the env var to activate.
- */
-const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
-if (dsn) {
-  Sentry.init({
-    dsn,
-    sampleRate: 1.0,
-    tracesSampleRate: 0.1,
-  });
-}
+Sentry.init({
+  dsn: "https://3e6ba831bf5a932017cd9999e2b066ac@o4511287545954304.ingest.de.sentry.io/4511287551197264",
+
+  // Add optional integrations for additional features
+  integrations: [Sentry.replayIntegration()],
+
+  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
+  tracesSampleRate: 1,
+  // Enable logs to be sent to Sentry
+  enableLogs: true,
+
+  // Define how likely Replay events are sampled.
+  // Lowered from the wizard's default 0.1 (10%) → 0.05 (5%) so we don't
+  // burn through Sentry's free-tier session quota during normal traffic.
+  // 100% of *error* sessions still record (replaysOnErrorSampleRate).
+  replaysSessionSampleRate: 0.05,
+
+  // Define how likely Replay events are sampled when an error occurs.
+  replaysOnErrorSampleRate: 1.0,
+
+  // Enable sending user PII (Personally Identifiable Information)
+  // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
+  sendDefaultPii: true,
+});
 
 /**
  * App Router navigation transitions — required for client-side route
