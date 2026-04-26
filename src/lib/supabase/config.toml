@@ -1,0 +1,8 @@
+# Supabase project config — minimal, used only by Branching to recognize
+# this directory as a Supabase project root. Local CLI usage is unaffected
+# because we don't run `supabase start`/`supabase db reset` from this path.
+#
+# Working directory in the GitHub integration is set to `src/lib`, which
+# means Branching looks at `src/lib/supabase/` for project files.
+
+project_id = "xyqscjnqfeusgrhmwjts"
