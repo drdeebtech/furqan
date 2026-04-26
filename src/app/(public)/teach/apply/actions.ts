@@ -6,7 +6,9 @@ import { checkBotId } from "botid/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/automation/emit";
-import { sendTeacherWelcome } from "@/lib/email";
+import { sendTeacherWelcome, sendAdminTeacherApplicationAlert } from "@/lib/email";
+import { sendTelegramAlert } from "@/lib/n8n/client";
+import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
 import type { CvStatus } from "@/types/database";
 
@@ -232,6 +234,49 @@ export async function submitTeacherApplication(
     { email, full_name, country, languages, recitation_standards, specialties, years_experience },
     null,
   ).catch((err) => logError("teach-apply emitEvent failed", err, { tag: "teach-apply" }));
+
+  // Multi-channel admin notification — fire-and-forget, never block the user.
+  // TODO: WhatsApp once cloud API token is configured.
+  await Promise.allSettled([
+    // 1. In-app bell for every admin
+    (async () => {
+      const { data: admins } = await adminClient
+        .from("profiles")
+        .select("id")
+        .eq("role", "admin")
+        .returns<{ id: string }[]>();
+      const body = `${full_name} (${country}) — ${specialties.slice(0, 3).join(", ")}`;
+      await Promise.allSettled(
+        (admins ?? []).map((a) =>
+          notify(a.id, "system", "طلب تدريس جديد", body, "teacher_profile", teacherId),
+        ),
+      );
+    })().catch((err) => logError("teach-apply in-app notify failed", err, { tag: "teach-apply" })),
+
+    // 2. Email to ADMIN_EMAIL
+    sendAdminTeacherApplicationAlert({
+      fullName: full_name,
+      email,
+      phone,
+      country,
+      languages,
+      recitations: recitation_standards,
+      specialties,
+      yearsExperience: years_experience,
+      teacherId,
+    }).catch((err) => logError("teach-apply admin email failed", err, { tag: "teach-apply" })),
+
+    // 3. Telegram alert
+    sendTelegramAlert(
+      `🆕 <b>New teacher application</b>\n\n` +
+        `<b>Name:</b> ${full_name}\n` +
+        `<b>Country:</b> ${country}\n` +
+        `<b>Email:</b> ${email}\n` +
+        `<b>Phone:</b> ${phone}\n` +
+        `<b>Specialties:</b> ${specialties.join(", ")}\n\n` +
+        `<a href="https://furqan.today/admin/teachers/cv/${teacherId}">Review →</a>`,
+    ).catch((err) => logError("teach-apply telegram failed", err, { tag: "teach-apply" })),
+  ]);
 
   await adminClient.from("audit_log").insert({
     changed_by: teacherId,

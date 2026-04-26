@@ -20,6 +20,65 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;");
 }
 
+export async function sendAdminTeacherApplicationAlert(data: {
+  fullName: string;
+  email: string;
+  phone: string;
+  country: string;
+  languages: string[];
+  recitations: string[];
+  specialties: string[];
+  yearsExperience?: number;
+  teacherId: string;
+}) {
+  const resend = getResend();
+  if (!resend) {
+    logWarn("RESEND_API_KEY not set — skipping admin teacher alert", { tag: "email" });
+    return { error: "no-resend" };
+  }
+  const safe = {
+    name: escapeHtml(data.fullName),
+    email: escapeHtml(data.email),
+    phone: escapeHtml(data.phone),
+    country: escapeHtml(data.country),
+    langs: escapeHtml(data.languages.join(", ")),
+    rec: escapeHtml(data.recitations.join(", ")),
+    spec: escapeHtml(data.specialties.join(", ")),
+    years: data.yearsExperience ? escapeHtml(String(data.yearsExperience)) : "—",
+  };
+  const reviewUrl = `https://furqan.today/admin/teachers/cv/${encodeURIComponent(data.teacherId)}`;
+  try {
+    await resend.emails.send({
+      from: `FURQAN Academy <${FROM_EMAIL}>`,
+      to: ADMIN_EMAIL,
+      subject: `🆕 طلب تدريس جديد — ${data.fullName}`,
+      html: `
+        <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 640px;">
+          <h2 style="color: #C8A652;">طلب تدريس جديد</h2>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr><td style="padding: 8px; font-weight: bold; color: #666;">الاسم:</td><td style="padding: 8px;">${safe.name}</td></tr>
+            <tr><td style="padding: 8px; font-weight: bold; color: #666;">البريد:</td><td style="padding: 8px;"><a href="mailto:${safe.email}">${safe.email}</a></td></tr>
+            <tr><td style="padding: 8px; font-weight: bold; color: #666;">الهاتف:</td><td style="padding: 8px;">${safe.phone}</td></tr>
+            <tr><td style="padding: 8px; font-weight: bold; color: #666;">الدولة:</td><td style="padding: 8px;">${safe.country}</td></tr>
+            <tr><td style="padding: 8px; font-weight: bold; color: #666;">سنوات الخبرة:</td><td style="padding: 8px;">${safe.years}</td></tr>
+            <tr><td style="padding: 8px; font-weight: bold; color: #666;">اللغات:</td><td style="padding: 8px;">${safe.langs}</td></tr>
+            <tr><td style="padding: 8px; font-weight: bold; color: #666;">الروايات:</td><td style="padding: 8px;">${safe.rec}</td></tr>
+            <tr><td style="padding: 8px; font-weight: bold; color: #666;">التخصصات:</td><td style="padding: 8px;">${safe.spec}</td></tr>
+          </table>
+          <p style="margin-top: 24px;">
+            <a href="${reviewUrl}" style="display: inline-block; padding: 10px 20px; background: #C8A652; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">مراجعة الطلب</a>
+          </p>
+          <p style="margin-top: 24px; font-size: 12px; color: #999;">— أكاديمية فُرقان | furqan.today</p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    logError("Failed to send admin teacher application alert", error, { tag: "email" });
+    return { error: "failed" };
+  }
+}
+
 export async function sendTeacherWelcome(data: {
   to: string;
   fullName: string;
