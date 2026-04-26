@@ -15,8 +15,13 @@ import {
 
 const N8N_UI_BASE =
   process.env.NEXT_PUBLIC_N8N_UI_URL ?? "https://n8n.drdeeb.tech";
-import { useLang } from "@/lib/i18n/context";
+import { useLang, type Lang } from "@/lib/i18n/context";
 import { toggleWorkflowAction, autoRestartAction } from "@/lib/n8n/actions";
+import {
+  getWorkflowMeta,
+  WORKFLOW_AREAS,
+  type WorkflowArea,
+} from "@/lib/n8n/workflow-descriptions";
 
 interface Workflow {
   id: string;
@@ -41,6 +46,7 @@ export function OverviewTab() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [showFailedOnly, setShowFailedOnly] = useState(false);
+  const [groupByArea, setGroupByArea] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [restarting, setRestarting] = useState(false);
   const [restartResult, setRestartResult] = useState<string | null>(null);
@@ -375,6 +381,19 @@ export function OverviewTab() {
             ? t("الفاشلة فقط", "Failed Only")
             : t("الكل", "All")}
         </button>
+        <button
+          type="button"
+          onClick={() => setGroupByArea(!groupByArea)}
+          aria-pressed={groupByArea}
+          className={`glass-pill flex items-center gap-1 px-3 py-2 text-xs transition-colors ${
+            groupByArea
+              ? "bg-gold/10 text-gold border-gold/30"
+              : "text-muted hover:text-gold"
+          }`}
+        >
+          <Filter size={12} />
+          {t("تجميع حسب المجال", "Group by area")}
+        </button>
       </div>
 
       {/* Workflows List */}
@@ -383,126 +402,241 @@ export function OverviewTab() {
           <RefreshCw size={24} className="mx-auto mb-2 animate-spin" />
           {t("جاري التحميل...", "Loading...")}
         </div>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map((wf) => {
-            const hasError = errorMap.has(wf.id);
-            const errorTime = errorMap.get(wf.id);
-            const stats = workflowStats.get(wf.id);
-            const wfSuccessRate =
-              stats && stats.total > 0
-                ? Math.round((stats.success / stats.total) * 100)
-                : null;
-
+      ) : groupByArea ? (
+        <div className="space-y-6">
+          {groupWorkflowsByArea(filtered).map(({ area, items }) => {
+            const areaLabel = area
+              ? WORKFLOW_AREAS[area][lang === "ar" ? "ar" : "en"]
+              : t("غير مصنّف", "Other");
             return (
-              <div
-                key={wf.id}
-                className={`glass-card flex items-center gap-3 p-4 ${hasError ? "border-red-500/20" : ""}`}
-              >
-                {/* Status indicator */}
-                <div
-                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${wf.active ? "bg-emerald-400" : "bg-muted/30"}`}
-                >
-                  <span className="sr-only">
-                    {wf.active
-                      ? t("نشط", "Active")
-                      : t("متوقف", "Inactive")}
+              <section key={area ?? "other"}>
+                <h3 className="mb-2 sticky top-0 z-10 -mx-2 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gold/80 backdrop-blur-sm bg-bg/60 rounded">
+                  {areaLabel}{" "}
+                  <span className="text-muted/60 normal-case">
+                    ({items.length})
                   </span>
+                </h3>
+                <div className="space-y-2">
+                  {items.map((wf) => (
+                    <WorkflowRow
+                      key={wf.id}
+                      wf={wf}
+                      lang={lang}
+                      t={t}
+                      hasError={errorMap.has(wf.id)}
+                      errorTime={errorMap.get(wf.id)}
+                      successRate={successRateFor(wf.id, workflowStats)}
+                      togglingId={togglingId}
+                      onToggle={handleToggle}
+                    />
+                  ))}
                 </div>
-
-                {/* Info */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <a
-                      href={`${N8N_UI_BASE}/workflow/${wf.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group inline-flex items-center gap-1 text-sm font-medium hover:text-gold"
-                      title={t("افتح في n8n", "Open in n8n")}
-                    >
-                      {wf.name}
-                      <ExternalLink
-                        size={11}
-                        className="text-muted/60 transition-colors group-hover:text-gold"
-                      />
-                    </a>
-                    {wfSuccessRate !== null ? (
-                      <span
-                        className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
-                          wfSuccessRate >= 80
-                            ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                            : wfSuccessRate >= 50
-                              ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
-                              : "bg-red-500/15 text-red-400 border-red-500/30"
-                        }`}
-                      >
-                        {wfSuccessRate}%
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-muted">
-                        {t("لم يُنفذ", "Not executed")}
-                      </span>
-                    )}
-                  </div>
-                  {hasError && (
-                    <p className="mt-0.5 flex items-center gap-1 text-xs text-red-400">
-                      <XCircle size={10} />
-                      {t("خطأ في", "Error at")} {errorTime}
-                    </p>
-                  )}
-                </div>
-
-                {/* Toggle button */}
-                <button
-                  type="button"
-                  onClick={() =>
-                    handleToggle(wf.id, wf.name, !wf.active)
-                  }
-                  disabled={togglingId === wf.id}
-                  className={`glass-pill flex items-center gap-1 px-3 py-2 sm:py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
-                    wf.active
-                      ? "text-emerald-400 hover:bg-red-500/10 hover:text-red-400"
-                      : "text-muted hover:bg-emerald-500/10 hover:text-emerald-400"
-                  }`}
-                >
-                  {togglingId === wf.id ? (
-                    <RefreshCw size={12} className="animate-spin" />
-                  ) : wf.active ? (
-                    <>
-                      <PowerOff size={12} />{" "}
-                      {t("إيقاف", "Stop")}
-                    </>
-                  ) : (
-                    <>
-                      <Power size={12} />{" "}
-                      {t("تشغيل", "Start")}
-                    </>
-                  )}
-                </button>
-              </div>
+              </section>
             );
           })}
           {filtered.length === 0 && !loading && (
             <div className="glass-card p-8 text-center text-muted">
-              <Search
-                size={20}
-                className="mx-auto mb-2 text-muted/30"
-              />
+              <Search size={20} className="mx-auto mb-2 text-muted/30" />
               <p className="text-sm">
                 {showFailedOnly
-                  ? t(
-                      "لا توجد workflows فاشلة",
-                      "No failed workflows",
-                    )
-                  : t(
-                      "لا توجد نتائج للبحث",
-                      "No results found",
-                    )}
+                  ? t("لا توجد workflows فاشلة", "No failed workflows")
+                  : t("لا توجد نتائج للبحث", "No results found")}
+              </p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((wf) => (
+            <WorkflowRow
+              key={wf.id}
+              wf={wf}
+              lang={lang}
+              t={t}
+              hasError={errorMap.has(wf.id)}
+              errorTime={errorMap.get(wf.id)}
+              successRate={successRateFor(wf.id, workflowStats)}
+              togglingId={togglingId}
+              onToggle={handleToggle}
+            />
+          ))}
+          {filtered.length === 0 && !loading && (
+            <div className="glass-card p-8 text-center text-muted">
+              <Search size={20} className="mx-auto mb-2 text-muted/30" />
+              <p className="text-sm">
+                {showFailedOnly
+                  ? t("لا توجد workflows فاشلة", "No failed workflows")
+                  : t("لا توجد نتائج للبحث", "No results found")}
               </p>
             </div>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function successRateFor(
+  id: string,
+  stats: Map<string, { total: number; success: number }>,
+): number | null {
+  const s = stats.get(id);
+  if (!s || s.total === 0) return null;
+  return Math.round((s.success / s.total) * 100);
+}
+
+function groupWorkflowsByArea(
+  workflows: Workflow[],
+): Array<{ area: WorkflowArea | null; items: Workflow[] }> {
+  const buckets = new Map<WorkflowArea | "__other__", Workflow[]>();
+  for (const wf of workflows) {
+    const meta = getWorkflowMeta(wf.name);
+    const key = meta?.area ?? "__other__";
+    const list = buckets.get(key) ?? [];
+    list.push(wf);
+    buckets.set(key, list);
+  }
+  const order: WorkflowArea[] = [
+    "session_lifecycle",
+    "parent_communication",
+    "retention",
+    "revenue",
+    "teacher_onboarding",
+    "teacher_quality",
+    "booking_intelligence",
+    "messaging",
+    "admin_operations",
+    "payments",
+    "platform_health",
+    "ai_intelligence",
+  ];
+  const out: Array<{ area: WorkflowArea | null; items: Workflow[] }> = [];
+  for (const area of order) {
+    const items = buckets.get(area);
+    if (items?.length) out.push({ area, items });
+  }
+  const other = buckets.get("__other__");
+  if (other?.length) out.push({ area: null, items: other });
+  return out;
+}
+
+interface WorkflowRowProps {
+  wf: Workflow;
+  lang: Lang;
+  t: (ar: string, en: string) => string;
+  hasError: boolean;
+  errorTime: string | undefined;
+  successRate: number | null;
+  togglingId: string | null;
+  onToggle: (id: string, name: string, active: boolean) => void;
+}
+
+function WorkflowRow({
+  wf,
+  lang,
+  t,
+  hasError,
+  errorTime,
+  successRate,
+  togglingId,
+  onToggle,
+}: WorkflowRowProps) {
+  const meta = getWorkflowMeta(wf.name);
+  const purpose = meta ? (lang === "ar" ? meta.ar : meta.en) : null;
+  const areaLabel = meta
+    ? WORKFLOW_AREAS[meta.area][lang === "ar" ? "ar" : "en"]
+    : null;
+
+  return (
+    <div
+      className={`glass-card flex items-start gap-3 p-4 ${hasError ? "border-red-500/20" : ""}`}
+    >
+      <div
+        className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${wf.active ? "bg-emerald-400" : "bg-muted/30"}`}
+      >
+        <span className="sr-only">
+          {wf.active ? t("نشط", "Active") : t("متوقف", "Inactive")}
+        </span>
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href={`${N8N_UI_BASE}/workflow/${wf.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group inline-flex items-center gap-1 text-sm font-medium hover:text-gold"
+            title={t("افتح في n8n", "Open in n8n")}
+          >
+            {wf.name}
+            <ExternalLink
+              size={11}
+              className="text-muted/60 transition-colors group-hover:text-gold"
+            />
+          </a>
+          {areaLabel && (
+            <span className="inline-flex items-center rounded-full border border-gold/20 bg-gold/5 px-1.5 py-0.5 text-[10px] font-medium text-gold/80">
+              {areaLabel}
+            </span>
+          )}
+          {successRate !== null ? (
+            <span
+              className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
+                successRate >= 80
+                  ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                  : successRate >= 50
+                    ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                    : "bg-red-500/15 text-red-400 border-red-500/30"
+              }`}
+            >
+              {successRate}%
+            </span>
+          ) : (
+            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-muted">
+              {t("لم يُنفذ", "Not executed")}
+            </span>
+          )}
+        </div>
+        {purpose ? (
+          <p
+            className="mt-1 truncate text-xs text-muted"
+            title={purpose}
+          >
+            {purpose}
+          </p>
+        ) : (
+          <p className="mt-1 text-xs text-muted/50">—</p>
+        )}
+        {hasError && (
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-red-400">
+            <XCircle size={10} />
+            {t("خطأ في", "Error at")} {errorTime}
+          </p>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onToggle(wf.id, wf.name, !wf.active)}
+        disabled={togglingId === wf.id}
+        className={`glass-pill flex items-center gap-1 px-3 py-2 sm:py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+          wf.active
+            ? "text-emerald-400 hover:bg-red-500/10 hover:text-red-400"
+            : "text-muted hover:bg-emerald-500/10 hover:text-emerald-400"
+        }`}
+      >
+        {togglingId === wf.id ? (
+          <RefreshCw size={12} className="animate-spin" />
+        ) : wf.active ? (
+          <>
+            <PowerOff size={12} /> {t("إيقاف", "Stop")}
+          </>
+        ) : (
+          <>
+            <Power size={12} /> {t("تشغيل", "Start")}
+          </>
+        )}
+      </button>
     </div>
   );
 }
