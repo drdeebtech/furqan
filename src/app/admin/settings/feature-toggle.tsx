@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useLang } from "@/lib/i18n/context";
 import { updateSetting } from "./actions";
 
@@ -17,15 +17,35 @@ export function FeatureToggle({
 }) {
   const { t } = useLang();
   const [enabled, setEnabled] = useState(initialValue);
+  const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   function toggle() {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    setError(null);
     const newValue = !enabled;
     setEnabled(newValue);
     startTransition(async () => {
       const result = await updateSetting(settingKey, String(newValue));
       if (result.error) {
-        setEnabled(!newValue); // revert on error
+        setEnabled(!newValue);
+        setError(
+          result.error || t("فشل الحفظ — حاول مجدداً", "Save failed — try again"),
+        );
+        timerRef.current = setTimeout(() => {
+          setError(null);
+          timerRef.current = null;
+        }, 4000);
       }
     });
   }
@@ -35,6 +55,11 @@ export function FeatureToggle({
       <div>
         <p className="text-sm font-medium">{label}</p>
         <p className="text-xs text-muted">{description}</p>
+        {error && (
+          <p className="mt-1 text-xs text-red-400" role="alert">
+            {error}
+          </p>
+        )}
       </div>
       <button
         onClick={toggle}
