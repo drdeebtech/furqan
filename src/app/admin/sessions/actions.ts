@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createRoom, deleteRoom, updateRoomMaxParticipants, createObserverToken } from "@/lib/daily";
 import { notify } from "@/lib/notifications/dispatcher";
+import { logError } from "@/lib/logger";
 
 /* ── Row types for query results ──────────────────────────────────────────── */
 
@@ -104,7 +105,12 @@ export async function forceEndSession(sessionId: string, reason: string) {
     const body = reason || "تم إنهاء الجلسة بواسطة المسؤول";
     await Promise.all(
       [booking.student_id, booking.teacher_id].map((uid) =>
-        notify(uid, "system", title, body, "session", sessionId).catch(() => {}),
+        notify(uid, "system", title, body, "session", sessionId).catch((err) =>
+          logError("notify failed during admin endSession", err, {
+            component: "admin.sessions.endSession",
+            metadata: { uid, sessionId },
+          }),
+        ),
       ),
     );
   }

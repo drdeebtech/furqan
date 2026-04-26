@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notify } from "@/lib/notifications/dispatcher";
 import { requireAdmin as requireAdminStrict, ForbiddenError } from "@/lib/auth/require-admin";
+import { logError } from "@/lib/logger";
 
 export interface ModerationResult {
   success?: string;
@@ -180,7 +181,12 @@ export async function pingAdminOnEvaluation(evalId: string): Promise<ModerationR
         `تقييم بدرجة ${scoreText} يتطلب مراجعة المشرف.`,
         "session_evaluation",
         evalRow.id,
-      ).catch(() => {}),
+      ).catch((err) =>
+        logError("notify admin failed during pingAdminOnEvaluation", err, {
+          component: "admin.moderation.pingAdminOnEvaluation",
+          metadata: { recipientId: a.id, evalId: evalRow.id },
+        }),
+      ),
     ),
   );
 

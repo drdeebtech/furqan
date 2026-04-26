@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { dispatchNotification } from "@/lib/notifications/dispatcher";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
+import { logError } from "@/lib/logger";
 
 export async function sendNotification(formData: FormData) {
   try {
@@ -32,7 +33,12 @@ export async function sendNotification(formData: FormData) {
         type: "system",
         title,
         body,
-      }).catch(() => undefined),
+      }).catch((err) => {
+        logError("dispatchNotification failed during admin broadcast", err, {
+          component: "admin.notifications.sendNotification",
+          metadata: { userId: u.id, title },
+        });
+      }),
     ),
   );
 

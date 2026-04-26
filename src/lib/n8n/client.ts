@@ -2,6 +2,7 @@
  * n8n REST API client.
  * All calls require N8N_API_URL and N8N_API_KEY env vars.
  */
+import { logError } from "@/lib/logger";
 
 const RAW_N8N_API_URL = (process.env.N8N_API_URL ?? "").replace(/\\n|\\r/g, "").trim().replace(/\/+$/, "");
 const N8N_API_URL = RAW_N8N_API_URL || "https://n8n.drdeeb.tech/api/v1";
@@ -148,9 +149,19 @@ export async function sendTelegramAlert(message: string): Promise<void> {
   const chatId = process.env.TG_ADMIN_CHAT_ID;
   if (!token || !chatId) return;
 
-  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: "HTML" }),
-  }).catch(() => {});
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: "HTML" }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      logError("Telegram alert failed", new Error(`HTTP ${res.status}: ${body}`), {
+        component: "n8n.client.sendTelegramAlert",
+      });
+    }
+  } catch (err) {
+    logError("Telegram alert threw", err, { component: "n8n.client.sendTelegramAlert" });
+  }
 }
