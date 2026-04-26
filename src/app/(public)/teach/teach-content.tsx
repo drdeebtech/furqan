@@ -29,12 +29,18 @@ export default function TeachContent() {
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <a
+              href="/teach/apply"
+              className="glass-gold glass-pill flex items-center justify-center gap-2 px-10 py-4 text-lg font-bold transition-colors duration-200 hover:bg-gold-hover"
+            >
+              {t("التقديم عبر النموذج", "Apply via form")}
+            </a>
+            <a
               href={CONTACT.whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="glass-gold glass-pill flex items-center justify-center gap-2 px-10 py-4 text-lg font-bold transition-colors duration-200 hover:bg-gold-hover"
+              className="glass-pill flex items-center justify-center gap-2 px-8 py-3 text-base font-medium text-muted transition-colors hover:text-gold"
             >
-              {t("قدّم الآن عبر واتساب", "Apply via WhatsApp")}
+              {t("أو عبر واتساب", "Or via WhatsApp")}
             </a>
             <a
               href={CONTACT.emailUrl}
