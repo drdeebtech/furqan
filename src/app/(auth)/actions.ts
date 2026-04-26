@@ -139,10 +139,16 @@ export async function login(
     // login credentials" (expected — user mistyped) from "Email not
     // confirmed", network failure, or other unusual states. User-facing
     // message stays generic so we don't leak enumeration info.
+    const signinErr = error as { status?: number; code?: string; message?: string };
     logError("Supabase signInWithPassword failed", error, {
       component: "auth.login",
       tag: "auth-signin-failed",
-      metadata: { email, supabaseMessage: error.message },
+      metadata: {
+        email,
+        supabaseStatus: signinErr.status,
+        supabaseCode: signinErr.code,
+        supabaseMessage: signinErr.message,
+      },
     });
     return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
   }
@@ -244,10 +250,21 @@ export async function forgotPassword(
   });
 
   if (error) {
+    // AuthApiError has .status (HTTP) + .code (Supabase code). Both
+    // are the smoking gun for what's wrong (rate limit vs SMTP fail
+    // vs invalid recipient). Sentry's default Error serialization
+    // strips them, so we lift them into metadata explicitly.
+    const supabaseError = error as { status?: number; code?: string; message?: string };
     logError("resetPasswordForEmail failed", error, {
       component: "auth.forgotPassword",
       tag: "auth-forgot-password",
-      metadata: { email, redirectTo },
+      metadata: {
+        email,
+        redirectTo,
+        supabaseStatus: supabaseError.status,
+        supabaseCode: supabaseError.code,
+        supabaseMessage: supabaseError.message,
+      },
     });
     return { error: "حدث خطأ، حاول مرة أخرى" };
   }
