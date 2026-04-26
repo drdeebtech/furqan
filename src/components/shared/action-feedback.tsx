@@ -19,29 +19,51 @@
  *     </form>
  *   );
  */
-import { useEffect, useState, startTransition } from "react";
+import { useEffect, useMemo, useState, startTransition } from "react";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 
-type ActionState = { ok: true; message?: string } | { ok: false; error: string } | null | undefined;
+// Modern shape from loudAction. Preferred for new server actions.
+type LoudShape =
+  | { ok: true; message?: string }
+  | { ok: false; error: string };
+
+// Legacy shape used widely across admin forms. We accept it so adoption is
+// possible without rewriting every server action — server-side migration
+// can happen incrementally.
+type LegacyShape = { success?: boolean | string; error?: string | null; message?: string };
+
+type ActionState = LoudShape | LegacyShape | null | undefined;
+
+function normalize(state: ActionState): { ok: true; message?: string } | { ok: false; error: string } | null {
+  if (!state) return null;
+  if ("ok" in state) return state;
+  if (state.error) return { ok: false, error: state.error };
+  if (state.success) {
+    const msg = typeof state.success === "string" ? state.success : state.message;
+    return { ok: true, message: msg };
+  }
+  return null;
+}
 
 export function ActionFeedback({ state }: { state: ActionState }) {
   const { t } = useLang();
   const [hidden, setHidden] = useState(false);
+  const normalized = useMemo(() => normalize(state), [state]);
 
   useEffect(() => {
     // startTransition avoids React 19's "cascading renders in effect" warning.
     startTransition(() => setHidden(false));
-    if (state?.ok === true) {
+    if (normalized?.ok === true) {
       const timer = setTimeout(() => startTransition(() => setHidden(true)), 4000);
       return () => clearTimeout(timer);
     }
-  }, [state]);
+  }, [normalized]);
 
-  if (!state || hidden) return null;
+  if (!normalized || hidden) return null;
 
-  if (state.ok === true) {
-    const msg = state.message ?? t("تم بنجاح", "Done");
+  if (normalized.ok === true) {
+    const msg = normalized.message ?? t("تم بنجاح", "Done");
     return (
       <div
         role="status"
@@ -59,7 +81,7 @@ export function ActionFeedback({ state }: { state: ActionState }) {
       className="mb-3 flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300"
     >
       <AlertCircle size={16} className="mt-0.5 shrink-0" />
-      <span>{state.error}</span>
+      <span>{normalized.error}</span>
     </div>
   );
 }

@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Gift, CheckCircle, AlertCircle } from "lucide-react";
+import { Gift } from "lucide-react";
 import { grantCreditAction, type GrantResult } from "./actions";
+import { ActionFeedback } from "@/components/shared/action-feedback";
 
 const initialState: GrantResult = {};
 
@@ -72,18 +73,9 @@ export function GrantCreditForm() {
         </div>
       </form>
 
-      {state.success && (
-        <div className="mt-4 flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-300">
-          <CheckCircle size={16} className="mt-0.5 shrink-0" />
-          <span>{state.success}</span>
-        </div>
-      )}
-      {state.error && (
-        <div role="alert" className="mt-4 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
-          <AlertCircle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-          <span>{state.error}</span>
-        </div>
-      )}
+      <div className="mt-4">
+        <ActionFeedback state={state} />
+      </div>
     </section>
   );
 }

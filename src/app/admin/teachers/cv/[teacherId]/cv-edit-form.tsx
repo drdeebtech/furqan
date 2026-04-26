@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { Save } from "lucide-react";
 import { saveCvAsAdmin, type AdminCvSaveResult } from "./actions";
+import { ActionFeedback } from "@/components/shared/action-feedback";
 
 interface CvEditFormProps {
   teacherId: string;
@@ -36,17 +37,10 @@ export function CvEditForm({
         <span className="me-2 text-sm font-normal text-muted">Edit CV</span>
       </h2>
 
-      {state.error && (
-        <div role="alert" className="mb-4 rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">
-          {state.error}
-        </div>
-      )}
+      <ActionFeedback
+        state={state.success ? { success: "تم حفظ التعديلات بنجاح" } : state}
+      />
 
-      {state.success && (
-        <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-400">
-          تم حفظ التعديلات بنجاح
-        </div>
-      )}
 
       <form action={formAction} className="space-y-5">
         <div>

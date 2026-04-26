@@ -341,6 +341,20 @@ If the auto-deploy fails (visible in Supabase dashboard → Branching → Merge 
 
 **Future improvement** (not yet wired): add a CI step that `psql`s production and diffs `select version from schema_migrations` against the file list under `src/lib/supabase/migrations/`. Fails the build on mismatch.
 
+## Sentry — activating in production
+
+The Sentry SDK is fully scaffolded (`@sentry/nextjs@10.49.0`, three config files at the repo root, `logError` routes through `Sentry.captureException` when DSN is set). Activation is a 5-minute task:
+
+1. Create a free Sentry account at https://sentry.io/signup/ — pick the **Next.js** platform when prompted.
+2. Sentry shows you a DSN that looks like `https://xxxx@oNNNN.ingest.sentry.io/PPPP`. Copy it.
+3. In Vercel → furqan project → Settings → Environment Variables, add:
+   - `SENTRY_DSN` = (the DSN, all environments)
+   - `NEXT_PUBLIC_SENTRY_DSN` = (same value, all environments — used by client SDK)
+4. Trigger a redeploy (push any commit, or click "Redeploy" on the latest Vercel deployment).
+5. Verify by intentionally throwing in any server action — the error should appear in Sentry within ~30 seconds.
+
+Until DSN is set, `logError` falls back to `console.error` in dev and Telegram alerts on `severity: 'critical'`. No-op behavior in production keeps the app running normally.
+
 ## Verification Checklist
 After any code change:
 1. `npx next build` — must pass with zero errors
@@ -351,7 +365,7 @@ After any code change:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **furqan** (2582 symbols, 5991 relationships, 194 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **furqan** (2591 symbols, 5992 relationships, 194 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
