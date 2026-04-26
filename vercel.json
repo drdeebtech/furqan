@@ -2,16 +2,8 @@
   "installCommand": "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install",
   "crons": [
     {
-      "path": "/api/cron/cache-clear",
-      "schedule": "*/30 * * * *"
-    },
-    {
       "path": "/api/cron/audit-cleanup",
       "schedule": "0 2 * * *"
-    },
-    {
-      "path": "/api/cron/n8n-healthcheck",
-      "schedule": "*/5 * * * *"
     }
   ],
   "headers": [
