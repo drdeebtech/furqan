@@ -135,14 +135,45 @@ export async function login(
   });
 
   if (error) {
-    // Capture the real Supabase error so ops can tell apart "Invalid
-    // login credentials" (expected — user mistyped) from "Email not
-    // confirmed", network failure, or other unusual states. User-facing
-    // message stays generic so we don't leak enumeration info.
     const signinErr = error as { status?: number; code?: string; message?: string };
-    logError("Supabase signInWithPassword failed", error, {
+
+    // ── Triage by error code ──────────────────────────────────────────
+    // Supabase returns specific codes for the well-known failure modes.
+    // For each *expected business case* we want a tailored UX message
+    // and we explicitly do NOT log to Sentry — these aren't anomalies
+    // worth paging on, they're normal user activity.
+    //
+    // Anything we don't recognize falls through to the generic logger
+    // path so genuinely surprising failures (network, SDK, etc.) stay
+    // visible.
+
+    // Soft-deleted account: admin set ban_duration via softDeleteUser.
+    // Show a clear suspended-account message instead of "wrong password"
+    // so the user knows to contact support, not retry their password.
+    if (signinErr.code === "user_banned") {
+      return {
+        error: "حسابك معلق — يرجى التواصل مع الدعم على alforqan.egy@gmail.com",
+      };
+    }
+
+    // Wrong email or password: the most common failure, expected user
+    // typo or stuffing attempt. Per-email rate limiter already gates
+    // abuse; no value in flooding Sentry with these.
+    if (signinErr.code === "invalid_credentials") {
+      return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
+    }
+
+    // Email signup pending verification — show actionable message.
+    if (signinErr.code === "email_not_confirmed") {
+      return {
+        error: "يرجى تأكيد بريدك الإلكتروني أولاً (تحقق من صندوق الوارد)",
+      };
+    }
+
+    // Anything else — genuinely unexpected. Log it.
+    logError("Supabase signInWithPassword unexpected error", error, {
       component: "auth.login",
-      tag: "auth-signin-failed",
+      tag: "auth-signin-unexpected",
       metadata: {
         email,
         supabaseStatus: signinErr.status,
@@ -150,7 +181,7 @@ export async function login(
         supabaseMessage: signinErr.message,
       },
     });
-    return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
+    return { error: "حدث خطأ، حاول مرة أخرى" };
   }
 
   // Resolve role first — needed for both the redirect and the audit-log payload.
