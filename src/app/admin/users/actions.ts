@@ -237,6 +237,99 @@ export async function restoreUser(userId: string) {
   return { success: true };
 }
 
+/**
+ * Permanently delete a user from auth + cascade through public.profiles
+ * and downstream FK-linked tables. IRREVERSIBLE — no restore path.
+ *
+ * Only allowed on users that are already soft-deleted (deleted_at IS NOT NULL).
+ * This makes hard delete a deliberate two-step action: archive first, then
+ * after a cooling-off period (or a separate confirm), erase. Reduces blast
+ * radius from accidental clicks.
+ *
+ * Requires the caller to pass the exact `full_name` of the target as
+ * confirmation — typed in the UI. Prevents one-click destructive accidents.
+ *
+ * Self-protection: an admin cannot hard-delete their own account.
+ *
+ * Audit: a snapshot of the user is written to audit_log BEFORE the delete,
+ * because after deletion the record_id is gone and we lose the chain of
+ * custody. The audit row is the only paper trail.
+ */
+export async function hardDeleteUser(userId: string, nameConfirmation: string) {
+  const auth = await authOrError();
+  if (auth.error) return { error: auth.error };
+  if (auth.id === userId) return { error: "لا يمكنك حذف حسابك الخاص" };
+
+  const admin = createAdminClient();
+
+  const { data: existing } = await admin
+    .from("profiles")
+    .select("role, full_name, deleted_at, is_active, created_at")
+    .eq("id", userId)
+    .single<{
+      role: string;
+      full_name: string | null;
+      deleted_at: string | null;
+      is_active: boolean;
+      created_at: string;
+    }>();
+
+  if (!existing) return { error: "المستخدم غير موجود" };
+  if (!existing.deleted_at) {
+    return { error: "يجب أرشفة المستخدم أولاً قبل الحذف النهائي" };
+  }
+
+  // Strict equality on the typed name — case- and whitespace-sensitive.
+  // Stops "yes" or empty input from sliding through.
+  const expected = (existing.full_name ?? "").trim();
+  if (expected.length === 0 || nameConfirmation.trim() !== expected) {
+    return { error: "اكتب اسم المستخدم بالضبط لتأكيد الحذف النهائي" };
+  }
+
+  // Snapshot to audit log BEFORE delete — after, the record is unreachable.
+  await admin
+    .from("audit_log")
+    .insert({
+      changed_by: auth.id,
+      table_name: "profiles",
+      record_id: userId,
+      action: "DELETE",
+      old_data: {
+        role: existing.role,
+        full_name: existing.full_name,
+        is_active: existing.is_active,
+        deleted_at: existing.deleted_at,
+        created_at: existing.created_at,
+      },
+      new_data: null,
+      reason: `Hard delete (permanent erase) of ${existing.role}: ${existing.full_name ?? "[no name]"}`,
+    } as never)
+    .then((r) => {
+      if (r.error) logError("hardDeleteUser: audit row failed", r.error, { tag: "admin-users" });
+    });
+
+  // Supabase Auth handles the auth.users row + cascades via FKs into
+  // public.profiles and downstream tables (sessions, bookings, etc).
+  // If a RESTRICT FK blocks the delete, the API surfaces the error and
+  // we report it back so the operator can clean up references first.
+  const { error: authErr } = await admin.auth.admin.deleteUser(userId);
+  if (authErr) {
+    logError("hardDeleteUser: auth.deleteUser failed", authErr, {
+      component: "admin.users.hardDelete",
+      tag: "admin-users",
+      severity: "critical",
+      metadata: { userId, role: existing.role },
+    });
+    return { error: `تعذر الحذف النهائي: ${authErr.message}` };
+  }
+
+  revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${userId}`);
+  if (existing.role === "teacher") revalidatePath("/admin/teachers");
+
+  return { success: true };
+}
+
 export async function createUserFromScratch(
   _prev: { success?: boolean; error?: string },
   formData: FormData

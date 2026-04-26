@@ -7,7 +7,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **furqan** (2603 symbols, 6036 relationships, 195 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **furqan** (2612 symbols, 6040 relationships, 196 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
