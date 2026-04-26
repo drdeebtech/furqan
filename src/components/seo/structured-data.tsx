@@ -25,7 +25,7 @@ export function OrganizationSchema() {
     logo: "https://furqan.today/logo-512.png",
     description: "Online Quran academy offering Hifz, Tajweed, and Tilawa with certified teachers holding Ijazah.",
     email: "alforqan.egy@gmail.com",
-    telephone: "+96598759229",
+    telephone: "+96597795626",
     address: { "@type": "PostalAddress", addressCountry: "KW", addressLocality: "Kuwait" },
     offers: {
       "@type": "Offer",
