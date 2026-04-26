@@ -37,7 +37,7 @@ export function ExecutionIntelTab() {
   const { t, lang } = useLang();
   const locale = lang === "ar" ? "ar" : "en-US";
   const [allExecs, setAllExecs] = useState<Execution[]>([]);
-  const [errorExecs, setErrorExecs] = useState<ErrorExecution[]>([]);
+  const [, setErrorExecs] = useState<ErrorExecution[]>([]);
   const [workflowNameMap, setWorkflowNameMap] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

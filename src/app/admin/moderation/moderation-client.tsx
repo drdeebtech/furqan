@@ -227,7 +227,7 @@ function MessageCard({
 
 function EvaluationCard({
   ev,
-  lang,
+  lang: _lang,
   t,
 }: {
   ev: LowEvaluationView;

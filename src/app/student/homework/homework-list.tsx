@@ -14,8 +14,7 @@ export function HomeworkList({
   assignments: HomeworkAssignment[];
   nameMap: Record<string, string>;
 }) {
-  const { t, lang } = useLang();
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const { t } = useLang();
 
   const pending = assignments.filter(a => a.status === "assigned");
   const ready = assignments.filter(a => a.status === "student_ready");

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Activity, AlertTriangle, BookOpen, Clock, Package, Timer, TrendingDown, Users, XCircle } from "lucide-react";
+import { Activity, AlertTriangle, BookOpen, Package, Timer, TrendingDown, Users, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 

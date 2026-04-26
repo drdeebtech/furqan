@@ -4,7 +4,7 @@
  * recurring failures, and calculates per-workflow health scores.
  */
 
-import type { N8nWorkflow, N8nWorkflowDetail, N8nExecution, N8nNode } from "./client";
+import type { N8nWorkflow, N8nWorkflowDetail, N8nExecution } from "./client";
 
 export type IssueSeverity = "critical" | "warning" | "info";
 
