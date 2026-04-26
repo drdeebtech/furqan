@@ -1,10 +1,14 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
+import { isAllowedSettingKey } from "@/lib/settings";
+import { logError } from "@/lib/logger";
 
 export async function updateSetting(key: string, value: string) {
+  if (!isAllowedSettingKey(key)) return { error: "Invalid setting key" };
+
   let actorId: string;
   try {
     ({ id: actorId } = await requireAdmin());
@@ -33,7 +37,8 @@ export async function updateSetting(key: string, value: string) {
 
   if (error) return { error: "فشل تحديث الإعداد" };
 
-  await supabase.from("audit_log").insert({
+  // Audit failures must not fail the user-facing action — log and continue.
+  const { error: auditErr } = await supabase.from("audit_log").insert({
     changed_by: actorId,
     table_name: "platform_settings",
     record_id: key,
@@ -42,7 +47,11 @@ export async function updateSetting(key: string, value: string) {
     new_data: { value },
     reason: `Admin updated setting "${key}"`,
   } as never);
+  if (auditErr) {
+    logError("settings.updateSetting audit insert failed", auditErr, { tag: "admin-settings" });
+  }
 
   revalidatePath("/admin/settings");
+  revalidateTag("platform-settings", "max");
   return { success: true };
 }
