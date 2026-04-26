@@ -2,6 +2,71 @@
 
 All notable changes to FURQAN Academy are documented here.
 
+## 2026-04-26 — No-silent-failures pass + DB hardening + teacher onboarding
+
+A long autonomous session that closed the "silent failure" anti-pattern across the platform, hardened the Supabase project to A++ grade, and shipped a complete teacher self-application flow.
+
+### Added — Teacher self-application (`/teach/apply`)
+
+- Public bilingual form replacing the WhatsApp-only intake. 12 recitation schools + 18 specialties grouped by intent. Optional photo upload (JPG/PNG/WebP, max 2 MB) into a new `teacher-avatars` Supabase Storage bucket. Per-IP rate limit (3/hour) backed by `automation_logs`. Creates auth.users + profiles + teacher_profiles in one server action.
+- **Magic-link email** to candidate via Resend (`noreply@furqan.today`, DKIM/SPF/DMARC verified) — they land directly in `/teacher/dashboard`.
+- **Approval email** when admin approves — green template with deep-link to their card on the public listing (`#teacher-<id>` anchor).
+- **Multi-channel admin notification** on submission: in-app bell for every admin, email to ADMIN_EMAIL, Telegram alert via `@furqantoday_bot`. Each fail-open.
+
+### Added — Admin user management
+
+- **Delete + Restore buttons** on `/admin/users` rows, wiring the long-existing `softDeleteUser` / `restoreUser` server actions to the UI (they had no surface before). Self-protection: admin row shows "(you)" instead of Delete.
+- **Inline error microcopy** on the platform settings feature toggles.
+
+### Added — No-silent-failures defense system
+
+- **`src/lib/actions/loud.ts`** — wrapper for server actions; auto-logs every throw, fires Telegram on `severity='critical'`, writes `audit_log` on success AND failure. Returns consistent `{ ok, message?, error? }` shape.
+- **`src/components/shared/action-feedback.tsx`** — drop-in renderer for `useActionState` results (green banner on success, red on error).
+- **Vitest enforcer** — `src/lib/supabase/no-silent-fails.test.ts` scans every `.ts`/`.tsx` for unhandled mutations; CI fails any PR introducing a new one.
+- **Failures filter** on `/admin/audit`; **"Failed Admin Actions (24h)" widget** on `/admin/control-tower`.
+- **Telegram alert on critical errors** — `logError(..., { severity: 'critical' })` now buzzes the operator.
+- **Every route `error.tsx` boundary now logs to Sentry** (5 boundaries: root + admin + student + teacher + moderator). Admin tagged critical.
+- **14 silent-fail Supabase mutations fixed** across admin/teachers, blog, contacts, packages, services, reviews, users, stripe (fulfillment + refund + checkout), teacher dashboard, homework auto-regen.
+
+### Added — Database hardening (B+ → A++)
+
+- **`v15_001`** — 12 FK supporting indexes + dropped 2 duplicate indexes from prior renames.
+- **`v15_002`** — PII redaction trigger on `audit_log` (masks email/phone/parent_*/dob/avatar_url before insert).
+- **`v15_003`** — tightened anon RLS on `platform_settings` (was wide-open) and `teacher_profiles` (anon now only sees `cv_status='approved'` + accepting + non-archived).
+- **`v15_004`** — invariant triggers: auto-create `teacher_profiles` when `profiles.role` flips to teacher; auto-archive on soft-delete; auto-restore on undelete. Ahmed-class bugs are now structurally impossible.
+- **Daily reconciliation cron** at 03:00 Kuwait — `/api/cron/reconciliation` runs 3 invariant checks, Telegrams findings, silent on clean runs.
+- **Generated types as source of truth** — `src/types/database.ts` rebuilt as a thin re-export over `supabase.generated.ts` (901 lines deleted). `npm run db:types` regenerates from live schema.
+
+### Added — CI defense (zero existing workflows → 4)
+
+- **`.github/workflows/supabase-lint.yml`** — `supabase db lint --linked` on every migration PR.
+- **`.github/workflows/migration-drift.yml`** — fails the build if any repo migration file isn't applied to production. Bonus: warns if migrations were applied out of file-version order.
+- **`.github/workflows/db-types-fresh.yml`** — fails the build if `supabase.generated.ts` is stale vs production.
+- **`.github/workflows/rls-tests.yml`** — runs `npm run test:unit` (RLS regression suite + silent-fail enforcer + others). Anon-key + service-role-token GitHub Secrets configured.
+
+### Fixed
+
+- **`bio_en` column never applied to production** — migration `v14_006` existed in repo but never ran. Fixed during the audit; all 8 code paths referencing `bio_en` now work.
+- **Admin-created teachers stuck with `cv_status='draft'`** — Ahmed Sokar incident. Default flipped to `approved` for admin-created teachers (self-applied via `/teach/apply` still go to `pending_review`). Backfilled affected rows.
+- **Public `/teachers-page` missing `cv_status='approved'` filter** — would have shown un-vetted teachers if `is_accepting=true`. Now correctly gated.
+- **n8n Health Audit panel "limit must be ≤ 250" 400 error** — paginated via `nextCursor` instead of one big request.
+- **Vercel auto-deploys silently rejected** for 24h — root cause was sub-daily crons (`*/30`, `*/5`) violating Hobby plan limit. Moved those to n8n; auto-deploy now works.
+- **WhatsApp number** updated to +965 9779 5626 across 3 files.
+
+### Operational
+
+- **Supabase access token rotated** twice this session (visible-in-transcript hygiene).
+- **CLI link** restored — `supabase migration list --linked` works.
+- **Resend domain `furqan.today` verified** with DKIM/SPF/DMARC; emails sent from `noreply@furqan.today` instead of sandbox sender.
+
+### Out of scope / deferred
+
+- Supabase Branching activation (needs human OAuth grant)
+- Backup-restore rehearsal (needs supervised local Postgres)
+- Sentry DSN setup (needs free account creation)
+- Pro-tier features (PITR, read replica) — billing
+- Per-service DB roles, full ActionFeedback migration to all forms
+
 ## 2026-04-23 — Retention system + Sprint 1/8 prep
 
 Shipped 16 commits in a single session taking the retention feature from skeleton to self-healing, plus scaffolding two blocked sprints so they collapse to SDK-only work once keys arrive.
