@@ -1,4 +1,4 @@
-name: RLS Regression Tests
+name: Unit Tests (RLS + Silent-Fail Guard + ...)
 
 on:
   pull_request:
@@ -10,12 +10,11 @@ on:
   push:
     branches: [main]
     paths:
-      - "src/lib/supabase/**"
-      - "src/lib/supabase/migrations/**"
+      - "src/**"
 
 jobs:
-  rls:
-    name: anon-key cannot read sensitive tables
+  unit:
+    name: vitest run
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -30,12 +29,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run RLS regression tests
+      - name: Run vitest (RLS regression + silent-fail guard + helpers)
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: |
           if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then
-            echo "::warning::Supabase env vars not set in repo Secrets — RLS tests will skip."
+            echo "::warning::Supabase env vars not set in repo Secrets — network-touching tests will skip; static checks still run."
           fi
-          npx vitest run src/lib/supabase/rls.test.ts --reporter=default
+          npm run test:unit
