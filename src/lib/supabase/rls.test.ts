@@ -69,7 +69,7 @@ describe.skipIf(skip)("RLS regression — anonymous reads", () => {
 
   for (const table of lockedTables) {
     it(`anon cannot read ${table}`, async () => {
-      const { data, error } = await anon.from(table).select("*").limit(1);
+      const { data, error: _error } = await anon.from(table).select("*").limit(1);
       // Either RLS denies (data is empty) or Postgres throws permission denied.
       // Both are acceptable; what's NOT acceptable is real rows leaking out.
       if (data && data.length > 0) {
