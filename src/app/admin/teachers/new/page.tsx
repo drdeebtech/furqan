@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { createTeacher } from "../actions";
+import { TEACHER_LANGUAGES } from "@/lib/constants";
 
 export const metadata: Metadata = { title: "إضافة معلم" };
 
@@ -99,9 +100,17 @@ export default async function NewTeacherPage() {
             </div>
           </div>
 
+          {/* Languages — checkboxes (consistent with /teach/apply + CV edit) */}
           <div>
-            <label className="mb-1 block text-sm font-medium">{t("اللغات", "Languages")} <span className="text-xs text-muted">{t("(مفصولة بفواصل)", "(comma-separated)")}</span></label>
-            <input name="languages" className={input} defaultValue="ar" placeholder="ar,en" />
+            <label className="mb-2 block text-sm font-medium">{t("اللغات", "Languages")}</label>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              {TEACHER_LANGUAGES.map(l => (
+                <label key={l.key} className="flex cursor-pointer items-center gap-2 rounded-lg glass-input px-3 py-2.5 text-sm transition-colors has-[:checked]:border-gold has-[:checked]:bg-gold/10">
+                  <input type="checkbox" name="languages" value={l.key} defaultChecked={l.key === "ar"} className="h-4 w-4 accent-gold" />
+                  <span>{lang === "ar" ? l.ar : l.en}</span>
+                </label>
+              ))}
+            </div>
           </div>
 
           <button type="submit" className="w-full glass-gold glass-pill py-3 font-semibold transition-colors">

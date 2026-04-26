@@ -3,6 +3,8 @@
 import { useActionState, useTransition } from "react";
 import { Save, Send } from "lucide-react";
 import { saveCvDraft, submitCvForReview, type CvResult } from "./actions";
+import { CheckboxGroup } from "@/components/shared/checkbox-group";
+import { TEACHER_LANGUAGES, TEACHER_RECITATIONS, TEACHER_SPECIALTIES } from "@/lib/constants";
 
 interface CvFormProps {
   bio: string;
@@ -95,65 +97,26 @@ export function CvForm({
           </p>
         </div>
 
-        {/* Specialties */}
-        <div>
-          <label
-            htmlFor="specialties"
-            className="mb-1 block text-sm font-medium"
-          >
-            التخصصات
-            <span className="me-2 text-xs text-muted">
-              Specialties (comma-separated)
-            </span>
-          </label>
-          <input
-            id="specialties"
-            name="specialties"
-            type="text"
-            defaultValue={specialties.join(", ")}
-            placeholder="تجويد, حفظ, تفسير"
-            className="glass-input w-full px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
-          />
-        </div>
+        <CheckboxGroup
+          label="التخصصات — Specialties"
+          name="specialties"
+          options={TEACHER_SPECIALTIES.map((s) => ({ value: s.key, label: `${s.ar} — ${s.en}` }))}
+          defaultValues={specialties}
+        />
 
-        {/* Languages */}
-        <div>
-          <label htmlFor="languages" className="mb-1 block text-sm font-medium">
-            اللغات
-            <span className="me-2 text-xs text-muted">
-              Languages (comma-separated)
-            </span>
-          </label>
-          <input
-            id="languages"
-            name="languages"
-            type="text"
-            defaultValue={languages.join(", ")}
-            placeholder="العربية, الإنجليزية"
-            className="glass-input w-full px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
-          />
-        </div>
+        <CheckboxGroup
+          label="اللغات — Languages"
+          name="languages"
+          options={TEACHER_LANGUAGES.map((l) => ({ value: l.key, label: `${l.ar} — ${l.en}` }))}
+          defaultValues={languages}
+        />
 
-        {/* Recitation Standards */}
-        <div>
-          <label
-            htmlFor="recitation_standards"
-            className="mb-1 block text-sm font-medium"
-          >
-            معايير القراءة
-            <span className="me-2 text-xs text-muted">
-              Recitation Standards (comma-separated)
-            </span>
-          </label>
-          <input
-            id="recitation_standards"
-            name="recitation_standards"
-            type="text"
-            defaultValue={recitationStandards.join(", ")}
-            placeholder="حفص عن عاصم, ورش عن نافع"
-            className="glass-input w-full px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
-          />
-        </div>
+        <CheckboxGroup
+          label="معايير القراءة — Recitation Standards"
+          name="recitation_standards"
+          options={TEACHER_RECITATIONS.map((r) => ({ value: r.key, label: `${r.ar} — ${r.en}` }))}
+          defaultValues={recitationStandards}
+        />
 
         {/* Intro Video URL */}
         <div>

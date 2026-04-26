@@ -11,14 +11,6 @@ import { logError } from "@/lib/logger";
 
 export type AdminCvSaveResult = { error?: string; success?: boolean };
 
-function parseCsv(raw: FormDataEntryValue | null): string[] {
-  if (typeof raw !== "string") return [];
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
 export async function saveCvAsAdmin(
   teacherId: string,
   _prev: AdminCvSaveResult,
@@ -34,9 +26,12 @@ export async function saveCvAsAdmin(
   const bioEn = (formData.get("bio_en") as string | null)?.trim() || null;
   const introVideoUrl =
     (formData.get("intro_video_url") as string | null)?.trim() || null;
-  const specialties = parseCsv(formData.get("specialties"));
-  const languages = parseCsv(formData.get("languages"));
-  const recitationStandards = parseCsv(formData.get("recitation_standards"));
+  // Form switched from comma-separated text to multi-checkbox — checkboxes
+  // with the same `name` serialize as multiple values, so getAll() returns
+  // the array directly. parseCsv() helper is no longer needed here.
+  const specialties = (formData.getAll("specialties") as string[]).filter(Boolean);
+  const languages = (formData.getAll("languages") as string[]).filter(Boolean);
+  const recitationStandards = (formData.getAll("recitation_standards") as string[]).filter(Boolean);
 
   const { error } = await supabase
     .from("teacher_profiles")

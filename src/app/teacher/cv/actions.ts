@@ -20,21 +20,12 @@ export async function saveCvDraft(
 
   const bio = formData.get("bio") as string;
   const bio_en = (formData.get("bio_en") as string) || null;
-  const specialties =
-    (formData.get("specialties") as string)
-      ?.split(",")
-      .map((s) => s.trim())
-      .filter(Boolean) ?? [];
-  const languages =
-    (formData.get("languages") as string)
-      ?.split(",")
-      .map((s) => s.trim())
-      .filter(Boolean) ?? [];
-  const recitation_standards =
-    (formData.get("recitation_standards") as string)
-      ?.split(",")
-      .map((s) => s.trim())
-      .filter(Boolean) ?? [];
+  // Form switched from comma-separated text to multi-checkbox — checkboxes
+  // with the same `name` serialize as multiple values, so getAll() returns
+  // the array directly.
+  const specialties = (formData.getAll("specialties") as string[]).filter(Boolean);
+  const languages = (formData.getAll("languages") as string[]).filter(Boolean);
+  const recitation_standards = (formData.getAll("recitation_standards") as string[]).filter(Boolean);
   const intro_video_url =
     (formData.get("intro_video_url") as string) || null;
 

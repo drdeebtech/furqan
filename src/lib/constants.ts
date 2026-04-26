@@ -126,3 +126,61 @@ export const STUDENT_PACKAGE_STATUS_STYLE: Record<StudentPackageStatus, { label:
   expired: { label: "منتهية", className: "bg-amber-500/10 text-amber-400 border-amber-500/30" },
   cancelled: { label: "ملغاة", className: "bg-red-500/10 text-red-400 border-red-500/30" },
 };
+
+// ─── Teacher CV picklists ───────────────────────────────────────────────────
+// Single source of truth for the languages/recitations/specialties offered
+// across every teacher form (admin CV edit, teacher self-edit, public apply,
+// admin create). When you add a new option here, every form picks it up
+// automatically. Keys are the values we store in the DB.
+
+export type Bilingual = { key: string; ar: string; en: string };
+
+export const TEACHER_LANGUAGES: Bilingual[] = [
+  { key: "ar", ar: "العربية", en: "Arabic" },
+  { key: "en", ar: "الإنجليزية", en: "English" },
+  { key: "ur", ar: "الأوردية", en: "Urdu" },
+  { key: "fr", ar: "الفرنسية", en: "French" },
+  { key: "tr", ar: "التركية", en: "Turkish" },
+  { key: "id", ar: "الإندونيسية", en: "Indonesian" },
+  { key: "ms", ar: "الماليزية", en: "Malay" },
+];
+
+export const TEACHER_RECITATIONS: Bilingual[] = [
+  { key: "hafs", ar: "حفص عن عاصم", en: "Hafs `an Asim" },
+  { key: "shu_ba", ar: "شعبة عن عاصم", en: "Shu'ba `an Asim" },
+  { key: "warsh", ar: "ورش عن نافع", en: "Warsh `an Nafi'" },
+  { key: "qalon", ar: "قالون عن نافع", en: "Qalon `an Nafi'" },
+  { key: "al_duri_basri", ar: "الدوري عن أبي عمرو البصري", en: "Al-Duri `an Abi Amr" },
+  { key: "al_susi", ar: "السوسي عن أبي عمرو البصري", en: "Al-Susi `an Abi Amr" },
+  { key: "hisham", ar: "هشام عن ابن عامر", en: "Hisham `an Ibn Amir" },
+  { key: "ibn_dhakwan", ar: "ابن ذكوان عن ابن عامر", en: "Ibn Dhakwan `an Ibn Amir" },
+  { key: "al_bazzi", ar: "البزي عن ابن كثير", en: "Al-Bazzi `an Ibn Kathir" },
+  { key: "qunbul", ar: "قنبل عن ابن كثير", en: "Qunbul `an Ibn Kathir" },
+  { key: "khalaf_hamzah", ar: "خلف عن حمزة", en: "Khalaf `an Hamzah" },
+  { key: "khallad", ar: "خلاد عن حمزة", en: "Khallad `an Hamzah" },
+];
+
+export const TEACHER_SPECIALTIES: Bilingual[] = [
+  // Core Quran skills
+  { key: "tajweed", ar: "التجويد", en: "Tajweed" },
+  { key: "memorization", ar: "الحفظ", en: "Memorization (Hifz)" },
+  { key: "murajaa", ar: "مراجعة الحفظ", en: "Hifz revision (Muraja'a)" },
+  { key: "qiraat", ar: "القراءات", en: "Qira'at" },
+  { key: "ijazah", ar: "الإجازة بالسند", en: "Ijazah (chain of transmission)" },
+  { key: "tafsir", ar: "التفسير", en: "Tafsir" },
+  // Languages
+  { key: "arabic", ar: "اللغة العربية", en: "Arabic language" },
+  { key: "quranic_arabic", ar: "نحو وصرف القرآن", en: "Quranic Arabic (Nahw & Sarf)" },
+  // Audience segments
+  { key: "kids", ar: "تعليم الأطفال", en: "Kids" },
+  { key: "adult_beginners", ar: "الكبار المبتدئون", en: "Adult beginners" },
+  { key: "reverts", ar: "المسلمون الجدد وغير الناطقين بالعربية", en: "Reverts & non-Arabic speakers" },
+  { key: "women_only", ar: "تعليم النساء فقط", en: "Women-only classes" },
+  // Worship + Islamic studies
+  { key: "salah_correction", ar: "تصحيح الصلاة وأحكامها", en: "Salah correction" },
+  { key: "dua_adhkar", ar: "الأدعية والأذكار", en: "Du'a & Adhkar" },
+  { key: "aqeedah", ar: "العقيدة", en: "Aqeedah" },
+  { key: "fiqh", ar: "الفقه", en: "Fiqh" },
+  { key: "hadith", ar: "الحديث الشريف", en: "Hadith" },
+  { key: "sirah", ar: "السيرة النبوية", en: "Sirah" },
+];

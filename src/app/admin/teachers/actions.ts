@@ -28,7 +28,12 @@ export async function createTeacher(formData: FormData): Promise<void> {
     specialties: specialties.filter(Boolean),
     hourly_rate: Number(formData.get("hourly_rate")) || 20,
     gender: (formData.get("gender") as string) || null,
-    languages: ((formData.get("languages") as string) || "ar").split(",").filter(Boolean),
+    // Languages now come from a checkbox group (formData.getAll). Fallback
+    // to ["ar"] only if nothing was checked, preserving the prior default.
+    languages: (() => {
+      const picked = (formData.getAll("languages") as string[]).filter(Boolean);
+      return picked.length > 0 ? picked : ["ar"];
+    })(),
     recitation_standards: recitationStandards.length > 0 ? recitationStandards.filter(Boolean) : ["hafs"],
   };
 
@@ -74,7 +79,12 @@ export async function updateTeacher(formData: FormData): Promise<void> {
     specialties: specialties.filter(Boolean),
     hourly_rate: Number(formData.get("hourly_rate")) || 20,
     gender: (formData.get("gender") as string) || null,
-    languages: ((formData.get("languages") as string) || "ar").split(",").filter(Boolean),
+    // Languages now come from a checkbox group (formData.getAll). Fallback
+    // to ["ar"] only if nothing was checked, preserving the prior default.
+    languages: (() => {
+      const picked = (formData.getAll("languages") as string[]).filter(Boolean);
+      return picked.length > 0 ? picked : ["ar"];
+    })(),
     recitation_standards: recitationStandards.length > 0 ? recitationStandards.filter(Boolean) : ["hafs"],
     is_accepting: formData.has("is_accepting"),
   } as never).eq("teacher_id", teacherId);
