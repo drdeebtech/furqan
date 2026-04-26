@@ -319,9 +319,19 @@ insert into schema_migrations (version, description)
   on conflict do nothing;
 ```
 
-**Applying migrations to production:**
+**Applying migrations to production (preferred — auto-deploy):**
+
+As of 2026-04-26 the Supabase Branching GitHub integration is wired up:
+- Repo: `drdeebtech/furqan` · Working directory: `src/lib` · Production branch: `main`
+- "Deploy to production on push" is ON. "Automatic branching" stays OFF (Pro-only).
+- "Supabase changes only" is ON, so deploys only trigger when files under `src/lib/supabase/` change.
+
+When a PR touching `src/lib/supabase/migrations/*.sql` merges to `main`, Supabase auto-applies the new files in version order. The migrations end with `on conflict do nothing` on `schema_migrations`, so this is idempotent — running locally + auto-deploy wouldn't double-write.
+
+**Applying migrations to production (fallback — manual):**
+If the auto-deploy fails (visible in Supabase dashboard → Branching → Merge requests), or for hotfixes that bypass GitHub:
 1. Open Supabase Dashboard → SQL Editor → paste the migration file → Run.
-2. The `schema_migrations` row commits in the same transaction; running twice is a no-op (`on conflict do nothing`).
+2. The `schema_migrations` row commits in the same transaction; running twice is a no-op.
 3. The version recorded in `schema_migrations` should match `vXX_YYY` from the filename.
 
 **Detecting drift:** the `bio_en` (`v14_006`) migration silently never ran in production until 2026-04-26. To prevent recurrence:
@@ -341,7 +351,7 @@ After any code change:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **furqan** (2590 symbols, 5984 relationships, 194 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **furqan** (2582 symbols, 5991 relationships, 194 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
