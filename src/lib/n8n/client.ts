@@ -108,8 +108,30 @@ export async function getWorkflowDetail(id: string): Promise<N8nWorkflowDetail> 
   return n8nFetch<N8nWorkflowDetail>(`/workflows/${id}`);
 }
 
+// n8n caps `limit` at 250 per page. For larger windows, see
+// fetchAllExecutionsPaginated below which follows nextCursor.
+const N8N_MAX_PAGE = 250;
+
 export async function getAllExecutions(limit = 200): Promise<{ data: N8nExecution[]; nextCursor?: string }> {
-  return n8nFetch<{ data: N8nExecution[]; nextCursor?: string }>(`/executions?limit=${limit}`);
+  const safeLimit = Math.min(limit, N8N_MAX_PAGE);
+  return n8nFetch<{ data: N8nExecution[]; nextCursor?: string }>(`/executions?limit=${safeLimit}`);
+}
+
+export async function fetchAllExecutionsPaginated(target: number): Promise<N8nExecution[]> {
+  const out: N8nExecution[] = [];
+  let cursor: string | undefined;
+  while (out.length < target) {
+    const remaining = target - out.length;
+    const pageSize = Math.min(remaining, N8N_MAX_PAGE);
+    const cursorParam = cursor ? `&cursor=${encodeURIComponent(cursor)}` : "";
+    const page = await n8nFetch<{ data: N8nExecution[]; nextCursor?: string }>(
+      `/executions?limit=${pageSize}${cursorParam}`,
+    );
+    out.push(...page.data);
+    if (!page.nextCursor || page.data.length === 0) break;
+    cursor = page.nextCursor;
+  }
+  return out;
 }
 
 export async function getExecutionDetail(id: string): Promise<N8nExecutionDetail> {

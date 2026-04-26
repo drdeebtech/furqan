@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getWorkflows, getWorkflowDetail, getAllExecutions } from "@/lib/n8n/client";
+import { getWorkflows, getWorkflowDetail, fetchAllExecutionsPaginated } from "@/lib/n8n/client";
 import { runFullAudit } from "@/lib/n8n/audit";
 import { logError } from "@/lib/logger";
 import type { N8nWorkflowDetail } from "@/lib/n8n/client";
@@ -34,9 +34,8 @@ export async function POST() {
       }
     }
 
-    // 3. Fetch all executions
-    const execResult = await getAllExecutions(500);
-    const allExecutions = execResult.data;
+    // 3. Fetch all executions (n8n caps a single page at 250, so paginate)
+    const allExecutions = await fetchAllExecutionsPaginated(500);
 
     // 4. Run the full audit
     const report = runFullAudit(detailedWorkflows, allExecutions);
