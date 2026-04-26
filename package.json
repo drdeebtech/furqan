@@ -13,7 +13,8 @@
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:unit": "vitest run",
-    "test:unit:watch": "vitest"
+    "test:unit:watch": "vitest",
+    "db:types": "supabase gen types typescript --linked > src/types/supabase.generated.ts"
   },
   "dependencies": {
     "@daily-co/daily-js": "^0.89.1",

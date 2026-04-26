@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Package, Inbox, ShoppingBag } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import type { StudentPackage, Package as PackageType } from "@/types/database";
+import type { StudentPackage, Package as PackageType, StudentPackageStatus } from "@/types/database";
 import { STUDENT_PACKAGE_STATUS_STYLE, PACKAGE_TYPE_AR } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
 
@@ -76,7 +76,7 @@ export default async function StudentPackagesPage() {
                   const pkg = packageMap[sp.package_id];
                   const remaining = sp.sessions_total - sp.sessions_used;
                   const pct = Math.round((sp.sessions_used / sp.sessions_total) * 100);
-                  const style = STUDENT_PACKAGE_STATUS_STYLE[sp.status];
+                  const style = STUDENT_PACKAGE_STATUS_STYLE[sp.status as StudentPackageStatus];
                   const pkgName = pkg ? ((lang === "ar" ? pkg.name_ar : pkg.name) ?? pkg.name) : t("باقة", "Package");
 
                   return (
@@ -132,7 +132,7 @@ export default async function StudentPackagesPage() {
               <div className="space-y-2">
                 {inactive.map(sp => {
                   const pkg = packageMap[sp.package_id];
-                  const style = STUDENT_PACKAGE_STATUS_STYLE[sp.status];
+                  const style = STUDENT_PACKAGE_STATUS_STYLE[sp.status as StudentPackageStatus];
                   const pkgName = pkg ? ((lang === "ar" ? pkg.name_ar : pkg.name) ?? pkg.name) : t("باقة", "Package");
                   return (
                     <div key={sp.id} className="glass-card flex items-center justify-between p-3 opacity-60">

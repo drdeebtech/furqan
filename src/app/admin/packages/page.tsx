@@ -68,7 +68,7 @@ export default async function AdminPackagesPage() {
                   {pkg.price_sar && <span>/ {lang === "ar" ? `ر.س${pkg.price_sar}` : `SAR ${pkg.price_sar}`}</span>}
                 </div>
               </div>
-              <PackageActions packageId={pkg.id} isActive={pkg.is_active} />
+              <PackageActions packageId={pkg.id} isActive={pkg.is_active ?? false} />
             </div>
           ))}
         </div>

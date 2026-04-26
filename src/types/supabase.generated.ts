@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       audit_log: {
@@ -2127,6 +2152,7 @@ export type Database = {
         Row: {
           archived_at: string | null
           bio: string | null
+          bio_en: string | null
           created_at: string
           cv_rejection_reason: string | null
           cv_reviewed_at: string | null
@@ -2151,6 +2177,7 @@ export type Database = {
         Insert: {
           archived_at?: string | null
           bio?: string | null
+          bio_en?: string | null
           created_at?: string
           cv_rejection_reason?: string | null
           cv_reviewed_at?: string | null
@@ -2175,6 +2202,7 @@ export type Database = {
         Update: {
           archived_at?: string | null
           bio?: string | null
+          bio_en?: string | null
           created_at?: string
           cv_rejection_reason?: string | null
           cv_reviewed_at?: string | null
@@ -2401,6 +2429,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       booking_status: [
