@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
+import { logError } from "@/lib/logger";
 
 export default function Error({
   error,
@@ -9,6 +11,14 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    logError("Public route boundary caught an error", error, {
+      tag: "ui-error",
+      digest: error.digest,
+      route: "(public)",
+    });
+  }, [error]);
+
   return (
     <div
       dir="rtl"

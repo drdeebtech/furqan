@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
+import { useEffect } from "react";
+import { logError } from "@/lib/logger";
 
 export default function StudentError({
   error,
@@ -10,6 +12,14 @@ export default function StudentError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    logError("Student route boundary caught an error", error, {
+      tag: "ui-error",
+      digest: error.digest,
+      route: "student",
+    });
+  }, [error]);
+
   return (
     <div dir="rtl" className="flex min-h-[60vh] flex-col items-center justify-center px-4 py-16">
       <AlertTriangle size={56} className="mb-6 text-red-400" />
