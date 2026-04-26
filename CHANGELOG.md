@@ -59,6 +59,19 @@ A long autonomous session that closed the "silent failure" anti-pattern across t
 - **CLI link** restored — `supabase migration list --linked` works.
 - **Resend domain `furqan.today` verified** with DKIM/SPF/DMARC; emails sent from `noreply@furqan.today` instead of sandbox sender.
 
+### Added — Autonomous follow-up pass (continuation)
+
+- **`/contact` form gated by Vercel BotID** — last unprotected high-value public endpoint. Joined the `/login`, `/register`, `/student/bookings/new`, `/teach/apply` set with invisible CAPTCHA on the page route + `checkBotId()` in the server action.
+- **6 more silent-catch surfaces patched** across `n8n.client.sendTelegramAlert`, admin `endSession` notify-broadcast, admin `sendNotification` dispatch loop, admin `pingAdminOnEvaluation`, `createEvaluation`/`createTeacherEvaluation` notify, `createHomework`/`markStudentReady`/`gradeHomework` notify + auto-regen, `submitContactForm` whatsapp + email side-channels. Each preserves non-blocking semantics but routes failures through `logError` so they reach Sentry/Telegram/console instead of vanishing.
+- **a11y** — icon-only delete in admin services row now has `aria-label`, `title`, `type="button"`, and focus ring.
+
+### Fixed — Lint to zero (10 errors → 0 / 0 warnings)
+
+- **`react-hooks/purity` false positives in 7 server-component pages** — scoped an off-rule override in `eslint.config.mjs` to `src/app/**/page.tsx` + `layout.tsx`. Server components run once per request (not per render), so `Date.now()` is intentionally request-scoped there. Client components remain covered by the rule via the global config. Dropped two now-redundant per-line disable comments.
+- **`react-hooks/set-state-in-effect` in `pwa-install-prompt.tsx`** — wrapped `setDismissed(true)` in `startTransition` so the sessionStorage→state sync is marked non-urgent (matches the earlier `site-announcement-dismiss.tsx` pattern).
+- **`react/no-unescaped-entities` in `ijazas-editor.tsx`** — replaced inline ASCII quotes with `&quot;` entities.
+- **Stale closure in `execution-intel-tab.tsx`** — added missing `locale` dep to `useMemo`; AR↔EN day labels now refresh correctly when language toggles.
+
 ### Out of scope / deferred
 
 - Supabase Branching activation (needs human OAuth grant)
