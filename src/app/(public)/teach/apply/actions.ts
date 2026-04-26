@@ -189,10 +189,11 @@ export async function submitTeacherApplication(
   }
 
   const cv_status: CvStatus = "pending_review";
+  // bio_en exists in TS types but not in the live Postgres schema — sending it
+  // makes the insert fail. Single bio field; admin can localise later if needed.
   const { error: tpError } = await adminClient.from("teacher_profiles").insert({
     teacher_id: teacherId,
     bio,
-    bio_en: bio,
     specialties,
     recitation_standards,
     languages,
