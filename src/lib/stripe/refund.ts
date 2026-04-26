@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logError } from "@/lib/logger";
 
 /**
  * Session credit-back — called when a booking is cancelled with refund-eligible
@@ -59,12 +60,13 @@ export async function creditBackSession(input: RefundInput): Promise<RefundResul
     .maybeSingle<{ id: string }>();
 
   if (payment) {
-    await supabase.from("payment_transactions").insert({
+    const { error: txErr } = await supabase.from("payment_transactions").insert({
       payment_id: payment.id,
       type: "refund",
       amount_usd: 0, // Credit-back, not monetary
       description: `Session credit restored: ${input.reason} (booking ${booking.id})`,
     } as never);
+    if (txErr) logError("stripe.refund: payment_transactions insert failed", txErr, { tag: "stripe", severity: "critical" });
   }
 
   return { ok: true, restored: true };

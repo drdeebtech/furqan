@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notifyParentHomeworkNotDone } from "@/lib/notifications/parent";
 import { notify } from "@/lib/notifications/dispatcher";
 import { HOMEWORK_STATUS_AR } from "@/lib/constants";
+import { logError } from "@/lib/logger";
 import type { HomeworkStatus, HomeworkAssignment } from "@/types/database";
 import { emitEvent } from "@/lib/automation/emit";
 
@@ -199,7 +200,7 @@ export async function gradeHomework(homeworkId: string, formData: FormData) {
   if (grade === "completed_needs_work" || grade === "completed_not_done") {
     try {
       // Create new assignment linked to the original
-      await supabase.from("homework_assignments").insert({
+      const { error: regenErr } = await supabase.from("homework_assignments").insert({
         booking_id: hw.booking_id,
         student_id: hw.student_id,
         teacher_id: hw.teacher_id,
@@ -212,6 +213,7 @@ export async function gradeHomework(homeworkId: string, formData: FormData) {
         pages_count: hw.pages_count,
         parent_assignment_id: homeworkId,
       } as never);
+      if (regenErr) logError("homework auto-regen failed", regenErr, { tag: "homework" });
 
       // Notify student about re-assignment
       await notify(hw.student_id, "homework", "تم إعادة تكليفك بالواجب", `تمت إعادة تكليفك بواجب "${hw.title}" — يرجى المحاولة مجدداً`, "homework", homeworkId);

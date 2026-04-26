@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logError } from "@/lib/logger";
 
 /**
  * Package purchase fulfillment — called from the Stripe webhook after a successful
@@ -79,7 +80,8 @@ export async function fulfillPackagePurchase(input: FulfillmentInput): Promise<F
 
   if (spErr || !studentPkg) {
     // Roll back the payment by marking it failed
-    await supabase.from("payments").update({ status: "failed" } as never).eq("id", payment.id);
+    const { error: rbErr } = await supabase.from("payments").update({ status: "failed" } as never).eq("id", payment.id);
+    if (rbErr) logError("stripe.fulfillment: payment rollback failed", rbErr, { tag: "stripe", severity: "critical" });
     return { ok: false, error: spErr?.message ?? "Failed to create student_package" };
   }
 

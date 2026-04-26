@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logError } from "@/lib/logger";
 
 export const maxDuration = 60;
 
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
   // (stripe_payment_intent is blank until the webhook lands — `pending_${userId}_${pkgId}_${ts}`
   // is a placeholder the webhook will overwrite with the real PI ID)
   const placeholderIntent = `pending_${user.id.slice(0, 8)}_${pkg.id.slice(0, 8)}_${Date.now()}`;
-  await admin.from("payments").insert({
+  const { error: payErr } = await admin.from("payments").insert({
     student_id: user.id,
     stripe_payment_intent: placeholderIntent,
     amount_usd: pkg.price_usd,
@@ -64,6 +65,10 @@ export async function POST(request: Request) {
     revenue_recognized: 0,
     status: "pending",
   } as never);
+  if (payErr) {
+    logError("stripe.checkout: pending payment insert failed", payErr, { tag: "stripe", severity: "critical" });
+    return NextResponse.json({ error: "Failed to record pending payment" }, { status: 500 });
+  }
 
   // TODO(Sprint 1): Create real Stripe Checkout session
   // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createRoom, updateRoomExpiry } from "@/lib/daily";
 import { notifyParentSessionComplete, notifyParentNoShow } from "@/lib/notifications/parent";
 import { notify } from "@/lib/notifications/dispatcher";
+import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 
 export async function updateBookingStatus(
@@ -111,15 +112,19 @@ export async function updateBookingStatus(
       const room = await createRoom(roomName, expiresAt);
       roomUrl = room.url;
 
-      await supabase.from("sessions").insert({
+      const { error: sessInsErr } = await supabase.from("sessions").insert({
         booking_id: bookingId,
         room_name: room.name,
         room_url: room.url,
         expires_at: expiresAt.toISOString(),
         created_via: "auto",
       } as never);
-    } catch {
-      // Don't silently swallow — return a warning
+      if (sessInsErr) {
+        logError("teacher.confirmBooking: sessions insert failed", sessInsErr, { tag: "bookings" });
+        roomWarning = "تم تأكيد الحجز لكن فشل تسجيل الجلسة — راسل الدعم";
+      }
+    } catch (err) {
+      logError("teacher.confirmBooking: createRoom threw", err, { tag: "bookings" });
       roomWarning =
         "تم تأكيد الحجز لكن حدث خطأ في إنشاء غرفة الفيديو — يرجى المحاولة يدوياً أو التواصل مع الدعم";
     }
@@ -356,23 +361,25 @@ export async function recreateRoom(bookingId: string) {
     .eq("booking_id", bookingId)
     .single<{ id: string }>();
 
-  if (existing) {
-    await supabase
-      .from("sessions")
-      .update({
+  const { error: roomErr } = existing
+    ? await supabase
+        .from("sessions")
+        .update({
+          room_name: room.name,
+          room_url: room.url,
+          expires_at: expiresAt.toISOString(),
+        } as never)
+        .eq("id", existing.id)
+    : await supabase.from("sessions").insert({
+        booking_id: bookingId,
         room_name: room.name,
         room_url: room.url,
         expires_at: expiresAt.toISOString(),
-      } as never)
-      .eq("id", existing.id);
-  } else {
-    await supabase.from("sessions").insert({
-      booking_id: bookingId,
-      room_name: room.name,
-      room_url: room.url,
-      expires_at: expiresAt.toISOString(),
-      created_via: "manual",
-    } as never);
+        created_via: "manual",
+      } as never);
+  if (roomErr) {
+    logError("teacher.regenerateRoom: sessions write failed", roomErr, { tag: "bookings" });
+    return { success: false, error: `فشل حفظ الغرفة: ${roomErr.message}` };
   }
 
   revalidatePath("/teacher/dashboard");
