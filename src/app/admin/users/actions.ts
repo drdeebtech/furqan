@@ -290,12 +290,17 @@ export async function createUserFromScratch(
   }
 
   if (role === "teacher") {
+    // Admin-created teachers are pre-vetted off-platform — go straight to
+    // approved so they appear on /teachers-page immediately. Self-applied
+    // teachers via /teach/apply still land in pending_review for review.
     await adminClient.from("teacher_profiles").insert({
       teacher_id: userId,
       specialties: [],
       hourly_rate: 20,
       languages: ["ar"],
       recitation_standards: ["hafs"],
+      cv_status: "approved",
+      cv_submitted_at: new Date().toISOString(),
     } as never);
   }
 
