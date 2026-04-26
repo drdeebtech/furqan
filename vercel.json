@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/reconciliation",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/email-health",
+      "schedule": "0 6 * * *"
     }
   ],
   "headers": [
