@@ -96,14 +96,22 @@ export async function login(
   _prev: AuthResult,
   formData: FormData,
 ): Promise<AuthResult> {
-  const verification = await checkBotId();
-  if (verification.isBot) {
-    return { error: "تعذر التحقق من الطلب" };
-  }
-
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const redirectTo = formData.get("redirect") as string | null;
+
+  const verification = await checkBotId();
+  if (verification.isBot) {
+    // BotID has misclassified real users in the past (cf. /teach/apply
+    // incident). Logging when this fires so we can tell apart real bots
+    // from false positives by inspecting the Sentry event's IP/UA.
+    logError("BotID flagged login as bot", new Error("login.bot_blocked"), {
+      component: "auth.login",
+      tag: "auth-bot-blocked",
+      metadata: { email },
+    });
+    return { error: "تعذر التحقق من الطلب" };
+  }
 
   if (!email || !password) {
     return { error: "البريد الإلكتروني وكلمة المرور مطلوبان" };
@@ -111,6 +119,11 @@ export async function login(
 
   // Per-email rate limit — credential stuffing defense
   if (!(await checkAuthRate("login-attempt", email, MAX_LOGIN_ATTEMPTS_PER_HOUR))) {
+    logError("Login rate limit exceeded", new Error("login.rate_limited"), {
+      component: "auth.login",
+      tag: "auth-rate-limited",
+      metadata: { email },
+    });
     return { error: "تم تجاوز المحاولات المسموحة — حاول خلال ساعة" };
   }
 
@@ -122,6 +135,15 @@ export async function login(
   });
 
   if (error) {
+    // Capture the real Supabase error so ops can tell apart "Invalid
+    // login credentials" (expected — user mistyped) from "Email not
+    // confirmed", network failure, or other unusual states. User-facing
+    // message stays generic so we don't leak enumeration info.
+    logError("Supabase signInWithPassword failed", error, {
+      component: "auth.login",
+      tag: "auth-signin-failed",
+      metadata: { email, supabaseMessage: error.message },
+    });
     return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
   }
 
