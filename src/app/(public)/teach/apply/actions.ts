@@ -190,6 +190,36 @@ export async function submitTeacherApplication(
     return { error: "تم إنشاء الحساب لكن فشل تحديث الملف — راسل الدعم" };
   }
 
+  // Optional photo upload — best-effort, never blocks the application.
+  const photoFile = formData.get("photo");
+  if (photoFile instanceof File && photoFile.size > 0) {
+    const okType = ["image/jpeg", "image/png", "image/webp"].includes(photoFile.type);
+    const okSize = photoFile.size <= 2 * 1024 * 1024;
+    if (okType && okSize) {
+      try {
+        const ext = photoFile.type === "image/jpeg" ? "jpg" : photoFile.type.split("/")[1];
+        const path = `${teacherId}/${Date.now()}.${ext}`;
+        const { error: upErr } = await adminClient.storage
+          .from("teacher-avatars")
+          .upload(path, photoFile, { contentType: photoFile.type, upsert: false });
+        if (upErr) {
+          logError("teach-apply photo upload failed", upErr, { tag: "teach-apply" });
+        } else {
+          const { data: pub } = adminClient.storage.from("teacher-avatars").getPublicUrl(path);
+          const avatarUrl = pub?.publicUrl ?? null;
+          if (avatarUrl) {
+            await adminClient
+              .from("profiles")
+              .update({ avatar_url: avatarUrl } as never)
+              .eq("id", teacherId);
+          }
+        }
+      } catch (err) {
+        logError("teach-apply photo flow crashed", err, { tag: "teach-apply" });
+      }
+    }
+  }
+
   const cv_status: CvStatus = "pending_review";
   // bio_en exists in TS types but not in the live Postgres schema — sending it
   // makes the insert fail. Single bio field; admin can localise later if needed.
