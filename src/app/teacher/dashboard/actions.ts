@@ -254,8 +254,11 @@ export async function endSession(sessionId: string) {
   // Notify student
   try {
     await notify(booking.student_id, "booking", "تمت الجلسة", `أنهى المعلم الجلسة — المدة الفعلية: ${actualDuration} دقيقة`, "session", sessionId);
-  } catch {
-    // Non-blocking
+  } catch (err) {
+    logError("notify student failed during teacher endSession", err, {
+      component: "teacher.dashboard.endSession",
+      metadata: { student_id: booking.student_id, sessionId },
+    });
   }
 
   // V9: Notify parent of session completion
@@ -492,7 +495,12 @@ export async function startInstantSession(studentId: string, durationMin: number
   // Notify student
   try {
     await notify(studentId, "booking", "جلسة فورية", "المعلم بدأ جلسة فورية — انضم الآن!", "booking", booking.id);
-  } catch { /* non-blocking */ }
+  } catch (err) {
+    logError("notify student failed during teacher startInstantSession", err, {
+      component: "teacher.dashboard.startInstantSession",
+      metadata: { studentId, bookingId: booking.id },
+    });
+  }
 
   revalidatePath("/teacher/dashboard");
   revalidatePath("/teacher/sessions");

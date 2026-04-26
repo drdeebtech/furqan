@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createMeetingToken } from "@/lib/daily";
+import { logError } from "@/lib/logger";
 
 export async function generateSessionToken(sessionId: string) {
   const supabase = await createClient();
@@ -60,7 +61,11 @@ export async function generateSessionToken(sessionId: string) {
       isTeacher, // teacher is room owner
     );
     return { token, roomUrl: session.room_url };
-  } catch {
+  } catch (err) {
+    logError("Daily createMeetingToken failed", err, {
+      component: "student.sessions.generateSessionToken",
+      metadata: { sessionId, userId: user.id },
+    });
     return { error: "تعذر إنشاء رمز الدخول — حاول مرة أخرى" };
   }
 }
