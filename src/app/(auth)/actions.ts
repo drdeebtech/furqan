@@ -211,11 +211,22 @@ export async function forgotPassword(
 
   const supabase = await createClient();
 
+  // Fallback to production domain if env is missing/blank — without this,
+  // the redirectTo template stringifies to "undefined/login" and Supabase
+  // rejects the call with a generic error.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://furqan.today";
+  const redirectTo = `${appUrl}/login`;
+
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/login`,
+    redirectTo,
   });
 
   if (error) {
+    logError("resetPasswordForEmail failed", error, {
+      component: "auth.forgotPassword",
+      tag: "auth-forgot-password",
+      metadata: { email, redirectTo },
+    });
     return { error: "حدث خطأ، حاول مرة أخرى" };
   }
 
