@@ -101,7 +101,6 @@ export default async function AdminSessionsPage() {
         )
       : 0;
 
-  // eslint-disable-next-line react-hooks/purity -- server component, Date.now() is fine
   const now = Date.now();
 
   return (

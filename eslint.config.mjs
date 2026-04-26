@@ -13,6 +13,16 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  {
+    // App Router server components run once per request, not per render.
+    // Date.now() and similar are intentionally request-scoped here, so
+    // the React 19 purity rule produces false positives. Client components
+    // use "use client" and remain subject to the rule via the global config.
+    files: ["src/app/**/page.tsx", "src/app/**/layout.tsx"],
+    rules: {
+      "react-hooks/purity": "off",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

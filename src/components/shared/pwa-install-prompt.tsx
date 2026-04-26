@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, startTransition } from "react";
 import { Download, X } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 
@@ -24,7 +24,7 @@ export function PwaInstallPrompt() {
 
   useEffect(() => {
     if (typeof window !== "undefined" && sessionStorage.getItem("pwa-dismissed")) {
-      setDismissed(true);
+      startTransition(() => setDismissed(true));
       return;
     }
     if (dismissed) return;

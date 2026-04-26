@@ -75,7 +75,7 @@ export function IjazasEditor({ teacherId, ijazas }: IjazasEditorProps) {
       <div className="space-y-3">
         {ijazas.length === 0 && !adding && (
           <p className="rounded-xl glass-card p-6 text-center text-sm text-muted">
-            لا توجد إجازات — اضغط "إضافة إجازة" لإدخال أول سند.
+            لا توجد إجازات — اضغط &quot;إضافة إجازة&quot; لإدخال أول سند.
           </p>
         )}
 
