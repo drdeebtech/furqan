@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { notify } from "@/lib/notifications/dispatcher";
+import { emitEvent } from "@/lib/automation/emit";
+import { sendTelegramAlert } from "@/lib/n8n/client";
+import { logError } from "@/lib/logger";
 
 export type AdminCvSaveResult = { error?: string; success?: boolean };
 
@@ -83,8 +86,24 @@ export async function approveCv(teacherId: string) {
     );
   } catch { /* non-blocking */ }
 
+  // Fan-out to n8n welcome workflows + Telegram audit trail.
+  await Promise.allSettled([
+    emitEvent(
+      "teacher.cv_approved",
+      "teacher_profile",
+      teacherId,
+      { teacher_id: teacherId, approved_by: user.id },
+      user.id,
+    ).catch((err) => logError("approveCv emitEvent failed", err, { tag: "cv-review" })),
+    sendTelegramAlert(
+      `✅ <b>Teacher CV approved</b>\n\nTeacher ID: ${teacherId}\nApproved by: ${user.id}`,
+    ).catch((err) => logError("approveCv telegram failed", err, { tag: "cv-review" })),
+  ]);
+
   revalidatePath("/admin/teachers/cv");
   revalidatePath("/teacher/cv");
+  revalidatePath("/teachers-page");
+  revalidatePath("/student/teachers");
   return { success: true };
 }
 
