@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { notify } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
+import { logError } from "@/lib/logger";
 
 // Helper to verify caller is admin or moderator
 async function requireAdminOrMod(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -52,7 +53,12 @@ export async function createEvaluation(formData: FormData) {
     for (const uid of [student_id, teacher_id]) {
       await notify(uid, "system", "تقييم جديد", "تم إضافة تقييم جديد — يمكنك الاطلاع عليه من صفحة التقييمات");
     }
-  } catch { /* non-blocking */ }
+  } catch (err) {
+    logError("notify failed during createEvaluation", err, {
+      component: "evaluations.createEvaluation",
+      metadata: { student_id, teacher_id },
+    });
+  }
 
   revalidatePath("/admin/evaluations");
   revalidatePath("/moderator/evaluations");
@@ -101,7 +107,12 @@ export async function createTeacherEvaluation(
 
   try {
     await notify(studentId, "system", "تقييم جديد من معلمك", "أضاف معلمك تقييماً جديداً — يمكنك الاطلاع عليه من صفحة التقييمات");
-  } catch { /* non-blocking */ }
+  } catch (err) {
+    logError("notify failed during createTeacherEvaluation", err, {
+      component: "evaluations.createTeacherEvaluation",
+      metadata: { studentId, teacherId: user.id },
+    });
+  }
 
   revalidatePath("/teacher/evaluations");
   revalidatePath("/teacher/students");

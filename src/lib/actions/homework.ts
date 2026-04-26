@@ -93,7 +93,12 @@ export async function createHomework(formData: FormData) {
   // Notify student
   try {
     await notify(student_id, "homework", "واجب جديد", `كلّفك معلمك بواجب جديد — ${title}`, "homework", booking_id);
-  } catch { /* non-blocking */ }
+  } catch (err) {
+    logError("notify student failed during createHomework", err, {
+      component: "homework.createHomework",
+      metadata: { student_id, booking_id },
+    });
+  }
 
   revalidateHomeworkPaths();
   try { await emitEvent("homework.assigned", "homework", booking_id, { student_id, teacher_id: user.id, homework_type, title }); } catch {}
@@ -133,7 +138,12 @@ export async function markStudentReady(homeworkId: string) {
     const studentName = student?.full_name ?? "الطالب";
 
     await notify(hw.teacher_id, "homework", "طالب جاهز", `${studentName} جاهز لتسميع الواجب: ${hw.title}`, "homework", homeworkId);
-  } catch { /* non-blocking */ }
+  } catch (err) {
+    logError("notify teacher failed during markStudentReady", err, {
+      component: "homework.markStudentReady",
+      metadata: { teacher_id: hw.teacher_id, homeworkId },
+    });
+  }
 
   revalidateHomeworkPaths();
   try { await emitEvent("homework.student_ready", "homework", homeworkId, { student_id: user.id, teacher_id: hw.teacher_id }); } catch {}
@@ -194,7 +204,12 @@ export async function gradeHomework(homeworkId: string, formData: FormData) {
   // Notify student
   try {
     await notify(hw.student_id, "homework", "تم تقييم واجبك", `تم تقييم واجب "${hw.title}" — النتيجة: ${gradeLabel}`, "homework", homeworkId);
-  } catch { /* non-blocking */ }
+  } catch (err) {
+    logError("notify student failed during gradeHomework", err, {
+      component: "homework.gradeHomework",
+      metadata: { student_id: hw.student_id, homeworkId, grade },
+    });
+  }
 
   // Auto-regeneration for needs_work / not_done
   if (grade === "completed_needs_work" || grade === "completed_not_done") {
@@ -226,7 +241,12 @@ export async function gradeHomework(homeworkId: string, formData: FormData) {
         grade,
         user.id,
       );
-    } catch { /* non-blocking */ }
+    } catch (err) {
+      logError("auto-regen branch failed during gradeHomework", err, {
+        component: "homework.gradeHomework.regen",
+        metadata: { student_id: hw.student_id, homeworkId, grade },
+      });
+    }
   }
 
   revalidateHomeworkPaths();
