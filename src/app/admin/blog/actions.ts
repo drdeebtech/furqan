@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { logError } from "@/lib/logger";
 
 const CATEGORIES: Record<string, { ar: string; color: string }> = {
   Hifz: { ar: "حفظ القرآن", color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" },
@@ -60,7 +61,11 @@ export async function savePost(
 
 export async function deletePost(postId: string) {
   const supabase = await createClient();
-  await supabase.from("blog_posts").delete().eq("id", postId);
+  const { error } = await supabase.from("blog_posts").delete().eq("id", postId);
+  if (error) {
+    logError("admin.deletePost failed", error, { tag: "admin-blog" });
+    return { success: false, error: error.message };
+  }
   revalidatePath("/admin/blog");
   revalidatePath("/blog");
   return { success: true };
@@ -68,7 +73,11 @@ export async function deletePost(postId: string) {
 
 export async function togglePublished(postId: string, isPublished: boolean) {
   const supabase = await createClient();
-  await supabase.from("blog_posts").update({ is_published: isPublished }).eq("id", postId);
+  const { error } = await supabase.from("blog_posts").update({ is_published: isPublished }).eq("id", postId);
+  if (error) {
+    logError("admin.togglePublished failed", error, { tag: "admin-blog" });
+    return { success: false, error: error.message };
+  }
   revalidatePath("/admin/blog");
   revalidatePath("/blog");
   return { success: true };

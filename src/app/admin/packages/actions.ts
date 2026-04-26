@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin as requireAdminStrict } from "@/lib/auth/require-admin";
+import { logError } from "@/lib/logger";
 
 async function requireAdminClient() {
   const { id } = await requireAdminStrict();
@@ -42,7 +43,11 @@ export async function savePackage(_prev: { success?: boolean; error?: string }, 
       .select("price_usd, name, is_active")
       .eq("id", id)
       .single<{ price_usd: number; name: string; is_active: boolean }>();
-    await supabase.from("packages").update(data as never).eq("id", id);
+    const { error: updateErr } = await supabase.from("packages").update(data as never).eq("id", id);
+    if (updateErr) {
+      logError("admin.packages.update failed", updateErr, { tag: "admin-packages" });
+      return { error: `فشل تحديث الباقة: ${updateErr.message}` };
+    }
     await supabase.from("audit_log").insert({
       changed_by: actorId,
       table_name: "packages",

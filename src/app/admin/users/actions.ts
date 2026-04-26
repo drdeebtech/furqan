@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
+import { logError } from "@/lib/logger";
 
 async function authOrError(): Promise<{ id?: string; error?: string }> {
   try {
@@ -75,21 +76,29 @@ export async function changeUserRole(userId: string, role: string) {
       .single();
 
     if (!teacherProfile) {
-      await admin.from("teacher_profiles").insert({
+      const { error: tpInsertErr } = await admin.from("teacher_profiles").insert({
         teacher_id: userId,
         specialties: [],
         hourly_rate: 20,
         languages: ["ar"],
         recitation_standards: ["hafs"],
+        cv_status: "approved",
+        cv_submitted_at: new Date().toISOString(),
       } as never);
+      if (tpInsertErr) {
+        logError("changeUserRole: teacher_profiles auto-insert failed", tpInsertErr, { tag: "admin-users" });
+      }
     }
   }
 
   if (role !== "teacher") {
-    await admin.from("teacher_profiles").update({
+    const { error: archiveErr } = await admin.from("teacher_profiles").update({
       is_archived: true,
       archived_at: new Date().toISOString(),
     } as never).eq("teacher_id", userId);
+    if (archiveErr) {
+      logError("changeUserRole: teacher_profiles auto-archive failed", archiveErr, { tag: "admin-users" });
+    }
   }
 
   revalidatePath("/admin/users");
@@ -148,10 +157,11 @@ export async function softDeleteUser(userId: string, reason: string) {
 
   // If the deleted user was a teacher, archive the teacher_profiles row too.
   if (existing.role === "teacher") {
-    await admin.from("teacher_profiles").update({
+    const { error: archiveErr } = await admin.from("teacher_profiles").update({
       is_archived: true,
       archived_at: now,
     } as never).eq("teacher_id", userId);
+    if (archiveErr) logError("softDeleteUser: teacher_profiles archive failed", archiveErr, { tag: "admin-users" });
   }
 
   await admin.from("audit_log").insert({
@@ -203,10 +213,11 @@ export async function restoreUser(userId: string) {
   }
 
   if (existing.role === "teacher") {
-    await admin.from("teacher_profiles").update({
+    const { error: unarchiveErr } = await admin.from("teacher_profiles").update({
       is_archived: false,
       archived_at: null,
     } as never).eq("teacher_id", userId);
+    if (unarchiveErr) logError("restoreUser: teacher_profiles unarchive failed", unarchiveErr, { tag: "admin-users" });
   }
 
   await admin.from("audit_log").insert({

@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { logError } from "@/lib/logger";
 
 export async function createTeacher(formData: FormData): Promise<void> {
   const supabase = await createClient();
@@ -9,16 +10,14 @@ export async function createTeacher(formData: FormData): Promise<void> {
   if (!user) redirect("/login");
 
   const teacherId = formData.get("teacher_id") as string;
-  if (!teacherId) redirect("/admin/teachers");
+  if (!teacherId) redirect("/admin/teachers?error=missing_teacher_id");
 
-  // Check if teacher_profiles already exists
   const { data: existing } = await supabase
     .from("teacher_profiles")
     .select("teacher_id")
     .eq("teacher_id", teacherId)
     .single();
 
-  // Collect from checkboxes (multiple values with same name)
   const specialties = formData.getAll("specialties") as string[];
   const recitationStandards = formData.getAll("recitation_standards") as string[];
 
@@ -34,23 +33,31 @@ export async function createTeacher(formData: FormData): Promise<void> {
   };
 
   if (existing) {
-    // Update existing teacher profile
-    await supabase.from("teacher_profiles").update(row as never).eq("teacher_id", teacherId);
+    const { error } = await supabase.from("teacher_profiles").update(row as never).eq("teacher_id", teacherId);
+    if (error) {
+      logError("admin.createTeacher: update failed", error, { tag: "admin-teachers" });
+      redirect(`/admin/teachers?error=${encodeURIComponent("فشل تحديث الملف: " + error.message)}`);
+    }
   } else {
-    // Create new teacher profile
     const { error } = await supabase.from("teacher_profiles").insert(row as never);
     if (error) {
-      // If insert fails, don't proceed
-      redirect("/admin/teachers");
+      logError("admin.createTeacher: insert failed", error, { tag: "admin-teachers" });
+      redirect(`/admin/teachers?error=${encodeURIComponent("فشل إنشاء الملف: " + error.message)}`);
     }
   }
 
-  // Update profile role to teacher
-  await supabase.from("profiles").update({ role: "teacher" } as never).eq("id", teacherId);
+  const { error: roleError } = await supabase
+    .from("profiles")
+    .update({ role: "teacher" } as never)
+    .eq("id", teacherId);
+  if (roleError) {
+    logError("admin.createTeacher: role update failed", roleError, { tag: "admin-teachers" });
+    redirect(`/admin/teachers?error=${encodeURIComponent("تم إنشاء الملف لكن فشل تحديث الدور: " + roleError.message)}`);
+  }
 
   revalidatePath("/admin/teachers");
   revalidatePath("/admin/users");
-  redirect("/admin/teachers");
+  redirect("/admin/teachers?success=created");
 }
 
 export async function updateTeacher(formData: FormData): Promise<void> {
@@ -60,7 +67,7 @@ export async function updateTeacher(formData: FormData): Promise<void> {
   const specialties = formData.getAll("specialties") as string[];
   const recitationStandards = formData.getAll("recitation_standards") as string[];
 
-  await supabase.from("teacher_profiles").update({
+  const { error } = await supabase.from("teacher_profiles").update({
     bio: (formData.get("bio") as string) || null,
     bio_en: (formData.get("bio_en") as string) || null,
     specialties: specialties.filter(Boolean),
@@ -70,17 +77,25 @@ export async function updateTeacher(formData: FormData): Promise<void> {
     recitation_standards: recitationStandards.length > 0 ? recitationStandards.filter(Boolean) : ["hafs"],
     is_accepting: formData.has("is_accepting"),
   } as never).eq("teacher_id", teacherId);
+  if (error) {
+    logError("admin.updateTeacher failed", error, { tag: "admin-teachers" });
+    redirect(`/admin/teachers?error=${encodeURIComponent("فشل التحديث: " + error.message)}`);
+  }
 
   revalidatePath("/admin/teachers");
-  redirect("/admin/teachers");
+  redirect("/admin/teachers?success=updated");
 }
 
 export async function verifyIjaza(ijazaId: string, adminId: string) {
   const supabase = await createClient();
-  await supabase.from("teacher_ijaza").update({
+  const { error } = await supabase.from("teacher_ijaza").update({
     verified_by: adminId,
     verified_at: new Date().toISOString(),
   } as never).eq("id", ijazaId);
+  if (error) {
+    logError("admin.verifyIjaza failed", error, { tag: "admin-teachers" });
+    return { success: false, error: error.message };
+  }
   revalidatePath("/admin/teachers");
   return { success: true };
 }

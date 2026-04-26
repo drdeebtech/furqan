@@ -26,10 +26,12 @@ export async function saveService(_prev: { success?: boolean }, formData: FormDa
     is_active: formData.get("is_active") === "on",
   };
 
-  if (id) {
-    await supabase.from("services").update(data).eq("id", id);
-  } else {
-    await supabase.from("services").insert(data);
+  const { error } = id
+    ? await supabase.from("services").update(data).eq("id", id)
+    : await supabase.from("services").insert(data);
+  if (error) {
+    logError("admin.saveService failed", error, { tag: "admin-services" });
+    return { success: false, error: `فشل حفظ الخدمة: ${error.message}` };
   }
 
   revalidatePath("/admin/services");
