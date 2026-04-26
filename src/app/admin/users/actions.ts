@@ -293,7 +293,9 @@ export async function createUserFromScratch(
     // Admin-created teachers are pre-vetted off-platform — go straight to
     // approved so they appear on /teachers-page immediately. Self-applied
     // teachers via /teach/apply still land in pending_review for review.
-    await adminClient.from("teacher_profiles").insert({
+    // Capture the error so we never silently end up with a teacher profile
+    // missing its teacher_profiles row (Ahmed Sokar incident, 2026-04-26).
+    const { error: tpError } = await adminClient.from("teacher_profiles").insert({
       teacher_id: userId,
       specialties: [],
       hourly_rate: 20,
@@ -302,6 +304,9 @@ export async function createUserFromScratch(
       cv_status: "approved",
       cv_submitted_at: new Date().toISOString(),
     } as never);
+    if (tpError) {
+      return { error: `تم إنشاء الحساب لكن فشل إنشاء ملف المعلم: ${tpError.message}` };
+    }
   }
 
   await adminClient.from("audit_log").insert({
