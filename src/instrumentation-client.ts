@@ -14,5 +14,6 @@ initBotId({
     { path: "/register", method: "POST" },
     { path: "/student/bookings/new", method: "POST" },
     { path: "/teach/apply", method: "POST" },
+    { path: "/contact", method: "POST" },
   ],
 });
