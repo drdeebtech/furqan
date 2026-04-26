@@ -1,22 +1,29 @@
 "use client";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
-import { toggleUserActive, changeUserRole } from "./actions";
+import { toggleUserActive, changeUserRole, softDeleteUser, restoreUser } from "./actions";
 import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
 import { useLang } from "@/lib/i18n/context";
 
 interface Props {
   user: { id: string; role: string; full_name: string | null; country: string | null; is_active: boolean; deleted_at: string | null; created_at: string };
   churnRisk?: number | null;
+  currentAdminId: string;
 }
 
-export function UserRow({ user, churnRisk }: Props) {
-  const { lang } = useLang();
+export function UserRow({ user, churnRisk, currentAdminId }: Props) {
+  const { t, lang } = useLang();
   const locale = lang === "ar" ? "ar" : "en-US";
   const [active, setActive] = useState(user.is_active);
   const [role, setRole] = useState(user.role);
   const [pendingRole, setPendingRole] = useState<string | null>(null);
   const [roleLoading, setRoleLoading] = useState(false);
+  const [deleted, setDeleted] = useState<boolean>(!!user.deleted_at);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, startDeleteTx] = useTransition();
+  const isSelf = user.id === currentAdminId;
 
   async function confirmRoleChange() {
     if (!pendingRole) return;
@@ -27,12 +34,43 @@ export function UserRow({ user, churnRisk }: Props) {
     setPendingRole(null);
   }
 
+  function handleDelete() {
+    if (!deleteReason.trim()) {
+      setDeleteError(t("سبب الحذف مطلوب", "Reason is required"));
+      return;
+    }
+    setDeleteError(null);
+    startDeleteTx(async () => {
+      const res = await softDeleteUser(user.id, deleteReason.trim());
+      if (res?.error) {
+        setDeleteError(res.error);
+        return;
+      }
+      setDeleted(true);
+      setActive(false);
+      setShowDeleteConfirm(false);
+      setDeleteReason("");
+    });
+  }
+
+  function handleRestore() {
+    startDeleteTx(async () => {
+      const res = await restoreUser(user.id);
+      if (res?.error) {
+        setDeleteError(res.error);
+        return;
+      }
+      setDeleted(false);
+      setActive(true);
+    });
+  }
+
   return (
-    <tr className={`border-b border-white/10 last:border-b-0 ${user.deleted_at ? "opacity-50" : ""}`}>
+    <tr className={`border-b border-white/10 last:border-b-0 ${deleted ? "opacity-50" : ""}`}>
       <td className="px-4 py-3 font-medium">
         <Link href={`/admin/users/${user.id}`} className="hover:text-gold">
           {user.full_name ?? "—"}
-          {user.deleted_at && (
+          {deleted && (
             <span className="ms-2 inline-flex items-center rounded-full border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-red-400">
               {lang === "ar" ? "محذوف" : "deleted"}
             </span>
@@ -98,6 +136,56 @@ export function UserRow({ user, churnRisk }: Props) {
         ) : null}
       </td>
       <td className="px-4 py-3 text-xs text-muted">{new Date(user.created_at).toLocaleDateString(locale)}</td>
+      <td className="px-4 py-3 text-end">
+        {isSelf ? (
+          <span className="text-[10px] text-muted">{t("(أنت)", "(you)")}</span>
+        ) : deleted ? (
+          <button
+            onClick={handleRestore}
+            disabled={isDeleting}
+            className="glass-pill px-2 py-1 text-xs text-emerald-400 transition-colors hover:bg-emerald-500/10 disabled:opacity-50"
+          >
+            {isDeleting ? "..." : t("استعادة", "Restore")}
+          </button>
+        ) : showDeleteConfirm ? (
+          <div className="flex flex-col items-end gap-1">
+            <input
+              type="text"
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              placeholder={t("سبب الحذف", "Reason")}
+              autoFocus
+              className="glass-input w-32 rounded px-2 py-1 text-xs"
+            />
+            <div className="flex gap-1">
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="glass-pill px-2 py-0.5 text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+              >
+                {isDeleting ? "..." : t("تأكيد", "Confirm")}
+              </button>
+              <button
+                onClick={() => { setShowDeleteConfirm(false); setDeleteReason(""); setDeleteError(null); }}
+                disabled={isDeleting}
+                className="text-xs text-muted transition-colors hover:text-foreground"
+              >
+                {t("إلغاء", "Cancel")}
+              </button>
+            </div>
+            {deleteError && (
+              <p role="alert" className="text-[10px] text-red-400">{deleteError}</p>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="glass-pill px-2 py-1 text-xs text-muted transition-colors hover:bg-red-500/10 hover:text-red-400"
+          >
+            {t("حذف", "Delete")}
+          </button>
+        )}
+      </td>
     </tr>
   );
 }

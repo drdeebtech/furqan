@@ -65,8 +65,9 @@ export default async function AdminUsersPage() {
               <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الحالة", "Status")}</th>
               <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("خطر التسرب", "Churn Risk")}</th>
               <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("التسجيل", "Joined")}</th>
+              <th scope="col" className="px-4 py-3 text-end font-medium text-muted">{t("إجراءات", "Actions")}</th>
             </tr></thead>
-            <tbody>{users.map(u => <UserRow key={u.id} user={u} churnRisk={u.role === "student" ? riskByStudent.get(u.id) ?? null : undefined} />)}</tbody>
+            <tbody>{users.map(u => <UserRow key={u.id} user={u} currentAdminId={user.id} churnRisk={u.role === "student" ? riskByStudent.get(u.id) ?? null : undefined} />)}</tbody>
           </table>
         </div>
       )}
