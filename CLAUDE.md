@@ -255,6 +255,28 @@ supabase/functions/      — 4 edge functions (auto-reminder, auto-complete, no-
 | `automation/BLUEPRINT.md` | 52-workflow master plan |
 | `automation/VPS_HANDOFF.md` | n8n VPS session context |
 
+## Database Migrations Policy
+
+The project uses a **custom `schema_migrations` table** (not Supabase CLI's tracking). Every SQL file under `src/lib/supabase/migrations/` MUST end with:
+
+```sql
+insert into schema_migrations (version, description)
+  values ('vXX_YYY', 'Short description')
+  on conflict do nothing;
+```
+
+**Applying migrations to production:**
+1. Open Supabase Dashboard → SQL Editor → paste the migration file → Run.
+2. The `schema_migrations` row commits in the same transaction; running twice is a no-op (`on conflict do nothing`).
+3. The version recorded in `schema_migrations` should match `vXX_YYY` from the filename.
+
+**Detecting drift:** the `bio_en` (`v14_006`) migration silently never ran in production until 2026-04-26. To prevent recurrence:
+- Before merging schema changes, manually verify in `/admin/settings` that the prior version appears in the Migrations panel.
+- After applying any migration, sanity-check via `supabase migration list --linked` (note: this lists CLI-tracked migrations only — our custom table is the source of truth).
+- CI runs `supabase db lint --linked` on every PR (`.github/workflows/supabase-lint.yml`) — catches syntax issues but does NOT catch un-applied migrations.
+
+**Future improvement** (not yet wired): add a CI step that `psql`s production and diffs `select version from schema_migrations` against the file list under `src/lib/supabase/migrations/`. Fails the build on mismatch.
+
 ## Verification Checklist
 After any code change:
 1. `npx next build` — must pass with zero errors
@@ -265,7 +287,7 @@ After any code change:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **furqan** (2533 symbols, 5655 relationships, 169 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **furqan** (2535 symbols, 5661 relationships, 167 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
