@@ -255,6 +255,60 @@ supabase/functions/      — 4 edge functions (auto-reminder, auto-complete, no-
 | `automation/BLUEPRINT.md` | 52-workflow master plan |
 | `automation/VPS_HANDOFF.md` | n8n VPS session context |
 
+## No Silent Failures Policy
+
+Every server action that writes to the DB or has side-effects MUST be loud: the user sees the outcome, the operator sees the error, and the audit trail records the attempt.
+
+**Two mandatory primitives:**
+- **`loudAction`** from `src/lib/actions/loud.ts` — wraps the handler so every throw is logged + (if critical) Telegram'd + audit_log'd. Returns `{ ok, message?, error? }`.
+- **`<ActionFeedback state={...} />`** from `src/components/shared/action-feedback.tsx` — drop-in renderer that shows green/red banner from any `loudAction` result. Every form using `useActionState` MUST render it.
+
+**Forbidden anti-patterns:**
+
+```ts
+// ❌ Silent fail: discarded error.
+await supabase.from("teacher_profiles").insert({ ... } as never);
+
+// ❌ Caught and swallowed.
+try { await x.update(...); } catch { /* ignored */ }
+
+// ❌ Form returns { error } but page doesn't render it.
+const [state, formAction] = useActionState(myAction, null);
+return <form action={formAction}>{/* no error display */}</form>;
+```
+
+**Required patterns:**
+
+```ts
+// ✅ Capture the error, return it to the caller.
+const { error } = await supabase.from("teacher_profiles").insert({ ... } as never);
+if (error) return { error: `فشل: ${error.message}` };
+
+// ✅ Or wrap in loudAction for free logging + audit.
+export const archiveTeacher = loudAction({
+  name: "admin.archive-teacher",
+  severity: "warning",
+  audit: { table: "teacher_profiles", recordId: i => i.teacherId, action: "UPDATE" },
+  handler: async ({ teacherId }) => {
+    const { error } = await supabase.from("teacher_profiles").update(...).eq(...);
+    if (error) throw error;
+    return { message: "تم الأرشفة" };
+  },
+});
+
+// ✅ Form renders ActionFeedback.
+return <form action={formAction}><ActionFeedback state={state} />...</form>;
+```
+
+**Best-effort writes (audit_log, automation_logs)** — keep them non-blocking but pipe failures through `logError` so they're visible:
+
+```ts
+await supabase.from("audit_log").insert({...} as never)
+  .catch(err => logError("audit insert failed", err, { tag: "audit" }));
+```
+
+**Migration plan**: existing 60+ silent-fail call sites are being migrated incrementally. New code MUST follow the patterns above. Reviewers should reject any PR introducing a new silent fail.
+
 ## Database Migrations Policy
 
 The project uses a **custom `schema_migrations` table** (not Supabase CLI's tracking). Every SQL file under `src/lib/supabase/migrations/` MUST end with:
@@ -287,7 +341,7 @@ After any code change:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **furqan** (2535 symbols, 5661 relationships, 167 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **furqan** (2534 symbols, 5752 relationships, 170 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
