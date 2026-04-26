@@ -17,21 +17,43 @@ const LANGS: Array<{ key: string; ar: string; en: string }> = [
 ];
 
 const RECITATIONS: Array<{ key: string; ar: string; en: string }> = [
-  { key: "hafs", ar: "حفص عن عاصم", en: "Hafs" },
-  { key: "warsh", ar: "ورش عن نافع", en: "Warsh" },
-  { key: "qalon", ar: "قالون عن نافع", en: "Qalon" },
-  { key: "al_duri", ar: "الدوري عن أبي عمرو", en: "Al-Duri" },
-  { key: "shu_ba", ar: "شعبة عن عاصم", en: "Shu'ba" },
+  { key: "hafs", ar: "حفص عن عاصم", en: "Hafs `an Asim" },
+  { key: "shu_ba", ar: "شعبة عن عاصم", en: "Shu'ba `an Asim" },
+  { key: "warsh", ar: "ورش عن نافع", en: "Warsh `an Nafi'" },
+  { key: "qalon", ar: "قالون عن نافع", en: "Qalon `an Nafi'" },
+  { key: "al_duri_basri", ar: "الدوري عن أبي عمرو البصري", en: "Al-Duri `an Abi Amr" },
+  { key: "al_susi", ar: "السوسي عن أبي عمرو البصري", en: "Al-Susi `an Abi Amr" },
+  { key: "hisham", ar: "هشام عن ابن عامر", en: "Hisham `an Ibn Amir" },
+  { key: "ibn_dhakwan", ar: "ابن ذكوان عن ابن عامر", en: "Ibn Dhakwan `an Ibn Amir" },
+  { key: "al_bazzi", ar: "البزي عن ابن كثير", en: "Al-Bazzi `an Ibn Kathir" },
+  { key: "qunbul", ar: "قنبل عن ابن كثير", en: "Qunbul `an Ibn Kathir" },
+  { key: "khalaf_hamzah", ar: "خلف عن حمزة", en: "Khalaf `an Hamzah" },
+  { key: "khallad", ar: "خلاد عن حمزة", en: "Khallad `an Hamzah" },
 ];
 
 const SPECIALTIES: Array<{ key: string; ar: string; en: string }> = [
+  // Core Quran skills
   { key: "tajweed", ar: "التجويد", en: "Tajweed" },
-  { key: "memorization", ar: "الحفظ", en: "Memorization" },
+  { key: "memorization", ar: "الحفظ", en: "Memorization (Hifz)" },
+  { key: "murajaa", ar: "مراجعة الحفظ", en: "Hifz revision (Muraja'a)" },
   { key: "qiraat", ar: "القراءات", en: "Qira'at" },
-  { key: "ijazah", ar: "الإجازة", en: "Ijazah" },
+  { key: "ijazah", ar: "الإجازة بالسند", en: "Ijazah (chain of transmission)" },
   { key: "tafsir", ar: "التفسير", en: "Tafsir" },
+  // Languages
   { key: "arabic", ar: "اللغة العربية", en: "Arabic language" },
+  { key: "quranic_arabic", ar: "نحو وصرف القرآن", en: "Quranic Arabic (Nahw & Sarf)" },
+  // Audience segments
   { key: "kids", ar: "تعليم الأطفال", en: "Kids" },
+  { key: "adult_beginners", ar: "الكبار المبتدئون", en: "Adult beginners" },
+  { key: "reverts", ar: "المسلمون الجدد وغير الناطقين بالعربية", en: "Reverts & non-Arabic speakers" },
+  { key: "women_only", ar: "تعليم النساء فقط", en: "Women-only classes" },
+  // Worship + Islamic studies
+  { key: "salah_correction", ar: "تصحيح الصلاة وأحكامها", en: "Salah correction" },
+  { key: "dua_adhkar", ar: "الأدعية والأذكار", en: "Du'a & Adhkar" },
+  { key: "aqeedah", ar: "العقيدة", en: "Aqeedah" },
+  { key: "fiqh", ar: "الفقه", en: "Fiqh" },
+  { key: "hadith", ar: "الحديث الشريف", en: "Hadith" },
+  { key: "sirah", ar: "السيرة النبوية", en: "Sirah" },
 ];
 
 export function ApplyForm() {

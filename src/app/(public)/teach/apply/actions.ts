@@ -12,15 +12,39 @@ import type { CvStatus } from "@/types/database";
 
 const MAX_APPLICATIONS_PER_HOUR = 3;
 const VALID_LANGUAGES = new Set(["ar", "en", "ur", "fr", "tr", "id", "ms"]);
-const VALID_RECITATIONS = new Set(["hafs", "warsh", "qalon", "al_duri", "shu_ba"]);
+const VALID_RECITATIONS = new Set([
+  "hafs",
+  "shu_ba",
+  "warsh",
+  "qalon",
+  "al_duri_basri",
+  "al_susi",
+  "hisham",
+  "ibn_dhakwan",
+  "al_bazzi",
+  "qunbul",
+  "khalaf_hamzah",
+  "khallad",
+]);
 const VALID_SPECIALTIES = new Set([
   "tajweed",
   "memorization",
+  "murajaa",
   "qiraat",
   "ijazah",
   "tafsir",
   "arabic",
+  "quranic_arabic",
   "kids",
+  "adult_beginners",
+  "reverts",
+  "women_only",
+  "salah_correction",
+  "dua_adhkar",
+  "aqeedah",
+  "fiqh",
+  "hadith",
+  "sirah",
 ]);
 
 export type ApplyResult = {
