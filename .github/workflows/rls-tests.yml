@@ -1,0 +1,41 @@
+name: RLS Regression Tests
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "package.json"
+      - "vitest.config.ts"
+      - ".github/workflows/rls-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/lib/supabase/**"
+      - "src/lib/supabase/migrations/**"
+
+jobs:
+  rls:
+    name: anon-key cannot read sensitive tables
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run RLS regression tests
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then
+            echo "::warning::Supabase env vars not set in repo Secrets — RLS tests will skip."
+          fi
+          npx vitest run src/lib/supabase/rls.test.ts --reporter=default
