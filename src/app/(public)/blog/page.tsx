@@ -13,6 +13,12 @@ export const metadata: Metadata = {
   },
 };
 
+// ISR — blog index changes when admin publishes a new post. 10-minute
+// cache turns the 50+ row select on every visit into a CDN edge
+// response. Admin publishing already calls revalidatePath('/blog') for
+// immediate freshness; the 10-min ceiling is just worst-case staleness.
+export const revalidate = 600;
+
 export default async function BlogPage() {
   const supabase = await createClient();
 

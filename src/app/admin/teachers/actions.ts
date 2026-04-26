@@ -57,6 +57,7 @@ export async function createTeacher(formData: FormData): Promise<void> {
 
   revalidatePath("/admin/teachers");
   revalidatePath("/admin/users");
+  revalidatePath("/teachers-page"); // public list now ISR-cached (300s) — invalidate on create
   redirect("/admin/teachers?success=created");
 }
 
@@ -83,6 +84,7 @@ export async function updateTeacher(formData: FormData): Promise<void> {
   }
 
   revalidatePath("/admin/teachers");
+  revalidatePath("/teachers-page"); // updates bio/rate/is_accepting — public-page-visible
   redirect("/admin/teachers?success=updated");
 }
 

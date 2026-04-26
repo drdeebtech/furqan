@@ -8,6 +8,14 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://furqan.today/teachers-page" },
 };
 
+// ISR — public teacher list changes when an admin approves/archives a
+// teacher. 5-minute cache turns the slowest public page (~890ms avg in
+// the k6 smoke test) into a CDN edge response (~50ms). Admin mutations
+// call revalidatePath('/teachers-page') for immediate invalidation; the
+// 5-min ceiling is the worst-case staleness when the cache hasn't been
+// touched.
+export const revalidate = 300;
+
 export default async function TeachersPage() {
   const supabase = await createClient();
 

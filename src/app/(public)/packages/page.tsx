@@ -10,6 +10,12 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://furqan.today/packages" },
 };
 
+// ISR — packages change rarely (admin edits). 5-minute cache turns
+// every-request DB hit into a CDN edge response (~50ms). Admin changes
+// surface within 5 min; immediate invalidation already happens via
+// revalidatePath in the admin actions.
+export const revalidate = 300;
+
 export default async function PackagesPage() {
   const supabase = await createClient();
   const { data: packages } = await supabase
