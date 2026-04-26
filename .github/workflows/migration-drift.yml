@@ -36,7 +36,7 @@ jobs:
             -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
             -H "Content-Type: application/json" \
             "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/database/query" \
-            -d '{"query":"select version from public.schema_migrations"}')
+            -d '{"query":"select version, applied_at from public.schema_migrations order by applied_at"}')
 
           # Sanity check the response.
           if ! echo "$response" | jq -e 'type == "array"' >/dev/null 2>&1; then
@@ -70,6 +70,15 @@ jobs:
             echo
             echo "::error::Apply them via Supabase Dashboard → SQL Editor before merging."
             exit 1
+          fi
+
+          # Ordering check — applied_at order must match lex (file) order.
+          applied_in_apply_order=$(echo "$response" | jq -r '.[].version')
+          applied_sorted=$(echo "$applied_in_apply_order" | sort)
+          if ! diff -q <(echo "$applied_in_apply_order") <(echo "$applied_sorted") >/dev/null; then
+            echo "::warning::Migrations were applied OUT OF ORDER. Lex sort vs apply order differ:"
+            diff <(echo "$applied_in_apply_order") <(echo "$applied_sorted") | head -40
+            echo "::warning::This often means a migration was force-applied later than its filename suggests. Verify schema state manually."
           fi
 
           echo "✓ All repo migrations are applied in production."
