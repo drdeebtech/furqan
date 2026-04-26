@@ -19,7 +19,7 @@
  *     </form>
  *   );
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, startTransition } from "react";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 
@@ -30,9 +30,10 @@ export function ActionFeedback({ state }: { state: ActionState }) {
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
-    setHidden(false);
+    // startTransition avoids React 19's "cascading renders in effect" warning.
+    startTransition(() => setHidden(false));
     if (state?.ok === true) {
-      const timer = setTimeout(() => setHidden(true), 4000);
+      const timer = setTimeout(() => startTransition(() => setHidden(true)), 4000);
       return () => clearTimeout(timer);
     }
   }, [state]);
