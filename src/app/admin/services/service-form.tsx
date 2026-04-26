@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { Save } from "lucide-react";
 import { saveService } from "./actions";
+import { ActionFeedback } from "@/components/shared/action-feedback";
 
 interface ServiceData {
   id?: string;
@@ -21,11 +22,21 @@ interface ServiceData {
 const input = "w-full rounded-lg glass-input px-3 py-2 text-sm focus:border-gold focus:outline-none";
 
 export function ServiceForm({ service }: { service?: ServiceData }) {
-  const [, formAction, pending] = useActionState<{ success?: boolean }, FormData>(saveService, {});
+  const [state, formAction, pending] = useActionState<
+    { success?: boolean; error?: string },
+    FormData
+  >(saveService, {});
+  // Adapt server action's { success, error } shape to ActionFeedback's { ok, ... }
+  const feedback = state?.error
+    ? ({ ok: false as const, error: state.error })
+    : state?.success
+      ? ({ ok: true as const, message: "تم حفظ الخدمة" })
+      : null;
 
   return (
     <form action={formAction} className="space-y-4">
       {service?.id && <input type="hidden" name="id" value={service.id} />}
+      <ActionFeedback state={feedback} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <div>
