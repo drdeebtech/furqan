@@ -49,3 +49,6 @@ supabase/.temp/
 # claude runtime artifacts (keep skills tracked, ignore transient state)
 .claude/scheduled_tasks.lock
 .claude/plans/
+
+# Sentry Config File
+.env.sentry-build-plugin

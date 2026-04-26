@@ -1,11 +1,28 @@
 "use client";
 
+import { useEffect } from "react";
+import { logError } from "@/lib/logger";
+
 export default function GlobalError({
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  // Last-ditch error boundary — if this fires, the app shell itself
+  // crashed. Route through logError so Sentry, Telegram (severity:critical),
+  // and console all see it. This is the worst class of error we can have,
+  // hence the page-the-operator priority.
+  useEffect(() => {
+    logError("Global error boundary triggered", error, {
+      component: "app.global-error",
+      tag: "global-error",
+      severity: "critical",
+      metadata: { digest: error.digest },
+    });
+  }, [error]);
+
   return (
     <html lang="ar" dir="rtl">
       <body
