@@ -49,7 +49,13 @@ export function ServiceRow({ service }: Props) {
               <button onClick={() => setConfirmDelete(false)} className="text-xs text-muted">إلغاء</button>
             </div>
           ) : (
-            <button onClick={() => setConfirmDelete(true)} className="rounded p-1 text-muted hover:text-error">
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              aria-label="حذف الخدمة"
+              title="حذف الخدمة"
+              className="rounded p-1 text-muted hover:text-error focus-ring"
+            >
               <Trash2 size={14} />
             </button>
           )}
