@@ -51,6 +51,12 @@ export default async function ControlTowerPage() {
     supabase.from("student_packages").select("id", { count: "exact", head: true }).eq("status", "active").lte("sessions_remaining", 2),
   ]);
 
+  const { count: failedActionsCount } = await supabase
+    .from("audit_log")
+    .select("id", { count: "exact", head: true })
+    .ilike("reason", "%FAILED%")
+    .gte("created_at", dayAgo);
+
   const atRiskCount = atRiskRes.count;
   const lowBalanceCount = lowBalanceRes.count ?? 0;
 
@@ -65,6 +71,7 @@ export default async function ControlTowerPage() {
     { key: "at-risk", label: t("طلاب في خطر التسرب", "At-Risk Students"), value: atRiskCount ?? 0, icon: TrendingDown, color: "text-rose-400", bg: "bg-rose-500/10", href: "/admin/retention", threshold: 0 },
     { key: "grading", label: t("واجبات بانتظار التقييم", "Pending Grading"), value: pendingGradingRes.count ?? 0, icon: BookOpen, color: "text-purple-400", bg: "bg-purple-500/10", href: "/admin/notes", threshold: 0 },
     { key: "recitation", label: t("أخطاء تلاوة غير محلولة", "Unresolved Errors"), value: unresolvedErrorsRes.count ?? 0, icon: AlertTriangle, color: "text-amber-400", bg: "bg-amber-500/10", href: "/admin/sessions", threshold: 10 },
+    { key: "failed-actions", label: t("إجراءات إدارية فاشلة (24 ساعة)", "Failed Admin Actions (24h)"), value: failedActionsCount ?? 0, icon: XCircle, color: "text-red-400", bg: "bg-red-500/10", href: "/admin/audit", threshold: 0 },
   ];
 
   const alertCount = widgets.filter(w => w.threshold >= 0 && w.value > w.threshold).length;

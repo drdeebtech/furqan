@@ -14,10 +14,24 @@ export function logError(message: string, error: unknown, context?: Record<strin
       extra: { message, ...(context ?? {}) },
       tags: context?.tag ? { tag: String(context.tag) } : undefined,
     });
-    return;
+  } else {
+    // Fallback when Sentry is not configured (dev / preview without DSN)
+    console.error(message, error, context);
   }
-  // Fallback when Sentry is not configured (dev / preview without DSN)
-  console.error(message, error, context);
+
+  // Critical-tier errors also fire a Telegram alert so the operator sees them
+  // immediately instead of waiting to look at logs. Best-effort — never throws.
+  if (context?.severity === "critical" && process.env.TG_BOT_TOKEN && process.env.TG_ADMIN_CHAT_ID) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    const escape = (s: string) =>
+      s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+    const text = `🚨 <b>Critical error</b>\n\n<b>Message:</b> ${escape(message)}\n<b>Error:</b> ${escape(errMsg)}\n<b>Tag:</b> ${escape(String(context.tag ?? "untagged"))}`;
+    void fetch(`https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: process.env.TG_ADMIN_CHAT_ID, text, parse_mode: "HTML" }),
+    }).catch(() => { /* don't double-fail */ });
+  }
 }
 
 /**
