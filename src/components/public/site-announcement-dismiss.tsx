@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, startTransition } from "react";
 import { X } from "lucide-react";
 
 /**
@@ -21,7 +21,7 @@ export function SiteAnnouncementDismiss({ id }: { id: string }) {
     if (typeof window === "undefined") return;
     try {
       if (localStorage.getItem(storageKey) === "1") {
-        setDismissed(true);
+        startTransition(() => setDismissed(true));
       }
     } catch {
       /* privacy-mode browsers throw on localStorage access */
