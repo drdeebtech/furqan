@@ -12,7 +12,7 @@ type Role = "student" | "teacher" | "admin" | "moderator";
 
 // Roles that have a built /[role]/settings route. Others hide the link
 // rather than 404 the user.
-const ROLES_WITH_SETTINGS: Role[] = ["teacher", "admin"];
+const ROLES_WITH_SETTINGS: Role[] = ["teacher", "student", "admin"];
 
 export function Topbar({ role }: { role?: Role } = {}) {
   const { t } = useLang();
