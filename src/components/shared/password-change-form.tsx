@@ -2,14 +2,17 @@
 
 import { useActionState } from "react";
 import { KeyRound } from "lucide-react";
-import { updatePassword } from "./actions";
+import { updatePassword } from "@/lib/actions/account";
 import { ActionFeedback } from "@/components/shared/action-feedback";
 import type { LoudResult } from "@/lib/actions/loud";
 
 const input =
   "w-full rounded-xl glass-input px-4 py-2.5 text-sm text-foreground focus:border-gold focus:outline-none";
 
-export function PasswordForm() {
+// Self-contained password-change form. Drop into any role's settings page —
+// no props needed. Calls the shared `updatePassword` action which derives
+// the user from the session, so it never accepts a userId from form input.
+export function PasswordChangeForm() {
   const [state, formAction, pending] = useActionState<LoudResult | null, FormData>(
     updatePassword,
     null,

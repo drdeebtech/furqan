@@ -10,9 +10,15 @@ import { useLang } from "@/lib/i18n/context";
 
 type Role = "student" | "teacher" | "admin" | "moderator";
 
-// Roles that have a built /[role]/settings route. Others hide the link
-// rather than 404 the user.
-const ROLES_WITH_SETTINGS: Role[] = ["teacher", "student", "admin"];
+// Roles that have a personal account / settings page. Admin's link points
+// at /admin/account (personal info), distinct from /admin/settings (platform
+// feature flags). All other roles use the canonical /[role]/settings path.
+const SETTINGS_PATH_BY_ROLE: Partial<Record<Role, string>> = {
+  teacher: "/teacher/settings",
+  student: "/student/settings",
+  moderator: "/moderator/settings",
+  admin: "/admin/account",
+};
 
 export function Topbar({ role }: { role?: Role } = {}) {
   const { t } = useLang();
@@ -45,7 +51,7 @@ export function Topbar({ role }: { role?: Role } = {}) {
     return () => document.removeEventListener("keydown", handleKey);
   }, [menuOpen]);
 
-  const showSettings = role && ROLES_WITH_SETTINGS.includes(role);
+  const settingsPath = role ? SETTINGS_PATH_BY_ROLE[role] : undefined;
 
   return (
     <div className="mb-5 flex h-[52px] items-center gap-3">
@@ -115,9 +121,9 @@ export function Topbar({ role }: { role?: Role } = {}) {
             aria-label={t("قائمة الحساب", "Account menu")}
             className="absolute end-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-lg"
           >
-            {showSettings && (
+            {settingsPath && (
               <Link
-                href={`/${role}/settings`}
+                href={settingsPath}
                 role="menuitem"
                 onClick={() => setMenuOpen(false)}
                 className="flex min-h-[44px] items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-foreground/5"

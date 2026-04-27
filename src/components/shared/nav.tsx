@@ -72,6 +72,7 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/admin/n8n", ar: "تحكم n8n", en: "n8n Control", icon: Settings, group: { ar: "الإعدادات", en: "SETTINGS" } },
     { href: "/admin/automation", ar: "سجل الأتمتة", en: "Automation Logs", icon: ScrollText },
     { href: "/admin/automation/replay", ar: "إعادة تشغيل", en: "Webhook Replay", icon: ScrollText },
+    { href: "/admin/account", ar: "حسابي", en: "My Account", icon: Settings },
     { href: "/admin/settings", ar: "الإعدادات", en: "Settings", icon: Settings },
   ],
   moderator: [

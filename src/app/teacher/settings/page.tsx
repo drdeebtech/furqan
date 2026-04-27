@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { AccountForm } from "./account-form";
 import { TeachingStatusForm } from "./teaching-status-form";
-import { PasswordForm } from "./password-form";
+import { PasswordChangeForm } from "@/components/shared/password-change-form";
 
 export const metadata: Metadata = { title: "إعداداتي" };
 
@@ -79,7 +79,7 @@ export default async function TeacherSettingsPage() {
           <KeyRound size={18} className="text-gold" aria-hidden="true" />
           {t("كلمة المرور", "Password")}
         </h2>
-        <PasswordForm />
+        <PasswordChangeForm />
       </section>
 
       <section className="glass-card p-6">
