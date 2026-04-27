@@ -1,20 +1,51 @@
 "use client";
 
-import { useState } from "react";
-import { Search, CalendarDays, ChevronDown, MoreHorizontal } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { Search, CalendarDays, ChevronDown, MoreHorizontal, Settings, LogOut } from "lucide-react";
 import { ThemeToggle } from "@/lib/theme/theme-toggle";
 import { LangToggle } from "@/lib/i18n/lang-toggle";
 import { NotificationBell } from "@/components/shared/notification-bell";
 import { useLang } from "@/lib/i18n/context";
 
-export function Topbar() {
+type Role = "student" | "teacher" | "admin" | "moderator";
+
+// Roles that have a built /[role]/settings route. Others hide the link
+// rather than 404 the user.
+const ROLES_WITH_SETTINGS: Role[] = ["teacher", "admin"];
+
+export function Topbar({ role }: { role?: Role } = {}) {
   const { t } = useLang();
   const [showTooltip, setShowTooltip] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const handleSearchClick = () => {
     setShowTooltip(true);
     setTimeout(() => setShowTooltip(false), 2000);
   };
+
+  // Close on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    if (menuOpen) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuOpen]);
+
+  // Close on Escape
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    if (menuOpen) document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [menuOpen]);
+
+  const showSettings = role && ROLES_WITH_SETTINGS.includes(role);
 
   return (
     <div className="mb-5 flex h-[52px] items-center gap-3">
@@ -66,8 +97,47 @@ export function Topbar() {
       </div>
 
       {/* Menu dots */}
-      <div className="glass flex h-11 w-11 items-center justify-center rounded-xl" role="button" tabIndex={0} aria-label={t("المزيد", "More")}>
-        <MoreHorizontal size={18} className="text-muted" aria-hidden="true" />
+      <div ref={menuRef} className="relative">
+        <button
+          type="button"
+          aria-label={t("القائمة", "Menu")}
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
+          onClick={() => setMenuOpen((v) => !v)}
+          className="glass flex h-11 w-11 items-center justify-center rounded-xl transition-colors hover:bg-foreground/5"
+        >
+          <MoreHorizontal size={18} className="text-muted" aria-hidden="true" />
+        </button>
+
+        {menuOpen && (
+          <div
+            role="menu"
+            aria-label={t("قائمة الحساب", "Account menu")}
+            className="absolute end-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-lg"
+          >
+            {showSettings && (
+              <Link
+                href={`/${role}/settings`}
+                role="menuitem"
+                onClick={() => setMenuOpen(false)}
+                className="flex min-h-[44px] items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-foreground/5"
+              >
+                <Settings size={14} className="text-gold" aria-hidden="true" />
+                {t("الإعدادات", "Settings")}
+              </Link>
+            )}
+            <form action="/api/auth/logout" method="POST">
+              <button
+                type="submit"
+                role="menuitem"
+                className="flex min-h-[44px] w-full items-center gap-3 px-4 py-2.5 text-sm text-error transition-colors hover:bg-error/10"
+              >
+                <LogOut size={14} aria-hidden="true" />
+                {t("تسجيل الخروج", "Log out")}
+              </button>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );
