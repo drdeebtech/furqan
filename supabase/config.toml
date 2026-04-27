@@ -1,0 +1,19 @@
+# Supabase project config — minimal, just enough for the CLI to recognize
+# the linked project. Migration discovery for the CLI defaults to this file's
+# sibling directory `supabase/migrations/`.
+#
+# History note: migrations v9_001 through v16_002 live at
+# `src/lib/supabase/migrations/` with a custom `vXX_YYY_<name>.sql` naming
+# convention. Those are tracked in our own `public.schema_migrations` table
+# (see `Database Migrations Policy` in CLAUDE.md). They were applied either
+# via auto-deploy (failed silently — the auto-deploy never recognized the
+# custom path/format) or manually via `supabase db query --linked --file`.
+#
+# Going forward, NEW migrations should go to `supabase/migrations/` with
+# the standard `<YYYYMMDDhhmmss>_<name>.sql` filename. Those will:
+#   - Show up in `supabase migration list --linked`
+#   - Auto-apply via the GitHub Branching integration on push to main
+#   - Be tracked in `supabase_migrations.schema_migrations` (Supabase's
+#     internal tracker) instead of our custom table
+
+project_id = "xyqscjnqfeusgrhmwjts"

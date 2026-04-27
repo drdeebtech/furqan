@@ -336,35 +336,43 @@ Find the short ID in the Sentry issue header (looks like `JAVASCRIPT-NEXTJS-NN`)
 
 ## Database Migrations Policy
 
-The project uses a **custom `schema_migrations` table** (not Supabase CLI's tracking). Every SQL file under `src/lib/supabase/migrations/` MUST end with:
+⚠️ **The auto-deploy was broken from 2026-04-26 through 2026-04-27.** Migrations v16_001 + v16_002 were the first to expose it: they pushed to main, the Branching integration silently ignored them, and production stayed at v15_008 until the migrations were applied manually via `supabase db query --linked --file`. Root cause: Supabase only recognizes files at `supabase/migrations/` with the standard `<YYYYMMDDhhmmss>_<name>.sql` filename. Our existing `src/lib/supabase/migrations/v9_001_*.sql` … `v16_002_*.sql` files match neither and are invisible to the tooling.
 
-```sql
-insert into schema_migrations (version, description)
-  values ('vXX_YYY', 'Short description')
-  on conflict do nothing;
+### Going forward — new migrations
+
+Use the helper script:
+
+```bash
+./scripts/new-migration.sh add_session_tags
+# → creates supabase/migrations/<UTC timestamp>_add_session_tags.sql
 ```
 
-**Applying migrations to production (preferred — auto-deploy):**
+Then edit the file with your DDL, commit, push to `main`. The Branching integration auto-applies it. New migrations are tracked in `supabase_migrations.schema_migrations` (Supabase's internal tracker) — **don't** add the `insert into public.schema_migrations` footer that the v* files use.
 
-As of 2026-04-26 the Supabase Branching GitHub integration is wired up:
-- Repo: `drdeebtech/furqan` · Working directory: `src/lib` · Production branch: `main`
-- "Deploy to production on push" is ON. "Automatic branching" stays OFF (Pro-only).
-- "Supabase changes only" is ON, so deploys only trigger when files under `src/lib/supabase/` change.
+Optional dry-run before push:
+```bash
+npx supabase db query --linked --file supabase/migrations/<your_file>.sql
+```
 
-When a PR touching `src/lib/supabase/migrations/*.sql` merges to `main`, Supabase auto-applies the new files in version order. The migrations end with `on conflict do nothing` on `schema_migrations`, so this is idempotent — running locally + auto-deploy wouldn't double-write.
+### Existing v* migrations
 
-**Applying migrations to production (fallback — manual):**
-If the auto-deploy fails (visible in Supabase dashboard → Branching → Merge requests), or for hotfixes that bypass GitHub:
-1. Open Supabase Dashboard → SQL Editor → paste the migration file → Run.
-2. The `schema_migrations` row commits in the same transaction; running twice is a no-op.
-3. The version recorded in `schema_migrations` should match `vXX_YYY` from the filename.
+The 30+ files at `src/lib/supabase/migrations/v*.sql` all stay where they are — they're already applied to production via the project's own `public.schema_migrations` table. They're invisible to `supabase migration list --linked` (different naming, different location, different tracker). That's fine — don't try to migrate them across; the schema is already there.
 
-**Detecting drift:** the `bio_en` (`v14_006`) migration silently never ran in production until 2026-04-26. To prevent recurrence:
-- Before merging schema changes, manually verify in `/admin/settings` that the prior version appears in the Migrations panel.
-- After applying any migration, sanity-check via `supabase migration list --linked` (note: this lists CLI-tracked migrations only — our custom table is the source of truth).
-- CI runs `supabase db lint --linked` on every PR (`.github/workflows/supabase-lint.yml`) — catches syntax issues but does NOT catch un-applied migrations.
+### Manual / hotfix path (still works)
 
-**Future improvement** (not yet wired): add a CI step that `psql`s production and diffs `select version from schema_migrations` against the file list under `src/lib/supabase/migrations/`. Fails the build on mismatch.
+For migrations that need to bypass GitHub (e.g. a fix you want immediately), run any SQL file directly:
+
+```bash
+npx supabase db query --linked --file <path/to/file.sql>
+```
+
+This uses the Management API via your `supabase login` session. Bypasses both trackers, so use sparingly + remember to commit the file afterward so future readers see what changed.
+
+### Detecting drift
+
+- `npx supabase migration list --linked` shows **timestamped** files only (Local vs Remote columns). Use it to confirm a new migration applied.
+- For the v* files, `select version from public.schema_migrations order by version` is the source of truth.
+- CI runs `supabase db lint --linked` on every PR (`.github/workflows/supabase-lint.yml`) — catches syntax issues, does NOT catch un-applied migrations.
 
 ## Sentry — activating in production
 
@@ -390,7 +398,7 @@ After any code change:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **furqan** (2720 symbols, 6259 relationships, 205 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **furqan** (2722 symbols, 6262 relationships, 205 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
