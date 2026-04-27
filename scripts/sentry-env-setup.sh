@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
 # scripts/sentry-env-setup.sh
-# Prints the exact `vercel env add` commands needed to enable Sentry source-map
-# upload + release tagging during the Vercel build. Run when the Vercel project
-# build is missing one or more of: SENTRY_AUTH_TOKEN, SENTRY_ORG, SENTRY_PROJECT.
+# Adds Sentry's source-map upload + release tagging env vars to Vercel
+# (both production and preview scopes). Pipes the values via stdin so
+# Vercel's interactive prompt is skipped — no "Make it sensitive?" or
+# git-branch confusion.
 #
-# This script is interactive on purpose — `vercel env add` prompts for values
-# via stdin and won't accept secrets via flags. We print the commands and the
-# values to paste; do NOT auto-pipe the token, that's how it ends up in shell
-# history.
+# This script is one-shot: run it once after the Sentry GitHub integration
+# is wired and the local .env.sentry-build-plugin file exists. After it
+# completes, push any commit and the next Vercel build will upload source
+# maps via scripts/sentry-release.sh.
+#
+# Re-runnable safely: existing env entries error out gracefully and the
+# script continues. If you need to overwrite an existing env, run
+# `npx vercel env rm NAME production` first.
 
-set -euo pipefail
-
-if ! command -v vercel >/dev/null 2>&1 && ! npx --yes vercel --version >/dev/null 2>&1; then
-  echo "Vercel CLI not available. Install with: npm i -g vercel"
-  exit 1
-fi
+set -uo pipefail  # not -e — we want to keep going if one entry already exists
 
 TOKEN_FILE=".env.sentry-build-plugin"
 if [ ! -f "$TOKEN_FILE" ]; then
-  echo "ERROR: $TOKEN_FILE not found. Sentry wizard generates this file with"
-  echo "       the SENTRY_AUTH_TOKEN. Re-run: npx @sentry/wizard@latest -i nextjs"
+  echo "ERROR: $TOKEN_FILE not found. The Sentry wizard generates this with"
+  echo "       SENTRY_AUTH_TOKEN. Run: npx @sentry/wizard@latest -i nextjs"
   exit 1
 fi
 
@@ -29,27 +29,38 @@ if [ -z "$TOKEN" ]; then
   exit 1
 fi
 
-echo "============================================================"
-echo "  Sentry build envs to set in Vercel"
-echo "============================================================"
+ORG="furqan-academy"
+PROJECT="javascript-nextjs"
+
+add_env() {
+  local name="$1"
+  local value="$2"
+  local target="$3"
+  echo ""
+  echo "→ adding $name to $target"
+  if printf '%s' "$value" | npx --yes vercel env add "$name" "$target" 2>&1; then
+    echo "  ✓ $name in $target"
+  else
+    echo "  ⚠ $name in $target may already exist (continuing)"
+  fi
+}
+
+echo "=== Adding Sentry build envs to Vercel ==="
+echo "Scope:    production + preview"
+echo "Source:   $TOKEN_FILE (token) + script defaults (org, project)"
 echo ""
-echo "Run these three commands. Each will prompt for a value (paste"
-echo "the value shown after the arrow). Pick environments: production"
-echo "AND preview when prompted."
+
+add_env SENTRY_AUTH_TOKEN "$TOKEN"             production
+add_env SENTRY_AUTH_TOKEN "$TOKEN"             preview
+add_env SENTRY_ORG        "$ORG"               production
+add_env SENTRY_ORG        "$ORG"               preview
+add_env SENTRY_PROJECT    "$PROJECT"           production
+add_env SENTRY_PROJECT    "$PROJECT"           preview
+
 echo ""
-echo "  1)  npx vercel env add SENTRY_AUTH_TOKEN production preview"
-echo "      → $TOKEN"
+echo "=== Done. Verify with: ==="
+echo "  npx vercel env ls | grep -i sentry"
 echo ""
-echo "  2)  npx vercel env add SENTRY_ORG production preview"
-echo "      → furqan-academy"
-echo ""
-echo "  3)  npx vercel env add SENTRY_PROJECT production preview"
-echo "      → javascript-nextjs"
-echo ""
-echo "After all three, push any commit to trigger a redeploy. The"
-echo "build's scripts/sentry-release.sh step will pick them up and"
-echo "start uploading source maps + tagging releases with commits."
-echo ""
-echo "Verify with:"
-echo "  npx vercel env ls"
+echo "Next: push any commit to trigger a deploy. scripts/sentry-release.sh"
+echo "will pick up the envs and start uploading source maps. Verify with:"
 echo "  ~/.local/bin/sentry release list --limit 3"
