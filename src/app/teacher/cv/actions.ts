@@ -2,11 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { logError } from "@/lib/logger";
 
 export type CvResult = {
   error?: string;
   success?: boolean;
 };
+
+const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 
 export async function saveCvDraft(
   _prev: CvResult,
@@ -63,5 +68,59 @@ export async function submitCvForReview(): Promise<CvResult> {
 
   if (error) return { error: "فشل إرسال السيرة الذاتية — يرجى المحاولة مرة أخرى" };
   revalidatePath("/teacher/cv");
+  return { success: true };
+}
+
+export async function saveProfilePhoto(
+  _prev: CvResult,
+  formData: FormData,
+): Promise<CvResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "غير مصرح" };
+
+  const photoFile = formData.get("photo");
+  if (!(photoFile instanceof File) || photoFile.size === 0) {
+    return { error: "يرجى اختيار صورة" };
+  }
+  if (!ALLOWED_PHOTO_TYPES.includes(photoFile.type)) {
+    return { error: "نوع الملف غير مدعوم — يرجى رفع JPG أو PNG أو WebP" };
+  }
+  if (photoFile.size > MAX_PHOTO_BYTES) {
+    return { error: "الملف كبير جدًا — الحد الأقصى 2 ميغابايت" };
+  }
+
+  const adminClient = createAdminClient();
+  const ext = photoFile.type === "image/jpeg" ? "jpg" : photoFile.type.split("/")[1];
+  const path = `${user.id}/${Date.now()}.${ext}`;
+
+  const { error: upErr } = await adminClient.storage
+    .from("teacher-avatars")
+    .upload(path, photoFile, { contentType: photoFile.type, upsert: false });
+  if (upErr) {
+    logError("teacher cv photo upload failed", upErr, { tag: "teacher-cv-photo" });
+    return { error: "فشل رفع الصورة — يرجى المحاولة مرة أخرى" };
+  }
+
+  const { data: pub } = adminClient.storage.from("teacher-avatars").getPublicUrl(path);
+  const avatarUrl = pub?.publicUrl ?? null;
+  if (!avatarUrl) return { error: "تعذر إنشاء رابط الصورة — يرجى المحاولة مرة أخرى" };
+
+  const { error: updErr } = await adminClient
+    .from("profiles")
+    .update({ avatar_url: avatarUrl } as never)
+    .eq("id", user.id);
+  if (updErr) {
+    logError("teacher cv photo profile update failed", updErr, { tag: "teacher-cv-photo" });
+    return { error: "تم رفع الصورة لكن فشل حفظها — يرجى المحاولة مرة أخرى" };
+  }
+
+  revalidatePath("/teacher/cv");
+  revalidatePath("/teacher/dashboard");
+  revalidatePath("/admin/teachers");
+  revalidatePath(`/admin/teachers/${user.id}`);
+  revalidatePath("/teachers-page");
   return { success: true };
 }

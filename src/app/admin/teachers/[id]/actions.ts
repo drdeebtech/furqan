@@ -4,8 +4,12 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { logError } from "@/lib/logger";
 
 export type ActionResult = { error?: string; success?: boolean; notice?: string };
+
+const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 
 function str(formData: FormData, key: string): string | null {
   const v = formData.get(key);
@@ -95,6 +99,58 @@ export async function updateEmail(
     success: true,
     notice: "تم إرسال رابط التأكيد إلى البريد الجديد — لن يتغير البريد حتى يضغط المعلم على الرابط.",
   };
+}
+
+export async function uploadTeacherPhoto(
+  teacherId: string,
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    await requireAdmin();
+  } catch {
+    return { error: "غير مصرح" };
+  }
+
+  const photoFile = formData.get("photo");
+  if (!(photoFile instanceof File) || photoFile.size === 0) {
+    return { error: "يرجى اختيار صورة" };
+  }
+  if (!ALLOWED_PHOTO_TYPES.includes(photoFile.type)) {
+    return { error: "نوع الملف غير مدعوم — JPG / PNG / WebP فقط" };
+  }
+  if (photoFile.size > MAX_PHOTO_BYTES) {
+    return { error: "الملف كبير جدًا — الحد الأقصى 2 ميغابايت" };
+  }
+
+  const adminClient = createAdminClient();
+  const ext = photoFile.type === "image/jpeg" ? "jpg" : photoFile.type.split("/")[1];
+  const path = `${teacherId}/${Date.now()}.${ext}`;
+
+  const { error: upErr } = await adminClient.storage
+    .from("teacher-avatars")
+    .upload(path, photoFile, { contentType: photoFile.type, upsert: false });
+  if (upErr) {
+    logError("admin teacher photo upload failed", upErr, { tag: "admin-teacher-photo" });
+    return { error: "فشل رفع الصورة — يرجى المحاولة مرة أخرى" };
+  }
+
+  const { data: pub } = adminClient.storage.from("teacher-avatars").getPublicUrl(path);
+  const avatarUrl = pub?.publicUrl ?? null;
+  if (!avatarUrl) return { error: "تعذر إنشاء رابط الصورة" };
+
+  const { error: updErr } = await adminClient
+    .from("profiles")
+    .update({ avatar_url: avatarUrl } as never)
+    .eq("id", teacherId);
+  if (updErr) {
+    logError("admin teacher photo profile update failed", updErr, { tag: "admin-teacher-photo" });
+    return { error: "تم رفع الصورة لكن فشل حفظها" };
+  }
+
+  revalidateTeacher(teacherId);
+  revalidatePath("/teachers-page");
+  return { success: true };
 }
 
 // ─── Teacher profile (teacher_profiles, non-CV fields) ─────────────────

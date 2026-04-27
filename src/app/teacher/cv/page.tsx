@@ -55,15 +55,26 @@ export default async function TeacherCvPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("teacher_profiles")
-    .select(
-      "bio, bio_en, specialties, languages, recitation_standards, intro_video_url, cv_status, cv_submitted_at, cv_reviewed_at, cv_rejection_reason",
-    )
-    .eq("teacher_id", user.id)
-    .single<TeacherProfile>();
+  const [profileRes, accountRes] = await Promise.all([
+    supabase
+      .from("teacher_profiles")
+      .select(
+        "bio, bio_en, specialties, languages, recitation_standards, intro_video_url, cv_status, cv_submitted_at, cv_reviewed_at, cv_rejection_reason",
+      )
+      .eq("teacher_id", user.id)
+      .single<TeacherProfile>(),
+    supabase
+      .from("profiles")
+      .select("avatar_url, full_name")
+      .eq("id", user.id)
+      .single<{ avatar_url: string | null; full_name: string | null }>(),
+  ]);
 
+  const profile = profileRes.data;
   if (!profile) redirect("/teacher/dashboard");
+
+  const avatarUrl = accountRes.data?.avatar_url ?? null;
+  const fullName = accountRes.data?.full_name ?? null;
 
   const status = profile.cv_status ?? "draft";
   const badge = STATUS_MAP[status] ?? STATUS_MAP.draft;
@@ -103,6 +114,8 @@ export default async function TeacherCvPage() {
         recitationStandards={profile.recitation_standards ?? []}
         introVideoUrl={profile.intro_video_url ?? ""}
         cvStatus={status}
+        avatarUrl={avatarUrl}
+        fullName={fullName}
       />
     </div>
   );

@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { GraduationCap, Plus, Star, Inbox, FileText, Archive, CheckCircle2, Clock, XCircle, Pause } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getT } from "@/lib/i18n/server";
 import { buildNameMap } from "@/lib/admin/name-map";
+import { Avatar } from "@/components/shared/avatar";
 import { ArchiveToggle } from "../dashboard/archive-toggle";
 
 export const metadata: Metadata = { title: "إدارة المعلمين" };
@@ -28,7 +30,24 @@ export default async function AdminTeachersPage() {
   const list = teachersRes.data ?? [];
   const pendingCvCount = cvCountRes.count;
 
-  const nameMap = await buildNameMap(supabase, list.map(x => x.teacher_id), t("معلم", "Teacher"));
+  const teacherIds = list.map(x => x.teacher_id);
+  const adminCli = createAdminClient();
+  const [nameMap, avatarRes, authRes] = await Promise.all([
+    buildNameMap(supabase, teacherIds, t("معلم", "Teacher")),
+    teacherIds.length > 0
+      ? supabase.from("profiles").select("id, avatar_url").in("id", teacherIds).returns<{ id: string; avatar_url: string | null }[]>()
+      : Promise.resolve({ data: [] as { id: string; avatar_url: string | null }[] }),
+    teacherIds.length > 0
+      ? adminCli.auth.admin.listUsers({ page: 1, perPage: 1000 })
+      : Promise.resolve({ data: { users: [] as { id: string; email?: string | null }[] } }),
+  ]);
+  const avatarMap = Object.fromEntries((avatarRes.data ?? []).map(p => [p.id, p.avatar_url ?? null]));
+  const teacherIdSet = new Set(teacherIds);
+  const emailMap: Record<string, string> = Object.fromEntries(
+    (authRes.data?.users ?? [])
+      .filter(u => teacherIdSet.has(u.id))
+      .map(u => [u.id, u.email ?? ""]),
+  );
 
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
@@ -64,7 +83,23 @@ export default async function AdminTeachersPage() {
             <tbody>
               {list.map(x => (
                 <tr key={x.teacher_id} className={`border-b border-white/10 last:border-b-0 ${x.is_archived ? "opacity-50" : ""}`}>
-                  <td className="px-4 py-3 font-medium">{nameMap[x.teacher_id] ?? t("معلم", "Teacher")}</td>
+                  <td className="px-4 py-3 font-medium">
+                    <span className="flex items-center gap-2">
+                      <Avatar src={avatarMap[x.teacher_id] ?? null} name={nameMap[x.teacher_id] ?? null} size={32} />
+                      <span className="flex flex-col leading-tight">
+                        <span>{nameMap[x.teacher_id] ?? t("معلم", "Teacher")}</span>
+                        {emailMap[x.teacher_id] ? (
+                          <a
+                            href={`mailto:${emailMap[x.teacher_id]}`}
+                            className="select-all text-[11px] font-normal text-muted hover:text-gold"
+                            dir="ltr"
+                          >
+                            {emailMap[x.teacher_id]}
+                          </a>
+                        ) : null}
+                      </span>
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-gold">${x.hourly_rate}</td>
                   <td className="px-4 py-3"><span className="flex items-center gap-1"><Star size={12} className="fill-gold text-gold" />{Number(x.rating_avg).toFixed(1)}</span></td>
                   <td className="px-4 py-3 text-muted">{x.total_sessions}</td>

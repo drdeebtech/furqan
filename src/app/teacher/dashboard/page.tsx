@@ -26,7 +26,7 @@ export default async function TeacherDashboardPage() {
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
 
   const [profileRes, tpRes, pendingRes, todayRes, monthRes, allStudentsRes, availRes] = await Promise.all([
-    supabase.from("profiles").select("full_name, phone").eq("id", user.id).single<{ full_name: string | null; phone: string | null }>(),
+    supabase.from("profiles").select("full_name, phone, avatar_url").eq("id", user.id).single<{ full_name: string | null; phone: string | null; avatar_url: string | null }>(),
     supabase.from("teacher_profiles").select("total_sessions, rating_avg, cv_status, bio").eq("teacher_id", user.id)
       .single<{ total_sessions: number; rating_avg: number; cv_status: string; bio: string | null }>(),
     supabase.from("bookings").select("id, scheduled_at, duration_min, session_type, amount_usd, student_id")
@@ -55,7 +55,7 @@ export default async function TeacherDashboardPage() {
   const pendingGrading = gradingRes.count ?? 0;
 
   const fullName = profileRes.data?.full_name ?? null;
-  const hasProfile = !!(profileRes.data?.full_name && profileRes.data?.phone);
+  const hasProfile = !!(profileRes.data?.full_name && profileRes.data?.phone && profileRes.data?.avatar_url);
   const hasBio = !!(tpRes.data?.bio);
   const hasAvailability = (availRes.count ?? 0) > 0;
   const ratingAvg = Number(tpRes.data?.rating_avg ?? 0);

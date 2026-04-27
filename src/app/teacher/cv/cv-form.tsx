@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useTransition } from "react";
-import { Save, Send } from "lucide-react";
-import { saveCvDraft, submitCvForReview, type CvResult } from "./actions";
+import { useActionState, useState, useTransition } from "react";
+import { Camera, Save, Send } from "lucide-react";
+import { saveCvDraft, saveProfilePhoto, submitCvForReview, type CvResult } from "./actions";
 import { CheckboxGroup } from "@/components/shared/checkbox-group";
+import { Avatar } from "@/components/shared/avatar";
 import { TEACHER_LANGUAGES, TEACHER_RECITATIONS, TEACHER_SPECIALTIES } from "@/lib/constants";
 
 interface CvFormProps {
@@ -14,6 +15,8 @@ interface CvFormProps {
   recitationStandards: string[];
   introVideoUrl: string;
   cvStatus: string;
+  avatarUrl: string | null;
+  fullName: string | null;
 }
 
 export function CvForm({
@@ -24,11 +27,32 @@ export function CvForm({
   recitationStandards,
   introVideoUrl,
   cvStatus,
+  avatarUrl,
+  fullName,
 }: CvFormProps) {
   const [state, formAction, pending] = useActionState<CvResult, FormData>(
     saveCvDraft,
     {},
   );
+  const [photoState, photoAction, photoPending] = useActionState<CvResult, FormData>(
+    saveProfilePhoto,
+    {},
+  );
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [chosenName, setChosenName] = useState<string | null>(null);
+
+  const onPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) {
+      setPreviewUrl(null);
+      setChosenName(null);
+      return;
+    }
+    setChosenName(f.name);
+    const reader = new FileReader();
+    reader.onload = () => setPreviewUrl(typeof reader.result === "string" ? reader.result : null);
+    reader.readAsDataURL(f);
+  };
 
   const [submitPending, startTransition] = useTransition();
 
@@ -41,11 +65,72 @@ export function CvForm({
   const isPendingReview = cvStatus === "pending_review";
 
   return (
-    <div className="glass-card p-6">
-      <h2 className="mb-4 text-lg font-semibold">
-        بيانات السيرة الذاتية
-        <span className="me-2 text-sm font-normal text-muted">CV Details</span>
-      </h2>
+    <>
+      <div className="glass-card mb-6 p-6">
+        <h2 className="mb-4 text-lg font-semibold">
+          الصورة الشخصية
+          <span className="me-2 text-sm font-normal text-muted">Profile Photo</span>
+        </h2>
+
+        {photoState.error && (
+          <div className="mb-4 rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">
+            {photoState.error}
+          </div>
+        )}
+        {photoState.success && (
+          <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-400">
+            تم تحديث الصورة بنجاح
+          </div>
+        )}
+
+        <form action={photoAction} className="flex flex-wrap items-center gap-4">
+          <Avatar src={previewUrl ?? avatarUrl} name={fullName} size={80} />
+
+          <div className="flex-1 space-y-2">
+            <label
+              htmlFor="photo"
+              className="glass-pill inline-flex cursor-pointer items-center gap-2 border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10"
+            >
+              <Camera size={14} />
+              {chosenName ? "تغيير الصورة" : "اختر صورة من الجهاز أو الكاميرا"}
+            </label>
+            <input
+              id="photo"
+              name="photo"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              capture="user"
+              onChange={onPhotoChange}
+              className="sr-only"
+            />
+            {chosenName && (
+              <p className="text-xs text-muted" dir="ltr">{chosenName}</p>
+            )}
+            <p className="text-xs text-muted">
+              JPG / PNG / WebP — الحد الأقصى 2 ميغابايت
+            </p>
+          </div>
+
+          <button
+            type="submit"
+            disabled={photoPending || !chosenName}
+            className="glass-gold glass-pill flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:bg-gold-hover disabled:opacity-50"
+          >
+            {photoPending ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            ) : (
+              <Save size={16} />
+            )}
+            حفظ الصورة
+          </button>
+        </form>
+      </div>
+
+      <div className="glass-card p-6">
+        <h2 className="mb-4 text-lg font-semibold">
+          بيانات السيرة الذاتية
+          <span className="me-2 text-sm font-normal text-muted">CV Details</span>
+        </h2>
 
       {state.error && (
         <div className="mb-4 rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">
@@ -174,7 +259,8 @@ export function CvForm({
             تتم المراجعة.
           </p>
         )}
-      </form>
-    </div>
+        </form>
+      </div>
+    </>
   );
 }

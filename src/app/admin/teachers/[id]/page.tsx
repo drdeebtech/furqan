@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getT } from "@/lib/i18n/server";
+import { Avatar } from "@/components/shared/avatar";
 import { TabBar } from "./tab-bar";
 import { AccountForm } from "./account-form";
 import { TeacherProfileForm } from "./teacher-profile-form";
@@ -156,9 +157,12 @@ export default async function TeacherDetailPage({ params, searchParams }: Props)
       </Link>
 
       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">
-          {profile?.full_name ?? t("معلم", "Teacher")}
-        </h1>
+        <div className="flex items-center gap-3">
+          <Avatar src={profile?.avatar_url ?? null} name={profile?.full_name ?? null} size={56} />
+          <h1 className="text-2xl font-bold">
+            {profile?.full_name ?? t("معلم", "Teacher")}
+          </h1>
+        </div>
         <div className="flex gap-2 text-xs text-muted">
           <span>{tp.total_sessions} {t("جلسة", "sessions")}</span>
           <span>· {t("تقييم", "Rating")} {Number(tp.rating_avg).toFixed(1)}</span>

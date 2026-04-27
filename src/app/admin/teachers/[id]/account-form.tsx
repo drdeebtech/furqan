@@ -1,12 +1,14 @@
 "use client";
 
-import { useActionState } from "react";
-import { Save, Mail } from "lucide-react";
+import { useActionState, useState } from "react";
+import { Camera, Save, Mail } from "lucide-react";
 import {
   updateAccount,
   updateEmail,
+  uploadTeacherPhoto,
   type ActionResult,
 } from "./actions";
+import { Avatar } from "@/components/shared/avatar";
 
 const input =
   "w-full rounded-xl glass-input px-4 py-2.5 text-sm text-foreground focus:border-gold focus:outline-none";
@@ -33,14 +35,93 @@ interface AccountFormProps {
 export function AccountForm({ teacherId, currentEmail, profile }: AccountFormProps) {
   const accountAction = updateAccount.bind(null, teacherId);
   const emailAction = updateEmail.bind(null, teacherId);
+  const photoActionBound = uploadTeacherPhoto.bind(null, teacherId);
 
   const [accountState, accountFormAction, accountPending] =
     useActionState<ActionResult, FormData>(accountAction, {});
   const [emailState, emailFormAction, emailPending] =
     useActionState<ActionResult, FormData>(emailAction, {});
+  const [photoState, photoFormAction, photoPending] =
+    useActionState<ActionResult, FormData>(photoActionBound, {});
+
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [chosenName, setChosenName] = useState<string | null>(null);
+
+  const onPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) {
+      setPreviewUrl(null);
+      setChosenName(null);
+      return;
+    }
+    setChosenName(f.name);
+    const reader = new FileReader();
+    reader.onload = () => setPreviewUrl(typeof reader.result === "string" ? reader.result : null);
+    reader.readAsDataURL(f);
+  };
 
   return (
     <div className="space-y-6">
+      {/* Photo card */}
+      <div className="glass-card p-6">
+        <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+          <Camera size={18} className="text-gold" />
+          الصورة الشخصية
+          <span className="me-2 text-sm font-normal text-muted">Profile Photo</span>
+        </h2>
+
+        {photoState.error && (
+          <div className="mb-4 rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">
+            {photoState.error}
+          </div>
+        )}
+        {photoState.success && (
+          <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-400">
+            تم تحديث الصورة بنجاح
+          </div>
+        )}
+
+        <form action={photoFormAction} className="flex flex-wrap items-center gap-4">
+          <Avatar src={previewUrl ?? profile.avatar_url} name={profile.full_name} size={80} />
+
+          <div className="flex-1 space-y-2">
+            <label
+              htmlFor="admin-teacher-photo"
+              className="glass-pill inline-flex cursor-pointer items-center gap-2 border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium hover:bg-white/10"
+            >
+              <Camera size={14} />
+              {chosenName ? "تغيير الصورة" : "اختر صورة من الجهاز"}
+            </label>
+            <input
+              id="admin-teacher-photo"
+              name="photo"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={onPhotoChange}
+              className="sr-only"
+            />
+            {chosenName && <p className="text-xs text-muted" dir="ltr">{chosenName}</p>}
+            <p className="text-xs text-muted">JPG / PNG / WebP — الحد الأقصى 2 ميغابايت</p>
+          </div>
+
+          <button
+            type="submit"
+            disabled={photoPending || !chosenName}
+            className="glass-gold glass-pill flex items-center gap-2 px-4 py-2.5 text-sm font-medium hover:bg-gold-hover disabled:opacity-50"
+          >
+            {photoPending ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            ) : (
+              <Save size={14} />
+            )}
+            رفع الصورة
+          </button>
+        </form>
+        <p className="mt-2 text-xs text-muted">
+          أو الصق رابط CDN في حقل &quot;رابط الصورة&quot; أدناه واضغط حفظ البيانات.
+        </p>
+      </div>
+
       {/* Email card */}
       <div className="glass-card p-6">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
