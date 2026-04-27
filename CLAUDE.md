@@ -321,6 +321,19 @@ await supabase.from("audit_log").insert({...} as never)
 
 **Migration plan**: existing 60+ silent-fail call sites are being migrated incrementally. New code MUST follow the patterns above. Reviewers should reject any PR introducing a new silent fail.
 
+## Sentry ↔ Git commit convention
+
+When a commit fixes a Sentry-reported issue, **include `Fixes JAVASCRIPT-NEXTJS-<N>`** in the commit message body (or PR title/description). Sentry's GitHub integration auto-resolves the matching issue when `scripts/sentry-release.sh` tags the next release with the commit.
+
+Example:
+```
+fix(og): wrap blog OG image in try/catch + fallback + 24h cache
+
+Fixes JAVASCRIPT-NEXTJS-3
+```
+
+Find the short ID in the Sentry issue header (looks like `JAVASCRIPT-NEXTJS-NN`). Keywords `Fixes`, `Resolves`, and `Closes` all work. The convention only kicks in once the commit lands on `main` and the release-tagging script runs in the Vercel build — local commits don't trigger it.
+
 ## Database Migrations Policy
 
 The project uses a **custom `schema_migrations` table** (not Supabase CLI's tracking). Every SQL file under `src/lib/supabase/migrations/` MUST end with:

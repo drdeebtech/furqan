@@ -309,6 +309,28 @@ Sentry-side configuration, not code:
 
 These don't need code; they're created in https://furqan-academy.sentry.io/alerts/rules/.
 
+---
+
+## G12 — Sentry ↔ GitHub integration
+
+**Phase 1 (browser, one-time):** install Sentry's GitHub app at https://furqan-academy.sentry.io/settings/integrations/github/ and authorize it on `drdeebtech/furqan` (only that repo). Add a 1:1 user mapping (`drdeebtech` GitHub ↔ Sentry account `alforqan.egy@gmail.com`). Toggle ON the two PR-comment options. Optional: in Alerts → Create Alert Rule → "A new issue is created" → "Create a GitHub issue" so real prod bugs auto-file as GitHub issues.
+
+**Phase 2 (code, this commit):**
+- `.github/CODEOWNERS` added — single line `* @drdeebtech` for GitHub PR reviewer auto-suggest + Sentry Code Owners-driven issue routing (the latter is Business-plan-gated; harmless on Hobby).
+- `CLAUDE.md` documents the `Fixes JAVASCRIPT-NEXTJS-<N>` commit-message convention so future contributors (including Claude/Codex sessions) follow it. Sentry auto-resolves the matching issue when the next release containing that commit ships via `scripts/sentry-release.sh`.
+
+**New triage workflow** (post-G12):
+1. Sentry issue arrives. Right panel shows "Suspect Commits" — click to land on the GitHub line responsible.
+2. Stack frames in the Events tab are now clickable links to `github.com/drdeebtech/furqan/blob/<sha>/src/...` at the exact line.
+3. Fix the bug. Commit message body includes `Fixes JAVASCRIPT-NEXTJS-<N>`.
+4. Push to `main`. Vercel build runs `scripts/sentry-release.sh` → release tagged with commits.
+5. Sentry sees the `Fixes` token in the release's commit set → marks the issue **Resolved in release `<sha>`** automatically. Loop closed.
+
+**Verification (after Phase 1 lands in browser):**
+- Click any stack frame in a recent Sentry event → should open the right line on GitHub.
+- The "Resolved in release X" banner should appear on issues whose fixing commit included a `Fixes` token.
+- PRs should get a Sentry comment within ~5 min if their diff matches the file:line of any unhandled prod issue.
+
 ## Notes on operational onboarding
 
 After deploy:

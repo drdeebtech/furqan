@@ -1,0 +1,13 @@
+# GitHub auto-suggests these owners as PR reviewers and the Sentry GitHub
+# integration uses this file (on Business+ plans) to auto-assign issues
+# to the responsible team.
+#
+# Solo dev today — everything routes to @drdeebtech. When the team grows,
+# split by directory:
+#   /src/app/admin/        @ops-team
+#   /src/lib/supabase/     @data-team
+#   /src/app/api/cron/     @platform-team
+#
+# Syntax reference: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+*       @drdeebtech
