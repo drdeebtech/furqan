@@ -39,17 +39,24 @@ export default async function TeachersPage() {
 
   const teachers = teacherProfiles ?? [];
 
+  // Filter out anyone whose role isn't actually 'teacher'. teacher_profiles
+  // rows can exist for admins/etc when an account doubles up (e.g. an admin
+  // who also onboarded as a teacher for testing). The public list should
+  // only show actual teachers — profile.role is the source of truth.
   let nameMap: Record<string, string> = {};
   let nameArMap: Record<string, string | null> = {};
   let avatarMap: Record<string, string | null> = {};
+  let validTeacherIds = new Set<string>();
   if (teachers.length > 0) {
     const ids = teachers.map(t => t.teacher_id);
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, full_name, full_name_ar, avatar_url")
+      .select("id, full_name, full_name_ar, avatar_url, role")
       .in("id", ids)
-      .returns<{ id: string; full_name: string | null; full_name_ar: string | null; avatar_url: string | null }[]>();
+      .eq("role", "teacher")
+      .returns<{ id: string; full_name: string | null; full_name_ar: string | null; avatar_url: string | null; role: string }[]>();
     if (profiles) {
+      validTeacherIds = new Set(profiles.map(p => p.id));
       nameMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name ?? "—"]));
       nameArMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name_ar ?? null]));
       avatarMap = Object.fromEntries(profiles.map(p => [p.id, p.avatar_url ?? null]));
@@ -70,19 +77,21 @@ export default async function TeachersPage() {
   const specialtyLabels = Object.fromEntries((specRes.data ?? []).map((r: LabelRow) => [r.key, { ar: r.label_ar, en: r.label_en }]));
   const recitationLabels = Object.fromEntries((recRes.data ?? []).map((r: LabelRow) => [r.key, { ar: r.label_ar, en: r.label_en }]));
 
-  const teacherData = teachers.map(t => ({
-    id: t.teacher_id,
-    name: nameMap[t.teacher_id] ?? "—",
-    nameAr: nameArMap[t.teacher_id] ?? null,
-    avatarUrl: avatarMap[t.teacher_id] ?? null,
-    bio: t.bio,
-    specialties: t.specialties,
-    recitationStandards: t.recitation_standards,
-    hourlyRate: Number(t.hourly_rate),
-    ratingAvg: Number(t.rating_avg),
-    totalSessions: t.total_sessions,
-    gender: t.gender,
-  }));
+  const teacherData = teachers
+    .filter(t => validTeacherIds.has(t.teacher_id))
+    .map(t => ({
+      id: t.teacher_id,
+      name: nameMap[t.teacher_id] ?? "—",
+      nameAr: nameArMap[t.teacher_id] ?? null,
+      avatarUrl: avatarMap[t.teacher_id] ?? null,
+      bio: t.bio,
+      specialties: t.specialties,
+      recitationStandards: t.recitation_standards,
+      hourlyRate: Number(t.hourly_rate),
+      ratingAvg: Number(t.rating_avg),
+      totalSessions: t.total_sessions,
+      gender: t.gender,
+    }));
 
   return <TeachersContent teachers={teacherData} specialtyLabels={specialtyLabels} recitationLabels={recitationLabels} />;
 }
