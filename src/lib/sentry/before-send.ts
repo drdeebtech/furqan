@@ -41,6 +41,10 @@ const NOISE_MESSAGE_EXACT = new Set<string>([
   "ResizeObserver loop completed with undelivered notifications.",
   // Safari's bogus "Script error." on cross-origin scripts.
   "Script error.",
+  // Supabase Auth — expected behavior, not a bug. Banned users hitting
+  // /login should NOT page anyone; the user-facing error message handles
+  // it correctly. Sentry was just collecting noise.
+  "User is banned",
 ]);
 
 // Query parameters that may carry secrets/PII. Stripped from event request URLs.
