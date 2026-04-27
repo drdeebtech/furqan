@@ -53,7 +53,11 @@ export default withSentryConfig(wrapped, {
   widenClientFileUpload: true,
   tunnelRoute: "/monitoring",
   release: {
-    setCommits: { auto: true, ignoreMissingRepository: true },
+    // `ignoreMissingRepository` is a real sentry-cli flag but the
+    // @sentry/nextjs v10.49 type defs haven't surfaced it yet. The plugin
+    // forwards it to sentry-cli unchanged at runtime — cast through unknown
+    // so TS doesn't reject it while we wait on a type-only update.
+    setCommits: { auto: true, ignoreMissingRepository: true } as unknown as { auto: true },
     deploy: { env: process.env.VERCEL_ENV ?? "development" },
   },
 });
