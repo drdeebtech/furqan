@@ -23,7 +23,8 @@ const updateLegalBase = loudAction<{
   },
   handler: async (input) => {
     const supabase = (await createClient()) as AnyClient;
-    // Read current version, bump on save.
+    // Read current version, bump on save. Upsert (not update) so a missing
+    // seed row would still be created rather than silently no-op'ing.
     const { data: existing } = await supabase
       .from("legal_documents")
       .select("version")
@@ -32,13 +33,16 @@ const updateLegalBase = loudAction<{
     const newVersion = (existing?.version ?? 0) + 1;
     const { error } = await supabase
       .from("legal_documents")
-      .update({
-        body_ar: input.body_ar,
-        body_en: input.body_en,
-        version: newVersion,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("kind", input.kind);
+      .upsert(
+        {
+          kind: input.kind,
+          body_ar: input.body_ar,
+          body_en: input.body_en,
+          version: newVersion,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "kind" },
+      );
     if (error) throw error;
 
     // Public consumers + admin self.
