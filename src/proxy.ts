@@ -11,16 +11,33 @@ const PROTECTED_ROUTES: Record<string, UserRole> = {
 
 const PUBLIC_ROUTES = ["/login", "/register", "/forgot-password"];
 
+// Per-instance role cache. Fluid Compute reuses function instances across
+// concurrent requests, so a typical browsing session of N pages collapses to
+// 1 Postgres roundtrip + (N-1) cache hits. TTL is short enough that role
+// changes (admin promotes user, etc.) propagate within a minute without
+// requiring an explicit invalidation hook.
+const ROLE_CACHE_TTL_MS = 60_000;
+const roleCache = new Map<string, { role: UserRole | null; expiresAt: number }>();
+
 async function getUserRole(
   supabase: Awaited<ReturnType<typeof updateSession>>["supabase"],
   userId: string,
 ): Promise<UserRole | null> {
+  const now = Date.now();
+  const cached = roleCache.get(userId);
+  if (cached && cached.expiresAt > now) {
+    return cached.role;
+  }
+
   const { data } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", userId)
     .single<{ role: UserRole }>();
-  return data?.role ?? null;
+
+  const role = data?.role ?? null;
+  roleCache.set(userId, { role, expiresAt: now + ROLE_CACHE_TTL_MS });
+  return role;
 }
 
 export async function proxy(request: NextRequest) {

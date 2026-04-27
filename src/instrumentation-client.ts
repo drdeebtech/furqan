@@ -31,7 +31,16 @@ Sentry.init({
     process.env.NEXT_PUBLIC_SENTRY_DSN ??
     "https://3e6ba831bf5a932017cd9999e2b066ac@o4511287545954304.ingest.de.sentry.io/4511287551197264",
 
-  integrations: [Sentry.replayIntegration()],
+  integrations: [
+    Sentry.replayIntegration({
+      // Mask all text + form inputs and block media. The platform handles
+      // student data (some minors) — full DOM capture into a 3rd-party SaaS
+      // is not appropriate. Layout/structure still recorded; values are not.
+      maskAllText: true,
+      maskAllInputs: true,
+      blockAllMedia: true,
+    }),
+  ],
 
   tracesSampleRate: isProd ? 0.1 : 1,
 
