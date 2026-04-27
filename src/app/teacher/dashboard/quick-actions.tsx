@@ -17,16 +17,16 @@ export function TeacherQuickActions({ students }: { students: Student[] }) {
         <div className="flex items-center rounded-xl px-3 py-2.5">
           <InstantSessionButton students={students} />
         </div>
-        <Link href="/teacher/availability" className="flex min-h-[40px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-white/5">
-          <Calendar size={16} className="shrink-0 text-gold" />
+        <Link href="/teacher/availability" className="flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-foreground/5">
+          <Calendar size={16} className="shrink-0 text-gold" aria-hidden="true" />
           <span>{t("إدارة المواعيد", "Manage Schedule")}</span>
         </Link>
-        <Link href="/teacher/students" className="flex min-h-[40px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-white/5">
-          <Users size={16} className="shrink-0 text-gold" />
+        <Link href="/teacher/students" className="flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-foreground/5">
+          <Users size={16} className="shrink-0 text-gold" aria-hidden="true" />
           <span>{t("طلابي", "My Students")}</span>
         </Link>
-        <Link href="/teacher/messages" className="flex min-h-[40px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-white/5">
-          <MessageSquare size={16} className="shrink-0 text-gold" />
+        <Link href="/teacher/messages" className="flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-foreground/5">
+          <MessageSquare size={16} className="shrink-0 text-gold" aria-hidden="true" />
           <span>{t("الرسائل", "Messages")}</span>
         </Link>
       </div>

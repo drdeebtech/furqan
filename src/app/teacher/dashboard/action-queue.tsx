@@ -59,17 +59,19 @@ export function TeacherActionQueue({ data }: { data: ActionQueueData }) {
   return (
     <div className="glass-card p-5">
       <h3 className="mb-3 text-sm font-semibold text-gold">{t("مهامك الآن", "Your Actions Now")}</h3>
-      <div className="space-y-2">
+      <ul className="space-y-2">
         {items.map((item, i) => {
           const Icon = item.icon;
           return (
-            <Link key={i} href={item.href} className={`flex items-center gap-3 rounded-xl ${item.bg} p-3 transition-colors hover:opacity-80`}>
-              <Icon size={16} className={item.color} />
-              <span className="text-sm">{item.label}</span>
-            </Link>
+            <li key={i}>
+              <Link href={item.href} className={`flex min-h-[44px] items-center gap-3 rounded-xl ${item.bg} p-3 transition-colors hover:opacity-80`}>
+                <Icon size={16} className={item.color} aria-hidden="true" />
+                <span className="text-sm">{item.label}</span>
+              </Link>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </div>
   );
 }

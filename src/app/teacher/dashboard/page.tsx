@@ -83,7 +83,7 @@ export default async function TeacherDashboardPage() {
   ]);
 
   return (
-    <>
+    <main>
       <TeacherDashboardContent
         data={{
           fullName,
@@ -117,6 +117,6 @@ export default async function TeacherDashboardPage() {
           <TeacherAtRiskStudents teacherId={user.id} />
         </div>
       )}
-    </>
+    </main>
   );
 }

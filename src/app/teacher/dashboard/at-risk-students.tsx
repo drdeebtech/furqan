@@ -76,7 +76,7 @@ export async function TeacherAtRiskStudents({ teacherId }: Props) {
             <Link
               key={s.student_id}
               href={`/teacher/students/${s.student_id}`}
-              className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] p-3 transition-colors hover:border-gold/20"
+              className="flex items-center justify-between rounded-lg border border-foreground/5 bg-foreground/[0.02] p-3 transition-colors hover:border-gold/20"
             >
               <div className="flex items-center gap-3">
                 <span className={`glass-badge ${riskBadgeClass(score)}`} title={`${score.toFixed(0)} / 100`}>

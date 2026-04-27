@@ -93,32 +93,37 @@ export function TeacherGuidanceBanner({ cvStatus, hasStudents, hasProfile, hasBi
       </div>
 
       {/* Progress bar */}
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-foreground/10">
         <div className="h-full rounded-full bg-gradient-to-l from-gold to-gold/60 transition-all" style={{ width: `${pct}%` }} />
       </div>
 
       {/* Checklist */}
-      <div className="mt-5 space-y-3">
+      <ol className="mt-5 space-y-3">
         {steps.map(step => {
           const Icon = step.icon;
           const isActive = !step.done && !step.pending;
+          const isCurrent = isActive || step.error;
 
           return (
-            <div key={step.key} className={`flex items-center gap-3 rounded-xl p-3 transition-colors ${
-              step.done ? "bg-emerald-500/5" : step.error ? "bg-error/5" : step.pending ? "bg-blue-500/5" : "bg-white/5"
-            }`}>
+            <li
+              key={step.key}
+              aria-current={isCurrent ? "step" : undefined}
+              className={`flex items-center gap-3 rounded-xl p-3 transition-colors ${
+                step.done ? "bg-emerald-500/5" : step.error ? "bg-error/5" : step.pending ? "bg-blue-500/5" : "bg-foreground/5"
+              }`}
+            >
               {/* Status icon */}
               <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                step.done ? "bg-emerald-500/20" : step.error ? "bg-error/20" : step.pending ? "bg-blue-500/20" : "bg-white/10"
+                step.done ? "bg-emerald-500/20" : step.error ? "bg-error/20" : step.pending ? "bg-blue-500/20" : "bg-foreground/10"
               }`}>
                 {step.done ? (
-                  <CheckCircle size={16} className="text-emerald-400" />
+                  <CheckCircle size={16} className="text-emerald-400" aria-label={t("مكتمل", "Done")} />
                 ) : step.error ? (
-                  <AlertCircle size={16} className="text-error" />
+                  <AlertCircle size={16} className="text-error" aria-label={t("خطأ", "Error")} />
                 ) : step.pending ? (
-                  <Clock size={16} className="text-blue-400 animate-pulse" />
+                  <Clock size={16} className="text-blue-400 animate-pulse" aria-label={t("قيد المراجعة", "Pending")} />
                 ) : (
-                  <Icon size={16} className="text-muted" />
+                  <Icon size={16} className="text-muted" aria-hidden="true" />
                 )}
               </div>
 
@@ -134,15 +139,15 @@ export function TeacherGuidanceBanner({ cvStatus, hasStudents, hasProfile, hasBi
               {step.href && isActive && (
                 <Link
                   href={step.href}
-                  className="shrink-0 rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-medium text-gold transition-colors hover:bg-gold/20"
+                  className="inline-flex min-h-[44px] shrink-0 items-center rounded-full border border-gold/30 bg-gold/10 px-4 py-2 text-xs font-medium text-gold transition-colors hover:bg-gold/20"
                 >
                   {step.error ? t("تعديل", "Fix") : t("ابدأ", "Start")}
                 </Link>
               )}
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ol>
     </div>
   );
 }

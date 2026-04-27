@@ -51,11 +51,9 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
   };
 
   return (
-    <>
-      <div className="h-0.5 bg-gradient-to-l from-gold/0 via-gold/30 to-gold/0" />
-      <div dir={dir} className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+    <div dir={dir} className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         {/* Row 0: Welcome + Banner */}
-        <h1 className="font-display text-3xl font-bold">{t("أهلاً", "Welcome")}{fullName ? ` ${fullName}` : ""}</h1>
+        <h1 className="font-display text-2xl font-bold sm:text-3xl">{t("أهلاً", "Welcome")}{fullName ? ` ${fullName}` : ""}</h1>
         <p className="mt-1 text-sm text-muted">{t("مرحباً بك في لوحة المعلم", "Welcome to the Teacher Dashboard")}</p>
 
         <TeacherGuidanceBanner cvStatus={cvStatus} hasStudents={uniqueStudents > 0} hasProfile={hasProfile} hasBio={hasBio} hasAvailability={hasAvailability} />
@@ -181,7 +179,7 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
                     {pending.map(b => (
                       <tr key={b.id}>
                         <td className="py-3 font-medium">{nameMap[b.student_id] ?? t("طالب", "Student")}</td>
-                        <td className="py-3 text-muted">{st(b.session_type)} · {b.duration_min} {t("د", "m")}</td>
+                        <td className="py-3 text-muted">{st(b.session_type)} <span aria-hidden="true">·</span> {b.duration_min} {t("د", "m")}</td>
                         <td className="py-3 text-muted">
                           {new Date(b.scheduled_at).toLocaleDateString(locale, { month: "short", day: "numeric" })}
                           {" "}
@@ -199,6 +197,5 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
           </WidgetCard>
         </div>
       </div>
-    </>
   );
 }

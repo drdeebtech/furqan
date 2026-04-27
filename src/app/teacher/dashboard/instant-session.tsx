@@ -56,7 +56,7 @@ export function InstantSessionButton({ students }: { students: Student[] }) {
       </h3>
 
       {error && (
-        <div className="mb-3 rounded-lg border border-error/30 bg-error/10 p-2 text-xs text-error">
+        <div role="alert" aria-live="assertive" className="mb-3 rounded-lg border border-error/30 bg-error/10 p-2 text-xs text-error">
           {error}
         </div>
       )}
@@ -79,17 +79,19 @@ export function InstantSessionButton({ students }: { students: Student[] }) {
         </div>
 
         <div>
-          <label className="mb-1 block text-xs text-muted">المدة</label>
-          <div className="flex gap-2">
+          <span id="instant-duration-label" className="mb-1 block text-xs text-muted">المدة</span>
+          <div role="radiogroup" aria-labelledby="instant-duration-label" className="flex gap-2">
             {[30, 45, 60].map((d) => (
               <button
                 key={d}
                 type="button"
+                role="radio"
+                aria-checked={duration === d}
                 onClick={() => setDuration(d)}
-                className={`flex-1 rounded-lg border px-2 py-1.5 text-xs transition-colors ${
+                className={`min-h-[44px] flex-1 rounded-lg border px-2 py-1.5 text-xs transition-colors ${
                   duration === d
                     ? "glass glass-pill text-gold"
-                    : "border-white/10 text-muted hover:border-gold/50"
+                    : "border-[var(--surface-border)] text-muted hover:border-gold/50"
                 }`}
               >
                 {d} د

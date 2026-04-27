@@ -43,14 +43,15 @@ export function BookingActions({ bookingId, isFirst }: { bookingId: string; isFi
             href={roomUrl}
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="رابط الجلسة (يفتح في تبويب جديد)"
             className="inline-flex items-center gap-1 text-xs text-gold hover:text-gold-hover"
           >
             رابط الجلسة
-            <ExternalLink size={12} />
+            <ExternalLink size={12} aria-hidden="true" />
           </a>
         )}
         {error && (
-          <p className="mt-1 text-xs text-amber-400">{error}</p>
+          <p role="alert" aria-live="polite" className="mt-1 text-xs text-amber-400">{error}</p>
         )}
       </div>
     );
@@ -68,7 +69,7 @@ export function BookingActions({ bookingId, isFirst }: { bookingId: string; isFi
   if (confirmDecline) {
     return (
       <div className="flex flex-col items-end gap-2">
-        <p className="text-xs text-error">هل أنت متأكد من رفض هذا الحجز؟</p>
+        <p role="alert" className="text-xs text-error">هل أنت متأكد من رفض هذا الحجز؟</p>
         <div className="flex gap-2">
           <button
             onClick={() => handle("cancelled")}
@@ -95,7 +96,7 @@ export function BookingActions({ bookingId, isFirst }: { bookingId: string; isFi
 
   return (
     <div className="flex flex-col gap-2">
-      {error && <p className="text-xs text-error">{error}</p>}
+      {error && <p role="alert" aria-live="assertive" className="text-xs text-error">{error}</p>}
       <div className="flex gap-2">
         <button
           onClick={() => handle("confirmed")}

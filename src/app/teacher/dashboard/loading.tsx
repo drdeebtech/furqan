@@ -3,7 +3,6 @@ import { Skeleton } from "@/components/shared/skeleton";
 export default function TeacherDashboardLoading() {
   return (
     <>
-      <div className="h-0.5 bg-gradient-to-l from-gold/0 via-gold/30 to-gold/0" />
       <div dir="rtl" className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6">
         {/* Welcome */}
         <div>

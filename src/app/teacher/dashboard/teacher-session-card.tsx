@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Video,
@@ -68,7 +68,14 @@ export function TeacherSessionCard({
   const [currentExpiresAt, setCurrentExpiresAt] = useState(expiresAt);
   const [isEnded, setIsEnded] = useState(!!endedAt);
 
-  const [now] = useState(() => Date.now());
+  // Tick once a minute so isExpired / isAboutToExpire / inWindow re-evaluate
+  // for tabs left open across the session start/end boundary. Every 60s is
+  // tight enough that the user never sees a stale "Join" button for long.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
   const expiresMs = currentExpiresAt
     ? new Date(currentExpiresAt).getTime()
     : null;
@@ -156,7 +163,7 @@ export function TeacherSessionCard({
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="font-medium">{studentName}</p>
+            <h3 className="font-medium">{studentName}</h3>
             <SessionStatus
               scheduledAt={scheduledAt}
               durationMin={durationMin}
@@ -183,12 +190,12 @@ export function TeacherSessionCard({
 
       {/* Error / Success messages */}
       {error && (
-        <div className="mt-3 rounded-lg border border-error/30 bg-error/10 p-2 text-xs text-error">
+        <div role="alert" aria-live="assertive" className="mt-3 rounded-lg border border-error/30 bg-error/10 p-2 text-xs text-error">
           {error}
         </div>
       )}
       {success && (
-        <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2 text-xs text-emerald-400">
+        <div role="status" aria-live="polite" className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2 text-xs text-emerald-400">
           {success}
         </div>
       )}
@@ -265,14 +272,18 @@ export function TeacherSessionCard({
           {!showNotes ? (
             <button
               onClick={() => setShowNotes(true)}
-              className="inline-flex items-center gap-1.5 text-xs text-muted transition-colors hover:text-foreground"
+              className="inline-flex min-h-[44px] items-center gap-1.5 text-xs text-muted transition-colors hover:text-foreground"
             >
-              <StickyNote size={14} />
+              <StickyNote size={14} aria-hidden="true" />
               ملاحظات سريعة
             </button>
           ) : (
             <div className="space-y-2">
+              <label htmlFor={`session-notes-${sessionId}`} className="sr-only">
+                ملاحظات سريعة عن الجلسة
+              </label>
               <textarea
+                id={`session-notes-${sessionId}`}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
