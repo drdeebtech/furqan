@@ -33,14 +33,14 @@ export function TeachersContent({
 }) {
   const { t, lang } = useLang();
 
-  // Decide which name to show on each card. The teacher may have entered an
-  // Arabic spelling (`nameAr`) — prefer it when the visitor is reading in
-  // Arabic. Fallback policy lives below.
+  // Decide which name to show on each card. Prefer the Arabic spelling for
+  // Arabic visitors; fall back to the English name when the teacher hasn't
+  // filled their Arabic name yet — showing a real name beats showing "—".
   function pickDisplayName(teacher: Teacher): string {
-    // TODO(human): when lang is "ar" and teacher.nameAr is null/empty, what
-    // should we show? Options: (a) fall back to teacher.name (English); (b)
-    // show "—"; (c) show teacher.name with a small "(EN)" hint. Pick the one
-    // that matches your tone and return it.
+    if (lang === "ar") {
+      const ar = teacher.nameAr?.trim();
+      if (ar) return ar;
+    }
     return teacher.name;
   }
 
