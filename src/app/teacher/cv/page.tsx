@@ -4,7 +4,9 @@ import { FileText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { CvForm } from "./cv-form";
+import { MyIjazas } from "./my-ijazas";
 import { getAllTeacherPicklists } from "@/lib/site-content/queries";
+import { Award } from "lucide-react";
 
 export const metadata: Metadata = { title: "السيرة الذاتية" };
 
@@ -56,7 +58,7 @@ export default async function TeacherCvPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [profileRes, accountRes, picklists] = await Promise.all([
+  const [profileRes, accountRes, picklists, ijazasRes] = await Promise.all([
     supabase
       .from("teacher_profiles")
       .select(
@@ -70,7 +72,18 @@ export default async function TeacherCvPage() {
       .eq("id", user.id)
       .single<{ avatar_url: string | null; full_name: string | null }>(),
     getAllTeacherPicklists(),
+    supabase
+      .from("teacher_ijaza")
+      .select("id, riwaya, chain_text, granted_by, granted_at, document_url, verified_by, verified_at")
+      .eq("teacher_id", user.id)
+      .order("created_at", { ascending: false })
+      .returns<{
+        id: string; riwaya: string; chain_text: string;
+        granted_by: string | null; granted_at: string | null; document_url: string | null;
+        verified_by: string | null; verified_at: string | null;
+      }[]>(),
   ]);
+  const ijazas = ijazasRes.data ?? [];
 
   const profile = profileRes.data;
   if (!profile) redirect("/teacher/dashboard");
@@ -120,6 +133,21 @@ export default async function TeacherCvPage() {
         fullName={fullName}
         picklists={picklists}
       />
+
+      <div className="glass-card mt-6 p-6">
+        <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold">
+          <Award size={18} className="text-gold" aria-hidden="true" />
+          {t("الإجازات", "Ijazat")}
+          <span className="text-xs font-normal text-muted">({ijazas.length})</span>
+        </h2>
+        <p className="mb-4 text-xs text-muted">
+          {t(
+            "أضف الإجازات التي حصلت عليها وستراجعها الإدارة قبل أن تظهر في ملفك العام. الإجازات الموثقة لا يمكن تعديلها من هنا.",
+            "Submit ijazat you've earned. Admin reviews each one before it appears on your public profile. Verified ijazat can't be edited here.",
+          )}
+        </p>
+        <MyIjazas ijazas={ijazas} />
+      </div>
     </div>
   );
 }
