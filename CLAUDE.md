@@ -15,7 +15,7 @@ Run this at the start of every conversation before committing. Vercel Hobby plan
 # Deployment Rules
 
 - **Platform**: Vercel Hobby plan → furqan.today
-- **Node version**: 20.x (set in `.nvmrc` and `package.json` `engines`). Vercel platform default is now Node 24 LTS — the live project setting also reads `24.x`, but `.nvmrc` wins on the build runner so prod actually runs Node 20. If you intentionally upgrade, change `.nvmrc`, `engines.node`, and the Vercel project setting together.
+- **Node version**: 24.x (set in `.nvmrc` and `package.json` `engines`, matching the Vercel project setting). Aligned 2026-04-27 — was previously split (`.nvmrc=20`, project=`24.x`).
 - After pushing, verify deployment status: `npx vercel ls furqan --prod`
 - If deployment is "Blocked", check git author email matches `drdeebtech@gmail.com`
 - The `vercel.json` has `installCommand: "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install"` — do not remove this
@@ -377,7 +377,7 @@ After any code change:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **furqan** (2644 symbols, 6108 relationships, 198 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **furqan** (2650 symbols, 6111 relationships, 199 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
