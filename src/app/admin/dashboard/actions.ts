@@ -16,13 +16,15 @@ export async function toggleArchiveTeacher(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("teacher_profiles")
     .update({
       is_archived: archive,
       archived_at: archive ? new Date().toISOString() : null,
     } as never)
-    .eq("teacher_id", teacherId);
+    .eq("teacher_id", teacherId)
+    .select("cv_status, is_accepting")
+    .single<{ cv_status: string | null; is_accepting: boolean }>();
 
   if (error) {
     return { error: "حدث خطأ أثناء تحديث المعلم" };
@@ -36,5 +38,15 @@ export async function toggleArchiveTeacher(
   revalidatePath("/admin/teachers");
   revalidatePath(`/admin/teachers/${teacherId}`);
   revalidatePath("/teachers-page");
-  return { success: true };
+
+  // Return the gate-state so the UI can warn admins when a teacher was
+  // unarchived but still won't appear publicly because cv_status isn't
+  // approved or is_accepting is false. Without this, the admin clicks
+  // unarchive, sees success, expects the teacher on the public page,
+  // and is confused when they're still hidden by another gate.
+  return {
+    success: true,
+    cvStatus: data?.cv_status ?? null,
+    isAccepting: data?.is_accepting ?? null,
+  };
 }
