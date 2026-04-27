@@ -6,6 +6,7 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { initBotId } from "botid/client/core";
+import { beforeSend, CLIENT_IGNORE_ERRORS } from "@/lib/sentry/before-send";
 
 const dsn =
   process.env.NEXT_PUBLIC_SENTRY_DSN?.trim() ||
@@ -46,6 +47,8 @@ Sentry.init({
   replaysSessionSampleRate: isProd ? 0.05 : 0,
   replaysOnErrorSampleRate: 1.0,
   sendDefaultPii: true,
+  beforeSend,
+  ignoreErrors: CLIENT_IGNORE_ERRORS,
 });
 
 try {

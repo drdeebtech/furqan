@@ -29,6 +29,7 @@
  * impossible inside a loudAction handler.
  */
 import "server-only";
+import * as Sentry from "@sentry/nextjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTelegramAlert } from "@/lib/n8n/client";
 import { logError } from "@/lib/logger";
@@ -67,6 +68,18 @@ export function loudAction<TInput, THandlerResult extends void | { message?: str
   config: LoudActionConfig<TInput, THandlerResult>,
 ): (input: TInput) => Promise<LoudResult> {
   return async (input: TInput) => {
+    // Drop a breadcrumb so any error captured later in this request includes
+    // the action name in its trail. setTag pins action.name + action.severity
+    // onto the current scope for the duration of the handler.
+    Sentry.addBreadcrumb?.({
+      category: "action",
+      level: "info",
+      message: config.name,
+      data: { severity: config.severity ?? "info" },
+    });
+    Sentry.setTag?.("action.name", config.name);
+    Sentry.setTag?.("action.severity", config.severity ?? "info");
+
     let actorId: string | null = null;
     try {
       if (config.preflight) {
@@ -84,7 +97,11 @@ export function loudAction<TInput, THandlerResult extends void | { message?: str
       return { ok: true, message };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      logError(`loudAction[${config.name}] failed`, err, { tag: "loud-action" });
+      logError(`loudAction[${config.name}] failed`, err, {
+        tag: "loud-action",
+        actionName: config.name,
+        severity: config.severity ?? "info",
+      });
 
       if (config.severity === "critical") {
         await sendTelegramAlert(

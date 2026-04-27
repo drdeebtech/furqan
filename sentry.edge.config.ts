@@ -4,6 +4,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import { beforeSend } from "@/lib/sentry/before-send";
 
 const dsn =
   process.env.SENTRY_DSN?.trim() ||
@@ -14,4 +15,5 @@ Sentry.init({
   tracesSampleRate: process.env.VERCEL_ENV === "production" ? 0.1 : 1,
   enableLogs: true,
   sendDefaultPii: true,
+  beforeSend,
 });

@@ -217,6 +217,98 @@ If a cron run is missed by 2+ minutes or exceeds 5 minutes runtime, Sentry creat
 - **Alert rules** — Sentry defaults are fine for general use, but the platform's critical paths (login, booking, package purchase, session join) should have per-issue alert rules created via Sentry dashboard. ~30 minutes one-time setup.
 - **Distributed tracing across server actions** — Server Components and Server Actions auto-instrument, but explicit `Sentry.startSpan({ name, op })` blocks around domain-boundary operations (createBooking, fulfillPackagePurchase, gradeHomework) would surface span-level latency in the Performance view. Defer until a real perf issue surfaces.
 
+---
+
+## Fantastic-tier error detection (2026-04-27, post-7e53bd6)
+
+The full-power surface (G1–G6) made Sentry alive end-to-end. The next bar is **error-feed quality** — events arrive but are under-tagged, noisy, and slow to triage. This layer adds noise filtering, deployment-context enrichment, automatic class-based grouping, and a typed-error vocabulary for new code.
+
+### G7 — `beforeSend` hook for noise + enrichment
+
+`src/lib/sentry/before-send.ts` is wired into all 3 init configs (server, edge, client). On every captured event:
+
+1. **Drop noise** before it reaches the issue feed:
+   - Stack frames originating in `chrome-extension://`, `moz-extension://`, `safari-web-extension://` (Grammarly, Honey, LastPass, AdGuard, uBlock).
+   - Exact-message matches: `"Non-Error promise rejection captured"`, `"ResizeObserver loop limit exceeded"`, `"Script error."` (Safari cross-origin bogus).
+   - Sentry's own `_sentryDebugIds` echo from extensions that load their own SDK.
+
+2. **Auto-tag `error.kind`** derived from the error class name (`SentryExampleAPIError` → `error.kind: sentry-example-api`, `AuthError` → `error.kind: auth`, `IntegrationError` → `error.kind: integration`). Free filter axis in the issue feed.
+
+3. **Enrich** every event with deployment context:
+   - `vercel.region` (e.g. `iad1`)
+   - `vercel.url` (deployment hostname)
+   - `vercel.env` (`production` / `preview` / `development`)
+
+4. **Redact PII from request URLs**: query params named `token`, `access_token`, `refresh_token`, `id_token`, `code`, `secret`, `password`, `pwd`, `key`, `api_key`, `apikey`, `auth`, `email`, `e`, `session_id` are replaced with `[redacted]` before the event ships.
+
+The browser SDK also gets `ignoreErrors` (CLIENT_IGNORE_ERRORS export) for fast-path drops that don't even reach `beforeSend` — cheaper than handling them downstream.
+
+### G8 — Typed error classes
+
+`src/lib/sentry/errors.ts` exports five tagged error classes with custom `.name` fields so Sentry groups them as distinct issues:
+
+| Class | Use for |
+|---|---|
+| `AuthError` | Login, register, forgot-password, BotID, rate-limit, session-expired |
+| `BookingError` | Validation, scheduling conflict, package balance, time-window |
+| `SessionError` | Daily.co create/join, observer token, recording |
+| `IntegrationError` | n8n, Resend, Telegram, Stripe, CallMeBot upstream failures (carries `upstreamStatus`) |
+| `ValidationError` | zod failures, malformed inputs, type-guard rejects |
+
+Each accepts `(message, { kind?, metadata?, cause? })`. The `kind` arg becomes a sub-tag for further filterability (e.g. `kind: bad-credentials` under `error.kind: auth`).
+
+**New code uses these.** Existing `throw new Error(...)` sites keep working — they just don't get a custom `error.kind` tag. Migration is opt-in.
+
+### G9 — Tag-not-extras for `logError` context
+
+`src/lib/logger.ts` now promotes the keys `tag, domain, route, kind, actionName, component, severity` from the loose `context` argument into Sentry **tags** (filterable in the issue feed) instead of **extras** (which aren't queryable). Other keys still go to extras as before. Zero call-site changes.
+
+### G10 — Auto-tag every server action
+
+`src/lib/actions/loud.ts` now drops a Sentry breadcrumb (`category: action`) on every wrapped action's entry and pins `action.name` + `action.severity` tags onto the current scope. **Every error captured during a `loudAction` handler now reports its action of origin** with no per-call wiring. The breadcrumb trail also makes the chain of actions leading up to a failure visible in the issue's `Breadcrumbs` panel.
+
+### G11 — Domain tag from URL
+
+`src/proxy.ts` now derives a coarse `domain` from the URL pathname's first segment and pins it as a Sentry tag for every request. Mapping:
+
+| URL prefix | `domain` tag |
+|---|---|
+| `/admin/*` | `admin` |
+| `/teacher/*` | `teacher` |
+| `/student/*` | `student` |
+| `/moderator/*` | `moderator` |
+| `/api/*` | `api` |
+| `/login`, `/register`, `/forgot-password` | `auth` |
+| `/teach`, `/teachers-page` | `teachers` |
+| `/blog` | `blog` |
+| `/packages`, `/services` | `packages` |
+| else | `public` |
+
+`logInfo` calls now also drop a breadcrumb so the trail leading to any future error includes the "I expect this is fine" notes that ran beforehand.
+
+### Triage workflow after G7–G11
+
+The Sentry → Issues feed is now multi-axis filterable:
+
+1. **Filter by `domain:admin`** to see only admin-scope errors.
+2. **Add `error.kind:auth`** to narrow further.
+3. **Add `action.name:admin.archive-teacher`** to scope to one specific action.
+4. **Replay attached** on any client error. Stack frame links to source paths (once env-add lands).
+5. **Breadcrumb trail** shows the chain of action names + log lines that ran before the failure.
+
+### Recommended Sentry dashboard alert rules (manual setup, ~30 min)
+
+Sentry-side configuration, not code:
+
+1. **New issue in production** → Telegram (Sentry's Telegram integration consumes `TG_BOT_TOKEN`)
+2. **Issue regressed after release** → Telegram + GitHub PR comment (Sentry's GitHub integration)
+3. **Cron monitor missed** (uses G2 monitors: `cron-audit-cleanup`, `cron-reconciliation`, `cron-email-health`) → Telegram critical
+4. **Error rate spike**: >10 errors/minute in `domain:api` → page admin
+5. **Specific class threshold**: >5 `IntegrationError` issues in 5 min → Telegram (signals upstream provider outage)
+6. **Replay-attached error**: any error with a Replay session ≥ 30s of activity → expedite triage queue
+
+These don't need code; they're created in https://furqan-academy.sentry.io/alerts/rules/.
+
 ## Notes on operational onboarding
 
 After deploy:

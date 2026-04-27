@@ -1,18 +1,43 @@
 import * as Sentry from "@sentry/nextjs";
 
+// Keys we promote from the loose context into Sentry tags (filterable in the
+// issue feed) instead of into extras (which are not). Everything else stays
+// in extras as-is.
+const TAG_KEYS = new Set(["tag", "domain", "route", "kind", "actionName", "component", "severity"]);
+
+function splitTagsAndExtras(context: Record<string, unknown> | undefined) {
+  if (!context) return { tags: undefined, extras: undefined };
+  const tags: Record<string, string> = {};
+  const extras: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(context)) {
+    if (v === undefined || v === null) continue;
+    if (TAG_KEYS.has(k)) tags[k] = typeof v === "string" ? v : String(v);
+    else extras[k] = v;
+  }
+  return {
+    tags: Object.keys(tags).length > 0 ? tags : undefined,
+    extras: Object.keys(extras).length > 0 ? extras : undefined,
+  };
+}
+
 /**
  * Centralized error logger. Routes to Sentry when SENTRY_DSN is set,
  * falls back to console.error otherwise. Use this instead of `console.error`
  * in server code so ops sees a grouped, alertable error instead of a noisy
  * function log entry.
  *
+ * Promoted-to-tag context keys (filterable in Sentry):
+ *   tag, domain, route, kind, actionName, component, severity
+ * Everything else lands in extras.
+ *
  * Client-side use is also safe — Sentry's browser SDK initializes the same way.
  */
 export function logError(message: string, error: unknown, context?: Record<string, unknown>): void {
   if (process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN) {
+    const { tags, extras } = splitTagsAndExtras(context);
     Sentry.captureException(error, {
-      extra: { message, ...(context ?? {}) },
-      tags: context?.tag ? { tag: String(context.tag) } : undefined,
+      extra: { message, ...(extras ?? {}) },
+      tags,
     });
   } else {
     // Fallback when Sentry is not configured (dev / preview without DSN)
@@ -61,6 +86,15 @@ export function logWarn(message: string, context?: Record<string, unknown>): voi
  * a record": cron started/finished, feature flag flipped, retry succeeded.
  */
 export function logInfo(message: string, context?: Record<string, unknown>): void {
+  // Always leave a breadcrumb so the next captured error has a trail of the
+  // "I expect this is fine" notes that ran beforehand.
+  Sentry.addBreadcrumb?.({
+    category: "log",
+    level: "info",
+    message,
+    data: context,
+  });
+
   const sentryLogger = Sentry.logger as undefined | { info?: (msg: string, attrs?: Record<string, unknown>) => void };
   if (sentryLogger?.info) {
     sentryLogger.info(message, (context ?? {}) as Record<string, unknown>);

@@ -1,7 +1,21 @@
 import { NextResponse, type NextRequest } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { updateSession } from "@/lib/supabase/middleware";
 import { setSentryUser } from "@/lib/sentry/context";
 import type { UserRole } from "@/types/database";
+
+// Map URL prefix → coarse domain tag for Sentry filtering.
+function deriveDomain(pathname: string): string {
+  const seg = pathname.split("/")[1] ?? "";
+  if (!seg) return "public";
+  if (seg === "admin" || seg === "moderator" || seg === "teacher" || seg === "student") return seg;
+  if (seg === "api") return "api";
+  if (seg === "login" || seg === "register" || seg === "forgot-password") return "auth";
+  if (seg === "teach" || seg === "teachers-page") return "teachers";
+  if (seg === "blog") return "blog";
+  if (seg === "packages" || seg === "services") return "packages";
+  return "public";
+}
 
 const PROTECTED_ROUTES: Record<string, UserRole> = {
   "/student": "student",
@@ -45,8 +59,10 @@ export async function proxy(request: NextRequest) {
   const { supabaseResponse, user, supabase } = await updateSession(request);
   const { pathname } = request.nextUrl;
 
-  // Tag every Sentry event from this request with the authenticated user's id.
-  // Cheap (no DB hit) — role is added below once we look it up.
+  // Tag every Sentry event from this request with the authenticated user's id
+  // and a coarse domain derived from the URL. Cheap — no DB hit.
+  // Role is layered on below once we look it up.
+  Sentry.setTag?.("domain", deriveDomain(pathname));
   if (user) {
     setSentryUser(user.id);
   }
