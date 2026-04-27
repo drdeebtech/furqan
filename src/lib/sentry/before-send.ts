@@ -47,6 +47,26 @@ const NOISE_MESSAGE_EXACT = new Set<string>([
   "User is banned",
 ]);
 
+// Error class names that are residue from the deleted Sentry-wizard test
+// routes. The routes are 404 in production now, but if anyone ever re-adds
+// them or replays an old event, drop these so they don't pollute the feed.
+const NOISE_ERROR_NAMES = new Set<string>([
+  "SentryExampleAPIError",
+  "SentryExampleFrontendError",
+]);
+
+// Messages we want VISIBLE in Sentry (not filtered) but NOT triggering the
+// high-priority alert rule. Downgraded to "warning" level. Use sparingly —
+// each entry is a "this is signal, but cron/Telegram already pages on the
+// underlying issue, no need to wake anyone up twice" decision.
+const DEMOTE_TO_WARNING = [
+  // Resend SMTP hiccups — the daily cron-email-health probe already pages
+  // when the key is genuinely broken. A single "send failed" is usually a
+  // transient blip.
+  /^Error sending recovery email$/,
+  /^Error sending confirmation email$/,
+];
+
 // Query parameters that may carry secrets/PII. Stripped from event request URLs.
 const SENSITIVE_QUERY_KEYS = new Set([
   "token",
@@ -75,6 +95,14 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
       : undefined) ?? event.message;
   if (msg && NOISE_MESSAGE_EXACT.has(msg)) return true;
 
+  // Error class names from removed Sentry-wizard test routes.
+  const exType = event.exception?.values?.[0]?.type;
+  if (exType && NOISE_ERROR_NAMES.has(exType)) return true;
+  if (ex && typeof ex === "object" && "name" in ex) {
+    const name = (ex as { name?: unknown }).name;
+    if (typeof name === "string" && NOISE_ERROR_NAMES.has(name)) return true;
+  }
+
   // Stack-frame noise.
   const frames = event.exception?.values?.[0]?.stacktrace?.frames ?? [];
   for (const f of frames) {
@@ -86,6 +114,23 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
   }
 
   return false;
+}
+
+// Downgrade certain expected-but-noteworthy errors from "error" to "warning"
+// level so the high-priority alert rule (`level:error AND priority:high`)
+// stops paging on them, while keeping them visible in the issue feed.
+function maybeDemote(event: ErrorEvent, hint: EventHint): void {
+  const ex = hint.originalException;
+  const msg =
+    (typeof ex === "object" && ex && "message" in ex && typeof (ex as { message?: unknown }).message === "string"
+      ? (ex as { message: string }).message
+      : undefined) ?? event.message ?? "";
+  for (const pattern of DEMOTE_TO_WARNING) {
+    if (pattern.test(msg)) {
+      event.level = "warning";
+      return;
+    }
+  }
 }
 
 function deriveErrorKind(event: ErrorEvent, hint: EventHint): string | undefined {
@@ -154,6 +199,7 @@ export function beforeSend(event: ErrorEvent, hint: EventHint): ErrorEvent | nul
   if (shouldDrop(event, hint)) return null;
   enrichTags(event, hint);
   redactRequestUrl(event);
+  maybeDemote(event, hint);
   return event;
 }
 
