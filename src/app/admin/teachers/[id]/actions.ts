@@ -49,6 +49,7 @@ export async function updateAccount(
     .from("profiles")
     .update({
       full_name: str(formData, "full_name"),
+      full_name_ar: str(formData, "full_name_ar"),
       phone: str(formData, "phone"),
       country: str(formData, "country"),
       timezone: str(formData, "timezone"),

@@ -16,6 +16,7 @@ interface AccountFormProps {
   currentEmail: string;
   profile: {
     full_name: string | null;
+    full_name_ar: string | null;
     phone: string | null;
     country: string | null;
     timezone: string | null;
@@ -105,7 +106,8 @@ export function AccountForm({ teacherId, currentEmail, profile }: AccountFormPro
         )}
 
         <form action={accountFormAction} className="grid gap-4 md:grid-cols-2">
-          <Field label="الاسم الكامل" hint="Full name" name="full_name" defaultValue={profile.full_name ?? ""} />
+          <Field label="الاسم الكامل" hint="Full name (English)" name="full_name" defaultValue={profile.full_name ?? ""} />
+          <Field label="الاسم بالعربية" hint="Arabic name (manual — shown to Arabic visitors)" name="full_name_ar" defaultValue={profile.full_name_ar ?? ""} />
           <Field label="رقم الجوال" hint="Phone" name="phone" defaultValue={profile.phone ?? ""} ltr />
           <Field label="الدولة" hint="Country" name="country" defaultValue={profile.country ?? ""} />
           <Field label="المنطقة الزمنية" hint="Timezone" name="timezone" defaultValue={profile.timezone ?? ""} ltr placeholder="Africa/Cairo" />

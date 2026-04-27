@@ -47,7 +47,7 @@ export default async function TeacherDetailPage({ params, searchParams }: Props)
     supabase
       .from("profiles")
       .select(
-        "id, full_name, phone, country, timezone, lang, avatar_url, date_of_birth, parent_name, parent_phone, parent_email, is_active",
+        "id, full_name, full_name_ar, phone, country, timezone, lang, avatar_url, date_of_birth, parent_name, parent_phone, parent_email, is_active",
       )
       .eq("id", id)
       .single(),
@@ -180,7 +180,7 @@ export default async function TeacherDetailPage({ params, searchParams }: Props)
         <AccountForm
           teacherId={id}
           currentEmail={currentEmail}
-          profile={profile}
+          profile={profile as typeof profile & { full_name_ar: string | null }}
         />
       )}
 

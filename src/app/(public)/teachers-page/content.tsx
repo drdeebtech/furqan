@@ -6,22 +6,12 @@ import { useLang } from "@/lib/i18n/context";
 import { Testimonials } from "@/components/public/testimonials";
 import { RegisterBanner } from "@/components/public/register-banner";
 
-const SPECIALTY: Record<string, { ar: string; en: string }> = {
-  hifz: { ar: "حفظ", en: "Hifz" }, muraja: { ar: "مراجعة", en: "Revision" },
-  tajweed: { ar: "تجويد", en: "Tajweed" }, tilawa: { ar: "تلاوة", en: "Tilawa" },
-  qiraat: { ar: "قراءات", en: "Qira'at" }, tafsir: { ar: "تفسير", en: "Tafsir" },
-  combined: { ar: "حفظ + مراجعة", en: "Hifz + Revision" }, other: { ar: "أخرى", en: "Other" },
-};
-
-const RIWAYA: Record<string, { ar: string; en: string }> = {
-  hafs: { ar: "حفص", en: "Hafs" }, warsh: { ar: "ورش", en: "Warsh" },
-  qalon: { ar: "قالون", en: "Qalun" }, al_duri: { ar: "الدوري", en: "Al-Duri" },
-  shu_ba: { ar: "شعبة", en: "Shu'ba" },
-};
+type LabelMap = Record<string, { ar: string; en: string }>;
 
 interface Teacher {
   id: string;
   name: string;
+  nameAr: string | null;
   avatarUrl: string | null;
   bio: string | null;
   specialties: string[];
@@ -32,8 +22,27 @@ interface Teacher {
   gender: string | null;
 }
 
-export function TeachersContent({ teachers }: { teachers: Teacher[] }) {
-  const { t } = useLang();
+export function TeachersContent({
+  teachers,
+  specialtyLabels,
+  recitationLabels,
+}: {
+  teachers: Teacher[];
+  specialtyLabels: LabelMap;
+  recitationLabels: LabelMap;
+}) {
+  const { t, lang } = useLang();
+
+  // Decide which name to show on each card. The teacher may have entered an
+  // Arabic spelling (`nameAr`) — prefer it when the visitor is reading in
+  // Arabic. Fallback policy lives below.
+  function pickDisplayName(teacher: Teacher): string {
+    // TODO(human): when lang is "ar" and teacher.nameAr is null/empty, what
+    // should we show? Options: (a) fall back to teacher.name (English); (b)
+    // show "—"; (c) show teacher.name with a small "(EN)" hint. Pick the one
+    // that matches your tone and return it.
+    return teacher.name;
+  }
 
   return (
     <div>
@@ -67,7 +76,9 @@ export function TeachersContent({ teachers }: { teachers: Teacher[] }) {
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {teachers.map((teacher) => (
+              {teachers.map((teacher) => {
+                const displayName = pickDisplayName(teacher);
+                return (
                 <div
                   key={teacher.id}
                   id={`teacher-${teacher.id}`}
@@ -77,16 +88,16 @@ export function TeachersContent({ teachers }: { teachers: Teacher[] }) {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={teacher.avatarUrl}
-                      alt={teacher.name}
+                      alt={displayName}
                       className="h-20 w-20 rounded-full border-2 border-gold/40 object-cover"
                       loading="lazy"
                     />
                   ) : (
                     <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-gold/30 bg-gold/10 font-display text-2xl font-bold text-gold">
-                      {teacher.name.charAt(0)}
+                      {displayName.charAt(0)}
                     </div>
                   )}
-                  <h2 className="mt-4 text-lg font-bold">{teacher.name}</h2>
+                  <h2 className="mt-4 text-lg font-bold">{displayName}</h2>
                   {teacher.bio && (
                     <p className="mt-1 text-sm text-muted">
                       {teacher.bio.length > 100 ? teacher.bio.slice(0, 100) + "…" : teacher.bio}
@@ -100,7 +111,7 @@ export function TeachersContent({ teachers }: { teachers: Teacher[] }) {
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {teacher.specialties.map((s) => (
                         <span key={s} className="glass-badge px-2.5 py-0.5 text-xs text-muted">
-                          {SPECIALTY[s] ? t(SPECIALTY[s].ar, SPECIALTY[s].en) : s}
+                          {specialtyLabels[s] ? t(specialtyLabels[s].ar, specialtyLabels[s].en) : s}
                         </span>
                       ))}
                     </div>
@@ -110,7 +121,7 @@ export function TeachersContent({ teachers }: { teachers: Teacher[] }) {
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {[...new Set(teacher.recitationStandards)].map((r) => (
                         <span key={r} className="glass-badge px-2 py-0.5 text-xs text-muted">
-                          {RIWAYA[r] ? t(RIWAYA[r].ar, RIWAYA[r].en) : r}
+                          {recitationLabels[r] ? t(recitationLabels[r].ar, recitationLabels[r].en) : r}
                         </span>
                       ))}
                     </div>
@@ -134,7 +145,8 @@ export function TeachersContent({ teachers }: { teachers: Teacher[] }) {
                     {t("احجز مع هذا المعلم", "Book with this Teacher")}
                   </Link>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

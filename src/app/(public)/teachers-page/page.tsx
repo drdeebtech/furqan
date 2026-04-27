@@ -40,23 +40,40 @@ export default async function TeachersPage() {
   const teachers = teacherProfiles ?? [];
 
   let nameMap: Record<string, string> = {};
+  let nameArMap: Record<string, string | null> = {};
   let avatarMap: Record<string, string | null> = {};
   if (teachers.length > 0) {
     const ids = teachers.map(t => t.teacher_id);
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, full_name, avatar_url")
+      .select("id, full_name, full_name_ar, avatar_url")
       .in("id", ids)
-      .returns<{ id: string; full_name: string | null; avatar_url: string | null }[]>();
+      .returns<{ id: string; full_name: string | null; full_name_ar: string | null; avatar_url: string | null }[]>();
     if (profiles) {
       nameMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name ?? "—"]));
+      nameArMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name_ar ?? null]));
       avatarMap = Object.fromEntries(profiles.map(p => [p.id, p.avatar_url ?? null]));
     }
   }
 
+  // Bilingual label maps from DB (teacher_specialties + teacher_recitations).
+  // We pass these to the client so the card can render Arabic/English without
+  // hardcoded constants. Falls back to the raw key if the DB row was deleted.
+  // Cast: tables added in v15_008, src/types/database.ts not yet regenerated.
+  type LabelRow = { key: string; label_ar: string; label_en: string };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabase as any;
+  const [specRes, recRes] = await Promise.all([
+    sb.from("teacher_specialties").select("key, label_ar, label_en").eq("is_active", true) as Promise<{ data: LabelRow[] | null }>,
+    sb.from("teacher_recitations").select("key, label_ar, label_en").eq("is_active", true) as Promise<{ data: LabelRow[] | null }>,
+  ]);
+  const specialtyLabels = Object.fromEntries((specRes.data ?? []).map((r: LabelRow) => [r.key, { ar: r.label_ar, en: r.label_en }]));
+  const recitationLabels = Object.fromEntries((recRes.data ?? []).map((r: LabelRow) => [r.key, { ar: r.label_ar, en: r.label_en }]));
+
   const teacherData = teachers.map(t => ({
     id: t.teacher_id,
     name: nameMap[t.teacher_id] ?? "—",
+    nameAr: nameArMap[t.teacher_id] ?? null,
     avatarUrl: avatarMap[t.teacher_id] ?? null,
     bio: t.bio,
     specialties: t.specialties,
@@ -67,5 +84,5 @@ export default async function TeachersPage() {
     gender: t.gender,
   }));
 
-  return <TeachersContent teachers={teacherData} />;
+  return <TeachersContent teachers={teacherData} specialtyLabels={specialtyLabels} recitationLabels={recitationLabels} />;
 }
