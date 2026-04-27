@@ -15,7 +15,7 @@ Run this at the start of every conversation before committing. Vercel Hobby plan
 # Deployment Rules
 
 - **Platform**: Vercel Hobby plan → furqan.today
-- **Node version**: 20.x (set in `.nvmrc`, do NOT use 24.x)
+- **Node version**: 20.x (set in `.nvmrc` and `package.json` `engines`). Vercel platform default is now Node 24 LTS — the live project setting also reads `24.x`, but `.nvmrc` wins on the build runner so prod actually runs Node 20. If you intentionally upgrade, change `.nvmrc`, `engines.node`, and the Vercel project setting together.
 - After pushing, verify deployment status: `npx vercel ls furqan --prod`
 - If deployment is "Blocked", check git author email matches `drdeebtech@gmail.com`
 - The `vercel.json` has `installCommand: "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install"` — do not remove this
@@ -143,6 +143,18 @@ booking.created, booking.confirmed, booking.cancelled, session.ended, session.no
 | `STRIPE_SECRET_KEY` | Stripe payments (deferred) |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe client (deferred) |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook (deferred) |
+| `SENTRY_DSN` | Sentry server/edge ingest (DE region) |
+| `NEXT_PUBLIC_SENTRY_DSN` | Sentry browser ingest (publicly bundled) |
+| `CRON_SECRET` | Bearer token gating `/api/cron/*` against unauthenticated hits |
+| `RESEND_FROM_EMAIL` | "From" header for transactional email |
+| `N8N_HEALTHCHECK_URL` | Endpoint hit by `/api/cron/n8n-healthcheck` |
+| `NEXT_PUBLIC_N8N_UI_URL` | Link target from `/admin/n8n` to the n8n UI |
+| `CALLMEBOT_KEY_EG` | CallMeBot API key (Egypt WhatsApp routing) |
+| `CALLMEBOT_KEY_KW` | CallMeBot API key (Kuwait WhatsApp routing) |
+| `CALLMEBOT_PHONE_EG` | CallMeBot recipient phone (Egypt) |
+| `CALLMEBOT_PHONE_KW` | CallMeBot recipient phone (Kuwait) |
+
+> This table is the source of truth. If you add `process.env.X` to code, add `X` here in the same PR. Run `npx vercel env ls` to verify each is set in Production / Preview / Development.
 
 ## Coding Patterns
 - All server actions use `"use server"` directive
@@ -365,7 +377,7 @@ After any code change:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **furqan** (2613 symbols, 6074 relationships, 196 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **furqan** (2618 symbols, 6079 relationships, 196 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

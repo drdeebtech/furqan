@@ -10,8 +10,20 @@
       "schedule": "0 3 * * *"
     },
     {
+      "path": "/api/cron/retention-score",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/cache-clear",
+      "schedule": "0 5 * * *"
+    },
+    {
       "path": "/api/cron/email-health",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/n8n-healthcheck",
+      "schedule": "*/15 * * * *"
     }
   ],
   "headers": [

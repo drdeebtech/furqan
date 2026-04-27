@@ -36,6 +36,12 @@ export const maxDuration = 60;
  * The fulfillment logic is already wired — only the Stripe SDK glue is pending.
  */
 export async function POST(request: Request) {
+  // Stripe is deferred until keys are provisioned. Reject early so unconfigured
+  // production traffic doesn't spawn fulfillment logic on un-verifiable payloads.
+  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
+    return NextResponse.json({ error: "Stripe not configured" }, { status: 503 });
+  }
+
   const body = await request.text();
 
   // TODO(Sprint 1): Verify Stripe signature

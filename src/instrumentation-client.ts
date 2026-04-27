@@ -24,28 +24,25 @@ initBotId({
   ],
 });
 
-Sentry.init({
-  dsn: "https://3e6ba831bf5a932017cd9999e2b066ac@o4511287545954304.ingest.de.sentry.io/4511287551197264",
+const isProd = process.env.NEXT_PUBLIC_VERCEL_ENV === "production";
 
-  // Add optional integrations for additional features
+Sentry.init({
+  dsn:
+    process.env.NEXT_PUBLIC_SENTRY_DSN ??
+    "https://3e6ba831bf5a932017cd9999e2b066ac@o4511287545954304.ingest.de.sentry.io/4511287551197264",
+
   integrations: [Sentry.replayIntegration()],
 
-  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
-  // Enable logs to be sent to Sentry
+  tracesSampleRate: isProd ? 0.1 : 1,
+
   enableLogs: true,
 
-  // Define how likely Replay events are sampled.
-  // Lowered from the wizard's default 0.1 (10%) → 0.05 (5%) so we don't
-  // burn through Sentry's free-tier session quota during normal traffic.
-  // 100% of *error* sessions still record (replaysOnErrorSampleRate).
-  replaysSessionSampleRate: 0.05,
+  // 5% of normal sessions in production; off in dev/preview to save quota.
+  replaysSessionSampleRate: isProd ? 0.05 : 0,
 
-  // Define how likely Replay events are sampled when an error occurs.
+  // Always record sessions surrounding an error.
   replaysOnErrorSampleRate: 1.0,
 
-  // Enable sending user PII (Personally Identifiable Information)
-  // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: true,
 });
 
