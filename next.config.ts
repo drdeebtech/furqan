@@ -26,19 +26,24 @@ const nextConfig: NextConfig = {
 const wrapped = withBundleAnalyzer(withBotId(nextConfig));
 
 /**
- * Sentry wraps the outermost config. When SENTRY_DSN is not set, we skip the
- * wrapper entirely so there is zero build-time or runtime cost and no source
- * maps are uploaded. Flip the env var on to activate Sentry — no code changes
- * required. `silent: true` keeps build logs clean when it is active without a
- * configured auth token.
+ * Sentry always wraps the outermost config so client-side instrumentation
+ * (replay, transaction tracing, error boundary glue) ships on every build.
+ * When SENTRY_AUTH_TOKEN is missing the plugin no-ops on the upload side,
+ * so it is safe to run unconditionally.
+ *
+ * Source-map upload is owned by `scripts/sentry-release.sh` (see vercel.json
+ * buildCommand). The plugin's auto-upload is disabled here to avoid
+ * double-uploading.
+ *
+ * `tunnelRoute: "/monitoring"` proxies browser events through this app's
+ * own origin, side-stepping ad-blockers and tightening CSP exposure.
  */
-const shouldEnableSentry = Boolean(process.env.SENTRY_DSN);
-
-export default shouldEnableSentry
-  ? withSentryConfig(wrapped, {
-      silent: true,
-      org: process.env.SENTRY_ORG,
-      project: process.env.SENTRY_PROJECT,
-      authToken: process.env.SENTRY_AUTH_TOKEN,
-    })
-  : wrapped;
+export default withSentryConfig(wrapped, {
+  silent: true,
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  widenClientFileUpload: true,
+  tunnelRoute: "/monitoring",
+  sourcemaps: { disable: true },
+});
