@@ -5,6 +5,7 @@ import { GraduationCap, Plus, Star, Inbox, FileText, Archive, CheckCircle2, Cloc
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { buildNameMap } from "@/lib/admin/name-map";
+import { ArchiveToggle } from "../dashboard/archive-toggle";
 
 export const metadata: Metadata = { title: "إدارة المعلمين" };
 
@@ -84,9 +85,10 @@ export default async function AdminTeachersPage() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                       <Link href={`/admin/teachers/${x.teacher_id}`} className="text-xs text-gold hover:text-gold-light">{t("تفاصيل", "Details")}</Link>
                       <Link href={`/admin/teachers/cv/${x.teacher_id}`} className="text-xs text-gold hover:text-gold-light">{t("السيرة", "CV")}</Link>
+                      <ArchiveToggle teacherId={x.teacher_id} isArchived={x.is_archived} />
                     </div>
                   </td>
                 </tr>

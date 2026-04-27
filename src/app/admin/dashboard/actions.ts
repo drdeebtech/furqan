@@ -28,6 +28,13 @@ export async function toggleArchiveTeacher(
     return { error: "حدث خطأ أثناء تحديث المعلم" };
   }
 
+  // Toggle now reachable from /admin/teachers list + /admin/teachers/[id]
+  // detail too, so invalidate all three admin surfaces. Also bust the
+  // ISR cache on the public teachers page so unarchived teachers appear
+  // there within seconds instead of waiting for the 5-min revalidate.
   revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/teachers");
+  revalidatePath(`/admin/teachers/${teacherId}`);
+  revalidatePath("/teachers-page");
   return { success: true };
 }
