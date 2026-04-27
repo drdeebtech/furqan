@@ -113,6 +113,34 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
     }
   }
 
+  // Network-jitter noise from Next.js Server Actions. When a user's
+  // connection drops mid-request, the App Router's fetchServerAction
+  // throws `TypeError: Load failed` and sometimes triggers a sibling
+  // `Rendered more hooks than during the previous render` from the
+  // reducer's recovery path — both with zero in-app frames (everything
+  // is in node_modules/next/...). Real fix is on the user's network,
+  // not in our code, and the page redirects/reloads cleanly anyway.
+  // Drop both signatures.
+  if (exType === "TypeError" && msg === "Load failed") {
+    for (const f of frames) {
+      const filename = f.filename ?? "";
+      const fn = f.function ?? "";
+      if (
+        filename.includes("server-action-reducer") ||
+        fn === "fetchServerAction"
+      ) return true;
+    }
+  }
+  if (
+    msg === "Rendered more hooks than during the previous render." ||
+    msg === "Minified React error #310; visit https://react.dev/errors/310 for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
+  ) {
+    // If 100% of frames are inside node_modules, this is the same
+    // network-recovery class as above — not a user-code hooks bug.
+    const hasInApp = frames.some((f) => f.in_app === true);
+    if (!hasInApp) return true;
+  }
+
   return false;
 }
 
