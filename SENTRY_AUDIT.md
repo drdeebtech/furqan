@@ -152,6 +152,71 @@ Client uses `process.env.NEXT_PUBLIC_VERCEL_ENV`; server uses `process.env.VERCE
 - **Sentry release health adoption metrics** (sessions, deploy markers visible on Issues page) — separate uplift
 - **Sentry alert rules** — currently default; specific alert rules for critical paths (auth, payments, session lifecycle) are a separate task
 
+---
+
+## Full-power activation (2026-04-27, post-fix)
+
+After F1–F6 landed and the client SDK started binding events end-to-end, we wired the rest of Sentry's surface area for "full power" coverage. None of these are bug fixes — they're features that were available but not consumed.
+
+### G1 — User context attached to every error
+
+`src/lib/sentry/context.ts` exposes `setSentryUser(userId, role?)`. The proxy (`src/proxy.ts`) calls it as soon as Supabase auth resolves — once with id alone, then again with role after the cached `getUserRole` lookup. Every Sentry event from this request carries `user.id` + `user.segment=role` for filtering and per-user issue grouping.
+
+### G2 — Cron monitoring (Sentry → Crons tab)
+
+`src/lib/sentry/cron.ts` exposes `withCronMonitor(slug, schedule, handler)`. Wraps each scheduled cron route so Sentry knows the expected cadence:
+- `/api/cron/audit-cleanup` → `cron-audit-cleanup` @ `0 2 * * *`
+- `/api/cron/reconciliation` → `cron-reconciliation` @ `0 3 * * *`
+- `/api/cron/email-health` → `cron-email-health` @ `0 6 * * *`
+
+If a cron run is missed by 2+ minutes or exceeds 5 minutes runtime, Sentry creates an issue. Unscheduled handlers (cache-clear, n8n-healthcheck, retention-score) are deliberately NOT wrapped — they're manual-trigger-only on Hobby tier and would generate false-positive missed-cron alerts.
+
+### G3 — Structured logs via `Sentry.logger`
+
+`logWarn` and the new `logInfo` in `src/lib/logger.ts` route through `Sentry.logger.{warn,info}` when available. This sends entries to Sentry's **Logs** stream (separate from Issues) — a filterable, retention-managed firehose. Use `logInfo` for "I expect this is fine but want a record" cases (cron started, retry succeeded, feature flag flipped). `logError` still goes to Issues + Telegram on critical.
+
+### G4 — User Feedback widget
+
+`Sentry.feedbackIntegration()` in `instrumentation-client.ts` adds a floating "أبلغ عن مشكلة" button on every production page. Users describe a bug in their own words; Sentry creates a feedback issue with the user's session replay attached. `autoInject: isProd` keeps it out of dev/preview to avoid distracting contributors.
+
+### G5 — CSP violation reports
+
+`vercel.json` CSP now includes `report-uri https://o4511287545954304.ingest.de.sentry.io/api/4511287551197264/security/?sentry_key=...`. Any future CSP violation in any user's browser is shipped as a Sentry event automatically — zero client code, zero runtime cost.
+
+### G6 — Release tagging + source-map upload (operationally complete)
+
+`scripts/sentry-release.sh` runs after `next build` (per `vercel.json` `buildCommand`). Once the three Vercel build envs are set, every deploy:
+- Creates a Sentry release matching `VERCEL_GIT_COMMIT_SHA`
+- Associates commits via `set-commits --auto` (falls back to `--local`)
+- Injects + uploads source maps for `.next/`
+- Records a deploy marker on the release
+
+`scripts/sentry-env-setup.sh` prints the three `vercel env add` commands the user needs to run (one-time, ~3 minutes). Token already on disk in `.env.sentry-build-plugin`.
+
+### What's now covered end-to-end
+
+| Surface | Status |
+|---|---|
+| Server errors | ✅ |
+| Edge runtime errors | ✅ |
+| Browser errors | ✅ (post-F2) |
+| App Router transition tracing | ✅ |
+| Session Replay (PII-masked) | ✅ |
+| Tunnel route (`/monitoring`) | ✅ |
+| User context on events | ✅ (G1) |
+| Cron monitoring | ✅ (G2) |
+| Structured logs | ✅ (G3) |
+| User feedback widget | ✅ (G4) |
+| CSP violation reports | ✅ (G5) |
+| Release tagging | ✅ (G6 — pending env-add) |
+| Source maps in stack traces | ⏳ pending env-add (G6) |
+
+### Still open
+
+- **Source maps in production stack traces** — needs `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` in Vercel build env. Run `bash scripts/sentry-env-setup.sh` for the exact commands.
+- **Alert rules** — Sentry defaults are fine for general use, but the platform's critical paths (login, booking, package purchase, session join) should have per-issue alert rules created via Sentry dashboard. ~30 minutes one-time setup.
+- **Distributed tracing across server actions** — Server Components and Server Actions auto-instrument, but explicit `Sentry.startSpan({ name, op })` blocks around domain-boundary operations (createBooking, fulfillPackagePurchase, gradeHomework) would surface span-level latency in the Performance view. Defer until a real perf issue surfaces.
+
 ## Notes on operational onboarding
 
 After deploy:

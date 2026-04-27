@@ -37,11 +37,36 @@ export function logError(message: string, error: unknown, context?: Record<strin
 /**
  * Non-error warnings (missing optional config, skipped side-effects).
  * These never throw and don't page anyone — just visible in logs.
+ *
+ * Routes through Sentry's structured logger when available (server config
+ * has `enableLogs: true`), so messages land in Sentry → Logs tab as a
+ * filterable stream rather than as one-off issues.
  */
 export function logWarn(message: string, context?: Record<string, unknown>): void {
+  const sentryLogger = Sentry.logger as undefined | { warn?: (msg: string, attrs?: Record<string, unknown>) => void };
+  if (sentryLogger?.warn) {
+    sentryLogger.warn(message, (context ?? {}) as Record<string, unknown>);
+    return;
+  }
   if (process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN) {
     Sentry.captureMessage(message, { level: "warning", extra: context });
     return;
   }
   console.warn(message, context);
+}
+
+/**
+ * Informational log line. Goes to Sentry → Logs (NOT Issues), so heavy use
+ * doesn't drown the issue feed. Use for "I expect this is fine but want
+ * a record": cron started/finished, feature flag flipped, retry succeeded.
+ */
+export function logInfo(message: string, context?: Record<string, unknown>): void {
+  const sentryLogger = Sentry.logger as undefined | { info?: (msg: string, attrs?: Record<string, unknown>) => void };
+  if (sentryLogger?.info) {
+    sentryLogger.info(message, (context ?? {}) as Record<string, unknown>);
+    return;
+  }
+  if (process.env.NODE_ENV !== "production") {
+    console.info(message, context);
+  }
 }

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { setSentryUser } from "@/lib/sentry/context";
 import type { UserRole } from "@/types/database";
 
 const PROTECTED_ROUTES: Record<string, UserRole> = {
@@ -44,12 +45,19 @@ export async function proxy(request: NextRequest) {
   const { supabaseResponse, user, supabase } = await updateSession(request);
   const { pathname } = request.nextUrl;
 
+  // Tag every Sentry event from this request with the authenticated user's id.
+  // Cheap (no DB hit) — role is added below once we look it up.
+  if (user) {
+    setSentryUser(user.id);
+  }
+
   // Allow public routes and static assets
   if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
     // Redirect authenticated users away from auth pages
     if (user) {
       const role = await getUserRole(supabase, user.id);
       if (role) {
+        setSentryUser(user.id, role);
         const dashboard = role === "moderator" ? "/moderator/dashboard" : `/${role}/dashboard`;
         return NextResponse.redirect(new URL(dashboard, request.url));
       }
@@ -70,6 +78,9 @@ export async function proxy(request: NextRequest) {
 
     // Fetch user role
     const role = await getUserRole(supabase, user.id);
+
+    // Refresh Sentry scope with the role for any errors in the handler below.
+    setSentryUser(user.id, role);
 
     // Admin can access moderator routes
     if (prefix === "/moderator" && role === "admin") {

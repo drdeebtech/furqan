@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { logError } from "@/lib/logger";
+import { withCronMonitor } from "@/lib/sentry/cron";
 
 function safeCompare(a: string | null, b: string | undefined): boolean {
   if (!a || !b) return false;
@@ -27,7 +28,7 @@ function safeCompare(a: string | null, b: string | undefined): boolean {
  * Vercel Cron sends `Authorization: Bearer ${CRON_SECRET}` automatically.
  * Also accepts X-N8N-Secret so n8n can pull the trigger if needed.
  */
-export async function GET(request: Request) {
+export const GET = withCronMonitor("cron-email-health", "0 6 * * *", async (request: Request) => {
   const cronAuth = request.headers.get("authorization");
   const expectedCron = `Bearer ${process.env.CRON_SECRET}`;
   const cronOk = !!process.env.CRON_SECRET && cronAuth === expectedCron;
@@ -100,4 +101,4 @@ export async function GET(request: Request) {
     const msg = err instanceof Error ? err.message : "unknown";
     return NextResponse.json({ ok: false, reason: "fetch-threw", message: msg }, { status: 200 });
   }
-}
+});

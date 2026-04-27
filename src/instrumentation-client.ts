@@ -21,6 +21,25 @@ Sentry.init({
       maskAllInputs: true,
       blockAllMedia: true,
     }),
+    // User Feedback widget — adds a floating "Report a problem" button.
+    // Auto-injects globally; users can describe a bug in their own words
+    // and Sentry creates a feedback issue with their session replay attached.
+    Sentry.feedbackIntegration({
+      colorScheme: "system",
+      showBranding: false,
+      autoInject: isProd,
+      triggerLabel: "أبلغ عن مشكلة",
+      formTitle: "أبلغ عن مشكلة",
+      submitButtonLabel: "إرسال",
+      cancelButtonLabel: "إلغاء",
+      nameLabel: "الاسم",
+      namePlaceholder: "اسمك",
+      emailLabel: "البريد الإلكتروني",
+      emailPlaceholder: "بريدك الإلكتروني",
+      messageLabel: "الوصف",
+      messagePlaceholder: "ماذا حدث؟",
+      successMessageText: "شكرًا، تم إرسال البلاغ.",
+    }),
   ],
   tracesSampleRate: isProd ? 0.1 : 1,
   enableLogs: true,

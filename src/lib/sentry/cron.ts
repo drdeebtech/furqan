@@ -1,0 +1,38 @@
+// Wrap a cron-route handler with `Sentry.withMonitor` so Sentry tracks each
+// run as a check-in. Effects:
+//   - Sentry.io → Crons tab shows each cron's last run, status, runtime.
+//   - If an expected run is missed (cutoff = checkinMargin minutes late),
+//     Sentry creates an issue + can fire an alert.
+//   - If a run exceeds `maxRuntime` minutes, Sentry creates a timeout issue.
+//   - Exceptions thrown inside the handler are still captured normally
+//     (Sentry's error path) AND mark the check-in as failed.
+//
+// Only wrap a slug that matches an actual schedule in `vercel.json` —
+// otherwise Sentry will permanently see the cron as "never ran" and alert
+// every cycle.
+
+import * as Sentry from "@sentry/nextjs";
+
+type CronSchedule = { type: "crontab"; value: string };
+
+export function withCronMonitor<H extends (req: Request) => Promise<Response>>(
+  slug: string,
+  schedule: string, // e.g. "0 2 * * *"
+  handler: H,
+  options?: { maxRuntimeMinutes?: number; checkinMarginMinutes?: number; timezone?: string },
+): H {
+  const wrapped = ((req: Request) =>
+    Sentry.withMonitor(
+      slug,
+      () => handler(req),
+      {
+        schedule: { type: "crontab", value: schedule } satisfies CronSchedule,
+        checkinMargin: options?.checkinMarginMinutes ?? 2,
+        maxRuntime: options?.maxRuntimeMinutes ?? 5,
+        timezone: options?.timezone ?? "UTC",
+        failureIssueThreshold: 1,
+        recoveryThreshold: 1,
+      },
+    )) as H;
+  return wrapped;
+}
