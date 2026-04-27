@@ -30,6 +30,14 @@ export interface SiteBlogCategory {
   is_active: boolean;
 }
 
+export interface TeacherLanguage {
+  key: string;
+  label_ar: string;
+  label_en: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
 // Slot-specific meta types — runtime-typed via the meta jsonb column.
 export interface SubjectMeta {
   level_ar?: string;

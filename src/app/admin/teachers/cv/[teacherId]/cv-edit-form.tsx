@@ -5,7 +5,7 @@ import { Save } from "lucide-react";
 import { saveCvAsAdmin, type AdminCvSaveResult } from "./actions";
 import { ActionFeedback } from "@/components/shared/action-feedback";
 import { CheckboxGroup } from "@/components/shared/checkbox-group";
-import { TEACHER_LANGUAGES, TEACHER_RECITATIONS, TEACHER_SPECIALTIES } from "@/lib/constants";
+import type { TeacherLanguage } from "@/lib/site-content/types";
 
 interface CvEditFormProps {
   teacherId: string;
@@ -15,6 +15,7 @@ interface CvEditFormProps {
   languages: string[];
   recitationStandards: string[];
   introVideoUrl: string;
+  picklists: { languages: TeacherLanguage[]; specialties: TeacherLanguage[]; recitations: TeacherLanguage[] };
 }
 
 export function CvEditForm({
@@ -25,6 +26,7 @@ export function CvEditForm({
   languages,
   recitationStandards,
   introVideoUrl,
+  picklists,
 }: CvEditFormProps) {
   const boundAction = saveCvAsAdmin.bind(null, teacherId);
   const [state, formAction, pending] = useActionState<AdminCvSaveResult, FormData>(
@@ -78,21 +80,21 @@ export function CvEditForm({
         <CheckboxGroup
           label="التخصصات — Specialties"
           name="specialties"
-          options={TEACHER_SPECIALTIES.map((s) => ({ value: s.key, label: `${s.ar} — ${s.en}` }))}
+          options={picklists.specialties.map((s) => ({ value: s.key, label: `${s.label_ar} — ${s.label_en}` }))}
           defaultValues={specialties}
         />
 
         <CheckboxGroup
           label="اللغات — Languages"
           name="languages"
-          options={TEACHER_LANGUAGES.map((l) => ({ value: l.key, label: `${l.ar} — ${l.en}` }))}
+          options={picklists.languages.map((l) => ({ value: l.key, label: `${l.label_ar} — ${l.label_en}` }))}
           defaultValues={languages}
         />
 
         <CheckboxGroup
           label="معايير القراءة — Recitation Standards"
           name="recitation_standards"
-          options={TEACHER_RECITATIONS.map((r) => ({ value: r.key, label: `${r.ar} — ${r.en}` }))}
+          options={picklists.recitations.map((r) => ({ value: r.key, label: `${r.label_ar} — ${r.label_en}` }))}
           defaultValues={recitationStandards}
         />
 

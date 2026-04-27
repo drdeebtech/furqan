@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { SiteFaq, SiteFeature, SiteBlogCategory, SiteFeatureSlot } from "./types";
+import type { SiteFaq, SiteFeature, SiteBlogCategory, SiteFeatureSlot, TeacherLanguage } from "./types";
 
 // site_faqs / site_features / site_blog_categories were added in v16_001 and
 // src/types/supabase.generated.ts hasn't been regenerated yet. Same `as any`
@@ -36,4 +36,40 @@ export async function getActiveBlogCategories(): Promise<SiteBlogCategory[]> {
     .eq("is_active", true)
     .order("sort_order");
   return (data ?? []) as SiteBlogCategory[];
+}
+
+export async function getActiveTeacherLanguages(): Promise<TeacherLanguage[]> {
+  return getPicklist("teacher_languages");
+}
+
+export async function getActiveTeacherSpecialties(): Promise<TeacherLanguage[]> {
+  return getPicklist("teacher_specialties");
+}
+
+export async function getActiveTeacherRecitations(): Promise<TeacherLanguage[]> {
+  return getPicklist("teacher_recitations");
+}
+
+async function getPicklist(table: "teacher_languages" | "teacher_specialties" | "teacher_recitations"): Promise<TeacherLanguage[]> {
+  const supabase = (await createClient()) as AnyClient;
+  const { data } = await supabase
+    .from(table)
+    .select("key, label_ar, label_en, sort_order, is_active")
+    .eq("is_active", true)
+    .order("sort_order");
+  return (data ?? []) as TeacherLanguage[];
+}
+
+// Fetch all three teacher picklists in one parallel batch.
+export async function getAllTeacherPicklists(): Promise<{
+  languages: TeacherLanguage[];
+  specialties: TeacherLanguage[];
+  recitations: TeacherLanguage[];
+}> {
+  const [languages, specialties, recitations] = await Promise.all([
+    getActiveTeacherLanguages(),
+    getActiveTeacherSpecialties(),
+    getActiveTeacherRecitations(),
+  ]);
+  return { languages, specialties, recitations };
 }

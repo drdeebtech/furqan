@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { CvReviewControls } from "./cv-review-controls";
 import { CvEditForm } from "./cv-edit-form";
+import { getAllTeacherPicklists } from "@/lib/site-content/queries";
 
 export const metadata: Metadata = { title: "مراجعة السيرة الذاتية" };
 
@@ -35,23 +36,22 @@ export default async function AdminCvReviewPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("teacher_profiles")
-    .select(
-      "teacher_id, bio, bio_en, specialties, languages, recitation_standards, intro_video_url, cv_status, cv_submitted_at",
-    )
-    .eq("teacher_id", teacherId)
-    .single<TeacherCv>();
+  const [profileRes, nameRowRes, picklists] = await Promise.all([
+    supabase
+      .from("teacher_profiles")
+      .select(
+        "teacher_id, bio, bio_en, specialties, languages, recitation_standards, intro_video_url, cv_status, cv_submitted_at",
+      )
+      .eq("teacher_id", teacherId)
+      .single<TeacherCv>(),
+    supabase.from("profiles").select("full_name").eq("id", teacherId).single<{ full_name: string | null }>(),
+    getAllTeacherPicklists(),
+  ]);
+  const profile = profileRes.data;
 
   if (!profile) redirect("/admin/teachers/cv");
 
-  // Get teacher name
-  const { data: nameRow } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", teacherId)
-    .single<{ full_name: string | null }>();
-  const teacherName = nameRow?.full_name ?? t("معلم", "Teacher");
+  const teacherName = nameRowRes.data?.full_name ?? t("معلم", "Teacher");
 
   const statusLabel =
     profile.cv_status === "approved"
@@ -104,6 +104,7 @@ export default async function AdminCvReviewPage({
           languages={profile.languages ?? []}
           recitationStandards={profile.recitation_standards ?? []}
           introVideoUrl={profile.intro_video_url ?? ""}
+          picklists={picklists}
         />
       </div>
 

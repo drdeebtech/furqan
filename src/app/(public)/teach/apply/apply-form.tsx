@@ -6,16 +6,17 @@ import { CheckCircle2, AlertCircle, ImagePlus, X } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { submitTeacherApplication, type ApplyResult } from "./actions";
 import { CheckboxGroup } from "@/components/shared/checkbox-group";
-import {
-  TEACHER_LANGUAGES as LANGS,
-  TEACHER_RECITATIONS as RECITATIONS,
-  TEACHER_SPECIALTIES as SPECIALTIES,
-} from "@/lib/constants";
+import type { TeacherLanguage } from "@/lib/site-content/types";
 
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
-export function ApplyForm() {
+interface ApplyFormProps {
+  picklists: { languages: TeacherLanguage[]; specialties: TeacherLanguage[]; recitations: TeacherLanguage[] };
+}
+
+export function ApplyForm({ picklists }: ApplyFormProps) {
+  const { languages: LANGS, recitations: RECITATIONS, specialties: SPECIALTIES } = picklists;
   const { t, dir } = useLang();
   const [state, formAction, isPending] = useActionState<ApplyResult, FormData>(
     submitTeacherApplication,
@@ -190,19 +191,19 @@ export function ApplyForm() {
       <CheckboxGroup
         label={t("لغات التدريس * (اختر واحدة على الأقل)", "Teaching languages * (pick at least one)")}
         name="languages"
-        options={LANGS.map((l) => ({ value: l.key, label: t(l.ar, l.en) }))}
+        options={LANGS.map((l) => ({ value: l.key, label: t(l.label_ar, l.label_en) }))}
       />
 
       <CheckboxGroup
         label={t("الروايات * (اختر واحدة على الأقل)", "Recitations * (pick at least one)")}
         name="recitation_standards"
-        options={RECITATIONS.map((r) => ({ value: r.key, label: t(r.ar, r.en) }))}
+        options={RECITATIONS.map((r) => ({ value: r.key, label: t(r.label_ar, r.label_en) }))}
       />
 
       <CheckboxGroup
         label={t("التخصصات * (اختر واحداً على الأقل)", "Specialties * (pick at least one)")}
         name="specialties"
-        options={SPECIALTIES.map((s) => ({ value: s.key, label: t(s.ar, s.en) }))}
+        options={SPECIALTIES.map((s) => ({ value: s.key, label: t(s.label_ar, s.label_en) }))}
       />
 
       <div>

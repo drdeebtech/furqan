@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { createTeacher } from "../actions";
-import { TEACHER_LANGUAGES } from "@/lib/constants";
+import { getActiveTeacherLanguages } from "@/lib/site-content/queries";
 
 export const metadata: Metadata = { title: "إضافة معلم" };
 
@@ -34,8 +34,11 @@ export default async function NewTeacherPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profiles } = await supabase.from("profiles").select("id, full_name, role")
-    .neq("role", "teacher").order("full_name").returns<{ id: string; full_name: string | null; role: string }[]>();
+  const [{ data: profiles }, languages] = await Promise.all([
+    supabase.from("profiles").select("id, full_name, role")
+      .neq("role", "teacher").order("full_name").returns<{ id: string; full_name: string | null; role: string }[]>(),
+    getActiveTeacherLanguages(),
+  ]);
 
   return (
     <div dir={dir} className="mx-auto max-w-3xl px-4 py-8">
@@ -104,10 +107,10 @@ export default async function NewTeacherPage() {
           <div>
             <label className="mb-2 block text-sm font-medium">{t("اللغات", "Languages")}</label>
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              {TEACHER_LANGUAGES.map(l => (
+              {languages.map(l => (
                 <label key={l.key} className="flex cursor-pointer items-center gap-2 rounded-lg glass-input px-3 py-2.5 text-sm transition-colors has-[:checked]:border-gold has-[:checked]:bg-gold/10">
                   <input type="checkbox" name="languages" value={l.key} defaultChecked={l.key === "ar"} className="h-4 w-4 accent-gold" />
-                  <span>{lang === "ar" ? l.ar : l.en}</span>
+                  <span>{lang === "ar" ? l.label_ar : l.label_en}</span>
                 </label>
               ))}
             </div>

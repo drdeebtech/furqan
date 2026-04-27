@@ -6,6 +6,7 @@ import { RotateCcw } from "lucide-react";
 import { CvEditForm } from "@/app/admin/teachers/cv/[teacherId]/cv-edit-form";
 import { CvReviewControls } from "@/app/admin/teachers/cv/[teacherId]/cv-review-controls";
 import { resetCvToPending } from "@/app/admin/teachers/cv/[teacherId]/actions";
+import type { TeacherLanguage } from "@/lib/site-content/types";
 
 interface CvPanelProps {
   teacherId: string;
@@ -20,9 +21,10 @@ interface CvPanelProps {
     cv_submitted_at: string | null;
     cv_rejection_reason: string | null;
   };
+  picklists: { languages: TeacherLanguage[]; specialties: TeacherLanguage[]; recitations: TeacherLanguage[] };
 }
 
-export function CvPanel({ teacherId, profile }: CvPanelProps) {
+export function CvPanel({ teacherId, profile, picklists }: CvPanelProps) {
   const router = useRouter();
   const [resetting, startReset] = useTransition();
 
@@ -82,6 +84,7 @@ export function CvPanel({ teacherId, profile }: CvPanelProps) {
         languages={profile.languages ?? []}
         recitationStandards={profile.recitation_standards ?? []}
         introVideoUrl={profile.intro_video_url ?? ""}
+        picklists={picklists}
       />
 
       {/* Review controls — only for pending_review */}

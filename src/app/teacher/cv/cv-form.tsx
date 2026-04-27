@@ -5,7 +5,7 @@ import { Camera, Save, Send } from "lucide-react";
 import { saveCvDraft, saveProfilePhoto, submitCvForReview, type CvResult } from "./actions";
 import { CheckboxGroup } from "@/components/shared/checkbox-group";
 import { Avatar } from "@/components/shared/avatar";
-import { TEACHER_LANGUAGES, TEACHER_RECITATIONS, TEACHER_SPECIALTIES } from "@/lib/constants";
+import type { TeacherLanguage } from "@/lib/site-content/types";
 
 interface CvFormProps {
   bio: string;
@@ -17,6 +17,7 @@ interface CvFormProps {
   cvStatus: string;
   avatarUrl: string | null;
   fullName: string | null;
+  picklists: { languages: TeacherLanguage[]; specialties: TeacherLanguage[]; recitations: TeacherLanguage[] };
 }
 
 export function CvForm({
@@ -29,6 +30,7 @@ export function CvForm({
   cvStatus,
   avatarUrl,
   fullName,
+  picklists,
 }: CvFormProps) {
   const [state, formAction, pending] = useActionState<CvResult, FormData>(
     saveCvDraft,
@@ -185,21 +187,21 @@ export function CvForm({
         <CheckboxGroup
           label="التخصصات — Specialties"
           name="specialties"
-          options={TEACHER_SPECIALTIES.map((s) => ({ value: s.key, label: `${s.ar} — ${s.en}` }))}
+          options={picklists.specialties.map((s) => ({ value: s.key, label: `${s.label_ar} — ${s.label_en}` }))}
           defaultValues={specialties}
         />
 
         <CheckboxGroup
           label="اللغات — Languages"
           name="languages"
-          options={TEACHER_LANGUAGES.map((l) => ({ value: l.key, label: `${l.ar} — ${l.en}` }))}
+          options={picklists.languages.map((l) => ({ value: l.key, label: `${l.label_ar} — ${l.label_en}` }))}
           defaultValues={languages}
         />
 
         <CheckboxGroup
           label="معايير القراءة — Recitation Standards"
           name="recitation_standards"
-          options={TEACHER_RECITATIONS.map((r) => ({ value: r.key, label: `${r.ar} — ${r.en}` }))}
+          options={picklists.recitations.map((r) => ({ value: r.key, label: `${r.label_ar} — ${r.label_en}` }))}
           defaultValues={recitationStandards}
         />
 

@@ -1,11 +1,23 @@
 "use client";
 
 import { useLang } from "@/lib/i18n/context";
+import { LegalBody } from "@/components/shared/legal-body";
 
-const LAST_UPDATED = "2026-04-23";
+const LAST_UPDATED_FALLBACK = "2026-04-23";
 
-export default function TermsContent() {
+interface Props {
+  override?: { bodyAr: string | null; bodyEn: string | null; updatedAt: string } | null;
+}
+
+export default function TermsContent({ override }: Props = {}) {
   const { t, lang } = useLang();
+
+  // If admin has saved a body for the current locale, render it. Otherwise
+  // fall back to the in-code JSX so the page still works pre-edit.
+  const dbBody = lang === "ar" ? override?.bodyAr : override?.bodyEn;
+  const lastUpdated = override?.updatedAt
+    ? new Date(override.updatedAt).toISOString().slice(0, 10)
+    : LAST_UPDATED_FALLBACK;
 
   return (
     <article className="mx-auto max-w-3xl px-6 py-20">
@@ -17,12 +29,12 @@ export default function TermsContent() {
           {t("شروط الاستخدام", "Terms of Service")}
         </h1>
         <p className="mt-3 text-sm text-muted">
-          {t("آخر تحديث:", "Last updated:")} {LAST_UPDATED}
+          {t("آخر تحديث:", "Last updated:")} {lastUpdated}
         </p>
       </header>
 
       <div className="prose prose-invert mt-10 max-w-none text-foreground/90 [&_h2]:font-display [&_h2]:mt-10 [&_h2]:mb-3 [&_h2]:text-xl [&_h2]:font-bold [&_p]:my-3 [&_p]:text-sm [&_p]:leading-relaxed [&_ul]:my-3 [&_ul]:list-disc [&_ul]:ps-6 [&_ul]:text-sm [&_li]:my-1.5">
-        {lang === "ar" ? <TermsAr /> : <TermsEn />}
+        {dbBody ? <LegalBody body={dbBody} /> : (lang === "ar" ? <TermsAr /> : <TermsEn />)}
       </div>
     </article>
   );

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getT } from "@/lib/i18n/server";
 import { Avatar } from "@/components/shared/avatar";
+import { getAllTeacherPicklists } from "@/lib/site-content/queries";
 import { TabBar } from "./tab-bar";
 import { AccountForm } from "./account-form";
 import { TeacherProfileForm } from "./teacher-profile-form";
@@ -37,6 +38,7 @@ export default async function TeacherDetailPage({ params, searchParams }: Props)
     exceptionsRes,
     bookingCountRes,
     authUserRes,
+    picklists,
   ] = await Promise.all([
     supabase
       .from("teacher_profiles")
@@ -78,6 +80,7 @@ export default async function TeacherDetailPage({ params, searchParams }: Props)
         return { data: { user: null }, error: null };
       }
     })(),
+    getAllTeacherPicklists(),
   ]);
 
   const tp = tpRes.data as {
@@ -215,6 +218,7 @@ export default async function TeacherDetailPage({ params, searchParams }: Props)
             cv_submitted_at: tp.cv_submitted_at,
             cv_rejection_reason: tp.cv_rejection_reason,
           }}
+          picklists={picklists}
         />
       )}
 

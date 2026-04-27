@@ -4,6 +4,7 @@ import { FileText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { CvForm } from "./cv-form";
+import { getAllTeacherPicklists } from "@/lib/site-content/queries";
 
 export const metadata: Metadata = { title: "السيرة الذاتية" };
 
@@ -55,7 +56,7 @@ export default async function TeacherCvPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [profileRes, accountRes] = await Promise.all([
+  const [profileRes, accountRes, picklists] = await Promise.all([
     supabase
       .from("teacher_profiles")
       .select(
@@ -68,6 +69,7 @@ export default async function TeacherCvPage() {
       .select("avatar_url, full_name")
       .eq("id", user.id)
       .single<{ avatar_url: string | null; full_name: string | null }>(),
+    getAllTeacherPicklists(),
   ]);
 
   const profile = profileRes.data;
@@ -116,6 +118,7 @@ export default async function TeacherCvPage() {
         cvStatus={status}
         avatarUrl={avatarUrl}
         fullName={fullName}
+        picklists={picklists}
       />
     </div>
   );
