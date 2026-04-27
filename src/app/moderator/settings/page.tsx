@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Settings, User, KeyRound } from "lucide-react";
+import { Settings, User, KeyRound, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { AccountForm } from "./account-form";
 import { PasswordChangeForm } from "@/components/shared/password-change-form";
+import { EmailChangeForm } from "@/components/shared/email-change-form";
 
 export const metadata: Metadata = { title: "إعداداتي" };
 
@@ -52,6 +53,14 @@ export default async function ModeratorSettingsPage() {
           {t("الحساب الشخصي", "Personal Info")}
         </h2>
         <AccountForm profile={profile} />
+      </section>
+
+      <section className="glass-card mb-6 p-6">
+        <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+          <Mail size={18} className="text-gold" aria-hidden="true" />
+          {t("البريد الإلكتروني", "Email")}
+        </h2>
+        <EmailChangeForm currentEmail={user.email ?? ""} />
       </section>
 
       <section className="glass-card p-6">

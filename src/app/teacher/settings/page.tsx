@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Settings, User, KeyRound, ToggleRight, Camera, FileText, Calendar } from "lucide-react";
+import { Settings, User, KeyRound, Mail, ToggleRight, Camera, FileText, Calendar } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { AccountForm } from "./account-form";
 import { TeachingStatusForm } from "./teaching-status-form";
 import { PasswordChangeForm } from "@/components/shared/password-change-form";
+import { EmailChangeForm } from "@/components/shared/email-change-form";
 
 export const metadata: Metadata = { title: "إعداداتي" };
 
@@ -72,6 +73,14 @@ export default async function TeacherSettingsPage() {
           {t("حالة التدريس", "Teaching Status")}
         </h2>
         <TeachingStatusForm initialIsAccepting={isAccepting} />
+      </section>
+
+      <section className="glass-card mb-6 p-6">
+        <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+          <Mail size={18} className="text-gold" aria-hidden="true" />
+          {t("البريد الإلكتروني", "Email")}
+        </h2>
+        <EmailChangeForm currentEmail={user.email ?? ""} />
       </section>
 
       <section className="glass-card mb-6 p-6">

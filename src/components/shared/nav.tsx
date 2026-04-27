@@ -65,6 +65,7 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/admin/services", ar: "الخدمات", en: "Services", icon: Briefcase },
     { href: "/admin/content", ar: "محتوى الموقع", en: "Site Content", icon: FileText },
     { href: "/admin/legal", ar: "الوثائق القانونية", en: "Legal Docs", icon: FileText },
+    { href: "/admin/picklists", ar: "قوائم المعلمين", en: "Teacher Picklists", icon: FileText },
     { href: "/admin/blog", ar: "المدونة", en: "Blog", icon: FileText },
     { href: "/admin/announcements", ar: "الإعلانات", en: "Announcements", icon: Bell },
     { href: "/admin/contacts", ar: "رسائل التواصل", en: "Contacts", icon: Mail },
