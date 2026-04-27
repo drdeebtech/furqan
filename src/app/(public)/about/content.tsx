@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Clock, Globe, Heart, Users } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { Testimonials } from "@/components/public/testimonials";
 import { RegisterBanner } from "@/components/public/register-banner";
+import { resolveIcon } from "@/lib/site-content/icon-map";
+import type { SiteFeature } from "@/lib/site-content/types";
 
-export function AboutContent() {
+export function AboutContent({ values }: { values: SiteFeature[] }) {
   const { t } = useLang();
 
   return (
@@ -57,18 +58,16 @@ export function AboutContent() {
           <p className="text-sm font-medium tracking-widest text-gold">❖ {t("قيمنا", "Our Values")}</p>
           <h2 className="font-display mt-3 text-3xl font-bold leading-tight">{t("ما نؤمن به", "What We Believe")}</h2>
           <div className="mt-12 grid gap-6 md:grid-cols-4">
-            {[
-              { icon: Heart, ar: "الإخلاص في الخدمة", en: "Sincere Service", dAr: "نؤمن بأن تعليم القرآن أمانة عظيمة نسعى لأدائها بإتقان", dEn: "We believe teaching Quran is a great trust we strive to fulfill with excellence" },
-              { icon: Users, ar: "الاهتمام الفردي", en: "Individual Attention", dAr: "كل طالب يحصل على اهتمام كامل ومنهج مخصص لأهدافه", dEn: "Every student gets full attention and a customized plan for their goals" },
-              { icon: Clock, ar: "المرونة والالتزام", en: "Flexibility & Commitment", dAr: "نحترم وقتك ونلتزم بالمواعيد مع مرونة كاملة في الجدولة", dEn: "We respect your time and commit to schedules with full scheduling flexibility" },
-              { icon: Globe, ar: "خدمة الأمة", en: "Serving the Ummah", dAr: "نسعى لخدمة المسلمين في كل مكان وتسهيل تعلم القرآن للجميع", dEn: "We strive to serve Muslims everywhere and make Quran learning accessible to all" },
-            ].map((v) => (
-              <div key={v.en} className="glass-card p-6">
-                <v.icon size={24} className="mb-3 text-gold" />
-                <h3 className="font-bold">{t(v.ar, v.en)}</h3>
-                <p className="mt-2 text-sm text-muted">{t(v.dAr, v.dEn)}</p>
-              </div>
-            ))}
+            {values.map((v) => {
+              const Icon = resolveIcon(v.icon_name);
+              return (
+                <div key={v.id} className="glass-card p-6">
+                  <Icon size={24} className="mb-3 text-gold" aria-hidden="true" />
+                  <h3 className="font-bold">{t(v.title_ar, v.title_en)}</h3>
+                  <p className="mt-2 text-sm text-muted">{t(v.description_ar ?? "", v.description_en ?? "")}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>

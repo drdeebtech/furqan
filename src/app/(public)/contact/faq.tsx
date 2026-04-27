@@ -1,23 +1,12 @@
-"use client";
-
-import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { useLang } from "@/lib/i18n/context";
+import { getT } from "@/lib/i18n/server";
+import { getActiveFaqs } from "@/lib/site-content/queries";
 
-const FAQS = [
-  { ar: "كيف أسجل في الأكاديمية؟", en: "How do I register?", aAr: "أنشئ حساباً مجانياً على المنصة، ثم اختر معلمك واحجز جلستك الأولى. التسجيل سهل ولا يستغرق أكثر من دقيقة.", aEn: "Create a free account on the platform, then choose your teacher and book your first session. Registration is easy and takes less than a minute." },
-  { ar: "كيف تتم الجلسات؟", en: "How do sessions work?", aAr: "تتم الجلسات عبر نظام الفيديو المدمج في منصة فرقان. بعد تأكيد الحجز ستحصل على رابط الجلسة مباشرة.", aEn: "Sessions are conducted via the built-in video system in the FURQAN platform. After booking confirmation, you'll receive a session link directly." },
-  { ar: "هل يتوفر معلمات للأخوات؟", en: "Are female teachers available?", aAr: "نعم، لدينا معلمات متخصصات ومعتمدات للأخوات والأطفال في بيئة آمنة تماماً.", aEn: "Yes, we have specialized and certified female teachers for sisters and children in a completely safe environment." },
-  { ar: "ما هي مؤهلات المعلمين؟", en: "What are the teachers' qualifications?", aAr: "جميع معلمينا حاصلون على إجازة في رواية حفص عن عاصم من علماء معتمدين، وخريجو جامعات إسلامية مرموقة.", aEn: "All our teachers hold Ijazah in Hafs narration from certified scholars and are graduates of prestigious Islamic universities." },
-  { ar: "هل يمكنني تغيير موعد جلستي؟", en: "Can I reschedule my session?", aAr: "نعم، يمكنك إعادة الجدولة قبل ٢٤ ساعة من الجلسة بدون أي رسوم إضافية.", aEn: "Yes, you can reschedule up to 24 hours before the session at no additional cost." },
-  { ar: "ما مدة العقد الأدنى؟", en: "What is the minimum contract?", aAr: "لا يوجد عقد. يمكنك الاشتراك شهراً بشهر وإلغاء الاشتراك في أي وقت بدون رسوم.", aEn: "There is no contract. You can subscribe month-to-month and cancel anytime with no fees." },
-  { ar: "هل يتوفر برنامج للأطفال؟", en: "Is there a children's program?", aAr: "نعم، لدينا برنامج خاص بالأطفال من سن ٥ سنوات بأسلوب تعليمي ممتع ومناسب لأعمارهم.", aEn: "Yes, we have a special program for children from age 5 with a fun and age-appropriate teaching style." },
-  { ar: "كيف أتابع تقدم طفلي؟", en: "How do I track my child's progress?", aAr: "يحصل ولي الأمر على تقرير تقدم مفصل بعد كل جلسة، ويمكنه متابعة لوحة التقدم في حساب الطالب.", aEn: "Parents receive a detailed progress report after each session and can monitor the progress dashboard in the student account." },
-];
+export async function FAQ() {
+  const { t } = await getT();
+  const faqs = await getActiveFaqs();
 
-export function FAQ() {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
-  const { t } = useLang();
+  if (faqs.length === 0) return null;
 
   return (
     <section className="py-24">
@@ -26,21 +15,16 @@ export function FAQ() {
         <h2 className="font-display mt-3 text-3xl font-bold leading-tight">{t("الأسئلة الشائعة", "Frequently Asked Questions")}</h2>
 
         <div className="mt-12 space-y-2">
-          {FAQS.map((faq, i) => (
-            <div key={i} className="glass-card">
-              <button
-                onClick={() => setOpenIndex(openIndex === i ? null : i)}
-                className="flex w-full items-center justify-between px-6 py-4 text-right text-sm font-medium transition-colors hover:text-gold focus-ring"
-              >
-                {t(faq.ar, faq.en)}
-                <ChevronDown size={18} className={`shrink-0 text-muted transition-transform ${openIndex === i ? "rotate-180" : ""}`} />
-              </button>
-              {openIndex === i && (
-                <div className="border-t border-white/10 px-6 py-4">
-                  <p className="text-sm leading-relaxed text-muted">{t(faq.aAr, faq.aEn)}</p>
-                </div>
-              )}
-            </div>
+          {faqs.map((faq) => (
+            <details key={faq.id} className="glass-card group">
+              <summary className="flex cursor-pointer list-none items-center justify-between px-6 py-4 text-right text-sm font-medium transition-colors hover:text-gold focus-ring">
+                {t(faq.question_ar, faq.question_en)}
+                <ChevronDown size={18} aria-hidden="true" className="shrink-0 text-muted transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="border-t border-[var(--surface-border)] px-6 py-4">
+                <p className="text-sm leading-relaxed text-muted">{t(faq.answer_ar, faq.answer_en)}</p>
+              </div>
+            </details>
           ))}
         </div>
       </div>

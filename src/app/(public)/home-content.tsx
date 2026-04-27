@@ -3,28 +3,31 @@
 import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import {
-  Award,
-  BookOpen,
-  Calendar,
-  CheckCircle,
-  Globe,
-  GraduationCap,
-  Play,
-  Shield,
-  Star,
-  TrendingUp,
-  Users,
-  Video,
-} from "lucide-react";
+import { GraduationCap, Play, Star, Users } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { RegisterBanner } from "@/components/public/register-banner";
+import { resolveIcon } from "@/lib/site-content/icon-map";
+import type { SiteFeature, SubjectMeta, PackagePreviewMeta } from "@/lib/site-content/types";
 
 const Testimonials = dynamic(
   () => import("@/components/public/testimonials").then((m) => m.Testimonials),
 );
 
-export default function HomePage() {
+interface Props {
+  howItWorks: SiteFeature[];
+  whyUs: SiteFeature[];
+  subjects: SiteFeature[];
+  trustStrip: SiteFeature[];
+  packagePreview: SiteFeature[];
+}
+
+export default function HomePage({
+  howItWorks,
+  whyUs,
+  subjects,
+  trustStrip,
+  packagePreview,
+}: Props) {
   const { t } = useLang();
 
   return (
@@ -137,21 +140,21 @@ export default function HomePage() {
                 aria-hidden
                 className="pointer-events-none absolute inset-x-0 top-8 hidden h-px border-t border-dashed border-gold/25 md:block"
               />
-              {[
-                { num: "١", en_num: "1", icon: Users, ar: "سجّل حسابك", en: "Create Account", dAr: "أنشئ حسابك مجاناً في أقل من دقيقة.", dEn: "Create your free account in under a minute." },
-                { num: "٢", en_num: "2", icon: Calendar, ar: "اختر معلمك", en: "Choose Teacher", dAr: "تصفح المعلمين المعتمدين واختر الأنسب لمستواك.", dEn: "Browse certified teachers and pick the best match." },
-                { num: "٣", en_num: "3", icon: Video, ar: "ابدأ التعلم", en: "Start Learning", dAr: "انضم لجلستك المباشرة عبر الفيديو المدمج.", dEn: "Join your live session via the built-in video." },
-              ].map((step) => (
-                <li key={step.en_num} className="relative flex flex-col items-center text-center">
-                  {/* Number medallion — solid gold, sits on the rail */}
-                  <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full bg-gold font-display text-2xl font-bold text-background shadow-md">
-                    {t(step.num, step.en_num)}
-                  </div>
-                  <step.icon size={22} className="mt-5 text-gold/70" />
-                  <h3 className="mt-3 text-lg font-bold">{t(step.ar, step.en)}</h3>
-                  <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted">{t(step.dAr, step.dEn)}</p>
-                </li>
-              ))}
+              {howItWorks.map((step, i) => {
+                const Icon = resolveIcon(step.icon_name);
+                const arNums = ["١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
+                return (
+                  <li key={step.id} className="relative flex flex-col items-center text-center">
+                    {/* Number medallion — solid gold, sits on the rail */}
+                    <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full bg-gold font-display text-2xl font-bold text-background shadow-md">
+                      {t(arNums[i] ?? String(i + 1), String(i + 1))}
+                    </div>
+                    <Icon size={22} className="mt-5 text-gold/70" aria-hidden="true" />
+                    <h3 className="mt-3 text-lg font-bold">{t(step.title_ar, step.title_en)}</h3>
+                    <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted">{t(step.description_ar ?? "", step.description_en ?? "")}</p>
+                  </li>
+                );
+              })}
             </ol>
           </div>
         </div>
@@ -169,21 +172,16 @@ export default function HomePage() {
           </div>
 
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { icon: Shield, ar: "معلمون معتمدون بالإجازة", en: "Certified with Ijazah", dAr: "جميع معلمينا حاصلون على إجازة من كبار العلماء", dEn: "All teachers hold Ijazah from senior scholars" },
-              { icon: Video, ar: "جلسات فيديو مدمجة", en: "Built-in Video", dAr: "لا حاجة لزوم أو سكايب — الفيديو مدمج في المنصة", dEn: "No Zoom or Skype — video is built into the platform" },
-              { icon: Calendar, ar: "جدول مرن يناسبك", en: "Flexible Schedule", dAr: "احجز في أي وقت — صباحاً أو مساءً، ٧ أيام", dEn: "Book any time — morning or evening, 7 days a week" },
-              { icon: Users, ar: "جلسات فردية ١:١", en: "1-on-1 Sessions", dAr: "كل طالب يحصل على اهتمام كامل من معلمه", dEn: "Every student gets full attention from their teacher" },
-              { icon: Star, ar: "معلمات للأخوات والأطفال", en: "Female Teachers", dAr: "متاح معلمات متخصصات في بيئة آمنة", dEn: "Female teachers available for sisters and children" },
-              { icon: TrendingUp, ar: "تتبع تقدمك", en: "Track Progress", dAr: "لوحة تحكم تعرض تقدمك في الحفظ والجلسات", dEn: "Dashboard showing your memorization progress" },
-              { icon: Globe, ar: "نخدم طلاباً حول العالم", en: "Worldwide Access", dAr: "تعلّم من أي مكان — أمريكا، أوروبا، الخليج، أستراليا", dEn: "Learn from anywhere — USA, Europe, Gulf, Australia" },
-            ].map((f) => (
-              <div key={f.en} className="rounded-2xl border border-surface-border/60 bg-surface/40 p-5 transition-colors duration-200 hover:border-gold/30">
-                <f.icon size={20} className="mb-3 text-foreground/70" strokeWidth={1.75} />
-                <h3 className="text-sm font-bold">{t(f.ar, f.en)}</h3>
-                <p className="mt-1 text-xs leading-relaxed text-muted">{t(f.dAr, f.dEn)}</p>
-              </div>
-            ))}
+            {whyUs.map((f) => {
+              const Icon = resolveIcon(f.icon_name);
+              return (
+                <div key={f.id} className="rounded-2xl border border-surface-border/60 bg-surface/40 p-5 transition-colors duration-200 hover:border-gold/30">
+                  <Icon size={20} className="mb-3 text-foreground/70" strokeWidth={1.75} aria-hidden="true" />
+                  <h3 className="text-sm font-bold">{t(f.title_ar, f.title_en)}</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-muted">{t(f.description_ar ?? "", f.description_en ?? "")}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -199,23 +197,22 @@ export default function HomePage() {
           </div>
 
           <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-3">
-            {[
-              { level: { ar: "للمبتدئين", en: "Beginner" }, ar: "التلاوة", en: "Recitation", dAr: "ابدأ بالقراءة الصحيحة مع شيخ متخصص.", dEn: "Start here: correct reading with a specialist sheikh.", icon: Star },
-              { level: { ar: "للمبتدئين", en: "Beginner" }, ar: "التجويد", en: "Tajweed", dAr: "أحكام التلاوة بأسلوب علمي ممنهج.", dEn: "Recitation rules with a structured approach.", icon: CheckCircle },
-              { level: { ar: "مستوى متوسط", en: "Intermediate" }, ar: "حفظ القرآن", en: "Quran Memorization", dAr: "احفظ كتاب الله بمنهج تدريجي.", dEn: "Memorize with a graduated plan.", icon: BookOpen },
-              { level: { ar: "مستوى متوسط", en: "Intermediate" }, ar: "المراجعة", en: "Revision", dAr: "راجع محفوظاتك مع معلم يتابع تقدمك.", dEn: "Review memorization with progress tracking.", icon: TrendingUp },
-              { level: { ar: "مستوى متقدم", en: "Advanced" }, ar: "القراءات", en: "Qira'at", dAr: "روايات حفص وورش وقالون والدوري.", dEn: "Hafs, Warsh, Qalun, and Al-Duri readings.", icon: Globe },
-              { level: { ar: "مستوى متقدم", en: "Advanced" }, ar: "التفسير", en: "Tafsir", dAr: "معاني القرآن وتدبّر آياته.", dEn: "Quran meanings and deep reflection.", icon: Award },
-            ].map((c) => (
-              <Link key={c.en} href="/services" className="rounded-2xl border border-surface-border/60 bg-surface/40 p-5 transition-colors duration-200 hover:border-gold/30">
-                <c.icon size={20} className="mb-3 text-foreground/70" strokeWidth={1.75} />
-                <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-gold/70">
-                  {t(c.level.ar, c.level.en)}
-                </p>
-                <h3 className="mt-1 text-sm font-bold">{t(c.ar, c.en)}</h3>
-                <p className="mt-1 text-xs leading-relaxed text-muted">{t(c.dAr, c.dEn)}</p>
-              </Link>
-            ))}
+            {subjects.map((c) => {
+              const Icon = resolveIcon(c.icon_name);
+              const meta = c.meta as SubjectMeta;
+              return (
+                <Link key={c.id} href="/services" className="rounded-2xl border border-surface-border/60 bg-surface/40 p-5 transition-colors duration-200 hover:border-gold/30">
+                  <Icon size={20} className="mb-3 text-foreground/70" strokeWidth={1.75} aria-hidden="true" />
+                  {meta.level_ar && meta.level_en && (
+                    <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-gold/70">
+                      {t(meta.level_ar, meta.level_en)}
+                    </p>
+                  )}
+                  <h3 className="mt-1 text-sm font-bold">{t(c.title_ar, c.title_en)}</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-muted">{t(c.description_ar ?? "", c.description_en ?? "")}</p>
+                </Link>
+              );
+            })}
           </div>
 
           <div className="mt-8 text-center">
@@ -237,16 +234,15 @@ export default function HomePage() {
             {t("الاعتمادات العلمية", "Scholarly credentials")}
           </p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-x-10 gap-y-4">
-            {[
-              { icon: GraduationCap, ar: "خريجو جامعة الأزهر", en: "Al-Azhar Graduates" },
-              { icon: Shield, ar: "إجازة في رواية حفص", en: "Hafs Ijazah Certified" },
-              { icon: Globe, ar: "طلاب من ٣٠+ دولة", en: "Students from 30+ countries" },
-            ].map((b) => (
-              <div key={b.en} className="flex items-center gap-2 text-sm">
-                <b.icon size={18} className="text-foreground/70" strokeWidth={1.75} />
-                <span className="text-foreground">{t(b.ar, b.en)}</span>
-              </div>
-            ))}
+            {trustStrip.map((b) => {
+              const Icon = resolveIcon(b.icon_name);
+              return (
+                <div key={b.id} className="flex items-center gap-2 text-sm">
+                  <Icon size={18} className="text-foreground/70" strokeWidth={1.75} aria-hidden="true" />
+                  <span className="text-foreground">{t(b.title_ar, b.title_en)}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -275,22 +271,20 @@ export default function HomePage() {
           </div>
 
           <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {[
-              { ar: "الباقة الأساسية", en: "Starter", freq: t("٢ أيام/أسبوع · ٨ جلسات", "2 days/week · 8 sessions") },
-              { ar: "الباقة المتوسطة", en: "Standard", freq: t("٣ أيام/أسبوع · ١٢ جلسة", "3 days/week · 12 sessions") },
-              { ar: "الباقة المتقدمة", en: "Premium", freq: t("٥ أيام/أسبوع · ٢٠ جلسة", "5 days/week · 20 sessions"), featured: true },
-              { ar: "باقة نهاية الأسبوع", en: "Weekend", freq: t("السبت والأحد · ٨ جلسات", "Sat & Sun · 8 sessions") },
-            ].map((p) => (
-              <div key={p.en} className={`glass-card p-6 transition-all duration-200 ${p.featured ? "border-2 border-gold" : ""}`}>
-                {p.featured && <span className="glass-gold glass-pill mb-3 inline-block px-3 py-1 text-xs font-bold">{t("الأكثر طلباً", "Most Popular")}</span>}
-                <h3 className="text-lg font-bold">{t(p.ar, p.en)}</h3>
-                <p className="mt-2 text-sm text-muted">{p.freq}</p>
-                <p className="mt-3 text-sm text-gold">{t("تواصل معنا للتسعير", "Contact us for pricing")}</p>
-                <Link href="/packages" className="glass glass-pill mt-4 block py-2.5 text-center text-sm font-medium text-gold transition-colors duration-200 hover:bg-gold hover:text-background">
-                  {t("التفاصيل", "View Details")}
-                </Link>
-              </div>
-            ))}
+            {packagePreview.map((p) => {
+              const meta = p.meta as PackagePreviewMeta;
+              return (
+                <div key={p.id} className={`glass-card p-6 transition-all duration-200 ${meta.featured ? "border-2 border-gold" : ""}`}>
+                  {meta.featured && <span className="glass-gold glass-pill mb-3 inline-block px-3 py-1 text-xs font-bold">{t("الأكثر طلباً", "Most Popular")}</span>}
+                  <h3 className="text-lg font-bold">{t(p.title_ar, p.title_en)}</h3>
+                  <p className="mt-2 text-sm text-muted">{t(meta.freq_ar ?? "", meta.freq_en ?? "")}</p>
+                  <p className="mt-3 text-sm text-gold">{t("تواصل معنا للتسعير", "Contact us for pricing")}</p>
+                  <Link href="/packages" className="glass glass-pill mt-4 block py-2.5 text-center text-sm font-medium text-gold transition-colors duration-200 hover:bg-gold hover:text-background">
+                    {t("التفاصيل", "View Details")}
+                  </Link>
+                </div>
+              );
+            })}
           </div>
 
           <div className="mt-8 text-center">

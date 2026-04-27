@@ -63,6 +63,7 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/admin/payments", ar: "المالية", en: "Payments", icon: DollarSign },
     { href: "/admin/packages", ar: "الباقات", en: "Packages", icon: BookOpen, group: { ar: "المحتوى", en: "CONTENT" } },
     { href: "/admin/services", ar: "الخدمات", en: "Services", icon: Briefcase },
+    { href: "/admin/content", ar: "محتوى الموقع", en: "Site Content", icon: FileText },
     { href: "/admin/blog", ar: "المدونة", en: "Blog", icon: FileText },
     { href: "/admin/announcements", ar: "الإعلانات", en: "Announcements", icon: Bell },
     { href: "/admin/contacts", ar: "رسائل التواصل", en: "Contacts", icon: Mail },

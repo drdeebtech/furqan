@@ -19,16 +19,9 @@ interface Post {
   published_at: string;
 }
 
-const CATEGORIES = [
-  { key: "all", ar: "الكل", en: "All" },
-  { key: "Hifz", ar: "حفظ القرآن", en: "Hifz" },
-  { key: "Tajweed", ar: "تجويد", en: "Tajweed" },
-  { key: "Tips", ar: "نصائح", en: "Tips" },
-  { key: "Children", ar: "للأطفال", en: "Children" },
-  { key: "Qiraat", ar: "القراءات", en: "Qira'at" },
-];
+interface Category { key: string; ar: string; en: string }
 
-export function BlogContent({ posts }: { posts: Post[] }) {
+export function BlogContent({ posts, categories }: { posts: Post[]; categories: Category[] }) {
   const { t } = useLang();
   const [filter, setFilter] = useState("all");
   const [email, setEmail] = useState("");
@@ -81,7 +74,7 @@ export function BlogContent({ posts }: { posts: Post[] }) {
 
           {/* Filter tabs */}
           <div className="mb-8 mt-12 flex flex-wrap gap-2">
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <button
                 key={c.key}
                 onClick={() => setFilter(c.key)}

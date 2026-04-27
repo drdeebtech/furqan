@@ -1,13 +1,13 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/i18n/context";
 import { CONTACT } from "@/lib/contact";
 import { RegisterBanner } from "@/components/public/register-banner";
 import { ContactForm } from "./contact-form";
-import { FAQ } from "./faq";
 
-export function ContactContent() {
+export function ContactContent({ faqSlot }: { faqSlot?: ReactNode } = {}) {
   const { t } = useLang();
 
   return (
@@ -51,7 +51,7 @@ export function ContactContent() {
         </div>
       </section>
 
-      <div className="border-t border-white/10"><FAQ /></div>
+      {faqSlot && <div className="border-t border-[var(--surface-border)]">{faqSlot}</div>}
       <RegisterBanner />
     </div>
   );
