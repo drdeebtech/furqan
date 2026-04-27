@@ -101,7 +101,7 @@ export function BookingActions({ bookingId, isFirst }: { bookingId: string; isFi
         <button
           onClick={() => handle("confirmed")}
           disabled={loading !== null}
-          className={`glass-success glass-pill flex min-h-[44px] items-center gap-1 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50 sm:px-3 sm:py-1.5 ${isFirst ? "animate-pulse-slow ring-2 ring-green-400/50" : ""}`}
+          className={`glass-success glass-pill flex min-h-[44px] items-center gap-1 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50 sm:px-3 sm:py-1.5 ${isFirst ? "animate-pulse-slow" : ""}`}
         >
           {loading === "confirm" ? (
             <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />

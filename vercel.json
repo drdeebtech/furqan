@@ -1,6 +1,5 @@
 {
   "installCommand": "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install",
-  "buildCommand": "next build && bash ./scripts/sentry-release.sh",
   "crons": [
     {
       "path": "/api/cron/audit-cleanup",

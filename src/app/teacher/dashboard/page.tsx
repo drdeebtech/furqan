@@ -25,7 +25,15 @@ export default async function TeacherDashboardPage() {
   const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
 
-  const [profileRes, tpRes, pendingRes, todayRes, monthRes, allStudentsRes, availRes] = await Promise.all([
+  // One big parallel batch — every query below only depends on user.id, so we
+  // collapse what was previously three sequential round-trips down to two.
+  // The remaining sequential hop is the unread-messages count, which has a
+  // legit dependency on the conversation ids returned by convosRes.
+  const [
+    profileRes, tpRes, pendingRes, todayRes, monthRes, allStudentsRes, availRes,
+    gradingRes, convosRes,
+    weeklyHours, liveSessions, sessionBreakdown, recentStudents,
+  ] = await Promise.all([
     supabase.from("profiles").select("full_name, phone, avatar_url").eq("id", user.id).single<{ full_name: string | null; phone: string | null; avatar_url: string | null }>(),
     supabase.from("teacher_profiles").select("total_sessions, rating_avg, cv_status, bio").eq("teacher_id", user.id)
       .single<{ total_sessions: number; rating_avg: number; cv_status: string; bio: string | null }>(),
@@ -38,13 +46,14 @@ export default async function TeacherDashboardPage() {
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("teacher_id", user.id).eq("status", "completed").gte("created_at", monthStart),
     supabase.from("bookings").select("student_id").eq("teacher_id", user.id).eq("status", "completed").returns<{ student_id: string }[]>(),
     supabase.from("teacher_availability").select("id", { count: "exact", head: true }).eq("teacher_id", user.id).eq("is_active", true),
-  ]);
-
-  // Action queue data — fetch conversations first, then count in parallel
-  const [gradingRes, convosRes] = await Promise.all([
     supabase.from("homework_assignments").select("id", { count: "exact", head: true }).eq("teacher_id", user.id).eq("status", "student_ready"),
     supabase.from("conversations").select("id").eq("teacher_id", user.id).returns<{id:string}[]>(),
+    getTeacherWeeklyHours(user.id),
+    getTeacherLiveSessions(user.id),
+    getTeacherSessionTypeBreakdown(user.id),
+    getTeacherRecentStudents(user.id),
   ]);
+
   const convIds = convosRes.data?.map(c => c.id) ?? [];
   let unreadMessages = 0;
   if (convIds.length > 0) {
@@ -74,13 +83,6 @@ export default async function TeacherDashboardPage() {
 
   const allStudentIds = [...new Set([...pending.map(b => b.student_id), ...todaySessions.map(b => b.student_id)])];
   const nameMap = await fetchNameMap(supabase, allStudentIds);
-
-  const [weeklyHours, liveSessions, sessionBreakdown, recentStudents] = await Promise.all([
-    getTeacherWeeklyHours(user.id),
-    getTeacherLiveSessions(user.id),
-    getTeacherSessionTypeBreakdown(user.id),
-    getTeacherRecentStudents(user.id),
-  ]);
 
   return (
     <main>
