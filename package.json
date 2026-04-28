@@ -14,7 +14,17 @@
     "test:ui": "playwright test --ui",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
-    "db:types": "supabase gen types typescript --linked > src/types/supabase.generated.ts"
+    "db:types": "supabase gen types typescript --linked > src/types/supabase.generated.ts",
+    "sb:whoami": "bash scripts/sb/whoami.sh",
+    "sb:sql": "bash scripts/sb/sql.sh",
+    "sb:user": "bash scripts/sb/find-user.sh",
+    "sb:reset-pw": "bash scripts/sb/reset-password.sh",
+    "sb:errors": "bash scripts/sb/auth-errors.sh",
+    "sb:inspect": "bash scripts/sb/inspect.sh",
+    "sb:advisors": "bash scripts/sb/advisors.sh",
+    "sb:grants": "bash scripts/sb/grants.sh",
+    "sb:tables": "bash scripts/sb/tables.sh",
+    "sb:backup": "bash scripts/sb/backup.sh"
   },
   "dependencies": {
     "@daily-co/daily-js": "^0.89.1",
