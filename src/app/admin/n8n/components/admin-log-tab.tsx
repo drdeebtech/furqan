@@ -4,6 +4,7 @@ import { useState, useEffect, startTransition } from "react";
 import { Power, PowerOff, RefreshCw, FileText } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { WidgetCard } from "@/components/shared/widget-card";
+import { logError } from "@/lib/logger";
 
 interface AdminAction {
   id: string;
@@ -46,8 +47,9 @@ export function AdminLogTab() {
           setLoading(false);
         });
       })
-      .catch(() => {
+      .catch((err) => {
         if (cancelled) return;
+        logError("admin-log-tab fetch failed", err, { tag: "admin-n8n", component: "admin-log-tab" });
         startTransition(() => setLoading(false));
       });
     return () => {
