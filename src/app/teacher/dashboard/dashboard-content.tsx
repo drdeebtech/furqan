@@ -1,9 +1,9 @@
 "use client";
 
-import { Calendar, Clock, Hourglass, Star, Users } from "lucide-react";
+import Link from "next/link";
+import { Calendar, Clock, Hourglass, Star, Users, type LucideIcon } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { SESSION_TYPE_BILINGUAL } from "@/lib/constants";
-import { StatCard } from "@/components/shared/stat-card";
 import { WidgetCard } from "@/components/shared/widget-card";
 import { AnalyticsChart } from "@/components/shared/analytics-chart";
 import { LiveSessionsWidget } from "@/components/shared/live-sessions-widget";
@@ -40,6 +40,35 @@ interface TeacherDashboardData {
   actionQueue: { pendingGrading: number; overdueEvals: number; unreadMessages: number; todaySessionCount: number; lowAvailability: boolean };
 }
 
+function StatInline({
+  href,
+  icon: Icon,
+  label,
+  value,
+  accent,
+}: {
+  href: string;
+  icon: LucideIcon;
+  label: string;
+  value: number | string;
+  accent?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex items-center gap-3 rounded-lg p-1 transition-colors hover:bg-foreground/5"
+    >
+      <Icon size={18} className={accent ? "text-gold" : "text-muted"} aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <dt className="truncate text-xs text-muted">{label}</dt>
+        <dd className={`font-display text-lg font-bold leading-tight ${accent ? "text-gold" : ""}`}>
+          {value}
+        </dd>
+      </div>
+    </Link>
+  );
+}
+
 export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }) {
   const { t, dir, lang } = useLang();
   const locale = lang === "ar" ? "ar" : "en-US";
@@ -61,12 +90,15 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
         {/* Action Queue — shows only when there are pending actions */}
         {cvStatus === "approved" && <div className="mt-4"><TeacherActionQueue data={actionQueue} /></div>}
 
-        {/* Row 1: 4 Stat Cards */}
-        <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4 stagger-children">
-          <StatCard icon={Users} label={t("طلابي", "My Students")} value={uniqueStudents} href="/teacher/students" actionLabel={t("عرض", "View")} statusBadge={uniqueStudents > 0 ? { text: t("نشط", "Active"), type: "active" as const } : undefined} />
-          <StatCard icon={Calendar} label={t("جلسات هذا الشهر", "This Month")} value={monthSessions} href="/teacher/sessions" actionLabel={t("عرض", "View")} />
-          <StatCard icon={Hourglass} label={t("طلبات معلّقة", "Pending Requests")} value={pendingCount} href="#pending" actionLabel={t("عرض", "View")} />
-          <StatCard icon={Star} label={t("التقييم", "Rating")} value={ratingAvg > 0 ? ratingAvg.toFixed(1) : "—"} href="/teacher/evaluations" actionLabel={t("عرض", "View")} />
+        {/* Row 1: tight stat row — distilled from a 4-card hero grid into a single
+            info bar. Same data, less "AI dashboard silhouette". */}
+        <div className="mt-6 glass-card p-4 sm:p-5">
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm md:grid-cols-4">
+            <StatInline href="/teacher/students" icon={Users} label={t("طلابي", "My Students")} value={uniqueStudents} accent={uniqueStudents > 0} />
+            <StatInline href="/teacher/sessions" icon={Calendar} label={t("جلسات هذا الشهر", "This Month")} value={monthSessions} />
+            <StatInline href="#pending" icon={Hourglass} label={t("طلبات معلّقة", "Pending")} value={pendingCount} accent={pendingCount > 0} />
+            <StatInline href="/teacher/evaluations" icon={Star} label={t("التقييم", "Rating")} value={ratingAvg > 0 ? ratingAvg.toFixed(1) : "—"} />
+          </dl>
         </div>
 
         {/* Row 2: Analytics chart + Right widgets */}
