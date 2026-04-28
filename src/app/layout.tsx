@@ -5,6 +5,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/lib/theme/context";
 import { ToastProvider } from "@/components/shared/toast";
 import { PwaInstallPrompt } from "@/components/shared/pwa-install-prompt";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -146,6 +147,7 @@ export default async function RootLayout({
             <PwaInstallPrompt />
           </ToastProvider>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
