@@ -42,6 +42,9 @@ enable_signup = true
 double_confirm_changes = false
 enable_confirmations = false
 secure_password_change = false
+# Reject passwords that appear in the HaveIBeenPwned breach dump. Closes the
+# `auth_leaked_password_protection` advisor warning. Recommended on by default.
+enable_leaked_password_protection = true
 max_frequency = "1m0s"
 otp_length = 8
 otp_expiry = 3600
