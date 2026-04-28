@@ -388,6 +388,18 @@ The Sentry SDK is fully scaffolded (`@sentry/nextjs@10.49.0`, three config files
 
 Until DSN is set, `logError` falls back to `console.error` in dev and Telegram alerts on `severity: 'critical'`. No-op behavior in production keeps the app running normally.
 
+## Supabase Auth — leaked password protection
+
+Supabase Auth can reject passwords known to be in the HaveIBeenPwned breach corpus. This is **off by default** and cannot be migrated — it's a dashboard toggle. Enable once per environment:
+
+1. Supabase Dashboard → **Authentication** → **Providers** → **Email** (or the project's auth settings page).
+2. Find **Leaked password protection** (sometimes labeled "HaveIBeenPwned check").
+3. Toggle on. Save.
+4. Verify by attempting to register / reset with a known-pwned password (e.g. `password123`) — the request must be rejected.
+5. Re-run `mcp__claude_ai_Supabase__get_advisors({type: "security"})` (or Dashboard → Advisors) — the `auth_leaked_password_protection` finding should be gone.
+
+Docs: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
+
 ## Verification Checklist
 After any code change:
 1. `npx next build` — must pass with zero errors
@@ -398,7 +410,7 @@ After any code change:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **furqan** (2904 symbols, 6785 relationships, 218 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **furqan** (2960 symbols, 6912 relationships, 222 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
