@@ -421,6 +421,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bookings_rescheduled_from_fkey"
+            columns: ["rescheduled_from"]
+            isOneToOne: false
+            referencedRelation: "v_bookings"
+            referencedColumns: ["booking_id"]
+          },
+          {
             foreignKeyName: "bookings_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
@@ -433,6 +440,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "student_packages"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_student_package_id_fkey"
+            columns: ["student_package_id"]
+            isOneToOne: false
+            referencedRelation: "v_student_packages"
+            referencedColumns: ["student_package_id"]
           },
           {
             foreignKeyName: "bookings_teacher_id_fkey"
@@ -669,6 +683,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "homework_assignments_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "v_bookings"
+            referencedColumns: ["booking_id"]
+          },
+          {
             foreignKeyName: "homework_assignments_parent_assignment_id_fkey"
             columns: ["parent_assignment_id"]
             isOneToOne: false
@@ -676,11 +697,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "homework_assignments_parent_assignment_id_fkey"
+            columns: ["parent_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "v_homework"
+            referencedColumns: ["homework_id"]
+          },
+          {
             foreignKeyName: "homework_assignments_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "sessions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "homework_assignments_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_sessions"
+            referencedColumns: ["session_id"]
           },
           {
             foreignKeyName: "homework_assignments_student_id_fkey"
@@ -757,6 +792,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      legal_document_versions: {
+        Row: {
+          body_ar: string | null
+          body_en: string | null
+          created_at: string
+          effective_at: string
+          id: string
+          kind: string
+          saved_by: string | null
+          superseded_at: string | null
+          version: number
+        }
+        Insert: {
+          body_ar?: string | null
+          body_en?: string | null
+          created_at?: string
+          effective_at: string
+          id?: string
+          kind: string
+          saved_by?: string | null
+          superseded_at?: string | null
+          version: number
+        }
+        Update: {
+          body_ar?: string | null
+          body_en?: string | null
+          created_at?: string
+          effective_at?: string
+          id?: string
+          kind?: string
+          saved_by?: string | null
+          superseded_at?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      legal_documents: {
+        Row: {
+          body_ar: string | null
+          body_en: string | null
+          kind: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          body_ar?: string | null
+          body_en?: string | null
+          kind: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          body_ar?: string | null
+          body_en?: string | null
+          kind?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
       }
       message_delivery_log: {
         Row: {
@@ -1166,6 +1261,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fk_payments_booking"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "v_bookings"
+            referencedColumns: ["booking_id"]
+          },
+          {
             foreignKeyName: "payments_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
@@ -1217,6 +1319,7 @@ export type Database = {
           date_of_birth: string | null
           deleted_at: string | null
           full_name: string | null
+          full_name_ar: string | null
           id: string
           is_active: boolean
           lang: string
@@ -1235,6 +1338,7 @@ export type Database = {
           date_of_birth?: string | null
           deleted_at?: string | null
           full_name?: string | null
+          full_name_ar?: string | null
           id: string
           is_active?: boolean
           lang?: string
@@ -1253,6 +1357,7 @@ export type Database = {
           date_of_birth?: string | null
           deleted_at?: string | null
           full_name?: string | null
+          full_name_ar?: string | null
           id?: string
           is_active?: boolean
           lang?: string
@@ -1307,6 +1412,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "student_progress"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recitation_errors_progress_id_fkey"
+            columns: ["progress_id"]
+            isOneToOne: false
+            referencedRelation: "v_progress"
+            referencedColumns: ["progress_id"]
           },
         ]
       }
@@ -1440,6 +1552,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "bookings"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "v_bookings"
+            referencedColumns: ["booking_id"]
           },
           {
             foreignKeyName: "reviews_student_id_fkey"
@@ -1632,6 +1751,13 @@ export type Database = {
             referencedRelation: "sessions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "session_notes_history_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_sessions"
+            referencedColumns: ["session_id"]
+          },
         ]
       }
       session_observers: {
@@ -1677,6 +1803,13 @@ export type Database = {
             referencedRelation: "sessions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "session_observers_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_sessions"
+            referencedColumns: ["session_id"]
+          },
         ]
       }
       session_presence_events: {
@@ -1714,6 +1847,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sessions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_presence_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_sessions"
+            referencedColumns: ["session_id"]
           },
           {
             foreignKeyName: "session_presence_events_user_id_fkey"
@@ -1800,6 +1940,13 @@ export type Database = {
             referencedRelation: "bookings"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "sessions_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "v_bookings"
+            referencedColumns: ["booking_id"]
+          },
         ]
       }
       site_announcements: {
@@ -1857,6 +2004,120 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      site_blog_categories: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          key: string
+          label_ar: string
+          label_en: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          key: string
+          label_ar: string
+          label_en: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          key?: string
+          label_ar?: string
+          label_en?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      site_faqs: {
+        Row: {
+          answer_ar: string
+          answer_en: string
+          created_at: string
+          id: string
+          is_active: boolean
+          question_ar: string
+          question_en: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          answer_ar: string
+          answer_en: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          question_ar: string
+          question_en: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          answer_ar?: string
+          answer_en?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          question_ar?: string
+          question_en?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      site_features: {
+        Row: {
+          created_at: string
+          description_ar: string | null
+          description_en: string | null
+          icon_name: string
+          id: string
+          is_active: boolean
+          meta: Json
+          slot: string
+          sort_order: number
+          title_ar: string
+          title_en: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description_ar?: string | null
+          description_en?: string | null
+          icon_name: string
+          id?: string
+          is_active?: boolean
+          meta?: Json
+          slot: string
+          sort_order?: number
+          title_ar: string
+          title_en: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description_ar?: string | null
+          description_en?: string | null
+          icon_name?: string
+          id?: string
+          is_active?: boolean
+          meta?: Json
+          slot?: string
+          sort_order?: number
+          title_ar?: string
+          title_en?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       student_credits: {
         Row: {
@@ -2041,6 +2302,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "student_progress_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "v_bookings"
+            referencedColumns: ["booking_id"]
+          },
+          {
             foreignKeyName: "student_progress_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
@@ -2148,6 +2416,33 @@ export type Database = {
           },
         ]
       }
+      teacher_languages: {
+        Row: {
+          created_at: string
+          is_active: boolean
+          key: string
+          label_ar: string
+          label_en: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          is_active?: boolean
+          key: string
+          label_ar: string
+          label_en: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          is_active?: boolean
+          key?: string
+          label_ar?: string
+          label_en?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       teacher_profiles: {
         Row: {
           archived_at: string | null
@@ -2241,9 +2536,370 @@ export type Database = {
           },
         ]
       }
+      teacher_recitations: {
+        Row: {
+          created_at: string
+          is_active: boolean
+          key: string
+          label_ar: string
+          label_en: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          is_active?: boolean
+          key: string
+          label_ar: string
+          label_en: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          is_active?: boolean
+          key?: string
+          label_ar?: string
+          label_en?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      teacher_specialties: {
+        Row: {
+          created_at: string
+          is_active: boolean
+          key: string
+          label_ar: string
+          label_en: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          is_active?: boolean
+          key: string
+          label_ar: string
+          label_en: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          is_active?: boolean
+          key?: string
+          label_ar?: string
+          label_en?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      v_bookings: {
+        Row: {
+          booking_id: string | null
+          created_at: string | null
+          duration_min: number | null
+          notes: string | null
+          scheduled_at: string | null
+          session_type: Database["public"]["Enums"]["session_type"] | null
+          status: Database["public"]["Enums"]["booking_status"] | null
+          student_id: string | null
+          student_name: string | null
+          student_package_id: string | null
+          teacher_id: string | null
+          teacher_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_student_package_id_fkey"
+            columns: ["student_package_id"]
+            isOneToOne: false
+            referencedRelation: "student_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_student_package_id_fkey"
+            columns: ["student_package_id"]
+            isOneToOne: false
+            referencedRelation: "v_student_packages"
+            referencedColumns: ["student_package_id"]
+          },
+          {
+            foreignKeyName: "bookings_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_evaluations: {
+        Row: {
+          areas_for_improvement: string | null
+          attendance_score: number | null
+          created_at: string | null
+          evaluation_date: string | null
+          evaluation_id: string | null
+          evaluation_type: Database["public"]["Enums"]["evaluation_type"] | null
+          fluency_score: number | null
+          hifz_score: number | null
+          next_goals: string | null
+          overall_score: number | null
+          strengths: string | null
+          student_id: string | null
+          student_name: string | null
+          tajweed_score: number | null
+          teacher_comments: string | null
+          teacher_id: string | null
+          teacher_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_evaluations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_evaluations_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_homework: {
+        Row: {
+          assigned_at: string | null
+          ayah_end: number | null
+          ayah_start: number | null
+          booking_id: string | null
+          completed_at: string | null
+          created_at: string | null
+          due_date: string | null
+          homework_id: string | null
+          homework_type: Database["public"]["Enums"]["homework_type"] | null
+          pages_count: number | null
+          parent_assignment_id: string | null
+          ready_at: string | null
+          status: Database["public"]["Enums"]["homework_status"] | null
+          student_id: string | null
+          student_name: string | null
+          surah_number: number | null
+          teacher_id: string | null
+          teacher_name: string | null
+          teacher_notes: string | null
+          title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "homework_assignments_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "homework_assignments_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "v_bookings"
+            referencedColumns: ["booking_id"]
+          },
+          {
+            foreignKeyName: "homework_assignments_parent_assignment_id_fkey"
+            columns: ["parent_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "homework_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "homework_assignments_parent_assignment_id_fkey"
+            columns: ["parent_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "v_homework"
+            referencedColumns: ["homework_id"]
+          },
+          {
+            foreignKeyName: "homework_assignments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "homework_assignments_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_progress: {
+        Row: {
+          ayah_from: number | null
+          ayah_to: number | null
+          booking_id: string | null
+          created_at: string | null
+          level: Database["public"]["Enums"]["student_level"] | null
+          pages_reviewed: number | null
+          progress_id: string | null
+          progress_type: string | null
+          quality_rating: number | null
+          student_id: string | null
+          student_name: string | null
+          surah_from: number | null
+          surah_to: number | null
+          teacher_id: string | null
+          teacher_name: string | null
+          teacher_notes: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_progress_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_progress_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "v_bookings"
+            referencedColumns: ["booking_id"]
+          },
+          {
+            foreignKeyName: "student_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_progress_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_sessions: {
+        Row: {
+          actual_duration: number | null
+          booking_id: string | null
+          created_at: string | null
+          created_via: string | null
+          ended_at: string | null
+          is_observable: boolean | null
+          room_name: string | null
+          room_url: string | null
+          session_id: string | null
+          started_at: string | null
+          student_joined: boolean | null
+          student_name: string | null
+          teacher_joined: boolean | null
+          teacher_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "v_bookings"
+            referencedColumns: ["booking_id"]
+          },
+        ]
+      }
+      v_student_packages: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          package_id: string | null
+          package_name_ar: string | null
+          package_name_en: string | null
+          package_type: string | null
+          payment_id: string | null
+          purchased_at: string | null
+          sessions_remaining: number | null
+          sessions_total: number | null
+          sessions_used: number | null
+          status: string | null
+          student_id: string | null
+          student_name: string | null
+          student_package_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_packages_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_packages_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_packages_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_teachers: {
+        Row: {
+          bio: string | null
+          bio_en: string | null
+          created_at: string | null
+          cv_reviewed_at: string | null
+          cv_status: Database["public"]["Enums"]["cv_status"] | null
+          full_name: string | null
+          full_name_ar: string | null
+          gender: Database["public"]["Enums"]["gender_type"] | null
+          hourly_rate: number | null
+          intro_video_url: string | null
+          is_accepting: boolean | null
+          is_archived: boolean | null
+          phone: string | null
+          rating_avg: number | null
+          recitation_standards: string[] | null
+          specialties: string[] | null
+          teacher_id: string | null
+          total_sessions: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_profiles_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       deduct_package_session: {
@@ -2253,6 +2909,7 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_admin_or_mod: { Args: never; Returns: boolean }
       is_moderator: { Args: never; Returns: boolean }
+      redact_pii: { Args: { payload: Json }; Returns: Json }
     }
     Enums: {
       booking_status:
