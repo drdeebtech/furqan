@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Search, CalendarDays, ChevronDown, MoreHorizontal, Settings, LogOut } from "lucide-react";
+import { Search, CalendarDays, ChevronDown, MoreHorizontal, Settings, LogOut, Bug } from "lucide-react";
+import * as Sentry from "@sentry/nextjs";
 import { ThemeToggle } from "@/lib/theme/theme-toggle";
 import { LangToggle } from "@/lib/i18n/lang-toggle";
 import { NotificationBell } from "@/components/shared/notification-bell";
@@ -132,6 +133,22 @@ export function Topbar({ role }: { role?: Role } = {}) {
                 {t("الإعدادات", "Settings")}
               </Link>
             )}
+            <button
+              type="button"
+              role="menuitem"
+              onClick={async () => {
+                setMenuOpen(false);
+                const feedback = Sentry.getFeedback();
+                if (!feedback) return;
+                const form = await feedback.createForm();
+                form.appendToDom();
+                form.open();
+              }}
+              className="flex min-h-[44px] w-full items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-foreground/5"
+            >
+              <Bug size={14} className="text-gold" aria-hidden="true" />
+              {t("أبلغ عن مشكلة", "Report a problem")}
+            </button>
             <form action="/api/auth/logout" method="POST">
               <button
                 type="submit"

@@ -22,13 +22,16 @@ Sentry.init({
       maskAllInputs: true,
       blockAllMedia: true,
     }),
-    // User Feedback widget — adds a floating "Report a problem" button.
-    // Auto-injects globally; users can describe a bug in their own words
-    // and Sentry creates a feedback issue with their session replay attached.
+    // User Feedback widget — Sentry's launcher is suppressed (autoInject:
+    // false) because its viewport-anchored bottom-right position collides
+    // with the Support nav icon on furqan's layout. Instead we trigger the
+    // same dialog from the topbar overflow menu via
+    // `Sentry.getFeedback()?.openDialog()` in src/components/shared/topbar.tsx.
+    // The integration must still be loaded so getFeedback() returns the widget.
     Sentry.feedbackIntegration({
       colorScheme: "system",
       showBranding: false,
-      autoInject: isProd,
+      autoInject: false,
       triggerLabel: "أبلغ عن مشكلة",
       formTitle: "أبلغ عن مشكلة",
       submitButtonLabel: "إرسال",
