@@ -42,9 +42,13 @@ enable_signup = true
 double_confirm_changes = false
 enable_confirmations = false
 secure_password_change = false
-# Reject passwords that appear in the HaveIBeenPwned breach dump. Closes the
-# `auth_leaked_password_protection` advisor warning. Recommended on by default.
-enable_leaked_password_protection = true
+# NOTE: HaveIBeenPwned (HIBP) leaked-password protection — flips the
+# `auth_leaked_password_protection` advisor warning. The CLI v2.95.6 rejects
+# `enable_leaked_password_protection` here in `[auth.email]` and we couldn't
+# find the right TOML path that the CLI accepts. **Toggle it in the
+# Supabase dashboard instead**: Authentication → Providers → Email →
+# "Prevent use of leaked passwords" → ON. Save. The advisor warning
+# clears on next refresh.
 max_frequency = "1m0s"
 otp_length = 8
 otp_expiry = 3600
