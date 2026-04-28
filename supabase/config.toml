@@ -17,3 +17,54 @@
 #     internal tracker) instead of our custom table
 
 project_id = "xyqscjnqfeusgrhmwjts"
+
+# ─── Auth ────────────────────────────────────────────────────────────────────
+# IMPORTANT: every Auth field you care about MUST be specified here, because
+# `supabase config push` fills omitted fields with CLI defaults (which target
+# local dev — http://127.0.0.1:3000). On 2026-04-28 a push that only set the
+# SMTP block accidentally reset site_url, additional_redirect_urls, MFA TOTP,
+# rate limits, OTP length, and double-confirm to dev defaults. The fields below
+# are the real production values (recovered from the auth diff in that push).
+[auth]
+enabled = true
+site_url = "https://furqan.today"
+additional_redirect_urls = ["https://furqan.today/**", "https://www.furqan.today/**"]
+
+[auth.rate_limit]
+email_sent = 30
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = false
+enable_confirmations = false
+secure_password_change = false
+max_frequency = "1m0s"
+otp_length = 8
+otp_expiry = 3600
+
+# Custom SMTP via Resend.
+#
+# Why this block exists: Supabase Auth's built-in sender is heavily rate-limited
+# (3-4 emails/hour). Custom SMTP via Resend gives us proper deliverability.
+#
+# Secret handling: `pass` reads `SUPABASE_AUTH_SMTP_PASS` at push time, so the
+# Resend API key never lands in git. Before `supabase config push`, run:
+#   export SUPABASE_AUTH_SMTP_PASS=$(grep '^RESEND_API_KEY=' .env.local | cut -d= -f2- | tr -d '"')
+[auth.email.smtp]
+enabled = true
+host = "smtp.resend.com"
+port = 465
+user = "resend"
+pass = "env(SUPABASE_AUTH_SMTP_PASS)"
+# admin_email = sender FROM address. furqan.today is verified in Resend
+# (created 2026-04-26, verified, sending+receiving enabled in eu-west-1),
+# so we send from a branded address rather than onboarding@resend.dev. Yahoo
+# + Gmail spam scores trust verified-domain senders much more than Resend's
+# shared default — material improvement in deliverability for Arabic-locale
+# recipients whose providers filter aggressively.
+admin_email = "team@furqan.today"
+sender_name = "FURQAN Academy"
