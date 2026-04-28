@@ -110,7 +110,12 @@ export function loudAction<TInput, THandlerResult extends void | { message?: str
       }
       // Audit on failure too — silent failure is the bug we're killing.
       if (config.audit) {
-        await writeAudit(config.audit, input, actorId, "failure", message).catch(() => {});
+        await writeAudit(config.audit, input, actorId, "failure", message).catch((auditErr) =>
+          logError("loudAction audit write failed (failure path)", auditErr, {
+            tag: "loud-action",
+            actionName: config.name,
+          }),
+        );
       }
       return { ok: false, error: message };
     }

@@ -240,7 +240,7 @@ export async function createBooking(
         scheduledAt.toLocaleDateString("ar"),
       );
     })(),
-    emitEvent("booking.created", "booking", newBooking?.id ?? "", { student_id: studentId, teacher_id: teacherId, session_type: sessionType, scheduled_at: scheduledAt.toISOString() }).catch(() => {}),
+    emitEvent("booking.created", "booking", newBooking?.id ?? "", { student_id: studentId, teacher_id: teacherId, session_type: sessionType, scheduled_at: scheduledAt.toISOString() }).catch((err) => logError("emit booking.created failed", err, { tag: "automation", actionName: "booking.created" })),
   ]);
 
   redirect("/student/dashboard?booked=1");
