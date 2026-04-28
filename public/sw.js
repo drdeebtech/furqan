@@ -4,7 +4,7 @@
 // Bump this on any public asset change (logos, manifest, favicons) so installed
 // PWAs invalidate their precache on the next service-worker activation.
 const CACHE_NAME = "furqan-v2-2026-04-24";
-const OFFLINE_URL = "/offline";
+const _OFFLINE_URL = "/offline";
 
 // Static assets to cache on install
 const PRECACHE_URLS = [

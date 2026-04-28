@@ -54,7 +54,7 @@ export const options = {
   },
 };
 
-export default function () {
+export default function smokeIteration() {
   // Each VU walks the route list once per iteration with a 1-second
   // pause between requests — mimics a real visitor browsing pages,
   // not a flood.

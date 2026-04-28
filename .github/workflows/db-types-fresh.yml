@@ -1,6 +1,7 @@
 name: DB Types Freshness
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - "src/types/supabase.generated.ts"
@@ -9,7 +10,9 @@ on:
   push:
     branches: [main]
     paths:
+      - "src/types/supabase.generated.ts"
       - "src/lib/supabase/migrations/**"
+      - ".github/workflows/db-types-fresh.yml"
 
 jobs:
   freshness:
