@@ -4,7 +4,7 @@ import { Scale } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { LegalForm } from "./legal-form";
-import type { LegalDocument } from "@/lib/site-content/legal";
+import type { LegalDocument, LegalDocumentVersion } from "@/lib/site-content/legal";
 
 export const metadata: Metadata = { title: "الوثائق القانونية" };
 
@@ -16,13 +16,23 @@ export default async function AdminLegalPage() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any;
-  const { data } = await sb
-    .from("legal_documents")
-    .select("kind, body_ar, body_en, version, updated_at")
-    .in("kind", ["terms", "privacy"]);
-  const rows = ((data ?? []) as LegalDocument[]);
+  const [docsRes, versionsRes] = await Promise.all([
+    sb.from("legal_documents")
+      .select("kind, body_ar, body_en, version, updated_at")
+      .in("kind", ["terms", "privacy"]),
+    sb.from("legal_document_versions")
+      .select("id, kind, version, body_ar, body_en, effective_at, superseded_at, saved_by, created_at")
+      .in("kind", ["terms", "privacy"])
+      .order("version", { ascending: false })
+      .limit(20),
+  ]);
+  const rows = ((docsRes.data ?? []) as LegalDocument[]);
   const terms = rows.find((r) => r.kind === "terms") ?? null;
   const privacy = rows.find((r) => r.kind === "privacy") ?? null;
+
+  const allVersions = (versionsRes.data ?? []) as LegalDocumentVersion[];
+  const termsHistory = allVersions.filter((v) => v.kind === "terms");
+  const privacyHistory = allVersions.filter((v) => v.kind === "privacy");
 
   return (
     <main dir={dir} className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
@@ -43,9 +53,9 @@ export default async function AdminLegalPage() {
         )}
       </p>
 
-      <LegalForm kind="terms" titleAr="شروط الاستخدام" titleEn="Terms of Service" doc={terms} />
+      <LegalForm kind="terms" titleAr="شروط الاستخدام" titleEn="Terms of Service" doc={terms} history={termsHistory} />
       <div className="my-8 border-t border-[var(--surface-border)]" />
-      <LegalForm kind="privacy" titleAr="سياسة الخصوصية" titleEn="Privacy Policy" doc={privacy} />
+      <LegalForm kind="privacy" titleAr="سياسة الخصوصية" titleEn="Privacy Policy" doc={privacy} history={privacyHistory} />
     </main>
   );
 }

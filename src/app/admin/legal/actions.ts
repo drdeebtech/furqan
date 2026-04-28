@@ -21,16 +21,47 @@ const updateLegalBase = loudAction<{
     action: "UPDATE",
     reasonPrefix: "admin updated legal document",
   },
-  handler: async (input) => {
+  handler: async (input, ctx) => {
     const supabase = (await createClient()) as AnyClient;
-    // Read current version, bump on save. Upsert (not update) so a missing
-    // seed row would still be created rather than silently no-op'ing.
+    const now = new Date().toISOString();
+
+    // Snapshot the current row into legal_document_versions BEFORE we
+    // overwrite. Skip when there's nothing to snapshot (first save) or
+    // when the body would be identical to the snapshot (no-op edit).
     const { data: existing } = await supabase
       .from("legal_documents")
-      .select("version")
+      .select("version, body_ar, body_en, updated_at")
       .eq("kind", input.kind)
       .maybeSingle();
+
     const newVersion = (existing?.version ?? 0) + 1;
+    const isContentChange =
+      !existing ||
+      existing.body_ar !== input.body_ar ||
+      existing.body_en !== input.body_en;
+
+    if (existing && (existing.body_ar || existing.body_en) && isContentChange) {
+      // Mark the previous version row (if any) as superseded.
+      await supabase
+        .from("legal_document_versions")
+        .update({ superseded_at: now })
+        .eq("kind", input.kind)
+        .is("superseded_at", null);
+      // Append the snapshot of the version we're about to replace.
+      const { error: snapErr } = await supabase
+        .from("legal_document_versions")
+        .insert({
+          kind: input.kind,
+          version: existing.version,
+          body_ar: existing.body_ar,
+          body_en: existing.body_en,
+          effective_at: existing.updated_at ?? now,
+          superseded_at: now,
+          saved_by: ctx.actorId ?? null,
+        });
+      if (snapErr) throw snapErr;
+    }
+
     const { error } = await supabase
       .from("legal_documents")
       .upsert(
@@ -39,7 +70,7 @@ const updateLegalBase = loudAction<{
           body_ar: input.body_ar,
           body_en: input.body_en,
           version: newVersion,
-          updated_at: new Date().toISOString(),
+          updated_at: now,
         },
         { onConflict: "kind" },
       );

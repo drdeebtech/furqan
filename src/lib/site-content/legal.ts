@@ -10,6 +10,18 @@ export interface LegalDocument {
   updated_at: string;
 }
 
+export interface LegalDocumentVersion {
+  id: string;
+  kind: LegalKind;
+  version: number;
+  body_ar: string | null;
+  body_en: string | null;
+  effective_at: string;
+  superseded_at: string | null;
+  saved_by: string | null;
+  created_at: string;
+}
+
 export async function getLegalDocument(kind: LegalKind): Promise<LegalDocument | null> {
   // legal_documents was added in v16_002; supabase.generated.ts not regenerated.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

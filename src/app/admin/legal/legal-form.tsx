@@ -1,20 +1,34 @@
 "use client";
 
 import { useActionState } from "react";
-import { Save } from "lucide-react";
+import { History, Save } from "lucide-react";
 import { updateLegal } from "./actions";
 import { ActionFeedback } from "@/components/shared/action-feedback";
 import type { LoudResult } from "@/lib/actions/loud";
-import type { LegalDocument } from "@/lib/site-content/legal";
+import type { LegalDocument, LegalDocumentVersion } from "@/lib/site-content/legal";
 
 interface Props {
   kind: "terms" | "privacy";
   titleAr: string;
   titleEn: string;
   doc: LegalDocument | null;
+  history: LegalDocumentVersion[];
 }
 
-export function LegalForm({ kind, titleAr, titleEn, doc }: Props) {
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-US", {
+    year: "numeric", month: "short", day: "numeric",
+  });
+}
+
+function preview(body: string | null, max = 140): string {
+  if (!body) return "";
+  const flat = body.replace(/\s+/g, " ").trim();
+  return flat.length > max ? `${flat.slice(0, max)}…` : flat;
+}
+
+export function LegalForm({ kind, titleAr, titleEn, doc, history }: Props) {
   const [state, formAction, pending] = useActionState<LoudResult | null, FormData>(updateLegal, null);
   const usingFallback = !doc?.body_ar && !doc?.body_en;
 
@@ -79,6 +93,33 @@ export function LegalForm({ kind, titleAr, titleEn, doc }: Props) {
           </button>
         </div>
       </form>
+
+      {history.length > 0 && (
+        <details className="mt-6 border-t border-[var(--surface-border)] pt-4">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-sm text-muted hover:text-foreground">
+            <History size={14} aria-hidden="true" />
+            <span>الإصدارات السابقة <span className="text-xs">Past versions ({history.length})</span></span>
+          </summary>
+          <ol className="mt-3 space-y-3 text-xs">
+            {history.map((v) => (
+              <li key={v.id} className="border-s-2 border-[var(--surface-border)] ps-3">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="font-mono font-semibold">v{v.version}</span>
+                  <span className="text-muted">
+                    {formatDate(v.effective_at)} → {formatDate(v.superseded_at)}
+                  </span>
+                </div>
+                {v.body_ar && (
+                  <p dir="rtl" className="mt-1 line-clamp-2 text-muted">{preview(v.body_ar)}</p>
+                )}
+                {!v.body_ar && v.body_en && (
+                  <p dir="ltr" className="mt-1 line-clamp-2 text-muted">{preview(v.body_en)}</p>
+                )}
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
     </section>
   );
 }
