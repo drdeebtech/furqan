@@ -29,8 +29,8 @@ function num(formData: FormData, key: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function revalidateTeacher(teacherId: string) {
-  revalidatePath(`/admin/teachers/${teacherId}`);
+function revalidateTeacher(_teacherId: string) {
+  revalidatePath("/admin/teachers/[id]", "page");
   revalidatePath("/admin/teachers");
   revalidatePath("/admin/teachers/cv");
 }
