@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Menu, X, LayoutDashboard, GraduationCap, Calendar, TrendingUp, TrendingDown,
   MessageSquare, Clock, Users, ClipboardCheck, BookOpen, StickyNote,
@@ -101,11 +101,10 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
   const pathname = usePathname();
   const { lang, dir } = useLang();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [lastPath, setLastPath] = useState(pathname);
-  if (pathname !== lastPath) {
-    setLastPath(pathname);
+
+  useEffect(() => {
     setMenuOpen(false);
-  }
+  }, [pathname]);
 
   const navLang = lang;
   const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
