@@ -77,16 +77,25 @@ FURQAN Academy — Online Quran teaching platform (V13)
 - **Teacher action queue**: `src/app/teacher/dashboard/action-queue.tsx` — prioritized pending tasks
 - **PWA**: `public/sw.js` — service worker + install prompt
 
-## Database (33 tables)
-Original 20 tables + 5 V9 tables + 2 V10 tables + 2 V11 tables + 1 V12 table + 3 V13 tables.
+## Database (44 tables)
+Original 20 tables + 5 V9 tables + 2 V10 tables + 2 V11 tables + 1 V12 table + 3 V13 tables + 11 V17 tables (15-feature build).
 
 V9: platform_settings, session_evaluations, parent_reports, session_notes_history, session_observers
 V10: services, homework_assignments
 V11: packages, student_packages
 V12: automation_logs
 V13: message_delivery_log, communication_preferences, retention_signals
+V17 (15-feature build, 2026-04-29):
+  - study_log — Time Tracker
+  - help_articles, help_categories — Help Center CMS
+  - resources — Resources library
+  - modules, module_lessons — Curriculum modules with linear/thematic gating
+  - quizzes, quiz_questions, quiz_attempts — Quiz system (text-only auto-graded)
+  - forum_threads, forum_replies, forum_likes, forum_reports — Community forum
 
-Migration files: v9_001, v10_001, v10_002, v11_001, v12_001, v13_001, v13_002
+Plus added columns: course_lesson_progress.hidden_from_dashboard, sessions.lesson_plan (jsonb).
+
+Migration files: v9_001, v10_001, v10_002, v11_001, v12_001, v13_001, v13_002 (legacy under src/lib/supabase/migrations/), then timestamped at supabase/migrations/ from 2026-04-26 onwards.
 
 ## Enums (26 total)
 Postgres ENUMs: user_role, gender_type, booking_status, session_type, payment_status, msg_type, notif_type, student_level, cv_status, evaluation_type, report_type, homework_type, homework_status

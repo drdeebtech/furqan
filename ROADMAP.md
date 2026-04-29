@@ -481,3 +481,42 @@ Deferred items from `ADMIN_AUDIT.md`. The audit applied 13 P1 + 18 P2 in waves 1
 - AI parent reports — Anthropic API key in n8n.
 - WhatsApp Business — Cloud API token.
 - Google Calendar sync — OAuth setup.
+
+---
+
+## 15-Feature Reference-Match Build (2026-04-29 session)
+
+User's nuvelabs e-learning reference identified 15 features/concepts; all shipped across 12 phases in a single session. New tables: 11. New routes: ~20. Feature flags: 6. Build commits: ~12.
+
+| # | Feature | Status | Phase |
+|---|---|---|---|
+| 6 | Year filter wiring (topbar dropdown) | ✅ shipped | 1 |
+| 11 | "Quran Student" role label | ✅ shipped | 1 |
+| 13 | Sidebar collapsible sections | ✅ shipped | 1 |
+| 15 | Theme toggle icon (kept sun/moon) | ✅ no-op | 1 |
+| 4 | Continue Watching per-row menu (Resume/Mark complete/Hide) | ✅ shipped | 2 |
+| 14 | Stacked-avatar Assignee column | ✅ shipped | 2 |
+| 2 | Calendar view at /student/calendar | ✅ shipped | 3 |
+| 1 | Time Tracker (study_log table + stopwatch UI + analytics integration) | ✅ shipped | 4 |
+| 5 | Help Center with admin CMS | ✅ shipped | 5 |
+| 9 | Resources library (PDFs/audio/links/etc.) | ✅ shipped | 6 |
+| 12 | Account-switching dropdown stub | ✅ shipped | 7 |
+| 3 | Real-time lesson-progress % (sessions.lesson_plan + ⚡ N% chip) | ✅ shipped | 8 |
+| 8 | Module library (linear/thematic with unlock gating) | ✅ shipped | 9 |
+| 7 | Quiz system (text-only MCQ + fill-in + true_false, auto-graded) + KPI 4 wiring | ✅ shipped | 10 |
+| 10 | Community forum (threads/replies/likes/reports + moderation) | ✅ shipped | 11 |
+
+**Feature flags created (default values):**
+- `time_tracker_enabled` — true
+- `help_center_enabled` — true
+- `resources_enabled` — true
+- `lesson_plan_enabled` — true
+- `modules_enabled` — true
+- `quizzes_enabled` — true
+- `community_enabled` — **false** (admin must flip on after seeding categories)
+
+**New routes added:**
+- `/student/calendar`, `/student/time-tracker`, `/student/resources`, `/student/quizzes`, `/student/quizzes/[quizId]/take`
+- `/admin/help`, `/admin/help/new`, `/admin/help/[id]/edit`, `/admin/resources`, `/admin/resources/new`, `/admin/resources/[id]/edit`, `/admin/community`
+- `/help`, `/help/[slug]`, `/community`, `/community/new`, `/community/[id]`
+- `/teacher/courses/[id]/modules`, `/teacher/courses/[id]/quizzes`, `/teacher/courses/[id]/quizzes/new`, `/teacher/courses/[id]/quizzes/[quizId]/edit`
