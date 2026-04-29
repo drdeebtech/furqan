@@ -12,6 +12,7 @@ import { LiveSessionsWidget } from "@/components/shared/live-sessions-widget";
 import { BreakdownBar } from "@/components/shared/breakdown-bar";
 import { DataTable } from "@/components/shared/data-table";
 import { GuidanceBanner } from "./guidance-banner";
+import { LessonRowActions } from "./lesson-row-actions";
 
 interface ChartDataPoint {
   day: string;
@@ -180,10 +181,30 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
               { key: "subject", label: t("الكورس", "Subject") },
               { key: "date", label: t("التاريخ", "Date"), type: "date" },
               { key: "progress", label: t("التقدم", "Progress"), type: "progress" },
-              { key: "assignee", label: t("الدرس", "Lesson"), type: "assignee" },
-              { key: "view", label: t("متابعة", "Resume"), type: "actions" },
+              { key: "assignee", label: t("الفريق", "Assignee"), type: "assignee" },
+              { key: "view", label: t("الإجراءات", "Actions"), type: "actions" },
             ]}
             rows={watchingRows as { id: string; [key: string]: unknown }[]}
+            renderRowActions={(row) => {
+              const lessonId = row._lessonId as string | undefined;
+              const href = (row._href as string | undefined) ?? "/student/courses";
+              if (!lessonId) {
+                // Fallback rows from getStudentRecentRecordings have no lessonId
+                // (they're completed sessions, not in-progress lessons). Render
+                // the default eye icon link.
+                return (
+                  <a
+                    href={href}
+                    aria-label={t("عرض", "View")}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded text-[var(--muted-light,#9CA3AF)] hover:text-foreground"
+                  >
+                    <span className="sr-only">{t("عرض", "View")}</span>
+                    👁
+                  </a>
+                );
+              }
+              return <LessonRowActions lessonId={lessonId} href={href} />;
+            }}
             emptyMessage={t("لا توجد دروس قيد المشاهدة بعد", "No lessons in progress yet")}
           />
         </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Eye } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { WidgetCard } from "./widget-card";
@@ -27,9 +28,13 @@ interface DataTableProps {
   /** When true, swaps the depth-effect progress bars for flat 6px blue bars
    *  on a grey track. Used in the student-dashboard reference skin. */
   simpleProgress?: boolean;
+  /** Optional custom renderer for the `actions` column. When provided,
+   *  overrides the default eye-icon button. The dashboard uses this to
+   *  inject a per-row `⋮` menu (Resume / Mark complete / Hide). */
+  renderRowActions?: (row: DataTableRow) => ReactNode;
 }
 
-export function DataTable({ title, columns, rows, emptyMessage, selectable = false, simpleProgress = false }: DataTableProps) {
+export function DataTable({ title, columns, rows, emptyMessage, selectable = false, simpleProgress = false, renderRowActions }: DataTableProps) {
   const { t } = useLang();
   return (
     <WidgetCard title={title} subtitle={rows.length > 0 ? `${rows.length}` : undefined}>
@@ -74,7 +79,9 @@ export function DataTable({ title, columns, rows, emptyMessage, selectable = fal
                   )}
                   {columns.map((col) => (
                     <td key={col.key} className="py-4 text-[13px] tabular-nums">
-                      {renderCell(col, row[col.key], t, simpleProgress)}
+                      {col.type === "actions" && renderRowActions
+                        ? renderRowActions(row)
+                        : renderCell(col, row[col.key], t, simpleProgress)}
                     </td>
                   ))}
                 </tr>
@@ -133,13 +140,52 @@ function renderCell(col: DataTableColumn, value: unknown, t: (ar: string, en: st
     }
 
     case "assignee": {
+      // Avatar palette is decorative, not part of the theme system.
+      const avatarColors = ["bg-[#C7B9F0]", "bg-[#A5C7F0]", "bg-[#F5B8A0]", "bg-[#9FD6C8]", "bg-[#F0B8C4]", "bg-[#A8D8B5]"];
+      const colorFor = (s: string) => {
+        let hash = 0;
+        for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash);
+        return avatarColors[Math.abs(hash) % avatarColors.length];
+      };
+
+      // Stacked variant: pass an array of {name, avatar_url?} for the
+      // "+N" overlap chip pattern from the reference (student + teacher pair
+      // for furqan's Continue Watching).
+      if (Array.isArray(value)) {
+        const items = value as { name: string; avatar_url?: string | null }[];
+        const display = items.slice(0, 3);
+        const overflow = items.length - display.length;
+        return (
+          <div className="flex items-center">
+            <div className="flex">
+              {display.map((it, i) => (
+                <div
+                  key={i}
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full text-[10px] font-bold text-[#1A1A1F] ring-2 ring-white ${colorFor(it.name)} ${i > 0 ? "-ms-2" : ""}`}
+                  style={{ zIndex: display.length - i }}
+                  title={it.name}
+                >
+                  {it.avatar_url ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={it.avatar_url} alt={it.name} className="h-full w-full object-cover" />
+                  ) : (
+                    it.name.slice(0, 2)
+                  )}
+                </div>
+              ))}
+            </div>
+            {overflow > 0 && (
+              <span className="ms-1 rounded-full bg-[var(--surface-light,#F3F4F6)] px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                +{overflow}
+              </span>
+            )}
+          </div>
+        );
+      }
+
       const name = String(value ?? "—");
       const initials = name.slice(0, 2);
-      // Intentional decorative avatar colors — not part of the theme system
-      const avatarColors = ["bg-[#C7B9F0]", "bg-[#A5C7F0]", "bg-[#F5B8A0]", "bg-[#9FD6C8]", "bg-[#F0B8C4]", "bg-[#A8D8B5]"];
-      let hash = 0;
-      for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-      const avatarBg = avatarColors[Math.abs(hash) % avatarColors.length];
+      const avatarBg = colorFor(name);
       return (
         <div className="flex items-center gap-2">
           <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-[#1A1A1F] ring-2 ring-white ${avatarBg}`}>

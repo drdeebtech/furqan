@@ -155,3 +155,95 @@ export async function upsertLessonProgress(
   revalidatePath(`/student/courses`);
   return { ok: true as const, completed: !!completed_at };
 }
+
+// ─── markLessonComplete ─────────────────────────────────────────────────────
+// Student-side "I'm done with this" action from the Continue Watching row
+// menu. Stamps `completed_at = now()` on the progress row, regardless of how
+// far they actually watched. Idempotent — re-calling on a completed lesson
+// is a no-op.
+
+export async function markLessonComplete(lessonId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "غير مسجل الدخول" };
+
+  const { data: lesson } = await supabase
+    .from("course_lessons")
+    .select("course_id")
+    .eq("id", lessonId)
+    .single<{ course_id: string }>();
+  if (!lesson) return { ok: false as const, error: "الدرس غير موجود" };
+
+  const { data: enrollment } = await supabase
+    .from("course_enrollments")
+    .select("id")
+    .eq("course_id", lesson.course_id)
+    .eq("student_id", user.id)
+    .single<{ id: string }>();
+  if (!enrollment) return { ok: false as const, error: "غير ملتحق بالدورة" };
+
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("course_lesson_progress")
+    .upsert(
+      { enrollment_id: enrollment.id, lesson_id: lessonId, completed_at: now } as never,
+      { onConflict: "enrollment_id,lesson_id", ignoreDuplicates: false },
+    );
+
+  if (error) {
+    logError("markLessonComplete failed", error, { tag: "course-playback", lessonId });
+    return { ok: false as const, error: error.message };
+  }
+
+  await emitEvent("lesson.completed", "course_lesson", lessonId, {
+    enrollment_id: enrollment.id,
+    student_id: user.id,
+    via: "manual",
+  }, user.id).catch((err) =>
+    logError("emit lesson.completed failed", err, { tag: "course-playback" }),
+  );
+
+  revalidatePath("/student/dashboard");
+  revalidatePath("/student/courses");
+  return { ok: true as const };
+}
+
+// ─── setLessonHidden ────────────────────────────────────────────────────────
+// Toggle `hidden_from_dashboard` for a student's progress row, so the lesson
+// disappears from the Continue Watching widget. Lesson stays accessible from
+// the course page; this only affects dashboard visibility.
+
+export async function setLessonHidden(lessonId: string, hidden: boolean) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "غير مسجل الدخول" };
+
+  const { data: lesson } = await supabase
+    .from("course_lessons")
+    .select("course_id")
+    .eq("id", lessonId)
+    .single<{ course_id: string }>();
+  if (!lesson) return { ok: false as const, error: "الدرس غير موجود" };
+
+  const { data: enrollment } = await supabase
+    .from("course_enrollments")
+    .select("id")
+    .eq("course_id", lesson.course_id)
+    .eq("student_id", user.id)
+    .single<{ id: string }>();
+  if (!enrollment) return { ok: false as const, error: "غير ملتحق بالدورة" };
+
+  const { error } = await supabase
+    .from("course_lesson_progress")
+    .update({ hidden_from_dashboard: hidden } as never)
+    .eq("enrollment_id", enrollment.id)
+    .eq("lesson_id", lessonId);
+
+  if (error) {
+    logError("setLessonHidden failed", error, { tag: "course-playback", lessonId });
+    return { ok: false as const, error: error.message };
+  }
+
+  revalidatePath("/student/dashboard");
+  return { ok: true as const };
+}

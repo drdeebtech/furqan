@@ -676,6 +676,7 @@ export type Database = {
           completed_at: string | null
           created_at: string
           enrollment_id: string
+          hidden_from_dashboard: boolean
           id: string
           last_position_seconds: number
           lesson_id: string
@@ -686,6 +687,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           enrollment_id: string
+          hidden_from_dashboard?: boolean
           id?: string
           last_position_seconds?: number
           lesson_id: string
@@ -696,6 +698,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           enrollment_id?: string
+          hidden_from_dashboard?: boolean
           id?: string
           last_position_seconds?: number
           lesson_id?: string
