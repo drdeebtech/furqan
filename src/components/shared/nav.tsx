@@ -3,12 +3,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import {
   Menu, X, LayoutDashboard, GraduationCap, Calendar, TrendingUp, TrendingDown,
   MessageSquare, Clock, Users, ClipboardCheck, BookOpen, StickyNote,
   Star, DollarSign, Briefcase, FileText, Mail, Bell, Settings, ScrollText, Video,
-  ChevronsUpDown, HelpCircle, ChevronRight, ChevronDown, CalendarDays,
+  ChevronsUpDown, HelpCircle, ChevronRight, ChevronDown, CalendarDays, LogOut,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { LogoutButton } from "./logout-button";
@@ -110,16 +110,45 @@ const ROLE_LABEL: Record<Role, { ar: string; en: string }> = {
 
 const COLLAPSE_STORAGE_KEY = "furqan-nav-collapsed-groups";
 
+// Settings path varies by role; admin's account page lives at /admin/account.
+const SETTINGS_PATH: Record<Role, string> = {
+  admin: "/admin/account",
+  teacher: "/teacher/settings",
+  student: "/student/settings",
+  moderator: "/moderator/settings",
+};
+
 export function Nav({ role, userName }: { role: Role; userName?: string }) {
   const pathname = usePathname();
   const { lang, dir } = useLang();
   const [menuOpen, setMenuOpen] = useState(false);
   const [lastPath, setLastPath] = useState(pathname);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement>(null);
   if (pathname !== lastPath) {
     setLastPath(pathname);
     setMenuOpen(false);
   }
+
+  // Outside-click + Escape close the account dropdown.
+  useEffect(() => {
+    if (!accountOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (accountRef.current && !accountRef.current.contains(e.target as Node)) {
+        setAccountOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAccountOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [accountOpen]);
 
   // Persist collapsed group state per-role across reloads.
   useEffect(() => {
@@ -162,16 +191,59 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
 
   const sidebarContent = (
     <div dir={dir} className="flex h-full flex-col glass-sidebar">
-      {/* Top: Logo + User */}
-      <div className="border-b border-[var(--surface-border)] px-5 py-5">
-        <Link href={`/${role}/dashboard`} className="flex items-center gap-3">
+      {/* Top: Logo + User + account dropdown */}
+      <div ref={accountRef} className="relative border-b border-[var(--surface-border)] px-5 py-5">
+        <button
+          type="button"
+          onClick={() => setAccountOpen((v) => !v)}
+          aria-label={t("قائمة الحساب", "Account menu")}
+          aria-expanded={accountOpen}
+          aria-haspopup="menu"
+          className="flex w-full items-center gap-3 rounded-lg transition-colors hover:bg-[var(--surface-hover,rgba(0,0,0,0.03))]"
+        >
           <Image src="/logo-192.png" alt="فرقان" width={36} height={36} sizes="36px" className="rounded-full" />
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 text-start">
             {userName && <p className="truncate text-sm font-medium">{userName}</p>}
             <p className="text-xs text-muted-light">{navLang === "ar" ? ROLE_LABEL[role].ar : ROLE_LABEL[role].en}</p>
           </div>
           <ChevronsUpDown size={14} className="shrink-0 text-muted" aria-hidden="true" />
-        </Link>
+        </button>
+        {accountOpen && (
+          <div
+            role="menu"
+            aria-label={t("قائمة الحساب", "Account menu")}
+            className="absolute end-3 start-3 top-full z-50 mt-1 overflow-hidden rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-lg"
+          >
+            <Link
+              href={`/${role}/dashboard`}
+              role="menuitem"
+              onClick={() => setAccountOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-foreground/5"
+            >
+              <LayoutDashboard size={14} className="text-muted" aria-hidden="true" />
+              {t("لوحتي", "My Dashboard")}
+            </Link>
+            <Link
+              href={SETTINGS_PATH[role]}
+              role="menuitem"
+              onClick={() => setAccountOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-foreground/5"
+            >
+              <Settings size={14} className="text-muted" aria-hidden="true" />
+              {t("الإعدادات", "Settings")}
+            </Link>
+            <form action="/api/auth/logout" method="POST">
+              <button
+                type="submit"
+                role="menuitem"
+                className="flex w-full items-center gap-2.5 border-t border-[var(--surface-divider,#F0F0F2)] px-4 py-2.5 text-sm text-error transition-colors hover:bg-error/10"
+              >
+                <LogOut size={14} aria-hidden="true" />
+                {t("تسجيل الخروج", "Log out")}
+              </button>
+            </form>
+          </div>
+        )}
       </div>
 
       {/* Middle: Nav links */}
