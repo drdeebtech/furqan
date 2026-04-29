@@ -10,21 +10,21 @@ import { Skeleton } from "@/components/shared/skeleton";
 export default function StudentDashboardLoading() {
   return (
     <div dir="rtl" className="space-y-6">
-      {/* Welcome section — matches "أهلاً {name}" heading area */}
+      {/* Welcome row — greeting + day/surah breadcrumb */}
       <div>
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="mt-2 h-4 w-64" />
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="mt-2 h-4 w-72" />
       </div>
 
-      {/* Guidance banner placeholder */}
-      <Skeleton className="h-20 w-full rounded-[14px]" />
+      {/* Next-action banner placeholder */}
+      <Skeleton className="h-20 w-full rounded-2xl" />
 
-      {/* Row 1: 4 stat cards */}
+      {/* Row 1: 4 stat cards — height matches StatCard min-h-[172px] */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="glass-card flex min-h-[168px] flex-col justify-between p-5"
+            className="glass-card flex min-h-[172px] flex-col justify-between p-5"
           >
             <div>
               <div className="flex items-center gap-2.5">

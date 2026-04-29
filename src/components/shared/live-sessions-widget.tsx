@@ -18,22 +18,6 @@ interface LiveSessionsWidgetProps {
   ongoingCount: number;
 }
 
-const BADGE_COLORS = [
-  "bg-purple-500",
-  "bg-blue-500",
-  "bg-orange-500",
-  "bg-green-500",
-  "bg-pink-500",
-];
-
-function hashColor(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return BADGE_COLORS[Math.abs(hash) % BADGE_COLORS.length];
-}
-
 export function LiveSessionsWidget({ sessions, title, ongoingCount }: LiveSessionsWidgetProps) {
   const { t } = useLang();
 
@@ -57,7 +41,7 @@ export function LiveSessionsWidget({ sessions, title, ongoingCount }: LiveSessio
           {sessions.map((session) => (
             <div key={session.id} className="flex items-center py-3">
               <div
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-bold text-white ${hashColor(session.title)}`}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/15 text-[13px] font-bold text-gold"
               >
                 {session.initials}
               </div>

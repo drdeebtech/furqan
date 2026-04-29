@@ -39,9 +39,9 @@ export function GuidanceBanner() {
       </div>
       <Link
         href="/student/teachers"
-        className="mt-4 inline-flex items-center gap-2 glass-gold glass-pill px-6 py-2.5 text-sm font-semibold text-white transition-colors"
+        className="mt-4 inline-flex items-center gap-2 glass-gold glass-pill px-6 py-2.5 text-sm font-semibold text-background transition-colors"
       >
-        <Search size={16} />
+        <Search size={16} aria-hidden="true" />
         {t("ابدأ الآن", "Start Now")}
       </Link>
     </div>

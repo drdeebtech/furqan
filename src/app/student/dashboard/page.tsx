@@ -89,8 +89,9 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
     sessionId = session?.id ?? null;
   }
 
-  // Parallel: packages + homework + dashboard widgets (all independent)
-  const [packagesRes, hwRawRes, studyAnalytics, liveSessions, continueWatching, recentRecordings, nextQuiz] = await Promise.all([
+  // Parallel: packages + homework + dashboard widgets + most-recent learning
+  // waypoint (drives the surah breadcrumb above the KPI grid).
+  const [packagesRes, hwRawRes, studyAnalytics, liveSessions, continueWatching, recentRecordings, nextQuiz, lastProgressRes] = await Promise.all([
     supabase.from("student_packages")
       .select("id, sessions_total, sessions_used, status, expires_at")
       .eq("student_id", user.id).eq("status", "active")
@@ -103,6 +104,12 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
     getStudentContinueWatching(user.id),
     getStudentRecentRecordings(user.id),
     getStudentNextQuiz(user.id),
+    supabase.from("student_progress")
+      .select("surah_to, ayah_to, surah_from, ayah_from, level, created_at")
+      .eq("student_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ surah_to: number | null; ayah_to: number | null; surah_from: number | null; ayah_from: number | null; level: string; created_at: string }>(),
   ]);
   const activePackages = packagesRes.data ?? [];
   const hwCounts: Record<string, number> = {};
@@ -112,6 +119,18 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
   // Continue Watching prefers in-progress course lessons; falls back to recent
   // session recordings so the table is never empty for active students.
   const watchingRows = continueWatching.length > 0 ? continueWatching : recentRecordings;
+  const lastProgress = lastProgressRes.data ?? null;
+  const resumeLessonRow = continueWatching.find(r => r._lessonId && typeof r.progress === "number") as
+    | { _lessonId: string; _href: string; subject: string; progress: number }
+    | undefined;
+  const resumeLesson = resumeLessonRow
+    ? {
+        lessonId: resumeLessonRow._lessonId,
+        title: resumeLessonRow.subject,
+        href: resumeLessonRow._href,
+        progressPct: Math.round(resumeLessonRow.progress),
+      }
+    : null;
 
   return (
     <StudentDashboardContent
@@ -129,6 +148,8 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
         hwCounts,
         activePackages: activePackages ?? [],
         nextQuiz,
+        lastProgress,
+        resumeLesson,
       }}
     />
   );

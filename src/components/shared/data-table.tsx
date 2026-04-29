@@ -106,10 +106,13 @@ function renderCell(col: DataTableColumn, value: unknown, t: (ar: string, en: st
       if (simpleProgress) {
         return (
           <div className="flex items-center gap-2.5">
-            <div className="relative h-1.5 w-[160px] overflow-hidden rounded-full bg-[#E5E7EB]">
+            <div className="relative h-1.5 w-[160px] overflow-hidden rounded-full bg-[var(--surface-divider)]">
               <div
-                className="h-full rounded-full bg-[#3B82F6]"
-                style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+                className="h-full rounded-full"
+                style={{
+                  width: `${Math.min(100, Math.max(0, pct))}%`,
+                  background: "var(--data-progress)",
+                }}
               />
             </div>
             <span className="text-sm font-medium text-foreground">{pct}%</span>
@@ -140,8 +143,10 @@ function renderCell(col: DataTableColumn, value: unknown, t: (ar: string, en: st
     }
 
     case "assignee": {
-      // Avatar palette is decorative, not part of the theme system.
-      const avatarColors = ["bg-[#C7B9F0]", "bg-[#A5C7F0]", "bg-[#F5B8A0]", "bg-[#9FD6C8]", "bg-[#F0B8C4]", "bg-[#A8D8B5]"];
+      // Refined 3-tone palette — warm sand, soft moss, dusty stone. Drops the
+      // generic SaaS pastel rainbow in favour of three premium tones that
+      // sit comfortably alongside the gold accent without competing.
+      const avatarColors = ["bg-[#E8D7A6]", "bg-[#C9DBC2]", "bg-[#E5CFC2]"];
       const colorFor = (s: string) => {
         let hash = 0;
         for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash);
@@ -161,7 +166,7 @@ function renderCell(col: DataTableColumn, value: unknown, t: (ar: string, en: st
               {display.map((it, i) => (
                 <div
                   key={i}
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full text-[10px] font-bold text-[#1A1A1F] ring-2 ring-white ${colorFor(it.name)} ${i > 0 ? "-ms-2" : ""}`}
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full text-[10px] font-bold text-[#2A2014] ring-2 ring-white ${colorFor(it.name)} ${i > 0 ? "-ms-2" : ""}`}
                   style={{ zIndex: display.length - i }}
                   title={it.name}
                 >
@@ -175,7 +180,7 @@ function renderCell(col: DataTableColumn, value: unknown, t: (ar: string, en: st
               ))}
             </div>
             {overflow > 0 && (
-              <span className="ms-1 rounded-full bg-[var(--surface-light,#F3F4F6)] px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+              <span className="ms-1 rounded-full bg-[var(--surface-light)] px-1.5 py-0.5 text-[10px] font-medium text-foreground">
                 +{overflow}
               </span>
             )}
@@ -188,7 +193,7 @@ function renderCell(col: DataTableColumn, value: unknown, t: (ar: string, en: st
       const avatarBg = colorFor(name);
       return (
         <div className="flex items-center gap-2">
-          <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-[#1A1A1F] ring-2 ring-white ${avatarBg}`}>
+          <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-[#2A2014] ring-2 ring-white ${avatarBg}`}>
             {initials}
           </div>
           <span className="truncate text-[13px] text-foreground">{name}</span>
