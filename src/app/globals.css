@@ -168,6 +168,24 @@ html.light .student-dashboard-skin .glass-card:hover {
   min-height: 192px;
 }
 
+/* Continue Watching: replace DataTable's elaborate depth-effect progress bar
+ * with the reference's simple blue bar (6px tall, 3px radius). Inline-style
+ * has highest specificity, so we ride along with !important on the override. */
+.student-dashboard-skin .data-table-progress-track,
+.student-dashboard-skin table td > div[class*="overflow-hidden"][class*="rounded-full"] {
+  height: 6px !important;
+  border-radius: 3px !important;
+  background: #E5E7EB !important;
+  box-shadow: none !important;
+  width: 140px !important;
+}
+
+.student-dashboard-skin table td > div[class*="overflow-hidden"][class*="rounded-full"] > div {
+  background: #3B82F6 !important;
+  border-radius: 3px !important;
+  box-shadow: none !important;
+}
+
 html { scroll-behavior: smooth; }
 
 @media (prefers-reduced-motion: reduce) {

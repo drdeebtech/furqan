@@ -126,13 +126,10 @@ export function AnalyticsChart({
                 <line x1="0" y1="0" x2="0" y2="5" stroke="rgba(255,255,255,0.5)" strokeWidth="1" />
                 <line x1="2.5" y1="0" x2="2.5" y2="5" stroke="rgba(0,0,0,0.06)" strokeWidth="0.5" />
               </pattern>
-              {/* Active bar: reference-style purple #8B5CF6 with subtle 3D shading */}
+              {/* Active bar: flat solid purple #8B5CF6 — exact reference match */}
               <linearGradient id="activeGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#A78BFF" />
-                <stop offset="15%" stopColor="#9B7DFF" />
-                <stop offset="50%" stopColor="#8B5CF6" />
-                <stop offset="80%" stopColor="#6D43E0" />
-                <stop offset="100%" stopColor="#7E58F0" />
+                <stop offset="0%" stopColor="#8B5CF6" />
+                <stop offset="100%" stopColor="#8B5CF6" />
               </linearGradient>
               {/* Glass shine — bright horizontal streak at top of bar */}
               <linearGradient id="glassShine" x1="0" y1="0" x2="0" y2="1">
@@ -158,7 +155,8 @@ export function AnalyticsChart({
               tickLine={false}
               tick={{ fontSize: 12, fill: "#9CA3AF" }}
               tickFormatter={fmt}
-              domain={[0, "auto"]}
+              domain={[0, unit === "h" ? 24 : "auto"]}
+              ticks={unit === "h" ? [0, 4, 8, 16, 24] : undefined}
               allowDecimals={unit !== "#"}
             />
             <Bar dataKey="value" maxBarSize={48} radius={[8, 8, 0, 0]}>

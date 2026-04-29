@@ -171,6 +171,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
         <div className="mt-10">
           <DataTable
             title={t("متابعة المشاهدة", "Continue Watching")}
+            selectable
             columns={[
               { key: "id", label: t("رقم", "Id") },
               { key: "subject", label: t("الكورس", "Subject") },

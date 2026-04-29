@@ -21,9 +21,12 @@ interface DataTableProps {
   columns: DataTableColumn[];
   rows: DataTableRow[];
   emptyMessage: string;
+  /** When true, prepends a row-checkbox column (purely decorative — used by
+   *  the student-dashboard "Continue Watching" table to match the reference). */
+  selectable?: boolean;
 }
 
-export function DataTable({ title, columns, rows, emptyMessage }: DataTableProps) {
+export function DataTable({ title, columns, rows, emptyMessage, selectable = false }: DataTableProps) {
   const { t } = useLang();
   return (
     <WidgetCard title={title} subtitle={rows.length > 0 ? `${rows.length}` : undefined}>
@@ -38,6 +41,11 @@ export function DataTable({ title, columns, rows, emptyMessage }: DataTableProps
             <caption className="sr-only">{title}</caption>
             <thead>
               <tr className="border-b border-[var(--surface-border)]">
+                {selectable && (
+                  <th scope="col" className="pb-3 ps-1 pe-3 w-6">
+                    <span className="sr-only">{t("تحديد", "Select")}</span>
+                  </th>
+                )}
                 {columns.map((col) => (
                   <th
                     key={col.key}
@@ -52,6 +60,15 @@ export function DataTable({ title, columns, rows, emptyMessage }: DataTableProps
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id} className="border-t border-[var(--surface-divider,#F0F0F2)] transition-colors hover:bg-[var(--surface-hover,rgba(0,0,0,0.02))]">
+                  {selectable && (
+                    <td className="py-4 ps-1 pe-3">
+                      <input
+                        type="checkbox"
+                        aria-label={t("تحديد", "Select row")}
+                        className="h-4 w-4 cursor-pointer rounded-[2px] border-[1.5px] border-[#D1D5DB] accent-[var(--data-progress,#3B82F6)]"
+                      />
+                    </td>
+                  )}
                   {columns.map((col) => (
                     <td key={col.key} className="py-4 text-[13px] tabular-nums">
                       {renderCell(col, row[col.key], t)}
