@@ -16,6 +16,7 @@ const BASE_LINKS = [
   { href: "/about", ar: "من نحن", en: "About" },
   { href: "/services", ar: "خدماتنا", en: "Services" },
   { href: "/packages", ar: "باقاتنا", en: "Packages" },
+  { href: "/courses", ar: "الدورات المسجلة", en: "Courses" },
 ];
 
 const TEACHERS_LINK = { href: "/teachers-page", ar: "المعلمون", en: "Teachers" };
