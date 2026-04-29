@@ -2462,6 +2462,7 @@ export type Database = {
           homework: string | null
           id: string
           is_observable: boolean
+          lesson_plan: Json | null
           observer_joined_at: string | null
           post_session_notes: string | null
           recording_url: string | null
@@ -2481,6 +2482,7 @@ export type Database = {
           expires_at?: string | null
           homework?: string | null
           id?: string
+          lesson_plan?: Json | null
           is_observable?: boolean
           observer_joined_at?: string | null
           post_session_notes?: string | null
@@ -2502,6 +2504,7 @@ export type Database = {
           homework?: string | null
           id?: string
           is_observable?: boolean
+          lesson_plan?: Json | null
           observer_joined_at?: string | null
           post_session_notes?: string | null
           recording_url?: string | null

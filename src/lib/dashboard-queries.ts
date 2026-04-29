@@ -284,11 +284,17 @@ export async function getStudentLiveSessions(
 
   const { data: sessions } = await supabase
     .from("sessions")
-    .select("id, booking_id, started_at, ended_at")
+    .select("id, booking_id, started_at, ended_at, lesson_plan")
     .in("booking_id", bookingIds)
     .not("started_at", "is", null)
     .is("ended_at", null)
-    .returns<{ id: string; booking_id: string; started_at: string; ended_at: string | null }[]>();
+    .returns<{
+      id: string;
+      booking_id: string;
+      started_at: string;
+      ended_at: string | null;
+      lesson_plan: { checkpoints?: { id: string; completed_at: string | null }[] } | null;
+    }[]>();
 
   if (!sessions || sessions.length === 0) return [];
 
@@ -318,13 +324,21 @@ export async function getStudentLiveSessions(
     const secs = Math.floor((totalMs % 60000) / 1000);
     const timeStr = `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 
+    // Compute live progress % from the teacher's lesson_plan checkpoints.
+    let progressPct: number | undefined;
+    const cps = s.lesson_plan?.checkpoints ?? [];
+    if (cps.length > 0) {
+      const done = cps.filter((c) => c.completed_at).length;
+      progressPct = Math.round((done / cps.length) * 100);
+    }
+
     return {
       id: s.id,
       title: teacherName,
       subtitle: booking?.session_type ?? "session",
       initials,
       timeRemaining: timeStr,
-      progressPercent: undefined,
+      progressPercent: progressPct,
     };
   });
 }

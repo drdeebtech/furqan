@@ -15,6 +15,9 @@ const SESSION_TYPE_EN: Record<SessionType, string> = {
 import { VideoRoom } from "@/app/student/sessions/[id]/video-room";
 import { PostSessionForm } from "./post-session-form";
 import { SessionDetailControls } from "./session-detail-controls";
+import { LessonPlanPanel } from "./lesson-plan-panel";
+import type { LessonPlan } from "@/lib/actions/session-lesson-plan";
+import { isFeatureEnabled } from "@/lib/settings";
 
 export const metadata: Metadata = { title: "الجلسة" };
 
@@ -32,7 +35,7 @@ export default async function TeacherSessionPage({ params }: Props) {
 
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, booking_id, room_url, room_name, expires_at, started_at, ended_at, actual_duration, post_session_notes, homework")
+    .select("id, booking_id, room_url, room_name, expires_at, started_at, ended_at, actual_duration, post_session_notes, homework, lesson_plan")
     .eq("id", id)
     .single<{
       id: string;
@@ -45,6 +48,7 @@ export default async function TeacherSessionPage({ params }: Props) {
       actual_duration: number | null;
       post_session_notes: string | null;
       homework: string | null;
+      lesson_plan: LessonPlan | null;
     }>();
 
   if (!session) redirect("/teacher/sessions");
@@ -130,6 +134,12 @@ export default async function TeacherSessionPage({ params }: Props) {
           durationMin={booking.duration_min}
           scheduledAt={booking.scheduled_at}
         />
+      )}
+
+      {!isCompleted && (await isFeatureEnabled("lesson_plan_enabled")) && (
+        <div className="mt-4">
+          <LessonPlanPanel sessionId={session.id} initialPlan={session.lesson_plan} />
+        </div>
       )}
 
       {isCompleted ? (
