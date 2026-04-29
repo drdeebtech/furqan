@@ -12,15 +12,42 @@ import {
 
 export const metadata: Metadata = { title: "لوحتي" };
 
-export default async function StudentDashboardPage() {
+interface PageProps {
+  searchParams: Promise<{ year?: string }>;
+}
+
+export default async function StudentDashboardPage({ searchParams }: PageProps) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+  const sp = await searchParams;
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const selectedYear = Number(sp.year) || currentYear;
+  const isCurrentYear = selectedYear === currentYear;
+
+  // When the topbar year filter selects a non-current year, scope ALL counts
+  // and the "this month" widget to that year (Jan 1 → Dec 31 of selectedYear).
+  const yearStart = new Date(selectedYear, 0, 1).toISOString();
+  const yearEnd = new Date(selectedYear, 11, 31, 23, 59, 59).toISOString();
+  const monthStart = isCurrentYear
+    ? new Date(currentYear, now.getMonth(), 1).toISOString()
+    : yearStart;
+  const monthEnd = isCurrentYear ? undefined : yearEnd;
 
   // Slim KPI queries — recent-sessions + evaluations tables moved off the
   // dashboard (they live at /student/sessions and /student/progress).
+  const totalQ = supabase.from("bookings").select("id", { count: "exact", head: true })
+    .eq("student_id", user.id).eq("status", "completed");
+  const totalQScoped = isCurrentYear
+    ? totalQ
+    : totalQ.gte("created_at", yearStart).lte("created_at", yearEnd);
+
+  let monthQ = supabase.from("bookings").select("id", { count: "exact", head: true })
+    .eq("student_id", user.id).eq("status", "completed").gte("created_at", monthStart);
+  if (monthEnd) monthQ = monthQ.lte("created_at", monthEnd);
+
   const [profileRes, nextBookingRes, totalRes, monthRes, pendingRes] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", user.id).single<{ full_name: string | null }>(),
     supabase.from("bookings")
@@ -29,8 +56,8 @@ export default async function StudentDashboardPage() {
       .gt("scheduled_at", new Date().toISOString())
       .order("scheduled_at", { ascending: true }).limit(1)
       .returns<{ id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: SessionType }[]>(),
-    supabase.from("bookings").select("id", { count: "exact", head: true }).eq("student_id", user.id).eq("status", "completed"),
-    supabase.from("bookings").select("id", { count: "exact", head: true }).eq("student_id", user.id).eq("status", "completed").gte("created_at", monthStart),
+    totalQScoped,
+    monthQ,
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("student_id", user.id).eq("status", "pending"),
   ]);
 

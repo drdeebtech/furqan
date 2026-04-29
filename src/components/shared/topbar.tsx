@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, CalendarDays, ChevronDown, MoreHorizontal, Settings, LogOut, Bug } from "lucide-react";
 import * as Sentry from "@sentry/nextjs";
 import { ThemeToggle } from "@/lib/theme/theme-toggle";
@@ -23,13 +24,34 @@ const SETTINGS_PATH_BY_ROLE: Partial<Record<Role, string>> = {
 
 export function Topbar({ role }: { role?: Role } = {}) {
   const { t } = useLang();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [showTooltip, setShowTooltip] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [yearOpen, setYearOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const yearRef = useRef<HTMLDivElement>(null);
+
+  const currentYear = new Date().getFullYear();
+  const selectedYear = Number(searchParams.get("year")) || currentYear;
+  const yearOptions = [currentYear + 1, currentYear, currentYear - 1, currentYear - 2, currentYear - 3];
 
   const handleSearchClick = () => {
     setShowTooltip(true);
     setTimeout(() => setShowTooltip(false), 2000);
+  };
+
+  const handleYearSelect = (year: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (year === currentYear) {
+      params.delete("year");
+    } else {
+      params.set("year", String(year));
+    }
+    const qs = params.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname);
+    setYearOpen(false);
   };
 
   // Close on outside click
@@ -46,11 +68,25 @@ export function Topbar({ role }: { role?: Role } = {}) {
   // Close on Escape
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setMenuOpen(false);
+      if (e.key === "Escape") {
+        setMenuOpen(false);
+        setYearOpen(false);
+      }
     }
-    if (menuOpen) document.addEventListener("keydown", handleKey);
+    if (menuOpen || yearOpen) document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
-  }, [menuOpen]);
+  }, [menuOpen, yearOpen]);
+
+  // Close year dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (yearRef.current && !yearRef.current.contains(e.target as Node)) {
+        setYearOpen(false);
+      }
+    }
+    if (yearOpen) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [yearOpen]);
 
   const settingsPath = role ? SETTINGS_PATH_BY_ROLE[role] : undefined;
 
@@ -81,13 +117,47 @@ export function Topbar({ role }: { role?: Role } = {}) {
         )}
       </div>
 
-      {/* Year selector */}
-      <div className="glass flex h-11 items-center rounded-xl px-3.5">
-        <button type="button" aria-label={t("السنة", "Year")} className="flex items-center gap-2">
+      {/* Year selector — writes ?year=YYYY to the URL so dashboard queries can scope */}
+      <div ref={yearRef} className="relative">
+        <button
+          type="button"
+          aria-label={t("السنة", "Year")}
+          aria-expanded={yearOpen}
+          aria-haspopup="listbox"
+          onClick={() => setYearOpen((v) => !v)}
+          className="glass flex h-11 items-center gap-2 rounded-xl px-3.5"
+        >
           <CalendarDays size={16} className="text-muted" aria-hidden="true" />
-          <span className="text-sm font-medium">{new Date().getFullYear()}</span>
+          <span className="text-sm font-medium">{selectedYear}</span>
           <ChevronDown size={14} className="text-muted" aria-hidden="true" />
         </button>
+        {yearOpen && (
+          <div
+            role="listbox"
+            aria-label={t("اختر السنة", "Select year")}
+            className="absolute end-0 top-full z-50 mt-2 w-32 overflow-hidden rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-lg"
+          >
+            {yearOptions.map((y) => (
+              <button
+                key={y}
+                type="button"
+                role="option"
+                aria-selected={y === selectedYear}
+                onClick={() => handleYearSelect(y)}
+                className={`flex w-full items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-foreground/5 ${
+                  y === selectedYear ? "font-semibold text-gold" : "text-foreground"
+                }`}
+              >
+                <span>{y}</span>
+                {y === currentYear && (
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-light">
+                    {t("الآن", "now")}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Notification bell */}

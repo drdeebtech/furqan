@@ -3,12 +3,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import {
   Menu, X, LayoutDashboard, GraduationCap, Calendar, TrendingUp, TrendingDown,
   MessageSquare, Clock, Users, ClipboardCheck, BookOpen, StickyNote,
   Star, DollarSign, Briefcase, FileText, Mail, Bell, Settings, ScrollText, Video,
-  ChevronsUpDown, MoreVertical, HelpCircle,
+  ChevronsUpDown, HelpCircle, ChevronRight, ChevronDown,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { LogoutButton } from "./logout-button";
@@ -100,18 +100,41 @@ const ROLE_LABEL: Record<Role, { ar: string; en: string }> = {
   admin: { ar: "الإدارة", en: "Admin" },
   teacher: { ar: "المعلم", en: "Teacher" },
   moderator: { ar: "المشرف", en: "Moderator" },
-  student: { ar: "الطالب", en: "Student" },
+  student: { ar: "طالب القرآن", en: "Quran Student" },
 };
+
+const COLLAPSE_STORAGE_KEY = "furqan-nav-collapsed-groups";
 
 export function Nav({ role, userName }: { role: Role; userName?: string }) {
   const pathname = usePathname();
   const { lang, dir } = useLang();
   const [menuOpen, setMenuOpen] = useState(false);
   const [lastPath, setLastPath] = useState(pathname);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   if (pathname !== lastPath) {
     setLastPath(pathname);
     setMenuOpen(false);
   }
+
+  // Persist collapsed group state per-role across reloads.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(`${COLLAPSE_STORAGE_KEY}:${role}`);
+      if (raw) startTransition(() => setCollapsedGroups(new Set(JSON.parse(raw))));
+    } catch { /* localStorage unavailable */ }
+  }, [role]);
+
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      try {
+        localStorage.setItem(`${COLLAPSE_STORAGE_KEY}:${role}`, JSON.stringify([...next]));
+      } catch { /* ignore */ }
+      return next;
+    });
+  };
 
   const navLang = lang;
   const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
@@ -148,39 +171,57 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
 
       {/* Middle: Nav links */}
       <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Main navigation">
-        {groups.map((group, gi) => (
-          <div key={gi} className={gi > 0 ? "mt-5" : ""}>
-            {group.label && (
-              <div className="mb-2 flex items-center justify-between px-3">
-                <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-light">
-                  {navLang === "ar" ? group.label.ar : group.label.en}
-                </p>
-                <MoreVertical size={14} className="text-muted-light" aria-hidden="true" />
-              </div>
-            )}
-            <div className="space-y-0.5">
-              {group.links.map((link) => {
-                const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
-                const Icon = link.icon;
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={`flex min-h-[40px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all focus-ring ${
-                      active
-                        ? "glass-nav-item active font-medium text-foreground shadow-[0_2px_8px_rgba(0,0,0,0.08)]"
-                        : "text-muted hover:text-foreground"
-                    }`}
-                    data-active={active ? "true" : undefined}
+        {groups.map((group, gi) => {
+          const groupKey = group.label ? group.label.en : `__ungrouped_${gi}`;
+          const isCollapsed = collapsedGroups.has(groupKey);
+          return (
+            <div key={gi} className={gi > 0 ? "mt-5" : ""}>
+              {group.label && (
+                <div className="mb-2 flex items-center justify-between px-3">
+                  <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-light">
+                    {navLang === "ar" ? group.label.ar : group.label.en}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(groupKey)}
+                    aria-label={isCollapsed
+                      ? t("توسيع القسم", "Expand section")
+                      : t("طي القسم", "Collapse section")}
+                    aria-expanded={!isCollapsed}
+                    className="rounded p-1 text-muted-light transition-colors hover:text-foreground focus-ring"
                   >
-                    <Icon size={18} className={active ? "text-foreground" : ""} aria-hidden="true" />
-                    <span>{navLang === "ar" ? link.ar : link.en}</span>
-                  </Link>
-                );
-              })}
+                    {isCollapsed
+                      ? <ChevronRight size={14} aria-hidden="true" />
+                      : <ChevronDown size={14} aria-hidden="true" />}
+                  </button>
+                </div>
+              )}
+              {!isCollapsed && (
+                <div className="space-y-0.5">
+                  {group.links.map((link) => {
+                    const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
+                    const Icon = link.icon;
+                    return (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        className={`flex min-h-[40px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all focus-ring ${
+                          active
+                            ? "glass-nav-item active font-medium text-foreground shadow-[0_2px_8px_rgba(0,0,0,0.08)]"
+                            : "text-muted hover:text-foreground"
+                        }`}
+                        data-active={active ? "true" : undefined}
+                      >
+                        <Icon size={18} className={active ? "text-foreground" : ""} aria-hidden="true" />
+                        <span>{navLang === "ar" ? link.ar : link.en}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* Bottom: Utility controls */}
