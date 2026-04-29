@@ -1087,6 +1087,170 @@ export type Database = {
         }
         Relationships: []
       }
+      forum_likes: {
+        Row: {
+          user_id: string
+          target_type: string
+          target_id: string
+          created_at: string
+        }
+        Insert: {
+          user_id: string
+          target_type: string
+          target_id: string
+          created_at?: string
+        }
+        Update: {
+          user_id?: string
+          target_type?: string
+          target_id?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      forum_replies: {
+        Row: {
+          id: string
+          thread_id: string
+          author_id: string
+          body_ar: string
+          body_en: string | null
+          is_hidden: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          thread_id: string
+          author_id: string
+          body_ar: string
+          body_en?: string | null
+          is_hidden?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          thread_id?: string
+          author_id?: string
+          body_ar?: string
+          body_en?: string | null
+          is_hidden?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forum_replies_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "forum_threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forum_replies_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forum_reports: {
+        Row: {
+          id: string
+          reporter_id: string
+          target_type: string
+          target_id: string
+          reason: string | null
+          status: string
+          resolved_by: string | null
+          resolved_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          reporter_id: string
+          target_type: string
+          target_id: string
+          reason?: string | null
+          status?: string
+          resolved_by?: string | null
+          resolved_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          reporter_id?: string
+          target_type?: string
+          target_id?: string
+          reason?: string | null
+          status?: string
+          resolved_by?: string | null
+          resolved_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      forum_threads: {
+        Row: {
+          id: string
+          author_id: string
+          title_ar: string
+          title_en: string | null
+          body_ar: string
+          body_en: string | null
+          category: string
+          is_pinned: boolean
+          is_locked: boolean
+          is_hidden: boolean
+          reply_count: number
+          last_reply_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          author_id: string
+          title_ar: string
+          title_en?: string | null
+          body_ar: string
+          body_en?: string | null
+          category?: string
+          is_pinned?: boolean
+          is_locked?: boolean
+          is_hidden?: boolean
+          reply_count?: number
+          last_reply_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          author_id?: string
+          title_ar?: string
+          title_en?: string | null
+          body_ar?: string
+          body_en?: string | null
+          category?: string
+          is_pinned?: boolean
+          is_locked?: boolean
+          is_hidden?: boolean
+          reply_count?: number
+          last_reply_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forum_threads_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       homework_assignments: {
         Row: {
           assigned_at: string

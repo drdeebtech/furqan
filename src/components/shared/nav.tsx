@@ -35,6 +35,7 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/student/progress", ar: "تقدمي", en: "Progress", icon: TrendingUp },
     // COLLABORATION — communication
     { href: "/student/messages", ar: "الرسائل", en: "Messages", icon: MessageSquare, group: { ar: "التواصل", en: "COLLABORATION" } },
+    { href: "/community", ar: "المجتمع", en: "Community", icon: Users },
     { href: "/student/notifications", ar: "الإشعارات", en: "Notifications", icon: Bell },
     // LEARNING — study tools
     { href: "/student/teachers", ar: "المعلمون", en: "Teachers", icon: Users, group: { ar: "التعلم", en: "LEARNING" } },
@@ -82,6 +83,7 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/admin/blog", ar: "المدونة", en: "Blog", icon: FileText },
     { href: "/admin/help", ar: "مركز المساعدة", en: "Help Center", icon: HelpCircle },
     { href: "/admin/resources", ar: "المصادر", en: "Resources", icon: FileText },
+    { href: "/admin/community", ar: "المجتمع", en: "Community", icon: Users },
     { href: "/admin/announcements", ar: "الإعلانات", en: "Announcements", icon: Bell },
     { href: "/admin/contacts", ar: "رسائل التواصل", en: "Contacts", icon: Mail },
     { href: "/admin/notifications", ar: "الإشعارات", en: "Notifications", icon: Bell },
