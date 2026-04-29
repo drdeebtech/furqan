@@ -99,6 +99,61 @@ html.light body {
   background: #FAFAF7;
 }
 
+/* ── Student dashboard "v2" skin — light mode only ──
+ * Repaints gold tokens to purple inside the dashboard wrapper, so the page
+ * picks up the reference's cooler accent without affecting other dashboards
+ * (admin/teacher/moderator) or the rest of /student/*. Dark mode keeps gold.
+ *
+ * `--surface` is left alone (still white) but the page background gets a
+ * subtle lavender wash to match reference's airy feel. The wash is below the
+ * cards, not inside them, so card contrast stays AA.
+ */
+html.light .student-dashboard-skin {
+  --gold: #7C5CFF;
+  --gold-hover: #6B4FE6;
+  --gold-light: #A78BFF;
+  --gold-dim: rgba(124, 92, 255, 0.10);
+  --color-gold: #7C5CFF;
+  --color-gold-hover: #6B4FE6;
+  --color-gold-light: #A78BFF;
+  --color-primary: #7C5CFF;
+  --color-primary-hover: #6B4FE6;
+  --color-primary-muted: rgba(124, 92, 255, 0.15);
+  background: linear-gradient(180deg, #F4F1FF 0%, #FAFAF7 320px);
+  margin: -2rem -1rem 0;
+  padding: 2rem 1rem 0;
+}
+
+html.light .student-dashboard-skin .glass-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(124, 92, 255, 0.08);
+  box-shadow: 0 1px 3px rgba(124, 92, 255, 0.04), 0 8px 24px rgba(124, 92, 255, 0.04);
+}
+
+html.light .student-dashboard-skin .glass-card:hover {
+  border-color: rgba(124, 92, 255, 0.18);
+  box-shadow: 0 2px 6px rgba(124, 92, 255, 0.06), 0 12px 32px rgba(124, 92, 255, 0.08);
+}
+
+/* Airy density polish — light mode on student dashboard.
+ * Bumps StatCard internals so the 4 KPIs feel reference-airy: bigger card
+ * height, larger numerals, more breathing room around the icon row. */
+.student-dashboard-skin .glass-card {
+  min-height: 196px;
+}
+
+.student-dashboard-skin .glass-card p[class*="clamp"] {
+  font-size: clamp(2.5rem, 5vw, 3.75rem);
+  font-weight: 300;
+  letter-spacing: -0.02em;
+}
+
+/* Wrapper-level breathing room (overrides default tight `py-` from inner) */
+.student-dashboard-skin section,
+.student-dashboard-skin .glass-card {
+  border-radius: 18px;
+}
+
 html { scroll-behavior: smooth; }
 
 @media (prefers-reduced-motion: reduce) {

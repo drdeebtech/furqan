@@ -96,20 +96,20 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
     : 0;
 
   return (
-    <>
+    <div className="student-dashboard-skin">
       <div className="h-0.5 bg-gradient-to-l from-gold/0 via-gold/30 to-gold/0" />
-      <div dir={dir} className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-10">
-        {/* Welcome */}
-        <h1 className="font-display text-3xl font-bold sm:text-4xl">
+      <div dir={dir} className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12 lg:py-16">
+        {/* Welcome — bigger, airier */}
+        <h1 className="font-display text-4xl font-light tracking-tight sm:text-5xl">
           {t("أهلاً", "Welcome")}{fullName ? ` ${fullName}` : ""}
         </h1>
-        <p className="mt-1 text-sm text-muted">{t("مرحباً بك في أكاديمية فُرقان", "Welcome to FURQAN Academy")}</p>
+        <p className="mt-2 text-base text-muted">{t("مرحباً بك في أكاديمية فُرقان", "Welcome to FURQAN Academy")}</p>
 
         {totalSessions === 0 && !nextBooking && <GuidanceBanner />}
 
         {/* Next session hero — only when there's a booking */}
         {nextBooking ? (
-          <div className="mt-6 glass-card p-5 sm:p-8">
+          <div className="mt-8 glass-card p-6 sm:p-10">
             <p className="mb-2 text-sm font-bold text-gold">
               <Star size={14} className="inline text-gold" /> {t("جلستك القادمة", "Your Next Session")}
             </p>
@@ -137,7 +137,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
             </div>
           </div>
         ) : totalSessions > 0 ? (
-          <div className="mt-6 glass-card border-dashed p-5 text-center sm:p-8">
+          <div className="mt-8 glass-card border-dashed p-6 text-center sm:p-10">
             <Calendar size={28} className="mx-auto mb-3 text-muted" />
             <p className="text-muted">{t("لا توجد جلسات قادمة", "No upcoming sessions")}</p>
             <Link href="/student/teachers" className="mt-4 inline-flex items-center gap-2 glass-gold glass-pill px-6 py-2.5 text-sm font-semibold text-white transition-colors">
@@ -147,7 +147,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
         ) : null}
 
         {/* 4-KPI grid — reference layout: package, homework, completed, next session */}
-        <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6 stagger-children">
+        <div className="mt-10 grid grid-cols-2 gap-5 md:grid-cols-4 md:gap-8 stagger-children">
           <StatCard
             icon={Briefcase}
             label={t("باقتي", "Active Package")}
@@ -182,7 +182,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
         </div>
 
         {/* Chart (3fr) + Live + Breakdown (2fr) */}
-        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-5">
+        <div className="mt-12 grid grid-cols-1 gap-8 lg:grid-cols-5">
           <div className="lg:col-span-3">
             <WidgetCard title={t("ساعات الدراسة", "Study Hours")}>
               <AnalyticsChart
@@ -194,7 +194,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
             </WidgetCard>
           </div>
 
-          <div className="space-y-6 lg:col-span-2">
+          <div className="space-y-8 lg:col-span-2">
             <LiveSessionsWidget
               sessions={liveSessions}
               title={t("الجلسات المباشرة", "Online Classes")}
@@ -216,7 +216,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
         </div>
 
         {/* Continue Watching */}
-        <div className="mt-8">
+        <div className="mt-12">
           <DataTable
             title={t("متابعة المشاهدة", "Continue Watching")}
             columns={[
@@ -232,6 +232,6 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
           />
         </div>
       </div>
-    </>
+    </div>
   );
 }
