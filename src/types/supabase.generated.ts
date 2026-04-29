@@ -1475,6 +1475,86 @@ export type Database = {
           },
         ]
       }
+      module_lessons: {
+        Row: {
+          module_id: string
+          lesson_id: string
+          sort_order: number
+        }
+        Insert: {
+          module_id: string
+          lesson_id: string
+          sort_order?: number
+        }
+        Update: {
+          module_id?: string
+          lesson_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_lessons_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "module_lessons_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: true
+            referencedRelation: "course_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      modules: {
+        Row: {
+          id: string
+          course_id: string
+          title_ar: string
+          title_en: string | null
+          description_ar: string | null
+          description_en: string | null
+          is_linear: boolean
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          course_id: string
+          title_ar: string
+          title_en?: string | null
+          description_ar?: string | null
+          description_en?: string | null
+          is_linear?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          course_id?: string
+          title_ar?: string
+          title_en?: string | null
+          description_ar?: string | null
+          description_en?: string | null
+          is_linear?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modules_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null

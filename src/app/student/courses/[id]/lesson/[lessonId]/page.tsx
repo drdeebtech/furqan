@@ -4,6 +4,8 @@ import { ChevronRight, PlayCircle, CheckCircle2, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { getLessonPlaybackUrl } from "@/lib/actions/course-playback";
+import { isLessonUnlocked } from "@/lib/actions/modules";
+import { isFeatureEnabled } from "@/lib/settings";
 import { LessonPlayer } from "./lesson-player";
 import { ReviewForm } from "@/components/courses/review-form";
 import type { Course, CourseLesson, CourseLessonProgress, CourseReview } from "@/types/database";
@@ -66,8 +68,21 @@ export default async function LessonPlaybackPage({ params }: PageProps) {
     initialPosition = progress?.last_position_seconds ?? 0;
   }
 
-  // Mint signed URL
-  const playbackResult = await getLessonPlaybackUrl(lessonId);
+  // Linear-module unlock gate. When modules feature is on AND the lesson
+  // belongs to a linear module AND prior lessons aren't completed,
+  // playback is blocked. Course owner + admins skip the gate.
+  let unlocked = true;
+  if (!isOwner && (await isFeatureEnabled("modules_enabled"))) {
+    unlocked = await isLessonUnlocked(user.id, lessonId);
+  }
+
+  // Mint signed URL only when unlocked.
+  const playbackResult = unlocked
+    ? await getLessonPlaybackUrl(lessonId)
+    : { ok: false as const, error: t(
+        "أكمل الدروس السابقة في هذه الوحدة لفتح هذا الدرس.",
+        "Complete the earlier lessons in this module to unlock this one.",
+      ) };
 
   // Per-lesson completion lookup
   let completedLessonIds = new Set<string>();
