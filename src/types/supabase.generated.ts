@@ -1003,6 +1003,90 @@ export type Database = {
           },
         ]
       }
+      help_articles: {
+        Row: {
+          id: string
+          slug: string
+          title_ar: string
+          title_en: string | null
+          body_ar: string
+          body_en: string | null
+          category: string
+          sort_order: number
+          is_published: boolean
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          slug: string
+          title_ar: string
+          title_en?: string | null
+          body_ar: string
+          body_en?: string | null
+          category: string
+          sort_order?: number
+          is_published?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          slug?: string
+          title_ar?: string
+          title_en?: string | null
+          body_ar?: string
+          body_en?: string | null
+          category?: string
+          sort_order?: number
+          is_published?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "help_articles_category_fkey"
+            columns: ["category"]
+            isOneToOne: false
+            referencedRelation: "help_categories"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "help_articles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      help_categories: {
+        Row: {
+          slug: string
+          label_ar: string
+          label_en: string | null
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          slug: string
+          label_ar: string
+          label_en?: string | null
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          slug?: string
+          label_ar?: string
+          label_en?: string | null
+          sort_order?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
       homework_assignments: {
         Row: {
           assigned_at: string
