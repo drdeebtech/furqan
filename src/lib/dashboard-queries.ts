@@ -129,17 +129,43 @@ export async function getStudentStudyAnalytics(
     monthly: generateEmptyMonth(lang),
   };
 
-  if (!bookings || bookings.length === 0) return empty;
+  // Pull live-session minutes (from sessions joined to bookings) AND
+  // self-reported study time (from study_log) in parallel; UNION them
+  // into one row list keyed by `started_at + duration`.
+  const sessionsP = bookings && bookings.length > 0
+    ? supabase
+        .from("sessions")
+        .select("actual_duration, started_at")
+        .in("booking_id", bookings.map((b) => b.id))
+        .not("ended_at", "is", null)
+        .gte("started_at", thirtyDaysAgo.toISOString())
+        .returns<{ actual_duration: number | null; started_at: string | null }[]>()
+    : Promise.resolve({ data: [] as { actual_duration: number | null; started_at: string | null }[] });
 
-  const { data: sessions } = await supabase
-    .from("sessions")
-    .select("actual_duration, started_at")
-    .in("booking_id", bookings.map((b) => b.id))
-    .not("ended_at", "is", null)
+  const studyLogP = supabase
+    .from("study_log")
+    .select("duration_seconds, started_at")
+    .eq("student_id", studentId)
     .gte("started_at", thirtyDaysAgo.toISOString())
-    .returns<{ actual_duration: number | null; started_at: string | null }[]>();
+    .not("ended_at", "is", null)
+    .returns<{ duration_seconds: number; started_at: string }[]>();
 
-  const rows = sessions ?? [];
+  const [sessionsRes, studyLogRes] = await Promise.all([sessionsP, studyLogP]);
+
+  const sessionRows = (sessionsRes.data ?? []).map((s) => ({
+    actual_duration: s.actual_duration,
+    started_at: s.started_at,
+  }));
+
+  // study_log.duration_seconds → minutes for parity with sessions.actual_duration
+  const studyLogRows = (studyLogRes.data ?? []).map((s) => ({
+    actual_duration: s.duration_seconds / 60,
+    started_at: s.started_at,
+  }));
+
+  const rows = [...sessionRows, ...studyLogRows];
+
+  if (rows.length === 0 && (!bookings || bookings.length === 0)) return empty;
   return {
     daily: groupSessionsByHour(rows),
     weekly: groupSessionsByDay(

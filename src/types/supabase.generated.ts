@@ -1996,6 +1996,50 @@ export type Database = {
         }
         Relationships: []
       }
+      study_log: {
+        Row: {
+          id: string
+          student_id: string
+          started_at: string
+          ended_at: string | null
+          duration_seconds: number
+          kind: string
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          started_at: string
+          ended_at?: string | null
+          duration_seconds?: number
+          kind?: string
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          started_at?: string
+          ended_at?: string | null
+          duration_seconds?: number
+          kind?: string
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_log_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       services: {
         Row: {
           created_at: string | null
