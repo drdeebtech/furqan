@@ -66,7 +66,7 @@ export function StatCard({ icon: Icon, label, value, href, subtitle, actionLabel
         )}
       </div>
 
-      <div className="mt-auto flex items-center justify-between rounded-xl border border-[var(--surface-border)] px-3 py-2 transition-colors hover:bg-[var(--surface-hover,rgba(0,0,0,0.03))]">
+      <div className="mt-auto flex items-center justify-between border-t border-[var(--surface-divider,#F0F0F2)] pt-3 transition-colors group-hover:text-foreground">
         <span className="text-xs font-medium text-muted">{actionLabel}</span>
         <Arrow size={14} className="text-muted" />
       </div>

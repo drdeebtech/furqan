@@ -8,7 +8,7 @@ import {
   Menu, X, LayoutDashboard, GraduationCap, Calendar, TrendingUp, TrendingDown,
   MessageSquare, Clock, Users, ClipboardCheck, BookOpen, StickyNote,
   Star, DollarSign, Briefcase, FileText, Mail, Bell, Settings, ScrollText, Video,
-  ChevronsUpDown, MoreVertical,
+  ChevronsUpDown, MoreVertical, HelpCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { LogoutButton } from "./logout-button";
@@ -26,15 +26,21 @@ interface NavLink {
 
 const LINKS: Record<Role, NavLink[]> = {
   student: [
-    { href: "/student/dashboard", ar: "لوحتي", en: "Dashboard", icon: LayoutDashboard, group: { ar: "الرئيسية", en: "MAIN" } },
-    { href: "/student/teachers", ar: "المعلمون", en: "Teachers", icon: GraduationCap },
+    // GENERAL — primary learning surfaces
+    { href: "/student/dashboard", ar: "لوحتي", en: "Dashboard", icon: LayoutDashboard, group: { ar: "عام", en: "GENERAL" } },
+    { href: "/student/courses", ar: "دوراتي المسجلة", en: "Courses", icon: GraduationCap },
     { href: "/student/sessions", ar: "جلساتي", en: "Sessions", icon: Calendar },
-    { href: "/student/homework", ar: "الواجبات", en: "Homework", icon: BookOpen },
-    { href: "/student/courses", ar: "دوراتي المسجلة", en: "Recorded Courses", icon: GraduationCap },
-    { href: "/student/packages", ar: "باقاتي", en: "Packages", icon: Briefcase },
     { href: "/student/progress", ar: "تقدمي", en: "Progress", icon: TrendingUp },
+    // COLLABORATION — communication
+    { href: "/student/messages", ar: "الرسائل", en: "Messages", icon: MessageSquare, group: { ar: "التواصل", en: "COLLABORATION" } },
     { href: "/student/notifications", ar: "الإشعارات", en: "Notifications", icon: Bell },
-    { href: "/student/messages", ar: "الرسائل", en: "Messages", icon: MessageSquare },
+    // LEARNING — study tools
+    { href: "/student/teachers", ar: "المعلمون", en: "Teachers", icon: Users, group: { ar: "التعلم", en: "LEARNING" } },
+    { href: "/student/homework", ar: "الواجبات", en: "Homework", icon: BookOpen },
+    { href: "/student/packages", ar: "باقاتي", en: "Packages", icon: Briefcase },
+    // SUPPORT — bottom-anchored utility links (no group label)
+    { href: "/student/settings", ar: "الإعدادات", en: "Settings", icon: Settings },
+    { href: "/student/help", ar: "المساعدة", en: "Help Center", icon: HelpCircle },
   ],
   teacher: [
     { href: "/teacher/dashboard", ar: "لوحتي", en: "Dashboard", icon: LayoutDashboard, group: { ar: "الرئيسية", en: "MAIN" } },

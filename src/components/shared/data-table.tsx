@@ -24,9 +24,12 @@ interface DataTableProps {
   /** When true, prepends a row-checkbox column (purely decorative — used by
    *  the student-dashboard "Continue Watching" table to match the reference). */
   selectable?: boolean;
+  /** When true, swaps the depth-effect progress bars for flat 6px blue bars
+   *  on a grey track. Used in the student-dashboard reference skin. */
+  simpleProgress?: boolean;
 }
 
-export function DataTable({ title, columns, rows, emptyMessage, selectable = false }: DataTableProps) {
+export function DataTable({ title, columns, rows, emptyMessage, selectable = false, simpleProgress = false }: DataTableProps) {
   const { t } = useLang();
   return (
     <WidgetCard title={title} subtitle={rows.length > 0 ? `${rows.length}` : undefined}>
@@ -71,7 +74,7 @@ export function DataTable({ title, columns, rows, emptyMessage, selectable = fal
                   )}
                   {columns.map((col) => (
                     <td key={col.key} className="py-4 text-[13px] tabular-nums">
-                      {renderCell(col, row[col.key], t)}
+                      {renderCell(col, row[col.key], t, simpleProgress)}
                     </td>
                   ))}
                 </tr>
@@ -84,7 +87,7 @@ export function DataTable({ title, columns, rows, emptyMessage, selectable = fal
   );
 }
 
-function renderCell(col: DataTableColumn, value: unknown, t: (ar: string, en: string) => string) {
+function renderCell(col: DataTableColumn, value: unknown, t: (ar: string, en: string) => string, simpleProgress = false) {
   const str = String(value ?? "—");
 
   switch (col.type) {
@@ -93,6 +96,19 @@ function renderCell(col: DataTableColumn, value: unknown, t: (ar: string, en: st
 
     case "progress": {
       const pct = typeof value === "number" ? value : parseInt(str) || 0;
+      if (simpleProgress) {
+        return (
+          <div className="flex items-center gap-2.5">
+            <div className="relative h-1.5 w-[160px] overflow-hidden rounded-full bg-[#E5E7EB]">
+              <div
+                className="h-full rounded-full bg-[#3B82F6]"
+                style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+              />
+            </div>
+            <span className="text-sm font-medium text-foreground">{pct}%</span>
+          </div>
+        );
+      }
       return (
         <div className="flex items-center gap-2.5">
           <div

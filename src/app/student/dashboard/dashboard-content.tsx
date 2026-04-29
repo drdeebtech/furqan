@@ -143,6 +143,8 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
             />
             <BreakdownBar
               title={t("توزيع الواجبات", "Assignment Breakdown")}
+              infoTooltip={t("توزيع حالة الواجبات", "Distribution of homework status")}
+              flat
               segments={[
                 ...(hwCounts.completed_excellent || hwCounts.completed_good
                   ? [{
@@ -172,6 +174,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
           <DataTable
             title={t("متابعة المشاهدة", "Continue Watching")}
             selectable
+            simpleProgress
             columns={[
               { key: "id", label: t("رقم", "Id") },
               { key: "subject", label: t("الكورس", "Subject") },

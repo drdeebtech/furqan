@@ -118,13 +118,12 @@ export function AnalyticsChart({
               <pattern
                 id="hatch"
                 patternUnits="userSpaceOnUse"
-                width="5"
-                height="5"
+                width="8"
+                height="8"
                 patternTransform="rotate(45)"
               >
-                <rect width="5" height="5" fill="url(#inactiveGlass)" />
-                <line x1="0" y1="0" x2="0" y2="5" stroke="rgba(255,255,255,0.5)" strokeWidth="1" />
-                <line x1="2.5" y1="0" x2="2.5" y2="5" stroke="rgba(0,0,0,0.06)" strokeWidth="0.5" />
+                <rect width="8" height="8" fill="url(#inactiveGlass)" />
+                <line x1="0" y1="0" x2="0" y2="8" stroke="rgba(255,255,255,0.65)" strokeWidth="1" />
               </pattern>
               {/* Active bar: flat solid purple #8B5CF6 — exact reference match */}
               <linearGradient id="activeGrad" x1="0" y1="0" x2="0" y2="1">
@@ -164,9 +163,9 @@ export function AnalyticsChart({
                 <Cell
                   key={index}
                   fill={entry.isActive ? "url(#activeGrad)" : "url(#hatch)"}
-                  fillOpacity={entry.isActive ? 1 : 0.9}
-                  stroke={entry.isActive ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.04)"}
-                  strokeWidth={entry.isActive ? 1.5 : 0.5}
+                  fillOpacity={entry.isActive ? 1 : 1}
+                  stroke={entry.isActive ? "rgba(255,255,255,0.3)" : "transparent"}
+                  strokeWidth={entry.isActive ? 1.5 : 0}
                   style={entry.isActive ? { filter: "drop-shadow(0 4px 8px rgba(139,92,246,0.35))" } : undefined}
                 />
               ))}

@@ -196,12 +196,27 @@ html.light .student-dashboard-skin .glass-card:hover {
   box-shadow: 0 2px 6px rgba(17, 24, 39, 0.06), 0 8px 24px rgba(59, 130, 246, 0.04);
 }
 
-/* KPI numerals to spec: 48px / 700 / line-height 1 */
+/* KPI numerals to spec: Inter / 48px / 700 / line-height 1.
+ * Force Inter explicitly so the numeral cascade doesn't fall through to
+ * the body font (IBM Plex Sans Arabic), which renders Latin digits with a
+ * noticeably different shape than the reference. */
 .student-dashboard-skin .glass-card p[class*="clamp"] {
+  font-family: var(--font-inter, "Inter", system-ui, sans-serif);
   font-size: 48px;
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.02em;
+  font-feature-settings: "tnum" 1, "ss01" 1;
+}
+
+/* Section headers & labels in the skin also pick up Inter so the page reads
+ * uniformly to the reference. */
+.student-dashboard-skin h1,
+.student-dashboard-skin h2,
+.student-dashboard-skin h3,
+.student-dashboard-skin .glass-card span,
+.student-dashboard-skin .glass-card p {
+  font-family: var(--font-inter, "Inter", system-ui, sans-serif);
 }
 
 /* Card geometry: 16px corners, 24px internal padding */
@@ -214,23 +229,6 @@ html.light .student-dashboard-skin .glass-card:hover {
   min-height: 192px;
 }
 
-/* Continue Watching: replace DataTable's elaborate depth-effect progress bar
- * with the reference's simple blue bar (6px tall, 3px radius). Inline-style
- * has highest specificity, so we ride along with !important on the override. */
-.student-dashboard-skin .data-table-progress-track,
-.student-dashboard-skin table td > div[class*="overflow-hidden"][class*="rounded-full"] {
-  height: 6px !important;
-  border-radius: 3px !important;
-  background: #E5E7EB !important;
-  box-shadow: none !important;
-  width: 140px !important;
-}
-
-.student-dashboard-skin table td > div[class*="overflow-hidden"][class*="rounded-full"] > div {
-  background: #3B82F6 !important;
-  border-radius: 3px !important;
-  box-shadow: none !important;
-}
 
 html { scroll-behavior: smooth; }
 
