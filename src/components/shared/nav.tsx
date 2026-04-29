@@ -8,7 +8,7 @@ import {
   Menu, X, LayoutDashboard, GraduationCap, Calendar, TrendingUp, TrendingDown,
   MessageSquare, Clock, Users, ClipboardCheck, BookOpen, StickyNote,
   Star, DollarSign, Briefcase, FileText, Mail, Bell, Settings, ScrollText, Video,
-  ChevronsUpDown, HelpCircle, ChevronRight, ChevronDown,
+  ChevronsUpDown, HelpCircle, ChevronRight, ChevronDown, CalendarDays,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { LogoutButton } from "./logout-button";
@@ -30,6 +30,7 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/student/dashboard", ar: "لوحتي", en: "Dashboard", icon: LayoutDashboard, group: { ar: "عام", en: "GENERAL" } },
     { href: "/student/courses", ar: "دوراتي المسجلة", en: "Courses", icon: GraduationCap },
     { href: "/student/sessions", ar: "جلساتي", en: "Sessions", icon: Calendar },
+    { href: "/student/calendar", ar: "التقويم", en: "Calendar", icon: CalendarDays },
     { href: "/student/progress", ar: "تقدمي", en: "Progress", icon: TrendingUp },
     // COLLABORATION — communication
     { href: "/student/messages", ar: "الرسائل", en: "Messages", icon: MessageSquare, group: { ar: "التواصل", en: "COLLABORATION" } },
