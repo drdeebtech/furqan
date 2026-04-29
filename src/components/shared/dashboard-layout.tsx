@@ -22,13 +22,15 @@ export async function DashboardLayout({
 
   return (
     <LangProvider>
-      <div className="min-h-screen">
+      <div className="dashboard-chrome min-h-screen">
         <Nav role={role} userName={userName} />
         <main id="main-content" className="min-h-screen pt-14 md:pt-0 md:ms-64">
-          <div className="hidden md:block md:border-b md:border-[var(--surface-border)] md:px-6 md:pt-5 md:pb-4">
+          <div className="hidden md:block md:px-6 md:pt-5 md:pb-4">
             <Topbar role={role} />
           </div>
-          {children}
+          <div className="dashboard-content-shell">
+            {children}
+          </div>
         </main>
       </div>
     </LangProvider>

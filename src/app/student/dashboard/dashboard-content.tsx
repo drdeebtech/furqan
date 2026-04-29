@@ -78,7 +78,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
 
   return (
     <div className="student-dashboard-skin">
-      <div dir={dir} className="app-shell mx-auto my-10 max-w-[1400px] px-6 py-8 sm:px-8 sm:py-10">
+      <div dir={dir} className="mx-auto max-w-[1400px] px-6 py-8 sm:px-8 sm:py-10">
         {/* Empty-state guidance for students with no upcoming session and zero history */}
         {totalSessions === 0 && !nextBooking && (
           <div className="mb-8">

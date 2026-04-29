@@ -99,13 +99,59 @@ html.light body {
   background: #FAFAF7;
 }
 
-/* ── Student dashboard "v2" skin — light mode only ──
- * Pixel-matches the reference (nuvelabs e-learning template):
- *   body = lavender, page content lives on a white card, brand = blue,
- *   chart accent = purple, success = green, 8px-grid spacing, 48px bold
- *   metric numerals.
- * Scoped under html.light only; dark mode keeps gold + glass identity.
- * Other dashboards (admin/teacher/moderator) untouched.
+/* ── Global dashboard chrome (light mode) ──
+ * Applies to ALL role dashboards: admin, teacher, moderator, student.
+ * Ports the reference template's airy structure: lavender outer body,
+ * white app-shell card containing the page content, white sidebar with
+ * a light pill active state. Dark mode untouched (still gold + glass).
+ */
+html.light .dashboard-chrome {
+  background: #EAE9F0;
+}
+
+/* Sidebar repaint: white background, grey border, light pill active state */
+html.light .dashboard-chrome .glass-sidebar {
+  background: #FFFFFF;
+  border-inline-end: 1px solid #E5E7EB;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html.light .dashboard-chrome .glass-sidebar a[data-active="true"] {
+  background: #F5F5F7 !important;
+  color: #111827 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06) !important;
+  border-radius: 9999px !important;
+}
+
+html.light .dashboard-chrome .glass-sidebar .glass-nav-item.active {
+  background: #F5F5F7;
+  color: #111827;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  border-radius: 9999px;
+}
+
+/* App-shell card: page content sits on a white card with 16px radius and
+ * a soft shadow on the lavender body. */
+html.light .dashboard-chrome .dashboard-content-shell {
+  margin: 1rem 1.5rem 2rem;
+  background: #FFFFFF;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+@media (max-width: 767px) {
+  html.light .dashboard-chrome .dashboard-content-shell {
+    margin: 0.5rem;
+    border-radius: 12px;
+  }
+}
+
+/* ── Student dashboard skin — brand recolor (blue) ──
+ * Layered on top of .dashboard-chrome. Swaps gold tokens to blue so the
+ * student dashboard picks up the reference's primary color. Other roles
+ * keep their gold brand.
  */
 html.light .student-dashboard-skin {
   /* Brand recolor — primary becomes blue, chart-active stays purple,
@@ -129,20 +175,20 @@ html.light .student-dashboard-skin {
   --data-progress: #3B82F6;
   --accent-purple: #8B5CF6;
   --accent-green: #10B981;
-  background: #EAE9F0;
 }
 
-/* White app-container — page content sits in a rounded card on the lavender body */
-.student-dashboard-skin > .app-shell {
-  background: #FFFFFF;
-  border-radius: 16px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
-}
-
-html.light .student-dashboard-skin .glass-card {
+/* Card surface: clean white with thin grey border (applies to all
+ * dashboards in light mode, not just student) */
+html.light .dashboard-chrome .glass-card {
   background: #FFFFFF;
   border: 1px solid #E5E7EB;
   box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html.light .dashboard-chrome .glass-card:hover {
+  box-shadow: 0 2px 6px rgba(17, 24, 39, 0.06), 0 8px 24px rgba(0, 0, 0, 0.04);
 }
 
 html.light .student-dashboard-skin .glass-card:hover {
