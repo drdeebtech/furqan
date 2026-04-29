@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdminForApi } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { activateWorkflow, deactivateWorkflow } from "@/lib/n8n/client";
 import { logError } from "@/lib/logger";
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single<{ role: string }>();
-  if (!profile || profile.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const guard = await requireAdminForApi();
+  if (guard instanceof NextResponse) return guard;
 
   const { id, active } = await request.json();
   if (!id) return NextResponse.json({ error: "Missing workflow id" }, { status: 400 });
@@ -25,7 +21,7 @@ export async function POST(request: Request) {
       await deactivateWorkflow(id);
     }
     await admin.from("audit_log").insert({
-      changed_by: user.id,
+      changed_by: guard.id,
       table_name: "n8n_workflows",
       record_id: id,
       action: "UPDATE",
@@ -39,7 +35,7 @@ export async function POST(request: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await admin.from("audit_log").insert({
-      changed_by: user.id,
+      changed_by: guard.id,
       table_name: "n8n_workflows",
       record_id: id,
       action: "UPDATE",

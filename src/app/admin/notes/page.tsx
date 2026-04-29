@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { FileText, BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { buildNameMap } from "@/lib/admin/name-map";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
 import type { SessionType } from "@/types/database";
@@ -67,15 +68,7 @@ export default async function AdminNotesPage() {
     ...Object.values(bookingMap).map(b => b.student_id),
     ...Object.values(bookingMap).map(b => b.teacher_id),
   ])];
-  let nameMap: Record<string, string> = {};
-  if (allUserIds.length > 0) {
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", allUserIds)
-      .returns<{ id: string; full_name: string | null }[]>();
-    if (profiles) nameMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name ?? "—"]));
-  }
+  const nameMap = await buildNameMap(supabase, allUserIds);
 
   const notesCount = allSessions.filter(s => s.post_session_notes).length;
   const homeworkCount = allSessions.filter(s => s.homework).length;

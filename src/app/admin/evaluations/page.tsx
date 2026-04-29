@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ClipboardCheck, Inbox, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { buildNameMap } from "@/lib/admin/name-map";
 import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "التقييمات" };
@@ -62,19 +63,10 @@ export default async function AdminEvaluationsPage() {
 
   const list = evaluations ?? [];
 
-  // Resolve names
-  let nameMap: Record<string, string> = {};
-  if (list.length > 0) {
-    const ids = [...new Set([...list.map((e) => e.student_id), ...list.map((e) => e.teacher_id)])];
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", ids)
-      .returns<{ id: string; full_name: string | null }[]>();
-    if (profiles) {
-      nameMap = Object.fromEntries(profiles.map((p) => [p.id, p.full_name ?? "—"]));
-    }
-  }
+  const nameMap = await buildNameMap(
+    supabase,
+    [...new Set([...list.map((e) => e.student_id), ...list.map((e) => e.teacher_id)])],
+  );
 
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">

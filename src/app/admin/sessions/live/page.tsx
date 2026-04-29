@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Radio, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { buildNameMap } from "@/lib/admin/name-map";
 import { getT } from "@/lib/i18n/server";
 import { LiveSessionsMonitor } from "./live-monitor";
 
@@ -58,14 +59,7 @@ export default async function LiveSessionsPage() {
       const pIds = [
         ...new Set([...bookings.map((b) => b.student_id), ...bookings.map((b) => b.teacher_id)]),
       ];
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .in("id", pIds)
-        .returns<{ id: string; full_name: string | null }[]>();
-      if (profiles) {
-        nameMap = Object.fromEntries(profiles.map((p) => [p.id, p.full_name ?? "—"]));
-      }
+      nameMap = await buildNameMap(supabase, pIds);
     }
   }
 

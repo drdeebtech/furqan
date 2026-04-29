@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Megaphone, Plus, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -18,14 +17,6 @@ const SEVERITY_BADGE: Record<SiteAnnouncement["severity"], string> = {
 export default async function AdminAnnouncementsPage() {
   const { t, dir, lang } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single<{ role: string }>();
-  if (!profile || profile.role !== "admin") redirect("/login");
 
   const { data: rows } = await supabase
     .from("site_announcements")

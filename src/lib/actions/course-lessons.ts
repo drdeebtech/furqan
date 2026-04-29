@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { logError } from "@/lib/logger";
 import {
   createVideo as createBunnyVideo,
@@ -116,7 +117,7 @@ export async function createLesson(
       bunny_video_id: bunnyGuid,
       video_status: "uploading",
       is_preview,
-    } as never)
+    } satisfies TableInsert<"course_lessons">)
     .select("id, bunny_video_id")
     .single<{ id: string; bunny_video_id: string }>();
 
@@ -139,7 +140,7 @@ export async function createLesson(
     .then(() =>
       supabase
         .from("courses")
-        .update({ lesson_count_cached: nextOrder } as never)
+        .update({ lesson_count_cached: nextOrder } satisfies TableUpdate<"courses">)
         .eq("id", courseId),
     );
 
@@ -181,7 +182,7 @@ export async function updateLesson(
 
   const { data, error } = await supabase
     .from("course_lessons")
-    .update(updates as never)
+    .update(updates as TableUpdate<"course_lessons">)
     .eq("id", lessonId)
     .select("course_id")
     .single<{ course_id: string }>();
@@ -246,7 +247,7 @@ export async function togglePreview(lessonId: string, isPreview: boolean) {
 
   const { data, error } = await supabase
     .from("course_lessons")
-    .update({ is_preview: isPreview } as never)
+    .update({ is_preview: isPreview } satisfies TableUpdate<"course_lessons">)
     .eq("id", lessonId)
     .select("course_id")
     .single<{ course_id: string }>();
@@ -320,7 +321,7 @@ export async function syncLessonStatusFromBunny(lessonId: string) {
 
   const { error } = await supabase
     .from("course_lessons")
-    .update(updates as never)
+    .update(updates as TableUpdate<"course_lessons">)
     .eq("id", lessonId);
 
   if (error) {
@@ -346,7 +347,7 @@ export async function syncLessonStatusFromBunny(lessonId: string) {
         );
         await supabase
           .from("courses")
-          .update({ duration_seconds_cached: totalDuration } as never)
+          .update({ duration_seconds_cached: totalDuration } satisfies TableUpdate<"courses">)
           .eq("id", lesson.course_id);
       }
     } catch {
@@ -380,7 +381,7 @@ export async function reorderLessons(
   for (let i = 0; i < orderedLessonIds.length; i++) {
     const { error } = await supabase
       .from("course_lessons")
-      .update({ order_index: -(i + 1000) } as never)
+      .update({ order_index: -(i + 1000) } satisfies TableUpdate<"course_lessons">)
       .eq("id", orderedLessonIds[i])
       .eq("course_id", courseId);
     if (error) {
@@ -395,7 +396,7 @@ export async function reorderLessons(
   for (let i = 0; i < orderedLessonIds.length; i++) {
     const { error } = await supabase
       .from("course_lessons")
-      .update({ order_index: i + 1 } as never)
+      .update({ order_index: i + 1 } satisfies TableUpdate<"course_lessons">)
       .eq("id", orderedLessonIds[i])
       .eq("course_id", courseId);
     if (error) {

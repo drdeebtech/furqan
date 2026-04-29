@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AlertTriangle, TrendingDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { buildNameMap } from "@/lib/admin/name-map";
 import { riskTone, riskLabel } from "@/lib/retention/ui";
 import { isFeatureEnabled } from "@/lib/settings";
 import { getT } from "@/lib/i18n/server";
@@ -101,11 +102,9 @@ export default async function RetentionPage({ searchParams }: Props) {
     contacted: (sp.contacted as ContactedFilter) ?? "all",
   };
 
+  // Auth: layout already enforces admin via requireAdmin(). Moderator access
+  // would require a separate route (not /admin/retention) — track in roadmap.
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single<{ role: string }>();
-  if (!profile || (profile.role !== "admin" && profile.role !== "moderator")) redirect("/login");
 
   if (await isFeatureEnabled("retention_ui_disabled")) redirect("/admin/dashboard");
 
@@ -120,12 +119,7 @@ export default async function RetentionPage({ searchParams }: Props) {
   const rows = applyFilters(allSignals, filters);
   const studentIds = rows.map(r => r.student_id);
 
-  const { data: profiles } = studentIds.length > 0
-    ? await supabase.from("profiles").select("id, full_name, parent_email").in("id", studentIds)
-        .returns<{ id: string; full_name: string | null; parent_email: string | null }[]>()
-    : { data: [] };
-
-  const nameById = new Map((profiles ?? []).map(p => [p.id, p.full_name ?? t("بدون اسم", "No name")]));
+  const nameMap = await buildNameMap(supabase, studentIds, t("بدون اسم", "No name"));
 
   const critical = allSignals.filter(r => (r.churn_risk_score ?? 0) >= 75).length;
   const high = allSignals.filter(r => (r.churn_risk_score ?? 0) >= 60 && (r.churn_risk_score ?? 0) < 75).length;
@@ -195,7 +189,7 @@ export default async function RetentionPage({ searchParams }: Props) {
                   <tr key={r.student_id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02]">
                     <td className="px-4 py-3">
                       <Link href={`/admin/users/${r.student_id}`} className="font-medium text-foreground hover:text-gold">
-                        {nameById.get(r.student_id) ?? "—"}
+                        {nameMap[r.student_id] ?? "—"}
                       </Link>
                     </td>
                     <td className={`px-4 py-3 font-bold ${riskTone(risk)}`}>{risk.toFixed(0)} · {riskLabel(risk)}</td>

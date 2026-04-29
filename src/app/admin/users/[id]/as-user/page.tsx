@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -10,7 +10,6 @@ import {
   Clock,
   Eye,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getT } from "@/lib/i18n/server";
 
@@ -74,16 +73,6 @@ export default async function AdminAsUserPage({
 }) {
   const { id } = await params;
   const { t, dir } = await getT();
-
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-  const { data: adminProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single<{ role: string }>();
-  if (!adminProfile || adminProfile.role !== "admin") redirect("/login");
 
   const admin = createAdminClient();
   const { data: target } = await admin

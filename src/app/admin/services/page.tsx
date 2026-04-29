@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Plus, Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -11,15 +10,6 @@ export const metadata: Metadata = { title: "إدارة الخدمات" };
 export default async function AdminServicesPage() {
   const { t, dir } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single<{ role: string }>();
-  if (!profile || profile.role !== "admin") redirect("/login");
 
   // Admin can see ALL services (active + inactive) — use service role or bypass RLS
   const { data } = await supabase

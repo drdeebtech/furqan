@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { createRoom, deleteRoom, updateRoomMaxParticipants, createObserverToken } from "@/lib/daily";
 import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
@@ -69,14 +70,14 @@ export async function forceEndSession(sessionId: string, reason: string) {
    * way to retry because the session.ended_at guard would block. */
   const { error: bookingErr } = await supabase
     .from("bookings")
-    .update({ status: "completed" } as never)
+    .update({ status: "completed" } satisfies TableUpdate<"bookings">)
     .eq("id", session.booking_id);
 
   if (bookingErr) return { error: "فشل تحديث حالة الحجز" };
 
   const { error: updateErr } = await supabase
     .from("sessions")
-    .update({ ended_at: now, actual_duration: actualDuration } as never)
+    .update({ ended_at: now, actual_duration: actualDuration } satisfies TableUpdate<"sessions">)
     .eq("id", sessionId);
 
   if (updateErr) return { error: "فشل إنهاء الجلسة" };
@@ -90,7 +91,7 @@ export async function forceEndSession(sessionId: string, reason: string) {
     old_data: oldData,
     new_data: newData,
     reason,
-  } as never);
+  } satisfies TableInsert<"audit_log">);
 
   /* Notify teacher + student */
   const { data: booking } = await supabase
@@ -166,7 +167,7 @@ export async function adminCreateRoom(bookingId: string) {
     room_url: room.url,
     expires_at: expiresAt.toISOString(),
     created_via: "manual",
-  } as never);
+  } satisfies TableInsert<"sessions">);
 
   if (insertErr) return { error: "فشل إنشاء الجلسة" };
 
@@ -179,7 +180,7 @@ export async function adminCreateRoom(bookingId: string) {
     old_data: null,
     new_data: { room_name: room.name, room_url: room.url, created_via: "manual" },
     reason: "إنشاء غرفة يدوي بواسطة المسؤول",
-  } as never);
+  } satisfies TableInsert<"audit_log">);
 
   revalidatePath("/admin/sessions");
   return { success: true };
@@ -248,7 +249,7 @@ export async function adminRecreateRoom(sessionId: string) {
       room_name: room.name,
       room_url: room.url,
       expires_at: newExpiresAt.toISOString(),
-    } as never)
+    } satisfies TableUpdate<"sessions">)
     .eq("id", sessionId);
 
   if (updateErr) return { error: "فشل تحديث الجلسة" };
@@ -262,7 +263,7 @@ export async function adminRecreateRoom(sessionId: string) {
     old_data: oldData,
     new_data: newData,
     reason: "إعادة إنشاء غرفة بواسطة المسؤول",
-  } as never);
+  } satisfies TableInsert<"audit_log">);
 
   revalidatePath("/admin/sessions");
   return { success: true };
@@ -308,7 +309,7 @@ export async function joinAsObserver(sessionId: string) {
   const { error: obsSessionErr } = await supabase.from("sessions").update({
     admin_observer_id: user.id,
     observer_joined_at: new Date().toISOString(),
-  } as never).eq("id", sessionId);
+  } satisfies TableUpdate<"sessions">).eq("id", sessionId);
 
   if (obsSessionErr) return { error: "فشل تسجيل المراقب على الجلسة" };
 
@@ -316,7 +317,7 @@ export async function joinAsObserver(sessionId: string) {
     session_id: sessionId,
     observer_id: user.id,
     joined_at: new Date().toISOString(),
-  } as never);
+  } satisfies TableInsert<"session_observers">);
 
   if (obsInsertErr) return { error: "فشل إنشاء سجل المراقبة" };
 

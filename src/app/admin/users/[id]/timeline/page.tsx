@@ -98,16 +98,6 @@ export default async function UserTimelinePage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
 
-  // ── Admin validation ───────────────────────────────────────────────────────
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: caller } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single<{ role: string }>();
-  if (!caller || caller.role !== "admin") redirect("/login");
 
   // ── Target user profile ────────────────────────────────────────────────────
   const { data: profile } = await supabase

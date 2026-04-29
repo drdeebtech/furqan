@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { createRoom, updateRoomExpiry } from "@/lib/daily";
 import { notifyParentSessionComplete, notifyParentNoShow } from "@/lib/notifications/parent";
 import { notify } from "@/lib/notifications/dispatcher";
@@ -50,7 +51,7 @@ export async function updateBookingStatus(
 
   const { error } = await supabase
     .from("bookings")
-    .update(updateData as never)
+    .update(updateData as TableUpdate<"bookings">)
     .eq("id", bookingId)
     .eq("teacher_id", user.id);
 
@@ -87,7 +88,7 @@ export async function updateBookingStatus(
               cancel_reason: "تم إلغاؤه تلقائياً بسبب تعارض مع حجز مؤكد آخر",
               cancelled_at: new Date().toISOString(),
               decline_reason: "تعارض مع حجز مؤكد",
-            } as never)
+            } satisfies TableUpdate<"bookings">)
             .eq("id", other.id);
 
           // Notify student of auto-cancellation
@@ -118,7 +119,7 @@ export async function updateBookingStatus(
         room_url: room.url,
         expires_at: expiresAt.toISOString(),
         created_via: "auto",
-      } as never);
+      } satisfies TableInsert<"sessions">);
       if (sessInsErr) {
         logError("teacher.confirmBooking: sessions insert failed", sessInsErr, { tag: "bookings" });
         roomWarning = "تم تأكيد الحجز لكن فشل تسجيل الجلسة — راسل الدعم";
@@ -167,7 +168,7 @@ export async function markNoShow(bookingId: string) {
 
   const { error } = await supabase
     .from("bookings")
-    .update({ status: "no_show" } as never)
+    .update({ status: "no_show" } satisfies TableUpdate<"bookings">)
     .eq("id", bookingId)
     .eq("teacher_id", user.id);
 
@@ -176,7 +177,7 @@ export async function markNoShow(bookingId: string) {
   // Mark session as ended
   await supabase
     .from("sessions")
-    .update({ ended_at: new Date().toISOString() } as never)
+    .update({ ended_at: new Date().toISOString() } satisfies TableUpdate<"sessions">)
     .eq("booking_id", bookingId);
 
   // Notify student
@@ -239,7 +240,7 @@ export async function endSession(sessionId: string) {
     .update({
       ended_at: now.toISOString(),
       actual_duration: actualDuration,
-    } as never)
+    } satisfies TableUpdate<"sessions">)
     .eq("id", sessionId);
 
   if (sessionError) return { error: "حدث خطأ أثناء إنهاء الجلسة" };
@@ -247,7 +248,7 @@ export async function endSession(sessionId: string) {
   // Mark booking as completed
   await supabase
     .from("bookings")
-    .update({ status: "completed" } as never)
+    .update({ status: "completed" } satisfies TableUpdate<"bookings">)
     .eq("id", session.booking_id)
     .eq("teacher_id", user.id);
 
@@ -320,7 +321,7 @@ export async function extendSessionRoom(sessionId: string) {
 
   await supabase
     .from("sessions")
-    .update({ expires_at: newExpiry.toISOString() } as never)
+    .update({ expires_at: newExpiry.toISOString() } satisfies TableUpdate<"sessions">)
     .eq("id", sessionId);
 
   revalidatePath("/teacher/dashboard");
@@ -371,7 +372,7 @@ export async function recreateRoom(bookingId: string) {
           room_name: room.name,
           room_url: room.url,
           expires_at: expiresAt.toISOString(),
-        } as never)
+        } satisfies TableUpdate<"sessions">)
         .eq("id", existing.id)
     : await supabase.from("sessions").insert({
         booking_id: bookingId,
@@ -379,7 +380,7 @@ export async function recreateRoom(bookingId: string) {
         room_url: room.url,
         expires_at: expiresAt.toISOString(),
         created_via: "manual",
-      } as never);
+      } satisfies TableInsert<"sessions">);
   if (roomErr) {
     logError("teacher.regenerateRoom: sessions write failed", roomErr, { tag: "bookings" });
     return { success: false, error: `فشل حفظ الغرفة: ${roomErr.message}` };
@@ -420,7 +421,7 @@ export async function saveQuickNotes(sessionId: string, notes: string) {
 
   const { error } = await supabase
     .from("sessions")
-    .update({ post_session_notes: notes || null } as never)
+    .update({ post_session_notes: notes || null } satisfies TableUpdate<"sessions">)
     .eq("id", sessionId);
 
   if (error) return { error: "حدث خطأ أثناء حفظ الملاحظات" };
@@ -466,7 +467,7 @@ export async function startInstantSession(studentId: string, durationMin: number
       status: "confirmed",
       teacher_confirmed: true,
       teacher_confirmed_at: scheduledAt.toISOString(),
-    } as never)
+    } satisfies TableInsert<"bookings">)
     .select("id")
     .single<{ id: string }>();
 
@@ -485,7 +486,7 @@ export async function startInstantSession(studentId: string, durationMin: number
       room_url: room.url,
       expires_at: expiresAt.toISOString(),
       created_via: "manual",
-    } as never).select("id").single<{ id: string }>();
+    } satisfies TableInsert<"sessions">).select("id").single<{ id: string }>();
 
     sessionId = sess?.id ?? null;
   } catch {

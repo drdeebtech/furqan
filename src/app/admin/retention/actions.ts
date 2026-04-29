@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdminOrModerator, ForbiddenError } from "@/lib/auth/require-admin";
 import { dispatchNotification } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
 
@@ -43,15 +44,15 @@ export async function logIntervention(formData: FormData): Promise<{ ok: boolean
     return { ok: false, error: "معطيات غير صالحة" };
   }
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "غير مصرح" };
-
-  const { data: actor } = await supabase.from("profiles").select("role").eq("id", user.id).single<{ role: string }>();
-  if (!actor || (actor.role !== "admin" && actor.role !== "moderator")) {
-    return { ok: false, error: "غير مصرح" };
+  let actor: { id: string };
+  try {
+    actor = await requireAdminOrModerator();
+  } catch (e) {
+    if (e instanceof ForbiddenError) return { ok: false, error: "غير مصرح" };
+    throw e;
   }
 
+  const supabase = await createClient();
   const tpl = TEMPLATES[type];
 
   try {
@@ -91,7 +92,7 @@ export async function logIntervention(formData: FormData): Promise<{ ok: boolean
     status: "succeeded",
     payload_json: {
       intervention_type: type,
-      triggered_by: user.id,
+      triggered_by: actor.id,
       template_name: `retention_${type}`,
       title: tpl.title,
     },
@@ -104,8 +105,8 @@ export async function logIntervention(formData: FormData): Promise<{ ok: boolean
       "retention.intervention_triggered",
       "student",
       studentId,
-      { intervention_type: type, triggered_by: user.id },
-      user.id,
+      { intervention_type: type, triggered_by: actor.id },
+      actor.id,
     );
   } catch {
     // non-blocking

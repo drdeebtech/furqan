@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Shield, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { buildNameMap } from "@/lib/admin/name-map";
 import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "سجل المراجعة" };
@@ -44,13 +45,10 @@ export default async function AdminAuditPage({
   const { data } = await query.returns<AuditRow[]>();
   const logs = data ?? [];
 
-  let nameMap: Record<string, string> = {};
-  const changerIds = logs.map(l => l.changed_by).filter(Boolean) as string[];
-  if (changerIds.length > 0) {
-    const ids = [...new Set(changerIds)];
-    const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", ids).returns<{ id: string; full_name: string | null }[]>();
-    if (profiles) nameMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name ?? "—"]));
-  }
+  const nameMap = await buildNameMap(
+    supabase,
+    [...new Set(logs.map(l => l.changed_by).filter(Boolean) as string[])],
+  );
 
   const actionColor: Record<string, string> = {
     INSERT: "text-emerald-400",

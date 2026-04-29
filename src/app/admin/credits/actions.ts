@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notify } from "@/lib/notifications/dispatcher";
 
@@ -26,16 +26,15 @@ export async function grantCreditAction(
   _prev: GrantResult,
   formData: FormData,
 ): Promise<GrantResult> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "غير مصرح" };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single<{ role: string }>();
-  if (!profile || profile.role !== "admin") return { error: "هذا الإجراء للمشرفين فقط" };
+  let actor: { id: string };
+  try {
+    actor = await requireAdmin();
+  } catch (e) {
+    if (e instanceof ForbiddenError) {
+      return { error: e.message === "not authenticated" ? "غير مصرح" : "هذا الإجراء للمشرفين فقط" };
+    }
+    throw e;
+  }
 
   const email = String(formData.get("student_email") ?? "").trim().toLowerCase();
   const sessions = Number(formData.get("sessions") ?? 0);
@@ -90,7 +89,7 @@ export async function grantCreditAction(
 
   // Audit log entry — admin gets-credit actions must leave a trail.
   await admin.from("audit_log").insert({
-    changed_by: user.id,
+    changed_by: actor.id,
     table_name: "student_packages",
     record_id: activePkg.id,
     action: "UPDATE",

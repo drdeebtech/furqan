@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdminForApi } from "@/lib/auth/require-admin";
 import { getWorkflows } from "@/lib/n8n/client";
 
 export const maxDuration = 30;
 
 export async function GET() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single<{ role: string }>();
-  if (!profile || profile.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const guard = await requireAdminForApi();
+  if (guard instanceof NextResponse) return guard;
 
   try {
     const workflows = await getWorkflows();

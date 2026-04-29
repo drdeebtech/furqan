@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
 
@@ -26,7 +27,7 @@ export async function toggleUserActive(userId: string, isActive: boolean) {
     .eq("id", userId)
     .single<{ is_active: boolean }>();
 
-  const { error } = await admin.from("profiles").update({ is_active: isActive } as never).eq("id", userId);
+  const { error } = await admin.from("profiles").update({ is_active: isActive } satisfies TableUpdate<"profiles">).eq("id", userId);
   if (error) return { error: "فشل تحديث حالة المستخدم" };
 
   await admin.from("audit_log").insert({
@@ -37,15 +38,22 @@ export async function toggleUserActive(userId: string, isActive: boolean) {
     old_data: { is_active: existing?.is_active ?? null },
     new_data: { is_active: isActive },
     reason: isActive ? "Admin reactivated user" : "Admin deactivated user",
-  } as never);
+  } satisfies TableInsert<"audit_log">);
 
   revalidatePath("/admin/users");
   return { success: true };
 }
 
+type UserRole = "student" | "teacher" | "admin" | "moderator";
+
 export async function changeUserRole(userId: string, role: string) {
   const auth = await authOrError();
   if (auth.error) return { error: auth.error };
+
+  if (!["student", "teacher", "admin", "moderator"].includes(role)) {
+    return { error: "دور غير صالح" };
+  }
+  const newRole = role as UserRole;
 
   const admin = createAdminClient();
 
@@ -55,7 +63,7 @@ export async function changeUserRole(userId: string, role: string) {
     .eq("id", userId)
     .single<{ role: string }>();
 
-  const { error } = await admin.from("profiles").update({ role } as never).eq("id", userId);
+  const { error } = await admin.from("profiles").update({ role: newRole } satisfies TableUpdate<"profiles">).eq("id", userId);
   if (error) return { error: "فشل تغيير الدور — تأكد من صلاحيات المدير" };
 
   await admin.from("audit_log").insert({
@@ -66,7 +74,7 @@ export async function changeUserRole(userId: string, role: string) {
     old_data: { role: existing?.role ?? null },
     new_data: { role },
     reason: `Admin changed role: ${existing?.role ?? "unknown"} → ${role}`,
-  } as never);
+  } satisfies TableInsert<"audit_log">);
 
   if (role === "teacher") {
     const { data: teacherProfile } = await admin
@@ -84,7 +92,7 @@ export async function changeUserRole(userId: string, role: string) {
         recitation_standards: ["hafs"],
         cv_status: "approved",
         cv_submitted_at: new Date().toISOString(),
-      } as never);
+      } satisfies TableInsert<"teacher_profiles">);
       if (tpInsertErr) {
         logError("changeUserRole: teacher_profiles auto-insert failed", tpInsertErr, { tag: "admin-users" });
       }
@@ -95,7 +103,7 @@ export async function changeUserRole(userId: string, role: string) {
     const { error: archiveErr } = await admin.from("teacher_profiles").update({
       is_archived: true,
       archived_at: new Date().toISOString(),
-    } as never).eq("teacher_id", userId);
+    } satisfies TableUpdate<"teacher_profiles">).eq("teacher_id", userId);
     if (archiveErr) {
       logError("changeUserRole: teacher_profiles auto-archive failed", archiveErr, { tag: "admin-users" });
     }
@@ -142,7 +150,7 @@ export async function softDeleteUser(userId: string, reason: string) {
   const { error: profileErr } = await admin.from("profiles").update({
     is_active: false,
     deleted_at: now,
-  } as never).eq("id", userId);
+  } satisfies TableUpdate<"profiles">).eq("id", userId);
 
   if (profileErr) return { error: "فشل حذف المستخدم: " + profileErr.message };
 
@@ -160,7 +168,7 @@ export async function softDeleteUser(userId: string, reason: string) {
     const { error: archiveErr } = await admin.from("teacher_profiles").update({
       is_archived: true,
       archived_at: now,
-    } as never).eq("teacher_id", userId);
+    } satisfies TableUpdate<"teacher_profiles">).eq("teacher_id", userId);
     if (archiveErr) logError("softDeleteUser: teacher_profiles archive failed", archiveErr, { tag: "admin-users" });
   }
 
@@ -172,7 +180,7 @@ export async function softDeleteUser(userId: string, reason: string) {
     old_data: { is_active: existing.is_active, deleted_at: null },
     new_data: { is_active: false, deleted_at: now },
     reason: `Admin soft-deleted user (${existing.role}): ${trimmed}`,
-  } as never);
+  } satisfies TableInsert<"audit_log">);
 
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${userId}`);
@@ -202,7 +210,7 @@ export async function restoreUser(userId: string) {
   const { error: profileErr } = await admin.from("profiles").update({
     is_active: true,
     deleted_at: null,
-  } as never).eq("id", userId);
+  } satisfies TableUpdate<"profiles">).eq("id", userId);
 
   if (profileErr) return { error: "فشل استعادة المستخدم" };
 
@@ -216,7 +224,7 @@ export async function restoreUser(userId: string) {
     const { error: unarchiveErr } = await admin.from("teacher_profiles").update({
       is_archived: false,
       archived_at: null,
-    } as never).eq("teacher_id", userId);
+    } satisfies TableUpdate<"teacher_profiles">).eq("teacher_id", userId);
     if (unarchiveErr) logError("restoreUser: teacher_profiles unarchive failed", unarchiveErr, { tag: "admin-users" });
   }
 
@@ -228,7 +236,7 @@ export async function restoreUser(userId: string) {
     old_data: { is_active: false, deleted_at: existing.deleted_at },
     new_data: { is_active: true, deleted_at: null },
     reason: "Admin restored deleted user",
-  } as never);
+  } satisfies TableInsert<"audit_log">);
 
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${userId}`);
@@ -303,7 +311,7 @@ export async function hardDeleteUser(userId: string, nameConfirmation: string) {
       },
       new_data: null,
       reason: `Hard delete (permanent erase) of ${existing.role}: ${existing.full_name ?? "[no name]"}`,
-    } as never)
+    } satisfies TableInsert<"audit_log">)
     .then((r) => {
       if (r.error) logError("hardDeleteUser: audit row failed", r.error, { tag: "admin-users" });
     });
@@ -379,7 +387,7 @@ export async function createUserFromScratch(
   const userId = authData.user.id;
 
   const { error: profileError } = await adminClient.from("profiles").update({
-    role,
+    role: role as UserRole,
     full_name,
     phone,
     country,
@@ -387,7 +395,7 @@ export async function createUserFromScratch(
     parent_phone,
     parent_email,
     date_of_birth,
-  } as never).eq("id", userId);
+  } satisfies TableUpdate<"profiles">).eq("id", userId);
 
   if (profileError) {
     return { error: "تم إنشاء المستخدم لكن فشل تحديث الملف الشخصي" };
@@ -407,7 +415,7 @@ export async function createUserFromScratch(
       recitation_standards: ["hafs"],
       cv_status: "approved",
       cv_submitted_at: new Date().toISOString(),
-    } as never);
+    } satisfies TableInsert<"teacher_profiles">);
     if (tpError) {
       return { error: `تم إنشاء الحساب لكن فشل إنشاء ملف المعلم: ${tpError.message}` };
     }
@@ -421,7 +429,7 @@ export async function createUserFromScratch(
     old_data: null,
     new_data: { email, role, full_name, country },
     reason: `Admin created ${role} account`,
-  } as never);
+  } satisfies TableInsert<"audit_log">);
 
   revalidatePath("/admin/users");
   return { success: true };

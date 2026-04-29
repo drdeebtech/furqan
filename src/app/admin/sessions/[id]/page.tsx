@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Video, User, GraduationCap, Clock, FileText, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { buildNameMap } from "@/lib/admin/name-map";
 import { SessionStatus } from "@/components/shared/session-status";
 import { getT } from "@/lib/i18n/server";
 import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
@@ -84,22 +85,15 @@ export default async function SessionDetailPage({
   let nameMap: Record<string, string> = {};
   let studentRisk: number | null = null;
   if (booking) {
-    const ids = [booking.student_id, booking.teacher_id];
-    const [profilesRes, retentionRes] = await Promise.all([
-      supabase
-        .from("profiles")
-        .select("id, full_name")
-        .in("id", ids)
-        .returns<{ id: string; full_name: string | null }[]>(),
+    const [resolvedNames, retentionRes] = await Promise.all([
+      buildNameMap(supabase, [booking.student_id, booking.teacher_id]),
       supabase
         .from("retention_signals")
         .select("churn_risk_score")
         .eq("student_id", booking.student_id)
         .maybeSingle<{ churn_risk_score: number | null }>(),
     ]);
-    if (profilesRes.data) {
-      nameMap = Object.fromEntries(profilesRes.data.map((p) => [p.id, p.full_name ?? "—"]));
-    }
+    nameMap = resolvedNames;
     studentRisk = retentionRes.data?.churn_risk_score ?? null;
   }
 
@@ -115,16 +109,10 @@ export default async function SessionDetailPage({
   const logs = auditLogs ?? [];
 
   /* Resolve audit log user names */
-  const auditUserIds = [...new Set(logs.map((l) => l.changed_by).filter(Boolean) as string[])];
-  let auditNameMap: Record<string, string> = {};
-  if (auditUserIds.length > 0) {
-    const { data: p } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", auditUserIds)
-      .returns<{ id: string; full_name: string | null }[]>();
-    if (p) auditNameMap = Object.fromEntries(p.map((pr) => [pr.id, pr.full_name ?? "—"]));
-  }
+  const auditNameMap = await buildNameMap(
+    supabase,
+    [...new Set(logs.map((l) => l.changed_by).filter(Boolean) as string[])],
+  );
 
   const actionColor: Record<string, string> = {
     INSERT: "text-emerald-400",

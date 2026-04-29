@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { DollarSign, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { buildNameMap } from "@/lib/admin/name-map";
 import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "المالية" };
@@ -29,12 +30,7 @@ export default async function AdminPaymentsPage() {
   const pendingCount = payments.filter(p => p.status === "pending").length;
   const refundedAmount = payments.filter(p => p.status === "refunded").reduce((s, p) => s + Number(p.amount_usd), 0);
 
-  let nameMap: Record<string, string> = {};
-  if (payments.length > 0) {
-    const ids = [...new Set(payments.map(p => p.student_id))];
-    const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", ids).returns<{ id: string; full_name: string | null }[]>();
-    if (profiles) nameMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name ?? "—"]));
-  }
+  const nameMap = await buildNameMap(supabase, [...new Set(payments.map(p => p.student_id))]);
 
   const STATUS_COLORS: Record<string, string> = {
     pending: "bg-amber-500/10 text-amber-400 border-amber-500/30",

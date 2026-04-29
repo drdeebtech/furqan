@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Activity, AlertTriangle, BookOpen, Package, Timer, TrendingDown, Users, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -10,10 +9,6 @@ export const metadata: Metadata = { title: "مركز التحكم" };
 export default async function ControlTowerPage() {
   const { t, dir, lang } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single<{ role: string }>();
-  if (!profile || profile.role !== "admin") redirect("/login");
 
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();

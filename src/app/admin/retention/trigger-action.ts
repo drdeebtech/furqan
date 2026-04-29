@@ -1,19 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 
 /**
  * Manually run the retention scorer (same endpoint n8n calls on its daily cron).
  * Hits the internal API server-to-server with the shared secret.
  */
 export async function runScorerNow(): Promise<{ ok: boolean; scored?: number; high_risk?: number; error?: string }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "غير مصرح" };
-
-  const { data: actor } = await supabase.from("profiles").select("role").eq("id", user.id).single<{ role: string }>();
-  if (!actor || actor.role !== "admin") return { ok: false, error: "غير مصرح" };
+  try {
+    await requireAdmin();
+  } catch (e) {
+    if (e instanceof ForbiddenError) return { ok: false, error: "غير مصرح" };
+    throw e;
+  }
 
   const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const secret = process.env.N8N_WEBHOOK_SECRET;

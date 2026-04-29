@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
@@ -64,7 +65,7 @@ export async function updateAccount(
       parent_phone: str(formData, "parent_phone"),
       parent_email: str(formData, "parent_email"),
       is_active: bool(formData, "is_active"),
-    } as never)
+    } as TableUpdate<"profiles">)
     .eq("id", teacherId);
 
   if (error) return { error: "فشل حفظ بيانات الحساب" };
@@ -141,7 +142,7 @@ export async function uploadTeacherPhoto(
 
   const { error: updErr } = await adminClient
     .from("profiles")
-    .update({ avatar_url: avatarUrl } as never)
+    .update({ avatar_url: avatarUrl } satisfies TableUpdate<"profiles">)
     .eq("id", teacherId);
   if (updErr) {
     logError("admin teacher photo profile update failed", updErr, { tag: "admin-teacher-photo" });
@@ -178,7 +179,7 @@ export async function updateTeacherProfile(
       max_active_students: maxActive ?? undefined,
       is_accepting: bool(formData, "is_accepting"),
       is_archived: bool(formData, "is_archived"),
-    } as never)
+    } as TableUpdate<"teacher_profiles">)
     .eq("teacher_id", teacherId);
 
   if (error) return { error: "فشل حفظ بيانات المعلم" };
@@ -221,7 +222,7 @@ export async function upsertIjaza(
         granted_by: grantedBy,
         granted_at: grantedAt,
         document_url: documentUrl,
-      } as never)
+      } satisfies TableUpdate<"teacher_ijaza">)
       .eq("id", id)
       .eq("teacher_id", teacherId);
     if (error) return { error: "فشل تحديث الإجازة" };
@@ -233,7 +234,7 @@ export async function upsertIjaza(
       granted_by: grantedBy,
       granted_at: grantedAt,
       document_url: documentUrl,
-    } as never);
+    } satisfies TableInsert<"teacher_ijaza">);
     if (error) return { error: "فشل إضافة الإجازة" };
   }
 
@@ -278,7 +279,7 @@ export async function setIjazaVerified(
     .update({
       verified_by: verified ? admin.id : null,
       verified_at: verified ? new Date().toISOString() : null,
-    } as never)
+    } satisfies TableUpdate<"teacher_ijaza">)
     .eq("id", ijazaId)
     .eq("teacher_id", teacherId);
   if (error) return { error: "فشل تحديث حالة التوثيق" };
@@ -323,7 +324,7 @@ export async function upsertAvailability(
         end_time: endTime,
         slot_duration: slotDuration,
         is_active: isActive,
-      } as never)
+      } satisfies TableUpdate<"teacher_availability">)
       .eq("id", id)
       .eq("teacher_id", teacherId);
     if (error) return { error: "فشل تحديث التوفر" };
@@ -335,7 +336,7 @@ export async function upsertAvailability(
       end_time: endTime,
       slot_duration: slotDuration,
       is_active: isActive,
-    } as never);
+    } satisfies TableInsert<"teacher_availability">);
     if (error) return { error: error.message.includes("avail_unique") ? "يوجد فترة في نفس اليوم والوقت" : "فشل إضافة التوفر" };
   }
 
@@ -386,7 +387,7 @@ export async function upsertException(
     end_time: str(formData, "end_time"),
     is_blocked: bool(formData, "is_blocked"),
     reason: str(formData, "reason"),
-  } as never);
+  } satisfies TableInsert<"availability_exceptions">);
   if (error) return { error: "فشل إضافة الاستثناء" };
 
   revalidateTeacher(teacherId);
