@@ -4,12 +4,12 @@
  */
 import { logError } from "@/lib/logger";
 
-const RAW_N8N_API_URL = (process.env.N8N_API_URL ?? "").replace(/\\n|\\r/g, "").trim().replace(/\/+$/, "");
-const N8N_API_URL = RAW_N8N_API_URL || "https://n8n.drdeeb.tech/api/v1";
+const N8N_API_URL = (process.env.N8N_API_URL ?? "").replace(/\\n|\\r/g, "").trim().replace(/\/+$/, "");
 const N8N_API_KEY = process.env.N8N_API_KEY;
 
 async function n8nFetch<T>(path: string, options?: RequestInit): Promise<T> {
   if (!N8N_API_KEY) throw new Error("N8N_API_KEY not configured");
+  if (!N8N_API_URL) throw new Error("N8N_API_URL not configured");
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);

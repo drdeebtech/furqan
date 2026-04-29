@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
+import { notify } from "@/lib/notifications/dispatcher";
 import { isFeatureEnabled } from "@/lib/settings";
 
 // ─── enrollFree ─────────────────────────────────────────────────────────────
@@ -70,6 +71,30 @@ export async function enrollFree(courseId: string) {
   }, user.id).catch((err) =>
     logError("emit course.enrolled failed", err, { tag: "course-enrollments", courseId }),
   );
+
+  // Notify the teacher of the new enrollment
+  const { data: courseRow } = await supabase
+    .from("courses")
+    .select("teacher_id, title_ar")
+    .eq("id", courseId)
+    .single<{ teacher_id: string; title_ar: string }>();
+  const { data: studentProfile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", user.id)
+    .single<{ full_name: string | null }>();
+  if (courseRow) {
+    await notify(
+      courseRow.teacher_id,
+      "course",
+      "اشتراك جديد",
+      `${studentProfile?.full_name ?? "طالب"} اشترك في "${courseRow.title_ar}"`,
+      "course",
+      courseId,
+    ).catch((err) =>
+      logError("notify on enroll failed", err, { tag: "course-enrollments", courseId }),
+    );
+  }
 
   revalidatePath(`/student/courses`);
   revalidatePath(`/courses`);

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, BookOpen, Calendar, MessageSquare, Megaphone, CreditCard, Check, CheckCheck, Trash2 } from "lucide-react";
+import { Bell, BookOpen, Calendar, MessageSquare, Megaphone, CreditCard, Check, CheckCheck, Trash2, GraduationCap } from "lucide-react";
 import { markAsRead, markAllAsRead, deleteNotification } from "@/lib/actions/notifications";
 import { notificationHref } from "@/lib/notifications/href";
 import { useLang } from "@/lib/i18n/context";
@@ -16,6 +16,7 @@ const TYPE_CONFIG: Record<NotifType, { icon: typeof Bell; color: string; bg: str
   reminder: { icon: Bell, color: "text-amber-400", bg: "bg-amber-500/10" },
   system: { icon: Megaphone, color: "text-gold", bg: "bg-gold/10" },
   homework: { icon: BookOpen, color: "text-sky-400", bg: "bg-sky-500/10" },
+  course: { icon: GraduationCap, color: "text-gold", bg: "bg-gold/10" },
 };
 
 export function NotificationsList({

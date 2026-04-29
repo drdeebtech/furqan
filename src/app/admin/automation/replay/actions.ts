@@ -2,10 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { WEBHOOK_ROUTES, DEFAULT_WEBHOOK_PATH } from "@/lib/automation/emit";
+import {
+  WEBHOOK_ROUTES,
+  DEFAULT_WEBHOOK_PATH,
+  serializePayload,
+  type EventPayload,
+} from "@/lib/automation/emit";
+import { signWebhookPayload } from "@/lib/security/secrets";
 import { requireAdmin as requireAdminStrict, ForbiddenError } from "@/lib/auth/require-admin";
 
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
+const N8N_WEBHOOK_SECRET = process.env.N8N_WEBHOOK_SECRET;
 
 export interface ReplayResult {
   success?: string;
@@ -108,17 +115,27 @@ export async function replayAutomation({
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10_000);
 
+  // Re-sign with the same HMAC contract emitEvent uses, so n8n's verifier
+  // accepts replays. The stored payload_json IS the original EventPayload.
+  const rawBody = serializePayload(row.payload_json as unknown as EventPayload);
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "X-Furqan-Event": row.event_name,
+    "X-Furqan-Replay": "true",
+    "X-Furqan-Replay-Of": row.id,
+    "X-Furqan-Replay-Key": replayKey,
+  };
+  if (N8N_WEBHOOK_SECRET) {
+    const { timestamp, signature } = signWebhookPayload(rawBody, N8N_WEBHOOK_SECRET);
+    headers["X-Furqan-Timestamp"] = timestamp;
+    headers["X-Furqan-Signature"] = signature;
+  }
+
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Furqan-Event": row.event_name,
-        "X-Furqan-Replay": "true",
-        "X-Furqan-Replay-Of": row.id,
-        "X-Furqan-Replay-Key": replayKey,
-      },
-      body: JSON.stringify(row.payload_json),
+      headers,
+      body: rawBody,
       signal: controller.signal,
     });
 

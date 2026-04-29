@@ -3302,6 +3302,10 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: boolean
       }
+      recompute_course_review_aggregates: {
+        Args: { p_course_id: string }
+        Returns: undefined
+      }
       redact_pii: { Args: { payload: Json }; Returns: Json }
     }
     Enums: {
@@ -3336,6 +3340,7 @@ export type Database = {
         | "reminder"
         | "system"
         | "homework"
+        | "course"
       payment_status: "pending" | "succeeded" | "failed" | "refunded"
       report_type:
         | "session_summary"
@@ -3518,6 +3523,7 @@ export const Constants = {
         "reminder",
         "system",
         "homework",
+        "course",
       ],
       payment_status: ["pending", "succeeded", "failed", "refunded"],
       report_type: [

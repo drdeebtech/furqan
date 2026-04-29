@@ -1,23 +1,21 @@
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
-
-function safeCompare(a: string | null, b: string | undefined): boolean {
-  if (!a || !b) return false;
-  const aBuf = Buffer.from(a);
-  const bBuf = Buffer.from(b);
-  if (aBuf.length !== bBuf.length) return false;
-  return timingSafeEqual(aBuf, bBuf);
-}
+import { safeCompareSecret } from "@/lib/security/secrets";
 
 /**
  * n8n callback endpoint.
  * n8n calls this to write automation logs or trigger app-side actions.
  */
+
+// notify-action throttle: a single user can receive at most this many
+// in-app notifications via the n8n callback per minute. Protects against
+// a compromised or runaway workflow flooding a student/teacher with
+// notifications and bloating message_delivery_log.
+const NOTIFY_PER_USER_PER_MINUTE = 30;
 export async function POST(request: Request) {
   // Validate shared secret with constant-time comparison (timing-attack safe)
   const secret = request.headers.get("X-N8N-Secret");
-  if (!safeCompare(secret, process.env.N8N_WEBHOOK_SECRET)) {
+  if (!safeCompareSecret(secret, process.env.N8N_WEBHOOK_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -47,6 +45,33 @@ export async function POST(request: Request) {
     }
 
     case "notify": {
+      // Per-user throttle: count in-app notifications delivered in the last
+      // 60 seconds via this callback. If above the cap, drop with 429 so
+      // the caller knows to back off — but still log the throttled attempt
+      // so admins can see suspicious patterns.
+      const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
+      const { count } = await supabase
+        .from("message_delivery_log")
+        .select("id", { count: "exact", head: true })
+        .eq("recipient_user_id", data.user_id)
+        .eq("recipient_channel", "in_app")
+        .gte("created_at", oneMinuteAgo);
+
+      if ((count ?? 0) >= NOTIFY_PER_USER_PER_MINUTE) {
+        await supabase.from("message_delivery_log").insert({
+          recipient_user_id: data.user_id,
+          recipient_channel: "in_app",
+          template_name: data.template_name ?? null,
+          related_entity_type: data.entity_type ?? null,
+          related_entity_id: data.entity_id ?? null,
+          status: "throttled",
+        } as never);
+        return NextResponse.json(
+          { error: "rate_limited", limit: NOTIFY_PER_USER_PER_MINUTE, window: "1m" },
+          { status: 429 },
+        );
+      }
+
       // Service-role insert: n8n webhooks bypass RLS by design.
       // User preference gating (quiet hours, channel prefs) is handled n8n-side
       // for workflow-driven notifications.

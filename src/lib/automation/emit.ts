@@ -6,7 +6,26 @@
  *   try { await emitEvent("booking.confirmed", "booking", bookingId, { student_id, teacher_id }); } catch {}
  */
 
+import { signWebhookPayload } from "@/lib/security/secrets";
+import { getSettings } from "@/lib/settings";
+import { serializePayload, type EventPayload } from "./payload";
+
+export { serializePayload, type EventPayload } from "./payload";
+
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
+const N8N_WEBHOOK_SECRET = process.env.N8N_WEBHOOK_SECRET;
+
+/**
+ * Per-event sub-flag map. When a sub-flag exists for an event and is `false`,
+ * the emit is skipped (and logged). Events not listed here are gated only by
+ * the master `automation_enabled` flag.
+ */
+const EVENT_SUB_FLAGS: Record<string, string> = {
+  "homework.graded": "ai_parent_reports_enabled",
+  "session.notes_saved": "ai_parent_reports_enabled",
+  "session.no_show": "ai_parent_reports_enabled",
+  "retention.signal_triggered": "retention_automation_enabled",
+};
 
 /**
  * Exported so the webhook-replay admin tool can route a replay to the same
@@ -21,20 +40,16 @@ export const WEBHOOK_ROUTES: Record<string, string> = {
   "teacher.cv_submitted": "/webhook/furqan-cv-event",
   "teacher.cv_approved": "/webhook/furqan-cv-event",
   "teacher.cv_rejected": "/webhook/furqan-cv-event",
+  "course.submitted": "/webhook/furqan-course-event",
+  "course.approved": "/webhook/furqan-course-event",
+  "course.rejected": "/webhook/furqan-course-event",
+  "course.enrolled": "/webhook/furqan-course-enrolled",
+  "course.completed": "/webhook/furqan-course-completed",
+  "lesson.completed": "/webhook/furqan-lesson-completed",
+  "review.created": "/webhook/furqan-course-review",
 };
 
 export const DEFAULT_WEBHOOK_PATH = "/webhook/furqan-events";
-
-interface EventPayload {
-  event: string;
-  occurred_at: string;
-  entity_type: string;
-  entity_id: string;
-  actor_id?: string | null;
-  trace_id: string;
-  source: "furqan-app";
-  data: Record<string, unknown>;
-}
 
 export async function emitEvent(
   eventName: string,
@@ -56,8 +71,27 @@ export async function emitEvent(
     data,
   };
 
+  // Kill-switch: respect the master flag and any event-specific sub-flag.
+  // On suppression we record a `status=skipped` row so admins can audit
+  // exactly which events the kill-switch swallowed.
+  const settings = await getSettings().catch(() => ({} as Record<string, string>));
+  if (settings.automation_enabled !== "true") {
+    await recordSkipped(payload, "automation_enabled=false");
+    return;
+  }
+  const subFlag = EVENT_SUB_FLAGS[eventName];
+  if (subFlag && settings[subFlag] !== "true") {
+    await recordSkipped(payload, `${subFlag}=false`);
+    return;
+  }
+
   // Send to specific webhook if mapped, otherwise to generic events endpoint
   const path = WEBHOOK_ROUTES[eventName] ?? DEFAULT_WEBHOOK_PATH;
+
+  // Serialize once; the same exact bytes are signed and sent on the wire.
+  // Any reordering or whitespace difference between sign-time and send-time
+  // would invalidate the verifier's recomputed HMAC.
+  const rawBody = serializePayload(payload);
 
   // Fire-and-forget with 5s timeout. Failures record to automation_logs
   // rather than bubbling to the caller — the caller already wraps this in
@@ -66,13 +100,21 @@ export async function emitEvent(
   const timeout = setTimeout(() => controller.abort(), 5000);
 
   try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "X-Furqan-Event": eventName,
+    };
+
+    if (N8N_WEBHOOK_SECRET) {
+      const { timestamp, signature } = signWebhookPayload(rawBody, N8N_WEBHOOK_SECRET);
+      headers["X-Furqan-Timestamp"] = timestamp;
+      headers["X-Furqan-Signature"] = signature;
+    }
+
     const res = await fetch(`${N8N_WEBHOOK_URL}${path}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Furqan-Event": eventName,
-      },
-      body: JSON.stringify(payload),
+      headers,
+      body: rawBody,
       signal: controller.signal,
     });
     if (!res.ok) {
@@ -85,11 +127,28 @@ export async function emitEvent(
   }
 }
 
+
 /**
  * Record emitEvent delivery failures to automation_logs so ops has a signal
  * when n8n is down or rejecting events. Best-effort — never throws.
  */
 async function recordFailure(payload: EventPayload, reason: string): Promise<void> {
+  await recordOutcome(payload, "failed", reason);
+}
+
+/**
+ * Record kill-switch suppressions so admins can audit what was blocked.
+ * Without this, flipping `automation_enabled=false` would be invisible.
+ */
+async function recordSkipped(payload: EventPayload, reason: string): Promise<void> {
+  await recordOutcome(payload, "skipped", reason);
+}
+
+async function recordOutcome(
+  payload: EventPayload,
+  status: "failed" | "skipped",
+  reason: string,
+): Promise<void> {
   try {
     const { createAdminClient } = await import("@/lib/supabase/admin");
     const supabase = createAdminClient();
@@ -99,7 +158,7 @@ async function recordFailure(payload: EventPayload, reason: string): Promise<voi
       entity_type: payload.entity_type,
       entity_id: payload.entity_id,
       idempotency_key: payload.trace_id,
-      status: "failed",
+      status,
       payload_json: payload as unknown as Record<string, unknown>,
       error_message: reason,
       finished_at: new Date().toISOString(),

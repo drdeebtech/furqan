@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import * as tus from "tus-js-client";
 import { Upload, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
-import { createLesson } from "@/lib/actions/course-lessons";
+import { createLesson, syncLessonStatusFromBunny } from "@/lib/actions/course-lessons";
 
 interface Props {
   courseId: string;
@@ -82,9 +82,26 @@ export function LessonUploader({
       onSuccess() {
         setStatus("done");
         setProgress(100);
-        startTransition(() => {
-          router.refresh();
-        });
+        // Poll Bunny via server every 5s until video transcoding finishes.
+        // Self-cancels after 6 min; user can also just refresh the page.
+        const lessonId = result.lesson!.id;
+        let elapsed = 0;
+        const POLL_MS = 5000;
+        const MAX_MS = 6 * 60 * 1000;
+        const tick = async () => {
+          elapsed += POLL_MS;
+          const sync = await syncLessonStatusFromBunny(lessonId);
+          if (sync.ok && (sync.videoStatus === "ready" || sync.videoStatus === "failed")) {
+            startTransition(() => router.refresh());
+            return;
+          }
+          if (elapsed < MAX_MS) {
+            window.setTimeout(() => void tick(), POLL_MS);
+          } else {
+            startTransition(() => router.refresh());
+          }
+        };
+        window.setTimeout(() => void tick(), POLL_MS);
       },
     });
     upload.start();

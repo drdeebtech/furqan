@@ -1,20 +1,12 @@
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTelegramAlert } from "@/lib/n8n/client";
+import { safeCompareSecret } from "@/lib/security/secrets";
 
 const HEALTHCHECK_URL =
   process.env.N8N_HEALTHCHECK_URL ?? "https://n8n.drdeeb.tech/healthz";
 const TIMEOUT_MS = 8_000;
 const WORKFLOW_NAME = "n8n-healthcheck";
-
-function safeCompare(a: string | null, b: string | undefined): boolean {
-  if (!a || !b) return false;
-  const aBuf = Buffer.from(a);
-  const bBuf = Buffer.from(b);
-  if (aBuf.length !== bBuf.length) return false;
-  return timingSafeEqual(aBuf, bBuf);
-}
 
 /**
  * Probe n8n.drdeeb.tech and alert on state change.
@@ -29,11 +21,11 @@ function safeCompare(a: string | null, b: string | undefined): boolean {
  */
 export async function GET(request: Request) {
   const cronAuth = request.headers.get("authorization");
-  const expectedCron = `Bearer ${process.env.CRON_SECRET}`;
-  const cronOk = !!process.env.CRON_SECRET && cronAuth === expectedCron;
+  const expectedCron = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
+  const cronOk = !!expectedCron && safeCompareSecret(cronAuth, expectedCron);
 
   const n8nSecret = request.headers.get("X-N8N-Secret");
-  const n8nOk = safeCompare(n8nSecret, process.env.N8N_WEBHOOK_SECRET);
+  const n8nOk = safeCompareSecret(n8nSecret, process.env.N8N_WEBHOOK_SECRET);
 
   if (!cronOk && !n8nOk) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

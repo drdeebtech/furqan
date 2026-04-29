@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
+import { notify } from "@/lib/notifications/dispatcher";
+import { syncLessonStatusFromBunny } from "@/lib/actions/course-lessons";
 import type {
   Course,
   CoursePricingType,
@@ -255,11 +257,30 @@ export async function submitForReview(
     return { ok: false, error: "أضف درساً واحداً على الأقل قبل الإرسال" };
   }
 
+  // Auto-sync any lesson not yet 'ready' against Bunny — covers the case where
+  // the webhook never arrived (e.g. BUNNY_WEBHOOK_SECRET missing or webhook
+  // not configured). Updates the row in place; we then re-check the local set.
+  const notReadyIds = lessons.filter((l) => l.video_status !== "ready").map((l) => l.id);
+  if (notReadyIds.length > 0) {
+    await Promise.all(
+      notReadyIds.map((lid) => syncLessonStatusFromBunny(lid).catch(() => null)),
+    );
+    const { data: refreshed } = await supabase
+      .from("course_lessons")
+      .select("id, video_status, is_preview")
+      .eq("course_id", courseId)
+      .returns<{ id: string; video_status: string; is_preview: boolean }[]>();
+    if (refreshed) {
+      lessons.length = 0;
+      lessons.push(...refreshed);
+    }
+  }
+
   const notReady = lessons.filter((l) => l.video_status !== "ready");
   if (notReady.length > 0) {
     return {
       ok: false,
-      error: `${notReady.length} درس لا يزال قيد المعالجة — انتظر اكتمالها`,
+      error: `${notReady.length} درس لا يزال قيد المعالجة — انتظر اكتمالها (قد يستغرق ٢-٥ دقائق بعد الرفع)`,
     };
   }
 
@@ -286,6 +307,28 @@ export async function submitForReview(
   await emitEvent("course.submitted", "course", courseId, {}).catch((err) =>
     logError("emit course.submitted failed", err, { tag: "courses", courseId }),
   );
+
+  // Fan-out notification to all admins + moderators
+  const { data: reviewers } = await supabase
+    .from("profiles")
+    .select("id")
+    .in("role", ["admin", "moderator"])
+    .returns<{ id: string }[]>();
+  const { data: courseRow } = await supabase
+    .from("courses")
+    .select("title_ar")
+    .eq("id", courseId)
+    .single<{ title_ar: string }>();
+  for (const r of reviewers ?? []) {
+    await notify(
+      r.id,
+      "course",
+      "دورة بانتظار المراجعة",
+      `الدورة "${courseRow?.title_ar ?? ""}" مرفوعة للمراجعة`,
+      "course",
+      courseId,
+    ).catch((err) => logError("notify on submit failed", err, { tag: "courses", courseId, recipient: r.id }));
+  }
 
   revalidateCoursePaths(courseId);
   return { ok: true };
@@ -322,6 +365,23 @@ export async function approveCourse(courseId: string) {
     logError("emit course.approved failed", err, { tag: "courses", courseId }),
   );
 
+  // Notify the teacher
+  const { data: course } = await supabase
+    .from("courses")
+    .select("teacher_id, title_ar")
+    .eq("id", courseId)
+    .single<{ teacher_id: string; title_ar: string }>();
+  if (course) {
+    await notify(
+      course.teacher_id,
+      "course",
+      "تمت الموافقة على دورتك",
+      `الدورة "${course.title_ar}" منشورة الآن للطلاب`,
+      "course",
+      courseId,
+    ).catch((err) => logError("notify on approve failed", err, { tag: "courses", courseId }));
+  }
+
   revalidateCoursePaths(courseId);
   return { ok: true as const };
 }
@@ -357,6 +417,23 @@ export async function rejectCourse(courseId: string, reason: string) {
   }, admin.id).catch((err) =>
     logError("emit course.rejected failed", err, { tag: "courses", courseId }),
   );
+
+  // Notify the teacher with the reason
+  const { data: course } = await supabase
+    .from("courses")
+    .select("teacher_id, title_ar")
+    .eq("id", courseId)
+    .single<{ teacher_id: string; title_ar: string }>();
+  if (course) {
+    await notify(
+      course.teacher_id,
+      "course",
+      "تم رفض دورتك",
+      `${course.title_ar} — السبب: ${reason.trim()}`,
+      "course",
+      courseId,
+    ).catch((err) => logError("notify on reject failed", err, { tag: "courses", courseId }));
+  }
 
   revalidateCoursePaths(courseId);
   return { ok: true as const };

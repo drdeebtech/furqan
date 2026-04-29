@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, BookOpen, Calendar, MessageSquare, Megaphone, CreditCard, Bell } from "lucide-react";
+import { ArrowRight, BookOpen, Calendar, MessageSquare, Megaphone, CreditCard, Bell, GraduationCap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { markAsRead } from "@/lib/actions/notifications";
@@ -17,6 +17,7 @@ const ICONS: Record<NotifType, { Icon: typeof Bell; color: string; bg: string }>
   reminder: { Icon: Bell, color: "text-amber-400", bg: "bg-amber-500/10" },
   system: { Icon: Megaphone, color: "text-gold", bg: "bg-gold/10" },
   homework: { Icon: BookOpen, color: "text-sky-400", bg: "bg-sky-500/10" },
+  course: { Icon: GraduationCap, color: "text-gold", bg: "bg-gold/10" },
 };
 
 export default async function TeacherNotificationDetailPage({

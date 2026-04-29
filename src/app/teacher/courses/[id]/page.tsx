@@ -16,7 +16,7 @@ import {
   updateCourse,
   deleteCourse,
 } from "@/lib/actions/courses";
-import { deleteLesson, togglePreview } from "@/lib/actions/course-lessons";
+import { deleteLesson, togglePreview, syncLessonStatusFromBunny } from "@/lib/actions/course-lessons";
 import { LessonUploader } from "./lesson-uploader";
 import type { Course, CourseLesson } from "@/types/database";
 
@@ -241,6 +241,21 @@ export default async function EditCoursePage({ params }: PageProps) {
                   </div>
                   {editable && (
                     <>
+                      {l.video_status !== "ready" && l.video_status !== "failed" && (
+                        <form
+                          action={async () => {
+                            "use server";
+                            await syncLessonStatusFromBunny(l.id);
+                          }}
+                        >
+                          <button
+                            type="submit"
+                            className="rounded-lg border border-blue-300 px-3 py-1 text-xs text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+                          >
+                            {t("تحديث الحالة", "Sync status")}
+                          </button>
+                        </form>
+                      )}
                       <form
                         action={async () => {
                           "use server";

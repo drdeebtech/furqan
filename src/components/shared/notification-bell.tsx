@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, startTransition } from "react";
 import { usePathname } from "next/navigation";
-import { Bell, CheckCheck, BookOpen, Calendar, MessageSquare, Megaphone, CreditCard } from "lucide-react";
+import { Bell, CheckCheck, BookOpen, Calendar, MessageSquare, Megaphone, CreditCard, GraduationCap } from "lucide-react";
 import Link from "next/link";
 import { fetchNotifications, markAsRead, markAllAsRead } from "@/lib/actions/notifications";
 import { notificationHref } from "@/lib/notifications/href";
@@ -16,6 +16,7 @@ const TYPE_CONFIG: Record<NotifType, { icon: typeof Bell; color: string }> = {
   reminder: { icon: Bell, color: "text-amber-400" },
   system: { icon: Megaphone, color: "text-gold" },
   homework: { icon: BookOpen, color: "text-sky-400" },
+  course: { icon: GraduationCap, color: "text-gold" },
 };
 
 export function NotificationBell() {

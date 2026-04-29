@@ -7,6 +7,8 @@ import {
   createVideo as createBunnyVideo,
   deleteVideo as deleteBunnyVideo,
   getTusUploadSignature,
+  getVideo as getBunnyVideo,
+  bunnyStatusToVideoStatus,
   isBunnyConfigured,
 } from "@/lib/bunny/client";
 import type { CourseLesson } from "@/types/database";
@@ -258,7 +260,109 @@ export async function togglePreview(lessonId: string, isPreview: boolean) {
   return { ok: true as const };
 }
 
-// ─── 5. reorderLessons ──────────────────────────────────────────────────────
+// ─── 5. syncLessonStatusFromBunny ───────────────────────────────────────────
+// Webhook-less fallback: re-queries Bunny's API for the current video status
+// and updates the lesson row. Useful when the webhook isn't configured (e.g.
+// BUNNY_WEBHOOK_SECRET missing) or when the webhook hasn't arrived yet.
+// Idempotent — calling it on a 'ready' lesson is a no-op.
+
+export async function syncLessonStatusFromBunny(lessonId: string) {
+  const supabase = await createClient();
+  try {
+    await requireTeacherOrAbove(supabase);
+  } catch (e) {
+    return { ok: false as const, error: (e as Error).message };
+  }
+
+  if (!isBunnyConfigured()) {
+    return { ok: false as const, error: "Bunny.net غير مهيأ" };
+  }
+
+  const { data: lesson } = await supabase
+    .from("course_lessons")
+    .select("id, course_id, bunny_video_id, video_status")
+    .eq("id", lessonId)
+    .single<{
+      id: string;
+      course_id: string;
+      bunny_video_id: string | null;
+      video_status: string;
+    }>();
+
+  if (!lesson || !lesson.bunny_video_id) {
+    return { ok: false as const, error: "الدرس غير موجود" };
+  }
+
+  if (lesson.video_status === "ready" || lesson.video_status === "failed") {
+    return {
+      ok: true as const,
+      videoStatus: lesson.video_status as "ready" | "failed",
+      changed: false,
+    };
+  }
+
+  let info;
+  try {
+    info = await getBunnyVideo(lesson.bunny_video_id);
+  } catch (err) {
+    logError("syncLessonStatusFromBunny: getBunnyVideo failed", err, {
+      tag: "course-lessons",
+      lessonId,
+    });
+    return { ok: false as const, error: "تعذر الاتصال بـ Bunny.net" };
+  }
+
+  const newStatus = bunnyStatusToVideoStatus(info.status);
+  const updates: Record<string, unknown> = { video_status: newStatus };
+  if (info.length && info.length > 0) {
+    updates.duration_seconds = Math.round(info.length);
+  }
+
+  const { error } = await supabase
+    .from("course_lessons")
+    .update(updates as never)
+    .eq("id", lessonId);
+
+  if (error) {
+    logError("syncLessonStatusFromBunny: update failed", error, {
+      tag: "course-lessons",
+      lessonId,
+    });
+    return { ok: false as const, error: error.message };
+  }
+
+  // Recompute course duration if newly ready
+  if (newStatus === "ready") {
+    try {
+      const { data: readyLessons } = await supabase
+        .from("course_lessons")
+        .select("duration_seconds")
+        .eq("course_id", lesson.course_id)
+        .eq("video_status", "ready");
+      if (readyLessons) {
+        const totalDuration = readyLessons.reduce(
+          (sum, l) => sum + (l.duration_seconds ?? 0),
+          0,
+        );
+        await supabase
+          .from("courses")
+          .update({ duration_seconds_cached: totalDuration } as never)
+          .eq("id", lesson.course_id);
+      }
+    } catch {
+      // best-effort; non-fatal
+    }
+  }
+
+  revalidateCoursePaths(lesson.course_id);
+  return {
+    ok: true as const,
+    videoStatus: newStatus as "uploading" | "processing" | "ready" | "failed",
+    changed: newStatus !== lesson.video_status,
+  };
+}
+
+// ─── 6. reorderLessons ──────────────────────────────────────────────────────
 // Two-pass strategy avoids unique(course_id, order_index) collisions:
 // pass 1 sets all rows to negative temp values, pass 2 sets the final values.
 

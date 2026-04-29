@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { getLessonPlaybackUrl } from "@/lib/actions/course-playback";
 import { LessonPlayer } from "./lesson-player";
-import type { Course, CourseLesson, CourseLessonProgress } from "@/types/database";
+import { ReviewForm } from "@/components/courses/review-form";
+import type { Course, CourseLesson, CourseLessonProgress, CourseReview } from "@/types/database";
 
 interface PageProps {
   params: Promise<{ id: string; lessonId: string }>;
@@ -70,6 +71,7 @@ export default async function LessonPlaybackPage({ params }: PageProps) {
 
   // Per-lesson completion lookup
   let completedLessonIds = new Set<string>();
+  let existingReview: Pick<CourseReview, "stars" | "comment"> | null = null;
   if (enrollment) {
     const { data: progressRows } = await supabase
       .from("course_lesson_progress")
@@ -78,7 +80,17 @@ export default async function LessonPlaybackPage({ params }: PageProps) {
       .not("completed_at", "is", null)
       .returns<{ lesson_id: string; completed_at: string }[]>();
     completedLessonIds = new Set((progressRows ?? []).map((p) => p.lesson_id));
+
+    // Existing review (if any) — used to pre-fill the review form
+    const { data: reviewRow } = await supabase
+      .from("course_reviews")
+      .select("stars, comment")
+      .eq("course_id", courseId)
+      .eq("student_id", user.id)
+      .maybeSingle<Pick<CourseReview, "stars" | "comment">>();
+    existingReview = reviewRow ?? null;
   }
+  const reviewUnlocked = enrollment && completedLessonIds.size > 0;
 
   return (
     <div dir={dir} className="mx-auto max-w-6xl px-4 py-6">
@@ -160,6 +172,23 @@ export default async function LessonPlaybackPage({ params }: PageProps) {
               );
             })}
           </ul>
+
+          {reviewUnlocked && (
+            <div className="mt-6 rounded-lg border bg-white/30 p-4 dark:bg-white/5">
+              <ReviewForm
+                courseId={courseId}
+                existingStars={existingReview?.stars ?? null}
+                existingComment={existingReview?.comment ?? null}
+                labels={{
+                  title: t("قيّم هذه الدورة", "Rate this course"),
+                  placeholder: t("شاركنا تجربتك (اختياري)", "Share your experience (optional)"),
+                  submit: t("إرسال التقييم", "Submit review"),
+                  update: t("تحديث التقييم", "Update review"),
+                  saved: t("تم الحفظ", "Saved"),
+                }}
+              />
+            </div>
+          )}
         </aside>
       </div>
     </div>
