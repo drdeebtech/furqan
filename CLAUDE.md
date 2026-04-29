@@ -153,6 +153,11 @@ booking.created, booking.confirmed, booking.cancelled, session.ended, session.no
 | `CALLMEBOT_KEY_KW` | CallMeBot API key (Kuwait WhatsApp routing) |
 | `CALLMEBOT_PHONE_EG` | CallMeBot recipient phone (Egypt) |
 | `CALLMEBOT_PHONE_KW` | CallMeBot recipient phone (Kuwait) |
+| `BUNNY_STREAM_API_KEY` | Bunny.net Stream library API key (server-only; never sent to client) |
+| `BUNNY_STREAM_LIBRARY_ID` | Bunny.net Stream library numeric ID |
+| `BUNNY_STREAM_PULL_ZONE_HOSTNAME` | Bunny CDN pull-zone hostname for video playback (e.g. `vz-12345678-abc.b-cdn.net`) |
+| `BUNNY_STREAM_TOKEN_AUTH_KEY` | Bunny CDN token-auth key for signing playback URLs |
+| `BUNNY_WEBHOOK_SECRET` | Bunny.net webhook HMAC SHA256 signing secret (verifies status callbacks) |
 
 > This table is the source of truth. If you add `process.env.X` to code, add `X` here in the same PR. Run `npx vercel env ls` to verify each is set in Production / Preview / Development.
 
@@ -410,7 +415,7 @@ After any code change:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **furqan** (2960 symbols, 6912 relationships, 222 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **furqan** (3002 symbols, 6954 relationships, 224 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
