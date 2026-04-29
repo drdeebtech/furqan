@@ -5,11 +5,26 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { login, type AuthResult } from "../actions";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+
+function oauthErrorMessage(code: string | null): string | null {
+  if (!code) return null;
+  // TODO(human): map OAuth callback error codes to Arabic messages.
+  // The callback at src/app/api/auth/callback/google/route.ts redirects with
+  // ?error=<code> on failure. Known codes:
+  //   - "oauth_missing_code"     (no `code` param arrived from Google)
+  //   - "oauth_exchange_failed"  (Supabase rejected the code-for-session swap)
+  //   - "oauth_no_user"          (session created but getUser returned null)
+  //   - "oauth_unexpected"       (anything else / thrown error)
+  // Return the Arabic string to display, or a generic fallback for unknown codes.
+  return null;
+}
 
 export function LoginForm() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") ?? "";
   const justRegistered = searchParams.get("registered") === "true";
+  const oauthError = oauthErrorMessage(searchParams.get("error"));
 
   const [showPassword, setShowPassword] = useState(false);
   const [state, formAction, pending] = useActionState<AuthResult, FormData>(
@@ -33,6 +48,20 @@ export function LoginForm() {
           {state.error}
         </div>
       )}
+
+      {oauthError && !state.error && (
+        <div className="mb-4 rounded-lg glass-danger p-3 text-sm text-error">
+          {oauthError}
+        </div>
+      )}
+
+      <GoogleSignInButton next={redirectTo || undefined} />
+
+      <div className="my-4 flex items-center gap-3">
+        <hr className="flex-1 border-t border-white/20" />
+        <span className="text-xs text-muted">أو · or</span>
+        <hr className="flex-1 border-t border-white/20" />
+      </div>
 
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="redirect" value={redirectTo} />

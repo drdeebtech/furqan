@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Eye, EyeOff, UserPlus } from "lucide-react";
 import { register, type AuthResult } from "../actions";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
 export function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -22,6 +23,14 @@ export function RegisterForm() {
           {state.error}
         </div>
       )}
+
+      <GoogleSignInButton />
+
+      <div className="my-4 flex items-center gap-3">
+        <hr className="flex-1 border-t border-white/20" />
+        <span className="text-xs text-muted">أو · or</span>
+        <hr className="flex-1 border-t border-white/20" />
+      </div>
 
       <form action={formAction} className="space-y-4">
         {/* Full Name */}
