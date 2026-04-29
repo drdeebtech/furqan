@@ -39,6 +39,7 @@ const LINKS: Record<Role, NavLink[]> = {
     // LEARNING — study tools
     { href: "/student/teachers", ar: "المعلمون", en: "Teachers", icon: Users, group: { ar: "التعلم", en: "LEARNING" } },
     { href: "/student/homework", ar: "الواجبات", en: "Homework", icon: BookOpen },
+    { href: "/student/quizzes", ar: "الاختبارات", en: "Quizzes", icon: ClipboardCheck },
     { href: "/student/resources", ar: "المصادر", en: "Resources", icon: FileText },
     { href: "/student/packages", ar: "باقاتي", en: "Packages", icon: Briefcase },
     // SUPPORT — bottom-anchored utility links (no group label)

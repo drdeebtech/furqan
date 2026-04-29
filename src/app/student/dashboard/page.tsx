@@ -8,6 +8,7 @@ import {
   getStudentLiveSessions,
   getStudentRecentRecordings,
   getStudentContinueWatching,
+  getStudentNextQuiz,
 } from "@/lib/dashboard-queries";
 
 export const metadata: Metadata = { title: "لوحتي" };
@@ -89,7 +90,7 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
   }
 
   // Parallel: packages + homework + dashboard widgets (all independent)
-  const [packagesRes, hwRawRes, studyAnalytics, liveSessions, continueWatching, recentRecordings] = await Promise.all([
+  const [packagesRes, hwRawRes, studyAnalytics, liveSessions, continueWatching, recentRecordings, nextQuiz] = await Promise.all([
     supabase.from("student_packages")
       .select("id, sessions_total, sessions_used, status, expires_at")
       .eq("student_id", user.id).eq("status", "active")
@@ -101,6 +102,7 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
     getStudentLiveSessions(user.id),
     getStudentContinueWatching(user.id),
     getStudentRecentRecordings(user.id),
+    getStudentNextQuiz(user.id),
   ]);
   const activePackages = packagesRes.data ?? [];
   const hwCounts: Record<string, number> = {};
@@ -126,6 +128,7 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
         watchingRows,
         hwCounts,
         activePackages: activePackages ?? [],
+        nextQuiz,
       }}
     />
   );

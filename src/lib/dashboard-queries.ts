@@ -344,6 +344,55 @@ export async function getStudentLiveSessions(
 }
 
 /**
+ * Next upcoming quiz the student hasn't yet attempted (or hasn't passed).
+ * Used by KPI 4 on the dashboard to swap "Next Session" → "Upcoming Quiz"
+ * countdown when a quiz is in the pipeline. Returns null when there's no
+ * pending quiz, so callers can fall back to the next-session value.
+ */
+export async function getStudentNextQuiz(
+  studentId: string,
+): Promise<{ id: string; title: string; due_at: string | null } | null> {
+  const supabase = await createClient();
+  const { data: enrollments } = await supabase.from("course_enrollments")
+    .select("course_id")
+    .eq("student_id", studentId)
+    .returns<{ course_id: string }[]>();
+  if (!enrollments || enrollments.length === 0) return null;
+
+  const courseIds = enrollments.map((e) => e.course_id);
+  const nowIso = new Date().toISOString();
+
+  const { data: quizzes } = await supabase.from("quizzes")
+    .select("id, title_ar, title_en, due_at")
+    .in("course_id", courseIds)
+    .eq("is_published", true)
+    .or(`due_at.is.null,due_at.gte.${nowIso}`)
+    .order("due_at", { ascending: true, nullsFirst: false })
+    .limit(20)
+    .returns<{ id: string; title_ar: string; title_en: string | null; due_at: string | null }[]>();
+
+  if (!quizzes || quizzes.length === 0) return null;
+
+  // Filter out quizzes the student already passed.
+  const ids = quizzes.map((q) => q.id);
+  const { data: attempts } = await supabase.from("quiz_attempts")
+    .select("quiz_id, passed")
+    .eq("student_id", studentId)
+    .in("quiz_id", ids)
+    .not("submitted_at", "is", null)
+    .returns<{ quiz_id: string; passed: boolean | null }[]>();
+  const passed = new Set((attempts ?? []).filter((a) => a.passed).map((a) => a.quiz_id));
+
+  const upcoming = quizzes.find((q) => !passed.has(q.id));
+  if (!upcoming) return null;
+  return {
+    id: upcoming.id,
+    title: upcoming.title_ar ?? upcoming.title_en ?? "Quiz",
+    due_at: upcoming.due_at,
+  };
+}
+
+/**
  * Calendar events for /student/calendar — combines bookings, homework due
  * dates, package expiries, and evaluation periods into a single
  * date-keyed list scoped to a month window. Returns one row per event;

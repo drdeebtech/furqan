@@ -33,6 +33,7 @@ interface DashboardData {
   watchingRows: Record<string, unknown>[];
   hwCounts: Record<string, number>;
   activePackages: { id: string; sessions_total: number; sessions_used: number; status: string; expires_at: string | null }[];
+  nextQuiz: { id: string; title: string; due_at: string | null } | null;
 }
 
 export function StudentDashboardContent({ data }: { data: DashboardData }) {
@@ -41,7 +42,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
   const searchParams = useSearchParams();
   const {
     nextBooking, sessionId, totalSessions, monthSessions, pendingBookings,
-    studyAnalytics, liveSessions, watchingRows, hwCounts, activePackages,
+    studyAnalytics, liveSessions, watchingRows, hwCounts, activePackages, nextQuiz,
   } = data;
 
   useEffect(() => {
@@ -113,14 +114,38 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
             href="/student/sessions"
             actionLabel={`${pendingBookings} ${t("معلّقة", "pending")}`}
           />
-          <StatCard
-            icon={Clock}
-            label={t("الجلسة القادمة", "Next Session")}
-            value={nextBooking ? countdownShort : "—"}
-            href={sessionId ? `/student/sessions/${sessionId}` : "/student/teachers"}
-            actionLabel={nextBooking ? t("التفاصيل", "Details") : t("احجز", "Book")}
-            statusBadge={nextBooking ? { text: t("مجدول", "Scheduled"), type: "info" } : undefined}
-          />
+          {(() => {
+            // KPI 4 prefers Upcoming Quiz when one exists; falls back to Next Session.
+            if (nextQuiz) {
+              const dueDate = nextQuiz.due_at ? new Date(nextQuiz.due_at) : null;
+              const daysLeft = dueDate
+                ? Math.max(0, Math.ceil((dueDate.getTime() - initialNow) / 86400_000))
+                : null;
+              const valueLabel = daysLeft != null
+                ? (daysLeft === 0 ? t("اليوم", "Today") : `${daysLeft} ${daysLeft === 1 ? t("يوم", "Day") : t("أيام", "Days")}`)
+                : t("متاح", "Open");
+              return (
+                <StatCard
+                  icon={Clock}
+                  label={t("الاختبار القادم", "Upcoming Quiz")}
+                  value={valueLabel}
+                  href={`/student/quizzes/${nextQuiz.id}/take`}
+                  actionLabel={t("عرض", "View Schedule")}
+                  statusBadge={{ text: t("مفتوح", "Open"), type: "info" }}
+                />
+              );
+            }
+            return (
+              <StatCard
+                icon={Clock}
+                label={t("الجلسة القادمة", "Next Session")}
+                value={nextBooking ? countdownShort : "—"}
+                href={sessionId ? `/student/sessions/${sessionId}` : "/student/teachers"}
+                actionLabel={nextBooking ? t("التفاصيل", "Details") : t("احجز", "Book")}
+                statusBadge={nextBooking ? { text: t("مجدول", "Scheduled"), type: "info" } : undefined}
+              />
+            );
+          })()}
         </div>
 
         {/* Report Analytics chart (3fr) + Online Classes + Assignment Breakdown (2fr) */}
