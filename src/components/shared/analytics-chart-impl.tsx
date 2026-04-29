@@ -109,12 +109,11 @@ export function AnalyticsChart({
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={visibleData} barCategoryGap="14%">
             <defs>
-              {/* Inactive bar: glass texture with crosshatch overlay */}
+              {/* Inactive bar: spec base #F3F4F6 with subtle crosshatch overlay */}
               <linearGradient id="inactiveGlass" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#E8E7E2" />
-                <stop offset="30%" stopColor="#DDDCD7" />
-                <stop offset="70%" stopColor="#D0CFC9" />
-                <stop offset="100%" stopColor="#DDDCD7" />
+                <stop offset="0%" stopColor="#F3F4F6" />
+                <stop offset="50%" stopColor="#EDEEF1" />
+                <stop offset="100%" stopColor="#E5E7EB" />
               </linearGradient>
               <pattern
                 id="hatch"
@@ -127,13 +126,13 @@ export function AnalyticsChart({
                 <line x1="0" y1="0" x2="0" y2="5" stroke="rgba(255,255,255,0.5)" strokeWidth="1" />
                 <line x1="2.5" y1="0" x2="2.5" y2="5" stroke="rgba(0,0,0,0.06)" strokeWidth="0.5" />
               </pattern>
-              {/* Active bar: intense 3D glass purple — visible in both light and dark */}
+              {/* Active bar: reference-style purple #8B5CF6 with subtle 3D shading */}
               <linearGradient id="activeGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#C4B5FF" />
-                <stop offset="15%" stopColor="#A78BFF" />
-                <stop offset="50%" stopColor="#7C5CFF" />
-                <stop offset="80%" stopColor="#5A3AD4" />
-                <stop offset="100%" stopColor="#7050E8" />
+                <stop offset="0%" stopColor="#A78BFF" />
+                <stop offset="15%" stopColor="#9B7DFF" />
+                <stop offset="50%" stopColor="#8B5CF6" />
+                <stop offset="80%" stopColor="#6D43E0" />
+                <stop offset="100%" stopColor="#7E58F0" />
               </linearGradient>
               {/* Glass shine — bright horizontal streak at top of bar */}
               <linearGradient id="glassShine" x1="0" y1="0" x2="0" y2="1">
@@ -162,7 +161,7 @@ export function AnalyticsChart({
               domain={[0, "auto"]}
               allowDecimals={unit !== "#"}
             />
-            <Bar dataKey="value" maxBarSize={52} radius={[10, 10, 4, 4]}>
+            <Bar dataKey="value" maxBarSize={48} radius={[8, 8, 0, 0]}>
               {visibleData.map((entry, index) => (
                 <Cell
                   key={index}
@@ -170,7 +169,7 @@ export function AnalyticsChart({
                   fillOpacity={entry.isActive ? 1 : 0.9}
                   stroke={entry.isActive ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.04)"}
                   strokeWidth={entry.isActive ? 1.5 : 0.5}
-                  style={entry.isActive ? { filter: "drop-shadow(0 2px 6px rgba(124,92,255,0.4))" } : undefined}
+                  style={entry.isActive ? { filter: "drop-shadow(0 4px 8px rgba(139,92,246,0.35))" } : undefined}
                 />
               ))}
               <LabelList dataKey="value" position="top" content={Tooltip as never} />

@@ -100,58 +100,72 @@ html.light body {
 }
 
 /* ── Student dashboard "v2" skin — light mode only ──
- * Repaints gold tokens to purple inside the dashboard wrapper, so the page
- * picks up the reference's cooler accent without affecting other dashboards
- * (admin/teacher/moderator) or the rest of /student/*. Dark mode keeps gold.
- *
- * `--surface` is left alone (still white) but the page background gets a
- * subtle lavender wash to match reference's airy feel. The wash is below the
- * cards, not inside them, so card contrast stays AA.
+ * Pixel-matches the reference (nuvelabs e-learning template):
+ *   body = lavender, page content lives on a white card, brand = blue,
+ *   chart accent = purple, success = green, 8px-grid spacing, 48px bold
+ *   metric numerals.
+ * Scoped under html.light only; dark mode keeps gold + glass identity.
+ * Other dashboards (admin/teacher/moderator) untouched.
  */
 html.light .student-dashboard-skin {
-  --gold: #7C5CFF;
-  --gold-hover: #6B4FE6;
-  --gold-light: #A78BFF;
-  --gold-dim: rgba(124, 92, 255, 0.10);
-  --color-gold: #7C5CFF;
-  --color-gold-hover: #6B4FE6;
-  --color-gold-light: #A78BFF;
-  --color-primary: #7C5CFF;
-  --color-primary-hover: #6B4FE6;
-  --color-primary-muted: rgba(124, 92, 255, 0.15);
-  background: linear-gradient(180deg, #F4F1FF 0%, #FAFAF7 320px);
-  margin: -2rem -1rem 0;
-  padding: 2rem 1rem 0;
+  /* Brand recolor — primary becomes blue, chart-active stays purple,
+     success stays green. Token names keep `--gold-*` so all existing
+     `text-gold` / `bg-gold` consumers swap automatically. */
+  --gold: #3B82F6;
+  --gold-hover: #2563EB;
+  --gold-light: #60A5FA;
+  --gold-dim: rgba(59, 130, 246, 0.10);
+  --color-gold: #3B82F6;
+  --color-gold-hover: #2563EB;
+  --color-gold-light: #60A5FA;
+  --color-primary: #3B82F6;
+  --color-primary-hover: #2563EB;
+  --color-primary-muted: rgba(59, 130, 246, 0.15);
+  --foreground: #111827;
+  --muted: #6B7280;
+  --muted-light: #9CA3AF;
+  --surface-border: #E5E7EB;
+  --surface-divider: #E5E7EB;
+  --data-progress: #3B82F6;
+  --accent-purple: #8B5CF6;
+  --accent-green: #10B981;
+  background: #EAE9F0;
+}
+
+/* White app-container — page content sits in a rounded card on the lavender body */
+.student-dashboard-skin > .app-shell {
+  background: #FFFFFF;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
 }
 
 html.light .student-dashboard-skin .glass-card {
   background: #FFFFFF;
-  border: 1px solid rgba(124, 92, 255, 0.08);
-  box-shadow: 0 1px 3px rgba(124, 92, 255, 0.04), 0 8px 24px rgba(124, 92, 255, 0.04);
+  border: 1px solid #E5E7EB;
+  box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
 }
 
 html.light .student-dashboard-skin .glass-card:hover {
-  border-color: rgba(124, 92, 255, 0.18);
-  box-shadow: 0 2px 6px rgba(124, 92, 255, 0.06), 0 12px 32px rgba(124, 92, 255, 0.08);
+  border-color: rgba(59, 130, 246, 0.25);
+  box-shadow: 0 2px 6px rgba(17, 24, 39, 0.06), 0 8px 24px rgba(59, 130, 246, 0.04);
 }
 
-/* Airy density polish — light mode on student dashboard.
- * Bumps StatCard internals so the 4 KPIs feel reference-airy: bigger card
- * height, larger numerals, more breathing room around the icon row. */
-.student-dashboard-skin .glass-card {
-  min-height: 196px;
-}
-
+/* KPI numerals to spec: 48px / 700 / line-height 1 */
 .student-dashboard-skin .glass-card p[class*="clamp"] {
-  font-size: clamp(2.5rem, 5vw, 3.75rem);
-  font-weight: 300;
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1;
   letter-spacing: -0.02em;
 }
 
-/* Wrapper-level breathing room (overrides default tight `py-` from inner) */
-.student-dashboard-skin section,
+/* Card geometry: 16px corners, 24px internal padding */
 .student-dashboard-skin .glass-card {
-  border-radius: 18px;
+  border-radius: 16px;
+}
+
+/* StatCard min-height to give the 48px numerals room */
+.student-dashboard-skin .glass-card.hover-lift {
+  min-height: 192px;
 }
 
 html { scroll-behavior: smooth; }

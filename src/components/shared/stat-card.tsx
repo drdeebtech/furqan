@@ -17,9 +17,12 @@ interface StatCardProps {
   subtitle?: string;
   actionLabel?: string;
   statusBadge?: StatusBadge;
+  /** When set (0..100), renders a thin progress bar between the value and
+   *  the action footer. Used by reference-style KPIs that show completion. */
+  progressPct?: number;
 }
 
-export function StatCard({ icon: Icon, label, value, href, subtitle, actionLabel, statusBadge }: StatCardProps) {
+export function StatCard({ icon: Icon, label, value, href, subtitle, actionLabel, statusBadge, progressPct }: StatCardProps) {
   const { dir } = useLang();
   const Arrow = dir === "rtl" ? ArrowLeft : ArrowRight;
 
@@ -53,6 +56,14 @@ export function StatCard({ icon: Icon, label, value, href, subtitle, actionLabel
         </div>
         <p className="mt-3 text-[clamp(2rem,4vw,3rem)] font-bold tracking-tight leading-none tabular-nums text-foreground">{value}</p>
         {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}
+        {progressPct != null && (
+          <div className="mt-3 h-1.5 w-full rounded-full bg-[var(--surface-divider,#E5E7EB)]">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${Math.max(0, Math.min(100, progressPct))}%`, background: "var(--data-progress,#3B82F6)" }}
+            />
+          </div>
+        )}
       </div>
 
       <div className="mt-auto flex items-center justify-between rounded-xl border border-[var(--surface-border)] px-3 py-2 transition-colors hover:bg-[var(--surface-hover,rgba(0,0,0,0.03))]">
