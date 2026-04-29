@@ -71,9 +71,9 @@ export default function HomePage({
             <div className="mt-10 flex w-full flex-col items-center gap-4 px-4 sm:w-auto sm:flex-row sm:justify-center sm:px-0">
               <Link
                 href="/register"
-                className="glass-gold glass-pill flex w-full items-center justify-center gap-2 px-10 py-4 text-lg font-bold transition-all duration-200 hover:bg-gold-hover sm:w-auto"
+                className="glass-gold glass-pill flex w-full items-center justify-center gap-2 px-10 py-4 text-lg font-semibold tracking-tight transition-all duration-200 hover:bg-gold-hover sm:w-auto"
               >
-                <Play size={18} />
+                <Play size={18} aria-hidden="true" />
                 {t("سجّل الآن", "Register Now")}
               </Link>
               <Link
@@ -161,7 +161,11 @@ export default function HomePage({
       </section>
 
       {/* ══════════════════════════════════════════
-          WHY FURQAN — warm accent background
+          WHY FURQAN — editorial spotlight
+          Asymmetric two-up: a large quietly-emphatic
+          principle on the start side, the remaining
+          differentiators stacked as compact rows. Breaks
+          the 4-card grid monotony of the rest of the page.
           ══════════════════════════════════════════ */}
       <section className="section-accent islamic-pattern relative py-24">
         <div className="pointer-events-none absolute inset-0 bg-background/40" />
@@ -171,18 +175,47 @@ export default function HomePage({
             <h2 className="font-display mt-3 text-4xl font-bold leading-tight">{t("لماذا تختار فرقان؟", "Why Choose FURQAN?")}</h2>
           </div>
 
-          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {whyUs.map((f) => {
-              const Icon = resolveIcon(f.icon_name);
-              return (
-                <div key={f.id} className="rounded-2xl border border-surface-border/60 bg-surface/40 p-5 transition-colors duration-200 hover:border-gold/30">
-                  <Icon size={20} className="mb-3 text-foreground/70" strokeWidth={1.75} aria-hidden="true" />
-                  <h3 className="text-sm font-bold">{t(f.title_ar, f.title_en)}</h3>
-                  <p className="mt-1 text-xs leading-relaxed text-muted">{t(f.description_ar ?? "", f.description_en ?? "")}</p>
-                </div>
-              );
-            })}
-          </div>
+          {whyUs.length > 0 && (() => {
+            const [hero, ...rest] = whyUs;
+            const HeroIcon = resolveIcon(hero.icon_name);
+            return (
+              <div className="mt-14 grid items-stretch gap-6 lg:grid-cols-5">
+                <article className="lg:col-span-3 relative overflow-hidden rounded-3xl border border-gold/20 bg-surface/40 p-8 sm:p-10">
+                  <div className="pointer-events-none absolute -end-12 -top-12 h-44 w-44 rounded-full bg-gold/10 blur-2xl" aria-hidden="true" />
+                  <div className="relative">
+                    <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gold/10">
+                      <HeroIcon size={22} className="text-gold" strokeWidth={1.75} aria-hidden="true" />
+                    </div>
+                    <h3 className="font-display mt-6 text-2xl font-bold leading-snug sm:text-3xl">
+                      {t(hero.title_ar, hero.title_en)}
+                    </h3>
+                    <p className="mt-4 max-w-md text-base leading-relaxed text-muted">
+                      {t(hero.description_ar ?? "", hero.description_en ?? "")}
+                    </p>
+                  </div>
+                </article>
+                <ul className="lg:col-span-2 grid gap-3">
+                  {rest.map((f) => {
+                    const Icon = resolveIcon(f.icon_name);
+                    return (
+                      <li
+                        key={f.id}
+                        className="flex items-start gap-4 rounded-2xl border border-surface-border/60 bg-surface/40 p-5 transition-colors duration-200 hover:border-gold/30"
+                      >
+                        <div className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gold/10">
+                          <Icon size={18} className="text-gold" strokeWidth={1.75} aria-hidden="true" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-sm font-bold leading-snug">{t(f.title_ar, f.title_en)}</h3>
+                          <p className="mt-1 text-xs leading-relaxed text-muted">{t(f.description_ar ?? "", f.description_en ?? "")}</p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })()}
         </div>
       </section>
 
@@ -196,20 +229,40 @@ export default function HomePage({
             <h2 className="font-display mt-3 text-4xl font-bold leading-tight">{t("ما نُعلّمه في فرقان", "What We Teach at FURQAN")}</h2>
           </div>
 
-          <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-3">
-            {subjects.map((c) => {
+          {/* Asymmetric grid: 1st card spans 2 cols on desktop to break the
+              uniform card-of-cards rhythm. The eye lands on the lead subject
+              first, then scans the supporting tracks. */}
+          <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-3 md:auto-rows-fr">
+            {subjects.map((c, idx) => {
               const Icon = resolveIcon(c.icon_name);
               const meta = c.meta as SubjectMeta;
+              const isLead = idx === 0;
               return (
-                <Link key={c.id} href="/services" className="rounded-2xl border border-surface-border/60 bg-surface/40 p-5 transition-colors duration-200 hover:border-gold/30">
-                  <Icon size={20} className="mb-3 text-foreground/70" strokeWidth={1.75} aria-hidden="true" />
+                <Link
+                  key={c.id}
+                  href="/services"
+                  className={[
+                    "group relative overflow-hidden rounded-2xl border border-surface-border/60 bg-surface/40 p-5 transition-colors duration-200 hover:border-gold/40",
+                    isLead ? "col-span-2 md:row-span-1 md:p-7" : "",
+                  ].join(" ")}
+                >
+                  <div className={[
+                    "inline-flex items-center justify-center rounded-xl bg-gold/10",
+                    isLead ? "h-12 w-12" : "h-10 w-10",
+                  ].join(" ")}>
+                    <Icon size={isLead ? 22 : 18} className="text-gold" strokeWidth={1.75} aria-hidden="true" />
+                  </div>
                   {meta.level_ar && meta.level_en && (
-                    <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-gold/70">
+                    <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.15em] text-gold/70">
                       {t(meta.level_ar, meta.level_en)}
                     </p>
                   )}
-                  <h3 className="mt-1 text-sm font-bold">{t(c.title_ar, c.title_en)}</h3>
-                  <p className="mt-1 text-xs leading-relaxed text-muted">{t(c.description_ar ?? "", c.description_en ?? "")}</p>
+                  <h3 className={["mt-1 font-bold", isLead ? "text-base sm:text-lg" : "text-sm"].join(" ")}>
+                    {t(c.title_ar, c.title_en)}
+                  </h3>
+                  <p className={["mt-1 leading-relaxed text-muted", isLead ? "text-sm max-w-md" : "text-xs"].join(" ")}>
+                    {t(c.description_ar ?? "", c.description_en ?? "")}
+                  </p>
                 </Link>
               );
             })}
@@ -274,12 +327,30 @@ export default function HomePage({
             {packagePreview.map((p) => {
               const meta = p.meta as PackagePreviewMeta;
               return (
-                <div key={p.id} className={`glass-card p-6 transition-all duration-200 ${meta.featured ? "border-2 border-gold" : ""}`}>
-                  {meta.featured && <span className="glass-gold glass-pill mb-3 inline-block px-3 py-1 text-xs font-bold">{t("الأكثر طلباً", "Most Popular")}</span>}
+                <div
+                  key={p.id}
+                  className={[
+                    "glass-card relative flex flex-col p-6 transition-all duration-200",
+                    meta.featured ? "border-2 border-gold lg:-translate-y-2 lg:shadow-[0_12px_40px_rgba(200,166,82,0.15)]" : "",
+                  ].join(" ")}
+                >
+                  {meta.featured && (
+                    <span className="glass-gold glass-pill absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 text-[11px] font-bold">
+                      {t("الأكثر طلباً", "Most Popular")}
+                    </span>
+                  )}
                   <h3 className="text-lg font-bold">{t(p.title_ar, p.title_en)}</h3>
                   <p className="mt-2 text-sm text-muted">{t(meta.freq_ar ?? "", meta.freq_en ?? "")}</p>
                   <p className="mt-3 text-sm text-gold">{t("تواصل معنا للتسعير", "Contact us for pricing")}</p>
-                  <Link href="/packages" className="glass glass-pill mt-4 block py-2.5 text-center text-sm font-medium text-gold transition-colors duration-200 hover:bg-gold hover:text-background">
+                  <Link
+                    href="/packages"
+                    className={[
+                      "mt-auto block py-2.5 text-center text-sm font-medium transition-colors duration-200",
+                      meta.featured
+                        ? "glass-gold glass-pill mt-5 text-background hover:bg-gold-hover"
+                        : "glass glass-pill mt-5 text-gold hover:bg-gold hover:text-background",
+                    ].join(" ")}
+                  >
                     {t("التفاصيل", "View Details")}
                   </Link>
                 </div>

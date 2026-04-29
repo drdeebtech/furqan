@@ -68,9 +68,9 @@ export function LoginForm() {
 
         {/* Email */}
         <div>
-          <label htmlFor="email" className="mb-1 block text-sm font-medium">
-            البريد الإلكتروني
-            <span className="me-2 text-xs text-muted">Email</span>
+          <label htmlFor="email" className="mb-1.5 block">
+            <span className="block text-sm font-medium">البريد الإلكتروني</span>
+            <span className="block text-[11px] uppercase tracking-wider text-muted-light">Email</span>
           </label>
           <input
             id="email"
@@ -86,14 +86,14 @@ export function LoginForm() {
 
         {/* Password */}
         <div>
-          <div className="mb-1 flex items-center justify-between">
-            <label htmlFor="password" className="text-sm font-medium">
-              كلمة المرور
-              <span className="me-2 text-xs text-muted">Password</span>
+          <div className="mb-1.5 flex items-end justify-between gap-3">
+            <label htmlFor="password" className="block">
+              <span className="block text-sm font-medium">كلمة المرور</span>
+              <span className="block text-[11px] uppercase tracking-wider text-muted-light">Password</span>
             </label>
             <Link
               href="/forgot-password"
-              className="text-xs text-gold hover:text-gold-hover"
+              className="shrink-0 text-xs text-gold hover:text-gold-hover"
             >
               نسيت كلمة المرور؟
             </Link>
@@ -124,13 +124,13 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={pending}
-          className="flex w-full items-center justify-center gap-2 rounded-full glass-gold glass-pill py-2.5 font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-full glass-gold glass-pill py-2.5 font-semibold text-background transition-colors hover:bg-primary-hover disabled:opacity-50"
         >
           {pending ? (
-            <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-background/30 border-t-background" />
           ) : (
             <>
-              <LogIn size={18} />
+              <LogIn size={18} aria-hidden="true" />
               دخول
             </>
           )}

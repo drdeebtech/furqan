@@ -17,7 +17,7 @@ export default async function AuthLayout({
   return (
     <div dir={dir} className="flex min-h-screen">
       {/* Branding panel */}
-      <div className="hidden flex-col justify-center border-l border-white/10 glass-card p-12 md:flex md:w-1/2">
+      <div className="hidden flex-col justify-center border-e border-white/10 glass-card p-12 md:flex md:w-1/2">
         <div className="mx-auto max-w-sm">
           <Link href="/" className="flex items-center gap-3">
             <Image src="/logo-192.png" alt="فرقان" width={48} height={48} className="rounded-full" priority />

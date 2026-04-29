@@ -46,7 +46,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
   return (
     <>
       <div className="h-0.5 bg-gradient-to-l from-gold/0 via-gold/30 to-gold/0" />
-      <div dir={dir} className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <div dir={dir} className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         {/* Row 0: Title + Alerts */}
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -187,10 +187,10 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
 
           <div className="space-y-4 lg:col-span-2">
             {activeSessionCount > 0 && (
-              <Link href="/admin/sessions/live" className="group flex items-center gap-3 rounded-2xl border-2 border-emerald-500/30 bg-emerald-500/5 p-4 transition-colors hover:border-emerald-500/50">
-                <div className="shrink-0 rounded-xl bg-emerald-500/15 p-2.5"><Radio size={20} className="animate-pulse text-emerald-400" /></div>
+              <Link href="/admin/sessions/live" className="group flex items-center gap-3 rounded-2xl border-2 border-success/30 bg-success/5 p-4 transition-colors hover:border-success/50">
+                <div className="shrink-0 rounded-xl bg-success/15 p-2.5"><Radio size={20} className="animate-pulse text-success" aria-hidden="true" /></div>
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-emerald-400">{activeSessionCount} {t("جلسات نشطة الآن", "active sessions now")}</p>
+                  <p className="text-sm font-bold text-success">{activeSessionCount} {t("جلسات نشطة الآن", "active sessions now")}</p>
                   <p className="mt-0.5 text-xs text-muted">{t("اضغط للمراقبة المباشرة", "Click to monitor live")}</p>
                 </div>
               </Link>

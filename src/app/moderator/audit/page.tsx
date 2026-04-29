@@ -31,7 +31,7 @@ export default async function ModeratorAuditPage() {
     if (profiles) nameMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name ?? "—"]));
   }
 
-  const actionColor: Record<string, string> = { INSERT: "text-emerald-400", UPDATE: "text-amber-400", DELETE: "text-red-400" };
+  const actionColor: Record<string, string> = { INSERT: "text-success", UPDATE: "text-warning", DELETE: "text-error" };
 
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">

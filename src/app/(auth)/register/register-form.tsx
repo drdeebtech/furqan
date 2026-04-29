@@ -35,9 +35,9 @@ export function RegisterForm() {
       <form action={formAction} className="space-y-4">
         {/* Full Name */}
         <div>
-          <label htmlFor="full_name" className="mb-1 block text-sm font-medium">
-            الاسم الكامل
-            <span className="me-2 text-xs text-muted">Full name</span>
+          <label htmlFor="full_name" className="mb-1.5 block">
+            <span className="block text-sm font-medium">الاسم الكامل</span>
+            <span className="block text-[11px] uppercase tracking-wider text-muted-light">Full name</span>
           </label>
           <input
             id="full_name"
@@ -52,9 +52,9 @@ export function RegisterForm() {
 
         {/* Email */}
         <div>
-          <label htmlFor="email" className="mb-1 block text-sm font-medium">
-            البريد الإلكتروني
-            <span className="me-2 text-xs text-muted">Email</span>
+          <label htmlFor="email" className="mb-1.5 block">
+            <span className="block text-sm font-medium">البريد الإلكتروني</span>
+            <span className="block text-[11px] uppercase tracking-wider text-muted-light">Email</span>
           </label>
           <input
             id="email"
@@ -70,9 +70,9 @@ export function RegisterForm() {
 
         {/* Password */}
         <div>
-          <label htmlFor="password" className="mb-1 block text-sm font-medium">
-            كلمة المرور
-            <span className="me-2 text-xs text-muted">
+          <label htmlFor="password" className="mb-1.5 block">
+            <span className="block text-sm font-medium">كلمة المرور</span>
+            <span className="block text-[11px] uppercase tracking-wider text-muted-light">
               Password (min 8 characters)
             </span>
           </label>
@@ -101,12 +101,9 @@ export function RegisterForm() {
 
         {/* Confirm Password */}
         <div>
-          <label
-            htmlFor="confirm_password"
-            className="mb-1 block text-sm font-medium"
-          >
-            تأكيد كلمة المرور
-            <span className="me-2 text-xs text-muted">Confirm password</span>
+          <label htmlFor="confirm_password" className="mb-1.5 block">
+            <span className="block text-sm font-medium">تأكيد كلمة المرور</span>
+            <span className="block text-[11px] uppercase tracking-wider text-muted-light">Confirm password</span>
           </label>
           <input
             id="confirm_password"
@@ -125,13 +122,13 @@ export function RegisterForm() {
         <button
           type="submit"
           disabled={pending}
-          className="flex w-full items-center justify-center gap-2 rounded-full glass-gold glass-pill py-2.5 font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-full glass-gold glass-pill py-2.5 font-semibold text-background transition-colors hover:bg-primary-hover disabled:opacity-50"
         >
           {pending ? (
-            <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-background/30 border-t-background" />
           ) : (
             <>
-              <UserPlus size={18} />
+              <UserPlus size={18} aria-hidden="true" />
               إنشاء حساب
             </>
           )}

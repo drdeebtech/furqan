@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Search, CalendarDays, ChevronDown, MoreHorizontal, Settings, LogOut, Bug } from "lucide-react";
+import { CalendarDays, ChevronDown, MoreHorizontal, Settings, LogOut, Bug } from "lucide-react";
 import * as Sentry from "@sentry/nextjs";
 import { ThemeToggle } from "@/lib/theme/theme-toggle";
 import { LangToggle } from "@/lib/i18n/lang-toggle";
@@ -27,7 +27,6 @@ export function Topbar({ role }: { role?: Role } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [showTooltip, setShowTooltip] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [yearOpen, setYearOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -36,11 +35,6 @@ export function Topbar({ role }: { role?: Role } = {}) {
   const currentYear = new Date().getFullYear();
   const selectedYear = Number(searchParams.get("year")) || currentYear;
   const yearOptions = [currentYear + 1, currentYear, currentYear - 1, currentYear - 2, currentYear - 3];
-
-  const handleSearchClick = () => {
-    setShowTooltip(true);
-    setTimeout(() => setShowTooltip(false), 2000);
-  };
 
   const handleYearSelect = (year: number) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -91,32 +85,7 @@ export function Topbar({ role }: { role?: Role } = {}) {
   const settingsPath = role ? SETTINGS_PATH_BY_ROLE[role] : undefined;
 
   return (
-    <div className="mb-5 flex h-[52px] items-center gap-3">
-      {/* Search input */}
-      <div className="relative flex-1">
-        <Search
-          size={18}
-          aria-hidden="true"
-          className="pointer-events-none absolute start-3.5 top-1/2 -translate-y-1/2 text-muted-light"
-        />
-        <input
-          type="text"
-          readOnly
-          onClick={handleSearchClick}
-          aria-label={t("بحث", "Search")}
-          placeholder={t("عن ماذا تعمل...", "What are you working on...")}
-          className="glass-input h-11 w-full cursor-pointer rounded-xl pe-10 ps-11 text-sm placeholder:text-muted-light focus:outline-none"
-        />
-        <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 rounded border border-[var(--surface-border)] px-1.5 py-0.5 text-[11px] text-muted-light">
-          /
-        </span>
-        {showTooltip && (
-          <div className="absolute start-1/2 top-full z-50 mt-2 -translate-x-1/2 rounded-lg bg-[#1A1A1F] px-3 py-1.5 text-xs text-white shadow-lg">
-            {t("قريباً", "Coming soon")}
-          </div>
-        )}
-      </div>
-
+    <div className="mb-5 flex h-[52px] items-center justify-end gap-3">
       {/* Year selector — writes ?year=YYYY to the URL so dashboard queries can scope */}
       <div ref={yearRef} className="relative">
         <button

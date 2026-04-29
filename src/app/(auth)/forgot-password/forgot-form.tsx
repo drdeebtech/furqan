@@ -31,9 +31,9 @@ export function ForgotForm() {
       {!state.success && (
         <form action={formAction} className="space-y-4">
           <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium">
-              البريد الإلكتروني
-              <span className="me-2 text-xs text-muted">Email</span>
+            <label htmlFor="email" className="mb-1.5 block">
+              <span className="block text-sm font-medium">البريد الإلكتروني</span>
+              <span className="block text-[11px] uppercase tracking-wider text-muted-light">Email</span>
             </label>
             <input
               id="email"
@@ -50,13 +50,13 @@ export function ForgotForm() {
           <button
             type="submit"
             disabled={pending}
-            className="flex w-full items-center justify-center gap-2 rounded-full glass-gold glass-pill py-2.5 font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-full glass-gold glass-pill py-2.5 font-semibold text-background transition-colors hover:bg-primary-hover disabled:opacity-50"
           >
             {pending ? (
-              <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              <span className="h-5 w-5 animate-spin rounded-full border-2 border-background/30 border-t-background" />
             ) : (
               <>
-                <Mail size={18} />
+                <Mail size={18} aria-hidden="true" />
                 إرسال رابط الاستعادة
               </>
             )}

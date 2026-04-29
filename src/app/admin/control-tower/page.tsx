@@ -55,31 +55,48 @@ export default async function ControlTowerPage() {
   const atRiskCount = atRiskRes.count;
   const lowBalanceCount = lowBalanceRes.count ?? 0;
 
-  const widgets = [
-    { key: "pending-cvs", label: t("سير ذاتية بانتظار المراجعة", "Pending CVs"), value: pendingCvRes.count ?? 0, icon: Users, color: "text-amber-400", bg: "bg-amber-500/10", href: "/admin/teachers/cv", threshold: 0 },
-    { key: "failed-auto", label: t("أتمتة فاشلة (24 ساعة)", "Failed Automations (24h)"), value: failedAutoRes.count ?? 0, icon: XCircle, color: "text-red-400", bg: "bg-red-500/10", href: "/admin/automation", threshold: 0 },
-    { key: "dead-letter", label: t("مهام فاشلة نهائياً", "Dead-Letter Queue"), value: deadLetterRes.count ?? 0, icon: XCircle, color: "text-red-500", bg: "bg-red-500/15", href: "/admin/automation", threshold: 0 },
-    { key: "stuck", label: t("جلسات متوقفة", "Stuck Sessions (>15m)"), value: stuckSessionsRes.count ?? 0, icon: Timer, color: "text-red-400", bg: "bg-red-500/10", href: "/admin/sessions/live", threshold: 0 },
-    { key: "no-show", label: t("غياب اليوم", "No-Shows Today"), value: noShowTodayRes.count ?? 0, icon: AlertTriangle, color: "text-orange-400", bg: "bg-orange-500/10", href: "/admin/sessions", threshold: 0 },
-    { key: "low-balance", label: t("باقات منخفضة الرصيد", "Low Balance Packages"), value: lowBalanceCount, icon: Package, color: "text-sky-400", bg: "bg-sky-500/10", href: "/admin/credits", threshold: 0 },
-    { key: "new-signups", label: t("مسجلون جدد (7 أيام)", "New Signups (7d)"), value: newSignupsRes.count ?? 0, icon: Users, color: "text-emerald-400", bg: "bg-emerald-500/10", href: "/admin/users", threshold: -1 },
-    { key: "at-risk", label: t("طلاب في خطر التسرب", "At-Risk Students"), value: atRiskCount ?? 0, icon: TrendingDown, color: "text-rose-400", bg: "bg-rose-500/10", href: "/admin/retention", threshold: 0 },
-    { key: "grading", label: t("واجبات بانتظار التقييم", "Pending Grading"), value: pendingGradingRes.count ?? 0, icon: BookOpen, color: "text-purple-400", bg: "bg-purple-500/10", href: "/admin/notes", threshold: 0 },
-    { key: "recitation", label: t("أخطاء تلاوة غير محلولة", "Unresolved Errors"), value: unresolvedErrorsRes.count ?? 0, icon: AlertTriangle, color: "text-amber-400", bg: "bg-amber-500/10", href: "/admin/sessions", threshold: 10 },
-    { key: "failed-actions", label: t("إجراءات إدارية فاشلة (24 ساعة)", "Failed Admin Actions (24h)"), value: failedActionsCount ?? 0, icon: XCircle, color: "text-red-400", bg: "bg-red-500/10", href: "/admin/audit", threshold: 0 },
+  // Severity tiers — every widget routes through the same three tokens
+  // (warning, error, success/info). Direct Tailwind palette classes were
+  // bypassing globals.css tokens and would not adapt to light mode.
+  type Tier = "warning" | "error" | "info" | "success";
+  const TIER_FG: Record<Tier, string> = {
+    warning: "text-warning",
+    error: "text-error",
+    info: "text-gold",
+    success: "text-success",
+  };
+  const TIER_BG: Record<Tier, string> = {
+    warning: "bg-warning/10",
+    error: "bg-error/10",
+    info: "bg-gold/10",
+    success: "bg-success/10",
+  };
+
+  const widgets: { key: string; label: string; value: number; icon: typeof Users; tier: Tier; href: string; threshold: number }[] = [
+    { key: "pending-cvs", label: t("سير ذاتية بانتظار المراجعة", "Pending CVs"), value: pendingCvRes.count ?? 0, icon: Users, tier: "warning", href: "/admin/teachers/cv", threshold: 0 },
+    { key: "failed-auto", label: t("أتمتة فاشلة (24 ساعة)", "Failed Automations (24h)"), value: failedAutoRes.count ?? 0, icon: XCircle, tier: "error", href: "/admin/automation", threshold: 0 },
+    { key: "dead-letter", label: t("مهام فاشلة نهائياً", "Dead-Letter Queue"), value: deadLetterRes.count ?? 0, icon: XCircle, tier: "error", href: "/admin/automation", threshold: 0 },
+    { key: "stuck", label: t("جلسات متوقفة", "Stuck Sessions (>15m)"), value: stuckSessionsRes.count ?? 0, icon: Timer, tier: "error", href: "/admin/sessions/live", threshold: 0 },
+    { key: "no-show", label: t("غياب اليوم", "No-Shows Today"), value: noShowTodayRes.count ?? 0, icon: AlertTriangle, tier: "warning", href: "/admin/sessions", threshold: 0 },
+    { key: "low-balance", label: t("باقات منخفضة الرصيد", "Low Balance Packages"), value: lowBalanceCount, icon: Package, tier: "info", href: "/admin/credits", threshold: 0 },
+    { key: "new-signups", label: t("مسجلون جدد (7 أيام)", "New Signups (7d)"), value: newSignupsRes.count ?? 0, icon: Users, tier: "success", href: "/admin/users", threshold: -1 },
+    { key: "at-risk", label: t("طلاب في خطر التسرب", "At-Risk Students"), value: atRiskCount ?? 0, icon: TrendingDown, tier: "error", href: "/admin/retention", threshold: 0 },
+    { key: "grading", label: t("واجبات بانتظار التقييم", "Pending Grading"), value: pendingGradingRes.count ?? 0, icon: BookOpen, tier: "info", href: "/admin/notes", threshold: 0 },
+    { key: "recitation", label: t("أخطاء تلاوة غير محلولة", "Unresolved Errors"), value: unresolvedErrorsRes.count ?? 0, icon: AlertTriangle, tier: "warning", href: "/admin/sessions", threshold: 10 },
+    { key: "failed-actions", label: t("إجراءات إدارية فاشلة (24 ساعة)", "Failed Admin Actions (24h)"), value: failedActionsCount ?? 0, icon: XCircle, tier: "error", href: "/admin/audit", threshold: 0 },
   ];
 
   const alertCount = widgets.filter(w => w.threshold >= 0 && w.value > w.threshold).length;
 
   return (
-    <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
+    <div dir={dir} className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Activity size={24} className="text-gold" />
-          <h1 className="text-xl font-bold">{t("مركز التحكم", "Control Tower")}</h1>
+          <Activity size={24} className="text-gold" aria-hidden="true" />
+          <h1 className="font-display text-2xl font-bold sm:text-3xl">{t("مركز التحكم", "Control Tower")}</h1>
         </div>
         {alertCount > 0 && (
-          <span className="rounded-full bg-red-500/10 px-3 py-1 text-sm font-bold text-red-400">
+          <span className="rounded-full bg-error/10 px-3 py-1 text-sm font-bold text-error">
             {lang === "ar" ? `${alertCount} تنبيهات` : `${alertCount} alerts`}
           </span>
         )}
@@ -90,15 +107,15 @@ export default async function ControlTowerPage() {
           const Icon = w.icon;
           const isAlert = w.threshold >= 0 && w.value > w.threshold;
           return (
-            <Link key={w.key} href={w.href} className={`glass-card flex items-center gap-4 p-5 transition-colors hover:border-gold/20 ${isAlert ? "border-red-500/20" : ""}`}>
-              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${w.bg}`}>
-                <Icon size={22} className={w.color} />
+            <Link key={w.key} href={w.href} className={`glass-card flex items-center gap-4 p-5 transition-colors hover:border-gold/30 ${isAlert ? "border-error/30" : ""}`}>
+              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${TIER_BG[w.tier]}`}>
+                <Icon size={22} className={TIER_FG[w.tier]} aria-hidden="true" />
               </div>
-              <div>
-                <p className="font-display text-2xl font-bold">{w.value}</p>
+              <div className="min-w-0 flex-1">
+                <p className="font-display text-2xl font-bold tabular-nums">{w.value}</p>
                 <p className="text-xs text-muted">{w.label}</p>
               </div>
-              {isAlert && <AlertTriangle size={14} className="me-auto text-red-400" />}
+              {isAlert && <AlertTriangle size={14} className="text-error" aria-hidden="true" />}
             </Link>
           );
         })}

@@ -55,10 +55,25 @@ export default async function CommunityIndexPage() {
       </header>
 
       {list.length === 0 ? (
-        <div className="glass-card p-10 text-center text-muted">
-          <MessageSquare size={28} className="mx-auto mb-3 text-muted-light" aria-hidden="true" />
-          {t("لا مواضيع بعد. كن أول من ينشر.",
-             "No threads yet. Be the first to post.")}
+        <div className="glass-card flex flex-col items-center px-6 py-12 text-center">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gold/10">
+            <MessageSquare size={22} className="text-gold" aria-hidden="true" />
+          </div>
+          <p className="font-display text-lg font-semibold text-foreground">
+            {t("ابدأ المحادثة الأولى",
+               "Start the first conversation")}
+          </p>
+          <p className="mt-2 max-w-sm text-sm text-muted">
+            {t("شارك سؤالاً، تجربة، أو سيرة آية أثّرت فيك. الأخوّة هنا تبدأ بكلمة.",
+               "Ask a question, share an experience, or reflect on an ayah. Brotherhood begins with a single thread.")}
+          </p>
+          <Link
+            href="/community/new"
+            className="glass-gold glass-pill mt-5 inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold"
+          >
+            <Plus size={14} aria-hidden="true" />
+            {t("اكتب أول موضوع", "Post the first thread")}
+          </Link>
         </div>
       ) : (
         <ul className="glass-card divide-y divide-[var(--surface-divider,#F0F0F2)] overflow-hidden">

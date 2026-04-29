@@ -36,7 +36,7 @@ export default async function ModeratorCvReviewPage() {
       <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold">
         <FileText size={24} className="text-gold" /> {t("مراجعة السير الذاتية", "CV Review")}
         {list.length > 0 && (
-          <span className="glass-badge rounded-full px-3 py-1 text-sm text-amber-400">{list.length}</span>
+          <span className="glass-badge rounded-full px-3 py-1 text-sm text-warning">{list.length}</span>
         )}
       </h1>
 
@@ -56,7 +56,7 @@ export default async function ModeratorCvReviewPage() {
                   <p className="text-xs text-muted">{cv.bio ? cv.bio.slice(0, 80) + "..." : t("بدون نبذة", "No bio")}</p>
                 </div>
                 <div className="text-left">
-                  <span className="glass-badge rounded-full px-2 py-0.5 text-xs text-amber-400">{t("بانتظار المراجعة", "Pending Review")}</span>
+                  <span className="glass-badge rounded-full px-2 py-0.5 text-xs text-warning">{t("بانتظار المراجعة", "Pending Review")}</span>
                   {cv.cv_submitted_at && <p className="mt-1 text-xs text-muted">{new Date(cv.cv_submitted_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}</p>}
                 </div>
               </div>

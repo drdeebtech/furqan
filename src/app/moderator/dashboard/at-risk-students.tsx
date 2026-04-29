@@ -41,9 +41,9 @@ export async function ModeratorAtRiskStudents() {
     <div className="glass-card mt-4 rounded-xl p-4">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <TrendingDown size={16} className="text-orange-400" />
+          <TrendingDown size={16} className="text-warning" aria-hidden="true" />
           <h3 className="text-sm font-bold">طلاب في خطر التسرب</h3>
-          <span className="rounded-full bg-orange-500/10 px-2 py-0.5 text-xs text-orange-400">{signals.length}</span>
+          <span className="rounded-full bg-warning/10 px-2 py-0.5 text-xs text-warning">{signals.length}</span>
         </div>
         <Link href="/admin/retention" className="text-xs text-gold hover:text-gold-hover">
           عرض الكل ←

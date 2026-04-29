@@ -33,8 +33,8 @@ export function StatCard({ icon: Icon, label, value, href, subtitle, actionLabel
     >
       <div>
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[var(--surface-light,#F5F5F7)]">
-            <Icon size={18} className="text-muted" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[var(--gold-dim,rgba(200,166,82,0.12))]">
+            <Icon size={18} className="text-gold" aria-hidden="true" />
           </div>
           <span className="text-sm text-muted">{label}</span>
           {statusBadge && (() => {
