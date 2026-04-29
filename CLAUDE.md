@@ -273,6 +273,8 @@ supabase/functions/      — 4 edge functions (auto-reminder, auto-complete, no-
 | File | Purpose |
 |------|---------|
 | `CLAUDE.md` | This file — AI assistant instructions |
+| `.impeccable.md` | **Design Context — read before any UI work.** Brand personality, references/anti-references, principles, tokens, components. |
+| `.github/copilot-instructions.md` | Synced summary of `.impeccable.md` for Copilot/Vercel Agent surfaces |
 | `PROJECT.md` | Full technical reference (563 lines) |
 | `AUDIT.md` | Platform audit report (433 lines) |
 | `ROADMAP.md` | Implementation roadmap — 8 sprints (404 lines) |
@@ -280,6 +282,8 @@ supabase/functions/      — 4 edge functions (auto-reminder, auto-complete, no-
 | `LIFECYCLES.md` | 7 state machine diagrams |
 | `automation/BLUEPRINT.md` | 52-workflow master plan |
 | `automation/VPS_HANDOFF.md` | n8n VPS session context |
+
+> **Design rule for AI sessions:** before touching any visual surface (component, page, theme, color), open `.impeccable.md` and confirm the change aligns with the **Premium · Refined · Authentic** personality and the four explicit anti-references. The platform serves all ages from children to hāfiz; the brand stays dignified across all of them.
 
 ## No Silent Failures Policy
 

@@ -1,17 +1,26 @@
 # FURQAN Academy — Design Instructions for Copilot
 
+> Canonical design context lives in `.impeccable.md` at the repo root. This file is a synced summary; if anything conflicts, `.impeccable.md` wins.
+
 ## Brand
 
-FURQAN is an online Quran academy for the global Muslim diaspora. Personality: Friendly, Accessible, Simple. Dark theme (with light + auto modes planned) featuring gold accents and subtle Islamic geometric patterns. RTL Arabic-first, bilingual (Arabic primary, English secondary).
+FURQAN is an online Quran academy serving **all ages, all people** — children memorizing their first juz' alongside hāfiz preparing for ijāzah. Personality: **Premium · Refined · Authentic**. Apple-grade finish applied to a religious context: intentional materials, restrained color, tasteful Arabic typography. Dark theme is the canonical identity (gold-on-black "Liquid Glass"); light theme adopts the airy reference grammar where it fits (lavender body, white app-shell, blue brand recolor on student dashboard). RTL Arabic-first, bilingual.
+
+**Voice:** Warm but grave. Encouraging without cheerleading. Speaks of the Quran with the dignity it deserves — never breezy, never preachy.
+
+**Anti-references (explicit):** No generic LMS / corporate-training look. No childish or cartoonish styling. No aggressive marketing or SaaS conversion patterns (pop-up upsells, FOMO timers, gradient-everything CTAs). No human-face stock photography in religious contexts.
+
+**References (blend):** Tarteel/Muslim Pro/Ayat (Quran apps — reverent typography), Apple iOS Reminders/Books (premium glass, gentle motion), Linear/Notion (cool minimal SaaS density), Khan Academy/Coursera (visible progress + warmth without mascots).
 
 ## Design Principles
 
 1. **Clarity over cleverness** — Every element must be immediately understandable. Arabic labels first, English hints second.
-2. **Progress is visible** — Stats, session counts, and quality ratings should be prominent. Motivation comes from visible progress.
-3. **Gold means action** — Gold (`#C8A652`) is reserved for interactive elements only: buttons, links, active states, focus rings.
-4. **Respect the content** — Quran references, surah names, and recitation terminology must be presented with care. Always show Arabic names for session types and recitation standards.
-5. **Motion with purpose** — Shimmer on stats, pulse on CTAs, slide-in toasts, press feedback on buttons. Every animation has a reason. Respect `prefers-reduced-motion`.
-6. **Accessible by default** — High contrast, large touch targets, visible focus rings, screen-reader-friendly labels. WCAG AA minimum.
+2. **Progress is visible — quietly** — Stats and progress are prominent but never gamified. No streak fireworks, no "Level up!" toasts. The number ticks up; the work continues.
+3. **Gold means action** — Gold (`#C8A652` dark / `#B8922D` light) is reserved for interactive elements only. Skin variants substitute their own accent (e.g. blue `#3B82F6` on student-dashboard-skin) following the same rule.
+4. **Respect the content** — Quran references, surah names, and recitation terminology must be presented with typographic care. Always show Arabic names for session types and recitation standards. Never illustrate worship with stock photography.
+5. **Motion with purpose** — Every animation has a reason. Respect `prefers-reduced-motion`.
+6. **Accessible by default** — High contrast, WCAG 2.5.5 AAA touch targets (≥44px), visible focus rings, full RTL support.
+7. **Restraint as a feature** — When in doubt, remove. One CTA per surface. Whitespace is silence around the work — not empty space. The reference for "is this too much?" is a well-bound mushaf, not a SaaS landing page.
 
 ## Design Tokens (Dark — default)
 
