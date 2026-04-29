@@ -91,6 +91,155 @@ export async function getStudentWeeklyStudyTime(
   return groupSessionsByDay(sessions ?? [], lang);
 }
 
+/**
+ * Daily/Weekly/Monthly study analytics for the student dashboard chart.
+ * One round-trip: fetches the last 30 days of completed sessions, then buckets
+ * them three ways so the chart's tab switcher has all three datasets ready
+ * without re-querying.
+ *
+ * - Daily: 24 hourly buckets for "today" (00:00 → 23:00 in local time).
+ * - Weekly: Mon–Sun totals across the last 7 days.
+ * - Monthly: 4 weekly buckets across the last 30 days (W1–W4).
+ *
+ * The peak bucket in each dataset is marked `isActive: true` so the chart
+ * highlights it with the gold/purple gradient + 🔥 tooltip.
+ */
+export async function getStudentStudyAnalytics(
+  studentId: string,
+  lang: "ar" | "en" = "en"
+): Promise<{
+  daily: ChartDataPoint[];
+  weekly: ChartDataPoint[];
+  monthly: ChartDataPoint[];
+}> {
+  const supabase = await createClient();
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const { data: bookings } = await supabase
+    .from("bookings")
+    .select("id")
+    .eq("student_id", studentId)
+    .gte("scheduled_at", thirtyDaysAgo.toISOString())
+    .returns<{ id: string }[]>();
+
+  const empty = {
+    daily: generateEmptyDay(),
+    weekly: generateEmptyWeek(lang),
+    monthly: generateEmptyMonth(lang),
+  };
+
+  if (!bookings || bookings.length === 0) return empty;
+
+  const { data: sessions } = await supabase
+    .from("sessions")
+    .select("actual_duration, started_at")
+    .in("booking_id", bookings.map((b) => b.id))
+    .not("ended_at", "is", null)
+    .gte("started_at", thirtyDaysAgo.toISOString())
+    .returns<{ actual_duration: number | null; started_at: string | null }[]>();
+
+  const rows = sessions ?? [];
+  return {
+    daily: groupSessionsByHour(rows),
+    weekly: groupSessionsByDay(
+      rows.filter((s) => {
+        if (!s.started_at) return false;
+        const sevenDaysAgo = Date.now() - 7 * 86400_000;
+        return new Date(s.started_at).getTime() >= sevenDaysAgo;
+      }),
+      lang,
+    ),
+    monthly: groupSessionsByWeek(rows, lang),
+  };
+}
+
+function generateEmptyDay(): ChartDataPoint[] {
+  // 8 buckets covering waking hours 8am–10pm in 2h steps; matches typical
+  // study-session granularity better than 24 buckets and keeps bar widths
+  // legible on mobile.
+  const labels = ["8a", "10a", "12p", "2p", "4p", "6p", "8p", "10p"];
+  return labels.map((day) => ({ day, value: 0, isActive: false }));
+}
+
+function generateEmptyMonth(lang: "ar" | "en"): ChartDataPoint[] {
+  const labels = lang === "ar"
+    ? ["أ1", "أ2", "أ3", "أ4"]
+    : ["W1", "W2", "W3", "W4"];
+  return labels.map((day) => ({ day, value: 0, isActive: false }));
+}
+
+function groupSessionsByHour(
+  sessions: { actual_duration: number | null; started_at: string | null }[],
+): ChartDataPoint[] {
+  const labels = ["8a", "10a", "12p", "2p", "4p", "6p", "8p", "10p"];
+  const buckets = labels.map(() => 0);
+
+  // Only count "today" sessions
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  for (const s of sessions) {
+    if (!s.started_at) continue;
+    const d = new Date(s.started_at);
+    if (d < today || d >= tomorrow) continue;
+    const hour = d.getHours();
+    // Bucket into the closest 2h slot starting at 8am
+    const slot = Math.max(0, Math.min(7, Math.floor((hour - 8) / 2)));
+    buckets[slot] += (s.actual_duration ?? 0) / 60;
+  }
+
+  const result = buckets.map((value, i) => ({
+    day: labels[i],
+    value: Math.round(value * 10) / 10,
+    isActive: false,
+  }));
+  markPeak(result);
+  return result;
+}
+
+function groupSessionsByWeek(
+  sessions: { actual_duration: number | null; started_at: string | null }[],
+  lang: "ar" | "en",
+): ChartDataPoint[] {
+  const labels = lang === "ar"
+    ? ["أ1", "أ2", "أ3", "أ4"]
+    : ["W1", "W2", "W3", "W4"];
+  const buckets = [0, 0, 0, 0];
+  const now = Date.now();
+
+  for (const s of sessions) {
+    if (!s.started_at) continue;
+    const ageDays = (now - new Date(s.started_at).getTime()) / 86400_000;
+    if (ageDays < 0 || ageDays >= 28) continue;
+    const week = Math.min(3, Math.floor(ageDays / 7)); // 0=this week, 3=4 weeks ago
+    // Reverse so W1 is oldest, W4 is newest
+    buckets[3 - week] += (s.actual_duration ?? 0) / 60;
+  }
+
+  const result = buckets.map((value, i) => ({
+    day: labels[i],
+    value: Math.round(value * 10) / 10,
+    isActive: false,
+  }));
+  markPeak(result);
+  return result;
+}
+
+function markPeak(rows: ChartDataPoint[]): void {
+  let maxVal = 0;
+  let maxIdx = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].value > maxVal) {
+      maxVal = rows[i].value;
+      maxIdx = i;
+    }
+  }
+  if (maxIdx >= 0) rows[maxIdx].isActive = true;
+}
+
 export async function getStudentLiveSessions(
   studentId: string
 ): Promise<LiveSessionItem[]> {
@@ -152,6 +301,90 @@ export async function getStudentLiveSessions(
       progressPercent: undefined,
     };
   });
+}
+
+/**
+ * Continue Watching: in-progress recorded course lessons. Pulls rows where
+ * the student has watched some of the video but not finished, ordered by most
+ * recently watched. If the student has no in-progress lessons, returns []
+ * and the caller falls back to `getStudentRecentRecordings`.
+ */
+export async function getStudentContinueWatching(
+  studentId: string,
+  lang: "ar" | "en" = "en",
+  limit = 5,
+): Promise<{ id: string; [key: string]: unknown }[]> {
+  const supabase = await createClient();
+
+  // course_lesson_progress is keyed by enrollment_id, so resolve the
+  // student's enrollments first, then pull in-progress rows for them.
+  const { data: enrollments } = await supabase
+    .from("course_enrollments")
+    .select("id")
+    .eq("student_id", studentId)
+    .returns<{ id: string }[]>();
+
+  if (!enrollments || enrollments.length === 0) return [];
+
+  type Row = {
+    lesson_id: string;
+    last_position_seconds: number | null;
+    updated_at: string;
+    lesson: {
+      id: string;
+      title_ar: string | null;
+      title_en: string | null;
+      duration_seconds: number | null;
+      course_id: string;
+      course: {
+        id: string;
+        title_ar: string | null;
+        title_en: string | null;
+      } | null;
+    } | null;
+  };
+
+  const { data } = await supabase
+    .from("course_lesson_progress")
+    .select(
+      "lesson_id, last_position_seconds, updated_at, " +
+        "lesson:course_lessons(id, title_ar, title_en, duration_seconds, course_id, " +
+        "course:courses(id, title_ar, title_en))",
+    )
+    .in("enrollment_id", enrollments.map((e) => e.id))
+    .is("completed_at", null)
+    .gt("last_position_seconds", 0)
+    .order("updated_at", { ascending: false })
+    .limit(limit)
+    .returns<Row[]>();
+
+  if (!data || data.length === 0) return [];
+
+  return data
+    .filter((r) => r.lesson?.course)
+    .map((r) => {
+      const lesson = r.lesson!;
+      const course = lesson.course!;
+      const total = lesson.duration_seconds ?? 0;
+      const watched = r.last_position_seconds ?? 0;
+      const pct = total > 0 ? Math.min(100, Math.round((watched / total) * 100)) : 0;
+      const title = (lang === "ar" ? course.title_ar : course.title_en) ?? course.title_ar ?? "—";
+      const lessonTitle = (lang === "ar" ? lesson.title_ar : lesson.title_en) ?? lesson.title_ar ?? "—";
+
+      return {
+        id: course.id.slice(0, 6).toUpperCase(),
+        subject: title,
+        date: new Date(r.updated_at).toLocaleDateString(
+          lang === "ar" ? "ar" : "en-US",
+          { year: "numeric", month: "short", day: "2-digit" },
+        ),
+        progress: pct,
+        assignee: lessonTitle,
+        view: "view",
+        // Used by row-link wrapper:
+        _href: `/student/courses/${course.id}/lesson/${lesson.id}`,
+      };
+    });
 }
 
 export async function getStudentRecentRecordings(

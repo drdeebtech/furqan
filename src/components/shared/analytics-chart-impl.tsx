@@ -23,18 +23,33 @@ interface AnalyticsChartProps {
   data: ChartDataPoint[];
   title: string;
   unit?: string;
+  /** Optional Daily dataset; if omitted, the Daily tab shows "coming soon". */
+  dailyData?: ChartDataPoint[];
+  /** Optional Monthly dataset; if omitted, the Monthly tab shows "coming soon". */
+  monthlyData?: ChartDataPoint[];
 }
 
-export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsChartProps) {
+export function AnalyticsChart({
+  data,
+  title: _title,
+  unit = "h",
+  dailyData,
+  monthlyData,
+}: AnalyticsChartProps) {
   const { t } = useLang();
   const [activeTab, setActiveTab] = useState(1);
   const [toast, setToast] = useState<number | null>(null);
 
+  const datasets: (ChartDataPoint[] | undefined)[] = [dailyData, data, monthlyData];
+
   const handleTab = (i: number) => {
-    if (i === 1) { setActiveTab(i); return; }
+    if (datasets[i]) { setActiveTab(i); return; }
+    // Fallback for callers that haven't wired daily/monthly yet
     setToast(i);
     setTimeout(() => setToast(null), 2000);
   };
+
+  const visibleData = datasets[activeTab] ?? data;
 
   const tabs = [
     { label: t("يومي", "Daily"), i: 0 },
@@ -49,7 +64,7 @@ export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsCha
   };
 
   function Tooltip(props: { x?: string | number; y?: string | number; width?: string | number; value?: string | number; index?: number }) {
-    const entry = data[props.index ?? 0];
+    const entry = visibleData[props.index ?? 0];
     if (!entry?.isActive || !entry.value) return null;
     const cx = Number(props.x ?? 0) + Number(props.width ?? 0) / 2;
     const cy = Number(props.y ?? 0) - 22;
@@ -92,7 +107,7 @@ export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsCha
       {/* Chart */}
       <div className="mt-4">
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={data} barCategoryGap="14%">
+          <BarChart data={visibleData} barCategoryGap="14%">
             <defs>
               {/* Inactive bar: glass texture with crosshatch overlay */}
               <linearGradient id="inactiveGlass" x1="0" y1="0" x2="0" y2="1">
@@ -148,7 +163,7 @@ export function AnalyticsChart({ data, title: _title, unit = "h" }: AnalyticsCha
               allowDecimals={unit !== "#"}
             />
             <Bar dataKey="value" maxBarSize={52} radius={[10, 10, 4, 4]}>
-              {data.map((entry, index) => (
+              {visibleData.map((entry, index) => (
                 <Cell
                   key={index}
                   fill={entry.isActive ? "url(#activeGrad)" : "url(#hatch)"}

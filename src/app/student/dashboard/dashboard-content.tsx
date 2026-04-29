@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Calendar, CheckCircle, Clock, Search, Star, TrendingUp, Video, BookOpen, FileText } from "lucide-react";
+import { Calendar, CheckCircle, Clock, Search, Star, Briefcase, Video } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/components/shared/toast";
 import { SESSION_TYPE_BILINGUAL } from "@/lib/constants";
@@ -14,7 +14,12 @@ import { LiveSessionsWidget } from "@/components/shared/live-sessions-widget";
 import { BreakdownBar } from "@/components/shared/breakdown-bar";
 import { DataTable } from "@/components/shared/data-table";
 import { GuidanceBanner } from "./guidance-banner";
-import { QuickActions } from "./quick-actions";
+
+interface ChartDataPoint {
+  day: string;
+  value: number;
+  isActive: boolean;
+}
 
 interface DashboardData {
   fullName: string | null;
@@ -23,13 +28,10 @@ interface DashboardData {
   totalSessions: number;
   monthSessions: number;
   pendingBookings: number;
-  recent: { id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: string }[];
-  evaluations: { id: string; teacher_id: string; evaluation_type: string; overall_score: number; hifz_score: number | null; tajweed_score: number | null; strengths: string | null; weaknesses: string | null; recommendations: string | null; created_at: string }[];
   nameMap: Record<string, string>;
-  notesMap: Record<string, { post_session_notes: string | null; homework: string | null }>;
-  weeklyData: { day: string; value: number; isActive: boolean }[];
+  studyAnalytics: { daily: ChartDataPoint[]; weekly: ChartDataPoint[]; monthly: ChartDataPoint[] };
   liveSessions: { id: string; title: string; subtitle: string; initials: string; timeRemaining?: string; progressPercent?: number }[];
-  recentRecordings: Record<string, unknown>[];
+  watchingRows: Record<string, unknown>[];
   hwCounts: Record<string, number>;
   activePackages: { id: string; sessions_total: number; sessions_used: number; status: string; expires_at: string | null }[];
 }
@@ -38,7 +40,10 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
   const { t, dir, lang } = useLang();
   const toast = useToast();
   const searchParams = useSearchParams();
-  const { fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, recent, evaluations, nameMap, notesMap, weeklyData, liveSessions, recentRecordings, hwCounts, activePackages } = data;
+  const {
+    fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings,
+    nameMap, studyAnalytics, liveSessions, watchingRows, hwCounts, activePackages,
+  } = data;
 
   useEffect(() => {
     if (searchParams.get("booked") === "1") {
@@ -47,23 +52,34 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const pendingHomework = Object.entries(notesMap).filter(([, n]) => n.homework);
-
+  // Use a stable timestamp captured at first render so the SSR'd HTML and the
+  // first client render agree (avoids a hydration warning on the countdown).
   const [initialNow] = useState(() => Date.now());
-  let countdown = "";
+  let countdownLong = "";
+  let countdownShort = "";
   let countdownColor = "text-muted";
   if (nextBooking) {
     const diff = new Date(nextBooking.scheduled_at).getTime() - initialNow;
     if (diff < 0) {
-      countdown = t("الآن", "Now");
+      countdownLong = t("الآن", "Now");
+      countdownShort = t("الآن", "Now");
       countdownColor = "text-red-400";
     } else {
       const mins = Math.floor(diff / 60000);
       const hours = Math.floor(mins / 60);
       const days = Math.floor(hours / 24);
-      if (mins < 60) { countdown = t(`بعد ${mins} دقيقة`, `In ${mins} min`); countdownColor = "text-red-400"; }
-      else if (hours < 24) { countdown = t(`بعد ${hours} ساعة`, `In ${hours} hours`); countdownColor = "text-amber-400"; }
-      else { countdown = t(`بعد ${days} يوم`, `In ${days} days`); }
+      if (mins < 60) {
+        countdownLong = t(`بعد ${mins} دقيقة`, `In ${mins} min`);
+        countdownShort = `${mins}m`;
+        countdownColor = "text-red-400";
+      } else if (hours < 24) {
+        countdownLong = t(`بعد ${hours} ساعة`, `In ${hours} hours`);
+        countdownShort = `${hours}h`;
+        countdownColor = "text-amber-400";
+      } else {
+        countdownLong = t(`بعد ${days} يوم`, `In ${days} days`);
+        countdownShort = lang === "ar" ? `${days} يوم` : `${days}d`;
+      }
     }
   }
 
@@ -72,20 +88,34 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
     return s ? t(s.ar, s.en) : type;
   };
 
+  // KPI 1 — Active Package: show sessions remaining + percent used.
+  const primaryPackage = activePackages[0] ?? null;
+  const pkgRemaining = primaryPackage ? primaryPackage.sessions_total - primaryPackage.sessions_used : 0;
+  const pkgPct = primaryPackage && primaryPackage.sessions_total > 0
+    ? Math.round((primaryPackage.sessions_used / primaryPackage.sessions_total) * 100)
+    : 0;
+
   return (
     <>
       <div className="h-0.5 bg-gradient-to-l from-gold/0 via-gold/30 to-gold/0" />
-      <div dir={dir} className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        {/* Row 0: Welcome + Hero */}
-        <h1 className="font-display text-3xl font-bold">{t("أهلاً", "Welcome")}{fullName ? ` ${fullName}` : ""}</h1>
+      <div dir={dir} className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-10">
+        {/* Welcome */}
+        <h1 className="font-display text-3xl font-bold sm:text-4xl">
+          {t("أهلاً", "Welcome")}{fullName ? ` ${fullName}` : ""}
+        </h1>
         <p className="mt-1 text-sm text-muted">{t("مرحباً بك في أكاديمية فُرقان", "Welcome to FURQAN Academy")}</p>
 
         {totalSessions === 0 && !nextBooking && <GuidanceBanner />}
 
+        {/* Next session hero — only when there's a booking */}
         {nextBooking ? (
           <div className="mt-6 glass-card p-5 sm:p-8">
-            <p className="mb-2 text-sm font-bold text-gold"><Star size={14} className="inline text-gold" /> {t("جلستك القادمة", "Your Next Session")}</p>
-            <p className="text-lg font-bold">{t("مع", "With")} {nameMap[nextBooking.teacher_id] ?? t("معلم", "Teacher")}</p>
+            <p className="mb-2 text-sm font-bold text-gold">
+              <Star size={14} className="inline text-gold" /> {t("جلستك القادمة", "Your Next Session")}
+            </p>
+            <p className="text-lg font-bold">
+              {t("مع", "With")} {nameMap[nextBooking.teacher_id] ?? t("معلم", "Teacher")}
+            </p>
             <p className="mt-1 text-sm text-muted">
               {st(nextBooking.session_type)} · {nextBooking.duration_min} {t("دقيقة", "min")}
             </p>
@@ -94,7 +124,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
               {" · "}
               {new Date(nextBooking.scheduled_at).toLocaleTimeString(lang === "ar" ? "ar" : "en-US", { hour: "2-digit", minute: "2-digit" })}
             </p>
-            <p className={`mt-2 text-sm font-medium ${countdownColor}`}>{countdown}</p>
+            <p className={`mt-2 text-sm font-medium ${countdownColor}`}>{countdownLong}</p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               {sessionId && (
                 <Link href={`/student/sessions/${sessionId}`} className="flex items-center gap-2 glass-success glass-pill px-6 py-2.5 text-sm font-semibold text-white transition-colors">
@@ -116,35 +146,55 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
           </div>
         ) : null}
 
-        {/* Row 1: 4 Stat Cards */}
-        <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4 stagger-children">
+        {/* 4-KPI grid — reference layout: package, homework, completed, next session */}
+        <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6 stagger-children">
+          <StatCard
+            icon={Briefcase}
+            label={t("باقتي", "Active Package")}
+            value={primaryPackage ? `${pkgRemaining}` : "—"}
+            href="/student/packages"
+            actionLabel={primaryPackage ? `${pkgPct}% ${t("مستخدم", "used")}` : t("اشتر باقة", "Buy Package")}
+            statusBadge={primaryPackage ? { text: t("نشط", "Active"), type: "active" } : undefined}
+            subtitle={primaryPackage ? t("جلسات متبقية", "sessions left") : undefined}
+          />
           <StatCard
             icon={CheckCircle}
-            label={t("إجمالي الجلسات", "Total Sessions")}
+            label={t("الجلسات المكتملة", "Completed")}
             value={totalSessions}
             href="/student/sessions"
             actionLabel={t("عرض الكل", "View All")}
-            statusBadge={totalSessions > 0 ? { text: t("نشط", "Active"), type: "active" } : undefined}
           />
-          <StatCard icon={Calendar} label={t("جلسات هذا الشهر", "This Month")} value={monthSessions} href="/student/sessions" actionLabel={t("عرض الكل", "View All")} />
-          <StatCard icon={Clock} label={t("حجوزات معلّقة", "Pending Bookings")} value={pendingBookings} href="/student/bookings" actionLabel={t("عرض", "View")} />
-          <StatCard icon={TrendingUp} label={t("تقدمي", "My Progress")} value={t("عرض", "View")} href="/student/progress" subtitle={t("رحلتي مع القرآن", "My Quran journey")} actionLabel={t("عرض", "View")} />
+          <StatCard
+            icon={Calendar}
+            label={t("هذا الشهر", "This Month")}
+            value={monthSessions}
+            href="/student/sessions"
+            actionLabel={`${pendingBookings} ${t("معلّقة", "pending")}`}
+          />
+          <StatCard
+            icon={Clock}
+            label={t("الجلسة القادمة", "Next Session")}
+            value={nextBooking ? countdownShort : "—"}
+            href={sessionId ? `/student/sessions/${sessionId}` : "/student/teachers"}
+            actionLabel={nextBooking ? t("التفاصيل", "Details") : t("احجز", "Book")}
+            statusBadge={nextBooking ? { text: t("مجدول", "Scheduled"), type: "info" } : undefined}
+          />
         </div>
 
-        {/* Row 2: Chart (3fr) + Right column (2fr) */}
-        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-5">
-          {/* Left: Analytics chart */}
+        {/* Chart (3fr) + Live + Breakdown (2fr) */}
+        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-5">
           <div className="lg:col-span-3">
-            <WidgetCard title={t("تحليلات التقدم", "Report Analytics")}>
+            <WidgetCard title={t("ساعات الدراسة", "Study Hours")}>
               <AnalyticsChart
-                data={weeklyData}
-                title={t("تحليلات التقدم", "Report Analytics")}
+                data={studyAnalytics.weekly}
+                dailyData={studyAnalytics.daily}
+                monthlyData={studyAnalytics.monthly}
+                title={t("ساعات الدراسة", "Study Hours")}
               />
             </WidgetCard>
           </div>
 
-          {/* Right: Two stacked widgets */}
-          <div className="space-y-4 lg:col-span-2">
+          <div className="space-y-6 lg:col-span-2">
             <LiveSessionsWidget
               sessions={liveSessions}
               title={t("الجلسات المباشرة", "Online Classes")}
@@ -154,7 +204,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
               title={t("توزيع الواجبات", "Assignment Breakdown")}
               segments={[
                 ...(hwCounts.assigned ? [{ label: t("تم التكليف", "Assigned"), value: hwCounts.assigned, color: "#3B82F6" }] : []),
-                ...(hwCounts.student_ready ? [{ label: t("جاهز", "Ready"), value: hwCounts.student_ready, color: "#F59E0B" }] : []),
+                ...(hwCounts.student_ready ? [{ label: t("قيد المراجعة", "In Review"), value: hwCounts.student_ready, color: "#F59E0B" }] : []),
                 ...(hwCounts.completed_excellent ? [{ label: t("ممتاز", "Excellent"), value: hwCounts.completed_excellent, color: "#10B981" }] : []),
                 ...(hwCounts.completed_good ? [{ label: t("جيد", "Good"), value: hwCounts.completed_good, color: "#06B6D4" }] : []),
                 ...(hwCounts.completed_needs_work ? [{ label: t("يحتاج تحسين", "Needs Work"), value: hwCounts.completed_needs_work, color: "#F97316" }] : []),
@@ -165,199 +215,22 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
           </div>
         </div>
 
-        {/* Row 3: Recent recordings table */}
-        <div className="mt-6">
+        {/* Continue Watching */}
+        <div className="mt-8">
           <DataTable
-            title={t("الحصص السابقة", "Continue Watching")}
+            title={t("متابعة المشاهدة", "Continue Watching")}
             columns={[
               { key: "id", label: t("رقم", "Id") },
-              { key: "subject", label: t("الموضوع", "Subject") },
+              { key: "subject", label: t("الكورس", "Subject") },
               { key: "date", label: t("التاريخ", "Date"), type: "date" },
               { key: "progress", label: t("التقدم", "Progress"), type: "progress" },
-              { key: "assignee", label: t("المدرس", "Teacher"), type: "assignee" },
-              { key: "view", label: t("عرض", "View"), type: "actions" },
+              { key: "assignee", label: t("الدرس", "Lesson"), type: "assignee" },
+              { key: "view", label: t("متابعة", "Resume"), type: "actions" },
             ]}
-            rows={recentRecordings as { id: string; [key: string]: unknown }[]}
-            emptyMessage={t("لا توجد تسجيلات بعد", "No recordings yet")}
+            rows={watchingRows as { id: string; [key: string]: unknown }[]}
+            emptyMessage={t("لا توجد دروس قيد المشاهدة بعد", "No lessons in progress yet")}
           />
         </div>
-
-        {/* Row 4: Preserved existing sections */}
-        {/* Recent Sessions table */}
-        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-5">
-          <div className="lg:col-span-3">
-            {recent.length > 0 ? (
-              <WidgetCard
-                title={t("آخر الجلسات", "Recent Sessions")}
-                headerAction={
-                  <Link href="/student/sessions" className="text-xs text-gold hover:text-gold-hover">{t("عرض الكل ←", "View All →")}</Link>
-                }
-              >
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-[var(--surface-border)] text-xs text-muted-light">
-                        <th className="pb-2 text-start font-medium">{t("المعلم", "Teacher")}</th>
-                        <th className="pb-2 text-start font-medium">{t("النوع", "Type")}</th>
-                        <th className="pb-2 text-start font-medium">{t("التاريخ", "Date")}</th>
-                        <th className="pb-2 text-start font-medium">{t("ملاحظات", "Notes")}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[var(--surface-divider,#F0F0F2)]">
-                      {recent.map(r => {
-                        const note = notesMap[r.id];
-                        return (
-                          <tr key={r.id} className="text-sm">
-                            <td className="py-3 font-medium">{nameMap[r.teacher_id] ?? t("معلم", "Teacher")}</td>
-                            <td className="py-3 text-muted">{st(r.session_type)}</td>
-                            <td className="py-3 text-muted">{new Date(r.scheduled_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US", { month: "short", day: "numeric" })}</td>
-                            <td className="py-3">
-                              <div className="flex gap-1.5">
-                                {note?.post_session_notes && (
-                                  <span className="glass-badge border-gold/30 bg-gold/10 text-gold" title={note.post_session_notes}>
-                                    <FileText size={10} className="inline" /> {t("ملاحظة", "Note")}
-                                  </span>
-                                )}
-                                {note?.homework && (
-                                  <span className="glass-badge border-blue-400/30 bg-blue-400/10 text-blue-400" title={note.homework}>
-                                    <BookOpen size={10} className="inline" /> {t("واجب", "HW")}
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </WidgetCard>
-            ) : (
-              <WidgetCard title={t("آخر الجلسات", "Recent Sessions")}>
-                <div className="flex min-h-[120px] items-center justify-center text-center">
-                  <div>
-                    <FileText size={28} className="mx-auto mb-3 text-muted" />
-                    <p className="text-sm text-muted">{t("لا توجد جلسات سابقة", "No recent sessions")}</p>
-                  </div>
-                </div>
-              </WidgetCard>
-            )}
-          </div>
-
-          {/* Right: Quick Actions + Homework */}
-          <div className="space-y-4 lg:col-span-2">
-            {/* Active Packages Widget */}
-            {activePackages.length > 0 && (
-              <WidgetCard
-                title={t("باقاتي", "My Packages")}
-                headerAction={
-                  <Link href="/student/packages" className="text-xs text-gold hover:text-gold-hover">{t("عرض الكل ←", "View All →")}</Link>
-                }
-              >
-                <div className="space-y-2">
-                  {activePackages.map(sp => {
-                    const remaining = sp.sessions_total - sp.sessions_used;
-                    const pct = Math.round((sp.sessions_used / sp.sessions_total) * 100);
-                    return (
-                      <div key={sp.id} className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium">{remaining} {t("جلسات متبقية", "sessions left")}</span>
-                          <span className="text-xs text-muted">{sp.sessions_used}/{sp.sessions_total}</span>
-                        </div>
-                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
-                          <div className="h-full rounded-full bg-emerald-400/60" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </WidgetCard>
-            )}
-
-            <QuickActions />
-
-            {/* Structured Homework Widget */}
-            {(hwCounts.assigned || hwCounts.student_ready || pendingHomework.length > 0) && (
-              <WidgetCard
-                title={t("الواجبات", "Homework")}
-                headerAction={
-                  <Link href="/student/homework" className="text-xs text-gold hover:text-gold-hover">{t("عرض الكل ←", "View All →")}</Link>
-                }
-              >
-                <div className="space-y-2">
-                  {(hwCounts.assigned ?? 0) > 0 && (
-                    <div className="flex items-center justify-between rounded-xl border border-blue-500/20 bg-blue-500/5 p-3">
-                      <span className="text-sm">{t("واجبات جديدة", "New assignments")}</span>
-                      <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-bold text-blue-400">{hwCounts.assigned}</span>
-                    </div>
-                  )}
-                  {(hwCounts.student_ready ?? 0) > 0 && (
-                    <div className="flex items-center justify-between rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
-                      <span className="text-sm">{t("بانتظار التسميع", "Awaiting grading")}</span>
-                      <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-bold text-amber-400">{hwCounts.student_ready}</span>
-                    </div>
-                  )}
-                  {/* Legacy text homework fallback */}
-                  {pendingHomework.map(([bookingId, h]) => {
-                    const booking = recent.find(r => r.id === bookingId);
-                    return (
-                      <div key={bookingId} className="rounded-xl border border-[var(--surface-border)] p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium">{booking ? nameMap[booking.teacher_id] ?? t("معلم", "Teacher") : t("معلم", "Teacher")}</p>
-                            <p className="mt-1 text-xs text-muted">{h.homework}</p>
-                          </div>
-                          {booking && <p className="shrink-0 text-[10px] text-muted">{new Date(booking.scheduled_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}</p>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </WidgetCard>
-            )}
-          </div>
-        </div>
-
-        {/* Row 5: Evaluations */}
-        {evaluations.length > 0 && (
-          <div className="mt-6">
-            <WidgetCard title={t("تقييمات معلمك", "Teacher Evaluations")}>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-[var(--surface-border)] text-xs text-muted-light">
-                      <th className="pb-2 text-start font-medium">{t("المعلم", "Teacher")}</th>
-                      <th className="pb-2 text-start font-medium">{t("النوع", "Type")}</th>
-                      <th className="pb-2 text-start font-medium">{t("التقييم", "Score")}</th>
-                      <th className="pb-2 text-start font-medium">{t("حفظ", "Hifz")}</th>
-                      <th className="pb-2 text-start font-medium">{t("تجويد", "Tajweed")}</th>
-                      <th className="pb-2 text-start font-medium">{t("ملاحظات", "Notes")}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--surface-divider,#F0F0F2)]">
-                    {evaluations.map(ev => (
-                      <tr key={ev.id}>
-                        <td className="py-3 font-medium">{nameMap[ev.teacher_id] ?? t("معلم", "Teacher")}</td>
-                        <td className="py-3 text-muted">{ev.evaluation_type}</td>
-                        <td className="py-3">
-                          <span className={`glass-badge px-2 py-0.5 text-xs font-bold ${ev.overall_score >= 8 ? "text-green-400" : ev.overall_score >= 5 ? "text-amber-400" : "text-red-400"}`}>
-                            {ev.overall_score}/10
-                          </span>
-                        </td>
-                        <td className="py-3 text-muted">{ev.hifz_score != null ? `${ev.hifz_score}/10` : "—"}</td>
-                        <td className="py-3 text-muted">{ev.tajweed_score != null ? `${ev.tajweed_score}/10` : "—"}</td>
-                        <td className="max-w-[200px] py-3">
-                          {ev.strengths && <p className="truncate text-xs"><span className="text-green-400">{t("قوة:", "S:")}</span> {ev.strengths}</p>}
-                          {ev.weaknesses && <p className="truncate text-xs"><span className="text-amber-400">{t("ضعف:", "W:")}</span> {ev.weaknesses}</p>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </WidgetCard>
-          </div>
-        )}
       </div>
     </>
   );
