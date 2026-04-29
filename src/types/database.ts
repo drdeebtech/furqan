@@ -48,6 +48,15 @@ export type TransactionType = "charge" | "refund" | "adjustment";
 export type SessionCreatedVia = "webhook" | "manual" | "auto";
 export type AuditAction = "INSERT" | "UPDATE" | "DELETE" | "LOGIN" | "LOGOUT";
 export type AnnouncementSeverity = "info" | "warning" | "critical";
+export type CoursePricingType = "free" | "one_time";
+export type CourseStatus = "draft" | "pending_review" | "published" | "archived" | "rejected";
+export type CourseLevel = "beginner" | "intermediate" | "advanced";
+export type CourseLanguage = "ar" | "en" | "both";
+export type CourseCurrency = "USD" | "EGP";
+export type CourseLessonVideoStatus = "pending" | "uploading" | "processing" | "ready" | "failed";
+export type CourseEnrollmentSource = "free" | "purchase" | "admin_grant";
+export type CourseReviewStatus = "published" | "hidden";
+export type CoursePayoutStatus = "pending" | "paid";
 
 // ─── Table row types ────────────────────────────────────────────────────────
 // Each alias points at the generated Row type for that table — so adding/
@@ -91,3 +100,9 @@ export type RetentionSignal = T["retention_signals"]["Row"];
 export type SiteAnnouncement = T["site_announcements"]["Row"];
 export type AutomationDeadLetter = T["automation_dead_letter"]["Row"];
 export type SessionPresenceEvent = T["session_presence_events"]["Row"];
+export type Course = T["courses"]["Row"];
+export type CourseLesson = T["course_lessons"]["Row"];
+export type CourseEnrollment = T["course_enrollments"]["Row"];
+export type CourseLessonProgress = T["course_lesson_progress"]["Row"];
+export type CourseReview = T["course_reviews"]["Row"];
+export type CoursePayout = T["course_payouts"]["Row"];

@@ -15,6 +15,8 @@ export const ALLOWED_SETTING_KEYS = [
   "retention_automation_enabled",
   "renewal_campaigns_enabled",
   "supported_currencies",
+  "courses_enabled",
+  "paid_courses_enabled",
 ] as const;
 
 export type AllowedSettingKey = (typeof ALLOWED_SETTING_KEYS)[number];
