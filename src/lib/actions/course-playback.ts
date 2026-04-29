@@ -1,0 +1,157 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { logError } from "@/lib/logger";
+import { emitEvent } from "@/lib/automation/emit";
+import { getSignedPlaybackUrl, isBunnyConfigured } from "@/lib/bunny/client";
+
+// ─── getLessonPlaybackUrl ───────────────────────────────────────────────────
+// Mints a 5-minute signed Bunny CDN URL for the given lesson, after
+// verifying the caller is enrolled (or the lesson is a free preview, in
+// which case anyone can watch).
+//
+// Returns { ok: true, url } or { ok: false, error }.
+
+export async function getLessonPlaybackUrl(lessonId: string): Promise<
+  | { ok: true; url: string }
+  | { ok: false; error: string }
+> {
+  if (!isBunnyConfigured()) {
+    return { ok: false, error: "خدمة الفيديو غير مهيأة" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Fetch lesson + parent course + (optional) enrollment for caller in one
+  // round-trip via two parallel queries.
+  const { data: lesson } = await supabase
+    .from("course_lessons")
+    .select("id, course_id, bunny_video_id, video_status, is_preview")
+    .eq("id", lessonId)
+    .single<{
+      id: string;
+      course_id: string;
+      bunny_video_id: string | null;
+      video_status: string;
+      is_preview: boolean;
+    }>();
+
+  if (!lesson) return { ok: false, error: "الدرس غير موجود" };
+  if (lesson.video_status !== "ready" || !lesson.bunny_video_id) {
+    return { ok: false, error: "الدرس قيد المعالجة" };
+  }
+
+  const { data: course } = await supabase
+    .from("courses")
+    .select("status, teacher_id")
+    .eq("id", lesson.course_id)
+    .single<{ status: string; teacher_id: string }>();
+
+  if (!course) return { ok: false, error: "الدورة غير موجودة" };
+
+  // Access logic:
+  //   - free preview lesson on a published course → anyone (incl. anon)
+  //   - teacher who owns the course → always
+  //   - admin/mod → always (relies on RLS-side check; we don't re-verify here)
+  //   - enrolled student on a published course → yes
+  let allowed = false;
+  if (lesson.is_preview && course.status === "published") {
+    allowed = true;
+  }
+  if (user && course.teacher_id === user.id) allowed = true;
+  if (!allowed && user) {
+    const { data: enrollment } = await supabase
+      .from("course_enrollments")
+      .select("id")
+      .eq("course_id", lesson.course_id)
+      .eq("student_id", user.id)
+      .maybeSingle();
+    if (enrollment && course.status === "published") allowed = true;
+  }
+
+  if (!allowed) {
+    return { ok: false, error: "لا تملك صلاحية مشاهدة هذا الدرس" };
+  }
+
+  const url = getSignedPlaybackUrl(lesson.bunny_video_id, 300);
+  return { ok: true, url };
+}
+
+// ─── upsertLessonProgress ───────────────────────────────────────────────────
+// Save the student's playback position for a lesson (called every ~15s by
+// the player). Auto-marks complete when watchedRatio ≥ 0.9.
+
+export async function upsertLessonProgress(
+  lessonId: string,
+  positionSeconds: number,
+  durationSeconds: number,
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "غير مسجل الدخول" };
+
+  // Find the enrollment for this user + lesson's course
+  const { data: lesson } = await supabase
+    .from("course_lessons")
+    .select("course_id")
+    .eq("id", lessonId)
+    .single<{ course_id: string }>();
+  if (!lesson) return { ok: false as const, error: "الدرس غير موجود" };
+
+  const { data: enrollment } = await supabase
+    .from("course_enrollments")
+    .select("id")
+    .eq("course_id", lesson.course_id)
+    .eq("student_id", user.id)
+    .single<{ id: string }>();
+  if (!enrollment) return { ok: false as const, error: "غير ملتحق بالدورة" };
+
+  const ratio = durationSeconds > 0 ? positionSeconds / durationSeconds : 0;
+  const completed_at = ratio >= 0.9 ? new Date().toISOString() : null;
+
+  const { error } = await supabase
+    .from("course_lesson_progress")
+    .upsert(
+      {
+        enrollment_id: enrollment.id,
+        lesson_id: lessonId,
+        last_position_seconds: Math.floor(positionSeconds),
+        completed_at,
+        watch_count: 1,
+      } as never,
+      { onConflict: "enrollment_id,lesson_id", ignoreDuplicates: false },
+    );
+
+  if (error) {
+    logError("upsertLessonProgress failed", error, {
+      tag: "course-playback",
+      lessonId,
+    });
+    return { ok: false as const, error: error.message };
+  }
+
+  // Update enrollment.last_accessed_at
+  await supabase
+    .from("course_enrollments")
+    .update({ last_accessed_at: new Date().toISOString() } as never)
+    .eq("id", enrollment.id);
+
+  // If just completed, emit event
+  if (completed_at) {
+    await emitEvent("lesson.completed", "course_lesson", lessonId, {
+      enrollment_id: enrollment.id,
+      student_id: user.id,
+    }, user.id).catch((err) =>
+      logError("emit lesson.completed failed", err, { tag: "course-playback" }),
+    );
+  }
+
+  revalidatePath(`/student/courses`);
+  return { ok: true as const, completed: !!completed_at };
+}
