@@ -39,6 +39,7 @@ const LINKS: Record<Role, NavLink[]> = {
     // LEARNING — study tools
     { href: "/student/teachers", ar: "المعلمون", en: "Teachers", icon: Users, group: { ar: "التعلم", en: "LEARNING" } },
     { href: "/student/homework", ar: "الواجبات", en: "Homework", icon: BookOpen },
+    { href: "/student/resources", ar: "المصادر", en: "Resources", icon: FileText },
     { href: "/student/packages", ar: "باقاتي", en: "Packages", icon: Briefcase },
     // SUPPORT — bottom-anchored utility links (no group label)
     { href: "/student/settings", ar: "الإعدادات", en: "Settings", icon: Settings },
@@ -79,6 +80,7 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/admin/picklists", ar: "قوائم المعلمين", en: "Teacher Picklists", icon: FileText },
     { href: "/admin/blog", ar: "المدونة", en: "Blog", icon: FileText },
     { href: "/admin/help", ar: "مركز المساعدة", en: "Help Center", icon: HelpCircle },
+    { href: "/admin/resources", ar: "المصادر", en: "Resources", icon: FileText },
     { href: "/admin/announcements", ar: "الإعلانات", en: "Announcements", icon: Bell },
     { href: "/admin/contacts", ar: "رسائل التواصل", en: "Contacts", icon: Mail },
     { href: "/admin/notifications", ar: "الإشعارات", en: "Notifications", icon: Bell },

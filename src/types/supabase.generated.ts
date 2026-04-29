@@ -1938,6 +1938,65 @@ export type Database = {
         }
         Relationships: []
       }
+      resources: {
+        Row: {
+          id: string
+          title_ar: string
+          title_en: string | null
+          description_ar: string | null
+          description_en: string | null
+          resource_type: string
+          file_url: string | null
+          external_url: string | null
+          category: string
+          tags: string[]
+          is_published: boolean
+          uploaded_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title_ar: string
+          title_en?: string | null
+          description_ar?: string | null
+          description_en?: string | null
+          resource_type: string
+          file_url?: string | null
+          external_url?: string | null
+          category?: string
+          tags?: string[]
+          is_published?: boolean
+          uploaded_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title_ar?: string
+          title_en?: string | null
+          description_ar?: string | null
+          description_en?: string | null
+          resource_type?: string
+          file_url?: string | null
+          external_url?: string | null
+          category?: string
+          tags?: string[]
+          is_published?: boolean
+          uploaded_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resources_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       retention_signals: {
         Row: {
           churn_risk_score: number | null
