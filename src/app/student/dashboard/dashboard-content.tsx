@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Calendar, CheckCircle, Clock, Briefcase, Eye } from "lucide-react";
+import { Calendar, CheckCircle, Clock, Briefcase, Eye, Keyboard, RefreshCw } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/components/shared/toast";
 import { StatCard } from "@/components/shared/stat-card";
@@ -12,8 +12,13 @@ import { LiveSessionsWidget } from "@/components/shared/live-sessions-widget";
 import { BreakdownBar } from "@/components/shared/breakdown-bar";
 import { DataTable } from "@/components/shared/data-table";
 import { surahName } from "@/lib/quran/surahs";
+import { useKeyboardShortcuts, useShortcutsHelp, type Shortcut } from "@/lib/hooks/use-keyboard-shortcuts";
 import { LessonRowActions } from "./lesson-row-actions";
 import { NextActionBanner } from "./next-action-banner";
+import { WelcomeHeader } from "./welcome-header";
+import { TodaysPlan } from "./todays-plan";
+import { ShortcutsHelp } from "./shortcuts-help";
+import { SectionErrorBoundary } from "./section-error-boundary";
 
 interface ChartDataPoint {
   day: string;
@@ -37,6 +42,10 @@ interface DashboardData {
   nextQuiz: { id: string; title: string; due_at: string | null } | null;
   lastProgress: { surah_to: number | null; ayah_to: number | null; surah_from: number | null; ayah_from: number | null; level: string; created_at: string } | null;
   resumeLesson: { lessonId: string; title: string; href: string; progressPct: number } | null;
+  streakInfo: { streak: number; weeklyMinutes: number; weeklyDelta: number; loggedToday: boolean };
+  homeworkPulse: { overdue: number; dueToday: number; dueThisWeek: number; nextItem: { id: string; description: string | null; dueDate: string | null; type: string } | null };
+  todaySessions: { id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: string; status: string }[];
+  todayHomework: { id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[];
 }
 
 export function StudentDashboardContent({ data }: { data: DashboardData }) {
@@ -46,9 +55,11 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
   const {
     fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, nameMap,
     studyAnalytics, liveSessions, watchingRows, hwCounts, activePackages, nextQuiz,
-    lastProgress, resumeLesson,
+    lastProgress, resumeLesson, streakInfo, homeworkPulse, todaySessions, todayHomework,
   } = data;
 
+  // Booking-success toast on ?booked=1 — replace the URL afterwards so a
+  // refresh doesn't re-toast.
   useEffect(() => {
     if (searchParams.get("booked") === "1") {
       toast.success(t("تم الحجز بنجاح! سيتم تأكيده من المعلم", "Booking submitted! Teacher will confirm soon."));
@@ -56,14 +67,21 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Live ticking countdown — re-renders every 60s so the "Next Session" KPI
-  // and the time-aware copy on the banner update without a reload. SSR uses
-  // the initial Date.now() so first-paint hydration matches.
+  // Live ticker — every 60s. SSR/first-paint stays consistent because we
+  // initialize from a one-shot Date.now() on first render.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(id);
   }, []);
+
+  const refresh = () => window.location.reload();
+
+  // Countdown to next session (used by KPI 4).
+  const minsUntilNext = nextBooking
+    ? Math.floor((new Date(nextBooking.scheduled_at).getTime() - now) / 60_000)
+    : null;
+  const isImminent = minsUntilNext != null && minsUntilNext <= 30;
 
   let countdownShort = "—";
   if (nextBooking) {
@@ -80,11 +98,6 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
     }
   }
 
-  const minsUntilNext = nextBooking
-    ? Math.floor((new Date(nextBooking.scheduled_at).getTime() - now) / 60_000)
-    : null;
-  const isImminent = minsUntilNext != null && minsUntilNext <= 30;
-
   // KPI 1 — Active Package: sessions remaining + percent used.
   const primaryPackage = activePackages[0] ?? null;
   const pkgRemaining = primaryPackage ? primaryPackage.sessions_total - primaryPackage.sessions_used : 0;
@@ -92,23 +105,96 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
     ? Math.round((primaryPackage.sessions_used / primaryPackage.sessions_total) * 100)
     : 0;
 
-  // Greeting context — name (when available), localized weekday, and the
-  // most recent surah/ayah waypoint from student_progress.
+  // Greeting context. The `today` Date wraps `now` so it stays stable inside
+  // useMemo dependencies (useMemo dep is `now` directly, not the Date object).
   const firstName = fullName ? fullName.split(" ")[0] : null;
-  const today = new Date(now);
-  const weekday = today.toLocaleDateString(lang === "ar" ? "ar" : "en-US", { weekday: "long" });
+  const weekday = new Date(now).toLocaleDateString(lang === "ar" ? "ar" : "en-US", { weekday: "long" });
   const surahNum = lastProgress?.surah_to ?? lastProgress?.surah_from ?? null;
   const ayahNum = lastProgress?.ayah_to ?? lastProgress?.ayah_from ?? null;
   const surahLabel = surahName(surahNum, lang === "ar" ? "ar" : "en");
-  const surahBreadcrumb = surahLabel
-    ? lang === "ar"
-      ? `أنت في سورة ${surahLabel}${ayahNum ? ` · الآية ${ayahNum}` : ""}`
-      : `You are in Surah ${surahLabel}${ayahNum ? ` · Ayah ${ayahNum}` : ""}`
-    : null;
 
   const teacherNameForBanner = nextBooking ? nameMap[nextBooking.teacher_id] ?? null : null;
 
-  // Compute KPI 4 outside the render so the JSX stays flat and readable.
+  // Today's Plan items — sorted chronologically.
+  const todaysPlanItems = useMemo(() => {
+    const items: { id: string; kind: "session" | "homework" | "quiz"; title: string; detail: string; href: string; at: string | null; urgent?: boolean }[] = [];
+    for (const s of todaySessions) {
+      const teacherName = nameMap[s.teacher_id] ?? t("معلمك", "your teacher");
+      items.push({
+        id: `s:${s.id}`,
+        kind: "session",
+        title: t(`جلسة مع ${teacherName}`, `Session with ${teacherName}`),
+        detail: t(`${s.duration_min} دقيقة`, `${s.duration_min} min · ${s.session_type}`),
+        href: `/student/bookings/${s.id}`,
+        at: s.scheduled_at,
+        urgent: new Date(s.scheduled_at).getTime() - now <= 30 * 60_000,
+      });
+    }
+    for (const h of todayHomework) {
+      items.push({
+        id: `h:${h.id}`,
+        kind: "homework",
+        title: h.description ?? t("واجب", "Assignment"),
+        detail: t(`نوع: ${h.homework_type}`, `Type: ${h.homework_type}`),
+        href: "/student/homework",
+        at: h.due_date,
+        urgent: true,
+      });
+    }
+    if (nextQuiz?.due_at) {
+      const dueDate = new Date(nextQuiz.due_at);
+      const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
+      if (dueDate >= todayStart && dueDate <= todayEnd) {
+        items.push({
+          id: `q:${nextQuiz.id}`,
+          kind: "quiz",
+          title: nextQuiz.title,
+          detail: t("اختبار", "Quiz"),
+          href: `/student/quizzes/${nextQuiz.id}/take`,
+          at: nextQuiz.due_at,
+          urgent: true,
+        });
+      }
+    }
+    items.sort((a, b) => {
+      if (!a.at) return 1;
+      if (!b.at) return -1;
+      return new Date(a.at).getTime() - new Date(b.at).getTime();
+    });
+    return items;
+  }, [todaySessions, todayHomework, nextQuiz, nameMap, now, t]);
+
+  // Keyboard shortcuts — navigation, join-session, help overlay.
+  const [helpOpen, setHelpOpen] = useShortcutsHelp();
+  const shortcuts: Shortcut[] = useMemo(() => [
+    {
+      combo: "j",
+      description: { ar: "انضم للجلسة القادمة", en: "Join next session" },
+      group: { ar: "إجراءات", en: "Actions" },
+      onTrigger: () => {
+        if (sessionId && isImminent) window.location.assign(`/student/sessions/${sessionId}`);
+        else toast.info(t("لا توجد جلسة وشيكة", "No imminent session"));
+      },
+    },
+    { combo: "g d", description: { ar: "اللوحة", en: "Dashboard" }, group: { ar: "تنقل", en: "Navigate" }, href: "/student/dashboard" },
+    { combo: "g s", description: { ar: "الجلسات", en: "Sessions" }, group: { ar: "تنقل", en: "Navigate" }, href: "/student/sessions" },
+    { combo: "g c", description: { ar: "الدورات", en: "Courses" }, group: { ar: "تنقل", en: "Navigate" }, href: "/student/courses" },
+    { combo: "g h", description: { ar: "الواجبات", en: "Homework" }, group: { ar: "تنقل", en: "Navigate" }, href: "/student/homework" },
+    { combo: "g q", description: { ar: "الاختبارات", en: "Quizzes" }, group: { ar: "تنقل", en: "Navigate" }, href: "/student/quizzes" },
+    { combo: "g p", description: { ar: "تقدمي", en: "Progress" }, group: { ar: "تنقل", en: "Navigate" }, href: "/student/progress" },
+    { combo: "g t", description: { ar: "المعلمون", en: "Teachers" }, group: { ar: "تنقل", en: "Navigate" }, href: "/student/teachers" },
+    { combo: "g m", description: { ar: "الرسائل", en: "Messages" }, group: { ar: "تنقل", en: "Navigate" }, href: "/student/messages" },
+    { combo: "g k", description: { ar: "التقويم", en: "Calendar" }, group: { ar: "تنقل", en: "Navigate" }, href: "/student/calendar" },
+    { combo: "?", description: { ar: "إظهار الاختصارات", en: "Show shortcuts" }, group: { ar: "مساعدة", en: "Help" }, onTrigger: () => setHelpOpen(true) },
+  ], [sessionId, isImminent, toast, t, setHelpOpen]);
+  useKeyboardShortcuts(shortcuts, true);
+
+  // Last refresh marker — initial render time.
+  const [lastRefreshAt] = useState(() => new Date());
+  const lastRefreshLabel = lastRefreshAt.toLocaleTimeString(lang === "ar" ? "ar" : "en-US", { hour: "2-digit", minute: "2-digit" });
+
+  // KPI 4 — quiz takes priority, else next session, else "no upcoming".
   const kpi4 = (() => {
     if (nextQuiz) {
       const dueDate = nextQuiz.due_at ? new Date(nextQuiz.due_at) : null;
@@ -149,166 +235,238 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
     );
   })();
 
+  // Empty-state hint for the Active Package KPI when no package is bought.
+  const isEmptyShell = !primaryPackage && totalSessions === 0 && !nextBooking;
+
   return (
     <div className="student-dashboard-skin">
-      <div dir={dir} className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
-        {/* Welcome row — greeting + day + active surah waypoint. The page no
-            longer leads with a strip of numbers; it leads with the student. */}
-        <header className="mb-6">
-          <h1 className="font-display text-2xl font-bold sm:text-3xl">
-            {firstName
-              ? t(`أهلاً، ${firstName}`, `Welcome back, ${firstName}`)
-              : t("أهلاً بعودتك", "Welcome back")}
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            {weekday}
-            {surahBreadcrumb && (
-              <>
-                <span className="mx-2 text-muted-light" aria-hidden="true">·</span>
-                <span className="text-foreground/80">{surahBreadcrumb}</span>
-              </>
-            )}
-          </p>
-        </header>
+      {/* Skip link — visible only on focus, jumps screen-reader users past
+          the topbar utilities and directly to the dashboard's main region. */}
+      <a
+        href="#student-main"
+        className="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-[200] focus:rounded focus:bg-gold focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-background"
+      >
+        {t("تخطي إلى المحتوى", "Skip to main content")}
+      </a>
 
-        {/* Single primary CTA — what should the student actually do right now? */}
-        <div className="mb-8">
-          <NextActionBanner
-            data={{
-              nextBooking: nextBooking
-                ? {
-                    sessionId,
-                    bookingId: nextBooking.id,
-                    scheduledAt: nextBooking.scheduled_at,
-                    teacherName: teacherNameForBanner,
-                  }
-                : null,
-              resumeLesson,
-            }}
-          />
-        </div>
+      <div dir={dir} className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10" id="student-main">
+        <WelcomeHeader
+          firstName={firstName}
+          weekday={weekday}
+          surahLabel={surahLabel}
+          ayahNum={ayahNum}
+          surahNum={surahNum}
+          streak={streakInfo.streak}
+          loggedToday={streakInfo.loggedToday}
+        />
 
-        {/* 4-KPI grid — mobile order surfaces the most-actionable KPI first.
-            On phones (single column flow) Next Session leads; on desktop the
-            visual order is Package → Completed → Month → Next Session. */}
-        <div className="grid grid-cols-2 gap-6 md:grid-cols-4 stagger-children motion-reduce:[&>*]:animate-none">
-          <div className="order-2 md:order-1">
-            <StatCard
-              icon={Briefcase}
-              label={t("باقتي", "Active Package")}
-              value={primaryPackage ? `${pkgRemaining}` : "—"}
-              href="/student/packages"
-              actionLabel={primaryPackage ? `${pkgPct}% ${t("مستخدم", "used")}` : t("اشتر باقة", "Buy Package")}
-              statusBadge={primaryPackage ? { text: t("نشط", "Active"), type: "active" } : undefined}
-              subtitle={primaryPackage ? t("جلسات متبقية", "sessions left") : undefined}
-              progressPct={primaryPackage ? pkgPct : undefined}
+        {/* Single primary CTA — smart resolution covers 8 priority states. */}
+        <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل الإجراء التالي", "Couldn't load the next action")}>
+          <section aria-label={t("الإجراء التالي", "Next action")} className="mb-8">
+            <NextActionBanner
+              data={{
+                nextBooking: nextBooking
+                  ? {
+                      sessionId,
+                      bookingId: nextBooking.id,
+                      scheduledAt: nextBooking.scheduled_at,
+                      teacherName: teacherNameForBanner,
+                    }
+                  : null,
+                resumeLesson,
+                homework: homeworkPulse,
+                nextQuiz,
+              }}
             />
-          </div>
-          <div className="order-3 md:order-2">
-            <StatCard
-              icon={CheckCircle}
-              label={t("الجلسات المكتملة", "Completed")}
-              value={totalSessions}
-              href="/student/sessions"
-              actionLabel={t("عرض الكل", "View All")}
-            />
-          </div>
-          <div className="order-4 md:order-3">
-            <StatCard
-              icon={Calendar}
-              label={t("هذا الشهر", "This Month")}
-              value={monthSessions}
-              href="/student/sessions"
-              actionLabel={`${pendingBookings} ${t("معلّقة", "pending")}`}
-            />
-          </div>
-          <div className="order-1 md:order-4">{kpi4}</div>
-        </div>
+          </section>
+        </SectionErrorBoundary>
 
-        {/* Report Analytics chart (3fr) + Online Classes + Assignment Breakdown (2fr) */}
-        <div className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-5">
-          <div className="lg:col-span-3">
-            <WidgetCard title={t("تحليلات التقدم", "Report Analytics")}>
-              <AnalyticsChart
-                data={studyAnalytics.weekly}
-                dailyData={studyAnalytics.daily}
-                monthlyData={studyAnalytics.monthly}
-                title={t("تحليلات التقدم", "Report Analytics")}
+        {/* 4-KPI grid — mobile order leads with the actionable one. */}
+        <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل المؤشرات", "Couldn't load KPIs")}>
+          <section
+            aria-label={t("مؤشرات سريعة", "Key metrics")}
+            className="grid grid-cols-2 gap-6 md:grid-cols-4 stagger-children motion-reduce:[&>*]:animate-none"
+          >
+            <div className="order-2 md:order-1">
+              <StatCard
+                icon={Briefcase}
+                label={t("باقتي", "Active Package")}
+                value={primaryPackage ? `${pkgRemaining}` : "—"}
+                href="/student/packages"
+                actionLabel={primaryPackage ? `${pkgPct}% ${t("مستخدم", "used")}` : t("اشتر باقة", "Buy Package")}
+                statusBadge={primaryPackage
+                  ? { text: t("نشط", "Active"), type: "active" }
+                  : isEmptyShell ? { text: t("ابدأ", "Start"), type: "info" } : undefined}
+                subtitle={primaryPackage ? t("جلسات متبقية", "sessions left") : undefined}
+                progressPct={primaryPackage ? pkgPct : undefined}
               />
-            </WidgetCard>
+            </div>
+            <div className="order-3 md:order-2">
+              <StatCard
+                icon={CheckCircle}
+                label={t("الجلسات المكتملة", "Completed")}
+                value={totalSessions}
+                href="/student/sessions"
+                actionLabel={t("عرض الكل", "View All")}
+              />
+            </div>
+            <div className="order-4 md:order-3">
+              <StatCard
+                icon={Calendar}
+                label={t("هذا الشهر", "This Month")}
+                value={monthSessions}
+                href="/student/sessions"
+                actionLabel={`${pendingBookings} ${t("معلّقة", "pending")}`}
+              />
+            </div>
+            <div className="order-1 md:order-4">{kpi4}</div>
+          </section>
+        </SectionErrorBoundary>
+
+        {/* Today's Plan — unified what's-on-my-plate-now surface. */}
+        <section aria-labelledby="todays-plan-heading" className="mt-10">
+          <h2 id="todays-plan-heading" className="sr-only">
+            {t("خطة اليوم", "Today's Plan")}
+          </h2>
+          <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل خطة اليوم", "Couldn't load Today's Plan")}>
+            <TodaysPlan items={todaysPlanItems} homeworkPulse={homeworkPulse} />
+          </SectionErrorBoundary>
+        </section>
+
+        {/* Analytics + sidebar widgets. */}
+        <section aria-label={t("التحليلات", "Analytics")} className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-5">
+          <div className="lg:col-span-3">
+            <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل التحليلات", "Couldn't load analytics")}>
+              <WidgetCard
+                title={t("تحليلات التقدم", "Report Analytics")}
+                subtitle={streakInfo.weeklyMinutes > 0
+                  ? t(
+                      `${streakInfo.weeklyMinutes} د هذا الأسبوع${streakInfo.weeklyDelta !== 0 ? ` (${streakInfo.weeklyDelta > 0 ? "+" : ""}${streakInfo.weeklyDelta}%)` : ""}`,
+                      `${streakInfo.weeklyMinutes} min this week${streakInfo.weeklyDelta !== 0 ? ` (${streakInfo.weeklyDelta > 0 ? "+" : ""}${streakInfo.weeklyDelta}%)` : ""}`,
+                    )
+                  : undefined}
+              >
+                <AnalyticsChart
+                  data={studyAnalytics.weekly}
+                  dailyData={studyAnalytics.daily}
+                  monthlyData={studyAnalytics.monthly}
+                  title={t("تحليلات التقدم", "Report Analytics")}
+                />
+              </WidgetCard>
+            </SectionErrorBoundary>
           </div>
 
           <div className="space-y-6 lg:col-span-2">
-            <LiveSessionsWidget
-              sessions={liveSessions}
-              title={t("الجلسات المباشرة", "Online Classes")}
-              ongoingCount={liveSessions.length}
-            />
-            <BreakdownBar
-              title={t("توزيع الواجبات", "Assignment Breakdown")}
-              infoTooltip={t("توزيع حالة الواجبات", "Distribution of homework status")}
-              flat
-              segments={[
-                ...(hwCounts.completed_excellent || hwCounts.completed_good
-                  ? [{
-                      label: t("تم التسليم", "Total Submitted"),
-                      value: (hwCounts.completed_excellent ?? 0) + (hwCounts.completed_good ?? 0),
-                      color: "var(--success)",
-                    }]
-                  : []),
-                ...(hwCounts.student_ready
-                  ? [{ label: t("قيد المراجعة", "In Review"), value: hwCounts.student_ready, color: "var(--accent-purple)" }]
-                  : []),
-                ...(hwCounts.assigned || hwCounts.completed_needs_work || hwCounts.completed_not_done
-                  ? [{
-                      label: t("متبقي", "Remaining"),
-                      value: (hwCounts.assigned ?? 0) + (hwCounts.completed_needs_work ?? 0) + (hwCounts.completed_not_done ?? 0),
-                      color: "var(--surface-divider)",
-                    }]
-                  : []),
-              ]}
-              emptyMessage={t("ابدأ تتبع الواجبات لرؤية التقدم", "Start tracking homework to see progress")}
-            />
+            <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل الجلسات المباشرة", "Couldn't load live sessions")}>
+              <LiveSessionsWidget
+                sessions={liveSessions}
+                title={t("الجلسات المباشرة", "Online Classes")}
+                ongoingCount={liveSessions.length}
+              />
+            </SectionErrorBoundary>
+            <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل توزيع الواجبات", "Couldn't load homework breakdown")}>
+              <BreakdownBar
+                title={t("توزيع الواجبات", "Assignment Breakdown")}
+                infoTooltip={t("توزيع حالة الواجبات", "Distribution of homework status")}
+                flat
+                segments={[
+                  ...(hwCounts.completed_excellent || hwCounts.completed_good
+                    ? [{
+                        label: t("تم التسليم", "Total Submitted"),
+                        value: (hwCounts.completed_excellent ?? 0) + (hwCounts.completed_good ?? 0),
+                        color: "var(--success)",
+                      }]
+                    : []),
+                  ...(hwCounts.student_ready
+                    ? [{ label: t("قيد المراجعة", "In Review"), value: hwCounts.student_ready, color: "var(--accent-purple)" }]
+                    : []),
+                  ...(hwCounts.assigned || hwCounts.completed_needs_work || hwCounts.completed_not_done
+                    ? [{
+                        label: t("متبقي", "Remaining"),
+                        value: (hwCounts.assigned ?? 0) + (hwCounts.completed_needs_work ?? 0) + (hwCounts.completed_not_done ?? 0),
+                        color: "var(--surface-divider)",
+                      }]
+                    : []),
+                ]}
+                emptyMessage={t("ابدأ تتبع الواجبات لرؤية التقدم", "Start tracking homework to see progress")}
+              />
+            </SectionErrorBoundary>
           </div>
-        </div>
+        </section>
 
-        {/* Pick up where you left off — the Quran-context reframe of
-            "Continue Watching". */}
-        <div className="mt-10">
-          <DataTable
-            title={t("أكمل من حيث توقفت", "Pick up where you left off")}
-            selectable
-            simpleProgress
-            columns={[
-              { key: "subject", label: t("الكورس", "Subject") },
-              { key: "date", label: t("التاريخ", "Date"), type: "date" },
-              { key: "progress", label: t("التقدم", "Progress"), type: "progress" },
-              { key: "assignee", label: t("الفريق", "Assignee"), type: "assignee" },
-              { key: "view", label: t("الإجراءات", "Actions"), type: "actions" },
-            ]}
-            rows={watchingRows as { id: string; [key: string]: unknown }[]}
-            renderRowActions={(row) => {
-              const lessonId = row._lessonId as string | undefined;
-              const href = (row._href as string | undefined) ?? "/student/courses";
-              if (!lessonId) {
-                // Recording-only rows (no lessonId): a single Resume-style link
-                // with a proper Lucide icon, matching the menu trigger style.
-                return (
-                  <a
-                    href={href}
-                    aria-label={t("عرض", "View")}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded text-[var(--muted-light,#9CA3AF)] hover:text-foreground"
-                  >
-                    <Eye size={14} aria-hidden="true" />
-                  </a>
-                );
-              }
-              return <LessonRowActions lessonId={lessonId} href={href} />;
-            }}
-            emptyMessage={t("لا توجد دروس قيد المتابعة بعد", "No lessons in progress yet")}
-          />
-        </div>
+        {/* Pick up where you left off. */}
+        <section aria-labelledby="pick-up-heading" className="mt-10">
+          <h2 id="pick-up-heading" className="sr-only">
+            {t("أكمل من حيث توقفت", "Pick up where you left off")}
+          </h2>
+          <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل القائمة", "Couldn't load this list")}>
+            <DataTable
+              title={t("أكمل من حيث توقفت", "Pick up where you left off")}
+              selectable
+              simpleProgress
+              columns={[
+                { key: "subject", label: t("الكورس", "Subject") },
+                { key: "date", label: t("التاريخ", "Date"), type: "date" },
+                { key: "progress", label: t("التقدم", "Progress"), type: "progress" },
+                { key: "assignee", label: t("الفريق", "Assignee"), type: "assignee" },
+                { key: "view", label: t("الإجراءات", "Actions"), type: "actions" },
+              ]}
+              rows={watchingRows as { id: string; [key: string]: unknown }[]}
+              renderRowActions={(row) => {
+                const lessonId = row._lessonId as string | undefined;
+                const href = (row._href as string | undefined) ?? "/student/courses";
+                if (!lessonId) {
+                  return (
+                    <a
+                      href={href}
+                      aria-label={t("عرض", "View")}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded text-[var(--muted-light,#9CA3AF)] hover:text-foreground"
+                    >
+                      <Eye size={14} aria-hidden="true" />
+                    </a>
+                  );
+                }
+                return <LessonRowActions lessonId={lessonId} href={href} />;
+              }}
+              emptyMessage={t("لا توجد دروس قيد المتابعة بعد", "No lessons in progress yet")}
+            />
+          </SectionErrorBoundary>
+        </section>
+
+        {/* Footer — last refresh + shortcut hint + refresh button. Keeps the
+            page feeling alive without consuming visual real estate above the
+            fold. */}
+        <footer className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--surface-divider,var(--surface-border))] pt-5 text-xs text-muted">
+          <p>
+            {t(`آخر تحديث ${lastRefreshLabel}`, `Last refreshed at ${lastRefreshLabel}`)}
+          </p>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setHelpOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 transition-colors hover:bg-foreground/5 hover:text-foreground focus-ring"
+              aria-label={t("اختصارات لوحة المفاتيح", "Keyboard shortcuts")}
+            >
+              <Keyboard size={12} aria-hidden="true" />
+              <span>{t("اختصارات", "Shortcuts")}</span>
+              <kbd className="ms-1 inline-flex h-5 min-w-[18px] items-center justify-center rounded border border-[var(--surface-border)] bg-[var(--surface-light)] px-1 font-mono text-[10px]">
+                ?
+              </kbd>
+            </button>
+            <button
+              type="button"
+              onClick={refresh}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 transition-colors hover:bg-foreground/5 hover:text-foreground focus-ring"
+              aria-label={t("تحديث", "Refresh")}
+            >
+              <RefreshCw size={12} aria-hidden="true" />
+              <span>{t("تحديث", "Refresh")}</span>
+            </button>
+          </div>
+        </footer>
       </div>
+
+      <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} shortcuts={shortcuts} />
     </div>
   );
 }

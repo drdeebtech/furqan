@@ -39,7 +39,7 @@ const STYLES = {
   success: "border-success/30 bg-success/10 text-success",
   error: "border-error/30 bg-error/10 text-error",
   warning: "border-warning/30 bg-warning/10 text-warning",
-  info: "border-blue-500/30 bg-blue-500/10 text-blue-400",
+  info: "border-gold/30 bg-gold/10 text-gold",
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {

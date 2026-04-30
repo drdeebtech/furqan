@@ -59,6 +59,128 @@ function groupSessionsByDay(
   return result;
 }
 
+/**
+ * Current consecutive-day study streak.
+ *
+ * Walks `study_log` from today backwards: counts each day with at least one
+ * entry, stops at the first day with zero. Today counts even if the student
+ * hasn't logged yet (lenient — encourages opening the app); yesterday must be
+ * a real entry. Returns `{ streak, weeklyMinutes, weeklyDelta }` where delta
+ * is week-over-week percentage change.
+ */
+export async function getStudentStreak(
+  studentId: string,
+): Promise<{ streak: number; weeklyMinutes: number; weeklyDelta: number; loggedToday: boolean }> {
+  const supabase = await createClient();
+  const now = new Date();
+  const fortyNineDaysAgo = new Date(now.getTime() - 49 * 24 * 60 * 60 * 1000);
+
+  const { data: logs } = await supabase
+    .from("study_log")
+    .select("started_at, duration_seconds")
+    .eq("student_id", studentId)
+    .gte("started_at", fortyNineDaysAgo.toISOString())
+    .order("started_at", { ascending: false })
+    .returns<{ started_at: string; duration_seconds: number }[]>();
+
+  const list = logs ?? [];
+
+  // Bucket entries by day-key (YYYY-MM-DD in local time).
+  const byDay = new Map<string, number>();
+  for (const log of list) {
+    const d = new Date(log.started_at);
+    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    byDay.set(key, (byDay.get(key) ?? 0) + (log.duration_seconds ?? 0));
+  }
+
+  const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  const today = new Date(now);
+  const todayKey = dayKey(today);
+  const loggedToday = byDay.has(todayKey);
+
+  // Walk backwards counting consecutive days with entries.
+  let streak = 0;
+  const cursor = new Date(today);
+  // If today has no entry, still allow the streak to count from yesterday so
+  // students who haven't yet started today don't see it drop to 0.
+  if (!byDay.has(dayKey(cursor))) {
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  while (byDay.has(dayKey(cursor))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  // Weekly totals: this calendar week (Mon–Sun) vs the prior 7-day window.
+  const weekStart = new Date(today);
+  weekStart.setHours(0, 0, 0, 0);
+  weekStart.setDate(today.getDate() - ((today.getDay() + 6) % 7)); // Monday
+  const previousWeekStart = new Date(weekStart);
+  previousWeekStart.setDate(previousWeekStart.getDate() - 7);
+
+  let thisWeekSec = 0;
+  let lastWeekSec = 0;
+  for (const log of list) {
+    const t = new Date(log.started_at).getTime();
+    if (t >= weekStart.getTime()) thisWeekSec += log.duration_seconds ?? 0;
+    else if (t >= previousWeekStart.getTime()) lastWeekSec += log.duration_seconds ?? 0;
+  }
+  const weeklyMinutes = Math.round(thisWeekSec / 60);
+  const lastWeekMinutes = Math.round(lastWeekSec / 60);
+  const weeklyDelta = lastWeekMinutes > 0
+    ? Math.round(((weeklyMinutes - lastWeekMinutes) / lastWeekMinutes) * 100)
+    : weeklyMinutes > 0 ? 100 : 0;
+
+  return { streak, weeklyMinutes, weeklyDelta, loggedToday };
+}
+
+/**
+ * Homework due-soon awareness for the dashboard banner + Today's Plan.
+ *
+ * Returns counts of: items overdue (due_date < now), items due today, items
+ * due in the next 7 days, and the most-urgent open item (for banner copy).
+ */
+export async function getStudentHomeworkPulse(
+  studentId: string,
+): Promise<{
+  overdue: number;
+  dueToday: number;
+  dueThisWeek: number;
+  nextItem: { id: string; description: string | null; dueDate: string | null; type: string } | null;
+}> {
+  const supabase = await createClient();
+  const now = new Date();
+  const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(now); endOfDay.setHours(23, 59, 59, 999);
+  const inSevenDays = new Date(now); inSevenDays.setDate(inSevenDays.getDate() + 7);
+
+  const { data: items } = await supabase
+    .from("homework_assignments")
+    .select("id, description, due_date, homework_type, status")
+    .eq("student_id", studentId)
+    .in("status", ["assigned", "completed_needs_work"])
+    .order("due_date", { ascending: true, nullsFirst: false })
+    .returns<{ id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[]>();
+
+  let overdue = 0;
+  let dueToday = 0;
+  let dueThisWeek = 0;
+  let nextItem: { id: string; description: string | null; dueDate: string | null; type: string } | null = null;
+
+  for (const item of items ?? []) {
+    if (!item.due_date) continue;
+    const due = new Date(item.due_date);
+    if (due < startOfDay) overdue += 1;
+    else if (due >= startOfDay && due <= endOfDay) dueToday += 1;
+    else if (due <= inSevenDays) dueThisWeek += 1;
+    if (!nextItem) {
+      nextItem = { id: item.id, description: item.description, dueDate: item.due_date, type: item.homework_type };
+    }
+  }
+
+  return { overdue, dueToday, dueThisWeek, nextItem };
+}
+
 export async function getStudentWeeklyStudyTime(
   studentId: string,
   lang: "ar" | "en" = "en"

@@ -9,6 +9,8 @@ import {
   getStudentRecentRecordings,
   getStudentContinueWatching,
   getStudentNextQuiz,
+  getStudentStreak,
+  getStudentHomeworkPulse,
 } from "@/lib/dashboard-queries";
 
 export const metadata: Metadata = { title: "لوحتي" };
@@ -90,8 +92,12 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
   }
 
   // Parallel: packages + homework + dashboard widgets + most-recent learning
-  // waypoint (drives the surah breadcrumb above the KPI grid).
-  const [packagesRes, hwRawRes, studyAnalytics, liveSessions, continueWatching, recentRecordings, nextQuiz, lastProgressRes] = await Promise.all([
+  // waypoint (drives the surah breadcrumb above the KPI grid) + streak +
+  // homework pulse (drives the smart NextActionBanner).
+  const [
+    packagesRes, hwRawRes, studyAnalytics, liveSessions, continueWatching,
+    recentRecordings, nextQuiz, lastProgressRes, streakInfo, homeworkPulse,
+  ] = await Promise.all([
     supabase.from("student_packages")
       .select("id, sessions_total, sessions_used, status, expires_at")
       .eq("student_id", user.id).eq("status", "active")
@@ -110,6 +116,8 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle<{ surah_to: number | null; ayah_to: number | null; surah_from: number | null; ayah_from: number | null; level: string; created_at: string }>(),
+    getStudentStreak(user.id),
+    getStudentHomeworkPulse(user.id),
   ]);
   const activePackages = packagesRes.data ?? [];
   const hwCounts: Record<string, number> = {};
@@ -132,6 +140,44 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
       }
     : null;
 
+  // Today's plan items — sessions today + homework due today + quiz due today.
+  // Built server-side so the widget never re-queries client-side.
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+
+  const [todaySessionsRes, todayHomeworkRes] = await Promise.all([
+    supabase.from("bookings")
+      .select("id, teacher_id, scheduled_at, duration_min, session_type, status")
+      .eq("student_id", user.id).eq("status", "confirmed")
+      .gte("scheduled_at", todayStart.toISOString()).lte("scheduled_at", todayEnd.toISOString())
+      .order("scheduled_at", { ascending: true })
+      .returns<{ id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: string; status: string }[]>(),
+    supabase.from("homework_assignments")
+      .select("id, description, due_date, homework_type, status")
+      .eq("student_id", user.id)
+      .in("status", ["assigned", "completed_needs_work"])
+      .gte("due_date", todayStart.toISOString()).lte("due_date", todayEnd.toISOString())
+      .order("due_date", { ascending: true })
+      .returns<{ id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[]>(),
+  ]);
+
+  const todaySessions = todaySessionsRes.data ?? [];
+  const todayHomework = todayHomeworkRes.data ?? [];
+
+  // Resolve teacher names for today's sessions (only if not already in nameMap).
+  const todayTeacherIds = todaySessions
+    .map(s => s.teacher_id)
+    .filter(id => !nameMap[id]);
+  if (todayTeacherIds.length > 0) {
+    const { data: teachers } = await supabase
+      .from("profiles").select("id, full_name")
+      .in("id", todayTeacherIds)
+      .returns<{ id: string; full_name: string | null }[]>();
+    for (const t of teachers ?? []) {
+      if (t.full_name) nameMap[t.id] = t.full_name;
+    }
+  }
+
   return (
     <StudentDashboardContent
       data={{
@@ -150,6 +196,10 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
         nextQuiz,
         lastProgress,
         resumeLesson,
+        streakInfo,
+        homeworkPulse,
+        todaySessions,
+        todayHomework,
       }}
     />
   );
