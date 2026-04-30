@@ -200,6 +200,7 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
         homeworkPulse,
         todaySessions,
         todayHomework,
+        renderedAtMs: now.getTime(),
       }}
     />
   );

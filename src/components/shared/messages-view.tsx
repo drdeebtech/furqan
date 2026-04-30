@@ -2,11 +2,10 @@
 
 import { useState, useEffect, useRef, useTransition } from "react";
 import { MessageCircle, Send, Inbox, Plus } from "lucide-react";
-import { sendMessage, getMessages, markConversationAsRead } from "./message-actions";
+import { sendMessage, getMessages } from "./message-actions";
 import { createConversation, getContactsForRole } from "./messages-actions";
 import { useToast } from "./toast";
 import { useLang } from "@/lib/i18n/context";
-import { logError } from "@/lib/logger";
 
 interface Conversation {
   id: string;
@@ -59,10 +58,6 @@ export function MessagesView({
     startLoadTransition(async () => {
       const msgs = await getMessages(activeConvo);
       setMessages(msgs);
-      // Mark messages as read when opening conversation
-      markConversationAsRead(activeConvo).catch((err) =>
-        logError("markConversationAsRead failed", err, { tag: "messaging", component: "messages-view" }),
-      );
     });
   }, [activeConvo, startLoadTransition]);
 

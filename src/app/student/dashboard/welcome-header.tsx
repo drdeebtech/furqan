@@ -40,7 +40,7 @@ export function WelcomeHeader({
               : t("أهلاً بعودتك", "Welcome back")}
           </h1>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted" aria-live="polite">
-            <span>{weekday}</span>
+            <span suppressHydrationWarning>{weekday}</span>
             {surahLabel && (
               <>
                 <span className="text-muted-light" aria-hidden="true">·</span>

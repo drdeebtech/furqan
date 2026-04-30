@@ -46,6 +46,7 @@ interface DashboardData {
   homeworkPulse: { overdue: number; dueToday: number; dueThisWeek: number; nextItem: { id: string; description: string | null; dueDate: string | null; type: string } | null };
   todaySessions: { id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: string; status: string }[];
   todayHomework: { id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[];
+  renderedAtMs: number;
 }
 
 export function StudentDashboardContent({ data }: { data: DashboardData }) {
@@ -56,6 +57,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
     fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, nameMap,
     studyAnalytics, liveSessions, watchingRows, hwCounts, activePackages, nextQuiz,
     lastProgress, resumeLesson, streakInfo, homeworkPulse, todaySessions, todayHomework,
+    renderedAtMs,
   } = data;
 
   // Booking-success toast on ?booked=1 — replace the URL afterwards so a
@@ -67,9 +69,9 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Live ticker — every 60s. SSR/first-paint stays consistent because we
-  // initialize from a one-shot Date.now() on first render.
-  const [now, setNow] = useState(() => Date.now());
+  // Live ticker — every 60s. Seed from the server render time so the first
+  // countdown render matches SSR, then let the browser advance it.
+  const [now, setNow] = useState(renderedAtMs);
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(id);
@@ -190,9 +192,8 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
   ], [sessionId, isImminent, toast, t, setHelpOpen]);
   useKeyboardShortcuts(shortcuts, true);
 
-  // Last refresh marker — initial render time.
-  const [lastRefreshAt] = useState(() => new Date());
-  const lastRefreshLabel = lastRefreshAt.toLocaleTimeString(lang === "ar" ? "ar" : "en-US", { hour: "2-digit", minute: "2-digit" });
+  // Last refresh marker — derived from the server render time.
+  const lastRefreshLabel = new Date(renderedAtMs).toLocaleTimeString(lang === "ar" ? "ar" : "en-US", { hour: "2-digit", minute: "2-digit" });
 
   // KPI 4 — quiz takes priority, else next session, else "no upcoming".
   const kpi4 = (() => {
@@ -437,7 +438,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
             page feeling alive without consuming visual real estate above the
             fold. */}
         <footer className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--surface-divider,var(--surface-border))] pt-5 text-xs text-muted">
-          <p>
+          <p suppressHydrationWarning>
             {t(`آخر تحديث ${lastRefreshLabel}`, `Last refreshed at ${lastRefreshLabel}`)}
           </p>
           <div className="flex items-center gap-3">

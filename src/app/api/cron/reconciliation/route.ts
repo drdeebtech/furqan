@@ -5,6 +5,8 @@ import { sendTelegramAlert } from "@/lib/n8n/client";
 import { logError } from "@/lib/logger";
 import { withCronMonitor } from "@/lib/sentry/cron";
 
+export const dynamic = "force-dynamic";
+
 function safeCompare(a: string | null, b: string | undefined): boolean {
   if (!a || !b) return false;
   const aBuf = Buffer.from(a);

@@ -5,6 +5,15 @@ import { createClient } from "@/lib/supabase/server";
 import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
 
+type MessageRow = {
+  id: string;
+  sender_id: string;
+  content: string;
+  msg_type: string;
+  created_at: string;
+  is_read: boolean;
+};
+
 export async function sendMessage(conversationId: string, content: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -47,13 +56,21 @@ export async function markConversationAsRead(conversationId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "غير مصرح" };
 
-  // Mark all messages NOT sent by current user as read
-  await supabase
+  const { error } = await supabase
     .from("messages")
     .update({ is_read: true } as never)
     .eq("conversation_id", conversationId)
     .neq("sender_id", user.id)
     .eq("is_read", false);
+
+  if (error) {
+    logError("markConversationAsRead failed", error, {
+      tag: "messaging",
+      component: "message-actions",
+      conversationId,
+    });
+    return { error: "حدث خطأ أثناء تحديث حالة القراءة" };
+  }
 
   return { success: true };
 }
@@ -86,6 +103,8 @@ export async function getUnreadMessageCount() {
 
 export async function getMessages(conversationId: string) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
 
   const { data, error } = await supabase
     .from("messages")
@@ -93,17 +112,36 @@ export async function getMessages(conversationId: string) {
     .eq("conversation_id", conversationId)
     .is("deleted_at", null)
     .order("created_at", { ascending: true })
-    .returns<{
-      id: string;
-      sender_id: string;
-      content: string;
-      msg_type: string;
-      created_at: string;
-      is_read: boolean;
-    }[]>();
+    .returns<MessageRow[]>();
 
   if (error) {
-    logError("Failed to fetch messages", error, { tag: "message-actions" });
+    logError("Failed to fetch messages", error, { tag: "message-actions", conversationId });
+    return [];
+  }
+
+  const unreadIncomingIds = (data ?? [])
+    .filter((message) => message.sender_id !== user.id && !message.is_read)
+    .map((message) => message.id);
+
+  if (unreadIncomingIds.length > 0) {
+    const { error: markError } = await supabase
+      .from("messages")
+      .update({ is_read: true } as never)
+      .in("id", unreadIncomingIds);
+
+    if (markError) {
+      logError("getMessages mark-as-read failed", markError, {
+        tag: "messaging",
+        component: "message-actions",
+        conversationId,
+      });
+    } else {
+      return data.map((message) => (
+        unreadIncomingIds.includes(message.id)
+          ? { ...message, is_read: true }
+          : message
+      ));
+    }
   }
 
   return data ?? [];
