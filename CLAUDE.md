@@ -414,9 +414,19 @@ Supabase Auth can reject passwords known to be in the HaveIBeenPwned breach corp
 2. Find **Leaked password protection** (sometimes labeled "HaveIBeenPwned check").
 3. Toggle on. Save.
 4. Verify by attempting to register / reset with a known-pwned password (e.g. `password123`) — the request must be rejected.
-5. Re-run `mcp__claude_ai_Supabase__get_advisors({type: "security"})` (or Dashboard → Advisors) — the `auth_leaked_password_protection` finding should be gone.
+5. Verify via Dashboard → Advisors — the `auth_leaked_password_protection` finding should be gone. (Do **not** use `mcp__claude_ai_Supabase__*` here — see Supabase MCP gotcha below.)
 
 Docs: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
+
+## Supabase MCP — wrong-account gotcha
+
+The `mcp__claude_ai_Supabase__*` tools (and the `supabase` CLI when logged in via the host machine) are authenticated to the user's *primary* Supabase account, which is **not** the account that owns the FURQAN database. FURQAN's project lives under a separate account (`alforqan.egy@gmail.com`); MCP only sees `Dr Deeb Urology Clinic`.
+
+**Consequences:**
+- `list_projects`, `get_advisors`, `execute_sql`, `get_logs`, `apply_migration` and friends silently target the **wrong project** if called blindly. They will return data for the urology clinic schema, not FURQAN.
+- The CLAUDE.md instruction to "Re-run `get_advisors`" only works if FURQAN's account is added to MCP/CLI auth. Until that's wired up, treat all Supabase verification steps as "browser only".
+
+**For audits / advisors / one-off SQL on FURQAN**: open the dashboard at https://supabase.com/dashboard signed in as `alforqan.egy@gmail.com`. For programmatic access, generate a personal access token under that account and use the `supabase` CLI with `--token`, or set `SUPABASE_ACCESS_TOKEN` in a shell-scoped env var.
 
 ## Verification Checklist
 After any code change:
