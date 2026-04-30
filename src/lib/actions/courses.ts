@@ -107,13 +107,18 @@ export type CreateCourseResult =
 
 export async function createCourse(formData: FormData): Promise<CreateCourseResult> {
   const supabase = await createClient();
-  let user: { id: string };
+  let actor: { id: string };
   try {
-    user = (await requireTeacherOrAbove(supabase)).user;
+    // Course creation is now admin/moderator-only — staff create courses on
+    // behalf of teachers, the teacher field is selected in the form rather
+    // than inferred from the session. RLS migration 20260430085907 enforces
+    // the same restriction at the database level.
+    actor = (await requireAdminOrMod(supabase)).user;
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }
 
+  const teacher_id = String(formData.get("teacher_id") ?? "").trim();
   const title_ar = String(formData.get("title_ar") ?? "").trim();
   const title_en = (formData.get("title_en") as string | null)?.trim() || null;
   const description_ar = (formData.get("description_ar") as string | null) ?? null;
@@ -125,9 +130,22 @@ export async function createCourse(formData: FormData): Promise<CreateCourseResu
   const price_cents = Number(formData.get("price_cents") ?? 0) | 0;
   const currency = (formData.get("currency") as CourseCurrency) || "USD";
 
+  if (!teacher_id) return { ok: false, error: "اختر المعلم المالك للدورة" };
   if (!title_ar) return { ok: false, error: "العنوان بالعربية مطلوب" };
   if (pricing_type === "one_time" && price_cents <= 0) {
     return { ok: false, error: "السعر مطلوب للدورات المدفوعة" };
+  }
+
+  // Verify the selected teacher_id actually belongs to a teacher account —
+  // we won't trust the form value blindly even though admin/mod is gating
+  // the call. Stops accidental assignment to a student/admin id.
+  const { data: teacherRow } = await supabase
+    .from("profiles")
+    .select("role, deleted_at")
+    .eq("id", teacher_id)
+    .single<{ role: string; deleted_at: string | null }>();
+  if (!teacherRow || teacherRow.role !== "teacher" || teacherRow.deleted_at) {
+    return { ok: false, error: "المعلم المختار غير صالح" };
   }
 
   const baseSlug = slugify(title_en || title_ar);
@@ -136,7 +154,7 @@ export async function createCourse(formData: FormData): Promise<CreateCourseResu
   const { data, error } = await supabase
     .from("courses")
     .insert({
-      teacher_id: user.id,
+      teacher_id,
       slug,
       title_ar,
       title_en,
@@ -154,12 +172,12 @@ export async function createCourse(formData: FormData): Promise<CreateCourseResu
     .single<{ id: string }>();
 
   if (error || !data) {
-    logError("createCourse failed", error, { tag: "courses", userId: user.id });
+    logError("createCourse failed", error, { tag: "courses", actorId: actor.id, teacherId: teacher_id });
     return { ok: false, error: error?.message ?? "فشل إنشاء الدورة" };
   }
 
   revalidateCoursePaths(data.id, slug);
-  redirect(`/teacher/courses/${data.id}`);
+  redirect(`/admin/courses/${data.id}`);
 }
 
 // ─── 2. updateCourse ────────────────────────────────────────────────────────

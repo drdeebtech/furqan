@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { GraduationCap, Plus, Inbox } from "lucide-react";
+import { GraduationCap, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { isFeatureEnabled } from "@/lib/settings";
@@ -77,19 +77,16 @@ export default async function TeacherCoursesPage() {
 
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <GraduationCap size={24} className="text-gold" />
-          <h1 className="text-xl font-bold">{t("الدورات المسجلة", "Recorded Courses")}</h1>
-        </div>
-        <Link
-          href="/teacher/courses/new"
-          className="flex items-center gap-2 rounded-lg bg-gold px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
-        >
-          <Plus size={16} />
-          {t("دورة جديدة", "New course")}
-        </Link>
+      <div className="mb-6 flex items-center gap-3">
+        <GraduationCap size={24} className="text-gold" aria-hidden="true" />
+        <h1 className="text-xl font-bold">{t("الدورات المسجلة", "Recorded Courses")}</h1>
       </div>
+      <p className="mb-6 max-w-2xl text-sm text-muted">
+        {t(
+          "الدورات تُنشَأ من قِبَل الإدارة نيابةً عنك. تواصل مع المشرف لإضافة دورة جديدة، ثم تستطيع إضافة الدروس وإرسال الدورة للمراجعة.",
+          "Courses are created by staff on your behalf. Contact a moderator to add a new course; you can then add lessons and submit it for review.",
+        )}
+      </p>
 
       {!enabled && (
         <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-warning dark:border-amber-700 dark:bg-amber-950 dark:text-warning">
@@ -102,12 +99,12 @@ export default async function TeacherCoursesPage() {
 
       {!courses || courses.length === 0 ? (
         <div className="glass-card p-12 text-center">
-          <Inbox size={40} className="mx-auto mb-3 text-muted/40" />
+          <Inbox size={40} className="mx-auto mb-3 text-muted/40" aria-hidden="true" />
           <p className="text-muted">{t("لا توجد دورات بعد", "No courses yet")}</p>
           <p className="mt-1 text-sm text-muted/60">
             {t(
-              "أنشئ دورتك الأولى وابدأ في تسجيل الدروس",
-              "Create your first course and start recording lessons",
+              "ستظهر الدورات هنا بعد أن تنشئها الإدارة وتنسبها إليك.",
+              "Courses will appear here once staff create them and assign them to you.",
             )}
           </p>
         </div>

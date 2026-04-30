@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { GraduationCap, Inbox } from "lucide-react";
+import { GraduationCap, Inbox, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import type { Course } from "@/types/database";
@@ -104,9 +104,18 @@ export default async function AdminCoursesPage({
 
   return (
     <div dir={dir} className="mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-6 flex items-center gap-3">
-        <GraduationCap size={24} className="text-gold" />
-        <h1 className="text-xl font-bold">{t("مراجعة الدورات", "Course Review")}</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <GraduationCap size={24} className="text-gold" aria-hidden="true" />
+          <h1 className="font-display text-xl font-bold sm:text-2xl">{t("الدورات المسجلة", "Recorded Courses")}</h1>
+        </div>
+        <Link
+          href="/admin/courses/new"
+          className="inline-flex items-center gap-2 rounded-lg bg-gold px-4 py-2 text-sm font-medium text-background transition hover:bg-gold-hover focus-ring"
+        >
+          <Plus size={16} aria-hidden="true" />
+          {t("دورة جديدة", "New course")}
+        </Link>
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2">

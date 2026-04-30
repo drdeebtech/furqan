@@ -6,9 +6,9 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { createCourse } from "@/lib/actions/courses";
 
-export const metadata: Metadata = { title: "دورة جديدة" };
+export const metadata: Metadata = { title: "دورة مسجلة جديدة" };
 
-export default async function NewCoursePage() {
+export default async function AdminNewCoursePage() {
   const { t, dir } = await getT();
   const supabase = await createClient();
   const {
@@ -21,24 +21,39 @@ export default async function NewCoursePage() {
     .select("role")
     .eq("id", user.id)
     .single<{ role: string }>();
-  if (
-    !profile ||
-    !["admin", "moderator", "teacher"].includes(profile.role)
-  ) {
+  if (!profile || !["admin", "moderator"].includes(profile.role)) {
     redirect("/login");
   }
 
+  // Pull the active teacher list so the staff member can assign the course
+  // to its owning teacher. Sort by full_name for predictability.
+  const { data: teachers } = await supabase
+    .from("profiles")
+    .select("id, full_name, email")
+    .eq("role", "teacher")
+    .is("deleted_at", null)
+    .order("full_name", { ascending: true })
+    .returns<{ id: string; full_name: string | null; email: string | null }[]>();
+
   return (
     <div dir={dir} className="mx-auto max-w-2xl px-4 py-8">
-      <div className="mb-4 flex items-center gap-2 text-sm text-muted">
-        <Link href="/teacher/courses" className="hover:text-gold">
+      <nav aria-label={t("مسار الصفحة", "Breadcrumb")} className="mb-4 flex items-center gap-2 text-sm text-muted">
+        <Link href="/admin/courses" className="hover:text-gold focus-ring rounded">
           {t("الدورات المسجلة", "Recorded Courses")}
         </Link>
-        <ChevronRight size={14} className={dir === "rtl" ? "rotate-180" : ""} />
+        <ChevronRight size={14} className={dir === "rtl" ? "rotate-180" : ""} aria-hidden="true" />
         <span>{t("دورة جديدة", "New course")}</span>
-      </div>
+      </nav>
 
-      <h1 className="mb-6 text-xl font-bold">{t("إنشاء دورة جديدة", "Create a new course")}</h1>
+      <h1 className="mb-1 font-display text-2xl font-bold sm:text-3xl">
+        {t("إنشاء دورة جديدة", "Create a new course")}
+      </h1>
+      <p className="mb-6 text-sm text-muted">
+        {t(
+          "تنشئ الدورات نيابةً عن المعلم — اختر المعلم المالك ثم املأ تفاصيل الدورة. يستطيع المعلم بعد ذلك إضافة الدروس وإرسالها للمراجعة.",
+          "Courses are created on behalf of teachers — pick the owning teacher, then fill in the course details. The teacher can add lessons afterwards and submit for review.",
+        )}
+      </p>
 
       <form
         action={async (fd) => {
@@ -48,6 +63,32 @@ export default async function NewCoursePage() {
         className="glass-card space-y-5 p-6"
       >
         <div>
+          <label className="mb-1.5 block text-sm font-medium" htmlFor="teacher_id">
+            {t("المعلم المالك", "Owning teacher")} *
+          </label>
+          <select
+            id="teacher_id"
+            name="teacher_id"
+            required
+            defaultValue=""
+            className="w-full rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3 py-2 text-sm focus-ring"
+          >
+            <option value="" disabled>{t("اختر المعلم…", "Select a teacher…")}</option>
+            {(teachers ?? []).map((teacher) => (
+              <option key={teacher.id} value={teacher.id}>
+                {teacher.full_name ?? teacher.email ?? teacher.id}
+                {teacher.email ? ` · ${teacher.email}` : ""}
+              </option>
+            ))}
+          </select>
+          {(teachers ?? []).length === 0 && (
+            <p className="mt-1 text-xs text-warning">
+              {t("لا يوجد معلمون مسجلون بعد", "No teachers registered yet")}
+            </p>
+          )}
+        </div>
+
+        <div>
           <label className="mb-1.5 block text-sm font-medium" htmlFor="title_ar">
             {t("عنوان الدورة (عربي)", "Course title (Arabic)")} *
           </label>
@@ -56,7 +97,7 @@ export default async function NewCoursePage() {
             name="title_ar"
             required
             maxLength={120}
-            className="w-full rounded-lg border bg-white/40 px-3 py-2 text-sm dark:bg-white/5"
+            className="w-full rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3 py-2 text-sm focus-ring"
             placeholder={t("مثال: التجويد للمبتدئين", "e.g. Tajweed for Beginners")}
           />
         </div>
@@ -69,7 +110,7 @@ export default async function NewCoursePage() {
             id="title_en"
             name="title_en"
             maxLength={120}
-            className="w-full rounded-lg border bg-white/40 px-3 py-2 text-sm dark:bg-white/5"
+            className="w-full rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3 py-2 text-sm focus-ring"
             placeholder="Tajweed for Beginners"
           />
         </div>
@@ -82,7 +123,7 @@ export default async function NewCoursePage() {
             id="description_ar"
             name="description_ar"
             rows={4}
-            className="w-full rounded-lg border bg-white/40 px-3 py-2 text-sm dark:bg-white/5"
+            className="w-full rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3 py-2 text-sm focus-ring"
           />
         </div>
 
@@ -94,8 +135,8 @@ export default async function NewCoursePage() {
             <select
               id="level"
               name="level"
-              className="w-full rounded-lg border bg-white/40 px-3 py-2 text-sm dark:bg-white/5"
               defaultValue=""
+              className="w-full rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3 py-2 text-sm focus-ring"
             >
               <option value="">—</option>
               <option value="beginner">{t("مبتدئ", "Beginner")}</option>
@@ -110,8 +151,8 @@ export default async function NewCoursePage() {
             <select
               id="language"
               name="language"
-              className="w-full rounded-lg border bg-white/40 px-3 py-2 text-sm dark:bg-white/5"
               defaultValue="ar"
+              className="w-full rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3 py-2 text-sm focus-ring"
             >
               <option value="ar">{t("العربية", "Arabic")}</option>
               <option value="en">{t("الإنجليزية", "English")}</option>
@@ -125,8 +166,8 @@ export default async function NewCoursePage() {
             <select
               id="specialty"
               name="specialty"
-              className="w-full rounded-lg border bg-white/40 px-3 py-2 text-sm dark:bg-white/5"
               defaultValue=""
+              className="w-full rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3 py-2 text-sm focus-ring"
             >
               <option value="">—</option>
               <option value="tajweed">{t("تجويد", "Tajweed")}</option>
@@ -137,15 +178,10 @@ export default async function NewCoursePage() {
           </div>
         </div>
 
-        <div className="rounded-lg border bg-white/20 p-4 dark:bg-white/5">
-          <div className="mb-3 flex items-center gap-4">
+        <div className="rounded-lg border border-[var(--surface-border)] bg-surface/40 p-4">
+          <div className="mb-3 flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="pricing_type"
-                value="free"
-                defaultChecked
-              />
+              <input type="radio" name="pricing_type" value="free" defaultChecked />
               {t("مجانية", "Free")}
             </label>
             <label className="flex items-center gap-2 text-sm">
@@ -164,7 +200,7 @@ export default async function NewCoursePage() {
                 type="number"
                 min={0}
                 defaultValue={0}
-                className="w-full rounded-lg border bg-white/40 px-3 py-2 text-sm dark:bg-white/5"
+                className="w-full rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3 py-2 text-sm focus-ring"
               />
             </div>
             <div>
@@ -174,8 +210,8 @@ export default async function NewCoursePage() {
               <select
                 id="currency"
                 name="currency"
-                className="w-full rounded-lg border bg-white/40 px-3 py-2 text-sm dark:bg-white/5"
                 defaultValue="USD"
+                className="w-full rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3 py-2 text-sm focus-ring"
               >
                 <option value="USD">USD</option>
                 <option value="EGP">EGP</option>
@@ -193,13 +229,13 @@ export default async function NewCoursePage() {
         <div className="flex items-center gap-3 pt-2">
           <button
             type="submit"
-            className="rounded-lg bg-gold px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+            className="rounded-lg bg-gold px-4 py-2 text-sm font-medium text-background transition hover:bg-gold-hover focus-ring"
           >
             {t("إنشاء الدورة", "Create course")}
           </button>
           <Link
-            href="/teacher/courses"
-            className="text-sm text-muted hover:text-foreground"
+            href="/admin/courses"
+            className="text-sm text-muted hover:text-foreground focus-ring rounded"
           >
             {t("إلغاء", "Cancel")}
           </Link>
