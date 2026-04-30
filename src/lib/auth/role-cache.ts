@@ -5,7 +5,7 @@ import { revalidateTag } from "next/cache";
  * Canonical tag for the per-user role cache used by `src/proxy.ts`.
  *
  *   const role = await unstable_cache(
- *     async () => /* fetch role */,
+ *     async () => fetchRole(),
  *     [...],
  *     { tags: [buildRoleTag(userId)], revalidate: 10 },
  *   )();
