@@ -44,6 +44,8 @@
 
 ## Stage 2 — `next/image` + `next/font`
 
+> **Audit complete (2026-04-30)**: only 2 raw `<img>` tags exist in `src/`; both Supabase Storage URLs already covered by `next.config.ts` `remotePatterns` and `vercel.json` CSP. Image portion is **shipped** (commit `5ccbff4`). Font self-hosting remains.
+
 **Why**: Raw `<img>` tags cost CLS + bandwidth; Google Fonts trip CSP; Arabic typefaces need stable metrics for RTL.
 
 **Scope**: Replace all `<img>` with `<Image>`; self-host fonts via `next/font/local`.
@@ -71,7 +73,20 @@
 
 ## Stage 3 — Cache revalidation discipline (`revalidateTag` + Next 16 Cache Components)
 
+> **Audit complete (2026-04-30)**: 312 `revalidatePath` calls across 56 files in 10 domains. This is **not a single PR** — it's a 4-phase migration. See "Phased rollout" below.
+
 **Why**: Highest-ROI single upgrade. Many small writes (booking flips, homework grading) currently nuke whole route segments. Tag-based invalidation = 5-10x faster perceived dashboard updates.
+
+**Phased rollout (from audit)**:
+- **Phase 1 — LOW** (~30 call sites): bookings, notifications, individual settings, moderation. Single-path migrations, safe to start immediately.
+- **Phase 2 — MEDIUM** (~120 call sites): homework + dashboard actions. Multi-path tag coordination; needs integration tests.
+- **Phase 3 — HIGH** (~28 call sites): public cache clears (`clearPublicCache()` invalidates 10 paths), retention admin. System-wide invalidation; needs E2E tests + fallback.
+- **Phase 4** — migrate `unstable_cache` → `'use cache'` directive with `cacheTag()` / `cacheLife()`.
+
+**Blocking clarifications before Phase 2+**:
+1. Per-userId / per-teacherId tag cardinality — or broader scope?
+2. Time-based `cacheLife` policy — or event-driven only?
+3. n8n webhook revalidation — handlers add their own `revalidateTag`, or stay server-action-scoped?
 
 **Scope**: Migrate from `revalidatePath` to `revalidateTag` everywhere mutations happen; adopt Cache Components per the Vercel knowledge update.
 
