@@ -143,7 +143,8 @@ export async function updateBookingStatus(
   }
 
   revalidatePath("/teacher/dashboard");
-  try { await emitEvent("booking.confirmed", "booking", bookingId, { student_id: booking.student_id, teacher_id: user.id }); } catch {}
+  await emitEvent("booking.confirmed", "booking", bookingId, { student_id: booking.student_id, teacher_id: user.id })
+    .catch((err) => logError("emit booking.confirmed failed", err, { tag: "automation", event: "booking.confirmed" }));
   return { success: true, roomUrl, warning: roomWarning };
 }
 
@@ -192,7 +193,8 @@ export async function markNoShow(bookingId: string) {
 
   revalidatePath("/teacher/dashboard");
   revalidatePath("/teacher/sessions");
-  try { await emitEvent("session.no_show", "booking", bookingId, { student_id: booking.student_id, teacher_id: user.id }); } catch {}
+  await emitEvent("session.no_show", "booking", bookingId, { student_id: booking.student_id, teacher_id: user.id })
+    .catch((err) => logError("emit session.no_show failed", err, { tag: "automation", event: "session.no_show" }));
   return { success: true };
 }
 
@@ -274,7 +276,8 @@ export async function endSession(sessionId: string) {
   revalidatePath("/teacher/dashboard");
   revalidatePath(`/teacher/sessions/${sessionId}`);
   revalidatePath("/teacher/sessions");
-  try { await emitEvent("session.ended", "session", sessionId, { booking_id: session.booking_id, teacher_id: user.id, actual_duration: actualDuration }); } catch {}
+  await emitEvent("session.ended", "session", sessionId, { booking_id: session.booking_id, teacher_id: user.id, actual_duration: actualDuration })
+    .catch((err) => logError("emit session.ended failed", err, { tag: "automation", event: "session.ended" }));
   return { success: true };
 }
 

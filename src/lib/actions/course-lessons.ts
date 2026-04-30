@@ -127,8 +127,12 @@ export async function createLesson(
       courseId,
       bunnyGuid,
     });
-    // best-effort cleanup of the orphan Bunny video record
-    deleteBunnyVideo(bunnyGuid).catch(() => {});
+    // best-effort cleanup of the orphan Bunny video record — log if it fails
+    // so we don't silently leak Bunny videos when the cleanup doesn't go
+    // through.
+    deleteBunnyVideo(bunnyGuid).catch((err) =>
+      logError("bunny orphan cleanup failed", err, { tag: "bunny", bunnyGuid }),
+    );
     return { ok: false, error: error?.message ?? "فشل إنشاء الدرس" };
   }
 

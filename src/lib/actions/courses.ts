@@ -263,7 +263,12 @@ export async function submitForReview(
   const notReadyIds = lessons.filter((l) => l.video_status !== "ready").map((l) => l.id);
   if (notReadyIds.length > 0) {
     await Promise.all(
-      notReadyIds.map((lid) => syncLessonStatusFromBunny(lid).catch(() => null)),
+      notReadyIds.map((lid) =>
+        syncLessonStatusFromBunny(lid).catch((err) => {
+          logError("bunny status sync failed", err, { tag: "bunny", lessonId: lid });
+          return null;
+        }),
+      ),
     );
     const { data: refreshed } = await supabase
       .from("course_lessons")

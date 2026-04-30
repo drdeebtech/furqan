@@ -62,7 +62,8 @@ export async function createEvaluation(formData: FormData) {
 
   revalidatePath("/admin/evaluations");
   revalidatePath("/moderator/evaluations");
-  try { await emitEvent("evaluation.created", "evaluation", student_id, { student_id, teacher_id, evaluation_type }); } catch {}
+  await emitEvent("evaluation.created", "evaluation", student_id, { student_id, teacher_id, evaluation_type })
+    .catch((err) => logError("emit evaluation.created failed", err, { tag: "automation", event: "evaluation.created" }));
   return { success: true };
 }
 
@@ -116,7 +117,8 @@ export async function createTeacherEvaluation(
 
   revalidatePath("/teacher/evaluations");
   revalidatePath("/teacher/students");
-  try { await emitEvent("evaluation.created", "evaluation", studentId, { student_id: studentId, teacher_id: user.id, evaluation_type: evaluationType }); } catch {}
+  await emitEvent("evaluation.created", "evaluation", studentId, { student_id: studentId, teacher_id: user.id, evaluation_type: evaluationType })
+    .catch((err) => logError("emit evaluation.created failed", err, { tag: "automation", event: "evaluation.created" }));
   return { success: true };
 }
 

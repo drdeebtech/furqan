@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { emitEvent } from "@/lib/automation/emit";
+import { logError } from "@/lib/logger";
 
 export async function savePostSessionNotes(
   sessionId: string,
@@ -26,6 +27,7 @@ export async function savePostSessionNotes(
   }
 
   revalidatePath(`/teacher/sessions/${sessionId}`);
-  try { await emitEvent("session.notes_saved", "session", sessionId, { has_notes: !!notes, has_homework: !!homework }); } catch {}
+  await emitEvent("session.notes_saved", "session", sessionId, { has_notes: !!notes, has_homework: !!homework })
+    .catch((err) => logError("emit session.notes_saved failed", err, { tag: "automation", event: "session.notes_saved" }));
   return { success: true };
 }

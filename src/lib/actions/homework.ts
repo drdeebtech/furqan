@@ -101,7 +101,8 @@ export async function createHomework(formData: FormData) {
   }
 
   revalidateHomeworkPaths();
-  try { await emitEvent("homework.assigned", "homework", booking_id, { student_id, teacher_id: user.id, homework_type, title }); } catch {}
+  await emitEvent("homework.assigned", "homework", booking_id, { student_id, teacher_id: user.id, homework_type, title })
+    .catch((err) => logError("emit homework.assigned failed", err, { tag: "automation", event: "homework.assigned" }));
   return { success: true };
 }
 
@@ -146,7 +147,8 @@ export async function markStudentReady(homeworkId: string) {
   }
 
   revalidateHomeworkPaths();
-  try { await emitEvent("homework.student_ready", "homework", homeworkId, { student_id: user.id, teacher_id: hw.teacher_id }); } catch {}
+  await emitEvent("homework.student_ready", "homework", homeworkId, { student_id: user.id, teacher_id: hw.teacher_id })
+    .catch((err) => logError("emit homework.student_ready failed", err, { tag: "automation", event: "homework.student_ready" }));
   return { success: true };
 }
 
@@ -250,7 +252,8 @@ export async function gradeHomework(homeworkId: string, formData: FormData) {
   }
 
   revalidateHomeworkPaths();
-  try { await emitEvent("homework.graded", "homework", homeworkId, { student_id: hw.student_id, teacher_id: hw.teacher_id, grade }); } catch {}
+  await emitEvent("homework.graded", "homework", homeworkId, { student_id: hw.student_id, teacher_id: hw.teacher_id, grade })
+    .catch((err) => logError("emit homework.graded failed", err, { tag: "automation", event: "homework.graded" }));
   return { success: true };
 }
 

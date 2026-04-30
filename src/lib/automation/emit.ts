@@ -1,9 +1,14 @@
 /**
  * Event emission to n8n automation engine.
- * Non-blocking — fire-and-forget in try/catch.
+ * Non-blocking — fire-and-forget. Errors must NOT be silently swallowed
+ * (per CLAUDE.md "No Silent Failures Policy"). Pipe failures through
+ * `logError` so an n8n outage shows up in Sentry instead of disappearing.
  *
  * Usage in server actions:
- *   try { await emitEvent("booking.confirmed", "booking", bookingId, { student_id, teacher_id }); } catch {}
+ *   await emitEvent("booking.confirmed", "booking", bookingId, { student_id, teacher_id })
+ *     .catch((err) => logError("emit booking.confirmed failed", err, {
+ *       tag: "automation", event: "booking.confirmed"
+ *     }));
  */
 
 import { signWebhookPayload } from "@/lib/security/secrets";
