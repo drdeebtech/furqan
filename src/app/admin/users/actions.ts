@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
+import { invalidateRoleCache } from "@/lib/auth/role-cache";
 import { logError } from "@/lib/logger";
 
 async function authOrError(): Promise<{ id?: string; error?: string }> {
@@ -65,6 +66,10 @@ export async function changeUserRole(userId: string, role: string) {
 
   const { error } = await admin.from("profiles").update({ role: newRole } satisfies TableUpdate<"profiles">).eq("id", userId);
   if (error) return { error: "فشل تغيير الدور — تأكد من صلاحيات المدير" };
+
+  // Bust the per-user role cache used by middleware so the demoted/promoted
+  // role takes effect on the user's very next request — no 10s wait window.
+  invalidateRoleCache(userId);
 
   await admin.from("audit_log").insert({
     changed_by: auth.id,
