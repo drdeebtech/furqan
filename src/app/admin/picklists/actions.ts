@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
 import { requireAdmin } from "@/lib/auth/require-admin";
@@ -12,6 +13,18 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 type AnyClient = any;
 
 type PicklistTable = "teacher_languages" | "teacher_specialties" | "teacher_recitations";
+
+const picklistTable = z.enum(["teacher_languages", "teacher_specialties", "teacher_recitations"]);
+
+const upsertPicklistSchema = z.object({
+  table: picklistTable,
+  oldKey: z.string().min(1).max(100).nullable(),
+  key: z.string().min(1, "المفتاح مطلوب").max(100),
+  label_ar: z.string().min(1, "التسمية بالعربية مطلوبة").max(200),
+  label_en: z.string().min(1, "التسمية بالإنجليزية مطلوبة").max(200),
+  sort_order: z.number().int().min(0).max(10_000),
+  is_active: z.boolean(),
+});
 
 function str(formData: FormData, key: string): string | null {
   const v = formData.get(key);
@@ -37,17 +50,10 @@ function revalidatePicklistConsumers() {
   revalidatePath("/teachers-page");
 }
 
-const upsertBase = loudAction<{
-  table: PicklistTable;
-  oldKey: string | null; // present when editing (key is the PK)
-  key: string;
-  label_ar: string;
-  label_en: string;
-  sort_order: number;
-  is_active: boolean;
-}, { message?: string }>({
+const upsertBase = loudAction<z.infer<typeof upsertPicklistSchema>, { message?: string }>({
   name: "admin.picklist.upsert",
   severity: "info",
+  schema: upsertPicklistSchema,
   audit: {
     table: "teacher_picklist",
     recordId: (i) => `${i.table}:${i.key}`,
@@ -90,22 +96,15 @@ export async function upsertPicklistRow(
   formData: FormData,
 ): Promise<LoudResult> {
   try { await requireAdmin(); } catch { return { ok: false, error: "غير مصرح" }; }
-  const table = formData.get("table");
-  if (table !== "teacher_languages" && table !== "teacher_specialties" && table !== "teacher_recitations") {
-    return { ok: false, error: "جدول غير صالح" };
-  }
-  const key = str(formData, "key");
-  const label_ar = str(formData, "label_ar");
-  const label_en = str(formData, "label_en");
-  if (!key || !label_ar || !label_en) {
-    return { ok: false, error: "المفتاح والتسميتان مطلوبة" };
-  }
+  // Hand the raw values to the schema; loudAction surfaces a friendly
+  // Arabic field-level error for any shape violation (invalid table,
+  // missing label, etc).
   return upsertBase({
-    table,
+    table: formData.get("table") as PicklistTable,
     oldKey: str(formData, "old_key"),
-    key,
-    label_ar,
-    label_en,
+    key: str(formData, "key") ?? "",
+    label_ar: str(formData, "label_ar") ?? "",
+    label_en: str(formData, "label_en") ?? "",
     sort_order: intOr(formData, "sort_order", 100),
     is_active: bool(formData, "is_active"),
   });

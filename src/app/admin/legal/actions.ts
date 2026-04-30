@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
 import { requireAdmin } from "@/lib/auth/require-admin";
@@ -8,13 +9,19 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = any;
 
-const updateLegalBase = loudAction<{
-  kind: "terms" | "privacy";
-  body_ar: string | null;
-  body_en: string | null;
-}, { message?: string }>({
+const updateLegalSchema = z.object({
+  kind: z.enum(["terms", "privacy"]),
+  // Bound the bodies — legal docs are long but not unbounded; 50k chars is
+  // ~10x the longest current document and prevents accidental DoS via giant
+  // paste from the admin form.
+  body_ar: z.string().max(50_000).nullable(),
+  body_en: z.string().max(50_000).nullable(),
+});
+
+const updateLegalBase = loudAction<z.infer<typeof updateLegalSchema>, { message?: string }>({
   name: "admin.legal.update",
   severity: "warning",
+  schema: updateLegalSchema,
   audit: {
     table: "legal_documents",
     recordId: (i) => i.kind,
@@ -88,12 +95,12 @@ export async function updateLegal(
   formData: FormData,
 ): Promise<LoudResult> {
   try { await requireAdmin(); } catch { return { ok: false, error: "غير مصرح" }; }
-  const kind = formData.get("kind");
-  if (kind !== "terms" && kind !== "privacy") return { ok: false, error: "نوع غير صحيح" };
+  // Hand the raw FormData values to the schema; loudAction surfaces a
+  // friendly Arabic field error for any shape violation (e.g. invalid kind).
   const bodyAr = formData.get("body_ar");
   const bodyEn = formData.get("body_en");
   return updateLegalBase({
-    kind,
+    kind: formData.get("kind") as "terms" | "privacy",
     body_ar: typeof bodyAr === "string" && bodyAr.trim() ? bodyAr : null,
     body_en: typeof bodyEn === "string" && bodyEn.trim() ? bodyEn : null,
   });
