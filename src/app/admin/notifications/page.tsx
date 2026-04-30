@@ -3,11 +3,10 @@ import { redirect } from "next/navigation";
 import { Bell } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
+import { getRecentBroadcasts } from "@/lib/notifications/queries";
 import { NotificationForm } from "./notification-form";
 
 export const metadata: Metadata = { title: "الإشعارات" };
-
-interface NotifRow { id: string; user_id: string; type: string; title: string; body: string | null; is_read: boolean; created_at: string; }
 
 export default async function AdminNotificationsPage() {
   const { t, dir, lang } = await getT();
@@ -15,9 +14,8 @@ export default async function AdminNotificationsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data } = await supabase.from("notifications").select("id, user_id, type, title, body, is_read, created_at")
-    .eq("type", "system").order("created_at", { ascending: false }).limit(20).returns<NotifRow[]>();
-  const recent = data ?? [];
+  // Tag-cached read; invalidated by sendNotification via revalidateTag.
+  const recent = await getRecentBroadcasts(20);
 
   return (
     <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
