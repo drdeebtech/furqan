@@ -16,7 +16,7 @@
  *     .ilike("full_name", `%${q}%`);
  *   return <SearchInput placeholder="..." paramName="q" />;
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, startTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 
@@ -40,8 +40,14 @@ export function SearchInput({
   const [value, setValue] = useState(() => searchParams.get(paramName) ?? "");
 
   // When the URL changes externally (e.g. browser back), keep the input synced.
+  // startTransition keeps this off the synchronous render path — required by
+  // React 19 compiler / project lint rule (see CLAUDE.md). Guard prevents the
+  // self-triggered re-run after our own router.replace below.
   useEffect(() => {
-    setValue(searchParams.get(paramName) ?? "");
+    const next = searchParams.get(paramName) ?? "";
+    startTransition(() => {
+      setValue((prev) => (prev === next ? prev : next));
+    });
   }, [searchParams, paramName]);
 
   // Debounced URL replacement.
@@ -67,7 +73,7 @@ export function SearchInput({
       <Search
         size={16}
         aria-hidden="true"
-        className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-muted"
+        className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-muted"
       />
       <input
         type="search"
@@ -76,14 +82,14 @@ export function SearchInput({
         placeholder={placeholder}
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="glass-input focus-ring w-full rounded-xl px-4 py-2 pe-10 ps-10 text-sm text-foreground placeholder:text-muted/50"
+        className="glass-input focus-ring w-full rounded-xl py-2 pe-10 ps-10 text-sm text-foreground placeholder:text-muted/50"
       />
       {value && (
         <button
           type="button"
           onClick={() => setValue("")}
           aria-label="مسح البحث"
-          className="focus-ring absolute start-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground"
+          className="focus-ring absolute end-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground"
         >
           <X size={14} aria-hidden="true" />
         </button>
