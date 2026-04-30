@@ -157,6 +157,33 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
     if (!hasInApp) return true;
   }
 
+  // Local Turbopack / Next dev-server connection aborts can leak into the
+  // production-tagged project if the contributor runs the app with
+  // VERCEL_ENV=production. They show up as bare node:_http_server
+  // abortIncoming/socketOnClose ECONNRESET stacks with zero in-app frames,
+  // a local `.local` server name, and macOS device metadata. Those are not
+  // actionable Furqan production bugs.
+  if (msg === "aborted" && exType === "Error") {
+    const serverName = typeof event.server_name === "string" ? event.server_name : "";
+    const osName = typeof event.contexts?.os?.name === "string" ? event.contexts.os.name : "";
+    const turbopack = event.tags?.turbopack;
+    const hasOnlyNodeFrames =
+      frames.length > 0 &&
+      frames.every((f) => {
+        const filename = f.filename ?? "";
+        return filename.startsWith("node:");
+      });
+
+    if (
+      hasOnlyNodeFrames &&
+      serverName.endsWith(".local") &&
+      osName === "macOS" &&
+      (turbopack === "True" || turbopack === true)
+    ) {
+      return true;
+    }
+  }
+
   return false;
 }
 
