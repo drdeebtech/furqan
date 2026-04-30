@@ -8,7 +8,7 @@ import { beforeSend } from "@/lib/sentry/before-send";
 
 const dsn =
   process.env.SENTRY_DSN?.trim() ||
-  "https://3e6ba831bf5a932017cd9999e2b066ac@o4511287545954304.ingest.de.sentry.io/4511287551197264";
+  "https://e75e135004c761a09b8c2c013d095686@o4511287545954304.ingest.de.sentry.io/4511305365323856";
 
 Sentry.init({
   dsn,

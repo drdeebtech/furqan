@@ -47,8 +47,8 @@ const wrapped = withBundleAnalyzer(withBotId(nextConfig));
  */
 export default withSentryConfig(wrapped, {
   silent: true,
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
+  org: process.env.SENTRY_ORG ?? "furqan-academy",
+  project: process.env.SENTRY_PROJECT ?? "javascript-nextjs-e4",
   authToken: process.env.SENTRY_AUTH_TOKEN,
   widenClientFileUpload: true,
   tunnelRoute: "/monitoring",
@@ -59,5 +59,11 @@ export default withSentryConfig(wrapped, {
     // so TS doesn't reject it while we wait on a type-only update.
     setCommits: { auto: true, ignoreMissingRepository: true } as unknown as { auto: true },
     deploy: { env: process.env.VERCEL_ENV ?? "development" },
+  },
+  webpack: {
+    automaticVercelMonitors: true,
+    treeshake: {
+      removeDebugLogging: true,
+    },
   },
 });
