@@ -42,14 +42,17 @@ export function BlogContent({ posts, categories }: { posts: Post[]; categories: 
   return (
     <div>
       {/* Header */}
-      <section className="glass-card border-b border-white/10 py-20 text-center">
-        <p className="text-sm text-muted">
-          <Link href="/" className="text-gold hover:text-gold-light">{t("الرئيسية", "Home")}</Link> / {t("المدونة", "Blog")}
-        </p>
-        <h1 className="font-display mt-4 text-5xl font-bold leading-tight">{t("المدونة", "Blog")}</h1>
-        <p className="mt-3 text-sm text-muted">
-          {t(`${posts.length} مقالة`, `${posts.length} Articles`)}
-        </p>
+      <section className="islamic-pattern relative overflow-hidden pt-24 pb-16 text-center">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-background" aria-hidden="true" />
+        <div className="relative mx-auto max-w-3xl px-6">
+          <nav aria-label={t("مسار الصفحة", "Breadcrumb")} className="text-xs text-muted-light">
+            <Link href="/" className="text-gold transition-colors hover:text-gold-light focus-ring">{t("الرئيسية", "Home")}</Link>
+            <span className="mx-2 text-muted-light" aria-hidden="true">/</span>
+            <span className="text-muted">{t("المدونة", "Blog")}</span>
+          </nav>
+          <h1 className="font-display mt-4 text-4xl font-bold leading-tight sm:text-5xl">{t("المدونة", "Blog")}</h1>
+          <p className="mt-3 text-sm text-muted">{t(`${posts.length} مقالة`, `${posts.length} Articles`)}</p>
+        </div>
       </section>
 
       <section className="py-24">

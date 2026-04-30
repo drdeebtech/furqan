@@ -35,7 +35,7 @@ export function EnrollButton({
     return (
       <Link
         href="/student/courses"
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-4 py-2.5 text-sm font-medium text-background transition hover:bg-gold-hover focus-ring"
       >
         {labels.go}
         <ArrowRight size={14} />
@@ -48,7 +48,7 @@ export function EnrollButton({
     return (
       <Link
         href={`/login?next=${ret}`}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90"
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-4 py-2.5 text-sm font-medium text-background transition hover:bg-gold-hover focus-ring"
       >
         {labels.login}
       </Link>
@@ -74,13 +74,13 @@ export function EnrollButton({
       <button
         onClick={handle}
         disabled={isPending}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-4 py-2.5 text-sm font-medium text-background transition hover:bg-gold-hover focus-ring disabled:opacity-50"
       >
         {isPending && <Loader2 size={14} className="animate-spin" />}
         {isFree ? labels.enroll : labels.buy}
       </button>
       {error && (
-        <p className="mt-2 text-xs text-red-600">{error}</p>
+        <p className="mt-2 text-xs text-error" role="alert">{error}</p>
       )}
     </div>
   );

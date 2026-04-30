@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { Lock } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { CONTACT } from "@/lib/contact";
 
@@ -13,10 +14,10 @@ export function PublicFooter() {
       <div className="gold-line" />
       <div className="mx-auto grid max-w-7xl gap-8 px-6 py-12 md:grid-cols-4">
         <div>
-          <div className="flex items-center gap-2">
+          <Link href="/" className="inline-flex items-center gap-2 focus-ring rounded-lg" aria-label={t("الصفحة الرئيسية", "Home")}>
             <Image src="/logo-192.png" alt="فرقان" width={32} height={32} sizes="32px" className="rounded-full" loading="lazy" />
             <span className="font-display text-2xl font-bold text-gold">فُرقان</span>
-          </div>
+          </Link>
           <p className="mt-3 text-sm text-foreground">{t("أكاديمية القرآن الكريم عبر الإنترنت", "Online Quran Learning Academy")}</p>
           <p className="mt-1 text-xs text-muted">{t("نربط الطلاب بأفضل معلمي القرآن المعتمدين حول العالم", "Connecting students with certified Quran teachers worldwide")}</p>
         </div>
@@ -31,10 +32,15 @@ export function PublicFooter() {
               { href: "/packages", ar: "باقاتنا", en: "Packages" },
               { href: "/blog", ar: "المدونة", en: "Blog" },
               { href: "/contact", ar: "اتصل بنا", en: "Contact" },
-              { href: "/login", ar: "🔒 بوابة الطلاب", en: "🔒 Student Portal" },
             ].map((l) => (
-              <li key={l.href}><Link href={l.href} className="inline-block transition-all duration-200 hover:text-gold">{t(l.ar, l.en)}</Link></li>
+              <li key={l.href}><Link href={l.href} className="inline-block transition-all duration-200 hover:text-gold focus-ring">{t(l.ar, l.en)}</Link></li>
             ))}
+            <li>
+              <Link href="/login" className="inline-flex items-center gap-1.5 transition-all duration-200 hover:text-gold focus-ring">
+                <Lock size={12} aria-hidden="true" />
+                {t("بوابة الطلاب", "Student Portal")}
+              </Link>
+            </li>
           </ul>
         </div>
 

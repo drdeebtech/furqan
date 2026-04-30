@@ -118,7 +118,7 @@ export default async function AdminCoursesPage({
               href={f.value ? `/admin/courses?status=${f.value}` : "/admin/courses"}
               className={`rounded-full px-4 py-1.5 text-sm transition ${
                 active
-                  ? "bg-gold text-white"
+                  ? "bg-gold text-background"
                   : "border bg-white/30 hover:bg-white/50 dark:bg-white/5 dark:hover:bg-white/10"
               }`}
             >

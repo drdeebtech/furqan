@@ -12,9 +12,29 @@ export function AboutContent({ values }: { values: SiteFeature[] }) {
 
   return (
     <div>
-      <section className="glass-card border-b border-white/10 py-20 text-center">
-        <p className="text-sm text-muted"><Link href="/" className="text-gold hover:text-gold-light">{t("الرئيسية", "Home")}</Link> / {t("من نحن", "About")}</p>
-        <h1 className="font-display mt-4 text-5xl font-bold leading-tight">{t("من نحن", "About Us")}</h1>
+      {/* Hero — restrained editorial treatment instead of the full-width
+          glass-card slab. Uses the islamic-pattern background with a soft
+          fade so the heading reads quiet and dignified, not banner-shouty. */}
+      <section className="islamic-pattern relative overflow-hidden pt-24 pb-16 text-center">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-background" aria-hidden="true" />
+        <div className="relative mx-auto max-w-3xl px-6">
+          <nav aria-label={t("مسار الصفحة", "Breadcrumb")} className="text-xs text-muted-light">
+            <Link href="/" className="text-gold transition-colors hover:text-gold-light focus-ring">
+              {t("الرئيسية", "Home")}
+            </Link>
+            <span className="mx-2 text-muted-light" aria-hidden="true">/</span>
+            <span className="text-muted">{t("من نحن", "About")}</span>
+          </nav>
+          <h1 className="font-display mt-4 text-4xl font-bold leading-tight sm:text-5xl">
+            {t("من نحن", "About Us")}
+          </h1>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted sm:text-base">
+            {t(
+              "أكاديمية مستقلة تخدم القرآن الكريم — معلمون معتمدون، جلسات فردية، من أي مكان في العالم.",
+              "An independent academy in service of the Quran — Ijazah-certified teachers, 1-on-1 sessions, anywhere in the world.",
+            )}
+          </p>
+        </div>
       </section>
 
       <section className="py-24">

@@ -46,10 +46,17 @@ export function TeachersContent({
 
   return (
     <div>
-      <section className="glass-card border-b border-white/10 py-20 text-center">
-        <p className="text-sm text-muted"><Link href="/" className="text-gold hover:text-gold-light">{t("الرئيسية", "Home")}</Link> / {t("المعلمون", "Teachers")}</p>
-        <h1 className="font-display mt-4 text-5xl font-bold leading-tight">{t("معلمونا", "Our Teachers")}</h1>
-        <p className="mt-3 text-sm text-muted">{t(`${teachers.length} معلم معتمد`, `${teachers.length} certified teachers`)}</p>
+      <section className="islamic-pattern relative overflow-hidden pt-24 pb-16 text-center">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-background" aria-hidden="true" />
+        <div className="relative mx-auto max-w-3xl px-6">
+          <nav aria-label={t("مسار الصفحة", "Breadcrumb")} className="text-xs text-muted-light">
+            <Link href="/" className="text-gold transition-colors hover:text-gold-light focus-ring">{t("الرئيسية", "Home")}</Link>
+            <span className="mx-2 text-muted-light" aria-hidden="true">/</span>
+            <span className="text-muted">{t("المعلمون", "Teachers")}</span>
+          </nav>
+          <h1 className="font-display mt-4 text-4xl font-bold leading-tight sm:text-5xl">{t("معلمونا", "Our Teachers")}</h1>
+          <p className="mt-3 text-sm text-muted">{t(`${teachers.length} معلم معتمد`, `${teachers.length} certified teachers`)}</p>
+        </div>
       </section>
 
       <section className="border-b border-white/10 py-8">

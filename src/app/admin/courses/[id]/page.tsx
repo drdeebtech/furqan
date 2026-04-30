@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, Check, X, Archive, PlayCircle, CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { ChevronRight, Check, X, Archive, PlayCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { approveCourse, rejectCourse, archiveCourse } from "@/lib/actions/courses";

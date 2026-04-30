@@ -98,26 +98,38 @@ export default async function PublicCoursesPage({
 
   function buildHref(overrides: Record<string, string>) {
     const merged = { ...sp, ...overrides };
-    const params = new URLSearchParams();
+    const usp = new URLSearchParams();
     for (const [k, v] of Object.entries(merged)) {
-      if (v) params.set(k, String(v));
+      if (v) usp.set(k, String(v));
     }
-    const qs = params.toString();
+    const qs = usp.toString();
     return qs ? `/courses?${qs}` : "/courses";
   }
 
   return (
-    <div dir={dir} className="mx-auto max-w-6xl px-4 py-10">
-      <div className="mb-6 flex items-center gap-3">
-        <GraduationCap size={28} className="text-gold" />
-        <h1 className="text-2xl font-bold">{t("الدورات المسجلة", "Recorded Courses")}</h1>
-      </div>
-      <p className="mb-6 max-w-2xl text-sm text-muted">
-        {t(
-          "دورات مسجلة من معلمي فرقان. تعلم في وقتك من شيوخ متمكنين — تجويد، حفظ، إجازة، عربية.",
-          "Pre-recorded courses from FURQAN teachers. Learn at your own pace from experienced reciters — Tajweed, Hifz, Ijazah, Arabic.",
-        )}
-      </p>
+    <div dir={dir}>
+      <section className="islamic-pattern relative overflow-hidden pt-24 pb-12 text-center">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-background" aria-hidden="true" />
+        <div className="relative mx-auto max-w-3xl px-6">
+          <nav aria-label={t("مسار الصفحة", "Breadcrumb")} className="text-xs text-muted-light">
+            <Link href="/" className="text-gold transition-colors hover:text-gold-light focus-ring">{t("الرئيسية", "Home")}</Link>
+            <span className="mx-2 text-muted-light" aria-hidden="true">/</span>
+            <span className="text-muted">{t("الدورات", "Courses")}</span>
+          </nav>
+          <div className="mt-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gold/10">
+            <GraduationCap size={22} className="text-gold" aria-hidden="true" />
+          </div>
+          <h1 className="font-display mt-4 text-4xl font-bold leading-tight sm:text-5xl">{t("الدورات المسجلة", "Recorded Courses")}</h1>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted sm:text-base">
+            {t(
+              "تعلّم على وتيرتك من معلمين معتمدين — تجويد، حفظ، إجازة، عربية.",
+              "Learn at your own pace from certified teachers — Tajweed, Hifz, Ijazah, Arabic.",
+            )}
+          </p>
+        </div>
+      </section>
+      <div className="mx-auto max-w-6xl px-4 py-10">
+        <h2 className="sr-only">{t("الدورات", "Courses")}</h2>
 
       <div className="mb-6 flex flex-wrap gap-2">
         {FILTER_TABS.map((f) => {
@@ -128,7 +140,7 @@ export default async function PublicCoursesPage({
               href={buildHref({ [f.key]: f.value })}
               className={`rounded-full px-4 py-1.5 text-sm transition ${
                 active
-                  ? "bg-gold text-white"
+                  ? "bg-gold text-background"
                   : "border bg-white/30 hover:bg-white/50 dark:bg-white/5 dark:hover:bg-white/10"
               }`}
             >
@@ -149,7 +161,7 @@ export default async function PublicCoursesPage({
               href={buildHref({ pricing: p.value })}
               className={`rounded-full px-4 py-1.5 text-sm transition ${
                 active
-                  ? "bg-gold text-white"
+                  ? "bg-gold text-background"
                   : "border bg-white/30 hover:bg-white/50 dark:bg-white/5 dark:hover:bg-white/10"
               }`}
             >
@@ -207,7 +219,7 @@ export default async function PublicCoursesPage({
                 </div>
                 <div className="mt-3 flex items-center justify-between">
                   {c.pricing_type === "free" ? (
-                    <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs text-emerald-700">
+                    <span className="rounded-full border border-success/30 bg-success/10 px-3 py-1 text-xs font-medium text-success">
                       {t("مجاني", "Free")}
                     </span>
                   ) : (
@@ -221,6 +233,7 @@ export default async function PublicCoursesPage({
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }
