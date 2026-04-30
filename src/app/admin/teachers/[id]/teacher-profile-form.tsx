@@ -35,7 +35,7 @@ export function TeacherProfileForm({ teacherId, profile }: TeacherProfileFormPro
         </div>
       )}
       {state.success && (
-        <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-400">
+        <div className="mb-4 rounded-xl border border-success/30 bg-success/10 p-3 text-sm text-success">
           تم الحفظ بنجاح
         </div>
       )}
@@ -99,7 +99,7 @@ export function TeacherProfileForm({ teacherId, profile }: TeacherProfileFormPro
               defaultChecked={profile.is_archived}
               className="accent-rose-500"
             />
-            <span className="text-rose-400">مؤرشف <span className="text-xs text-muted">(archived — hides from public)</span></span>
+            <span className="text-error">مؤرشف <span className="text-xs text-muted">(archived — hides from public)</span></span>
           </label>
         </div>
 

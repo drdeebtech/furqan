@@ -40,13 +40,13 @@ export function CacheClearButton() {
         {pending ? t("جارٍ المسح…", "Clearing…") : t("مسح الذاكرة المؤقتة", "Clear Cache")}
       </button>
       {result.kind === "success" && (
-        <span role="status" className="flex items-center gap-1 text-xs text-emerald-500">
+        <span role="status" className="flex items-center gap-1 text-xs text-success">
           <CheckCircle2 size={12} aria-hidden="true" />
           {t(`تم مسح ${result.paths} مسارًا`, `${result.paths} paths cleared`)}
         </span>
       )}
       {result.kind === "error" && (
-        <span role="alert" className="flex items-center gap-1 text-xs text-red-500">
+        <span role="alert" className="flex items-center gap-1 text-xs text-error">
           <AlertCircle size={12} aria-hidden="true" /> {result.message}
         </span>
       )}

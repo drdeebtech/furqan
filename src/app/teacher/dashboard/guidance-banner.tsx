@@ -109,15 +109,15 @@ export function TeacherGuidanceBanner({ cvStatus, hasStudents, hasProfile, hasBi
               key={step.key}
               aria-current={isCurrent ? "step" : undefined}
               className={`flex items-center gap-3 rounded-xl p-3 transition-colors ${
-                step.done ? "bg-emerald-500/5" : step.error ? "bg-error/5" : step.pending ? "bg-blue-500/5" : "bg-foreground/5"
+                step.done ? "bg-success/5" : step.error ? "bg-error/5" : step.pending ? "bg-blue-500/5" : "bg-foreground/5"
               }`}
             >
               {/* Status icon */}
               <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                step.done ? "bg-emerald-500/20" : step.error ? "bg-error/20" : step.pending ? "bg-blue-500/20" : "bg-foreground/10"
+                step.done ? "bg-success/20" : step.error ? "bg-error/20" : step.pending ? "bg-blue-500/20" : "bg-foreground/10"
               }`}>
                 {step.done ? (
-                  <CheckCircle size={16} className="text-emerald-400" aria-label={t("مكتمل", "Done")} />
+                  <CheckCircle size={16} className="text-success" aria-label={t("مكتمل", "Done")} />
                 ) : step.error ? (
                   <AlertCircle size={16} className="text-error" aria-label={t("خطأ", "Error")} />
                 ) : step.pending ? (
@@ -129,7 +129,7 @@ export function TeacherGuidanceBanner({ cvStatus, hasStudents, hasProfile, hasBi
 
               {/* Content */}
               <div className="min-w-0 flex-1">
-                <p className={`text-sm font-medium ${step.done ? "text-emerald-400 line-through" : step.error ? "text-error" : ""}`}>
+                <p className={`text-sm font-medium ${step.done ? "text-success line-through" : step.error ? "text-error" : ""}`}>
                   {step.label}
                 </p>
                 <p className="text-xs text-muted">{step.description}</p>

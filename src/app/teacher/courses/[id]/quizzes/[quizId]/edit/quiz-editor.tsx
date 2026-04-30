@@ -125,19 +125,19 @@ export function QuizEditor({ quiz, questions, courseId }: Props) {
                     {q.options && (
                       <ul className="mt-2 space-y-0.5 text-xs text-muted">
                         {q.options.map((o) => (
-                          <li key={o.id} className={o.id === q.correct_answer.mcq ? "font-semibold text-emerald-400" : ""}>
+                          <li key={o.id} className={o.id === q.correct_answer.mcq ? "font-semibold text-success" : ""}>
                             {o.id === q.correct_answer.mcq ? "✓ " : "• "}{o.text_ar}
                           </li>
                         ))}
                       </ul>
                     )}
                     {q.question_type === "fill_in" && q.correct_answer.fill_in && (
-                      <p className="mt-1 text-xs text-emerald-400">
+                      <p className="mt-1 text-xs text-success">
                         ✓ {q.correct_answer.fill_in.join(" / ")}
                       </p>
                     )}
                     {q.question_type === "true_false" && (
-                      <p className="mt-1 text-xs text-emerald-400">
+                      <p className="mt-1 text-xs text-success">
                         ✓ {q.correct_answer.true_false ? t("صحيح", "True") : t("خطأ", "False")}
                       </p>
                     )}

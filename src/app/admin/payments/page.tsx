@@ -33,10 +33,10 @@ export default async function AdminPaymentsPage() {
   const nameMap = await buildNameMap(supabase, [...new Set(payments.map(p => p.student_id))]);
 
   const STATUS_COLORS: Record<string, string> = {
-    pending: "bg-amber-500/10 text-amber-400 border-amber-500/30",
-    succeeded: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
-    failed: "bg-red-500/10 text-red-400 border-red-500/30",
-    refunded: "bg-sky-500/10 text-sky-400 border-sky-500/30",
+    pending: "bg-warning/10 text-warning border-warning/30",
+    succeeded: "bg-success/10 text-success border-success/30",
+    failed: "bg-error/10 text-red-400 border-error/30",
+    refunded: "bg-gold/10 text-gold border-gold/30",
   };
 
   return (

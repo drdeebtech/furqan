@@ -34,7 +34,7 @@ export function PostForm({ post }: { post?: BlogPost }) {
       {post && <input type="hidden" name="id" value={post.id} />}
 
       {state?.error && (
-        <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <div role="alert" className="rounded-lg border border-error/30 bg-error/10 px-4 py-3 text-sm text-red-400">
           {state.error}
         </div>
       )}

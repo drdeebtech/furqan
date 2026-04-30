@@ -26,12 +26,12 @@ export function NotificationForm() {
       <h2 className="mb-4 text-lg font-bold">إرسال إشعار جديد</h2>
 
       {sent && (
-        <div className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-400">
+        <div className="mb-4 rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success">
           تم إرسال الإشعار إلى {sent.count} مستخدم بنجاح
         </div>
       )}
       {error && (
-        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">{error}</div>
+        <div className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-red-400">{error}</div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">

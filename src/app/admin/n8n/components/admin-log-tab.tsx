@@ -19,13 +19,13 @@ interface AdminAction {
 
 function actionIcon(eventName: string) {
   if (eventName.includes("activate") && !eventName.includes("deactivate")) {
-    return <Power size={16} className="text-emerald-400" />;
+    return <Power size={16} className="text-success" />;
   }
   if (eventName.includes("deactivate")) {
     return <PowerOff size={16} className="text-red-400" />;
   }
   if (eventName.includes("auto_restart")) {
-    return <RefreshCw size={16} className="text-amber-400" />;
+    return <RefreshCw size={16} className="text-warning" />;
   }
   return <FileText size={16} className="text-muted" />;
 }

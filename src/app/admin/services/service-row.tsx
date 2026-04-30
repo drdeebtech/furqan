@@ -30,7 +30,7 @@ export function ServiceRow({ service }: Props) {
         <div className="flex items-center gap-2">
           <button
             onClick={async () => { const prev = active; setActive(!prev); const res = await toggleServiceActive(service.id, !prev); if (res?.error) { setActive(prev); toast.error(res.error); } }}
-            className={`glass-badge ${active ? "border-green-500/30 bg-green-500/10 text-green-400" : "border-red-500/30 bg-red-500/10 text-red-400"}`}
+            className={`glass-badge ${active ? "border-green-500/30 bg-green-500/10 text-green-400" : "border-error/30 bg-error/10 text-red-400"}`}
           >
             {active ? "نشط" : "مخفي"}
           </button>

@@ -142,11 +142,11 @@ export default async function AdminUserDetailPage({ params }: Props) {
   }
 
   const statusColors: Record<string, string> = {
-    pending: "border-amber-500/30 bg-amber-500/10 text-amber-400",
+    pending: "border-warning/30 bg-warning/10 text-warning",
     confirmed: "border-blue-500/30 bg-blue-500/10 text-blue-400",
     completed: "border-green-500/30 bg-green-500/10 text-green-400",
-    cancelled: "border-red-500/30 bg-red-500/10 text-red-400",
-    no_show: "border-red-500/30 bg-red-500/10 text-red-400",
+    cancelled: "border-error/30 bg-error/10 text-red-400",
+    no_show: "border-error/30 bg-error/10 text-red-400",
   };
 
   const completedCount = (bookings ?? []).filter(b => b.status === "completed").length;
@@ -168,11 +168,11 @@ export default async function AdminUserDetailPage({ params }: Props) {
               <h1 className="text-xl font-bold">{profile.full_name ?? "—"}</h1>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
                 <span className="glass-badge border-gold/30 bg-gold/10 text-gold">{profile.role}</span>
-                <span className={`glass-badge ${profile.is_active ? "border-green-500/30 bg-green-500/10 text-green-400" : "border-red-500/30 bg-red-500/10 text-red-400"}`}>
+                <span className={`glass-badge ${profile.is_active ? "border-green-500/30 bg-green-500/10 text-green-400" : "border-error/30 bg-error/10 text-red-400"}`}>
                   {profile.is_active ? t("نشط", "Active") : t("معطل", "Disabled")}
                 </span>
                 {profile.deleted_at && (
-                  <span className="glass-badge border-red-500/40 bg-red-500/10 text-red-400">
+                  <span className="glass-badge border-error/40 bg-error/10 text-red-400">
                     {t("محذوف", "Deleted")}
                   </span>
                 )}
@@ -288,7 +288,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
               <p className="text-xs text-muted">{t("الجلسات", "Sessions")}</p>
             </div>
             <div className="glass-card rounded-lg p-3 text-center">
-              <p className={`text-lg font-bold ${teacherProfile.cv_status === "approved" ? "text-green-400" : "text-amber-400"}`}>
+              <p className={`text-lg font-bold ${teacherProfile.cv_status === "approved" ? "text-green-400" : "text-warning"}`}>
                 {teacherProfile.cv_status === "approved" ? t("معتمد", "Approved") : teacherProfile.cv_status === "pending_review" ? t("قيد المراجعة", "Under Review") : t("مسودة", "Draft")}
               </p>
               <p className="text-xs text-muted">{t("حالة السيرة", "CV Status")}</p>
@@ -383,7 +383,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
                   </p>
                   <p className="text-xs text-muted">{e.evaluation_type} · {new Date(e.period_start).toLocaleDateString(locale)} — {new Date(e.period_end).toLocaleDateString(locale)}</p>
                 </div>
-                <span className={`glass-badge px-3 py-1 text-sm font-bold ${e.overall_score >= 8 ? "border-green-500/30 text-green-400" : e.overall_score >= 5 ? "border-amber-500/30 text-amber-400" : "border-red-500/30 text-red-400"}`}>
+                <span className={`glass-badge px-3 py-1 text-sm font-bold ${e.overall_score >= 8 ? "border-green-500/30 text-green-400" : e.overall_score >= 5 ? "border-warning/30 text-warning" : "border-error/30 text-red-400"}`}>
                   {e.overall_score}/10
                 </span>
               </div>

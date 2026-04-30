@@ -44,15 +44,15 @@ const summaryCards: {
 ];
 
 function scoreColor(score: number): string {
-  if (score > 80) return "text-emerald-400";
-  if (score >= 50) return "text-amber-400";
+  if (score > 80) return "text-success";
+  if (score >= 50) return "text-warning";
   return "text-red-400";
 }
 
 function scoreBg(score: number): string {
-  if (score > 80) return "bg-emerald-500/15 border-emerald-500/30";
-  if (score >= 50) return "bg-amber-500/15 border-amber-500/30";
-  return "bg-red-500/15 border-red-500/30";
+  if (score > 80) return "bg-success/15 border-success/30";
+  if (score >= 50) return "bg-warning/15 border-warning/30";
+  return "bg-error/15 border-error/30";
 }
 
 export function HealthAuditTab() {
@@ -210,8 +210,8 @@ export function HealthAuditTab() {
 
           {report.issues.length === 0 && (
             <div className="glass-card p-8 text-center">
-              <ShieldCheck size={32} className="mx-auto mb-2 text-emerald-400" />
-              <p className="text-sm text-emerald-400">{t("لا توجد مشاكل مكتشفة!", "No issues detected!")}</p>
+              <ShieldCheck size={32} className="mx-auto mb-2 text-success" />
+              <p className="text-sm text-success">{t("لا توجد مشاكل مكتشفة!", "No issues detected!")}</p>
             </div>
           )}
 

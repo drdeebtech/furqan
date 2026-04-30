@@ -59,7 +59,7 @@ export function EmailChangeForm({ currentEmail }: { currentEmail: string }) {
         />
       </div>
 
-      <p className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-400">
+      <p className="rounded-xl border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
         سنرسل رابط تأكيد إلى البريد الجديد. لن يتغير بريدك حتى تضغط على الرابط.
       </p>
 

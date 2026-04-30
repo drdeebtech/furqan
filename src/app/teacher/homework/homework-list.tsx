@@ -29,7 +29,7 @@ export function HomeworkList({
       {ready.length > 0 && (
         <Section
           title={t("جاهز للتسميع", "Ready for grading")}
-          icon={<AlertTriangle size={18} className="text-amber-400" />}
+          icon={<AlertTriangle size={18} className="text-warning" />}
           count={ready.length}
         >
           {ready.map(a => (
@@ -70,7 +70,7 @@ export function HomeworkList({
       {completed.length > 0 && (
         <CollapsibleSection
           title={t("مكتملة", "Completed")}
-          icon={<CheckCircle size={18} className="text-emerald-400" />}
+          icon={<CheckCircle size={18} className="text-success" />}
           count={completed.length}
         >
           {completed.map(a => (
@@ -167,7 +167,7 @@ function HomeworkCard({
             <p className="text-xs text-gold/80">💬 {hw.teacher_notes}</p>
           )}
           {hw.parent_assignment_id && (
-            <span className="text-xs text-orange-400">↩ {t("واجب مُعاد", "Re-assigned")}</span>
+            <span className="text-xs text-warning">↩ {t("واجب مُعاد", "Re-assigned")}</span>
           )}
         </div>
         {children && <div className="shrink-0">{children}</div>}

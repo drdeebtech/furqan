@@ -34,19 +34,19 @@ const STATUS_MAP: Record<string, { ar: string; en: string; classes: string }> = 
     ar: "بانتظار المراجعة",
     en: "Pending Review",
     classes:
-      "border-amber-500/30 bg-amber-500/10 text-amber-400",
+      "border-warning/30 bg-warning/10 text-warning",
   },
   approved: {
     ar: "مقبولة",
     en: "Approved",
     classes:
-      "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+      "border-success/30 bg-success/10 text-success",
   },
   rejected: {
     ar: "مرفوضة",
     en: "Rejected",
     classes:
-      "border-red-500/30 bg-red-500/10 text-red-400",
+      "border-error/30 bg-error/10 text-red-400",
   },
 };
 
@@ -109,14 +109,14 @@ export default async function TeacherCvPage() {
       </div>
 
       {status === "rejected" && profile.cv_rejection_reason && (
-        <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400">
+        <div className="mb-6 rounded-xl border border-error/30 bg-error/10 p-4 text-sm text-red-400">
           <p className="mb-1 font-semibold">{t("سبب الرفض", "Rejection reason")}:</p>
           <p>{profile.cv_rejection_reason}</p>
         </div>
       )}
 
       {status === "approved" && (
-        <div className="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-400">
+        <div className="mb-6 rounded-xl border border-success/30 bg-success/10 p-4 text-sm text-success">
           {t("تمت الموافقة على سيرتك الذاتية — يمكنك الآن استقبال الطلاب", "Your CV is approved — you can now accept students")}
         </div>
       )}

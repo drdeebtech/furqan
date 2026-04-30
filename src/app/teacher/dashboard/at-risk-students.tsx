@@ -65,9 +65,9 @@ export async function TeacherAtRiskStudents({ teacherId }: Props) {
   return (
     <div className="glass-card mt-4 rounded-xl p-4">
       <div className="mb-3 flex items-center gap-2">
-        <TrendingDown size={16} className="text-orange-400" />
+        <TrendingDown size={16} className="text-warning" />
         <h3 className="text-sm font-bold">طلاب يحتاجون انتباهاً</h3>
-        <span className="rounded-full bg-orange-500/10 px-2 py-0.5 text-xs text-orange-400">{signals.length}</span>
+        <span className="rounded-full bg-warning/10 px-2 py-0.5 text-xs text-warning">{signals.length}</span>
       </div>
       <div className="space-y-2">
         {signals.map(s => {
@@ -87,7 +87,7 @@ export async function TeacherAtRiskStudents({ teacherId }: Props) {
               <div className="flex items-center gap-3 text-xs text-muted">
                 <span>آخر جلسة: {daysAgo(s.last_session_at)}</span>
                 {s.package_remaining !== null && s.package_remaining <= 2 && (
-                  <span className="flex items-center gap-1 text-amber-400">
+                  <span className="flex items-center gap-1 text-warning">
                     <AlertTriangle size={12} /> {s.package_remaining} جلسة
                   </span>
                 )}

@@ -80,7 +80,7 @@ export function CvForm({
           </div>
         )}
         {photoState.success && (
-          <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-400">
+          <div className="mb-4 rounded-xl border border-success/30 bg-success/10 p-3 text-sm text-success">
             تم تحديث الصورة بنجاح
           </div>
         )}
@@ -141,7 +141,7 @@ export function CvForm({
       )}
 
       {state.success && (
-        <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-400">
+        <div className="mb-4 rounded-xl border border-success/30 bg-success/10 p-3 text-sm text-success">
           تم حفظ المسودة بنجاح
         </div>
       )}
@@ -244,7 +244,7 @@ export function CvForm({
             type="button"
             disabled={isPendingReview || submitPending}
             onClick={handleSubmitForReview}
-            className="glass-success glass-pill flex items-center gap-2 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+            className="glass-success glass-pill flex items-center gap-2 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success/90 disabled:opacity-50"
           >
             {submitPending ? (
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -256,7 +256,7 @@ export function CvForm({
         </div>
 
         {isPendingReview && (
-          <p className="text-xs text-amber-400">
+          <p className="text-xs text-warning">
             سيرتك الذاتية قيد المراجعة حاليًا — لا يمكن إرسالها مرة أخرى حتى
             تتم المراجعة.
           </p>

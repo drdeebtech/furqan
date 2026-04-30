@@ -35,9 +35,9 @@ export function InterventionButton({ studentId, interventionType, label, lastInt
         disabled={pending}
         className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
           state?.ok
-            ? "bg-emerald-500/10 text-emerald-400"
+            ? "bg-success/10 text-success"
             : recent
-              ? "bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+              ? "bg-warning/10 text-warning hover:bg-warning/20"
               : "glass-gold hover:bg-gold/20"
         }`}
         title={recent ? `آخر تدخل قبل ${days} يوم` : state?.error ?? label}

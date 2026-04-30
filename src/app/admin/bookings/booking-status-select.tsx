@@ -28,7 +28,7 @@ export function BookingStatusSelect({ bookingId, currentStatus }: { bookingId: s
     const pendingLabel = STATUSES.find(s => s.value === pendingStatus)?.label ?? pendingStatus;
     return (
       <div className="flex flex-col gap-1">
-        <p className="text-xs text-amber-400">تأكيد؟ ({pendingLabel})</p>
+        <p className="text-xs text-warning">تأكيد؟ ({pendingLabel})</p>
         <div className="flex gap-2">
           <button
             onClick={confirmStatusChange}

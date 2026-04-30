@@ -38,10 +38,10 @@ const GRADE_OPTIONS: {
 ];
 
 const TONE_BG: Record<string, string> = {
-  emerald: "border-emerald-500/50 bg-emerald-500/15 text-emerald-300",
+  emerald: "border-success/50 bg-success/15 text-success",
   lime: "border-lime-500/50 bg-lime-500/15 text-lime-300",
-  amber: "border-amber-500/50 bg-amber-500/15 text-amber-300",
-  red: "border-red-500/50 bg-red-500/15 text-red-300",
+  amber: "border-warning/50 bg-warning/15 text-warning",
+  red: "border-error/50 bg-error/15 text-red-300",
 };
 
 function relativeTime(iso: string, locale: "ar" | "en"): string {
@@ -113,8 +113,8 @@ export function GraderClient({ items }: { items: HomeworkItem[] }) {
         <div
           className={`mb-4 rounded-lg border p-3 text-sm ${
             result.failed === 0
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-              : "border-amber-500/30 bg-amber-500/10 text-amber-300"
+              ? "border-success/30 bg-success/10 text-success"
+              : "border-warning/30 bg-warning/10 text-warning"
           }`}
         >
           {result.failed === 0 ? <CheckCircle size={14} className="me-1 inline" /> : <AlertCircle size={14} className="me-1 inline" />}

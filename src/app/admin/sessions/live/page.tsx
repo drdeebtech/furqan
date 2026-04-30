@@ -87,10 +87,10 @@ export default async function LiveSessionsPage() {
           <ArrowRight size={16} />
         </Link>
         <h1 className="flex items-center gap-2 text-2xl font-bold">
-          <Radio size={24} className="animate-pulse text-emerald-400" />
+          <Radio size={24} className="animate-pulse text-success" />
           {t("الجلسات النشطة", "Live Sessions")}
         </h1>
-        <span className="glass-badge border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-400">
+        <span className="glass-badge border-success/30 bg-success/10 px-3 py-1 text-sm font-semibold text-success">
           {activeSessions.length}
         </span>
       </div>

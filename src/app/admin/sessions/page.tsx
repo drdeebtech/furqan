@@ -112,12 +112,12 @@ export default async function AdminSessionsPage() {
         </h1>
         <Link
           href="/admin/sessions/live"
-          className="me-auto inline-flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-medium text-emerald-400 transition-colors hover:bg-emerald-500/20"
+          className="me-auto inline-flex items-center gap-2 rounded-xl border border-success/30 bg-success/10 px-4 py-2 text-sm font-medium text-success transition-colors hover:bg-success/20"
         >
           <Radio size={14} className="animate-pulse" />
           {t("المراقبة المباشرة", "Live Monitor")}
           {activeCount > 0 && (
-            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-bold">
+            <span className="rounded-full bg-success/20 px-2 py-0.5 text-xs font-bold">
               {activeCount}
             </span>
           )}
@@ -136,13 +136,13 @@ export default async function AdminSessionsPage() {
 
         <Link
           href="/admin/sessions/live"
-          className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 transition-colors hover:bg-emerald-500/10"
+          className="rounded-2xl border border-success/30 bg-success/5 p-4 transition-colors hover:bg-success/10"
         >
           <div className="flex items-center gap-2 text-sm text-muted">
-            <Radio size={14} className="text-emerald-400" />
+            <Radio size={14} className="text-success" />
             {t("نشطة الآن", "Active Now")}
           </div>
-          <p className="mt-1 text-2xl font-bold text-emerald-400">{activeCount}</p>
+          <p className="mt-1 text-2xl font-bold text-success">{activeCount}</p>
         </Link>
 
         <div className="glass-card p-4">
@@ -220,14 +220,14 @@ export default async function AdminSessionsPage() {
                         : s.ended_at
                           ? "—"
                           : s.started_at
-                            ? <span className="text-emerald-400">{t("جارية", "live")}</span>
+                            ? <span className="text-success">{t("جارية", "live")}</span>
                             : "—"}
                     </td>
                     <td className="px-3 py-3 text-xs">
-                      <span className={s.teacher_joined ? "text-emerald-400" : "text-red-400"}>
+                      <span className={s.teacher_joined ? "text-success" : "text-red-400"}>
                         {lang === "ar" ? "م" : "T"}{s.teacher_joined ? "✓" : "✗"}
                       </span>{" "}
-                      <span className={s.student_joined ? "text-emerald-400" : "text-red-400"}>
+                      <span className={s.student_joined ? "text-success" : "text-red-400"}>
                         {lang === "ar" ? "ط" : "S"}{s.student_joined ? "✓" : "✗"}
                       </span>
                     </td>

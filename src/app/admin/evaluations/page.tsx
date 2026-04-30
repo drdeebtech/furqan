@@ -26,10 +26,10 @@ function scoreBadge(score: number | null) {
   if (score === null) return <span className="text-muted">—</span>;
   const color =
     score >= 8
-      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+      ? "border-success/30 bg-success/10 text-success"
       : score >= 5
         ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
-        : "border-red-500/30 bg-red-500/10 text-red-400";
+        : "border-error/30 bg-error/10 text-red-400";
   return (
     <span className={`inline-block glass-badge font-semibold ${color}`}>
       {score}/10

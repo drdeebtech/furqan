@@ -183,8 +183,8 @@ export function ExecutionIntelTab() {
           <p className="text-xs text-muted">{t("إجمالي التنفيذات", "Total Executions")}</p>
         </div>
         <div className="glass-card p-4 text-center">
-          <CheckCircle2 size={18} className="mx-auto mb-1 text-emerald-400" />
-          <p className="font-display text-2xl font-bold text-emerald-400">{successCount}</p>
+          <CheckCircle2 size={18} className="mx-auto mb-1 text-success" />
+          <p className="font-display text-2xl font-bold text-success">{successCount}</p>
           <p className="text-xs text-muted">{t("ناجحة", "Successful")}</p>
         </div>
         <div className="glass-card p-4 text-center">
@@ -230,7 +230,7 @@ export function ExecutionIntelTab() {
             {recurringAlerts.map((alert) => (
               <div
                 key={alert.workflowId}
-                className="glass-card border-red-500/20 bg-red-500/5 p-4"
+                className="glass-card border-error/20 bg-error/5 p-4"
               >
                 <div className="flex items-center gap-3">
                   <AlertTriangle size={18} className="shrink-0 text-red-400" />
@@ -250,8 +250,8 @@ export function ExecutionIntelTab() {
           </div>
         ) : (
           <div className="glass-card p-6 text-center">
-            <CheckCircle2 size={24} className="mx-auto mb-2 text-emerald-400" />
-            <p className="text-sm text-emerald-400">{t("لا توجد أخطاء متكررة", "No recurring failures")}</p>
+            <CheckCircle2 size={24} className="mx-auto mb-2 text-success" />
+            <p className="text-sm text-success">{t("لا توجد أخطاء متكررة", "No recurring failures")}</p>
           </div>
         )}
       </div>
@@ -299,8 +299,8 @@ export function ExecutionIntelTab() {
           </div>
         ) : (
           <div className="glass-card p-6 text-center text-muted">
-            <CheckCircle2 size={24} className="mx-auto mb-2 text-emerald-400" />
-            <p className="text-sm text-emerald-400">{t("لا توجد تنفيذات فاشلة", "No failed executions")}</p>
+            <CheckCircle2 size={24} className="mx-auto mb-2 text-success" />
+            <p className="text-sm text-success">{t("لا توجد تنفيذات فاشلة", "No failed executions")}</p>
           </div>
         )}
       </div>

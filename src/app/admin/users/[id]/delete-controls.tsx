@@ -71,7 +71,7 @@ export function DeleteControls({ userId, userName, isDeleted, isSelf }: DeleteCo
           onClick={handleRestore}
           disabled={pending}
           aria-busy={pending}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 px-3 py-1.5 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/10 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-success/30 px-3 py-1.5 text-xs font-medium text-success transition-colors hover:bg-success/10 disabled:opacity-50"
         >
           <RotateCcw size={12} aria-hidden="true" />
           {pending ? t("جاري الاستعادة…", "Restoring…") : t("استعادة المستخدم", "Restore User")}
@@ -80,7 +80,7 @@ export function DeleteControls({ userId, userName, isDeleted, isSelf }: DeleteCo
         {/* Hard-delete — only available on already-archived users.
             Two-step inside its own panel: button → typed-name confirmation. */}
         {hardConfirming ? (
-          <div className="flex flex-col items-end gap-2 rounded-xl border border-red-500/40 bg-red-500/10 p-3">
+          <div className="flex flex-col items-end gap-2 rounded-xl border border-error/40 bg-error/10 p-3">
             <div className="flex items-center gap-2 text-xs font-semibold text-red-300">
               <FlameKindling size={14} aria-hidden="true" />
               {t("حذف نهائي — لا يمكن التراجع", "Permanent delete — cannot be undone")}
@@ -97,7 +97,7 @@ export function DeleteControls({ userId, userName, isDeleted, isSelf }: DeleteCo
               value={hardNameInput}
               onChange={(e) => setHardNameInput(e.target.value)}
               placeholder={t("اكتب الاسم بالضبط", "Type the exact name")}
-              className="w-64 rounded-lg border border-red-500/30 bg-surface px-2 py-1 text-xs"
+              className="w-64 rounded-lg border border-error/30 bg-surface px-2 py-1 text-xs"
               autoComplete="off"
             />
             <div className="flex gap-2">
@@ -106,7 +106,7 @@ export function DeleteControls({ userId, userName, isDeleted, isSelf }: DeleteCo
                 onClick={handleHardDelete}
                 disabled={pending || hardNameInput.trim() !== userName.trim()}
                 aria-busy={pending}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-red-700 disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-error px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-error disabled:opacity-40"
               >
                 <FlameKindling size={12} aria-hidden="true" />
                 {pending ? t("جاري الحذف النهائي…", "Erasing…") : t("احذف نهائياً", "Erase permanently")}
@@ -129,7 +129,7 @@ export function DeleteControls({ userId, userName, isDeleted, isSelf }: DeleteCo
           <button
             type="button"
             onClick={() => setHardConfirming(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 bg-red-500/5 px-3 py-1.5 text-xs font-medium text-red-300 transition-colors hover:bg-red-500/15"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-error/40 bg-error/5 px-3 py-1.5 text-xs font-medium text-red-300 transition-colors hover:bg-error/15"
             title={t("حذف من قاعدة البيانات نهائياً", "Erase from database permanently")}
           >
             <FlameKindling size={12} aria-hidden="true" />
@@ -146,7 +146,7 @@ export function DeleteControls({ userId, userName, isDeleted, isSelf }: DeleteCo
 
   if (confirming) {
     return (
-      <div className="flex flex-col items-end gap-2 rounded-xl border border-red-500/30 bg-red-500/5 p-3">
+      <div className="flex flex-col items-end gap-2 rounded-xl border border-error/30 bg-error/5 p-3">
         <div className="flex items-center gap-2 text-xs text-red-400">
           <AlertTriangle size={12} aria-hidden="true" />
           {t(`هل أنت متأكد من حذف ${userName}؟`, `Delete ${userName}?`)}
@@ -162,7 +162,7 @@ export function DeleteControls({ userId, userName, isDeleted, isSelf }: DeleteCo
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder={t("سبب الحذف (مطلوب)", "Reason (required)")}
-          className="w-64 rounded-lg border border-red-500/20 bg-surface px-2 py-1 text-xs"
+          className="w-64 rounded-lg border border-error/20 bg-surface px-2 py-1 text-xs"
           maxLength={200}
         />
         <div className="flex gap-2">
@@ -171,7 +171,7 @@ export function DeleteControls({ userId, userName, isDeleted, isSelf }: DeleteCo
             onClick={handleDelete}
             disabled={pending || reason.trim().length < 3}
             aria-busy={pending}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-red-500/90 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-500 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-error/90 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-error disabled:opacity-50"
           >
             <Trash2 size={12} aria-hidden="true" />
             {pending ? t("جاري الحذف…", "Deleting…") : t("نعم، احذف", "Yes, delete")}
@@ -200,7 +200,7 @@ export function DeleteControls({ userId, userName, isDeleted, isSelf }: DeleteCo
     <button
       type="button"
       onClick={() => setConfirming(true)}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-error/30 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-error/10"
     >
       <Trash2 size={12} aria-hidden="true" />
       {t("حذف المستخدم", "Delete User")}

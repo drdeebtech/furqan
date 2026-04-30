@@ -43,7 +43,7 @@ export function AnnouncementRowActions({
         <button
           onClick={onDeactivate}
           disabled={pending}
-          className="flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs text-amber-300 hover:bg-amber-500/20 disabled:opacity-50"
+          className="flex items-center gap-1 rounded-lg border border-warning/30 bg-warning/10 px-2 py-1 text-xs text-warning hover:bg-warning/20 disabled:opacity-50"
         >
           <PowerOff size={12} aria-hidden="true" /> {t("إيقاف", "Deactivate")}
         </button>
@@ -51,7 +51,7 @@ export function AnnouncementRowActions({
       <button
         onClick={onDelete}
         disabled={pending}
-        className="flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-2 py-1 text-xs text-red-300 hover:bg-red-500/20 disabled:opacity-50"
+        className="flex items-center gap-1 rounded-lg border border-error/30 bg-error/10 px-2 py-1 text-xs text-red-300 hover:bg-error/20 disabled:opacity-50"
       >
         <Trash2 size={12} aria-hidden="true" /> {t("حذف", "Delete")}
       </button>

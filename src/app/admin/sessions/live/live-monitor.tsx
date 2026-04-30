@@ -26,9 +26,9 @@ function cardColor(s: ActiveSession): string {
   const elapsed = (Date.now() - new Date(s.started_at).getTime()) / 60000;
   const overtime = elapsed > s.duration_min;
 
-  if (overtime) return "border-red-500/40 bg-red-500/5";
-  if (bothJoined) return "border-emerald-500/40 bg-emerald-500/5";
-  if (oneJoined) return "border-amber-500/40 bg-amber-500/5";
+  if (overtime) return "border-error/40 bg-error/5";
+  if (bothJoined) return "border-success/40 bg-success/5";
+  if (oneJoined) return "border-warning/40 bg-warning/5";
   return "border-card-border bg-card";
 }
 
@@ -89,8 +89,8 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
             <span
               className={`me-auto glass-badge ${
                 s.student_joined
-                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                  : "border-red-500/30 bg-red-500/10 text-red-400"
+                  ? "border-success/30 bg-success/10 text-success"
+                  : "border-error/30 bg-error/10 text-red-400"
               }`}
             >
               {s.student_joined ? "متصل" : "غير متصل"}
@@ -104,8 +104,8 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
             <span
               className={`me-auto glass-badge ${
                 s.teacher_joined
-                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                  : "border-red-500/30 bg-red-500/10 text-red-400"
+                  ? "border-success/30 bg-success/10 text-success"
+                  : "border-error/30 bg-error/10 text-red-400"
               }`}
             >
               {s.teacher_joined ? "متصل" : "غير متصل"}
@@ -125,7 +125,7 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
                 autoFocus
                 aria-label={t("سبب إنهاء الجلسة", "Session end reason")}
               />
-              <button onClick={() => handleForceEnd(s.id)} disabled={isPending || !reason.trim()} className="rounded-lg p-1.5 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50" aria-label={t("تأكيد", "Confirm")}>
+              <button onClick={() => handleForceEnd(s.id)} disabled={isPending || !reason.trim()} className="rounded-lg p-1.5 text-success hover:bg-success/10 disabled:opacity-50" aria-label={t("تأكيد", "Confirm")}>
                 <Check size={16} />
               </button>
               <button onClick={() => { setEndingId(null); setReason(""); }} className="rounded-lg p-1.5 text-muted hover:bg-surface-alt" aria-label={t("إلغاء", "Cancel")}>
@@ -136,7 +136,7 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
             <button
               onClick={() => handleForceEnd(s.id)}
               disabled={isPending}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-error/30 bg-error/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-error/20 disabled:opacity-50"
             >
               <StopCircle size={14} />
               {t("إنهاء الجلسة", "End Session")}

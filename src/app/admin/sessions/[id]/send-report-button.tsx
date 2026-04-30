@@ -22,7 +22,7 @@ export function SendReportButton({ sessionId, actorId }: Props) {
         disabled={pending || state?.ok === true}
         className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
           state?.ok
-            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+            ? "border-success/30 bg-success/10 text-success"
             : "border-gold/30 bg-gold/10 text-gold hover:bg-gold/20"
         }`}
         title={state?.error}

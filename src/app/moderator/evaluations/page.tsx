@@ -68,7 +68,7 @@ export default async function ModeratorEvaluationsPage() {
                   <td className="px-4 py-3 text-xs text-muted">{e.period_start} — {e.period_end}</td>
                   <td className="px-4 py-3">
                     {e.overall_score ? (
-                      <span className={`glass-badge rounded-full px-2 py-0.5 text-xs font-medium ${e.overall_score >= 7 ? "glass-success" : e.overall_score >= 4 ? "text-amber-400" : "glass-danger"}`}>
+                      <span className={`glass-badge rounded-full px-2 py-0.5 text-xs font-medium ${e.overall_score >= 7 ? "glass-success" : e.overall_score >= 4 ? "text-warning" : "glass-danger"}`}>
                         {e.overall_score}/10
                       </span>
                     ) : "—"}

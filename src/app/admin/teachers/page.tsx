@@ -55,10 +55,10 @@ export default async function AdminTeachersPage() {
         <h1 className="flex items-center gap-2 text-2xl font-bold"><GraduationCap size={24} className="text-gold" /> {t("إدارة المعلمين", "Manage Teachers")}</h1>
         <div className="flex items-center gap-3">
           {(pendingCvCount ?? 0) > 0 && (
-            <Link href="/admin/teachers/cv" className="flex items-center gap-2 rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-400 transition-colors hover:bg-amber-500/20">
+            <Link href="/admin/teachers/cv" className="flex items-center gap-2 rounded border border-warning/30 bg-warning/10 px-3 py-2 text-sm font-medium text-warning transition-colors hover:bg-warning/20">
               <FileText size={16} />
               {t("سير ذاتية معلقة", "Pending CVs")}
-              <span className="rounded-md bg-amber-500/90 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{pendingCvCount}</span>
+              <span className="rounded-md bg-warning/90 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{pendingCvCount}</span>
             </Link>
           )}
           <Link href="/admin/teachers/new" className="flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-medium">
@@ -104,17 +104,17 @@ export default async function AdminTeachersPage() {
                   <td className="px-4 py-3"><span className="flex items-center gap-1"><Star size={12} className="fill-gold text-gold" />{Number(x.rating_avg).toFixed(1)}</span></td>
                   <td className="px-4 py-3 text-muted">{x.total_sessions}</td>
                   <td className="px-4 py-3">
-                    {x.is_archived ? <span className="glass-badge inline-flex items-center gap-1 border-red-500/30 bg-red-500/10 text-red-400"><Archive size={11} aria-hidden="true" />{t("مؤرشف", "Archived")}</span>
-                      : x.is_accepting ? <span className="glass-badge inline-flex items-center gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-400"><CheckCircle2 size={11} aria-hidden="true" />{t("يقبل طلاب", "Accepting")}</span>
-                      : <span className="glass-badge inline-flex items-center gap-1 border-amber-500/30 bg-amber-500/10 text-amber-400"><Pause size={11} aria-hidden="true" />{t("مشغول", "Busy")}</span>}
+                    {x.is_archived ? <span className="glass-badge inline-flex items-center gap-1 border-error/30 bg-error/10 text-red-400"><Archive size={11} aria-hidden="true" />{t("مؤرشف", "Archived")}</span>
+                      : x.is_accepting ? <span className="glass-badge inline-flex items-center gap-1 border-success/30 bg-success/10 text-success"><CheckCircle2 size={11} aria-hidden="true" />{t("يقبل طلاب", "Accepting")}</span>
+                      : <span className="glass-badge inline-flex items-center gap-1 border-warning/30 bg-warning/10 text-warning"><Pause size={11} aria-hidden="true" />{t("مشغول", "Busy")}</span>}
                   </td>
                   <td className="px-4 py-3">
                     {x.cv_status === "approved" ? (
-                      <span className="glass-badge inline-flex items-center gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-400"><CheckCircle2 size={11} aria-hidden="true" />{t("معتمد", "Approved")}</span>
+                      <span className="glass-badge inline-flex items-center gap-1 border-success/30 bg-success/10 text-success"><CheckCircle2 size={11} aria-hidden="true" />{t("معتمد", "Approved")}</span>
                     ) : x.cv_status === "pending_review" ? (
-                      <span className="glass-badge inline-flex items-center gap-1 border-amber-500/30 bg-amber-500/10 text-amber-400"><Clock size={11} aria-hidden="true" />{t("قيد المراجعة", "Pending")}</span>
+                      <span className="glass-badge inline-flex items-center gap-1 border-warning/30 bg-warning/10 text-warning"><Clock size={11} aria-hidden="true" />{t("قيد المراجعة", "Pending")}</span>
                     ) : x.cv_status === "rejected" ? (
-                      <span className="glass-badge inline-flex items-center gap-1 border-red-500/30 bg-red-500/10 text-red-400"><XCircle size={11} aria-hidden="true" />{t("مرفوض", "Rejected")}</span>
+                      <span className="glass-badge inline-flex items-center gap-1 border-error/30 bg-error/10 text-red-400"><XCircle size={11} aria-hidden="true" />{t("مرفوض", "Rejected")}</span>
                     ) : (
                       <span className="glass-badge inline-flex items-center gap-1 border-white/20 bg-white/5 text-muted"><FileText size={11} aria-hidden="true" />{t("مسودة", "Draft")}</span>
                     )}

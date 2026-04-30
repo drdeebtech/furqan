@@ -105,7 +105,7 @@ function FeatureRow({ feature, slotKey, onDone }: { feature: SiteFeature | null;
         )}
         <div className="ms-auto flex gap-2">
           {feature && (
-            <button type="button" onClick={handleDelete} disabled={deleting} className="glass-pill flex min-h-[36px] items-center gap-1 border border-red-500/30 px-3 py-1 text-red-400 hover:bg-red-500/10 disabled:opacity-50">
+            <button type="button" onClick={handleDelete} disabled={deleting} className="glass-pill flex min-h-[36px] items-center gap-1 border border-error/30 px-3 py-1 text-red-400 hover:bg-error/10 disabled:opacity-50">
               <Trash2 size={12} aria-hidden="true" /> حذف
             </button>
           )}

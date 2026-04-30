@@ -159,7 +159,7 @@ export default async function LessonPlaybackPage({ params }: PageProps) {
                       }`}
                     >
                       {completed ? (
-                        <CheckCircle2 size={14} className="text-emerald-600" />
+                        <CheckCircle2 size={14} className="text-success" />
                       ) : (
                         <PlayCircle size={14} className="text-muted" />
                       )}

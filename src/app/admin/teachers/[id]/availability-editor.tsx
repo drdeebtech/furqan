@@ -151,7 +151,7 @@ export function AvailabilityEditor({ teacherId, slots, exceptions }: Availabilit
       <div className="border-t border-white/10 pt-6">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <CalendarX size={18} className="text-amber-400" />
+            <CalendarX size={18} className="text-warning" />
             الاستثناءات
             <span className="me-1 text-sm font-normal text-muted">
               Exceptions ({exceptions.length})
@@ -161,7 +161,7 @@ export function AvailabilityEditor({ teacherId, slots, exceptions }: Availabilit
             <button
               type="button"
               onClick={() => setAddingException(true)}
-              className="glass-pill flex items-center gap-2 px-4 py-2 text-sm font-medium hover:bg-amber-500/10 hover:text-amber-400"
+              className="glass-pill flex items-center gap-2 px-4 py-2 text-sm font-medium hover:bg-warning/10 hover:text-warning"
             >
               <Plus size={14} />
               إضافة استثناء
@@ -249,7 +249,7 @@ function SlotRow({
           onClick={handleDelete}
           disabled={pending}
           aria-label="حذف"
-          className="glass-pill px-3 py-1.5 text-xs hover:bg-rose-500/10 hover:text-rose-400 disabled:opacity-50"
+          className="glass-pill px-3 py-1.5 text-xs hover:bg-error/10 hover:text-error disabled:opacity-50"
         >
           <Trash2 size={12} />
         </button>
@@ -302,7 +302,7 @@ function SlotForm({
         </div>
       )}
       {overlapWarn && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-400">
+        <div className="rounded-xl border border-warning/30 bg-warning/10 p-2 text-xs text-warning">
           {overlapWarn}
         </div>
       )}
@@ -411,11 +411,11 @@ function ExceptionRow({
           {exception.date}
         </span>
         {exception.is_blocked ? (
-          <span className="glass-badge border-rose-500/30 bg-rose-500/10 text-xs text-rose-400">
+          <span className="glass-badge border-error/30 bg-error/10 text-xs text-error">
             محظور
           </span>
         ) : (
-          <span className="glass-badge border-emerald-500/30 bg-emerald-500/10 text-xs text-emerald-400">
+          <span className="glass-badge border-success/30 bg-success/10 text-xs text-success">
             تعديل
           </span>
         )}
@@ -431,7 +431,7 @@ function ExceptionRow({
         onClick={handleDelete}
         disabled={pending}
         aria-label="حذف الاستثناء"
-        className="glass-pill px-3 py-1.5 text-xs hover:bg-rose-500/10 hover:text-rose-400 disabled:opacity-50"
+        className="glass-pill px-3 py-1.5 text-xs hover:bg-error/10 hover:text-error disabled:opacity-50"
       >
         <Trash2 size={12} />
       </button>

@@ -21,7 +21,7 @@ export function CreateUserForm() {
     return (
       <div dir={dir} className="mx-auto max-w-lg px-4 py-12">
         <div className="glass-card rounded-xl p-8 text-center">
-          <CheckCircle size={48} className="mx-auto mb-4 text-emerald-400" />
+          <CheckCircle size={48} className="mx-auto mb-4 text-success" />
           <h2 className="mb-2 text-xl font-bold text-gold">{t("تم إنشاء المستخدم بنجاح", "User created successfully")}</h2>
           <p className="mb-6 text-sm text-muted">{t("يمكن للمستخدم الآن تسجيل الدخول بالبريد الإلكتروني وكلمة المرور", "The user can now log in with the email and password")}</p>
           <div className="flex items-center justify-center gap-4">

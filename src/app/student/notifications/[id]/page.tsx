@@ -12,11 +12,11 @@ export const metadata: Metadata = { title: "الإشعار" };
 
 const ICONS: Record<NotifType, { Icon: typeof Bell; color: string; bg: string }> = {
   booking: { Icon: Calendar, color: "text-blue-400", bg: "bg-blue-500/10" },
-  payment: { Icon: CreditCard, color: "text-emerald-400", bg: "bg-emerald-500/10" },
+  payment: { Icon: CreditCard, color: "text-success", bg: "bg-success/10" },
   message: { Icon: MessageSquare, color: "text-purple-400", bg: "bg-purple-500/10" },
-  reminder: { Icon: Bell, color: "text-amber-400", bg: "bg-amber-500/10" },
+  reminder: { Icon: Bell, color: "text-warning", bg: "bg-warning/10" },
   system: { Icon: Megaphone, color: "text-gold", bg: "bg-gold/10" },
-  homework: { Icon: BookOpen, color: "text-sky-400", bg: "bg-sky-500/10" },
+  homework: { Icon: BookOpen, color: "text-gold", bg: "bg-gold/10" },
   course: { Icon: GraduationCap, color: "text-gold", bg: "bg-gold/10" },
 };
 

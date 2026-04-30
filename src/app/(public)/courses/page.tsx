@@ -210,7 +210,7 @@ export default async function PublicCoursesPage({
                   {c.rating_count_cached && c.rating_count_cached > 0 ? (
                     <>
                       <span className="text-muted">·</span>
-                      <span className="flex items-center gap-1 text-amber-600">
+                      <span className="flex items-center gap-1 text-warning">
                         <Star size={11} fill="currentColor" />
                         {c.rating_avg_cached?.toFixed(1)}
                       </span>

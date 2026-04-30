@@ -105,7 +105,7 @@ export function ModerationControls({ kind, targetId, initial, extraTargetType, e
           type="button"
           onClick={() => handle(() => resolveReport(targetId, "resolved"))}
           disabled={pending}
-          className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-50"
+          className="inline-flex items-center gap-1 rounded-lg border border-success/30 bg-success/10 px-2 py-1 text-xs text-success hover:bg-success/20 disabled:opacity-50"
         >
           <Check size={12} aria-hidden="true" /> {t("حل", "Resolve")}
         </button>

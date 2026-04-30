@@ -10,7 +10,7 @@ function StatusIcon({ state }: { state: DeviceState }) {
   return state === "checking" ? (
     <span className="h-4 w-4 animate-spin rounded-full border-2 border-gold/30 border-t-gold" />
   ) : state === "granted" ? (
-    <CheckCircle size={16} className="text-emerald-400" />
+    <CheckCircle size={16} className="text-success" />
   ) : (
     <XCircle size={16} className="text-red-400" />
   );

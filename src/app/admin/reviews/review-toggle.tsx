@@ -19,7 +19,7 @@ export function ReviewToggle({ reviewId, isPublic }: { reviewId: string; isPubli
   if (confirmHide) {
     return (
       <div className="flex flex-col gap-1">
-        <p className="text-xs text-amber-400">إخفاء هذا التقييم؟</p>
+        <p className="text-xs text-warning">إخفاء هذا التقييم؟</p>
         <div className="flex gap-2">
           <button
             onClick={() => handleToggle(false)}
@@ -52,7 +52,7 @@ export function ReviewToggle({ reviewId, isPublic }: { reviewId: string; isPubli
         }
       }}
       disabled={loading}
-      className={`glass-badge ${pub ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-red-500/10 text-red-400 border-red-500/30"}`}
+      className={`glass-badge ${pub ? "bg-success/10 text-success border-success/30" : "bg-error/10 text-red-400 border-error/30"}`}
     >
       {loading ? "..." : pub ? "عام" : "مخفي"}
     </button>

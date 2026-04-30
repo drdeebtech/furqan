@@ -93,8 +93,8 @@ export function ArchiveToggle({
         disabled={loading}
         className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
           archived
-            ? "border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
-            : "border-red-500/30 text-red-400 hover:bg-red-500/10"
+            ? "border-success/30 text-success hover:bg-success/10"
+            : "border-error/30 text-red-400 hover:bg-error/10"
         }`}
       >
         {loading ? (
@@ -111,29 +111,29 @@ export function ArchiveToggle({
           Tells the admin whether the teacher is now publicly visible
           or still blocked by another gate (CV not approved / not accepting). */}
       {gateHint?.kind === "cv-not-approved" && (
-        <p className="flex max-w-[18rem] items-start gap-1 text-end text-[11px] leading-snug text-amber-400">
+        <p className="flex max-w-[18rem] items-start gap-1 text-end text-[11px] leading-snug text-warning">
           <AlertTriangle size={11} className="mt-0.5 shrink-0" aria-hidden="true" />
           <span>
             تم إلغاء الأرشفة — لن يظهر علناً حتى{" "}
-            <Link href={`/admin/teachers/cv/${teacherId}`} className="underline hover:text-amber-300">
+            <Link href={`/admin/teachers/cv/${teacherId}`} className="underline hover:text-warning">
               اعتماد السيرة الذاتية
             </Link>
           </span>
         </p>
       )}
       {gateHint?.kind === "not-accepting" && (
-        <p className="flex max-w-[18rem] items-start gap-1 text-end text-[11px] leading-snug text-amber-400">
+        <p className="flex max-w-[18rem] items-start gap-1 text-end text-[11px] leading-snug text-warning">
           <AlertTriangle size={11} className="mt-0.5 shrink-0" aria-hidden="true" />
           <span>
             تم إلغاء الأرشفة — لن يظهر علناً حتى تفعيل{" "}
-            <Link href={`/admin/teachers/${teacherId}`} className="underline hover:text-amber-300">
+            <Link href={`/admin/teachers/${teacherId}`} className="underline hover:text-warning">
               «يقبل طلاب»
             </Link>
           </span>
         </p>
       )}
       {gateHint?.kind === "ok" && (
-        <p className="flex items-center gap-1 text-[11px] text-emerald-400">
+        <p className="flex items-center gap-1 text-[11px] text-success">
           <CheckCircle2 size={11} aria-hidden="true" />
           تم — يظهر الآن للزوار
         </p>

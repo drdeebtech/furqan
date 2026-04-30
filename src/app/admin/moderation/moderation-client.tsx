@@ -180,7 +180,7 @@ function MessageCard({
       )}
 
       {msg.flagReason && (
-        <p className="mb-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+        <p className="mb-3 rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning">
           <AlertTriangle size={12} className="me-1 inline" /> {msg.flagReason}
         </p>
       )}
@@ -197,14 +197,14 @@ function MessageCard({
         <button
           onClick={onHide}
           disabled={pending || hideReason.trim().length < 3}
-          className="flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+          className="flex items-center gap-1 rounded-lg border border-error/30 bg-error/10 px-3 py-1.5 text-xs font-medium text-red-300 transition-colors hover:bg-error/20 disabled:opacity-50"
         >
           <X size={14} /> {t("إخفاء", "Hide")}
         </button>
         <button
           onClick={onClear}
           disabled={pending}
-          className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
+          className="flex items-center gap-1 rounded-lg border border-success/30 bg-success/10 px-3 py-1.5 text-xs font-medium text-success transition-colors hover:bg-success/20 disabled:opacity-50"
         >
           <Check size={14} /> {t("مسح العلامة", "Clear flag")}
         </button>
@@ -217,7 +217,7 @@ function MessageCard({
       </div>
 
       {result && (
-        <p className={`mt-3 text-xs ${result.error ? "text-red-400" : "text-emerald-400"}`}>
+        <p className={`mt-3 text-xs ${result.error ? "text-red-400" : "text-success"}`}>
           {result.error ?? result.success}
         </p>
       )}
@@ -241,7 +241,7 @@ function EvaluationCard({
   const scoreClass =
     ev.overallScore !== null && ev.overallScore <= 2.0
       ? "text-red-400"
-      : "text-amber-400";
+      : "text-warning";
 
   const onPing = () => {
     start(async () => setResult(await pingAdminOnEvaluation(ev.id)));
@@ -288,7 +288,7 @@ function EvaluationCard({
         <button
           onClick={onPing}
           disabled={pending}
-          className="flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-300 transition-colors hover:bg-amber-500/20 disabled:opacity-50"
+          className="flex items-center gap-1 rounded-lg border border-warning/30 bg-warning/10 px-3 py-1.5 text-xs font-medium text-warning transition-colors hover:bg-warning/20 disabled:opacity-50"
         >
           <BellRing size={14} /> {t("تنبيه الفريق", "Ping team")}
         </button>
@@ -308,7 +308,7 @@ function EvaluationCard({
       </div>
 
       {result && (
-        <p className={`mt-3 text-xs ${result.error ? "text-red-400" : "text-emerald-400"}`}>
+        <p className={`mt-3 text-xs ${result.error ? "text-red-400" : "text-success"}`}>
           {result.error ?? result.success}
         </p>
       )}

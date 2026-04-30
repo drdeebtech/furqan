@@ -60,7 +60,7 @@ export function CvPanel({ teacherId, profile, picklists }: CvPanelProps) {
             type="button"
             onClick={handleReset}
             disabled={resetting}
-            className="glass-pill flex items-center gap-2 px-4 py-2 text-xs font-medium text-amber-400 hover:bg-amber-500/10 disabled:opacity-50"
+            className="glass-pill flex items-center gap-2 px-4 py-2 text-xs font-medium text-warning hover:bg-warning/10 disabled:opacity-50"
           >
             <RotateCcw size={12} />
             إعادة للمراجعة / Reset to pending
@@ -69,8 +69,8 @@ export function CvPanel({ teacherId, profile, picklists }: CvPanelProps) {
       </div>
 
       {profile.cv_status === "rejected" && profile.cv_rejection_reason && (
-        <div className="rounded-xl border border-rose-500/30 bg-rose-500/5 p-4 text-sm">
-          <p className="mb-1 font-medium text-rose-400">سبب الرفض / Rejection reason</p>
+        <div className="rounded-xl border border-error/30 bg-error/5 p-4 text-sm">
+          <p className="mb-1 font-medium text-error">سبب الرفض / Rejection reason</p>
           <p className="text-muted">{profile.cv_rejection_reason}</p>
         </div>
       )}

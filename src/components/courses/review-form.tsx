@@ -66,7 +66,7 @@ export function ReviewForm({
               <Star
                 size={22}
                 className={
-                  filled ? "text-amber-500" : "text-muted/40"
+                  filled ? "text-warning" : "text-muted/40"
                 }
                 fill={filled ? "currentColor" : "none"}
               />
@@ -94,13 +94,13 @@ export function ReviewForm({
           {existingStars ? labels.update : labels.submit}
         </button>
         {status === "ok" && (
-          <span className="flex items-center gap-1 text-xs text-emerald-600">
+          <span className="flex items-center gap-1 text-xs text-success">
             <CheckCircle2 size={12} />
             {labels.saved}
           </span>
         )}
         {status === "error" && error && (
-          <span className="flex items-center gap-1 text-xs text-red-600">
+          <span className="flex items-center gap-1 text-xs text-error">
             <AlertCircle size={12} />
             {error}
           </span>

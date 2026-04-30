@@ -27,9 +27,9 @@ interface PageProps {
 const VIDEO_STATUS_BADGE: Record<string, { ar: string; en: string; cls: string; icon: typeof CheckCircle2 }> = {
   pending: { ar: "بانتظار الرفع", en: "Pending upload", cls: "bg-muted/20 text-muted", icon: Clock },
   uploading: { ar: "جاري الرفع", en: "Uploading", cls: "bg-blue-500/20 text-blue-700", icon: Clock },
-  processing: { ar: "قيد المعالجة", en: "Processing", cls: "bg-amber-500/20 text-amber-700", icon: Clock },
-  ready: { ar: "جاهز", en: "Ready", cls: "bg-emerald-500/20 text-emerald-700", icon: CheckCircle2 },
-  failed: { ar: "فشل", en: "Failed", cls: "bg-red-500/20 text-red-700", icon: AlertCircle },
+  processing: { ar: "قيد المعالجة", en: "Processing", cls: "bg-warning/20 text-warning", icon: Clock },
+  ready: { ar: "جاهز", en: "Ready", cls: "bg-success/20 text-success", icon: CheckCircle2 },
+  failed: { ar: "فشل", en: "Failed", cls: "bg-error/20 text-error", icon: AlertCircle },
 };
 
 export default async function EditCoursePage({ params }: PageProps) {
@@ -81,14 +81,14 @@ export default async function EditCoursePage({ params }: PageProps) {
       </div>
 
       {course.status === "rejected" && course.rejection_reason && (
-        <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-700 dark:bg-red-950 dark:text-red-100">
+        <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-error dark:border-red-700 dark:bg-red-950 dark:text-red-100">
           <p className="font-semibold">{t("تم رفض الدورة", "Course rejected")}</p>
           <p className="mt-1">{course.rejection_reason}</p>
         </div>
       )}
 
       {course.status === "pending_review" && (
-        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-warning dark:border-amber-700 dark:bg-amber-950 dark:text-warning">
           {t(
             "الدورة قيد المراجعة من قبل المشرفين. لا يمكن التعديل حتى تتم الموافقة أو الرفض.",
             "Course is under review. Editing is locked until approved or rejected.",
@@ -221,7 +221,7 @@ export default async function EditCoursePage({ params }: PageProps) {
                         {l.title_ar}
                       </span>
                       {l.is_preview && (
-                        <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-700">
+                        <span className="rounded-full bg-success/20 px-2 py-0.5 text-xs text-success">
                           {t("معاينة", "Preview")}
                         </span>
                       )}
@@ -280,7 +280,7 @@ export default async function EditCoursePage({ params }: PageProps) {
                         <button
                           type="submit"
                           aria-label={t("حذف الدرس", "Delete lesson")}
-                          className="rounded-lg border border-red-300 p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                          className="rounded-lg border border-red-300 p-1.5 text-error hover:bg-red-50 dark:hover:bg-red-950"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -368,7 +368,7 @@ export default async function EditCoursePage({ params }: PageProps) {
           >
             <button
               type="submit"
-              className="text-xs text-red-600 hover:underline"
+              className="text-xs text-error hover:underline"
             >
               {t("حذف هذه المسودة", "Delete this draft")}
             </button>

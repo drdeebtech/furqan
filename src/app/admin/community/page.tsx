@@ -41,7 +41,7 @@ export default async function AdminCommunityPage() {
 
       <section className="mb-8">
         <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-light">
-          <AlertTriangle size={12} className="me-1 inline text-amber-400" aria-hidden="true" />
+          <AlertTriangle size={12} className="me-1 inline text-warning" aria-hidden="true" />
           {t("بلاغات بانتظار المراجعة", "Pending reports")} ({reports.length})
         </h2>
         {reports.length === 0 ? (

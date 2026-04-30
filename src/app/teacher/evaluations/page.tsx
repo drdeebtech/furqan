@@ -24,10 +24,10 @@ function scoreBadge(score: number | null) {
   if (score === null) return <span className="text-muted">—</span>;
   const color =
     score >= 8
-      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+      ? "border-success/30 bg-success/10 text-success"
       : score >= 5
         ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
-        : "border-red-500/30 bg-red-500/10 text-red-400";
+        : "border-error/30 bg-error/10 text-red-400";
   return (
     <span className={`glass-badge inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${color}`}>
       {score}/10
@@ -144,7 +144,7 @@ export default async function TeacherEvaluationsPage() {
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   {ev.strengths && (
                     <div className="glass-success glass rounded-xl p-3">
-                      <p className="mb-1 text-xs font-semibold text-emerald-400">{t("نقاط القوة", "Strengths")}</p>
+                      <p className="mb-1 text-xs font-semibold text-success">{t("نقاط القوة", "Strengths")}</p>
                       <p className="break-words whitespace-pre-wrap text-sm">{ev.strengths}</p>
                     </div>
                   )}

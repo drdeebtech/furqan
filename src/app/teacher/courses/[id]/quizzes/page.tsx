@@ -80,7 +80,7 @@ export default async function CourseQuizzesPage({ params }: Props) {
               </div>
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                 q.is_published
-                  ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                  ? "border border-success/30 bg-success/10 text-success"
                   : "border border-[var(--surface-border)] text-muted"
               }`}>
                 {q.is_published ? t("منشور", "Published") : t("مسودة", "Draft")}

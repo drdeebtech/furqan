@@ -148,7 +148,7 @@ function FailedRow({
       </div>
 
       {row.error_message && (
-        <p className="mb-3 flex items-start gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-300">
+        <p className="mb-3 flex items-start gap-2 rounded-lg bg-error/10 px-3 py-2 text-xs text-red-300">
           <AlertTriangle size={12} className="mt-0.5 shrink-0" />
           <span className="whitespace-pre-wrap break-all">{row.error_message}</span>
         </p>
@@ -177,7 +177,7 @@ function FailedRow({
       )}
 
       {result && (
-        <p className={`mt-3 text-xs ${result.error ? "text-red-400" : "text-emerald-400"}`}>
+        <p className={`mt-3 text-xs ${result.error ? "text-red-400" : "text-success"}`}>
           {result.error ?? result.success}
         </p>
       )}
@@ -212,7 +212,7 @@ function DeadLetterRowView({
   };
 
   return (
-    <li className="rounded-2xl border border-red-500/20 bg-red-500/5 p-5">
+    <li className="rounded-2xl border border-error/20 bg-error/5 p-5">
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-bold">{row.workflow_name}</p>
@@ -226,7 +226,7 @@ function DeadLetterRowView({
       </div>
 
       {row.last_error && (
-        <p className="mb-3 flex items-start gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-300">
+        <p className="mb-3 flex items-start gap-2 rounded-lg bg-error/10 px-3 py-2 text-xs text-red-300">
           <AlertTriangle size={12} className="mt-0.5 shrink-0" />
           <span className="whitespace-pre-wrap break-all">{row.last_error}</span>
         </p>
@@ -251,7 +251,7 @@ function DeadLetterRowView({
         <button
           onClick={onResolve}
           disabled={pending}
-          className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
+          className="flex items-center gap-1 rounded-lg border border-success/30 bg-success/10 px-3 py-1.5 text-xs font-medium text-success transition-colors hover:bg-success/20 disabled:opacity-50"
         >
           <Check size={14} /> {t("تم الحل", "Mark resolved")}
         </button>
@@ -270,7 +270,7 @@ function DeadLetterRowView({
       )}
 
       {result && (
-        <p className={`mt-3 text-xs ${result.error ? "text-red-400" : "text-emerald-400"}`}>
+        <p className={`mt-3 text-xs ${result.error ? "text-red-400" : "text-success"}`}>
           {result.error ?? result.success}
         </p>
       )}

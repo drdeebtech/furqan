@@ -63,7 +63,7 @@ export function SessionDetailControls({
 
   if (ended) {
     return (
-      <div className="glass-success glass-card mb-6 p-4 text-center text-sm text-emerald-400">
+      <div className="glass-success glass-card mb-6 p-4 text-center text-sm text-success">
         تم إنهاء الجلسة بنجاح
       </div>
     );
@@ -86,7 +86,7 @@ export function SessionDetailControls({
           <button
             onClick={handleEnd}
             disabled={loading !== null}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-error/30 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-error/10 disabled:opacity-50"
           >
             {loading === "end" ? spinner : <PhoneOff size={14} />}
             إنهاء الجلسة

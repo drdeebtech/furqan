@@ -91,7 +91,7 @@ export function QuizTaker({ attemptId, quiz, questions }: Props) {
           {lang === "ar" ? quiz.title_ar : (quiz.title_en ?? quiz.title_ar)}
         </h1>
         {secondsLeft !== null && (
-          <span className={`font-mono text-base font-semibold tabular-nums ${secondsLeft < 60 ? "text-red-500" : "text-foreground"}`}>
+          <span className={`font-mono text-base font-semibold tabular-nums ${secondsLeft < 60 ? "text-error" : "text-foreground"}`}>
             ⏱ {formatTime(secondsLeft)}
           </span>
         )}

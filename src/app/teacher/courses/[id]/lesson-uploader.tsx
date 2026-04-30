@@ -150,13 +150,13 @@ export function LessonUploader({
         </div>
       )}
       {status === "done" && (
-        <div className="flex items-center gap-2 text-xs text-emerald-600">
+        <div className="flex items-center gap-2 text-xs text-success">
           <CheckCircle2 size={14} />
           {doneLabel}
         </div>
       )}
       {status === "error" && error && (
-        <div className="flex items-center gap-2 text-xs text-red-600">
+        <div className="flex items-center gap-2 text-xs text-error">
           <AlertCircle size={14} />
           {error}
         </div>

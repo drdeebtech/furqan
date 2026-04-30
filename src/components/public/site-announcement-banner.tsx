@@ -12,9 +12,9 @@ const SEVERITY_RANK: Record<SiteAnnouncement["severity"], number> = {
 };
 
 const SEVERITY_STYLES: Record<SiteAnnouncement["severity"], { bg: string; text: string; icon: React.ElementType }> = {
-  info: { bg: "bg-sky-500/10 border-sky-500/40", text: "text-sky-300", icon: Info },
-  warning: { bg: "bg-amber-500/10 border-amber-500/40", text: "text-amber-200", icon: AlertTriangle },
-  critical: { bg: "bg-red-500/10 border-red-500/40", text: "text-red-200", icon: AlertCircle },
+  info: { bg: "bg-gold/10 border-gold/40", text: "text-gold", icon: Info },
+  warning: { bg: "bg-warning/10 border-warning/40", text: "text-warning", icon: AlertTriangle },
+  critical: { bg: "bg-error/10 border-error/40", text: "text-error", icon: AlertCircle },
 };
 
 /**

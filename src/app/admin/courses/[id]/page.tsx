@@ -13,9 +13,9 @@ interface PageProps {
 const VIDEO_STATUS_LABEL: Record<string, { ar: string; en: string; cls: string }> = {
   pending: { ar: "بانتظار الرفع", en: "Pending", cls: "bg-muted/20 text-muted" },
   uploading: { ar: "جاري الرفع", en: "Uploading", cls: "bg-blue-500/20 text-blue-700" },
-  processing: { ar: "قيد المعالجة", en: "Processing", cls: "bg-amber-500/20 text-amber-700" },
-  ready: { ar: "جاهز", en: "Ready", cls: "bg-emerald-500/20 text-emerald-700" },
-  failed: { ar: "فشل", en: "Failed", cls: "bg-red-500/20 text-red-700" },
+  processing: { ar: "قيد المعالجة", en: "Processing", cls: "bg-warning/20 text-warning" },
+  ready: { ar: "جاهز", en: "Ready", cls: "bg-success/20 text-success" },
+  failed: { ar: "فشل", en: "Failed", cls: "bg-error/20 text-error" },
 };
 
 export default async function AdminCourseReviewPage({ params }: PageProps) {
@@ -115,7 +115,7 @@ export default async function AdminCourseReviewPage({ params }: PageProps) {
                       <span className="text-xs text-muted">#{l.order_index}</span>
                       <span className="truncate text-sm font-medium">{l.title_ar}</span>
                       {l.is_preview && (
-                        <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-700">
+                        <span className="rounded-full bg-success/20 px-2 py-0.5 text-xs text-success">
                           {t("معاينة", "Preview")}
                         </span>
                       )}
@@ -154,7 +154,7 @@ export default async function AdminCourseReviewPage({ params }: PageProps) {
             >
               <button
                 type="submit"
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-success px-4 py-2.5 text-sm font-medium text-white transition hover:bg-success/90"
               >
                 <Check size={16} />
                 {t("موافقة ونشر", "Approve & publish")}
@@ -177,7 +177,7 @@ export default async function AdminCourseReviewPage({ params }: PageProps) {
               />
               <button
                 type="submit"
-                className="flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+                className="flex items-center justify-center gap-2 rounded-lg bg-error px-4 py-2 text-sm font-medium text-white transition hover:bg-error"
               >
                 <X size={16} />
                 {t("رفض", "Reject")}

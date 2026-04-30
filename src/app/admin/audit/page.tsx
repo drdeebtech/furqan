@@ -51,10 +51,10 @@ export default async function AdminAuditPage({
   );
 
   const actionColor: Record<string, string> = {
-    INSERT: "text-emerald-400",
-    UPDATE: "text-amber-400",
+    INSERT: "text-success",
+    UPDATE: "text-warning",
     DELETE: "text-red-400",
-    LOGIN: "text-sky-400",
+    LOGIN: "text-gold",
     LOGOUT: "text-slate-400",
   };
 

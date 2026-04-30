@@ -41,7 +41,7 @@ export function HomeworkList({
         <Section
           title={t("بانتظار التسميع", "Awaiting Grading")}
           subtitle={t("معلمك سيراجع أداءك في الجلسة القادمة", "Your teacher will review in the next session")}
-          icon={<Clock size={18} className="text-amber-400" />}
+          icon={<Clock size={18} className="text-warning" />}
           count={ready.length}
         >
           {ready.map(a => (
@@ -54,7 +54,7 @@ export function HomeworkList({
       {completed.length > 0 && (
         <Section
           title={t("واجبات مكتملة", "Completed Homework")}
-          icon={<CheckCircle size={18} className="text-emerald-400" />}
+          icon={<CheckCircle size={18} className="text-success" />}
           count={completed.length}
         >
           {completed.map(a => (
@@ -177,7 +177,7 @@ function HomeworkCard({
 
           {/* Re-assigned indicator */}
           {hw.parent_assignment_id && (
-            <div className="flex items-center gap-1 text-xs text-orange-400">
+            <div className="flex items-center gap-1 text-xs text-warning">
               <RefreshCw size={12} />
               {t("واجب مُعاد — حاول مجدداً", "Re-assigned — try again")}
             </div>
@@ -191,10 +191,10 @@ function HomeworkCard({
             <button
               onClick={handleReady}
               disabled={marking}
-              className="flex items-center gap-2 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-4 py-2 text-sm font-semibold text-emerald-400 transition-colors hover:bg-emerald-500/20 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-full bg-success/10 border border-success/30 px-4 py-2 text-sm font-semibold text-success transition-colors hover:bg-success/20 disabled:opacity-50"
             >
               {marking ? (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-400/30 border-t-emerald-400" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-success/30 border-t-emerald-400" />
               ) : (
                 <BookOpen size={16} />
               )}
@@ -205,7 +205,7 @@ function HomeworkCard({
 
         {/* Marked confirmation */}
         {marked && (
-          <div className="flex items-center gap-1 text-sm text-emerald-400">
+          <div className="flex items-center gap-1 text-sm text-success">
             <CheckCircle size={16} />
             {t("تم! بانتظار المعلم", "Done! Awaiting teacher")}
           </div>

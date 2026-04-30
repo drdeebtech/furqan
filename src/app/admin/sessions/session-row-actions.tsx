@@ -56,7 +56,7 @@ export function SessionRowActions({
           autoFocus
           aria-label={t("سبب إنهاء الجلسة", "Session end reason")}
         />
-        <button onClick={handleForceEnd} disabled={isPending || !reason.trim()} className="rounded-lg p-1 text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50" aria-label={t("تأكيد", "Confirm")}>
+        <button onClick={handleForceEnd} disabled={isPending || !reason.trim()} className="rounded-lg p-1 text-success hover:bg-success/10 disabled:opacity-50" aria-label={t("تأكيد", "Confirm")}>
           <Check size={14} aria-hidden="true" />
         </button>
         <button onClick={() => { setShowReason(false); setReason(""); }} className="rounded-lg p-1 text-muted hover:bg-surface-alt" aria-label={t("إلغاء", "Cancel")}>
@@ -80,7 +80,7 @@ export function SessionRowActions({
         <button
           onClick={handleForceEnd}
           disabled={isPending}
-          className="rounded-lg p-1.5 text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+          className="rounded-lg p-1.5 text-red-400 transition-colors hover:bg-error/10 disabled:opacity-50"
           title={t("إنهاء الجلسة", "End session")}
           aria-label={t("إنهاء الجلسة", "End session")}
         >

@@ -78,7 +78,7 @@ export function ObserverRoom({ sessionId }: { sessionId: string }) {
 
       {joined && (
         <div className="mt-4 flex items-center justify-between glass-card p-3">
-          <div className="flex items-center gap-2 text-sm text-amber-400">
+          <div className="flex items-center gap-2 text-sm text-warning">
             <Eye size={14} />
             وضع المراقبة — الصوت والكاميرا مغلقان
           </div>

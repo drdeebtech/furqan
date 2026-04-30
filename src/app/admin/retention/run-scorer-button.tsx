@@ -21,7 +21,7 @@ export function RunScorerButton() {
         {pending ? "جاري الحساب..." : "تشغيل الآن"}
       </button>
       {state?.ok && (
-        <span className="text-xs text-emerald-400">
+        <span className="text-xs text-success">
           ✓ تم حساب {state.scored} طالب · {state.high_risk} في خطر
         </span>
       )}

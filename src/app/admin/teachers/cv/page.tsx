@@ -78,7 +78,7 @@ export default async function AdminCvQueuePage() {
                       : t("غير محدد", "Unspecified")}
                   </p>
                 </div>
-                <span className="glass-badge border-amber-500/30 bg-amber-500/10 text-amber-400">
+                <span className="glass-badge border-warning/30 bg-warning/10 text-warning">
                   {t("بانتظار المراجعة", "Pending Review")}
                 </span>
               </div>

@@ -4,9 +4,9 @@ type Severity = "info" | "warning" | "critical" | "success";
 
 const TONES: Record<Severity, { text: string; bg: string }> = {
   info: { text: "text-blue-400", bg: "bg-blue-500/10" },
-  warning: { text: "text-amber-400", bg: "bg-amber-500/10" },
-  critical: { text: "text-red-400", bg: "bg-red-500/10" },
-  success: { text: "text-emerald-400", bg: "bg-emerald-500/10" },
+  warning: { text: "text-warning", bg: "bg-warning/10" },
+  critical: { text: "text-red-400", bg: "bg-error/10" },
+  success: { text: "text-success", bg: "bg-success/10" },
 };
 
 export function PriorityChip({

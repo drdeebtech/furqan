@@ -81,7 +81,7 @@ export default async function StudentCoursesPage() {
                   <div className="mt-2 flex items-center justify-between text-xs text-muted">
                     <span>{c.lesson_count_cached ?? 0} {t("درس", "lessons")}</span>
                     {e.completed_at ? (
-                      <span className="text-emerald-600">{t("مكتملة", "Completed")}</span>
+                      <span className="text-success">{t("مكتملة", "Completed")}</span>
                     ) : e.last_accessed_at ? (
                       <span className="flex items-center gap-1 text-gold">
                         <PlayCircle size={12} />

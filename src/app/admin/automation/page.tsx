@@ -7,9 +7,9 @@ import type { AutomationLog } from "@/types/database";
 export const metadata: Metadata = { title: "الأتمتة" };
 
 const STATUS_ICON: Record<string, { icon: typeof CheckCircle; color: string }> = {
-  succeeded: { icon: CheckCircle, color: "text-emerald-400" },
+  succeeded: { icon: CheckCircle, color: "text-success" },
   failed: { icon: XCircle, color: "text-red-400" },
-  started: { icon: Clock, color: "text-amber-400" },
+  started: { icon: Clock, color: "text-warning" },
   skipped: { icon: SkipForward, color: "text-muted" },
 };
 
@@ -53,7 +53,7 @@ export default async function AdminAutomationPage() {
           <p className="text-xs text-muted">{t("إجمالي العمليات", "Total Operations")}</p>
         </div>
         <div className="glass-card p-5 text-center">
-          <p className="font-display text-2xl font-bold text-emerald-400">{succeeded}</p>
+          <p className="font-display text-2xl font-bold text-success">{succeeded}</p>
           <p className="text-xs text-muted">{t("ناجحة", "Succeeded")}</p>
         </div>
         <div className="glass-card p-5 text-center">
@@ -69,7 +69,7 @@ export default async function AdminAutomationPage() {
           {(flags ?? []).map(f => (
             <div key={f.key} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
               <span className="text-sm">{f.key.replace(/_/g, " ")}</span>
-              <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${f.value === "true" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+              <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${f.value === "true" ? "bg-success/10 text-success" : "bg-error/10 text-red-400"}`}>
                 {f.value === "true" ? "ON" : "OFF"}
               </span>
             </div>

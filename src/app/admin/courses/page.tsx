@@ -17,10 +17,10 @@ const STATUS_LABEL_AR: Record<string, string> = {
 };
 const STATUS_BADGE: Record<string, string> = {
   draft: "bg-muted/20 text-muted",
-  pending_review: "bg-amber-500/30 text-amber-800",
-  published: "bg-emerald-500/20 text-emerald-700",
+  pending_review: "bg-warning/30 text-warning",
+  published: "bg-success/20 text-success",
   archived: "bg-muted/30 text-muted",
-  rejected: "bg-red-500/20 text-red-700",
+  rejected: "bg-error/20 text-error",
 };
 
 interface SearchParams {
@@ -157,7 +157,7 @@ export default async function AdminCoursesPage({
                     {c.lesson_count_cached ?? 0} {t("درس", "lessons")}
                   </span>
                   {c.pricing_type === "free" ? (
-                    <span className="text-emerald-600">{t("مجاني", "Free")}</span>
+                    <span className="text-success">{t("مجاني", "Free")}</span>
                   ) : (
                     <span className="text-gold">
                       {(c.price_cents / 100).toFixed(2)} {c.currency}

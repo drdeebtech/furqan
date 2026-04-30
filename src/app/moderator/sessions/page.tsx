@@ -65,7 +65,7 @@ export default async function ModeratorSessionsPage() {
             const b = bookingMap[s.booking_id];
             const isActive = !!s.started_at && !s.ended_at;
             return (
-              <div key={s.id} className={`rounded-xl p-4 ${isActive ? "glass-card border-emerald-500/30 bg-emerald-500/5" : "glass-card"}`}>
+              <div key={s.id} className={`rounded-xl p-4 ${isActive ? "glass-card border-success/30 bg-success/5" : "glass-card"}`}>
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">

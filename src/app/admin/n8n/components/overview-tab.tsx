@@ -268,7 +268,7 @@ export function OverviewTab() {
           </p>
         </div>
         <div className="glass-card p-4 text-center">
-          <p className="font-display text-2xl font-bold text-emerald-400">
+          <p className="font-display text-2xl font-bold text-success">
             {activeCount}
           </p>
           <p className="text-xs text-muted">
@@ -299,18 +299,18 @@ export function OverviewTab() {
               size={16}
               className={
                 successRate >= 80
-                  ? "text-emerald-400"
+                  ? "text-success"
                   : successRate >= 50
-                    ? "text-amber-400"
+                    ? "text-warning"
                     : "text-red-400"
               }
             />
             <p
               className={`font-display text-2xl font-bold ${
                 successRate >= 80
-                  ? "text-emerald-400"
+                  ? "text-success"
                   : successRate >= 50
-                    ? "text-amber-400"
+                    ? "text-warning"
                     : "text-red-400"
               }`}
             >
@@ -327,18 +327,18 @@ export function OverviewTab() {
               size={16}
               className={
                 healthScore >= 80
-                  ? "text-emerald-400"
+                  ? "text-success"
                   : healthScore >= 50
-                    ? "text-amber-400"
+                    ? "text-warning"
                     : "text-red-400"
               }
             />
             <p
               className={`font-display text-2xl font-bold ${
                 healthScore >= 80
-                  ? "text-emerald-400"
+                  ? "text-success"
                   : healthScore >= 50
-                    ? "text-amber-400"
+                    ? "text-warning"
                     : "text-red-400"
               }`}
             >
@@ -372,7 +372,7 @@ export function OverviewTab() {
           onClick={() => setShowFailedOnly(!showFailedOnly)}
           className={`glass-pill flex items-center gap-1 px-3 py-2 text-xs transition-colors ${
             showFailedOnly
-              ? "bg-red-500/10 text-red-400 border-red-500/30"
+              ? "bg-error/10 text-red-400 border-error/30"
               : "text-muted hover:text-gold"
           }`}
         >
@@ -549,7 +549,7 @@ function WorkflowRow({
 
   return (
     <div
-      className={`glass-card flex items-start gap-3 p-4 ${hasError ? "border-red-500/20" : ""}`}
+      className={`glass-card flex items-start gap-3 p-4 ${hasError ? "border-error/20" : ""}`}
     >
       <div
         className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${wf.active ? "bg-emerald-400" : "bg-muted/30"}`}
@@ -583,10 +583,10 @@ function WorkflowRow({
             <span
               className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${
                 successRate >= 80
-                  ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                  ? "bg-success/15 text-success border-success/30"
                   : successRate >= 50
-                    ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
-                    : "bg-red-500/15 text-red-400 border-red-500/30"
+                    ? "bg-warning/15 text-warning border-warning/30"
+                    : "bg-error/15 text-red-400 border-error/30"
               }`}
             >
               {successRate}%
@@ -621,8 +621,8 @@ function WorkflowRow({
         disabled={togglingId === wf.id}
         className={`glass-pill flex items-center gap-1 px-3 py-2 sm:py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
           wf.active
-            ? "text-emerald-400 hover:bg-red-500/10 hover:text-red-400"
-            : "text-muted hover:bg-emerald-500/10 hover:text-emerald-400"
+            ? "text-success hover:bg-error/10 hover:text-red-400"
+            : "text-muted hover:bg-success/10 hover:text-success"
         }`}
       >
         {togglingId === wf.id ? (

@@ -218,7 +218,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
             </div>
             {/* Date value is passed via hidden input inside the confirmation form */}
             {selectedDate && !isDateAvailable(selectedDate) && availability.length > 0 && (
-              <p className="mt-1 text-xs text-amber-400"><AlertCircle size={12} className="inline" /> المعلم غير متاح في هذا اليوم</p>
+              <p className="mt-1 text-xs text-warning"><AlertCircle size={12} className="inline" /> المعلم غير متاح في هذا اليوم</p>
             )}
           </div>
 
@@ -254,7 +254,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
                   className="w-full rounded-xl glass-input px-4 py-3 text-left text-foreground focus:border-gold focus:outline-none"
                 />
               ) : (
-                <p className="text-xs text-amber-400"><AlertCircle size={12} className="inline" /> لا توجد أوقات متاحة في هذا اليوم</p>
+                <p className="text-xs text-warning"><AlertCircle size={12} className="inline" /> لا توجد أوقات متاحة في هذا اليوم</p>
               )}
               {/* Time value is passed via hidden input inside the confirmation form */}
             </div>

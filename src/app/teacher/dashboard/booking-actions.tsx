@@ -35,7 +35,7 @@ export function BookingActions({ bookingId, isFirst }: { bookingId: string; isFi
   if (done === "confirmed") {
     return (
       <div className="flex flex-col items-end gap-1">
-        <span className="glass-success glass-badge rounded-full px-3 py-1 text-xs text-emerald-400">
+        <span className="glass-success glass-badge rounded-full px-3 py-1 text-xs text-success">
           تم التأكيد
         </span>
         {roomUrl && (
@@ -51,7 +51,7 @@ export function BookingActions({ bookingId, isFirst }: { bookingId: string; isFi
           </a>
         )}
         {error && (
-          <p role="alert" aria-live="polite" className="mt-1 text-xs text-amber-400">{error}</p>
+          <p role="alert" aria-live="polite" className="mt-1 text-xs text-warning">{error}</p>
         )}
       </div>
     );
@@ -74,7 +74,7 @@ export function BookingActions({ bookingId, isFirst }: { bookingId: string; isFi
           <button
             onClick={() => handle("cancelled")}
             disabled={loading !== null}
-            className="glass-danger glass-pill px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+            className="glass-danger glass-pill px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-error disabled:opacity-50"
           >
             {loading === "decline" ? (
               <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -113,7 +113,7 @@ export function BookingActions({ bookingId, isFirst }: { bookingId: string; isFi
         <button
           onClick={() => setConfirmDecline(true)}
           disabled={loading !== null}
-          className="flex min-h-[44px] items-center gap-1 rounded-lg border border-red-500/30 px-4 py-2 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50 sm:px-3 sm:py-1.5"
+          className="flex min-h-[44px] items-center gap-1 rounded-lg border border-error/30 px-4 py-2 text-xs font-medium text-red-400 transition-colors hover:bg-error/10 disabled:opacity-50 sm:px-3 sm:py-1.5"
         >
           <X size={14} />
           رفض

@@ -141,8 +141,8 @@ export default async function RetentionPage({ searchParams }: Props) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-sm">
-          <span className="rounded-full bg-red-500/10 px-3 py-1 font-bold text-red-400">{critical} {t("حرج", "Critical")}</span>
-          <span className="rounded-full bg-orange-500/10 px-3 py-1 font-bold text-orange-400">{high} {t("مرتفع", "High")}</span>
+          <span className="rounded-full bg-error/10 px-3 py-1 font-bold text-red-400">{critical} {t("حرج", "Critical")}</span>
+          <span className="rounded-full bg-warning/10 px-3 py-1 font-bold text-warning">{high} {t("مرتفع", "High")}</span>
           <RunScorerButton />
         </div>
       </div>

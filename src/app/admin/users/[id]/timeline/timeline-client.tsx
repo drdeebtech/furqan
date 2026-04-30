@@ -90,9 +90,9 @@ const COLORS: Record<
     ring: "ring-green-500/20",
   },
   amber: {
-    bg: "bg-amber-500/10",
-    text: "text-amber-400",
-    border: "border-amber-500/30",
+    bg: "bg-warning/10",
+    text: "text-warning",
+    border: "border-warning/30",
     ring: "ring-amber-500/20",
   },
   purple: {
@@ -108,9 +108,9 @@ const COLORS: Record<
     ring: "ring-gold/20",
   },
   red: {
-    bg: "bg-red-500/10",
+    bg: "bg-error/10",
     text: "text-red-400",
-    border: "border-red-500/30",
+    border: "border-error/30",
     ring: "ring-red-500/20",
   },
   muted: {

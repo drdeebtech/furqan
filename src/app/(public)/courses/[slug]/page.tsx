@@ -113,7 +113,7 @@ export default async function CourseLandingPage({ params }: PageProps) {
               )}
               <span className="text-muted">·</span>
               {course.rating_count_cached && course.rating_count_cached > 0 ? (
-                <span className="flex items-center gap-1 text-amber-600">
+                <span className="flex items-center gap-1 text-warning">
                   <Star size={12} fill="currentColor" />
                   {course.rating_avg_cached?.toFixed(1)} ({course.rating_count_cached})
                 </span>
@@ -162,7 +162,7 @@ export default async function CourseLandingPage({ params }: PageProps) {
                           {l.order_index}. {lang === "ar" ? l.title_ar : (l.title_en ?? l.title_ar)}
                         </span>
                         {l.is_preview && (
-                          <span className="ms-2 rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-700">
+                          <span className="ms-2 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
                             {t("معاينة مجانية", "Free preview")}
                           </span>
                         )}
@@ -189,7 +189,7 @@ export default async function CourseLandingPage({ params }: PageProps) {
               <div className="space-y-3">
                 {reviews.map((r) => (
                   <div key={r.id} className="rounded-lg border bg-white/30 p-4 dark:bg-white/5">
-                    <div className="mb-1 flex items-center gap-1 text-amber-600">
+                    <div className="mb-1 flex items-center gap-1 text-warning">
                       {Array.from({ length: r.stars }).map((_, i) => (
                         <Star key={i} size={12} fill="currentColor" />
                       ))}
@@ -207,7 +207,7 @@ export default async function CourseLandingPage({ params }: PageProps) {
           <div className="glass-card sticky top-24 p-6">
             {course.pricing_type === "free" ? (
               <div className="mb-4">
-                <span className="text-3xl font-bold text-emerald-600">
+                <span className="text-3xl font-bold text-success">
                   {t("مجاني", "Free")}
                 </span>
               </div>

@@ -88,8 +88,8 @@ function IjazaRow({ ijaza, onDone }: { ijaza: Ijaza | null; onDone?: () => void 
       <div className="glass-card flex items-start justify-between gap-3 p-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <CheckCircle size={14} className="text-emerald-400 shrink-0" aria-hidden="true" />
-            <span className="glass-badge inline-flex items-center gap-1 border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">
+            <CheckCircle size={14} className="text-success shrink-0" aria-hidden="true" />
+            <span className="glass-badge inline-flex items-center gap-1 border-success/30 bg-success/10 px-2 py-0.5 text-[10px] text-success">
               موثقة
             </span>
             <span className="text-sm font-medium">{labelForRiwaya(ijaza.riwaya)}</span>
@@ -113,7 +113,7 @@ function IjazaRow({ ijaza, onDone }: { ijaza: Ijaza | null; onDone?: () => void 
 
       <div className="flex items-center gap-2">
         {ijaza ? (
-          <span className="glass-badge inline-flex items-center gap-1 border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-400">
+          <span className="glass-badge inline-flex items-center gap-1 border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] text-warning">
             <Clock size={11} aria-hidden="true" /> بانتظار المراجعة
           </span>
         ) : (
@@ -157,7 +157,7 @@ function IjazaRow({ ijaza, onDone }: { ijaza: Ijaza | null; onDone?: () => void 
             type="button"
             onClick={handleDelete}
             disabled={deleting}
-            className="glass-pill flex min-h-[44px] items-center gap-1.5 border border-red-500/30 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+            className="glass-pill flex min-h-[44px] items-center gap-1.5 border border-error/30 px-3 py-1.5 text-xs text-red-400 hover:bg-error/10 disabled:opacity-50"
           >
             <Trash2 size={12} aria-hidden="true" /> حذف
           </button>

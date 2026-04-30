@@ -9,9 +9,9 @@ import { AnnouncementRowActions } from "./announcement-row-actions";
 export const metadata: Metadata = { title: "الإعلانات" };
 
 const SEVERITY_BADGE: Record<SiteAnnouncement["severity"], string> = {
-  info: "border-sky-500/40 bg-sky-500/10 text-sky-300",
-  warning: "border-amber-500/40 bg-amber-500/10 text-amber-300",
-  critical: "border-red-500/40 bg-red-500/10 text-red-300",
+  info: "border-gold/40 bg-gold/10 text-gold",
+  warning: "border-warning/40 bg-warning/10 text-warning",
+  critical: "border-error/40 bg-error/10 text-red-300",
 };
 
 export default async function AdminAnnouncementsPage() {

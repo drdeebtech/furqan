@@ -319,10 +319,10 @@ async function OverviewPanel({
     insufficient
       ? "text-muted"
       : ok
-        ? "text-emerald-400"
+        ? "text-success"
         : warn
-          ? "text-amber-400"
-          : "text-rose-400";
+          ? "text-warning"
+          : "text-error";
   const MIN_SAMPLE = 5;
 
   const insufficient =
@@ -338,10 +338,10 @@ async function OverviewPanel({
         <span
           className={`glass-badge ${
             tp.is_archived
-              ? "border-rose-500/30 bg-rose-500/10 text-rose-400"
+              ? "border-error/30 bg-error/10 text-error"
               : tp.is_accepting
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                : "border-amber-500/30 bg-amber-500/10 text-amber-400"
+                ? "border-success/30 bg-success/10 text-success"
+                : "border-warning/30 bg-warning/10 text-warning"
           }`}
         >
           {tp.is_archived
@@ -353,11 +353,11 @@ async function OverviewPanel({
         <span
           className={`glass-badge ${
             tp.cv_status === "approved"
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+              ? "border-success/30 bg-success/10 text-success"
               : tp.cv_status === "pending_review"
-                ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
+                ? "border-warning/30 bg-warning/10 text-warning"
                 : tp.cv_status === "rejected"
-                  ? "border-rose-500/30 bg-rose-500/10 text-rose-400"
+                  ? "border-error/30 bg-error/10 text-error"
                   : "border-white/20 bg-white/5 text-muted"
           }`}
         >

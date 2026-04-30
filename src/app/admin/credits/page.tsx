@@ -58,7 +58,7 @@ export default async function AdminCreditsPage() {
 
       <section className="mt-10">
         <div className="mb-4 flex items-center gap-3">
-          <AlertCircle size={18} className="text-amber-400" />
+          <AlertCircle size={18} className="text-warning" />
           <h2 className="text-lg font-bold">{t("باقات منخفضة الرصيد أو قريبة الانتهاء", "Low-Balance or Expiring Packages")}</h2>
           <span className="text-xs text-muted">({lowBalance.length})</span>
         </div>
@@ -94,13 +94,13 @@ export default async function AdminCreditsPage() {
                       </td>
                       <td className="p-3">{(lang === "ar" ? p.packages?.name_ar : p.packages?.name) ?? p.packages?.name ?? "—"}</td>
                       <td className="p-3">
-                        <span className={remaining === 0 ? "text-red-400" : remaining <= 2 ? "text-amber-400" : "text-foreground"}>
+                        <span className={remaining === 0 ? "text-red-400" : remaining <= 2 ? "text-warning" : "text-foreground"}>
                           {remaining} / {p.sessions_total}
                         </span>
                       </td>
                       <td className="p-3 text-xs">
                         {p.expires_at ? (
-                          <span className={expiryDays !== null && expiryDays <= 7 ? "text-amber-400" : "text-muted"}>
+                          <span className={expiryDays !== null && expiryDays <= 7 ? "text-warning" : "text-muted"}>
                             {expiryDays !== null && expiryDays <= 0
                               ? t("منتهية", "Expired")
                               : t(`خلال ${expiryDays} يوم`, `in ${expiryDays} days`)}

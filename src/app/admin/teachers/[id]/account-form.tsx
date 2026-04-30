@@ -76,7 +76,7 @@ export function AccountForm({ teacherId, currentEmail, profile }: AccountFormPro
           </div>
         )}
         {photoState.success && (
-          <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-400">
+          <div className="mb-4 rounded-xl border border-success/30 bg-success/10 p-3 text-sm text-success">
             تم تحديث الصورة بنجاح
           </div>
         )}
@@ -136,7 +136,7 @@ export function AccountForm({ teacherId, currentEmail, profile }: AccountFormPro
           </div>
         )}
         {emailState.success && (
-          <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-400">
+          <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
             {emailState.notice ?? "تم الحفظ"}
           </div>
         )}
@@ -181,7 +181,7 @@ export function AccountForm({ teacherId, currentEmail, profile }: AccountFormPro
           </div>
         )}
         {accountState.success && (
-          <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-400">
+          <div className="mb-4 rounded-xl border border-success/30 bg-success/10 p-3 text-sm text-success">
             تم حفظ البيانات بنجاح
           </div>
         )}

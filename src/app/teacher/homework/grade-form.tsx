@@ -7,10 +7,10 @@ import { useLang } from "@/lib/i18n/context";
 import type { HomeworkStatus } from "@/types/database";
 
 const GRADES: { value: HomeworkStatus; ar: string; en: string; className: string }[] = [
-  { value: "completed_excellent", ar: "ممتاز", en: "Excellent", className: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20" },
-  { value: "completed_good", ar: "جيد", en: "Good", className: "border-sky-500/40 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20" },
-  { value: "completed_needs_work", ar: "يحتاج تحسين", en: "Needs Work", className: "border-orange-500/40 bg-orange-500/10 text-orange-400 hover:bg-orange-500/20" },
-  { value: "completed_not_done", ar: "لم يُنجز", en: "Not Done", className: "border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20" },
+  { value: "completed_excellent", ar: "ممتاز", en: "Excellent", className: "border-success/40 bg-success/10 text-success hover:bg-success/20" },
+  { value: "completed_good", ar: "جيد", en: "Good", className: "border-gold/40 bg-gold/10 text-gold hover:bg-gold/20" },
+  { value: "completed_needs_work", ar: "يحتاج تحسين", en: "Needs Work", className: "border-warning/40 bg-warning/10 text-warning hover:bg-warning/20" },
+  { value: "completed_not_done", ar: "لم يُنجز", en: "Not Done", className: "border-error/40 bg-error/10 text-red-400 hover:bg-error/20" },
 ];
 
 export function GradeForm({

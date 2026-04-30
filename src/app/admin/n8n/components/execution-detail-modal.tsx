@@ -139,7 +139,7 @@ export function ExecutionDetailModal({ executionId, onClose }: ExecutionDetailMo
               </div>
               <div className="glass-card p-3 text-center">
                 <p className="text-xs text-muted">{t("الحالة", "Status")}</p>
-                <p className={`mt-1 text-sm font-medium ${detail.status === "error" ? "text-red-400" : detail.status === "success" ? "text-emerald-400" : "text-amber-400"}`}>
+                <p className={`mt-1 text-sm font-medium ${detail.status === "error" ? "text-red-400" : detail.status === "success" ? "text-success" : "text-warning"}`}>
                   {detail.status === "error" ? t("فشل", "Failed") :
                     detail.status === "success" ? t("نجح", "Success") :
                     detail.status}
@@ -178,7 +178,7 @@ export function ExecutionDetailModal({ executionId, onClose }: ExecutionDetailMo
 
             {/* Error Section */}
             {resultError && (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+              <div className="rounded-xl border border-error/20 bg-error/5 p-4">
                 <div className="mb-2 flex items-center gap-2">
                   <AlertTriangle size={16} className="text-red-400" />
                   <h3 className="text-sm font-semibold text-red-400">{t("خطأ في التنفيذ", "Execution Error")}</h3>
@@ -204,12 +204,12 @@ export function ExecutionDetailModal({ executionId, onClose }: ExecutionDetailMo
                     return (
                       <div
                         key={nodeName}
-                        className={`glass-card flex items-center gap-3 p-3 ${hasError ? "border-red-500/20" : ""}`}
+                        className={`glass-card flex items-center gap-3 p-3 ${hasError ? "border-error/20" : ""}`}
                       >
                         {hasError ? (
                           <XCircle size={16} className="shrink-0 text-red-400" />
                         ) : (
-                          <CheckCircle2 size={16} className="shrink-0 text-emerald-400" />
+                          <CheckCircle2 size={16} className="shrink-0 text-success" />
                         )}
                         <div className="min-w-0 flex-1">
                           <p className={`truncate text-sm font-medium ${hasError ? "text-red-400" : ""}`}>

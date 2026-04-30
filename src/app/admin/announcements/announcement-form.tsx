@@ -178,7 +178,7 @@ export function AnnouncementForm({
           {pending ? "…" : mode === "edit" ? t("حفظ", "Save") : t("إنشاء", "Create")}
         </button>
         {state.success && (
-          <span className="flex items-center gap-1 text-sm text-emerald-400">
+          <span className="flex items-center gap-1 text-sm text-success">
             <CheckCircle size={14} /> {state.success}
           </span>
         )}

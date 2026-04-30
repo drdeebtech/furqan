@@ -119,24 +119,24 @@ export default async function AdminSettingsPage() {
     switch (status) {
       case "reachable":
         return {
-          icon: <CheckCircle size={16} className="text-emerald-400" aria-hidden="true" />,
+          icon: <CheckCircle size={16} className="text-success" aria-hidden="true" />,
           textClass: "text-foreground",
           label: t("متصل", "Reachable"),
-          labelClass: "text-emerald-400",
+          labelClass: "text-success",
         };
       case "configured":
         return {
-          icon: <CheckCircle size={16} className="text-emerald-400/70" aria-hidden="true" />,
+          icon: <CheckCircle size={16} className="text-success/70" aria-hidden="true" />,
           textClass: "text-foreground",
           label: t("مهيأ", "Configured"),
-          labelClass: "text-emerald-400/70",
+          labelClass: "text-success/70",
         };
       case "unreachable":
         return {
-          icon: <AlertTriangle size={16} className="text-amber-400" aria-hidden="true" />,
-          textClass: "text-amber-400",
+          icon: <AlertTriangle size={16} className="text-warning" aria-hidden="true" />,
+          textClass: "text-warning",
           label: t("غير قابل للوصول", "Unreachable"),
-          labelClass: "text-amber-400",
+          labelClass: "text-warning",
         };
       case "missing":
       default:

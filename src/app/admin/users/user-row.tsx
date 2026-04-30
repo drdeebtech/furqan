@@ -71,7 +71,7 @@ export function UserRow({ user, churnRisk, currentAdminId }: Props) {
         <Link href={`/admin/users/${user.id}`} className="hover:text-gold">
           {user.full_name ?? "—"}
           {deleted && (
-            <span className="ms-2 inline-flex items-center rounded-full border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-red-400">
+            <span className="ms-2 inline-flex items-center rounded-full border border-error/30 bg-error/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-red-400">
               {lang === "ar" ? "محذوف" : "deleted"}
             </span>
           )}
@@ -80,7 +80,7 @@ export function UserRow({ user, churnRisk, currentAdminId }: Props) {
       <td className="px-4 py-3">
         {pendingRole ? (
           <div className="flex flex-col gap-1">
-            <p className="text-xs text-amber-400">تأكيد التغيير؟</p>
+            <p className="text-xs text-warning">تأكيد التغيير؟</p>
             <div className="flex gap-2">
               <button
                 onClick={confirmRoleChange}
@@ -119,7 +119,7 @@ export function UserRow({ user, churnRisk, currentAdminId }: Props) {
       <td className="px-4 py-3">
         <button
           onClick={async () => { setActive(!active); await toggleUserActive(user.id, !active); }}
-          className={`glass-badge ${active ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : "bg-red-500/10 text-red-400 border-red-500/30"}`}
+          className={`glass-badge ${active ? "bg-success/10 text-success border-success/30" : "bg-error/10 text-red-400 border-error/30"}`}
         >
           {active ? "نشط" : "معطل"}
         </button>
@@ -143,7 +143,7 @@ export function UserRow({ user, churnRisk, currentAdminId }: Props) {
           <button
             onClick={handleRestore}
             disabled={isDeleting}
-            className="glass-pill px-2 py-1 text-xs text-emerald-400 transition-colors hover:bg-emerald-500/10 disabled:opacity-50"
+            className="glass-pill px-2 py-1 text-xs text-success transition-colors hover:bg-success/10 disabled:opacity-50"
           >
             {isDeleting ? "..." : t("استعادة", "Restore")}
           </button>
@@ -161,7 +161,7 @@ export function UserRow({ user, churnRisk, currentAdminId }: Props) {
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="glass-pill px-2 py-0.5 text-xs text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+                className="glass-pill px-2 py-0.5 text-xs text-red-400 transition-colors hover:bg-error/10 disabled:opacity-50"
               >
                 {isDeleting ? "..." : t("تأكيد", "Confirm")}
               </button>
@@ -180,7 +180,7 @@ export function UserRow({ user, churnRisk, currentAdminId }: Props) {
         ) : (
           <button
             onClick={() => setShowDeleteConfirm(true)}
-            className="glass-pill px-2 py-1 text-xs text-muted transition-colors hover:bg-red-500/10 hover:text-red-400"
+            className="glass-pill px-2 py-1 text-xs text-muted transition-colors hover:bg-error/10 hover:text-red-400"
           >
             {t("حذف", "Delete")}
           </button>

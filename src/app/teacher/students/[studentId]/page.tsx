@@ -25,9 +25,9 @@ interface ParentInfo { parent_name: string | null; parent_phone: string | null; 
 
 const LEVEL_AR: Record<StudentLevel, string> = { beginner: "مبتدئ", intermediate: "متوسط", advanced: "متقدم" };
 const LEVEL_COLOR: Record<StudentLevel, string> = {
-  beginner: "bg-amber-500/10 text-amber-400 border-amber-500/30",
-  intermediate: "bg-sky-500/10 text-sky-400 border-sky-500/30",
-  advanced: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+  beginner: "bg-warning/10 text-warning border-warning/30",
+  intermediate: "bg-gold/10 text-gold border-gold/30",
+  advanced: "bg-success/10 text-success border-success/30",
 };
 const ERROR_TYPE_AR: Record<string, string> = { makharij: "مخارج", sifat: "صفات", madd: "مد", waqf: "وقف", ghunna: "غنة", other: "أخرى" };
 
@@ -164,11 +164,11 @@ export default async function StudentDetailPage({ params }: Props) {
       {/* Recitation Errors */}
       {errors.length > 0 && (
         <div className="glass-card mb-6 p-6">
-          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold"><AlertTriangle size={18} className="text-amber-400" /> {t("أخطاء التلاوة المعلقة", "Pending Recitation Errors")}</h2>
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold"><AlertTriangle size={18} className="text-warning" /> {t("أخطاء التلاوة المعلقة", "Pending Recitation Errors")}</h2>
           <div className="space-y-2">
             {errors.map((e) => (
               <div key={e.id} className="glass flex items-center gap-3 rounded-lg px-3 py-2 text-sm">
-                <span className="glass-badge rounded-full border-amber-500/30 px-2 py-0.5 text-xs text-amber-400">
+                <span className="glass-badge rounded-full border-warning/30 px-2 py-0.5 text-xs text-warning">
                   {(lang === "ar" ? ERROR_TYPE_AR[e.error_type] : ERROR_TYPE_EN[e.error_type]) ?? e.error_type}
                 </span>
                 {e.surah_num && <span className="text-xs text-muted">{t("سورة", "Surah")} {e.surah_num} : {t("آية", "Ayah")} {e.ayah_num}</span>}
@@ -217,7 +217,7 @@ export default async function StudentDetailPage({ params }: Props) {
                     <p className="text-sm font-medium">{lang === "ar" ? SESSION_TYPE_AR[b.session_type] : SESSION_TYPE_EN[b.session_type]} · {b.duration_min} {t("دقيقة", "min")}</p>
                     <p className="text-xs text-muted">{new Date(b.scheduled_at).toLocaleDateString(locale, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
                   </div>
-                  <span className={`glass-badge rounded-full px-2 py-0.5 text-xs ${b.status === "completed" ? "text-emerald-400 border-emerald-500/30" : "text-amber-400 border-amber-500/30"}`}>
+                  <span className={`glass-badge rounded-full px-2 py-0.5 text-xs ${b.status === "completed" ? "text-success border-success/30" : "text-warning border-warning/30"}`}>
                     {b.status === "completed" ? t("مكتمل", "Completed") : t("مؤكد", "Confirmed")}
                   </span>
                 </div>

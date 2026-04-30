@@ -94,8 +94,8 @@ export default async function StudentQuizzesPage() {
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-light,#F5F5F7)]">
                     {taken ? (
                       last.passed
-                        ? <CheckCircle2 size={16} className="text-emerald-400" aria-hidden="true" />
-                        : <AlertCircle size={16} className="text-amber-400" aria-hidden="true" />
+                        ? <CheckCircle2 size={16} className="text-success" aria-hidden="true" />
+                        : <AlertCircle size={16} className="text-warning" aria-hidden="true" />
                     ) : <Sparkles size={16} className="text-gold" aria-hidden="true" />}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -108,7 +108,7 @@ export default async function StudentQuizzesPage() {
                     </p>
                   </div>
                   {taken && last.score_pct != null ? (
-                    <span className={`font-mono text-sm font-semibold ${last.passed ? "text-emerald-400" : "text-amber-400"}`}>
+                    <span className={`font-mono text-sm font-semibold ${last.passed ? "text-success" : "text-warning"}`}>
                       {Math.round(last.score_pct)}%
                     </span>
                   ) : (

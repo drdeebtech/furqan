@@ -11,11 +11,11 @@ import type { Notification, NotifType } from "@/types/database";
 
 const TYPE_CONFIG: Record<NotifType, { icon: typeof Bell; color: string }> = {
   booking: { icon: Calendar, color: "text-blue-400" },
-  payment: { icon: CreditCard, color: "text-emerald-400" },
+  payment: { icon: CreditCard, color: "text-success" },
   message: { icon: MessageSquare, color: "text-purple-400" },
-  reminder: { icon: Bell, color: "text-amber-400" },
+  reminder: { icon: Bell, color: "text-warning" },
   system: { icon: Megaphone, color: "text-gold" },
-  homework: { icon: BookOpen, color: "text-sky-400" },
+  homework: { icon: BookOpen, color: "text-gold" },
   course: { icon: GraduationCap, color: "text-gold" },
 };
 
@@ -102,7 +102,7 @@ export function NotificationBell() {
       {unreadCount > 0 && (
         <span
           data-testid="notification-badge"
-          className="pointer-events-none absolute -end-1 -top-1 z-10 flex h-4 min-w-4 items-center justify-center rounded-md bg-red-500/90 px-1 text-[9px] font-bold leading-none text-white"
+          className="pointer-events-none absolute -end-1 -top-1 z-10 flex h-4 min-w-4 items-center justify-center rounded-md bg-error/90 px-1 text-[9px] font-bold leading-none text-white"
           style={{ boxShadow: "0 0 0 2px var(--surface)" }}
         >
           {unreadCount > 9 ? "9+" : unreadCount}

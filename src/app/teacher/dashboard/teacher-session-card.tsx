@@ -195,7 +195,7 @@ export function TeacherSessionCard({
         </div>
       )}
       {success && (
-        <div role="status" aria-live="polite" className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2 text-xs text-emerald-400">
+        <div role="status" aria-live="polite" className="mt-3 rounded-lg border border-success/30 bg-success/10 p-2 text-xs text-success">
           {success}
         </div>
       )}
@@ -219,7 +219,7 @@ export function TeacherSessionCard({
             <button
               onClick={handleEndSession}
               disabled={loading !== null}
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-red-500/30 px-4 py-2 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50 sm:px-3 sm:py-1.5"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-error/30 px-4 py-2 text-xs font-medium text-red-400 transition-colors hover:bg-error/10 disabled:opacity-50 sm:px-3 sm:py-1.5"
             >
               {loading === "end" ? spinner : <PhoneOff size={14} />}
               إنهاء الجلسة
@@ -230,7 +230,7 @@ export function TeacherSessionCard({
           <button
             onClick={handleMarkNoShow}
             disabled={loading !== null}
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-amber-500/30 px-4 py-2 text-xs font-medium text-amber-400 transition-colors hover:bg-amber-500/10 disabled:opacity-50 sm:px-3 sm:py-1.5"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-warning/30 px-4 py-2 text-xs font-medium text-warning transition-colors hover:bg-warning/10 disabled:opacity-50 sm:px-3 sm:py-1.5"
           >
             {loading === "noshow" ? spinner : <UserX size={14} />}
             لم يحضر

@@ -75,7 +75,7 @@ export function ObserverRoom({ sessionId }: { sessionId: string }) {
 
       {joined && (
         <div className="glass-card mt-4 flex items-center justify-between p-3">
-          <div className="flex items-center gap-2 text-sm text-amber-400"><Eye size={14} /> وضع المراقبة — الصوت وال��اميرا مغلقان</div>
+          <div className="flex items-center gap-2 text-sm text-warning"><Eye size={14} /> وضع المراقبة — الصوت وال��اميرا مغلقان</div>
           <button onClick={() => frameRef.current?.leave()} className="flex items-center gap-1.5 rounded-lg border border-error/30 px-3 py-1.5 text-xs text-error transition-colors hover:bg-error/10 focus-ring">
             <EyeOff size={14} /> مغادرة
           </button>

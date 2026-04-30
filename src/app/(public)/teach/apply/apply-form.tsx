@@ -57,15 +57,15 @@ export function ApplyForm({ picklists }: ApplyFormProps) {
   if (state?.success) {
     return (
       <div dir={dir} className="glass-card rounded-2xl p-8 text-center">
-        <CheckCircle2 size={56} className="mx-auto mb-4 text-emerald-400" />
+        <CheckCircle2 size={56} className="mx-auto mb-4 text-success" aria-hidden="true" />
         <h1 className="font-display text-2xl font-bold text-gold">
-          {t("تم استلام طلبك بنجاح ✓", "Application received ✓")}
+          {t("تم استلام طلبك بنجاح", "Application received")}
         </h1>
-        <div className="mx-auto mt-5 max-w-md rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-start">
-          <p className="text-sm font-medium text-amber-300">
-            {t("📋 طلبك الآن في انتظار موافقة الإدارة", "📋 Your application is awaiting admin approval")}
+        <div className="mx-auto mt-5 max-w-md rounded-xl border border-warning/30 bg-warning/10 p-4 text-start">
+          <p className="text-sm font-medium text-warning">
+            {t("طلبك الآن في انتظار موافقة الإدارة", "Your application is awaiting admin approval")}
           </p>
-          <p className="mt-1 text-xs text-amber-200/80">
+          <p className="mt-1 text-xs text-warning/80">
             {t(
               "عادةً ما تكتمل المراجعة خلال 48 ساعة، وستصلك رسالة تأكيد عند قبول طلبك.",
               "Review usually completes within 48 hours; you'll receive a confirmation email once accepted.",

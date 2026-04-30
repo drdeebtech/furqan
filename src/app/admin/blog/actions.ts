@@ -6,12 +6,12 @@ import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
 
 const CATEGORIES: Record<string, { ar: string; color: string }> = {
-  Hifz: { ar: "حفظ القرآن", color: "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" },
-  Tajweed: { ar: "تجويد", color: "text-sky-400 border-sky-500/30 bg-sky-500/10" },
-  Tips: { ar: "نصائح", color: "text-amber-400 border-amber-500/30 bg-amber-500/10" },
+  Hifz: { ar: "حفظ القرآن", color: "text-success border-success/30 bg-success/10" },
+  Tajweed: { ar: "تجويد", color: "text-gold border-gold/30 bg-gold/10" },
+  Tips: { ar: "نصائح", color: "text-warning border-warning/30 bg-warning/10" },
   Children: { ar: "للأطفال", color: "text-pink-400 border-pink-500/30 bg-pink-500/10" },
   Qiraat: { ar: "القراءات", color: "text-purple-400 border-purple-500/30 bg-purple-500/10" },
-  Tafsir: { ar: "تفسير", color: "text-orange-400 border-orange-500/30 bg-orange-500/10" },
+  Tafsir: { ar: "تفسير", color: "text-warning border-warning/30 bg-warning/10" },
 };
 
 export async function savePost(

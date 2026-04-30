@@ -142,11 +142,11 @@ function IjazaRow({
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium">{riwayaLabel}</span>
             {ijaza.verified_at ? (
-              <span className="glass-badge border-emerald-500/30 bg-emerald-500/10 text-xs text-emerald-400">
+              <span className="glass-badge border-success/30 bg-success/10 text-xs text-success">
                 ✓ موثقة
               </span>
             ) : (
-              <span className="glass-badge border-amber-500/30 bg-amber-500/10 text-xs text-amber-400">
+              <span className="glass-badge border-warning/30 bg-warning/10 text-xs text-warning">
                 بانتظار التوثيق
               </span>
             )}
@@ -176,7 +176,7 @@ function IjazaRow({
             type="button"
             onClick={handleToggleVerify}
             disabled={pending}
-            className="glass-pill px-3 py-1.5 text-xs font-medium hover:bg-emerald-500/10 hover:text-emerald-400 disabled:opacity-50"
+            className="glass-pill px-3 py-1.5 text-xs font-medium hover:bg-success/10 hover:text-success disabled:opacity-50"
             title={ijaza.verified_at ? "إلغاء التوثيق" : "توثيق"}
             aria-label={ijaza.verified_at ? "إلغاء التوثيق" : "توثيق"}
           >
@@ -195,7 +195,7 @@ function IjazaRow({
             type="button"
             onClick={handleDelete}
             disabled={pending}
-            className="glass-pill px-3 py-1.5 text-xs font-medium hover:bg-rose-500/10 hover:text-rose-400 disabled:opacity-50"
+            className="glass-pill px-3 py-1.5 text-xs font-medium hover:bg-error/10 hover:text-error disabled:opacity-50"
             title="حذف"
             aria-label="حذف"
           >

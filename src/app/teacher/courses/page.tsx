@@ -19,10 +19,10 @@ const STATUS_LABEL_AR: Record<string, string> = {
 
 const STATUS_BADGE: Record<string, string> = {
   draft: "bg-muted/20 text-muted",
-  pending_review: "bg-amber-500/20 text-amber-700",
-  published: "bg-emerald-500/20 text-emerald-700",
+  pending_review: "bg-warning/20 text-warning",
+  published: "bg-success/20 text-success",
   archived: "bg-muted/30 text-muted",
-  rejected: "bg-red-500/20 text-red-700",
+  rejected: "bg-error/20 text-error",
 };
 
 export default async function TeacherCoursesPage() {
@@ -92,7 +92,7 @@ export default async function TeacherCoursesPage() {
       </div>
 
       {!enabled && (
-        <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+        <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-warning dark:border-amber-700 dark:bg-amber-950 dark:text-warning">
           {t(
             "ميزة الدورات لا تزال في وضع التطوير. الدورات التي تنشئها الآن ستكون مرئية للطلاب فور تفعيل الميزة.",
             "The courses feature is still in development. Courses you create now will become visible to students once the feature is enabled.",
@@ -139,7 +139,7 @@ export default async function TeacherCoursesPage() {
                     {c.enrollment_count_cached ?? 0} {t("ملتحق", "enrolled")}
                   </span>
                   {c.pricing_type === "free" ? (
-                    <span className="text-emerald-600">{t("مجاني", "Free")}</span>
+                    <span className="text-success">{t("مجاني", "Free")}</span>
                   ) : (
                     <span className="text-gold">
                       {(c.price_cents / 100).toFixed(2)} {c.currency}

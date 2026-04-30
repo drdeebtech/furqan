@@ -11,11 +11,11 @@ import type { Notification, NotifType } from "@/types/database";
 
 const TYPE_CONFIG: Record<NotifType, { icon: typeof Bell; color: string; bg: string }> = {
   booking: { icon: Calendar, color: "text-blue-400", bg: "bg-blue-500/10" },
-  payment: { icon: CreditCard, color: "text-emerald-400", bg: "bg-emerald-500/10" },
+  payment: { icon: CreditCard, color: "text-success", bg: "bg-success/10" },
   message: { icon: MessageSquare, color: "text-purple-400", bg: "bg-purple-500/10" },
-  reminder: { icon: Bell, color: "text-amber-400", bg: "bg-amber-500/10" },
+  reminder: { icon: Bell, color: "text-warning", bg: "bg-warning/10" },
   system: { icon: Megaphone, color: "text-gold", bg: "bg-gold/10" },
-  homework: { icon: BookOpen, color: "text-sky-400", bg: "bg-sky-500/10" },
+  homework: { icon: BookOpen, color: "text-gold", bg: "bg-gold/10" },
   course: { icon: GraduationCap, color: "text-gold", bg: "bg-gold/10" },
 };
 

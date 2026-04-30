@@ -64,7 +64,7 @@ export function SessionDetailActions({
               <button
                 onClick={handleForceEnd}
                 disabled={isPending || !reason.trim()}
-                className="inline-flex items-center gap-1 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-xl border border-error/30 bg-error/10 px-3 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-error/20 disabled:opacity-50"
                 aria-label={t("تأكيد الإنهاء", "Confirm end")}
               >
                 <Check size={14} /> {t("تأكيد", "Confirm")}
@@ -81,7 +81,7 @@ export function SessionDetailActions({
             <button
               onClick={handleForceEnd}
               disabled={isPending}
-              className="inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-xl border border-error/30 bg-error/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-error/20 disabled:opacity-50"
             >
               <StopCircle size={16} />
               {t("إنهاء الجلسة", "End Session")}

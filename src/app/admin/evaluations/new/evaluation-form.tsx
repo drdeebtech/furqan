@@ -38,8 +38,8 @@ export function EvaluationForm({ students, teachers }: Props) {
 
   if (state?.success) {
     return (
-      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-6 text-center">
-        <p className="text-lg font-semibold text-emerald-400">تم إنشاء التقييم بنجاح</p>
+      <div className="rounded-xl border border-success/30 bg-success/10 p-6 text-center">
+        <p className="text-lg font-semibold text-success">تم إنشاء التقييم بنجاح</p>
         <a
           href="/admin/evaluations"
           className="mt-3 inline-block glass-gold glass-pill px-6 py-2 text-sm font-semibold transition-colors"
@@ -53,7 +53,7 @@ export function EvaluationForm({ students, teachers }: Props) {
   return (
     <form action={formAction} className="space-y-5">
       {state?.error && (
-        <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <div role="alert" className="rounded-lg border border-error/30 bg-error/10 px-4 py-3 text-sm text-red-400">
           {state.error}
         </div>
       )}
