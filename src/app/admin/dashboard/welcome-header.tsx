@@ -26,7 +26,7 @@ export function AdminWelcomeHeader({ weekday, alertCount, activeSessionCount }: 
           {t("لوحة الإدارة", "Admin Dashboard")}
         </h1>
         <p className="mt-1 text-sm text-muted" aria-live="polite">
-          {weekday}
+          <span suppressHydrationWarning>{weekday}</span>
           <span className="mx-2 text-muted-light" aria-hidden="true">·</span>
           {alertCount > 0
             ? <span className="text-warning">{t(`${alertCount} تنبيه يحتاج اهتماماً`, `${alertCount} alert${alertCount === 1 ? "" : "s"} need attention`)}</span>

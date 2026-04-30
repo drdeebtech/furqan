@@ -92,6 +92,7 @@ export default async function AdminDashboardPage() {
         newStudentCount: newStudentsRes.count ?? 0,
         todayBookings,
         activeSessionCount: activeSessionsRes.count ?? 0,
+        renderedAtMs: now.getTime(),
         nameMap,
         dailyRevenue,
         adminLiveSessions,

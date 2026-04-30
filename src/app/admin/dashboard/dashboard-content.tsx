@@ -41,6 +41,7 @@ interface AdminDashboardData {
   adminLiveSessions: { id: string; title: string; subtitle: string; initials: string; timeRemaining?: string; progressPercent?: number }[];
   bookingBreakdown: { label: string; value: number; color: string }[];
   recentBookings: { id: string; [key: string]: unknown }[];
+  renderedAtMs: number;
 }
 
 export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
@@ -50,12 +51,14 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
   const {
     studentCount, teacherList, bookingsMonth, revenueMonth, revenueTrend,
     pendingCount, pendingBookings, newStudentCount, todayBookings, activeSessionCount,
-    nameMap, dailyRevenue, adminLiveSessions, bookingBreakdown, recentBookings,
+    nameMap, dailyRevenue, adminLiveSessions, bookingBreakdown, recentBookings, renderedAtMs,
   } = data;
 
   const formatTime = (d: string) => new Date(d).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 
-  const [now, setNow] = useState(() => Date.now());
+  // Seed from the server render time so the first client render matches SSR,
+  // then let the browser advance it every minute.
+  const [now, setNow] = useState(renderedAtMs);
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(id);
@@ -102,8 +105,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
   ], [activeSessionCount, toast, t, setHelpOpen]);
   useKeyboardShortcuts(shortcuts, true);
 
-  const [lastRefreshAt] = useState(() => new Date());
-  const lastRefreshLabel = lastRefreshAt.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  const lastRefreshLabel = new Date(renderedAtMs).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
   const refresh = () => window.location.reload();
 
   return (
@@ -335,7 +337,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
 
         {/* Footer — last refresh + shortcuts trigger + refresh button. */}
         <footer className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--surface-divider,var(--surface-border))] pt-5 text-xs text-muted">
-          <p>{t(`آخر تحديث ${lastRefreshLabel}`, `Last refreshed at ${lastRefreshLabel}`)}</p>
+          <p suppressHydrationWarning>{t(`آخر تحديث ${lastRefreshLabel}`, `Last refreshed at ${lastRefreshLabel}`)}</p>
           <div className="flex items-center gap-3">
             <button
               type="button"
