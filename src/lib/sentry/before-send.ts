@@ -67,6 +67,17 @@ const DEMOTE_TO_WARNING = [
   /^Error sending confirmation email$/,
 ];
 
+// Hydration mismatch messages — these fire when server-rendered HTML differs
+// from client-rendered HTML. The most common cause in Furqan is
+// toLocaleDateString/toLocaleTimeString producing locale-dependent output
+// that varies between Node.js (server) and Safari/Chrome (client).
+// These are cosmetic mismatches, not real bugs, and are safe to drop entirely.
+const HYDRATION_MESSAGES = new Set<string>([
+  "Hydration failed - the server rendered HTML didn't match the client.",
+  "Text content did not match. Server: \"\" Client: \"\"",
+  "There was an error while hydrating. Because this error occurred outside of a Suspense boundary, the whole route will be redirected to the error page.",
+]);
+
 // Query parameters that may carry secrets/PII. Stripped from event request URLs.
 const SENSITIVE_QUERY_KEYS = new Set([
   "token",
@@ -94,6 +105,11 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
       ? (ex as { message: string }).message
       : undefined) ?? event.message;
   if (msg && NOISE_MESSAGE_EXACT.has(msg)) return true;
+
+  // Hydration mismatches — cosmetic server/client text differences (typically
+  // locale-dependent date formatting). Not actionable, safe to drop entirely.
+  // Sentry issue JAVASCRIPT-NEXTJS-J.
+  if (msg && HYDRATION_MESSAGES.has(msg)) return true;
 
   // Error class names from removed Sentry-wizard test routes.
   const exType = event.exception?.values?.[0]?.type;
@@ -243,4 +259,8 @@ export const CLIENT_IGNORE_ERRORS: (string | RegExp)[] = [
   // Vercel BotID's expected "no-bot" exception when a real human passes —
   // some integrations still throw a synthetic Error to bail the hot path.
   /^botid: ok$/i,
+  // Hydration mismatches from locale-dependent date formatting (JAVASCRIPT-NEXTJS-J).
+  // The server and client render slightly different text for toLocaleDateString/toLocaleTimeString.
+  "Hydration failed - the server rendered HTML didn't match the client.",
+  "There was an error while hydrating. Because this error occurred outside of a Suspense boundary, the whole route will be redirected to the error page.",
 ];

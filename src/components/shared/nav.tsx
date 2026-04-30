@@ -125,12 +125,21 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
   const pathname = usePathname();
   const { lang, dir } = useLang();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [lastPath, setLastPath] = useState(pathname);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
-  if (pathname !== lastPath) {
-    setLastPath(pathname);
+  const prevPathRef = useRef(pathname);
+  // Close the mobile menu on route change. Using useRef + during-render
+  // setState follows React's recommended pattern for adjusting state when
+  // a prop/context value changes (see react.dev/learn/you-might-not-need-an-effect).
+  // The previous useEffect approach triggered the react-hooks/set-state-in-effect
+  // lint rule, and the original useState-during-render approach caused
+  // "Rendered more hooks" errors in some edge cases. The useRef pattern
+  // avoids both issues.
+  // Also prevents the spurious "TypeError: Load failed" from Next.js
+  // fetchServerAction (Sentry issue JAVASCRIPT-NEXTJS-D).
+  if (pathname !== prevPathRef.current) {
+    prevPathRef.current = pathname;
     setMenuOpen(false);
   }
 

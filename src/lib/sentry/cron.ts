@@ -30,7 +30,7 @@ export function withCronMonitor<H extends (req: Request) => Promise<Response>>(
         checkinMargin: options?.checkinMarginMinutes ?? 2,
         maxRuntime: options?.maxRuntimeMinutes ?? 5,
         timezone: options?.timezone ?? "UTC",
-        failureIssueThreshold: 1,
+        failureIssueThreshold: 2,  // need 2 consecutive misses before alerting
         recoveryThreshold: 1,
       },
     )) as H;
