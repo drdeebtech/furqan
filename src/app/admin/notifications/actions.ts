@@ -1,5 +1,5 @@
 "use server";
-import { revalidatePath } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { dispatchNotification } from "@/lib/notifications/dispatcher";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
@@ -42,6 +42,12 @@ export async function sendNotification(formData: FormData) {
     ),
   );
 
-  revalidatePath("/admin/notifications");
+  // Tag-based: invalidate the cached broadcasts list so the next /admin/notifications
+  // render rebuilds it. Only the broadcast list is cached; the auth check + form
+  // shell still render dynamically.
+  // Next 16 two-arg form: "max" expires every cacheLife profile that uses
+  // this tag, regardless of stale window — correct for an admin write that
+  // should reflect immediately in the recent-broadcasts list.
+  revalidateTag("notifications:admin:broadcasts", "max");
   return { success: true, count: users.length };
 }

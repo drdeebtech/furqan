@@ -55,3 +55,18 @@ supabase/.temp/
 
 # Supabase admin script outputs (DB dumps + reports)
 /backups/
+
+# k6 test data fixtures + results (contain real test-user passwords and
+# JWT session tokens — must never be committed). The runner scripts and
+# *.js test files ARE tracked; only the generated data is ignored.
+/k6/students-credentials.csv
+/k6/teachers-credentials.csv
+/k6/admins-credentials.csv
+/k6/moderators-credentials.csv
+/k6/student-sessions.json
+/k6-results.json
+/k6-app-results.json
+/k6-auth-edge-results.json
+/k6-teacher-results.json
+/k6-admin-results.json
+/k6-moderator-results.json

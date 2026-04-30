@@ -81,7 +81,21 @@ export function ServicesContent({ services }: { services: Service[] }) {
                   <div className="mt-8 flex-1 md:mt-0">
                     <div className="glass-card flex h-full items-center justify-center p-12">
                       {s.image_url ? (
-                        <Image src={s.image_url} alt={title} width={384} height={192} className="max-h-48 rounded-xl object-contain" loading="lazy" sizes="(max-width: 768px) 100vw, 384px" />
+                        // height auto + max-h-48 keeps aspect ratio when the
+                        // viewport-scaled width changes — fixes the dev-log
+                        // "width or height modified, but not the other"
+                        // warning. priority on the first card so the LCP
+                        // signal Next detects gets eager-loaded.
+                        <Image
+                          src={s.image_url}
+                          alt={title}
+                          width={384}
+                          height={192}
+                          sizes="(max-width: 768px) 100vw, 384px"
+                          className="max-h-48 rounded-xl object-contain"
+                          style={{ height: "auto", width: "auto" }}
+                          priority={i === 0}
+                        />
                       ) : (
                         <span className="font-display text-6xl text-gold/10">
                           {(s.title_ar ?? s.title).charAt(0)}

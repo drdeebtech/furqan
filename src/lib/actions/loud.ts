@@ -13,6 +13,9 @@
  *     name: 'admin.archive-teacher',
  *     audit: { table: 'teacher_profiles', recordId: t => t.teacherId, action: 'UPDATE' },
  *     severity: 'warning',
+ *     // Optional: validate shape before any side-effect runs. Failures
+ *     // return { ok: false, error } without firing Sentry/Telegram/audit.
+ *     schema: z.object({ teacherId: z.string().uuid() }),
  *     handler: async ({ teacherId }) => {
  *       const supabase = await createClient();
  *       const { error } = await supabase
@@ -30,6 +33,7 @@
  */
 import "server-only";
 import * as Sentry from "@sentry/nextjs";
+import type { ZodType } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTelegramAlert } from "@/lib/n8n/client";
 import { logError } from "@/lib/logger";
@@ -58,6 +62,13 @@ interface LoudActionConfig<TInput, THandlerResult extends void | { message?: str
   severity?: Severity;
   /** Optional audit_log entry — written on success AND failure. */
   audit?: AuditConfig<TInput>;
+  /**
+   * Optional zod schema. When provided, input is validated *before* the
+   * handler runs. Validation failures return { ok: false, error } without
+   * triggering Telegram alerts or audit_log writes (user input mistakes are
+   * not system failures). Field-level messages are joined with ' • '.
+   */
+  schema?: ZodType<TInput>;
   /** The actual work. Throw to fail loudly; return optional message on success. */
   handler: (input: TInput, ctx: { actorId: string | null }) => Promise<THandlerResult>;
   /** Optional auth check before handler runs. Throw to reject. */
@@ -82,11 +93,25 @@ export function loudAction<TInput, THandlerResult extends void | { message?: str
 
     let actorId: string | null = null;
     try {
+      // Validate input shape before any side-effect / DB call. Validation
+      // failures are user-input errors, not system failures: no Telegram, no
+      // audit_log row, no Sentry.captureException.
+      let validatedInput = input;
+      if (config.schema) {
+        const parsed = config.schema.safeParse(input);
+        if (!parsed.success) {
+          const errorMessage = parsed.error.issues
+            .map((i) => `${i.path.join(".") || "(input)"}: ${i.message}`)
+            .join(" • ");
+          return { ok: false, error: `بيانات غير صالحة — ${errorMessage}` };
+        }
+        validatedInput = parsed.data;
+      }
       if (config.preflight) {
         const r = await config.preflight();
         actorId = r.actorId;
       }
-      const result = await config.handler(input, { actorId });
+      const result = await config.handler(validatedInput, { actorId });
       const message = (result && typeof result === "object" && "message" in result)
         ? result.message
         : undefined;

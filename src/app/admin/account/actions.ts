@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
 
@@ -11,20 +12,26 @@ function str(formData: FormData, key: string): string | null {
   return trimmed.length === 0 ? null : trimmed;
 }
 
-interface PersonalInfoInput {
-  userId: string;
-  fullName: string | null;
-  fullNameAr: string | null;
-  phone: string | null;
-  country: string | null;
-  timezone: string | null;
-  lang: string | null;
-  dateOfBirth: string | null;
-}
+// Conservative shape validation — bounds only, no opinionated format rules
+// (e.g. no phone-format regex, no country-code restriction). The goal is
+// defense in depth against malformed FormData, not user-experience policy.
+const personalInfoSchema = z.object({
+  userId: z.string().uuid(),
+  fullName: z.string().min(1).max(200).nullable(),
+  fullNameAr: z.string().min(1).max(200).nullable(),
+  phone: z.string().min(3).max(30).nullable(),
+  country: z.string().min(2).max(100).nullable(),
+  timezone: z.string().min(1).max(100).nullable(),
+  lang: z.string().min(2).max(10).nullable(),
+  // ISO date (YYYY-MM-DD) without forcing strict parsing — Postgres rejects
+  // bad dates downstream, this just keeps obvious garbage out.
+  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+});
 
-const updatePersonalInfoBase = loudAction<PersonalInfoInput, { message?: string }>({
+const updatePersonalInfoBase = loudAction<z.infer<typeof personalInfoSchema>, { message?: string }>({
   name: "admin.account.update-personal-info",
   severity: "info",
+  schema: personalInfoSchema,
   audit: {
     table: "profiles",
     recordId: (i) => i.userId,

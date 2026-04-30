@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { GraduationCap, Inbox, PlayCircle } from "lucide-react";
@@ -71,8 +72,15 @@ export default async function StudentCoursesPage() {
                 className="glass-card overflow-hidden transition hover:bg-white/40 dark:hover:bg-white/5"
               >
                 {c.cover_image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={c.cover_image_url} alt="" className="aspect-video w-full object-cover" />
+                  <div className="relative aspect-video w-full overflow-hidden">
+                    <Image
+                      src={c.cover_image_url}
+                      alt={c.title_ar || t("غلاف الدورة", "Course cover")}
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      className="object-cover"
+                    />
+                  </div>
                 ) : (
                   <div className="aspect-video w-full bg-gradient-to-br from-gold/30 to-gold/5" />
                 )}

@@ -4,11 +4,17 @@ import Link from "next/link";
 import { Users, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
+import { SearchInput } from "@/components/shared/search-input";
 
 export const metadata: Metadata = { title: "طلابي" };
 
-export default async function TeacherStudentsPage() {
+interface PageProps {
+  searchParams: Promise<{ q?: string }>;
+}
+
+export default async function TeacherStudentsPage({ searchParams }: PageProps) {
   const { t, dir, lang } = await getT();
+  const { q = "" } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -45,23 +51,39 @@ export default async function TeacherStudentsPage() {
     if (profiles) profileMap = Object.fromEntries(profiles.map(p => [p.id, { full_name: p.full_name, phone: p.phone }]));
   }
 
-  const students = studentIds.map(id => ({
+  const allStudents = studentIds.map(id => ({
     id,
     name: profileMap[id]?.full_name || t("طالب", "Student"),
     phone: profileMap[id]?.phone,
     ...studentStats.get(id)!,
   }));
 
+  const needle = q.trim().toLowerCase();
+  const students = needle
+    ? allStudents.filter(s => s.name.toLowerCase().includes(needle))
+    : allStudents;
+
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
       <h1 className="mb-2 flex items-center gap-2 text-2xl font-bold"><Users size={24} className="text-gold" /> {t("طلابي", "My Students")}</h1>
-      <p className="mb-6 text-sm text-muted">{students.length} {t("طالب", "students")}</p>
+      <p className="mb-4 text-sm text-muted">{allStudents.length} {t("طالب", "students")}</p>
 
-      {students.length === 0 ? (
+      {allStudents.length > 0 && (
+        <div className="mb-6">
+          <SearchInput placeholder={t("ابحث باسم الطالب...", "Search by student name...")} ariaLabel={t("بحث الطلاب", "Search students")} />
+        </div>
+      )}
+
+      {allStudents.length === 0 ? (
         <div className="glass-card p-12 text-center">
-          <Inbox size={32} className="mx-auto mb-3 text-muted" />
+          <Inbox size={32} className="mx-auto mb-3 text-muted" aria-hidden="true" />
           <p className="text-muted">{t("لا يوجد طلاب بعد", "No students yet")}</p>
           <p className="mt-1 text-sm text-muted">{t("ستجد طلابك هنا بعد تأكيد أول حجز", "Your students will appear here after your first confirmed booking")}</p>
+        </div>
+      ) : students.length === 0 ? (
+        <div className="glass-card p-12 text-center">
+          <Inbox size={32} className="mx-auto mb-3 text-muted" aria-hidden="true" />
+          <p className="text-muted">{t("لا نتائج لبحثك", "No matches for your search")}</p>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

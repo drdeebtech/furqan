@@ -11,18 +11,37 @@ export class ForbiddenError extends Error {
 
 async function getAuthedRole(): Promise<{ id: string; role: string | null }> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new ForbiddenError("not authenticated");
 
-  const { data } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single<{ role: string | null }>();
+  // Defensive: @supabase/ssr's session-construction can throw (separately
+  // from the cookie filter in middleware) for shapes that pass shape but
+  // fail decode — e.g. partial-write tokens during rotation. Treat any
+  // throw as "not authenticated" rather than letting it bubble up as a 500.
+  let userId: string | null = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    userId = data.user?.id ?? null;
+  } catch {
+    userId = null;
+  }
+  if (!userId) throw new ForbiddenError("not authenticated");
 
-  return { id: user.id, role: data?.role ?? null };
+  // Profile lookup uses .single() which returns { data: null, error: PGRST116 }
+  // for zero rows — never throws on missing row. Wrap anyway for defense in
+  // depth (network blip mid-query, schema drift). null role propagates to
+  // requireAdmin/requireModerator which reject with "not admin"/"not moderator".
+  let role: string | null = null;
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .single<{ role: string | null }>();
+    role = profile?.role ?? null;
+  } catch {
+    role = null;
+  }
+
+  return { id: userId, role };
 }
 
 export async function requireAdmin(): Promise<{ id: string }> {

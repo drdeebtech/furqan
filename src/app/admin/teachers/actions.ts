@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { invalidateRoleCache } from "@/lib/auth/role-cache";
 import { logError } from "@/lib/logger";
 
 export async function createTeacher(formData: FormData): Promise<void> {
@@ -59,6 +60,10 @@ export async function createTeacher(formData: FormData): Promise<void> {
     logError("admin.createTeacher: role update failed", roleError, { tag: "admin-teachers" });
     redirect(`/admin/teachers?error=${encodeURIComponent("تم إنشاء الملف لكن فشل تحديث الدور: " + roleError.message)}`);
   }
+
+  // Promoted to teacher — flush the per-user role cache so middleware
+  // doesn't keep them as "student" for up to the 10s TTL fallback.
+  invalidateRoleCache(teacherId);
 
   revalidatePath("/admin/teachers");
   revalidatePath("/admin/users");

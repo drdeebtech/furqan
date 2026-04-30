@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
 import { requireAdmin } from "@/lib/auth/require-admin";
@@ -8,6 +9,14 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 // Tables added in v16_001 — supabase.generated.ts not regenerated yet.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = any;
+
+// Shared bounds for content-table inputs. Title/label fields cap at 200,
+// long-form bilingual bodies cap at 5k. sort_order stays in a sane int
+// range so admin can reorder without overflow.
+const sortOrderSchema = z.number().int().min(0).max(10_000);
+const shortText = z.string().min(1).max(200);
+const longText = z.string().min(1).max(5_000);
+const idOrNull = z.string().uuid().nullable();
 
 function str(formData: FormData, key: string): string | null {
   const v = formData.get(key);
@@ -35,17 +44,20 @@ function revalidatePublicSurfaces() {
 
 // ─── FAQ ───────────────────────────────────────────────────────────────
 
-const upsertFaqBase = loudAction<{
-  id: string | null;
-  sort_order: number;
-  question_ar: string;
-  question_en: string;
-  answer_ar: string;
-  answer_en: string;
-  is_active: boolean;
-}, { message?: string }>({
+const upsertFaqSchema = z.object({
+  id: idOrNull,
+  sort_order: sortOrderSchema,
+  question_ar: shortText,
+  question_en: shortText,
+  answer_ar: longText,
+  answer_en: longText,
+  is_active: z.boolean(),
+});
+
+const upsertFaqBase = loudAction<z.infer<typeof upsertFaqSchema>, { message?: string }>({
   name: "admin.content.upsert-faq",
   severity: "info",
+  schema: upsertFaqSchema,
   audit: {
     table: "site_faqs",
     recordId: (i) => i.id ?? "(new)",
@@ -95,20 +107,23 @@ export async function deleteFaq(id: string): Promise<LoudResult> {
 
 // ─── Features ──────────────────────────────────────────────────────────
 
-const upsertFeatureBase = loudAction<{
-  id: string | null;
-  slot: string;
-  sort_order: number;
-  icon_name: string;
-  title_ar: string;
-  title_en: string;
-  description_ar: string | null;
-  description_en: string | null;
-  meta: Record<string, unknown>;
-  is_active: boolean;
-}, { message?: string }>({
+const upsertFeatureSchema = z.object({
+  id: idOrNull,
+  slot: z.string().min(1).max(50),
+  sort_order: sortOrderSchema,
+  icon_name: z.string().min(1).max(50),
+  title_ar: shortText,
+  title_en: shortText,
+  description_ar: z.string().max(5_000).nullable(),
+  description_en: z.string().max(5_000).nullable(),
+  meta: z.record(z.string(), z.unknown()),
+  is_active: z.boolean(),
+});
+
+const upsertFeatureBase = loudAction<z.infer<typeof upsertFeatureSchema>, { message?: string }>({
   name: "admin.content.upsert-feature",
   severity: "info",
+  schema: upsertFeatureSchema,
   audit: {
     table: "site_features",
     recordId: (i) => i.id ?? "(new)",
@@ -177,16 +192,19 @@ export async function deleteFeature(id: string): Promise<LoudResult> {
 
 // ─── Blog Categories ───────────────────────────────────────────────────
 
-const upsertCategoryBase = loudAction<{
-  id: string | null;
-  key: string;
-  label_ar: string;
-  label_en: string;
-  sort_order: number;
-  is_active: boolean;
-}, { message?: string }>({
+const upsertCategorySchema = z.object({
+  id: idOrNull,
+  key: z.string().min(1).max(100),
+  label_ar: shortText,
+  label_en: shortText,
+  sort_order: sortOrderSchema,
+  is_active: z.boolean(),
+});
+
+const upsertCategoryBase = loudAction<z.infer<typeof upsertCategorySchema>, { message?: string }>({
   name: "admin.content.upsert-category",
   severity: "info",
+  schema: upsertCategorySchema,
   audit: {
     table: "site_blog_categories",
     recordId: (i) => i.id ?? "(new)",

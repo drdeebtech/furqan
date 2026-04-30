@@ -67,6 +67,7 @@ export function ActionFeedback({ state }: { state: ActionState }) {
     return (
       <div
         role="status"
+        aria-atomic="true"
         className="mb-3 flex items-start gap-2 rounded-xl border border-success/30 bg-success/10 p-3 text-sm text-success"
       >
         <CheckCircle2 size={16} className="mt-0.5 shrink-0" />
@@ -78,7 +79,8 @@ export function ActionFeedback({ state }: { state: ActionState }) {
   return (
     <div
       role="alert"
-      className="mb-3 flex items-start gap-2 rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-red-300"
+      aria-atomic="true"
+      className="mb-3 flex items-start gap-2 rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error"
     >
       <AlertCircle size={16} className="mt-0.5 shrink-0" />
       <span>{normalized.error}</span>

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Image from "next/image";
 import { Eye } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { WidgetCard } from "./widget-card";
@@ -166,13 +167,18 @@ function renderCell(col: DataTableColumn, value: unknown, t: (ar: string, en: st
               {display.map((it, i) => (
                 <div
                   key={i}
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full text-[10px] font-bold text-[#2A2014] ring-2 ring-white ${colorFor(it.name)} ${i > 0 ? "-ms-2" : ""}`}
+                  className={`relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full text-[10px] font-bold text-[#2A2014] ring-2 ring-white ${colorFor(it.name)} ${i > 0 ? "-ms-2" : ""}`}
                   style={{ zIndex: display.length - i }}
                   title={it.name}
                 >
                   {it.avatar_url ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={it.avatar_url} alt={it.name} className="h-full w-full object-cover" />
+                    <Image
+                      src={it.avatar_url}
+                      alt={it.name}
+                      fill
+                      sizes="28px"
+                      className="object-cover"
+                    />
                   ) : (
                     it.name.slice(0, 2)
                   )}

@@ -7,14 +7,20 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getT } from "@/lib/i18n/server";
 import { buildNameMap } from "@/lib/admin/name-map";
 import { Avatar } from "@/components/shared/avatar";
+import { SearchInput } from "@/components/shared/search-input";
 import { ArchiveToggle } from "../dashboard/archive-toggle";
 
 export const metadata: Metadata = { title: "إدارة المعلمين" };
 
 interface TeacherRow { teacher_id: string; specialties: string[]; hourly_rate: number; rating_avg: number; total_sessions: number; is_accepting: boolean; is_archived: boolean; cv_status: string | null; }
 
-export default async function AdminTeachersPage() {
+interface PageProps {
+  searchParams: Promise<{ q?: string }>;
+}
+
+export default async function AdminTeachersPage({ searchParams }: PageProps) {
   const { t, dir } = await getT();
+  const { q = "" } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -49,6 +55,13 @@ export default async function AdminTeachersPage() {
       .map(u => [u.id, u.email ?? ""]),
   );
 
+  // Server-side filter by teacher name (resolved via nameMap) when ?q= is set.
+  const needle = q.trim().toLowerCase();
+  const filteredList = needle
+    ? list.filter(x => (nameMap[x.teacher_id] ?? "").toLowerCase().includes(needle)
+        || (emailMap[x.teacher_id] ?? "").toLowerCase().includes(needle))
+    : list;
+
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
@@ -66,8 +79,21 @@ export default async function AdminTeachersPage() {
           </Link>
         </div>
       </div>
+      {list.length > 0 && (
+        <div className="mb-4">
+          <SearchInput placeholder={t("ابحث بالاسم أو البريد...", "Search by name or email...")} ariaLabel={t("بحث المعلمين", "Search teachers")} />
+        </div>
+      )}
       {list.length === 0 ? (
-        <div className="glass-card rounded-xl p-12 text-center"><Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">{t("لا يوجد معلمون", "No teachers yet")}</p></div>
+        <div className="glass-card rounded-xl p-12 text-center">
+          <Inbox size={32} className="mx-auto mb-3 text-muted" aria-hidden="true" />
+          <p className="text-muted">{t("لا يوجد معلمون", "No teachers yet")}</p>
+        </div>
+      ) : filteredList.length === 0 ? (
+        <div className="glass-card rounded-xl p-12 text-center">
+          <Inbox size={32} className="mx-auto mb-3 text-muted" aria-hidden="true" />
+          <p className="text-muted">{t("لا نتائج لبحثك", "No matches for your search")}</p>
+        </div>
       ) : (
         <div className="overflow-hidden rounded-xl glass-card">
           <table className="w-full text-sm">
@@ -81,7 +107,7 @@ export default async function AdminTeachersPage() {
               <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("إجراءات", "Actions")}</th>
             </tr></thead>
             <tbody>
-              {list.map(x => (
+              {filteredList.map(x => (
                 <tr key={x.teacher_id} className={`border-b border-white/10 last:border-b-0 ${x.is_archived ? "opacity-50" : ""}`}>
                   <td className="px-4 py-3 font-medium">
                     <span className="flex items-center gap-2">
