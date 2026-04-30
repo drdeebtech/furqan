@@ -13,12 +13,12 @@ import { BreakdownBar } from "@/components/shared/breakdown-bar";
 import { DataTable } from "@/components/shared/data-table";
 import { surahName } from "@/lib/quran/surahs";
 import { useKeyboardShortcuts, useShortcutsHelp, type Shortcut } from "@/lib/hooks/use-keyboard-shortcuts";
+import { ShortcutsHelp } from "@/components/shared/shortcuts-help";
+import { SectionErrorBoundary } from "@/components/shared/section-error-boundary";
 import { LessonRowActions } from "./lesson-row-actions";
 import { NextActionBanner } from "./next-action-banner";
 import { WelcomeHeader } from "./welcome-header";
 import { TodaysPlan } from "./todays-plan";
-import { ShortcutsHelp } from "./shortcuts-help";
-import { SectionErrorBoundary } from "./section-error-boundary";
 
 interface ChartDataPoint {
   day: string;

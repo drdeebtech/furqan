@@ -1,19 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { Calendar, Clock, Hourglass, Star, Users, type LucideIcon } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Calendar, Clock, Hourglass, Keyboard, RefreshCw, Star, Users, type LucideIcon } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
+import { useToast } from "@/components/shared/toast";
 import { SESSION_TYPE_BILINGUAL } from "@/lib/constants";
 import { WidgetCard } from "@/components/shared/widget-card";
 import { AnalyticsChart } from "@/components/shared/analytics-chart";
 import { LiveSessionsWidget } from "@/components/shared/live-sessions-widget";
 import { BreakdownBar } from "@/components/shared/breakdown-bar";
 import { DataTable } from "@/components/shared/data-table";
+import { ShortcutsHelp } from "@/components/shared/shortcuts-help";
+import { SectionErrorBoundary } from "@/components/shared/section-error-boundary";
+import { useKeyboardShortcuts, useShortcutsHelp, type Shortcut } from "@/lib/hooks/use-keyboard-shortcuts";
 import { BookingActions } from "./booking-actions";
 import { TeacherSessionCard } from "./teacher-session-card";
 import { TeacherGuidanceBanner } from "./guidance-banner";
 import { TeacherQuickActions } from "./quick-actions";
 import { TeacherActionQueue } from "./action-queue";
+import { TeacherWelcomeHeader } from "./welcome-header";
+import { TeacherNextActionBanner } from "./next-action-banner";
 
 interface SessionData { id: string; room_url: string; expires_at: string | null; started_at: string | null; ended_at: string | null }
 import type { SessionType } from "@/types/database";
@@ -41,29 +48,16 @@ interface TeacherDashboardData {
 }
 
 function StatInline({
-  href,
-  icon: Icon,
-  label,
-  value,
-  accent,
+  href, icon: Icon, label, value, accent,
 }: {
-  href: string;
-  icon: LucideIcon;
-  label: string;
-  value: number | string;
-  accent?: boolean;
+  href: string; icon: LucideIcon; label: string; value: number | string; accent?: boolean;
 }) {
   return (
-    <Link
-      href={href}
-      className="group flex items-center gap-3 rounded-lg p-1 transition-colors hover:bg-foreground/5"
-    >
+    <Link href={href} className="group flex items-center gap-3 rounded-lg p-1 transition-colors hover:bg-foreground/5 focus-ring">
       <Icon size={18} className={accent ? "text-gold" : "text-muted"} aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <dt className="truncate text-xs text-muted">{label}</dt>
-        <dd className={`font-display text-lg font-bold leading-tight ${accent ? "text-gold" : ""}`}>
-          {value}
-        </dd>
+        <dd className={`font-display text-lg font-bold leading-tight ${accent ? "text-gold" : ""}`}>{value}</dd>
       </div>
     </Link>
   );
@@ -71,8 +65,82 @@ function StatInline({
 
 export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }) {
   const { t, dir, lang } = useLang();
+  const toast = useToast();
   const locale = lang === "ar" ? "ar" : "en-US";
-  const { fullName, cvStatus, hasProfile, hasBio, hasAvailability, uniqueStudents, monthSessions, pendingCount, ratingAvg, todaySessions, pending, sessionDataMap, nameMap, weeklyHours, liveSessions, sessionBreakdown, recentStudents, actionQueue } = data;
+  const {
+    fullName, cvStatus, hasProfile, hasBio, hasAvailability, uniqueStudents,
+    monthSessions, pendingCount, ratingAvg, todaySessions, pending, sessionDataMap,
+    nameMap, weeklyHours, liveSessions, sessionBreakdown, recentStudents, actionQueue,
+  } = data;
+
+  // Live ticker.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // Greeting context.
+  const firstName = fullName ? fullName.split(" ")[0] : null;
+  const weekday = new Date(now).toLocaleDateString(locale, { weekday: "long" });
+
+  // Imminent session — first today's session inside the 30-min window.
+  const imminentSession = useMemo(() => {
+    const candidate = todaySessions
+      .map(b => ({ booking: b, sess: sessionDataMap[b.id] }))
+      .filter(({ booking, sess }) => sess && !sess.ended_at && new Date(booking.scheduled_at).getTime() - now <= 30 * 60_000)
+      .sort((a, b) => new Date(a.booking.scheduled_at).getTime() - new Date(b.booking.scheduled_at).getTime())[0];
+    if (!candidate) return null;
+    return {
+      sessionId: candidate.sess.id,
+      bookingId: candidate.booking.id,
+      scheduledAt: candidate.booking.scheduled_at,
+      studentName: nameMap[candidate.booking.student_id] ?? null,
+    };
+  }, [todaySessions, sessionDataMap, nameMap, now]);
+
+  // Keyboard shortcuts.
+  const [helpOpen, setHelpOpen] = useShortcutsHelp();
+  const shortcuts: Shortcut[] = useMemo(() => [
+    {
+      combo: "j",
+      description: { ar: "افتح الجلسة الحالية", en: "Open current session" },
+      group: { ar: "إجراءات", en: "Actions" },
+      onTrigger: () => {
+        if (imminentSession?.sessionId) window.location.assign(`/teacher/sessions/${imminentSession.sessionId}`);
+        else toast.info(t("لا توجد جلسة وشيكة", "No imminent session"));
+      },
+    },
+    {
+      combo: "c",
+      description: { ar: "راجع الحجوزات المعلقة", en: "Review pending bookings" },
+      group: { ar: "إجراءات", en: "Actions" },
+      onTrigger: () => {
+        if (pending.length > 0) {
+          const target = document.getElementById("pending");
+          if (target) target.scrollIntoView({ behavior: "smooth" });
+          else window.location.assign("/teacher/dashboard#pending");
+        } else {
+          toast.info(t("لا حجوزات معلقة", "No pending bookings"));
+        }
+      },
+    },
+    { combo: "g d", description: { ar: "اللوحة", en: "Dashboard" }, group: { ar: "تنقل", en: "Navigate" }, href: "/teacher/dashboard" },
+    { combo: "g a", description: { ar: "المواعيد", en: "Availability" }, group: { ar: "تنقل", en: "Navigate" }, href: "/teacher/availability" },
+    { combo: "g s", description: { ar: "الجلسات", en: "Sessions" }, group: { ar: "تنقل", en: "Navigate" }, href: "/teacher/sessions" },
+    { combo: "g t", description: { ar: "الطلاب", en: "Students" }, group: { ar: "تنقل", en: "Navigate" }, href: "/teacher/students" },
+    { combo: "g h", description: { ar: "الواجبات", en: "Homework" }, group: { ar: "تنقل", en: "Navigate" }, href: "/teacher/homework" },
+    { combo: "g c", description: { ar: "الدورات المسجلة", en: "Recorded courses" }, group: { ar: "تنقل", en: "Navigate" }, href: "/teacher/courses" },
+    { combo: "g e", description: { ar: "التقييمات", en: "Evaluations" }, group: { ar: "تنقل", en: "Navigate" }, href: "/teacher/evaluations" },
+    { combo: "g v", description: { ar: "السيرة الذاتية", en: "My CV" }, group: { ar: "تنقل", en: "Navigate" }, href: "/teacher/cv" },
+    { combo: "g m", description: { ar: "الرسائل", en: "Messages" }, group: { ar: "تنقل", en: "Navigate" }, href: "/teacher/messages" },
+    { combo: "?", description: { ar: "إظهار الاختصارات", en: "Show shortcuts" }, group: { ar: "مساعدة", en: "Help" }, onTrigger: () => setHelpOpen(true) },
+  ], [imminentSession, pending.length, toast, t, setHelpOpen]);
+  useKeyboardShortcuts(shortcuts, true);
+
+  const [lastRefreshAt] = useState(() => new Date());
+  const lastRefreshLabel = lastRefreshAt.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  const refresh = () => window.location.reload();
 
   const st = (type: string) => {
     const s = SESSION_TYPE_BILINGUAL[type as SessionType];
@@ -80,154 +148,225 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
   };
 
   return (
-    <div dir={dir} className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        {/* Row 0: Welcome + Banner */}
-        <h1 className="font-display text-2xl font-bold sm:text-3xl">{t("أهلاً", "Welcome")}{fullName ? ` ${fullName}` : ""}</h1>
-        <p className="mt-1 text-sm text-muted">{t("مرحباً بك في لوحة المعلم", "Welcome to the Teacher Dashboard")}</p>
+    <>
+      <a
+        href="#teacher-main"
+        className="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-[200] focus:rounded focus:bg-gold focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-background"
+      >
+        {t("تخطي إلى المحتوى", "Skip to main content")}
+      </a>
 
+      <div dir={dir} className="mx-auto max-w-7xl px-4 py-8 sm:px-6" id="teacher-main">
+        <TeacherWelcomeHeader
+          firstName={firstName}
+          weekday={weekday}
+          todaySessionCount={todaySessions.length}
+          uniqueStudents={uniqueStudents}
+          ratingAvg={ratingAvg}
+          cvStatus={cvStatus}
+        />
+
+        {/* Smart next-action banner — covers CV, availability, imminent session,
+            pending confirmations, ungraded homework, unread messages. */}
+        <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل الإجراء التالي", "Couldn't load the next action")}>
+          <section aria-label={t("الإجراء التالي", "Next action")} className="mb-6">
+            <TeacherNextActionBanner
+              data={{
+                cvStatus,
+                imminentSession,
+                pendingBookings: pendingCount,
+                ungradedHomework: actionQueue.pendingGrading,
+                unreadMessages: actionQueue.unreadMessages,
+                hasAvailability,
+              }}
+            />
+          </section>
+        </SectionErrorBoundary>
+
+        {/* Guidance banner — kept in case CV is approved but other onboarding
+            steps remain. Hidden when not relevant. */}
         <TeacherGuidanceBanner cvStatus={cvStatus} hasStudents={uniqueStudents > 0} hasProfile={hasProfile} hasBio={hasBio} hasAvailability={hasAvailability} />
 
-        {/* Action Queue — shows only when there are pending actions */}
-        {cvStatus === "approved" && <div className="mt-4"><TeacherActionQueue data={actionQueue} /></div>}
+        {cvStatus === "approved" && (
+          <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل قائمة المهام", "Couldn't load action queue")}>
+            <div className="mt-4"><TeacherActionQueue data={actionQueue} /></div>
+          </SectionErrorBoundary>
+        )}
 
-        {/* Row 1: tight stat row — distilled from a 4-card hero grid into a single
-            info bar. Same data, less "AI dashboard silhouette". */}
-        <div className="mt-6 glass-card p-4 sm:p-5">
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm md:grid-cols-4">
-            <StatInline href="/teacher/students" icon={Users} label={t("طلابي", "My Students")} value={uniqueStudents} accent={uniqueStudents > 0} />
-            <StatInline href="/teacher/sessions" icon={Calendar} label={t("جلسات هذا الشهر", "This Month")} value={monthSessions} />
-            <StatInline href="#pending" icon={Hourglass} label={t("طلبات معلّقة", "Pending")} value={pendingCount} accent={pendingCount > 0} />
-            <StatInline href="/teacher/evaluations" icon={Star} label={t("التقييم", "Rating")} value={ratingAvg > 0 ? ratingAvg.toFixed(1) : "—"} />
-          </dl>
-        </div>
+        {/* Stat row — distilled. */}
+        <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل المؤشرات", "Couldn't load stats")}>
+          <section aria-label={t("مؤشرات سريعة", "Key stats")} className="mt-6 glass-card p-4 sm:p-5">
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm md:grid-cols-4">
+              <StatInline href="/teacher/students" icon={Users} label={t("طلابي", "My Students")} value={uniqueStudents} accent={uniqueStudents > 0} />
+              <StatInline href="/teacher/sessions" icon={Calendar} label={t("جلسات هذا الشهر", "This Month")} value={monthSessions} />
+              <StatInline href="#pending" icon={Hourglass} label={t("طلبات معلّقة", "Pending")} value={pendingCount} accent={pendingCount > 0} />
+              <StatInline href="/teacher/evaluations" icon={Star} label={t("التقييم", "Rating")} value={ratingAvg > 0 ? ratingAvg.toFixed(1) : "—"} />
+            </dl>
+          </section>
+        </SectionErrorBoundary>
 
-        {/* Row 2: Analytics chart + Right widgets */}
-        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-5">
+        {/* Analytics + sidebar. */}
+        <section aria-label={t("التحليلات", "Analytics")} className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-5">
           <div className="lg:col-span-3">
-            <WidgetCard title={t("ساعات التدريس", "Teaching Hours")}>
-              <AnalyticsChart data={weeklyHours} title={t("ساعات التدريس", "Teaching Hours")} />
-            </WidgetCard>
+            <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل التحليلات", "Couldn't load analytics")}>
+              <WidgetCard title={t("ساعات التدريس", "Teaching Hours")}>
+                <AnalyticsChart data={weeklyHours} title={t("ساعات التدريس", "Teaching Hours")} />
+              </WidgetCard>
+            </SectionErrorBoundary>
           </div>
           <div className="space-y-4 lg:col-span-2">
-            <LiveSessionsWidget
-              sessions={liveSessions}
-              title={t("الجلسات المباشرة", "Live Sessions")}
-              ongoingCount={liveSessions.length}
-            />
-            <BreakdownBar
-              title={t("توزيع الجلسات", "Session Types")}
-              segments={sessionBreakdown}
-              emptyMessage={t("لا توجد جلسات في آخر 30 يوم", "No sessions in the last 30 days")}
-            />
+            <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل الجلسات المباشرة", "Couldn't load live sessions")}>
+              <LiveSessionsWidget sessions={liveSessions} title={t("الجلسات المباشرة", "Live Sessions")} ongoingCount={liveSessions.length} />
+            </SectionErrorBoundary>
+            <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل توزيع الجلسات", "Couldn't load breakdown")}>
+              <BreakdownBar title={t("توزيع الجلسات", "Session Types")} segments={sessionBreakdown} emptyMessage={t("لا توجد جلسات في آخر 30 يوم", "No sessions in the last 30 days")} />
+            </SectionErrorBoundary>
           </div>
-        </div>
+        </section>
 
-        {/* Row 3: Recent Students data table */}
-        <div className="mt-6">
-          <DataTable
-            title={t("آخر الطلاب", "Recent Students")}
-            columns={[
-              { key: "id", label: t("رقم", "Id") },
-              { key: "subject", label: t("النوع", "Subject") },
-              { key: "date", label: t("آخر جلسة", "Last Session"), type: "date" },
-              { key: "progress", label: t("الحصص", "Sessions"), type: "progress" },
-              { key: "assignee", label: t("الطالب", "Student"), type: "assignee" },
-              { key: "view", label: t("عرض", "View"), type: "actions" },
-            ]}
-            rows={recentStudents as { id: string; [key: string]: unknown }[]}
-            emptyMessage={t("لا يوجد طلاب بعد", "No students yet")}
-          />
-        </div>
+        {/* Recent students. */}
+        <section aria-labelledby="recent-students-heading" className="mt-6">
+          <h2 id="recent-students-heading" className="sr-only">{t("آخر الطلاب", "Recent Students")}</h2>
+          <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل قائمة الطلاب", "Couldn't load student list")}>
+            <DataTable
+              title={t("آخر الطلاب", "Recent Students")}
+              columns={[
+                { key: "subject", label: t("النوع", "Subject") },
+                { key: "date", label: t("آخر جلسة", "Last Session"), type: "date" },
+                { key: "progress", label: t("الحصص", "Sessions"), type: "progress" },
+                { key: "assignee", label: t("الطالب", "Student"), type: "assignee" },
+                { key: "view", label: t("عرض", "View"), type: "actions" },
+              ]}
+              rows={recentStudents as { id: string; [key: string]: unknown }[]}
+              emptyMessage={t("لا يوجد طلاب بعد", "No students yet")}
+            />
+          </SectionErrorBoundary>
+        </section>
 
-        {/* Row 4: Today's Sessions + Quick Actions */}
-        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-5">
+        {/* Today's sessions + Quick Actions. */}
+        <section aria-label={t("جلسات اليوم", "Today")} className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-5">
           <div className="lg:col-span-3">
-            {todaySessions.length > 0 ? (
-              <WidgetCard title={t("جلسات اليوم", "Today's Sessions")}>
-                <div className="space-y-3">
-                  {todaySessions.map(b => {
-                    const sess = sessionDataMap[b.id];
-                    return (
-                      <TeacherSessionCard
-                        key={b.id}
-                        sessionId={sess?.id ?? null}
-                        bookingId={b.id}
-                        studentName={nameMap[b.student_id] ?? t("طالب", "Student")}
-                        sessionType={b.session_type}
-                        scheduledAt={b.scheduled_at}
-                        durationMin={b.duration_min}
-                        roomUrl={sess?.room_url ?? null}
-                        expiresAt={sess?.expires_at ?? null}
-                        startedAt={sess?.started_at ?? null}
-                        endedAt={sess?.ended_at ?? null}
-                      />
-                    );
-                  })}
-                </div>
-              </WidgetCard>
-            ) : (
-              <WidgetCard title={t("جلسات اليوم", "Today's Sessions")}>
-                <div className="flex min-h-[120px] items-center justify-center text-center">
-                  <div>
-                    <Calendar size={28} className="mx-auto mb-3 text-muted" />
-                    <p className="text-sm text-muted">{t("لا توجد جلسات اليوم", "No sessions today")}</p>
+            <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل جلسات اليوم", "Couldn't load today's sessions")}>
+              <WidgetCard title={t("جلسات اليوم", "Today's Sessions")} subtitle={todaySessions.length > 0 ? `${todaySessions.length}` : undefined}>
+                {todaySessions.length === 0 ? (
+                  <div className="flex min-h-[120px] items-center justify-center text-center">
+                    <div>
+                      <Calendar size={28} className="mx-auto mb-3 text-muted" aria-hidden="true" />
+                      <p className="text-sm text-muted">{t("لا توجد جلسات اليوم", "No sessions today")}</p>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <ul className="space-y-3" aria-label={t("جلسات اليوم", "Today's sessions")}>
+                    {todaySessions.map(b => {
+                      const sess = sessionDataMap[b.id];
+                      return (
+                        <li key={b.id}>
+                          <TeacherSessionCard
+                            sessionId={sess?.id ?? null}
+                            bookingId={b.id}
+                            studentName={nameMap[b.student_id] ?? t("طالب", "Student")}
+                            sessionType={b.session_type}
+                            scheduledAt={b.scheduled_at}
+                            durationMin={b.duration_min}
+                            roomUrl={sess?.room_url ?? null}
+                            expiresAt={sess?.expires_at ?? null}
+                            startedAt={sess?.started_at ?? null}
+                            endedAt={sess?.ended_at ?? null}
+                          />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </WidgetCard>
-            )}
+            </SectionErrorBoundary>
           </div>
           <div className="lg:col-span-2">
-            <TeacherQuickActions students={Object.entries(nameMap).map(([id, name]) => ({ id, name }))} />
+            <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل الإجراءات السريعة", "Couldn't load quick actions")}>
+              <TeacherQuickActions students={Object.entries(nameMap).map(([id, name]) => ({ id, name }))} />
+            </SectionErrorBoundary>
           </div>
-        </div>
+        </section>
 
-        {/* Row 5: Pending Bookings */}
-        <div id="pending" className="mt-6">
-          <WidgetCard title={t("حجوزات بانتظار التأكيد", "Pending Bookings")}>
-            {uniqueStudents === 0 && pending.length > 0 && (
-              <div className="glass glass-pill mb-3 p-3 text-center text-sm text-gold">
-                {t("لديك حجز جديد! اضغط تأكيد لقبول الطالب", "You have a new booking! Tap Confirm to accept.")}
-              </div>
-            )}
-            {pending.length === 0 ? (
-              <div className="flex min-h-[120px] items-center justify-center text-center">
-                <div>
-                  <Clock size={24} className="mx-auto mb-2 text-muted" />
-                  <p className="text-sm text-muted">{t("لا توجد حجوزات معلقة", "No pending bookings")}</p>
+        {/* Pending bookings — needs your attention. */}
+        <section aria-labelledby="pending-heading" id="pending" className="mt-6">
+          <h2 id="pending-heading" className="sr-only">{t("حجوزات بانتظار التأكيد", "Pending bookings")}</h2>
+          <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل الحجوزات", "Couldn't load bookings")}>
+            <WidgetCard title={t("حجوزات بانتظار التأكيد", "Pending Bookings")} subtitle={pending.length > 0 ? `${pending.length}` : undefined}>
+              {uniqueStudents === 0 && pending.length > 0 && (
+                <div className="glass glass-pill mb-3 p-3 text-center text-sm text-gold" role="note">
+                  {t("لديك حجز جديد! اضغط تأكيد لقبول الطالب", "You have a new booking! Tap Confirm to accept.")}
                 </div>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-[var(--surface-border)] text-xs text-muted-light">
-                      <th className="pb-2 text-start font-medium">{t("الطالب", "Student")}</th>
-                      <th className="pb-2 text-start font-medium">{t("النوع", "Type")}</th>
-                      <th className="pb-2 text-start font-medium">{t("الموعد", "Date")}</th>
-                      <th className="pb-2 text-end font-medium">{t("إجراء", "Action")}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--surface-divider,#F0F0F2)]">
-                    {pending.map(b => (
-                      <tr key={b.id}>
-                        <td className="py-3 font-medium">{nameMap[b.student_id] ?? t("طالب", "Student")}</td>
-                        <td className="py-3 text-muted">{st(b.session_type)} <span aria-hidden="true">·</span> {b.duration_min} {t("د", "m")}</td>
-                        <td className="py-3 text-muted">
-                          {new Date(b.scheduled_at).toLocaleDateString(locale, { month: "short", day: "numeric" })}
-                          {" "}
-                          {new Date(b.scheduled_at).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}
-                        </td>
-                        <td className="py-3 text-end">
-                          <BookingActions bookingId={b.id} isFirst={uniqueStudents === 0} />
-                        </td>
+              )}
+              {pending.length === 0 ? (
+                <div className="flex min-h-[120px] items-center justify-center text-center">
+                  <div>
+                    <Clock size={24} className="mx-auto mb-2 text-muted" aria-hidden="true" />
+                    <p className="text-sm text-muted">{t("لا توجد حجوزات معلقة", "No pending bookings")}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <caption className="sr-only">{t("حجوزات بانتظار التأكيد", "Pending bookings")}</caption>
+                    <thead>
+                      <tr className="border-b border-[var(--surface-border)] text-xs text-muted-light">
+                        <th scope="col" className="pb-2 text-start font-medium">{t("الطالب", "Student")}</th>
+                        <th scope="col" className="pb-2 text-start font-medium">{t("النوع", "Type")}</th>
+                        <th scope="col" className="pb-2 text-start font-medium">{t("الموعد", "Date")}</th>
+                        <th scope="col" className="pb-2 text-end font-medium">{t("إجراء", "Action")}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </WidgetCard>
-        </div>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--surface-divider,#F0F0F2)]">
+                      {pending.map(b => (
+                        <tr key={b.id}>
+                          <td className="py-3 font-medium">{nameMap[b.student_id] ?? t("طالب", "Student")}</td>
+                          <td className="py-3 text-muted">{st(b.session_type)} <span aria-hidden="true">·</span> {b.duration_min} {t("د", "m")}</td>
+                          <td className="py-3 text-muted">
+                            {new Date(b.scheduled_at).toLocaleDateString(locale, { month: "short", day: "numeric" })}{" "}
+                            {new Date(b.scheduled_at).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}
+                          </td>
+                          <td className="py-3 text-end">
+                            <BookingActions bookingId={b.id} isFirst={uniqueStudents === 0} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </WidgetCard>
+          </SectionErrorBoundary>
+        </section>
+
+        {/* Footer — last refresh + shortcuts trigger + refresh button. */}
+        <footer className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--surface-divider,var(--surface-border))] pt-5 text-xs text-muted">
+          <p>{t(`آخر تحديث ${lastRefreshLabel}`, `Last refreshed at ${lastRefreshLabel}`)}</p>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setHelpOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 transition-colors hover:bg-foreground/5 hover:text-foreground focus-ring"
+              aria-label={t("اختصارات لوحة المفاتيح", "Keyboard shortcuts")}
+            >
+              <Keyboard size={12} aria-hidden="true" />
+              <span>{t("اختصارات", "Shortcuts")}</span>
+              <kbd className="ms-1 inline-flex h-5 min-w-[18px] items-center justify-center rounded border border-[var(--surface-border)] bg-[var(--surface-light)] px-1 font-mono text-[10px]">?</kbd>
+            </button>
+            <button
+              type="button"
+              onClick={refresh}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 transition-colors hover:bg-foreground/5 hover:text-foreground focus-ring"
+              aria-label={t("تحديث", "Refresh")}
+            >
+              <RefreshCw size={12} aria-hidden="true" />
+              <span>{t("تحديث", "Refresh")}</span>
+            </button>
+          </div>
+        </footer>
       </div>
+
+      <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} shortcuts={shortcuts} />
+    </>
   );
 }
