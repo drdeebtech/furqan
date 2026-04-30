@@ -22,6 +22,7 @@ const isProd = process.env.NEXT_PUBLIC_VERCEL_ENV === "production";
 
 Sentry.init({
   dsn,
+  environment: process.env.NEXT_PUBLIC_VERCEL_ENV ?? "development",
   integrations: [
     Sentry.replayIntegration({
       maskAllText: true,

@@ -13,6 +13,7 @@ const dsn =
 
 Sentry.init({
   dsn,
+  environment: process.env.VERCEL_ENV ?? "development",
   tracesSampleRate: process.env.VERCEL_ENV === "production" ? 0.1 : 1,
   enableLogs: true,
   sendDefaultPii: true,

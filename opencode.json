@@ -3,7 +3,7 @@
   "mcp": {
     "Sentry": {
       "type": "remote",
-      "url": "https://mcp.sentry.dev/mcp/furqan-academy/javascript-nextjs",
+      "url": "https://mcp.sentry.dev/mcp/furqan-academy/javascript-nextjs-e4",
       "oauth": {}
     }
   }

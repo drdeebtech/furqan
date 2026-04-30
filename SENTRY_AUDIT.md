@@ -1,5 +1,14 @@
 # Sentry Audit — furqan
 
+> **⚠️ Historical snapshot** — superseded by changes on 2026-05-01. Specifically:
+> 1. **Active project is `javascript-nextjs-e4`** (not `javascript-nextjs`) — the original wizard-created project was abandoned after a re-run; canonical DSN now points to project ID `4511305365323856`.
+> 2. **Release tagging is owned by `withSentryConfig`** in `next.config.ts`, NOT by `scripts/sentry-release.sh` (which has been deleted). `vercel.json` no longer has a `buildCommand` override; the default `next build` runs the plugin which handles sourcemap upload + release tagging end-to-end.
+> 3. **`environment` tag** is set explicitly to `process.env.VERCEL_ENV` in all three init files, replacing the auto-injected `vercel-` prefix from the Vercel-Sentry integration.
+>
+> The body below describes the platform state at audit time. Refer to `CLAUDE.md` and the live `next.config.ts` for current configuration.
+
+---
+
 **Date:** 2026-04-27
 **Triggered by:** post-VERCEL_AUDIT verification revealed client-side Sentry was silently dark in production.
 **Org/Project:** `furqan-academy` / `javascript-nextjs`

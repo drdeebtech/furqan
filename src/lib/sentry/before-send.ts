@@ -157,31 +157,16 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
     if (!hasInApp) return true;
   }
 
-  // Local Turbopack / Next dev-server connection aborts can leak into the
-  // production-tagged project if the contributor runs the app with
-  // VERCEL_ENV=production. They show up as bare node:_http_server
-  // abortIncoming/socketOnClose ECONNRESET stacks with zero in-app frames,
-  // a local `.local` server name, and macOS device metadata. Those are not
-  // actionable Furqan production bugs.
-  if (msg === "aborted" && exType === "Error") {
-    const serverName = typeof event.server_name === "string" ? event.server_name : "";
-    const osName = typeof event.contexts?.os?.name === "string" ? event.contexts.os.name : "";
-    const turbopack = event.tags?.turbopack;
-    const hasOnlyNodeFrames =
-      frames.length > 0 &&
-      frames.every((f) => {
-        const filename = f.filename ?? "";
-        return filename.startsWith("node:");
-      });
-
-    if (
-      hasOnlyNodeFrames &&
-      serverName.endsWith(".local") &&
-      osName === "macOS" &&
-      (turbopack === "True" || turbopack === true)
-    ) {
-      return true;
-    }
+  // Connection-abort errors from node:_http_server (abortIncoming /
+  // socketOnClose ECONNRESET) — fired when the client TCP-disconnects
+  // mid-request. Always surface as zero-in-app-frame stacks rooted in
+  // node:_http_server. Not actionable: nothing in the app caused or can
+  // prevent it. Filter regardless of environment (was previously scoped
+  // to local dev only — JAVASCRIPT-NEXTJS-E4-1 leaked through from prod).
+  if (msg === "aborted" && exType === "Error" && frames.length > 0) {
+    const allNodeFrames = frames.every((f) => (f.filename ?? "").startsWith("node:"));
+    const noInAppFrames = !frames.some((f) => f.in_app === true);
+    if (allNodeFrames && noInAppFrames) return true;
   }
 
   return false;

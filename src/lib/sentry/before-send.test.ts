@@ -45,12 +45,36 @@ describe("beforeSend", () => {
     expect(result).toBeNull();
   });
 
-  it("keeps aborted errors when they are not the known local turbopack signature", () => {
+  it("drops production aborted errors with only node:_http_server frames", () => {
     const result = beforeSend(
       buildEvent({
         server_name: "api.furqan.today",
         contexts: { os: { name: "Linux" } },
         tags: { turbopack: "False" },
+      }),
+      buildHint("aborted"),
+    );
+
+    expect(result).toBeNull();
+  });
+
+  it("keeps aborted errors that have at least one in-app frame", () => {
+    const result = beforeSend(
+      buildEvent({
+        exception: {
+          values: [
+            {
+              type: "Error",
+              value: "aborted",
+              stacktrace: {
+                frames: [
+                  { filename: "node:_http_server", function: "abortIncoming", in_app: false },
+                  { filename: "src/app/api/upload/route.ts", function: "POST", in_app: true },
+                ],
+              },
+            },
+          ],
+        },
       }),
       buildHint("aborted"),
     );

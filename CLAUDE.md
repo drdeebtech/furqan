@@ -341,16 +341,16 @@ await supabase.from("audit_log").insert({...} as never)
 
 ## Sentry ↔ Git commit convention
 
-When a commit fixes a Sentry-reported issue, **include `Fixes JAVASCRIPT-NEXTJS-<N>`** in the commit message body (or PR title/description). Sentry's GitHub integration auto-resolves the matching issue when `scripts/sentry-release.sh` tags the next release with the commit.
+When a commit fixes a Sentry-reported issue, **include `Fixes JAVASCRIPT-NEXTJS-E4-<N>`** in the commit message body (or PR title/description). Sentry's GitHub integration auto-resolves the matching issue when the next release tagged on `main` contains the commit. Release tagging is owned by the `@sentry/nextjs` plugin (`withSentryConfig` in `next.config.ts`), which runs `release.setCommits.auto: true` during the Vercel build — no separate script involved.
 
 Example:
 ```
 fix(og): wrap blog OG image in try/catch + fallback + 24h cache
 
-Fixes JAVASCRIPT-NEXTJS-3
+Fixes JAVASCRIPT-NEXTJS-E4-3
 ```
 
-Find the short ID in the Sentry issue header (looks like `JAVASCRIPT-NEXTJS-NN`). Keywords `Fixes`, `Resolves`, and `Closes` all work. The convention only kicks in once the commit lands on `main` and the release-tagging script runs in the Vercel build — local commits don't trigger it.
+Find the short ID in the Sentry issue header (looks like `JAVASCRIPT-NEXTJS-E4-NN`). Keywords `Fixes`, `Resolves`, and `Closes` all work. The convention only kicks in once the commit lands on `main` and the next Vercel build ships — local commits don't trigger it.
 
 ## Database Migrations Policy
 
@@ -428,7 +428,7 @@ After any code change:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **furqan** (7049 symbols, 12059 relationships, 284 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **furqan** (7297 symbols, 12372 relationships, 287 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 

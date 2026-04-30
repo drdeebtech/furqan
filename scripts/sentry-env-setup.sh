@@ -8,7 +8,8 @@
 # This script is one-shot: run it once after the Sentry GitHub integration
 # is wired and the local .env.sentry-build-plugin file exists. After it
 # completes, push any commit and the next Vercel build will upload source
-# maps via scripts/sentry-release.sh.
+# maps and tag releases via the @sentry/nextjs withSentryConfig plugin
+# (configured in next.config.ts).
 #
 # Re-runnable safely: existing env entries error out gracefully and the
 # script continues. If you need to overwrite an existing env, run
@@ -30,7 +31,7 @@ if [ -z "$TOKEN" ]; then
 fi
 
 ORG="furqan-academy"
-PROJECT="javascript-nextjs"
+PROJECT="javascript-nextjs-e4"
 
 add_env() {
   local name="$1"
@@ -61,6 +62,7 @@ echo ""
 echo "=== Done. Verify with: ==="
 echo "  npx vercel env ls | grep -i sentry"
 echo ""
-echo "Next: push any commit to trigger a deploy. scripts/sentry-release.sh"
-echo "will pick up the envs and start uploading source maps. Verify with:"
+echo "Next: push any commit to trigger a deploy. The @sentry/nextjs plugin"
+echo "(next.config.ts) will pick up the envs and upload source maps + tag"
+echo "the release. Verify with:"
 echo "  ~/.local/bin/sentry release list --limit 3"
