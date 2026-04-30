@@ -36,11 +36,23 @@ const GENDER_FILTERS: { key: string; ar: string; en: string }[] = [
 ];
 
 export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
-  const [specialty, setSpecialty] = useState("all");
-  const [gender, setGender] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"rating" | "sessions" | "price">("rating");
+  // Read initial filter values from URL on mount, so deep links like
+  // /student/teachers?q=aisha&specialty=hifz&gender=female open in the
+  // expected filtered view. Interactive filtering after mount stays
+  // local-only (no router.replace) — preserves the current zero-URL-churn
+  // UX for users who didn't arrive via a shared link.
   const searchParams = useSearchParams();
+  const initialSpecialty = searchParams.get("specialty") ?? "all";
+  const initialGender = searchParams.get("gender") ?? "all";
+  const initialQuery = searchParams.get("q") ?? "";
+  const initialSortRaw = searchParams.get("sort");
+  const initialSort: "rating" | "sessions" | "price" =
+    initialSortRaw === "sessions" || initialSortRaw === "price" ? initialSortRaw : "rating";
+
+  const [specialty, setSpecialty] = useState(initialSpecialty);
+  const [gender, setGender] = useState(initialGender);
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
+  const [sortBy, setSortBy] = useState<"rating" | "sessions" | "price">(initialSort);
   const { t, dir, lang } = useLang();
   const isNew = searchParams.get("new") === "1";
 
