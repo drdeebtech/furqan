@@ -6,8 +6,13 @@
 # Required env vars in the Vercel build scope:
 #   SENTRY_AUTH_TOKEN  (mandatory — the upload won't work without it)
 #   SENTRY_ORG=furqan-academy
-#   SENTRY_PROJECT=javascript-nextjs
+#   SENTRY_PROJECT=javascript-nextjs-e4
 #   VERCEL_GIT_COMMIT_SHA  (Vercel sets this automatically)
+#
+# The SENTRY_PROJECT slug must match the one in next.config.ts so source-map
+# uploads from withSentryConfig and release tags from this script land in
+# the same Sentry project. The legacy `javascript-nextjs` project still
+# exists in the org but is not the active target anymore.
 #
 # This script intentionally exits 0 on Sentry-side failures: a Sentry outage
 # or token rotation must NOT block a production deploy. All errors are echoed
