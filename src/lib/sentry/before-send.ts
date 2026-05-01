@@ -93,9 +93,29 @@ const SENSITIVE_QUERY_KEYS = new Set([
   "apikey",
   "auth",
   "email",
+  "otp",
   "e",
   "session_id",
 ]);
+
+type RawStackFrame = {
+  filename?: string;
+  function?: string;
+  context?: Array<[number, string]>;
+};
+
+function getRawStackFrames(event: ErrorEvent): RawStackFrame[] {
+  const exception = event.exception?.values?.[0] as { rawStacktrace?: { frames?: RawStackFrame[] } } | undefined;
+  return exception?.rawStacktrace?.frames ?? [];
+}
+
+function rawFrameContextIncludesServerActionFetch(frame: RawStackFrame): boolean {
+  const contextText = frame.context?.map(([, line]) => line).join("\n") ?? "";
+  return (
+    contextText.includes("fetch(e.canonicalUrl") &&
+    (contextText.includes("NEXT_ACTION") || contextText.includes("unrecognizedActionHeader"))
+  );
+}
 
 function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
   const ex = hint.originalException;
@@ -124,6 +144,7 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
 
   // Stack-frame noise.
   const frames = event.exception?.values?.[0]?.stacktrace?.frames ?? [];
+  const rawFrames = getRawStackFrames(event);
   for (const f of frames) {
     const filename = f.filename ?? "";
     const fn = f.function ?? "";
@@ -137,9 +158,11 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
   // throws `TypeError: Load failed` and sometimes triggers a sibling
   // `Rendered more hooks than during the previous render` from the
   // reducer's recovery path — both with zero in-app frames (everything
-  // is in node_modules/next/...). Real fix is on the user's network,
-  // not in our code, and the page redirects/reloads cleanly anyway.
-  // Drop both signatures.
+  // is in node_modules/next/...). In production, beforeSend may only see
+  // the minified client chunk frame before Sentry symbolicates it server-side,
+  // so also inspect rawStacktrace context for the server-action fetch snippet.
+  // Real fix is on the user's network, not in our code, and the page
+  // redirects/reloads cleanly anyway. Drop both signatures.
   if (exType === "TypeError" && msg === "Load failed") {
     for (const f of frames) {
       const filename = f.filename ?? "";
@@ -147,6 +170,15 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
       if (
         filename.includes("server-action-reducer") ||
         fn === "fetchServerAction"
+      ) return true;
+    }
+    for (const f of rawFrames) {
+      const filename = f.filename ?? "";
+      const fn = f.function ?? "";
+      if (
+        filename.includes("server-action-reducer") ||
+        fn === "fetchServerAction" ||
+        rawFrameContextIncludesServerActionFetch(f)
       ) return true;
     }
   }

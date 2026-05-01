@@ -77,6 +77,44 @@ describe("beforeSend", () => {
     expect(result).toBeNull();
   });
 
+  it("drops Load failed server-action noise when beforeSend only sees the raw client chunk frame", () => {
+    const result = beforeSend(
+      buildEvent({
+        exception: {
+          values: [
+            {
+              type: "TypeError",
+              value: "Load failed",
+              stacktrace: {
+                frames: [
+                  {
+                    filename: "app:///_next/static/chunks/0d-5~nncqvl9l.js",
+                    function: "I",
+                    in_app: true,
+                  },
+                ],
+              },
+              rawStacktrace: {
+                frames: [
+                  {
+                    filename: "app:///_next/static/chunks/0d-5~nncqvl9l.js",
+                    function: "I",
+                    context: [
+                      [1, "{snip} let A=await fetch(e.canonicalUrl,{method:\"POST\",headers:T,body:v});if(\"1\"===A.headers.get(u.NEXT_ACTION_NOT_FOUND_HEADER)) {snip}"],
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      }),
+      {} as EventHint,
+    );
+
+    expect(result).toBeNull();
+  });
+
   it("drops production aborted errors with only node:_http_server frames", () => {
     const result = beforeSend(
       buildEvent({
