@@ -7,7 +7,13 @@ import { RegisterBanner } from "@/components/public/register-banner";
 import { CurrencyPackages } from "./currency-packages";
 import type { Package } from "@/types/database";
 
-export function PackagesContent({ packages }: { packages: Package[] }) {
+interface PackagesContentProps {
+  packages: Package[];
+  paypalEnabled: boolean;
+  isAuthenticated: boolean;
+}
+
+export function PackagesContent({ packages, paypalEnabled, isAuthenticated }: PackagesContentProps) {
   const { t } = useLang();
 
   return (
@@ -55,7 +61,7 @@ export function PackagesContent({ packages }: { packages: Package[] }) {
         </div>
       </section>
 
-      <CurrencyPackages packages={packages} />
+      <CurrencyPackages packages={packages} paypalEnabled={paypalEnabled} isAuthenticated={isAuthenticated} />
 
       {/* Discounts */}
       <section className="border-t border-white/10 py-24">

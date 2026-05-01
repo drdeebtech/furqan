@@ -17,6 +17,7 @@ export const ALLOWED_SETTING_KEYS = [
   "supported_currencies",
   "courses_enabled",
   "paid_courses_enabled",
+  "paypal_purchase_enabled",
 ] as const;
 
 export type AllowedSettingKey = (typeof ALLOWED_SETTING_KEYS)[number];

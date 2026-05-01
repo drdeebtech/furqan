@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Package } from "@/types/database";
 import { PackagesContent } from "./packages-content";
 import { BreadcrumbSchema } from "@/components/seo/structured-data";
+import { getSettings } from "@/lib/settings";
 
 export const metadata: Metadata = {
   title: "باقاتنا — أسعار تعلم القرآن",
@@ -18,12 +19,18 @@ export const revalidate = 300;
 
 export default async function PackagesPage() {
   const supabase = await createClient();
-  const { data: packages } = await supabase
-    .from("packages")
-    .select("*")
-    .eq("is_active", true)
-    .order("display_order", { ascending: true })
-    .returns<Package[]>();
+  const [{ data: packages }, { data: { user } }, settings] = await Promise.all([
+    supabase
+      .from("packages")
+      .select("*")
+      .eq("is_active", true)
+      .order("display_order", { ascending: true })
+      .returns<Package[]>(),
+    supabase.auth.getUser(),
+    getSettings(),
+  ]);
+
+  const paypalEnabled = settings.paypal_purchase_enabled === "true";
 
   return (
     <>
@@ -31,7 +38,11 @@ export default async function PackagesPage() {
         { name: "الرئيسية", url: "https://furqan.today" },
         { name: "باقاتنا", url: "https://furqan.today/packages" },
       ]} />
-      <PackagesContent packages={packages ?? []} />
+      <PackagesContent
+        packages={packages ?? []}
+        paypalEnabled={paypalEnabled}
+        isAuthenticated={!!user}
+      />
     </>
   );
 }

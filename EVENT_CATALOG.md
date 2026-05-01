@@ -28,6 +28,7 @@
 | `course.enrolled` | Student enrolls (free) | `src/lib/actions/course-enrollments.ts` (`enrollFree`) | student_id, source | Teacher notification, welcome email (planned) |
 | `lesson.completed` | Student crosses 90% watched threshold | `src/lib/actions/course-playback.ts` (`upsertLessonProgress`) | enrollment_id, student_id | Course completion check, milestone celebration |
 | `review.created` | Student writes/updates a course review | `src/lib/actions/course-reviews.ts` (`writeReview`) | student_id, stars | Teacher notification (planned) |
+| `package.purchased` | Student completes a PayPal package purchase | `src/app/(public)/packages/paypal-actions.ts` (`captureAndGrantPackage`) | student_id, package_id, payment_id, sessions_total, amount_usd | Admin Telegram alert, receipt email (planned), n8n welcome flow (planned) |
 
 ## Events Planned (Not Yet Emitted)
 

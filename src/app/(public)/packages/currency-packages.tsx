@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CheckCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useFeatureFlags } from "@/lib/feature-flags-context";
+import { PayPalBuyButton } from "@/components/shared/paypal-buy-button";
 import type { Package } from "@/types/database";
 
 const CURRENCIES = [
@@ -16,11 +17,21 @@ const CURRENCIES = [
 
 type CurrencyField = "price_usd" | "price_gbp" | "price_sar" | "price_aud";
 
-export function CurrencyPackages({ packages }: { packages: Package[] }) {
+interface CurrencyPackagesProps {
+  packages: Package[];
+  paypalEnabled?: boolean;
+  isAuthenticated?: boolean;
+}
+
+export function CurrencyPackages({ packages, paypalEnabled = false, isAuthenticated = false }: CurrencyPackagesProps) {
   const [currency, setCurrency] = useState<CurrencyField>("price_usd");
   const { t } = useLang();
   const { hidePrices } = useFeatureFlags();
   const curr = CURRENCIES.find((c) => c.field === currency)!;
+  // PayPal button replaces the contact CTA only when feature flag is on AND
+  // a student is signed in. Anyone else (signed-out browsers, flag-off) keeps
+  // the existing "Book Now → /contact" path so the page never regresses.
+  const showPaypal = paypalEnabled && isAuthenticated;
 
   // Fallback to hardcoded if no packages from DB
   if (packages.length === 0) {
@@ -95,14 +106,20 @@ export function CurrencyPackages({ packages }: { packages: Package[] }) {
                   ))}
                 </ul>
 
-                <Link
-                  href={`/contact?package=${pkg.name}`}
-                  className={`mt-6 block rounded-full py-2.5 text-center text-sm font-medium transition-colors ${
-                    pkg.is_featured ? "glass-gold glass-pill hover:bg-gold-hover" : "glass glass-pill text-gold hover:bg-gold hover:text-background"
-                  }`}
-                >
-                  {t("احجز الآن", "Book Now")}
-                </Link>
+                <div className="mt-6">
+                  {showPaypal ? (
+                    <PayPalBuyButton packageId={pkg.id} currency={curr.code as "USD" | "GBP" | "SAR" | "AUD"} />
+                  ) : (
+                    <Link
+                      href={`/contact?package=${pkg.name}`}
+                      className={`block rounded-full py-2.5 text-center text-sm font-medium transition-colors ${
+                        pkg.is_featured ? "glass-gold glass-pill hover:bg-gold-hover" : "glass glass-pill text-gold hover:bg-gold hover:text-background"
+                      }`}
+                    >
+                      {t("احجز الآن", "Book Now")}
+                    </Link>
+                  )}
+                </div>
               </div>
             );
           })}
