@@ -70,9 +70,12 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
   const selectedDayOfWeek = selectedDate ? new Date(selectedDate).getDay() : null;
   const daySlots = selectedDayOfWeek !== null ? availability.filter((s) => s.dayOfWeek === selectedDayOfWeek) : [];
 
-  // Generate next 14 days as date options (filtered by availability)
+  // Date range — starts at 14 days, expandable in 14-day chunks via "load
+  // more". Hard cap of 56 days (8 weeks) guards against runaway DOM growth
+  // and matches typical academy planning horizons.
+  const [dateRangeDays, setDateRangeDays] = useState(14);
   const dateOptions: { value: string; label: string; available: boolean }[] = [];
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < dateRangeDays; i++) {
     const d = new Date();
     d.setDate(d.getDate() + i);
     const val = d.toISOString().split("T")[0];
@@ -83,6 +86,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
       available,
     });
   }
+  const canLoadMoreDates = dateRangeDays < 56;
 
   // Check if form is complete for confirmation
   const isComplete = selectedType && duration && selectedDate && selectedTime;
@@ -206,6 +210,8 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
                   type="button"
                   disabled={!d.available}
                   onClick={() => { setSelectedDate(d.value); setSelectedTime(""); }}
+                  aria-label={d.available ? `تاريخ ${d.label} - متاح` : `تاريخ ${d.label} - غير متاح`}
+                  aria-pressed={selectedDate === d.value}
                   className={`shrink-0 rounded-xl border px-3 py-2.5 text-xs transition-colors ${
                     selectedDate === d.value ? "border-gold bg-gold/10 font-bold text-gold" :
                     d.available ? "glass-input hover:border-gold/50" :
@@ -215,6 +221,16 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
                   {d.label}
                 </button>
               ))}
+              {canLoadMoreDates && (
+                <button
+                  type="button"
+                  onClick={() => setDateRangeDays((n) => Math.min(n + 14, 56))}
+                  aria-label="تحميل مواعيد أبعد"
+                  className="shrink-0 rounded-xl border border-gold/30 px-3 py-2.5 text-xs text-gold transition-colors hover:bg-gold/10"
+                >
+                  + ١٤ يوم
+                </button>
+              )}
             </div>
             {/* Date value is passed via hidden input inside the confirmation form */}
             {selectedDate && !isDateAvailable(selectedDate) && availability.length > 0 && (
@@ -235,6 +251,8 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
                         key={`${slot.dayOfWeek}-${start}`}
                         type="button"
                         onClick={() => setSelectedTime(start)}
+                        aria-label={`الوقت ${start}`}
+                        aria-pressed={selectedTime === start}
                         className={`rounded-xl border px-3 py-3 text-sm transition-colors ${
                           selectedTime === start ? "border-gold bg-gold/10 font-bold text-gold" : "glass-input hover:border-gold/50"
                         }`}

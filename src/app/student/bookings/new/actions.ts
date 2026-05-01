@@ -224,11 +224,24 @@ export async function createBooking(
     return { error: "حدث خطأ أثناء إنشاء الحجز" };
   }
 
-  // Send notifications in parallel (non-blocking)
+  // Send notifications in parallel (non-blocking).
+  // Each branch is wrapped in its own try/catch + logError so that a
+  // failed channel (Resend down, n8n unreachable, CallMeBot rate-limited)
+  // surfaces in Sentry instead of being silently swallowed by allSettled.
+  // The booking itself is already committed at this point — the user must
+  // not be blocked or shown an error if a side-channel notification fails.
+  const bookingId = newBooking?.id ?? "";
   await Promise.allSettled([
-    // Notify teacher about new booking
-    notify(teacherId, "booking", "حجز جديد", `لديك حجز جديد بتاريخ ${scheduledAt.toLocaleDateString("ar")} — يرجى التأكيد`, "booking", newBooking?.id ?? undefined),
-    // WhatsApp notification to admin
+    notify(
+      teacherId,
+      "booking",
+      "حجز جديد",
+      `لديك حجز جديد بتاريخ ${scheduledAt.toLocaleDateString("ar")} — يرجى التأكيد`,
+      "booking",
+      bookingId || undefined,
+    ).catch((err) => logError("notify teacher booking.created failed", err, {
+      tag: "notify", severity: "warning", actionName: "booking.created", teacherId, bookingId,
+    })),
     (async () => {
       const [{ data: studentProfile }, { data: teacherName }] = await Promise.all([
         supabase.from("profiles").select("full_name").eq("id", studentId).single<{ full_name: string | null }>(),
@@ -239,8 +252,14 @@ export async function createBooking(
         teacherName?.full_name ?? "معلم",
         scheduledAt.toLocaleDateString("ar"),
       );
-    })(),
-    emitEvent("booking.created", "booking", newBooking?.id ?? "", { student_id: studentId, teacher_id: teacherId, session_type: sessionType, scheduled_at: scheduledAt.toISOString() }).catch((err) => logError("emit booking.created failed", err, { tag: "automation", actionName: "booking.created" })),
+    })().catch((err) => logError("WhatsApp notify booking.created failed", err, {
+      tag: "whatsapp", severity: "warning", actionName: "booking.created", bookingId,
+    })),
+    emitEvent("booking.created", "booking", bookingId, {
+      student_id: studentId, teacher_id: teacherId, session_type: sessionType, scheduled_at: scheduledAt.toISOString(),
+    }).catch((err) => logError("emit booking.created failed", err, {
+      tag: "automation", severity: "warning", actionName: "booking.created", bookingId,
+    })),
   ]);
 
   redirect("/student/dashboard?booked=1");
