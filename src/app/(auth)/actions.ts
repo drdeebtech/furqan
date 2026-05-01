@@ -103,14 +103,16 @@ export async function login(
   const verification = await checkBotId();
   if (verification.isBot) {
     // BotID has misclassified real users in the past (cf. /teach/apply
-    // incident). Logging when this fires so we can tell apart real bots
-    // from false positives by inspecting the Sentry event's IP/UA.
+    // incident; also a Safari/Mac user in Kuwait City on 2026-05-01).
+    // Logging when this fires so we can tell apart real bots from false
+    // positives by inspecting the Sentry event's IP/UA. The error message
+    // is now actionable so a flagged real user knows what to try next.
     logError("BotID flagged login as bot", new Error("login.bot_blocked"), {
       component: "auth.login",
       tag: "auth-bot-blocked",
       metadata: { email },
     });
-    return { error: "تعذر التحقق من الطلب" };
+    return { error: "تعذر التحقق من الطلب. حدِّث الصفحة وأعد المحاولة، أو جرّب من شبكة مختلفة. إذا استمرت المشكلة تواصل معنا عبر واتساب." };
   }
 
   if (!email || !password) {

@@ -65,6 +65,17 @@ const DEMOTE_TO_WARNING = [
   // transient blip.
   /^Error sending recovery email$/,
   /^Error sending confirmation email$/,
+  // BotID false positives — Vercel's bot detector occasionally flags real
+  // users (Safari/Mac in Kuwait was the canonical case 2026-05-01). The
+  // login form already returns a recoverable error message so the user can
+  // retry; we still want VISIBLE breadcrumbs to spot a sustained spike but
+  // a single block shouldn't page anyone.
+  /^login\.bot_blocked$/,
+  // OAuth callback called without a `code` query param — typically a user
+  // hitting the back button mid-flow, denying consent, or a flaky network
+  // dropping the redirect. The handler already redirects to /login with a
+  // user-readable error code; not a code bug.
+  /^oauth\.callback\.missing_code$/,
 ];
 
 // Hydration mismatch messages — these fire when server-rendered HTML differs
