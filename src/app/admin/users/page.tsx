@@ -9,7 +9,7 @@ import { UserRow } from "./user-row";
 
 export const metadata: Metadata = { title: "المستخدمون" };
 
-interface ProfileRow { id: string; role: string; full_name: string | null; country: string | null; is_active: boolean; deleted_at: string | null; created_at: string; }
+interface ProfileRow { id: string; role: string; roles: string[] | null; full_name: string | null; country: string | null; is_active: boolean; deleted_at: string | null; created_at: string; }
 
 interface PageProps {
   searchParams: Promise<{ q?: string }>;
@@ -30,7 +30,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
 
   // Listing query: filtered by name when ?q is set.
   const baseQuery = supabase.from("profiles")
-    .select("id, role, full_name, country, is_active, deleted_at, created_at")
+    .select("id, role, roles, full_name, country, is_active, deleted_at, created_at")
     .order("created_at", { ascending: false });
   const { data } = q
     ? await baseQuery.ilike("full_name", `%${q}%`).returns<ProfileRow[]>()

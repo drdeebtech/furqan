@@ -1,12 +1,28 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import Link from "next/link";
-import { toggleUserActive, changeUserRole, softDeleteUser, restoreUser } from "./actions";
+import { toggleUserActive, setUserRoles, softDeleteUser, restoreUser } from "./actions";
 import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
 import { useLang } from "@/lib/i18n/context";
 
+type Role = "student" | "teacher" | "admin" | "moderator";
+const ALL_ROLES: ReadonlyArray<Role> = ["student", "teacher", "moderator", "admin"];
+
+const ROLE_LABEL_AR: Record<Role, string> = {
+  student: "طالب",
+  teacher: "معلم",
+  moderator: "مشرف",
+  admin: "مدير",
+};
+const ROLE_LABEL_EN: Record<Role, string> = {
+  student: "Student",
+  teacher: "Teacher",
+  moderator: "Moderator",
+  admin: "Admin",
+};
+
 interface Props {
-  user: { id: string; role: string; full_name: string | null; country: string | null; is_active: boolean; deleted_at: string | null; created_at: string };
+  user: { id: string; role: string; roles: string[] | null; full_name: string | null; country: string | null; is_active: boolean; deleted_at: string | null; created_at: string };
   churnRisk?: number | null;
   currentAdminId: string;
 }
@@ -15,23 +31,54 @@ export function UserRow({ user, churnRisk, currentAdminId }: Props) {
   const { t, lang } = useLang();
   const locale = lang === "ar" ? "ar" : "en-US";
   const [active, setActive] = useState(user.is_active);
-  const [role, setRole] = useState(user.role);
-  const [pendingRole, setPendingRole] = useState<string | null>(null);
-  const [roleLoading, setRoleLoading] = useState(false);
+  // Initial set: prefer the new roles[] column, fall back to single role for
+  // any row that slipped through the backfill.
+  const initialRoles = (user.roles ?? [user.role]) as Role[];
+  const [roles, setRoles] = useState<Role[]>(initialRoles);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<Role[]>(initialRoles);
+  const [savingRoles, setSavingRoles] = useState(false);
+  const [rolesError, setRolesError] = useState<string | null>(null);
+  const editRef = useRef<HTMLDivElement>(null);
   const [deleted, setDeleted] = useState<boolean>(!!user.deleted_at);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, startDeleteTx] = useTransition();
   const isSelf = user.id === currentAdminId;
+  const labelFor = (r: Role) => (lang === "ar" ? ROLE_LABEL_AR[r] : ROLE_LABEL_EN[r]);
 
-  async function confirmRoleChange() {
-    if (!pendingRole) return;
-    setRoleLoading(true);
-    setRole(pendingRole);
-    await changeUserRole(user.id, pendingRole);
-    setRoleLoading(false);
-    setPendingRole(null);
+  // Close the editor on outside click so the popover doesn't linger.
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (editRef.current && !editRef.current.contains(e.target as Node)) {
+        setEditing(false);
+        setRolesError(null);
+      }
+    }
+    if (editing) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [editing]);
+
+  function toggleDraftRole(r: Role) {
+    setDraft((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]));
+  }
+
+  async function saveRoles() {
+    if (draft.length === 0) {
+      setRolesError(t("يجب اختيار دور واحد على الأقل", "Select at least one role"));
+      return;
+    }
+    setSavingRoles(true);
+    setRolesError(null);
+    const res = await setUserRoles(user.id, draft);
+    setSavingRoles(false);
+    if (res?.error) {
+      setRolesError(res.error);
+      return;
+    }
+    setRoles(draft);
+    setEditing(false);
   }
 
   function handleDelete() {
@@ -78,42 +125,72 @@ export function UserRow({ user, churnRisk, currentAdminId }: Props) {
         </Link>
       </td>
       <td className="px-4 py-3">
-        {pendingRole ? (
-          <div className="flex flex-col gap-1">
-            <p className="text-xs text-warning">تأكيد التغيير؟</p>
-            <div className="flex gap-2">
-              <button
-                onClick={confirmRoleChange}
-                disabled={roleLoading}
-                className="glass-danger glass-pill px-2 py-0.5 text-xs font-medium transition-colors disabled:opacity-50"
-              >
-                {roleLoading ? "..." : "تأكيد"}
-              </button>
-              <button
-                onClick={() => setPendingRole(null)}
-                disabled={roleLoading}
-                className="text-xs text-muted transition-colors hover:text-foreground"
-              >
-                إلغاء
-              </button>
-            </div>
-          </div>
-        ) : (
-          <select
-            value={role}
-            onChange={(e) => {
-              if (e.target.value !== role) {
-                setPendingRole(e.target.value);
-              }
-            }}
-            className="glass-input rounded px-2 py-1 text-xs text-foreground"
+        <div ref={editRef} className="relative inline-block">
+          <button
+            type="button"
+            onClick={() => { setDraft(roles); setEditing((v) => !v); }}
+            aria-haspopup="dialog"
+            aria-expanded={editing}
+            className="flex flex-wrap items-center gap-1 rounded px-1 py-0.5 text-xs transition-colors hover:bg-foreground/5"
+            title={t("اضغط لتعديل الأدوار", "Click to edit roles")}
           >
-            <option value="student">طالب</option>
-            <option value="teacher">معلم</option>
-            <option value="moderator">مشرف</option>
-            <option value="admin">مدير</option>
-          </select>
-        )}
+            {roles.length === 0 ? (
+              <span className="text-muted">—</span>
+            ) : (
+              roles.map((r) => (
+                <span key={r} className="glass-badge border-gold/30 bg-gold/10 px-1.5 py-0.5 text-[10px] font-medium text-gold">
+                  {labelFor(r)}
+                </span>
+              ))
+            )}
+          </button>
+          {editing && (
+            <div
+              role="dialog"
+              aria-label={t("تعديل الأدوار", "Edit roles")}
+              className="absolute start-0 top-full z-50 mt-1 w-48 rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-3 shadow-lg"
+            >
+              <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted">
+                {t("الأدوار", "Roles")}
+              </p>
+              <div className="space-y-1.5">
+                {ALL_ROLES.map((r) => (
+                  <label key={r} className="flex cursor-pointer items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={draft.includes(r)}
+                      onChange={() => toggleDraftRole(r)}
+                      disabled={savingRoles}
+                      className="h-3.5 w-3.5 accent-gold"
+                    />
+                    <span>{labelFor(r)}</span>
+                  </label>
+                ))}
+              </div>
+              {rolesError && (
+                <p role="alert" className="mt-2 text-[10px] text-red-400">{rolesError}</p>
+              )}
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setEditing(false); setRolesError(null); }}
+                  disabled={savingRoles}
+                  className="text-xs text-muted transition-colors hover:text-foreground"
+                >
+                  {t("إلغاء", "Cancel")}
+                </button>
+                <button
+                  type="button"
+                  onClick={saveRoles}
+                  disabled={savingRoles}
+                  className="glass-gold rounded px-2 py-0.5 text-xs font-medium text-white transition-colors disabled:opacity-50"
+                >
+                  {savingRoles ? "…" : t("حفظ", "Save")}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </td>
       <td className="px-4 py-3 text-xs text-muted">{user.country ?? "—"}</td>
       <td className="px-4 py-3">

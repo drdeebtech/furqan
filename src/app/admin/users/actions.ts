@@ -46,29 +46,58 @@ export async function toggleUserActive(userId: string, isActive: boolean) {
 }
 
 type UserRole = "student" | "teacher" | "admin" | "moderator";
+const ALL_ROLES: ReadonlyArray<UserRole> = ["student", "teacher", "admin", "moderator"];
 
-export async function changeUserRole(userId: string, role: string) {
+/**
+ * Set the full role *set* for a user — supports multi-role profiles.
+ *
+ * Behaviour:
+ * - Validates that `roles` is non-empty and contains only known values.
+ * - If the user's current active role is not in the new set, the active
+ *   role is auto-rotated to the first element of the new set so the DB
+ *   CHECK constraint (`profiles_active_role_in_set`) holds.
+ * - If `'teacher'` is being newly added, the matching `teacher_profiles`
+ *   row is bootstrapped (admin-created teachers are pre-vetted, cv_status
+ *   set to 'approved').
+ * - If `'teacher'` is being removed entirely, the `teacher_profiles` row
+ *   is archived (matches `softDeleteUser` behaviour).
+ * - Bumps the per-user role cache so the change lands on the next request.
+ *
+ * Audit row records both the prior and new role *and* roles[].
+ */
+export async function setUserRoles(userId: string, roles: string[]) {
   const auth = await authOrError();
   if (auth.error) return { error: auth.error };
 
-  if (!["student", "teacher", "admin", "moderator"].includes(role)) {
-    return { error: "دور غير صالح" };
+  // Dedupe + validate. Empty set is rejected (a user with zero roles
+  // would be locked out and the CHECK constraint would refuse the write).
+  const dedup = Array.from(new Set(roles)) as UserRole[];
+  if (dedup.length === 0) return { error: "يجب اختيار دور واحد على الأقل" };
+  for (const r of dedup) {
+    if (!ALL_ROLES.includes(r)) return { error: `دور غير صالح: ${r}` };
   }
-  const newRole = role as UserRole;
 
   const admin = createAdminClient();
 
   const { data: existing } = await admin
     .from("profiles")
-    .select("role")
+    .select("role, roles")
     .eq("id", userId)
-    .single<{ role: string }>();
+    .single<{ role: UserRole; roles: UserRole[] | null }>();
+  if (!existing) return { error: "المستخدم غير موجود" };
 
-  const { error } = await admin.from("profiles").update({ role: newRole } satisfies TableUpdate<"profiles">).eq("id", userId);
-  if (error) return { error: "فشل تغيير الدور — تأكد من صلاحيات المدير" };
+  const oldRoles = existing.roles ?? [existing.role];
+  const oldActive = existing.role;
+  // Keep the user's active role if it's still in the new set, otherwise
+  // pick the first role of the new set so the CHECK constraint holds.
+  const newActive: UserRole = dedup.includes(oldActive) ? oldActive : dedup[0];
 
-  // Bust the per-user role cache used by middleware so the demoted/promoted
-  // role takes effect on the user's very next request — no 10s wait window.
+  const { error } = await admin.from("profiles").update({
+    roles: dedup,
+    role: newActive,
+  } satisfies TableUpdate<"profiles">).eq("id", userId);
+  if (error) return { error: "فشل تحديث الأدوار — " + error.message };
+
   invalidateRoleCache(userId);
 
   await admin.from("audit_log").insert({
@@ -76,19 +105,24 @@ export async function changeUserRole(userId: string, role: string) {
     table_name: "profiles",
     record_id: userId,
     action: "UPDATE",
-    old_data: { role: existing?.role ?? null },
-    new_data: { role },
-    reason: `Admin changed role: ${existing?.role ?? "unknown"} → ${role}`,
+    old_data: { role: oldActive, roles: oldRoles },
+    new_data: { role: newActive, roles: dedup },
+    reason: `Admin set roles: [${oldRoles.join(",")}] → [${dedup.join(",")}]`,
   } satisfies TableInsert<"audit_log">);
 
-  if (role === "teacher") {
-    const { data: teacherProfile } = await admin
+  // teacher_profiles bookkeeping driven by membership change, not active role.
+  const wasTeacher = oldRoles.includes("teacher");
+  const isTeacher = dedup.includes("teacher");
+
+  if (!wasTeacher && isTeacher) {
+    // Newly granted teacher role — bootstrap the teacher_profiles row if
+    // missing. Mirror the createUserFromScratch defaults.
+    const { data: tp } = await admin
       .from("teacher_profiles")
       .select("teacher_id")
       .eq("teacher_id", userId)
       .single();
-
-    if (!teacherProfile) {
+    if (!tp) {
       const { error: tpInsertErr } = await admin.from("teacher_profiles").insert({
         teacher_id: userId,
         specialties: [],
@@ -99,24 +133,35 @@ export async function changeUserRole(userId: string, role: string) {
         cv_submitted_at: new Date().toISOString(),
       } satisfies TableInsert<"teacher_profiles">);
       if (tpInsertErr) {
-        logError("changeUserRole: teacher_profiles auto-insert failed", tpInsertErr, { tag: "admin-users" });
+        logError("setUserRoles: teacher_profiles auto-insert failed", tpInsertErr, { tag: "admin-users" });
       }
     }
-  }
-
-  if (role !== "teacher") {
+  } else if (wasTeacher && !isTeacher) {
+    // Teacher role removed entirely — archive (don't delete) the row so
+    // historical bookings and homework keep their FK target.
     const { error: archiveErr } = await admin.from("teacher_profiles").update({
       is_archived: true,
       archived_at: new Date().toISOString(),
     } satisfies TableUpdate<"teacher_profiles">).eq("teacher_id", userId);
     if (archiveErr) {
-      logError("changeUserRole: teacher_profiles auto-archive failed", archiveErr, { tag: "admin-users" });
+      logError("setUserRoles: teacher_profiles auto-archive failed", archiveErr, { tag: "admin-users" });
     }
   }
 
   revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${userId}`);
   revalidatePath("/admin/teachers");
   return { success: true };
+}
+
+/**
+ * Legacy single-role mutator. Kept as a thin wrapper around `setUserRoles`
+ * so existing call sites (`/admin/users/[id]/page.tsx` and friends) keep
+ * working until they migrate to multi-select. Equivalent to "the user's
+ * only role is now X."
+ */
+export async function changeUserRole(userId: string, role: string) {
+  return setUserRoles(userId, [role]);
 }
 
 /**

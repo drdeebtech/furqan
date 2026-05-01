@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CalendarDays, ChevronDown, MoreHorizontal, Settings, LogOut, Bug } from "lucide-react";
+import { CalendarDays, ChevronDown, MoreHorizontal, Settings, LogOut, Bug, UserCog } from "lucide-react";
 import * as Sentry from "@sentry/nextjs";
 import { ThemeToggle } from "@/lib/theme/theme-toggle";
 import { LangToggle } from "@/lib/i18n/lang-toggle";
 import { NotificationBell } from "@/components/shared/notification-bell";
 import { useLang } from "@/lib/i18n/context";
+import { switchActiveRole } from "@/lib/actions/active-role";
 
 type Role = "student" | "teacher" | "admin" | "moderator";
 
@@ -22,8 +23,22 @@ const SETTINGS_PATH_BY_ROLE: Partial<Record<Role, string>> = {
   admin: "/admin/account",
 };
 
-export function Topbar({ role }: { role?: Role } = {}) {
-  const { t } = useLang();
+const ROLE_LABEL_AR: Record<Role, string> = {
+  student: "طالب",
+  teacher: "معلم",
+  admin: "مشرف",
+  moderator: "مراقب",
+};
+const ROLE_LABEL_EN: Record<Role, string> = {
+  student: "Student",
+  teacher: "Teacher",
+  admin: "Admin",
+  moderator: "Moderator",
+};
+
+export function Topbar({ role, roles }: { role?: Role; roles?: Role[] } = {}) {
+  const { t, lang } = useLang();
+  const labelFor = (r: Role) => (lang === "ar" ? ROLE_LABEL_AR[r] : ROLE_LABEL_EN[r]);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -84,8 +99,72 @@ export function Topbar({ role }: { role?: Role } = {}) {
 
   const settingsPath = role ? SETTINGS_PATH_BY_ROLE[role] : undefined;
 
+  const [roleOpen, setRoleOpen] = useState(false);
+  const [switching, startSwitch] = useTransition();
+  const roleRef = useRef<HTMLDivElement>(null);
+  // Only render the switcher when the user holds more than one role.
+  // Single-role users see no chrome change at all (legacy behaviour).
+  const otherRoles = (roles ?? []).filter((r) => r !== role);
+  const showRoleSwitcher = !!role && otherRoles.length > 0;
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (roleRef.current && !roleRef.current.contains(e.target as Node)) {
+        setRoleOpen(false);
+      }
+    }
+    if (roleOpen) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [roleOpen]);
+
   return (
     <div className="mb-5 flex h-[52px] items-center justify-end gap-3">
+      {/* Active-role switcher — only renders for multi-role users */}
+      {showRoleSwitcher && (
+        <div ref={roleRef} className="relative">
+          <button
+            type="button"
+            aria-label={t("تبديل الدور", "Switch role")}
+            aria-expanded={roleOpen}
+            aria-haspopup="listbox"
+            disabled={switching}
+            onClick={() => setRoleOpen((v) => !v)}
+            className="glass glass-gold flex h-11 items-center gap-2 rounded-xl px-3.5 disabled:opacity-50"
+          >
+            <UserCog size={16} className="text-gold" aria-hidden="true" />
+            <span className="text-sm font-medium">{labelFor(role!)}</span>
+            <ChevronDown size={14} className="text-gold/70" aria-hidden="true" />
+          </button>
+          {roleOpen && (
+            <div
+              role="listbox"
+              aria-label={t("الأدوار المتاحة", "Available roles")}
+              className="absolute end-0 top-full z-50 mt-2 w-44 overflow-hidden rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] shadow-lg"
+            >
+              {otherRoles.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  disabled={switching}
+                  onClick={() => {
+                    setRoleOpen(false);
+                    startSwitch(async () => {
+                      await switchActiveRole(r);
+                    });
+                  }}
+                  className="flex min-h-[44px] w-full items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-foreground/5 disabled:opacity-50"
+                >
+                  <UserCog size={14} className="text-muted" aria-hidden="true" />
+                  <span>{t("تحويل إلى", "Switch to")} {labelFor(r)}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Year selector — writes ?year=YYYY to the URL so dashboard queries can scope */}
       <div ref={yearRef} className="relative">
         <button

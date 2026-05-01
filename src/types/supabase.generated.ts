@@ -2078,6 +2078,7 @@ export type Database = {
           parent_phone: string | null
           phone: string | null
           role: Database["public"]["Enums"]["user_role"]
+          roles: Database["public"]["Enums"]["user_role"][]
           timezone: string
           updated_at: string
         }
@@ -2097,6 +2098,7 @@ export type Database = {
           parent_phone?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          roles?: Database["public"]["Enums"]["user_role"][]
           timezone?: string
           updated_at?: string
         }
@@ -2116,6 +2118,7 @@ export type Database = {
           parent_phone?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          roles?: Database["public"]["Enums"]["user_role"][]
           timezone?: string
           updated_at?: string
         }

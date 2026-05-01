@@ -4,30 +4,34 @@ import * as Sentry from "@sentry/nextjs";
 import { updateSession } from "@/lib/supabase/middleware";
 import { setSentryUser } from "@/lib/sentry/context";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildRoleTag } from "@/lib/auth/role-cache";
+import { buildRoleTag, type RoleState } from "@/lib/auth/role-cache";
 import type { UserRole } from "@/types/database";
 
 /**
- * Per-user role cache, backed by Next's `unstable_cache` so it survives
- * across Fluid Compute instances and is invalidatable by tag. Server actions
- * that mutate `profiles.role` should call `invalidateRoleCache(userId)`
- * from `@/lib/auth/role-cache` to make the demoted/promoted role take
- * effect immediately. The 10-second TTL is a fallback in case some write
- * path forgets to invalidate — much tighter than the previous 60s window.
+ * Per-user role-state cache, backed by Next's `unstable_cache` so it
+ * survives across Fluid Compute instances and is invalidatable by tag.
+ * Returns the *active* role plus the user's full `roles[]` set so the
+ * route gate can both (a) check whether to allow the request and (b) know
+ * what dashboard to bounce them to if the active role doesn't match.
+ *
+ * Server actions that mutate `profiles.role` or `profiles.roles` should
+ * call `invalidateRoleCache(userId)` from `@/lib/auth/role-cache` so the
+ * change lands on the user's very next request — the 10-second TTL is the
+ * fallback safety net.
  */
-const fetchRoleForUser = (userId: string) =>
+const fetchRoleStateForUser = (userId: string) =>
   unstable_cache(
-    async (): Promise<UserRole | null> => {
-      // Admin client (no cookies()) — required because unstable_cache
-      // disallows dynamic APIs inside the cached function body. Reading
-      // a profile row by user_id is the same shape as `src/lib/settings.ts`.
+    async (): Promise<RoleState | null> => {
       const supabase = createAdminClient();
       const { data } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, roles")
         .eq("id", userId)
-        .single<{ role: UserRole }>();
-      return data?.role ?? null;
+        .single<{ role: UserRole; roles: UserRole[] }>();
+      if (!data?.role) return null;
+      // Defensive: backfill ensures roles is non-null in DB, but if a
+      // legacy row sneaks through we treat it as a single-role user.
+      return { active: data.role, roles: data.roles ?? [data.role] };
     },
     [`user-role`, userId],
     { tags: [buildRoleTag(userId)], revalidate: 10 },
@@ -55,14 +59,14 @@ const PROTECTED_ROUTES: Record<string, UserRole> = {
 
 const PUBLIC_ROUTES = ["/login", "/register", "/forgot-password"];
 
-async function getUserRole(
+async function getUserRoleState(
   _supabase: Awaited<ReturnType<typeof updateSession>>["supabase"],
   userId: string,
-): Promise<UserRole | null> {
+): Promise<RoleState | null> {
   // Delegates to the tagged unstable_cache above. The supabase param is
   // kept in the signature for backward compatibility but unused; the cached
   // implementation creates its own admin client.
-  return fetchRoleForUser(userId);
+  return fetchRoleStateForUser(userId);
 }
 
 export async function proxy(request: NextRequest) {
@@ -81,10 +85,10 @@ export async function proxy(request: NextRequest) {
   if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
     // Redirect authenticated users away from auth pages
     if (user) {
-      const role = await getUserRole(supabase, user.id);
-      if (role) {
-        setSentryUser(user.id, role);
-        const dashboard = role === "moderator" ? "/moderator/dashboard" : `/${role}/dashboard`;
+      const state = await getUserRoleState(supabase, user.id);
+      if (state) {
+        setSentryUser(user.id, state.active);
+        const dashboard = state.active === "moderator" ? "/moderator/dashboard" : `/${state.active}/dashboard`;
         return NextResponse.redirect(new URL(dashboard, request.url));
       }
     }
@@ -102,16 +106,16 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // Fetch user role
-    const role = await getUserRole(supabase, user.id);
+    // Fetch user role state (active role + full roles[] set).
+    const state = await getUserRoleState(supabase, user.id);
 
-    // Refresh Sentry scope with the role for any errors in the handler below.
-    setSentryUser(user.id, role);
+    // Refresh Sentry scope with the active role for any errors below.
+    setSentryUser(user.id, state?.active ?? null);
 
-    // Admin can access moderator routes. Log the bypass as a breadcrumb so
-    // any error or audit-trail event captured later in this request shows
-    // that an admin used moderator-scoped functionality. Cheap (no DB hit).
-    if (prefix === "/moderator" && role === "admin") {
+    // Admin can access moderator routes when *actively* in admin mode.
+    // (Active-context permission semantic — a user with admin in their
+    // roles[] but currently active as e.g. teacher does NOT get the bypass.)
+    if (prefix === "/moderator" && state?.active === "admin") {
       Sentry.addBreadcrumb?.({
         category: "auth.admin-bypass",
         level: "info",
@@ -120,9 +124,13 @@ export async function proxy(request: NextRequest) {
       break;
     }
 
-    if (role !== requiredRole) {
-      // Wrong role → redirect to their own dashboard or login
-      const home = role ? `/${role}/dashboard` : "/login";
+    if (state?.active !== requiredRole) {
+      // Active role mismatch. If the user *holds* the required role in
+      // their roles[] set, this is "you have it but aren't currently in
+      // that mode" — bounce them to their active dashboard, where the
+      // topbar dropdown lets them switch deliberately. If they don't hold
+      // it at all, same redirect (their own dashboard or login).
+      const home = state?.active ? `/${state.active}/dashboard` : "/login";
       return NextResponse.redirect(new URL(home, request.url));
     }
 
@@ -131,10 +139,10 @@ export async function proxy(request: NextRequest) {
 
   // Authenticated user on root "/" → redirect to their dashboard
   if (pathname === "/" && user) {
-    const role = await getUserRole(supabase, user.id);
-    if (role) {
+    const state = await getUserRoleState(supabase, user.id);
+    if (state) {
       return NextResponse.redirect(
-        new URL(`/${role}/dashboard`, request.url),
+        new URL(`/${state.active}/dashboard`, request.url),
       );
     }
   }
