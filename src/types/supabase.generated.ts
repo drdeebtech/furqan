@@ -310,6 +310,7 @@ export type Database = {
           cancel_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
+          class_offering_id: string | null
           created_at: string
           created_by: string | null
           decline_reason: string | null
@@ -340,6 +341,7 @@ export type Database = {
           cancel_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
+          class_offering_id?: string | null
           created_at?: string
           created_by?: string | null
           decline_reason?: string | null
@@ -370,6 +372,7 @@ export type Database = {
           cancel_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
+          class_offering_id?: string | null
           created_at?: string
           created_by?: string | null
           decline_reason?: string | null
@@ -897,6 +900,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      class_offerings: {
+        Row: {
+          capacity: number
+          created_at: string
+          description: string | null
+          duration_min: number
+          id: string
+          price_usd: number
+          scheduled_at: string
+          session_id: string | null
+          session_type: Database["public"]["Enums"]["session_type"]
+          status: string
+          teacher_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          capacity: number
+          created_at?: string
+          description?: string | null
+          duration_min: number
+          id?: string
+          price_usd: number
+          scheduled_at: string
+          session_id?: string | null
+          session_type: Database["public"]["Enums"]["session_type"]
+          status?: string
+          teacher_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          capacity?: number
+          created_at?: string
+          description?: string | null
+          duration_min?: number
+          id?: string
+          price_usd?: number
+          scheduled_at?: string
+          session_id?: string | null
+          session_type?: Database["public"]["Enums"]["session_type"]
+          status?: string
+          teacher_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       courses: {
         Row: {
