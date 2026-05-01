@@ -45,12 +45,15 @@ export function SessionDetailControls({
   const canEnd = !ended;
 
   async function handleEnd() {
-    if (!isActive) {
-      const ok = window.confirm(
-        "هذه الجلسة ليست في وقتها النشط. هل تريد إنهاءها يدوياً؟"
-      );
-      if (!ok) return;
-    }
+    // Always confirm — End is destructive (deducts a package session, fires
+    // events, marks the booking complete). One click without confirmation
+    // is a fat-finger waiting to happen even during an active session.
+    // The phrasing differs slightly between in-window vs out-of-window so
+    // the teacher knows which case they're in.
+    const message = isActive
+      ? "هل أنت متأكد من إنهاء هذه الجلسة الآن؟"
+      : "هذه الجلسة ليست في وقتها النشط. هل تريد إنهاءها يدوياً؟";
+    if (!window.confirm(message)) return;
     setLoading("end");
     setError(null);
     const result = await endSession(sessionId);
@@ -109,11 +112,21 @@ export function SessionDetailControls({
           </button>
         )}
 
-        {isAboutToExpire && (
+        {/* Extend button: previously only appeared in the last 15 min before
+            expiry. That meant a teacher who missed the window had no recovery
+            path — the room would expire silently. Now we render whenever the
+            session is active AND the room hasn't expired yet, with a stronger
+            visual when the 15-min warning kicks in. */}
+        {isActive && expiresMs !== null && expiresMs > now && (
           <button
             onClick={handleExtend}
             disabled={loading !== null}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-gold/30 px-3 py-1.5 text-xs font-medium text-gold transition-colors hover:bg-gold/10 disabled:opacity-50"
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+              isAboutToExpire
+                ? "border border-gold/30 text-gold hover:bg-gold/10"
+                : "border border-surface-border text-muted hover:border-gold/30 hover:text-gold"
+            }`}
+            title={isAboutToExpire ? "تنتهي صلاحية الغرفة قريباً" : "تمديد إضافي للغرفة"}
           >
             {loading === "extend" ? spinner : <TimerReset size={14} />}
             {extendSuccess ? "تم التمديد" : "تمديد الغرفة"}

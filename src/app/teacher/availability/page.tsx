@@ -73,9 +73,18 @@ export default async function TeacherAvailabilityPage() {
       <div className="grid gap-6 md:grid-cols-2">
         {/* Left: Current slots */}
         <div>
-          <h2 className="mb-4 text-lg font-semibold">
+          <h2 className="mb-2 text-lg font-semibold">
             {t("المواعيد الحالية", "Current Slots")}
           </h2>
+          {/* Slot times display in the teacher's local timezone. Students see
+              their own local time when booking — Supabase scheduled_at is
+              stored as timestamptz, the booking page converts on render. */}
+          <p className="mb-4 text-xs text-muted">
+            {t(
+              "الأوقات معروضة بتوقيتك المحلي. الطلاب يرون أوقاتهم المحلية عند الحجز.",
+              "Times shown in your local timezone. Students see their own local time when booking.",
+            )}
+          </p>
 
           {list.length === 0 ? (
             <div className="glass-card p-8 text-center">

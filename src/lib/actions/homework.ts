@@ -263,12 +263,12 @@ export async function editHomework(homeworkId: string, formData: FormData) {
   const supabase = await createClient();
   const { user } = await requireTeacherOrAbove(supabase);
 
-  // Fetch homework
+  // Fetch homework — pull status so we can guard against editing graded rows.
   const { data: hw } = await supabase
     .from("homework_assignments")
-    .select("teacher_id, student_id, assigned_at")
+    .select("teacher_id, student_id, assigned_at, status")
     .eq("id", homeworkId)
-    .returns<{ teacher_id: string; student_id: string; assigned_at: string }[]>()
+    .returns<{ teacher_id: string; student_id: string; assigned_at: string; status: HomeworkStatus }[]>()
     .single();
 
   if (!hw) return { error: "الواجب غير موجود" };
@@ -279,6 +279,17 @@ export async function editHomework(homeworkId: string, formData: FormData) {
     if (!p || !["admin", "moderator"].includes(p.role)) {
       return { error: "غير مصرح" };
     }
+  }
+
+  // Status guard: graded homework is immutable. Editing the title/description
+  // post-grade would silently change what the student is being graded against,
+  // with no re-validation and no notification. To re-grade, use the explicit
+  // gradeHomework flow (which fires student notifications + parent reports).
+  const GRADED_STATUSES: HomeworkStatus[] = [
+    "completed_excellent", "completed_good", "completed_needs_work", "completed_not_done",
+  ];
+  if (GRADED_STATUSES.includes(hw.status)) {
+    return { error: "لا يمكن تعديل واجب تم تقييمه. للتغيير، أنشئ واجباً جديداً." };
   }
 
   // Check edit window: find next session between same teacher+student
@@ -366,11 +377,24 @@ export async function deleteHomework(homeworkId: string) {
     }
   }
 
-  // Delete children first (auto-regenerated assignments)
-  await supabase
+  // Count + delete children (auto-regenerated assignments) first.
+  // Without this audit trail, a teacher deleting a parent homework would
+  // silently delete N regenerated child assignments — the student would
+  // see them disappear from /student/homework with no explanation.
+  // We log how many we cascaded so admins can trace "where did those go".
+  const { data: children } = await supabase
     .from("homework_assignments")
-    .delete()
-    .eq("parent_assignment_id", homeworkId);
+    .select("id, status, title")
+    .eq("parent_assignment_id", homeworkId)
+    .returns<{ id: string; status: string; title: string }[]>();
+  const childCount = children?.length ?? 0;
+
+  if (childCount > 0) {
+    await supabase
+      .from("homework_assignments")
+      .delete()
+      .eq("parent_assignment_id", homeworkId);
+  }
 
   // Delete the homework
   const { error } = await supabase
@@ -379,6 +403,23 @@ export async function deleteHomework(homeworkId: string) {
     .eq("id", homeworkId);
 
   if (error) return { error: "فشل حذف الواجب" };
+
+  // Audit log the deletion + cascade size. Best-effort: an audit_log
+  // insert failure must never block the delete itself succeeding.
+  await supabase
+    .from("audit_log")
+    .insert({
+      actor_id: user.id,
+      action: "DELETE",
+      table_name: "homework_assignments",
+      record_id: homeworkId,
+      metadata: { cascaded_children: childCount, child_ids: children?.map((c) => c.id) ?? [] },
+    } as never)
+    .then((r) => {
+      if (r.error) logError("audit_log insert failed for homework delete", r.error, {
+        tag: "audit", homeworkId, childCount,
+      });
+    });
 
   revalidateHomeworkPaths();
   return { success: true };

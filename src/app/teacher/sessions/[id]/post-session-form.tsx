@@ -22,20 +22,24 @@ export function PostSessionForm({
   studentId: string;
   studentName: string;
   existingNotes: string | null;
+  /** @deprecated Legacy free-text homework field; structured homework now lives below */
   existingHomework: string | null;
   existingAssignments: HomeworkAssignment[];
 }) {
   const { t } = useLang();
   const [notes, setNotes] = useState(existingNotes ?? "");
-  const [homework, setHomework] = useState(existingHomework ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Note: existingHomework (legacy free-text field) is preserved unchanged
+  // when saving notes — passing it through means existing rows aren't
+  // wiped on first save. New homework should be assigned via the
+  // structured HomeworkAssignmentForm below.
 
   async function handleSaveNotes() {
     setSaving(true);
     setError(null);
-    const result = await savePostSessionNotes(sessionId, notes, homework);
+    const result = await savePostSessionNotes(sessionId, notes, existingHomework ?? "");
     if (result.error) {
       setError(result.error);
     } else {
@@ -59,7 +63,10 @@ export function PostSessionForm({
         </div>
       )}
 
-      {/* Session Notes */}
+      {/* Session Notes — narrative summary of the session itself.
+          Homework is assigned via the structured form below; the legacy
+          "Quick homework notes" textarea was removed because having two
+          input surfaces for homework was confusing teachers. */}
       <div>
         <label htmlFor="notes" className="mb-1 block text-sm font-medium">
           {t("ملاحظات الجلسة", "Session notes")}
@@ -72,22 +79,6 @@ export function PostSessionForm({
           rows={4}
           className="glass-input w-full resize-none px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
           placeholder={t("ملاحظات عن أداء الطالب في هذه الجلسة…", "Notes about student performance...")}
-        />
-      </div>
-
-      {/* Legacy homework text (for backward compatibility) */}
-      <div>
-        <label htmlFor="homework" className="mb-1 block text-sm font-medium">
-          {t("ملاحظات سريعة عن الواجب", "Quick homework notes")}
-          <span className="me-2 text-xs text-muted">Quick notes</span>
-        </label>
-        <textarea
-          id="homework"
-          value={homework}
-          onChange={(e) => setHomework(e.target.value)}
-          rows={2}
-          className="glass-input w-full resize-none px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
-          placeholder={t("ملاحظات سريعة (اختياري)…", "Quick notes (optional)...")}
         />
       </div>
 

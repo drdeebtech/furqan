@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { logWarn } from "@/lib/logger";
 
 interface ParentInfo {
   parent_name: string | null;
@@ -26,6 +27,12 @@ async function getParentInfo(studentId: string): Promise<ParentInfo | null> {
 /**
  * Create a parent report and notification.
  * This is a foundation for future email/SMS integration.
+ *
+ * If the student has no parent contact on file, the report is silently
+ * skipped — but a warning is logged so admins can see "we tried to alert
+ * a parent that doesn't exist." Without this, the absence of a parent
+ * row would manifest as "I marked X as not_done but the parent never
+ * heard about it" with no audit trail of why.
  */
 async function createParentReport(opts: {
   studentId: string;
@@ -36,7 +43,15 @@ async function createParentReport(opts: {
   createdBy: string;
 }) {
   const parent = await getParentInfo(opts.studentId);
-  if (!parent) return;
+  if (!parent) {
+    logWarn("parent report suppressed — no parent contact on file", {
+      tag: "parent-notify",
+      studentId: opts.studentId,
+      reportType: opts.reportType,
+      title: opts.title,
+    });
+    return;
+  }
 
   const supabase = await createClient();
   await supabase.from("parent_reports").insert({
