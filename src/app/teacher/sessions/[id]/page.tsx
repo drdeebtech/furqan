@@ -17,6 +17,7 @@ import { PostSessionForm } from "./post-session-form";
 import { SessionDetailControls } from "./session-detail-controls";
 import { LessonPlanPanel } from "./lesson-plan-panel";
 import { HomeworkAssignmentForm } from "@/components/shared/homework-assignment-form";
+import { AddStudentControl } from "./add-student-control";
 import type { LessonPlan } from "@/lib/actions/session-lesson-plan";
 import { isFeatureEnabled } from "@/lib/settings";
 
@@ -85,6 +86,51 @@ export default async function TeacherSessionPage({ params }: Props) {
     .order("assigned_at", { ascending: false })
     .returns<HomeworkAssignment[]>();
 
+  // Group-session: list every student enrolled in this session via their
+  // own bookings row. The primary booking shows up here too — that's
+  // intentional. Single-student sessions just show one entry; we still
+  // render the section so the UX is consistent.
+  const { data: enrolledRaw } = await supabase
+    .from("bookings")
+    .select("id, student_id")
+    .eq("session_id", session.id)
+    .returns<{ id: string; student_id: string }[]>();
+  // Defensive: if the session is so freshly created that bookings.session_id
+  // hasn't backfilled yet, at least include the primary booking's student.
+  const enrolledStudentIds = Array.from(new Set([
+    booking.student_id,
+    ...((enrolledRaw ?? []).map(b => b.student_id)),
+  ]));
+
+  // Lookup names + risk scores in one round-trip each.
+  const { data: enrolledProfiles } = enrolledStudentIds.length > 0
+    ? await supabase.from("profiles").select("id, full_name").in("id", enrolledStudentIds)
+        .returns<{ id: string; full_name: string | null }[]>()
+    : { data: [] };
+  const enrolledList = (enrolledProfiles ?? []).map((p) => ({
+    id: p.id,
+    name: p.full_name ?? t("بدون اسم", "Unnamed"),
+  }));
+
+  // Candidates for the "Add student" picker: every student the teacher has
+  // worked with (any non-deleted booking), minus the ones already enrolled.
+  // Using the teacher_id keeps the list scoped — a teacher with 200 students
+  // shouldn't pick from a global directory.
+  const { data: candidateBookings } = await supabase
+    .from("bookings")
+    .select("student_id")
+    .eq("teacher_id", booking.teacher_id)
+    .is("deleted_at", null)
+    .returns<{ student_id: string }[]>();
+  const candidateIds = Array.from(new Set((candidateBookings ?? []).map(b => b.student_id)));
+  const { data: candidateProfiles } = candidateIds.length > 0
+    ? await supabase.from("profiles").select("id, full_name").in("id", candidateIds)
+        .returns<{ id: string; full_name: string | null }[]>()
+    : { data: [] };
+  const candidates = (candidateProfiles ?? [])
+    .map((p) => ({ id: p.id, name: p.full_name ?? t("بدون اسم", "Unnamed") }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   const studentName = student?.full_name || t("الطالب", "Student");
   const scheduledDate = new Date(booking.scheduled_at);
   const isCompleted = session.ended_at !== null;
@@ -125,6 +171,44 @@ export default async function TeacherSessionPage({ params }: Props) {
           </div>
         )}
       </div>
+
+      {/* Enrolled students — always shown so the teacher knows who's in the
+          session. The Add Student button lets them grow a 1:1 into a group
+          ad-hoc (Phase 1 of group lessons). Hidden once the session is
+          completed since adding a student to history is not meaningful. */}
+      {!isCompleted && (
+        <div className="glass-card mb-4 p-4">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted">
+              {t("الطلاب المسجَّلون", "Enrolled students")} · {enrolledList.length}
+            </p>
+            <AddStudentControl
+              sessionId={session.id}
+              candidates={candidates}
+              enrolledIds={enrolledStudentIds}
+            />
+          </div>
+          {enrolledList.length === 0 ? (
+            <p className="text-sm text-muted">{t("لا يوجد طلاب", "No students yet")}</p>
+          ) : (
+            <ul className="flex flex-wrap gap-2">
+              {enrolledList.map((s) => (
+                <li
+                  key={s.id}
+                  className="glass-badge border-gold/30 bg-gold/10 px-3 py-1 text-xs font-medium text-gold"
+                >
+                  {s.name}
+                  {s.id === booking.student_id && enrolledList.length > 1 && (
+                    <span className="ms-1 text-[10px] text-gold/60" title={t("الطالب الأصلي", "Primary booking")}>
+                      ★
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Session controls (timer + end/extend buttons) when active */}
       {!isCompleted && (

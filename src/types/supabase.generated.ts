@@ -323,6 +323,7 @@ export type Database = {
           refund_policy_id: string | null
           rescheduled_from: string | null
           scheduled_at: string
+          session_id: string | null
           session_type: Database["public"]["Enums"]["session_type"]
           status: Database["public"]["Enums"]["booking_status"]
           student_id: string
@@ -352,6 +353,7 @@ export type Database = {
           refund_policy_id?: string | null
           rescheduled_from?: string | null
           scheduled_at: string
+          session_id?: string | null
           session_type?: Database["public"]["Enums"]["session_type"]
           status?: Database["public"]["Enums"]["booking_status"]
           student_id: string
@@ -381,6 +383,7 @@ export type Database = {
           refund_policy_id?: string | null
           rescheduled_from?: string | null
           scheduled_at?: string
+          session_id?: string | null
           session_type?: Database["public"]["Enums"]["session_type"]
           status?: Database["public"]["Enums"]["booking_status"]
           student_id?: string
@@ -2858,12 +2861,14 @@ export type Database = {
           actual_duration: number | null
           admin_observer_id: string | null
           booking_id: string
+          capacity: number
           created_at: string
           created_via: string
           ended_at: string | null
           expires_at: string | null
           homework: string | null
           id: string
+          is_group: boolean
           is_observable: boolean
           lesson_plan: Json | null
           observer_joined_at: string | null
@@ -2879,12 +2884,14 @@ export type Database = {
           actual_duration?: number | null
           admin_observer_id?: string | null
           booking_id: string
+          capacity?: number
           created_at?: string
           created_via?: string
           ended_at?: string | null
           expires_at?: string | null
           homework?: string | null
           id?: string
+          is_group?: boolean
           is_observable?: boolean
           lesson_plan?: Json | null
           observer_joined_at?: string | null
@@ -2900,12 +2907,14 @@ export type Database = {
           actual_duration?: number | null
           admin_observer_id?: string | null
           booking_id?: string
+          capacity?: number
           created_at?: string
           created_via?: string
           ended_at?: string | null
           expires_at?: string | null
           homework?: string | null
           id?: string
+          is_group?: boolean
           is_observable?: boolean
           lesson_plan?: Json | null
           observer_joined_at?: string | null
