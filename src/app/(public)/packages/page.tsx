@@ -11,11 +11,14 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://furqan.today/packages" },
 };
 
-// ISR — packages change rarely (admin edits). 5-minute cache turns
-// every-request DB hit into a CDN edge response (~50ms). Admin changes
-// surface within 5 min; immediate invalidation already happens via
-// revalidatePath in the admin actions.
-export const revalidate = 300;
+// Dynamic — page contents depend on the signed-in user (PayPal Smart
+// Buttons render only for authenticated students; anonymous visitors
+// see the /contact CTA). ISR (`revalidate = N`) cached the anonymous
+// version, so signed-in students kept seeing "Book Now" instead of
+// PayPal. Force-dynamic so every request reads cookies + flag fresh.
+// Performance impact: ~100-200ms per request (Supabase round-trips);
+// acceptable for a low-traffic public catalog.
+export const dynamic = "force-dynamic";
 
 export default async function PackagesPage() {
   const supabase = await createClient();

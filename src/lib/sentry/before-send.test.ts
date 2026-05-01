@@ -94,17 +94,22 @@ describe("beforeSend", () => {
                   },
                 ],
               },
-              rawStacktrace: {
-                frames: [
-                  {
-                    filename: "app:///_next/static/chunks/0d-5~nncqvl9l.js",
-                    function: "I",
-                    context: [
-                      [1, "{snip} let A=await fetch(e.canonicalUrl,{method:\"POST\",headers:T,body:v});if(\"1\"===A.headers.get(u.NEXT_ACTION_NOT_FOUND_HEADER)) {snip}"],
-                    ],
-                  },
-                ],
-              },
+              // rawStacktrace is a real Sentry runtime field (pre-symbolication
+              // stack with raw context lines) but isn't in the public Exception
+              // type, so cast through unknown.
+              ...({
+                rawStacktrace: {
+                  frames: [
+                    {
+                      filename: "app:///_next/static/chunks/0d-5~nncqvl9l.js",
+                      function: "I",
+                      context: [
+                        [1, "{snip} let A=await fetch(e.canonicalUrl,{method:\"POST\",headers:T,body:v});if(\"1\"===A.headers.get(u.NEXT_ACTION_NOT_FOUND_HEADER)) {snip}"],
+                      ],
+                    },
+                  ],
+                },
+              } as unknown as Record<string, unknown>),
             },
           ],
         },
