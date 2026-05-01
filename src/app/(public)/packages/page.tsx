@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Package } from "@/types/database";
 import { PackagesContent } from "./packages-content";
 import { BreadcrumbSchema } from "@/components/seo/structured-data";
-import { getSettings } from "@/lib/settings";
+import { isFeatureEnabled } from "@/lib/settings";
 
 export const metadata: Metadata = {
   title: "باقاتنا — أسعار تعلم القرآن",
@@ -22,7 +22,11 @@ export const dynamic = "force-dynamic";
 
 export default async function PackagesPage() {
   const supabase = await createClient();
-  const [{ data: packages }, { data: { user } }, settings] = await Promise.all([
+  // Read the PayPal flag uncached — getSettings() has a 1-hour
+  // unstable_cache TTL and admin SQL updates don't invalidate it.
+  // isFeatureEnabled() hits the DB directly each request, which is fine
+  // here since the page is already force-dynamic.
+  const [{ data: packages }, { data: { user } }, paypalEnabled] = await Promise.all([
     supabase
       .from("packages")
       .select("*")
@@ -30,10 +34,8 @@ export default async function PackagesPage() {
       .order("display_order", { ascending: true })
       .returns<Package[]>(),
     supabase.auth.getUser(),
-    getSettings(),
+    isFeatureEnabled("paypal_purchase_enabled"),
   ]);
-
-  const paypalEnabled = settings.paypal_purchase_enabled === "true";
 
   return (
     <>
