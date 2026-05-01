@@ -37,7 +37,7 @@ export default async function TeacherSessionPage({ params }: Props) {
 
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, booking_id, room_url, room_name, expires_at, started_at, ended_at, actual_duration, post_session_notes, homework, lesson_plan")
+    .select("id, booking_id, room_url, room_name, expires_at, started_at, ended_at, actual_duration, post_session_notes, homework, lesson_plan, is_group, capacity")
     .eq("id", id)
     .single<{
       id: string;
@@ -51,6 +51,8 @@ export default async function TeacherSessionPage({ params }: Props) {
       post_session_notes: string | null;
       homework: string | null;
       lesson_plan: LessonPlan | null;
+      is_group: boolean;
+      capacity: number;
     }>();
 
   if (!session) redirect("/teacher/sessions");
@@ -78,39 +80,62 @@ export default async function TeacherSessionPage({ params }: Props) {
   const student = studentRes.data;
   const studentRisk = retentionRes.data?.churn_risk_score ?? null;
 
-  // Fetch structured homework assignments for this booking
-  const { data: hwAssignments } = await supabase
-    .from("homework_assignments")
-    .select("*")
-    .eq("booking_id", session.booking_id)
-    .order("assigned_at", { ascending: false })
-    .returns<HomeworkAssignment[]>();
-
   // Group-session: list every student enrolled in this session via their
-  // own bookings row. The primary booking shows up here too — that's
-  // intentional. Single-student sessions just show one entry; we still
-  // render the section so the UX is consistent.
+  // own bookings row. Each enrolled booking has its own homework feed.
   const { data: enrolledRaw } = await supabase
     .from("bookings")
     .select("id, student_id")
     .eq("session_id", session.id)
+    .is("deleted_at", null)
     .returns<{ id: string; student_id: string }[]>();
-  // Defensive: if the session is so freshly created that bookings.session_id
-  // hasn't backfilled yet, at least include the primary booking's student.
-  const enrolledStudentIds = Array.from(new Set([
-    booking.student_id,
-    ...((enrolledRaw ?? []).map(b => b.student_id)),
-  ]));
+  // Defensive: include the primary booking too so a freshly-created session
+  // (where bookings.session_id hasn't been backfilled yet) still shows the
+  // primary student.
+  const allEnrolledBookings = (() => {
+    const seen = new Set((enrolledRaw ?? []).map(b => b.id));
+    const out = [...(enrolledRaw ?? [])];
+    if (!seen.has(session.booking_id)) {
+      out.unshift({ id: session.booking_id, student_id: booking.student_id });
+    }
+    return out;
+  })();
+  const enrolledStudentIds = Array.from(new Set(allEnrolledBookings.map(b => b.student_id)));
+  const enrolledBookingIds = allEnrolledBookings.map(b => b.id);
 
-  // Lookup names + risk scores in one round-trip each.
-  const { data: enrolledProfiles } = enrolledStudentIds.length > 0
-    ? await supabase.from("profiles").select("id, full_name").in("id", enrolledStudentIds)
-        .returns<{ id: string; full_name: string | null }[]>()
-    : { data: [] };
-  const enrolledList = (enrolledProfiles ?? []).map((p) => ({
-    id: p.id,
-    name: p.full_name ?? t("بدون اسم", "Unnamed"),
+  // Names + per-booking homework in two round-trips.
+  const [profilesRes, hwRes] = await Promise.all([
+    enrolledStudentIds.length > 0
+      ? supabase.from("profiles").select("id, full_name").in("id", enrolledStudentIds)
+          .returns<{ id: string; full_name: string | null }[]>()
+      : Promise.resolve({ data: [] }),
+    enrolledBookingIds.length > 0
+      ? supabase.from("homework_assignments").select("*").in("booking_id", enrolledBookingIds)
+          .order("assigned_at", { ascending: false })
+          .returns<HomeworkAssignment[]>()
+      : Promise.resolve({ data: [] }),
+  ]);
+  const profileById = new Map((profilesRes.data ?? []).map(p => [p.id, p.full_name ?? t("بدون اسم", "Unnamed")]));
+  const enrolledList = enrolledStudentIds.map((sid) => ({
+    id: sid,
+    name: profileById.get(sid) ?? t("بدون اسم", "Unnamed"),
   }));
+  // Group homework by booking_id for easy per-student lookup downstream.
+  const homeworkByBooking = new Map<string, HomeworkAssignment[]>();
+  for (const hw of hwRes.data ?? []) {
+    const arr = homeworkByBooking.get(hw.booking_id) ?? [];
+    arr.push(hw);
+    homeworkByBooking.set(hw.booking_id, arr);
+  }
+  // Build the per-student "card" payload for the post-session form.
+  const enrolledForForm = allEnrolledBookings.map((b) => ({
+    bookingId: b.id,
+    studentId: b.student_id,
+    studentName: profileById.get(b.student_id) ?? t("الطالب", "Student"),
+    assignments: homeworkByBooking.get(b.id) ?? [],
+  }));
+  // Legacy single-student feed used by the inline "Assign homework now"
+  // panel for in-progress sessions — keep pointing at the primary booking.
+  const hwAssignments = homeworkByBooking.get(session.booking_id) ?? [];
 
   // Candidates for the "Add student" picker: every student the teacher has
   // worked with (any non-deleted booking), minus the ones already enrolled.
@@ -165,11 +190,18 @@ export default async function TeacherSessionPage({ params }: Props) {
             {scheduledDate.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}
           </p>
         </div>
-        {isCompleted && session.actual_duration && (
-          <div className="glass glass-pill px-3 py-1 text-sm text-muted">
-            {t("مدة الجلسة", "Session duration")}: {session.actual_duration} {t("دقيقة", "min")}
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {(session.is_group || enrolledList.length > 1) && (
+            <div className="glass glass-pill border-gold/30 bg-gold/10 px-3 py-1 text-xs text-gold">
+              {t("جلسة جماعية", "Group session")} · {enrolledList.length}/{session.capacity}
+            </div>
+          )}
+          {isCompleted && session.actual_duration && (
+            <div className="glass glass-pill px-3 py-1 text-sm text-muted">
+              {t("مدة الجلسة", "Session duration")}: {session.actual_duration} {t("دقيقة", "min")}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Enrolled students — always shown so the teacher knows who's in the
@@ -235,7 +267,8 @@ export default async function TeacherSessionPage({ params }: Props) {
           studentName={studentName}
           existingNotes={session.post_session_notes}
           existingHomework={session.homework}
-          existingAssignments={hwAssignments ?? []}
+          existingAssignments={hwAssignments}
+          enrolled={enrolledForForm}
         />
       ) : (
         <>

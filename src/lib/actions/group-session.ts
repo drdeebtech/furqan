@@ -198,6 +198,27 @@ export async function addStudentToSession(
     }
   }
 
+  // Resize the Daily.co room so the new student can actually join the call.
+  // Default rooms are sized for 1:1 + observer (3); we need
+  // capacity (students) + 1 (teacher) + 1 (admin observer headroom).
+  // Failures here are logged but non-fatal — the booking still stands and
+  // an admin can resize the room from the Daily dashboard if needed.
+  try {
+    const { data: roomRow } = await admin
+      .from("sessions")
+      .select("room_name")
+      .eq("id", sessionId)
+      .single<{ room_name: string }>();
+    if (roomRow?.room_name) {
+      const { updateRoomMaxParticipants } = await import("@/lib/daily");
+      await updateRoomMaxParticipants(roomRow.room_name, newEnrolledCount + 2);
+    }
+  } catch (e) {
+    logError("addStudentToSession: Daily room resize failed", e, {
+      tag: "group-session", metadata: { sessionId, newEnrolledCount },
+    });
+  }
+
   await admin.from("audit_log").insert({
     changed_by: user.id,
     table_name: "bookings",

@@ -1,12 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, Save } from "lucide-react";
+import { CheckCircle, Save, Users } from "lucide-react";
 import { savePostSessionNotes } from "./actions";
 import { EvalForm } from "@/app/teacher/students/[studentId]/eval-form";
 import { HomeworkAssignmentForm } from "@/components/shared/homework-assignment-form";
 import type { HomeworkAssignment } from "@/types/database";
 import { useLang } from "@/lib/i18n/context";
+
+interface EnrolledStudent {
+  bookingId: string;
+  studentId: string;
+  studentName: string;
+  assignments: HomeworkAssignment[];
+}
 
 export function PostSessionForm({
   sessionId,
@@ -16,6 +23,7 @@ export function PostSessionForm({
   existingNotes,
   existingHomework,
   existingAssignments,
+  enrolled,
 }: {
   sessionId: string;
   bookingId: string;
@@ -25,12 +33,28 @@ export function PostSessionForm({
   /** @deprecated Legacy free-text homework field; structured homework now lives below */
   existingHomework: string | null;
   existingAssignments: HomeworkAssignment[];
+  /**
+   * Full per-booking enrollment data. For 1:1 sessions this contains a
+   * single entry (the primary student). For groups, one entry per enrolled
+   * student so the teacher can assign homework + evaluate each individually.
+   * If absent, falls back to the legacy single-student props above.
+   */
+  enrolled?: EnrolledStudent[];
 }) {
   const { t } = useLang();
   const [notes, setNotes] = useState(existingNotes ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Build the per-student card list. Falls back to single-student props for
+  // any caller that hasn't migrated to the `enrolled` array yet.
+  const cards: EnrolledStudent[] = (enrolled && enrolled.length > 0)
+    ? enrolled
+    : [{ bookingId, studentId, studentName, assignments: existingAssignments }];
+  const isGroup = cards.length > 1;
+  const [activeStudentId, setActiveStudentId] = useState(cards[0].studentId);
+  const active = cards.find((c) => c.studentId === activeStudentId) ?? cards[0];
   // Note: existingHomework (legacy free-text field) is preserved unchanged
   // when saving notes — passing it through means existing rows aren't
   // wiped on first save. New homework should be assigned via the
@@ -102,19 +126,63 @@ export function PostSessionForm({
         )}
       </button>
 
+      {/* Per-student tabs (group sessions only). For 1:1 sessions the single
+          student is the only option, so the tab strip collapses into a label. */}
+      {isGroup && (
+        <div className="border-t border-white/10 pt-6">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <Users size={14} className="text-gold" aria-hidden="true" />
+            <span className="text-xs font-medium uppercase tracking-wider text-muted">
+              {t("اختر الطالب لاعتماد واجب أو تقييم", "Pick a student to assign homework or evaluate")}
+            </span>
+          </div>
+          <div role="tablist" aria-label={t("الطلاب المسجلون", "Enrolled students")} className="flex flex-wrap gap-2">
+            {cards.map((c) => {
+              const isActive = c.studentId === activeStudentId;
+              return (
+                <button
+                  key={c.studentId}
+                  role="tab"
+                  aria-selected={isActive}
+                  type="button"
+                  onClick={() => setActiveStudentId(c.studentId)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    isActive
+                      ? "border-gold/50 bg-gold/15 text-gold"
+                      : "border-[var(--surface-border)] text-muted hover:border-gold/30 hover:text-foreground"
+                  }`}
+                >
+                  {c.studentName}
+                  <span className="ms-1 text-[10px] text-muted-light">
+                    ({c.assignments.length})
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="border-t border-white/10 pt-6">
         <HomeworkAssignmentForm
-          bookingId={bookingId}
-          studentId={studentId}
+          key={active.bookingId}
+          bookingId={active.bookingId}
+          studentId={active.studentId}
           sessionId={sessionId}
-          existingAssignments={existingAssignments}
+          existingAssignments={active.assignments}
         />
       </div>
 
-      {/* Quick Evaluation */}
+      {/* Quick Evaluation — bound to the active tab so the right student
+          gets evaluated in group sessions. Singleton sessions show the
+          original behaviour. */}
       <div className="border-t border-white/10 pt-6">
-        <p className="mb-3 text-sm text-muted">{t("هل تريد تقييم الطالب بعد هذه الجلسة؟", "Evaluate student after session?")}</p>
-        <EvalForm studentId={studentId} studentName={studentName} compact />
+        <p className="mb-3 text-sm text-muted">
+          {isGroup
+            ? t(`هل تريد تقييم ${active.studentName}؟`, `Evaluate ${active.studentName}?`)
+            : t("هل تريد تقييم الطالب بعد هذه الجلسة؟", "Evaluate student after session?")}
+        </p>
+        <EvalForm key={active.studentId} studentId={active.studentId} studentName={active.studentName} compact />
       </div>
     </div>
   );
