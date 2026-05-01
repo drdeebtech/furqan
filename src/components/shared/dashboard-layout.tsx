@@ -17,13 +17,24 @@ export async function DashboardLayout({
   let userName: string | undefined;
   let roles: Role[] = [role];
   if (user) {
-    const { data } = await supabase
+    // Try new multi-role shape first; fall back to legacy single-role
+    // read if the `roles` column isn't there yet (migration race).
+    const { data, error } = await supabase
       .from("profiles")
       .select("full_name, roles")
       .eq("id", user.id)
       .single<{ full_name: string | null; roles: Role[] | null }>();
-    userName = data?.full_name ?? undefined;
-    if (data?.roles && data.roles.length > 0) roles = data.roles;
+    if (error) {
+      const { data: legacy } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single<{ full_name: string | null }>();
+      userName = legacy?.full_name ?? undefined;
+    } else {
+      userName = data?.full_name ?? undefined;
+      if (data?.roles && data.roles.length > 0) roles = data.roles;
+    }
   }
 
   return (

@@ -23,14 +23,29 @@ const fetchRoleStateForUser = (userId: string) =>
   unstable_cache(
     async (): Promise<RoleState | null> => {
       const supabase = createAdminClient();
-      const { data } = await supabase
+      // First try the new shape (multi-role). If the `roles` column doesn't
+      // exist yet — Supabase Branching applies migrations asynchronously
+      // after the deploy, so there's a window where the new code is live
+      // but the column isn't — Postgres returns an error. We fall back to
+      // a legacy single-role read so login is NEVER blocked by the
+      // schema-vs-code race. Same fallback covers any transient cluster
+      // blip on the new column too.
+      const { data, error } = await supabase
         .from("profiles")
         .select("role, roles")
         .eq("id", userId)
-        .single<{ role: UserRole; roles: UserRole[] }>();
+        .single<{ role: UserRole; roles: UserRole[] | null }>();
+
+      if (error) {
+        const { data: legacy } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", userId)
+          .single<{ role: UserRole }>();
+        if (!legacy?.role) return null;
+        return { active: legacy.role, roles: [legacy.role] };
+      }
       if (!data?.role) return null;
-      // Defensive: backfill ensures roles is non-null in DB, but if a
-      // legacy row sneaks through we treat it as a single-role user.
       return { active: data.role, roles: data.roles ?? [data.role] };
     },
     [`user-role`, userId],
