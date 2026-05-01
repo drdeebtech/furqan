@@ -86,14 +86,10 @@ export function PublicNav() {
             </Link>
           </div>
 
-          {/* Mobile: register button + hamburger */}
+          {/* Mobile: theme + lang + hamburger only.
+              Register CTA lives in the dropdown to keep the brand visible
+              on small screens (was overlapping at <380px viewports). */}
           <div className="flex items-center gap-2 lg:hidden">
-            <Link
-              href="/register"
-              className="inline-flex min-h-[44px] items-center justify-center glass-gold glass-pill px-4 py-2 text-sm font-bold transition-all duration-200"
-            >
-              {t("سجّل", "Register")}
-            </Link>
             <ThemeToggle />
             <LangToggle />
             <button

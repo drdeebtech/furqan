@@ -205,6 +205,11 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
         rawFrameContextIncludesServerActionFetch(f)
       ) return true;
     }
+    // Catch-all for iOS Safari builds where Sentry only sees minified frames
+    // without the server-action-reducer marker. "Load failed" + zero in-app
+    // code = WebKit aborted a network request (user navigated away mid-fetch,
+    // wifi blip). Not actionable. JAVASCRIPT-NEXTJS-E4-3 was leaking here.
+    if (allFramesAreFramework(frames)) return true;
   }
   if (
     msg === "Rendered more hooks than during the previous render." ||

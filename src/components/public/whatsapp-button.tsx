@@ -12,10 +12,10 @@ export function WhatsAppButton() {
       href={CONTACT.whatsappUrlWithMessage}
       target="_blank"
       rel="noopener noreferrer"
-      className="fixed bottom-6 start-6 z-50 flex items-center gap-2 glass-success glass-pill px-4 py-3 text-sm font-medium text-white transition-colors"
+      className="fixed bottom-6 start-6 z-50 inline-flex items-center gap-2 glass-success glass-pill px-3 py-2 text-sm font-medium text-white transition-colors"
       aria-label="WhatsApp"
     >
-      <MessageCircle size={20} />
+      <MessageCircle size={18} />
       <span className="hidden sm:inline">{t("تحدث معنا", "Chat with us")}</span>
     </a>
   );

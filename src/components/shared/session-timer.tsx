@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Timer } from "lucide-react";
 
 function formatElapsed(ms: number): string {
@@ -15,11 +15,17 @@ function formatElapsed(ms: number): string {
 export function SessionTimer({
   startedAt,
   durationMin,
+  onHalfway,
+  onFinished,
 }: {
   startedAt: string;
   durationMin: number;
+  onHalfway?: () => void;
+  onFinished?: () => void;
 }) {
   const [elapsed, setElapsed] = useState(0);
+  const halfwayFiredRef = useRef(false);
+  const finishedFiredRef = useRef(false);
 
   useEffect(() => {
     const startMs = new Date(startedAt).getTime();
@@ -31,6 +37,22 @@ export function SessionTimer({
 
   const scheduled = durationMin * 60 * 1000;
   const overtime = elapsed > scheduled;
+
+  // Fire-once milestones. Refs (not state) prevent re-fires across renders;
+  // we deliberately don't reset on prop change because a session's duration
+  // is fixed once it starts.
+  useEffect(() => {
+    if (!halfwayFiredRef.current && elapsed >= scheduled / 2 && elapsed < scheduled) {
+      halfwayFiredRef.current = true;
+      onHalfway?.();
+    }
+    if (!finishedFiredRef.current && elapsed >= scheduled) {
+      finishedFiredRef.current = true;
+      // If we cross the finish line, the halfway event is no longer useful.
+      halfwayFiredRef.current = true;
+      onFinished?.();
+    }
+  }, [elapsed, scheduled, onHalfway, onFinished]);
 
   return (
     <div

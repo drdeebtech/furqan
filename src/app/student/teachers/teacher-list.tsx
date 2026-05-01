@@ -7,6 +7,7 @@ import { GraduationCap, Star, Users, Search, SlidersHorizontal } from "lucide-re
 import { useLang } from "@/lib/i18n/context";
 import { SESSION_TYPE_AR, RIWAYA_AR } from "@/lib/constants";
 import type { SessionType, RecitationStandard } from "@/types/database";
+import type { TeacherLanguage } from "@/lib/site-content/types";
 
 const SESSION_TYPE_EN: Record<SessionType, string> = {
   hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
@@ -35,7 +36,13 @@ const GENDER_FILTERS: { key: string; ar: string; en: string }[] = [
   { key: "female", ar: "أنثى", en: "Female" },
 ];
 
-export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
+export function TeacherList({
+  teachers,
+  specialtyLabels,
+}: {
+  teachers: TeacherData[];
+  specialtyLabels: TeacherLanguage[];
+}) {
   // Read initial filter values from URL on mount, so deep links like
   // /student/teachers?q=aisha&specialty=hifz&gender=female open in the
   // expected filtered view. Interactive filtering after mount stays
@@ -56,11 +63,31 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
   const { t, dir, lang } = useLang();
   const isNew = searchParams.get("new") === "1";
 
+  // Picklist-driven specialty labels (memorization, murajaa, ijazah, women_only, …).
+  // Falls back to SESSION_TYPE_AR for legacy enum values, then to the raw key.
+  const specialtyLabelMap = new Map(
+    specialtyLabels.map((s) => [s.key, { ar: s.label_ar, en: s.label_en }] as const),
+  );
+  function labelForSpecialty(key: string): string {
+    const fromPicklist = specialtyLabelMap.get(key);
+    if (fromPicklist) return lang === "ar" ? fromPicklist.ar : fromPicklist.en;
+    const legacy = lang === "ar"
+      ? SESSION_TYPE_AR[key as SessionType]
+      : SESSION_TYPE_EN[key as SessionType];
+    return legacy ?? key;
+  }
+  function pickName(tc: TeacherData): string {
+    return lang === "ar" ? (tc.nameAr ?? tc.name) : (tc.name ?? tc.nameAr ?? t("معلم", "Teacher"));
+  }
+
   const filtered = teachers
     .filter((tc) => {
       if (specialty !== "all" && !tc.specialties.includes(specialty)) return false;
       if (gender !== "all" && tc.gender !== gender) return false;
-      if (searchQuery && !tc.name.includes(searchQuery)) return false;
+      if (searchQuery) {
+        const haystack = `${tc.name ?? ""} ${tc.nameAr ?? ""}`.toLowerCase();
+        if (!haystack.includes(searchQuery.toLowerCase())) return false;
+      }
       return true;
     })
     .sort((a, b) => {
@@ -179,14 +206,14 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
                 <div className="flex items-center gap-3">
                   <Link
                     href={`/student/teachers/${teacher.teacher_id}`}
-                    aria-label={t(`عرض ملف ${teacher.name}`, `View ${teacher.name}'s profile`)}
+                    aria-label={t(`عرض ملف ${pickName(teacher)}`, `View ${pickName(teacher)}'s profile`)}
                     className="focus-ring flex min-w-0 flex-1 items-center gap-3 rounded-lg transition-opacity hover:opacity-90"
                   >
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full glass text-lg font-bold md:h-14 md:w-14 md:text-xl">
-                      {teacher.name.trim().charAt(0) || (lang === "ar" ? "؟" : "?")}
+                      {pickName(teacher).trim().charAt(0) || (lang === "ar" ? "؟" : "?")}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-semibold md:text-lg">{teacher.name}</p>
+                      <p className="font-semibold md:text-lg">{pickName(teacher)}</p>
                       <div className="flex items-center gap-0.5">
                         {[1, 2, 3, 4, 5].map((i) => (
                           <Star key={i} size={12} className={i <= Math.round(Number(teacher.rating_avg)) ? "fill-gold text-gold" : "text-card-border"} />
@@ -222,7 +249,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {teacher.specialties.slice(0, 3).map((s) => (
                       <span key={s} className="glass glass-pill px-2 py-0.5 text-xs text-gold">
-                        {(lang === "ar" ? SESSION_TYPE_AR[s as SessionType] : SESSION_TYPE_EN[s as SessionType]) ?? s}
+                        {labelForSpecialty(s)}
                       </span>
                     ))}
                     {teacher.specialties.length > 3 && (
@@ -230,7 +257,7 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
                     )}
                     {teacher.specialties.slice(3).map((s) => (
                       <span key={s} className="hidden glass glass-pill px-2 py-0.5 text-xs text-gold md:inline">
-                        {(lang === "ar" ? SESSION_TYPE_AR[s as SessionType] : SESSION_TYPE_EN[s as SessionType]) ?? s}
+                        {labelForSpecialty(s)}
                       </span>
                     ))}
                   </div>

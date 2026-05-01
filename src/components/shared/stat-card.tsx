@@ -36,7 +36,7 @@ export function StatCard({ icon: Icon, label, value, href, subtitle, actionLabel
           <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[var(--gold-dim,rgba(200,166,82,0.12))]">
             <Icon size={18} className="text-gold" aria-hidden="true" />
           </div>
-          <span className="text-sm text-muted">{label}</span>
+          <span className="min-w-0 flex-1 text-sm text-muted">{label}</span>
           {statusBadge && (() => {
             const color =
               statusBadge.type === "warning"
@@ -45,9 +45,9 @@ export function StatCard({ icon: Icon, label, value, href, subtitle, actionLabel
                   ? "var(--muted)"
                   : "var(--accent-green,#22C55E)";
             return (
-              <div className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium">
+              <div className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-medium">
                 {(statusBadge.type === "active" || statusBadge.type === "warning") && (
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} />
                 )}
                 <span style={{ color }}>{statusBadge.text}</span>
               </div>

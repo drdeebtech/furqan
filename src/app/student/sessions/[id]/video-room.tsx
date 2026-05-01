@@ -34,9 +34,28 @@ export function VideoRoom({
   const [activeStartedAt, setActiveStartedAt] = useState(startedAt ?? null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [canFullscreen, setCanFullscreen] = useState(false);
+  const [halfwayNotice, setHalfwayNotice] = useState<string | null>(null);
+  const [autoLeftNotice, setAutoLeftNotice] = useState<string | null>(null);
 
   const handleDeviceReady = useCallback((ok: boolean) => {
     setDevicesReady(ok);
+  }, []);
+
+  const handleHalfway = useCallback(() => {
+    const remaining = Math.max(1, Math.round(durationMin / 2));
+    setHalfwayNotice(`نصف الوقت مرّ — تبقّى نحو ${remaining} دقيقة`);
+    // Auto-dismiss after 12s so it doesn't linger over the video.
+    setTimeout(() => setHalfwayNotice(null), 12000);
+  }, [durationMin]);
+
+  const handleFinished = useCallback(() => {
+    if (!frameRef.current) return;
+    setAutoLeftNotice("انتهى وقت الجلسة المحدد — تم إنهاء المكالمة");
+    try {
+      frameRef.current.leave();
+    } catch {
+      // left-meeting handler tears the frame down; ignore double-leave races.
+    }
   }, []);
 
   const isExpired = expiresAt ? new Date(expiresAt) < new Date() : false;
@@ -169,6 +188,16 @@ export function VideoRoom({
       {error && (
         <div className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</div>
       )}
+      {halfwayNotice && (
+        <div className="mb-4 rounded-lg border border-gold/30 bg-gold/10 p-3 text-sm text-gold" role="status">
+          {halfwayNotice}
+        </div>
+      )}
+      {autoLeftNotice && (
+        <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-warning" role="status">
+          {autoLeftNotice}
+        </div>
+      )}
 
       {!joined && !loading && (
         <div className="glass-card p-8 text-center md:p-12">
@@ -215,7 +244,12 @@ export function VideoRoom({
               <span className="hidden sm:inline">الجلسة جارية</span>
             </div>
             {activeStartedAt && (
-              <SessionTimer startedAt={activeStartedAt} durationMin={durationMin} />
+              <SessionTimer
+                startedAt={activeStartedAt}
+                durationMin={durationMin}
+                onHalfway={handleHalfway}
+                onFinished={handleFinished}
+              />
             )}
           </div>
           <div className="flex items-center gap-2">

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import type { GenderType } from "@/types/database";
 import { Skeleton } from "@/components/shared/skeleton";
+import { getActiveTeacherSpecialties } from "@/lib/site-content/queries";
 import { TeacherList } from "./teacher-list";
 
 export const metadata: Metadata = { title: "المعلمون" };
@@ -12,6 +13,7 @@ export const metadata: Metadata = { title: "المعلمون" };
 export interface TeacherData {
   teacher_id: string;
   name: string;
+  nameAr: string | null;
   bio: string | null;
   bio_en: string | null;
   specialties: string[];
@@ -39,20 +41,28 @@ export default async function TeachersPage() {
 
   const list = teachers ?? [];
 
-  let nameMap: Record<string, string> = {};
+  let nameMap: Record<string, { name: string; nameAr: string | null }> = {};
   if (list.length > 0) {
     const ids = list.map((t) => t.teacher_id);
     const { data: profiles } = await supabase
-      .from("profiles").select("id, full_name").in("id", ids)
-      .returns<{ id: string; full_name: string | null }[]>();
+      .from("profiles").select("id, full_name, full_name_ar").in("id", ids)
+      .returns<{ id: string; full_name: string | null; full_name_ar: string | null }[]>();
     if (profiles) {
-      nameMap = Object.fromEntries(profiles.map((p) => [p.id, p.full_name ?? t("معلم", "Teacher")]));
+      nameMap = Object.fromEntries(
+        profiles.map((p) => [
+          p.id,
+          { name: p.full_name ?? t("معلم", "Teacher"), nameAr: p.full_name_ar },
+        ]),
+      );
     }
   }
 
+  const specialtyLabels = await getActiveTeacherSpecialties();
+
   const teacherData: TeacherData[] = list.map((r) => ({
     ...r,
-    name: nameMap[r.teacher_id] ?? t("معلم", "Teacher"),
+    name: nameMap[r.teacher_id]?.name ?? t("معلم", "Teacher"),
+    nameAr: nameMap[r.teacher_id]?.nameAr ?? null,
   }));
 
   return (
@@ -69,7 +79,7 @@ export default async function TeachersPage() {
         </div>
       }
     >
-      <TeacherList teachers={teacherData} />
+      <TeacherList teachers={teacherData} specialtyLabels={specialtyLabels} />
     </Suspense>
   );
 }

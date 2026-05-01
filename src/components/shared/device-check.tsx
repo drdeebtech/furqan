@@ -63,12 +63,13 @@ export function DeviceCheck({ onReady }: { onReady?: (ok: boolean) => void }) {
   }, []);
 
   useEffect(() => {
+    // Camera is optional (audio-only join is supported); mic is required.
     if (camera !== "checking" && mic !== "checking") {
-      onReady?.(camera === "granted" && mic === "granted");
+      onReady?.(mic === "granted");
     }
   }, [camera, mic, onReady]);
 
-  const allDenied = camera === "denied" && mic === "denied";
+  const micDenied = mic === "denied";
 
   return (
     <div className="glass-card rounded-xl p-4">
@@ -98,7 +99,7 @@ export function DeviceCheck({ onReady }: { onReady?: (ok: boolean) => void }) {
           <span>الكاميرا</span>
           <StatusIcon state={camera} />
           {camera === "denied" && (
-            <span className="text-xs text-red-400">غير مسموح</span>
+            <span className="text-xs text-muted">اختياري — يمكنك الانضمام بالصوت فقط</span>
           )}
         </div>
         <div className="flex items-center gap-2 text-sm">
@@ -111,10 +112,10 @@ export function DeviceCheck({ onReady }: { onReady?: (ok: boolean) => void }) {
         </div>
       </div>
 
-      {allDenied && (
+      {micDenied && (
         <div className="mt-3 flex items-start gap-2 rounded-lg glass glass-danger p-2 text-xs text-red-400">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-          يرجى السماح بالوصول للكاميرا والميكروفون من إعدادات المتصفح
+          يرجى السماح بالوصول للميكروفون من إعدادات المتصفح للانضمام للجلسة
         </div>
       )}
     </div>

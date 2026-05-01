@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
+import { getActiveTeacherSpecialties } from "@/lib/site-content/queries";
 import { BookingForm } from "./booking-form";
 
 export const metadata: Metadata = { title: "حجز جديد" };
@@ -26,7 +27,7 @@ export default async function NewBookingPage({ searchParams }: Props) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [tpRes, profileRes, availRes] = await Promise.all([
+  const [tpRes, profileRes, availRes, specialtyLabels] = await Promise.all([
     supabase
       .from("teacher_profiles")
       .select("teacher_id, hourly_rate, specialties, recitation_standards, bio")
@@ -42,22 +43,25 @@ export default async function NewBookingPage({ searchParams }: Props) {
       }>(),
     supabase
       .from("profiles")
-      .select("full_name")
+      .select("full_name, full_name_ar")
       .eq("id", teacherId)
-      .single<{ full_name: string | null }>(),
+      .single<{ full_name: string | null; full_name_ar: string | null }>(),
     supabase
       .from("teacher_availability")
       .select("day_of_week, start_time, end_time, slot_duration")
       .eq("teacher_id", teacherId)
       .eq("is_active", true)
       .returns<AvailSlot[]>(),
+    getActiveTeacherSpecialties(),
   ]);
 
   if (!tpRes.data) redirect("/student/teachers");
 
   const teacher = {
     id: tpRes.data.teacher_id,
-    name: profileRes.data?.full_name ?? t("معلم", "Teacher"),
+    fullName: profileRes.data?.full_name ?? null,
+    fullNameAr: profileRes.data?.full_name_ar ?? null,
+    fallbackName: t("معلم", "Teacher"),
     hourlyRate: Number(tpRes.data.hourly_rate),
     specialties: tpRes.data.specialties,
     recitationStandards: tpRes.data.recitation_standards,
@@ -73,7 +77,7 @@ export default async function NewBookingPage({ searchParams }: Props) {
 
   return (
     <div dir={dir} className="mx-auto max-w-2xl px-4 py-8">
-      <BookingForm teacher={teacher} availability={availability} />
+      <BookingForm teacher={teacher} availability={availability} specialtyLabels={specialtyLabels} />
     </div>
   );
 }

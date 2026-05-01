@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useTransition } from "react";
-import { MessageCircle, Send, Inbox, Plus } from "lucide-react";
+import { MessageCircle, Send, Inbox, Plus, ArrowRight } from "lucide-react";
 import { sendMessage, getMessages } from "./message-actions";
 import { createConversation, getContactsForRole } from "./messages-actions";
 import { useToast } from "./toast";
@@ -48,6 +48,10 @@ export function MessagesView({
   const [showNewConvo, setShowNewConvo] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(false);
+  // Mobile-only: master/detail toggle. On md+ both panels render side-by-side.
+  // Default: show the active conversation on first paint (matches today's UX
+  // where the first conversation is auto-selected).
+  const [mobileShowList, setMobileShowList] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const { success: toastSuccess, error: toastError } = useToast();
@@ -235,17 +239,20 @@ export function MessagesView({
         </div>
       ) : conversations.length > 0 && (
         <div className="flex gap-4 glass-card rounded-xl" style={{ height: "70vh" }}>
-          {/* Conversations sidebar */}
-          <div className="w-64 shrink-0 overflow-y-auto border-l border-white/10">
+          {/* Conversations sidebar — full-width on mobile when toggled, fixed
+              w-64 on md+. Master/detail pattern keeps mobile readable. */}
+          <div
+            className={`${mobileShowList ? "flex" : "hidden"} w-full shrink-0 flex-col overflow-y-auto border-l border-white/10 md:flex md:w-64`}
+          >
             {conversations.map((c) => (
               <button
                 key={c.id}
-                onClick={() => setActiveConvo(c.id)}
+                onClick={() => { setActiveConvo(c.id); setMobileShowList(false); }}
                 className={`w-full border-b border-white/10 px-4 py-3 text-right transition-colors ${
                   activeConvo === c.id ? "glass glass-gold" : "hover:bg-white/5"
                 }`}
               >
-                <p className={`text-sm font-medium ${activeConvo === c.id ? "text-gold" : ""}`}>
+                <p className={`truncate text-sm font-medium ${activeConvo === c.id ? "text-gold" : ""}`}>
                   {c.otherUserName}
                 </p>
                 {c.lastMessageAt && (
@@ -257,11 +264,19 @@ export function MessagesView({
             ))}
           </div>
 
-          {/* Messages area */}
-          <div className="flex flex-1 flex-col">
+          {/* Messages area — hidden on mobile while the list is shown. */}
+          <div className={`${mobileShowList ? "hidden" : "flex"} flex-1 flex-col md:flex`}>
             {activeConvoData && (
-              <div className="border-b border-white/10 px-4 py-3">
-                <p className="font-medium">{activeConvoData.otherUserName}</p>
+              <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => setMobileShowList(true)}
+                  className="md:hidden inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:text-gold"
+                  aria-label={t("المحادثات", "Conversations")}
+                >
+                  <ArrowRight size={18} className={dir === "rtl" ? "" : "rotate-180"} />
+                </button>
+                <p className="truncate font-medium">{activeConvoData.otherUserName}</p>
               </div>
             )}
 

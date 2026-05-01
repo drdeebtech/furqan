@@ -57,7 +57,7 @@ export function CurrencyPackages({ packages, paypalEnabled = false, isAuthentica
                   currency === c.field ? "glass-gold glass-pill font-medium" : "glass glass-pill text-muted hover:border-gold/40 hover:text-gold"
                 }`}
               >
-                {c.label}
+                <span dir="ltr">{c.symbol} {c.code}</span>
               </button>
             ))}
           </div>

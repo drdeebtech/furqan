@@ -8,12 +8,9 @@ import {
   SESSION_TYPE_AR,
   RIWAYA_AR,
 } from "@/lib/constants";
+import { getActiveTeacherSpecialties } from "@/lib/site-content/queries";
 import type { GenderType, SessionType, RecitationStandard } from "@/types/database";
 
-const SESSION_TYPE_EN: Record<SessionType, string> = {
-  hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
-  qiraat: "Qiraat", tafsir: "Tafsir", combined: "Hifz + Review", other: "Other",
-};
 const RIWAYA_EN: Record<RecitationStandard, string> = {
   hafs: "Hafs", warsh: "Warsh", qalon: "Qalon", al_duri: "Al-Duri", shu_ba: "Shu'ba",
 };
@@ -35,10 +32,10 @@ export default async function TeacherDetailPage({ params }: PageProps) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect(`/login?next=/student/teachers/${teacherId}`);
 
-  // Pull profile + teacher_profiles + availability in parallel.
-  const [{ data: profile }, { data: tp }, { data: availability }] = await Promise.all([
-    supabase.from("profiles").select("full_name, avatar_url").eq("id", teacherId).single<{
-      full_name: string | null; avatar_url: string | null;
+  // Pull profile + teacher_profiles + availability + specialty picklist in parallel.
+  const [{ data: profile }, { data: tp }, { data: availability }, specialtyLabels] = await Promise.all([
+    supabase.from("profiles").select("full_name, full_name_ar, avatar_url").eq("id", teacherId).single<{
+      full_name: string | null; full_name_ar: string | null; avatar_url: string | null;
     }>(),
     supabase
       .from("teacher_profiles")
@@ -57,13 +54,25 @@ export default async function TeacherDetailPage({ params }: PageProps) {
       .eq("is_active", true)
       .order("day_of_week", { ascending: true })
       .returns<{ day_of_week: number; start_time: string; end_time: string }[]>(),
+    getActiveTeacherSpecialties(),
   ]);
 
   if (!profile || !tp || tp.is_archived || !tp.is_accepting || tp.cv_status !== "approved") {
     notFound();
   }
 
-  const name = profile.full_name ?? t("معلم", "Teacher");
+  const name =
+    (lang === "ar"
+      ? profile.full_name_ar ?? profile.full_name
+      : profile.full_name ?? profile.full_name_ar) ?? t("معلم", "Teacher");
+
+  const specialtyMap = new Map(specialtyLabels.map((s) => [s.key, { ar: s.label_ar, en: s.label_en }] as const));
+  function labelForSpecialty(key: string): string {
+    const fromPicklist = specialtyMap.get(key);
+    if (fromPicklist) return lang === "ar" ? fromPicklist.ar : fromPicklist.en;
+    if (lang === "ar") return SESSION_TYPE_AR[key as SessionType] ?? key;
+    return key;
+  }
   const bio = lang === "ar" ? (tp.bio ?? tp.bio_en) : (tp.bio_en ?? tp.bio);
   const usedFallback = lang === "ar" ? (!tp.bio && !!tp.bio_en) : (!tp.bio_en && !!tp.bio);
   const bioDir = bio ? dir : undefined;
@@ -140,7 +149,7 @@ export default async function TeacherDetailPage({ params }: PageProps) {
           <div className="flex flex-wrap gap-2">
             {tp.specialties.map((s) => (
               <span key={s} className="glass glass-pill px-3 py-1 text-xs text-gold">
-                {(lang === "ar" ? SESSION_TYPE_AR[s as SessionType] : SESSION_TYPE_EN[s as SessionType]) ?? s}
+                {labelForSpecialty(s)}
               </span>
             ))}
           </div>

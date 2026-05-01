@@ -14,6 +14,23 @@ export default async function HelpCenterIndexPage() {
   const { t, dir, lang } = await getT();
   const supabase = await createClient();
 
+  // Detect logged-in user so we can render a "back to dashboard" banner —
+  // without it, the public chrome makes users think /help signed them out.
+  const { data: { user } } = await supabase.auth.getUser();
+  let dashboardHref: string | null = null;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single<{ role: "student" | "teacher" | "admin" | "moderator" | null }>();
+    const role = profile?.role;
+    if (role === "student") dashboardHref = "/student/dashboard";
+    else if (role === "teacher") dashboardHref = "/teacher/dashboard";
+    else if (role === "admin") dashboardHref = "/admin/dashboard";
+    else if (role === "moderator") dashboardHref = "/moderator/dashboard";
+  }
+
   const [categoriesRes, articlesRes] = await Promise.all([
     supabase
       .from("help_categories")
@@ -37,6 +54,17 @@ export default async function HelpCenterIndexPage() {
 
   return (
     <div dir={dir} className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+      {dashboardHref && (
+        <div className="mb-6 flex items-center justify-between gap-3 rounded-xl border border-gold/30 bg-gold/10 px-4 py-3 text-sm">
+          <span className="text-foreground">
+            {t("أنت مسجَّل الدخول — لم تُسجّل خروجك.",
+               "You're still signed in — you haven't been logged out.")}
+          </span>
+          <Link href={dashboardHref} className="shrink-0 font-medium text-gold hover:text-gold-hover">
+            {t("العودة للوحة التحكم", "Back to dashboard")}
+          </Link>
+        </div>
+      )}
       <div className="mb-10 text-center">
         <BookOpen size={32} className="mx-auto mb-3 text-gold" aria-hidden="true" />
         <h1 className="font-display text-3xl font-bold sm:text-4xl">

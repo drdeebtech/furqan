@@ -76,6 +76,7 @@ export function TodaysPlan({ items, homeworkPulse }: TodaysPlanProps) {
                     <span
                       className="hidden shrink-0 rounded-full bg-gold/10 px-2.5 py-1 font-mono text-[11px] font-semibold text-gold sm:inline-flex"
                       aria-label={t("الوقت", "Time")}
+                      suppressHydrationWarning
                     >
                       {timeChip}
                     </span>

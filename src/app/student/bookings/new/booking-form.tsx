@@ -7,6 +7,7 @@ import { createBooking, type BookingResult } from "./actions";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import { useLang } from "@/lib/i18n/context";
 import type { SessionType } from "@/types/database";
+import type { TeacherLanguage } from "@/lib/site-content/types";
 import { BookingSteps } from "@/components/shared/booking-steps";
 
 const DAY_AR: Record<number, string> = {
@@ -30,7 +31,11 @@ const SESSION_TYPE_EN: Record<SessionType, string> = {
 };
 
 interface TeacherData {
-  id: string; name: string; hourlyRate: number;
+  id: string;
+  fullName: string | null;
+  fullNameAr: string | null;
+  fallbackName: string;
+  hourlyRate: number;
   specialties: string[]; recitationStandards: string[]; bio: string | null;
 }
 
@@ -38,8 +43,37 @@ interface AvailSlot {
   dayOfWeek: number; startTime: string; endTime: string; slotDuration: number;
 }
 
-export function BookingForm({ teacher, availability }: { teacher: TeacherData; availability: AvailSlot[] }) {
+export function BookingForm({
+  teacher,
+  availability,
+  specialtyLabels,
+}: {
+  teacher: TeacherData;
+  availability: AvailSlot[];
+  specialtyLabels: TeacherLanguage[];
+}) {
   const { t, lang } = useLang();
+  const teacherName =
+    lang === "ar"
+      ? teacher.fullNameAr ?? teacher.fullName ?? teacher.fallbackName
+      : teacher.fullName ?? teacher.fullNameAr ?? teacher.fallbackName;
+
+  // Picklist-driven label map for teacher_specialties keys
+  // (memorization, murajaa, ijazah, women_only, ...). Distinct keyspace from
+  // the SessionType enum used by SESSION_TYPE_AR — see TODO(human) below.
+  const specialtyLabelMap = new Map(
+    specialtyLabels.map((s) => [s.key, { ar: s.label_ar, en: s.label_en }] as const),
+  );
+
+  function labelForSpecialty(key: string): string {
+    const fromPicklist = specialtyLabelMap.get(key);
+    if (fromPicklist) return lang === "ar" ? fromPicklist.ar : fromPicklist.en;
+    const legacy = lang === "ar"
+      ? SESSION_TYPE_AR[key as SessionType]
+      : SESSION_TYPE_EN[key as SessionType];
+    return legacy ?? key;
+  }
+
   const locale = lang === "ar" ? "ar" : "en-US";
   const maxSlotDuration = availability.length > 0 ? Math.max(...availability.map((s) => s.slotDuration)) : 60;
   const durations = ALL_DURATIONS.filter((d) => d.value <= maxSlotDuration);
@@ -109,7 +143,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
 
       {/* Teacher header - compact */}
       <div className="mb-4 glass-card p-4">
-        <h1 className="text-lg font-bold">{teacher.name}</h1>
+        <h1 className="text-lg font-bold">{teacherName}</h1>
         {availability.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {[...new Set(availability.map((s) => s.dayOfWeek))].sort().map((day) => {
@@ -133,9 +167,9 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
         <div className="space-y-4">
           <div className="glass-card p-6 text-center">
             <p className="text-sm text-gold">تأكيد الحجز</p>
-            <h2 className="mt-2 text-xl font-bold">{teacher.name}</h2>
+            <h2 className="mt-2 text-xl font-bold">{teacherName}</h2>
             <div className="mt-3 space-y-1 text-sm">
-              <p>{(lang === "ar" ? SESSION_TYPE_AR[selectedType as SessionType] : SESSION_TYPE_EN[selectedType as SessionType]) ?? selectedType} · {duration} {lang === "ar" ? "دقيقة" : "min"}</p>
+              <p>{labelForSpecialty(selectedType)} · {duration} {lang === "ar" ? "دقيقة" : "min"}</p>
               <p className="text-muted">
                 {new Date(selectedDate).toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" })}
                 {" · "}
@@ -183,7 +217,7 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
                     selectedType === s ? "border-gold bg-gold/10 font-medium text-gold" : "glass-input hover:border-gold/50"
                   }`}
                 >
-                  {(lang === "ar" ? SESSION_TYPE_AR[s as SessionType] : SESSION_TYPE_EN[s as SessionType]) ?? s}
+                  {labelForSpecialty(s)}
                 </button>
               ))}
             </div>
