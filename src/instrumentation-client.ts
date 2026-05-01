@@ -10,13 +10,13 @@ import { beforeSend, CLIENT_IGNORE_ERRORS } from "@/lib/sentry/before-send";
 
 // Canonical DSN — same project as sentry.server.config.ts so client + server
 // events land together in furqan-academy/javascript-nextjs-e4 (project
-// 4511305365323856). The previous fallback pointed at the legacy
-// javascript-nextjs project (4511287551197264), which silently split errors
-// across two dashboards. Env override still wins so Vercel can rotate DSNs
-// without a code change.
-const dsn =
-  process.env.NEXT_PUBLIC_SENTRY_DSN?.trim() ||
+// 4511305365323856). Some older Vercel environments still carry the legacy
+// project DSN (4511287551197264); normalize that stale override back to the
+// canonical DSN so browser events stop splitting across two Sentry projects.
+const canonicalDsn =
   "https://e75e135004c761a09b8c2c013d095686@o4511287545954304.ingest.de.sentry.io/4511305365323856";
+const rawDsn = process.env.NEXT_PUBLIC_SENTRY_DSN?.trim() || canonicalDsn;
+const dsn = rawDsn.includes("/4511287551197264") ? canonicalDsn : rawDsn;
 
 const isProd = process.env.NEXT_PUBLIC_VERCEL_ENV === "production";
 
