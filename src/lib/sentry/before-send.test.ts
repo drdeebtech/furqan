@@ -45,6 +45,38 @@ describe("beforeSend", () => {
     expect(result).toBeNull();
   });
 
+  it("drops Load failed server-action noise when Sentry leaves event.message empty", () => {
+    const result = beforeSend(
+      buildEvent({
+        exception: {
+          values: [
+            {
+              type: "TypeError",
+              value: "Load failed",
+              stacktrace: {
+                frames: [
+                  {
+                    filename: "node_modules/next/src/client/components/router-reducer/reducers/server-action-reducer.ts",
+                    function: "fetchServerAction",
+                    in_app: false,
+                  },
+                  {
+                    filename: "app:///_next/static/chunks/0h3xur75.rtxw.js",
+                    function: undefined,
+                    in_app: true,
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      }),
+      {} as EventHint,
+    );
+
+    expect(result).toBeNull();
+  });
+
   it("drops production aborted errors with only node:_http_server frames", () => {
     const result = beforeSend(
       buildEvent({

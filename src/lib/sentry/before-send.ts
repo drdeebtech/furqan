@@ -99,11 +99,14 @@ const SENSITIVE_QUERY_KEYS = new Set([
 
 function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
   const ex = hint.originalException;
-  // Exact-message noise (browser-injected, not actionable).
+  const exceptionValue = event.exception?.values?.[0]?.value;
+  // Exact-message noise (browser-injected, not actionable). Some browser
+  // events arrive with `event.message === ""` even though the exception value
+  // is populated, so fall back all the way to the captured exception payload.
   const msg =
     (typeof ex === "object" && ex && "message" in ex && typeof (ex as { message?: unknown }).message === "string"
       ? (ex as { message: string }).message
-      : undefined) ?? event.message;
+      : undefined) || event.message || exceptionValue;
   if (msg && NOISE_MESSAGE_EXACT.has(msg)) return true;
 
   // Hydration mismatches — cosmetic server/client text differences (typically
