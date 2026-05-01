@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, CalendarPlus, Clock, AlertCircle, ChevronDown } from "lucide-react";
 import { createBooking, type BookingResult } from "./actions";
@@ -55,7 +55,13 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
   const [showConfirm, setShowConfirm] = useState(false);
   const [state, formAction, pending] = useActionState<BookingResult, FormData>(createBooking, {});
 
-  const _minDate = new Date().toISOString().split("T")[0];
+  // Mount gate — defers any clock-dependent rendering to the client. SSR
+  // generates date labels in UTC (Vercel region) while the client generates
+  // them in the user's timezone (Asia/Kuwait), so inline `new Date()` during
+  // render produces a hydration mismatch (JAVASCRIPT-NEXTJS-E4-4). After
+  // mount we own the clock and the user always sees their local dates.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   // Available days of week from teacher's schedule
   const availableDays = new Set(availability.map((s) => s.dayOfWeek));
@@ -75,16 +81,18 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
   // and matches typical academy planning horizons.
   const [dateRangeDays, setDateRangeDays] = useState(14);
   const dateOptions: { value: string; label: string; available: boolean }[] = [];
-  for (let i = 0; i < dateRangeDays; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    const val = d.toISOString().split("T")[0];
-    const available = isDateAvailable(val);
-    dateOptions.push({
-      value: val,
-      label: `${DAY_AR[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`,
-      available,
-    });
+  if (mounted) {
+    for (let i = 0; i < dateRangeDays; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      const val = d.toISOString().split("T")[0];
+      const available = isDateAvailable(val);
+      dateOptions.push({
+        value: val,
+        label: `${DAY_AR[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`,
+        available,
+      });
+    }
   }
   const canLoadMoreDates = dateRangeDays < 56;
 
@@ -204,6 +212,14 @@ export function BookingForm({ teacher, availability }: { teacher: TeacherData; a
           <div>
             <label className="mb-2 block text-sm font-medium">التاريخ</label>
             <div className="flex gap-2 overflow-x-auto pb-2">
+              {!mounted &&
+                Array.from({ length: 14 }).map((_, i) => (
+                  <div
+                    key={`date-skeleton-${i}`}
+                    aria-hidden="true"
+                    className="glass-input shrink-0 h-[38px] w-16 rounded-xl opacity-50"
+                  />
+                ))}
               {dateOptions.map((d) => (
                 <button
                   key={d.value}
