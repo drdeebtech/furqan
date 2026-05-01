@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { MessageSquare, Star, Eye, X, BellRing, Check, AlertTriangle } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
+import { EmptyState } from "@/components/shared/empty-state";
 import {
   hideMessage,
   clearMessageFlag,
@@ -115,14 +116,6 @@ function TabButton({
         {count}
       </span>
     </button>
-  );
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="rounded-2xl border border-surface-border/60 bg-surface/40 p-10 text-center text-sm text-muted">
-      {message}
-    </div>
   );
 }
 
