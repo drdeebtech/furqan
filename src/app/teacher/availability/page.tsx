@@ -100,15 +100,15 @@ export default async function TeacherAvailabilityPage() {
                           key={slot.id}
                           className="glass-card flex items-center justify-between px-4 py-3"
                         >
-                          <div dir="ltr" className="text-left text-sm">
+                          <div dir="ltr" className="flex items-center gap-3 text-sm">
                             <span className="font-medium text-foreground">
                               {slot.start_time.slice(0, 5)}
                             </span>
-                            <span className="mx-2 text-muted">→</span>
+                            <span className="text-muted">→</span>
                             <span className="font-medium text-foreground">
                               {slot.end_time.slice(0, 5)}
                             </span>
-                            <span className="me-3 text-xs text-muted">
+                            <span className="rounded-full border border-surface-border/60 px-2 py-0.5 text-xs text-muted">
                               {slot.slot_duration} {t("دقيقة", "min")}
                             </span>
                           </div>
