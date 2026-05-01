@@ -16,6 +16,7 @@ import { VideoRoom } from "@/app/student/sessions/[id]/video-room";
 import { PostSessionForm } from "./post-session-form";
 import { SessionDetailControls } from "./session-detail-controls";
 import { LessonPlanPanel } from "./lesson-plan-panel";
+import { HomeworkAssignmentForm } from "@/components/shared/homework-assignment-form";
 import type { LessonPlan } from "@/lib/actions/session-lesson-plan";
 import { isFeatureEnabled } from "@/lib/settings";
 
@@ -153,13 +154,32 @@ export default async function TeacherSessionPage({ params }: Props) {
           existingAssignments={hwAssignments ?? []}
         />
       ) : (
-        <VideoRoom
-          sessionId={session.id}
-          roomUrl={session.room_url}
-          userName={user.user_metadata?.full_name ?? t("معلم", "Teacher")}
-          expiresAt={session.expires_at}
-          durationMin={booking.duration_min}
-        />
+        <>
+          <VideoRoom
+            sessionId={session.id}
+            roomUrl={session.room_url}
+            userName={user.user_metadata?.full_name ?? t("معلم", "Teacher")}
+            expiresAt={session.expires_at}
+            durationMin={booking.duration_min}
+          />
+          {/* Homework can be assigned at any time, not only post-session.
+              Collapsed by default so it doesn't compete with the video room. */}
+          <details className="glass-card mt-4 p-4">
+            <summary className="cursor-pointer text-sm font-medium">
+              {t("اعتماد واجب الآن", "Assign homework now")}
+            </summary>
+            <div className="mt-3">
+              <HomeworkAssignmentForm
+                bookingId={session.booking_id}
+                studentId={booking.student_id}
+                sessionId={session.id}
+                existingAssignments={hwAssignments ?? []}
+                hideHeader
+                defaultOpen
+              />
+            </div>
+          </details>
+        </>
       )}
     </div>
   );

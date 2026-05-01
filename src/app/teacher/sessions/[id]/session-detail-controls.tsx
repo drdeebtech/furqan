@@ -38,8 +38,19 @@ export function SessionDetailControls({
     !ended &&
     now >= scheduledMs - 10 * 60 * 1000 &&
     now < scheduledMs + (durationMin + 30) * 60 * 1000;
+  // The End button shows whenever the session isn't already ended, so a
+  // teacher can manually close out a session that wasn't joined or that's
+  // outside its active window. The Timer + Extend stay gated on isActive
+  // since they only make sense inside the window.
+  const canEnd = !ended;
 
   async function handleEnd() {
+    if (!isActive) {
+      const ok = window.confirm(
+        "هذه الجلسة ليست في وقتها النشط. هل تريد إنهاءها يدوياً؟"
+      );
+      if (!ok) return;
+    }
     setLoading("end");
     setError(null);
     const result = await endSession(sessionId);
@@ -82,11 +93,16 @@ export function SessionDetailControls({
 
       {/* Buttons */}
       <div className="flex items-center gap-2">
-        {isActive && (
+        {canEnd && (
           <button
             onClick={handleEnd}
             disabled={loading !== null}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-error/30 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-error/10 disabled:opacity-50"
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+              isActive
+                ? "border border-error/30 text-red-400 hover:bg-error/10"
+                : "border border-surface-border text-muted hover:border-error/30 hover:text-red-400"
+            }`}
+            title={isActive ? "" : "إنهاء يدوي خارج وقت الجلسة"}
           >
             {loading === "end" ? spinner : <PhoneOff size={14} />}
             إنهاء الجلسة
