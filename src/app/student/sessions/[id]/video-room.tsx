@@ -33,6 +33,7 @@ export function VideoRoom({
   const [devicesReady, setDevicesReady] = useState(false);
   const [activeStartedAt, setActiveStartedAt] = useState(startedAt ?? null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [canFullscreen, setCanFullscreen] = useState(false);
 
   const handleDeviceReady = useCallback((ok: boolean) => {
     setDevicesReady(ok);
@@ -42,13 +43,20 @@ export function VideoRoom({
   const canJoin = !isExpired;
 
   function toggleFullscreen() {
-    if (!containerRef.current) return;
+    const container = containerRef.current;
+    if (!container) return;
+
     if (document.fullscreenElement) {
-      document.exitFullscreen();
+      if (typeof document.exitFullscreen === "function") {
+        document.exitFullscreen().catch(() => {});
+      }
       setIsFullscreen(false);
-    } else {
-      containerRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+      return;
     }
+
+    if (typeof container.requestFullscreen !== "function") return;
+
+    container.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
   }
 
   async function joinCall() {
@@ -132,6 +140,11 @@ export function VideoRoom({
     };
   }, []);
 
+  useEffect(() => {
+    const container = containerRef.current;
+    setCanFullscreen(Boolean(container && typeof container.requestFullscreen === "function"));
+  }, [joined]);
+
   // Listen for fullscreen changes
   useEffect(() => {
     function handleFsChange() {
@@ -208,7 +221,8 @@ export function VideoRoom({
           <div className="flex items-center gap-2">
             <button
               onClick={toggleFullscreen}
-              className="flex items-center gap-1 rounded-lg glass px-2 py-1.5 text-xs text-muted transition-colors hover:text-gold md:px-3"
+              disabled={!canFullscreen}
+              className="flex items-center gap-1 rounded-lg glass px-2 py-1.5 text-xs text-muted transition-colors hover:text-gold disabled:cursor-not-allowed disabled:opacity-50 md:px-3"
               title={t("ملء الشاشة", "Fullscreen")}
               aria-label={t("ملء الشاشة", "Fullscreen")}
             >
