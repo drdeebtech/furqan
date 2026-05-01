@@ -171,6 +171,7 @@ booking.created, booking.confirmed, booking.cancelled, session.ended, session.no
 | `PAYPAL_CLIENT_SECRET` | PayPal app client secret — server-only, used for OAuth client-credentials grant |
 | `NEXT_PUBLIC_PAYPAL_CLIENT_ID` | Same value as `PAYPAL_CLIENT_ID`; needed in the browser by `@paypal/react-paypal-js` |
 | `PAYPAL_API_BASE` | `https://api-m.sandbox.paypal.com` (sandbox) or `https://api-m.paypal.com` (live). Defaults to sandbox if missing |
+| `SENTRY_WATCH_SECRET` | Shared bearer token for `POST /api/sentry-watch/notify`. The hourly Claude Code Sentry-watcher cron presents it; the endpoint validates against it before sending the WhatsApp triage alert |
 
 > This table is the source of truth. If you add `process.env.X` to code, add `X` here in the same PR. Run `npx vercel env ls` to verify each is set in Production / Preview / Development.
 
