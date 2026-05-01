@@ -111,9 +111,12 @@ function getRawStackFrames(event: ErrorEvent): RawStackFrame[] {
 
 function rawFrameContextIncludesServerActionFetch(frame: RawStackFrame): boolean {
   const contextText = frame.context?.map(([, line]) => line).join("\n") ?? "";
+  if (!contextText.includes("fetch(e.canonicalUrl")) return false;
+
   return (
-    contextText.includes("fetch(e.canonicalUrl") &&
-    (contextText.includes("NEXT_ACTION") || contextText.includes("unrecognizedActionHeader"))
+    contextText.includes("NEXT_ACTION") ||
+    contextText.includes("unrecognizedActionHeader") ||
+    contextText.includes("A.headers.get(u.NEXT_A")
   );
 }
 
