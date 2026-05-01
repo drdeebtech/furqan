@@ -196,4 +196,58 @@ describe("beforeSend", () => {
 
     expect(result).not.toBeNull();
   });
+
+  it("drops React DOM removeChild noise from external DOM mutation (auto-translate, JAVASCRIPT-NEXTJS-E4-6)", () => {
+    const result = beforeSend(
+      buildEvent({
+        exception: {
+          values: [
+            {
+              type: "NotFoundError",
+              value: "Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node.",
+              stacktrace: {
+                frames: [
+                  { filename: "app:///_next/static/chunks/02lf.w6xlvq8p.js", function: "lr", in_app: false },
+                  { filename: "app:///_next/static/chunks/02lf.w6xlvq8p.js", function: "li", in_app: false },
+                ],
+              },
+            },
+          ],
+        },
+      }),
+      buildHint(
+        "Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node.",
+        "NotFoundError",
+      ),
+    );
+
+    expect(result).toBeNull();
+  });
+
+  it("keeps NotFoundError when the stack has at least one in-app frame", () => {
+    const result = beforeSend(
+      buildEvent({
+        exception: {
+          values: [
+            {
+              type: "NotFoundError",
+              value: "Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node.",
+              stacktrace: {
+                frames: [
+                  { filename: "app:///_next/static/chunks/02lf.w6xlvq8p.js", function: "lr", in_app: false },
+                  { filename: "src/app/student/bookings/new/booking-form.tsx", function: "handleSubmit", in_app: true },
+                ],
+              },
+            },
+          ],
+        },
+      }),
+      buildHint(
+        "Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node.",
+        "NotFoundError",
+      ),
+    );
+
+    expect(result).not.toBeNull();
+  });
 });

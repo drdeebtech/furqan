@@ -207,6 +207,25 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
     if (allNodeFrames && noInAppFrames) return true;
   }
 
+  // React DOM reconciliation errors caused by external DOM mutation —
+  // primarily Chrome/Edge auto-translate moving nodes that React then
+  // tries to remove or update. The stack is 100% react-dom internals
+  // (lr/li commit-deletion paths in the minified chunk), zero in-app
+  // frames. Not actionable from our code; the route error boundary
+  // catches it user-side. JAVASCRIPT-NEXTJS-E4-6 was the canonical case.
+  // Match on either NotFoundError name + removeChild message, OR the
+  // sibling "insertBefore" / "Failed to execute" patterns from the same
+  // class of bug. Require zero in-app frames so a real bug in our code
+  // that happens to call removeChild still surfaces.
+  if (
+    exType === "NotFoundError" &&
+    typeof msg === "string" &&
+    (msg.includes("removeChild") || msg.includes("insertBefore"))
+  ) {
+    const noInAppFrames = !frames.some((f) => f.in_app === true);
+    if (noInAppFrames) return true;
+  }
+
   return false;
 }
 
