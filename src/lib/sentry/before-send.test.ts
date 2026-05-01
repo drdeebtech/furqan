@@ -224,6 +224,61 @@ describe("beforeSend", () => {
     expect(result).toBeNull();
   });
 
+  it("drops React DOM removeChild noise even when Sentry marks _next chunks as in_app:true (E4-7/E4-9/E4-B)", () => {
+    // Real production payload: Sentry's heuristic flags app:///_next/static/chunks/*
+    // as in_app:true because they aren't in node_modules. Path-based detection
+    // is required — the prior in_app-flag check missed this entire class.
+    const result = beforeSend(
+      buildEvent({
+        exception: {
+          values: [
+            {
+              type: "NotFoundError",
+              value: "Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node.",
+              stacktrace: {
+                frames: [
+                  { filename: "app:///_next/static/chunks/02lf.w6xlvq8p.js", function: "lr", in_app: true },
+                  { filename: "app:///_next/static/chunks/02lf.w6xlvq8p.js", function: "li", in_app: true },
+                ],
+              },
+            },
+          ],
+        },
+      }),
+      buildHint(
+        "Failed to execute 'removeChild' on 'Node': The node to be removed is not a child of this node.",
+        "NotFoundError",
+      ),
+    );
+
+    expect(result).toBeNull();
+  });
+
+  it("drops 'Rendered more hooks' noise even when _next chunks are flagged in_app:true (E4-A/E4-8)", () => {
+    const result = beforeSend(
+      buildEvent({
+        message: "Rendered more hooks than during the previous render.",
+        exception: {
+          values: [
+            {
+              type: "Error",
+              value: "Rendered more hooks than during the previous render.",
+              stacktrace: {
+                frames: [
+                  { filename: "app:///_next/static/chunks/02lf.w6xlvq8p.js", function: "u", in_app: true },
+                  { filename: "app:///_next/static/chunks/02lf.w6xlvq8p.js", function: "renderWithHooks", in_app: true },
+                ],
+              },
+            },
+          ],
+        },
+      }),
+      buildHint("Rendered more hooks than during the previous render."),
+    );
+
+    expect(result).toBeNull();
+  });
+
   it("keeps NotFoundError when the stack has at least one in-app frame", () => {
     const result = beforeSend(
       buildEvent({

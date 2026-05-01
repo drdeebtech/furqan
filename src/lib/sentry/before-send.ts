@@ -104,6 +104,27 @@ type RawStackFrame = {
   context?: Array<[number, string]>;
 };
 
+// A frame is "framework" when its filename points at Next.js build output,
+// node_modules, or a Node.js builtin. Sentry's in_app heuristic marks
+// `_next/static/chunks/*` as in_app:true — minified react-dom living there
+// looks like user code, but isn't. Path-based detection is the reliable
+// signal for "this stack is 100% framework, no user code involved."
+function isFrameworkFrame(filename: string): boolean {
+  if (!filename) return false;
+  return (
+    filename.includes("/_next/") ||
+    filename.includes("/node_modules/") ||
+    filename.startsWith("node:") ||
+    filename.startsWith("webpack-internal:") ||
+    filename.startsWith("next/dist/")
+  );
+}
+
+function allFramesAreFramework(frames: { filename?: string }[]): boolean {
+  if (frames.length === 0) return false;
+  return frames.every((f) => isFrameworkFrame(f.filename ?? ""));
+}
+
 function getRawStackFrames(event: ErrorEvent): RawStackFrame[] {
   const exception = event.exception?.values?.[0] as { rawStacktrace?: { frames?: RawStackFrame[] } } | undefined;
   return exception?.rawStacktrace?.frames ?? [];
@@ -189,10 +210,11 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
     msg === "Rendered more hooks than during the previous render." ||
     msg === "Minified React error #310; visit https://react.dev/errors/310 for the full message or use the non-minified dev environment for full errors and additional helpful warnings."
   ) {
-    // If 100% of frames are inside node_modules, this is the same
-    // network-recovery class as above — not a user-code hooks bug.
-    const hasInApp = frames.some((f) => f.in_app === true);
-    if (!hasInApp) return true;
+    // If 100% of frames are framework (next chunks / node_modules / node:),
+    // this is the same network-recovery class as above — not a user-code
+    // hooks bug. Use path-based detection because Sentry marks _next/
+    // chunks as in_app:true, so a flag-based check leaks noise through.
+    if (allFramesAreFramework(frames)) return true;
   }
 
   // Connection-abort errors from node:_http_server (abortIncoming /
@@ -222,8 +244,7 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
     typeof msg === "string" &&
     (msg.includes("removeChild") || msg.includes("insertBefore"))
   ) {
-    const noInAppFrames = !frames.some((f) => f.in_app === true);
-    if (noInAppFrames) return true;
+    if (allFramesAreFramework(frames)) return true;
   }
 
   return false;
