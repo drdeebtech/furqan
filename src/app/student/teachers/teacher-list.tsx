@@ -177,18 +177,24 @@ export function TeacherList({ teachers }: { teachers: TeacherData[] }) {
               <div key={teacher.teacher_id} className="glass-card p-4 md:p-5">
                 {/* Compact mobile layout */}
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full glass text-lg font-bold md:h-14 md:w-14 md:text-xl">
-                    {teacher.name.trim().charAt(0) || (lang === "ar" ? "؟" : "?")}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold md:text-lg">{teacher.name}</p>
-                    <div className="flex items-center gap-0.5">
-                      {[1, 2, 3, 4, 5].map((i) => (
-                        <Star key={i} size={12} className={i <= Math.round(Number(teacher.rating_avg)) ? "fill-gold text-gold" : "text-card-border"} />
-                      ))}
-                      <span className="me-1 text-xs text-muted">{Number(teacher.rating_avg) > 0 ? Number(teacher.rating_avg).toFixed(1) : "—"}</span>
+                  <Link
+                    href={`/student/teachers/${teacher.teacher_id}`}
+                    aria-label={t(`عرض ملف ${teacher.name}`, `View ${teacher.name}'s profile`)}
+                    className="focus-ring flex min-w-0 flex-1 items-center gap-3 rounded-lg transition-opacity hover:opacity-90"
+                  >
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full glass text-lg font-bold md:h-14 md:w-14 md:text-xl">
+                      {teacher.name.trim().charAt(0) || (lang === "ar" ? "؟" : "?")}
                     </div>
-                  </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold md:text-lg">{teacher.name}</p>
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                          <Star key={i} size={12} className={i <= Math.round(Number(teacher.rating_avg)) ? "fill-gold text-gold" : "text-card-border"} />
+                        ))}
+                        <span className="me-1 text-xs text-muted">{Number(teacher.rating_avg) > 0 ? Number(teacher.rating_avg).toFixed(1) : "—"}</span>
+                      </div>
+                    </div>
+                  </Link>
                   {/* Mobile: inline book button */}
                   <Link
                     href={`/student/bookings/new?teacher=${teacher.teacher_id}`}
