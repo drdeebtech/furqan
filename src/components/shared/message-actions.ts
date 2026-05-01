@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { notify } from "@/lib/notifications/dispatcher";
+import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
 
 type MessageRow = {
@@ -19,23 +20,31 @@ export async function sendMessage(conversationId: string, content: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "غير مصرح" };
 
-  const { error } = await supabase.from("messages").insert({
-    conversation_id: conversationId,
-    sender_id: user.id,
-    content,
-  } as never);
+  const { data: inserted, error } = await supabase
+    .from("messages")
+    .insert({
+      conversation_id: conversationId,
+      sender_id: user.id,
+      content,
+    } as never)
+    .select("id")
+    .single<{ id: string }>();
 
-  if (error) return { error: "حدث خطأ أثناء إرسال الرسالة" };
+  if (error || !inserted) return { error: "حدث خطأ أثناء إرسال الرسالة" };
+
+  // Resolve the recipient once — used by both notify() and emitEvent() below.
+  const { data: conv } = await supabase
+    .from("conversations")
+    .select("student_id, teacher_id")
+    .eq("id", conversationId)
+    .single<{ student_id: string; teacher_id: string }>();
+  const recipientId = conv
+    ? (conv.student_id === user.id ? conv.teacher_id : conv.student_id)
+    : null;
 
   // Send notification to the other party (non-blocking)
   try {
-    const { data: conv } = await supabase
-      .from("conversations")
-      .select("student_id, teacher_id")
-      .eq("id", conversationId)
-      .single<{ student_id: string; teacher_id: string }>();
-    if (conv) {
-      const recipientId = conv.student_id === user.id ? conv.teacher_id : conv.student_id;
+    if (conv && recipientId) {
       const { data: sender } = await supabase
         .from("profiles").select("full_name").eq("id", user.id)
         .single<{ full_name: string | null }>();
@@ -45,6 +54,19 @@ export async function sendMessage(conversationId: string, content: string) {
       await notify(recipientId, "message", `رسالة جديدة من ${senderName}`, preview, "conversation", conversationId);
     }
   } catch { /* non-blocking */ }
+
+  // Fire the message-moderation pipeline on n8n. Non-blocking; failures
+  // are recorded in automation_logs by emit() itself.
+  emitEvent("message.created", "message", inserted.id, {
+    conversation_id: conversationId,
+    sender_id: user.id,
+    recipient_id: recipientId,
+    content_length: content.length,
+  }).catch((err) => logError("emit message.created failed", err, {
+    tag: "messaging",
+    component: "message-actions",
+    conversationId,
+  }));
 
   revalidatePath("/student/messages");
   revalidatePath("/teacher/messages");
