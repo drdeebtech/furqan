@@ -45,11 +45,6 @@ export const WEBHOOK_ROUTES: Record<string, string> = {
   "teacher.cv_submitted": "/webhook/furqan-cv-event",
   "teacher.cv_approved": "/webhook/furqan-cv-event",
   "teacher.cv_rejected": "/webhook/furqan-cv-event",
-  "message.created": "/webhook/furqan-message-created",
-  // ⚠️ The course event paths below have no n8n workflow listening yet. Each
-  // fire produces a 404 logged as a failure in automation_logs. Either build
-  // the listening workflows on n8n.drdeeb.tech or remove the emit call sites
-  // (search `emitEvent("course.` and `emitEvent("lesson.`).
   "course.submitted": "/webhook/furqan-course-event",
   "course.approved": "/webhook/furqan-course-event",
   "course.rejected": "/webhook/furqan-course-event",
