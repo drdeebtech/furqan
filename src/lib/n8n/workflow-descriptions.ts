@@ -363,6 +363,13 @@ const META: Record<string, WorkflowMeta> = {
     area: "platform_health",
   },
 
+  // Retention scoring (separate from at-risk detector — computes churn probability scores)
+  "retention-scorer": {
+    ar: "يحسب درجة خطر الانقطاع لكل طالب بناءً على الحضور والنشاط وإشارات الاحتفاظ.",
+    en: "Scores churn-risk probability for each student based on attendance, activity, and retention signals.",
+    area: "retention",
+  },
+
   // Area 12 — AI Academic
   "monthly-progress-ai": {
     ar: "تقرير تقدّم شهري بصياغة ذكاء اصطناعي يدمج كل الإشارات الأكاديمية للطالب.",
@@ -386,6 +393,19 @@ const META: Record<string, WorkflowMeta> = {
   },
 };
 
+// Maps actual n8n workflow names (normalized, no furqan- prefix) to blueprint META keys.
+// Added when n8n workflow names diverged from the original blueprint short-keys.
+const ALIASES: Record<string, string> = {
+  "daily-admin-digest": "daily-digest",
+  "missed-session-parent-alert": "missed-session-alert",
+  "weekly-progress-digest": "weekly-digest",
+  "milestone-celebrations": "milestones",
+  "low-package-balance-alert": "low-balance",
+  "homework-noncompletion-parent-alert": "homework-alert",
+  "audit-log-enrichment": "audit-enrichment",
+  "weekly-teacher-performance": "weekly-snapshot",
+};
+
 function normalize(name: string): string {
   return name
     .toLowerCase()
@@ -400,10 +420,15 @@ export function getWorkflowMeta(name: string): WorkflowMeta | null {
   const norm = normalize(name);
   if (!norm) return null;
 
+  // Direct match against blueprint keys.
   if (META[norm]) return META[norm];
 
-  // Substring fallback: pick the longest key that is contained in the
-  // normalized name (or vice versa). Longer matches are more specific.
+  // Alias map: real n8n names → blueprint keys.
+  const aliasKey = ALIASES[norm];
+  if (aliasKey && META[aliasKey]) return META[aliasKey];
+
+  // Substring fallback: pick the longest key contained in the normalized name
+  // (or vice versa). Longer matches are more specific.
   let best: { key: string; meta: WorkflowMeta } | null = null;
   for (const [key, meta] of Object.entries(META)) {
     if (norm.includes(key) || key.includes(norm)) {
