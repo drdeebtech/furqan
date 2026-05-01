@@ -265,6 +265,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
         <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل الإجراء التالي", "Couldn't load the next action")}>
           <section aria-label={t("الإجراء التالي", "Next action")} className="mb-8">
             <NextActionBanner
+              renderedAtMs={renderedAtMs}
               data={{
                 nextBooking: nextBooking
                   ? {

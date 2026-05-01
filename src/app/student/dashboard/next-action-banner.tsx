@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import {
   ArrowLeft, ArrowRight, BookOpen, CalendarPlus, ClipboardCheck, Play, Video, X,
 } from "lucide-react";
@@ -36,26 +36,27 @@ const DISMISS_KEY = "furqan-student-banner-dismissed-key";
  * state stays dismissed for that lesson, but a new "Imminent session" state
  * renders fresh). Refreshes on a 60s tick so urgency thresholds flip.
  */
-export function NextActionBanner({ data }: { data: NextActionData }) {
+export function NextActionBanner({ data, renderedAtMs }: { data: NextActionData; renderedAtMs: number }) {
   const { t, dir, lang } = useLang();
   const Arrow = dir === "rtl" ? ArrowLeft : ArrowRight;
   const locale = lang === "ar" ? "ar" : "en-US";
-  const [now, setNow] = useState(() => Date.now());
-  // Lazy-init from localStorage during the first render. Server-render lacks
-  // localStorage so we fall through to null; the second client render reads
-  // it. Using lazy init avoids the cascading-renders effect lint rule.
-  const [dismissedKey, setDismissedKey] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    try {
-      return window.localStorage.getItem(DISMISS_KEY);
-    } catch {
-      return null;
-    }
-  });
+  const [now, setNow] = useState(renderedAtMs);
+  const [dismissedKey, setDismissedKey] = useState<string | null>(null);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(DISMISS_KEY);
+      if (stored !== null) {
+        startTransition(() => setDismissedKey(stored));
+      }
+    } catch {
+      startTransition(() => setDismissedKey(null));
+    }
   }, []);
 
   const next = data.nextBooking;
@@ -161,12 +162,12 @@ export function NextActionBanner({ data }: { data: NextActionData }) {
             eyebrow={t("جلسة مجدولة", "Scheduled session")}
             eyebrowTone="calm"
             title={(
-              <>
+              <span suppressHydrationWarning>
                 {dayLabel} · {timeLabel}
                 {state.next.teacherName && (
                   <span className="text-muted"> · {t(`مع ${state.next.teacherName}`, `with ${state.next.teacherName}`)}</span>
                 )}
-              </>
+              </span>
             )}
           />
           <SecondaryAction href={href} label={t("التفاصيل", "Open details")} arrow={<Arrow size={14} aria-hidden="true" />} />
