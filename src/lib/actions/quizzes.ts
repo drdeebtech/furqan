@@ -23,7 +23,7 @@ async function authCourseOwner(courseId: string): Promise<{ ok: true; userId: st
   if (!user) return { ok: false, error: "غير مسجل الدخول" };
 
   const { data: course } = await supabase
-    .from("courses").select("teacher_id").eq("id", courseId).single<{ teacher_id: string }>();
+    .from("courses").select("teacher_id").eq("id", courseId).single<{ teacher_id: string | null }>();
   if (!course) return { ok: false, error: "الدورة غير موجودة" };
   if (course.teacher_id === user.id) return { ok: true, userId: user.id };
 

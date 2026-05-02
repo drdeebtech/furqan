@@ -49,20 +49,33 @@ export async function getLessonPlaybackUrl(lessonId: string): Promise<
     .from("courses")
     .select("status, teacher_id")
     .eq("id", lesson.course_id)
-    .single<{ status: string; teacher_id: string }>();
+    .single<{ status: string; teacher_id: string | null }>();
 
   if (!course) return { ok: false, error: "الدورة غير موجودة" };
 
   // Access logic:
   //   - free preview lesson on a published course → anyone (incl. anon)
   //   - teacher who owns the course → always
-  //   - admin/mod → always (relies on RLS-side check; we don't re-verify here)
+  //   - admin/mod → always (verified in-action — RLS doesn't gate signed
+  //     URL minting since we go straight to Bunny, not through Supabase)
   //   - enrolled student on a published course → yes
   let allowed = false;
   if (lesson.is_preview && course.status === "published") {
     allowed = true;
   }
-  if (user && course.teacher_id === user.id) allowed = true;
+  if (user && course.teacher_id && course.teacher_id === user.id) {
+    allowed = true;
+  }
+  if (!allowed && user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single<{ role: string }>();
+    if (profile?.role === "admin" || profile?.role === "moderator") {
+      allowed = true;
+    }
+  }
   if (!allowed && user) {
     const { data: enrollment } = await supabase
       .from("course_enrollments")

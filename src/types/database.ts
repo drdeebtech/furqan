@@ -57,6 +57,7 @@ export type CourseLessonVideoStatus = "pending" | "uploading" | "processing" | "
 export type CourseEnrollmentSource = "free" | "purchase" | "admin_grant";
 export type CourseReviewStatus = "published" | "hidden";
 export type CoursePayoutStatus = "pending" | "paid";
+export type CourseOwnership = "platform" | "teacher";
 
 // ─── Table row types ────────────────────────────────────────────────────────
 // Each alias points at the generated Row type for that table — so adding/
@@ -100,7 +101,16 @@ export type RetentionSignal = T["retention_signals"]["Row"];
 export type SiteAnnouncement = T["site_announcements"]["Row"];
 export type AutomationDeadLetter = T["automation_dead_letter"]["Row"];
 export type SessionPresenceEvent = T["session_presence_events"]["Row"];
-export type Course = T["courses"]["Row"];
+// `Course` overrides the generated row to (a) make `teacher_id` nullable —
+// platform-owned courses have no teacher — and (b) add the `ownership` and
+// `teacher_revenue_share_bps` columns introduced in
+// 20260502114946_courses_platform_ownership.sql. These overrides go away the
+// next time `supabase.generated.ts` is regenerated.
+export type Course = Omit<T["courses"]["Row"], "teacher_id"> & {
+  teacher_id: string | null;
+  ownership: CourseOwnership;
+  teacher_revenue_share_bps: number;
+};
 export type CourseLesson = T["course_lessons"]["Row"];
 export type CourseEnrollment = T["course_enrollments"]["Row"];
 export type CourseLessonProgress = T["course_lesson_progress"]["Row"];

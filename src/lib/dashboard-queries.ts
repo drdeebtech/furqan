@@ -649,7 +649,8 @@ export async function getStudentContinueWatching(
         id: string;
         title_ar: string | null;
         title_en: string | null;
-        teacher_id: string;
+        teacher_id: string | null;
+        ownership: string;
       } | null;
     } | null;
   };
@@ -659,7 +660,7 @@ export async function getStudentContinueWatching(
     .select(
       "lesson_id, last_position_seconds, updated_at, " +
         "lesson:course_lessons(id, title_ar, title_en, duration_seconds, course_id, " +
-        "course:courses(id, title_ar, title_en, teacher_id))",
+        "course:courses(id, title_ar, title_en, teacher_id, ownership))",
     )
     .in("enrollment_id", enrollments.map((e) => e.id))
     .is("completed_at", null)
@@ -697,7 +698,15 @@ export async function getStudentContinueWatching(
       const watched = r.last_position_seconds ?? 0;
       const pct = total > 0 ? Math.min(100, Math.round((watched / total) * 100)) : 0;
       const title = (lang === "ar" ? course.title_ar : course.title_en) ?? course.title_ar ?? "—";
-      const teacher = pmap[course.teacher_id] ?? { name: "—", avatar_url: null };
+      // Platform-owned courses have no teacher — render under the FURQAN
+      // Academy banner so the assignee row doesn't fall back to "—".
+      const teacher =
+        course.ownership === "platform" || !course.teacher_id
+          ? {
+              name: lang === "ar" ? "أكاديمية فرقان" : "FURQAN Academy",
+              avatar_url: null,
+            }
+          : pmap[course.teacher_id] ?? { name: "—", avatar_url: null };
 
       return {
         id: course.id.slice(0, 6).toUpperCase(),

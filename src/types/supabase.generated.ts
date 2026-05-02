@@ -964,6 +964,7 @@ export type Database = {
           language: string | null
           lesson_count_cached: number | null
           level: string | null
+          ownership: string
           price_cents: number
           pricing_type: string
           published_at: string | null
@@ -975,7 +976,8 @@ export type Database = {
           slug: string
           specialty: string | null
           status: string
-          teacher_id: string
+          teacher_id: string | null
+          teacher_revenue_share_bps: number
           title_ar: string
           title_en: string | null
           updated_at: string
@@ -994,6 +996,7 @@ export type Database = {
           language?: string | null
           lesson_count_cached?: number | null
           level?: string | null
+          ownership?: string
           price_cents?: number
           pricing_type?: string
           published_at?: string | null
@@ -1005,7 +1008,8 @@ export type Database = {
           slug: string
           specialty?: string | null
           status?: string
-          teacher_id: string
+          teacher_id?: string | null
+          teacher_revenue_share_bps?: number
           title_ar: string
           title_en?: string | null
           updated_at?: string
@@ -1024,6 +1028,7 @@ export type Database = {
           language?: string | null
           lesson_count_cached?: number | null
           level?: string | null
+          ownership?: string
           price_cents?: number
           pricing_type?: string
           published_at?: string | null
@@ -1035,7 +1040,8 @@ export type Database = {
           slug?: string
           specialty?: string | null
           status?: string
-          teacher_id?: string
+          teacher_id?: string | null
+          teacher_revenue_share_bps?: number
           title_ar?: string
           title_en?: string | null
           updated_at?: string

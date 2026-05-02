@@ -83,8 +83,8 @@ export default async function TeacherCoursesPage() {
       </div>
       <p className="mb-6 max-w-2xl text-sm text-muted">
         {t(
-          "الدورات تُنشَأ من قِبَل الإدارة نيابةً عنك. تواصل مع المشرف لإضافة دورة جديدة، ثم تستطيع إضافة الدروس وإرسال الدورة للمراجعة.",
-          "Courses are created by staff on your behalf. Contact a moderator to add a new course; you can then add lessons and submit it for review.",
+          "تظهر هنا فقط الدورات المسندة إليك. تنشأ الدورات من قبل الإدارة وتنسبها إليك ليعود إليك جزء من إيرادها؛ يمكنك بعد ذلك إضافة الدروس وإرسال الدورة للمراجعة. الدورات التي تنشرها المنصة باسمها لا تظهر هنا.",
+          "Only courses assigned to you appear here. Staff create courses and link them to you so you receive a share of their revenue; you can then add lessons and submit for review. Courses that the platform publishes under its own name do not appear here.",
         )}
       </p>
 

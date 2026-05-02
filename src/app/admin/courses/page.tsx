@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { GraduationCap, Inbox, Plus } from "lucide-react";
+import { Building2, GraduationCap, Inbox, Plus, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import type { Course } from "@/types/database";
@@ -25,6 +25,7 @@ const STATUS_BADGE: Record<string, string> = {
 
 interface SearchParams {
   status?: string;
+  ownership?: string;
 }
 
 export default async function AdminCoursesPage({
@@ -32,7 +33,7 @@ export default async function AdminCoursesPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const { status } = await searchParams;
+  const { status, ownership } = await searchParams;
   const { t, dir } = await getT();
   const supabase = await createClient();
   const {
@@ -52,13 +53,16 @@ export default async function AdminCoursesPage({
   let q = supabase
     .from("courses")
     .select(
-      "id, slug, title_ar, title_en, status, pricing_type, price_cents, currency, lesson_count_cached, enrollment_count_cached, teacher_id, updated_at, published_at",
+      "id, slug, title_ar, title_en, status, pricing_type, price_cents, currency, lesson_count_cached, enrollment_count_cached, teacher_id, ownership, updated_at, published_at",
     )
     .is("deleted_at", null)
     .order("updated_at", { ascending: false });
 
   if (status && ["draft", "pending_review", "published", "archived", "rejected"].includes(status)) {
     q = q.eq("status", status);
+  }
+  if (ownership === "platform" || ownership === "teacher") {
+    q = q.eq("ownership", ownership);
   }
 
   const { data: courses } = await q.returns<
@@ -75,13 +79,21 @@ export default async function AdminCoursesPage({
       | "lesson_count_cached"
       | "enrollment_count_cached"
       | "teacher_id"
+      | "ownership"
       | "updated_at"
       | "published_at"
     >[]
   >();
 
-  // Resolve teacher names
-  const teacherIds = [...new Set((courses ?? []).map((c) => c.teacher_id))];
+  // Resolve teacher names — only for teacher-owned rows. Platform-owned rows
+  // have null teacher_id and don't need a profile lookup.
+  const teacherIds = [
+    ...new Set(
+      (courses ?? [])
+        .map((c) => c.teacher_id)
+        .filter((id): id is string => id !== null),
+    ),
+  ];
   const nameMap: Record<string, string> = {};
   if (teacherIds.length > 0) {
     const { data: teachers } = await supabase
@@ -102,6 +114,20 @@ export default async function AdminCoursesPage({
     { value: "archived", label: t("مؤرشفة", "Archived") },
   ];
 
+  const ownershipTabs = [
+    { value: "", label: t("الكل", "All") },
+    { value: "platform", label: t("المنصة", "Platform") },
+    { value: "teacher", label: t("معلمون", "Teachers") },
+  ];
+
+  const buildHref = (s: string, o: string) => {
+    const search = new URLSearchParams();
+    if (s) search.set("status", s);
+    if (o) search.set("ownership", o);
+    const qs = search.toString();
+    return qs ? `/admin/courses?${qs}` : "/admin/courses";
+  };
+
   return (
     <div dir={dir} className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -118,13 +144,13 @@ export default async function AdminCoursesPage({
         </Link>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-2 flex flex-wrap gap-2">
         {filterTabs.map((f) => {
           const active = (status ?? "") === f.value;
           return (
             <Link
-              key={f.value}
-              href={f.value ? `/admin/courses?status=${f.value}` : "/admin/courses"}
+              key={`status-${f.value}`}
+              href={buildHref(f.value, ownership ?? "")}
               className={`rounded-full px-4 py-1.5 text-sm transition ${
                 active
                   ? "bg-gold text-background"
@@ -132,6 +158,25 @@ export default async function AdminCoursesPage({
               }`}
             >
               {f.label}
+            </Link>
+          );
+        })}
+      </div>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="text-xs text-muted">{t("الملكية:", "Ownership:")}</span>
+        {ownershipTabs.map((o) => {
+          const active = (ownership ?? "") === o.value;
+          return (
+            <Link
+              key={`ownership-${o.value}`}
+              href={buildHref(status ?? "", o.value)}
+              className={`rounded-full px-3 py-1 text-xs transition ${
+                active
+                  ? "bg-gold text-background"
+                  : "border bg-white/30 hover:bg-white/50 dark:bg-white/5 dark:hover:bg-white/10"
+              }`}
+            >
+              {o.label}
             </Link>
           );
         })}
@@ -159,8 +204,18 @@ export default async function AdminCoursesPage({
                     {STATUS_LABEL_AR[c.status] ?? c.status}
                   </span>
                 </div>
-                <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted">
-                  <span>{nameMap[c.teacher_id] ?? "—"}</span>
+                <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted">
+                  {c.ownership === "platform" ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-gold/15 px-2 py-0.5 text-gold">
+                      <Building2 size={12} aria-hidden="true" />
+                      {t("المنصة", "Platform")}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1">
+                      <User size={12} aria-hidden="true" />
+                      {(c.teacher_id && nameMap[c.teacher_id]) || "—"}
+                    </span>
+                  )}
                   <span>·</span>
                   <span>
                     {c.lesson_count_cached ?? 0} {t("درس", "lessons")}

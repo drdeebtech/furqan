@@ -21,7 +21,7 @@ async function authorizeCourseOwner(courseId: string): Promise<{ ok: true } | { 
     .from("courses")
     .select("teacher_id")
     .eq("id", courseId)
-    .single<{ teacher_id: string }>();
+    .single<{ teacher_id: string | null }>();
   if (!course) return { ok: false, error: "الدورة غير موجودة" };
   if (course.teacher_id === user.id) return { ok: true };
 

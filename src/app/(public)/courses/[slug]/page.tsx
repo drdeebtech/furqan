@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { GraduationCap, PlayCircle, Lock, Star, Clock } from "lucide-react";
+import { Building2, GraduationCap, PlayCircle, Lock, Star, Clock } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
@@ -41,12 +41,18 @@ export default async function CourseLandingPage({ params }: PageProps) {
     .single<Course>();
   if (!course) notFound();
 
+  // Platform-owned courses (course.teacher_id === null) have no teacher to
+  // fetch; the listing falls back to FURQAN Academy branding below.
+  const teacherPromise = course.teacher_id
+    ? adminSupabase
+        .from("profiles")
+        .select("id, full_name, avatar_url")
+        .eq("id", course.teacher_id)
+        .single<{ id: string; full_name: string | null; avatar_url: string | null }>()
+    : Promise.resolve({ data: null as null | { id: string; full_name: string | null; avatar_url: string | null } });
+
   const [{ data: teacher }, { data: lessons }, { data: reviews }] = await Promise.all([
-    adminSupabase
-      .from("profiles")
-      .select("id, full_name, avatar_url")
-      .eq("id", course.teacher_id)
-      .single<{ id: string; full_name: string | null; avatar_url: string | null }>(),
+    teacherPromise,
     adminSupabase
       .from("course_lessons")
       .select("id, order_index, title_ar, title_en, duration_seconds, is_preview, video_status")
@@ -93,7 +99,12 @@ export default async function CourseLandingPage({ params }: PageProps) {
             <h1 className="text-2xl font-bold leading-tight md:text-3xl">{course.title_ar}</h1>
             {course.title_en && <p className="mt-1 text-sm text-muted">{course.title_en}</p>}
             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
-              {teacher && (
+              {course.ownership === "platform" ? (
+                <span className="inline-flex items-center gap-2 rounded-full bg-gold/15 px-3 py-1 font-medium text-gold">
+                  <Building2 size={13} aria-hidden="true" />
+                  {t("أكاديمية فرقان", "FURQAN Academy")}
+                </span>
+              ) : teacher ? (
                 <Link
                   href={`/teachers/${teacher.id}`}
                   className="flex items-center gap-2 hover:text-gold"
@@ -110,7 +121,7 @@ export default async function CourseLandingPage({ params }: PageProps) {
                   )}
                   <span>{teacher.full_name}</span>
                 </Link>
-              )}
+              ) : null}
               <span className="text-muted">·</span>
               {course.rating_count_cached && course.rating_count_cached > 0 ? (
                 <span className="flex items-center gap-1 text-warning">

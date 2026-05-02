@@ -43,11 +43,16 @@ export default async function AdminCourseReviewPage({ params }: PageProps) {
     .single<Course>();
   if (!course) notFound();
 
-  const { data: teacher } = await supabase
-    .from("profiles")
-    .select("id, full_name, email")
-    .eq("id", course.teacher_id)
-    .single<{ id: string; full_name: string | null; email: string | null }>();
+  // Platform-owned courses have no teacher_id; skip the lookup entirely.
+  const teacher = course.teacher_id
+    ? (
+        await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .eq("id", course.teacher_id)
+          .single<{ id: string; full_name: string | null; email: string | null }>()
+      ).data
+    : null;
 
   const { data: lessons } = await supabase
     .from("course_lessons")
@@ -73,9 +78,16 @@ export default async function AdminCourseReviewPage({ params }: PageProps) {
         <h1 className="text-xl font-bold">{course.title_ar}</h1>
         {course.title_en && <p className="text-sm text-muted">{course.title_en}</p>}
         <div className="mt-3 flex flex-wrap gap-3 text-xs">
-          <span className="rounded-full bg-muted/20 px-3 py-1">
-            {t("المعلم:", "Teacher:")} {teacher?.full_name ?? "—"}
-          </span>
+          {course.ownership === "platform" ? (
+            <span className="rounded-full bg-gold/15 px-3 py-1 font-medium text-gold">
+              {t("المالك: المنصة", "Owner: Platform")}
+            </span>
+          ) : (
+            <span className="rounded-full bg-muted/20 px-3 py-1">
+              {t("المعلم:", "Teacher:")} {teacher?.full_name ?? "—"} ·{" "}
+              {(course.teacher_revenue_share_bps / 100).toFixed(0)}%
+            </span>
+          )}
           <span className="rounded-full bg-muted/20 px-3 py-1">
             {course.pricing_type === "free"
               ? t("مجاني", "Free")

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { GraduationCap, Inbox, Star } from "lucide-react";
+import { Building2, GraduationCap, Inbox, Star } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getT } from "@/lib/i18n/server";
 import type { Course } from "@/types/database";
@@ -32,7 +32,7 @@ export default async function PublicCoursesPage({
   let q = supabase
     .from("courses")
     .select(
-      "id, slug, title_ar, title_en, description_ar, cover_image_url, pricing_type, price_cents, currency, level, language, specialty, lesson_count_cached, enrollment_count_cached, rating_avg_cached, rating_count_cached, published_at, teacher_id",
+      "id, slug, title_ar, title_en, description_ar, cover_image_url, pricing_type, price_cents, currency, level, language, specialty, lesson_count_cached, enrollment_count_cached, rating_avg_cached, rating_count_cached, published_at, teacher_id, ownership",
     )
     .eq("status", "published")
     .is("deleted_at", null);
@@ -72,10 +72,17 @@ export default async function PublicCoursesPage({
       | "rating_count_cached"
       | "published_at"
       | "teacher_id"
+      | "ownership"
     >[]
   >();
 
-  const teacherIds = [...new Set((courses ?? []).map((c) => c.teacher_id))];
+  const teacherIds = [
+    ...new Set(
+      (courses ?? [])
+        .map((c) => c.teacher_id)
+        .filter((id): id is string => id !== null),
+    ),
+  ];
   const nameMap: Record<string, string> = {};
   if (teacherIds.length > 0) {
     const { data: teachers } = await supabase
@@ -202,7 +209,16 @@ export default async function PublicCoursesPage({
                   <p className="mt-2 line-clamp-2 text-xs text-muted">{c.description_ar}</p>
                 )}
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                  <span className="text-muted">{nameMap[c.teacher_id]}</span>
+                  {c.ownership === "platform" ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-gold/15 px-2 py-0.5 font-medium text-gold">
+                      <Building2 size={11} aria-hidden="true" />
+                      {t("أكاديمية فرقان", "FURQAN Academy")}
+                    </span>
+                  ) : (
+                    <span className="text-muted">
+                      {(c.teacher_id && nameMap[c.teacher_id]) || "—"}
+                    </span>
+                  )}
                   <span className="text-muted">·</span>
                   <span className="text-muted">
                     {c.lesson_count_cached ?? 0} {t("درس", "lessons")}

@@ -13,6 +13,7 @@ import type {
   CourseLevel,
   CourseLanguage,
   CourseCurrency,
+  CourseOwnership,
 } from "@/types/database";
 
 // ─── Auth helpers ───────────────────────────────────────────────────────────
@@ -118,7 +119,17 @@ export async function createCourse(formData: FormData): Promise<CreateCourseResu
     return { ok: false, error: (e as Error).message };
   }
 
-  const teacher_id = String(formData.get("teacher_id") ?? "").trim();
+  // Ownership branch — platform-owned courses have no teacher and never
+  // pay out a share. Default 'teacher' keeps the existing form-without-radio
+  // path working (radio defaults to teacher in the new admin UI).
+  const ownershipRaw = String(formData.get("ownership") ?? "teacher");
+  if (ownershipRaw !== "platform" && ownershipRaw !== "teacher") {
+    return { ok: false, error: "نوع ملكية الدورة غير صالح" };
+  }
+  const ownership = ownershipRaw as CourseOwnership;
+
+  const teacher_id_raw = String(formData.get("teacher_id") ?? "").trim();
+  const teacher_id = ownership === "platform" ? null : teacher_id_raw;
   const title_ar = String(formData.get("title_ar") ?? "").trim();
   const title_en = (formData.get("title_en") as string | null)?.trim() || null;
   const description_ar = (formData.get("description_ar") as string | null) ?? null;
@@ -130,7 +141,19 @@ export async function createCourse(formData: FormData): Promise<CreateCourseResu
   const price_cents = Number(formData.get("price_cents") ?? 0) | 0;
   const currency = (formData.get("currency") as CourseCurrency) || "USD";
 
-  if (!teacher_id) return { ok: false, error: "اختر المعلم المالك للدورة" };
+  // Optional admin override of the teacher revenue split (basis points,
+  // 0–10000). Falls back to 7000 (70%) when not supplied. Always 0 for
+  // platform-owned rows — the DB CHECK enforces this independently.
+  const shareBpsRaw = formData.get("teacher_revenue_share_bps");
+  const shareBpsParsed = shareBpsRaw !== null ? Number(shareBpsRaw) | 0 : 7000;
+  const teacher_revenue_share_bps =
+    ownership === "platform"
+      ? 0
+      : Math.max(0, Math.min(10000, shareBpsParsed));
+
+  if (ownership === "teacher" && !teacher_id) {
+    return { ok: false, error: "اختر المعلم المالك للدورة" };
+  }
   if (!title_ar) return { ok: false, error: "العنوان بالعربية مطلوب" };
   if (pricing_type === "one_time" && price_cents <= 0) {
     return { ok: false, error: "السعر مطلوب للدورات المدفوعة" };
@@ -139,13 +162,15 @@ export async function createCourse(formData: FormData): Promise<CreateCourseResu
   // Verify the selected teacher_id actually belongs to a teacher account —
   // we won't trust the form value blindly even though admin/mod is gating
   // the call. Stops accidental assignment to a student/admin id.
-  const { data: teacherRow } = await supabase
-    .from("profiles")
-    .select("role, deleted_at")
-    .eq("id", teacher_id)
-    .single<{ role: string; deleted_at: string | null }>();
-  if (!teacherRow || teacherRow.role !== "teacher" || teacherRow.deleted_at) {
-    return { ok: false, error: "المعلم المختار غير صالح" };
+  if (ownership === "teacher") {
+    const { data: teacherRow } = await supabase
+      .from("profiles")
+      .select("role, deleted_at")
+      .eq("id", teacher_id as string)
+      .single<{ role: string; deleted_at: string | null }>();
+    if (!teacherRow || teacherRow.role !== "teacher" || teacherRow.deleted_at) {
+      return { ok: false, error: "المعلم المختار غير صالح" };
+    }
   }
 
   const baseSlug = slugify(title_en || title_ar);
@@ -155,6 +180,8 @@ export async function createCourse(formData: FormData): Promise<CreateCourseResu
     .from("courses")
     .insert({
       teacher_id,
+      ownership,
+      teacher_revenue_share_bps,
       slug,
       title_ar,
       title_en,
@@ -175,6 +202,33 @@ export async function createCourse(formData: FormData): Promise<CreateCourseResu
     logError("createCourse failed", error, { tag: "courses", actorId: actor.id, teacherId: teacher_id });
     return { ok: false, error: error?.message ?? "فشل إنشاء الدورة" };
   }
+
+  // Best-effort audit trail: persist who created the course and which
+  // ownership mode it was filed under. Non-blocking — a failed audit write
+  // surfaces in logError but never breaks the flow.
+  await supabase
+    .from("audit_log")
+    .insert({
+      changed_by: actor.id,
+      action: "INSERT",
+      table_name: "courses",
+      record_id: data.id,
+      new_data: {
+        ownership,
+        teacher_id,
+        teacher_revenue_share_bps,
+        pricing_type,
+        price_cents: pricing_type === "free" ? 0 : price_cents,
+      },
+    } as never)
+    .then(({ error: auditErr }) => {
+      if (auditErr) {
+        logError("audit insert failed", auditErr, {
+          tag: "audit",
+          courseId: data.id,
+        });
+      }
+    });
 
   revalidateCoursePaths(data.id, slug);
   redirect(`/admin/courses/${data.id}`);
@@ -220,6 +274,55 @@ export async function updateCourse(
     updates.price_cents = pricing_type === "free" ? 0 : price_cents;
     const currency = (formData.get("currency") as CourseCurrency) || "USD";
     updates.currency = currency;
+  }
+
+  // Ownership flip is only allowed while the course is still a draft —
+  // changing the revenue model after enrollments exist would silently
+  // rewrite past payouts. The DB CHECK still guards the final shape.
+  const ownershipRaw = formData.get("ownership");
+  if (ownershipRaw !== null) {
+    if (ownershipRaw !== "platform" && ownershipRaw !== "teacher") {
+      return { ok: false, error: "نوع ملكية الدورة غير صالح" };
+    }
+    const { data: current } = await supabase
+      .from("courses")
+      .select("status, ownership")
+      .eq("id", courseId)
+      .single<{ status: string; ownership: CourseOwnership }>();
+    if (!current) return { ok: false, error: "الدورة غير موجودة" };
+    if (current.ownership !== ownershipRaw && current.status !== "draft") {
+      return {
+        ok: false,
+        error:
+          "لا يمكن تغيير نوع الملكية بعد إرسال الدورة للمراجعة — أرشفها وأنشئ نسخة جديدة بدل ذلك",
+      };
+    }
+    if (ownershipRaw === "platform") {
+      updates.ownership = "platform";
+      updates.teacher_id = null;
+      updates.teacher_revenue_share_bps = 0;
+    } else {
+      const newTeacherId = String(formData.get("teacher_id") ?? "").trim();
+      if (!newTeacherId) {
+        return { ok: false, error: "اختر المعلم المالك للدورة" };
+      }
+      const { data: teacherRow } = await supabase
+        .from("profiles")
+        .select("role, deleted_at")
+        .eq("id", newTeacherId)
+        .single<{ role: string; deleted_at: string | null }>();
+      if (!teacherRow || teacherRow.role !== "teacher" || teacherRow.deleted_at) {
+        return { ok: false, error: "المعلم المختار غير صالح" };
+      }
+      updates.ownership = "teacher";
+      updates.teacher_id = newTeacherId;
+    }
+  }
+
+  const shareBpsRaw = formData.get("teacher_revenue_share_bps");
+  if (shareBpsRaw !== null && updates.ownership !== "platform") {
+    const bps = Math.max(0, Math.min(10000, Number(shareBpsRaw) | 0));
+    updates.teacher_revenue_share_bps = bps;
   }
 
   const { error } = await supabase
@@ -327,21 +430,26 @@ export async function submitForReview(
     return { ok: false, error: error.message };
   }
 
-  await emitEvent("course.submitted", "course", courseId, {}).catch((err) =>
+  // Fan-out notification to all admins + moderators (also feeds the
+  // course.submitted event payload so n8n can route teacher-vs-platform).
+  const { data: courseRow } = await supabase
+    .from("courses")
+    .select("title_ar, ownership, teacher_id")
+    .eq("id", courseId)
+    .single<{ title_ar: string; ownership: CourseOwnership; teacher_id: string | null }>();
+
+  await emitEvent("course.submitted", "course", courseId, {
+    ownership: courseRow?.ownership ?? "teacher",
+    teacher_id: courseRow?.teacher_id ?? null,
+  }).catch((err) =>
     logError("emit course.submitted failed", err, { tag: "courses", courseId }),
   );
 
-  // Fan-out notification to all admins + moderators
   const { data: reviewers } = await supabase
     .from("profiles")
     .select("id")
     .in("role", ["admin", "moderator"])
     .returns<{ id: string }[]>();
-  const { data: courseRow } = await supabase
-    .from("courses")
-    .select("title_ar")
-    .eq("id", courseId)
-    .single<{ title_ar: string }>();
   for (const r of reviewers ?? []) {
     await notify(
       r.id,
@@ -384,17 +492,31 @@ export async function approveCourse(courseId: string) {
     return { ok: false as const, error: error.message };
   }
 
-  await emitEvent("course.approved", "course", courseId, {}, admin.id).catch((err) =>
+  // Read once, use for both the event payload and the (optional) teacher
+  // notification. n8n routes on `ownership` to pick the correct downstream.
+  const { data: course } = await supabase
+    .from("courses")
+    .select("teacher_id, title_ar, ownership")
+    .eq("id", courseId)
+    .single<{ teacher_id: string | null; title_ar: string; ownership: CourseOwnership }>();
+
+  await emitEvent(
+    "course.approved",
+    "course",
+    courseId,
+    {
+      ownership: course?.ownership ?? "teacher",
+      teacher_id: course?.teacher_id ?? null,
+    },
+    admin.id,
+  ).catch((err) =>
     logError("emit course.approved failed", err, { tag: "courses", courseId }),
   );
 
-  // Notify the teacher
-  const { data: course } = await supabase
-    .from("courses")
-    .select("teacher_id, title_ar")
-    .eq("id", courseId)
-    .single<{ teacher_id: string; title_ar: string }>();
-  if (course) {
+  // Notify the teacher when there is one. Platform-owned courses have no
+  // teacher to ping — the n8n admin digest picks up the course.approved
+  // event for those.
+  if (course?.teacher_id) {
     await notify(
       course.teacher_id,
       "course",
@@ -435,19 +557,31 @@ export async function rejectCourse(courseId: string, reason: string) {
     return { ok: false as const, error: error.message };
   }
 
-  await emitEvent("course.rejected", "course", courseId, {
-    reason: reason.trim(),
-  }, admin.id).catch((err) =>
+  // Read once, use for both the event payload and the (optional) teacher
+  // notification.
+  const { data: course } = await supabase
+    .from("courses")
+    .select("teacher_id, title_ar, ownership")
+    .eq("id", courseId)
+    .single<{ teacher_id: string | null; title_ar: string; ownership: CourseOwnership }>();
+
+  await emitEvent(
+    "course.rejected",
+    "course",
+    courseId,
+    {
+      reason: reason.trim(),
+      ownership: course?.ownership ?? "teacher",
+      teacher_id: course?.teacher_id ?? null,
+    },
+    admin.id,
+  ).catch((err) =>
     logError("emit course.rejected failed", err, { tag: "courses", courseId }),
   );
 
-  // Notify the teacher with the reason
-  const { data: course } = await supabase
-    .from("courses")
-    .select("teacher_id, title_ar")
-    .eq("id", courseId)
-    .single<{ teacher_id: string; title_ar: string }>();
-  if (course) {
+  // Notify the teacher with the reason — platform-owned courses skip this
+  // (no teacher attached); admins see the rejection in the dashboard list.
+  if (course?.teacher_id) {
     await notify(
       course.teacher_id,
       "course",

@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { createCourse } from "@/lib/actions/courses";
+import { OwnershipFieldset } from "./ownership-fieldset";
 
 export const metadata: Metadata = { title: "دورة مسجلة جديدة" };
 
@@ -50,8 +51,8 @@ export default async function AdminNewCoursePage() {
       </h1>
       <p className="mb-6 text-sm text-muted">
         {t(
-          "تنشئ الدورات نيابةً عن المعلم — اختر المعلم المالك ثم املأ تفاصيل الدورة. يستطيع المعلم بعد ذلك إضافة الدروس وإرسالها للمراجعة.",
-          "Courses are created on behalf of teachers — pick the owning teacher, then fill in the course details. The teacher can add lessons afterwards and submit for review.",
+          "يمكن أن تكون الدورة مملوكة للمنصة (الإيراد بالكامل للمنصة) أو مسندة لمعلم (الإيراد مشترك معه).",
+          "Courses can belong to the platform (100% platform revenue) or to a specific teacher (revenue shared with them).",
         )}
       </p>
 
@@ -62,31 +63,25 @@ export default async function AdminNewCoursePage() {
         }}
         className="glass-card space-y-5 p-6"
       >
-        <div>
-          <label className="mb-1.5 block text-sm font-medium" htmlFor="teacher_id">
-            {t("المعلم المالك", "Owning teacher")} *
-          </label>
-          <select
-            id="teacher_id"
-            name="teacher_id"
-            required
-            defaultValue=""
-            className="w-full rounded-lg border border-[var(--surface-border)] bg-[var(--surface)] px-3 py-2 text-sm focus-ring"
-          >
-            <option value="" disabled>{t("اختر المعلم…", "Select a teacher…")}</option>
-            {(teachers ?? []).map((teacher) => (
-              <option key={teacher.id} value={teacher.id}>
-                {teacher.full_name ?? teacher.email ?? teacher.id}
-                {teacher.email ? ` · ${teacher.email}` : ""}
-              </option>
-            ))}
-          </select>
-          {(teachers ?? []).length === 0 && (
-            <p className="mt-1 text-xs text-warning">
-              {t("لا يوجد معلمون مسجلون بعد", "No teachers registered yet")}
-            </p>
-          )}
-        </div>
+        <OwnershipFieldset
+          teachers={teachers ?? []}
+          labels={{
+            ownership: t("نوع ملكية الدورة", "Course ownership"),
+            platform: t("دورة المنصة", "Platform-owned"),
+            platformHint: t(
+              "تنشرها المنصة؛ ١٠٠٪ من الإيراد للمنصة.",
+              "Published by the platform; 100% of revenue goes to the platform.",
+            ),
+            teacher: t("دورة معلم", "Teacher-owned"),
+            teacherHint: t(
+              "مرتبطة بمعلم محدد؛ الإيراد مشترك معه.",
+              "Tied to a specific teacher; revenue is shared with them.",
+            ),
+            selectTeacher: t("المعلم المالك", "Owning teacher"),
+            selectTeacherPlaceholder: t("اختر المعلم…", "Select a teacher…"),
+            noTeachers: t("لا يوجد معلمون مسجلون بعد", "No teachers registered yet"),
+          }}
+        />
 
         <div>
           <label className="mb-1.5 block text-sm font-medium" htmlFor="title_ar">

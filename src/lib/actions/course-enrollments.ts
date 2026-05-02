@@ -72,18 +72,20 @@ export async function enrollFree(courseId: string) {
     logError("emit course.enrolled failed", err, { tag: "course-enrollments", courseId }),
   );
 
-  // Notify the teacher of the new enrollment
+  // Notify the teacher of the new enrollment when there is one.
+  // Platform-owned courses have no teacher attached — the admin digest
+  // covers those.
   const { data: courseRow } = await supabase
     .from("courses")
     .select("teacher_id, title_ar")
     .eq("id", courseId)
-    .single<{ teacher_id: string; title_ar: string }>();
+    .single<{ teacher_id: string | null; title_ar: string }>();
   const { data: studentProfile } = await supabase
     .from("profiles")
     .select("full_name")
     .eq("id", user.id)
     .single<{ full_name: string | null }>();
-  if (courseRow) {
+  if (courseRow?.teacher_id) {
     await notify(
       courseRow.teacher_id,
       "course",
@@ -116,11 +118,18 @@ export async function initiateEnrollmentCheckout(courseId: string) {
   }
 
   // TODO Stage 11: create Stripe Checkout Session
-  // 1. fetch course (verify published + paid)
-  // 2. compute platform_fee_cents = round(price_cents * 0.30)
-  // 3. compute teacher_earnings_cents = price_cents - platform_fee_cents
-  // 4. create Stripe Checkout Session with metadata { courseId, studentId }
-  // 5. return checkout_url
+  // 1. fetch course (verify published + paid). Read at least:
+  //    price_cents, currency, ownership, teacher_revenue_share_bps.
+  // 2. compute the split via computeCourseRevenueSplit() in
+  //    src/lib/courses/revenue-split.ts — that helper is the single source
+  //    of truth for cents-exact platform-vs-teacher math and is shared
+  //    with the post-payment enrollment-insert path. Platform-owned
+  //    courses produce { platformFeeCents: priceCents, teacherEarningsCents: 0 }.
+  // 3. create Stripe Checkout Session with metadata { courseId, studentId }.
+  // 4. on webhook success, insert into course_enrollments with the snapshot
+  //    fields { amount_paid_cents, platform_fee_cents, teacher_earnings_cents,
+  //    currency, source: 'purchase', payment_id }.
+  // 5. return checkout_url.
   return {
     ok: false as const,
     error: "Stripe checkout will land in Stage 11",
