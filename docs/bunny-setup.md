@@ -55,38 +55,45 @@ Two more values you need:
 
 ## Set the webhook
 
-Bunny will POST to our webhook when a video finishes processing.
+Bunny will POST to our webhook when a video state changes.
 
-1. Library → **Settings** → **Webhook**.
+1. Stream → your library → **API** tab → scroll to **Webhook URL**.
 2. **Webhook URL**: `https://www.furqan.today/api/webhooks/bunny`
    ⚠️ NOT the apex `furqan.today` — Vercel 307s the apex to `www`, and Bunny does not follow redirects on POST so the webhook is silently dropped.
-3. **Webhook events**: tick `Video Encoded`, `Video Failed`. Leave others off.
-4. **Webhook Authorization**: pick **Custom HMAC SHA256**. Bunny generates a signing secret. Copy it.
-5. Save.
+3. Click **Save**.
 
-Last value:
+That's it for the dashboard — Bunny Stream automatically signs every webhook with HMAC-SHA256 using the library's **Read-Only API key**. There's no separate "webhook secret" UI to copy from.
 
-- **Webhook Signing Secret** — what you just copied.
+## Find the Read-Only API key
 
-## Paste the four env vars
-
-You now have four values. Add them to `.env.local`:
+The Read-Only API key isn't directly exposed in the Stream UI. Fetch it via the Bunny Account API (your account-level API key lives at https://dash.bunny.net/account/api-key):
 
 ```bash
-BUNNY_STREAM_API_KEY=01234abc-...
-BUNNY_STREAM_LIBRARY_ID=123456
-BUNNY_STREAM_PULL_ZONE_HOSTNAME=vz-12345678-abc.b-cdn.net
-BUNNY_STREAM_TOKEN_AUTH_KEY=<32-char hex string>
-BUNNY_WEBHOOK_SECRET=<webhook signing secret>
+curl -H "AccessKey: <your-account-api-key>" \
+  "https://api.bunny.net/videolibrary/<libraryId>?includeAccessKey=true" \
+  | jq -r .ReadOnlyApiKey
 ```
 
-Then add the same five to Vercel:
+That value goes into the `BUNNY_WEBHOOK_SECRET` env var.
+
+## Paste the env vars
 
 ```bash
-echo "01234abc-..." | npx vercel env add BUNNY_STREAM_API_KEY production
-echo "01234abc-..." | npx vercel env add BUNNY_STREAM_API_KEY preview
-echo "01234abc-..." | npx vercel env add BUNNY_STREAM_API_KEY development
-# repeat for the other four
+BUNNY_STREAM_API_KEY=01234abc-...                 # full-access library key (createVideo, deleteVideo)
+BUNNY_STREAM_LIBRARY_ID=123456
+BUNNY_STREAM_PULL_ZONE_HOSTNAME=vz-12345678-abc.b-cdn.net
+BUNNY_STREAM_TOKEN_AUTH_KEY=<32-char hex string>  # Pull Zone token auth key (signed playback URLs)
+BUNNY_WEBHOOK_SECRET=<library Read-Only API key>  # webhook signature verification
+```
+
+Then add to Vercel:
+
+```bash
+for var in BUNNY_STREAM_API_KEY BUNNY_STREAM_LIBRARY_ID BUNNY_STREAM_PULL_ZONE_HOSTNAME BUNNY_STREAM_TOKEN_AUTH_KEY BUNNY_WEBHOOK_SECRET; do
+  for env in production preview development; do
+    echo "<value-of-$var>" | npx vercel env add "$var" "$env"
+  done
+done
 ```
 
 Or use the Vercel dashboard → Settings → Environment Variables.

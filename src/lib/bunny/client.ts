@@ -161,48 +161,76 @@ export function getSignedPlaybackUrl(videoId: string, ttlSeconds = 300): string 
 }
 
 // Webhook signature verification.
-// Bunny.net signs webhook bodies with HMAC-SHA256 using the secret you set in
-// the dashboard, sent in the Bunny-Signature header (lowercase hex).
+// Per https://docs.bunny.net/stream/webhooks (signature version v1):
+//   Header  X-BunnyStream-Signature-Version   = "v1"
+//   Header  X-BunnyStream-Signature-Algorithm = "hmac-sha256"
+//   Header  X-BunnyStream-Signature           = lowercase hex HMAC-SHA256(rawBody, signingSecret)
+// The signing secret is the library's Read-Only API key (NOT the regular
+// API key, which is what we use for createVideo CRUD). Set it as
+// BUNNY_WEBHOOK_SECRET; the env name is preserved so existing env infra
+// keeps working — only the *source* of the value changes.
 export function verifyBunnyWebhookSignature(
   rawBody: string,
   providedSignature: string,
+  signatureVersion: string,
+  signatureAlgorithm: string,
 ): boolean {
+  if (signatureVersion !== "v1") return false;
+  if (signatureAlgorithm !== "hmac-sha256") return false;
+
   const secret = process.env.BUNNY_WEBHOOK_SECRET;
   if (!secret) {
     throw new Error(
-      "BUNNY_WEBHOOK_SECRET is not configured. Set it from the Bunny dashboard webhook section.",
+      "BUNNY_WEBHOOK_SECRET is not configured. Set it to your Bunny Stream library's Read-Only API key (api.bunny.net/videolibrary/<id>?includeAccessKey=true → ReadOnlyApiKey).",
     );
   }
   const expected = crypto
     .createHmac("sha256", secret)
-    .update(rawBody)
+    .update(rawBody, "utf8")
     .digest("hex");
 
-  if (expected.length !== providedSignature.length) return false;
+  if (
+    typeof providedSignature !== "string" ||
+    providedSignature.length !== expected.length ||
+    !/^[0-9a-f]+$/.test(providedSignature)
+  ) {
+    return false;
+  }
   return crypto.timingSafeEqual(
-    Buffer.from(expected, "hex"),
-    Buffer.from(providedSignature, "hex"),
+    Buffer.from(expected, "utf8"),
+    Buffer.from(providedSignature, "utf8"),
   );
 }
 
 // Bunny's webhook Status field (integer enum) mapped to our text status column.
-//   0=Created, 1=Uploaded, 2=Processing, 3=Transcoding, 4=Finished,
-//   5=Error, 6=UploadFailed, 7=JitSegmenting
+// Per https://docs.bunny.net/stream/webhooks:
+//   0=Queued, 1=Processing, 2=Encoding, 3=Finished, 4=ResolutionFinished,
+//   5=Failed, 6=PresignedUploadStarted, 7=PresignedUploadFinished,
+//   8=PresignedUploadFailed, 9=CaptionsGenerated, 10=TitleOrDescriptionGenerated
+// 9 + 10 are non-status events (extra metadata after a video is already
+// ready). Returning null tells callers to skip the video_status update so
+// a "captions generated" webhook doesn't bounce a ready video back to
+// processing.
 export function bunnyStatusToVideoStatus(
   bunnyStatus: number,
-): "uploading" | "processing" | "ready" | "failed" {
+): "uploading" | "processing" | "ready" | "failed" | null {
   switch (bunnyStatus) {
-    case 4:
-      return "ready";
-    case 5:
-    case 6:
-      return "failed";
-    case 0:
-    case 1:
+    case 0: // Queued
+    case 6: // PresignedUploadStarted
+    case 7: // PresignedUploadFinished (uploaded but not yet encoded)
       return "uploading";
-    case 2:
-    case 3:
-    case 7:
+    case 1: // Processing
+    case 2: // Encoding
+      return "processing";
+    case 3: // Finished
+    case 4: // ResolutionFinished — first one signals video is playable
+      return "ready";
+    case 5: // Failed
+    case 8: // PresignedUploadFailed
+      return "failed";
+    case 9:  // CaptionsGenerated — non-status event, ignore
+    case 10: // TitleOrDescriptionGenerated — non-status event, ignore
+      return null;
     default:
       return "processing";
   }

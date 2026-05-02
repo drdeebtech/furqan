@@ -60,8 +60,15 @@ async function logBunnyWebhook(
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const startedAt = new Date().toISOString();
   const rawBody = await req.text();
-  const signature =
-    req.headers.get("bunny-signature") ?? req.headers.get("Bunny-Signature") ?? "";
+  // Per Bunny stream webhook docs (signature version v1):
+  //   X-BunnyStream-Signature-Version   v1
+  //   X-BunnyStream-Signature-Algorithm hmac-sha256
+  //   X-BunnyStream-Signature           lowercase hex HMAC-SHA256
+  const signature = req.headers.get("x-bunnystream-signature") ?? "";
+  const signatureVersion =
+    req.headers.get("x-bunnystream-signature-version") ?? "";
+  const signatureAlgorithm =
+    req.headers.get("x-bunnystream-signature-algorithm") ?? "";
   const supabase = createAdminClient();
 
   if (!signature) {
@@ -80,7 +87,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   let valid = false;
   try {
-    valid = verifyBunnyWebhookSignature(rawBody, signature);
+    valid = verifyBunnyWebhookSignature(
+      rawBody,
+      signature,
+      signatureVersion,
+      signatureAlgorithm,
+    );
   } catch (err) {
     logError("bunny webhook signature verify failed", err, { tag: "bunny-webhook" });
     await logBunnyWebhook(supabase, {
@@ -128,6 +140,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const newStatus = bunnyStatusToVideoStatus(payload.Status);
+
+  // Non-status events (CaptionsGenerated, TitleOrDescriptionGenerated)
+  // return null — log them and short-circuit to avoid bouncing a ready
+  // video back to processing.
+  if (newStatus === null) {
+    await logBunnyWebhook(supabase, {
+      status: "success",
+      eventName: `bunny.video.event.${payload.Status}`,
+      payload: { VideoGuid: payload.VideoGuid, Status: payload.Status },
+      result: { ignored: true, reason: "non-status event" },
+      startedAt,
+    });
+    return NextResponse.json({ ok: true, ignored: true, status: payload.Status });
+  }
 
   let durationSeconds: number | null = null;
   if (newStatus === "ready") {

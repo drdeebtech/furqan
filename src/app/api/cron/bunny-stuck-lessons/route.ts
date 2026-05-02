@@ -105,6 +105,8 @@ export const GET = withCronMonitor(
         const info = await getVideo(lesson.bunny_video_id);
         const newStatus = bunnyStatusToVideoStatus(info.status);
 
+        // null = non-status event (CaptionsGenerated etc.) — keep current.
+        if (newStatus === null) continue;
         if (newStatus === lesson.video_status) continue;
 
         const updates: Record<string, unknown> = { video_status: newStatus };

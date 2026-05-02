@@ -318,6 +318,18 @@ export async function syncLessonStatusFromBunny(lessonId: string) {
   }
 
   const newStatus = bunnyStatusToVideoStatus(info.status);
+  // Non-status events (CaptionsGenerated etc.) → no transition, return current.
+  if (newStatus === null) {
+    return {
+      ok: true as const,
+      videoStatus: lesson.video_status as
+        | "uploading"
+        | "processing"
+        | "ready"
+        | "failed",
+      changed: false,
+    };
+  }
   const updates: Record<string, unknown> = { video_status: newStatus };
   if (info.length && info.length > 0) {
     updates.duration_seconds = Math.round(info.length);
