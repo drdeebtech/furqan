@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { ArrowRight, CalendarPlus, Clock, AlertCircle, ChevronDown } from "lucide-react";
 import { createBooking, type BookingResult } from "./actions";
@@ -92,10 +92,17 @@ export function BookingForm({
   // Mount gate — defers any clock-dependent rendering to the client. SSR
   // generates date labels in UTC (Vercel region) while the client generates
   // them in the user's timezone (Asia/Kuwait), so inline `new Date()` during
-  // render produces a hydration mismatch (JAVASCRIPT-NEXTJS-E4-4). After
-  // mount we own the clock and the user always sees their local dates.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+  // render produces a hydration mismatch (JAVASCRIPT-NEXTJS-E4-4).
+  //
+  // useSyncExternalStore returns the server-snapshot value during SSR and
+  // the client-snapshot value after hydration — the exact pattern this
+  // gate needs, without the setState-in-effect that the React compiler
+  // (correctly) refuses.
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   // Available days of week from teacher's schedule
   const availableDays = new Set(availability.map((s) => s.dayOfWeek));
