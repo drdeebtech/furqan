@@ -1,4 +1,4 @@
-name: Unit Tests (RLS + Silent-Fail Guard + ...)
+name: Unit Tests (RLS + Silent-Fail Guard + Type-Check + ...)
 
 on:
   pull_request:
@@ -6,11 +6,13 @@ on:
       - "src/**"
       - "package.json"
       - "vitest.config.ts"
+      - "tsconfig.json"
       - ".github/workflows/rls-tests.yml"
   push:
     branches: [main]
     paths:
       - "src/**"
+      - "tsconfig.json"
 
 jobs:
   unit:
@@ -28,6 +30,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Type-check (tsc --noEmit) — catches drift that vitest can't see
+        run: npx tsc --noEmit
 
       - name: Run vitest (RLS regression + silent-fail guard + helpers)
         env:
