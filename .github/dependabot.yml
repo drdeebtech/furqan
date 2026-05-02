@@ -1,0 +1,55 @@
+# Dependabot version updates for furqan
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# Strategy: weekly checks, minor + patch updates grouped per ecosystem to
+# minimize PR noise. Major version bumps fall through and open as individual
+# PRs (so they're reviewed deliberately rather than batched).
+
+version: 2
+updates:
+  # ---- npm: root package.json (Next.js app + every runtime/dev dep) ----
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "npm"
+    groups:
+      # All dev-time deps batched into one PR per week (testing, linting, types).
+      dev-minor-patch:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+      # All runtime deps batched into a second PR per week (Next, React,
+      # Supabase clients, Stripe, Daily, Sentry, etc.).
+      prod-minor-patch:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+    # Major bumps for anything (Next 16 → 17, React 19 → 20, etc.) are NOT
+    # grouped — they get their own PR so the breaking-change review isn't
+    # buried in a 30-package diff.
+
+  # ---- GitHub Actions: pinned `uses:` refs in .github/workflows ----
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "github-actions"
+    groups:
+      actions-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    # Notably this will surface the Node-20 deprecation in actions/checkout@v4
+    # and supabase/setup-cli@v1 by bumping them when their maintainers ship
+    # Node-24-compatible majors.
