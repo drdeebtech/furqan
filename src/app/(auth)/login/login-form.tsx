@@ -9,15 +9,22 @@ import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
 function oauthErrorMessage(code: string | null): string | null {
   if (!code) return null;
-  // TODO(human): map OAuth callback error codes to Arabic messages.
   // The callback at src/app/api/auth/callback/google/route.ts redirects with
-  // ?error=<code> on failure. Known codes:
-  //   - "oauth_missing_code"     (no `code` param arrived from Google)
-  //   - "oauth_exchange_failed"  (Supabase rejected the code-for-session swap)
-  //   - "oauth_no_user"          (session created but getUser returned null)
-  //   - "oauth_unexpected"       (anything else / thrown error)
-  // Return the Arabic string to display, or a generic fallback for unknown codes.
-  return null;
+  // ?error=<code> on failure. Most common live event is `oauth_exchange_failed`
+  // (PKCE verifier missing/expired — typically a Safari ITP edge or a multi-tab
+  // flow). Friendly retry-friendly copy beats a blank screen.
+  switch (code) {
+    case "oauth_missing_code":
+      return "تعذر إكمال تسجيل الدخول بحساب جوجل (كود الإذن غير موجود). حاول مرة أخرى.";
+    case "oauth_exchange_failed":
+      return "انتهت صلاحية محاولة تسجيل الدخول. اضغط على \"الدخول بحساب جوجل\" مرة أخرى من نفس المتصفح والنافذة.";
+    case "oauth_no_user":
+      return "لم نتمكن من قراءة بيانات حسابك بعد تسجيل الدخول. حاول مرة أخرى أو راسل الدعم.";
+    case "oauth_unexpected":
+      return "حدث خطأ غير متوقع أثناء تسجيل الدخول بحساب جوجل. حاول مرة أخرى.";
+    default:
+      return "تعذر تسجيل الدخول بحساب جوجل. حاول مرة أخرى.";
+  }
 }
 
 export function LoginForm() {
