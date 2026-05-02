@@ -406,6 +406,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bookings_class_offering_id_fkey"
+            columns: ["class_offering_id"]
+            isOneToOne: false
+            referencedRelation: "class_offerings"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "bookings_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
@@ -434,6 +441,20 @@ export type Database = {
             referencedColumns: ["booking_id"]
           },
           {
+            foreignKeyName: "bookings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
             foreignKeyName: "bookings_student_id_fkey"
             columns: ["student_id"]
             isOneToOne: false
@@ -456,6 +477,76 @@ export type Database = {
           },
           {
             foreignKeyName: "bookings_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_offerings: {
+        Row: {
+          capacity: number
+          created_at: string
+          description: string | null
+          duration_min: number
+          id: string
+          price_usd: number
+          scheduled_at: string
+          session_id: string | null
+          session_type: Database["public"]["Enums"]["session_type"]
+          status: string
+          teacher_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          capacity: number
+          created_at?: string
+          description?: string | null
+          duration_min: number
+          id?: string
+          price_usd: number
+          scheduled_at: string
+          session_id?: string | null
+          session_type: Database["public"]["Enums"]["session_type"]
+          status?: string
+          teacher_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          capacity?: number
+          created_at?: string
+          description?: string | null
+          duration_min?: number
+          id?: string
+          price_usd?: number
+          scheduled_at?: string
+          session_id?: string | null
+          session_type?: Database["public"]["Enums"]["session_type"]
+          status?: string
+          teacher_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_offerings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_offerings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "class_offerings_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -900,54 +991,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      class_offerings: {
-        Row: {
-          capacity: number
-          created_at: string
-          description: string | null
-          duration_min: number
-          id: string
-          price_usd: number
-          scheduled_at: string
-          session_id: string | null
-          session_type: Database["public"]["Enums"]["session_type"]
-          status: string
-          teacher_id: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          capacity: number
-          created_at?: string
-          description?: string | null
-          duration_min: number
-          id?: string
-          price_usd: number
-          scheduled_at: string
-          session_id?: string | null
-          session_type: Database["public"]["Enums"]["session_type"]
-          status?: string
-          teacher_id: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          capacity?: number
-          created_at?: string
-          description?: string | null
-          duration_min?: number
-          id?: string
-          price_usd?: number
-          scheduled_at?: string
-          session_id?: string | null
-          session_type?: Database["public"]["Enums"]["session_type"]
-          status?: string
-          teacher_id?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: []
       }
       courses: {
         Row: {
@@ -2016,14 +2059,20 @@ export type Database = {
           amount_local: number | null
           amount_usd: number
           booking_id: string | null
+          captured_at: string | null
           created_at: string
           exchange_rate_snapshot: number | null
           id: string
           local_currency: string | null
+          package_id: string | null
           paid_at: string | null
+          payer_email: string | null
+          paypal_capture_id: string | null
+          paypal_order_id: string | null
+          provider: string
           revenue_recognized: number
           status: Database["public"]["Enums"]["payment_status"]
-          stripe_payment_intent: string
+          stripe_payment_intent: string | null
           student_id: string
           tax_amount: number
           tax_rate: number
@@ -2033,14 +2082,20 @@ export type Database = {
           amount_local?: number | null
           amount_usd: number
           booking_id?: string | null
+          captured_at?: string | null
           created_at?: string
           exchange_rate_snapshot?: number | null
           id?: string
           local_currency?: string | null
+          package_id?: string | null
           paid_at?: string | null
+          payer_email?: string | null
+          paypal_capture_id?: string | null
+          paypal_order_id?: string | null
+          provider?: string
           revenue_recognized?: number
           status?: Database["public"]["Enums"]["payment_status"]
-          stripe_payment_intent: string
+          stripe_payment_intent?: string | null
           student_id: string
           tax_amount?: number
           tax_rate?: number
@@ -2050,14 +2105,20 @@ export type Database = {
           amount_local?: number | null
           amount_usd?: number
           booking_id?: string | null
+          captured_at?: string | null
           created_at?: string
           exchange_rate_snapshot?: number | null
           id?: string
           local_currency?: string | null
+          package_id?: string | null
           paid_at?: string | null
+          payer_email?: string | null
+          paypal_capture_id?: string | null
+          paypal_order_id?: string | null
+          provider?: string
           revenue_recognized?: number
           status?: Database["public"]["Enums"]["payment_status"]
-          stripe_payment_intent?: string
+          stripe_payment_intent?: string | null
           student_id?: string
           tax_amount?: number
           tax_rate?: number
@@ -2076,6 +2137,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "v_bookings"
             referencedColumns: ["booking_id"]
+          },
+          {
+            foreignKeyName: "payments_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "payments_student_id_fkey"
@@ -2158,7 +2226,7 @@ export type Database = {
           parent_phone?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
-          roles?: Database["public"]["Enums"]["user_role"][]
+          roles: Database["public"]["Enums"]["user_role"][]
           timezone?: string
           updated_at?: string
         }

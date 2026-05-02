@@ -292,9 +292,12 @@ export async function cancelOffering(id: string, reason?: string) {
   if (!res || "error" in res) return res;
   if (reason) {
     const supabase = await createClient();
-    await supabase.from("class_offerings").update({
+    const { error } = await supabase.from("class_offerings").update({
       description: `[CANCELLED] ${reason}`,
     } as never).eq("id", id);
+    if (error) {
+      logError("class-offerings cancel description update failed", error, { tag: "class-offerings" });
+    }
   }
   return res;
 }
