@@ -20,6 +20,7 @@ Run this at the start of every conversation before committing. Vercel Hobby plan
 - If deployment is "Blocked", check git author email matches `drdeebtech@gmail.com`
 - The `vercel.json` has `installCommand: "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install"` — do not remove this
 - Edge functions in `supabase/functions/` are excluded from `tsconfig.json` (Deno imports)
+- **Cron jobs go on n8n, not Vercel.** Vercel Hobby caps `vercel.json` crons at one invocation per day per entry — a `*/30 * * * *` (or any sub-daily) entry causes Vercel to silently reject every subsequent build with `"Hobby accounts are limited to daily cron jobs"`, but the rejection is invisible in `vercel ls` (rejected builds never enter the queue), so this looks like a broken GitHub→Vercel webhook. Keep route handlers under `src/app/api/cron/*/route.ts` (the existing dual-auth `Authorization: Bearer ${CRON_SECRET}` + `X-N8N-Secret: ${N8N_WEBHOOK_SECRET}` pattern in `audit-cleanup/route.ts` is the canonical shape) and trigger from n8n on the Mac mini. The current daily Vercel crons (audit-cleanup, reconciliation, email-health) can stay; do not add new ones unless the schedule is exactly daily.
 
 # Project Overview
 
@@ -443,7 +444,7 @@ After any code change:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **furqan** (7348 symbols, 12473 relationships, 289 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **furqan** (7411 symbols, 12591 relationships, 295 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
