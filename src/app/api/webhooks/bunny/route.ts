@@ -14,7 +14,7 @@ import { logError } from "@/lib/logger";
 async function logBunnyWebhook(
   supabase: ReturnType<typeof createAdminClient>,
   args: {
-    status: "success" | "failed";
+    status: "succeeded" | "failed";
     eventName: string;
     lessonId?: string | null;
     payload: unknown;
@@ -146,7 +146,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // video back to processing.
   if (newStatus === null) {
     await logBunnyWebhook(supabase, {
-      status: "success",
+      status: "succeeded",
       eventName: `bunny.video.event.${payload.Status}`,
       payload: { VideoGuid: payload.VideoGuid, Status: payload.Status },
       result: { ignored: true, reason: "non-status event" },
@@ -181,7 +181,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (error) {
     if (error.code === "PGRST116") {
       await logBunnyWebhook(supabase, {
-        status: "success",
+        status: "succeeded",
         eventName: `bunny.video.${newStatus}`,
         payload: { VideoGuid: payload.VideoGuid, Status: payload.Status },
         result: { matched: false, note: "no lesson matching VideoGuid" },
@@ -236,7 +236,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   await logBunnyWebhook(supabase, {
-    status: "success",
+    status: "succeeded",
     eventName: `bunny.video.${newStatus}`,
     lessonId: updated?.id ?? null,
     payload: { VideoGuid: payload.VideoGuid, Status: payload.Status },

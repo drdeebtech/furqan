@@ -183,7 +183,7 @@ export const GET = withCronMonitor(
       .insert({
         workflow_name: "bunny.stuck-lessons-cron",
         event_name: "bunny.cron.scan",
-        status: failedCount > 0 ? "partial" : "success",
+        status: failedCount > 0 ? "failed" : "succeeded",
         payload_json: { scanned: stuck.length, cutoff } as never,
         result_json: {
           updated: updatedCount,
