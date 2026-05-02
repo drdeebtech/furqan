@@ -29,14 +29,22 @@ function safeCompare(a: string | null, b: string | undefined): boolean {
  * completes. If the teacher closes the tab before transcoding finishes,
  * that polling stops and the lesson stays at `processing` forever.
  *
- * This cron runs every 30 minutes, finds any lesson whose
- * `video_status` is still `uploading`/`processing` after 30 minutes
- * since last update, and re-asks Bunny what the actual status is. It
- * mirrors `syncLessonStatusFromBunny` but bypasses the per-row teacher
- * auth (cron runs as service role) and processes a batch.
+ * Triggered by an n8n workflow on the Mac mini (Vercel Hobby allows
+ * only daily crons, so frequent recovery polling lives where furqan's
+ * other automation already runs). The workflow should call this
+ * endpoint with the `X-N8N-Secret` header set to N8N_WEBHOOK_SECRET.
+ * Cadence is up to operator preference — every 15-30 min is plenty.
+ *
+ * Finds any lesson whose `video_status` is still `uploading` or
+ * `processing` after 30 minutes since last update, re-asks Bunny what
+ * the actual status is. Mirrors `syncLessonStatusFromBunny` but
+ * bypasses per-row teacher auth (cron runs as service role) and
+ * processes a batch.
  *
  * Safe to re-run; idempotent — calling Bunny on an already-ready video
- * just returns its terminal status.
+ * just returns its terminal status. The schedule string passed to
+ * withCronMonitor is informational (Sentry monitor cadence label); it
+ * does not affect when the endpoint actually runs.
  */
 export const GET = withCronMonitor(
   "cron-bunny-stuck-lessons",

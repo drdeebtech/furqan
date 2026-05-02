@@ -12,10 +12,6 @@
     {
       "path": "/api/cron/email-health",
       "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/cron/bunny-stuck-lessons",
-      "schedule": "*/30 * * * *"
     }
   ],
   "headers": [
