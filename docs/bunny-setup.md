@@ -58,7 +58,8 @@ Two more values you need:
 Bunny will POST to our webhook when a video finishes processing.
 
 1. Library → **Settings** → **Webhook**.
-2. **Webhook URL**: `https://furqan.today/api/webhooks/bunny`
+2. **Webhook URL**: `https://www.furqan.today/api/webhooks/bunny`
+   ⚠️ NOT the apex `furqan.today` — Vercel 307s the apex to `www`, and Bunny does not follow redirects on POST so the webhook is silently dropped.
 3. **Webhook events**: tick `Video Encoded`, `Video Failed`. Leave others off.
 4. **Webhook Authorization**: pick **Custom HMAC SHA256**. Bunny generates a signing secret. Copy it.
 5. Save.

@@ -115,9 +115,13 @@ interface TusUploadCredentials {
 // TUS resumable upload signature.
 // Per Bunny docs: AuthorizationSignature = SHA256(libraryId + apiKey + expirationTime + videoId), hex-encoded.
 // The browser sends these as TUS upload headers; the API key never leaves the server.
+//
+// Default TTL is 4 hours so a 1.5–2 GB lecture on a slow mobile uplink (e.g.
+// Egypt at 5 Mbps) survives a few resumes without the signature expiring.
+// Bunny accepts up to 24h.
 export function getTusUploadSignature(
   videoId: string,
-  expiresInSeconds = 3600,
+  expiresInSeconds = 14400,
 ): TusUploadCredentials {
   const cfg = getConfig();
   const expirationTime = Math.floor(Date.now() / 1000) + expiresInSeconds;
