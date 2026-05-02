@@ -8,6 +8,44 @@ import {
 } from "@/lib/bunny/client";
 import { logError } from "@/lib/logger";
 
+// One-shot helper: write the outcome of a webhook delivery to automation_logs
+// so "did Bunny call us, and what happened" is answerable without log-diving.
+// Best-effort — never fails the request.
+async function logBunnyWebhook(
+  supabase: ReturnType<typeof createAdminClient>,
+  args: {
+    status: "success" | "failed";
+    eventName: string;
+    lessonId?: string | null;
+    payload: unknown;
+    result?: unknown;
+    error?: string;
+    startedAt: string;
+  },
+) {
+  await supabase
+    .from("automation_logs")
+    .insert({
+      workflow_name: "bunny.webhook",
+      event_name: args.eventName,
+      entity_type: args.lessonId ? "course_lesson" : null,
+      entity_id: args.lessonId ?? null,
+      status: args.status,
+      payload_json: args.payload as never,
+      result_json: (args.result ?? null) as never,
+      error_message: args.error ?? null,
+      started_at: args.startedAt,
+      finished_at: new Date().toISOString(),
+    } as never)
+    .then(({ error }) => {
+      if (error) {
+        logError("bunny webhook automation_logs insert failed", error, {
+          tag: "bunny-webhook",
+        });
+      }
+    });
+}
+
 // Bunny.net Stream webhook receiver.
 //
 // Configured in the Bunny dashboard at: Library → Settings → Webhook
@@ -20,11 +58,20 @@ import { logError } from "@/lib/logger";
 // re-run the status update; result is the same.
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const startedAt = new Date().toISOString();
   const rawBody = await req.text();
   const signature =
     req.headers.get("bunny-signature") ?? req.headers.get("Bunny-Signature") ?? "";
+  const supabase = createAdminClient();
 
   if (!signature) {
+    await logBunnyWebhook(supabase, {
+      status: "failed",
+      eventName: "bunny.webhook.rejected",
+      payload: { reason: "missing-signature" },
+      error: "missing signature",
+      startedAt,
+    });
     return NextResponse.json(
       { ok: false, error: "missing signature" },
       { status: 401 },
@@ -36,6 +83,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     valid = verifyBunnyWebhookSignature(rawBody, signature);
   } catch (err) {
     logError("bunny webhook signature verify failed", err, { tag: "bunny-webhook" });
+    await logBunnyWebhook(supabase, {
+      status: "failed",
+      eventName: "bunny.webhook.error",
+      payload: { reason: "verify-threw" },
+      error: (err as Error).message,
+      startedAt,
+    });
     return NextResponse.json(
       { ok: false, error: "signature verify failed" },
       { status: 500 },
@@ -43,6 +97,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   if (!valid) {
+    await logBunnyWebhook(supabase, {
+      status: "failed",
+      eventName: "bunny.webhook.rejected",
+      payload: { reason: "invalid-signature" },
+      error: "invalid signature",
+      startedAt,
+    });
     return NextResponse.json(
       { ok: false, error: "invalid signature" },
       { status: 401 },
@@ -67,7 +128,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const newStatus = bunnyStatusToVideoStatus(payload.Status);
-  const supabase = createAdminClient();
 
   let durationSeconds: number | null = null;
   if (newStatus === "ready") {
@@ -94,6 +154,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (error) {
     if (error.code === "PGRST116") {
+      await logBunnyWebhook(supabase, {
+        status: "success",
+        eventName: `bunny.video.${newStatus}`,
+        payload: { VideoGuid: payload.VideoGuid, Status: payload.Status },
+        result: { matched: false, note: "no lesson matching VideoGuid" },
+        startedAt,
+      });
       return NextResponse.json(
         { ok: true, note: "no lesson matching VideoGuid" },
         { status: 200 },
@@ -102,6 +169,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     logError("bunny webhook: lesson update failed", error, {
       tag: "bunny-webhook",
       videoId: payload.VideoGuid,
+    });
+    await logBunnyWebhook(supabase, {
+      status: "failed",
+      eventName: `bunny.video.${newStatus}`,
+      payload: { VideoGuid: payload.VideoGuid, Status: payload.Status },
+      error: error.message,
+      startedAt,
     });
     return NextResponse.json(
       { ok: false, error: "db update failed" },
@@ -134,6 +208,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       });
     }
   }
+
+  await logBunnyWebhook(supabase, {
+    status: "success",
+    eventName: `bunny.video.${newStatus}`,
+    lessonId: updated?.id ?? null,
+    payload: { VideoGuid: payload.VideoGuid, Status: payload.Status },
+    result: { lessonId: updated?.id, newStatus, durationSeconds },
+    startedAt,
+  });
 
   return NextResponse.json({ ok: true, lessonId: updated?.id, status: newStatus });
 }
