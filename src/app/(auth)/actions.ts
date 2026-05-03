@@ -41,6 +41,25 @@ export type AuthResult = {
 const MAX_LOGIN_ATTEMPTS_PER_HOUR = 10;
 const MAX_FORGOT_PASSWORD_PER_HOUR = 5;
 
+// Emergency-glass for known administrator emails when BotID's client SDK
+// fails to mint a token on their browser (extension, cache, ITP, automation
+// tooling — Sentry shows ~1 user, not platform-wide, so this is targeted
+// rather than disabling bot defense globally). Keyed on email because that's
+// the only identifier available before checkBotId() runs server-side. The
+// existing per-email rate limiter (MAX_LOGIN_ATTEMPTS_PER_HOUR=10) caps any
+// stuffing attempt against an allow-listed address.
+//
+// Set in Vercel: BOTID_BYPASS_EMAILS="owner@example.com,ops@example.com"
+const BOTID_BYPASS_EMAILS = (process.env.BOTID_BYPASS_EMAILS ?? "")
+  .split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+
+function shouldBypassBotId(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return BOTID_BYPASS_EMAILS.includes(email.trim().toLowerCase());
+}
+
 /**
  * DB-backed per-identifier rate limiter for auth flows.
  * Keys on the email (lowercased) — IP rotation doesn't bypass it.
@@ -100,28 +119,37 @@ export async function login(
   const password = formData.get("password") as string;
   const redirectTo = formData.get("redirect") as string | null;
 
-  const verification = await checkBotId();
   // Three-state BotID policy:
-  //   - confident bot     → block
-  //   - confident human   → allow
-  //   - ambiguous         → allow, but log so we can audit false positives
+  //   - allow-listed admin email → bypass entirely (still logged for audit)
+  //   - confident bot            → block
+  //   - confident human          → allow
+  //   - ambiguous                → allow, but log so we can audit false positives
   // Pure fail-closed (`!isHuman`) misclassified real users (Kuwait Safari
   // 2026-05-01, /teach/apply incident). Credential-stuffing risk on the
   // ambiguous-allow path is capped by the per-email rate limit below.
-  if (verification.isBot) {
-    logError("BotID flagged login as bot", new Error("login.bot_blocked"), {
+  if (shouldBypassBotId(email)) {
+    logError("BotID bypassed for allow-listed email", new Error("login.bot_bypass"), {
       component: "auth.login",
-      tag: "auth-bot-blocked",
+      tag: "auth-bot-bypass",
       metadata: { email },
     });
-    return { error: "تعذر التحقق من الطلب. حدِّث الصفحة وأعد المحاولة، أو جرّب من شبكة مختلفة. إذا استمرت المشكلة تواصل معنا عبر واتساب." };
-  }
-  if (!verification.isHuman) {
-    logError("BotID ambiguous on login — allowing through", new Error("login.bot_ambiguous"), {
-      component: "auth.login",
-      tag: "auth-bot-ambiguous",
-      metadata: { email },
-    });
+  } else {
+    const verification = await checkBotId();
+    if (verification.isBot) {
+      logError("BotID flagged login as bot", new Error("login.bot_blocked"), {
+        component: "auth.login",
+        tag: "auth-bot-blocked",
+        metadata: { email },
+      });
+      return { error: "تعذر التحقق من الطلب. حدِّث الصفحة وأعد المحاولة، أو جرّب من شبكة مختلفة. إذا استمرت المشكلة تواصل معنا عبر واتساب." };
+    }
+    if (!verification.isHuman) {
+      logError("BotID ambiguous on login — allowing through", new Error("login.bot_ambiguous"), {
+        component: "auth.login",
+        tag: "auth-bot-ambiguous",
+        metadata: { email },
+      });
+    }
   }
 
   if (!email || !password) {
@@ -220,26 +248,35 @@ export async function register(
   _prev: AuthResult,
   formData: FormData,
 ): Promise<AuthResult> {
-  const verification = await checkBotId();
-  // Three-state BotID policy — see login above for rationale.
-  if (verification.isBot) {
-    logError("BotID flagged register as bot", new Error("register.bot_blocked"), {
-      component: "auth.register",
-      tag: "auth-bot-blocked",
-    });
-    return { error: "تعذر التحقق من الطلب" };
-  }
-  if (!verification.isHuman) {
-    logError("BotID ambiguous on register — allowing through", new Error("register.bot_ambiguous"), {
-      component: "auth.register",
-      tag: "auth-bot-ambiguous",
-    });
-  }
-
+  // Read email first so the bypass check can run before checkBotId().
+  // Same rationale as login above (see BOTID_BYPASS_EMAILS docstring).
   const fullName = formData.get("full_name") as string;
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const confirmPassword = formData.get("confirm_password") as string;
+
+  if (shouldBypassBotId(email)) {
+    logError("BotID bypassed for allow-listed email", new Error("register.bot_bypass"), {
+      component: "auth.register",
+      tag: "auth-bot-bypass",
+      metadata: { email },
+    });
+  } else {
+    const verification = await checkBotId();
+    if (verification.isBot) {
+      logError("BotID flagged register as bot", new Error("register.bot_blocked"), {
+        component: "auth.register",
+        tag: "auth-bot-blocked",
+      });
+      return { error: "تعذر التحقق من الطلب" };
+    }
+    if (!verification.isHuman) {
+      logError("BotID ambiguous on register — allowing through", new Error("register.bot_ambiguous"), {
+        component: "auth.register",
+        tag: "auth-bot-ambiguous",
+      });
+    }
+  }
 
   if (!fullName || !email || !password) {
     return { error: "جميع الحقول مطلوبة" };
