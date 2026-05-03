@@ -184,13 +184,32 @@ export async function updateRoomMaxParticipants(roomName: string, maxParticipant
 }
 
 /**
- * Delete a room.
+ * Daily.co API error with HTTP status, so callers can distinguish "room
+ * already gone" (404) from genuine API failures.
  */
-export async function deleteRoom(roomName: string) {
+export class DailyApiError extends Error {
+  constructor(
+    public readonly endpoint: string,
+    public readonly status: number,
+    public readonly responseBody: string,
+  ) {
+    super(`Daily.co ${endpoint} error (${status}): ${responseBody}`);
+    this.name = "DailyApiError";
+  }
+}
+
+/**
+ * Delete a room. Throws DailyApiError on non-ok response (including 404 —
+ * callers can branch on `.status === 404` to treat "already gone" as success).
+ * This mirrors the throw-on-error pattern used by the rest of this module.
+ */
+export async function deleteRoom(roomName: string): Promise<void> {
   const apiKey = getApiKey();
   const response = await fetch(`${DAILY_API_BASE}/rooms/${roomName}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${apiKey}` },
   });
-  return response.ok;
+  if (!response.ok) {
+    throw new DailyApiError("delete-room", response.status, await response.text());
+  }
 }
