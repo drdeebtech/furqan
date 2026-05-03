@@ -60,7 +60,8 @@ export function BookingForm({
 
   // Picklist-driven label map for teacher_specialties keys
   // (memorization, murajaa, ijazah, women_only, ...). Distinct keyspace from
-  // the SessionType enum used by SESSION_TYPE_AR — see TODO(human) below.
+  // the SessionType enum used by SESSION_TYPE_AR; labelForSpecialty below
+  // resolves picklist first, then falls back to the legacy enum label.
   const specialtyLabelMap = new Map(
     specialtyLabels.map((s) => [s.key, { ar: s.label_ar, en: s.label_en }] as const),
   );
