@@ -63,6 +63,20 @@ interface BunnyVideoResponse {
   framerate?: number;
 }
 
+// Typed Bunny.net API error so callers can branch on `.status` (most useful:
+// catching 404 separately from real errors). Without this, callers had to
+// regex-match the message string, which is fragile.
+export class BunnyApiError extends Error {
+  constructor(
+    public readonly endpoint: "createVideo" | "getVideo" | "deleteVideo",
+    public readonly status: number,
+    public readonly responseBody: string,
+  ) {
+    super(`Bunny ${endpoint} failed: ${status} ${responseBody}`);
+    this.name = "BunnyApiError";
+  }
+}
+
 export async function createVideo(title: string): Promise<{ guid: string }> {
   const cfg = getConfig();
   const res = await fetch(`${BUNNY_API_BASE}/library/${cfg.libraryId}/videos`, {
@@ -75,7 +89,7 @@ export async function createVideo(title: string): Promise<{ guid: string }> {
     body: JSON.stringify({ title }),
   });
   if (!res.ok) {
-    throw new Error(`Bunny createVideo failed: ${res.status} ${await res.text()}`);
+    throw new BunnyApiError("createVideo", res.status, await res.text());
   }
   const data = (await res.json()) as BunnyVideoResponse;
   return { guid: data.guid };
@@ -88,7 +102,7 @@ export async function getVideo(videoId: string): Promise<BunnyVideoResponse> {
     { headers: { AccessKey: cfg.apiKey, Accept: "application/json" } },
   );
   if (!res.ok) {
-    throw new Error(`Bunny getVideo failed: ${res.status} ${await res.text()}`);
+    throw new BunnyApiError("getVideo", res.status, await res.text());
   }
   return res.json() as Promise<BunnyVideoResponse>;
 }
@@ -100,7 +114,7 @@ export async function deleteVideo(videoId: string): Promise<void> {
     { method: "DELETE", headers: { AccessKey: cfg.apiKey } },
   );
   if (!res.ok && res.status !== 404) {
-    throw new Error(`Bunny deleteVideo failed: ${res.status} ${await res.text()}`);
+    throw new BunnyApiError("deleteVideo", res.status, await res.text());
   }
 }
 

@@ -1,12 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  BunnyApiError,
   bunnyStatusToVideoStatus,
   getVideo,
   verifyBunnyWebhookSignature,
   type BunnyWebhookPayload,
 } from "@/lib/bunny/client";
-import { logError } from "@/lib/logger";
+import { logError, logWarn } from "@/lib/logger";
 
 // One-shot helper: write the outcome of a webhook delivery to automation_logs
 // so "did Bunny call us, and what happened" is answerable without log-diving.
@@ -161,10 +162,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const info = await getVideo(payload.VideoGuid);
       if (info.length && info.length > 0) durationSeconds = Math.round(info.length);
     } catch (err) {
-      logError("bunny webhook: getVideo failed (continuing anyway)", err, {
-        tag: "bunny-webhook",
-        videoId: payload.VideoGuid,
-      });
+      // 404 here is expected and recoverable: the video was deleted between
+      // Bunny firing the webhook and us asking back, OR a smoke-test webhook
+      // is using a fake VideoGuid. We have no duration to record but the
+      // status update still goes through — log to Sentry → Logs (visible,
+      // not paged) instead of Sentry → Issues. Other statuses are real bugs
+      // worth surfacing as issues. Fixes JAVASCRIPT-NEXTJS-E4-H.
+      if (err instanceof BunnyApiError && err.status === 404) {
+        logWarn("bunny webhook: getVideo 404 — continuing without duration", {
+          tag: "bunny-webhook",
+          videoId: payload.VideoGuid,
+        });
+      } else {
+        logError("bunny webhook: getVideo failed (continuing anyway)", err, {
+          tag: "bunny-webhook",
+          videoId: payload.VideoGuid,
+        });
+      }
     }
   }
 
