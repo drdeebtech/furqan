@@ -27,8 +27,13 @@ function safeCompare(a: string | null, b: string | undefined): boolean {
  * Resend is unreachable, it logs a critical error → Telegram fires →
  * we know to rotate before the next user hits the broken pipeline.
  *
- * Vercel Cron sends `Authorization: Bearer ${CRON_SECRET}` automatically.
- * Also accepts X-N8N-Secret so n8n can pull the trigger if needed.
+ * Trigger: n8n (Mac mini) — schedule a workflow that GETs this endpoint
+ * with the `X-N8N-Secret` header. Cadence: daily at 06:00 UTC. The
+ * schedule string passed to withCronMonitor is informational only.
+ *
+ * Previously fired by vercel.json crons; moved 2026-05-03 (see
+ * audit-cleanup/route.ts for the full migration rationale). Still
+ * accepts CRON_SECRET for operator-driven invocation.
  */
 export const GET = withCronMonitor("cron-email-health", "0 6 * * *", async (request: Request) => {
   const cronAuth = request.headers.get("authorization");
