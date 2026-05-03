@@ -40,6 +40,7 @@ export const WEBHOOK_ROUTES: Record<string, string> = {
   "booking.confirmed": "/webhook/furqan-booking-confirmed",
   "session.notes_saved": "/webhook/furqan-session-notes-saved",
   "session.no_show": "/webhook/furqan-no-show-parent",
+  "session.auto_completed": "/webhook/furqan-session-auto-completed",
   "homework.graded": "/webhook/furqan-homework-graded",
   "profile.created": "/webhook/furqan-profile-created",
   "teacher.cv_submitted": "/webhook/furqan-cv-event",
