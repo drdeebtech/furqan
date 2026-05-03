@@ -21,8 +21,8 @@ export function withCronMonitor<H extends (req: Request) => Promise<Response>>(
   handler: H,
   options?: { maxRuntimeMinutes?: number; checkinMarginMinutes?: number; timezone?: string },
 ): H {
-  const wrapped = ((req: Request) =>
-    Sentry.withMonitor(
+  const wrapped = (async (req: Request) => {
+    const response = await Sentry.withMonitor(
       slug,
       () => handler(req),
       {
@@ -33,6 +33,13 @@ export function withCronMonitor<H extends (req: Request) => Promise<Response>>(
         failureIssueThreshold: 2,  // need 2 consecutive misses before alerting
         recoveryThreshold: 1,
       },
-    )) as H;
+    );
+    // On Vercel Functions the process can terminate as soon as we return,
+    // before the SDK transport finishes posting the closing check-in. That
+    // makes every successful run look like a timeout to Sentry. Block on
+    // flush (≤2s) so the ok/error check-in lands before we exit.
+    await Sentry.flush(2000);
+    return response;
+  }) as H;
   return wrapped;
 }
