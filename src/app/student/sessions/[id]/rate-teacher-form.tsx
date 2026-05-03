@@ -104,7 +104,7 @@ export function RateTeacherForm({
       />
 
       {error && (
-        <p className="mb-3 text-sm text-error">{error}</p>
+        <p role="alert" aria-atomic="true" className="mb-3 text-sm text-error">{error}</p>
       )}
 
       <button

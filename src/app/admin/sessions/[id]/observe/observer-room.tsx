@@ -53,7 +53,7 @@ export function ObserverRoom({ sessionId }: { sessionId: string }) {
   return (
     <div>
       {error && (
-        <div className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</div>
+        <div role="alert" aria-atomic="true" className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</div>
       )}
 
       {!joined && !loading && (
