@@ -360,7 +360,9 @@ Find the short ID in the Sentry issue header (looks like `JAVASCRIPT-NEXTJS-E4-N
 
 ## Database Migrations Policy
 
-⚠️ **The auto-deploy was broken from 2026-04-26 through 2026-04-27.** Migrations v16_001 + v16_002 were the first to expose it: they pushed to main, the Branching integration silently ignored them, and production stayed at v15_008 until the migrations were applied manually via `supabase db query --linked --file`. Root cause: Supabase only recognizes files at `supabase/migrations/` with the standard `<YYYYMMDDhhmmss>_<name>.sql` filename. Our existing `src/lib/supabase/migrations/v9_001_*.sql` … `v16_002_*.sql` files match neither and are invisible to the tooling.
+⚠️ **The Supabase Branching GitHub integration silently skips applies more than once a month** (incidents: 2026-04-26..27, 2026-05-01..02, 2026-05-03). Each time, the SQL never runs and the tracker never updates, but no error surfaces — you only find out when prod code SELECTs columns the schema doesn't have. **Do not trust the integration as the source of truth.**
+
+The `.github/workflows/supabase-migrate.yml` workflow is now the source of truth. It runs `supabase db push --linked` on every push to `main` that touches `supabase/migrations/**`, and a dry-run on every PR. A failed push is a failed CI step that you can read, fix, and re-run. The Branching integration is left enabled as belt-and-suspenders but is no longer load-bearing.
 
 ### Going forward — new migrations
 
@@ -371,11 +373,13 @@ Use the helper script:
 # → creates supabase/migrations/<UTC timestamp>_add_session_tags.sql
 ```
 
-Then edit the file with your DDL, commit, push to `main`. The Branching integration auto-applies it. New migrations are tracked in `supabase_migrations.schema_migrations` (Supabase's internal tracker) — **don't** add the `insert into public.schema_migrations` footer that the v* files use.
+Then edit the file with your DDL, commit, push to `main`. The `Supabase Migrate` GitHub Action runs `supabase db push --linked` and verifies the tracker. PRs get a dry-run preview that shows exactly what would apply.
 
-Optional dry-run before push:
+New migrations are tracked in `supabase_migrations.schema_migrations` (Supabase's internal tracker) — **don't** add the `insert into public.schema_migrations` footer that the v* files use.
+
+Optional local dry-run before push:
 ```bash
-npx supabase db query --linked --file supabase/migrations/<your_file>.sql
+npx supabase db push --linked --dry-run
 ```
 
 ### Existing v* migrations
