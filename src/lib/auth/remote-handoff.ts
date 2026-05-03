@@ -29,20 +29,6 @@ import { logError } from "@/lib/logger";
 const HANDOFF_TTL_MS = 5 * 60 * 1000;
 const TARGET_PATH_MAX_LEN = 200;
 
-// `remote_handoff_tokens` is missing from src/types/supabase.generated.ts
-// until `npm run db:types` runs against the linked DB after the migration
-// at supabase/migrations/20260503195950_add_remote_handoff_tokens.sql
-// applies. Until then we punch through the typed schema with a single
-// adapter so callers stay readable. Returns `any` deliberately — chain-method
-// type-checking comes back once db:types regenerates.
-// TODO: drop this adapter and the `any`s once `npm run db:types` regenerates.
-type AdminClient = ReturnType<typeof createAdminClient>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function handoffs(admin: AdminClient): any {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (admin as any).from("remote_handoff_tokens");
-}
-
 export type RequestHandoffInput = { targetPath: string };
 export type RequestHandoffResult =
   | { ok: true; qrSvg: string; url: string; expiresAt: string }
@@ -162,7 +148,7 @@ export async function requestHandoff(input: RequestHandoffInput): Promise<Reques
 
   // Rate limit: one active code at a time per admin. Forces explicit revoke
   // before re-issuing, and stops a runaway loop minting magic links.
-  const { count: activeCount, error: countErr } = await handoffs(admin)
+  const { count: activeCount, error: countErr } = await admin.from("remote_handoff_tokens")
     .select("id", { count: "exact", head: true })
     .eq("admin_user_id", adminId)
     .is("used_at", null)
@@ -194,7 +180,7 @@ export async function requestHandoff(input: RequestHandoffInput): Promise<Reques
   const code = newCode();
   const expiresAt = new Date(Date.now() + HANDOFF_TTL_MS).toISOString();
 
-  const { error: insertErr } = await handoffs(admin).insert({
+  const { error: insertErr } = await admin.from("remote_handoff_tokens").insert({
     code_hash: hashCode(code),
     admin_user_id: adminId,
     target_path: validated.path,
@@ -236,7 +222,7 @@ export async function revokeMyHandoffs(): Promise<{ ok: boolean; revoked: number
     return { ok: false, revoked: 0 };
   }
   const admin = createAdminClient();
-  const { count, error } = await handoffs(admin)
+  const { count, error } = await admin.from("remote_handoff_tokens")
     .update({ used_at: new Date().toISOString(), used_ua: "self-revoke" } as never, { count: "exact" })
     .eq("admin_user_id", adminId)
     .is("used_at", null)
@@ -263,7 +249,7 @@ export async function consumeHandoff(rawCode: string, ip: string | null, ua: str
   // Single atomic update — `update ... where ... is null returning *` so a
   // racing second hit returns zero rows. Filtering on expires_at > now()
   // prevents claim of an expired row even if the cleanup cron is late.
-  const { data, error } = await handoffs(admin)
+  const { data, error } = await admin.from("remote_handoff_tokens")
     .update({
       used_at: new Date().toISOString(),
       used_ip: ip,
@@ -273,7 +259,7 @@ export async function consumeHandoff(rawCode: string, ip: string | null, ua: str
     .is("used_at", null)
     .gt("expires_at", new Date().toISOString())
     .select("supabase_token_hash, target_path")
-    .single() as { data: { supabase_token_hash: string; target_path: string } | null; error: unknown };
+    .single<{ supabase_token_hash: string; target_path: string }>();
 
   if (error || !data) {
     // Don't distinguish "no such code" from "already used / expired" in the

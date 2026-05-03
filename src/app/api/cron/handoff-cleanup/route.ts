@@ -44,12 +44,10 @@ export const GET = withCronMonitor("cron-handoff-cleanup", "0 3 * * *", async (r
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const admin = createAdminClient();
 
-  // Cast through `unknown` until generated types include remote_handoff_tokens
-  // (the migration sits at supabase/migrations/20260503195950_*.sql).
-  const tbl = (admin as unknown as { from: (t: string) => ReturnType<typeof admin.from> }).from(
-    "remote_handoff_tokens",
-  );
-  const { count, error } = await tbl.delete({ count: "exact" }).lt("expires_at", cutoff);
+  const { count, error } = await admin
+    .from("remote_handoff_tokens")
+    .delete({ count: "exact" })
+    .lt("expires_at", cutoff);
 
   if (error) throw new Error(`handoff-cleanup: ${error.message}`);
 

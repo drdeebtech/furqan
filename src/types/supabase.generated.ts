@@ -2513,6 +2513,45 @@ export type Database = {
         }
         Relationships: []
       }
+      remote_handoff_tokens: {
+        Row: {
+          admin_user_id: string
+          code_hash: string
+          created_at: string
+          expires_at: string
+          id: string
+          supabase_token_hash: string
+          target_path: string
+          used_at: string | null
+          used_ip: unknown
+          used_ua: string | null
+        }
+        Insert: {
+          admin_user_id: string
+          code_hash: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          supabase_token_hash: string
+          target_path: string
+          used_at?: string | null
+          used_ip?: unknown
+          used_ua?: string | null
+        }
+        Update: {
+          admin_user_id?: string
+          code_hash?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          supabase_token_hash?: string
+          target_path?: string
+          used_at?: string | null
+          used_ip?: unknown
+          used_ua?: string | null
+        }
+        Relationships: []
+      }
       resources: {
         Row: {
           category: string
