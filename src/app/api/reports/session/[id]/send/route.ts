@@ -42,6 +42,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .select("role")
       .eq("id", user.id)
       .single<{ role: string }>();
+    // Send (which delivers email/WhatsApp to a parent and accepts an
+    // attacker-controlled `narrative_paragraph`) is admin/moderator only —
+    // teacher path intentionally absent so a teacher cannot spam a stranger's
+    // parent. The matching read endpoint allows teachers but only for their
+    // own sessions.
     if (!actor || !["admin", "moderator"].includes(actor.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }

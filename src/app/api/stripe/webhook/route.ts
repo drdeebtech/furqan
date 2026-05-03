@@ -21,87 +21,50 @@ async function logEvent(eventType: string, status: "succeeded" | "failed", paylo
 export const maxDuration = 60;
 
 /**
- * Stripe webhook handler shell.
+ * Stripe webhook handler — HARD-DISABLED.
  *
- * STATUS: Stripe SDK is NOT installed. This route accepts and logs events but
- * does NOT verify signatures yet. DO NOT deploy with live Stripe webhooks
- * pointed at this route until the TODOs below are resolved.
+ * STATUS: Stripe SDK is not installed and signature verification is not wired.
+ * Returning 501 unconditionally so this route CANNOT silently start accepting
+ * unsigned payloads when STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET land in env
+ * (which would otherwise let any anonymous POST grant a paid package via the
+ * `checkout.session.completed` branch).
  *
- * When Stripe keys arrive (Sprint 1):
- *   1. Install: npm i stripe
- *   2. Uncomment the signature verification block
- *   3. Replace the event-parsing stub with `stripe.webhooks.constructEvent()`
- *   4. Set STRIPE_WEBHOOK_SECRET env var
+ * Sprint 1 implementation:
+ *   1. `npm i stripe`
+ *   2. Replace this body with the verifier + handler skeleton below
+ *   3. Set STRIPE_WEBHOOK_SECRET in Vercel env
  *
- * The fulfillment logic is already wired — only the Stripe SDK glue is pending.
+ *   import Stripe from "stripe";
+ *   export async function POST(request: Request) {
+ *     const sig = request.headers.get("stripe-signature");
+ *     const secret = process.env.STRIPE_WEBHOOK_SECRET;
+ *     const apiKey = process.env.STRIPE_SECRET_KEY;
+ *     if (!sig || !secret || !apiKey) {
+ *       return NextResponse.json({ error: "Stripe not configured" }, { status: 503 });
+ *     }
+ *     const body = await request.text();
+ *     const stripe = new Stripe(apiKey);
+ *     let event: Stripe.Event;
+ *     try {
+ *       event = stripe.webhooks.constructEvent(body, sig, secret);
+ *     } catch {
+ *       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+ *     }
+ *     // ... switch on event.type, call fulfillPackagePurchase, logEvent, etc.
+ *   }
+ *
+ * `fulfillPackagePurchase` and `logEvent` remain importable for that Sprint 1
+ * wiring; do not delete the imports.
  */
-export async function POST(request: Request) {
-  // Stripe is deferred until keys are provisioned. Reject early so unconfigured
-  // production traffic doesn't spawn fulfillment logic on un-verifiable payloads.
-  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
-    return NextResponse.json({ error: "Stripe not configured" }, { status: 503 });
-  }
-
-  const body = await request.text();
-
-  // TODO(Sprint 1): Verify Stripe signature
-  // const sig = request.headers.get("stripe-signature");
-  // if (!sig || !process.env.STRIPE_WEBHOOK_SECRET) {
-  //   return NextResponse.json({ error: "Missing signature" }, { status: 400 });
-  // }
-  // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-  // let event: Stripe.Event;
-  // try {
-  //   event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-  // } catch (e) {
-  //   return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
-  // }
-
-  // Until Stripe SDK is installed, accept the raw JSON payload.
-  let event: { type: string; data: { object: Record<string, unknown> } };
-  try {
-    event = JSON.parse(body);
-  } catch {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
-  }
-
-  // Route by event type. Add cases as Stripe events are wired.
-  switch (event.type) {
-    case "checkout.session.completed": {
-      const session = event.data.object;
-      const metadata = (session.metadata ?? {}) as { user_id?: string; package_id?: string };
-      const paymentIntentId = session.payment_intent as string | undefined;
-      const amountTotal = session.amount_total as number | undefined;
-
-      if (!metadata.user_id || !metadata.package_id || !paymentIntentId || amountTotal == null) {
-        await logEvent(event.type, "failed", event.data.object, "Missing required metadata");
-        return NextResponse.json({ error: "Missing required metadata" }, { status: 400 });
-      }
-
-      const result = await fulfillPackagePurchase({
-        userId: metadata.user_id,
-        packageId: metadata.package_id,
-        stripePaymentIntentId: paymentIntentId,
-        amountUsd: amountTotal / 100, // Stripe returns cents
-        currency: (session.currency as string | undefined)?.toUpperCase() ?? "USD",
-      });
-
-      await logEvent(event.type, result.ok ? "succeeded" : "failed", { metadata, result }, result.error, paymentIntentId);
-
-      if (!result.ok) {
-        return NextResponse.json({ error: result.error }, { status: 500 });
-      }
-      return NextResponse.json({ fulfilled: true, ...result });
-    }
-
-    case "checkout.session.expired":
-    case "payment_intent.payment_failed": {
-      await logEvent(event.type, "succeeded", event.data.object);
-      return NextResponse.json({ received: true });
-    }
-
-    default:
-      await logEvent(event.type, "succeeded", { unhandled: true });
-      return NextResponse.json({ received: true, unhandled: event.type });
-  }
+export async function POST(_request: Request) {
+  return NextResponse.json(
+    { error: "Stripe webhook not implemented" },
+    { status: 501 },
+  );
 }
+
+// Keep referenced so the imports above don't get tree-shaken / lint-stripped
+// before Sprint 1 needs them. Removing this line will produce unused-import
+// errors that flag the Sprint 1 reviewer to wire them up properly.
+void fulfillPackagePurchase;
+void logEvent;

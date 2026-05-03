@@ -128,11 +128,7 @@ export default async function RootLayout({
       className={`${inter.variable} ${rakkas.variable} ${body.variable} h-full antialiased`}
     >
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}))}`,
-          }}
-        />
+        <script src="/sw-register.js" defer />
       </head>
       <body className="min-h-full flex flex-col">
         <a

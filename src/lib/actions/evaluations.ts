@@ -87,6 +87,23 @@ export async function createTeacherEvaluation(
     return { error: "ليس لديك صلاحية" };
   }
 
+  // IDOR fix: a teacher may only evaluate students they actually teach.
+  // Admin/moderator are exempt — they have legitimate cross-student standing.
+  // Without this check, any logged-in teacher could write a session_evaluations
+  // row against an arbitrary student_id.
+  if (profile.role === "teacher") {
+    const { data: relation } = await supabase
+      .from("bookings")
+      .select("id")
+      .eq("teacher_id", user.id)
+      .eq("student_id", studentId)
+      .limit(1)
+      .maybeSingle();
+    if (!relation) {
+      return { error: "لا يمكنك تقييم طالب لم تُدرّسه" };
+    }
+  }
+
   const { error } = await supabase.from("session_evaluations").insert({
     student_id: studentId,
     teacher_id: user.id,

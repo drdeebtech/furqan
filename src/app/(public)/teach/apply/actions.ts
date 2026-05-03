@@ -89,7 +89,10 @@ export async function submitTeacherApplication(
   formData: FormData,
 ): Promise<ApplyResult> {
   const verification = await checkBotId();
-  if (verification.isBot) {
+  // Fail-closed: ambiguous BotID verdicts are treated as bot. Matches the
+  // contact-form pattern; previous `verification.isBot` only blocked confident
+  // verdicts, allowing partial-failure or novel-automation requests through.
+  if (!verification.isHuman) {
     return { error: "تعذر التحقق من الطلب" };
   }
 

@@ -101,7 +101,10 @@ export async function login(
   const redirectTo = formData.get("redirect") as string | null;
 
   const verification = await checkBotId();
-  if (verification.isBot) {
+  // Fail-closed: only proceed when BotID is *positively* confident the request
+  // is a human. Previously checked `verification.isBot`, which lets ambiguous
+  // verdicts through. The contact form already uses this shape — match it.
+  if (!verification.isHuman) {
     // BotID has misclassified real users in the past (cf. /teach/apply
     // incident; also a Safari/Mac user in Kuwait City on 2026-05-01).
     // Logging when this fires so we can tell apart real bots from false
@@ -212,7 +215,8 @@ export async function register(
   formData: FormData,
 ): Promise<AuthResult> {
   const verification = await checkBotId();
-  if (verification.isBot) {
+  // Fail-closed (see login above for rationale).
+  if (!verification.isHuman) {
     return { error: "تعذر التحقق من الطلب" };
   }
 

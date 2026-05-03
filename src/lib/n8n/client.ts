@@ -98,15 +98,15 @@ export async function getExecutions(limit = 50): Promise<N8nExecution[]> {
 }
 
 export async function activateWorkflow(id: string): Promise<void> {
-  await n8nFetch(`/workflows/${id}/activate`, { method: "POST" });
+  await n8nFetch(`/workflows/${encodeURIComponent(id)}/activate`, { method: "POST" });
 }
 
 export async function deactivateWorkflow(id: string): Promise<void> {
-  await n8nFetch(`/workflows/${id}/deactivate`, { method: "POST" });
+  await n8nFetch(`/workflows/${encodeURIComponent(id)}/deactivate`, { method: "POST" });
 }
 
 export async function getWorkflowDetail(id: string): Promise<N8nWorkflowDetail> {
-  return n8nFetch<N8nWorkflowDetail>(`/workflows/${id}`);
+  return n8nFetch<N8nWorkflowDetail>(`/workflows/${encodeURIComponent(id)}`);
 }
 
 // n8n caps `limit` at 250 per page. For larger windows, see
@@ -136,11 +136,11 @@ export async function fetchAllExecutionsPaginated(target: number): Promise<N8nEx
 }
 
 export async function getExecutionDetail(id: string): Promise<N8nExecutionDetail> {
-  return n8nFetch<N8nExecutionDetail>(`/executions/${id}?includeData=true`);
+  return n8nFetch<N8nExecutionDetail>(`/executions/${encodeURIComponent(id)}?includeData=true`);
 }
 
 export async function getWorkflowExecutions(workflowId: string, limit = 50): Promise<N8nExecution[]> {
-  const res = await n8nFetch<{ data: N8nExecution[] }>(`/executions?workflowId=${workflowId}&limit=${limit}`);
+  const res = await n8nFetch<{ data: N8nExecution[] }>(`/executions?workflowId=${encodeURIComponent(workflowId)}&limit=${limit}`);
   return res.data;
 }
 

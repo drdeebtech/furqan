@@ -44,6 +44,28 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (!actor || !["admin", "moderator", "teacher"].includes(actor.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
+
+    // IDOR fix: a teacher may only read narratives for sessions they taught.
+    // Without this, any teacher can iterate session UUIDs and harvest other
+    // teachers' parent-facing reports (recitation errors, evaluations, PII).
+    if (actor.role === "teacher") {
+      const { data: session } = await supabase
+        .from("sessions")
+        .select("booking_id")
+        .eq("id", id)
+        .maybeSingle<{ booking_id: string }>();
+      if (!session) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      const { data: booking } = await supabase
+        .from("bookings")
+        .select("teacher_id")
+        .eq("id", session.booking_id)
+        .maybeSingle<{ teacher_id: string }>();
+      if (!booking || booking.teacher_id !== user.id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
   }
 
   const narrative = await buildSessionNarrative(id);

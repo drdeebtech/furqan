@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sendWhatsAppNotification } from "@/lib/whatsapp";
 import { logError } from "@/lib/logger";
+import { safeCompareSecret } from "@/lib/security/secrets";
 
 /**
  * Sentry watcher → WhatsApp bridge.
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
 
   const auth = req.headers.get("authorization") ?? "";
   const presented = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (presented !== expected) {
+  if (!safeCompareSecret(presented, expected)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
