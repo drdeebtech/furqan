@@ -21,8 +21,19 @@ function safeCompare(a: string | null, b: string | undefined): boolean {
  * (INSERT/UPDATE/DELETE) are EXEMPT and retained for compliance — financial
  * records require 7-year retention.
  *
- * Vercel Cron sends `Authorization: Bearer ${CRON_SECRET}` automatically.
- * Also accepts X-N8N-Secret so n8n can pull the trigger if needed.
+ * Trigger: n8n (Mac mini) — schedule a workflow that GETs this endpoint
+ * with the `X-N8N-Secret` header set to N8N_WEBHOOK_SECRET. Cadence is
+ * daily at 02:00 UTC; the schedule string passed to withCronMonitor
+ * is informational (Sentry monitor cadence label) and does not affect
+ * when the endpoint actually runs.
+ *
+ * Previously fired by vercel.json crons; moved 2026-05-03 because Vercel's
+ * cron registration entered a stuck state after a transient sub-daily
+ * entry, missing 2+ scheduled fires before detection. n8n is the
+ * canonical trigger for furqan crons (per CLAUDE.md).
+ *
+ * Auth: still accepts Vercel's `Authorization: Bearer ${CRON_SECRET}`
+ * for any operator who wants to invoke the route without n8n.
  */
 export const GET = withCronMonitor("cron-audit-cleanup", "0 2 * * *", async (request: Request) => {
   const cronAuth = request.headers.get("authorization");

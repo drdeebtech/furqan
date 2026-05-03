@@ -23,10 +23,13 @@ function safeCompare(a: string | null, b: string | undefined): boolean {
  * balances, etc.). Findings are Telegram'd to the operator. Clean runs
  * are silent.
  *
- * Hobby plan only allows daily crons, so this fires at 03:00 Kuwait.
+ * Trigger: n8n (Mac mini) — schedule a workflow that GETs this endpoint
+ * with the `X-N8N-Secret` header. Cadence: daily at 03:00 UTC. The
+ * schedule string passed to withCronMonitor is informational only.
  *
- * Auth: Vercel Cron sends `Authorization: Bearer ${CRON_SECRET}`. n8n can
- * also trigger via `X-N8N-Secret`.
+ * Previously fired by vercel.json crons; moved 2026-05-03 (see
+ * audit-cleanup/route.ts for the full migration rationale). Still
+ * accepts CRON_SECRET for operator-driven invocation.
  */
 export const GET = withCronMonitor("cron-reconciliation", "0 3 * * *", async (request: Request) => {
   const cronAuth = request.headers.get("authorization");
