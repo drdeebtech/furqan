@@ -41,9 +41,12 @@ const fetchFailures = {
   position: [448, 304],
   parameters: {
     method: "GET",
-    // Filter: status='failed' AND started_at >= now()-15min. We use Luxon's
-    // `$now` global available in n8n expressions.
-    url: `=${SUPABASE_URL}/rest/v1/automation_logs?status=eq.failed&started_at=gte.{{ $now.minus({minutes: 15}).toISO() }}&select=workflow_name,error_message,started_at&order=started_at.desc&limit=20`,
+    // Filter: status='failed' AND started_at >= now()-15min, EXCLUDING the
+    // sentinel's own rows. Without `workflow_name=neq.workflow-failure-sentinel`
+    // the sentinel re-detects its own status='failed' rows on every subsequent
+    // 15-min run and creates an infinite alert loop. We use Luxon's `$now`
+    // global available in n8n expressions.
+    url: `=${SUPABASE_URL}/rest/v1/automation_logs?status=eq.failed&workflow_name=neq.workflow-failure-sentinel&started_at=gte.{{ $now.minus({minutes: 15}).toISO() }}&select=workflow_name,error_message,started_at&order=started_at.desc&limit=20`,
     authentication: "predefinedCredentialType",
     nodeCredentialType: "supabaseApi",
     options: { timeout: 10000 },
