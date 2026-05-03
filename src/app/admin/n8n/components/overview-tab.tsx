@@ -79,14 +79,28 @@ export function OverviewTab() {
     loadData();
   }, [loadData]);
 
-  // Map: workflowId -> latest error timestamp
-  const errorMap = new Map<string, string>();
+  // n8n's /executions endpoint returns newest-first, so the first occurrence
+  // per workflowId is the latest. We derive three maps:
+  //   - latestExecMap:   most recent execution status per workflow
+  //   - lastSuccessMap:  timestamp of last green run (context for broken rows)
+  //   - lastErrorMap:    timestamp of last red run (rendered when broken)
+  const latestExecMap = new Map<string, Execution>();
+  const lastSuccessMap = new Map<string, string>();
+  const lastErrorMap = new Map<string, string>();
+  for (const ex of allExecutions) {
+    if (!latestExecMap.has(ex.workflowId)) latestExecMap.set(ex.workflowId, ex);
+    if (ex.status === "success" && !lastSuccessMap.has(ex.workflowId)) {
+      lastSuccessMap.set(ex.workflowId, new Date(ex.startedAt).toLocaleString(locale));
+    }
+    if (ex.status === "error" && !lastErrorMap.has(ex.workflowId)) {
+      lastErrorMap.set(ex.workflowId, new Date(ex.startedAt).toLocaleString(locale));
+    }
+  }
+  // Backfill error timestamps from the dedicated error feed for workflows
+  // whose only failures pre-date allExecutions' window.
   for (const ex of errorExecutions) {
-    if (ex.status === "error" && !errorMap.has(ex.workflowId)) {
-      errorMap.set(
-        ex.workflowId,
-        new Date(ex.startedAt).toLocaleString(locale),
-      );
+    if (ex.status === "error" && !lastErrorMap.has(ex.workflowId)) {
+      lastErrorMap.set(ex.workflowId, new Date(ex.startedAt).toLocaleString(locale));
     }
   }
 
@@ -105,7 +119,14 @@ export function OverviewTab() {
     workflowStats.set(ex.workflowId, stats);
   }
 
-  const failedWorkflowIds = new Set(errorMap.keys());
+  // "Currently broken" = the most recent execution we have on record errored.
+  // This is what we want to surface as a red flag — a 5-day-old error on a
+  // workflow that has succeeded 1,440 times since is just stale residue.
+  const currentlyBrokenIds = new Set<string>();
+  for (const [wfId, ex] of latestExecMap) {
+    if (ex.status === "error") currentlyBrokenIds.add(wfId);
+  }
+  const failedWorkflowIds = currentlyBrokenIds;
   const totalFailed = failedWorkflowIds.size;
 
   // Compute overall success rate
@@ -206,8 +227,11 @@ export function OverviewTab() {
     setRestarting(false);
   }
 
-  const lastExecution = errorExecutions[0]?.startedAt
-    ? new Date(errorExecutions[0].startedAt).toLocaleString(locale)
+  // Most recent execution across all workflows (any status). Was previously
+  // pulling from errorExecutions[0] which only showed the last *error* time
+  // mislabeled as "Last Execution".
+  const lastExecution = allExecutions[0]?.startedAt
+    ? new Date(allExecutions[0].startedAt).toLocaleString(locale)
     : "\u2014";
 
   return (
@@ -423,8 +447,9 @@ export function OverviewTab() {
                       wf={wf}
                       lang={lang}
                       t={t}
-                      hasError={errorMap.has(wf.id)}
-                      errorTime={errorMap.get(wf.id)}
+                      currentlyBroken={currentlyBrokenIds.has(wf.id)}
+                      lastErrorTime={lastErrorMap.get(wf.id)}
+                      lastSuccessTime={lastSuccessMap.get(wf.id)}
                       successRate={successRateFor(wf.id, workflowStats)}
                       togglingId={togglingId}
                       onToggle={handleToggle}
@@ -453,8 +478,9 @@ export function OverviewTab() {
               wf={wf}
               lang={lang}
               t={t}
-              hasError={errorMap.has(wf.id)}
-              errorTime={errorMap.get(wf.id)}
+              currentlyBroken={currentlyBrokenIds.has(wf.id)}
+              lastErrorTime={lastErrorMap.get(wf.id)}
+              lastSuccessTime={lastSuccessMap.get(wf.id)}
               successRate={successRateFor(wf.id, workflowStats)}
               togglingId={togglingId}
               onToggle={handleToggle}
@@ -524,8 +550,9 @@ interface WorkflowRowProps {
   wf: Workflow;
   lang: Lang;
   t: (ar: string, en: string) => string;
-  hasError: boolean;
-  errorTime: string | undefined;
+  currentlyBroken: boolean;
+  lastErrorTime: string | undefined;
+  lastSuccessTime: string | undefined;
   successRate: number | null;
   togglingId: string | null;
   onToggle: (id: string, name: string, active: boolean) => void;
@@ -535,8 +562,9 @@ function WorkflowRow({
   wf,
   lang,
   t,
-  hasError,
-  errorTime,
+  currentlyBroken,
+  lastErrorTime,
+  lastSuccessTime,
   successRate,
   togglingId,
   onToggle,
@@ -549,7 +577,7 @@ function WorkflowRow({
 
   return (
     <div
-      className={`glass-card flex items-start gap-3 p-4 ${hasError ? "border-error/20" : ""}`}
+      className={`glass-card flex items-start gap-3 p-4 ${currentlyBroken ? "border-error/20" : ""}`}
     >
       <div
         className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${wf.active ? "bg-emerald-400" : "bg-muted/30"}`}
@@ -607,12 +635,25 @@ function WorkflowRow({
         ) : (
           <p className="mt-1 text-xs text-muted/50">—</p>
         )}
-        {hasError && (
-          <p className="mt-0.5 flex items-center gap-1 text-xs text-red-400">
-            <XCircle size={10} />
-            {t("خطأ في", "Error at")} {errorTime}
+        {currentlyBroken ? (
+          <>
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-red-400">
+              <XCircle size={10} />
+              {t("آخر خطأ:", "Last error:")} {lastErrorTime ?? "—"}
+            </p>
+            {lastSuccessTime && (
+              <p className="mt-0.5 flex items-center gap-1 text-xs text-muted/70">
+                <CheckCircle2 size={10} />
+                {t("آخر نجاح:", "Last success:")} {lastSuccessTime}
+              </p>
+            )}
+          </>
+        ) : lastSuccessTime ? (
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted/70">
+            <CheckCircle2 size={10} className="text-success/70" />
+            {t("آخر تشغيل:", "Last run:")} {lastSuccessTime}
           </p>
-        )}
+        ) : null}
       </div>
 
       <button
