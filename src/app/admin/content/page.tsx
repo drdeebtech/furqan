@@ -27,12 +27,10 @@ export default async function AdminContentPage() {
 
   // Service-role would let us see inactive rows, but the regular client is
   // fine because is_admin() RLS allows admins to read everything anyway.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = supabase as any;
   const [faqsRes, featsRes, catsRes] = await Promise.all([
-    sb.from("site_faqs").select("*").order("sort_order"),
-    sb.from("site_features").select("*").order("slot").order("sort_order"),
-    sb.from("site_blog_categories").select("*").order("sort_order"),
+    supabase.from("site_faqs").select("*").order("sort_order"),
+    supabase.from("site_features").select("*").order("slot").order("sort_order"),
+    supabase.from("site_blog_categories").select("*").order("sort_order"),
   ]);
   const faqs = (faqsRes.data ?? []) as SiteFaq[];
   const features = (featsRes.data ?? []) as SiteFeature[];

@@ -23,9 +23,7 @@ export interface LegalDocumentVersion {
 }
 
 export async function getLegalDocument(kind: LegalKind): Promise<LegalDocument | null> {
-  // legal_documents was added in v16_002; supabase.generated.ts not regenerated.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = (await createClient()) as any;
+  const supabase = await createClient();
   const { data } = await supabase
     .from("legal_documents")
     .select("kind, body_ar, body_en, version, updated_at")
