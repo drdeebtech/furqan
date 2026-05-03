@@ -20,25 +20,11 @@ interface ActiveSession {
   scheduled_at: string;
 }
 
-function elapsedMin(s: ActiveSession): number {
-  return (Date.now() - new Date(s.started_at).getTime()) / 60000;
-}
-
-// "Stranded" = past scheduled end AND nobody is in the room. The 2× threshold
-// matches the auto-complete cron — by then a session is definitively abandoned,
-// so admins can close it without typing a reason. The system fills one in.
-function isStranded(s: ActiveSession): boolean {
-  return (
-    elapsedMin(s) > s.duration_min * 2 &&
-    !s.teacher_joined &&
-    !s.student_joined
-  );
-}
-
 function cardColor(s: ActiveSession): string {
   const bothJoined = s.teacher_joined && s.student_joined;
   const oneJoined = s.teacher_joined || s.student_joined;
-  const overtime = elapsedMin(s) > s.duration_min;
+  const elapsed = (Date.now() - new Date(s.started_at).getTime()) / 60000;
+  const overtime = elapsed > s.duration_min;
 
   if (overtime) return "border-error/40 bg-error/5";
   if (bothJoined) return "border-success/40 bg-success/5";
@@ -62,42 +48,17 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
     return () => clearInterval(id);
   }, [router, startTransition]);
 
-  async function runForceEnd(sessionId: string, finalReason: string) {
-    // The server action wraps `requireAdmin` which *throws* (not returns) on
-    // auth/RLS failures. Without try/catch the rejection is unhandled and the
-    // user sees no feedback — exactly the silent-fail mode this UI hit before.
-    try {
-      const result = await forceEndSession(sessionId, finalReason);
-      if (result.error) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success(t("تم إنهاء الجلسة", "Session ended"));
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "حدث خطأ غير متوقع";
-      toast.error(msg);
-    } finally {
-      setEndingId(null);
-      setReason("");
-    }
-  }
-
-  async function handleForceEnd(s: ActiveSession) {
-    // One-click path for stranded sessions — skip the reason input entirely.
-    if (isStranded(s)) {
-      await runForceEnd(s.id, "إنهاء تلقائي — جلسة مهجورة (انتهى الوقت + غير متصلين)");
-      return;
-    }
-    if (endingId !== s.id) {
-      setEndingId(s.id);
+  async function handleForceEnd(sessionId: string) {
+    if (endingId !== sessionId) {
+      setEndingId(sessionId);
       setReason("");
       return;
     }
-    if (!reason.trim()) {
-      toast.error(t("اكتب سبب الإنهاء أولاً", "Type a reason first"));
-      return;
-    }
-    await runForceEnd(s.id, reason.trim());
+    if (!reason.trim()) return;
+    const result = await forceEndSession(sessionId, reason.trim());
+    if (result.error) toast.error(result.error);
+    setEndingId(null);
+    setReason("");
   }
 
   if (sessions.length === 0) {
@@ -158,13 +119,13 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
                 type="text"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleForceEnd(s)}
+                onKeyDown={(e) => e.key === "Enter" && handleForceEnd(s.id)}
                 placeholder={t("سبب الإنهاء...", "End reason...")}
                 className="flex-1 rounded-xl glass-input px-3 py-2 text-sm"
                 autoFocus
                 aria-label={t("سبب إنهاء الجلسة", "Session end reason")}
               />
-              <button onClick={() => handleForceEnd(s)} disabled={isPending || !reason.trim()} className="rounded-lg p-1.5 text-success hover:bg-success/10 disabled:opacity-50" aria-label={t("تأكيد", "Confirm")}>
+              <button onClick={() => handleForceEnd(s.id)} disabled={isPending || !reason.trim()} className="rounded-lg p-1.5 text-success hover:bg-success/10 disabled:opacity-50" aria-label={t("تأكيد", "Confirm")}>
                 <Check size={16} />
               </button>
               <button onClick={() => { setEndingId(null); setReason(""); }} className="rounded-lg p-1.5 text-muted hover:bg-surface-alt" aria-label={t("إلغاء", "Cancel")}>
@@ -173,14 +134,12 @@ export function LiveSessionsMonitor({ sessions }: { sessions: ActiveSession[] })
             </div>
           ) : (
             <button
-              onClick={() => handleForceEnd(s)}
+              onClick={() => handleForceEnd(s.id)}
               disabled={isPending}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-error/30 bg-error/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-error/20 disabled:opacity-50"
             >
               <StopCircle size={14} />
-              {isStranded(s)
-                ? t("إنهاء فوري (مهجورة)", "Force End (stranded)")
-                : t("إنهاء الجلسة", "End Session")}
+              {t("إنهاء الجلسة", "End Session")}
             </button>
           )}
 
