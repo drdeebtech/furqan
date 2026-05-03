@@ -31,12 +31,17 @@ export default async function LiveSessionsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  /* Fetch active sessions: started but not ended */
+  /* Fetch active sessions: started but not ended within the last 4h.
+     The clamp prevents stranded rows (started but never explicitly ended)
+     from showing as "live" indefinitely; the cron at
+     /api/cron/auto-complete-sessions closes them at 2× duration_min. */
+  const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
   const { data: sessions } = await supabase
     .from("sessions")
     .select("id, booking_id, started_at, teacher_joined, student_joined")
     .not("started_at", "is", null)
     .is("ended_at", null)
+    .gte("started_at", fourHoursAgo)
     .order("started_at", { ascending: false })
     .returns<ActiveSessionRow[]>();
 

@@ -404,12 +404,15 @@ export async function getStudentLiveSessions(
 
   const bookingIds = bookings.map((b) => b.id);
 
+  // Stranded-session guard — see getAdminLiveSessions for rationale.
+  const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
   const { data: sessions } = await supabase
     .from("sessions")
     .select("id, booking_id, started_at, ended_at, lesson_plan")
     .in("booking_id", bookingIds)
     .not("started_at", "is", null)
     .is("ended_at", null)
+    .gte("started_at", fourHoursAgo)
     .returns<{
       id: string;
       booking_id: string;
@@ -832,12 +835,15 @@ export async function getTeacherLiveSessions(
 
   const bookingIds = bookings.map((b) => b.id);
 
+  // Stranded-session guard — see getAdminLiveSessions for rationale.
+  const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
   const { data: sessions } = await supabase
     .from("sessions")
     .select("id, booking_id, started_at, ended_at")
     .in("booking_id", bookingIds)
     .not("started_at", "is", null)
     .is("ended_at", null)
+    .gte("started_at", fourHoursAgo)
     .returns<{
       id: string;
       booking_id: string;
@@ -1123,6 +1129,11 @@ export async function getAdminLiveSessions(): Promise<LiveSessionItem[]> {
     } | null;
   };
 
+  // Stranded-session guard: a session that started but never ended will sit in
+  // this filter forever and pollute every "live" view. Clamp to a 4h window —
+  // covers 2× the longest realistic 90-min session and stays in sync with the
+  // auto-complete cron's 2× duration_min cutoff.
+  const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
   const { data: sessions } = await supabase
     .from("sessions")
     .select(
@@ -1130,6 +1141,7 @@ export async function getAdminLiveSessions(): Promise<LiveSessionItem[]> {
     )
     .not("started_at", "is", null)
     .is("ended_at", null)
+    .gte("started_at", fourHoursAgo)
     .returns<Row[]>();
 
   if (!sessions || sessions.length === 0) return [];
