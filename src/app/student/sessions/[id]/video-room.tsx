@@ -147,6 +147,13 @@ export function VideoRoom({
       const msg = e instanceof Error ? e.message : "";
       setError(`تعذر الانضمام للجلسة — ${msg || "تأكد من اتصالك بالإنترنت"}`);
       setLoading(false);
+      // Frame was created (line 96) but join() threw — destroy it and null
+      // the ref so the user can retry. Without this the early-return guard at
+      // the top of joinCall() would block retries until a full page reload.
+      if (frameRef.current) {
+        try { frameRef.current.destroy(); } catch { /* ignore double-destroy */ }
+        frameRef.current = null;
+      }
     }
   }
 
@@ -186,7 +193,7 @@ export function VideoRoom({
   return (
     <div>
       {error && (
-        <div className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</div>
+        <div role="alert" aria-atomic="true" className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</div>
       )}
       {halfwayNotice && (
         <div className="mb-4 rounded-lg border border-gold/30 bg-gold/10 p-3 text-sm text-gold" role="status">
