@@ -8,6 +8,7 @@ import * as Sentry from "@sentry/nextjs";
 import { ThemeToggle } from "@/lib/theme/theme-toggle";
 import { LangToggle } from "@/lib/i18n/lang-toggle";
 import { NotificationBell } from "@/components/shared/notification-bell";
+import { RemoteHandoffButton } from "@/components/admin/remote-handoff-button";
 import { useLang } from "@/lib/i18n/context";
 import { switchActiveRole } from "@/lib/actions/active-role";
 
@@ -210,6 +211,9 @@ export function Topbar({ role, roles }: { role?: Role; roles?: Role[] } = {}) {
 
       {/* Notification bell */}
       <NotificationBell />
+
+      {/* Open-on-phone QR handoff (admin only, desktop only) */}
+      {role === "admin" && <RemoteHandoffButton />}
 
       {/* Theme toggle */}
       <div className="glass flex h-11 w-11 items-center justify-center rounded-xl">
