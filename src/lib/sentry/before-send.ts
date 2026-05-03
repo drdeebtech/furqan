@@ -78,6 +78,19 @@ const DEMOTE_TO_WARNING = [
   /^oauth\.callback\.missing_code$/,
 ];
 
+// Routes that use React's `useActionState` hook (Next 15+) rather than a
+// fetchServerAction call. The form-action transport differs from server
+// actions, but a Safari WebKit network abort still surfaces as
+// "TypeError: Load failed". The existing fetchServerAction filter doesn't
+// catch these because the stack trace lacks `server-action-reducer` /
+// `fetchServerAction` markers. Add new useActionState pages here when
+// they ship.
+const USE_ACTION_STATE_ROUTES = new Set<string>([
+  "/login",
+  "/register",
+  "/forgot-password",
+]);
+
 // Hydration mismatch messages — these fire when server-rendered HTML differs
 // from client-rendered HTML. The most common cause in Furqan is
 // toLocaleDateString/toLocaleTimeString producing locale-dependent output
@@ -139,6 +152,20 @@ function allFramesAreFramework(frames: { filename?: string }[]): boolean {
 function getRawStackFrames(event: ErrorEvent): RawStackFrame[] {
   const exception = event.exception?.values?.[0] as { rawStacktrace?: { frames?: RawStackFrame[] } } | undefined;
   return exception?.rawStacktrace?.frames ?? [];
+}
+
+// Detect Mobile Safari versions with the documented service-worker network-
+// abort bug. iOS 15-16 had an ITP issue where backgrounded tabs would silently
+// abort in-flight fetches; the abort surfaces in user code as either
+// "Rendered more hooks" (React's hook-recovery path) or "TypeError: Load
+// failed" (the raw fetch failure). Safari 17 (iOS 17) shipped the fix.
+// We've seen zero matching real bugs over 6+ months of these events.
+function isOldMobileSafari(event: ErrorEvent): boolean {
+  const browser = (event.contexts as { browser?: { name?: string; version?: string } } | undefined)?.browser;
+  if (!browser || browser.name !== "Mobile Safari") return false;
+  const major = parseInt((browser.version ?? "").split(".")[0] ?? "", 10);
+  if (Number.isNaN(major)) return false;
+  return major < 17;
 }
 
 function rawFrameContextIncludesServerActionFetch(frame: RawStackFrame): boolean {
@@ -221,6 +248,10 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
     // code = WebKit aborted a network request (user navigated away mid-fetch,
     // wifi blip). Not actionable. JAVASCRIPT-NEXTJS-E4-3 was leaking here.
     if (allFramesAreFramework(frames)) return true;
+    // Route-based catch: useActionState pages don't go through
+    // fetchServerAction, so the marker checks above miss their network
+    // aborts. The transaction tag is the route that fired the form.
+    if (event.transaction && USE_ACTION_STATE_ROUTES.has(event.transaction)) return true;
   }
   if (
     msg === "Rendered more hooks than during the previous render." ||
@@ -231,6 +262,11 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
     // hooks bug. Use path-based detection because Sentry marks _next/
     // chunks as in_app:true, so a flag-based check leaks noise through.
     if (allFramesAreFramework(frames)) return true;
+    // iOS 15-16 Mobile Safari has a documented service-worker abort bug
+    // that surfaces as the React hook-recovery error. Safari 17+ shipped
+    // the fix. We've never seen a real user-code hook bug from old Safari
+    // here, so drop when both signals match.
+    if (isOldMobileSafari(event)) return true;
   }
 
   // Connection-abort errors from node:_http_server (abortIncoming /

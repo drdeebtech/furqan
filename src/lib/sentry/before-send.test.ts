@@ -279,6 +279,97 @@ describe("beforeSend", () => {
     expect(result).toBeNull();
   });
 
+  it("drops Load failed on useActionState routes (/login) even with an in-app form-action frame (E4-3)", () => {
+    // useActionState pages don't go through fetchServerAction, so the
+    // existing marker- and framework-only checks miss network aborts
+    // there. The transaction tag pins the route. Real users hitting
+    // wifi blips on the login form should not page anyone.
+    const result = beforeSend(
+      buildEvent({
+        transaction: "/login",
+        exception: {
+          values: [
+            {
+              type: "TypeError",
+              value: "Load failed",
+              stacktrace: {
+                frames: [
+                  { filename: "app:///_next/static/chunks/0d-5~nncqvl9l.js", function: "I", in_app: true },
+                  { filename: "src/app/(auth)/login/login-form.tsx", function: "handleSubmit", in_app: true },
+                ],
+              },
+            },
+          ],
+        },
+      }),
+      {} as EventHint,
+    );
+
+    expect(result).toBeNull();
+  });
+
+  it("drops 'Rendered more hooks' on iOS 16 Mobile Safari with in-app frames (E4-A)", () => {
+    // iOS 15-16 has the documented service-worker fetch-abort bug that
+    // surfaces as React's hook-recovery error. Safari 17 ships the fix.
+    // Since we've never seen a real hooks bug from old Safari here,
+    // route-and-version match is enough to drop.
+    const result = beforeSend(
+      buildEvent({
+        contexts: {
+          os: { name: "iOS" },
+          browser: { name: "Mobile Safari", version: "16.5" },
+        },
+        message: "Rendered more hooks than during the previous render.",
+        exception: {
+          values: [
+            {
+              type: "Error",
+              value: "Rendered more hooks than during the previous render.",
+              stacktrace: {
+                frames: [
+                  { filename: "src/components/shared/messages-view.tsx", function: "MessagesView", in_app: true },
+                ],
+              },
+            },
+          ],
+        },
+      }),
+      buildHint("Rendered more hooks than during the previous render."),
+    );
+
+    expect(result).toBeNull();
+  });
+
+  it("keeps 'Rendered more hooks' on a modern desktop browser with in-app frames", () => {
+    // Negative case: no version match, no framework-only frames — this
+    // is a real hooks bug and must reach Sentry.
+    const result = beforeSend(
+      buildEvent({
+        contexts: {
+          os: { name: "macOS" },
+          browser: { name: "Chrome", version: "127.0.0" },
+        },
+        message: "Rendered more hooks than during the previous render.",
+        exception: {
+          values: [
+            {
+              type: "Error",
+              value: "Rendered more hooks than during the previous render.",
+              stacktrace: {
+                frames: [
+                  { filename: "src/components/shared/messages-view.tsx", function: "MessagesView", in_app: true },
+                ],
+              },
+            },
+          ],
+        },
+      }),
+      buildHint("Rendered more hooks than during the previous render."),
+    );
+
+    expect(result).not.toBeNull();
+  });
+
   it("keeps NotFoundError when the stack has at least one in-app frame", () => {
     const result = beforeSend(
       buildEvent({
