@@ -9,6 +9,12 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://furqan.today/about" },
 };
 
+// ISR — about_values lives in site_features. Admin edits in /admin/content
+// already call revalidatePath("/about") so changes propagate within seconds.
+// The 10-min ceiling matches the homepage; "about" content rarely changes,
+// so this is conservative.
+export const revalidate = 600;
+
 export default async function AboutPage() {
   const values = await getFeaturesBySlot("about_values");
   return (
