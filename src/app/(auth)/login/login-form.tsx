@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { login, type AuthResult } from "../actions";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { ActionFeedback } from "@/components/shared/action-feedback";
 
 function oauthErrorMessage(code: string | null): string | null {
   if (!code) return null;
@@ -44,20 +45,28 @@ export function LoginForm() {
       <h2 className="font-display mb-1 text-2xl font-bold leading-tight">تسجيل الدخول</h2>
       <p className="mb-6 text-sm text-muted">Sign in to your account</p>
 
+      {/* Static URL-param-derived banners use direct role/aria so screen
+          readers announce them on first paint. ActionFeedback handles the
+          dynamic state.error case (which lands after form submission) and
+          already wires role="alert" + aria-atomic correctly. */}
       {justRegistered && (
-        <div className="mb-4 rounded-lg glass-success p-3 text-sm text-success">
+        <div
+          role="status"
+          aria-atomic="true"
+          className="mb-4 rounded-lg glass-success p-3 text-sm text-success"
+        >
           تم إنشاء الحساب بنجاح — سجّل دخولك الآن
         </div>
       )}
 
-      {state.error && (
-        <div className="mb-4 rounded-lg glass-danger p-3 text-sm text-error">
-          {state.error}
-        </div>
-      )}
+      <ActionFeedback state={state} />
 
       {oauthError && !state.error && (
-        <div className="mb-4 rounded-lg glass-danger p-3 text-sm text-error">
+        <div
+          role="alert"
+          aria-atomic="true"
+          className="mb-4 rounded-lg glass-danger p-3 text-sm text-error"
+        >
           {oauthError}
         </div>
       )}
