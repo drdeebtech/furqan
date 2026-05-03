@@ -14,6 +14,7 @@
     "test:ui": "playwright test --ui",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
+    "smoke:sentry-watch": "node --env-file=.env.local scripts/sentry-watch-smoke.mjs",
     "db:types": "supabase gen types typescript --linked > src/types/supabase.generated.ts",
     "sb:whoami": "bash scripts/sb/whoami.sh",
     "sb:sql": "bash scripts/sb/sql.sh",
