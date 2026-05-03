@@ -14,13 +14,11 @@ export default async function AdminLegalPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = supabase as any;
   const [docsRes, versionsRes] = await Promise.all([
-    sb.from("legal_documents")
+    supabase.from("legal_documents")
       .select("kind, body_ar, body_en, version, updated_at")
       .in("kind", ["terms", "privacy"]),
-    sb.from("legal_document_versions")
+    supabase.from("legal_document_versions")
       .select("id, kind, version, body_ar, body_en, effective_at, superseded_at, saved_by, created_at")
       .in("kind", ["terms", "privacy"])
       .order("version", { ascending: false })

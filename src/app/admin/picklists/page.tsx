@@ -14,12 +14,10 @@ export default async function AdminPicklistsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = supabase as any;
   const [langsRes, specsRes, recsRes] = await Promise.all([
-    sb.from("teacher_languages").select("*").order("sort_order"),
-    sb.from("teacher_specialties").select("*").order("sort_order"),
-    sb.from("teacher_recitations").select("*").order("sort_order"),
+    supabase.from("teacher_languages").select("*").order("sort_order"),
+    supabase.from("teacher_specialties").select("*").order("sort_order"),
+    supabase.from("teacher_recitations").select("*").order("sort_order"),
   ]);
   const languages = (langsRes.data ?? []) as TeacherLanguage[];
   const specialties = (specsRes.data ?? []) as TeacherLanguage[];
