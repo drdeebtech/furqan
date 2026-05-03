@@ -281,6 +281,23 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
     if (allNodeFrames && noInAppFrames) return true;
   }
 
+  // RSC stream connection abort — fires when the user navigates away (or
+  // loses network) mid-stream. Surfaces as `Error: Connection closed.` from
+  // react-server-dom-{turbopack,webpack}-client.browser.production.js with
+  // mechanism=auto.browser.global_handlers.onunhandledrejection. Not
+  // actionable from our code; React itself is just reporting that the
+  // streaming response was cut short. Match on exact message + stack frame
+  // path so a real "Connection closed" from elsewhere still surfaces.
+  // JAVASCRIPT-NEXTJS-E4-Q.
+  if (msg === "Connection closed.") {
+    for (const f of frames) {
+      if ((f.filename ?? "").includes("react-server-dom-")) return true;
+    }
+    for (const f of rawFrames) {
+      if ((f.filename ?? "").includes("react-server-dom-")) return true;
+    }
+  }
+
   // React DOM reconciliation errors caused by external DOM mutation —
   // primarily Chrome/Edge auto-translate moving nodes that React then
   // tries to remove or update. The stack is 100% react-dom internals
