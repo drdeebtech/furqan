@@ -3,9 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
-import { createRoom, deleteRoom, updateRoomMaxParticipants, createObserverToken } from "@/lib/daily";
+import { createRoom, deleteRoom, updateRoomMaxParticipants, createObserverToken, DailyApiError } from "@/lib/daily";
 import { notify } from "@/lib/notifications/dispatcher";
-import { logError } from "@/lib/logger";
+import { logError, logWarn } from "@/lib/logger";
 
 /* ── Row types for query results ──────────────────────────────────────────── */
 
@@ -212,11 +212,21 @@ export async function adminRecreateRoom(sessionId: string) {
 
   if (!booking) return { error: "الحجز غير موجود" };
 
-  /* Try to delete old room */
+  /* Try to delete old room. 404 means it's already gone — totally fine.
+   * Anything else (5xx, network failure) is a real Daily.co problem the
+   * operator should know about, even though we keep recreating below. */
   try {
     await deleteRoom(session.room_name);
-  } catch {
-    /* ignore – room may already be gone */
+  } catch (err) {
+    if (err instanceof DailyApiError && err.status === 404) {
+      logWarn("daily.co: deleteRoom 404 — room already gone, continuing", {
+        tag: "admin-sessions", roomName: session.room_name,
+      });
+    } else {
+      logError("daily.co: deleteRoom failed (continuing with recreate)", err, {
+        tag: "admin-sessions", roomName: session.room_name,
+      });
+    }
   }
 
   /* Create new room */
