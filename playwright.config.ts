@@ -24,10 +24,17 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: true,
-    timeout: 30_000,
-  },
+  // Spin up a local dev server only when BASE_URL points at localhost (the
+  // default). When BASE_URL targets a Vercel preview/prod URL — used by the
+  // auth-smoke-on-preview CI workflow — skip webServer so we hit the deployed
+  // build instead of starting a local one.
+  webServer:
+    process.env.BASE_URL && !process.env.BASE_URL.includes("localhost")
+      ? undefined
+      : {
+          command: "npm run dev",
+          url: "http://localhost:3000",
+          reuseExistingServer: true,
+          timeout: 30_000,
+        },
 });
