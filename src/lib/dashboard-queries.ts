@@ -518,6 +518,138 @@ export async function getStudentNextQuiz(
 }
 
 /**
+ * Murajaah daily plan for the student dashboard.
+ *
+ * Surfaces the most recently memorized portion in three trailing windows so
+ * the student gets a daily review prompt scaffolded by the classical
+ * memorize-then-revisit pattern (the heart of hifz):
+ *
+ *   - yesterday   = entries with progress_type='new' from the past 24h
+ *   - lastWeek    = entries with progress_type='new' from 2-7 days ago
+ *   - lastMonth   = entries with progress_type='new' from 8-30 days ago
+ *
+ * `reviewedToday` is true when the student has already logged a study_log
+ * entry today with kind='review' OR a student_progress row today with
+ * progress_type='muraja'. The dashboard hides the Murajaah prompt when
+ * either condition holds — its job is done for the day.
+ *
+ * Cadence chosen with the user (Phase B kickoff): always show all three
+ * windows. Three review touches > one adaptive prompt the student can't
+ * predict.
+ */
+export type MurajaahWindow = {
+  progressId: string;
+  surahFrom: number | null;
+  surahTo: number | null;
+  ayahFrom: number | null;
+  ayahTo: number | null;
+  loggedAt: string; // ISO
+};
+
+export async function getStudentMurajaahPlan(
+  studentId: string,
+): Promise<{
+  yesterday: MurajaahWindow | null;
+  lastWeek: MurajaahWindow | null;
+  lastMonth: MurajaahWindow | null;
+  reviewedToday: boolean;
+}> {
+  const supabase = await createClient();
+  const now = Date.now();
+  const dayMs = 86400_000;
+
+  // Window boundaries (lower-inclusive, upper-exclusive of now-N*day).
+  const yesterdayStart = new Date(now - 1 * dayMs).toISOString();
+  const lastWeekStart = new Date(now - 7 * dayMs).toISOString();
+  const lastWeekEnd = new Date(now - 1 * dayMs).toISOString(); // back through 24h ago
+  const lastMonthStart = new Date(now - 30 * dayMs).toISOString();
+  const lastMonthEnd = new Date(now - 7 * dayMs).toISOString();
+
+  // Today's start in local time, used for the "reviewed today" check.
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const todayStartIso = todayStart.toISOString();
+
+  type Row = {
+    id: string;
+    surah_from: number | null;
+    surah_to: number | null;
+    ayah_from: number | null;
+    ayah_to: number | null;
+    created_at: string;
+  };
+
+  const select = "id, surah_from, surah_to, ayah_from, ayah_to, created_at";
+
+  const [yesterdayRes, lastWeekRes, lastMonthRes, reviewedProgressRes, reviewedStudyRes] =
+    await Promise.all([
+      supabase
+        .from("student_progress")
+        .select(select)
+        .eq("student_id", studentId)
+        .eq("progress_type", "new")
+        .gte("created_at", yesterdayStart)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<Row>(),
+      supabase
+        .from("student_progress")
+        .select(select)
+        .eq("student_id", studentId)
+        .eq("progress_type", "new")
+        .gte("created_at", lastWeekStart)
+        .lt("created_at", lastWeekEnd)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<Row>(),
+      supabase
+        .from("student_progress")
+        .select(select)
+        .eq("student_id", studentId)
+        .eq("progress_type", "new")
+        .gte("created_at", lastMonthStart)
+        .lt("created_at", lastMonthEnd)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle<Row>(),
+      supabase
+        .from("student_progress")
+        .select("id", { count: "exact", head: true })
+        .eq("student_id", studentId)
+        .eq("progress_type", "muraja")
+        .gte("created_at", todayStartIso),
+      supabase
+        .from("study_log")
+        .select("id", { count: "exact", head: true })
+        .eq("student_id", studentId)
+        .eq("kind", "review")
+        .gte("started_at", todayStartIso),
+    ]);
+
+  const toWindow = (r: Row | null): MurajaahWindow | null =>
+    r
+      ? {
+          progressId: r.id,
+          surahFrom: r.surah_from,
+          surahTo: r.surah_to,
+          ayahFrom: r.ayah_from,
+          ayahTo: r.ayah_to,
+          loggedAt: r.created_at,
+        }
+      : null;
+
+  const reviewedToday =
+    (reviewedProgressRes.count ?? 0) > 0 || (reviewedStudyRes.count ?? 0) > 0;
+
+  return {
+    yesterday: toWindow(yesterdayRes.data ?? null),
+    lastWeek: toWindow(lastWeekRes.data ?? null),
+    lastMonth: toWindow(lastMonthRes.data ?? null),
+    reviewedToday,
+  };
+}
+
+/**
  * Calendar events for /student/calendar — combines bookings, homework due
  * dates, package expiries, and evaluation periods into a single
  * date-keyed list scoped to a month window. Returns one row per event;

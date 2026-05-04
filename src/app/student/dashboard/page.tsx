@@ -11,6 +11,7 @@ import {
   getStudentNextQuiz,
   getStudentStreak,
   getStudentHomeworkPulse,
+  getStudentMurajaahPlan,
 } from "@/lib/dashboard-queries";
 
 export const metadata: Metadata = { title: "لوحتي" };
@@ -97,7 +98,7 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
   const [
     packagesRes, hwRawRes, studyAnalytics, liveSessions, continueWatching,
     recentRecordings, nextQuiz, lastProgressRes, streakInfo, homeworkPulse,
-    latestEvalRes,
+    latestEvalRes, murajaahPlan,
   ] = await Promise.all([
     supabase.from("student_packages")
       .select("id, sessions_total, sessions_used, status, expires_at")
@@ -129,6 +130,7 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle<{ recommendations: string | null; evaluation_type: string; created_at: string }>(),
+    getStudentMurajaahPlan(user.id),
   ]);
   const activePackages = packagesRes.data ?? [];
   const hwCounts: Record<string, number> = {};
@@ -212,6 +214,7 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
         todaySessions,
         todayHomework,
         latestEvaluation: latestEvalRes.data ?? null,
+        murajaahPlan,
         renderedAtMs: now.getTime(),
       }}
     />

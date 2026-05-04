@@ -19,6 +19,8 @@ import { LessonRowActions } from "./lesson-row-actions";
 import { NextActionBanner } from "./next-action-banner";
 import { WelcomeHeader } from "./welcome-header";
 import { TodaysPlan } from "./todays-plan";
+import { MurajaahCard } from "./murajaah-card";
+import type { MurajaahWindow } from "@/lib/dashboard-queries";
 
 interface ChartDataPoint {
   day: string;
@@ -47,6 +49,12 @@ interface DashboardData {
   todaySessions: { id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: string; status: string }[];
   todayHomework: { id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[];
   latestEvaluation: { recommendations: string | null; evaluation_type: string; created_at: string } | null;
+  murajaahPlan: {
+    yesterday: MurajaahWindow | null;
+    lastWeek: MurajaahWindow | null;
+    lastMonth: MurajaahWindow | null;
+    reviewedToday: boolean;
+  };
   renderedAtMs: number;
 }
 
@@ -58,7 +66,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
     fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, nameMap,
     studyAnalytics, liveSessions, watchingRows, hwCounts, activePackages, nextQuiz,
     lastProgress, resumeLesson, streakInfo, homeworkPulse, todaySessions, todayHomework,
-    latestEvaluation, renderedAtMs,
+    latestEvaluation, murajaahPlan, renderedAtMs,
   } = data;
 
   // Booking-success toast on ?booked=1 — replace the URL afterwards so a
@@ -365,6 +373,25 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
           </h2>
           <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل خطة اليوم", "Couldn't load Today's Plan")}>
             <TodaysPlan items={todaysPlanItems} homeworkPulse={homeworkPulse} />
+          </SectionErrorBoundary>
+        </section>
+
+        {/* Murajaah daily prompt — scaffolds memorization-decay protection
+            via three review windows (yesterday / last week / last month).
+            The component hides itself when the student is brand-new (no
+            'new' progress entries) or has already logged review today,
+            so it doesn't nag. */}
+        <section aria-labelledby="murajaah-heading" className="mt-6">
+          <h2 id="murajaah-heading" className="sr-only">
+            {t("مراجعة اليوم", "Today's Murajaah")}
+          </h2>
+          <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل المراجعة", "Couldn't load Murajaah")}>
+            <MurajaahCard
+              yesterday={murajaahPlan.yesterday}
+              lastWeek={murajaahPlan.lastWeek}
+              lastMonth={murajaahPlan.lastMonth}
+              reviewedToday={murajaahPlan.reviewedToday}
+            />
           </SectionErrorBoundary>
         </section>
 
