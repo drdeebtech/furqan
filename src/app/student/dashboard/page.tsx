@@ -111,11 +111,11 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
     getStudentRecentRecordings(user.id),
     getStudentNextQuiz(user.id),
     supabase.from("student_progress")
-      .select("surah_to, ayah_to, surah_from, ayah_from, level, created_at")
+      .select("surah_to, ayah_to, surah_from, ayah_from, level, recitation_standard, created_at")
       .eq("student_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1)
-      .maybeSingle<{ surah_to: number | null; ayah_to: number | null; surah_from: number | null; ayah_from: number | null; level: string; created_at: string }>(),
+      .maybeSingle<{ surah_to: number | null; ayah_to: number | null; surah_from: number | null; ayah_from: number | null; level: string; recitation_standard: string | null; created_at: string }>(),
     getStudentStreak(user.id),
     getStudentHomeworkPulse(user.id),
   ]);

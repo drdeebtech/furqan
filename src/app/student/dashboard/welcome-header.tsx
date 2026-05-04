@@ -1,6 +1,6 @@
 "use client";
 
-import { Flame, HelpCircle } from "lucide-react";
+import { Flame, HelpCircle, BookMarked } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 
 interface WelcomeHeaderProps {
@@ -12,7 +12,30 @@ interface WelcomeHeaderProps {
   surahNum: number | null;
   streak: number;
   loggedToday: boolean;
+  /** RecitationStandard enum value from the latest student_progress row.
+   *  Renders as the traditional `X 'an Y` transmission name when set. */
+  recitationStandard?: string | null;
+  /** beginner | intermediate | advanced — paired with the standard chip. */
+  level?: string | null;
 }
+
+/** Display labels for the five qira'at transmissions captured in
+ *  student_progress.recitation_standard. Names follow the classical
+ *  `transmitter 'an reader` convention so a serious student recognises
+ *  their own qira'a tradition by name. */
+const STANDARD_LABEL: Record<string, { ar: string; en: string }> = {
+  hafs: { ar: "حفص عن عاصم", en: "Hafs an Asim" },
+  warsh: { ar: "ورش عن نافع", en: "Warsh an Nafi" },
+  qalon: { ar: "قالون عن نافع", en: "Qalun an Nafi" },
+  al_duri: { ar: "الدوري عن أبي عمرو", en: "Al-Duri an Abu Amr" },
+  shu_ba: { ar: "شعبة عن عاصم", en: "Shu'ba an Asim" },
+};
+
+const LEVEL_LABEL: Record<string, { ar: string; en: string }> = {
+  beginner: { ar: "مبتدئ", en: "Beginner" },
+  intermediate: { ar: "متوسط", en: "Intermediate" },
+  advanced: { ar: "متقدم", en: "Advanced" },
+};
 
 /**
  * Welcome row above the dashboard. Composes:
@@ -26,9 +49,12 @@ interface WelcomeHeaderProps {
  */
 export function WelcomeHeader({
   firstName, weekday, surahLabel, ayahNum, surahNum, streak, loggedToday,
+  recitationStandard, level,
 }: WelcomeHeaderProps) {
   const { t, lang } = useLang();
   const juzNum = juzForSurah(surahNum);
+  const standardLabel = recitationStandard ? STANDARD_LABEL[recitationStandard] : null;
+  const levelLabel = level ? LEVEL_LABEL[level] : null;
 
   return (
     <header className="mb-6">
@@ -39,6 +65,33 @@ export function WelcomeHeader({
               ? t(`أهلاً، ${firstName}`, `Welcome back, ${firstName}`)
               : t("أهلاً بعودتك", "Welcome back")}
           </h1>
+          {(standardLabel || levelLabel) && (
+            <p
+              className="mt-1.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-light"
+              aria-label={t(
+                "روايتك ومستواك القرآني",
+                "Your recitation tradition and level",
+              )}
+            >
+              {standardLabel && (
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/5 px-2.5 py-0.5 text-gold"
+                  title={t(
+                    "الرواية التي تدرس بها — مسلسلة بالإسناد إلى رسول الله ﷺ",
+                    "The transmission tradition you study — chained back to the Prophet ﷺ",
+                  )}
+                >
+                  <BookMarked size={10} aria-hidden="true" />
+                  {t(standardLabel.ar, standardLabel.en)}
+                </span>
+              )}
+              {levelLabel && (
+                <span className="inline-flex items-center rounded-full border border-card-border bg-card/50 px-2.5 py-0.5 text-foreground/80">
+                  {t(levelLabel.ar, levelLabel.en)}
+                </span>
+              )}
+            </p>
+          )}
           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted" aria-live="polite">
             <span suppressHydrationWarning>{weekday}</span>
             {surahLabel && (

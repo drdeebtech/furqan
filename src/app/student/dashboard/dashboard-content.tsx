@@ -40,7 +40,7 @@ interface DashboardData {
   hwCounts: Record<string, number>;
   activePackages: { id: string; sessions_total: number; sessions_used: number; status: string; expires_at: string | null }[];
   nextQuiz: { id: string; title: string; due_at: string | null } | null;
-  lastProgress: { surah_to: number | null; ayah_to: number | null; surah_from: number | null; ayah_from: number | null; level: string; created_at: string } | null;
+  lastProgress: { surah_to: number | null; ayah_to: number | null; surah_from: number | null; ayah_from: number | null; level: string; recitation_standard: string | null; created_at: string } | null;
   resumeLesson: { lessonId: string; title: string; href: string; progressPct: number } | null;
   streakInfo: { streak: number; weeklyMinutes: number; weeklyDelta: number; loggedToday: boolean };
   homeworkPulse: { overdue: number; dueToday: number; dueThisWeek: number; nextItem: { id: string; description: string | null; dueDate: string | null; type: string } | null };
@@ -259,6 +259,8 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
           surahNum={surahNum}
           streak={streakInfo.streak}
           loggedToday={streakInfo.loggedToday}
+          recitationStandard={lastProgress?.recitation_standard ?? null}
+          level={lastProgress?.level ?? null}
         />
 
         {/* Single primary CTA — smart resolution covers 8 priority states. */}
