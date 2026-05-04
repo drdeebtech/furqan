@@ -146,27 +146,42 @@ export function TimeTrackerView({ openSession, history, weekSeconds }: Props) {
               </div>
 
               {!openSession && (
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  {Object.keys(KIND_META).filter((k) => k !== "manual").map((k) => {
-                    const Icon = KIND_META[k].icon;
-                    const active = selectedKind === k;
-                    return (
-                      <button
-                        key={k}
-                        type="button"
-                        onClick={() => setSelectedKind(k)}
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm transition-colors ${
-                          active
-                            ? "border-gold bg-gold/10 text-gold"
-                            : "border-[var(--surface-border)] text-muted hover:text-foreground"
-                        }`}
-                      >
-                        <Icon size={14} aria-hidden="true" />
-                        {kindLabel(k)}
-                      </button>
-                    );
-                  })}
-                </div>
+                <>
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    {Object.keys(KIND_META).filter((k) => k !== "manual").map((k) => {
+                      const Icon = KIND_META[k].icon;
+                      const active = selectedKind === k;
+                      return (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => setSelectedKind(k)}
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm transition-colors ${
+                            active
+                              ? "border-gold bg-gold/10 text-gold"
+                              : "border-[var(--surface-border)] text-muted hover:text-foreground"
+                          }`}
+                        >
+                          <Icon size={14} aria-hidden="true" />
+                          {kindLabel(k)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {/* Cross-surface affordance: starting a "Review" session
+                      writes a study_log row with kind='review' that the
+                      dashboard's getStudentMurajaahPlan() reads to mark
+                      today's Murajaah done. Without this hint the
+                      connection is invisible to the student. */}
+                  {selectedKind === "review" && (
+                    <p className="-mt-2 text-center text-xs text-muted">
+                      {t(
+                        "ستُحتسب هذه الجلسة كمراجعة اليوم على لوحتك.",
+                        "This session will count as today's Murajaah on your dashboard.",
+                      )}
+                    </p>
+                  )}
+                </>
               )}
 
               {openSession ? (
@@ -207,8 +222,16 @@ export function TimeTrackerView({ openSession, history, weekSeconds }: Props) {
               <p className="font-mono text-3xl font-bold tabular-nums">
                 {formatDuration(weekSeconds)}
               </p>
+              {/* Subtitle picks the unit honestly — saying "0 minutes"
+                  beneath "00:00:11" was a tiny but jarring contradiction
+                  the audit caught. Show seconds for sub-minute totals,
+                  hours for big totals, minutes for the middle range. */}
               <p className="mt-1 text-xs text-muted">
-                {Math.round(weekSeconds / 60)} {t("دقيقة", "minutes")}
+                {weekSeconds < 60
+                  ? `${weekSeconds} ${t("ثانية", weekSeconds === 1 ? "second" : "seconds")}`
+                  : weekSeconds < 3600
+                  ? `${Math.round(weekSeconds / 60)} ${t("دقيقة", weekSeconds < 120 ? "minute" : "minutes")}`
+                  : `${(weekSeconds / 3600).toFixed(1)} ${t("ساعة", "hours")}`}
               </p>
             </div>
           </WidgetCard>
