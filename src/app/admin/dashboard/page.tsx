@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { fetchNameMap } from "@/lib/supabase/helpers";
 import { withTimeout } from "@/lib/promise-utils";
@@ -27,9 +26,13 @@ interface RevenueRow { amount_usd: number }
 
 
 export default async function AdminDashboardPage() {
+  // Auth + admin-role gating is owned by src/app/admin/layout.tsx via
+  // requireAdmin(). Don't repeat the auth.getUser() round-trip here — the
+  // page never renders if requireAdmin() rejects (the layout converts the
+  // ForbiddenError to redirect("/login")). Removing the duplicate call also
+  // closes a hang point: a slow auth.getUser() here would freeze the page
+  // before withTimeout's wrap on the queries can save it.
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
