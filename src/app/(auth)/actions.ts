@@ -6,6 +6,13 @@ import { checkBotId } from "botid/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
+import { withTimeout } from "@/lib/promise-utils";
+
+// Cap how long the audit-log insert can hold. Even though it's wrapped in
+// try/catch as fire-and-forget, an unbounded await would still hold the
+// Server Action's response if audit_log got locked. 2s is well above a
+// healthy insert (~30ms) and well below any user-perceivable wait.
+const AUDIT_LOG_TIMEOUT_MS = 2000;
 
 /**
  * Insert an audit_log row for a successful sign-in. Service-role client
@@ -18,16 +25,21 @@ async function recordLogin(userId: string, email: string, role: string | null) {
     const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
     const userAgent = h.get("user-agent") ?? null;
     const admin = createAdminClient();
-    await admin.from("audit_log").insert({
-      changed_by: userId,
-      table_name: "auth.users",
-      record_id: userId,
-      action: "LOGIN",
-      old_data: null,
-      new_data: { email, role, user_agent: userAgent },
-      ip_address: ip,
-      reason: "User signed in",
-    } as never);
+    await withTimeout(
+      admin.from("audit_log").insert({
+        changed_by: userId,
+        table_name: "auth.users",
+        record_id: userId,
+        action: "LOGIN",
+        old_data: null,
+        new_data: { email, role, user_agent: userAgent },
+        ip_address: ip,
+        reason: "User signed in",
+      } as never),
+      AUDIT_LOG_TIMEOUT_MS,
+      null as never,
+      "recordLogin",
+    );
   } catch (err) {
     logError("recordLogin failed (non-blocking)", err, { tag: "auth-audit" });
   }
