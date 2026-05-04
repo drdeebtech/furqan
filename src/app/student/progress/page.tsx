@@ -122,6 +122,16 @@ export default async function StudentProgressPage() {
 
   const totalHours = Math.round(totalMinutes / 60);
 
+  // Recent pace — used to project the next milestone date. Counts completed
+  // bookings in the trailing 28-day window (4 weeks); divides by 4 to get a
+  // weekly rate. Returns 0 when the student is brand-new or has been
+  // inactive — in that case the projection card hides itself entirely.
+  const twentyEightDaysAgoIso = new Date(Date.now() - 28 * 86400_000).toISOString();
+  const sessionsLast28d = (totalHoursRes.data ?? []).filter(
+    b => b.scheduled_at >= twentyEightDaysAgoIso,
+  ).length;
+  const sessionsPerWeek = sessionsLast28d / 4;
+
   return (
     <ProgressContent
       data={{
@@ -134,6 +144,7 @@ export default async function StudentProgressPage() {
         hwStats,
         latestEval: evaluations[0] ?? null,
         progressRecords: progressRecords.slice(0, 10),
+        sessionsPerWeek,
       }}
     />
   );

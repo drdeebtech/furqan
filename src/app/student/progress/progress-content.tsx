@@ -51,6 +51,9 @@ interface ProgressData {
   totalHours: number;
   evalScores: EvalScore[];
   hwStats: { total: number; excellent: number; good: number; needsWork: number; notDone: number };
+  /** Average completed sessions per week over the trailing 28-day window.
+   *  Drives the milestone-projection line. 0 = student is new or inactive. */
+  sessionsPerWeek: number;
   latestEval: {
     overall_score: number | null;
     hifz_score: number | null;
@@ -72,7 +75,7 @@ interface ProgressData {
 export function ProgressContent({ data }: { data: ProgressData }) {
   const { t, dir, lang } = useLang();
   const locale = lang === "ar" ? "ar" : "en-US";
-  const { completedCount, currentLevel, avgQuality, juzTouched, totalHours, evalScores, hwStats, latestEval, progressRecords } = data;
+  const { completedCount, currentLevel, avgQuality, juzTouched, totalHours, evalScores, hwStats, latestEval, progressRecords, sessionsPerWeek } = data;
 
   const level = LEVEL_CONFIG[currentLevel] ?? LEVEL_CONFIG.beginner;
   const juzSet = new Set(juzTouched);
@@ -325,6 +328,28 @@ export function ProgressContent({ data }: { data: ProgressData }) {
             );
           })}
         </div>
+        {/* Projection — quietly tells the student when the next milestone
+            will arrive at their current pace. Hidden if pace is 0
+            (brand-new or inactive — projecting infinity helps no one) or
+            if all milestones are already achieved. */}
+        {(() => {
+          const next = milestones.find(m => completedCount < m.threshold);
+          if (!next || sessionsPerWeek <= 0) return null;
+          const remaining = next.threshold - completedCount;
+          const weeks = remaining / sessionsPerWeek;
+          const eta = new Date(Date.now() + weeks * 7 * 86400_000);
+          const etaLabel = eta.toLocaleDateString(locale, { month: "short", day: "numeric", year: weeks > 26 ? "numeric" : undefined });
+          // Round pace to one decimal (e.g. 1.5/week reads cleaner than 1.4285714285).
+          const paceLabel = Math.round(sessionsPerWeek * 10) / 10;
+          return (
+            <p className="mt-3 text-xs text-muted">
+              {t(
+                `${remaining} ${remaining === 1 ? "جلسة" : "جلسات"} إلى ${next.label}. بمعدلك الحالي (${paceLabel} جلسة/أسبوع)، تصل في ${etaLabel}.`,
+                `${remaining} ${remaining === 1 ? "session" : "sessions"} until ${next.label}. At your current pace (${paceLabel}/week), you'll reach it around ${etaLabel}.`,
+              )}
+            </p>
+          );
+        })()}
       </div>
 
       {/* Recent Progress Records */}
