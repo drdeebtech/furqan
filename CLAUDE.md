@@ -365,6 +365,15 @@ Find the short ID in the Sentry issue header (looks like `JAVASCRIPT-NEXTJS-E4-N
 
 The `.github/workflows/supabase-migrate.yml` workflow is now the source of truth. It runs `supabase db push --linked` on every push to `main` that touches `supabase/migrations/**`, and a dry-run on every PR. A failed push is a failed CI step that you can read, fix, and re-run. The Branching integration is left enabled as belt-and-suspenders but is no longer load-bearing.
 
+**Required secret to make the workflow actually run:** `SUPABASE_DB_PASSWORD`. Without it, every run of `supabase-migrate.yml` fails fast with a pointer to the Supabase Dashboard → Project Settings → Database → Connection string. Set once with:
+
+```bash
+gh secret set SUPABASE_DB_PASSWORD
+# paste the Postgres password at the prompt
+```
+
+If you see this workflow red on `main`, the secret is missing — the migrate is then quietly falling back to the Branching integration (the same vulnerability the workflow was meant to close). Check `gh secret list` first before debugging anything else.
+
 ### Going forward — new migrations
 
 Use the helper script:

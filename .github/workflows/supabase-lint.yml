@@ -16,6 +16,10 @@ jobs:
   lint:
     name: supabase db lint
     runs-on: ubuntu-latest
+    # See supabase-migrate.yml for context — supabase/setup-cli@v1 still
+    # ships Node 20, GitHub will force Node 24 by 2026-06-02. Opt in early.
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@v6

@@ -42,6 +42,12 @@ jobs:
     # Skip on forks — they don't have access to repo secrets and the run
     # would just fail to authenticate. Internal PRs and pushes work normally.
     if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
+    # GitHub deprecated Node.js 20 for actions on 2025-09-19 and will force
+    # Node 24 by 2026-06-02. supabase/setup-cli@v1 still ships Node 20 as
+    # of 2026-05; opt into Node 24 now so this workflow keeps running
+    # without requiring an emergency upgrade in 4 weeks.
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@v6
