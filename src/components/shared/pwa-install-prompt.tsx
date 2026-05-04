@@ -23,9 +23,18 @@ export function PwaInstallPrompt() {
   }, []);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && sessionStorage.getItem("pwa-dismissed")) {
-      startTransition(() => setDismissed(true));
-      return;
+    // Persist dismissal across browser restarts (localStorage), not just the
+    // current tab session (sessionStorage). Reported in the 2026-05-04 visual
+    // audit: the prompt re-appeared on every navigation/refresh because
+    // sessionStorage scopes to a single tab; users on a fresh open of the
+    // site saw it again even after dismissing it last visit.
+    if (typeof window !== "undefined") {
+      const dismissedPersistent = localStorage.getItem("pwa-dismissed");
+      const dismissedSession = sessionStorage.getItem("pwa-dismissed");
+      if (dismissedPersistent || dismissedSession) {
+        startTransition(() => setDismissed(true));
+        return;
+      }
     }
     if (dismissed) return;
     window.addEventListener("beforeinstallprompt", handleBeforeInstall);
@@ -38,13 +47,19 @@ export function PwaInstallPrompt() {
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === "accepted") {
       setDeferredPrompt(null);
+      // If they accepted, they don't need the prompt again.
+      try { localStorage.setItem("pwa-dismissed", "1"); } catch { /* private mode */ }
     }
   }
 
   function handleDismiss() {
     setDismissed(true);
     setDeferredPrompt(null);
-    sessionStorage.setItem("pwa-dismissed", "1");
+    // Persist across tab/browser close so the prompt doesn't re-nag.
+    // Wrap in try/catch — Safari Private Mode throws on localStorage writes.
+    try { localStorage.setItem("pwa-dismissed", "1"); } catch { /* private mode */ }
+    // Mirror to sessionStorage so legacy code paths still see the flag.
+    try { sessionStorage.setItem("pwa-dismissed", "1"); } catch { /* private mode */ }
   }
 
   // Don't show if no prompt available, already installed, or dismissed
