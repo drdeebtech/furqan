@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ClipboardCheck, Inbox } from "lucide-react";
+import { ClipboardCheck, Inbox, AlertCircle, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 
@@ -59,24 +60,65 @@ export default async function TeacherEvaluationsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: evaluations } = await supabase
-    .from("session_evaluations")
-    .select("id, student_id, evaluation_type, period_start, period_end, hifz_score, tajweed_score, akhlaq_score, attendance_score, overall_score, strengths, weaknesses, recommendations, notes, created_at")
-    .eq("teacher_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(200)
-    .returns<EvaluationRow[]>();
+  // Past evaluations + this teacher's full student roster (so we can
+  // compute who is due/never-evaluated). Both queries run in parallel.
+  const [evalsRes, rosterRes] = await Promise.all([
+    supabase
+      .from("session_evaluations")
+      .select("id, student_id, evaluation_type, period_start, period_end, hifz_score, tajweed_score, akhlaq_score, attendance_score, overall_score, strengths, weaknesses, recommendations, notes, created_at")
+      .eq("teacher_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(200)
+      .returns<EvaluationRow[]>(),
+    supabase
+      .from("bookings")
+      .select("student_id")
+      .eq("teacher_id", user.id)
+      .in("status", ["confirmed", "completed"])
+      .returns<{ student_id: string }[]>(),
+  ]);
 
-  const list = evaluations ?? [];
+  const list = evalsRes.data ?? [];
+  const rosterStudentIds = [...new Set((rosterRes.data ?? []).map(r => r.student_id))];
 
-  // Resolve student names
+  // Latest-evaluation-per-student lookup, keyed by student_id. Lets us
+  // compute days-since-last-eval for each student in the roster.
+  const latestEvalAt: Record<string, string> = {};
+  for (const e of list) {
+    if (!latestEvalAt[e.student_id]) latestEvalAt[e.student_id] = e.created_at;
+  }
+
+  // Compute the "due for evaluation" queue: students in this teacher's
+  // roster who either (a) have never been evaluated, or (b) were last
+  // evaluated 30+ days ago. Order: never-evaluated first, then oldest.
+  const nowMs = Date.now();
+  const dueQueue = rosterStudentIds
+    .map(id => {
+      const lastIso = latestEvalAt[id];
+      const days = lastIso
+        ? Math.floor((nowMs - new Date(lastIso).getTime()) / 86400_000)
+        : null;
+      return { studentId: id, daysSince: days };
+    })
+    .filter(s => s.daysSince === null || s.daysSince > 30)
+    .sort((a, b) => {
+      if (a.daysSince === null && b.daysSince !== null) return -1;
+      if (b.daysSince === null && a.daysSince !== null) return 1;
+      return (b.daysSince ?? 0) - (a.daysSince ?? 0);
+    });
+
+  // Resolve student names — needs both eval-list students AND the
+  // due-queue students (which may not yet have any evaluation).
   let nameMap: Record<string, string> = {};
-  if (list.length > 0) {
-    const ids = [...new Set(list.map((e) => e.student_id))];
+  const allIds = [...new Set([
+    ...list.map((e) => e.student_id),
+    ...dueQueue.map(d => d.studentId),
+  ])];
+  if (allIds.length > 0) {
     const { data: profiles } = await supabase
       .from("profiles")
       .select("id, full_name")
-      .in("id", ids)
+      .in("id", allIds)
       .returns<{ id: string; full_name: string | null }[]>();
     if (profiles) {
       nameMap = Object.fromEntries(profiles.map((p) => [p.id, p.full_name || t("طالب", "Student")]));
@@ -89,6 +131,50 @@ export default async function TeacherEvaluationsPage() {
         <ClipboardCheck size={24} className="text-gold" />
         {t("تقييماتي", "My Evaluations")}
       </h1>
+
+      {/* Due for evaluation queue — students in this teacher's roster
+          who have never been evaluated or whose last evaluation was 30+
+          days ago. Surfaces the work the teacher should be doing instead
+          of just showing what they've already done. */}
+      {dueQueue.length > 0 && (
+        <div className="mb-6 rounded-2xl border border-warning/30 bg-warning/5 p-5">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-warning">
+            <AlertCircle size={14} aria-hidden="true" />
+            {t(`بحاجة تقييم (${dueQueue.length})`, `Due for evaluation (${dueQueue.length})`)}
+          </h2>
+          <ul className="space-y-1.5">
+            {dueQueue.slice(0, 6).map(d => {
+              const name = nameMap[d.studentId] ?? t("طالب", "Student");
+              return (
+                <li key={d.studentId}>
+                  <Link
+                    href={`/teacher/students/${d.studentId}`}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-card-border bg-card/40 px-3 py-2 text-sm transition-colors hover:border-warning/30 focus-ring"
+                  >
+                    <span className="font-medium">{name}</span>
+                    <span className="flex items-center gap-2 text-xs text-muted">
+                      {d.daysSince === null
+                        ? t("لم يُقيَّم بعد", "Never evaluated")
+                        : t(`آخر تقييم قبل ${d.daysSince} يوم`, `Last evaluated ${d.daysSince}d ago`)}
+                      <ChevronRight size={12} aria-hidden="true" />
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+            {dueQueue.length > 6 && (
+              <li>
+                <Link
+                  href="/teacher/students"
+                  className="block rounded-lg border border-dashed border-card-border bg-transparent px-3 py-2 text-center text-xs text-muted hover:text-foreground/80 focus-ring"
+                >
+                  {t(`و ${dueQueue.length - 6} طلاب آخرين ←`, `and ${dueQueue.length - 6} more students →`)}
+                </Link>
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
 
       {list.length === 0 ? (
         <div className="glass-card p-12 text-center">
