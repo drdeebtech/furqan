@@ -7,12 +7,22 @@ import { HOMEWORK_TYPE_AR, HOMEWORK_STATUS_STYLE } from "@/lib/constants";
 import { useLang } from "@/lib/i18n/context";
 import type { HomeworkAssignment } from "@/types/database";
 
+type ParentInfo = {
+  id: string;
+  status: string;
+  teacher_notes: string | null;
+  completed_at: string | null;
+  title: string;
+};
+
 export function HomeworkList({
   assignments,
   nameMap,
+  parentMap,
 }: {
   assignments: HomeworkAssignment[];
   nameMap: Record<string, string>;
+  parentMap?: Record<string, ParentInfo>;
 }) {
   const { t } = useLang();
 
@@ -31,7 +41,14 @@ export function HomeworkList({
           count={pending.length}
         >
           {pending.map(a => (
-            <HomeworkCard key={a.id} hw={a} nameMap={nameMap} t={t} showReadyButton />
+            <HomeworkCard
+              key={a.id}
+              hw={a}
+              nameMap={nameMap}
+              parent={a.parent_assignment_id ? parentMap?.[a.parent_assignment_id] : undefined}
+              t={t}
+              showReadyButton
+            />
           ))}
         </Section>
       )}
@@ -45,7 +62,13 @@ export function HomeworkList({
           count={ready.length}
         >
           {ready.map(a => (
-            <HomeworkCard key={a.id} hw={a} nameMap={nameMap} t={t} />
+            <HomeworkCard
+              key={a.id}
+              hw={a}
+              nameMap={nameMap}
+              parent={a.parent_assignment_id ? parentMap?.[a.parent_assignment_id] : undefined}
+              t={t}
+            />
           ))}
         </Section>
       )}
@@ -58,7 +81,13 @@ export function HomeworkList({
           count={completed.length}
         >
           {completed.map(a => (
-            <HomeworkCard key={a.id} hw={a} nameMap={nameMap} t={t} />
+            <HomeworkCard
+              key={a.id}
+              hw={a}
+              nameMap={nameMap}
+              parent={a.parent_assignment_id ? parentMap?.[a.parent_assignment_id] : undefined}
+              t={t}
+            />
           ))}
         </Section>
       )}
@@ -94,14 +123,30 @@ function Section({
   );
 }
 
+// Translates the original homework's grade into student-facing copy that
+// frames the re-attempt as a coaching loop rather than a rebuke. The status
+// strings come from HomeworkStatus enum (homework_assignments.status).
+const PRIOR_GRADE_COPY: Record<string, { ar: string; en: string }> = {
+  completed_needs_work: {
+    ar: "تم تقييمها سابقاً: تحتاج تحسين",
+    en: "Previously graded: needs work",
+  },
+  completed_not_done: {
+    ar: "لم تُسلَّم سابقاً",
+    en: "Previously not turned in",
+  },
+};
+
 function HomeworkCard({
   hw,
   nameMap,
+  parent,
   t,
   showReadyButton,
 }: {
   hw: HomeworkAssignment;
   nameMap: Record<string, string>;
+  parent?: ParentInfo;
   t: (ar: string, en: string) => string;
   showReadyButton?: boolean;
 }) {
@@ -175,11 +220,37 @@ function HomeworkCard({
             </div>
           )}
 
-          {/* Re-assigned indicator */}
+          {/* Re-attempt context — when this homework was auto-regenerated
+              from a prior attempt, show the prior grade + teacher's notes so
+              the student understands what to fix this time. Frames the
+              regeneration as a coaching loop, not a rebuke. */}
           {hw.parent_assignment_id && (
-            <div className="flex items-center gap-1 text-xs text-warning">
-              <RefreshCw size={12} />
-              {t("واجب مُعاد — حاول مجدداً", "Re-assigned — try again")}
+            <div className="mt-1 rounded-lg border border-warning/30 bg-warning/5 p-2.5">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-warning">
+                <RefreshCw size={12} aria-hidden="true" />
+                {t("محاولة جديدة", "Re-attempt")}
+                {parent?.completed_at && (
+                  <span className="font-normal text-muted">
+                    · {t("الأصل", "Original")} {new Date(parent.completed_at).toLocaleDateString(locale, { month: "short", day: "numeric" })}
+                  </span>
+                )}
+              </div>
+              {parent && PRIOR_GRADE_COPY[parent.status] && (
+                <p className="mt-1 text-xs text-foreground/80">
+                  {t(PRIOR_GRADE_COPY[parent.status].ar, PRIOR_GRADE_COPY[parent.status].en)}
+                </p>
+              )}
+              {parent?.teacher_notes && (
+                <p className="mt-1 text-xs leading-relaxed text-foreground/90">
+                  <span className="text-warning/90">{t("ملاحظة المعلم في المرة السابقة:", "Teacher's note last time:")}</span>{" "}
+                  {parent.teacher_notes}
+                </p>
+              )}
+              {!parent && (
+                <p className="mt-0.5 text-xs text-muted">
+                  {t("هذا الواجب أُعيد بناءً على المحاولة السابقة. حاول مجدداً.", "This homework was reissued from a prior attempt. Try again.")}
+                </p>
+              )}
             </div>
           )}
         </div>

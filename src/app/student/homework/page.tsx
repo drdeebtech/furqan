@@ -36,6 +36,33 @@ export default async function StudentHomeworkPage() {
     }
   }
 
+  // Build a parent-assignment lookup so re-attempts can show the original
+  // grade + teacher's notes + completion date. Without this, the existing
+  // "Re-assigned — try again" badge is just a label; the student still has
+  // to guess why the original attempt was rejected. With it, the student
+  // sees the teacher's actual feedback in context with the new attempt.
+  const parentIds = [
+    ...new Set(
+      (assignments ?? [])
+        .map(a => a.parent_assignment_id)
+        .filter((id): id is string => !!id),
+    ),
+  ];
+  const parentMap: Record<
+    string,
+    { id: string; status: string; teacher_notes: string | null; completed_at: string | null; title: string }
+  > = {};
+  if (parentIds.length > 0) {
+    const { data: parents } = await supabase
+      .from("homework_assignments")
+      .select("id, status, teacher_notes, completed_at, title")
+      .in("id", parentIds)
+      .returns<{ id: string; status: string; teacher_notes: string | null; completed_at: string | null; title: string }[]>();
+    for (const p of parents ?? []) {
+      parentMap[p.id] = p;
+    }
+  }
+
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center gap-3">
@@ -52,7 +79,7 @@ export default async function StudentHomeworkPage() {
           </p>
         </div>
       ) : (
-        <HomeworkList assignments={assignments} nameMap={nameMap} />
+        <HomeworkList assignments={assignments} nameMap={nameMap} parentMap={parentMap} />
       )}
     </div>
   );
