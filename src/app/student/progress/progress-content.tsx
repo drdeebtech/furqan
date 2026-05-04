@@ -26,6 +26,19 @@ const EVAL_TYPE_EN: Record<string, string> = {
   quarterly: "Quarterly",
 };
 
+/** The 5 classical tajweed error categories tracked in
+ *  recitation_errors.error_type, plus the 'other' bucket. Order matters —
+ *  it's the order the heatmap renders them. Hint text gives the student a
+ *  one-line description of what each category covers, since not every
+ *  student remembers their tajweed terminology. */
+const ERROR_CATEGORIES = [
+  { key: "makharij", ar: "مخارج", en: "Makharij", hintAr: "نقاط نطق الحروف", hintEn: "Articulation points" },
+  { key: "sifat", ar: "صفات", en: "Sifat", hintAr: "صفات الحروف", hintEn: "Letter qualities" },
+  { key: "madd", ar: "مدود", en: "Madd", hintAr: "أحكام المد", hintEn: "Elongation rules" },
+  { key: "waqf", ar: "وقف", en: "Waqf", hintAr: "أحكام الوقف", hintEn: "Stopping rules" },
+  { key: "ghunna", ar: "غنّة", en: "Ghunna", hintAr: "أحكام الغنّة", hintEn: "Nasalisation" },
+] as const;
+
 interface EvalScore {
   date: string;
   hifz: number | null;
@@ -54,6 +67,10 @@ interface ProgressData {
   /** Average completed sessions per week over the trailing 28-day window.
    *  Drives the milestone-projection line. 0 = student is new or inactive. */
   sessionsPerWeek: number;
+  /** Counts of recitation_errors by error_type from the last 30 days.
+   *  Always contains all 5 tajweed categories + 'other' so the heatmap
+   *  renders consistently. A zero is meaningful, not a missing data point. */
+  errorBreakdown: Record<string, number>;
   latestEval: {
     overall_score: number | null;
     hifz_score: number | null;
@@ -75,7 +92,7 @@ interface ProgressData {
 export function ProgressContent({ data }: { data: ProgressData }) {
   const { t, dir, lang } = useLang();
   const locale = lang === "ar" ? "ar" : "en-US";
-  const { completedCount, currentLevel, avgQuality, juzTouched, totalHours, evalScores, hwStats, latestEval, progressRecords, sessionsPerWeek } = data;
+  const { completedCount, currentLevel, avgQuality, juzTouched, totalHours, evalScores, hwStats, latestEval, progressRecords, sessionsPerWeek, errorBreakdown } = data;
 
   const level = LEVEL_CONFIG[currentLevel] ?? LEVEL_CONFIG.beginner;
   const juzSet = new Set(juzTouched);
@@ -197,6 +214,71 @@ export function ProgressContent({ data }: { data: ProgressData }) {
           )}
         </section>
       )}
+
+      {/* Recitation-error heatmap — last 30 days, grouped by tajweed
+          category. The classical taxonomy (makharij / sifat / madd / waqf /
+          ghunna) is captured per session in recitation_errors but never
+          surfaced to the student until now. Even a 0 in a category is a
+          meaningful signal: "you're clean on madd this month". Helps the
+          student self-direct practice between live sessions. */}
+      {Object.values(errorBreakdown).some(v => v > 0) && (() => {
+        const max = Math.max(...ERROR_CATEGORIES.map(c => errorBreakdown[c.key] ?? 0));
+        const totalErrors = ERROR_CATEGORIES.reduce((sum, c) => sum + (errorBreakdown[c.key] ?? 0), 0);
+        const topCategory = ERROR_CATEGORIES.reduce((top, c) =>
+          (errorBreakdown[c.key] ?? 0) > (errorBreakdown[top.key] ?? 0) ? c : top, ERROR_CATEGORIES[0]);
+        return (
+          <section className="mb-8 glass-card p-6">
+            <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="font-display text-lg font-bold">
+                {t("أنماط الأخطاء — آخر ٣٠ يوماً", "Error patterns — last 30 days")}
+              </h2>
+              <p className="text-xs text-muted">
+                {t(`إجمالي ${totalErrors}`, `${totalErrors} total`)}
+              </p>
+            </div>
+            {totalErrors > 0 && (
+              <p className="mb-4 text-xs text-muted">
+                {t(
+                  `أكثر فئة تحتاج مراجعة: ${topCategory.ar} (${topCategory.hintAr})`,
+                  `Most-frequent category to review: ${topCategory.en} (${topCategory.hintEn})`,
+                )}
+              </p>
+            )}
+            <div className="grid grid-cols-5 gap-2">
+              {ERROR_CATEGORIES.map(c => {
+                const count = errorBreakdown[c.key] ?? 0;
+                const intensity = max > 0 ? count / max : 0;
+                // Map intensity → background opacity. Even at 0 we keep a
+                // faint tint so the cell reads as "category present, not
+                // accumulating errors here".
+                const bg = count === 0
+                  ? "bg-emerald-500/5 border-emerald-500/15"
+                  : intensity >= 0.66
+                  ? "bg-orange-500/20 border-orange-500/40"
+                  : intensity >= 0.33
+                  ? "bg-amber-500/15 border-amber-500/30"
+                  : "bg-amber-500/5 border-amber-500/20";
+                const textColor = count === 0
+                  ? "text-emerald-400/80"
+                  : intensity >= 0.66
+                  ? "text-orange-300"
+                  : "text-amber-300";
+                return (
+                  <div
+                    key={c.key}
+                    className={`flex flex-col items-center justify-center rounded-xl border p-3 ${bg}`}
+                    title={t(`${c.ar} — ${c.hintAr}`, `${c.en} — ${c.hintEn}`)}
+                  >
+                    <p className={`font-display text-xl font-bold ${textColor}`}>{count}</p>
+                    <p className="mt-0.5 text-xs font-medium text-foreground/80">{t(c.ar, c.en)}</p>
+                    <p className="mt-0.5 text-[10px] leading-tight text-muted">{t(c.hintAr, c.hintEn)}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })()}
 
       {/* Quran verse */}
       <div className="mb-8 glass-card p-6 text-center">

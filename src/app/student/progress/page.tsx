@@ -122,6 +122,35 @@ export default async function StudentProgressPage() {
 
   const totalHours = Math.round(totalMinutes / 60);
 
+  // Recitation error breakdown — last 30 days, grouped by error_type.
+  // recitation_errors is keyed by progress_id (FK → student_progress), so we
+  // resolve via the student's progress IDs first. Empty buckets stay in the
+  // result so the heatmap always renders all 5 categories — a 0 in madd is
+  // a meaningful signal too ("you're clean on madd this month"), not just
+  // an absence of data.
+  const thirtyDaysAgoIso = new Date(Date.now() - 30 * 86400_000).toISOString();
+  const { data: recentProgress } = await supabase
+    .from("student_progress")
+    .select("id")
+    .eq("student_id", user.id)
+    .gte("created_at", thirtyDaysAgoIso)
+    .returns<{ id: string }[]>();
+  const errorBreakdown: Record<string, number> = {
+    makharij: 0, sifat: 0, madd: 0, waqf: 0, ghunna: 0, other: 0,
+  };
+  if (recentProgress && recentProgress.length > 0) {
+    const { data: errors } = await supabase
+      .from("recitation_errors")
+      .select("error_type")
+      .in("progress_id", recentProgress.map(p => p.id))
+      .gte("created_at", thirtyDaysAgoIso)
+      .returns<{ error_type: string }[]>();
+    for (const e of errors ?? []) {
+      if (e.error_type in errorBreakdown) errorBreakdown[e.error_type] += 1;
+      else errorBreakdown.other += 1;
+    }
+  }
+
   // Recent pace — used to project the next milestone date. Counts completed
   // bookings in the trailing 28-day window (4 weeks); divides by 4 to get a
   // weekly rate. Returns 0 when the student is brand-new or has been
@@ -145,6 +174,7 @@ export default async function StudentProgressPage() {
         latestEval: evaluations[0] ?? null,
         progressRecords: progressRecords.slice(0, 10),
         sessionsPerWeek,
+        errorBreakdown,
       }}
     />
   );
