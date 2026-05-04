@@ -1,0 +1,59 @@
+name: Auth Smoke on Preview
+
+# Triggers when Vercel finishes a successful preview deploy. Runs the
+# auth-smoke Playwright test (`e2e/auth-smoke.spec.ts`) against that
+# preview URL — catches CSP violations and hydration regressions on the
+# real deployed environment, since vercel.json security headers don't
+# apply on local `next dev`.
+#
+# This is the missing piece from the 2026-05-04 CSP outage: the bug class
+# was browser-side and only visible on a Vercel deployment, so no local
+# test or build check could catch it. PR-time enforcement against the
+# preview URL closes that gap.
+
+on:
+  deployment_status:
+
+jobs:
+  smoke:
+    name: auth-smoke (preview)
+    runs-on: ubuntu-latest
+    # Only run for Vercel preview deployments that succeeded. Skips
+    # production deployments (which already passed their own preview run)
+    # and skips failed/in-progress states.
+    if: |
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment.environment != 'production' &&
+      contains(github.event.deployment_status.target_url, 'vercel.app')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Use Node 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run auth-smoke against preview URL
+        env:
+          BASE_URL: ${{ github.event.deployment_status.target_url }}
+        run: |
+          echo "Testing against: $BASE_URL"
+          # Override the playwright.config.ts webServer block so it doesn't
+          # try to spin up a local dev server — we want to hit the preview.
+          PLAYWRIGHT_NO_WEBSERVER=1 npx playwright test e2e/auth-smoke.spec.ts --reporter=list
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-report-${{ github.event.deployment.id }}
+          path: playwright-report/
+          retention-days: 7
