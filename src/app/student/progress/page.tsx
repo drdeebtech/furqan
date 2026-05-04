@@ -50,11 +50,11 @@ export default async function StudentProgressPage() {
       .returns<{ id: string; surah_from: number | null; surah_to: number | null; ayah_from: number | null; ayah_to: number | null; quality_rating: number | null; level: string; progress_type: string; teacher_notes: string | null; created_at: string }[]>(),
     // Evaluations
     supabase.from("session_evaluations")
-      .select("id, evaluation_type, hifz_score, tajweed_score, akhlaq_score, attendance_score, overall_score, strengths, weaknesses, recommendations, created_at")
+      .select("id, evaluation_type, hifz_score, tajweed_score, akhlaq_score, attendance_score, overall_score, strengths, weaknesses, recommendations, notes, period_start, period_end, created_at")
       .eq("student_id", user.id)
       .order("created_at", { ascending: false })
       .limit(10)
-      .returns<{ id: string; evaluation_type: string; hifz_score: number | null; tajweed_score: number | null; akhlaq_score: number | null; attendance_score: number | null; overall_score: number | null; strengths: string | null; weaknesses: string | null; recommendations: string | null; created_at: string }[]>(),
+      .returns<{ id: string; evaluation_type: string; hifz_score: number | null; tajweed_score: number | null; akhlaq_score: number | null; attendance_score: number | null; overall_score: number | null; strengths: string | null; weaknesses: string | null; recommendations: string | null; notes: string | null; period_start: string | null; period_end: string | null; created_at: string }[]>(),
     // Homework stats
     supabase.from("homework_assignments")
       .select("status")

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { TrendingUp, BookOpen, CheckCircle, Clock, Star, Award, Target } from "lucide-react";
+import { TrendingUp, BookOpen, CheckCircle, Clock, Star, Award, Target, MessageSquareQuote, Sparkles, AlertCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 
 const ARABIC_NUMS = ["","١","٢","٣","٤","٥","٦","٧","٨","٩","١٠","١١","١٢","١٣","١٤","١٥","١٦","١٧","١٨","١٩","٢٠","٢١","٢٢","٢٣","٢٤","٢٥","٢٦","٢٧","٢٨","٢٩","٣٠"];
@@ -10,6 +10,20 @@ const LEVEL_CONFIG: Record<string, { ar: string; en: string; color: string }> = 
   beginner: { ar: "مبتدئ", en: "Beginner", color: "text-blue-400" },
   intermediate: { ar: "متوسط", en: "Intermediate", color: "text-amber-400" },
   advanced: { ar: "متقدم", en: "Advanced", color: "text-emerald-400" },
+};
+
+const EVAL_TYPE_AR: Record<string, string> = {
+  weekly: "أسبوعي",
+  biweekly: "نصف شهري",
+  monthly: "شهري",
+  quarterly: "ربع سنوي",
+};
+
+const EVAL_TYPE_EN: Record<string, string> = {
+  weekly: "Weekly",
+  biweekly: "Bi-weekly",
+  monthly: "Monthly",
+  quarterly: "Quarterly",
 };
 
 interface EvalScore {
@@ -37,7 +51,21 @@ interface ProgressData {
   totalHours: number;
   evalScores: EvalScore[];
   hwStats: { total: number; excellent: number; good: number; needsWork: number; notDone: number };
-  latestEval: { overall_score: number | null; hifz_score: number | null; tajweed_score: number | null; strengths: string | null; weaknesses: string | null; recommendations: string | null } | null;
+  latestEval: {
+    overall_score: number | null;
+    hifz_score: number | null;
+    tajweed_score: number | null;
+    akhlaq_score: number | null;
+    attendance_score: number | null;
+    strengths: string | null;
+    weaknesses: string | null;
+    recommendations: string | null;
+    notes: string | null;
+    evaluation_type: string | null;
+    period_start: string | null;
+    period_end: string | null;
+    created_at: string;
+  } | null;
   progressRecords: ProgressRecord[];
 }
 
@@ -89,6 +117,83 @@ export function ProgressContent({ data }: { data: ProgressData }) {
           <p className="text-xs text-muted">{t("المستوى", "Level")}</p>
         </div>
       </div>
+
+      {/* From your teacher — qualitative evaluation feedback elevated to be
+          the lead pedagogical surface on this page. The teacher's voice
+          (recommendations / strengths / what to improve) is what the student
+          most needs to see; numeric scores serve it, not the other way around. */}
+      {latestEval && (latestEval.strengths || latestEval.weaknesses || latestEval.recommendations || latestEval.notes) && (
+        <section className="mb-8 glass-card p-6">
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="flex items-center gap-2 font-display text-lg font-bold">
+              <MessageSquareQuote size={20} className="text-gold" /> {t("من معلمك", "From your teacher")}
+            </h2>
+            <p className="text-xs text-muted">
+              {latestEval.evaluation_type
+                ? t(`تقييم ${EVAL_TYPE_AR[latestEval.evaluation_type] ?? latestEval.evaluation_type}`, `${EVAL_TYPE_EN[latestEval.evaluation_type] ?? latestEval.evaluation_type} evaluation`)
+                : t("آخر تقييم", "Latest evaluation")}
+              {" · "}
+              {new Date(latestEval.created_at).toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" })}
+            </p>
+          </div>
+
+          {/* Score strip — five dimensions in one row, restrained typography. */}
+          <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
+            {([
+              { key: "hifz", label: t("حفظ", "Hifz"), value: latestEval.hifz_score, color: "text-emerald-400" },
+              { key: "tajweed", label: t("تجويد", "Tajweed"), value: latestEval.tajweed_score, color: "text-sky-400" },
+              { key: "akhlaq", label: t("أخلاق", "Akhlaq"), value: latestEval.akhlaq_score, color: "text-violet-400" },
+              { key: "attendance", label: t("حضور", "Attendance"), value: latestEval.attendance_score, color: "text-amber-400" },
+              { key: "overall", label: t("إجمالي", "Overall"), value: latestEval.overall_score, color: "text-gold" },
+            ] as const).filter(s => s.value != null).map(s => (
+              <div key={s.key} className="rounded-xl border border-card-border bg-card/50 p-3 text-center">
+                <p className="text-[11px] uppercase tracking-wide text-muted">{s.label}</p>
+                <p className={`font-display text-xl font-bold ${s.color}`}>{s.value}<span className="text-xs text-muted">/10</span></p>
+              </div>
+            ))}
+          </div>
+
+          {/* Recommendation — placed first because it's the actionable next step. */}
+          {latestEval.recommendations && (
+            <div className="mb-3 rounded-xl border border-gold/30 bg-gold/5 p-4">
+              <h3 className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gold">
+                <Sparkles size={14} aria-hidden="true" /> {t("توصية معلمك للأسبوع القادم", "Your teacher's focus for next week")}
+              </h3>
+              <p className="text-sm leading-relaxed text-foreground">{latestEval.recommendations}</p>
+            </div>
+          )}
+
+          {/* Strengths + weaknesses — paired columns at sm+, stacked on mobile. */}
+          {(latestEval.strengths || latestEval.weaknesses) && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {latestEval.strengths && (
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                  <h3 className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-emerald-400">
+                    <CheckCircle size={14} aria-hidden="true" /> {t("نقاط القوة", "Strengths")}
+                  </h3>
+                  <p className="text-sm leading-relaxed text-foreground/90">{latestEval.strengths}</p>
+                </div>
+              )}
+              {latestEval.weaknesses && (
+                <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
+                  <h3 className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-orange-400">
+                    <AlertCircle size={14} aria-hidden="true" /> {t("للتحسين", "To improve")}
+                  </h3>
+                  <p className="text-sm leading-relaxed text-foreground/90">{latestEval.weaknesses}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Free-form teacher notes — shown last as supplementary context. */}
+          {latestEval.notes && (
+            <div className="mt-3 rounded-xl border border-card-border bg-card/30 p-4">
+              <h3 className="mb-1 text-sm font-medium text-muted">{t("ملاحظات إضافية", "Additional notes")}</h3>
+              <p className="text-sm leading-relaxed text-foreground/80">{latestEval.notes}</p>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Quran verse */}
       <div className="mb-8 glass-card p-6 text-center">
@@ -171,39 +276,6 @@ export function ProgressContent({ data }: { data: ProgressData }) {
               <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-gold/60" /> {t("إجمالي", "Overall")}</span>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Latest Evaluation Summary */}
-      {latestEval && (
-        <div className="mb-8 glass-card p-5">
-          <h3 className="mb-3 font-semibold">{t("آخر تقييم", "Latest Evaluation")}</h3>
-          <div className="grid grid-cols-3 gap-3 text-center">
-            {latestEval.hifz_score != null && (
-              <div>
-                <p className="text-xs text-muted">{t("حفظ", "Hifz")}</p>
-                <p className="font-display text-lg font-bold text-emerald-400">{latestEval.hifz_score}/10</p>
-              </div>
-            )}
-            {latestEval.tajweed_score != null && (
-              <div>
-                <p className="text-xs text-muted">{t("تجويد", "Tajweed")}</p>
-                <p className="font-display text-lg font-bold text-sky-400">{latestEval.tajweed_score}/10</p>
-              </div>
-            )}
-            {latestEval.overall_score != null && (
-              <div>
-                <p className="text-xs text-muted">{t("إجمالي", "Overall")}</p>
-                <p className="font-display text-lg font-bold text-gold">{latestEval.overall_score}/10</p>
-              </div>
-            )}
-          </div>
-          {latestEval.strengths && (
-            <p className="mt-3 text-xs"><span className="text-emerald-400">{t("نقاط القوة:", "Strengths:")}</span> {latestEval.strengths}</p>
-          )}
-          {latestEval.recommendations && (
-            <p className="mt-1 text-xs"><span className="text-gold">{t("توصيات:", "Tips:")}</span> {latestEval.recommendations}</p>
-          )}
         </div>
       )}
 
