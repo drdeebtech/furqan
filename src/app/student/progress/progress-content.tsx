@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { TrendingUp, BookOpen, CheckCircle, Clock, Star, Award, Target, MessageSquareQuote, Sparkles, AlertCircle } from "lucide-react";
+import { TrendingUp, BookOpen, CheckCircle, Clock, Star, Award, Target, MessageSquareQuote, Sparkles, AlertCircle, Mail } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 
 const ARABIC_NUMS = ["","١","٢","٣","٤","٥","٦","٧","٨","٩","١٠","١١","١٢","١٣","١٤","١٥","١٦","١٧","١٨","١٩","٢٠","٢١","٢٢","٢٣","٢٤","٢٥","٢٦","٢٧","٢٨","٢٩","٣٠"];
@@ -71,6 +71,11 @@ interface ProgressData {
    *  Always contains all 5 tajweed categories + 'other' so the heatmap
    *  renders consistently. A zero is meaningful, not a missing data point. */
   errorBreakdown: Record<string, number>;
+  /** Most-recent parent_reports row for this student, or null if no parent
+   *  report has ever been sent (typical for adult students). Surfaces what
+   *  the parent sees so the student isn't out of the loop on their own
+   *  progress. RLS-gated by the student_read_reports policy. */
+  parentReport: { content: string; report_type: string; sent_at: string | null; created_at: string } | null;
   latestEval: {
     overall_score: number | null;
     hifz_score: number | null;
@@ -92,7 +97,7 @@ interface ProgressData {
 export function ProgressContent({ data }: { data: ProgressData }) {
   const { t, dir, lang } = useLang();
   const locale = lang === "ar" ? "ar" : "en-US";
-  const { completedCount, currentLevel, avgQuality, juzTouched, totalHours, evalScores, hwStats, latestEval, progressRecords, sessionsPerWeek, errorBreakdown } = data;
+  const { completedCount, currentLevel, avgQuality, juzTouched, totalHours, evalScores, hwStats, latestEval, progressRecords, sessionsPerWeek, errorBreakdown, parentReport } = data;
 
   const level = LEVEL_CONFIG[currentLevel] ?? LEVEL_CONFIG.beginner;
   const juzSet = new Set(juzTouched);
@@ -279,6 +284,42 @@ export function ProgressContent({ data }: { data: ProgressData }) {
           </section>
         );
       })()}
+
+      {/* Parent's view — surfaces what was sent to the parent so the
+          student isn't out of the loop on their own progress. Hidden when
+          no parent report exists (typical for adult students). Collapsed
+          by default since AI parent reports can run several paragraphs. */}
+      {parentReport && (
+        <details className="group mb-8 glass-card overflow-hidden">
+          <summary className="flex cursor-pointer items-center justify-between gap-3 p-5 list-none">
+            <div className="flex items-center gap-2">
+              <Mail size={18} className="text-violet-400" aria-hidden="true" />
+              <div>
+                <h2 className="font-display text-base font-bold">
+                  {t("ما رآه والدك", "What your parent saw")}
+                </h2>
+                <p className="text-xs text-muted">
+                  {t(
+                    `أُرسل إلى والدك في ${new Date(parentReport.sent_at ?? parentReport.created_at).toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" })}`,
+                    `Sent to your parent on ${new Date(parentReport.sent_at ?? parentReport.created_at).toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" })}`,
+                  )}
+                </p>
+              </div>
+            </div>
+            <span className="text-xs text-muted-light group-open:hidden">
+              {t("اعرض", "Show")} ↓
+            </span>
+            <span className="hidden text-xs text-muted-light group-open:inline">
+              {t("اطوِ", "Hide")} ↑
+            </span>
+          </summary>
+          <div className="border-t border-card-border px-5 py-4">
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+              {parentReport.content}
+            </p>
+          </div>
+        </details>
+      )}
 
       {/* Quran verse */}
       <div className="mb-8 glass-card p-6 text-center">

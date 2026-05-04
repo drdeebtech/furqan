@@ -122,6 +122,21 @@ export default async function StudentProgressPage() {
 
   const totalHours = Math.round(totalMinutes / 60);
 
+  // Most-recent parent report — surfaces what was sent to the student's
+  // parent so the student isn't out of the loop on their own progress.
+  // RLS policy `student_read_reports` (migration 20260504205408) gates
+  // this to the authenticated student's own rows only. Returns null for
+  // adult students with no parent involvement, in which case the section
+  // simply doesn't render.
+  const { data: parentReport } = await supabase
+    .from("parent_reports")
+    .select("content, report_type, sent_at, created_at")
+    .eq("student_id", user.id)
+    .not("content", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ content: string; report_type: string; sent_at: string | null; created_at: string }>();
+
   // Recitation error breakdown — last 30 days, grouped by error_type.
   // recitation_errors is keyed by progress_id (FK → student_progress), so we
   // resolve via the student's progress IDs first. Empty buckets stay in the
@@ -175,6 +190,7 @@ export default async function StudentProgressPage() {
         progressRecords: progressRecords.slice(0, 10),
         sessionsPerWeek,
         errorBreakdown,
+        parentReport,
       }}
     />
   );
