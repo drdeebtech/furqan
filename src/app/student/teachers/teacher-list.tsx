@@ -39,9 +39,14 @@ const GENDER_FILTERS: { key: string; ar: string; en: string }[] = [
 export function TeacherList({
   teachers,
   specialtyLabels,
+  studentStandard,
 }: {
   teachers: TeacherData[];
   specialtyLabels: TeacherLanguage[];
+  /** The student's most-recent recitation_standard, used to flag teachers
+   *  who teach in the same tradition with a "matches your standard"
+   *  badge. Null for brand-new students or when no standard is set. */
+  studentStandard?: string | null;
 }) {
   // Read initial filter values from URL on mount, so deep links like
   // /student/teachers?q=aisha&specialty=hifz&gender=female open in the
@@ -263,14 +268,37 @@ export function TeacherList({
                   </div>
                 )}
 
-                {/* Recitation standards — desktop only */}
+                {/* Recitation standards — desktop only. Pills matching
+                    the student's own standard are tinted gold and labeled
+                    "matches your tradition" so the student can pick a
+                    teacher in their own qira'a lineage at a glance. */}
                 {teacher.recitation_standards.length > 0 && (
-                  <div className="mt-2 hidden flex-wrap gap-1.5 md:flex">
-                    {[...new Set(teacher.recitation_standards)].map((r) => (
-                      <span key={r} className="glass-badge px-2 py-0.5 text-xs text-muted">
-                        {(lang === "ar" ? RIWAYA_AR[r as RecitationStandard] : RIWAYA_EN[r as RecitationStandard]) ?? r}
+                  <div className="mt-2 hidden flex-wrap items-center gap-1.5 md:flex">
+                    {[...new Set(teacher.recitation_standards)].map((r) => {
+                      const isMatch = studentStandard != null && r === studentStandard;
+                      const label = (lang === "ar" ? RIWAYA_AR[r as RecitationStandard] : RIWAYA_EN[r as RecitationStandard]) ?? r;
+                      return (
+                        <span
+                          key={r}
+                          className={
+                            isMatch
+                              ? "rounded-full border border-gold/50 bg-gold/15 px-2 py-0.5 text-xs font-medium text-gold"
+                              : "glass-badge px-2 py-0.5 text-xs text-muted"
+                          }
+                          title={isMatch
+                            ? t("روايتك", "Your tradition")
+                            : undefined}
+                        >
+                          {isMatch && "★ "}
+                          {label}
+                        </span>
+                      );
+                    })}
+                    {studentStandard && teacher.recitation_standards.includes(studentStandard) && (
+                      <span className="text-[10px] text-gold/80">
+                        {t("يطابق روايتك", "matches your tradition")}
                       </span>
-                    ))}
+                    )}
                   </div>
                 )}
 

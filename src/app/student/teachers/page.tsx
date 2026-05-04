@@ -30,14 +30,30 @@ export default async function TeachersPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: teachers } = await supabase
-    .from("teacher_profiles")
-    .select("teacher_id, bio, bio_en, specialties, recitation_standards, hourly_rate, rating_avg, total_sessions, gender")
-    .eq("is_archived", false)
-    .eq("is_accepting", true)
-    .eq("cv_status", "approved")
-    .order("rating_avg", { ascending: false })
-    .returns<Omit<TeacherData, "name">[]>();
+  // Pull the student's most-recent recitation_standard alongside the
+  // teachers list so each teacher card can highlight matching standards.
+  // Without this, the student has no signal that "Hafs an Asim" on a
+  // teacher card is the standard they're already studying.
+  const [teachersRes, studentStandardRes] = await Promise.all([
+    supabase
+      .from("teacher_profiles")
+      .select("teacher_id, bio, bio_en, specialties, recitation_standards, hourly_rate, rating_avg, total_sessions, gender")
+      .eq("is_archived", false)
+      .eq("is_accepting", true)
+      .eq("cv_status", "approved")
+      .order("rating_avg", { ascending: false })
+      .returns<Omit<TeacherData, "name">[]>(),
+    supabase
+      .from("student_progress")
+      .select("recitation_standard")
+      .eq("student_id", user.id)
+      .not("recitation_standard", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ recitation_standard: string | null }>(),
+  ]);
+  const teachers = teachersRes.data;
+  const studentStandard = studentStandardRes.data?.recitation_standard ?? null;
 
   const list = teachers ?? [];
 
@@ -79,7 +95,11 @@ export default async function TeachersPage() {
         </div>
       }
     >
-      <TeacherList teachers={teacherData} specialtyLabels={specialtyLabels} />
+      <TeacherList
+        teachers={teacherData}
+        specialtyLabels={specialtyLabels}
+        studentStandard={studentStandard}
+      />
     </Suspense>
   );
 }
