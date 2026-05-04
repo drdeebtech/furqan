@@ -97,6 +97,7 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
   const [
     packagesRes, hwRawRes, studyAnalytics, liveSessions, continueWatching,
     recentRecordings, nextQuiz, lastProgressRes, streakInfo, homeworkPulse,
+    latestEvalRes,
   ] = await Promise.all([
     supabase.from("student_packages")
       .select("id, sessions_total, sessions_used, status, expires_at")
@@ -118,6 +119,16 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
       .maybeSingle<{ surah_to: number | null; ayah_to: number | null; surah_from: number | null; ayah_from: number | null; level: string; recitation_standard: string | null; created_at: string }>(),
     getStudentStreak(user.id),
     getStudentHomeworkPulse(user.id),
+    // Latest evaluation's recommendations text — drives the "Your focus this
+    // week" card. Only the recommendations + meta are needed; the full
+    // strengths/weaknesses live on /student/progress to avoid duplication.
+    supabase.from("session_evaluations")
+      .select("recommendations, evaluation_type, created_at")
+      .eq("student_id", user.id)
+      .not("recommendations", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ recommendations: string | null; evaluation_type: string; created_at: string }>(),
   ]);
   const activePackages = packagesRes.data ?? [];
   const hwCounts: Record<string, number> = {};
@@ -200,6 +211,7 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
         homeworkPulse,
         todaySessions,
         todayHomework,
+        latestEvaluation: latestEvalRes.data ?? null,
         renderedAtMs: now.getTime(),
       }}
     />

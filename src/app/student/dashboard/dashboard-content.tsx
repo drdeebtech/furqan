@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Calendar, CheckCircle, Clock, Briefcase, Eye, Keyboard, RefreshCw } from "lucide-react";
+import { Calendar, CheckCircle, Clock, Briefcase, Eye, Keyboard, RefreshCw, Sparkles } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/components/shared/toast";
 import { StatCard } from "@/components/shared/stat-card";
@@ -46,6 +46,7 @@ interface DashboardData {
   homeworkPulse: { overdue: number; dueToday: number; dueThisWeek: number; nextItem: { id: string; description: string | null; dueDate: string | null; type: string } | null };
   todaySessions: { id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: string; status: string }[];
   todayHomework: { id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[];
+  latestEvaluation: { recommendations: string | null; evaluation_type: string; created_at: string } | null;
   renderedAtMs: number;
 }
 
@@ -57,7 +58,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
     fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, nameMap,
     studyAnalytics, liveSessions, watchingRows, hwCounts, activePackages, nextQuiz,
     lastProgress, resumeLesson, streakInfo, homeworkPulse, todaySessions, todayHomework,
-    renderedAtMs,
+    latestEvaluation, renderedAtMs,
   } = data;
 
   // Booking-success toast on ?booked=1 — replace the URL afterwards so a
@@ -284,6 +285,36 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
             />
           </section>
         </SectionErrorBoundary>
+
+        {/* "Your focus this week" — surfaces the latest evaluation's
+            recommendations text right at the top of the dashboard so the
+            student opens the app and sees what their teacher said to work
+            on. The full evaluation (strengths/weaknesses/scores) lives on
+            /student/progress; this card is the actionable next-step only. */}
+        {latestEvaluation?.recommendations && (
+          <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل التركيز", "Couldn't load focus")}>
+            <section
+              aria-label={t("تركيز الأسبوع من معلمك", "Your teacher's focus for this week")}
+              className="mb-8 rounded-2xl border border-gold/30 bg-gold/5 p-5"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-gold">
+                  <Sparkles size={14} aria-hidden="true" />
+                  {t("تركيز معلمك لهذا الأسبوع", "Your teacher's focus this week")}
+                </h2>
+                <a
+                  href="/student/progress"
+                  className="text-xs text-muted-light hover:text-gold focus-ring rounded"
+                >
+                  {t("عرض التقييم الكامل ←", "View full evaluation →")}
+                </a>
+              </div>
+              <p className="mt-2 text-base leading-relaxed text-foreground">
+                {latestEvaluation.recommendations}
+              </p>
+            </section>
+          </SectionErrorBoundary>
+        )}
 
         {/* 4-KPI grid — mobile order leads with the actionable one. */}
         <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل المؤشرات", "Couldn't load KPIs")}>
