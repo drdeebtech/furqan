@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, Phone, Mail, User, BarChart3, AlertTriangle, Inbox, BookMarked, MessageSquareQuote, Mic } from "lucide-react";
+import { ArrowRight, Phone, Mail, User, BarChart3, AlertTriangle, Inbox, BookMarked, MessageSquareQuote, Mic, ScrollText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
@@ -144,9 +144,18 @@ export default async function StudentDetailPage({ params }: Props) {
 
   return (
     <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
-      <Link href="/teacher/students" className="mb-6 inline-flex items-center gap-1 text-sm text-gold hover:text-gold-hover">
-        <ArrowRight size={14} /> {t("العودة لطلابي", "Back to My Students")}
-      </Link>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <Link href="/teacher/students" className="inline-flex items-center gap-1 text-sm text-gold hover:text-gold-hover">
+          <ArrowRight size={14} /> {t("العودة لطلابي", "Back to My Students")}
+        </Link>
+        <Link
+          href={`/teacher/students/${studentId}/timeline`}
+          className="inline-flex items-center gap-1 rounded-full border border-card-border bg-card/50 px-3 py-1.5 text-xs text-muted hover:text-foreground/80 focus-ring"
+        >
+          <ScrollText size={12} aria-hidden="true" />
+          {t("الخط الزمني", "Timeline")}
+        </Link>
+      </div>
 
       {/* Profile Card */}
       <div className="glass-card mb-6 p-6">
