@@ -183,3 +183,29 @@ export interface StudentIjazahRequirementProgress {
   created_at: string;
   updated_at: string;
 }
+
+// Teacher mentorship — added in 20260504234013_add_teacher_mentorship.sql.
+export type TeacherMentorshipStatus = "proposed" | "active" | "paused" | "ended";
+export type TeacherMentorshipFeedbackSeverity = "praise" | "info" | "suggestion" | "concern";
+
+export interface TeacherMentorship {
+  id: string;
+  mentor_id: string;
+  mentee_id: string;
+  status: TeacherMentorshipStatus;
+  started_at: string;
+  ended_at: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TeacherMentorshipFeedback {
+  id: string;
+  mentorship_id: string;
+  session_id: string | null;
+  feedback_text: string;
+  severity: TeacherMentorshipFeedbackSeverity;
+  written_by: string;
+  created_at: string;
+}

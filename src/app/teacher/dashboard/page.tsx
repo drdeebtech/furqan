@@ -5,6 +5,7 @@ import { fetchNameMap } from "@/lib/supabase/helpers";
 import type { SessionType } from "@/types/database";
 import { TeacherDashboardContent } from "./dashboard-content";
 import { TeacherAtRiskStudents } from "./at-risk-students";
+import { MentorshipCard } from "./mentorship-card";
 import {
   getTeacherWeeklyHours,
   getTeacherLiveSessions,
@@ -119,6 +120,11 @@ export default async function TeacherDashboardPage() {
           <TeacherAtRiskStudents teacherId={user.id} />
         </div>
       )}
+
+      {/* Mentorship card — renders only when this teacher has an active
+          mentor relationship in either direction. Pairings are admin-
+          driven for now. */}
+      <MentorshipCard teacherId={user.id} />
     </main>
   );
 }
