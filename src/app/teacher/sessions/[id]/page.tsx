@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Sparkles, AlertTriangle, BookMarked, MessageSquareQuote } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
+import { surahName } from "@/lib/quran/surahs";
 import { getT } from "@/lib/i18n/server";
 import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
 import type { SessionType, HomeworkAssignment } from "@/types/database";
@@ -71,14 +72,67 @@ export default async function TeacherSessionPage({ params }: Props) {
 
   if (!booking || booking.teacher_id !== user.id) redirect("/teacher/sessions");
 
-  const [studentRes, retentionRes] = await Promise.all([
+  const [studentRes, retentionRes, prevEvalRes, lastProgressRes] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", booking.student_id)
       .single<{ full_name: string | null }>(),
     supabase.from("retention_signals").select("churn_risk_score").eq("student_id", booking.student_id)
       .maybeSingle<{ churn_risk_score: number | null }>(),
+    // Most recent evaluation THIS teacher wrote for THIS student. Drives
+    // the "you said last time" prompt — closes the loop between teacher
+    // intent (recommendations text) and teacher follow-through (did the
+    // session today address what was promised last time?).
+    supabase.from("session_evaluations")
+      .select("recommendations, weaknesses, created_at")
+      .eq("student_id", booking.student_id)
+      .eq("teacher_id", user.id)
+      .not("recommendations", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ recommendations: string | null; weaknesses: string | null; created_at: string }>(),
+    // Latest student_progress row — gives surah/ayah position the teacher
+    // is about to continue from.
+    supabase.from("student_progress")
+      .select("surah_to, ayah_to, surah_from, ayah_from, level, recitation_standard, created_at")
+      .eq("student_id", booking.student_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ surah_to: number | null; ayah_to: number | null; surah_from: number | null; ayah_from: number | null; level: string; recitation_standard: string | null; created_at: string }>(),
   ]);
   const student = studentRes.data;
   const studentRisk = retentionRes.data?.churn_risk_score ?? null;
+  const prevEval = prevEvalRes.data ?? null;
+  const lastProgress = lastProgressRes.data ?? null;
+
+  // Recitation error breakdown for this student, last 30 days. Two-step
+  // because recitation_errors is keyed by progress_id (FK), not student_id.
+  // Aggregates by error_type so the teacher sees "the student needs work
+  // on madd + makharij" before walking into the session.
+  const thirtyDaysAgoIso = new Date(Date.now() - 30 * 86400_000).toISOString();
+  const { data: recentProgressIds } = await supabase
+    .from("student_progress")
+    .select("id")
+    .eq("student_id", booking.student_id)
+    .gte("created_at", thirtyDaysAgoIso)
+    .returns<{ id: string }[]>();
+  const errorCounts: Record<string, number> = {
+    makharij: 0, sifat: 0, madd: 0, waqf: 0, ghunna: 0, other: 0,
+  };
+  if (recentProgressIds && recentProgressIds.length > 0) {
+    const { data: errs } = await supabase
+      .from("recitation_errors")
+      .select("error_type")
+      .in("progress_id", recentProgressIds.map(p => p.id))
+      .gte("created_at", thirtyDaysAgoIso)
+      .returns<{ error_type: string }[]>();
+    for (const e of errs ?? []) {
+      if (e.error_type in errorCounts) errorCounts[e.error_type] += 1;
+      else errorCounts.other += 1;
+    }
+  }
+  const topErrorCategories = Object.entries(errorCounts)
+    .filter(([, c]) => c > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
 
   // Group-session: list every student enrolled in this session via their
   // own bookings row. Each enrolled booking has its own homework feed.
@@ -203,6 +257,111 @@ export default async function TeacherSessionPage({ params }: Props) {
           )}
         </div>
       </div>
+
+      {/* Pre-session prep — what THIS teacher told THIS student last time +
+          recent error patterns + last memorization position. Helps the
+          teacher walk into the session with context instead of "what did
+          we say last time?" friction. Hidden when there's nothing to show
+          (brand-new student-teacher pairing, no prior data) and on group
+          sessions for now (per-student panels need a separate UI). */}
+      {!isCompleted && enrolledList.length <= 1 && (
+        prevEval || lastProgress || topErrorCategories.length > 0
+      ) && (
+        <div className="mb-4 rounded-2xl border border-gold/20 bg-gold/[0.03] p-5">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gold">
+            <Sparkles size={14} aria-hidden="true" />
+            {t("تحضير الجلسة", "Pre-session prep")}
+          </h2>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {/* What this teacher said last time. */}
+            {prevEval?.recommendations && (
+              <div className="rounded-xl border border-gold/30 bg-gold/5 p-3 md:col-span-3">
+                <h3 className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-gold">
+                  <MessageSquareQuote size={12} aria-hidden="true" />
+                  {t(
+                    `قلت في آخر تقييم (${new Date(prevEval.created_at).toLocaleDateString(locale, { month: "short", day: "numeric" })})`,
+                    `What you wrote last evaluation (${new Date(prevEval.created_at).toLocaleDateString(locale, { month: "short", day: "numeric" })})`,
+                  )}
+                </h3>
+                <p className="text-sm leading-relaxed text-foreground">{prevEval.recommendations}</p>
+                {prevEval.weaknesses && (
+                  <p className="mt-2 text-xs text-muted">
+                    <span className="text-orange-400">{t("نقاط ضعف:", "Weaknesses:")}</span> {prevEval.weaknesses}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Last memorization position — surah/ayah/level/standard. */}
+            {lastProgress && (lastProgress.surah_to || lastProgress.surah_from) && (
+              <div className="rounded-xl border border-card-border bg-card/50 p-3">
+                <h3 className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted">
+                  <BookMarked size={12} aria-hidden="true" />
+                  {t("آخر موقع محفوظ", "Last position")}
+                </h3>
+                <p className="text-sm font-medium text-foreground">
+                  {(() => {
+                    const num = lastProgress.surah_to ?? lastProgress.surah_from;
+                    const ayah = lastProgress.ayah_to ?? lastProgress.ayah_from;
+                    const name = surahName(num, lang === "ar" ? "ar" : "en");
+                    return lang === "ar"
+                      ? `سورة ${name}${ayah ? ` آية ${ayah}` : ""}`
+                      : `Surah ${name}${ayah ? ` · ayah ${ayah}` : ""}`;
+                  })()}
+                </p>
+                {lastProgress.recitation_standard && (
+                  <p className="mt-1 text-[11px] text-muted">
+                    {(() => {
+                      const std: Record<string, { ar: string; en: string }> = {
+                        hafs: { ar: "حفص عن عاصم", en: "Hafs an Asim" },
+                        warsh: { ar: "ورش عن نافع", en: "Warsh an Nafi" },
+                        qalon: { ar: "قالون عن نافع", en: "Qalun an Nafi" },
+                        al_duri: { ar: "الدوري عن أبي عمرو", en: "Al-Duri an Abu Amr" },
+                        shu_ba: { ar: "شعبة عن عاصم", en: "Shu'ba an Asim" },
+                      };
+                      const label = std[lastProgress.recitation_standard];
+                      return label ? t(label.ar, label.en) : lastProgress.recitation_standard;
+                    })()}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Top recitation error categories last 30 days. */}
+            {topErrorCategories.length > 0 && (
+              <div className="rounded-xl border border-card-border bg-card/50 p-3 md:col-span-2">
+                <h3 className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted">
+                  <AlertTriangle size={12} aria-hidden="true" />
+                  {t("أنماط أخطاء حديثة (٣٠ يوم)", "Recent error patterns (30 days)")}
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {topErrorCategories.map(([cat, count]) => {
+                    const label: Record<string, { ar: string; en: string }> = {
+                      makharij: { ar: "مخارج", en: "Makharij" },
+                      sifat: { ar: "صفات", en: "Sifat" },
+                      madd: { ar: "مدود", en: "Madd" },
+                      waqf: { ar: "وقف", en: "Waqf" },
+                      ghunna: { ar: "غنّة", en: "Ghunna" },
+                      other: { ar: "أخرى", en: "Other" },
+                    };
+                    const l = label[cat] ?? { ar: cat, en: cat };
+                    return (
+                      <span
+                        key={cat}
+                        className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs text-amber-300"
+                      >
+                        <span className="font-bold">{count}</span>
+                        <span>{t(l.ar, l.en)}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Enrolled students — always shown so the teacher knows who's in the
           session. The Add Student button lets them grow a 1:1 into a group
