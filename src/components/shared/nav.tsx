@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { startTransition, useEffect, useRef, useState } from "react";
 import {
   Menu, X, LayoutDashboard, GraduationCap, Calendar, TrendingUp, TrendingDown,
-  MessageSquare, Clock, Users, ClipboardCheck, BookOpen, StickyNote,
+  MessageSquare, Clock, Users, ClipboardCheck, BookOpen, StickyNote, Mic,
   Star, DollarSign, Briefcase, FileText, Mail, Bell, Settings, ScrollText, Video,
   ChevronsUpDown, HelpCircle, ChevronRight, ChevronDown, CalendarDays, LogOut,
 } from "lucide-react";
@@ -33,6 +33,7 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/student/calendar", ar: "التقويم", en: "Calendar", icon: CalendarDays },
     { href: "/student/time-tracker", ar: "تتبع الوقت", en: "Time Tracker", icon: Clock },
     { href: "/student/progress", ar: "تقدمي", en: "Progress", icon: TrendingUp },
+    { href: "/student/recitations", ar: "تسميعاتي", en: "Recitations", icon: Mic },
     // COLLABORATION — communication
     { href: "/student/messages", ar: "الرسائل", en: "Messages", icon: MessageSquare, group: { ar: "التواصل", en: "COLLABORATION" } },
     { href: "/community", ar: "المجتمع", en: "Community", icon: Users },

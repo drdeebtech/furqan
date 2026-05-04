@@ -8,16 +8,27 @@ import { getHomeworkAudioUrl } from "@/lib/actions/homework";
 interface HomeworkAudioPlayerProps {
   homeworkId: string;
   durationSeconds: number | null;
+  /** Optional label override. Default reads naturally for both student and
+   *  teacher contexts ("Listen to recitation"). Override when the
+   *  surrounding UI carries the recitation framing already. */
+  label?: { ar: string; en: string };
 }
 
 /**
- * Teacher-side player for the student's recitation submission. Lazy:
- * fetches a signed URL only when the teacher clicks Play, since most
- * homework rows on the page won't be opened. Once fetched, the URL stays
- * for the page lifetime (signed URLs are valid for 1 hour — long enough
- * for a grading session).
+ * Lazy audio player for a homework's recitation submission. Fetches a
+ * signed URL only when the user clicks Play (signed URLs are valid for
+ * 1 hour — long enough for a teacher's grading session or a student
+ * scanning their own archive).
+ *
+ * Used by:
+ *  - /teacher/homework — when grading a student's submission
+ *  - /student/recitations — student's own audio archive
+ *  - /student/homework — playback of own submitted recordings
+ *
+ * RLS gates which paths each role can sign URLs for; the component
+ * itself doesn't enforce role.
  */
-export function HomeworkAudioPlayer({ homeworkId, durationSeconds }: HomeworkAudioPlayerProps) {
+export function HomeworkAudioPlayer({ homeworkId, durationSeconds, label }: HomeworkAudioPlayerProps) {
   const { t } = useLang();
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -36,12 +47,16 @@ export function HomeworkAudioPlayer({ homeworkId, durationSeconds }: HomeworkAud
     setLoading(false);
   }
 
+  const headerLabel = label
+    ? t(label.ar, label.en)
+    : t("التسميع", "Recitation");
+
   if (url) {
     return (
-      <div className="mt-2 rounded-lg border border-violet-500/30 bg-violet-500/5 p-2.5">
+      <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-2.5">
         <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-violet-300">
           <Headphones size={12} aria-hidden="true" />
-          {t("تسميع الطالب", "Student's recitation")}
+          {headerLabel}
           {durationSeconds && (
             <span className="text-muted">· {formatDuration(durationSeconds)}</span>
           )}
@@ -52,7 +67,7 @@ export function HomeworkAudioPlayer({ homeworkId, durationSeconds }: HomeworkAud
   }
 
   return (
-    <div className="mt-2">
+    <div>
       <button
         type="button"
         onClick={handleLoad}
@@ -67,8 +82,8 @@ export function HomeworkAudioPlayer({ homeworkId, durationSeconds }: HomeworkAud
         {loading
           ? t("جارٍ التحميل...", "Loading...")
           : t(
-              `استمع للتسميع${durationSeconds ? ` (${formatDuration(durationSeconds)})` : ""}`,
-              `Listen to recitation${durationSeconds ? ` (${formatDuration(durationSeconds)})` : ""}`,
+              `استمع${durationSeconds ? ` (${formatDuration(durationSeconds)})` : ""}`,
+              `Listen${durationSeconds ? ` (${formatDuration(durationSeconds)})` : ""}`,
             )}
       </button>
       {error && (
