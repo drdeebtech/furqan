@@ -51,6 +51,13 @@ Sentry.init({
       messagePlaceholder: "ماذا حدث؟",
       successMessageText: "شكرًا، تم إرسال البلاغ.",
     }),
+    // Capture console.error/console.warn as breadcrumbs on the next error event.
+    // Lesson from the 2026-05-04 CSP outage: 19 CSP violations were logged to
+    // browser console but never reached Sentry as Issues — they go to a separate
+    // report-uri channel that wasn't surfaced. Capturing them as breadcrumbs
+    // means the next *real* error has a trail of any preceding console noise,
+    // and silent script-block failures get hints about what was blocked.
+    Sentry.captureConsoleIntegration({ levels: ["error", "warn"] }),
   ],
   tracesSampleRate: isProd ? 0.1 : 1,
   enableLogs: true,
@@ -60,6 +67,15 @@ Sentry.init({
   beforeSend,
   ignoreErrors: CLIENT_IGNORE_ERRORS,
 });
+
+// Initial state: page loaded but React hasn't hydrated yet. The
+// HydrationBeacon component (rendered in the root layout) flips this to "true"
+// once mounted. Any error fired before that point is automatically tagged
+// hydrated:false — separates "user did a thing, broke" from "client never
+// successfully booted." Lesson from the 2026-05-04 CSP outage: silent
+// hydration failure was indistinguishable from "user is just slow" in the
+// issue feed.
+Sentry.setTag("hydrated", "false");
 
 try {
   initBotId({
