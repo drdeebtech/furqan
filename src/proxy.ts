@@ -5,7 +5,16 @@ import { updateSession } from "@/lib/supabase/middleware";
 import { setSentryUser } from "@/lib/sentry/context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildRoleTag, type RoleState } from "@/lib/auth/role-cache";
+import { withTimeout } from "@/lib/promise-utils";
 import type { UserRole } from "@/types/database";
+
+// Per-request timeout for the role-state lookup (Supabase admin query, cached
+// via unstable_cache). Hangs here block every protected-route request before
+// the layout's loading.tsx can render. On timeout we treat the user as having
+// no role state — the existing fallback already redirects to /login. 3s is
+// well above any healthy lookup (~30ms cached / ~100ms cold) and well below
+// the layout/page timeouts so we fail fast at the upstream-most boundary.
+const ROLE_STATE_TIMEOUT_MS = 3000;
 
 /**
  * Per-user role-state cache, backed by Next's `unstable_cache` so it
@@ -100,7 +109,12 @@ export async function proxy(request: NextRequest) {
   if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
     // Redirect authenticated users away from auth pages
     if (user) {
-      const state = await getUserRoleState(supabase, user.id);
+      const state = await withTimeout(
+      getUserRoleState(supabase, user.id),
+      ROLE_STATE_TIMEOUT_MS,
+      null,
+      "proxy.roleState",
+    );
       if (state) {
         setSentryUser(user.id, state.active);
         const dashboard = state.active === "moderator" ? "/moderator/dashboard" : `/${state.active}/dashboard`;
@@ -122,7 +136,12 @@ export async function proxy(request: NextRequest) {
     }
 
     // Fetch user role state (active role + full roles[] set).
-    const state = await getUserRoleState(supabase, user.id);
+    const state = await withTimeout(
+      getUserRoleState(supabase, user.id),
+      ROLE_STATE_TIMEOUT_MS,
+      null,
+      "proxy.roleState",
+    );
 
     // Refresh Sentry scope with the active role for any errors below.
     setSentryUser(user.id, state?.active ?? null);
@@ -154,7 +173,12 @@ export async function proxy(request: NextRequest) {
 
   // Authenticated user on root "/" → redirect to their dashboard
   if (pathname === "/" && user) {
-    const state = await getUserRoleState(supabase, user.id);
+    const state = await withTimeout(
+      getUserRoleState(supabase, user.id),
+      ROLE_STATE_TIMEOUT_MS,
+      null,
+      "proxy.roleState",
+    );
     if (state) {
       return NextResponse.redirect(
         new URL(`/${state.active}/dashboard`, request.url),
