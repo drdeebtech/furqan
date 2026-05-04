@@ -34,6 +34,7 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/student/time-tracker", ar: "تتبع الوقت", en: "Time Tracker", icon: Clock },
     { href: "/student/progress", ar: "تقدمي", en: "Progress", icon: TrendingUp },
     { href: "/student/recitations", ar: "تسميعاتي", en: "Recitations", icon: Mic },
+    { href: "/student/timeline", ar: "خط زمني", en: "Timeline", icon: ScrollText },
     // COLLABORATION — communication
     { href: "/student/messages", ar: "الرسائل", en: "Messages", icon: MessageSquare, group: { ar: "التواصل", en: "COLLABORATION" } },
     { href: "/community", ar: "المجتمع", en: "Community", icon: Users },
