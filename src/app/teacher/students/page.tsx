@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Users, Inbox } from "lucide-react";
+import { Users, Inbox, AlertCircle, ClipboardCheck, Calendar } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { SearchInput } from "@/components/shared/search-input";
@@ -51,10 +51,68 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
     if (profiles) profileMap = Object.fromEntries(profiles.map(p => [p.id, { full_name: p.full_name, phone: p.phone }]));
   }
 
+  // Pedagogical-state queries — turn the student list from a flat
+  // directory into a triage board. Three extra parallel reads:
+  //   - latest session_evaluations.created_at per student (overdue
+  //     evaluation flag at >30 days)
+  //   - homework_assignments where status='student_ready' grouped by
+  //     student (ungraded count)
+  //   - upcoming confirmed bookings per student (next-session date)
+  const nowIso = new Date().toISOString();
+  const [evalRowsRes, ungradedRowsRes, upcomingRowsRes] = await Promise.all([
+    studentIds.length > 0
+      ? supabase
+          .from("session_evaluations")
+          .select("student_id, created_at")
+          .eq("teacher_id", user.id)
+          .in("student_id", studentIds)
+          .order("created_at", { ascending: false })
+          .returns<{ student_id: string; created_at: string }[]>()
+      : Promise.resolve({ data: [] }),
+    studentIds.length > 0
+      ? supabase
+          .from("homework_assignments")
+          .select("student_id")
+          .eq("teacher_id", user.id)
+          .eq("status", "student_ready")
+          .in("student_id", studentIds)
+          .returns<{ student_id: string }[]>()
+      : Promise.resolve({ data: [] }),
+    studentIds.length > 0
+      ? supabase
+          .from("bookings")
+          .select("student_id, scheduled_at")
+          .eq("teacher_id", user.id)
+          .eq("status", "confirmed")
+          .gte("scheduled_at", nowIso)
+          .in("student_id", studentIds)
+          .order("scheduled_at", { ascending: true })
+          .returns<{ student_id: string; scheduled_at: string }[]>()
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  // Reduce: latest eval date, ungraded count, next session date — all
+  // keyed by student_id for O(1) lookup in the render loop.
+  const lastEvalAt: Record<string, string> = {};
+  for (const e of evalRowsRes.data ?? []) {
+    if (!lastEvalAt[e.student_id]) lastEvalAt[e.student_id] = e.created_at;
+  }
+  const ungradedCount: Record<string, number> = {};
+  for (const h of ungradedRowsRes.data ?? []) {
+    ungradedCount[h.student_id] = (ungradedCount[h.student_id] ?? 0) + 1;
+  }
+  const nextSessionAt: Record<string, string> = {};
+  for (const b of upcomingRowsRes.data ?? []) {
+    if (!nextSessionAt[b.student_id]) nextSessionAt[b.student_id] = b.scheduled_at;
+  }
+
   const allStudents = studentIds.map(id => ({
     id,
     name: profileMap[id]?.full_name || t("طالب", "Student"),
     phone: profileMap[id]?.phone,
+    lastEvalAt: lastEvalAt[id] ?? null,
+    ungraded: ungradedCount[id] ?? 0,
+    nextSessionAt: nextSessionAt[id] ?? null,
     ...studentStats.get(id)!,
   }));
 
@@ -87,30 +145,76 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {students.map(s => (
-            <div key={s.id} className="glass-card p-6">
-              <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-gold/30 bg-gold/10 font-display text-xl font-bold text-gold">
-                {s.name.charAt(0)}
+          {students.map(s => {
+            const daysSinceEval = s.lastEvalAt
+              ? Math.floor((Date.now() - new Date(s.lastEvalAt).getTime()) / 86400_000)
+              : null;
+            const evalOverdue = daysSinceEval == null || daysSinceEval > 30;
+            const localeArg = lang === "ar" ? "ar" : "en-US";
+            return (
+              <div key={s.id} className="glass-card p-6">
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-gold/30 bg-gold/10 font-display text-xl font-bold text-gold">
+                  {s.name.charAt(0)}
+                </div>
+                <p className="text-lg font-bold">{s.name}</p>
+                <p className="mt-1 text-sm text-muted">
+                  {t("آخر جلسة", "Last session")}: {new Date(s.lastSession).toLocaleDateString(localeArg)}
+                </p>
+                <p className="text-sm text-muted">
+                  {s.total} {t("جلسة مكتملة", "completed")} · {s.thisMonth} {t("هذا الشهر", "this month")}
+                </p>
+
+                {/* Status row — pedagogical signals: ungraded homework
+                    count, days since last evaluation, next session date.
+                    Each chip is clickable when it has a useful target. */}
+                <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
+                  {s.ungraded > 0 && (
+                    <Link
+                      href="/teacher/homework"
+                      className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 font-medium text-warning hover:bg-warning/15 focus-ring"
+                      title={t(`${s.ungraded} واجبات بانتظار التقييم`, `${s.ungraded} homework awaiting grading`)}
+                    >
+                      <ClipboardCheck size={11} aria-hidden="true" />
+                      {s.ungraded} {t("بانتظار التقييم", "to grade")}
+                    </Link>
+                  )}
+                  {s.nextSessionAt && (
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-blue-300"
+                      title={new Date(s.nextSessionAt).toLocaleString(localeArg, { dateStyle: "medium", timeStyle: "short" })}
+                    >
+                      <Calendar size={11} aria-hidden="true" />
+                      {t("قادم", "Next")}: {new Date(s.nextSessionAt).toLocaleDateString(localeArg, { month: "short", day: "numeric" })}
+                    </span>
+                  )}
+                  {evalOverdue && (
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full border border-orange-500/30 bg-orange-500/10 px-2 py-0.5 text-orange-300"
+                      title={daysSinceEval != null
+                        ? t(`آخر تقييم قبل ${daysSinceEval} يوماً`, `Last evaluation ${daysSinceEval} days ago`)
+                        : t("لم يُقيَّم بعد", "Never evaluated")}
+                    >
+                      <AlertCircle size={11} aria-hidden="true" />
+                      {daysSinceEval == null
+                        ? t("بحاجة تقييم", "Needs eval")
+                        : t(`تقييم منذ ${daysSinceEval} يوم`, `Eval ${daysSinceEval}d ago`)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-4 flex gap-2 border-t border-white/10 pt-4">
+                  <Link href={`/teacher/students/${s.id}`} className="glass glass-pill flex-1 py-2 text-center text-xs text-muted transition-colors hover:border-gold/40 hover:text-gold">
+                    {t("عرض التفاصيل", "View Details")}
+                  </Link>
+                  {s.phone && (
+                    <a href={`https://wa.me/${s.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer" className="glass-success glass-pill px-3 py-2 text-xs text-white transition-colors hover:bg-green-700">
+                      {t("واتساب", "WhatsApp")}
+                    </a>
+                  )}
+                </div>
               </div>
-              <p className="text-lg font-bold">{s.name}</p>
-              <p className="mt-1 text-sm text-muted">
-                {t("آخر جلسة", "Last session")}: {new Date(s.lastSession).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}
-              </p>
-              <p className="text-sm text-muted">
-                {s.total} {t("جلسة مكتملة", "completed")} · {s.thisMonth} {t("هذا الشهر", "this month")}
-              </p>
-              <div className="mt-4 flex gap-2 border-t border-white/10 pt-4">
-                <Link href={`/teacher/students/${s.id}`} className="glass glass-pill flex-1 py-2 text-center text-xs text-muted transition-colors hover:border-gold/40 hover:text-gold">
-                  {t("عرض التفاصيل", "View Details")}
-                </Link>
-                {s.phone && (
-                  <a href={`https://wa.me/${s.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer" className="glass-success glass-pill px-3 py-2 text-xs text-white transition-colors hover:bg-green-700">
-                    {t("واتساب", "WhatsApp")}
-                  </a>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
