@@ -123,3 +123,63 @@ export type CourseEnrollment = T["course_enrollments"]["Row"];
 export type CourseLessonProgress = T["course_lesson_progress"]["Row"];
 export type CourseReview = T["course_reviews"]["Row"];
 export type CoursePayout = T["course_payouts"]["Row"];
+
+// Ijazah pathway types — added in 20260504232933_add_ijazah_pathway.sql.
+// Hand-authored overrides until `npm run db:types` regenerates the
+// underlying supabase.generated.ts. Drop these once the regen lands.
+export type IjazahRequirementType =
+  | "memorize_surah"
+  | "memorize_juz"
+  | "min_sessions_with_teacher"
+  | "eval_score_threshold"
+  | "oral_exam_pass"
+  | "written_exam_pass"
+  | "other";
+
+export interface IjazahPathway {
+  id: string;
+  name_ar: string;
+  name_en: string;
+  description_ar: string | null;
+  description_en: string | null;
+  recitation_standard: RecitationStandard;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IjazahRequirement {
+  id: string;
+  pathway_id: string;
+  requirement_type: IjazahRequirementType;
+  requirement_payload: Record<string, unknown>;
+  sequence: number;
+  description_ar: string;
+  description_en: string;
+  created_at: string;
+}
+
+export interface StudentIjazahProgress {
+  id: string;
+  student_id: string;
+  pathway_id: string;
+  enrolled_at: string;
+  target_completion_at: string | null;
+  completed_at: string | null;
+  issuing_teacher_id: string | null;
+  issued_certificate_url: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StudentIjazahRequirementProgress {
+  id: string;
+  student_progress_id: string;
+  requirement_id: string;
+  met_at: string | null;
+  verifying_teacher_id: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
