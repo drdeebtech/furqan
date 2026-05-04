@@ -2,6 +2,13 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/supabase.generated";
 import { logError } from "@/lib/logger";
+import { withTimeout } from "@/lib/promise-utils";
+
+// Hard cap on how long supabase.auth.getUser() can take in middleware. Every
+// request to a protected route blocks on this — a hang here freezes the
+// browser tab spinner BEFORE the layout's loading.tsx ever has a chance to
+// render. Healthy round-trip is 50–300ms; 3s is well outside the noise.
+const MIDDLEWARE_AUTH_TIMEOUT_MS = 3000;
 
 /**
  * Strip auth-token cookies whose value isn't a validly-shaped *and unexpired*
@@ -97,17 +104,30 @@ export async function updateSession(request: NextRequest) {
   // Trigger token refresh — getUser() validates against Supabase Auth.
   // Do NOT use getSession() here — it reads from cookies without verification.
   //
-  // Wrapped in try/catch because @supabase/ssr's session-construction throws
-  // when the cookie value is malformed (e.g. raw "junk" or partially written
-  // tokens left behind by an interrupted login). Surfaced by k6 smoke probing
-  // 2026-04-30 — was producing
-  //   TypeError: Cannot create property 'user' on string '<value>'
-  // in dev (and a Sentry event in prod). Treat any throw as "no user", let
-  // the existing middleware redirect-to-login path run as if there were no
-  // cookie at all.
+  // Wrapped in BOTH try/catch and withTimeout:
+  //   try/catch  — @supabase/ssr's session-construction throws when the
+  //                cookie value is malformed (e.g. raw "junk" or partially
+  //                written tokens left behind by an interrupted login).
+  //                Surfaced by k6 smoke probing 2026-04-30 — was producing
+  //                TypeError: Cannot create property 'user' on string …
+  //   withTimeout — the previous catch only caught synchronous-ish throws.
+  //                Some session shapes (token refresh against a slow / down
+  //                Supabase Auth) can HANG for the full Vercel function
+  //                timeout. Incident 2026-05-04 had every protected-route
+  //                request stuck at the browser tab spinner because the
+  //                middleware's getUser() never returned. On timeout we
+  //                treat the request as unauthenticated and let the
+  //                downstream redirect-to-login path run.
   let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] = null;
   try {
-    const result = await supabase.auth.getUser();
+    const result = await withTimeout(
+      supabase.auth.getUser(),
+      MIDDLEWARE_AUTH_TIMEOUT_MS,
+      { data: { user: null }, error: null } as unknown as Awaited<
+        ReturnType<typeof supabase.auth.getUser>
+      >,
+      "middleware.auth.getUser",
+    );
     user = result.data.user;
   } catch (err) {
     logError("supabase.auth.getUser threw — treating as unauthenticated", err, {
