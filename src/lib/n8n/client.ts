@@ -4,8 +4,14 @@
  */
 import { logError } from "@/lib/logger";
 
-const N8N_API_URL = (process.env.N8N_API_URL ?? "").replace(/\\n|\\r/g, "").trim().replace(/\/+$/, "");
-const N8N_API_KEY = process.env.N8N_API_KEY;
+// Strip both literal "\n"/"\r" escape sequences (env-injection artefacts) AND
+// real \r/\n bytes (paste-from-clipboard artefacts — same shape as the
+// 2026-04-30 N8N_WEBHOOK_SECRET LF incident). Both URL and KEY are sanitised:
+// the prior code only sanitised the URL, leaving the API key vulnerable to
+// the same trailing-LF bug.
+const cleanEnv = (v: string | undefined) => (v ?? "").replace(/\\n|\\r|[\r\n]+/g, "").trim();
+const N8N_API_URL = cleanEnv(process.env.N8N_API_URL).replace(/\/+$/, "");
+const N8N_API_KEY = cleanEnv(process.env.N8N_API_KEY);
 
 async function n8nFetch<T>(path: string, options?: RequestInit): Promise<T> {
   if (!N8N_API_KEY) throw new Error("N8N_API_KEY not configured");

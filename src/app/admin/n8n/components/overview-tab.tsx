@@ -53,17 +53,54 @@ export function OverviewTab() {
 
   const loadData = useCallback(() => {
     startTransition(() => setLoading(true));
+    // Capture { ok, status, body } per response so a 500 with { error } isn't
+    // silently dropped (the prior `r.json()` flow swallowed errors and then
+    // unconditionally cleared the banner).
+    const parse = async (r: Response) => ({
+      ok: r.ok,
+      status: r.status,
+      body: (await r.json().catch(() => null)) as
+        | { data?: unknown; error?: string }
+        | null,
+    });
     Promise.all([
-      fetch("/api/n8n/workflows").then((r) => r.json()),
-      fetch("/api/n8n/executions").then((r) => r.json()),
-      fetch("/api/n8n/executions/all").then((r) => r.json()),
+      fetch("/api/n8n/workflows").then(parse),
+      fetch("/api/n8n/executions").then(parse),
+      fetch("/api/n8n/executions/all").then(parse),
     ])
       .then(([wfRes, exRes, allExRes]) => {
         startTransition(() => {
-          if (wfRes.data) setWorkflows(wfRes.data);
-          if (exRes.data) setErrorExecutions(exRes.data);
-          if (allExRes.data) setAllExecutions(allExRes.data);
-          setError(null);
+          const labelled: Array<[string, typeof wfRes]> = [
+            ["workflows", wfRes],
+            ["executions", exRes],
+            ["all-executions", allExRes],
+          ];
+          const failures = labelled.filter(([, r]) => !r.ok);
+          if (failures.length > 0) {
+            const auth = failures.find(([, r]) => r.status === 401 || r.status === 403);
+            if (auth) {
+              setError(t("الجلسة منتهية — أعد تسجيل الدخول", "Session expired — please log in again"));
+            } else {
+              const messages = failures.map(([name, r]) => {
+                const upstream = r.body?.error?.trim() || t("لا توجد رسالة", "no message");
+                return `${name} [${r.status}]: ${upstream}`;
+              });
+              const dedup = Array.from(new Set(messages));
+              setError(dedup.join(" — "));
+            }
+          } else {
+            setError(null);
+          }
+
+          if (wfRes.ok && Array.isArray(wfRes.body?.data)) {
+            setWorkflows(wfRes.body.data as Workflow[]);
+          }
+          if (exRes.ok && Array.isArray(exRes.body?.data)) {
+            setErrorExecutions(exRes.body.data as Execution[]);
+          }
+          if (allExRes.ok && Array.isArray(allExRes.body?.data)) {
+            setAllExecutions(allExRes.body.data as Execution[]);
+          }
           setLoading(false);
         });
       })
