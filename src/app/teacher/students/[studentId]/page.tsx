@@ -1,12 +1,21 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, Phone, Mail, User, BarChart3, AlertTriangle, Inbox } from "lucide-react";
+import { ArrowRight, Phone, Mail, User, BarChart3, AlertTriangle, Inbox, BookMarked, MessageSquareQuote, Mic } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
-import type { SessionType, StudentLevel } from "@/types/database";
+import type { SessionType, StudentLevel, HomeworkAssignment } from "@/types/database";
+import { HomeworkAudioPlayer } from "@/components/shared/homework-audio-player";
 import { EvalForm } from "./eval-form";
 import { ResolveErrorButton } from "./resolve-error-button";
+
+const RECITATION_STANDARD_LABEL: Record<string, { ar: string; en: string }> = {
+  hafs: { ar: "حفص عن عاصم", en: "Hafs an Asim" },
+  warsh: { ar: "ورش عن نافع", en: "Warsh an Nafi" },
+  qalon: { ar: "قالون عن نافع", en: "Qalun an Nafi" },
+  al_duri: { ar: "الدوري عن أبي عمرو", en: "Al-Duri an Abu Amr" },
+  shu_ba: { ar: "شعبة عن عاصم", en: "Shu'ba an Asim" },
+};
 
 const SESSION_TYPE_EN: Record<SessionType, string> = {
   hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
@@ -39,7 +48,7 @@ export default async function StudentDetailPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [profileRes, bookingsRes, progressRes] = await Promise.all([
+  const [profileRes, bookingsRes, progressRes, latestEvalRes, latestStandardRes, audioHwRes] = await Promise.all([
     supabase.from("profiles").select("full_name, phone, country, parent_name, parent_phone, parent_email").eq("id", studentId)
       .single<{ full_name: string | null; phone: string | null; country: string | null } & ParentInfo>(),
     supabase.from("bookings")
@@ -54,6 +63,33 @@ export default async function StudentDetailPage({ params }: Props) {
       .order("created_at", { ascending: false })
       .limit(10)
       .returns<ProgressRow[]>(),
+    // Latest evaluation this teacher wrote for this student — fuels the
+    // "what you said last time" inline panel.
+    supabase.from("session_evaluations")
+      .select("recommendations, weaknesses, overall_score, evaluation_type, created_at")
+      .eq("student_id", studentId).eq("teacher_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ recommendations: string | null; weaknesses: string | null; overall_score: number | null; evaluation_type: string | null; created_at: string }>(),
+    // Latest recitation_standard for this student — anchors the teacher
+    // mentally in which qira'a tradition this student is studying.
+    supabase.from("student_progress")
+      .select("recitation_standard")
+      .eq("student_id", studentId)
+      .not("recitation_standard", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ recitation_standard: string | null }>(),
+    // Recent homework with audio submissions — let the teacher hear the
+    // student's most-recent recordings without context-switching to the
+    // Homework page.
+    supabase.from("homework_assignments")
+      .select("id, title, audio_duration_seconds, ready_at, status")
+      .eq("student_id", studentId).eq("teacher_id", user.id)
+      .not("audio_url", "is", null)
+      .order("ready_at", { ascending: false })
+      .limit(5)
+      .returns<{ id: string; title: string; audio_duration_seconds: number | null; ready_at: string | null; status: string }[]>(),
   ]);
 
   const student = profileRes.data;
@@ -93,6 +129,18 @@ export default async function StudentDetailPage({ params }: Props) {
   const totalMinutes = bookings.filter(b => b.status === "completed").reduce((s, b) => s + b.duration_min, 0);
   const latestLevel = progress[0]?.level ?? null;
   const avgQuality = progress.filter(p => p.quality_rating).reduce((sum, p, _, a) => sum + (p.quality_rating ?? 0) / a.length, 0);
+  const latestEval = latestEvalRes.data ?? null;
+  const recitationStandard = latestStandardRes.data?.recitation_standard ?? null;
+  const audioSubmissions = audioHwRes.data ?? [];
+
+  // Group recitation errors by type so the teacher sees the dominant
+  // category at a glance instead of having to count error rows.
+  const errorBreakdown: Record<string, number> = {};
+  for (const e of errors) {
+    errorBreakdown[e.error_type] = (errorBreakdown[e.error_type] ?? 0) + 1;
+  }
+  const topErrorTypes = Object.entries(errorBreakdown)
+    .sort((a, b) => b[1] - a[1]);
 
   return (
     <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
@@ -109,13 +157,56 @@ export default async function StudentDetailPage({ params }: Props) {
           <div className="flex-1">
             <h1 className="text-xl font-bold">{student.full_name || t("طالب", "Student")}</h1>
             <p className="text-sm text-muted">{completedCount} {t("جلسة مكتملة", "completed sessions")}{student.country ? ` · ${student.country}` : ""}</p>
-            {latestLevel && (
-              <span className={`glass-badge mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs ${LEVEL_COLOR[latestLevel]}`}>
-                {lang === "ar" ? LEVEL_AR[latestLevel] : LEVEL_EN[latestLevel]}
-              </span>
-            )}
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              {latestLevel && (
+                <span className={`glass-badge rounded-full px-2.5 py-0.5 text-xs ${LEVEL_COLOR[latestLevel]}`}>
+                  {lang === "ar" ? LEVEL_AR[latestLevel] : LEVEL_EN[latestLevel]}
+                </span>
+              )}
+              {/* Recitation standard pill — anchors which qira'a tradition
+                  this student studies under so the teacher doesn't have
+                  to remember between sessions. */}
+              {recitationStandard && RECITATION_STANDARD_LABEL[recitationStandard] && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-full border border-gold/30 bg-gold/5 px-2.5 py-0.5 text-xs text-gold"
+                  title={t("الرواية التي يدرس بها", "Recitation tradition")}
+                >
+                  <BookMarked size={11} aria-hidden="true" />
+                  {t(
+                    RECITATION_STANDARD_LABEL[recitationStandard].ar,
+                    RECITATION_STANDARD_LABEL[recitationStandard].en,
+                  )}
+                </span>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* What you said last evaluation — closes the loop on the
+            teacher's own promised focus. Surfaces only when this teacher
+            has written an evaluation with a recommendation. */}
+        {latestEval?.recommendations && (
+          <div className="mt-5 rounded-xl border border-gold/30 bg-gold/5 p-4">
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <h2 className="flex items-center gap-1.5 text-xs font-semibold text-gold">
+                <MessageSquareQuote size={12} aria-hidden="true" />
+                {t(
+                  `قلت في آخر تقييم (${new Date(latestEval.created_at).toLocaleDateString(locale, { month: "short", day: "numeric" })})`,
+                  `What you wrote last evaluation (${new Date(latestEval.created_at).toLocaleDateString(locale, { month: "short", day: "numeric" })})`,
+                )}
+              </h2>
+              {latestEval.overall_score != null && (
+                <span className="text-xs text-muted">{t("إجمالي", "Overall")}: {latestEval.overall_score}/10</span>
+              )}
+            </div>
+            <p className="text-sm leading-relaxed text-foreground">{latestEval.recommendations}</p>
+            {latestEval.weaknesses && (
+              <p className="mt-2 text-xs text-muted">
+                <span className="text-orange-400">{t("نقاط ضعف:", "Weaknesses:")}</span> {latestEval.weaknesses}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Stats Grid */}
@@ -165,6 +256,25 @@ export default async function StudentDetailPage({ params }: Props) {
       {errors.length > 0 && (
         <div className="glass-card mb-6 p-6">
           <h2 className="mb-3 flex items-center gap-2 text-lg font-bold"><AlertTriangle size={18} className="text-warning" /> {t("أخطاء التلاوة المعلقة", "Pending Recitation Errors")}</h2>
+
+          {/* Category breakdown — gives the teacher the "what dominates"
+              answer at a glance instead of forcing them to scroll the
+              list and count. */}
+          {topErrorTypes.length > 0 && (
+            <div className="mb-3 flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-muted">{t("التوزيع:", "Breakdown:")}</span>
+              {topErrorTypes.map(([type, count]) => (
+                <span
+                  key={type}
+                  className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs text-warning"
+                >
+                  <span className="font-bold">{count}</span>
+                  {(lang === "ar" ? ERROR_TYPE_AR[type] : ERROR_TYPE_EN[type]) ?? type}
+                </span>
+              ))}
+            </div>
+          )}
+
           <div className="space-y-2">
             {errors.map((e) => (
               <div key={e.id} className="glass flex items-center gap-3 rounded-lg px-3 py-2 text-sm">
@@ -177,6 +287,36 @@ export default async function StudentDetailPage({ params }: Props) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Recent audio submissions — lets the teacher hear the student's
+          most-recent recordings without leaving the student detail page.
+          Lazy-loaded signed URLs via getHomeworkAudioUrl. */}
+      {audioSubmissions.length > 0 && (
+        <div className="glass-card mb-6 p-6">
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold">
+            <Mic size={18} className="text-violet-400" aria-hidden="true" /> {t("تسميعات حديثة", "Recent recitations")}
+          </h2>
+          <ul className="space-y-3">
+            {audioSubmissions.map(hw => (
+              <li key={hw.id} className="rounded-lg border border-card-border bg-card/50 p-3">
+                <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-sm font-medium">{hw.title}</p>
+                  {hw.ready_at && (
+                    <p className="text-xs text-muted">
+                      {new Date(hw.ready_at).toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" })}
+                    </p>
+                  )}
+                </div>
+                <HomeworkAudioPlayer
+                  homeworkId={hw.id}
+                  durationSeconds={hw.audio_duration_seconds}
+                  label={{ ar: "تسميع الطالب", en: "Student's recitation" }}
+                />
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
