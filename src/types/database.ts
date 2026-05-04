@@ -91,7 +91,14 @@ export type SessionEvaluation = T["session_evaluations"]["Row"];
 export type ParentReport = T["parent_reports"]["Row"];
 export type SessionNotesHistory = T["session_notes_history"]["Row"];
 export type SessionObserver = T["session_observers"]["Row"];
-export type HomeworkAssignment = T["homework_assignments"]["Row"];
+// `HomeworkAssignment` overrides the generated row to add the `audio_url`
+// and `audio_duration_seconds` columns introduced in
+// 20260504210746_add_homework_audio_submission.sql. These overrides go away
+// the next time `supabase.generated.ts` is regenerated.
+export type HomeworkAssignment = T["homework_assignments"]["Row"] & {
+  audio_url: string | null;
+  audio_duration_seconds: number | null;
+};
 export type Package = T["packages"]["Row"];
 export type StudentPackage = T["student_packages"]["Row"];
 export type AutomationLog = T["automation_logs"]["Row"];

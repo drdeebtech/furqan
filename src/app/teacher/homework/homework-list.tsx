@@ -5,6 +5,7 @@ import { Clock, CheckCircle, AlertTriangle, ChevronDown, ChevronUp } from "lucid
 import { HOMEWORK_TYPE_AR, HOMEWORK_STATUS_STYLE } from "@/lib/constants";
 import { useLang } from "@/lib/i18n/context";
 import { GradeForm } from "./grade-form";
+import { HomeworkAudioPlayer } from "./audio-player";
 import type { HomeworkAssignment } from "@/types/database";
 
 export function HomeworkList({
@@ -172,6 +173,14 @@ function HomeworkCard({
         </div>
         {children && <div className="shrink-0">{children}</div>}
       </div>
+      {/* Audio playback — full-width below the meta row when the student
+          submitted a voice recording. Lazy-loads the signed URL on click. */}
+      {hw.audio_url && (
+        <HomeworkAudioPlayer
+          homeworkId={hw.id}
+          durationSeconds={hw.audio_duration_seconds}
+        />
+      )}
     </div>
   );
 }

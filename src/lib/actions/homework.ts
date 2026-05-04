@@ -108,7 +108,18 @@ export async function createHomework(formData: FormData) {
 
 // ─── 2. Mark Student Ready ──────────────────────────────────────────────────
 
-export async function markStudentReady(homeworkId: string) {
+/**
+ * Mark a homework assignment "ready" for the teacher to grade. Optionally
+ * attaches an audio submission in one atomic update so the teacher sees both
+ * the ready-state and the audio together (no half-submitted state). Audio
+ * payload (path + duration) is validated separately via attachHomeworkAudio
+ * before this is called so the upload + metadata write happen as one user
+ * action from the UI's perspective.
+ */
+export async function markStudentReady(
+  homeworkId: string,
+  audio?: { path: string; durationSeconds: number },
+) {
   const supabase = await createClient();
   const user = await requireStudent(supabase);
 
@@ -124,9 +135,35 @@ export async function markStudentReady(homeworkId: string) {
   if (hw.student_id !== user.id) return { error: "غير مصرح" };
   if (hw.status !== "assigned") return { error: "حالة الواجب لا تسمح بهذا الإجراء" };
 
+  // Validate optional audio payload — defense in depth (RLS already gates
+  // the upload itself, but we re-check here so a malformed call can't sneak
+  // a wrong-student path or out-of-range duration into the metadata row).
+  if (audio) {
+    const expectedPrefix = `${user.id}/${homeworkId}/`;
+    if (!audio.path.startsWith(expectedPrefix)) {
+      return { error: "مسار الصوت غير صالح" };
+    }
+    if (
+      !Number.isFinite(audio.durationSeconds) ||
+      audio.durationSeconds < 1 ||
+      audio.durationSeconds > 300
+    ) {
+      return { error: "مدة الصوت غير صالحة" };
+    }
+  }
+
+  const updatePayload: Record<string, unknown> = {
+    status: "student_ready",
+    ready_at: new Date().toISOString(),
+  };
+  if (audio) {
+    updatePayload.audio_url = audio.path;
+    updatePayload.audio_duration_seconds = audio.durationSeconds;
+  }
+
   const { error } = await supabase
     .from("homework_assignments")
-    .update({ status: "student_ready", ready_at: new Date().toISOString() } as never)
+    .update(updatePayload as never)
     .eq("id", homeworkId);
 
   if (error) return { error: "فشل تحديث حالة الواجب" };
@@ -350,7 +387,48 @@ export async function editHomework(homeworkId: string, formData: FormData) {
   return { success: true };
 }
 
-// ─── 5. Delete Homework ─────────────────────────────────────────────────────
+// ─── 5. Get Homework Audio Signed URL ───────────────────────────────────────
+// The homework-audio bucket is private; playback requires a short-lived
+// signed URL. Storage RLS gates which paths the caller can sign — student
+// can sign their own, teacher can sign for any homework_assignments row
+// they own, admin/mod can sign all. The action just bridges from the
+// authenticated server-side client to the browser's <audio> element.
+
+export async function getHomeworkAudioUrl(
+  homeworkId: string,
+): Promise<{ url: string } | { error: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "غير مسجل الدخول" };
+
+  const { data: hw } = await supabase
+    .from("homework_assignments")
+    .select("audio_url, student_id, teacher_id")
+    .eq("id", homeworkId)
+    .single<{ audio_url: string | null; student_id: string; teacher_id: string }>();
+
+  if (!hw) return { error: "الواجب غير موجود" };
+  if (!hw.audio_url) return { error: "لا يوجد تسجيل صوتي" };
+
+  // Sign for 1 hour. The HTML5 <audio> element will cache the URL for the
+  // lifetime of the page; if the page sits open longer than that, the user
+  // refreshes to get a new URL.
+  const { data, error } = await supabase
+    .storage
+    .from("homework-audio")
+    .createSignedUrl(hw.audio_url, 3600);
+
+  if (error || !data) {
+    logError("createSignedUrl failed for homework audio", error, {
+      tag: "homework", homeworkId,
+    });
+    return { error: "تعذّر تحميل التسجيل" };
+  }
+
+  return { url: data.signedUrl };
+}
+
+// ─── 6. Delete Homework ─────────────────────────────────────────────────────
 
 export async function deleteHomework(homeworkId: string) {
   const supabase = await createClient();

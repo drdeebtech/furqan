@@ -79,7 +79,12 @@ export default async function StudentHomeworkPage() {
           </p>
         </div>
       ) : (
-        <HomeworkList assignments={assignments} nameMap={nameMap} parentMap={parentMap} />
+        <HomeworkList
+          assignments={assignments}
+          nameMap={nameMap}
+          parentMap={parentMap}
+          studentId={user.id}
+        />
       )}
     </div>
   );

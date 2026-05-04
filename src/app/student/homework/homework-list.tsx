@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { BookOpen, CheckCircle, Clock, AlertTriangle, RefreshCw } from "lucide-react";
+import { BookOpen, CheckCircle, Clock, AlertTriangle, RefreshCw, Mic } from "lucide-react";
 import { markStudentReady } from "@/lib/actions/homework";
 import { HOMEWORK_TYPE_AR, HOMEWORK_STATUS_STYLE } from "@/lib/constants";
 import { useLang } from "@/lib/i18n/context";
 import type { HomeworkAssignment } from "@/types/database";
+import { AudioRecorder } from "./audio-recorder";
 
 type ParentInfo = {
   id: string;
@@ -19,10 +20,12 @@ export function HomeworkList({
   assignments,
   nameMap,
   parentMap,
+  studentId,
 }: {
   assignments: HomeworkAssignment[];
   nameMap: Record<string, string>;
   parentMap?: Record<string, ParentInfo>;
+  studentId: string;
 }) {
   const { t } = useLang();
 
@@ -46,6 +49,7 @@ export function HomeworkList({
               hw={a}
               nameMap={nameMap}
               parent={a.parent_assignment_id ? parentMap?.[a.parent_assignment_id] : undefined}
+              studentId={studentId}
               t={t}
               showReadyButton
             />
@@ -67,6 +71,7 @@ export function HomeworkList({
               hw={a}
               nameMap={nameMap}
               parent={a.parent_assignment_id ? parentMap?.[a.parent_assignment_id] : undefined}
+              studentId={studentId}
               t={t}
             />
           ))}
@@ -86,6 +91,7 @@ export function HomeworkList({
               hw={a}
               nameMap={nameMap}
               parent={a.parent_assignment_id ? parentMap?.[a.parent_assignment_id] : undefined}
+              studentId={studentId}
               t={t}
             />
           ))}
@@ -141,17 +147,20 @@ function HomeworkCard({
   hw,
   nameMap,
   parent,
+  studentId,
   t,
   showReadyButton,
 }: {
   hw: HomeworkAssignment;
   nameMap: Record<string, string>;
   parent?: ParentInfo;
+  studentId: string;
   t: (ar: string, en: string) => string;
   showReadyButton?: boolean;
 }) {
   const { lang } = useLang();
   const locale = lang === "ar" ? "ar" : "en-US";
+  const [recording, setRecording] = useState(false);
   const [marking, setMarking] = useState(false);
   const [marked, setMarked] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,7 +168,7 @@ function HomeworkCard({
   const style = HOMEWORK_STATUS_STYLE[hw.status];
   const teacherName = nameMap[hw.teacher_id] ?? t("معلم", "Teacher");
 
-  async function handleReady() {
+  async function handleReadyWithoutAudio() {
     setMarking(true);
     setError(null);
     const result = await markStudentReady(hw.id);
@@ -167,6 +176,7 @@ function HomeworkCard({
       setError(result.error);
     } else {
       setMarked(true);
+      setRecording(false);
     }
     setMarking(false);
   }
@@ -255,21 +265,18 @@ function HomeworkCard({
           )}
         </div>
 
-        {/* Ready button */}
-        {showReadyButton && !marked && (
+        {/* Ready entry — collapsed: button. Expanded: AudioRecorder which
+            handles the optional recording, the upload, and the
+            markStudentReady call in one flow. */}
+        {showReadyButton && !marked && !recording && (
           <div className="shrink-0">
             {error && <p className="mb-1 text-xs text-error">{error}</p>}
             <button
-              onClick={handleReady}
-              disabled={marking}
-              className="flex items-center gap-2 rounded-full bg-success/10 border border-success/30 px-4 py-2 text-sm font-semibold text-success transition-colors hover:bg-success/20 disabled:opacity-50"
+              onClick={() => { setRecording(true); setError(null); }}
+              className="flex items-center gap-2 rounded-full bg-success/10 border border-success/30 px-4 py-2 text-sm font-semibold text-success transition-colors hover:bg-success/20"
             >
-              {marking ? (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-success/30 border-t-emerald-400" />
-              ) : (
-                <BookOpen size={16} />
-              )}
-              {t("أنا جاهز", "I'm Ready")}
+              <Mic size={16} aria-hidden="true" />
+              {t("أنا جاهز — سجّل تلاوتك", "I'm Ready — record your recitation")}
             </button>
           </div>
         )}
@@ -282,6 +289,21 @@ function HomeworkCard({
           </div>
         )}
       </div>
+
+      {/* Expanded recorder — full-width below the meta row when active. */}
+      {showReadyButton && !marked && recording && (
+        <div className="mt-3">
+          <AudioRecorder
+            homeworkId={hw.id}
+            studentId={studentId}
+            onSubmitted={() => { setMarked(true); setRecording(false); }}
+            onSkipAudio={handleReadyWithoutAudio}
+          />
+          {marking && (
+            <p className="mt-1 text-xs text-muted">{t("جارٍ التحديث...", "Updating...")}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
