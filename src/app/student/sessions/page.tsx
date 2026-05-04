@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Video, Inbox } from "lucide-react";
+import { Video, Inbox, Calendar, CheckCircle, AlertTriangle, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { fetchNameMap } from "@/lib/supabase/helpers";
 import { SESSION_TYPE_AR, STATUS_STYLE } from "@/lib/constants";
@@ -98,79 +98,195 @@ export default async function StudentSessionsPage() {
             {t("تصفح المعلمين", "Browse Teachers")}
           </Link>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {list.map((booking) => {
-            const date = new Date(booking.scheduled_at);
-            const session = sessionMap[booking.id];
-            const statusInfo = STATUS_STYLE[booking.status];
-            const startMs = date.getTime();
-            const endMs = startMs + booking.duration_min * 60000;
-            const nowMs = renderTime;
-            const isUpcoming = booking.status === "confirmed" && startMs > nowMs;
-            const isLive = booking.status === "confirmed" && nowMs >= startMs && nowMs < endMs;
+      ) : (() => {
+        // Bucket sessions by state so the page stops being a flat
+        // chronological dump. The "needs attention" bucket surfaces past
+        // confirmed sessions that should have transitioned to completed
+        // or no_show — a cron-silence detector that the student sees
+        // before the support team does.
+        const live: BookingRow[] = [];
+        const upcoming: BookingRow[] = [];
+        const completed: BookingRow[] = [];
+        const needsAttention: BookingRow[] = [];
 
-            return (
-              <div
-                key={booking.id}
-                className={`glass-card p-4 ${isLive ? "border-gold/40" : ""}`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">{nameMap[booking.teacher_id] ?? t("معلم", "Teacher")}</p>
-                    <p className="mt-1 text-sm text-gold">
-                      {lang === "ar" ? SESSION_TYPE_AR[booking.session_type] : SESSION_TYPE_EN[booking.session_type]}
-                      <span className="me-2 text-muted">· {booking.duration_min} {t("دقيقة", "min")}</span>
-                    </p>
-                    <p dir="ltr" className="mt-2 text-left text-sm text-muted">
-                      {date.toLocaleDateString(locale, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-                      <span className="mx-2">·</span>
-                      {date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}
-                    </p>
+        for (const b of list) {
+          const startMs = new Date(b.scheduled_at).getTime();
+          const endMs = startMs + b.duration_min * 60000;
+          const isPast = endMs < renderTime;
+          if (b.status === "completed") {
+            completed.push(b);
+          } else if (b.status === "confirmed") {
+            if (isPast) {
+              needsAttention.push(b);
+            } else if (renderTime >= startMs) {
+              live.push(b);
+            } else {
+              upcoming.push(b);
+            }
+          }
+        }
+        // Order each bucket: live newest-first, upcoming soonest-first,
+        // completed newest-first, needsAttention newest-first.
+        upcoming.sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
 
-                    {/* Post-session content */}
-                    {session?.post_session_notes && (
-                      <div className="mt-3 glass rounded-lg p-3">
-                        <p className="mb-1 text-xs font-medium text-gold">{t("ملاحظات المعلم", "Teacher Notes")}</p>
-                        <p className="text-sm text-muted">{session.post_session_notes}</p>
+        const renderCard = (booking: BookingRow) => {
+          const date = new Date(booking.scheduled_at);
+          const session = sessionMap[booking.id];
+          const statusInfo = STATUS_STYLE[booking.status];
+          const startMs = date.getTime();
+          const endMs = startMs + booking.duration_min * 60000;
+          const nowMs = renderTime;
+          const isUpcoming = booking.status === "confirmed" && startMs > nowMs;
+          const isLive = booking.status === "confirmed" && nowMs >= startMs && nowMs < endMs;
+          const isPastConfirmed = booking.status === "confirmed" && endMs < nowMs;
+
+          return (
+            <div
+              key={booking.id}
+              className={`glass-card p-4 ${isLive ? "border-gold/40" : isPastConfirmed ? "border-warning/40 bg-warning/5" : ""}`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">{nameMap[booking.teacher_id] ?? t("معلم", "Teacher")}</p>
+                  <p className="mt-1 text-sm text-gold">
+                    {lang === "ar" ? SESSION_TYPE_AR[booking.session_type] : SESSION_TYPE_EN[booking.session_type]}
+                    <span className="me-2 text-muted">· {booking.duration_min} {t("دقيقة", "min")}</span>
+                  </p>
+                  <p dir="ltr" className="mt-2 text-left text-sm text-muted">
+                    {date.toLocaleDateString(locale, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                    <span className="mx-2">·</span>
+                    {date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+
+                  {/* Past-confirmed framing — surfaces a session whose
+                      auto-complete cron didn't fire so the student knows
+                      to follow up rather than stare at a "confirmed"
+                      label that's been wrong for weeks. */}
+                  {isPastConfirmed && (
+                    <div className="mt-3 rounded-lg border border-warning/30 bg-warning/10 p-3">
+                      <p className="flex items-center gap-1.5 text-sm font-medium text-warning">
+                        <AlertTriangle size={14} aria-hidden="true" />
+                        {t("جلسة بحاجة متابعة", "This session needs follow-up")}
+                      </p>
+                      <p className="mt-1 text-xs text-muted">
+                        {t(
+                          "هذا الموعد قد مرّ ولم يُحدَّث بعد. إذا كانت الجلسة قد تمّت، راسل معلمك ليؤكد. وإذا لم تتم، احجز موعداً بديلاً.",
+                          "This time has passed without being updated. If the session happened, message your teacher to confirm. If not, please book a replacement.",
+                        )}
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Link
+                          href="/student/messages"
+                          className="text-xs text-gold hover:text-gold-hover focus-ring rounded"
+                        >
+                          {t("راسل المعلم ←", "Message teacher →")}
+                        </Link>
+                        <span className="text-muted-light">·</span>
+                        <Link
+                          href="/student/teachers"
+                          className="text-xs text-gold hover:text-gold-hover focus-ring rounded"
+                        >
+                          {t("احجز جلسة بديلة ←", "Book a replacement →")}
+                        </Link>
                       </div>
-                    )}
-                    {session?.homework && (
-                      <div className="mt-2 glass rounded-lg p-3">
-                        <p className="mb-1 text-xs font-medium text-gold">{t("الواجب", "Homework")}</p>
-                        <p className="text-sm text-muted">{session.homework}</p>
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
-                  <div className="flex flex-col items-end gap-2">
-                    <LiveBadge
-                      scheduledAt={booking.scheduled_at}
-                      durationMin={booking.duration_min}
-                      defaultLabel={statusInfo.label}
-                      className={`glass-badge px-2.5 py-0.5 text-xs ${statusInfo.className}`}
-                    />
-
-                    {session?.room_url && (isUpcoming || isLive) && (
-                      <Link
-                        href={`/student/sessions/${session.id}`}
-                        className="flex items-center gap-1.5 glass-gold glass-pill px-3 py-1.5 text-xs font-semibold text-white transition-colors focus-ring"
-                      >
-                        <Video size={14} />
-                        {isLive ? t("انضم الآن", "Join Now") : t("غرفة الجلسة", "Session Room")}
+                  {/* Post-session content */}
+                  {session?.post_session_notes && (
+                    <div className="mt-3 glass rounded-lg p-3">
+                      <p className="mb-1 text-xs font-medium text-gold">{t("ملاحظات المعلم", "Teacher Notes")}</p>
+                      <p className="text-sm text-muted">{session.post_session_notes}</p>
+                    </div>
+                  )}
+                  {session?.homework && (
+                    <div className="mt-2 glass rounded-lg p-3">
+                      <p className="mb-1 text-xs font-medium text-gold">{t("الواجب", "Homework")}</p>
+                      <p className="text-sm text-muted">{session.homework}</p>
+                    </div>
+                  )}
+                  {/* Pre-session prep nudge — for the next confirmed
+                      session: link to /student/progress so the student
+                      can review the latest evaluation's recommendations
+                      before walking in. */}
+                  {isUpcoming && (
+                    <p className="mt-3 text-xs text-muted">
+                      <Sparkles size={11} className="me-1 inline-block text-gold" aria-hidden="true" />
+                      {t("استعد:", "Prep:")}{" "}
+                      <Link href="/student/progress" className="text-gold hover:text-gold-hover focus-ring rounded">
+                        {t("راجع توصية معلمك السابقة", "review your teacher's last recommendation")}
                       </Link>
-                    )}
+                    </p>
+                  )}
+                </div>
 
-                    {session && booking.status === "completed" && session.actual_duration && (
-                      <span className="text-xs text-muted">{session.actual_duration} {t("دقيقة فعلية", "actual min")}</span>
-                    )}
-                  </div>
+                <div className="flex flex-col items-end gap-2">
+                  <LiveBadge
+                    scheduledAt={booking.scheduled_at}
+                    durationMin={booking.duration_min}
+                    defaultLabel={statusInfo.label}
+                    className={`glass-badge px-2.5 py-0.5 text-xs ${statusInfo.className}`}
+                  />
+
+                  {session?.room_url && (isUpcoming || isLive) && (
+                    <Link
+                      href={`/student/sessions/${session.id}`}
+                      className="flex items-center gap-1.5 glass-gold glass-pill px-3 py-1.5 text-xs font-semibold text-white transition-colors focus-ring"
+                    >
+                      <Video size={14} />
+                      {isLive ? t("انضم الآن", "Join Now") : t("غرفة الجلسة", "Session Room")}
+                    </Link>
+                  )}
+
+                  {session && booking.status === "completed" && session.actual_duration && (
+                    <span className="text-xs text-muted">{session.actual_duration} {t("دقيقة فعلية", "actual min")}</span>
+                  )}
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+            </div>
+          );
+        };
+
+        const Section = ({
+          icon: Icon, titleAr, titleEn, items, emphasis,
+        }: {
+          icon: typeof Video;
+          titleAr: string;
+          titleEn: string;
+          items: BookingRow[];
+          emphasis?: "live" | "warning";
+        }) => {
+          if (items.length === 0) return null;
+          const tint = emphasis === "live"
+            ? "text-gold"
+            : emphasis === "warning"
+            ? "text-warning"
+            : "text-muted";
+          return (
+            <section className="space-y-3">
+              <h2 className={`flex items-center gap-2 text-xs font-medium uppercase tracking-wider ${tint}`}>
+                <Icon size={14} aria-hidden="true" />
+                {t(titleAr, titleEn)}
+                <span className="rounded-full border border-card-border bg-card/40 px-2 py-0.5 text-[10px] tabular-nums text-muted">
+                  {items.length}
+                </span>
+              </h2>
+              <div className="space-y-3">{items.map(renderCard)}</div>
+            </section>
+          );
+        };
+
+        return (
+          <div className="space-y-8">
+            <Section icon={Video} titleAr="جلسات مباشرة الآن" titleEn="Live now" items={live} emphasis="live" />
+            <Section icon={Calendar} titleAr="جلسات قادمة" titleEn="Upcoming" items={upcoming} />
+            {needsAttention.length > 0 && (
+              <Section icon={AlertTriangle} titleAr="بحاجة متابعة" titleEn="Needs follow-up" items={needsAttention} emphasis="warning" />
+            )}
+            <Section icon={CheckCircle} titleAr="جلسات سابقة" titleEn="Past sessions" items={completed} />
+          </div>
+        );
+      })()}
     </div>
   );
 }
