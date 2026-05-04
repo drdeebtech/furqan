@@ -23,13 +23,48 @@ export default async function StudentQuizzesPage() {
     .returns<{ course_id: string }[]>();
 
   if (!enrollments || enrollments.length === 0) {
+    // No-enrollment branch: keep the page header (audit P2-1 caught this
+    // empty-state branch missing the title) and frame the empty state
+    // with pedagogical scaffolding instead of a generic "no quizzes" line.
+    // The student needs to know that quizzes are tied to courses, and
+    // courses are different from live 1:1 sessions.
     return (
-      <div dir={dir} className="mx-auto max-w-3xl px-4 py-12 text-center">
-        <Sparkles size={32} className="mx-auto mb-3 text-gold" aria-hidden="true" />
-        <h1 className="font-display text-2xl font-bold">{t("لا توجد اختبارات", "No quizzes yet")}</h1>
+      <div dir={dir} className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+        <h1 className="font-display text-2xl font-bold sm:text-3xl">{t("اختباراتي", "My Quizzes")}</h1>
         <p className="mt-2 text-sm text-muted">
-          {t("اشترك في دورة لتظهر اختباراتها هنا.", "Enroll in a course to see its quizzes here.")}
+          {t("اختبارات الدورات التي تتابعها.", "Quizzes from courses you're enrolled in.")}
         </p>
+
+        <div className="mt-8 glass-card p-8">
+          <div className="mb-4 flex items-start gap-3">
+            <Sparkles size={28} className="mt-1 text-gold/70 shrink-0" aria-hidden="true" />
+            <div>
+              <p className="text-base font-medium">
+                {t("لم تشترك في دورة بعد", "You haven't enrolled in a course yet")}
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                {t(
+                  "الاختبارات هنا مرتبطة بالدورات المسجلة — كل دورة لها اختباراتها التي تثبّت ما تعلمته. عند اشتراكك في دورة تظهر اختباراتها هنا تلقائياً. الاختبارات تختلف عن الواجبات التي يكلّفك بها معلمك في الجلسات المباشرة.",
+                  "Quizzes are tied to enrolled courses — each course has its own quizzes that consolidate what you've learned. When you enroll in a course, its quizzes appear here automatically. Quizzes are different from the homework your teacher assigns in your live sessions.",
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="ms-11 flex flex-wrap items-center gap-3">
+            <Link
+              href="/courses"
+              className="inline-flex items-center gap-1 rounded-full border border-gold/30 bg-gold/10 px-4 py-2 text-sm font-medium text-gold hover:bg-gold/15 focus-ring"
+            >
+              {t("تصفح الدورات", "Browse courses")}
+            </Link>
+            <Link
+              href="/student/homework"
+              className="text-xs text-muted hover:text-foreground/80 focus-ring rounded"
+            >
+              {t("واجباتي من المعلم ←", "My homework from teacher →")}
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
@@ -74,8 +109,16 @@ export default async function StudentQuizzesPage() {
       </p>
 
       {quizzes.length === 0 ? (
-        <div className="glass-card mt-8 p-10 text-center text-muted">
-          {t("لا توجد اختبارات منشورة بعد", "No published quizzes yet")}
+        <div className="glass-card mt-8 p-10 text-center">
+          <p className="text-muted">
+            {t("لا توجد اختبارات منشورة بعد", "No published quizzes yet")}
+          </p>
+          <p className="mt-2 text-xs text-muted/70">
+            {t(
+              "ستظهر هنا تلقائياً حين ينشر المعلم اختبار دورة تتابعها.",
+              "These appear automatically when a teacher publishes a quiz in a course you're enrolled in.",
+            )}
+          </p>
         </div>
       ) : (
         <ul className="mt-8 glass-card divide-y divide-[var(--surface-divider,#F0F0F2)] overflow-hidden">

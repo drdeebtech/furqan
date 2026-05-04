@@ -43,6 +43,28 @@ export function NotificationsList({
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
+  // Filter chips — help the student narrow when notifications pile up.
+  // Counts come off the unfiltered set so the student sees how many of
+  // each type exist before clicking. Type slugs match the notif_type
+  // enum in the schema; ordering puts the highest-pedagogical-value
+  // types first (homework + booking).
+  const [activeFilter, setActiveFilter] = useState<NotifType | "all">("all");
+  const typeCounts: Record<string, number> = {};
+  for (const n of initial) typeCounts[n.type] = (typeCounts[n.type] ?? 0) + 1;
+  const FILTER_ORDER: { key: NotifType | "all"; ar: string; en: string }[] = [
+    { key: "all", ar: "الكل", en: "All" },
+    { key: "homework", ar: "واجبات", en: "Homework" },
+    { key: "booking", ar: "حجوزات", en: "Bookings" },
+    { key: "reminder", ar: "تذكيرات", en: "Reminders" },
+    { key: "message", ar: "رسائل", en: "Messages" },
+    { key: "course", ar: "دورات", en: "Courses" },
+    { key: "payment", ar: "مدفوعات", en: "Payments" },
+    { key: "system", ar: "النظام", en: "System" },
+  ];
+  const visibleNotifications = activeFilter === "all"
+    ? notifications
+    : notifications.filter(n => n.type === activeFilter);
+
   async function handleMarkRead(id: string) {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
     await markAsRead(id);
@@ -79,9 +101,42 @@ export function NotificationsList({
         </div>
       )}
 
+      {/* Filter chips — only render when there are >5 notifications and
+          >1 distinct type. For shorter lists the filter is overhead. */}
+      {initial.length > 5 && Object.keys(typeCounts).length > 1 && (
+        <div className="mb-4 -mx-1 flex flex-wrap gap-1.5 overflow-x-auto px-1 pb-1">
+          {FILTER_ORDER.filter(f => f.key === "all" || typeCounts[f.key] > 0).map(f => {
+            const count = f.key === "all" ? initial.length : typeCounts[f.key] ?? 0;
+            const active = activeFilter === f.key;
+            return (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setActiveFilter(f.key)}
+                className={`shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition-colors focus-ring ${
+                  active
+                    ? "border-gold/50 bg-gold/15 text-gold"
+                    : "border-card-border bg-card/50 text-muted hover:border-card-border/60 hover:text-foreground/80"
+                }`}
+              >
+                {t(f.ar, f.en)}
+                <span className={`ms-1.5 text-[10px] tabular-nums ${active ? "text-gold/70" : "text-muted-light"}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Notifications */}
       <div className="space-y-2">
-        {notifications.map(n => {
+        {visibleNotifications.length === 0 && (
+          <p className="rounded-xl border border-card-border bg-card/40 p-4 text-center text-xs text-muted">
+            {t("لا إشعارات في هذه الفئة", "No notifications in this category")}
+          </p>
+        )}
+        {visibleNotifications.map(n => {
           const config = TYPE_CONFIG[n.type] ?? TYPE_CONFIG.system;
           const Icon = config.icon;
           const date = new Date(n.created_at);
