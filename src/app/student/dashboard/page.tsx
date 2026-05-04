@@ -138,8 +138,12 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
     hwCounts[h.status] = (hwCounts[h.status] ?? 0) + 1;
   }
   // Continue Watching prefers in-progress course lessons; falls back to recent
-  // session recordings so the table is never empty for active students.
-  const watchingRows = continueWatching.length > 0 ? continueWatching : recentRecordings;
+  // session recordings so the table is never empty for active students. The
+  // boolean lets the client component title the section honestly — calling
+  // session recordings "Pick up where you left off" was the source of the
+  // /student/courses confusion the audit flagged (P2-3).
+  const continueIsLessons = continueWatching.length > 0;
+  const watchingRows = continueIsLessons ? continueWatching : recentRecordings;
   const lastProgress = lastProgressRes.data ?? null;
   const resumeLessonRow = continueWatching.find(r => r._lessonId && typeof r.progress === "number") as
     | { _lessonId: string; _href: string; subject: string; progress: number }
@@ -204,6 +208,7 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
         studyAnalytics,
         liveSessions,
         watchingRows,
+        continueIsLessons,
         hwCounts,
         activePackages: activePackages ?? [],
         nextQuiz,

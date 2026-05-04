@@ -39,6 +39,11 @@ interface DashboardData {
   studyAnalytics: { daily: ChartDataPoint[]; weekly: ChartDataPoint[]; monthly: ChartDataPoint[] };
   liveSessions: { id: string; title: string; subtitle: string; initials: string; timeRemaining?: string; progressPercent?: number }[];
   watchingRows: Record<string, unknown>[];
+  /** True when watchingRows came from in-progress course_lesson_progress;
+   *  false when it fell back to recent session recordings. Drives the
+   *  section title so we don't mislabel session recordings as
+   *  "Pick up where you left off". */
+  continueIsLessons: boolean;
   hwCounts: Record<string, number>;
   activePackages: { id: string; sessions_total: number; sessions_used: number; status: string; expires_at: string | null }[];
   nextQuiz: { id: string; title: string; due_at: string | null } | null;
@@ -64,9 +69,10 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
   const searchParams = useSearchParams();
   const {
     fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, nameMap,
-    studyAnalytics, liveSessions, watchingRows, hwCounts, activePackages, nextQuiz,
-    lastProgress, resumeLesson, streakInfo, homeworkPulse, todaySessions, todayHomework,
-    latestEvaluation, murajaahPlan, renderedAtMs,
+    studyAnalytics, liveSessions, watchingRows, continueIsLessons, hwCounts,
+    activePackages, nextQuiz, lastProgress, resumeLesson, streakInfo,
+    homeworkPulse, todaySessions, todayHomework, latestEvaluation, murajaahPlan,
+    renderedAtMs,
   } = data;
 
   // Booking-success toast on ?booked=1 — replace the URL afterwards so a
@@ -456,14 +462,22 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
           </div>
         </section>
 
-        {/* Pick up where you left off. */}
+        {/* Continue watching — title shifts honestly between in-progress
+            course lessons (the original intent of "Pick up where you left
+            off") and the recent-session-recordings fallback. The audit
+            (P2-3) caught the dashboard mislabelling session recordings
+            as enrolled-course progress. */}
         <section aria-labelledby="pick-up-heading" className="mt-10">
           <h2 id="pick-up-heading" className="sr-only">
-            {t("أكمل من حيث توقفت", "Pick up where you left off")}
+            {continueIsLessons
+              ? t("أكمل من حيث توقفت", "Pick up where you left off")
+              : t("تسجيلات جلساتك الأخيرة", "Your recent session recordings")}
           </h2>
           <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل القائمة", "Couldn't load this list")}>
             <DataTable
-              title={t("أكمل من حيث توقفت", "Pick up where you left off")}
+              title={continueIsLessons
+                ? t("أكمل من حيث توقفت", "Pick up where you left off")
+                : t("تسجيلات جلساتك الأخيرة", "Your recent session recordings")}
               selectable
               simpleProgress
               columns={[

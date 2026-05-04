@@ -50,15 +50,41 @@ export default async function StudentCoursesPage() {
       </div>
 
       {!enrollments || enrollments.length === 0 ? (
-        <div className="glass-card p-12 text-center">
-          <Inbox size={40} className="mx-auto mb-3 text-muted/40" />
-          <p className="text-muted">{t("لم تشترك في دورات بعد", "No enrollments yet")}</p>
-          <Link
-            href="/courses"
-            className="mt-4 inline-block text-sm text-gold hover:underline"
-          >
-            {t("تصفح الدورات", "Browse courses")}
-          </Link>
+        <div className="glass-card mx-auto max-w-2xl p-8 text-start">
+          <div className="mb-4 flex items-start gap-3">
+            <Inbox size={32} className="mt-1 text-muted/50 shrink-0" aria-hidden="true" />
+            <div>
+              <p className="text-base font-medium text-foreground">
+                {t("لم تشترك في دورات بعد", "No enrollments yet")}
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                {t(
+                  "الدورات هنا مختلفة عن جلساتك المباشرة مع المعلم. كل دورة سلسلة دروس مسجلة تتقدم فيها بسرعتك الخاصة، يمكنك إعادتها متى شئت. الجلسات المباشرة مع معلمك تظهر في صفحة الجلسات.",
+                  "Courses here are different from your live sessions with a teacher. Each course is a series of recorded lessons you can watch at your own pace and replay any time. Your live 1:1 sessions with your teacher live on the Sessions page.",
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="ms-11 flex flex-wrap items-center gap-3">
+            <Link
+              href="/courses"
+              className="inline-flex items-center gap-1 rounded-full border border-gold/30 bg-gold/10 px-4 py-2 text-sm font-medium text-gold hover:bg-gold/15 focus-ring"
+            >
+              {t("تصفح الدورات", "Browse courses")}
+            </Link>
+            <Link
+              href="/student/sessions"
+              className="text-xs text-muted hover:text-foreground/80 focus-ring rounded"
+            >
+              {t("جلساتي مع المعلم ←", "My live sessions →")}
+            </Link>
+            <Link
+              href="/student/recitations"
+              className="text-xs text-muted hover:text-foreground/80 focus-ring rounded"
+            >
+              {t("تسميعاتي السابقة ←", "My past recitations →")}
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
