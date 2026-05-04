@@ -10,16 +10,17 @@
 
 | Item | Phase | Built? |
 |---|---|---|
-| #1–#10 | 0-3 months ship-now | ✅ Shipped 2026-05-04 (commits `96992e2` through `bc9b04f`) |
+| #1–#10 | 0-3 months ship-now | ✅ Shipped 2026-05-04 (commits `fe90983` through `bc9b04f`) |
 | #13 Recitation-audio archive | 3-12 months medium-build | ✅ Shipped 2026-05-04 (`ca3fa5a`) |
-| #15 (partial) Student timeline | 3-12 months medium-build | ✅ Shipped 2026-05-04 (`467adc0`) — student view only |
-| #11 Talqeen mode | 3-12 months medium-build | 📐 Design only (this doc) |
+| #15 (student) Student timeline | 3-12 months medium-build | ✅ Shipped 2026-05-04 (`467adc0`) — student view |
+| #15 (teacher) Teacher view of student timeline | 3-12 months medium-build | ✅ Shipped 2026-05-05 (`cb8b545`) — teacher view |
+| #14 Ijazah pathway | 3-12 months medium-build | ✅ Shipped 2026-05-05 (`f0aabca`) — schema + student view; admin CRUD + teacher endorsement deferred |
+| #17 Halaqa group sessions | 12+ months strategic bet | ✅ Shipped 2026-05-05 (`7368c2e`) — student discovery + request-to-join; pricing deferred |
+| #18 Teacher mentorship | 12+ months strategic bet | ✅ Shipped 2026-05-05 (`9661e1e`) — schema + dashboard card; admin pairing UI + feedback-writing UI deferred |
+| #11 Talqeen mode | 3-12 months medium-build | 📐 Design only — needs mushaf licensing decision |
 | #12 AI Curriculum Advisor | 3-12 months medium-build | 📐 Design only — blocked on AI key |
-| #14 Ijazah pathway | 3-12 months medium-build | 📐 Design only — needs product input |
-| #15 (rest) Parent + teacher timeline | 3-12 months medium-build | 📐 Design only — needs RLS + parent profile |
-| #16 AI tajweed correction | 12+ months strategic bet | 📐 Design only |
-| #17 Halaqa group sessions | 12+ months strategic bet | 📐 Design only |
-| #18 Teacher mentorship | 12+ months strategic bet | 📐 Design only |
+| #15 (parent) Parent magic-link timeline | 3-12 months medium-build | 📐 Design only — needs parent-profile elevation decision |
+| #16 AI tajweed correction | 12+ months strategic bet | 📐 Design only — Tarteel.ai conversation needed |
 
 ---
 
