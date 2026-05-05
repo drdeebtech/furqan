@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { Mic, ArrowRight, Clock } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
+import { helperOrFail } from "@/lib/supabase/load-or-fail";
+import { getTeacherTalqeenInbox } from "@/lib/dashboard-queries";
+import { Skeleton } from "@/components/shared/skeleton";
 
 /**
  * Sprint Improvement #2 (2026-05-05) — Talqeen Audio Inbox card.
@@ -45,20 +48,15 @@ function relativeTime(iso: string | null, lang: "ar" | "en"): string {
   return `${diffDays}d ago`;
 }
 
-export async function TalqeenInboxCard({
-  data,
-}: {
-  data: {
-    totalCount: number;
-    recent: Array<{
-      id: string;
-      title: string;
-      studentName: string;
-      audioDurationSeconds: number | null;
-      readyAt: string | null;
-    }>;
-  };
-}) {
+export async function TalqeenInboxCard({ teacherId }: { teacherId: string }) {
+  // Self-fetching so the parent page can wrap us in <Suspense> and
+  // unblock first-paint while this query runs (Stream 1B perf refactor).
+  const { data } = await helperOrFail(
+    () => getTeacherTalqeenInbox(teacherId),
+    { totalCount: 0, recent: [] },
+    { route: "teacher-dashboard", widget: "talqeen-inbox" },
+  );
+
   const { t, lang } = await getT();
   const langKey: "ar" | "en" = lang === "ar" ? "ar" : "en";
 
@@ -144,6 +142,22 @@ export async function TalqeenInboxCard({
           )}
         </p>
       )}
+    </section>
+  );
+}
+
+/**
+ * Suspense fallback. Pre-allocates roughly the height of the active
+ * state so the layout doesn't shift when real content streams in.
+ */
+export function TalqeenInboxCardSkeleton() {
+  return (
+    <section className="mt-4 glass-card p-4 sm:p-5" aria-hidden="true">
+      <Skeleton className="mb-3 h-5 w-48" />
+      <div className="space-y-2">
+        <Skeleton className="h-12 w-full rounded-lg" />
+        <Skeleton className="h-12 w-full rounded-lg" />
+      </div>
     </section>
   );
 }

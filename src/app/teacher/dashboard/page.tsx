@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { fetchNameMap } from "@/lib/supabase/helpers";
 import { loadOrFail, countOrFail, helperOrFail } from "@/lib/supabase/load-or-fail";
 import { logError } from "@/lib/logger";
+import { Skeleton } from "@/components/shared/skeleton";
 import type { SessionType } from "@/types/database";
 import { TeacherDashboardContent } from "./dashboard-content";
 import { TeacherAtRiskStudents } from "./at-risk-students";
@@ -15,15 +17,11 @@ import {
   getTeacherSessionTypeBreakdown,
   getTeacherRecentStudents,
   getTeacherTimeToGrade,
-  getTeacherRosterErrorPulse,
-  getTeacherTalqeenInbox,
-  getTeacherParentReportDigest,
-  getTeacherRecitationStandardRoster,
 } from "@/lib/dashboard-queries";
-import { RosterErrorPulse } from "./roster-error-pulse";
-import { TalqeenInboxCard } from "./talqeen-inbox-card";
-import { ParentReportDigestCard } from "./parent-report-digest-card";
-import { RecitationStandardRoster } from "./recitation-standard-roster";
+import { RosterErrorPulse, RosterErrorPulseSkeleton } from "./roster-error-pulse";
+import { TalqeenInboxCard, TalqeenInboxCardSkeleton } from "./talqeen-inbox-card";
+import { ParentReportDigestCard, ParentReportDigestCardSkeleton } from "./parent-report-digest-card";
+import { RecitationStandardRoster, RecitationStandardRosterSkeleton } from "./recitation-standard-roster";
 
 export const metadata: Metadata = { title: "لوحة المعلم" };
 
@@ -38,16 +36,17 @@ export default async function TeacherDashboardPage() {
   const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
 
-  // Batch 1 — every query here depends only on user.id, so they all parallelize.
-  // overdue-evals work used to live as a separate fetch+filter pattern; the
-  // SQL function get_teacher_overdue_eval_count (migration 20260505205251)
-  // wraps that into a single NOT EXISTS query — pulled into this batch as
-  // an rpc call so the count costs zero extra round trips.
+  // Batch 1 — every query depends only on user.id, so they all parallelize.
+  // The 4 secondary widgets (talqeen, roster-error-pulse, parent-report,
+  // recitation-roster) used to live in this batch too; they moved into
+  // self-fetching components rendered inside <Suspense> so first-paint
+  // ships at TTFB ~200 ms instead of waiting on slow aggregation queries.
+  // overdue-evals also moved out of the legacy fetch+filter pattern into
+  // the rpc call below — wraps a NOT EXISTS query in a single round trip.
   const [
     profileRes, tpRes, pendingRes, todayRes, monthRes, allStudentsRes, availRes,
     gradingRes, convosRes,
     weeklyHoursLoad, liveSessionsLoad, sessionBreakdownLoad, recentStudentsLoad, timeToGradeLoad,
-    rosterErrorPulseLoad, talqeenInboxLoad, parentReportDigestLoad, recitationRosterLoad,
     overdueEvalsRes,
   ] = await Promise.all([
     supabase.from("profiles").select("full_name, phone, avatar_url").eq("id", user.id).single<{ full_name: string | null; phone: string | null; avatar_url: string | null }>(),
@@ -93,26 +92,6 @@ export default async function TeacherDashboardPage() {
       { medianHours: null, p90Hours: null, sampleSize: 0 },
       { route: "teacher-dashboard", widget: "time-to-grade" },
     ),
-    helperOrFail(
-      () => getTeacherRosterErrorPulse(user.id),
-      [],
-      { route: "teacher-dashboard", widget: "roster-error-pulse" },
-    ),
-    helperOrFail(
-      () => getTeacherTalqeenInbox(user.id),
-      { totalCount: 0, recent: [] },
-      { route: "teacher-dashboard", widget: "talqeen-inbox" },
-    ),
-    helperOrFail(
-      () => getTeacherParentReportDigest(user.id),
-      { totalCount: 0, byType: [] as { type: string; count: number }[], recent: [] as { id: string; reportType: string; studentName: string; createdAt: string; sent: boolean }[] },
-      { route: "teacher-dashboard", widget: "parent-report-digest" },
-    ),
-    helperOrFail(
-      () => getTeacherRecitationStandardRoster(user.id),
-      [],
-      { route: "teacher-dashboard", widget: "recitation-standard-roster" },
-    ),
     // Single-RPC replacement for the previous two-step fetch+filter pattern.
     // The function (migration 20260505205251) does NOT EXISTS in Postgres
     // and returns the count directly. The Supabase generated types lag the
@@ -128,7 +107,10 @@ export default async function TeacherDashboardPage() {
 
   // loadOrFail/countOrFail wrap the direct supabase queries in this batch so
   // each failure tags Sentry with the dashboard widget that broke. anyFailed
-  // accumulates across the whole page → drives <DataLoadBanner /> below.
+  // accumulates across the whole page → drives <DataLoadBanner /> below. The
+  // 4 streamed widgets (talqeen, roster-error-pulse, parent-report,
+  // recitation-roster) handle their own failures inside the components via
+  // helperOrFail, so they're NOT in this aggregation.
   const profileLoad = loadOrFail(profileRes, { full_name: null, phone: null, avatar_url: null }, { route: "teacher-dashboard", widget: "profile" });
   const tpLoad = loadOrFail(tpRes, { total_sessions: 0, rating_avg: 0, cv_status: "draft", bio: null }, { route: "teacher-dashboard", widget: "teacher-profile" });
   const pendingLoad = loadOrFail(pendingRes, [] as PendingBooking[], { route: "teacher-dashboard", widget: "pending-bookings" });
@@ -140,21 +122,15 @@ export default async function TeacherDashboardPage() {
   const monthLoad = countOrFail(monthRes, { route: "teacher-dashboard", widget: "month-sessions" });
   const availLoad = countOrFail(availRes, { route: "teacher-dashboard", widget: "active-availability" });
   const gradingLoad = countOrFail(gradingRes, { route: "teacher-dashboard", widget: "pending-grading" });
-  // anyFailed must be `let` because batch 2 below ORs in its own load flags
-  // (messages + today-session-data). The overdue-evals rpc error is
-  // OR-merged below as well.
   let anyFailed = profileLoad.failed || tpLoad.failed || pendingLoad.failed
     || todayLoad.failed || allStudentsLoad.failed || convosLoad.failed
     || monthLoad.failed || availLoad.failed || gradingLoad.failed
     || weeklyHoursLoad.failed || liveSessionsLoad.failed
-    || sessionBreakdownLoad.failed || recentStudentsLoad.failed || timeToGradeLoad.failed
-    || rosterErrorPulseLoad.failed || talqeenInboxLoad.failed
-    || parentReportDigestLoad.failed || recitationRosterLoad.failed;
+    || sessionBreakdownLoad.failed || recentStudentsLoad.failed || timeToGradeLoad.failed;
 
   // Sprint 2.1 (2026-05-05) overdue-evals count — a single RPC call resolved
-  // inside batch 1 instead of two sequential round-trips + JS filter. The
-  // function wraps a NOT EXISTS query that the legacy two-step app code was
-  // simulating. Same gate semantics as dashboard/actions.ts.
+  // inside batch 1 instead of two sequential round-trips + JS filter. Same
+  // gate semantics as dashboard/actions.ts (CONFIRM-booking gate).
   if (overdueEvalsRes.error) {
     logError("teacher-dashboard.overdue-evals rpc failed", overdueEvalsRes.error, {
       tag: "data-load",
@@ -241,43 +217,54 @@ export default async function TeacherDashboardPage() {
           timeToGrade: timeToGradeLoad.data,
         }}
       />
-      {/* Talqeen Audio Inbox — Sprint Improvement #2 (2026-05-05).
-          Surfaces recitation-type follow-ups (Sprint 2.3) so the
-          platform's most pedagogically distinctive workflow has its
-          own surface instead of merging into generic grading. Shown
-          for ALL teachers — empty state copy nudges newer teachers. */}
+      {/* The four bottom-section widgets stream in via <Suspense>.
+          The page shell + TeacherDashboardContent above paint at TTFB
+          ~200 ms; each widget renders its skeleton while its dedicated
+          aggregation query runs, then swaps in the real content as it
+          resolves. Graceful: a widget whose data load fails still renders
+          its empty/error state (helperOrFail inside each component). */}
       <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
-        <TalqeenInboxCard data={talqeenInboxLoad.data} />
+        <Suspense fallback={<TalqeenInboxCardSkeleton />}>
+          <TalqeenInboxCard teacherId={user.id} />
+        </Suspense>
       </div>
 
-      {/* Roster-wide recitation-error pulse — Sprint Improvement #3
-          (2026-05-05). Shown for ALL teachers (not gated by cvStatus)
-          because newer teachers benefit from the empty-state nudge to
-          start logging errors during sessions. */}
       <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
-        <RosterErrorPulse data={rosterErrorPulseLoad.data} />
+        <Suspense fallback={<RosterErrorPulseSkeleton />}>
+          <RosterErrorPulse teacherId={user.id} />
+        </Suspense>
       </div>
 
-      {/* Parent-report digest — surfaces what's been sent to parents
-          on the teacher's behalf this week. Closes the loop between
-          the teacher's actions and the parent-communication leg of
-          the platform. Honest about delivery-status (sent_at stays
-          null until messaging provider is wired). */}
       <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
-        <ParentReportDigestCard data={parentReportDigestLoad.data} />
+        <Suspense fallback={<ParentReportDigestCardSkeleton />}>
+          <ParentReportDigestCard teacherId={user.id} />
+        </Suspense>
       </div>
 
-      {/* Recitation-standard roster summary — at-a-glance qira'a
-          distribution for teachers with multi-tradition rosters,
-          plus a nudge to record qira'a for students missing it.
-          Component renders nothing when there's no roster data. */}
       <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
-        <RecitationStandardRoster data={recitationRosterLoad.data} />
+        <Suspense fallback={<RecitationStandardRosterSkeleton />}>
+          <RecitationStandardRoster teacherId={user.id} />
+        </Suspense>
       </div>
 
       {cvStatus === "approved" && (
         <div className="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
-          <TeacherAtRiskStudents teacherId={user.id} />
+          {/* AtRiskStudents was already self-fetching; just wrap in
+              Suspense so its 90-day-bookings + retention_signals + names
+              fan-out doesn't block first paint. */}
+          <Suspense
+            fallback={
+              <div className="glass-card mt-4 rounded-xl p-4" aria-hidden="true">
+                <Skeleton className="mb-3 h-4 w-48" />
+                <div className="space-y-2">
+                  <Skeleton className="h-12 w-full rounded-lg" />
+                  <Skeleton className="h-12 w-full rounded-lg" />
+                </div>
+              </div>
+            }
+          >
+            <TeacherAtRiskStudents teacherId={user.id} />
+          </Suspense>
         </div>
       )}
 

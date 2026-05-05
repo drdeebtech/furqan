@@ -1,5 +1,8 @@
 import { Mail, Clock } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
+import { helperOrFail } from "@/lib/supabase/load-or-fail";
+import { getTeacherParentReportDigest } from "@/lib/dashboard-queries";
+import { Skeleton } from "@/components/shared/skeleton";
 
 /**
  * Parent-report digest card — surfaces the parent-communication leg
@@ -35,15 +38,16 @@ function relativeTime(iso: string, lang: "ar" | "en"): string {
   return `${diffDays}d ago`;
 }
 
-export async function ParentReportDigestCard({
-  data,
-}: {
-  data: {
-    totalCount: number;
-    byType: { type: string; count: number }[];
-    recent: Array<{ id: string; reportType: string; studentName: string; createdAt: string; sent: boolean }>;
-  };
-}) {
+export async function ParentReportDigestCard({ teacherId }: { teacherId: string }) {
+  // Self-fetching for Suspense-streaming (Stream 1B). Empty fallback shape
+  // matches the helper's success-path return type so no widget code below
+  // needs to defend against undefined.
+  const { data } = await helperOrFail(
+    () => getTeacherParentReportDigest(teacherId),
+    { totalCount: 0, byType: [] as { type: string; count: number }[], recent: [] as { id: string; reportType: string; studentName: string; createdAt: string; sent: boolean }[] },
+    { route: "teacher-dashboard", widget: "parent-report-digest" },
+  );
+
   const { t, lang } = await getT();
   const langKey: "ar" | "en" = lang === "ar" ? "ar" : "en";
 
@@ -136,6 +140,22 @@ export async function ParentReportDigestCard({
           "Tracks creation timestamps only. Delivery status (email/SMS sent) will appear here once the messaging provider is wired.",
         )}
       </p>
+    </section>
+  );
+}
+
+export function ParentReportDigestCardSkeleton() {
+  return (
+    <section className="mt-4 glass-card p-4 sm:p-5" aria-hidden="true">
+      <Skeleton className="mb-3 h-5 w-56" />
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        <Skeleton className="h-5 w-24 rounded-full" />
+        <Skeleton className="h-5 w-20 rounded-full" />
+      </div>
+      <div className="space-y-2">
+        <Skeleton className="h-10 w-full rounded-lg" />
+        <Skeleton className="h-10 w-full rounded-lg" />
+      </div>
     </section>
   );
 }
