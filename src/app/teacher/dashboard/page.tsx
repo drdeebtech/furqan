@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { fetchNameMap } from "@/lib/supabase/helpers";
+import { loadOrFail } from "@/lib/supabase/load-or-fail";
 import type { SessionType } from "@/types/database";
 import { TeacherDashboardContent } from "./dashboard-content";
 import { TeacherAtRiskStudents } from "./at-risk-students";
 import { MentorshipCard } from "./mentorship-card";
+import { DataLoadBanner } from "@/components/shared/data-load-banner";
 import {
   getTeacherWeeklyHours,
   getTeacherLiveSessions,
@@ -59,7 +61,18 @@ export default async function TeacherDashboardPage() {
     getTeacherRecentStudents(user.id),
   ]);
 
-  const convIds = convosRes.data?.map(c => c.id) ?? [];
+  // loadOrFail wraps the direct supabase queries in this batch so each
+  // failure tags Sentry with the dashboard widget that broke. anyFailed
+  // accumulates across the page → drives <DataLoadBanner /> below.
+  const profileLoad = loadOrFail(profileRes, { full_name: null, phone: null, avatar_url: null }, { route: "teacher-dashboard", widget: "profile" });
+  const tpLoad = loadOrFail(tpRes, { total_sessions: 0, rating_avg: 0, cv_status: "draft", bio: null }, { route: "teacher-dashboard", widget: "teacher-profile" });
+  const pendingLoad = loadOrFail(pendingRes, [] as PendingBooking[], { route: "teacher-dashboard", widget: "pending-bookings" });
+  const todayLoad = loadOrFail(todayRes, [] as PendingBooking[], { route: "teacher-dashboard", widget: "today-sessions" });
+  const allStudentsLoad = loadOrFail(allStudentsRes, [] as { student_id: string }[], { route: "teacher-dashboard", widget: "all-students" });
+  const convosLoad = loadOrFail(convosRes, [] as { id: string }[], { route: "teacher-dashboard", widget: "conversations" });
+  const anyFailed = profileLoad.failed || tpLoad.failed || pendingLoad.failed || todayLoad.failed || allStudentsLoad.failed || convosLoad.failed;
+
+  const convIds = convosLoad.data.map(c => c.id);
   let unreadMessages = 0;
   if (convIds.length > 0) {
     const { count } = await supabase.from("messages").select("id", { count: "exact", head: true })
@@ -68,16 +81,16 @@ export default async function TeacherDashboardPage() {
   }
   const pendingGrading = gradingRes.count ?? 0;
 
-  const fullName = profileRes.data?.full_name ?? null;
-  const hasProfile = !!(profileRes.data?.full_name && profileRes.data?.phone && profileRes.data?.avatar_url);
-  const hasBio = !!(tpRes.data?.bio);
+  const fullName = profileLoad.data.full_name;
+  const hasProfile = !!(profileLoad.data.full_name && profileLoad.data.phone && profileLoad.data.avatar_url);
+  const hasBio = !!(tpLoad.data.bio);
   const hasAvailability = (availRes.count ?? 0) > 0;
-  const ratingAvg = Number(tpRes.data?.rating_avg ?? 0);
-  const cvStatus = (tpRes.data?.cv_status ?? "draft") as "draft" | "pending_review" | "approved" | "rejected";
-  const pending = pendingRes.data ?? [];
-  const todaySessions = todayRes.data ?? [];
+  const ratingAvg = Number(tpLoad.data.rating_avg ?? 0);
+  const cvStatus = (tpLoad.data.cv_status ?? "draft") as "draft" | "pending_review" | "approved" | "rejected";
+  const pending = pendingLoad.data;
+  const todaySessions = todayLoad.data;
   const monthSessions = monthRes.count ?? 0;
-  const uniqueStudents = new Set((allStudentsRes.data ?? []).map(s => s.student_id)).size;
+  const uniqueStudents = new Set(allStudentsLoad.data.map(s => s.student_id)).size;
 
   let sessionDataMap: Record<string, { id: string; room_url: string; expires_at: string | null; started_at: string | null; ended_at: string | null }> = {};
   if (todaySessions.length > 0) {
@@ -91,6 +104,7 @@ export default async function TeacherDashboardPage() {
 
   return (
     <main>
+      <DataLoadBanner failed={anyFailed} />
       <TeacherDashboardContent
         data={{
           fullName,
