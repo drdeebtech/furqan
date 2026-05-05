@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { safeCompareSecret } from "@/lib/security/secrets";
+import { logError } from "@/lib/logger";
 
 /**
  * n8n callback endpoint.
@@ -13,6 +14,7 @@ import { safeCompareSecret } from "@/lib/security/secrets";
 // notifications and bloating message_delivery_log.
 const NOTIFY_PER_USER_PER_MINUTE = 30;
 export async function POST(request: Request) {
+  try {
   // Validate shared secret with constant-time comparison (timing-attack safe)
   const secret = request.headers.get("X-N8N-Secret");
   if (!safeCompareSecret(secret, process.env.N8N_WEBHOOK_SECRET)) {
@@ -40,7 +42,19 @@ export async function POST(request: Request) {
         error_message: data.error_message ?? null,
         finished_at: new Date().toISOString(),
       } as never);
-      if (error) return NextResponse.json({ error: "Failed to log" }, { status: 500 });
+      if (error) {
+        logError("n8n webhook log insert failed", error, {
+          tag: "n8n-webhook",
+          severity: "critical",
+          metadata: {
+            workflow_name: data.workflow_name,
+            event_name: data.event_name ?? null,
+            entity_type: data.entity_type ?? null,
+            entity_id: data.entity_id ?? null,
+          },
+        });
+        return NextResponse.json({ error: "Failed to log" }, { status: 500 });
+      }
       return NextResponse.json({ logged: true });
     }
 
@@ -82,7 +96,18 @@ export async function POST(request: Request) {
         body: data.body ?? null,
         channel: ["in_app"],
       } as never);
-      if (error) return NextResponse.json({ error: "Failed to notify" }, { status: 500 });
+      if (error) {
+        logError("n8n webhook notify insert failed", error, {
+          tag: "n8n-webhook",
+          severity: "critical",
+          metadata: {
+            user_id: data.user_id,
+            type: data.type ?? "system",
+            template_name: data.template_name ?? null,
+          },
+        });
+        return NextResponse.json({ error: "Failed to notify" }, { status: 500 });
+      }
 
       // Mirror to delivery log for observability parity with dispatcher path
       await supabase.from("message_delivery_log").insert({
@@ -111,5 +136,12 @@ export async function POST(request: Request) {
 
     default:
       return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
+  }
+  } catch (err) {
+    logError("n8n webhook handler threw", err, {
+      tag: "n8n-webhook",
+      severity: "critical",
+    });
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }

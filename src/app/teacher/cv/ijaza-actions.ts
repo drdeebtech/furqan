@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
+import { logError } from "@/lib/logger";
 
 function str(formData: FormData, key: string): string | null {
   const v = formData.get(key);
@@ -109,7 +110,14 @@ export async function deleteMyIjaza(ijazaId: string): Promise<LoudResult> {
     .eq("teacher_id", user.id)
     .is("verified_by", null)
     .select("id");
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    logError("teacher deleteMyIjaza failed", error, {
+      tag: "teacher-cv",
+      severity: "warning",
+      metadata: { ijazaId, teacherId: user.id },
+    });
+    return { ok: false, error: error.message };
+  }
   if (!data || data.length === 0) {
     return { ok: false, error: "لا يمكن حذف الإجازة الموثقة. تواصل مع الإدارة." };
   }
