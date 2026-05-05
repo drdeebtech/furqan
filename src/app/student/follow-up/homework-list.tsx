@@ -266,14 +266,14 @@ function HomeworkCard({
 
           {hw.description && <p className="text-xs text-muted/70">{hw.description}</p>}
 
-          {/* Teacher feedback for graded homework */}
+          {/* Teacher feedback for graded follow-up */}
           {hw.teacher_notes && (
             <div className="mt-2 rounded-lg border border-gold/20 bg-gold/5 p-2">
               <p className="text-xs text-gold/80">💬 {t("ملاحظات المعلم", "Teacher feedback")}: {hw.teacher_notes}</p>
             </div>
           )}
 
-          {/* Re-attempt context — when this homework was auto-regenerated
+          {/* Re-attempt context — when this follow-up was auto-regenerated
               from a prior attempt, show the prior grade + teacher's notes so
               the student understands what to fix this time. Frames the
               regeneration as a coaching loop, not a rebuke. */}

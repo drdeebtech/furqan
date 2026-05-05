@@ -133,7 +133,7 @@ export function PostSessionForm({
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <Users size={14} className="text-gold" aria-hidden="true" />
             <span className="text-xs font-medium uppercase tracking-wider text-muted">
-              {t("اختر الطالب لاعتماد متابعة أو تقييم", "Pick a student to assign homework or evaluate")}
+              {t("اختر الطالب لاعتماد متابعة أو تقييم", "Pick a student to assign a follow-up or evaluate")}
             </span>
           </div>
           <div role="tablist" aria-label={t("الطلاب المسجلون", "Enrolled students")} className="flex flex-wrap gap-2">

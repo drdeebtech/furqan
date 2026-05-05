@@ -164,7 +164,7 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
                   {s.total} {t("جلسة مكتملة", "completed")} · {s.thisMonth} {t("هذا الشهر", "this month")}
                 </p>
 
-                {/* Status row — pedagogical signals: ungraded homework
+                {/* Status row — pedagogical signals: ungraded follow-up
                     count, days since last evaluation, next session date.
                     Each chip is clickable when it has a useful target. */}
                 <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">

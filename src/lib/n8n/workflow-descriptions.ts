@@ -121,7 +121,7 @@ const META: Record<string, WorkflowMeta> = {
   },
   "homework-graded": {
     ar: "ينفّذ بعد تقييم المتابعة: يُخطر الطالب وولي الأمر بنتيجة المراجعة.",
-    en: "Runs after homework grading: notifies student and parent of the review outcome.",
+    en: "Runs after follow-up grading: notifies student and parent of the review outcome.",
     area: "parent_communication",
   },
   milestones: {
@@ -133,7 +133,7 @@ const META: Record<string, WorkflowMeta> = {
   // Area 03 — Retention
   "at-risk": {
     ar: "يكشف الطلاب المعرّضين للتسرّب من خلال الحضور والإلغاءات والخمول، ويُنشئ علامة خطر.",
-    en: "Flags at-risk students using attendance, cancellations, inactivity, and stalled homework.",
+    en: "Flags at-risk students using attendance, cancellations, inactivity, and stalled follow-ups.",
     area: "retention",
   },
   inactivity: {

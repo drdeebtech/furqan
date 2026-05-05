@@ -132,7 +132,7 @@ function PrivacyEn() {
       <h2>2. How We Use Your Data</h2>
       <ul>
         <li>Deliver education services and manage your account and scheduling.</li>
-        <li>Communicate about bookings, homework, evaluations, and academy updates.</li>
+        <li>Communicate about bookings, follow-ups, evaluations, and academy updates.</li>
         <li>Process payments and issue invoices.</li>
         <li>Improve service quality and track academic progress.</li>
         <li>Comply with legal obligations and prevent fraud.</li>

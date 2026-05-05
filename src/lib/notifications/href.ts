@@ -22,7 +22,7 @@ export function notificationHref(n: Notification, rolePrefix: string): string {
     case "booking":
       return `${rolePrefix}/bookings`;
     case "homework":
-      return `${rolePrefix}/homework`;
+      return `${rolePrefix}/follow-up`;
     case "reminder": {
       const sid = asId(d.session_id);
       return sid ? `${rolePrefix}/sessions/${sid}` : `${rolePrefix}/sessions`;

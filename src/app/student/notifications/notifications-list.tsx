@@ -53,7 +53,7 @@ export function NotificationsList({
   for (const n of initial) typeCounts[n.type] = (typeCounts[n.type] ?? 0) + 1;
   const FILTER_ORDER: { key: NotifType | "all"; ar: string; en: string }[] = [
     { key: "all", ar: "الكل", en: "All" },
-    { key: "homework", ar: "متابعات", en: "Homework" },
+    { key: "homework", ar: "متابعات", en: "Follow-ups" },
     { key: "booking", ar: "حجوزات", en: "Bookings" },
     { key: "reminder", ar: "تذكيرات", en: "Reminders" },
     { key: "message", ar: "رسائل", en: "Messages" },

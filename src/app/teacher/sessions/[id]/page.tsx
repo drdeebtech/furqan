@@ -523,11 +523,11 @@ export default async function TeacherSessionPage({ params }: Props) {
             expiresAt={session.expires_at}
             durationMin={booking.duration_min}
           />
-          {/* Homework can be assigned at any time, not only post-session.
+          {/* Follow-ups can be assigned at any time, not only post-session.
               Collapsed by default so it doesn't compete with the video room. */}
           <details className="glass-card mt-4 p-4">
             <summary className="cursor-pointer text-sm font-medium">
-              {t("اعتماد متابعة الآن", "Assign homework now")}
+              {t("اعتماد متابعة الآن", "Assign follow-up now")}
             </summary>
             <div className="mt-3">
               <HomeworkAssignmentForm

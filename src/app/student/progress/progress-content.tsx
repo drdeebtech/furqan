@@ -403,7 +403,7 @@ export function ProgressContent({ data }: { data: ProgressData }) {
         </div>
       )}
 
-      {/* Homework Performance */}
+      {/* Follow-up Performance */}
       {hwStats.total > 0 && (
         <div className="mb-8">
           <h2 className="mb-4 font-display text-lg font-bold">{t("أداء المتابعات", "Follow-up Performance")}</h2>

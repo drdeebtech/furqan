@@ -212,7 +212,7 @@ export default async function StudentRecitationsPage() {
                           })}
                         </span>
                       </div>
-                      {/* Surface the teacher's grading note if the homework
+                      {/* Surface the teacher's grading note if the follow-up
                           was graded — pairs the audio with the feedback. */}
                       {r.teacher_notes && (
                         <p className="mt-2 rounded-lg border border-gold/20 bg-gold/5 p-2 text-xs text-gold/90">
