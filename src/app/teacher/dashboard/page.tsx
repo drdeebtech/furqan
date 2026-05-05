@@ -13,6 +13,7 @@ import {
   getTeacherLiveSessions,
   getTeacherSessionTypeBreakdown,
   getTeacherRecentStudents,
+  getTeacherTimeToGrade,
 } from "@/lib/dashboard-queries";
 
 export const metadata: Metadata = { title: "لوحة المعلم" };
@@ -35,7 +36,7 @@ export default async function TeacherDashboardPage() {
   const [
     profileRes, tpRes, pendingRes, todayRes, monthRes, allStudentsRes, availRes,
     gradingRes, convosRes,
-    weeklyHours, liveSessions, sessionBreakdown, recentStudents,
+    weeklyHours, liveSessions, sessionBreakdown, recentStudents, timeToGrade,
   ] = await Promise.all([
     supabase.from("profiles").select("full_name, phone, avatar_url").eq("id", user.id).single<{ full_name: string | null; phone: string | null; avatar_url: string | null }>(),
     supabase.from("teacher_profiles").select("total_sessions, rating_avg, cv_status, bio").eq("teacher_id", user.id)
@@ -59,6 +60,7 @@ export default async function TeacherDashboardPage() {
     getTeacherLiveSessions(user.id),
     getTeacherSessionTypeBreakdown(user.id),
     getTeacherRecentStudents(user.id),
+    getTeacherTimeToGrade(user.id),
   ]);
 
   // loadOrFail/countOrFail wrap the direct supabase queries in this batch so
@@ -191,6 +193,7 @@ export default async function TeacherDashboardPage() {
             todaySessionCount: todaySessions.length,
             lowAvailability: !hasAvailability,
           },
+          timeToGrade,
         }}
       />
       {cvStatus === "approved" && (

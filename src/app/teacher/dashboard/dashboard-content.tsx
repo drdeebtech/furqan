@@ -45,6 +45,9 @@ interface TeacherDashboardData {
   sessionBreakdown: { label: string; value: number; color: string }[];
   recentStudents: { id: string; [key: string]: unknown }[];
   actionQueue: { pendingGrading: number; overdueEvals: number; unreadMessages: number; todaySessionCount: number; lowAvailability: boolean };
+  /** Sprint #4 (2026-05-05): teacher's own grading discipline. nulls when
+   *  the sample is too small (< 3 graded follow-ups in 30 days). */
+  timeToGrade: { medianHours: number | null; p90Hours: number | null; sampleSize: number };
 }
 
 function StatInline({
@@ -71,6 +74,7 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
     fullName, cvStatus, hasProfile, hasBio, hasAvailability, uniqueStudents,
     monthSessions, pendingCount, ratingAvg, todaySessions, pending, sessionDataMap,
     nameMap, weeklyHours, liveSessions, sessionBreakdown, recentStudents, actionQueue,
+    timeToGrade,
   } = data;
 
   // Live ticker.
@@ -202,6 +206,73 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
               <StatInline href="#pending" icon={Hourglass} label={t("طلبات معلّقة", "Pending")} value={pendingCount} accent={pendingCount > 0} />
               <StatInline href="/teacher/evaluations" icon={Star} label={t("التقييم", "Rating")} value={ratingAvg > 0 ? ratingAvg.toFixed(1) : "—"} />
             </dl>
+          </section>
+        </SectionErrorBoundary>
+
+        {/* Discipline KPI — Sprint Improvement #4 (2026-05-05).
+            Surfaces the teacher's own grading responsiveness as a public-
+            to-themselves metric. Mirrors the accountability the eval-
+            discipline gate enforces, but as a positive signal (not a
+            block). Thresholds: green ≤ 24h, amber ≤ 72h, red beyond. */}
+        <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل مؤشر الانضباط", "Couldn't load discipline metric")}>
+          <section aria-label={t("سرعة التقييم", "Grading discipline")} className="mt-4 glass-card p-4 sm:p-5">
+            {timeToGrade.medianHours == null ? (
+              <div className="flex items-center gap-3">
+                <Clock size={18} className="text-muted" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-muted">
+                    {t("متوسط وقت التقييم هذا الشهر", "Median time-to-grade this month")}
+                  </p>
+                  <p className="font-display text-sm text-muted">
+                    {t(
+                      `لم تُقيّم سوى ${timeToGrade.sampleSize} متابعة في آخر 30 يوماً — يلزم 3 على الأقل.`,
+                      `Only ${timeToGrade.sampleSize} graded in the last 30 days — need 3+ to compute.`,
+                    )}
+                  </p>
+                </div>
+              </div>
+            ) : (() => {
+              const median = timeToGrade.medianHours;
+              const tier = median <= 24 ? "success" : median <= 72 ? "warning" : "error";
+              const tierClasses: Record<typeof tier, string> = {
+                success: "border-success/40 bg-success/10 text-success",
+                warning: "border-warning/40 bg-warning/10 text-warning",
+                error: "border-error/40 bg-error/10 text-error",
+              };
+              const verdict =
+                tier === "success"
+                  ? t("ممتاز — استجابة سريعة", "Excellent — fast turnaround")
+                  : tier === "warning"
+                    ? t("جيد — مع إمكانية التحسين", "Good — room to improve")
+                    : t("بطيء — حاول التقييم خلال 24 ساعة", "Slow — aim to grade within 24h");
+              const labelMedian = lang === "ar" ? `${median} ساعة` : `${median}h`;
+              const labelP90 = lang === "ar" ? `${timeToGrade.p90Hours} ساعة` : `${timeToGrade.p90Hours}h`;
+              return (
+                <div className="flex flex-wrap items-center gap-3">
+                  <Clock size={18} className="text-muted" aria-hidden="true" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted">
+                      {t("متوسط وقت التقييم (30 يوماً)", "Median time-to-grade (last 30 days)")}
+                    </p>
+                    <p className="font-display text-lg font-bold leading-tight">
+                      {labelMedian}
+                      <span className="ms-2 text-xs font-normal text-muted">
+                        {t(
+                          `(الشريحة الأعلى: ${labelP90} · ${timeToGrade.sampleSize} متابعة)`,
+                          `(top 10%: ${labelP90} · ${timeToGrade.sampleSize} graded)`,
+                        )}
+                      </span>
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${tierClasses[tier]}`}
+                    aria-label={verdict}
+                  >
+                    {verdict}
+                  </span>
+                </div>
+              );
+            })()}
           </section>
         </SectionErrorBoundary>
 

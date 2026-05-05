@@ -1567,3 +1567,69 @@ export async function getModeratorFlaggedEvaluations(
     view: "view",
   }));
 }
+
+/**
+ * Time-to-grade discipline KPI for the teacher dashboard.
+ *
+ * Returns the median + 90th-percentile time (in hours) the teacher took
+ * to grade a student's follow-up after the student marked it ready
+ * (`ready_at` → `completed_at`), over the last 30 days, alongside the
+ * sample size.
+ *
+ * The point is to give teachers a public-to-themselves discipline
+ * number — the same kind of accountability the eval-discipline gate
+ * enforces, but for grading. Returns nulls when the sample is too
+ * small to draw conclusions (< 3 graded items in 30 days).
+ *
+ * Used by the teacher dashboard KPI strip; thresholds for color-coding
+ * (green ≤ 24h, amber ≤ 72h, red beyond) live in the rendering
+ * component, not here, since they're a UX choice.
+ */
+export async function getTeacherTimeToGrade(
+  teacherId: string,
+): Promise<{ medianHours: number | null; p90Hours: number | null; sampleSize: number }> {
+  const supabase = await createClient();
+  const thirtyDaysAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Only graded follow-ups (any of the 4 completed_* statuses) where both
+  // timestamps are present. ready_at can be null for grandfathered rows
+  // pre-Sprint 2.3, so filter explicitly.
+  const { data } = await supabase
+    .from("homework_assignments")
+    .select("ready_at, completed_at")
+    .eq("teacher_id", teacherId)
+    .in("status", [
+      "completed_excellent",
+      "completed_good",
+      "completed_needs_work",
+      "completed_not_done",
+    ])
+    .not("ready_at", "is", null)
+    .not("completed_at", "is", null)
+    .gte("completed_at", thirtyDaysAgoIso)
+    .returns<{ ready_at: string; completed_at: string }[]>();
+
+  const rows = data ?? [];
+  if (rows.length < 3) {
+    return { medianHours: null, p90Hours: null, sampleSize: rows.length };
+  }
+
+  const hours = rows
+    .map(r => (new Date(r.completed_at).getTime() - new Date(r.ready_at).getTime()) / (1000 * 60 * 60))
+    .filter(h => h >= 0) // defensive: ignore impossible negative durations
+    .sort((a, b) => a - b);
+
+  if (hours.length < 3) {
+    return { medianHours: null, p90Hours: null, sampleSize: hours.length };
+  }
+
+  const median = hours[Math.floor(hours.length / 2)];
+  const p90Index = Math.min(hours.length - 1, Math.floor(hours.length * 0.9));
+  const p90 = hours[p90Index];
+
+  return {
+    medianHours: Math.round(median * 10) / 10,
+    p90Hours: Math.round(p90 * 10) / 10,
+    sampleSize: hours.length,
+  };
+}
