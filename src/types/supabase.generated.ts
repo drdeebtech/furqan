@@ -3625,6 +3625,7 @@ export type Database = {
           pages_reviewed: number | null
           progress_type: string
           quality_rating: number | null
+          recitation_standard: string | null
           student_id: string
           surah_from: number | null
           surah_to: number | null
@@ -3641,6 +3642,7 @@ export type Database = {
           pages_reviewed?: number | null
           progress_type?: string
           quality_rating?: number | null
+          recitation_standard?: string | null
           student_id: string
           surah_from?: number | null
           surah_to?: number | null
@@ -3657,6 +3659,7 @@ export type Database = {
           pages_reviewed?: number | null
           progress_type?: string
           quality_rating?: number | null
+          recitation_standard?: string | null
           student_id?: string
           surah_from?: number | null
           surah_to?: number | null
