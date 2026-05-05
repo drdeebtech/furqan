@@ -102,7 +102,7 @@ export default async function TeacherDashboardPage() {
     ),
     helperOrFail(
       () => getTeacherParentReportDigest(user.id),
-      { totalCount: 0, byType: [], recent: [] },
+      { totalCount: 0, byType: [] as { type: string; count: number }[], recent: [] as { id: string; reportType: string; studentName: string; createdAt: string; sent: boolean }[] },
       { route: "teacher-dashboard", widget: "parent-report-digest" },
     ),
     helperOrFail(

@@ -41,7 +41,7 @@ export async function ParentReportDigestCard({
   data: {
     totalCount: number;
     byType: { type: string; count: number }[];
-    recent: Array<{ id: string; title: string; reportType: string; studentName: string; createdAt: string; sent: boolean }>;
+    recent: Array<{ id: string; reportType: string; studentName: string; createdAt: string; sent: boolean }>;
   };
 }) {
   const { t, lang } = await getT();
@@ -105,21 +105,29 @@ export async function ParentReportDigestCard({
       )}
 
       <ul className="space-y-2">
-        {data.recent.map((row) => (
-          <li
-            key={row.id}
-            className="flex items-center justify-between gap-3 rounded-lg border border-card-border bg-card/30 p-2.5 text-xs"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">{row.studentName}</p>
-              <p className="truncate text-muted">{row.title}</p>
-            </div>
-            <span className="inline-flex shrink-0 items-center gap-1 text-muted" aria-label={t("منذ متى", "How long ago")}>
-              <Clock size={11} aria-hidden="true" />
-              {relativeTime(row.createdAt, langKey)}
-            </span>
-          </li>
-        ))}
+        {data.recent.map((row) => {
+          // Derive the report-type label from the same TYPE_LABELS map
+          // used for the chips above. Avoids a `title` column dependency
+          // (live schema may not have it — schema-vs-code drift hazard).
+          const typeLabel = TYPE_LABELS[row.reportType]
+            ? (langKey === "ar" ? TYPE_LABELS[row.reportType].ar : TYPE_LABELS[row.reportType].en)
+            : row.reportType;
+          return (
+            <li
+              key={row.id}
+              className="flex items-center justify-between gap-3 rounded-lg border border-card-border bg-card/30 p-2.5 text-xs"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{row.studentName}</p>
+                <p className="truncate text-muted">{typeLabel}</p>
+              </div>
+              <span className="inline-flex shrink-0 items-center gap-1 text-muted" aria-label={t("منذ متى", "How long ago")}>
+                <Clock size={11} aria-hidden="true" />
+                {relativeTime(row.createdAt, langKey)}
+              </span>
+            </li>
+          );
+        })}
       </ul>
 
       <p className="mt-3 text-[11px] text-muted">

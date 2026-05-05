@@ -1824,22 +1824,25 @@ export async function getTeacherParentReportDigest(
 ): Promise<{
   totalCount: number;
   byType: { type: string; count: number }[];
-  recent: Array<{ id: string; title: string; reportType: string; studentName: string; createdAt: string; sent: boolean }>;
+  recent: Array<{ id: string; reportType: string; studentName: string; createdAt: string; sent: boolean }>;
 }> {
   const supabase = await createClient();
   const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   // Fetch the 3 most-recent rows + the total via count: "exact".
+  // Schema-stable columns only (drift hazard per CLAUDE.md): the live
+  // schema may not have `title`/`body` — supabase.generated.ts shows
+  // `content` instead. Component derives the display label from
+  // report_type to avoid depending on either side of the drift.
   const recentRes = await supabase
     .from("parent_reports")
-    .select("id, title, report_type, student_id, sent_at, created_at", { count: "exact" })
+    .select("id, report_type, student_id, sent_at, created_at", { count: "exact" })
     .eq("teacher_id", teacherId)
     .gte("created_at", sevenDaysAgoIso)
     .order("created_at", { ascending: false })
     .limit(3)
     .returns<{
       id: string;
-      title: string;
       report_type: string;
       student_id: string;
       sent_at: string | null;
@@ -1891,7 +1894,6 @@ export async function getTeacherParentReportDigest(
     byType,
     recent: rows.map(r => ({
       id: r.id,
-      title: r.title,
       reportType: r.report_type,
       studentName: nameMap[r.student_id] ?? "—",
       createdAt: r.created_at,
