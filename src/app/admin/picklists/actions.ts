@@ -46,9 +46,9 @@ function bool(formData: FormData, key: string): boolean {
 function revalidatePicklistConsumers() {
   revalidatePath("/admin/picklists");
   revalidatePath("/teacher/cv");
-  revalidatePath("/teach/apply");
+  revalidatePath("/teach-with-us/apply");
   revalidatePath("/admin/teachers/new");
-  revalidatePath("/teachers-page");
+  revalidatePath("/teachers");
 }
 
 const upsertBase = loudAction<z.infer<typeof upsertPicklistSchema>, { message?: string }>({

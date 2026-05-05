@@ -113,14 +113,14 @@ export async function approveCv(teacherId: string) {
       ? sendTeacherApprovalEmail({
           to: teacherEmail,
           fullName: teacherName,
-          listingUrl: `https://furqan.today/teachers-page#teacher-${teacherId}`,
+          listingUrl: `https://furqan.today/teachers#teacher-${teacherId}`,
         }).catch((err) => logError("approveCv approval email failed", err, { tag: "cv-review" }))
       : Promise.resolve(),
   ]);
 
   revalidatePath("/admin/teachers/cv");
   revalidatePath("/teacher/cv");
-  revalidatePath("/teachers-page");
+  revalidatePath("/teachers");
   revalidatePath("/student/teachers");
   return { success: true };
 }

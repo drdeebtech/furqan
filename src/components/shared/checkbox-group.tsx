@@ -10,7 +10,7 @@
  *
  * Used for teacher CV picklists (specialties, languages, recitations)
  * across the admin CV edit page, the teacher self-edit page, and the
- * public /teach/apply form. Keeps the visual + a11y contract identical
+ * public /teach-with-us/apply form. Keeps the visual + a11y contract identical
  * everywhere so teachers don't have to relearn the picker.
  */
 

@@ -14,7 +14,7 @@ import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
  */
 const PUBLIC_PATHS = [
   "/",
-  "/teach",
+  "/teach-with-us",
   "/teachers",
   "/packages",
   "/services",

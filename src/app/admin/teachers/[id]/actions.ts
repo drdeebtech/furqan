@@ -153,7 +153,7 @@ export async function uploadTeacherPhoto(
   }
 
   revalidateTeacher(teacherId);
-  revalidatePath("/teachers-page");
+  revalidatePath("/teachers");
   return { success: true };
 }
 

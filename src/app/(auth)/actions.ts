@@ -167,7 +167,7 @@ export async function login(
   //   - confident human          → allow
   //   - ambiguous                → allow, but log so we can audit false positives
   // Pure fail-closed (`!isHuman`) misclassified real users (Kuwait Safari
-  // 2026-05-01, /teach/apply incident). Credential-stuffing risk on the
+  // 2026-05-01, /teach-with-us/apply incident). Credential-stuffing risk on the
   // ambiguous-allow path is capped by the per-email rate limit below.
   if (shouldBypassBotId(email)) {
     logError("BotID bypassed for allow-listed email", new Error("login.bot_bypass"), {

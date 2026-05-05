@@ -459,8 +459,8 @@ export async function createUserFromScratch(
 
   if (role === "teacher") {
     // Admin-created teachers are pre-vetted off-platform — go straight to
-    // approved so they appear on /teachers-page immediately. Self-applied
-    // teachers via /teach/apply still land in pending_review for review.
+    // approved so they appear on /teachers immediately. Self-applied
+    // teachers via /teach-with-us/apply still land in pending_review for review.
     // Capture the error so we never silently end up with a teacher profile
     // missing its teacher_profiles row (Ahmed Sokar incident, 2026-04-26).
     const { error: tpError } = await adminClient.from("teacher_profiles").insert({

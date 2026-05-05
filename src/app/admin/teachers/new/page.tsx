@@ -103,7 +103,7 @@ export default async function NewTeacherPage() {
             </div>
           </div>
 
-          {/* Languages — checkboxes (consistent with /teach/apply + CV edit) */}
+          {/* Languages — checkboxes (consistent with /teach-with-us/apply + CV edit) */}
           <div>
             <label className="mb-2 block text-sm font-medium">{t("اللغات", "Languages")}</label>
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">

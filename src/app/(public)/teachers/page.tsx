@@ -5,13 +5,13 @@ import { TeachersContent } from "./content";
 export const metadata: Metadata = {
   title: "معلمونا — معلمو القرآن المعتمدون",
   description: "معلمو أكاديمية فرقان حاصلون على الإجازة من كبار العلماء. خريجو الأزهر. متاح معلمات للأخوات.",
-  alternates: { canonical: "https://furqan.today/teachers-page" },
+  alternates: { canonical: "https://furqan.today/teachers" },
 };
 
 // ISR — public teacher list changes when an admin approves/archives a
 // teacher. 5-minute cache turns the slowest public page (~890ms avg in
 // the k6 smoke test) into a CDN edge response (~50ms). Admin mutations
-// call revalidatePath('/teachers-page') for immediate invalidation; the
+// call revalidatePath('/teachers') for immediate invalidation; the
 // 5-min ceiling is the worst-case staleness when the cache hasn't been
 // touched.
 export const revalidate = 300;

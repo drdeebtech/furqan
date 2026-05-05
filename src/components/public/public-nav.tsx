@@ -19,11 +19,11 @@ const BASE_LINKS = [
   { href: "/courses", ar: "الدورات المسجلة", en: "Courses" },
 ];
 
-const TEACHERS_LINK = { href: "/teachers-page", ar: "المعلمون", en: "Teachers" };
+const TEACHERS_LINK = { href: "/teachers", ar: "المعلمون", en: "Teachers" };
 
 const TAIL_LINKS = [
   { href: "/blog", ar: "المدونة", en: "Blog" },
-  { href: "/teach", ar: "درّس معنا", en: "Teach With Us" },
+  { href: "/teach-with-us", ar: "درّس معنا", en: "Teach With Us" },
   { href: "/contact", ar: "اتصل بنا", en: "Contact" },
 ];
 

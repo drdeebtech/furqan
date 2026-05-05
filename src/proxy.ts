@@ -68,7 +68,7 @@ function deriveDomain(pathname: string): string {
   if (seg === "admin" || seg === "moderator" || seg === "teacher" || seg === "student") return seg;
   if (seg === "api") return "api";
   if (seg === "login" || seg === "register" || seg === "forgot-password") return "auth";
-  if (seg === "teach" || seg === "teachers-page") return "teachers";
+  if (seg === "teach-with-us" || seg === "teachers") return "teachers";
   if (seg === "blog") return "blog";
   if (seg === "packages" || seg === "services") return "packages";
   return "public";
@@ -91,6 +91,8 @@ const RENAMED_ROUTES: Array<readonly [from: string, to: string]> = [
   ["/teacher/homework", "/teacher/follow-up"],
   ["/student/homework", "/student/follow-up"],
   ["/admin/homework", "/admin/follow-up"],
+  ["/teachers-page", "/teachers"],
+  ["/teach", "/teach-with-us"],
 ];
 
 async function getUserRoleState(
