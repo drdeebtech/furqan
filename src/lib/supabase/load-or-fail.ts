@@ -116,6 +116,10 @@ export async function helperOrFail<T>(
     const data = await call();
     return { data, failed: false };
   } catch (err) {
+    // Temporary diagnostic — also write to console so Vercel runtime
+    // logs surface the failing widget without needing Sentry MCP. Remove
+    // once the unknown failing helper is identified.
+    console.error(`[helperOrFail] ${ctx.route}.${ctx.widget} threw:`, err);
     logError(`helper ${ctx.route}.${ctx.widget} threw`, err, {
       tag: "data-load",
       severity: "warning",
