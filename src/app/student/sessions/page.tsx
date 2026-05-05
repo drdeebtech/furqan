@@ -8,6 +8,7 @@ import { SESSION_TYPE_AR, STATUS_STYLE } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
 import type { BookingStatus, SessionType } from "@/types/database";
 import { LiveBadge } from "./live-badge";
+import { AttestationButtons } from "./attestation-buttons";
 
 export const metadata: Metadata = { title: "جلساتي" };
 
@@ -166,14 +167,18 @@ export default async function StudentSessionsPage() {
                     <div className="mt-3 rounded-lg border border-warning/30 bg-warning/10 p-3">
                       <p className="flex items-center gap-1.5 text-sm font-medium text-warning">
                         <AlertTriangle size={14} aria-hidden="true" />
-                        {t("جلسة بحاجة متابعة", "This session needs follow-up")}
+                        {t("بانتظار التأكيد", "Awaiting confirmation")}
                       </p>
                       <p className="mt-1 text-xs text-muted">
                         {t(
-                          "هذا الموعد قد مرّ ولم يُحدَّث بعد. إذا كانت الجلسة قد تمّت، راسل معلمك ليؤكد. وإذا لم تتم، احجز موعداً بديلاً.",
-                          "This time has passed without being updated. If the session happened, message your teacher to confirm. If not, please book a replacement.",
+                          "هذا الموعد قد مرّ ولم يُحدَّث بعد. أخبر معلمك هل تمّت الجلسة لتقفل دورتها.",
+                          "This time has passed without an update. Tell your teacher whether it happened so the session lifecycle can resolve.",
                         )}
                       </p>
+                      {/* F10: student attestation — sends notification to teacher
+                          with the student's claim. Does NOT mutate the session
+                          row; teacher still owns the lifecycle. */}
+                      <AttestationButtons bookingId={booking.id} />
                       <div className="mt-2 flex flex-wrap gap-2">
                         <Link
                           href="/student/messages"
@@ -281,7 +286,7 @@ export default async function StudentSessionsPage() {
             <Section icon={Video} titleAr="جلسات مباشرة الآن" titleEn="Live now" items={live} emphasis="live" />
             <Section icon={Calendar} titleAr="جلسات قادمة" titleEn="Upcoming" items={upcoming} />
             {needsAttention.length > 0 && (
-              <Section icon={AlertTriangle} titleAr="بحاجة متابعة" titleEn="Needs follow-up" items={needsAttention} emphasis="warning" />
+              <Section icon={AlertTriangle} titleAr="بانتظار التأكيد" titleEn="Awaiting confirmation" items={needsAttention} emphasis="warning" />
             )}
             <Section icon={CheckCircle} titleAr="جلسات سابقة" titleEn="Past sessions" items={completed} />
           </div>

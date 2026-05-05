@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Video, Inbox } from "lucide-react";
+import { Video, Inbox, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR, STATUS_STYLE } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
@@ -83,6 +83,13 @@ export default async function TeacherSessionsPage() {
             const statusInfo = STATUS_STYLE[booking.status as "confirmed" | "completed"];
             const sessionId = sessionIdMap[booking.id];
             const isConfirmed = booking.status === "confirmed";
+            // F9 (resolved 2026-05-05): symmetric framing with /student/sessions.
+            // A confirmed booking whose scheduled_at + duration + 30min grace
+            // has passed without a status flip is in lifecycle limbo. The
+            // teacher sees the same "Awaiting confirmation" framing the
+            // student sees so both views agree on reality.
+            const endTimePlusGrace = new Date(date.getTime() + (booking.duration_min + 30) * 60_000);
+            const isPastUnresolved = isConfirmed && endTimePlusGrace < new Date();
 
             return (
               <div key={booking.id} className="glass-card p-4">
@@ -95,10 +102,16 @@ export default async function TeacherSessionsPage() {
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-2">
-                    {statusInfo && (
-                      <span className={`glass-badge rounded-full px-2.5 py-0.5 text-xs ${statusInfo.className}`}>
-                        {statusInfo.label}
+                    {isPastUnresolved ? (
+                      <span className="glass-badge rounded-full border border-warning/30 bg-warning/10 px-2.5 py-0.5 text-xs text-warning">
+                        {t("بانتظار التأكيد", "Awaiting confirmation")}
                       </span>
+                    ) : (
+                      statusInfo && (
+                        <span className={`glass-badge rounded-full px-2.5 py-0.5 text-xs ${statusInfo.className}`}>
+                          {statusInfo.label}
+                        </span>
+                      )
                     )}
                     {sessionId && (
                       <Link
@@ -106,7 +119,7 @@ export default async function TeacherSessionsPage() {
                         className="glass-gold glass-pill flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-primary-hover focus-ring"
                       >
                         <Video size={14} />
-                        {isConfirmed ? t("انضم للجلسة", "Join Session") : t("تفاصيل", "Details")}
+                        {isPastUnresolved ? t("إنهاء الجلسة", "End session") : isConfirmed ? t("انضم للجلسة", "Join Session") : t("تفاصيل", "Details")}
                       </Link>
                     )}
                   </div>
@@ -116,6 +129,20 @@ export default async function TeacherSessionsPage() {
                   <span className="mx-2">·</span>
                   {date.toLocaleTimeString(lang === "ar" ? "ar" : "en-US", { hour: "2-digit", minute: "2-digit" })}
                 </p>
+                {isPastUnresolved && (
+                  <div className="mt-3 rounded-lg border border-warning/30 bg-warning/10 p-3">
+                    <p className="flex items-center gap-1.5 text-sm font-medium text-warning">
+                      <AlertTriangle size={14} aria-hidden="true" />
+                      {t("بانتظار التأكيد", "Awaiting confirmation")}
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
+                      {t(
+                        "هذا الموعد قد مرّ ولم يُحدَّث بعد. إن كانت الجلسة قد تمّت، أنهِها من صفحة الجلسة. وإن لم تتم، حدّث الحالة إلى \"لم تتم\".",
+                        "This time has passed without an update. If the session happened, end it from the session page. If it didn't, mark it as missed.",
+                      )}
+                    </p>
+                  </div>
+                )}
               </div>
             );
           })}
