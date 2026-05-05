@@ -91,14 +91,7 @@ export type SessionEvaluation = T["session_evaluations"]["Row"];
 export type ParentReport = T["parent_reports"]["Row"];
 export type SessionNotesHistory = T["session_notes_history"]["Row"];
 export type SessionObserver = T["session_observers"]["Row"];
-// `HomeworkAssignment` overrides the generated row to add the `audio_url`
-// and `audio_duration_seconds` columns introduced in
-// 20260504210746_add_homework_audio_submission.sql. These overrides go away
-// the next time `supabase.generated.ts` is regenerated.
-export type HomeworkAssignment = T["homework_assignments"]["Row"] & {
-  audio_url: string | null;
-  audio_duration_seconds: number | null;
-};
+export type HomeworkAssignment = T["homework_assignments"]["Row"];
 export type Package = T["packages"]["Row"];
 export type StudentPackage = T["student_packages"]["Row"];
 export type AutomationLog = T["automation_logs"]["Row"];
@@ -124,9 +117,7 @@ export type CourseLessonProgress = T["course_lesson_progress"]["Row"];
 export type CourseReview = T["course_reviews"]["Row"];
 export type CoursePayout = T["course_payouts"]["Row"];
 
-// Ijazah pathway types — added in 20260504232933_add_ijazah_pathway.sql.
-// Hand-authored overrides until `npm run db:types` regenerates the
-// underlying supabase.generated.ts. Drop these once the regen lands.
+// Ijazah pathway — TEXT-CHECK literal unions hand-authored, Row shapes from generator.
 export type IjazahRequirementType =
   | "memorize_surah"
   | "memorize_juz"
@@ -136,76 +127,22 @@ export type IjazahRequirementType =
   | "written_exam_pass"
   | "other";
 
-export interface IjazahPathway {
-  id: string;
-  name_ar: string;
-  name_en: string;
-  description_ar: string | null;
-  description_en: string | null;
+export type IjazahPathway = Omit<T["ijazah_pathways"]["Row"], "recitation_standard"> & {
   recitation_standard: RecitationStandard;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface IjazahRequirement {
-  id: string;
-  pathway_id: string;
+};
+export type IjazahRequirement = Omit<T["ijazah_requirements"]["Row"], "requirement_type"> & {
   requirement_type: IjazahRequirementType;
-  requirement_payload: Record<string, unknown>;
-  sequence: number;
-  description_ar: string;
-  description_en: string;
-  created_at: string;
-}
+};
+export type StudentIjazahProgress = T["student_ijazah_progress"]["Row"];
+export type StudentIjazahRequirementProgress = T["student_ijazah_requirement_progress"]["Row"];
 
-export interface StudentIjazahProgress {
-  id: string;
-  student_id: string;
-  pathway_id: string;
-  enrolled_at: string;
-  target_completion_at: string | null;
-  completed_at: string | null;
-  issuing_teacher_id: string | null;
-  issued_certificate_url: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface StudentIjazahRequirementProgress {
-  id: string;
-  student_progress_id: string;
-  requirement_id: string;
-  met_at: string | null;
-  verifying_teacher_id: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-// Teacher mentorship — added in 20260504234013_add_teacher_mentorship.sql.
+// Teacher mentorship — TEXT-CHECK literal unions hand-authored, Row shapes from generator.
 export type TeacherMentorshipStatus = "proposed" | "active" | "paused" | "ended";
 export type TeacherMentorshipFeedbackSeverity = "praise" | "info" | "suggestion" | "concern";
 
-export interface TeacherMentorship {
-  id: string;
-  mentor_id: string;
-  mentee_id: string;
+export type TeacherMentorship = Omit<T["teacher_mentorships"]["Row"], "status"> & {
   status: TeacherMentorshipStatus;
-  started_at: string;
-  ended_at: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface TeacherMentorshipFeedback {
-  id: string;
-  mentorship_id: string;
-  session_id: string | null;
-  feedback_text: string;
+};
+export type TeacherMentorshipFeedback = Omit<T["teacher_mentorship_feedback"]["Row"], "severity"> & {
   severity: TeacherMentorshipFeedbackSeverity;
-  written_by: string;
-  created_at: string;
-}
+};

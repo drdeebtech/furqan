@@ -16,16 +16,15 @@ import type { TeacherMentorship } from "@/types/database";
 export async function MentorshipCard({ teacherId }: { teacherId: string }) {
   const { t } = await getT();
   const supabase = await createClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = supabase as any;
 
   // Pull active mentorships in either direction. RLS ensures we only see
   // rows where teacherId is mentor or mentee.
-  const { data: rows } = await sb
+  const { data: rows } = await supabase
     .from("teacher_mentorships")
     .select("id, mentor_id, mentee_id, status, started_at")
-    .eq("status", "active");
-  const mentorships: TeacherMentorship[] = rows ?? [];
+    .eq("status", "active")
+    .returns<TeacherMentorship[]>();
+  const mentorships = rows ?? [];
 
   const asMentee = mentorships.find(m => m.mentee_id === teacherId);
   const myMentees = mentorships.filter(m => m.mentor_id === teacherId);
@@ -50,12 +49,13 @@ export async function MentorshipCard({ teacherId }: { teacherId: string }) {
   let latestFeedback: { feedback_text: string; severity: string; created_at: string; mentorship_id: string } | null = null;
   if (mentorships.length > 0) {
     const mentorshipIds = mentorships.map(m => m.id);
-    const { data: fb } = await sb
+    const { data: fb } = await supabase
       .from("teacher_mentorship_feedback")
       .select("feedback_text, severity, created_at, mentorship_id")
       .in("mentorship_id", mentorshipIds)
       .order("created_at", { ascending: false })
-      .limit(1);
+      .limit(1)
+      .returns<{ feedback_text: string; severity: string; created_at: string; mentorship_id: string }[]>();
     latestFeedback = fb?.[0] ?? null;
   }
 

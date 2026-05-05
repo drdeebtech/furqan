@@ -1380,6 +1380,8 @@ export type Database = {
       homework_assignments: {
         Row: {
           assigned_at: string
+          audio_duration_seconds: number | null
+          audio_url: string | null
           ayah_end: number | null
           ayah_start: number | null
           booking_id: string
@@ -1403,6 +1405,8 @@ export type Database = {
         }
         Insert: {
           assigned_at?: string
+          audio_duration_seconds?: number | null
+          audio_url?: string | null
           ayah_end?: number | null
           ayah_start?: number | null
           booking_id: string
@@ -1426,6 +1430,8 @@ export type Database = {
         }
         Update: {
           assigned_at?: string
+          audio_duration_seconds?: number | null
+          audio_url?: string | null
           ayah_end?: number | null
           ayah_start?: number | null
           booking_id?: string
@@ -1502,6 +1508,83 @@ export type Database = {
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ijazah_pathways: {
+        Row: {
+          created_at: string
+          description_ar: string | null
+          description_en: string | null
+          id: string
+          is_active: boolean
+          name_ar: string
+          name_en: string
+          recitation_standard: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description_ar?: string | null
+          description_en?: string | null
+          id?: string
+          is_active?: boolean
+          name_ar: string
+          name_en: string
+          recitation_standard: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description_ar?: string | null
+          description_en?: string | null
+          id?: string
+          is_active?: boolean
+          name_ar?: string
+          name_en?: string
+          recitation_standard?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ijazah_requirements: {
+        Row: {
+          created_at: string
+          description_ar: string
+          description_en: string
+          id: string
+          pathway_id: string
+          requirement_payload: Json
+          requirement_type: string
+          sequence: number
+        }
+        Insert: {
+          created_at?: string
+          description_ar: string
+          description_en: string
+          id?: string
+          pathway_id: string
+          requirement_payload?: Json
+          requirement_type: string
+          sequence: number
+        }
+        Update: {
+          created_at?: string
+          description_ar?: string
+          description_en?: string
+          id?: string
+          pathway_id?: string
+          requirement_payload?: Json
+          requirement_type?: string
+          sequence?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ijazah_requirements_pathway_id_fkey"
+            columns: ["pathway_id"]
+            isOneToOne: false
+            referencedRelation: "ijazah_pathways"
             referencedColumns: ["id"]
           },
         ]
@@ -3345,6 +3428,125 @@ export type Database = {
           },
         ]
       }
+      student_ijazah_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          enrolled_at: string
+          id: string
+          issued_certificate_url: string | null
+          issuing_teacher_id: string | null
+          notes: string | null
+          pathway_id: string
+          student_id: string
+          target_completion_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          enrolled_at?: string
+          id?: string
+          issued_certificate_url?: string | null
+          issuing_teacher_id?: string | null
+          notes?: string | null
+          pathway_id: string
+          student_id: string
+          target_completion_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          enrolled_at?: string
+          id?: string
+          issued_certificate_url?: string | null
+          issuing_teacher_id?: string | null
+          notes?: string | null
+          pathway_id?: string
+          student_id?: string
+          target_completion_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_ijazah_progress_issuing_teacher_id_fkey"
+            columns: ["issuing_teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_ijazah_progress_pathway_id_fkey"
+            columns: ["pathway_id"]
+            isOneToOne: false
+            referencedRelation: "ijazah_pathways"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_ijazah_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_ijazah_requirement_progress: {
+        Row: {
+          created_at: string
+          id: string
+          met_at: string | null
+          notes: string | null
+          requirement_id: string
+          student_progress_id: string
+          updated_at: string
+          verifying_teacher_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          met_at?: string | null
+          notes?: string | null
+          requirement_id: string
+          student_progress_id: string
+          updated_at?: string
+          verifying_teacher_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          met_at?: string | null
+          notes?: string | null
+          requirement_id?: string
+          student_progress_id?: string
+          updated_at?: string
+          verifying_teacher_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_ijazah_requirement_progress_requirement_id_fkey"
+            columns: ["requirement_id"]
+            isOneToOne: false
+            referencedRelation: "ijazah_requirements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_ijazah_requirement_progress_student_progress_id_fkey"
+            columns: ["student_progress_id"]
+            isOneToOne: false
+            referencedRelation: "student_ijazah_progress"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_ijazah_requirement_progress_verifying_teacher_id_fkey"
+            columns: ["verifying_teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_packages: {
         Row: {
           created_at: string
@@ -3651,6 +3853,116 @@ export type Database = {
           sort_order?: number
         }
         Relationships: []
+      }
+      teacher_mentorship_feedback: {
+        Row: {
+          created_at: string
+          feedback_text: string
+          id: string
+          mentorship_id: string
+          session_id: string | null
+          severity: string
+          written_by: string
+        }
+        Insert: {
+          created_at?: string
+          feedback_text: string
+          id?: string
+          mentorship_id: string
+          session_id?: string | null
+          severity?: string
+          written_by: string
+        }
+        Update: {
+          created_at?: string
+          feedback_text?: string
+          id?: string
+          mentorship_id?: string
+          session_id?: string | null
+          severity?: string
+          written_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_mentorship_feedback_mentorship_id_fkey"
+            columns: ["mentorship_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_mentorships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_mentorship_feedback_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_mentorship_feedback_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "teacher_mentorship_feedback_written_by_fkey"
+            columns: ["written_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_mentorships: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          id: string
+          mentee_id: string
+          mentor_id: string
+          notes: string | null
+          started_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          mentee_id: string
+          mentor_id: string
+          notes?: string | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          mentee_id?: string
+          mentor_id?: string
+          notes?: string | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_mentorships_mentee_id_fkey"
+            columns: ["mentee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_mentorships_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       teacher_profiles: {
         Row: {

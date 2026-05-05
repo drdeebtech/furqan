@@ -41,30 +41,28 @@ export default async function StudentIjazahPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Three parallel queries: enrolments, all active pathways, requirements.
-  // Per-requirement progress is a fourth query we can fire in parallel
-  // since it doesn't depend on the others (RLS gates by enrolment).
-  // The new ijazah_* tables aren't in the generated supabase types yet —
-  // we cast both the client and the result rows. Drop after
-  // `npm run db:types` regen.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = supabase as any;
+  // Four parallel queries: enrolments, active pathways, requirements,
+  // per-requirement progress. RLS gates each one to the calling student.
   const [enrolmentsRes, pathwaysRes, requirementsRes, reqProgressRes] = await Promise.all([
-    sb.from("student_ijazah_progress")
+    supabase.from("student_ijazah_progress")
       .select("*").eq("student_id", user.id)
-      .order("enrolled_at", { ascending: false }),
-    sb.from("ijazah_pathways")
+      .order("enrolled_at", { ascending: false })
+      .returns<StudentIjazahProgress[]>(),
+    supabase.from("ijazah_pathways")
       .select("*").eq("is_active", true)
-      .order("created_at", { ascending: true }),
-    sb.from("ijazah_requirements")
-      .select("*").order("sequence", { ascending: true }),
-    sb.from("student_ijazah_requirement_progress").select("*"),
+      .order("created_at", { ascending: true })
+      .returns<IjazahPathway[]>(),
+    supabase.from("ijazah_requirements")
+      .select("*").order("sequence", { ascending: true })
+      .returns<IjazahRequirement[]>(),
+    supabase.from("student_ijazah_requirement_progress").select("*")
+      .returns<StudentIjazahRequirementProgress[]>(),
   ]);
 
-  const enrolments: StudentIjazahProgress[] = enrolmentsRes.data ?? [];
-  const pathways: IjazahPathway[] = pathwaysRes.data ?? [];
-  const requirements: IjazahRequirement[] = requirementsRes.data ?? [];
-  const reqProgress: StudentIjazahRequirementProgress[] = reqProgressRes.data ?? [];
+  const enrolments = enrolmentsRes.data ?? [];
+  const pathways = pathwaysRes.data ?? [];
+  const requirements = requirementsRes.data ?? [];
+  const reqProgress = reqProgressRes.data ?? [];
 
   // Helpers: pathway-by-id, requirements-by-pathway, met-by-(enrolment+req).
   const pathwayMap: Record<string, IjazahPathway> = {};
