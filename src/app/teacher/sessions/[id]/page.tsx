@@ -19,6 +19,7 @@ import { SessionDetailControls } from "./session-detail-controls";
 import { LessonPlanPanel } from "./lesson-plan-panel";
 import { HomeworkAssignmentForm } from "@/components/shared/homework-assignment-form";
 import { AddStudentControl } from "./add-student-control";
+import { NoErrorsButton } from "./no-errors-button";
 import type { LessonPlan } from "@/lib/actions/session-lesson-plan";
 import { isFeatureEnabled } from "@/lib/settings";
 
@@ -118,13 +119,18 @@ export default async function TeacherSessionPage({ params }: Props) {
     makharij: 0, sifat: 0, madd: 0, waqf: 0, ghunna: 0, other: 0,
   };
   if (recentProgressIds && recentProgressIds.length > 0) {
+    // Exclude the no-errors-observed sentinel rows (Sprint 2.2). They live
+    // in recitation_errors so the per-session banner can flip green via
+    // a single COUNT, but they aren't real tajweed errors and would
+    // otherwise inflate the 'other' bucket in the heatmap.
     const { data: errs } = await supabase
       .from("recitation_errors")
-      .select("error_type")
+      .select("error_type, note")
       .in("progress_id", recentProgressIds.map(p => p.id))
       .gte("created_at", thirtyDaysAgoIso)
-      .returns<{ error_type: string }[]>();
+      .returns<{ error_type: string; note: string | null }[]>();
     for (const e of errs ?? []) {
+      if (e.note === "__no_errors_observed_sentinel__") continue;
       if (e.error_type in errorCounts) errorCounts[e.error_type] += 1;
       else errorCounts.other += 1;
     }
@@ -145,12 +151,25 @@ export default async function TeacherSessionPage({ params }: Props) {
     .eq("booking_id", session.booking_id)
     .returns<{ id: string }[]>();
   let sessionErrorCount = 0;
+  let hasNoErrorsAttestation = false;
   if (thisSessionProgress && thisSessionProgress.length > 0) {
-    const { count } = await supabase
+    const progressIds = thisSessionProgress.map(p => p.id);
+    // Real-error count excludes the sentinel so the banner reflects only
+    // tajweed errors the teacher actually logged.
+    const { count: realCount } = await supabase
       .from("recitation_errors")
       .select("id", { count: "exact", head: true })
-      .in("progress_id", thisSessionProgress.map(p => p.id));
-    sessionErrorCount = count ?? 0;
+      .in("progress_id", progressIds)
+      .neq("note", "__no_errors_observed_sentinel__");
+    sessionErrorCount = realCount ?? 0;
+    // Separate check for the attestation sentinel — when this is true and
+    // realCount is 0, the banner shows "teacher confirmed: no errors".
+    const { count: sentinelCount } = await supabase
+      .from("recitation_errors")
+      .select("id", { count: "exact", head: true })
+      .in("progress_id", progressIds)
+      .eq("note", "__no_errors_observed_sentinel__");
+    hasNoErrorsAttestation = (sentinelCount ?? 0) > 0;
   }
 
   // Group-session: list every student enrolled in this session via their
@@ -439,36 +458,47 @@ export default async function TeacherSessionPage({ params }: Props) {
 
       {isCompleted ? (
         <>
-          {/* Sprint 2.2 (2026-05-05): end-session error-logging nudge.
-              Surfaces the per-session error count to force an honest
-              signal — when it's 0, the teacher is asked to either log
-              errors or note "no errors observed" in the notes below.
-              Without this prompt, the recitation-error heatmap stays
-              empty even when students made mistakes. */}
+          {/* Sprint 2.2 (2026-05-05): end-session error-logging nudge with
+              active attestation. Three states:
+              - amber: no errors logged AND no attestation → teacher must
+                either log errors or click "no errors observed".
+              - green-attested: 0 real errors but attestation row exists →
+                teacher actively confirmed they observed and saw none.
+              - green-logged: real errors > 0 → already in the heatmap. */}
           <div className={`mt-4 rounded-xl border p-3 ${
-            sessionErrorCount === 0
+            sessionErrorCount === 0 && !hasNoErrorsAttestation
               ? "border-warning/30 bg-warning/10"
               : "border-success/30 bg-success/10"
           }`}>
             <p className={`flex items-center gap-1.5 text-sm font-medium ${
-              sessionErrorCount === 0 ? "text-warning" : "text-success"
+              sessionErrorCount === 0 && !hasNoErrorsAttestation ? "text-warning" : "text-success"
             }`}>
               <AlertTriangle size={14} aria-hidden="true" />
-              {sessionErrorCount === 0
+              {sessionErrorCount === 0 && !hasNoErrorsAttestation
                 ? t("لا توجد أخطاء مُسجَّلة لهذه الجلسة", "No errors logged for this session yet")
-                : t(`تم تسجيل ${sessionErrorCount} خطأ لهذه الجلسة`, `${sessionErrorCount} errors logged for this session`)}
+                : sessionErrorCount === 0 && hasNoErrorsAttestation
+                  ? t("أكدتَ أنه لم تُلاحَظ أخطاء في هذه الجلسة", "You confirmed: no errors observed for this session")
+                  : t(`تم تسجيل ${sessionErrorCount} خطأ لهذه الجلسة`, `${sessionErrorCount} errors logged for this session`)}
             </p>
             <p className="mt-1 text-xs text-muted">
-              {sessionErrorCount === 0
+              {sessionErrorCount === 0 && !hasNoErrorsAttestation
                 ? t(
-                  "إذا ارتكب الطالب أخطاءً تجويدية، سجّلها لتظهر في خريطة أخطائه. وإن لم تتم ملاحظة أخطاء، اذكر ذلك في الملاحظات أدناه.",
-                  "If the student made tajweed errors, log them so they appear in the heatmap. If no errors were observed, note that in the comments below.",
+                  "إذا ارتكب الطالب أخطاءً تجويدية، سجّلها لتظهر في خريطة أخطائه. وإن لم تُلاحَظ أخطاء، اضغط الزر أدناه ليُسجَّل ذلك صراحةً.",
+                  "If the student made tajweed errors, log them so they appear in the heatmap. If no errors were observed, click the button below to record that explicitly.",
                 )
-                : t(
-                  "ستظهر هذه الأخطاء في خريطة الطالب على صفحة تقدمه.",
-                  "These will appear in the student's error heatmap on their progress page.",
-                )}
+                : sessionErrorCount === 0 && hasNoErrorsAttestation
+                  ? t(
+                    "تم حفظ الإقرار. لن تظهر علامات أخطاء وهمية في خريطة الطالب.",
+                    "Attestation saved. No fake error marks will appear in the student's heatmap.",
+                  )
+                  : t(
+                    "ستظهر هذه الأخطاء في خريطة الطالب على صفحة تقدمه.",
+                    "These will appear in the student's error heatmap on their progress page.",
+                  )}
             </p>
+            {sessionErrorCount === 0 && !hasNoErrorsAttestation && (
+              <NoErrorsButton sessionId={session.id} bookingId={session.booking_id} />
+            )}
           </div>
           <PostSessionForm
             sessionId={session.id}
