@@ -35,7 +35,18 @@ export async function updateSetting(key: string, value: string) {
       updated_by: actorId,
     } as never, { onConflict: "key" });
 
-  if (error) return { error: "فشل تحديث الإعداد" };
+  if (error) {
+    // Sprint 1.4 (2026-05-05) — purely additive observability. The user
+    // gets a friendly Arabic message; ops gets the real Supabase error
+    // in Sentry with the setting key tagged for grouping. Behavior
+    // unchanged.
+    logError("settings.updateSetting upsert failed", error, {
+      tag: "admin-settings",
+      severity: "warning",
+      metadata: { key, actorId },
+    });
+    return { error: "فشل تحديث الإعداد" };
+  }
 
   // Audit failures must not fail the user-facing action — log and continue.
   const { error: auditErr } = await supabase.from("audit_log").insert({
