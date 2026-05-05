@@ -89,3 +89,39 @@ export function countOrFail(
   }
   return { count: result.count ?? 0, failed: false };
 }
+
+/**
+ * Wrap an async helper function call so that any thrown error is
+ * caught, logged with widget tags, and translated into a fallback
+ * `{ data, failed: true }` shape. Companion to `loadOrFail`/`countOrFail`
+ * for helpers that compose multiple supabase queries — the helper
+ * itself decides when to throw, the caller decides what to render
+ * when the helper failed.
+ *
+ * Usage:
+ *   const weeklyHoursLoad = await helperOrFail(
+ *     () => getTeacherWeeklyHours(user.id),
+ *     [],
+ *     { route: "teacher-dashboard", widget: "weekly-hours" },
+ *   );
+ *   anyFailed = anyFailed || weeklyHoursLoad.failed;
+ *   const weeklyHours = weeklyHoursLoad.data;
+ */
+export async function helperOrFail<T>(
+  call: () => Promise<T>,
+  fallback: T,
+  ctx: LoadOrFailContext,
+): Promise<LoadResult<T>> {
+  try {
+    const data = await call();
+    return { data, failed: false };
+  } catch (err) {
+    logError(`helper ${ctx.route}.${ctx.widget} threw`, err, {
+      tag: "data-load",
+      severity: "warning",
+      route: ctx.route,
+      metadata: { widget: ctx.widget, ...(ctx.metadata ?? {}) },
+    });
+    return { data: fallback, failed: true };
+  }
+}

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { fetchNameMap } from "@/lib/supabase/helpers";
-import { loadOrFail, countOrFail } from "@/lib/supabase/load-or-fail";
+import { loadOrFail, countOrFail, helperOrFail } from "@/lib/supabase/load-or-fail";
 import type { SessionType } from "@/types/database";
 import { TeacherDashboardContent } from "./dashboard-content";
 import { TeacherAtRiskStudents } from "./at-risk-students";
@@ -44,7 +44,7 @@ export default async function TeacherDashboardPage() {
   const [
     profileRes, tpRes, pendingRes, todayRes, monthRes, allStudentsRes, availRes,
     gradingRes, convosRes,
-    weeklyHours, liveSessions, sessionBreakdown, recentStudents, timeToGrade,
+    weeklyHoursLoad, liveSessions, sessionBreakdown, recentStudents, timeToGrade,
     rosterErrorPulse, talqeenInbox, parentReportDigest, recitationRoster,
   ] = await Promise.all([
     supabase.from("profiles").select("full_name, phone, avatar_url").eq("id", user.id).single<{ full_name: string | null; phone: string | null; avatar_url: string | null }>(),
@@ -65,7 +65,11 @@ export default async function TeacherDashboardPage() {
     supabase.from("teacher_availability").select("id", { count: "exact", head: true }).eq("teacher_id", user.id).eq("is_active", true),
     supabase.from("homework_assignments").select("id", { count: "exact", head: true }).eq("teacher_id", user.id).eq("status", "student_ready"),
     supabase.from("conversations").select("id").eq("teacher_id", user.id).returns<{id:string}[]>(),
-    getTeacherWeeklyHours(user.id),
+    helperOrFail(
+      () => getTeacherWeeklyHours(user.id),
+      [],
+      { route: "teacher-dashboard", widget: "weekly-hours" },
+    ),
     getTeacherLiveSessions(user.id),
     getTeacherSessionTypeBreakdown(user.id),
     getTeacherRecentStudents(user.id),
@@ -94,7 +98,8 @@ export default async function TeacherDashboardPage() {
   // loads run sequentially below and OR their flags in.
   let anyFailed = profileLoad.failed || tpLoad.failed || pendingLoad.failed
     || todayLoad.failed || allStudentsLoad.failed || convosLoad.failed
-    || monthLoad.failed || availLoad.failed || gradingLoad.failed;
+    || monthLoad.failed || availLoad.failed || gradingLoad.failed
+    || weeklyHoursLoad.failed;
 
   const convIds = convosLoad.data.map(c => c.id);
   let unreadMessages = 0;
@@ -195,7 +200,7 @@ export default async function TeacherDashboardPage() {
           pending,
           sessionDataMap,
           nameMap,
-          weeklyHours,
+          weeklyHours: weeklyHoursLoad.data,
           liveSessions,
           sessionBreakdown,
           recentStudents,

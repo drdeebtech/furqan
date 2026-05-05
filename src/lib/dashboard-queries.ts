@@ -966,26 +966,32 @@ export async function getTeacherWeeklyHours(
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  const { data: bookings } = await supabase
+  // Throw on supabase error so helperOrFail at the call site can surface
+  // it — previously this swallowed errors and returned an empty week,
+  // making a real DB failure look identical to "no sessions yet."
+  const bookingsRes = await supabase
     .from("bookings")
     .select("id")
     .eq("teacher_id", teacherId)
     .gte("scheduled_at", sevenDaysAgo.toISOString())
     .returns<{ id: string }[]>();
+  if (bookingsRes.error) throw bookingsRes.error;
+  const bookings = bookingsRes.data;
 
   if (!bookings || bookings.length === 0) return generateEmptyWeek(lang);
 
   const bookingIds = bookings.map((b) => b.id);
 
-  const { data: sessions } = await supabase
+  const sessionsRes = await supabase
     .from("sessions")
     .select("actual_duration, started_at")
     .in("booking_id", bookingIds)
     .not("ended_at", "is", null)
     .gte("started_at", sevenDaysAgo.toISOString())
     .returns<{ actual_duration: number | null; started_at: string | null }[]>();
+  if (sessionsRes.error) throw sessionsRes.error;
 
-  return groupSessionsByDay(sessions ?? [], lang);
+  return groupSessionsByDay(sessionsRes.data ?? [], lang);
 }
 
 export async function getTeacherLiveSessions(
