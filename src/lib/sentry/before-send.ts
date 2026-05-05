@@ -45,7 +45,34 @@ const NOISE_MESSAGE_EXACT = new Set<string>([
   // /login should NOT page anyone; the user-facing error message handles
   // it correctly. Sentry was just collecting noise.
   "User is banned",
+  // Next.js stale Server Action chunk after a deploy. The client-side
+  // chunk hash no longer exists on the server post-deploy; the user's
+  // next click resolves it (chunk reload). Not actionable from code —
+  // the deploy itself caused it. JAVASCRIPT-NEXTJS-E4-W.
+  "Failed to find Server Action. This request might be from an older or newer deployment.",
+  // Supabase Auth refresh-token error class. Fires when a user opens a
+  // long-stale tab, switches browsers, or clears cookies between visits.
+  // The auth code already redirects to /login; Sentry was just logging
+  // a normal user-side state. JAVASCRIPT-NEXTJS-E4-12 / E4-13.
+  "Invalid Refresh Token: Refresh Token Not Found",
+  // CSP rejection of Vercel preview-toolbar script. The toolbar lives on
+  // vercel.live and only loads on preview/PR builds. We don't ship it to
+  // production; the browser CSP error from a visitor with the toolbar in
+  // localStorage is not actionable. JAVASCRIPT-NEXTJS-E4-11.
+  "Blocked 'script' from 'vercel.live'",
 ]);
+
+// Substrings that match noise messages where the full text varies (provider
+// adds context after the diagnostic core). Match cautiously — keep the
+// substring long enough that a real bug with similar wording still surfaces.
+const NOISE_MESSAGE_INCLUDES = [
+  // Supabase Auth PKCE storage miss. The verifier lives in localStorage; if
+  // the user opened the OAuth tab and finished the redirect on a different
+  // device or after clearing storage, the verifier is gone. The auth code
+  // logs the user out and shows a recoverable error. Not a code bug.
+  // JAVASCRIPT-NEXTJS-E4-X.
+  "PKCE code verifier not found in storage",
+];
 
 // Error class names that are residue from the deleted Sentry-wizard test
 // routes. The routes are 404 in production now, but if anyone ever re-adds
@@ -67,10 +94,13 @@ const DEMOTE_TO_WARNING = [
   /^Error sending confirmation email$/,
   // BotID false positives — Vercel's bot detector occasionally flags real
   // users (Safari/Mac in Kuwait was the canonical case 2026-05-01). The
-  // login form already returns a recoverable error message so the user can
-  // retry; we still want VISIBLE breadcrumbs to spot a sustained spike but
-  // a single block shouldn't page anyone.
-  /^login\.bot_blocked$/,
+  // login/register form already returns a recoverable error message so the
+  // user can retry; we still want VISIBLE breadcrumbs to spot a sustained
+  // spike but a single block shouldn't page anyone.
+  // login.bot_bypass / register.bot_bypass are intentional admin-allow-list
+  // bypasses (BotID working as designed); demote them too so they don't
+  // burn the alert pager when an admin signs in. JAVASCRIPT-NEXTJS-E4-C/V/Z.
+  /^(login|register)\.bot_(blocked|bypass)$/,
   // OAuth callback called without a `code` query param — typically a user
   // hitting the back button mid-flow, denying consent, or a flaky network
   // dropping the redirect. The handler already redirects to /login with a
@@ -191,6 +221,15 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
       : undefined) || event.message || exceptionValue;
   if (msg && NOISE_MESSAGE_EXACT.has(msg)) return true;
 
+  // Substring-match drops for messages where the provider tacks variable
+  // context after a stable diagnostic core (e.g. Supabase Auth's PKCE
+  // error with framework-recommendation text appended).
+  if (msg) {
+    for (const needle of NOISE_MESSAGE_INCLUDES) {
+      if (msg.includes(needle)) return true;
+    }
+  }
+
   // Hydration mismatches — cosmetic server/client text differences (typically
   // locale-dependent date formatting). Not actionable, safe to drop entirely.
   // Sentry issue JAVASCRIPT-NEXTJS-J.
@@ -225,7 +264,11 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
   // so also inspect rawStacktrace context for the server-action fetch snippet.
   // Real fix is on the user's network, not in our code, and the page
   // redirects/reloads cleanly anyway. Drop both signatures.
-  if (exType === "TypeError" && msg === "Load failed") {
+  // Match `Load failed` exactly OR with a URL appended ("Load failed
+  // (www.furqan.today)"), which is how some Safari builds + Sentry's
+  // own URL enrichment surface the same fingerprint.
+  // JAVASCRIPT-NEXTJS-E4-19 / E4-Y leaked from the appended-URL form.
+  if (exType === "TypeError" && typeof msg === "string" && msg.startsWith("Load failed")) {
     for (const f of frames) {
       const filename = f.filename ?? "";
       const fn = f.function ?? "";
@@ -288,7 +331,7 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
   // actionable from our code; React itself is just reporting that the
   // streaming response was cut short. Match on exact message + stack frame
   // path so a real "Connection closed" from elsewhere still surfaces.
-  // JAVASCRIPT-NEXTJS-E4-Q.
+  // JAVASCRIPT-NEXTJS-E4-Q / E4-S.
   if (msg === "Connection closed.") {
     for (const f of frames) {
       if ((f.filename ?? "").includes("react-server-dom-")) return true;
@@ -296,6 +339,11 @@ function shouldDrop(event: ErrorEvent, hint: EventHint): boolean {
     for (const f of rawFrames) {
       if ((f.filename ?? "").includes("react-server-dom-")) return true;
     }
+    // Catch-all: when stack symbolication is partial in production, frames
+    // arrive without the react-server-dom marker (just minified chunk
+    // names). If 100% are framework, this is the same RSC-stream-abort
+    // class as above.
+    if (allFramesAreFramework(frames)) return true;
   }
 
   // React DOM reconciliation errors caused by external DOM mutation —
@@ -422,4 +470,15 @@ export const CLIENT_IGNORE_ERRORS: (string | RegExp)[] = [
   // The server and client render slightly different text for toLocaleDateString/toLocaleTimeString.
   "Hydration failed - the server rendered HTML didn't match the client.",
   "There was an error while hydrating. Because this error occurred outside of a Suspense boundary, the whole route will be redirected to the error page.",
+  // Stale Server Action chunk after deploy — the user clicked a button
+  // that referenced a chunk hash from the previous deploy. Self-heals on
+  // refresh; not actionable. JAVASCRIPT-NEXTJS-E4-W.
+  "Failed to find Server Action. This request might be from an older or newer deployment.",
+  // CSP block of Vercel preview toolbar from production builds.
+  // JAVASCRIPT-NEXTJS-E4-11.
+  "Blocked 'script' from 'vercel.live'",
+  // Supabase Auth refresh-token / PKCE storage misses — user-side state,
+  // not a code bug. JAVASCRIPT-NEXTJS-E4-12 / E4-13 / E4-X.
+  /Invalid Refresh Token: Refresh Token Not Found/,
+  /PKCE code verifier not found in storage/,
 ];

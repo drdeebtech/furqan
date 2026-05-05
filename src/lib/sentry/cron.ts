@@ -27,10 +27,19 @@ export function withCronMonitor<H extends (req: Request) => Promise<Response>>(
       () => handler(req),
       {
         schedule: { type: "crontab", value: schedule } satisfies CronSchedule,
-        checkinMargin: options?.checkinMarginMinutes ?? 2,
+        // Default margins were too aggressive for crons triggered by n8n on
+        // the Mac mini — every transient network blip or n8n-restart counted
+        // as a missed check-in and Sentry treated it as a real failure
+        // (JAVASCRIPT-NEXTJS-E4-N: 178 false-positive failures over 2 days
+        // for cron-auto-complete-sessions). Loosened defaults give the n8n
+        // trigger a realistic window without hiding sustained breakage:
+        //   - checkinMargin 30min: 2× the longest typical n8n delay
+        //   - failureIssueThreshold 5: a real outage misses 5+ runs in a row;
+        //     a single transient hiccup no longer pages
+        checkinMargin: options?.checkinMarginMinutes ?? 30,
         maxRuntime: options?.maxRuntimeMinutes ?? 5,
         timezone: options?.timezone ?? "UTC",
-        failureIssueThreshold: 2,  // need 2 consecutive misses before alerting
+        failureIssueThreshold: 5,
         recoveryThreshold: 1,
       },
     );

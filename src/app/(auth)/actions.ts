@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { checkBotId } from "botid/server";
@@ -7,6 +8,24 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
 import { withTimeout } from "@/lib/promise-utils";
+
+/**
+ * Deterministically hash an email to a UUID-shaped key so it fits the
+ * automation_logs.entity_id UUID column. SHA-256 → first 32 hex chars
+ * arranged as 8-4-4-4-12 with the version-5 nibble + RFC 4122 variant
+ * nibble set. Same email → same UUID. Used by the auth rate limiter
+ * (Sentry JAVASCRIPT-NEXTJS-E4-14: rate limiter was 22P02-throwing on
+ * every attempt before this).
+ */
+function emailToUuidKey(email: string): string {
+  const hex = createHash("sha256").update(email.toLowerCase()).digest("hex");
+  // Version 5 nibble (high 4 bits of byte 6) + RFC 4122 variant (high 2
+  // bits of byte 8 set to 0b10). Both are positional; SHA-256 supplies
+  // the rest of the entropy.
+  const v = "5" + hex.slice(13, 16);
+  const variant = ((parseInt(hex[16], 16) & 0x3) | 0x8).toString(16) + hex.slice(17, 20);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${v}-${variant}-${hex.slice(20, 32)}`;
+}
 
 // Cap how long the audit-log insert can hold. Even though it's wrapped in
 // try/catch as fire-and-forget, an unbounded await would still hold the
@@ -85,11 +104,22 @@ async function checkAuthRate(
   try {
     const supabase = await createClient();
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    // automation_logs.entity_id is UUID-typed in production despite the
+    // generated .ts declaring it `string | null`. Passing the raw email
+    // tripped 22P02 (invalid input syntax for type uuid) on every login
+    // attempt — the rate limiter has been silently fail-open since shipped.
+    // (Sentry JAVASCRIPT-NEXTJS-E4-14.)
+    //
+    // Fix: deterministically hash the email to a UUID-shaped key via
+    // SHA-256 + UUIDv5-style nibble formatting. Same email → same UUID,
+    // type-correct on insert + lookup, no schema migration needed,
+    // idempotency_key (UNIQUE text) stays free for n8n use.
+    const entityId = emailToUuidKey(email);
     const { count } = await supabase
       .from("automation_logs")
       .select("id", { count: "exact", head: true })
       .eq("workflow_name", workflow)
-      .eq("entity_id", email.toLowerCase())
+      .eq("entity_id", entityId)
       .gte("started_at", oneHourAgo);
 
     if ((count ?? 0) >= max) return false;
@@ -98,7 +128,7 @@ async function checkAuthRate(
     await supabase.from("automation_logs").insert({
       workflow_name: workflow,
       entity_type: "email",
-      entity_id: email.toLowerCase(),
+      entity_id: entityId,
       status: "succeeded",
       started_at: now,
       finished_at: now,
