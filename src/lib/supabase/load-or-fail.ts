@@ -64,3 +64,28 @@ export function loadOrFail<T>(
   }
   return { data: result.data ?? fallback, failed: false };
 }
+
+/**
+ * Count-only sibling for HEAD/count queries (`select("id", { count: "exact", head: true })`).
+ * Same observability shape, returns `{ count, failed }`.
+ */
+export type CountResult = {
+  count: number;
+  failed: boolean;
+};
+
+export function countOrFail(
+  result: { count: number | null; error: { message: string; code?: string } | null },
+  ctx: LoadOrFailContext,
+): CountResult {
+  if (result.error) {
+    logError(`count ${ctx.route}.${ctx.widget} failed`, result.error, {
+      tag: "data-load",
+      severity: "warning",
+      route: ctx.route,
+      metadata: { widget: ctx.widget, ...(ctx.metadata ?? {}) },
+    });
+    return { count: 0, failed: true };
+  }
+  return { count: result.count ?? 0, failed: false };
+}

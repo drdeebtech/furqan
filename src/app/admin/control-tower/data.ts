@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { countOrFail } from "@/lib/supabase/load-or-fail";
 
 export type WidgetTier = "warning" | "error" | "info" | "success";
 export type WidgetKey =
@@ -18,6 +19,8 @@ export type WidgetKey =
 export type ControlTowerSnapshot = {
   generatedAt: string;
   counts: Record<WidgetKey, number>;
+  /** True if any of the 11 count queries returned an error. */
+  anyFailed: boolean;
 };
 
 /**
@@ -60,20 +63,40 @@ export async function loadControlTowerSnapshot(): Promise<ControlTowerSnapshot> 
     supabase.from("audit_log").select("id", { count: "exact", head: true }).ilike("reason", "%FAILED%").gte("created_at", dayAgo),
   ]);
 
+  // countOrFail logs each failure to Sentry with a widget-specific tag,
+  // returns 0 on failure, and exposes a per-query `failed` flag we OR
+  // together for the banner. A 0-displayed widget is now legibly
+  // distinct from a failed widget in Sentry but still safe in the UI
+  // (the count just reads 0 and the banner explains).
+  const widgets = [
+    countOrFail(pendingCvRes, { route: "admin-control-tower", widget: "pending-cvs" }),
+    countOrFail(failedAutoRes, { route: "admin-control-tower", widget: "failed-auto" }),
+    countOrFail(noShowTodayRes, { route: "admin-control-tower", widget: "no-show" }),
+    countOrFail(newSignupsRes, { route: "admin-control-tower", widget: "new-signups" }),
+    countOrFail(pendingGradingRes, { route: "admin-control-tower", widget: "grading" }),
+    countOrFail(unresolvedErrorsRes, { route: "admin-control-tower", widget: "recitation" }),
+    countOrFail(stuckSessionsRes, { route: "admin-control-tower", widget: "stuck" }),
+    countOrFail(deadLetterRes, { route: "admin-control-tower", widget: "dead-letter" }),
+    countOrFail(atRiskRes, { route: "admin-control-tower", widget: "at-risk" }),
+    countOrFail(lowBalanceRes, { route: "admin-control-tower", widget: "low-balance" }),
+    countOrFail(failedActionsRes, { route: "admin-control-tower", widget: "failed-actions" }),
+  ];
+
   return {
     generatedAt: new Date().toISOString(),
+    anyFailed: widgets.some(w => w.failed),
     counts: {
-      "pending-cvs": pendingCvRes.count ?? 0,
-      "failed-auto": failedAutoRes.count ?? 0,
-      "dead-letter": deadLetterRes.count ?? 0,
-      stuck: stuckSessionsRes.count ?? 0,
-      "no-show": noShowTodayRes.count ?? 0,
-      "low-balance": lowBalanceRes.count ?? 0,
-      "new-signups": newSignupsRes.count ?? 0,
-      "at-risk": atRiskRes.count ?? 0,
-      grading: pendingGradingRes.count ?? 0,
-      recitation: unresolvedErrorsRes.count ?? 0,
-      "failed-actions": failedActionsRes.count ?? 0,
+      "pending-cvs": widgets[0].count,
+      "failed-auto": widgets[1].count,
+      "no-show": widgets[2].count,
+      "new-signups": widgets[3].count,
+      grading: widgets[4].count,
+      recitation: widgets[5].count,
+      stuck: widgets[6].count,
+      "dead-letter": widgets[7].count,
+      "at-risk": widgets[8].count,
+      "low-balance": widgets[9].count,
+      "failed-actions": widgets[10].count,
     },
   };
 }

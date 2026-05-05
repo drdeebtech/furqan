@@ -3,6 +3,7 @@ import { Activity } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
 import { loadControlTowerSnapshot } from "@/app/admin/control-tower/data";
 import { ControlTowerGrid } from "@/components/admin/control-tower-grid";
+import { DataLoadBanner } from "@/components/shared/data-load-banner";
 
 export const metadata: Metadata = { title: "مركز التحكم" };
 
@@ -17,6 +18,7 @@ export default async function ControlTowerPage() {
         <h1 className="font-display text-2xl font-bold sm:text-3xl">{t("مركز التحكم", "Control Tower")}</h1>
       </div>
 
+      <DataLoadBanner failed={initialData.anyFailed} />
       <ControlTowerGrid initialData={initialData} />
     </div>
   );
