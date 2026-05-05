@@ -3,10 +3,12 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Phone, Mail, User, BarChart3, AlertTriangle, Inbox, BookMarked, MessageSquareQuote, Mic, ScrollText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { loadOrFail } from "@/lib/supabase/load-or-fail";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
 import type { SessionType, StudentLevel, HomeworkAssignment } from "@/types/database";
 import { HomeworkAudioPlayer } from "@/components/shared/homework-audio-player";
+import { DataLoadBanner } from "@/components/shared/data-load-banner";
 import { EvalForm } from "./eval-form";
 import { ResolveErrorButton } from "./resolve-error-button";
 
@@ -103,8 +105,16 @@ export default async function StudentDetailPage({ params }: Props) {
 
   const student = profileRes.data;
   if (!student) redirect("/teacher/students");
-  const bookings = bookingsRes.data ?? [];
-  const progress = progressRes.data ?? [];
+
+  const bookingsLoad = loadOrFail(bookingsRes, [] as BookingRow[], { route: "teacher-student-detail", widget: "bookings", metadata: { studentId } });
+  const progressLoad = loadOrFail(progressRes, [] as ProgressRow[], { route: "teacher-student-detail", widget: "progress", metadata: { studentId } });
+  const latestEvalLoad = loadOrFail(latestEvalRes, null, { route: "teacher-student-detail", widget: "latest-eval", metadata: { studentId } });
+  const latestStandardLoad = loadOrFail(latestStandardRes, null, { route: "teacher-student-detail", widget: "recitation-standard", metadata: { studentId } });
+  const audioHwLoad = loadOrFail(audioHwRes, [] as { id: string; title: string; audio_duration_seconds: number | null; ready_at: string | null; status: string }[], { route: "teacher-student-detail", widget: "audio-homework", metadata: { studentId } });
+  const anyFailed = bookingsLoad.failed || progressLoad.failed || latestEvalLoad.failed || latestStandardLoad.failed || audioHwLoad.failed;
+
+  const bookings = bookingsLoad.data;
+  const progress = progressLoad.data;
 
   // Get session notes
   let sessionMap: Record<string, SessionRow> = {};
@@ -138,9 +148,9 @@ export default async function StudentDetailPage({ params }: Props) {
   const totalMinutes = bookings.filter(b => b.status === "completed").reduce((s, b) => s + b.duration_min, 0);
   const latestLevel = progress[0]?.level ?? null;
   const avgQuality = progress.filter(p => p.quality_rating).reduce((sum, p, _, a) => sum + (p.quality_rating ?? 0) / a.length, 0);
-  const latestEval = latestEvalRes.data ?? null;
-  const recitationStandard = latestStandardRes.data?.recitation_standard ?? null;
-  const audioSubmissions = audioHwRes.data ?? [];
+  const latestEval = latestEvalLoad.data;
+  const recitationStandard = latestStandardLoad.data?.recitation_standard ?? null;
+  const audioSubmissions = audioHwLoad.data;
 
   // Group recitation errors by type so the teacher sees the dominant
   // category at a glance instead of having to count error rows.
@@ -153,6 +163,7 @@ export default async function StudentDetailPage({ params }: Props) {
 
   return (
     <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
+      <DataLoadBanner failed={anyFailed} />
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <Link href="/teacher/students" className="inline-flex items-center gap-1 text-sm text-gold hover:text-gold-hover">
           <ArrowRight size={14} /> {t("العودة لطلابي", "Back to My Students")}
