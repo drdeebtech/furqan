@@ -221,7 +221,10 @@ export async function markNoShow(bookingId: string) {
     .eq("id", bookingId)
     .eq("teacher_id", user.id);
 
-  if (error) return { error: "حدث خطأ أثناء تحديث الحجز" };
+  if (error) {
+    logError("teacher markNoShow failed", error, { tag: "teacher-bookings", severity: "warning", metadata: { bookingId, teacherId: user.id } });
+    return { error: "حدث خطأ أثناء تحديث الحجز" };
+  }
 
   // Mark session as ended
   await supabase
@@ -475,7 +478,10 @@ export async function saveQuickNotes(sessionId: string, notes: string) {
     .update({ post_session_notes: notes || null } satisfies TableUpdate<"sessions">)
     .eq("id", sessionId);
 
-  if (error) return { error: "حدث خطأ أثناء حفظ الملاحظات" };
+  if (error) {
+    logError("teacher savePostSessionNotes failed", error, { tag: "teacher-sessions", severity: "warning", metadata: { sessionId } });
+    return { error: "حدث خطأ أثناء حفظ الملاحظات" };
+  }
 
   revalidatePath("/teacher/dashboard");
   return { success: true };

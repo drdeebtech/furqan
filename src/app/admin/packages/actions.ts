@@ -90,7 +90,10 @@ export async function deletePackage(packageId: string) {
     .single<{ name: string; price_usd: number }>();
 
   const { error } = await supabase.from("packages").delete().eq("id", packageId);
-  if (error) return { error: "فشل حذف الباقة — قد تكون مرتبطة بمشتريات طلاب" };
+  if (error) {
+    logError("admin deletePackage failed", error, { tag: "admin-packages", severity: "warning", metadata: { packageId, actorId } });
+    return { error: "فشل حذف الباقة — قد تكون مرتبطة بمشتريات طلاب" };
+  }
 
   await supabase.from("audit_log").insert({
     changed_by: actorId,
@@ -110,7 +113,10 @@ export async function deletePackage(packageId: string) {
 export async function togglePackageActive(packageId: string, isActive: boolean) {
   const { actorId, supabase } = await requireAdminClient();
   const { error } = await supabase.from("packages").update({ is_active: isActive } as never).eq("id", packageId);
-  if (error) return { error: "فشل تحديث حالة الباقة" };
+  if (error) {
+    logError("admin togglePackageActive failed", error, { tag: "admin-packages", severity: "warning", metadata: { packageId, isActive, actorId } });
+    return { error: "فشل تحديث حالة الباقة" };
+  }
 
   await supabase.from("audit_log").insert({
     changed_by: actorId,

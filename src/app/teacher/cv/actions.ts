@@ -46,7 +46,10 @@ export async function saveCvDraft(
     } as never)
     .eq("teacher_id", user.id);
 
-  if (error) return { error: "فشل حفظ المسودة — يرجى المحاولة مرة أخرى" };
+  if (error) {
+    logError("teacher saveCvDraft failed", error, { tag: "teacher-cv", severity: "warning", metadata: { teacherId: user.id } });
+    return { error: "فشل حفظ المسودة — يرجى المحاولة مرة أخرى" };
+  }
   revalidatePath("/teacher/cv");
   return { success: true };
 }
@@ -66,7 +69,10 @@ export async function submitCvForReview(): Promise<CvResult> {
     } as never)
     .eq("teacher_id", user.id);
 
-  if (error) return { error: "فشل إرسال السيرة الذاتية — يرجى المحاولة مرة أخرى" };
+  if (error) {
+    logError("teacher submitCvForReview failed", error, { tag: "teacher-cv", severity: "warning", metadata: { teacherId: user.id } });
+    return { error: "فشل إرسال السيرة الذاتية — يرجى المحاولة مرة أخرى" };
+  }
   revalidatePath("/teacher/cv");
   return { success: true };
 }

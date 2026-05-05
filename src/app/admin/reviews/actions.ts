@@ -36,7 +36,10 @@ export async function deleteReview(reviewId: string) {
 
   const supabase = await createClient();
   const { error } = await supabase.from("reviews").delete().eq("id", reviewId);
-  if (error) return { error: "فشل حذف المراجعة" };
+  if (error) {
+    logError("admin deleteReview failed", error, { tag: "admin-reviews", severity: "warning", metadata: { reviewId } });
+    return { error: "فشل حذف المراجعة" };
+  }
 
   revalidatePath("/admin/reviews");
   return { success: true };
