@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "@/types/supabase.generated";
+import { createObservedFetch } from "./observability";
 
 export async function createClient() {
   const cookieStore = await cookies();
@@ -25,6 +26,10 @@ export async function createClient() {
           }
         },
       },
+      // Sprint 1.1: every Supabase HTTP error gets reported to Sentry
+      // via logError. Wrapper is observation-only — calling code's
+      // `?? []` fallback still runs, behavior unchanged.
+      global: { fetch: createObservedFetch() },
     },
   );
 }

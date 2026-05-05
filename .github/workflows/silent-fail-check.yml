@@ -1,0 +1,41 @@
+name: Silent-fail check
+
+# Sprint 1.3 (2026-05-05): catches new occurrences of `?? []` / `?? null`
+# defaults on Supabase query results without explicit error handling.
+# This is the pattern that hid F1, F13, F14, and F15 from monitoring
+# for weeks during the 2026-05-05 audit.
+#
+# The check compares the current count to a baseline file
+# (scripts/.silent-fail-baseline.txt). Any increase fails the workflow.
+# Existing tech debt is grandfathered; new debt is blocked at PR time.
+#
+# To intentionally adjust the baseline (e.g. after migrating sites),
+# run `scripts/check-silent-fail.sh --update` locally and commit the
+# updated baseline file alongside the migration changes.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/**"
+      - "scripts/check-silent-fail.sh"
+      - "scripts/.silent-fail-baseline.txt"
+      - ".github/workflows/silent-fail-check.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "scripts/check-silent-fail.sh"
+      - "scripts/.silent-fail-baseline.txt"
+      - ".github/workflows/silent-fail-check.yml"
+
+jobs:
+  check:
+    name: silent-fail tripwire
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Run silent-fail check
+        run: scripts/check-silent-fail.sh
