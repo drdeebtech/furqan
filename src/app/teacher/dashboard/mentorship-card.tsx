@@ -102,17 +102,34 @@ export async function MentorshipCard({ teacherId }: { teacherId: string }) {
           )}
         </div>
 
-        {latestFeedback && (
-          <div className="mt-3 rounded-xl border border-card-border bg-card/30 p-3">
-            <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted">
-              <MessageSquareQuote size={11} aria-hidden="true" />
-              {t("آخر ملاحظة", "Latest note")}
-              <span className="text-muted-light">·</span>
-              <span>{new Date(latestFeedback.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-            </p>
-            <p className="text-sm leading-relaxed text-foreground/90">{latestFeedback.feedback_text}</p>
-          </div>
-        )}
+        {latestFeedback && (() => {
+          // Severity color-coding so urgent feedback stands out vs an info note.
+          // Schema enum: info | warning | critical (per teacher_mentorship_feedback).
+          const tierClasses: Record<string, string> = {
+            info: "border-card-border bg-card/30",
+            warning: "border-warning/30 bg-warning/10",
+            critical: "border-error/30 bg-error/10",
+          };
+          const cls = tierClasses[latestFeedback.severity] ?? tierClasses.info;
+          return (
+            <div className={`mt-3 rounded-xl border p-3 ${cls}`}>
+              <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted">
+                <MessageSquareQuote size={11} aria-hidden="true" />
+                {t("آخر ملاحظة", "Latest note")}
+                <span className="text-muted-light">·</span>
+                <span>{new Date(latestFeedback.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                {latestFeedback.severity !== "info" && (
+                  <span className={`ms-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+                    latestFeedback.severity === "critical" ? "bg-error/20 text-error" : "bg-warning/20 text-warning"
+                  }`}>
+                    {latestFeedback.severity}
+                  </span>
+                )}
+              </p>
+              <p className="text-sm leading-relaxed text-foreground/90">{latestFeedback.feedback_text}</p>
+            </div>
+          );
+        })()}
 
         <p className="mt-3 text-[11px] text-muted-light">
           {t(
@@ -120,7 +137,7 @@ export async function MentorshipCard({ teacherId }: { teacherId: string }) {
             "Mentorships are paired by admins. Talk to them to suggest a colleague.",
           )}
           {" "}
-          <Link href="/student/messages" className="text-gold hover:text-gold-hover focus-ring rounded">
+          <Link href="/teacher/messages" className="text-gold hover:text-gold-hover focus-ring rounded">
             {t("راسل الإدارة", "Message admin")}
           </Link>
         </p>
