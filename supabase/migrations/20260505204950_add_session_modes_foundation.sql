@@ -6,44 +6,53 @@
 --   - lecture   (1 broadcaster + many listeners; built only if Stage 7 ships)
 --
 -- ZERO behavior change. This migration is additive only:
---   - new ENUMs (session_type, participant_role, attendance_status)
+--   - new ENUMs (session_mode, participant_role, attendance_status)
 --   - new columns on `sessions` with conservative defaults so legacy rows
 --     keep working unchanged
---   - new `session_participants` table for halaqa enrollment (NOT used for
---     legacy private sessions — those continue to use the booking-based
---     teacher_id/student_id linkage; NOT used for admin observation —
---     `session_observers` remains the canonical observer table per critique)
+--   - new `session_participants` table for halaqa enrollment
 --   - NO RLS policies yet (Stage 2 owns the policy work)
 --   - NO INSERT/UPDATE on existing rows
+--
+-- Naming notes:
+--   * `session_type` is ALREADY an enum in this DB — it's the Quranic
+--     SUBJECT of a session (hifz / tajweed / muraja / tilawa / qiraat /
+--     tafsir / combined / other) and lives on bookings + sessions today.
+--     We deliberately use `session_mode` for the new group-structure
+--     discriminator to avoid colliding with the existing concept.
+--   * `sessions` already has `is_group BOOLEAN` and `capacity INTEGER`
+--     from the original schema. We KEEP those — `session_mode` is the
+--     finer-grained discriminator (is_group can't tell halaqa from
+--     lecture); `capacity` is the existing upper bound and we don't add
+--     a duplicate `max_participants`.
 --
 -- Decisions baked in (from critique of FURQAN_SESSION_MODES_MIGRATION_PLAN.md):
 --   1. participant_role enum has ONLY 'teacher' and 'student'.
 --      'observer' is intentionally absent — `session_observers` is the
 --      canonical observer table and stays separate (avoids dual write paths).
---   2. session_participants is halaqa-scoped. Private sessions are still
---      derived from `bookings` (1:1 cardinality preserved). Stage 2 RLS will
---      route by session_type to keep both flows working.
---   3. `booking_id` on session_participants is NULLABLE. Stage 5 will decide
---      whether halaqa enrollment also writes a per-student booking row
---      (for teacher payout) or whether session_participants is the only
---      record. Either pattern fits this column.
+--   2. session_participants is halaqa-scoped. Private sessions still
+--      derive participants from bookings (1:1 cardinality preserved).
+--      Stage 2 RLS will route by session_mode so each flow reads its own
+--      canonical source.
+--   3. session_participants.booking_id is NULLABLE. Stage 5 booking flow
+--      decides whether halaqa enrollment also writes a per-student booking
+--      row; either pattern fits.
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- 1. New ENUMs
 -- ─────────────────────────────────────────────────────────────────────────
 
 DO $$ BEGIN
-  CREATE TYPE session_type_enum AS ENUM ('private', 'halaqa', 'lecture');
+  CREATE TYPE session_mode AS ENUM ('private', 'halaqa', 'lecture');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-  CREATE TYPE participant_role_enum AS ENUM ('teacher', 'student');
+  CREATE TYPE participant_role AS ENUM ('teacher', 'student');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-  CREATE TYPE attendance_status_enum AS ENUM (
+  CREATE TYPE attendance_status AS ENUM (
     'registered', 'attended', 'absent', 'late', 'left_early'
   );
 EXCEPTION WHEN duplicate_object THEN NULL;
@@ -53,17 +62,16 @@ END $$;
 -- 2. Extend sessions table
 -- ─────────────────────────────────────────────────────────────────────────
 
--- Type discriminator. Default = 'private' so every existing row receives
--- the correct value automatically — no UPDATE on live rows.
+-- Group-structure discriminator. Default = 'private' so every existing row
+-- receives the correct value automatically — no UPDATE on live rows.
+-- Coexists with existing `is_group` boolean (which we leave alone for
+-- backward compat) and `session_type` enum (Quranic subject — different
+-- concept).
 ALTER TABLE sessions
-  ADD COLUMN IF NOT EXISTS session_type session_type_enum NOT NULL DEFAULT 'private';
+  ADD COLUMN IF NOT EXISTS session_mode session_mode NOT NULL DEFAULT 'private';
 
--- Capacity. Defaults match private semantics so the existing flow is
--- unchanged. Halaqa rows will set max_participants to whatever the admin
--- configures (capped to 25 in Stage 2). Lecture rows use larger caps in
--- Stage 7 when/if the broadcast feature ships.
-ALTER TABLE sessions
-  ADD COLUMN IF NOT EXISTS max_participants INTEGER NOT NULL DEFAULT 2 CHECK (max_participants >= 1);
+-- Capacity floor + current enrollment. `capacity` is the existing upper
+-- bound (already on sessions); we add the lower bound + a counter.
 ALTER TABLE sessions
   ADD COLUMN IF NOT EXISTS min_participants INTEGER NOT NULL DEFAULT 1 CHECK (min_participants >= 1);
 ALTER TABLE sessions
@@ -86,16 +94,16 @@ ALTER TABLE sessions
   ADD COLUMN IF NOT EXISTS session_topic_en TEXT;
 
 -- Daily.co room mode. 'default' is the existing 1:1 room shape. Stage 2
--- room creation will branch on session_type to set this to 'group' for
+-- room creation will branch on session_mode to set this to 'group' for
 -- halaqa or 'broadcast' for lecture, and write the resulting Daily room
 -- properties accordingly. Kept as TEXT (not a fourth enum) to leave room
 -- for Daily-side mode names changing without a migration.
 ALTER TABLE sessions
   ADD COLUMN IF NOT EXISTS daily_room_mode TEXT NOT NULL DEFAULT 'default';
 
--- Index the type discriminator — Stage 2 RLS, Stage 4 dashboards, and
--- Stage 5 browse-halaqas all filter by it.
-CREATE INDEX IF NOT EXISTS idx_sessions_session_type ON sessions(session_type);
+-- Index the discriminator — Stage 2 RLS, Stage 4 dashboards, and Stage 5
+-- browse-halaqas all filter by it.
+CREATE INDEX IF NOT EXISTS idx_sessions_session_mode ON sessions(session_mode);
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- 3. session_participants table
@@ -103,15 +111,15 @@ CREATE INDEX IF NOT EXISTS idx_sessions_session_type ON sessions(session_type);
 --
 -- Halaqa-scoped enrollment record. One row per (session, user) pair.
 -- Private sessions continue to use the existing bookings linkage and DO
--- NOT have rows here. Stage 2 RLS layers a session_type check so each
+-- NOT have rows here. Stage 2 RLS layers a session_mode check so each
 -- flow reads its own canonical source.
 
 CREATE TABLE IF NOT EXISTS session_participants (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  role participant_role_enum NOT NULL,
-  attendance_status attendance_status_enum NOT NULL DEFAULT 'registered',
+  role participant_role NOT NULL,
+  attendance_status attendance_status NOT NULL DEFAULT 'registered',
   -- Capture how the participant ended up in the session — useful for
   -- attendance reports and refund logic in Stage 5 cancellation flow.
   joined_at TIMESTAMPTZ,
@@ -157,8 +165,8 @@ ALTER TABLE session_participants ENABLE ROW LEVEL SECURITY;
 -- 4. Documentation comments
 -- ─────────────────────────────────────────────────────────────────────────
 
-COMMENT ON COLUMN sessions.session_type IS
-  'Discriminator: private | halaqa | lecture. Defaults to private; controls room creation mode + RLS path in Stage 2.';
+COMMENT ON COLUMN sessions.session_mode IS
+  'Group-structure discriminator: private | halaqa | lecture. NOT to be confused with `session_type` (Quranic subject). Defaults to private; controls room creation mode + RLS path in Stage 2.';
 
 COMMENT ON COLUMN sessions.daily_room_mode IS
   'Daily.co room shape. ''default'' for private, ''group'' for halaqa, ''broadcast'' for lecture. Set by Stage 2 room creation service.';
