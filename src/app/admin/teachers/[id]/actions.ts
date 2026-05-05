@@ -68,7 +68,10 @@ export async function updateAccount(
     } as TableUpdate<"profiles">)
     .eq("id", teacherId);
 
-  if (error) return { error: "فشل حفظ بيانات الحساب" };
+  if (error) {
+    logError("admin updateAccount failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId } });
+    return { error: "فشل حفظ بيانات الحساب" };
+  }
 
   revalidateTeacher(teacherId);
   return { success: true };
@@ -182,7 +185,10 @@ export async function updateTeacherProfile(
     } as TableUpdate<"teacher_profiles">)
     .eq("teacher_id", teacherId);
 
-  if (error) return { error: "فشل حفظ بيانات المعلم" };
+  if (error) {
+    logError("admin updateTeacherProfile failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId } });
+    return { error: "فشل حفظ بيانات المعلم" };
+  }
 
   revalidateTeacher(teacherId);
   return { success: true };
@@ -225,7 +231,10 @@ export async function upsertIjaza(
       } satisfies TableUpdate<"teacher_ijaza">)
       .eq("id", id)
       .eq("teacher_id", teacherId);
-    if (error) return { error: "فشل تحديث الإجازة" };
+    if (error) {
+      logError("admin upsertIjaza update failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId, ijazaId: id } });
+      return { error: "فشل تحديث الإجازة" };
+    }
   } else {
     const { error } = await supabase.from("teacher_ijaza").insert({
       teacher_id: teacherId,
@@ -235,7 +244,10 @@ export async function upsertIjaza(
       granted_at: grantedAt,
       document_url: documentUrl,
     } satisfies TableInsert<"teacher_ijaza">);
-    if (error) return { error: "فشل إضافة الإجازة" };
+    if (error) {
+      logError("admin upsertIjaza insert failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId } });
+      return { error: "فشل إضافة الإجازة" };
+    }
   }
 
   revalidateTeacher(teacherId);
@@ -255,7 +267,10 @@ export async function deleteIjaza(teacherId: string, ijazaId: string): Promise<A
     .delete()
     .eq("id", ijazaId)
     .eq("teacher_id", teacherId);
-  if (error) return { error: "فشل حذف الإجازة" };
+  if (error) {
+    logError("admin deleteIjaza failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId, ijazaId } });
+    return { error: "فشل حذف الإجازة" };
+  }
 
   revalidateTeacher(teacherId);
   return { success: true };
@@ -282,7 +297,10 @@ export async function setIjazaVerified(
     } satisfies TableUpdate<"teacher_ijaza">)
     .eq("id", ijazaId)
     .eq("teacher_id", teacherId);
-  if (error) return { error: "فشل تحديث حالة التوثيق" };
+  if (error) {
+    logError("admin setIjazaVerified failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId, ijazaId, verified } });
+    return { error: "فشل تحديث حالة التوثيق" };
+  }
 
   revalidateTeacher(teacherId);
   return { success: true };
@@ -327,7 +345,10 @@ export async function upsertAvailability(
       } satisfies TableUpdate<"teacher_availability">)
       .eq("id", id)
       .eq("teacher_id", teacherId);
-    if (error) return { error: "فشل تحديث التوفر" };
+    if (error) {
+      logError("admin upsertAvailability update failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId, slotId: id } });
+      return { error: "فشل تحديث التوفر" };
+    }
   } else {
     const { error } = await supabase.from("teacher_availability").insert({
       teacher_id: teacherId,
@@ -337,7 +358,10 @@ export async function upsertAvailability(
       slot_duration: slotDuration,
       is_active: isActive,
     } satisfies TableInsert<"teacher_availability">);
-    if (error) return { error: error.message.includes("avail_unique") ? "يوجد فترة في نفس اليوم والوقت" : "فشل إضافة التوفر" };
+    if (error) {
+      logError("admin upsertAvailability insert failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId, day, startTime, endTime } });
+      return { error: error.message.includes("avail_unique") ? "يوجد فترة في نفس اليوم والوقت" : "فشل إضافة التوفر" };
+    }
   }
 
   revalidateTeacher(teacherId);
@@ -357,7 +381,10 @@ export async function deleteAvailability(teacherId: string, slotId: string): Pro
     .delete()
     .eq("id", slotId)
     .eq("teacher_id", teacherId);
-  if (error) return { error: "فشل حذف الفترة" };
+  if (error) {
+    logError("admin deleteAvailability failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId, slotId } });
+    return { error: "فشل حذف الفترة" };
+  }
 
   revalidateTeacher(teacherId);
   return { success: true };
@@ -388,7 +415,10 @@ export async function upsertException(
     is_blocked: bool(formData, "is_blocked"),
     reason: str(formData, "reason"),
   } satisfies TableInsert<"availability_exceptions">);
-  if (error) return { error: "فشل إضافة الاستثناء" };
+  if (error) {
+    logError("admin upsertException failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId, date } });
+    return { error: "فشل إضافة الاستثناء" };
+  }
 
   revalidateTeacher(teacherId);
   return { success: true };
@@ -407,7 +437,10 @@ export async function deleteException(teacherId: string, exceptionId: string): P
     .delete()
     .eq("id", exceptionId)
     .eq("teacher_id", teacherId);
-  if (error) return { error: "فشل حذف الاستثناء" };
+  if (error) {
+    logError("admin deleteException failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId, exceptionId } });
+    return { error: "فشل حذف الاستثناء" };
+  }
 
   revalidateTeacher(teacherId);
   return { success: true };
