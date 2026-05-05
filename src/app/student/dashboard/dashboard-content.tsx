@@ -53,7 +53,7 @@ interface DashboardData {
   homeworkPulse: { overdue: number; dueToday: number; dueThisWeek: number; nextItem: { id: string; description: string | null; dueDate: string | null; type: string } | null };
   todaySessions: { id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: string; status: string }[];
   todayHomework: { id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[];
-  latestEvaluation: { recommendations: string | null; evaluation_type: string; created_at: string } | null;
+  latestEvaluation: { next_goals: string | null; evaluation_type: string; created_at: string } | null;
   murajaahPlan: {
     yesterday: MurajaahWindow | null;
     lastWeek: MurajaahWindow | null;
@@ -305,7 +305,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
             student opens the app and sees what their teacher said to work
             on. The full evaluation (strengths/weaknesses/scores) lives on
             /student/progress; this card is the actionable next-step only. */}
-        {latestEvaluation?.recommendations && (
+        {latestEvaluation?.next_goals && (
           <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل التركيز", "Couldn't load focus")}>
             <section
               aria-label={t("تركيز الأسبوع من معلمك", "Your teacher's focus for this week")}
@@ -324,7 +324,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                 </a>
               </div>
               <p className="mt-2 text-base leading-relaxed text-foreground">
-                {latestEvaluation.recommendations}
+                {latestEvaluation.next_goals}
               </p>
             </section>
           </SectionErrorBoundary>

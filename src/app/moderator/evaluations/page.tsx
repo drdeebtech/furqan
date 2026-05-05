@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "التقييمات" };
 
 interface EvalRow {
   id: string; student_id: string; teacher_id: string; evaluation_type: string;
-  period_start: string; period_end: string; overall_score: number | null; created_at: string;
+  evaluation_date: string; overall_score: number | null; created_at: string;
 }
 
 const TYPE_AR: Record<string, string> = { weekly: "أسبوعي", biweekly: "نصف شهري", monthly: "شهري", quarterly: "ربع سنوي" };
@@ -22,7 +22,7 @@ export default async function ModeratorEvaluationsPage() {
   if (!user) redirect("/login");
 
   const { data: evals } = await supabase.from("session_evaluations")
-    .select("id, student_id, teacher_id, evaluation_type, period_start, period_end, overall_score, created_at")
+    .select("id, student_id, teacher_id, evaluation_type, evaluation_date, overall_score, created_at")
     .order("created_at", { ascending: false }).limit(50).returns<EvalRow[]>();
   const list = evals ?? [];
 
@@ -55,9 +55,9 @@ export default async function ModeratorEvaluationsPage() {
               <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الطالب", "Student")}</th>
               <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("المعلم", "Teacher")}</th>
               <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("النوع", "Type")}</th>
-              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الفترة", "Period")}</th>
+              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("تاريخ التقييم", "Eval Date")}</th>
               <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الدرجة", "Score")}</th>
-              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("التاريخ", "Date")}</th>
+              <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("تاريخ الإنشاء", "Created")}</th>
             </tr></thead>
             <tbody>
               {list.map(e => (
@@ -65,7 +65,7 @@ export default async function ModeratorEvaluationsPage() {
                   <td className="px-4 py-3 font-medium">{nameMap[e.student_id] ?? "—"}</td>
                   <td className="px-4 py-3">{nameMap[e.teacher_id] ?? "—"}</td>
                   <td className="px-4 py-3"><span className="glass-badge rounded-full px-2 py-0.5 text-xs">{(lang === "ar" ? TYPE_AR : TYPE_EN)[e.evaluation_type] ?? e.evaluation_type}</span></td>
-                  <td className="px-4 py-3 text-xs text-muted">{e.period_start} — {e.period_end}</td>
+                  <td className="px-4 py-3 text-xs text-muted">{e.evaluation_date}</td>
                   <td className="px-4 py-3">
                     {e.overall_score ? (
                       <span className={`glass-badge rounded-full px-2 py-0.5 text-xs font-medium ${e.overall_score >= 7 ? "glass-success" : e.overall_score >= 4 ? "text-warning" : "glass-danger"}`}>

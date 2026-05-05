@@ -28,7 +28,7 @@ export const metadata: Metadata = { title: "خط زمني" };
 
 type TimelineEvent =
   | { kind: "session"; at: string; teacherName: string; sessionType: string; durationMin: number | null; href: string }
-  | { kind: "evaluation"; at: string; overall: number | null; recommendations: string | null; evalType: string | null; href: string }
+  | { kind: "evaluation"; at: string; overall: number | null; next_goals: string | null; evalType: string | null; href: string }
   | { kind: "homework_graded"; at: string; title: string; grade: string; teacherNotes: string | null; teacherName: string; href: string }
   | { kind: "parent_report"; at: string; reportType: string; href: string }
   | { kind: "progress"; at: string; progressType: "new" | "muraja" | "correction"; surahNum: number | null; ayahFrom: number | null; ayahTo: number | null; teacherName: string };
@@ -63,7 +63,7 @@ export default async function StudentTimelinePage() {
   type EvalRow = {
     id: string;
     overall_score: number | null;
-    recommendations: string | null;
+    next_goals: string | null;
     evaluation_type: string | null;
     created_at: string;
   };
@@ -100,7 +100,7 @@ export default async function StudentTimelinePage() {
       .order("scheduled_at", { ascending: false })
       .returns<BookingRow[]>(),
     supabase.from("session_evaluations")
-      .select("id, overall_score, recommendations, evaluation_type, created_at")
+      .select("id, overall_score, next_goals, evaluation_type, created_at")
       .eq("student_id", user.id)
       .gte("created_at", ninetyDaysAgoIso)
       .order("created_at", { ascending: false })
@@ -159,7 +159,7 @@ export default async function StudentTimelinePage() {
       kind: "evaluation",
       at: e.created_at,
       overall: e.overall_score,
-      recommendations: e.recommendations,
+      next_goals: e.next_goals,
       evalType: e.evaluation_type,
       href: `/student/progress`,
     });
@@ -309,8 +309,8 @@ function TimelineEntry({
               `Evaluation${event.evalType ? ` (${event.evalType})` : ""}${event.overall ? ` — ${event.overall}/10 overall` : ""}`,
             )}
           </p>
-          {event.recommendations && (
-            <p className="mt-1 text-xs text-foreground/80 line-clamp-2">{event.recommendations}</p>
+          {event.next_goals && (
+            <p className="mt-1 text-xs text-foreground/80 line-clamp-2">{event.next_goals}</p>
           )}
         </>
       );

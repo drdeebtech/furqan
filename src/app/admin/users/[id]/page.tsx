@@ -101,11 +101,11 @@ export default async function AdminUserDetailPage({ params }: Props) {
   const evalFilter = isStudent ? "student_id" : "teacher_id";
   const { data: evaluations } = await supabase
     .from("session_evaluations")
-    .select("id, student_id, teacher_id, evaluation_type, overall_score, period_start, period_end, created_at")
+    .select("id, student_id, teacher_id, evaluation_type, overall_score, evaluation_date, created_at")
     .eq(evalFilter, id)
     .order("created_at", { ascending: false })
     .limit(10)
-    .returns<{ id: string; student_id: string; teacher_id: string; evaluation_type: string; overall_score: number; period_start: string; period_end: string; created_at: string }[]>();
+    .returns<{ id: string; student_id: string; teacher_id: string; evaluation_type: string; overall_score: number; evaluation_date: string; created_at: string }[]>();
 
   // Reviews
   const reviewFilter = isStudent ? "student_id" : "teacher_id";
@@ -381,7 +381,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
                   <p className="text-sm font-medium">
                     {isStudent ? t("بواسطة", "By") : t("للطالب", "For student")}: {nameMap[isStudent ? e.teacher_id : e.student_id] ?? "—"}
                   </p>
-                  <p className="text-xs text-muted">{e.evaluation_type} · {new Date(e.period_start).toLocaleDateString(locale)} — {new Date(e.period_end).toLocaleDateString(locale)}</p>
+                  <p className="text-xs text-muted">{e.evaluation_type} · {new Date(e.evaluation_date).toLocaleDateString(locale)}</p>
                 </div>
                 <span className={`glass-badge px-3 py-1 text-sm font-bold ${e.overall_score >= 8 ? "border-green-500/30 text-green-400" : e.overall_score >= 5 ? "border-warning/30 text-warning" : "border-error/30 text-red-400"}`}>
                   {e.overall_score}/10

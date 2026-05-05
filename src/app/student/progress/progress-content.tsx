@@ -80,15 +80,13 @@ interface ProgressData {
     overall_score: number | null;
     hifz_score: number | null;
     tajweed_score: number | null;
-    akhlaq_score: number | null;
+    fluency_score: number | null;
     attendance_score: number | null;
     strengths: string | null;
-    weaknesses: string | null;
-    recommendations: string | null;
-    notes: string | null;
+    areas_for_improvement: string | null;
+    next_goals: string | null;
+    teacher_comments: string | null;
     evaluation_type: string | null;
-    period_start: string | null;
-    period_end: string | null;
     created_at: string;
   } | null;
   progressRecords: ProgressRecord[];
@@ -147,7 +145,7 @@ export function ProgressContent({ data }: { data: ProgressData }) {
           the lead pedagogical surface on this page. The teacher's voice
           (recommendations / strengths / what to improve) is what the student
           most needs to see; numeric scores serve it, not the other way around. */}
-      {latestEval && (latestEval.strengths || latestEval.weaknesses || latestEval.recommendations || latestEval.notes) && (
+      {latestEval && (latestEval.strengths || latestEval.areas_for_improvement || latestEval.next_goals || latestEval.teacher_comments) && (
         <section className="mb-8 glass-card p-6">
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="flex items-center gap-2 font-display text-lg font-bold">
@@ -167,7 +165,7 @@ export function ProgressContent({ data }: { data: ProgressData }) {
             {([
               { key: "hifz", label: t("حفظ", "Hifz"), value: latestEval.hifz_score, color: "text-emerald-400" },
               { key: "tajweed", label: t("تجويد", "Tajweed"), value: latestEval.tajweed_score, color: "text-sky-400" },
-              { key: "akhlaq", label: t("أخلاق", "Akhlaq"), value: latestEval.akhlaq_score, color: "text-violet-400" },
+              { key: "fluency", label: t("طلاقة", "Fluency"), value: latestEval.fluency_score, color: "text-violet-400" },
               { key: "attendance", label: t("حضور", "Attendance"), value: latestEval.attendance_score, color: "text-amber-400" },
               { key: "overall", label: t("إجمالي", "Overall"), value: latestEval.overall_score, color: "text-gold" },
             ] as const).filter(s => s.value != null).map(s => (
@@ -178,18 +176,18 @@ export function ProgressContent({ data }: { data: ProgressData }) {
             ))}
           </div>
 
-          {/* Recommendation — placed first because it's the actionable next step. */}
-          {latestEval.recommendations && (
+          {/* Next-step focus — placed first because it's the actionable next step. */}
+          {latestEval.next_goals && (
             <div className="mb-3 rounded-xl border border-gold/30 bg-gold/5 p-4">
               <h3 className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gold">
                 <Sparkles size={14} aria-hidden="true" /> {t("توصية معلمك للأسبوع القادم", "Your teacher's focus for next week")}
               </h3>
-              <p className="text-sm leading-relaxed text-foreground">{latestEval.recommendations}</p>
+              <p className="text-sm leading-relaxed text-foreground">{latestEval.next_goals}</p>
             </div>
           )}
 
-          {/* Strengths + weaknesses — paired columns at sm+, stacked on mobile. */}
-          {(latestEval.strengths || latestEval.weaknesses) && (
+          {/* Strengths + areas-for-improvement — paired columns at sm+, stacked on mobile. */}
+          {(latestEval.strengths || latestEval.areas_for_improvement) && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {latestEval.strengths && (
                 <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
@@ -199,22 +197,22 @@ export function ProgressContent({ data }: { data: ProgressData }) {
                   <p className="text-sm leading-relaxed text-foreground/90">{latestEval.strengths}</p>
                 </div>
               )}
-              {latestEval.weaknesses && (
+              {latestEval.areas_for_improvement && (
                 <div className="rounded-xl border border-orange-500/20 bg-orange-500/5 p-4">
                   <h3 className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-orange-400">
                     <AlertCircle size={14} aria-hidden="true" /> {t("للتحسين", "To improve")}
                   </h3>
-                  <p className="text-sm leading-relaxed text-foreground/90">{latestEval.weaknesses}</p>
+                  <p className="text-sm leading-relaxed text-foreground/90">{latestEval.areas_for_improvement}</p>
                 </div>
               )}
             </div>
           )}
 
-          {/* Free-form teacher notes — shown last as supplementary context. */}
-          {latestEval.notes && (
+          {/* Free-form teacher comments — shown last as supplementary context. */}
+          {latestEval.teacher_comments && (
             <div className="mt-3 rounded-xl border border-card-border bg-card/30 p-4">
               <h3 className="mb-1 text-sm font-medium text-muted">{t("ملاحظات إضافية", "Additional notes")}</h3>
-              <p className="text-sm leading-relaxed text-foreground/80">{latestEval.notes}</p>
+              <p className="text-sm leading-relaxed text-foreground/80">{latestEval.teacher_comments}</p>
             </div>
           )}
         </section>

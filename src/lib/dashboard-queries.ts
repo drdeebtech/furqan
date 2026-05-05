@@ -692,10 +692,10 @@ export async function getStudentCalendarEvents(
       .gte("expires_at", startIso).lte("expires_at", endIso)
       .returns<{ id: string; expires_at: string | null; status: string }[]>(),
     supabase.from("session_evaluations")
-      .select("id, period_start, period_end, evaluation_type")
+      .select("id, evaluation_date, evaluation_type")
       .eq("student_id", studentId)
-      .gte("period_start", startIso).lte("period_start", endIso)
-      .returns<{ id: string; period_start: string; period_end: string | null; evaluation_type: string }[]>(),
+      .gte("evaluation_date", startIso).lte("evaluation_date", endIso)
+      .returns<{ id: string; evaluation_date: string; evaluation_type: string }[]>(),
   ]);
 
   const events: CalendarEvent[] = [];
@@ -736,7 +736,7 @@ export async function getStudentCalendarEvents(
   for (const e of evalsRes.data ?? []) {
     events.push({
       id: `eval_${e.id}`,
-      date: day(e.period_start),
+      date: day(e.evaluation_date),
       kind: "evaluation",
       title: `Evaluation (${e.evaluation_type})`,
       href: "/student/progress",

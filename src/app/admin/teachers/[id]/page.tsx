@@ -267,7 +267,7 @@ async function OverviewPanel({
       .from("session_evaluations")
       .select("id", { count: "exact", head: true })
       .eq("teacher_id", teacherId)
-      .gte("period_start", since),
+      .gte("evaluation_date", since),
   ]);
 
   const bookings90 = (bookingsRes.data ?? []) as {

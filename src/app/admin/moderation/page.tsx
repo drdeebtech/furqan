@@ -25,10 +25,9 @@ interface EvaluationRow {
   student_id: string;
   teacher_id: string;
   evaluation_type: string;
-  period_start: string;
-  period_end: string;
+  evaluation_date: string;
   overall_score: number | null;
-  weaknesses: string | null;
+  areas_for_improvement: string | null;
   created_at: string;
 }
 
@@ -60,7 +59,7 @@ export default async function ModerationPage() {
       .returns<FlaggedMessageRow[]>(),
     supabase
       .from("session_evaluations")
-      .select("id, student_id, teacher_id, evaluation_type, period_start, period_end, overall_score, weaknesses, created_at")
+      .select("id, student_id, teacher_id, evaluation_type, evaluation_date, overall_score, areas_for_improvement, created_at")
       .not("overall_score", "is", null)
       .lte("overall_score", 2.5)
       .gte("created_at", sevenDaysAgo)
@@ -134,10 +133,9 @@ export default async function ModerationPage() {
     studentName: nameMap[e.student_id] ?? "—",
     teacherName: nameMap[e.teacher_id] ?? "—",
     evaluationType: e.evaluation_type,
-    periodStart: e.period_start,
-    periodEnd: e.period_end,
+    evaluationDate: e.evaluation_date,
     overallScore: e.overall_score,
-    weaknesses: e.weaknesses,
+    areasForImprovement: e.areas_for_improvement,
     createdAt: e.created_at,
   }));
 

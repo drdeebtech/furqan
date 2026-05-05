@@ -92,12 +92,8 @@ export function EvaluationForm({ students, teachers }: Props) {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">بداية الفترة *</label>
-          <input type="date" name="period_start" required className={input} />
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium">نهاية الفترة *</label>
-          <input type="date" name="period_end" required className={input} />
+          <label className="mb-1 block text-sm font-medium">تاريخ التقييم *</label>
+          <input type="date" name="evaluation_date" required className={input} />
         </div>
       </div>
 
@@ -114,8 +110,8 @@ export function EvaluationForm({ students, teachers }: Props) {
             <input type="number" name="tajweed_score" min={1} max={10} className={input} placeholder="—" />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-muted">الأخلاق</label>
-            <input type="number" name="akhlaq_score" min={1} max={10} className={input} placeholder="—" />
+            <label className="mb-1 block text-xs font-medium text-muted">الطلاقة</label>
+            <input type="number" name="fluency_score" min={1} max={10} className={input} placeholder="—" />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted">الحضور</label>
@@ -135,19 +131,19 @@ export function EvaluationForm({ students, teachers }: Props) {
           <textarea name="strengths" className={textarea} placeholder="أبرز نقاط القوة لدى الطالب..." />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">نقاط الضعف</label>
-          <textarea name="weaknesses" className={textarea} placeholder="النقاط التي تحتاج تحسين..." />
+          <label className="mb-1 block text-sm font-medium">للتحسين</label>
+          <textarea name="areas_for_improvement" className={textarea} placeholder="النقاط التي تحتاج تحسين..." />
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm font-medium">التوصيات</label>
-          <textarea name="recommendations" className={textarea} placeholder="توصيات للطالب أو ولي الأمر..." />
+          <label className="mb-1 block text-sm font-medium">الأهداف التالية</label>
+          <textarea name="next_goals" className={textarea} placeholder="توصيات للطالب أو ولي الأمر..." />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">ملاحظات</label>
-          <textarea name="notes" className={textarea} placeholder="ملاحظات إضافية..." />
+          <label className="mb-1 block text-sm font-medium">ملاحظات المعلم</label>
+          <textarea name="teacher_comments" className={textarea} placeholder="ملاحظات إضافية..." />
         </div>
       </div>
 

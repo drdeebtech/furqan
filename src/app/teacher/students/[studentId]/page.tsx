@@ -66,11 +66,11 @@ export default async function StudentDetailPage({ params }: Props) {
     // Latest evaluation this teacher wrote for this student — fuels the
     // "what you said last time" inline panel.
     supabase.from("session_evaluations")
-      .select("recommendations, weaknesses, overall_score, evaluation_type, created_at")
+      .select("next_goals, areas_for_improvement, overall_score, evaluation_type, created_at")
       .eq("student_id", studentId).eq("teacher_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1)
-      .maybeSingle<{ recommendations: string | null; weaknesses: string | null; overall_score: number | null; evaluation_type: string | null; created_at: string }>(),
+      .maybeSingle<{ next_goals: string | null; areas_for_improvement: string | null; overall_score: number | null; evaluation_type: string | null; created_at: string }>(),
     // Latest recitation_standard for this student — anchors the teacher
     // mentally in which qira'a tradition this student is studying.
     supabase.from("student_progress")
@@ -194,7 +194,7 @@ export default async function StudentDetailPage({ params }: Props) {
         {/* What you said last evaluation — closes the loop on the
             teacher's own promised focus. Surfaces only when this teacher
             has written an evaluation with a recommendation. */}
-        {latestEval?.recommendations && (
+        {latestEval?.next_goals && (
           <div className="mt-5 rounded-xl border border-gold/30 bg-gold/5 p-4">
             <div className="mb-1 flex items-center justify-between gap-2">
               <h2 className="flex items-center gap-1.5 text-xs font-semibold text-gold">
@@ -208,10 +208,10 @@ export default async function StudentDetailPage({ params }: Props) {
                 <span className="text-xs text-muted">{t("إجمالي", "Overall")}: {latestEval.overall_score}/10</span>
               )}
             </div>
-            <p className="text-sm leading-relaxed text-foreground">{latestEval.recommendations}</p>
-            {latestEval.weaknesses && (
+            <p className="text-sm leading-relaxed text-foreground">{latestEval.next_goals}</p>
+            {latestEval.areas_for_improvement && (
               <p className="mt-2 text-xs text-muted">
-                <span className="text-orange-400">{t("نقاط ضعف:", "Weaknesses:")}</span> {latestEval.weaknesses}
+                <span className="text-orange-400">{t("للتحسين:", "To improve:")}</span> {latestEval.areas_for_improvement}
               </p>
             )}
           </div>

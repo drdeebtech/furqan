@@ -42,8 +42,7 @@ interface EvaluationRow {
   student_id: string;
   teacher_id: string;
   evaluation_type: string;
-  period_start: string;
-  period_end: string;
+  evaluation_date: string;
   overall_score: number | null;
   created_at: string;
 }
@@ -56,7 +55,7 @@ export default async function AdminEvaluationsPage() {
 
   const { data: evaluations } = await supabase
     .from("session_evaluations")
-    .select("id, student_id, teacher_id, evaluation_type, period_start, period_end, overall_score, created_at")
+    .select("id, student_id, teacher_id, evaluation_type, evaluation_date, overall_score, created_at")
     .order("created_at", { ascending: false })
     .limit(200)
     .returns<EvaluationRow[]>();
@@ -99,7 +98,7 @@ export default async function AdminEvaluationsPage() {
                 <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("الطالب", "Student")}</th>
                 <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("المعلم", "Teacher")}</th>
                 <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("النوع", "Type")}</th>
-                <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("الفترة", "Period")}</th>
+                <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("تاريخ التقييم", "Eval Date")}</th>
                 <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("الدرجة الكلية", "Overall Score")}</th>
                 <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("التاريخ", "Date")}</th>
               </tr>
@@ -117,7 +116,7 @@ export default async function AdminEvaluationsPage() {
                     </span>
                   </td>
                   <td className="px-3 py-3 text-xs text-muted">
-                    {new Date(ev.period_start).toLocaleDateString(locale)} — {new Date(ev.period_end).toLocaleDateString(locale)}
+                    {new Date(ev.evaluation_date).toLocaleDateString(locale)}
                   </td>
                   <td className="px-3 py-3">{scoreBadge(ev.overall_score)}</td>
                   <td className="px-3 py-3 text-xs text-muted">

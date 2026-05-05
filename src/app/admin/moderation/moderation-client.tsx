@@ -32,10 +32,9 @@ interface LowEvaluationView {
   studentName: string;
   teacherName: string;
   evaluationType: string;
-  periodStart: string;
-  periodEnd: string;
+  evaluationDate: string;
   overallScore: number | null;
-  weaknesses: string | null;
+  areasForImprovement: string | null;
   createdAt: string;
 }
 
@@ -251,7 +250,7 @@ function EvaluationCard({
             {ev.studentName} <span className="text-muted">·</span> {ev.teacherName}
           </p>
           <p className="mt-1">
-            {ev.evaluationType} · {new Date(ev.periodStart).toLocaleDateString()} → {new Date(ev.periodEnd).toLocaleDateString()}
+            {ev.evaluationType} · {new Date(ev.evaluationDate).toLocaleDateString()}
           </p>
         </div>
         <div className="text-right">
@@ -262,10 +261,10 @@ function EvaluationCard({
         </div>
       </div>
 
-      {ev.weaknesses && (
+      {ev.areasForImprovement && (
         <p className="mb-3 rounded-lg bg-surface/60 px-3 py-2 text-xs text-muted">
-          <span className="font-medium text-foreground">{t("نقاط الضعف:", "Weaknesses:")}</span>{" "}
-          {ev.weaknesses.length > 240 ? ev.weaknesses.slice(0, 240) + "…" : ev.weaknesses}
+          <span className="font-medium text-foreground">{t("للتحسين:", "To improve:")}</span>{" "}
+          {ev.areasForImprovement.length > 240 ? ev.areasForImprovement.slice(0, 240) + "…" : ev.areasForImprovement}
         </p>
       )}
 

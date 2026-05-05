@@ -120,16 +120,16 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
       .maybeSingle<{ surah_to: number | null; ayah_to: number | null; surah_from: number | null; ayah_from: number | null; level: string; recitation_standard: string | null; created_at: string }>(),
     getStudentStreak(user.id),
     getStudentHomeworkPulse(user.id),
-    // Latest evaluation's recommendations text — drives the "Your focus this
-    // week" card. Only the recommendations + meta are needed; the full
-    // strengths/weaknesses live on /student/progress to avoid duplication.
+    // Latest evaluation's next_goals text — drives the "Your focus this
+    // week" card. Only next_goals + meta are needed; the full
+    // strengths/areas_for_improvement live on /student/progress to avoid duplication.
     supabase.from("session_evaluations")
-      .select("recommendations, evaluation_type, created_at")
+      .select("next_goals, evaluation_type, created_at")
       .eq("student_id", user.id)
-      .not("recommendations", "is", null)
+      .not("next_goals", "is", null)
       .order("created_at", { ascending: false })
       .limit(1)
-      .maybeSingle<{ recommendations: string | null; evaluation_type: string; created_at: string }>(),
+      .maybeSingle<{ next_goals: string | null; evaluation_type: string; created_at: string }>(),
     getStudentMurajaahPlan(user.id),
   ]);
   const activePackages = packagesRes.data ?? [];

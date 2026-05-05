@@ -7,7 +7,7 @@ import { createTeacherEvaluation } from "@/lib/actions/evaluations";
 const SCORES = [
   { key: "hifz_score", ar: "الحفظ", en: "Hifz" },
   { key: "tajweed_score", ar: "التجويد", en: "Tajweed" },
-  { key: "akhlaq_score", ar: "الأخلاق", en: "Akhlaq" },
+  { key: "fluency_score", ar: "الطلاقة", en: "Fluency" },
   { key: "attendance_score", ar: "الحضور", en: "Attendance" },
   { key: "overall_score", ar: "الكلية", en: "Overall" },
 ];
@@ -35,8 +35,8 @@ export function EvalForm({
   const [scores, setScores] = useState<Record<string, number>>({});
   const [evalType, setEvalType] = useState("weekly");
   const [strengths, setStrengths] = useState("");
-  const [weaknesses, setWeaknesses] = useState("");
-  const [recommendations, setRecommendations] = useState("");
+  const [areasForImprovement, setAreasForImprovement] = useState("");
+  const [nextGoals, setNextGoals] = useState("");
 
   async function handleSubmit() {
     if (!scores.overall_score) {
@@ -46,22 +46,24 @@ export function EvalForm({
     setLoading(true);
     setError(null);
 
-    const now = new Date();
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const evaluationDate = new Date().toISOString().split("T")[0];
 
     const result = await createTeacherEvaluation(
       studentId,
       evalType,
-      weekAgo.toISOString().split("T")[0],
-      now.toISOString().split("T")[0],
+      evaluationDate,
       {
         hifz: scores.hifz_score,
         tajweed: scores.tajweed_score,
-        akhlaq: scores.akhlaq_score,
+        fluency: scores.fluency_score,
         attendance: scores.attendance_score,
         overall: scores.overall_score,
       },
-      { strengths: strengths || null, weaknesses: weaknesses || null, recommendations: recommendations || null },
+      {
+        strengths: strengths || null,
+        areas_for_improvement: areasForImprovement || null,
+        next_goals: nextGoals || null,
+      },
     );
 
     setLoading(false);
@@ -150,11 +152,11 @@ export function EvalForm({
         </div>
         <div>
           <label className="mb-1 block text-xs text-muted">نقاط الضعف</label>
-          <textarea value={weaknesses} onChange={e => setWeaknesses(e.target.value)} rows={2} className={`${input} resize-none`} placeholder="نقاط تحتاج تحسين..." />
+          <textarea value={areasForImprovement} onChange={e => setAreasForImprovement(e.target.value)} rows={2} className={`${input} resize-none`} placeholder="نقاط تحتاج تحسين..." />
         </div>
         <div>
           <label className="mb-1 block text-xs text-muted">توصيات</label>
-          <textarea value={recommendations} onChange={e => setRecommendations(e.target.value)} rows={2} className={`${input} resize-none`} placeholder="توصيات للطالب..." />
+          <textarea value={nextGoals} onChange={e => setNextGoals(e.target.value)} rows={2} className={`${input} resize-none`} placeholder="توصيات للطالب..." />
         </div>
       </div>
 

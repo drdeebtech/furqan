@@ -40,17 +40,16 @@ interface EvaluationRow {
   id: string;
   student_id: string;
   evaluation_type: string;
-  period_start: string;
-  period_end: string;
+  evaluation_date: string;
   hifz_score: number | null;
   tajweed_score: number | null;
-  akhlaq_score: number | null;
+  fluency_score: number | null;
   attendance_score: number | null;
   overall_score: number | null;
   strengths: string | null;
-  weaknesses: string | null;
-  recommendations: string | null;
-  notes: string | null;
+  areas_for_improvement: string | null;
+  next_goals: string | null;
+  teacher_comments: string | null;
   created_at: string;
 }
 
@@ -65,7 +64,7 @@ export default async function TeacherEvaluationsPage() {
   const [evalsRes, rosterRes] = await Promise.all([
     supabase
       .from("session_evaluations")
-      .select("id, student_id, evaluation_type, period_start, period_end, hifz_score, tajweed_score, akhlaq_score, attendance_score, overall_score, strengths, weaknesses, recommendations, notes, created_at")
+      .select("id, student_id, evaluation_type, evaluation_date, hifz_score, tajweed_score, fluency_score, attendance_score, overall_score, strengths, areas_for_improvement, next_goals, teacher_comments, created_at")
       .eq("teacher_id", user.id)
       .order("created_at", { ascending: false })
       .limit(200)
@@ -197,7 +196,7 @@ export default async function TeacherEvaluationsPage() {
                       {(lang === "ar" ? TYPE_AR : TYPE_EN)[ev.evaluation_type] ?? ev.evaluation_type}
                     </span>
                     <span className="me-2 text-xs">
-                      {new Date(ev.period_start).toLocaleDateString(locale)} — {new Date(ev.period_end).toLocaleDateString(locale)}
+                      {new Date(ev.evaluation_date).toLocaleDateString(locale)}
                     </span>
                   </p>
                 </div>
@@ -215,7 +214,7 @@ export default async function TeacherEvaluationsPage() {
                   <span className="text-muted">{t("التجويد", "Tajweed")}:</span> {scoreBadge(ev.tajweed_score)}
                 </div>
                 <div className="flex items-center gap-1.5 text-xs">
-                  <span className="text-muted">{t("الأخلاق", "Akhlaq")}:</span> {scoreBadge(ev.akhlaq_score)}
+                  <span className="text-muted">{t("الطلاقة", "Fluency")}:</span> {scoreBadge(ev.fluency_score)}
                 </div>
                 <div className="flex items-center gap-1.5 text-xs">
                   <span className="text-muted">{t("الحضور", "Attendance")}:</span> {scoreBadge(ev.attendance_score)}
@@ -226,7 +225,7 @@ export default async function TeacherEvaluationsPage() {
               </div>
 
               {/* Text details */}
-              {(ev.strengths || ev.weaknesses || ev.recommendations || ev.notes) && (
+              {(ev.strengths || ev.areas_for_improvement || ev.next_goals || ev.teacher_comments) && (
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   {ev.strengths && (
                     <div className="glass-success glass rounded-xl p-3">
@@ -234,22 +233,22 @@ export default async function TeacherEvaluationsPage() {
                       <p className="break-words whitespace-pre-wrap text-sm">{ev.strengths}</p>
                     </div>
                   )}
-                  {ev.weaknesses && (
+                  {ev.areas_for_improvement && (
                     <div className="glass-danger glass rounded-xl p-3">
-                      <p className="mb-1 text-xs font-semibold text-red-400">{t("نقاط الضعف", "Weaknesses")}</p>
-                      <p className="break-words whitespace-pre-wrap text-sm">{ev.weaknesses}</p>
+                      <p className="mb-1 text-xs font-semibold text-red-400">{t("للتحسين", "To improve")}</p>
+                      <p className="break-words whitespace-pre-wrap text-sm">{ev.areas_for_improvement}</p>
                     </div>
                   )}
-                  {ev.recommendations && (
+                  {ev.next_goals && (
                     <div className="glass rounded-xl border-blue-500/20 p-3">
-                      <p className="mb-1 text-xs font-semibold text-blue-400">{t("التوصيات", "Recommendations")}</p>
-                      <p className="break-words whitespace-pre-wrap text-sm">{ev.recommendations}</p>
+                      <p className="mb-1 text-xs font-semibold text-blue-400">{t("الأهداف التالية", "Next goals")}</p>
+                      <p className="break-words whitespace-pre-wrap text-sm">{ev.next_goals}</p>
                     </div>
                   )}
-                  {ev.notes && (
+                  {ev.teacher_comments && (
                     <div className="glass rounded-xl p-3">
-                      <p className="mb-1 text-xs font-semibold text-muted">{t("ملاحظات", "Notes")}</p>
-                      <p className="break-words whitespace-pre-wrap text-sm">{ev.notes}</p>
+                      <p className="mb-1 text-xs font-semibold text-muted">{t("ملاحظات المعلم", "Teacher comments")}</p>
+                      <p className="break-words whitespace-pre-wrap text-sm">{ev.teacher_comments}</p>
                     </div>
                   )}
                 </div>

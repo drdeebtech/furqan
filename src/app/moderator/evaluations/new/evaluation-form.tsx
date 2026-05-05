@@ -47,7 +47,7 @@ export function EvaluationForm({ students, teachers, redirectTo }: Props) {
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="evaluation_type" className="mb-1 block text-sm font-medium">نوع التقييم</label>
             <select id="evaluation_type" name="evaluation_type" required className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none">
@@ -58,12 +58,8 @@ export function EvaluationForm({ students, teachers, redirectTo }: Props) {
             </select>
           </div>
           <div>
-            <label htmlFor="period_start" className="mb-1 block text-sm font-medium">بداية الفترة</label>
-            <input id="period_start" name="period_start" type="date" required className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none" />
-          </div>
-          <div>
-            <label htmlFor="period_end" className="mb-1 block text-sm font-medium">نهاية الفترة</label>
-            <input id="period_end" name="period_end" type="date" required className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none" />
+            <label htmlFor="evaluation_date" className="mb-1 block text-sm font-medium">تاريخ التقييم</label>
+            <input id="evaluation_date" name="evaluation_date" type="date" required className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground focus:border-input-focus focus:outline-none" />
           </div>
         </div>
 
@@ -71,7 +67,7 @@ export function EvaluationForm({ students, teachers, redirectTo }: Props) {
           {[
             { name: "hifz_score", label: "الحفظ" },
             { name: "tajweed_score", label: "التجويد" },
-            { name: "akhlaq_score", label: "الأخلاق" },
+            { name: "fluency_score", label: "الطلاقة" },
             { name: "attendance_score", label: "الحضور" },
             { name: "overall_score", label: "الإجمالي" },
           ].map(f => (
@@ -87,16 +83,16 @@ export function EvaluationForm({ students, teachers, redirectTo }: Props) {
           <textarea id="strengths" name="strengths" rows={2} className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none" />
         </div>
         <div>
-          <label htmlFor="weaknesses" className="mb-1 block text-sm font-medium">نقاط الضعف</label>
-          <textarea id="weaknesses" name="weaknesses" rows={2} className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none" />
+          <label htmlFor="areas_for_improvement" className="mb-1 block text-sm font-medium">للتحسين</label>
+          <textarea id="areas_for_improvement" name="areas_for_improvement" rows={2} className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none" />
         </div>
         <div>
-          <label htmlFor="recommendations" className="mb-1 block text-sm font-medium">التوصيات</label>
-          <textarea id="recommendations" name="recommendations" rows={2} className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none" />
+          <label htmlFor="next_goals" className="mb-1 block text-sm font-medium">الأهداف التالية</label>
+          <textarea id="next_goals" name="next_goals" rows={2} className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none" />
         </div>
         <div>
-          <label htmlFor="notes" className="mb-1 block text-sm font-medium">ملاحظات إضافية</label>
-          <textarea id="notes" name="notes" rows={2} className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none" />
+          <label htmlFor="teacher_comments" className="mb-1 block text-sm font-medium">ملاحظات المعلم</label>
+          <textarea id="teacher_comments" name="teacher_comments" rows={2} className="glass-input w-full rounded-xl px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none" />
         </div>
 
         <button type="submit" disabled={pending}
