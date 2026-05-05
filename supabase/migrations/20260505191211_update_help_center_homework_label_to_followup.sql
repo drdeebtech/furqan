@@ -10,9 +10,12 @@
 -- migration 20260429171328_add_help_center_tables.sql seeded this row;
 -- that file is historical/immutable, so this is the data-side fix.
 
-update help_categories
+-- The primary key column on help_categories is `slug` (per migration
+-- 20260429171328_add_help_center_tables.sql), not `key`. First attempt
+-- of this migration assumed `key` and failed with column-not-found.
+update public.help_categories
 set
   label_ar = 'المتابعات',
   label_en = 'Follow-ups'
-where key = 'homework'
+where slug = 'homework'
   and (label_ar = 'الواجبات' or label_en = 'Homework');
