@@ -36,16 +36,17 @@ export default async function TeacherDashboardPage() {
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+  const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  // One big parallel batch — every query below only depends on user.id, so we
-  // collapse what was previously three sequential round-trips down to two.
-  // The remaining sequential hop is the unread-messages count, which has a
-  // legit dependency on the conversation ids returned by convosRes.
+  // Batch 1 — every query here depends only on user.id, so they all parallelize.
+  // oldCompletedRes used to run sequentially after this batch; pulled in here
+  // because the only thing it needs is user.id + sevenDaysAgoIso → free RT save.
   const [
     profileRes, tpRes, pendingRes, todayRes, monthRes, allStudentsRes, availRes,
     gradingRes, convosRes,
     weeklyHoursLoad, liveSessionsLoad, sessionBreakdownLoad, recentStudentsLoad, timeToGradeLoad,
     rosterErrorPulseLoad, talqeenInboxLoad, parentReportDigestLoad, recitationRosterLoad,
+    oldCompletedRes,
   ] = await Promise.all([
     supabase.from("profiles").select("full_name, phone, avatar_url").eq("id", user.id).single<{ full_name: string | null; phone: string | null; avatar_url: string | null }>(),
     supabase.from("teacher_profiles").select("total_sessions, rating_avg, cv_status, bio").eq("teacher_id", user.id)
@@ -110,7 +111,15 @@ export default async function TeacherDashboardPage() {
       [],
       { route: "teacher-dashboard", widget: "recitation-standard-roster" },
     ),
+    supabase.from("bookings")
+      .select("id, student_id, scheduled_at")
+      .eq("teacher_id", user.id)
+      .eq("status", "completed")
+      .lt("scheduled_at", sevenDaysAgoIso)
+      .returns<{ id: string; student_id: string; scheduled_at: string }[]>(),
   ]);
+
+  type SessionRow = { id: string; booking_id: string; room_url: string; expires_at: string | null; started_at: string | null; ended_at: string | null };
 
   // loadOrFail/countOrFail wrap the direct supabase queries in this batch so
   // each failure tags Sentry with the dashboard widget that broke. anyFailed
@@ -121,73 +130,68 @@ export default async function TeacherDashboardPage() {
   const todayLoad = loadOrFail(todayRes, [] as PendingBooking[], { route: "teacher-dashboard", widget: "today-sessions" });
   const allStudentsLoad = loadOrFail(allStudentsRes, [] as { student_id: string }[], { route: "teacher-dashboard", widget: "all-students" });
   const convosLoad = loadOrFail(convosRes, [] as { id: string }[], { route: "teacher-dashboard", widget: "conversations" });
+  const oldCompletedLoad = loadOrFail(
+    oldCompletedRes,
+    [] as { id: string; student_id: string; scheduled_at: string }[],
+    { route: "teacher-dashboard", widget: "overdue-evals-bookings" },
+  );
   // Count-only queries — countOrFail returns { count, failed } so we don't
   // have to read .count separately from the original Res object.
   const monthLoad = countOrFail(monthRes, { route: "teacher-dashboard", widget: "month-sessions" });
   const availLoad = countOrFail(availRes, { route: "teacher-dashboard", widget: "active-availability" });
   const gradingLoad = countOrFail(gradingRes, { route: "teacher-dashboard", widget: "pending-grading" });
-  // anyFailed must be `let` because the unread-messages and today-session-data
-  // loads run sequentially below and OR their flags in.
+  // anyFailed must be `let` because batch 2 below ORs in its own load flags.
   let anyFailed = profileLoad.failed || tpLoad.failed || pendingLoad.failed
     || todayLoad.failed || allStudentsLoad.failed || convosLoad.failed
     || monthLoad.failed || availLoad.failed || gradingLoad.failed
     || weeklyHoursLoad.failed || liveSessionsLoad.failed
     || sessionBreakdownLoad.failed || recentStudentsLoad.failed || timeToGradeLoad.failed
     || rosterErrorPulseLoad.failed || talqeenInboxLoad.failed
-    || parentReportDigestLoad.failed || recitationRosterLoad.failed;
+    || parentReportDigestLoad.failed || recitationRosterLoad.failed
+    || oldCompletedLoad.failed;
 
+  // Batch 2 — three queries that need batch-1 results (conv ids, today's
+  // booking ids, overdue student ids) but are independent of each other.
+  // Previously these ran serially after batch 1; now parallel = 1 RT instead
+  // of 3. Empty `in()` arrays are safe in Supabase — PostgREST returns no
+  // rows without error, matching the prior "skip when empty" behavior.
   const convIds = convosLoad.data.map(c => c.id);
-  let unreadMessages = 0;
-  if (convIds.length > 0) {
-    const messagesRes = await supabase.from("messages").select("id", { count: "exact", head: true })
-      .in("conversation_id", convIds).neq("sender_id", user.id).eq("is_read", false);
-    const messagesLoad = countOrFail(messagesRes, { route: "teacher-dashboard", widget: "unread-messages" });
-    unreadMessages = messagesLoad.count;
-    anyFailed = anyFailed || messagesLoad.failed;
-  }
-  const pendingGrading = gradingLoad.count;
-
-  // Sprint 2.1 (2026-05-05): proactive eval-discipline count.
-  // Mirrors the same 2-step query that dashboard/actions.ts uses for the
-  // CONFIRM-booking gate (lines 54–80). Surfacing the count here lets the
-  // teacher clear their backlog *before* the gate hardens on 2026-05-19
-  // instead of getting blocked at confirm time. PostgREST has no clean
-  // NOT EXISTS — same fetch-and-filter pattern as the gate.
-  const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const oldCompletedRes = await supabase.from("bookings")
-    .select("id, student_id, scheduled_at")
-    .eq("teacher_id", user.id)
-    .eq("status", "completed")
-    .lt("scheduled_at", sevenDaysAgoIso)
-    .returns<{ id: string; student_id: string; scheduled_at: string }[]>();
-  const oldCompletedLoad = loadOrFail(
-    oldCompletedRes,
-    [] as { id: string; student_id: string; scheduled_at: string }[],
-    { route: "teacher-dashboard", widget: "overdue-evals-bookings" },
-  );
-  anyFailed = anyFailed || oldCompletedLoad.failed;
-
-  let overdueEvalsCount = 0;
-  if (oldCompletedLoad.data.length > 0) {
-    const studentIds = [...new Set(oldCompletedLoad.data.map(b => b.student_id))];
-    const evalsRes = await supabase.from("session_evaluations")
+  const todayBookingIds = todayLoad.data.map(b => b.id);
+  const overdueStudentIds = [...new Set(oldCompletedLoad.data.map(b => b.student_id))];
+  const [messagesRes, evalsRes, sessionsRes] = await Promise.all([
+    supabase.from("messages").select("id", { count: "exact", head: true })
+      .in("conversation_id", convIds)
+      .neq("sender_id", user.id)
+      .eq("is_read", false),
+    supabase.from("session_evaluations")
       .select("student_id, created_at")
       .eq("teacher_id", user.id)
-      .in("student_id", studentIds)
-      .returns<{ student_id: string; created_at: string }[]>();
-    const evalsLoad = loadOrFail(
-      evalsRes,
-      [] as { student_id: string; created_at: string }[],
-      { route: "teacher-dashboard", widget: "overdue-evals-evaluations" },
+      .in("student_id", overdueStudentIds)
+      .returns<{ student_id: string; created_at: string }[]>(),
+    supabase.from("sessions")
+      .select("id, booking_id, room_url, expires_at, started_at, ended_at")
+      .in("booking_id", todayBookingIds)
+      .returns<SessionRow[]>(),
+  ]);
+
+  const messagesLoad = countOrFail(messagesRes, { route: "teacher-dashboard", widget: "unread-messages" });
+  const evalsLoad = loadOrFail(evalsRes, [] as { student_id: string; created_at: string }[], { route: "teacher-dashboard", widget: "overdue-evals-evaluations" });
+  const sessionsLoad = loadOrFail(sessionsRes, [] as SessionRow[], { route: "teacher-dashboard", widget: "today-session-data" });
+  anyFailed = anyFailed || messagesLoad.failed || evalsLoad.failed || sessionsLoad.failed;
+
+  const unreadMessages = messagesLoad.count;
+  const pendingGrading = gradingLoad.count;
+
+  // Sprint 2.1 (2026-05-05): proactive eval-discipline count. Mirrors the
+  // 2-step query in dashboard/actions.ts CONFIRM-booking gate. Surfacing the
+  // count here lets the teacher clear their backlog *before* the gate hardens
+  // on 2026-05-19. PostgREST has no clean NOT EXISTS — fetch + JS filter.
+  const overdueEvalsCount = oldCompletedLoad.data.filter(b => {
+    const matchingEval = evalsLoad.data.find(
+      e => e.student_id === b.student_id && new Date(e.created_at) > new Date(b.scheduled_at),
     );
-    anyFailed = anyFailed || evalsLoad.failed;
-    overdueEvalsCount = oldCompletedLoad.data.filter(b => {
-      const matchingEval = evalsLoad.data.find(
-        e => e.student_id === b.student_id && new Date(e.created_at) > new Date(b.scheduled_at),
-      );
-      return !matchingEval;
-    }).length;
-  }
+    return !matchingEval;
+  }).length;
 
   const fullName = profileLoad.data.full_name;
   const hasProfile = !!(profileLoad.data.full_name && profileLoad.data.phone && profileLoad.data.avatar_url);
@@ -200,19 +204,9 @@ export default async function TeacherDashboardPage() {
   const monthSessions = monthLoad.count;
   const uniqueStudents = new Set(allStudentsLoad.data.map(s => s.student_id)).size;
 
-  let sessionDataMap: Record<string, { id: string; room_url: string; expires_at: string | null; started_at: string | null; ended_at: string | null }> = {};
-  if (todaySessions.length > 0) {
-    const bIds = todaySessions.map(b => b.id);
-    const sessionsRes = await supabase.from("sessions")
-      .select("id, booking_id, room_url, expires_at, started_at, ended_at")
-      .in("booking_id", bIds)
-      .returns<{ id: string; booking_id: string; room_url: string; expires_at: string | null; started_at: string | null; ended_at: string | null }[]>();
-    const sessionsLoad = loadOrFail(sessionsRes, [] as { id: string; booking_id: string; room_url: string; expires_at: string | null; started_at: string | null; ended_at: string | null }[], { route: "teacher-dashboard", widget: "today-session-data" });
-    anyFailed = anyFailed || sessionsLoad.failed;
-    if (sessionsLoad.data.length > 0) {
-      sessionDataMap = Object.fromEntries(sessionsLoad.data.map(s => [s.booking_id, s]));
-    }
-  }
+  const sessionDataMap: Record<string, Omit<SessionRow, "booking_id">> = sessionsLoad.data.length > 0
+    ? Object.fromEntries(sessionsLoad.data.map(({ booking_id, ...rest }) => [booking_id, rest]))
+    : {};
 
   const allStudentIds = [...new Set([...pending.map(b => b.student_id), ...todaySessions.map(b => b.student_id)])];
   const nameMap = await fetchNameMap(supabase, allStudentIds);
