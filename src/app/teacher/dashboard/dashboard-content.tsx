@@ -304,7 +304,9 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
               columns={[
                 { key: "subject", label: t("النوع", "Subject") },
                 { key: "date", label: t("آخر جلسة", "Last Session"), type: "date" },
-                { key: "progress", label: t("الحصص", "Sessions"), type: "progress" },
+                // Raw count, not a fake percentage. Column key matches
+                // the new field name returned by getTeacherRecentStudents.
+                { key: "sessions", label: t("الحصص", "Sessions") },
                 { key: "assignee", label: t("الطالب", "Student"), type: "assignee" },
                 { key: "view", label: t("عرض", "View"), type: "actions" },
               ]}

@@ -1175,7 +1175,11 @@ export async function getTeacherRecentStudents(
       month: "short",
       day: "2-digit",
     }),
-    progress: Math.min(100, (countMap[b.student_id] ?? 0) * 10),
+    // Raw completed-session count with this teacher. The column header
+    // ("الحصص" / "Sessions") already implies a count — previously this
+    // was multiplied by 10 and rendered as a percentage, which read as
+    // "10% progress" toward an undefined goal. Now matches the label.
+    sessions: countMap[b.student_id] ?? 0,
     assignee: nameMap[b.student_id] ?? "—",
     view: "view",
   }));
