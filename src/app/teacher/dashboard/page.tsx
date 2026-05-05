@@ -44,7 +44,7 @@ export default async function TeacherDashboardPage() {
   const [
     profileRes, tpRes, pendingRes, todayRes, monthRes, allStudentsRes, availRes,
     gradingRes, convosRes,
-    weeklyHoursLoad, liveSessions, sessionBreakdown, recentStudents, timeToGrade,
+    weeklyHoursLoad, liveSessionsLoad, sessionBreakdown, recentStudents, timeToGrade,
     rosterErrorPulse, talqeenInbox, parentReportDigest, recitationRoster,
   ] = await Promise.all([
     supabase.from("profiles").select("full_name, phone, avatar_url").eq("id", user.id).single<{ full_name: string | null; phone: string | null; avatar_url: string | null }>(),
@@ -70,7 +70,11 @@ export default async function TeacherDashboardPage() {
       [],
       { route: "teacher-dashboard", widget: "weekly-hours" },
     ),
-    getTeacherLiveSessions(user.id),
+    helperOrFail(
+      () => getTeacherLiveSessions(user.id),
+      [],
+      { route: "teacher-dashboard", widget: "live-sessions" },
+    ),
     getTeacherSessionTypeBreakdown(user.id),
     getTeacherRecentStudents(user.id),
     getTeacherTimeToGrade(user.id),
@@ -99,7 +103,7 @@ export default async function TeacherDashboardPage() {
   let anyFailed = profileLoad.failed || tpLoad.failed || pendingLoad.failed
     || todayLoad.failed || allStudentsLoad.failed || convosLoad.failed
     || monthLoad.failed || availLoad.failed || gradingLoad.failed
-    || weeklyHoursLoad.failed;
+    || weeklyHoursLoad.failed || liveSessionsLoad.failed;
 
   const convIds = convosLoad.data.map(c => c.id);
   let unreadMessages = 0;
@@ -201,7 +205,7 @@ export default async function TeacherDashboardPage() {
           sessionDataMap,
           nameMap,
           weeklyHours: weeklyHoursLoad.data,
-          liveSessions,
+          liveSessions: liveSessionsLoad.data,
           sessionBreakdown,
           recentStudents,
           actionQueue: {

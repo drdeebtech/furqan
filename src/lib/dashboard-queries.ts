@@ -999,12 +999,16 @@ export async function getTeacherLiveSessions(
 ): Promise<LiveSessionItem[]> {
   const supabase = await createClient();
 
-  const { data: bookings } = await supabase
+  // Throw on supabase errors so helperOrFail at the call site can surface
+  // them — empty-array returns are reserved for genuinely-zero-rows.
+  const bookingsRes = await supabase
     .from("bookings")
     .select("id, student_id, session_type")
     .eq("teacher_id", teacherId)
     .eq("status", "confirmed")
     .returns<{ id: string; student_id: string; session_type: string }[]>();
+  if (bookingsRes.error) throw bookingsRes.error;
+  const bookings = bookingsRes.data;
 
   if (!bookings || bookings.length === 0) return [];
 
@@ -1012,7 +1016,7 @@ export async function getTeacherLiveSessions(
 
   // Stranded-session guard — see getAdminLiveSessions for rationale.
   const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
-  const { data: sessions } = await supabase
+  const sessionsRes = await supabase
     .from("sessions")
     .select("id, booking_id, started_at, ended_at")
     .in("booking_id", bookingIds)
@@ -1025,15 +1029,19 @@ export async function getTeacherLiveSessions(
       started_at: string;
       ended_at: string | null;
     }[]>();
+  if (sessionsRes.error) throw sessionsRes.error;
+  const sessions = sessionsRes.data;
 
   if (!sessions || sessions.length === 0) return [];
 
   const studentIds = [...new Set(bookings.map((b) => b.student_id))];
-  const { data: profiles } = await supabase
+  const profilesRes = await supabase
     .from("profiles")
     .select("id, full_name")
     .in("id", studentIds)
     .returns<{ id: string; full_name: string | null }[]>();
+  if (profilesRes.error) throw profilesRes.error;
+  const profiles = profilesRes.data;
 
   const nameMap: Record<string, string> = {};
   if (profiles) {
