@@ -172,7 +172,7 @@ export default async function StudentTimelinePage() {
       grade: h.status,
       teacherNotes: h.teacher_notes,
       teacherName: nameMap[h.teacher_id] ?? t("معلم", "Teacher"),
-      href: `/student/homework`,
+      href: `/student/follow-up`,
     });
   }
   for (const p of parentRes.data ?? []) {
@@ -230,8 +230,8 @@ export default async function StudentTimelinePage() {
           </p>
           <p className="mt-1 text-xs text-muted/60">
             {t(
-              "بعد جلستك الأولى تظهر هنا الجلسات والتقييمات والواجبات وتقارير الأهل.",
-              "After your first session, this page will show sessions, evaluations, homework, and parent reports.",
+              "بعد جلستك الأولى تظهر هنا الجلسات والتقييمات والمتابعات وتقارير الأهل.",
+              "After your first session, this page will show sessions, evaluations, follow-ups, and parent reports.",
             )}
           </p>
           <Link

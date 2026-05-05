@@ -131,11 +131,11 @@ export function NextActionBanner({ data, renderedAtMs }: { data: NextActionData;
             eyebrow={t("تنبيه", "Heads up")}
             eyebrowTone="warning"
             title={t(
-              `${state.count} واجب متأخر${state.count > 1 ? " " : ""} — راجعها قبل الجلسة القادمة`,
-              `${state.count} overdue assignment${state.count > 1 ? "s" : ""} — close them out before your next session`,
+              `${state.count} متابعة متأخرة${state.count > 1 ? "" : ""} — راجعها قبل الجلسة القادمة`,
+              `${state.count} overdue follow-up${state.count > 1 ? "s" : ""} — close them out before your next session`,
             )}
           />
-          <PrimaryAction href="/student/homework" label={t("افتح الواجبات", "Open homework")} arrow={<Arrow size={14} aria-hidden="true" />} />
+          <PrimaryAction href="/student/follow-up" label={t("افتح المتابعة", "Open follow-up")} arrow={<Arrow size={14} aria-hidden="true" />} />
         </BannerShell>
       );
     case "quiz-today":
@@ -186,7 +186,7 @@ export function NextActionBanner({ data, renderedAtMs }: { data: NextActionData;
               `${state.count} assignment${state.count > 1 ? "s" : ""} due today`,
             )}
           />
-          <PrimaryAction href="/student/homework" label={t("ابدأ الآن", "Start now")} arrow={<Arrow size={14} aria-hidden="true" />} />
+          <PrimaryAction href="/student/follow-up" label={t("ابدأ الآن", "Start now")} arrow={<Arrow size={14} aria-hidden="true" />} />
         </BannerShell>
       );
     case "resume-lesson":
@@ -224,11 +224,11 @@ export function NextActionBanner({ data, renderedAtMs }: { data: NextActionData;
             eyebrow={t("هذا الأسبوع", "This week")}
             eyebrowTone="calm"
             title={t(
-              `${state.count} واجب قادم خلال 7 أيام`,
-              `${state.count} assignment${state.count > 1 ? "s" : ""} due this week`,
+              `${state.count} متابعة قادمة خلال 7 أيام`,
+              `${state.count} follow-up${state.count > 1 ? "s" : ""} due this week`,
             )}
           />
-          <SecondaryAction href="/student/homework" label={t("افتح الواجبات", "Open homework")} arrow={<Arrow size={14} aria-hidden="true" />} />
+          <SecondaryAction href="/student/follow-up" label={t("افتح المتابعة", "Open follow-up")} arrow={<Arrow size={14} aria-hidden="true" />} />
         </BannerShell>
       );
     case "fallback":

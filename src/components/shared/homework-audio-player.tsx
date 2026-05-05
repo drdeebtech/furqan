@@ -21,9 +21,9 @@ interface HomeworkAudioPlayerProps {
  * scanning their own archive).
  *
  * Used by:
- *  - /teacher/homework — when grading a student's submission
+ *  - /teacher/follow-up — when grading a student's submission
  *  - /student/recitations — student's own audio archive
- *  - /student/homework — playback of own submitted recordings
+ *  - /student/follow-up — playback of own submitted recordings
  *
  * RLS gates which paths each role can sign URLs for; the component
  * itself doesn't enforce role.

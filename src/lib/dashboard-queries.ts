@@ -749,8 +749,8 @@ export async function getStudentCalendarEvents(
       id: `hw_${h.id}`,
       date: day(h.due_date),
       kind: "homework",
-      title: h.status === "assigned" ? "Homework due" : `Homework (${h.status})`,
-      href: "/student/homework",
+      title: h.status === "assigned" ? "Follow-up due" : `Follow-up (${h.status})`,
+      href: "/student/follow-up",
       color: "#F59E0B",
     });
   }

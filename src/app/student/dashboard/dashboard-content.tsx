@@ -153,7 +153,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
         kind: "homework",
         title: h.description ?? t("واجب", "Assignment"),
         detail: t(`نوع: ${h.homework_type}`, `Type: ${h.homework_type}`),
-        href: "/student/homework",
+        href: "/student/follow-up",
         at: h.due_date,
         urgent: true,
       });
@@ -197,7 +197,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
     { combo: "g d", description: { ar: "اللوحة", en: "Dashboard" }, group: { ar: "تنقل", en: "Navigate" }, href: "/student/dashboard" },
     { combo: "g s", description: { ar: "الجلسات", en: "Sessions" }, group: { ar: "تنقل", en: "Navigate" }, href: "/student/sessions" },
     { combo: "g c", description: { ar: "الدورات", en: "Courses" }, group: { ar: "تنقل", en: "Navigate" }, href: "/student/courses" },
-    { combo: "g h", description: { ar: "الواجبات", en: "Homework" }, group: { ar: "تنقل", en: "Navigate" }, href: "/student/homework" },
+    { combo: "g h", description: { ar: "المتابعة", en: "Follow-up" }, group: { ar: "تنقل", en: "Navigate" }, href: "/student/follow-up" },
     { combo: "g q", description: { ar: "الاختبارات", en: "Quizzes" }, group: { ar: "تنقل", en: "Navigate" }, href: "/student/quizzes" },
     { combo: "g p", description: { ar: "تقدمي", en: "Progress" }, group: { ar: "تنقل", en: "Navigate" }, href: "/student/progress" },
     { combo: "g t", description: { ar: "المعلمون", en: "Teachers" }, group: { ar: "تنقل", en: "Navigate" }, href: "/student/teachers" },
@@ -432,10 +432,10 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                 ongoingCount={liveSessions.length}
               />
             </SectionErrorBoundary>
-            <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل توزيع الواجبات", "Couldn't load homework breakdown")}>
+            <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل توزيع المتابعات", "Couldn't load follow-up breakdown")}>
               <BreakdownBar
-                title={t("توزيع الواجبات", "Assignment Breakdown")}
-                infoTooltip={t("توزيع حالة الواجبات", "Distribution of homework status")}
+                title={t("توزيع المتابعات", "Follow-up Breakdown")}
+                infoTooltip={t("توزيع حالة المتابعات", "Distribution of follow-up status")}
                 flat
                 segments={[
                   ...(hwCounts.completed_excellent || hwCounts.completed_good
@@ -456,7 +456,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                       }]
                     : []),
                 ]}
-                emptyMessage={t("ابدأ تتبع الواجبات لرؤية التقدم", "Start tracking homework to see progress")}
+                emptyMessage={t("ابدأ تتبع المتابعات لرؤية التقدم", "Start tracking follow-ups to see progress")}
               />
             </SectionErrorBoundary>
           </div>

@@ -477,7 +477,7 @@ export async function deleteHomework(homeworkId: string) {
   // Count + delete children (auto-regenerated assignments) first.
   // Without this audit trail, a teacher deleting a parent homework would
   // silently delete N regenerated child assignments — the student would
-  // see them disappear from /student/homework with no explanation.
+  // see them disappear from /student/follow-up with no explanation.
   // We log how many we cascaded so admins can trace "where did those go".
   const { data: children } = await supabase
     .from("homework_assignments")
