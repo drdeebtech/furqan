@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { logError } from "@/lib/logger";
 
 export type AvailabilityResult = {
   error?: string;
@@ -44,6 +45,11 @@ export async function addSlot(
     if (error.message.includes("avail_unique")) {
       return { error: "هذا الموعد موجود بالفعل" };
     }
+    logError("teacher availability addSlot failed", error, {
+      tag: "teacher-availability",
+      severity: "warning",
+      metadata: { teacherId: user.id, dayOfWeek, startTime, endTime },
+    });
     return { error: "حدث خطأ أثناء إضافة الموعد — يرجى المحاولة مرة أخرى" };
   }
 
@@ -67,6 +73,11 @@ export async function deleteSlot(slotId: string) {
     .eq("teacher_id", user.id);
 
   if (error) {
+    logError("teacher availability deleteSlot failed", error, {
+      tag: "teacher-availability",
+      severity: "warning",
+      metadata: { slotId, teacherId: user.id },
+    });
     return { error: "حدث خطأ أثناء حذف الموعد — يرجى المحاولة مرة أخرى" };
   }
 

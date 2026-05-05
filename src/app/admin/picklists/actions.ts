@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { logError } from "@/lib/logger";
 
 // teacher_languages / teacher_specialties / teacher_recitations were
 // added in v15_008. supabase.generated.ts isn't kept in sync — escape
@@ -117,7 +118,14 @@ export async function deletePicklistRow(
   try { await requireAdmin(); } catch { return { ok: false, error: "غير مصرح" }; }
   const supabase = (await createClient()) as AnyClient;
   const { error } = await supabase.from(table).delete().eq("key", key);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    logError("admin deletePicklistRow failed", error, {
+      tag: "admin-picklists",
+      severity: "warning",
+      metadata: { table, key },
+    });
+    return { ok: false, error: error.message };
+  }
   revalidatePicklistConsumers();
   return { ok: true, message: "تم الحذف" };
 }

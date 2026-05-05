@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
+import { logError } from "@/lib/logger";
 
 export async function toggleArchiveTeacher(
   teacherId: string,
@@ -27,6 +28,11 @@ export async function toggleArchiveTeacher(
     .single<{ cv_status: string | null; is_accepting: boolean }>();
 
   if (error) {
+    logError("admin toggleArchiveTeacher failed", error, {
+      tag: "admin-teachers",
+      severity: "warning",
+      metadata: { teacherId, archive },
+    });
     return { error: "حدث خطأ أثناء تحديث المعلم" };
   }
 

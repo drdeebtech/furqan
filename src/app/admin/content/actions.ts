@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { logError } from "@/lib/logger";
 
 // Tables added in v16_001 — supabase.generated.ts not regenerated yet.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -100,7 +101,14 @@ export async function deleteFaq(id: string): Promise<LoudResult> {
   try { await requireAdmin(); } catch { return { ok: false, error: "غير مصرح" }; }
   const supabase = (await createClient()) as AnyClient;
   const { error } = await supabase.from("site_faqs").delete().eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    logError("admin deleteFaq failed", error, {
+      tag: "admin-content",
+      severity: "warning",
+      metadata: { id },
+    });
+    return { ok: false, error: error.message };
+  }
   revalidatePublicSurfaces();
   return { ok: true, message: "تم الحذف" };
 }
@@ -185,7 +193,14 @@ export async function deleteFeature(id: string): Promise<LoudResult> {
   try { await requireAdmin(); } catch { return { ok: false, error: "غير مصرح" }; }
   const supabase = (await createClient()) as AnyClient;
   const { error } = await supabase.from("site_features").delete().eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    logError("admin deleteFeature failed", error, {
+      tag: "admin-content",
+      severity: "warning",
+      metadata: { id },
+    });
+    return { ok: false, error: error.message };
+  }
   revalidatePublicSurfaces();
   return { ok: true, message: "تم الحذف" };
 }
@@ -245,7 +260,14 @@ export async function deleteCategory(id: string): Promise<LoudResult> {
   try { await requireAdmin(); } catch { return { ok: false, error: "غير مصرح" }; }
   const supabase = (await createClient()) as AnyClient;
   const { error } = await supabase.from("site_blog_categories").delete().eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    logError("admin deleteCategory failed", error, {
+      tag: "admin-content",
+      severity: "warning",
+      metadata: { id },
+    });
+    return { ok: false, error: error.message };
+  }
   revalidatePublicSurfaces();
   return { ok: true, message: "تم الحذف" };
 }
