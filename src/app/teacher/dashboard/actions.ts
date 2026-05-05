@@ -39,6 +39,54 @@ export async function updateBookingStatus(
     return { error: "الحجز غير موجود أو ليس لديك صلاحية" };
   }
 
+  // Sprint 2.1 (2026-05-05): eval-discipline gate. Block new confirmations
+  // if the teacher has any completed-but-unevaluated sessions older than
+  // 7 days. Forces the pedagogical-feedback loop the platform was built
+  // for: write the eval BEFORE accepting more work. Cancellations still
+  // pass through — never block a teacher from cancelling.
+  //
+  // Grandfather period: gate is soft (warning only) until GATE_HARD_AT.
+  // This gives existing teachers 14 days from launch to clear backlog
+  // before the platform locks them out simultaneously.
+  if (status === "confirmed") {
+    const GATE_HARD_AT = new Date("2026-05-19T00:00:00Z");
+    const isGateHard = new Date() >= GATE_HARD_AT;
+    const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: oldCompleted } = await supabase
+      .from("bookings")
+      .select("id, student_id, scheduled_at")
+      .eq("teacher_id", user.id)
+      .eq("status", "completed")
+      .lt("scheduled_at", sevenDaysAgoIso)
+      .returns<{ id: string; student_id: string; scheduled_at: string }[]>();
+
+    if (oldCompleted && oldCompleted.length > 0) {
+      const studentIds = [...new Set(oldCompleted.map((b) => b.student_id))];
+      const { data: evals } = await supabase
+        .from("session_evaluations")
+        .select("student_id, created_at")
+        .eq("teacher_id", user.id)
+        .in("student_id", studentIds)
+        .returns<{ student_id: string; created_at: string }[]>();
+
+      // For each old completed booking, count it as unevaluated if no eval
+      // exists from this teacher for that student dated after the booking.
+      const unevaluatedCount = oldCompleted.filter((b) => {
+        const matchingEval = (evals ?? []).find(
+          (e) => e.student_id === b.student_id && new Date(e.created_at) > new Date(b.scheduled_at),
+        );
+        return !matchingEval;
+      }).length;
+
+      if (unevaluatedCount > 0 && isGateHard) {
+        return {
+          error: `لديك ${unevaluatedCount} جلسة مكتملة بحاجة لتقييم. يرجى كتابة التقييمات من صفحة "التقييمات" قبل تأكيد حجوزات جديدة.`,
+        };
+      }
+    }
+  }
+
   // The validate_booking_status trigger guards invalid transitions.
   // RLS ensures only booking parties can update.
   const updateData: Record<string, unknown> = { status };
