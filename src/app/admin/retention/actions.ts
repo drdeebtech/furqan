@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdminOrModerator, ForbiddenError } from "@/lib/auth/require-admin";
 import { dispatchNotification } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
+import { logError } from "@/lib/logger";
 
 export type InterventionType =
   | "re_engagement"
@@ -79,10 +80,17 @@ export async function logIntervention(formData: FormData): Promise<{ ok: boolean
     .eq("student_id", studentId);
 
   if (stampError) {
+    logError("admin retention stamp failed", stampError, {
+      tag: "admin-retention",
+      severity: "warning",
+      metadata: { studentId, interventionType: type, actorId: actor.id },
+    });
     return { ok: false, error: stampError.message };
   }
 
-  // Write to automation_logs for per-student intervention history
+  // Write to automation_logs for per-student intervention history.
+  // Best-effort: don't block the user on a log failure, but pipe the
+  // failure through logError so it's visible in Sentry.
   const now = new Date().toISOString();
   await supabase.from("automation_logs").insert({
     workflow_name: "retention-intervention",
@@ -98,7 +106,15 @@ export async function logIntervention(formData: FormData): Promise<{ ok: boolean
     },
     started_at: now,
     finished_at: now,
-  } as never);
+  } as never).then(({ error }) => {
+    if (error) {
+      logError("admin retention automation_logs insert failed", error, {
+        tag: "admin-retention",
+        severity: "warning",
+        metadata: { studentId, interventionType: type },
+      });
+    }
+  });
 
   try {
     await emitEvent(
@@ -108,8 +124,13 @@ export async function logIntervention(formData: FormData): Promise<{ ok: boolean
       { intervention_type: type, triggered_by: actor.id },
       actor.id,
     );
-  } catch {
-    // non-blocking
+  } catch (err) {
+    // non-blocking — but log so Sentry sees the emit failure
+    logError("admin retention emitEvent failed", err, {
+      tag: "admin-retention",
+      severity: "warning",
+      metadata: { studentId, interventionType: type },
+    });
   }
 
   revalidatePath("/admin/retention");
