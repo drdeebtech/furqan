@@ -1697,3 +1697,74 @@ export async function getTeacherRosterErrorPulse(
     .slice(0, 3)
     .map(([category, count]) => ({ category, count }));
 }
+
+/**
+ * Talqeen inbox for the teacher dashboard — Sprint Improvement #2 (2026-05-05).
+ *
+ * Talqeen audio submissions land in `homework_assignments` with
+ * `homework_type='recitation'` (Sprint 2.3). Today they merge into the
+ * generic grading count, making the platform's most pedagogically
+ * distinctive workflow invisible. This helper isolates them so they
+ * can be shown as their own dedicated inbox.
+ *
+ * Returns the total count + the 5 most-recent submissions awaiting
+ * grading (status='student_ready'), with student name resolved.
+ */
+export async function getTeacherTalqeenInbox(
+  teacherId: string,
+): Promise<{
+  totalCount: number;
+  recent: Array<{
+    id: string;
+    title: string;
+    studentName: string;
+    audioDurationSeconds: number | null;
+    readyAt: string | null;
+  }>;
+}> {
+  const supabase = await createClient();
+
+  // Count + recent rows in one fetch — limited to 5 for rendering speed.
+  // We get the total count by selecting with count exact head:false (count
+  // returns the total, data is paginated by .limit).
+  const { data, count } = await supabase
+    .from("homework_assignments")
+    .select("id, title, student_id, audio_duration_seconds, ready_at", { count: "exact" })
+    .eq("teacher_id", teacherId)
+    .eq("homework_type", "recitation")
+    .eq("status", "student_ready")
+    .order("ready_at", { ascending: false, nullsFirst: false })
+    .limit(5)
+    .returns<{
+      id: string;
+      title: string;
+      student_id: string;
+      audio_duration_seconds: number | null;
+      ready_at: string | null;
+    }[]>();
+
+  const rows = data ?? [];
+  if (rows.length === 0) {
+    return { totalCount: count ?? 0, recent: [] };
+  }
+
+  const studentIds = [...new Set(rows.map(r => r.student_id))];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", studentIds)
+    .returns<{ id: string; full_name: string | null }[]>();
+  const nameMap: Record<string, string> = {};
+  for (const p of profiles ?? []) nameMap[p.id] = p.full_name ?? "—";
+
+  return {
+    totalCount: count ?? rows.length,
+    recent: rows.map(r => ({
+      id: r.id,
+      title: r.title,
+      studentName: nameMap[r.student_id] ?? "—",
+      audioDurationSeconds: r.audio_duration_seconds,
+      readyAt: r.ready_at,
+    })),
+  };
+}

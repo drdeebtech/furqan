@@ -15,8 +15,10 @@ import {
   getTeacherRecentStudents,
   getTeacherTimeToGrade,
   getTeacherRosterErrorPulse,
+  getTeacherTalqeenInbox,
 } from "@/lib/dashboard-queries";
 import { RosterErrorPulse } from "./roster-error-pulse";
+import { TalqeenInboxCard } from "./talqeen-inbox-card";
 
 export const metadata: Metadata = { title: "لوحة المعلم" };
 
@@ -39,7 +41,7 @@ export default async function TeacherDashboardPage() {
     profileRes, tpRes, pendingRes, todayRes, monthRes, allStudentsRes, availRes,
     gradingRes, convosRes,
     weeklyHours, liveSessions, sessionBreakdown, recentStudents, timeToGrade,
-    rosterErrorPulse,
+    rosterErrorPulse, talqeenInbox,
   ] = await Promise.all([
     supabase.from("profiles").select("full_name, phone, avatar_url").eq("id", user.id).single<{ full_name: string | null; phone: string | null; avatar_url: string | null }>(),
     supabase.from("teacher_profiles").select("total_sessions, rating_avg, cv_status, bio").eq("teacher_id", user.id)
@@ -65,6 +67,7 @@ export default async function TeacherDashboardPage() {
     getTeacherRecentStudents(user.id),
     getTeacherTimeToGrade(user.id),
     getTeacherRosterErrorPulse(user.id),
+    getTeacherTalqeenInbox(user.id),
   ]);
 
   // loadOrFail/countOrFail wrap the direct supabase queries in this batch so
@@ -200,6 +203,15 @@ export default async function TeacherDashboardPage() {
           timeToGrade,
         }}
       />
+      {/* Talqeen Audio Inbox — Sprint Improvement #2 (2026-05-05).
+          Surfaces recitation-type follow-ups (Sprint 2.3) so the
+          platform's most pedagogically distinctive workflow has its
+          own surface instead of merging into generic grading. Shown
+          for ALL teachers — empty state copy nudges newer teachers. */}
+      <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
+        <TalqeenInboxCard data={talqeenInbox} />
+      </div>
+
       {/* Roster-wide recitation-error pulse — Sprint Improvement #3
           (2026-05-05). Shown for ALL teachers (not gated by cvStatus)
           because newer teachers benefit from the empty-state nudge to
