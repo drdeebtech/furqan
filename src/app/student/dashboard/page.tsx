@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { loadOrFail } from "@/lib/supabase/load-or-fail";
 import type { SessionType } from "@/types/database";
 import { StudentDashboardContent } from "./dashboard-content";
+import { DataLoadBanner } from "@/components/shared/data-load-banner";
 import {
   getStudentStudyAnalytics,
   getStudentLiveSessions,
@@ -65,8 +67,19 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("student_id", user.id).eq("status", "pending"),
   ]);
 
-  const fullName = profileRes.data?.full_name ?? null;
-  const nextBooking = (nextBookingRes.data ?? [])[0] ?? null;
+  // loadOrFail: pipe failed reads through Sentry with the dashboard route
+  // tagged, so we know WHICH widget tripped (vs Sprint 1.1 which only sees
+  // the URL). anyFailed accumulates across the whole page so the banner
+  // surfaces even when only one of the loads broke.
+  const profileLoad = loadOrFail(profileRes, { full_name: null }, { route: "student-dashboard", widget: "profile" });
+  const nextBookingLoad = loadOrFail(nextBookingRes, [], { route: "student-dashboard", widget: "next-booking" });
+  const totalLoad = loadOrFail(totalRes, null, { route: "student-dashboard", widget: "total-sessions" });
+  const monthLoad = loadOrFail(monthRes, null, { route: "student-dashboard", widget: "month-sessions" });
+  const pendingLoad = loadOrFail(pendingRes, null, { route: "student-dashboard", widget: "pending-bookings" });
+  let anyFailed = profileLoad.failed || nextBookingLoad.failed || totalLoad.failed || monthLoad.failed || pendingLoad.failed;
+
+  const fullName = profileLoad.data?.full_name ?? null;
+  const nextBooking = nextBookingLoad.data[0] ?? null;
   const totalSessions = totalRes.count ?? 0;
   const monthSessions = monthRes.count ?? 0;
   const pendingBookings = pendingRes.count ?? 0;
@@ -132,9 +145,15 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
       .maybeSingle<{ next_goals: string | null; evaluation_type: string; created_at: string }>(),
     getStudentMurajaahPlan(user.id),
   ]);
-  const activePackages = packagesRes.data ?? [];
+  const packagesLoad = loadOrFail(packagesRes, [], { route: "student-dashboard", widget: "active-packages" });
+  const hwRawLoad = loadOrFail(hwRawRes, [], { route: "student-dashboard", widget: "homework-counts" });
+  const lastProgressLoad = loadOrFail(lastProgressRes, null, { route: "student-dashboard", widget: "last-progress" });
+  const latestEvalLoad = loadOrFail(latestEvalRes, null, { route: "student-dashboard", widget: "latest-evaluation" });
+  anyFailed = anyFailed || packagesLoad.failed || hwRawLoad.failed || lastProgressLoad.failed || latestEvalLoad.failed;
+
+  const activePackages = packagesLoad.data;
   const hwCounts: Record<string, number> = {};
-  for (const h of hwRawRes.data ?? []) {
+  for (const h of hwRawLoad.data) {
     hwCounts[h.status] = (hwCounts[h.status] ?? 0) + 1;
   }
   // Continue Watching prefers in-progress course lessons; falls back to recent
@@ -144,7 +163,7 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
   // /student/courses confusion the audit flagged (P2-3).
   const continueIsLessons = continueWatching.length > 0;
   const watchingRows = continueIsLessons ? continueWatching : recentRecordings;
-  const lastProgress = lastProgressRes.data ?? null;
+  const lastProgress = lastProgressLoad.data;
   const resumeLessonRow = continueWatching.find(r => r._lessonId && typeof r.progress === "number") as
     | { _lessonId: string; _href: string; subject: string; progress: number }
     | undefined;
@@ -178,8 +197,11 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
       .returns<{ id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[]>(),
   ]);
 
-  const todaySessions = todaySessionsRes.data ?? [];
-  const todayHomework = todayHomeworkRes.data ?? [];
+  const todaySessionsLoad = loadOrFail(todaySessionsRes, [], { route: "student-dashboard", widget: "today-sessions" });
+  const todayHomeworkLoad = loadOrFail(todayHomeworkRes, [], { route: "student-dashboard", widget: "today-homework" });
+  anyFailed = anyFailed || todaySessionsLoad.failed || todayHomeworkLoad.failed;
+  const todaySessions = todaySessionsLoad.data;
+  const todayHomework = todayHomeworkLoad.data;
 
   // Resolve teacher names for today's sessions (only if not already in nameMap).
   const todayTeacherIds = todaySessions
@@ -196,7 +218,9 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
   }
 
   return (
-    <StudentDashboardContent
+    <>
+      <DataLoadBanner failed={anyFailed} />
+      <StudentDashboardContent
       data={{
         fullName,
         nextBooking,
@@ -218,10 +242,11 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
         homeworkPulse,
         todaySessions,
         todayHomework,
-        latestEvaluation: latestEvalRes.data ?? null,
+        latestEvaluation: latestEvalLoad.data,
         murajaahPlan,
         renderedAtMs: now.getTime(),
       }}
     />
+    </>
   );
 }
