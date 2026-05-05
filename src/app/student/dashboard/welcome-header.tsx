@@ -127,6 +127,27 @@ export function WelcomeHeader({
         )}
       </div>
 
+      {/* Sprint 3.1 (2026-05-05): explicit reset-risk warning when
+          streak >= 3 + not logged today. Drops as a one-line subtitle
+          below the welcome row, linking to the Murajaah card on the
+          same dashboard so the action is one click away. The chip
+          alone is too quiet for a 7-day streak that's about to die. */}
+      {streak >= 3 && !loggedToday && (
+        <p className="mt-2 text-sm text-warning">
+          {t(
+            `راجع أو سجّل دراستك اليوم للحفاظ على سلسلة الـ ${streak} أيام.`,
+            `Read or review today to keep your ${streak}-day streak alive.`,
+          )}
+          {" "}
+          <a
+            href="#today-murajaah"
+            className="font-medium underline underline-offset-2 hover:text-warning/80 focus-ring rounded"
+          >
+            {t("ابدأ المراجعة الآن ←", "Start review now →")}
+          </a>
+        </p>
+      )}
+
       {/* Juz mini-progress — visible whenever a surah is known. Uses an
           accessible meter element so screen readers announce position. */}
       {juzNum != null && (
@@ -161,20 +182,39 @@ export function WelcomeHeader({
 
 function StreakChip({ streak, loggedToday }: { streak: number; loggedToday: boolean }) {
   const { t } = useLang();
-  const tone = loggedToday
-    ? "border-gold/40 bg-gold/10 text-gold"
-    : "border-warning/30 bg-warning/5 text-warning";
+  // Sprint 3.1 (2026-05-05): make the chip more prominent + escalate
+  // visually when streak is at risk. A streak >= 3 days that hasn't
+  // been touched today gets the loudest treatment so the student sees
+  // it before scrolling — this is the single highest-leverage daily
+  // engagement signal (proven across language-learning apps).
+  const atRisk = !loggedToday && streak >= 3;
+  const tone = atRisk
+    ? "border-warning bg-warning/15 text-warning shadow-sm shadow-warning/20"
+    : loggedToday
+      ? "border-gold/40 bg-gold/10 text-gold"
+      : "border-gold/20 bg-gold/5 text-gold/80";
+  // Slightly bigger + bolder than before. Animate the flame on at-risk
+  // to draw attention without being obnoxious.
   return (
     <div
-      className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-semibold ${tone}`}
+      className={`inline-flex items-center gap-2 rounded-full border-2 px-4 py-2 text-sm font-bold ${tone}`}
       role="status"
       aria-live="polite"
       title={loggedToday
         ? t("تم تسجيل دراسة اليوم", "You've logged study today")
-        : t("لم تسجل بعد اليوم — حافظ على السلسلة", "You haven't logged yet today — keep the streak alive")}
+        : atRisk
+          ? t("لم تسجل بعد اليوم — السلسلة في خطر!", "You haven't logged yet today — your streak is at risk!")
+          : t("لم تسجل بعد اليوم — حافظ على السلسلة", "You haven't logged yet today — keep the streak alive")}
     >
-      <Flame size={14} aria-hidden="true" />
-      <span>{streak} {streak === 1 ? t("يوم", "day") : t("أيام", "days")}</span>
+      <Flame size={16} className={atRisk ? "animate-pulse" : ""} aria-hidden="true" />
+      <span>
+        {streak} {streak === 1 ? t("يوم", "day") : t("أيام", "days")}
+      </span>
+      {atRisk && (
+        <span className="text-xs font-medium opacity-90">
+          · {t("احفظها", "Save it")}
+        </span>
+      )}
     </div>
   );
 }

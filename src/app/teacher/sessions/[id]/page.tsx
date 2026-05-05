@@ -134,6 +134,25 @@ export default async function TeacherSessionPage({ params }: Props) {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3);
 
+  // Sprint 2.2 (2026-05-05): per-session error count for the end-session
+  // nudge. Filters student_progress rows tied to THIS booking (progress
+  // entries the teacher created during this specific session), then
+  // counts recitation_errors hung off them. Drives the "no errors
+  // logged this session yet" prompt above PostSessionForm.
+  const { data: thisSessionProgress } = await supabase
+    .from("student_progress")
+    .select("id")
+    .eq("booking_id", session.booking_id)
+    .returns<{ id: string }[]>();
+  let sessionErrorCount = 0;
+  if (thisSessionProgress && thisSessionProgress.length > 0) {
+    const { count } = await supabase
+      .from("recitation_errors")
+      .select("id", { count: "exact", head: true })
+      .in("progress_id", thisSessionProgress.map(p => p.id));
+    sessionErrorCount = count ?? 0;
+  }
+
   // Group-session: list every student enrolled in this session via their
   // own bookings row. Each enrolled booking has its own homework feed.
   const { data: enrolledRaw } = await supabase
@@ -419,16 +438,49 @@ export default async function TeacherSessionPage({ params }: Props) {
       )}
 
       {isCompleted ? (
-        <PostSessionForm
-          sessionId={session.id}
-          bookingId={session.booking_id}
-          studentId={booking.student_id}
-          studentName={studentName}
-          existingNotes={session.post_session_notes}
-          existingHomework={session.homework}
-          existingAssignments={hwAssignments}
-          enrolled={enrolledForForm}
-        />
+        <>
+          {/* Sprint 2.2 (2026-05-05): end-session error-logging nudge.
+              Surfaces the per-session error count to force an honest
+              signal — when it's 0, the teacher is asked to either log
+              errors or note "no errors observed" in the notes below.
+              Without this prompt, the recitation-error heatmap stays
+              empty even when students made mistakes. */}
+          <div className={`mt-4 rounded-xl border p-3 ${
+            sessionErrorCount === 0
+              ? "border-warning/30 bg-warning/10"
+              : "border-success/30 bg-success/10"
+          }`}>
+            <p className={`flex items-center gap-1.5 text-sm font-medium ${
+              sessionErrorCount === 0 ? "text-warning" : "text-success"
+            }`}>
+              <AlertTriangle size={14} aria-hidden="true" />
+              {sessionErrorCount === 0
+                ? t("لا توجد أخطاء مُسجَّلة لهذه الجلسة", "No errors logged for this session yet")
+                : t(`تم تسجيل ${sessionErrorCount} خطأ لهذه الجلسة`, `${sessionErrorCount} errors logged for this session`)}
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              {sessionErrorCount === 0
+                ? t(
+                  "إذا ارتكب الطالب أخطاءً تجويدية، سجّلها لتظهر في خريطة أخطائه. وإن لم تتم ملاحظة أخطاء، اذكر ذلك في الملاحظات أدناه.",
+                  "If the student made tajweed errors, log them so they appear in the heatmap. If no errors were observed, note that in the comments below.",
+                )
+                : t(
+                  "ستظهر هذه الأخطاء في خريطة الطالب على صفحة تقدمه.",
+                  "These will appear in the student's error heatmap on their progress page.",
+                )}
+            </p>
+          </div>
+          <PostSessionForm
+            sessionId={session.id}
+            bookingId={session.booking_id}
+            studentId={booking.student_id}
+            studentName={studentName}
+            existingNotes={session.post_session_notes}
+            existingHomework={session.homework}
+            existingAssignments={hwAssignments}
+            enrolled={enrolledForForm}
+          />
+        </>
       ) : (
         <>
           <VideoRoom

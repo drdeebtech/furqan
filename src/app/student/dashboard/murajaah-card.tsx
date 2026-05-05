@@ -42,7 +42,8 @@ export function MurajaahCard({
   if (reviewedToday) {
     return (
       <section
-        aria-label={t("مراجعة اليوم", "Today's Murajaah")}
+        id="today-murajaah"
+      aria-label={t("مراجعة اليوم", "Today's Murajaah")}
         className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4"
       >
         <p className="flex items-center gap-2 text-sm text-emerald-400">
@@ -61,6 +62,7 @@ export function MurajaahCard({
 
   return (
     <section
+      id="today-murajaah"
       aria-label={t("مراجعة اليوم", "Today's Murajaah")}
       className="rounded-2xl border border-card-border bg-card p-5"
     >
