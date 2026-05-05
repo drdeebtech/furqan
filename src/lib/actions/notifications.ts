@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { logError } from "@/lib/logger";
 import type { Notification } from "@/types/database";
 
 export async function fetchNotifications(limit = 20) {
@@ -38,12 +39,20 @@ export async function markAsRead(notificationId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "غير مصرح" };
 
-  await supabase
+  const { error } = await supabase
     .from("notifications")
     .update({ is_read: true } as never)
     .eq("id", notificationId)
     .eq("user_id", user.id);
 
+  if (error) {
+    logError("notifications markAsRead failed", error, {
+      tag: "notifications",
+      severity: "warning",
+      metadata: { notificationId, userId: user.id },
+    });
+    return { error: "فشل تحديث الإشعار — يرجى المحاولة مرة أخرى" };
+  }
   return { success: true };
 }
 
@@ -52,12 +61,20 @@ export async function markAllAsRead() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "غير مصرح" };
 
-  await supabase
+  const { error } = await supabase
     .from("notifications")
     .update({ is_read: true } as never)
     .eq("user_id", user.id)
     .eq("is_read", false);
 
+  if (error) {
+    logError("notifications markAllAsRead failed", error, {
+      tag: "notifications",
+      severity: "warning",
+      metadata: { userId: user.id },
+    });
+    return { error: "فشل تحديث الإشعارات — يرجى المحاولة مرة أخرى" };
+  }
   return { success: true };
 }
 
@@ -66,11 +83,19 @@ export async function deleteNotification(notificationId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "غير مصرح" };
 
-  await supabase
+  const { error } = await supabase
     .from("notifications")
     .delete()
     .eq("id", notificationId)
     .eq("user_id", user.id);
 
+  if (error) {
+    logError("notifications deleteNotification failed", error, {
+      tag: "notifications",
+      severity: "warning",
+      metadata: { notificationId, userId: user.id },
+    });
+    return { error: "فشل حذف الإشعار — يرجى المحاولة مرة أخرى" };
+  }
   return { success: true };
 }
