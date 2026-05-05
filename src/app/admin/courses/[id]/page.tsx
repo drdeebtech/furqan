@@ -48,9 +48,12 @@ export default async function AdminCourseReviewPage({ params }: PageProps) {
     ? (
         await supabase
           .from("profiles")
-          .select("id, full_name, email")
+          // email lives on auth.users, not public.profiles — fetch via
+          // admin.auth.admin.getUserById(course.teacher_id) if needed.
+          // (Sentry E4-18.)
+          .select("id, full_name")
           .eq("id", course.teacher_id)
-          .single<{ id: string; full_name: string | null; email: string | null }>()
+          .single<{ id: string; full_name: string | null }>()
       ).data
     : null;
 

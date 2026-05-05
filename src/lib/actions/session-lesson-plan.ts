@@ -30,7 +30,10 @@ async function authorizeTeacherForSession(sessionId: string): Promise<{ ok: true
 
   const { data: session } = await supabase
     .from("sessions")
-    .select("booking:bookings(teacher_id)")
+    // Explicit FK hint disambiguates the sessions ↔ bookings relationship —
+    // PostgREST raises PGRST201 without it because bookings.session_id has
+    // both an M:1 FK and a 1:1 unique-constraint shape.
+    .select("booking:bookings!bookings_session_id_fkey(teacher_id)")
     .eq("id", sessionId)
     .single<{ booking: { teacher_id: string } | null }>();
   if (!session?.booking) return { ok: false, error: "الجلسة غير موجودة" };

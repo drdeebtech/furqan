@@ -56,7 +56,10 @@ export default async function StudentGroupSessionsPage() {
   const nowIso = new Date().toISOString();
   const { data: bookings } = await supabase
     .from("bookings")
-    .select("id, teacher_id, session_type, scheduled_at, duration_min, session:sessions(id, capacity, is_group)")
+    // Explicit FK hint disambiguates the bookings ↔ sessions relationship.
+    // PostgREST sees both the M:1 FK and the 1:1 unique-constraint shape on
+    // bookings.session_id and refuses to pick one without the hint (PGRST201).
+    .select("id, teacher_id, session_type, scheduled_at, duration_min, session:sessions!bookings_session_id_fkey(id, capacity, is_group)")
     .gte("scheduled_at", nowIso)
     .eq("status", "confirmed")
     .order("scheduled_at", { ascending: true })

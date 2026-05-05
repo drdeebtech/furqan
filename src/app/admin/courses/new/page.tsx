@@ -28,13 +28,16 @@ export default async function AdminNewCoursePage() {
 
   // Pull the active teacher list so the staff member can assign the course
   // to its owning teacher. Sort by full_name for predictability.
+  // email lives on auth.users, not public.profiles — drop from select to
+  // stop PGRST 42703 (Sentry E4-18). Use admin.auth.admin.listUsers() if
+  // email is needed for display.
   const { data: teachers } = await supabase
     .from("profiles")
-    .select("id, full_name, email")
+    .select("id, full_name")
     .eq("role", "teacher")
     .is("deleted_at", null)
     .order("full_name", { ascending: true })
-    .returns<{ id: string; full_name: string | null; email: string | null }[]>();
+    .returns<{ id: string; full_name: string | null }[]>();
 
   return (
     <div dir={dir} className="mx-auto max-w-2xl px-4 py-8">

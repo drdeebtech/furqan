@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Package, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
@@ -16,7 +17,10 @@ interface ActivePackageRow {
   expires_at: string | null;
   status: string;
   packages: { name: string; name_ar: string } | null;
-  profiles: { full_name: string; email: string } | null;
+  // email lives on auth.users, not public.profiles. The list view doesn't
+  // try to render it anymore — admins can drill into the user detail page
+  // for email lookup. (Sentry E4-18.)
+  profiles: { full_name: string } | null;
 }
 
 export default async function AdminCreditsPage() {
@@ -26,7 +30,7 @@ export default async function AdminCreditsPage() {
   // Active packages with low balance (≤2 remaining OR expiring within 7 days)
   const { data: pkgs } = await supabase
     .from("student_packages")
-    .select("id, student_id, sessions_total, sessions_used, expires_at, status, packages(name, name_ar), profiles!student_packages_student_id_fkey(full_name, email)")
+    .select("id, student_id, sessions_total, sessions_used, expires_at, status, packages(name, name_ar), profiles!student_packages_student_id_fkey(full_name)")
     .eq("status", "active")
     .order("expires_at", { ascending: true, nullsFirst: false })
     .returns<ActivePackageRow[]>();
@@ -90,7 +94,9 @@ export default async function AdminCreditsPage() {
                     <tr key={p.id} className="border-t border-surface-border/60">
                       <td className="p-3">
                         <p className="font-medium">{p.profiles?.full_name ?? "—"}</p>
-                        <p className="text-xs text-muted">{p.profiles?.email ?? ""}</p>
+                        <Link href={`/admin/users/${p.student_id}`} className="text-xs text-gold hover:text-gold-hover focus-ring rounded">
+                          {t("فتح حساب الطالب ←", "Open student profile →")}
+                        </Link>
                       </td>
                       <td className="p-3">{(lang === "ar" ? p.packages?.name_ar : p.packages?.name) ?? p.packages?.name ?? "—"}</td>
                       <td className="p-3">

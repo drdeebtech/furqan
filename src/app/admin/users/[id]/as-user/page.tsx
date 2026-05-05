@@ -20,7 +20,8 @@ export const metadata: Metadata = {
 interface TargetProfile {
   id: string;
   full_name: string | null;
-  email: string;
+  // email lives on auth.users — populated separately via admin.auth.
+  email: string | null;
   role: string;
   phone: string | null;
   is_active: boolean;
@@ -75,13 +76,20 @@ export default async function AdminAsUserPage({
   const { t, dir } = await getT();
 
   const admin = createAdminClient();
-  const { data: target } = await admin
+  const { data: profileRow } = await admin
     .from("profiles")
-    .select("id, full_name, email, role, phone, is_active, created_at")
+    // Drop email from profiles select — column doesn't exist (Sentry E4-18).
+    // Email comes from auth.users via getUserById below.
+    .select("id, full_name, role, phone, is_active, created_at")
     .eq("id", id)
-    .single<TargetProfile>();
+    .single<Omit<TargetProfile, "email">>();
 
-  if (!target) notFound();
+  if (!profileRow) notFound();
+
+  // Pull email from auth.users — the canonical location per the codebase
+  // pattern documented at admin/credits/actions.ts:53-54.
+  const { data: authUser } = await admin.auth.admin.getUserById(id);
+  const target: TargetProfile = { ...profileRow, email: authUser?.user?.email ?? null };
 
   const now = new Date().toISOString();
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -301,7 +309,7 @@ function PreviewFrame({
             <Eye size={16} className="text-gold" />
             <span className="font-bold text-gold">{t("معاينة كـ", "Previewing as")} {target.full_name ?? t("مستخدم", "user")}</span>
             <span className="text-xs text-muted">
-              ({target.role}) · {target.email} · {t("للقراءة فقط", "read-only")}
+              ({target.role}){target.email ? ` · ${target.email}` : ""} · {t("للقراءة فقط", "read-only")}
             </span>
           </div>
           <Link
