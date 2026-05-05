@@ -13,6 +13,7 @@ const SESSION_TYPE_EN: Record<SessionType, string> = {
 };
 import { SessionTimer } from "@/components/shared/session-timer";
 import { VideoRoom } from "./video-room";
+import { TalqeenButton } from "../talqeen-button";
 import { RateTeacherForm } from "./rate-teacher-form";
 
 export const metadata: Metadata = { title: "الجلسة" };
@@ -129,6 +130,12 @@ export default async function SessionPage({ params }: Props) {
             {lang === "ar" && <p className="mt-1 text-sm text-muted">Session completed</p>}
           </div>
 
+          {/* Sprint 2.3 (2026-05-05): Talqeen — student can send a
+              recitation recording for the teacher to correct, even
+              after the live call ended. Defines the Quran-pedagogy
+              identity vs being a generic video-call tool. */}
+          <TalqeenButton bookingId={session.booking_id} studentId={user.id} />
+
           {session.post_session_notes && (
             <div className="glass-card p-5">
               <h2 className="mb-2 font-display text-sm font-semibold text-gold">{t("ملاحظات المعلم", "Teacher Notes")}</h2>
@@ -167,14 +174,19 @@ export default async function SessionPage({ params }: Props) {
           )}
         </div>
       ) : (
-        <VideoRoom
-          sessionId={session.id}
-          roomUrl={session.room_url}
-          userName={user.user_metadata?.full_name ?? t("طالب", "Student")}
-          expiresAt={session.expires_at}
-          durationMin={booking.duration_min}
-          startedAt={session.started_at}
-        />
+        <div className="space-y-4">
+          <VideoRoom
+            sessionId={session.id}
+            roomUrl={session.room_url}
+            userName={user.user_metadata?.full_name ?? t("طالب", "Student")}
+            expiresAt={session.expires_at}
+            durationMin={booking.duration_min}
+            startedAt={session.started_at}
+          />
+          {/* Sprint 2.3: Talqeen also available DURING the live call —
+              teacher might ask "recite that ayah and send it to me". */}
+          <TalqeenButton bookingId={session.booking_id} studentId={user.id} />
+        </div>
       )}
     </div>
   );
