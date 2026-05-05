@@ -80,16 +80,19 @@ export default async function TeacherSessionPage({ params }: Props) {
       .maybeSingle<{ churn_risk_score: number | null }>(),
     // Most recent evaluation THIS teacher wrote for THIS student. Drives
     // the "you said last time" prompt — closes the loop between teacher
-    // intent (recommendations text) and teacher follow-through (did the
+    // intent (next_goals text) and teacher follow-through (did the
     // session today address what was promised last time?).
+    // Uses live schema column names: next_goals (forward-looking guidance)
+    // and areas_for_improvement (weakness summary). Earlier code used
+    // recommendations/weaknesses which never existed — Sentry E4-16.
     supabase.from("session_evaluations")
-      .select("recommendations, weaknesses, created_at")
+      .select("next_goals, areas_for_improvement, created_at")
       .eq("student_id", booking.student_id)
       .eq("teacher_id", user.id)
-      .not("recommendations", "is", null)
+      .not("next_goals", "is", null)
       .order("created_at", { ascending: false })
       .limit(1)
-      .maybeSingle<{ recommendations: string | null; weaknesses: string | null; created_at: string }>(),
+      .maybeSingle<{ next_goals: string | null; areas_for_improvement: string | null; created_at: string }>(),
     // Latest student_progress row — gives surah/ayah position the teacher
     // is about to continue from.
     supabase.from("student_progress")
@@ -313,7 +316,7 @@ export default async function TeacherSessionPage({ params }: Props) {
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             {/* What this teacher said last time. */}
-            {prevEval?.recommendations && (
+            {prevEval?.next_goals && (
               <div className="rounded-xl border border-gold/30 bg-gold/5 p-3 md:col-span-3">
                 <h3 className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-gold">
                   <MessageSquareQuote size={12} aria-hidden="true" />
@@ -322,10 +325,10 @@ export default async function TeacherSessionPage({ params }: Props) {
                     `What you wrote last evaluation (${new Date(prevEval.created_at).toLocaleDateString(locale, { month: "short", day: "numeric" })})`,
                   )}
                 </h3>
-                <p className="text-sm leading-relaxed text-foreground">{prevEval.recommendations}</p>
-                {prevEval.weaknesses && (
+                <p className="text-sm leading-relaxed text-foreground">{prevEval.next_goals}</p>
+                {prevEval.areas_for_improvement && (
                   <p className="mt-2 text-xs text-muted">
-                    <span className="text-orange-400">{t("نقاط ضعف:", "Weaknesses:")}</span> {prevEval.weaknesses}
+                    <span className="text-orange-400">{t("نقاط ضعف:", "Weaknesses:")}</span> {prevEval.areas_for_improvement}
                   </p>
                 )}
               </div>

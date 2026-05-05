@@ -101,7 +101,12 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
 
   let sessionId: string | null = null;
   if (nextBooking) {
-    const { data: session } = await supabase.from("sessions").select("id").eq("booking_id", nextBooking.id).single<{ id: string }>();
+    // .maybeSingle() — sessions row only exists once the teacher actually
+    // starts the call. For a confirmed-but-not-yet-started booking the row
+    // is legitimately absent, so 0 rows is a normal "no session yet" state,
+    // not an error. .single() throws PGRST116 here (Sentry E4-1A); the
+    // surrounding `session?.id ?? null` already expects nullable.
+    const { data: session } = await supabase.from("sessions").select("id").eq("booking_id", nextBooking.id).maybeSingle<{ id: string }>();
     sessionId = session?.id ?? null;
   }
 

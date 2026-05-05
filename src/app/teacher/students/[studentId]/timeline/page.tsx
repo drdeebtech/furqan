@@ -26,7 +26,7 @@ interface Props { params: Promise<{ studentId: string }>; }
  */
 type TimelineEvent =
   | { kind: "session"; at: string; sessionType: string; durationMin: number | null }
-  | { kind: "evaluation"; at: string; overall: number | null; recommendations: string | null; evalType: string | null }
+  | { kind: "evaluation"; at: string; overall: number | null; nextGoals: string | null; evalType: string | null }
   | { kind: "homework_graded"; at: string; title: string; grade: string; teacherNotes: string | null }
   | { kind: "progress"; at: string; progressType: "new" | "muraja" | "correction"; surahNum: number | null; ayahFrom: number | null; ayahTo: number | null };
 
@@ -70,7 +70,7 @@ export default async function TeacherStudentTimelinePage({ params }: Props) {
   type EvalRow = {
     id: string;
     overall_score: number | null;
-    recommendations: string | null;
+    next_goals: string | null;
     evaluation_type: string | null;
     created_at: string;
   };
@@ -101,7 +101,7 @@ export default async function TeacherStudentTimelinePage({ params }: Props) {
       .order("scheduled_at", { ascending: false })
       .returns<BookingRow[]>(),
     supabase.from("session_evaluations")
-      .select("id, overall_score, recommendations, evaluation_type, created_at")
+      .select("id, overall_score, next_goals, evaluation_type, created_at")
       .eq("teacher_id", user.id).eq("student_id", studentId)
       .gte("created_at", ninetyDaysAgoIso)
       .order("created_at", { ascending: false })
@@ -136,7 +136,7 @@ export default async function TeacherStudentTimelinePage({ params }: Props) {
       kind: "evaluation",
       at: e.created_at,
       overall: e.overall_score,
-      recommendations: e.recommendations,
+      nextGoals: e.next_goals,
       evalType: e.evaluation_type,
     });
   }
@@ -273,8 +273,8 @@ function TimelineEntry({
               `Evaluation${event.evalType ? ` (${event.evalType})` : ""}${event.overall ? ` — ${event.overall}/10 overall` : ""}`,
             )}
           </p>
-          {event.recommendations && (
-            <p className="mt-1 text-xs text-foreground/80 line-clamp-2">{event.recommendations}</p>
+          {event.nextGoals && (
+            <p className="mt-1 text-xs text-foreground/80 line-clamp-2">{event.nextGoals}</p>
           )}
         </>
       );
