@@ -44,8 +44,8 @@ export default async function TeacherDashboardPage() {
   const [
     profileRes, tpRes, pendingRes, todayRes, monthRes, allStudentsRes, availRes,
     gradingRes, convosRes,
-    weeklyHoursLoad, liveSessionsLoad, sessionBreakdown, recentStudents, timeToGrade,
-    rosterErrorPulse, talqeenInbox, parentReportDigest, recitationRoster,
+    weeklyHoursLoad, liveSessionsLoad, sessionBreakdownLoad, recentStudentsLoad, timeToGradeLoad,
+    rosterErrorPulseLoad, talqeenInboxLoad, parentReportDigestLoad, recitationRosterLoad,
   ] = await Promise.all([
     supabase.from("profiles").select("full_name, phone, avatar_url").eq("id", user.id).single<{ full_name: string | null; phone: string | null; avatar_url: string | null }>(),
     supabase.from("teacher_profiles").select("total_sessions, rating_avg, cv_status, bio").eq("teacher_id", user.id)
@@ -75,13 +75,41 @@ export default async function TeacherDashboardPage() {
       [],
       { route: "teacher-dashboard", widget: "live-sessions" },
     ),
-    getTeacherSessionTypeBreakdown(user.id),
-    getTeacherRecentStudents(user.id),
-    getTeacherTimeToGrade(user.id),
-    getTeacherRosterErrorPulse(user.id),
-    getTeacherTalqeenInbox(user.id),
-    getTeacherParentReportDigest(user.id),
-    getTeacherRecitationStandardRoster(user.id),
+    helperOrFail(
+      () => getTeacherSessionTypeBreakdown(user.id),
+      [],
+      { route: "teacher-dashboard", widget: "session-breakdown" },
+    ),
+    helperOrFail(
+      () => getTeacherRecentStudents(user.id),
+      [],
+      { route: "teacher-dashboard", widget: "recent-students" },
+    ),
+    helperOrFail(
+      () => getTeacherTimeToGrade(user.id),
+      { medianHours: null, p90Hours: null, sampleSize: 0 },
+      { route: "teacher-dashboard", widget: "time-to-grade" },
+    ),
+    helperOrFail(
+      () => getTeacherRosterErrorPulse(user.id),
+      [],
+      { route: "teacher-dashboard", widget: "roster-error-pulse" },
+    ),
+    helperOrFail(
+      () => getTeacherTalqeenInbox(user.id),
+      { totalCount: 0, recent: [] },
+      { route: "teacher-dashboard", widget: "talqeen-inbox" },
+    ),
+    helperOrFail(
+      () => getTeacherParentReportDigest(user.id),
+      { totalCount: 0, byType: [], recent: [] },
+      { route: "teacher-dashboard", widget: "parent-report-digest" },
+    ),
+    helperOrFail(
+      () => getTeacherRecitationStandardRoster(user.id),
+      [],
+      { route: "teacher-dashboard", widget: "recitation-standard-roster" },
+    ),
   ]);
 
   // loadOrFail/countOrFail wrap the direct supabase queries in this batch so
@@ -103,7 +131,10 @@ export default async function TeacherDashboardPage() {
   let anyFailed = profileLoad.failed || tpLoad.failed || pendingLoad.failed
     || todayLoad.failed || allStudentsLoad.failed || convosLoad.failed
     || monthLoad.failed || availLoad.failed || gradingLoad.failed
-    || weeklyHoursLoad.failed || liveSessionsLoad.failed;
+    || weeklyHoursLoad.failed || liveSessionsLoad.failed
+    || sessionBreakdownLoad.failed || recentStudentsLoad.failed || timeToGradeLoad.failed
+    || rosterErrorPulseLoad.failed || talqeenInboxLoad.failed
+    || parentReportDigestLoad.failed || recitationRosterLoad.failed;
 
   const convIds = convosLoad.data.map(c => c.id);
   let unreadMessages = 0;
@@ -206,8 +237,8 @@ export default async function TeacherDashboardPage() {
           nameMap,
           weeklyHours: weeklyHoursLoad.data,
           liveSessions: liveSessionsLoad.data,
-          sessionBreakdown,
-          recentStudents,
+          sessionBreakdown: sessionBreakdownLoad.data,
+          recentStudents: recentStudentsLoad.data,
           actionQueue: {
             pendingGrading,
             overdueEvals: overdueEvalsCount,
@@ -215,7 +246,7 @@ export default async function TeacherDashboardPage() {
             todaySessionCount: todaySessions.length,
             lowAvailability: !hasAvailability,
           },
-          timeToGrade,
+          timeToGrade: timeToGradeLoad.data,
         }}
       />
       {/* Talqeen Audio Inbox — Sprint Improvement #2 (2026-05-05).
@@ -224,7 +255,7 @@ export default async function TeacherDashboardPage() {
           own surface instead of merging into generic grading. Shown
           for ALL teachers — empty state copy nudges newer teachers. */}
       <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
-        <TalqeenInboxCard data={talqeenInbox} />
+        <TalqeenInboxCard data={talqeenInboxLoad.data} />
       </div>
 
       {/* Roster-wide recitation-error pulse — Sprint Improvement #3
@@ -232,7 +263,7 @@ export default async function TeacherDashboardPage() {
           because newer teachers benefit from the empty-state nudge to
           start logging errors during sessions. */}
       <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
-        <RosterErrorPulse data={rosterErrorPulse} />
+        <RosterErrorPulse data={rosterErrorPulseLoad.data} />
       </div>
 
       {/* Parent-report digest — surfaces what's been sent to parents
@@ -241,7 +272,7 @@ export default async function TeacherDashboardPage() {
           the platform. Honest about delivery-status (sent_at stays
           null until messaging provider is wired). */}
       <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
-        <ParentReportDigestCard data={parentReportDigest} />
+        <ParentReportDigestCard data={parentReportDigestLoad.data} />
       </div>
 
       {/* Recitation-standard roster summary — at-a-glance qira'a
@@ -249,7 +280,7 @@ export default async function TeacherDashboardPage() {
           plus a nudge to record qira'a for students missing it.
           Component renders nothing when there's no roster data. */}
       <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
-        <RecitationStandardRoster data={recitationRoster} />
+        <RecitationStandardRoster data={recitationRosterLoad.data} />
       </div>
 
       {cvStatus === "approved" && (

@@ -1093,13 +1093,15 @@ export async function getTeacherSessionTypeBreakdown(
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const { data: bookings } = await supabase
+  const bookingsRes = await supabase
     .from("bookings")
     .select("session_type")
     .eq("teacher_id", teacherId)
     .eq("status", "completed")
     .gte("created_at", thirtyDaysAgo.toISOString())
     .returns<{ session_type: string }[]>();
+  if (bookingsRes.error) throw bookingsRes.error;
+  const bookings = bookingsRes.data;
 
   if (!bookings || bookings.length === 0) return [];
 
@@ -1124,7 +1126,7 @@ export async function getTeacherRecentStudents(
 ): Promise<{ id: string; [key: string]: unknown }[]> {
   const supabase = await createClient();
 
-  const { data: bookings } = await supabase
+  const bookingsRes = await supabase
     .from("bookings")
     .select("id, student_id, session_type, scheduled_at")
     .eq("teacher_id", teacherId)
@@ -1137,6 +1139,8 @@ export async function getTeacherRecentStudents(
       session_type: string;
       scheduled_at: string;
     }[]>();
+  if (bookingsRes.error) throw bookingsRes.error;
+  const bookings = bookingsRes.data;
 
   if (!bookings || bookings.length === 0) return [];
 
@@ -1166,6 +1170,8 @@ export async function getTeacherRecentStudents(
       .in("student_id", studentIds)
       .returns<{ student_id: string }[]>(),
   ]);
+  if (profilesRes.error) throw profilesRes.error;
+  if (sessionCountsRes.error) throw sessionCountsRes.error;
 
   const nameMap: Record<string, string> = {};
   if (profilesRes.data) {
@@ -1612,7 +1618,7 @@ export async function getTeacherTimeToGrade(
   // Only graded follow-ups (any of the 4 completed_* statuses) where both
   // timestamps are present. ready_at can be null for grandfathered rows
   // pre-Sprint 2.3, so filter explicitly.
-  const { data } = await supabase
+  const result = await supabase
     .from("homework_assignments")
     .select("ready_at, completed_at")
     .eq("teacher_id", teacherId)
@@ -1626,8 +1632,9 @@ export async function getTeacherTimeToGrade(
     .not("completed_at", "is", null)
     .gte("completed_at", thirtyDaysAgoIso)
     .returns<{ ready_at: string; completed_at: string }[]>();
+  if (result.error) throw result.error;
 
-  const rows = data ?? [];
+  const rows = result.data ?? [];
   if (rows.length < 3) {
     return { medianHours: null, p90Hours: null, sampleSize: rows.length };
   }
@@ -1680,23 +1687,27 @@ export async function getTeacherRosterErrorPulse(
   // Step 1: this teacher's progress rows (last 30 days). recitation_errors
   // is keyed by progress_id (FK), not teacher_id, so we resolve via the
   // progress table.
-  const { data: progressRows } = await supabase
+  const progressRes = await supabase
     .from("student_progress")
     .select("id")
     .eq("teacher_id", teacherId)
     .gte("created_at", thirtyDaysAgoIso)
     .returns<{ id: string }[]>();
+  if (progressRes.error) throw progressRes.error;
+  const progressRows = progressRes.data;
 
   if (!progressRows || progressRows.length === 0) return [];
 
   // Step 2: errors against those progress IDs. Excluding the sentinel
   // keeps the data honest — those rows aren't tajweed errors.
-  const { data: errors } = await supabase
+  const errorsRes = await supabase
     .from("recitation_errors")
     .select("error_type, note")
     .in("progress_id", progressRows.map(p => p.id))
     .gte("created_at", thirtyDaysAgoIso)
     .returns<{ error_type: string; note: string | null }[]>();
+  if (errorsRes.error) throw errorsRes.error;
+  const errors = errorsRes.data;
 
   if (!errors || errors.length === 0) return [];
 
@@ -1745,7 +1756,7 @@ export async function getTeacherTalqeenInbox(
   // Count + recent rows in one fetch — limited to 5 for rendering speed.
   // We get the total count by selecting with count exact head:false (count
   // returns the total, data is paginated by .limit).
-  const { data, count } = await supabase
+  const inboxRes = await supabase
     .from("homework_assignments")
     .select("id, title, student_id, audio_duration_seconds, ready_at", { count: "exact" })
     .eq("teacher_id", teacherId)
@@ -1760,6 +1771,9 @@ export async function getTeacherTalqeenInbox(
       audio_duration_seconds: number | null;
       ready_at: string | null;
     }[]>();
+  if (inboxRes.error) throw inboxRes.error;
+  const data = inboxRes.data;
+  const count = inboxRes.count;
 
   const rows = data ?? [];
   if (rows.length === 0) {
@@ -1767,11 +1781,13 @@ export async function getTeacherTalqeenInbox(
   }
 
   const studentIds = [...new Set(rows.map(r => r.student_id))];
-  const { data: profiles } = await supabase
+  const profilesRes = await supabase
     .from("profiles")
     .select("id, full_name")
     .in("id", studentIds)
     .returns<{ id: string; full_name: string | null }[]>();
+  if (profilesRes.error) throw profilesRes.error;
+  const profiles = profilesRes.data;
   const nameMap: Record<string, string> = {};
   for (const p of profiles ?? []) nameMap[p.id] = p.full_name ?? "—";
 
@@ -1814,7 +1830,7 @@ export async function getTeacherParentReportDigest(
   const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   // Fetch the 3 most-recent rows + the total via count: "exact".
-  const { data, count } = await supabase
+  const recentRes = await supabase
     .from("parent_reports")
     .select("id, title, report_type, student_id, sent_at, created_at", { count: "exact" })
     .eq("teacher_id", teacherId)
@@ -1829,6 +1845,9 @@ export async function getTeacherParentReportDigest(
       sent_at: string | null;
       created_at: string;
     }[]>();
+  if (recentRes.error) throw recentRes.error;
+  const data = recentRes.data;
+  const count = recentRes.count;
 
   const rows = data ?? [];
   const totalCount = count ?? 0;
@@ -1838,12 +1857,14 @@ export async function getTeacherParentReportDigest(
 
   // Type breakdown needs ALL rows in window, not just the 3 most-recent.
   // Second small fetch with type-only.
-  const { data: typeRows } = await supabase
+  const typeRes = await supabase
     .from("parent_reports")
     .select("report_type")
     .eq("teacher_id", teacherId)
     .gte("created_at", sevenDaysAgoIso)
     .returns<{ report_type: string }[]>();
+  if (typeRes.error) throw typeRes.error;
+  const typeRows = typeRes.data;
 
   const typeCounts: Record<string, number> = {};
   for (const r of typeRows ?? []) {
@@ -1855,11 +1876,13 @@ export async function getTeacherParentReportDigest(
 
   // Resolve student names for the recent rows.
   const studentIds = [...new Set(rows.map(r => r.student_id))];
-  const { data: profiles } = await supabase
+  const profilesRes = await supabase
     .from("profiles")
     .select("id, full_name")
     .in("id", studentIds)
     .returns<{ id: string; full_name: string | null }[]>();
+  if (profilesRes.error) throw profilesRes.error;
+  const profiles = profilesRes.data;
   const nameMap: Record<string, string> = {};
   for (const p of profiles ?? []) nameMap[p.id] = p.full_name ?? "—";
 
@@ -1903,14 +1926,15 @@ export async function getTeacherRecitationStandardRoster(
   // recitation_standard per student. Two-step: fetch all progress
   // rows for this teacher (sorted recent-first), then dedupe by
   // student_id taking the first standard we see.
-  const { data } = await supabase
+  const result = await supabase
     .from("student_progress")
     .select("student_id, recitation_standard")
     .eq("teacher_id", teacherId)
     .order("created_at", { ascending: false })
     .returns<{ student_id: string; recitation_standard: string | null }[]>();
+  if (result.error) throw result.error;
 
-  const rows = data ?? [];
+  const rows = result.data ?? [];
   if (rows.length === 0) return [];
 
   const perStudent: Record<string, string | null> = {};
