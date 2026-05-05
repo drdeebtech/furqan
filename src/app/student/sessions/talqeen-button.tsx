@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { Mic, X, CheckCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
-import { AudioRecorder } from "@/app/student/homework/audio-recorder";
+import { AudioRecorder } from "@/app/student/follow-up/audio-recorder";
 import { createTalqeenHomework } from "./talqeen-actions";
 
 /**

@@ -67,11 +67,31 @@ function groupSessionsByDay(
  * hasn't logged yet (lenient — encourages opening the app); yesterday must be
  * a real entry. Returns `{ streak, weeklyMinutes, weeklyDelta }` where delta
  * is week-over-week percentage change.
+ *
+ * Day keys are computed in the *student's* timezone (from profiles.timezone,
+ * default UTC) so a Cairo student logging at 2 AM local doesn't get their
+ * entry attributed to the previous server day.
  */
 export async function getStudentStreak(
   studentId: string,
 ): Promise<{ streak: number; weeklyMinutes: number; weeklyDelta: number; loggedToday: boolean }> {
   const supabase = await createClient();
+
+  // Resolve the student's preferred timezone — defaults to UTC if missing or
+  // if Intl rejects the value. Using the student's tz aligns "today" with
+  // their local midnight, not the Vercel region's.
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("timezone")
+    .eq("id", studentId)
+    .single<{ timezone: string | null }>();
+  let tz = prof?.timezone ?? "UTC";
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone: tz });
+  } catch {
+    tz = "UTC";
+  }
+
   const now = new Date();
   const fortyNineDaysAgo = new Date(now.getTime() - 49 * 24 * 60 * 60 * 1000);
 
@@ -85,45 +105,57 @@ export async function getStudentStreak(
 
   const list = logs ?? [];
 
-  // Bucket entries by day-key (YYYY-MM-DD in local time).
+  // YYYY-MM-DD in the student's timezone. en-CA gives ISO ordering by default.
+  const dayFormatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const dayKey = (d: Date) => dayFormatter.format(d);
+
   const byDay = new Map<string, number>();
   for (const log of list) {
-    const d = new Date(log.started_at);
-    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    const key = dayKey(new Date(log.started_at));
     byDay.set(key, (byDay.get(key) ?? 0) + (log.duration_seconds ?? 0));
   }
 
-  const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-  const today = new Date(now);
-  const todayKey = dayKey(today);
+  const todayKey = dayKey(now);
   const loggedToday = byDay.has(todayKey);
 
-  // Walk backwards counting consecutive days with entries.
+  // Walk backwards counting consecutive days with entries. The cursor steps
+  // by 24h which can land on the wrong calendar day across DST transitions —
+  // accept ±1 day skew on those two days a year as a known trade-off vs the
+  // prior bug (every day in the wrong tz).
   let streak = 0;
-  const cursor = new Date(today);
-  // If today has no entry, still allow the streak to count from yesterday so
-  // students who haven't yet started today don't see it drop to 0.
+  const cursor = new Date(now);
   if (!byDay.has(dayKey(cursor))) {
-    cursor.setDate(cursor.getDate() - 1);
+    cursor.setTime(cursor.getTime() - 24 * 60 * 60 * 1000);
   }
   while (byDay.has(dayKey(cursor))) {
     streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
+    cursor.setTime(cursor.getTime() - 24 * 60 * 60 * 1000);
   }
 
-  // Weekly totals: this calendar week (Mon–Sun) vs the prior 7-day window.
-  const weekStart = new Date(today);
-  weekStart.setHours(0, 0, 0, 0);
-  weekStart.setDate(today.getDate() - ((today.getDay() + 6) % 7)); // Monday
-  const previousWeekStart = new Date(weekStart);
-  previousWeekStart.setDate(previousWeekStart.getDate() - 7);
+  // Weekly totals: rolling 7-day window ending today (in student tz), vs the
+  // 7 days before that. Keys-only comparison stays tz-correct.
+  const weekKeys = new Set<string>();
+  const prevWeekKeys = new Set<string>();
+  for (let i = 0; i < 7; i++) {
+    const t = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+    weekKeys.add(dayKey(t));
+  }
+  for (let i = 7; i < 14; i++) {
+    const t = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+    prevWeekKeys.add(dayKey(t));
+  }
 
   let thisWeekSec = 0;
   let lastWeekSec = 0;
   for (const log of list) {
-    const t = new Date(log.started_at).getTime();
-    if (t >= weekStart.getTime()) thisWeekSec += log.duration_seconds ?? 0;
-    else if (t >= previousWeekStart.getTime()) lastWeekSec += log.duration_seconds ?? 0;
+    const k = dayKey(new Date(log.started_at));
+    if (weekKeys.has(k)) thisWeekSec += log.duration_seconds ?? 0;
+    else if (prevWeekKeys.has(k)) lastWeekSec += log.duration_seconds ?? 0;
   }
   const weeklyMinutes = Math.round(thisWeekSec / 60);
   const lastWeekMinutes = Math.round(lastWeekSec / 60);

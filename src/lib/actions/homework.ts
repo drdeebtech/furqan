@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { notifyParentHomeworkNotDone } from "@/lib/notifications/parent";
 import { notify } from "@/lib/notifications/dispatcher";
-import { HOMEWORK_STATUS_AR } from "@/lib/constants";
+import { HOMEWORK_STATUS_AR, type ReviewHorizon } from "@/lib/constants";
 import { logError } from "@/lib/logger";
 import type { HomeworkStatus, HomeworkAssignment } from "@/types/database";
 import { emitEvent } from "@/lib/automation/emit";
@@ -29,10 +29,10 @@ async function requireStudent(supabase: Awaited<ReturnType<typeof createClient>>
   return user;
 }
 
-function revalidateHomeworkPaths() {
-  revalidatePath("/teacher/homework");
+function revalidateFollowUpPaths() {
+  revalidatePath("/teacher/follow-up");
   revalidatePath("/teacher/sessions");
-  revalidatePath("/student/homework");
+  revalidatePath("/student/follow-up");
   revalidatePath("/student/dashboard");
   revalidatePath("/student/sessions");
 }
@@ -54,6 +54,16 @@ export async function createHomework(formData: FormData) {
   const ayah_end = formData.get("ayah_end") ? Number(formData.get("ayah_end")) : null;
   const pages_count = formData.get("pages_count") ? Number(formData.get("pages_count")) : null;
   const due_date = (formData.get("due_date") as string) || null;
+
+  // Pedagogical intent at creation time. Defaults to 'none' so an older
+  // form that doesn't post review_horizon still works. Validated against the
+  // CHECK constraint values; anything else falls back to 'none' rather than
+  // failing, since the field is teacher metadata not user-blocking.
+  const horizonRaw = formData.get("review_horizon") as string | null;
+  const review_horizon: ReviewHorizon =
+    horizonRaw === "near" || horizonRaw === "far" || horizonRaw === "none"
+      ? horizonRaw
+      : "none";
 
   if (!booking_id || !student_id || !homework_type || !title) {
     return { error: "جميع الحقول المطلوبة يجب ملؤها" };
@@ -86,13 +96,14 @@ export async function createHomework(formData: FormData) {
     ayah_end,
     pages_count,
     due_date,
+    review_horizon,
   } as never);
 
-  if (error) return { error: "فشل إنشاء الواجب" };
+  if (error) return { error: "فشل إنشاء المتابعة" };
 
   // Notify student
   try {
-    await notify(student_id, "homework", "واجب جديد", `كلّفك معلمك بواجب جديد — ${title}`, "homework", booking_id);
+    await notify(student_id, "homework", "متابعة جديدة", `كلّفك معلمك بمتابعة جديدة — ${title}`, "homework", booking_id);
   } catch (err) {
     logError("notify student failed during createHomework", err, {
       component: "homework.createHomework",
@@ -100,7 +111,7 @@ export async function createHomework(formData: FormData) {
     });
   }
 
-  revalidateHomeworkPaths();
+  revalidateFollowUpPaths();
   await emitEvent("homework.assigned", "homework", booking_id, { student_id, teacher_id: user.id, homework_type, title })
     .catch((err) => logError("emit homework.assigned failed", err, { tag: "automation", event: "homework.assigned" }));
   return { success: true };
@@ -131,9 +142,9 @@ export async function markStudentReady(
     .returns<{ student_id: string; teacher_id: string; status: string; title: string }[]>()
     .single();
 
-  if (!hw) return { error: "الواجب غير موجود" };
+  if (!hw) return { error: "المتابعة غير موجودة" };
   if (hw.student_id !== user.id) return { error: "غير مصرح" };
-  if (hw.status !== "assigned") return { error: "حالة الواجب لا تسمح بهذا الإجراء" };
+  if (hw.status !== "assigned") return { error: "حالة المتابعة لا تسمح بهذا الإجراء" };
 
   // Validate optional audio payload — defense in depth (RLS already gates
   // the upload itself, but we re-check here so a malformed call can't sneak
@@ -166,7 +177,7 @@ export async function markStudentReady(
     .update(updatePayload as never)
     .eq("id", homeworkId);
 
-  if (error) return { error: "فشل تحديث حالة الواجب" };
+  if (error) return { error: "فشل تحديث حالة المتابعة" };
 
   // Notify teacher
   try {
@@ -175,7 +186,7 @@ export async function markStudentReady(
       .single<{ full_name: string | null }>();
     const studentName = student?.full_name ?? "الطالب";
 
-    await notify(hw.teacher_id, "homework", "طالب جاهز", `${studentName} جاهز لتسميع الواجب: ${hw.title}`, "homework", homeworkId);
+    await notify(hw.teacher_id, "homework", "طالب جاهز", `${studentName} جاهز لتسميع المتابعة: ${hw.title}`, "homework", homeworkId);
   } catch (err) {
     logError("notify teacher failed during markStudentReady", err, {
       component: "homework.markStudentReady",
@@ -183,7 +194,7 @@ export async function markStudentReady(
     });
   }
 
-  revalidateHomeworkPaths();
+  revalidateFollowUpPaths();
   await emitEvent("homework.student_ready", "homework", homeworkId, { student_id: user.id, teacher_id: hw.teacher_id })
     .catch((err) => logError("emit homework.student_ready failed", err, { tag: "automation", event: "homework.student_ready" }));
   return { success: true };
@@ -213,7 +224,7 @@ export async function gradeHomework(homeworkId: string, formData: FormData) {
     .returns<HomeworkAssignment[]>()
     .single();
 
-  if (!hw) return { error: "الواجب غير موجود" };
+  if (!hw) return { error: "المتابعة غير موجودة" };
   if (hw.teacher_id !== user.id) {
     const { data: p } = await supabase
       .from("profiles").select("role").eq("id", user.id)
@@ -236,13 +247,13 @@ export async function gradeHomework(homeworkId: string, formData: FormData) {
     } as never)
     .eq("id", homeworkId);
 
-  if (error) return { error: "فشل تقييم الواجب" };
+  if (error) return { error: "فشل تقييم المتابعة" };
 
   const gradeLabel = HOMEWORK_STATUS_AR[grade];
 
   // Notify student
   try {
-    await notify(hw.student_id, "homework", "تم تقييم واجبك", `تم تقييم واجب "${hw.title}" — النتيجة: ${gradeLabel}`, "homework", homeworkId);
+    await notify(hw.student_id, "homework", "تم تقييم متابعتك", `تم تقييم متابعة "${hw.title}" — النتيجة: ${gradeLabel}`, "homework", homeworkId);
   } catch (err) {
     logError("notify student failed during gradeHomework", err, {
       component: "homework.gradeHomework",
@@ -253,7 +264,10 @@ export async function gradeHomework(homeworkId: string, formData: FormData) {
   // Auto-regeneration for needs_work / not_done
   if (grade === "completed_needs_work" || grade === "completed_not_done") {
     try {
-      // Create new assignment linked to the original
+      // Create new assignment linked to the original. The child inherits
+      // parent.review_horizon so a "near" follow-up that gets re-assigned
+      // stays in the student's "From last session" bucket — losing the
+      // horizon would silently demote it to "New work".
       const { error: regenErr } = await supabase.from("homework_assignments").insert({
         booking_id: hw.booking_id,
         student_id: hw.student_id,
@@ -265,12 +279,17 @@ export async function gradeHomework(homeworkId: string, formData: FormData) {
         ayah_start: hw.ayah_start,
         ayah_end: hw.ayah_end,
         pages_count: hw.pages_count,
+        // review_horizon shipped in 20260505131935; supabase.generated.ts is
+        // stale because CLI is auth'd to the wrong account (see CLAUDE.md
+        // "Supabase MCP — wrong-account gotcha"). Cast until next legitimate
+        // db:types regen.
+        review_horizon: (hw as unknown as { review_horizon: string | null }).review_horizon,
         parent_assignment_id: homeworkId,
       } as never);
       if (regenErr) logError("homework auto-regen failed", regenErr, { tag: "homework" });
 
       // Notify student about re-assignment
-      await notify(hw.student_id, "homework", "تم إعادة تكليفك بالواجب", `تمت إعادة تكليفك بواجب "${hw.title}" — يرجى المحاولة مجدداً`, "homework", homeworkId);
+      await notify(hw.student_id, "homework", "تم إعادة تكليفك بالمتابعة", `تمت إعادة تكليفك بمتابعة "${hw.title}" — يرجى المحاولة مجدداً`, "homework", homeworkId);
 
       // Notify parent
       await notifyParentHomeworkNotDone(
@@ -288,7 +307,7 @@ export async function gradeHomework(homeworkId: string, formData: FormData) {
     }
   }
 
-  revalidateHomeworkPaths();
+  revalidateFollowUpPaths();
   await emitEvent("homework.graded", "homework", homeworkId, { student_id: hw.student_id, teacher_id: hw.teacher_id, grade })
     .catch((err) => logError("emit homework.graded failed", err, { tag: "automation", event: "homework.graded" }));
   return { success: true };
@@ -308,7 +327,7 @@ export async function editHomework(homeworkId: string, formData: FormData) {
     .returns<{ teacher_id: string; student_id: string; assigned_at: string; status: HomeworkStatus }[]>()
     .single();
 
-  if (!hw) return { error: "الواجب غير موجود" };
+  if (!hw) return { error: "المتابعة غير موجودة" };
   if (hw.teacher_id !== user.id) {
     const { data: p } = await supabase
       .from("profiles").select("role").eq("id", user.id)
@@ -318,7 +337,7 @@ export async function editHomework(homeworkId: string, formData: FormData) {
     }
   }
 
-  // Status guard: graded homework is immutable. Editing the title/description
+  // Status guard: graded follow-ups are immutable. Editing the title/description
   // post-grade would silently change what the student is being graded against,
   // with no re-validation and no notification. To re-grade, use the explicit
   // gradeHomework flow (which fires student notifications + parent reports).
@@ -326,7 +345,7 @@ export async function editHomework(homeworkId: string, formData: FormData) {
     "completed_excellent", "completed_good", "completed_needs_work", "completed_not_done",
   ];
   if (GRADED_STATUSES.includes(hw.status)) {
-    return { error: "لا يمكن تعديل واجب تم تقييمه. للتغيير، أنشئ واجباً جديداً." };
+    return { error: "لا يمكن تعديل متابعة تم تقييمها. للتغيير، أنشئ متابعة جديدة." };
   }
 
   // Check edit window: find next session between same teacher+student
@@ -381,9 +400,9 @@ export async function editHomework(homeworkId: string, formData: FormData) {
     .update(updates as never)
     .eq("id", homeworkId);
 
-  if (error) return { error: "فشل تعديل الواجب" };
+  if (error) return { error: "فشل تعديل المتابعة" };
 
-  revalidateHomeworkPaths();
+  revalidateFollowUpPaths();
   return { success: true };
 }
 
@@ -407,7 +426,7 @@ export async function getHomeworkAudioUrl(
     .eq("id", homeworkId)
     .single<{ audio_url: string | null; student_id: string; teacher_id: string }>();
 
-  if (!hw) return { error: "الواجب غير موجود" };
+  if (!hw) return { error: "المتابعة غير موجودة" };
   if (!hw.audio_url) return { error: "لا يوجد تسجيل صوتي" };
 
   // Sign for 1 hour. The HTML5 <audio> element will cache the URL for the
@@ -443,7 +462,7 @@ export async function deleteHomework(homeworkId: string) {
     .returns<{ teacher_id: string }[]>()
     .single();
 
-  if (!hw) return { error: "الواجب غير موجود" };
+  if (!hw) return { error: "المتابعة غير موجودة" };
 
   // Verify ownership or admin/mod
   if (hw.teacher_id !== user.id) {
@@ -480,7 +499,7 @@ export async function deleteHomework(homeworkId: string) {
     .delete()
     .eq("id", homeworkId);
 
-  if (error) return { error: "فشل حذف الواجب" };
+  if (error) return { error: "فشل حذف المتابعة" };
 
   // Audit log the deletion + cascade size. Best-effort: an audit_log
   // insert failure must never block the delete itself succeeding.
@@ -499,6 +518,6 @@ export async function deleteHomework(homeworkId: string) {
       });
     });
 
-  revalidateHomeworkPaths();
+  revalidateFollowUpPaths();
   return { success: true };
 }
