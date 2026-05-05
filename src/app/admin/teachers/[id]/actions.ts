@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { invalidateByTag } from "@vercel/functions";
 import { createClient } from "@/lib/supabase/server";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -154,6 +155,7 @@ export async function uploadTeacherPhoto(
 
   revalidateTeacher(teacherId);
   revalidatePath("/teachers");
+  await invalidateByTag("teachers-public"); // CDN edge cache
   return { success: true };
 }
 

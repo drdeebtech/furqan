@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { invalidateByTag } from "@vercel/functions";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
@@ -62,6 +63,7 @@ export async function savePost(
 
   revalidatePath("/admin/blog");
   revalidatePath("/blog");
+  await invalidateByTag("blog-public"); // CDN edge cache
   redirect("/admin/blog");
 }
 
@@ -74,6 +76,7 @@ export async function deletePost(postId: string) {
   }
   revalidatePath("/admin/blog");
   revalidatePath("/blog");
+  await invalidateByTag("blog-public"); // CDN edge cache
   return { success: true };
 }
 
@@ -86,5 +89,6 @@ export async function togglePublished(postId: string, isPublished: boolean) {
   }
   revalidatePath("/admin/blog");
   revalidatePath("/blog");
+  await invalidateByTag("blog-public"); // CDN edge cache
   return { success: true };
 }

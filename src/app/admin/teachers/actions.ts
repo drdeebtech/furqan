@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import { invalidateByTag } from "@vercel/functions";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { invalidateRoleCache } from "@/lib/auth/role-cache";
@@ -68,6 +69,7 @@ export async function createTeacher(formData: FormData): Promise<void> {
   revalidatePath("/admin/teachers");
   revalidatePath("/admin/users");
   revalidatePath("/teachers"); // public list now ISR-cached (300s) — invalidate on create
+  await invalidateByTag("teachers-public"); // CDN edge cache
   redirect("/admin/teachers?success=created");
 }
 
@@ -100,6 +102,7 @@ export async function updateTeacher(formData: FormData): Promise<void> {
 
   revalidatePath("/admin/teachers");
   revalidatePath("/teachers"); // updates bio/rate/is_accepting — public-page-visible
+  await invalidateByTag("teachers-public"); // CDN edge cache
   redirect("/admin/teachers?success=updated");
 }
 

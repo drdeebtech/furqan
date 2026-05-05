@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { addCacheTag } from "@vercel/functions";
 import { createClient } from "@/lib/supabase/server";
 import { TeachersContent } from "./content";
 
@@ -18,6 +19,12 @@ export const revalidate = 300;
 
 export default async function TeachersPage() {
   const supabase = await createClient();
+
+  // Tag the CDN-cached response so admin mutations can target it via
+  // invalidateByTag('teachers-public') for sub-second global eviction.
+  // Complements the existing revalidatePath('/teachers-page') which
+  // handles the Next.js Data Cache layer.
+  await addCacheTag("teachers-public");
 
   const { data: teacherProfiles } = await supabase
     .from("teacher_profiles")
