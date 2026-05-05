@@ -17,10 +17,12 @@ import {
   getTeacherRosterErrorPulse,
   getTeacherTalqeenInbox,
   getTeacherParentReportDigest,
+  getTeacherRecitationStandardRoster,
 } from "@/lib/dashboard-queries";
 import { RosterErrorPulse } from "./roster-error-pulse";
 import { TalqeenInboxCard } from "./talqeen-inbox-card";
 import { ParentReportDigestCard } from "./parent-report-digest-card";
+import { RecitationStandardRoster } from "./recitation-standard-roster";
 
 export const metadata: Metadata = { title: "لوحة المعلم" };
 
@@ -43,7 +45,7 @@ export default async function TeacherDashboardPage() {
     profileRes, tpRes, pendingRes, todayRes, monthRes, allStudentsRes, availRes,
     gradingRes, convosRes,
     weeklyHours, liveSessions, sessionBreakdown, recentStudents, timeToGrade,
-    rosterErrorPulse, talqeenInbox, parentReportDigest,
+    rosterErrorPulse, talqeenInbox, parentReportDigest, recitationRoster,
   ] = await Promise.all([
     supabase.from("profiles").select("full_name, phone, avatar_url").eq("id", user.id).single<{ full_name: string | null; phone: string | null; avatar_url: string | null }>(),
     supabase.from("teacher_profiles").select("total_sessions, rating_avg, cv_status, bio").eq("teacher_id", user.id)
@@ -71,6 +73,7 @@ export default async function TeacherDashboardPage() {
     getTeacherRosterErrorPulse(user.id),
     getTeacherTalqeenInbox(user.id),
     getTeacherParentReportDigest(user.id),
+    getTeacherRecitationStandardRoster(user.id),
   ]);
 
   // loadOrFail/countOrFail wrap the direct supabase queries in this batch so
@@ -230,6 +233,14 @@ export default async function TeacherDashboardPage() {
           null until messaging provider is wired). */}
       <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
         <ParentReportDigestCard data={parentReportDigest} />
+      </div>
+
+      {/* Recitation-standard roster summary — at-a-glance qira'a
+          distribution for teachers with multi-tradition rosters,
+          plus a nudge to record qira'a for students missing it.
+          Component renders nothing when there's no roster data. */}
+      <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
+        <RecitationStandardRoster data={recitationRoster} />
       </div>
 
       {cvStatus === "approved" && (
