@@ -11,7 +11,7 @@ export async function FAQ() {
   return (
     <section className="py-24">
       <div className="mx-auto max-w-3xl px-6">
-        <p className="text-sm font-medium tracking-widest text-gold">❖ {t("أسئلة شائعة", "FAQ")}</p>
+        <p className="text-sm font-medium tracking-widest text-muted">❖ {t("أسئلة شائعة", "FAQ")}</p>
         <h2 className="font-display mt-3 text-3xl font-bold leading-tight">{t("الأسئلة الشائعة", "Frequently Asked Questions")}</h2>
 
         <div className="mt-12 space-y-2">

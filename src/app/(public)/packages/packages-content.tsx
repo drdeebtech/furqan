@@ -66,7 +66,7 @@ export function PackagesContent({ packages, paypalEnabled, isAuthenticated }: Pa
       {/* Discounts */}
       <section className="border-t border-white/10 py-24">
         <div className="mx-auto max-w-4xl px-6">
-          <p className="text-sm font-medium tracking-widest text-gold">❖ {t("خصومات", "Discounts")}</p>
+          <p className="text-sm font-medium tracking-widest text-muted">❖ {t("خصومات", "Discounts")}</p>
           <h2 className="font-display mt-3 text-3xl font-bold leading-tight">{t("سياسة الخصومات", "Discount Policy")}</h2>
           <div className="mt-12 grid gap-4 md:grid-cols-3">
             {[

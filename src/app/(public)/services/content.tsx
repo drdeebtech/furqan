@@ -63,7 +63,7 @@ export function ServicesContent({ services }: { services: Service[] }) {
               return (
                 <div key={s.id} className={`gap-12 md:flex ${i % 2 === 1 ? "md:flex-row-reverse" : ""}`}>
                   <div className="flex-1">
-                    <p className="text-sm font-medium tracking-widest text-gold">❖ {s.title}</p>
+                    <p className="text-sm font-medium tracking-widest text-muted">❖ {s.title}</p>
                     <h2 className="font-display mt-2 text-3xl font-bold leading-tight">{title}</h2>
                     <p className="mt-4 text-sm leading-relaxed text-muted">{desc}</p>
                     <ul className="mt-6 space-y-2">
