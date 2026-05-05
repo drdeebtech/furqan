@@ -1633,3 +1633,67 @@ export async function getTeacherTimeToGrade(
     sampleSize: hours.length,
   };
 }
+
+/**
+ * Roster-wide recitation-error pulse for the teacher dashboard.
+ *
+ * Aggregates `recitation_errors` across all of this teacher's students'
+ * progress rows over the last 30 days, returning the top categories so
+ * the teacher can see "what does my whole class need work on this
+ * month" — the kind of insight a department head would normally
+ * compile by hand.
+ *
+ * Filters OUT the no-errors-observed sentinel rows (Sprint 2.2)
+ * because they exist only to flip the per-session banner green and
+ * would otherwise inflate the `other` bucket.
+ *
+ * Returns at most 3 categories, sorted by count desc. An empty array
+ * means either no errors logged or the teacher has no progress rows
+ * with logged errors yet.
+ */
+export type RecitationErrorCategory = "makharij" | "sifat" | "madd" | "waqf" | "ghunna" | "other";
+
+export async function getTeacherRosterErrorPulse(
+  teacherId: string,
+): Promise<{ category: RecitationErrorCategory; count: number }[]> {
+  const supabase = await createClient();
+  const thirtyDaysAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Step 1: this teacher's progress rows (last 30 days). recitation_errors
+  // is keyed by progress_id (FK), not teacher_id, so we resolve via the
+  // progress table.
+  const { data: progressRows } = await supabase
+    .from("student_progress")
+    .select("id")
+    .eq("teacher_id", teacherId)
+    .gte("created_at", thirtyDaysAgoIso)
+    .returns<{ id: string }[]>();
+
+  if (!progressRows || progressRows.length === 0) return [];
+
+  // Step 2: errors against those progress IDs. Excluding the sentinel
+  // keeps the data honest — those rows aren't tajweed errors.
+  const { data: errors } = await supabase
+    .from("recitation_errors")
+    .select("error_type, note")
+    .in("progress_id", progressRows.map(p => p.id))
+    .gte("created_at", thirtyDaysAgoIso)
+    .returns<{ error_type: string; note: string | null }[]>();
+
+  if (!errors || errors.length === 0) return [];
+
+  const counts: Record<RecitationErrorCategory, number> = {
+    makharij: 0, sifat: 0, madd: 0, waqf: 0, ghunna: 0, other: 0,
+  };
+  for (const e of errors) {
+    if (e.note === "__no_errors_observed_sentinel__") continue;
+    if (e.error_type in counts) counts[e.error_type as RecitationErrorCategory] += 1;
+    else counts.other += 1;
+  }
+
+  return (Object.entries(counts) as [RecitationErrorCategory, number][])
+    .filter(([, c]) => c > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([category, count]) => ({ category, count }));
+}

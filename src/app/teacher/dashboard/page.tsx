@@ -14,7 +14,9 @@ import {
   getTeacherSessionTypeBreakdown,
   getTeacherRecentStudents,
   getTeacherTimeToGrade,
+  getTeacherRosterErrorPulse,
 } from "@/lib/dashboard-queries";
+import { RosterErrorPulse } from "./roster-error-pulse";
 
 export const metadata: Metadata = { title: "لوحة المعلم" };
 
@@ -37,6 +39,7 @@ export default async function TeacherDashboardPage() {
     profileRes, tpRes, pendingRes, todayRes, monthRes, allStudentsRes, availRes,
     gradingRes, convosRes,
     weeklyHours, liveSessions, sessionBreakdown, recentStudents, timeToGrade,
+    rosterErrorPulse,
   ] = await Promise.all([
     supabase.from("profiles").select("full_name, phone, avatar_url").eq("id", user.id).single<{ full_name: string | null; phone: string | null; avatar_url: string | null }>(),
     supabase.from("teacher_profiles").select("total_sessions, rating_avg, cv_status, bio").eq("teacher_id", user.id)
@@ -61,6 +64,7 @@ export default async function TeacherDashboardPage() {
     getTeacherSessionTypeBreakdown(user.id),
     getTeacherRecentStudents(user.id),
     getTeacherTimeToGrade(user.id),
+    getTeacherRosterErrorPulse(user.id),
   ]);
 
   // loadOrFail/countOrFail wrap the direct supabase queries in this batch so
@@ -196,6 +200,14 @@ export default async function TeacherDashboardPage() {
           timeToGrade,
         }}
       />
+      {/* Roster-wide recitation-error pulse — Sprint Improvement #3
+          (2026-05-05). Shown for ALL teachers (not gated by cvStatus)
+          because newer teachers benefit from the empty-state nudge to
+          start logging errors during sessions. */}
+      <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
+        <RosterErrorPulse data={rosterErrorPulse} />
+      </div>
+
       {cvStatus === "approved" && (
         <div className="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
           <TeacherAtRiskStudents teacherId={user.id} />
