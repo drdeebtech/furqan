@@ -1772,3 +1772,93 @@ export async function getTeacherTalqeenInbox(
     })),
   };
 }
+
+/**
+ * Parent-report digest for the teacher dashboard — Sprint follow-on
+ * after the four-improvement plan (2026-05-05).
+ *
+ * Counts parent_reports rows where teacher_id = me in the last 7 days,
+ * groups by report_type, and returns the most recent 3 with student
+ * name resolved. Surfaces the parent-communication leg of the
+ * teaching loop so the teacher sees what's been sent on their behalf
+ * (whether by their own action or by an automated workflow they
+ * triggered).
+ *
+ * Note on sent_at: parent.ts line 66 leaves sent_at NULL until the
+ * email/SMS integration is wired. So today every row is "created
+ * but delivery-status unknown." The card surfaces this honestly via
+ * a footnote rather than implying delivery.
+ */
+export async function getTeacherParentReportDigest(
+  teacherId: string,
+): Promise<{
+  totalCount: number;
+  byType: { type: string; count: number }[];
+  recent: Array<{ id: string; title: string; reportType: string; studentName: string; createdAt: string; sent: boolean }>;
+}> {
+  const supabase = await createClient();
+  const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Fetch the 3 most-recent rows + the total via count: "exact".
+  const { data, count } = await supabase
+    .from("parent_reports")
+    .select("id, title, report_type, student_id, sent_at, created_at", { count: "exact" })
+    .eq("teacher_id", teacherId)
+    .gte("created_at", sevenDaysAgoIso)
+    .order("created_at", { ascending: false })
+    .limit(3)
+    .returns<{
+      id: string;
+      title: string;
+      report_type: string;
+      student_id: string;
+      sent_at: string | null;
+      created_at: string;
+    }[]>();
+
+  const rows = data ?? [];
+  const totalCount = count ?? 0;
+  if (totalCount === 0) {
+    return { totalCount: 0, byType: [], recent: [] };
+  }
+
+  // Type breakdown needs ALL rows in window, not just the 3 most-recent.
+  // Second small fetch with type-only.
+  const { data: typeRows } = await supabase
+    .from("parent_reports")
+    .select("report_type")
+    .eq("teacher_id", teacherId)
+    .gte("created_at", sevenDaysAgoIso)
+    .returns<{ report_type: string }[]>();
+
+  const typeCounts: Record<string, number> = {};
+  for (const r of typeRows ?? []) {
+    typeCounts[r.report_type] = (typeCounts[r.report_type] ?? 0) + 1;
+  }
+  const byType = Object.entries(typeCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([type, count]) => ({ type, count }));
+
+  // Resolve student names for the recent rows.
+  const studentIds = [...new Set(rows.map(r => r.student_id))];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", studentIds)
+    .returns<{ id: string; full_name: string | null }[]>();
+  const nameMap: Record<string, string> = {};
+  for (const p of profiles ?? []) nameMap[p.id] = p.full_name ?? "—";
+
+  return {
+    totalCount,
+    byType,
+    recent: rows.map(r => ({
+      id: r.id,
+      title: r.title,
+      reportType: r.report_type,
+      studentName: nameMap[r.student_id] ?? "—",
+      createdAt: r.created_at,
+      sent: r.sent_at != null,
+    })),
+  };
+}

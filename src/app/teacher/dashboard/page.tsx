@@ -16,9 +16,11 @@ import {
   getTeacherTimeToGrade,
   getTeacherRosterErrorPulse,
   getTeacherTalqeenInbox,
+  getTeacherParentReportDigest,
 } from "@/lib/dashboard-queries";
 import { RosterErrorPulse } from "./roster-error-pulse";
 import { TalqeenInboxCard } from "./talqeen-inbox-card";
+import { ParentReportDigestCard } from "./parent-report-digest-card";
 
 export const metadata: Metadata = { title: "لوحة المعلم" };
 
@@ -41,7 +43,7 @@ export default async function TeacherDashboardPage() {
     profileRes, tpRes, pendingRes, todayRes, monthRes, allStudentsRes, availRes,
     gradingRes, convosRes,
     weeklyHours, liveSessions, sessionBreakdown, recentStudents, timeToGrade,
-    rosterErrorPulse, talqeenInbox,
+    rosterErrorPulse, talqeenInbox, parentReportDigest,
   ] = await Promise.all([
     supabase.from("profiles").select("full_name, phone, avatar_url").eq("id", user.id).single<{ full_name: string | null; phone: string | null; avatar_url: string | null }>(),
     supabase.from("teacher_profiles").select("total_sessions, rating_avg, cv_status, bio").eq("teacher_id", user.id)
@@ -68,6 +70,7 @@ export default async function TeacherDashboardPage() {
     getTeacherTimeToGrade(user.id),
     getTeacherRosterErrorPulse(user.id),
     getTeacherTalqeenInbox(user.id),
+    getTeacherParentReportDigest(user.id),
   ]);
 
   // loadOrFail/countOrFail wrap the direct supabase queries in this batch so
@@ -218,6 +221,15 @@ export default async function TeacherDashboardPage() {
           start logging errors during sessions. */}
       <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
         <RosterErrorPulse data={rosterErrorPulse} />
+      </div>
+
+      {/* Parent-report digest — surfaces what's been sent to parents
+          on the teacher's behalf this week. Closes the loop between
+          the teacher's actions and the parent-communication leg of
+          the platform. Honest about delivery-status (sent_at stays
+          null until messaging provider is wired). */}
+      <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
+        <ParentReportDigestCard data={parentReportDigest} />
       </div>
 
       {cvStatus === "approved" && (
