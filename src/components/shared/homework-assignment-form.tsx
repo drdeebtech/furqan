@@ -18,9 +18,9 @@ const HORIZON_ORDER: ReviewHorizon[] = ["near", "far", "none"];
 interface Props {
   bookingId: string;
   studentId: string;
-  /** Optional: scope this homework to a specific session for back-references */
+  /** Optional: scope this follow-up to a specific session for back-references */
   sessionId?: string | null;
-  /** Optional: render existing homework rows above the create form */
+  /** Optional: render existing follow-up rows above the create form */
   existingAssignments?: HomeworkAssignment[];
   /** Optional: hide the section header (caller already shows context) */
   hideHeader?: boolean;

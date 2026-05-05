@@ -167,7 +167,7 @@ export async function getStudentStreak(
 }
 
 /**
- * Homework due-soon awareness for the dashboard banner + Today's Plan.
+ * Follow-up due-soon awareness for the dashboard banner + Today's Plan.
  *
  * Returns counts of: items overdue (due_date < now), items due today, items
  * due in the next 7 days, and the most-urgent open item (for banner copy).
@@ -682,7 +682,7 @@ export async function getStudentMurajaahPlan(
 }
 
 /**
- * Calendar events for /student/calendar — combines bookings, homework due
+ * Calendar events for /student/calendar — combines bookings, follow-up due
  * dates, package expiries, and evaluation periods into a single
  * date-keyed list scoped to a month window. Returns one row per event;
  * the calendar grid groups them by date client-side.

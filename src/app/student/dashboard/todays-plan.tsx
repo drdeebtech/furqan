@@ -23,7 +23,7 @@ interface TodaysPlanProps {
 }
 
 /**
- * Unified "what's on my plate today" surface — sessions + homework + quizzes
+ * Unified "what's on my plate today" surface — sessions + follow-up + quizzes
  * in one card, sorted chronologically. Replaces the implicit context-juggling
  * the dashboard required before (4 separate KPIs to figure out the day).
  */

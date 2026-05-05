@@ -17,7 +17,7 @@ interface Props { params: Promise<{ studentId: string }>; }
 /**
  * Teacher view of a single student's timeline. Scoped to this teacher's
  * history with this student — does NOT pull other teachers' evaluations,
- * homework, or parent reports (privacy + RLS).
+ * follow-up, or parent reports (privacy + RLS).
  *
  * Item #15 (rest) from the deep pedagogical analysis. The student-side
  * /student/timeline page surfaces ALL activity including parent reports;
@@ -58,7 +58,7 @@ export default async function TeacherStudentTimelinePage({ params }: Props) {
   if (!relation) redirect("/teacher/students");
 
   // 90-day window — same as /student/timeline. Old activity lives on the
-  // per-domain pages (sessions, evaluations, homework).
+  // per-domain pages (sessions, evaluations, follow-up).
   const ninetyDaysAgoIso = new Date(Date.now() - 90 * 86400_000).toISOString();
 
   type BookingRow = {

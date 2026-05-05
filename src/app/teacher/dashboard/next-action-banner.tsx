@@ -24,7 +24,7 @@ const DISMISS_KEY = "furqan-teacher-banner-dismissed-key";
  *   2. No availability → set availability
  *   3. Imminent session (≤30 min) → Open session
  *   4. Pending bookings to confirm → Confirm
- *   5. Ungraded homework → Grade
+ *   5. Ungraded follow-up → Grade
  *   6. Unread messages → Open inbox
  *   7. Fallback — open today's plan
  *

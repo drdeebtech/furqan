@@ -12,7 +12,7 @@ interface NextActionData {
   nextBooking: { sessionId: string | null; bookingId: string; scheduledAt: string; teacherName: string | null } | null;
   /** First in-progress course lesson the student should resume, if any. */
   resumeLesson: { lessonId: string; title: string; href: string; progressPct: number } | null;
-  /** Homework signal (overdue + due-today + next item). */
+  /** Follow-up signal (overdue + due-today + next item). */
   homework: { overdue: number; dueToday: number; dueThisWeek: number; nextItem: { id: string; description: string | null; dueDate: string | null; type: string } | null };
   /** Upcoming quiz, if any. */
   nextQuiz: { id: string; title: string; due_at: string | null } | null;
@@ -24,10 +24,10 @@ const DISMISS_KEY = "furqan-student-banner-dismissed-key";
  * Single primary CTA banner. Resolves the most-actionable surface for the
  * student in priority order:
  *   1. Live or imminent session (≤30 min) — Join now (urgent)
- *   2. Overdue homework — Submit overdue (warning)
+ *   2. Overdue follow-up — Submit overdue (warning)
  *   3. Quiz due today — Take quiz now (urgent)
  *   4. Scheduled session later — Open details (calm)
- *   5. Homework due today — Submit today's work (warning)
+ *   5. Follow-up due today — Submit today's work (warning)
  *   6. Resume in-progress lesson — Resume (calm)
  *   7. Quiz this week — Take quiz (calm)
  *   8. Fallback — Browse teachers

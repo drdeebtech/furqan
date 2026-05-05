@@ -110,9 +110,9 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
     sessionId = session?.id ?? null;
   }
 
-  // Parallel: packages + homework + dashboard widgets + most-recent learning
+  // Parallel: packages + follow-up + dashboard widgets + most-recent learning
   // waypoint (drives the surah breadcrumb above the KPI grid) + streak +
-  // homework pulse (drives the smart NextActionBanner).
+  // follow-up pulse (drives the smart NextActionBanner).
   const [
     packagesRes, hwRawRes, studyAnalytics, liveSessions, continueWatching,
     recentRecordings, nextQuiz, lastProgressRes, streakInfo, homeworkPulse,
@@ -181,7 +181,7 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
       }
     : null;
 
-  // Today's plan items — sessions today + homework due today + quiz due today.
+  // Today's plan items — sessions today + follow-up due today + quiz due today.
   // Built server-side so the widget never re-queries client-side.
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);

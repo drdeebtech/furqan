@@ -58,7 +58,7 @@ export async function bulkGradeHomework(
   }
   const user = { id: actorId };
 
-  // ─── Bulk update via service-role client (homework RLS is teacher-scoped) ──
+  // ─── Bulk update via service-role client (follow-up RLS is teacher-scoped) ──
   const admin = createAdminClient();
 
   for (const item of items) {
@@ -75,7 +75,7 @@ export async function bulkGradeHomework(
           ? item.feedback.trim()
           : null;
 
-      // Fetch current homework (needed for notify + emit payload)
+      // Fetch current follow-up (needed for notify + emit payload)
       const { data: hw, error: fetchErr } = await admin
         .from("homework_assignments")
         .select("id, title, student_id, teacher_id, status")
@@ -104,7 +104,7 @@ export async function bulkGradeHomework(
 
       const now = new Date().toISOString();
 
-      // Update the homework row.
+      // Update the follow-up row.
       // Schema has `completed_at` + `teacher_notes` (no graded_at/graded_by/grade_notes columns);
       // admin actor identity is captured via audit_log.changed_by below.
       const { error: updateErr } = await admin
@@ -122,7 +122,7 @@ export async function bulkGradeHomework(
         continue;
       }
 
-      // Audit trail — one row per graded homework.
+      // Audit trail — one row per graded follow-up.
       try {
         await admin.from("audit_log").insert({
           changed_by: user.id,

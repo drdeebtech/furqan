@@ -56,7 +56,7 @@ export const STATUS_STYLE: Record<
   },
 };
 
-// ─── V10: Homework labels ───────────────────────────────────────────────────
+// ─── V10: Follow-up labels ───────────────────────────────────────────────────
 
 export const HOMEWORK_TYPE_AR: Record<HomeworkType, string> = {
   hifz: "حفظ",

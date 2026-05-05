@@ -14,15 +14,15 @@ import { createTalqeenHomework } from "./talqeen-actions";
  * (during or after the live call). Flow:
  *
  *   1. Idle: shows "Send recording for correction" button.
- *   2. On click: server action `createTalqeenHomework` opens a homework
- *      slot scoped to this booking. Returns the new homework ID.
+ *   2. On click: server action `createTalqeenHomework` opens a follow-up
+ *      slot scoped to this booking. Returns the new follow-up ID.
  *   3. Mounts the existing AudioRecorder with that ID. Student records
  *      up to 90 seconds via MediaRecorder API.
  *   4. AudioRecorder uploads to the private homework-audio bucket and
  *      calls the existing markStudentReady action — same flow used for
- *      regular homework audio submission.
+ *      regular follow-up audio submission.
  *   5. Teacher gets a notification + the recording lands in their
- *      normal homework grading queue.
+ *      normal follow-up grading queue.
  *
  * Reuses the entire audio-submission pipeline shipped earlier in the
  * 2026-05-04 session: storage bucket + RLS + signed URLs + grading UI.
@@ -100,7 +100,7 @@ export function TalqeenButton({ bookingId, studentId }: { bookingId: string; stu
           onSubmitted={() => setStage("done")}
           // Talqeen is the audio-IS-the-point flow — if the student opts
           // out of audio, we just dismiss instead of finalizing an empty
-          // homework row. The created row stays as 'assigned' status;
+          // follow-up row. The created row stays as 'assigned' status;
           // student can come back later or teacher cleans up.
           onSkipAudio={dismiss}
         />

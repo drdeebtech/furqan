@@ -91,9 +91,9 @@ export default async function StudentDetailPage({ params }: Props) {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle<{ recitation_standard: string | null }>(),
-    // Recent homework with audio submissions — let the teacher hear the
+    // Recent follow-up with audio submissions — let the teacher hear the
     // student's most-recent recordings without context-switching to the
-    // Homework page.
+    // Follow-up page.
     supabase.from("homework_assignments")
       .select("id, title, audio_duration_seconds, ready_at, status")
       .eq("student_id", studentId).eq("teacher_id", user.id)

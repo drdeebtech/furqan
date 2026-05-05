@@ -12,7 +12,7 @@ import type { SessionType, BookingStatus } from "@/types/database";
  *
  * The teacher (or an admin) can attach a second/third/Nth student to a
  * session that already exists for an earlier 1:1 booking. Each enrolled
- * student gets their OWN bookings row (so per-student concepts — homework,
+ * student gets their OWN bookings row (so per-student concepts — follow-up,
  * evaluation, package credit, payment — keep their existing semantics).
  *
  * Steps:

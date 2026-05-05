@@ -176,7 +176,7 @@ export default async function TeacherSessionPage({ params }: Props) {
   }
 
   // Group-session: list every student enrolled in this session via their
-  // own bookings row. Each enrolled booking has its own homework feed.
+  // own bookings row. Each enrolled booking has its own follow-up feed.
   const { data: enrolledRaw } = await supabase
     .from("bookings")
     .select("id, student_id")
@@ -197,7 +197,7 @@ export default async function TeacherSessionPage({ params }: Props) {
   const enrolledStudentIds = Array.from(new Set(allEnrolledBookings.map(b => b.student_id)));
   const enrolledBookingIds = allEnrolledBookings.map(b => b.id);
 
-  // Names + per-booking homework in two round-trips.
+  // Names + per-booking follow-up in two round-trips.
   const [profilesRes, hwRes] = await Promise.all([
     enrolledStudentIds.length > 0
       ? supabase.from("profiles").select("id, full_name").in("id", enrolledStudentIds)
@@ -214,7 +214,7 @@ export default async function TeacherSessionPage({ params }: Props) {
     id: sid,
     name: profileById.get(sid) ?? t("بدون اسم", "Unnamed"),
   }));
-  // Group homework by booking_id for easy per-student lookup downstream.
+  // Group follow-up by booking_id for easy per-student lookup downstream.
   const homeworkByBooking = new Map<string, HomeworkAssignment[]>();
   for (const hw of hwRes.data ?? []) {
     const arr = homeworkByBooking.get(hw.booking_id) ?? [];
@@ -228,7 +228,7 @@ export default async function TeacherSessionPage({ params }: Props) {
     studentName: profileById.get(b.student_id) ?? t("الطالب", "Student"),
     assignments: homeworkByBooking.get(b.id) ?? [],
   }));
-  // Legacy single-student feed used by the inline "Assign homework now"
+  // Legacy single-student feed used by the inline "Assign follow-up now"
   // panel for in-progress sessions — keep pointing at the primary booking.
   const hwAssignments = homeworkByBooking.get(session.booking_id) ?? [];
 

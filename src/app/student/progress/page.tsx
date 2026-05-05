@@ -57,7 +57,7 @@ export default async function StudentProgressPage() {
       .order("created_at", { ascending: false })
       .limit(10)
       .returns<{ id: string; evaluation_type: string; hifz_score: number | null; tajweed_score: number | null; fluency_score: number | null; attendance_score: number | null; overall_score: number | null; strengths: string | null; areas_for_improvement: string | null; next_goals: string | null; teacher_comments: string | null; created_at: string }[]>(),
-    // Homework stats
+    // Follow-up stats
     supabase.from("homework_assignments")
       .select("status")
       .eq("student_id", user.id)
@@ -112,7 +112,7 @@ export default async function StudentProgressPage() {
   // Current level (most recent)
   const currentLevel = progressRecords[0]?.level ?? "beginner";
 
-  // Homework stats
+  // Follow-up stats
   const hwStats = { total: homeworkRaw.length, excellent: 0, good: 0, needsWork: 0, notDone: 0 };
   for (const h of homeworkRaw) {
     if (h.status === "completed_excellent") hwStats.excellent++;

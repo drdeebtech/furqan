@@ -14,7 +14,7 @@ export default async function StudentFollowUpPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Fetch student's homework assignments
+  // Fetch student's follow-up assignments
   const { data: assignments } = await supabase
     .from("homework_assignments")
     .select("*")

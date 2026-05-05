@@ -12,7 +12,7 @@ import { notify } from "@/lib/notifications/dispatcher";
  * echoes, teacher corrects. The platform's video sessions covered the
  * "talk together" half of that loop but had no structured way for the
  * student to send a recording for correction. This action creates the
- * scaffold homework row that the AudioRecorder client component then
+ * scaffold follow-up row that the AudioRecorder client component then
  * fills with the actual audio.
  *
  * The resulting homework_assignments row has:
@@ -34,7 +34,7 @@ export async function createTalqeenHomework(
   if (!user) return { ok: false, error: "غير مسجل الدخول" };
 
   // Verify the booking belongs to this student (RLS gates this anyway).
-  // Pull the teacher_id + scheduled_at to populate the homework row.
+  // Pull the teacher_id + scheduled_at to populate the follow-up row.
   const { data: booking } = await supabase
     .from("bookings")
     .select("id, teacher_id, student_id, scheduled_at, session_id")

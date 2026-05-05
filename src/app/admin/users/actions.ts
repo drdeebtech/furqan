@@ -144,7 +144,7 @@ export async function setUserRoles(userId: string, roles: string[]) {
     }
   } else if (wasTeacher && !isTeacher) {
     // Teacher role removed entirely — archive (don't delete) the row so
-    // historical bookings and homework keep their FK target.
+    // historical bookings and follow-up keep their FK target.
     const { error: archiveErr } = await admin.from("teacher_profiles").update({
       is_archived: true,
       archived_at: new Date().toISOString(),

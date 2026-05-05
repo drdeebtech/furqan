@@ -27,7 +27,7 @@ interface AudioRecorderProps {
 type Stage = "idle" | "permission" | "recording" | "previewing" | "uploading" | "error";
 
 /**
- * In-card audio recorder for student homework submission. Captures up to
+ * In-card audio recorder for student follow-up submission. Captures up to
  * MAX_DURATION_SECONDS via the browser MediaRecorder API, lets the student
  * preview/re-record, then uploads to the private `homework-audio` Storage
  * bucket and finalizes by calling markStudentReady with the path. Path is

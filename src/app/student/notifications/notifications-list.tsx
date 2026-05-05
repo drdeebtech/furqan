@@ -47,7 +47,7 @@ export function NotificationsList({
   // Counts come off the unfiltered set so the student sees how many of
   // each type exist before clicking. Type slugs match the notif_type
   // enum in the schema; ordering puts the highest-pedagogical-value
-  // types first (homework + booking).
+  // types first (follow-up + booking).
   const [activeFilter, setActiveFilter] = useState<NotifType | "all">("all");
   const typeCounts: Record<string, number> = {};
   for (const n of initial) typeCounts[n.type] = (typeCounts[n.type] ?? 0) + 1;

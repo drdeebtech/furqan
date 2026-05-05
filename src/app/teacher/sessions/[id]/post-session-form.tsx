@@ -30,13 +30,13 @@ export function PostSessionForm({
   studentId: string;
   studentName: string;
   existingNotes: string | null;
-  /** @deprecated Legacy free-text homework field; structured homework now lives below */
+  /** @deprecated Legacy free-text follow-up field; structured follow-up now lives below */
   existingHomework: string | null;
   existingAssignments: HomeworkAssignment[];
   /**
    * Full per-booking enrollment data. For 1:1 sessions this contains a
    * single entry (the primary student). For groups, one entry per enrolled
-   * student so the teacher can assign homework + evaluate each individually.
+   * student so the teacher can assign follow-up + evaluate each individually.
    * If absent, falls back to the legacy single-student props above.
    */
   enrolled?: EnrolledStudent[];
@@ -57,7 +57,7 @@ export function PostSessionForm({
   const active = cards.find((c) => c.studentId === activeStudentId) ?? cards[0];
   // Note: existingHomework (legacy free-text field) is preserved unchanged
   // when saving notes — passing it through means existing rows aren't
-  // wiped on first save. New homework should be assigned via the
+  // wiped on first save. New follow-up should be assigned via the
   // structured HomeworkAssignmentForm below.
 
   async function handleSaveNotes() {

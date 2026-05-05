@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "خط زمني" };
 /**
  * Student-side unified timeline. Merges five data sources into one
  * chronological feed so the student can see the arc of their journey in
- * one place: sessions held, evaluations written, homework graded, parent
+ * one place: sessions held, evaluations written, follow-up graded, parent
  * reports sent, and progress logged. Read-only.
  *
  * This is the student-view-only first cut of item #15 (parent-student-

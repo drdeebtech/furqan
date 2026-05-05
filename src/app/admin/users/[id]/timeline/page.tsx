@@ -138,7 +138,7 @@ export default async function UserTimelinePage({ params }: Props) {
       .limit(200)
       .returns<BookingRow[]>(),
 
-    // Homework (student OR teacher) — last 90d
+    // Follow-up (student OR teacher) — last 90d
     supabase
       .from("homework_assignments")
       .select(
@@ -302,7 +302,7 @@ export default async function UserTimelinePage({ params }: Props) {
     }
   }
 
-  // Homework → "homework_created" + optional "homework_graded"
+  // Follow-up → "homework_created" + optional "homework_graded"
   for (const h of homework) {
     const isStudent = h.student_id === id;
     const otherName = nameMap[isStudent ? h.teacher_id : h.student_id] ?? "—";

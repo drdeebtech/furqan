@@ -138,7 +138,7 @@ export async function notifyParentNoShow(
 }
 
 /**
- * Notify parent when homework is graded as needs_work or not_done.
+ * Notify parent when follow-up is graded as needs_work or not_done.
  */
 export async function notifyParentHomeworkNotDone(
   studentId: string,

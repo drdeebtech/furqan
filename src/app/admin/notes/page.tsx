@@ -40,7 +40,7 @@ export default async function AdminNotesPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Fetch sessions with notes or homework
+  // Fetch sessions with notes or follow-up
   const { data: sessions } = await supabase
     .from("sessions")
     .select("id, booking_id, post_session_notes, homework, started_at, ended_at, actual_duration")

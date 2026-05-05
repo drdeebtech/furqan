@@ -37,7 +37,7 @@ function revalidateFollowUpPaths() {
   revalidatePath("/student/sessions");
 }
 
-// ─── 1. Create Homework ─────────────────────────────────────────────────────
+// ─── 1. Create Follow-up ─────────────────────────────────────────────────────
 
 export async function createHomework(formData: FormData) {
   const supabase = await createClient();
@@ -120,7 +120,7 @@ export async function createHomework(formData: FormData) {
 // ─── 2. Mark Student Ready ──────────────────────────────────────────────────
 
 /**
- * Mark a homework assignment "ready" for the teacher to grade. Optionally
+ * Mark a follow-up assignment "ready" for the teacher to grade. Optionally
  * attaches an audio submission in one atomic update so the teacher sees both
  * the ready-state and the audio together (no half-submitted state). Audio
  * payload (path + duration) is validated separately via attachHomeworkAudio
@@ -200,7 +200,7 @@ export async function markStudentReady(
   return { success: true };
 }
 
-// ─── 3. Grade Homework ──────────────────────────────────────────────────────
+// ─── 3. Grade Follow-up ──────────────────────────────────────────────────────
 
 export async function gradeHomework(homeworkId: string, formData: FormData) {
   const supabase = await createClient();
@@ -216,7 +216,7 @@ export async function gradeHomework(homeworkId: string, formData: FormData) {
     return { error: "يرجى اختيار تقييم صحيح" };
   }
 
-  // Fetch current homework
+  // Fetch current follow-up
   const { data: hw } = await supabase
     .from("homework_assignments")
     .select("*")
@@ -313,13 +313,13 @@ export async function gradeHomework(homeworkId: string, formData: FormData) {
   return { success: true };
 }
 
-// ─── 4. Edit Homework ───────────────────────────────────────────────────────
+// ─── 4. Edit Follow-up ───────────────────────────────────────────────────────
 
 export async function editHomework(homeworkId: string, formData: FormData) {
   const supabase = await createClient();
   const { user } = await requireTeacherOrAbove(supabase);
 
-  // Fetch homework — pull status so we can guard against editing graded rows.
+  // Fetch follow-up — pull status so we can guard against editing graded rows.
   const { data: hw } = await supabase
     .from("homework_assignments")
     .select("teacher_id, student_id, assigned_at, status")
@@ -406,7 +406,7 @@ export async function editHomework(homeworkId: string, formData: FormData) {
   return { success: true };
 }
 
-// ─── 5. Get Homework Audio Signed URL ───────────────────────────────────────
+// ─── 5. Get Follow-up Audio Signed URL ───────────────────────────────────────
 // The homework-audio bucket is private; playback requires a short-lived
 // signed URL. Storage RLS gates which paths the caller can sign — student
 // can sign their own, teacher can sign for any homework_assignments row
@@ -447,14 +447,14 @@ export async function getHomeworkAudioUrl(
   return { url: data.signedUrl };
 }
 
-// ─── 6. Delete Homework ─────────────────────────────────────────────────────
+// ─── 6. Delete Follow-up ─────────────────────────────────────────────────────
 
 export async function deleteHomework(homeworkId: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "غير مصرح" };
 
-  // Fetch homework
+  // Fetch follow-up
   const { data: hw } = await supabase
     .from("homework_assignments")
     .select("teacher_id")
@@ -475,7 +475,7 @@ export async function deleteHomework(homeworkId: string) {
   }
 
   // Count + delete children (auto-regenerated assignments) first.
-  // Without this audit trail, a teacher deleting a parent homework would
+  // Without this audit trail, a teacher deleting a parent follow-up would
   // silently delete N regenerated child assignments — the student would
   // see them disappear from /student/follow-up with no explanation.
   // We log how many we cascaded so admins can trace "where did those go".
@@ -493,7 +493,7 @@ export async function deleteHomework(homeworkId: string) {
       .eq("parent_assignment_id", homeworkId);
   }
 
-  // Delete the homework
+  // Delete the follow-up
   const { error } = await supabase
     .from("homework_assignments")
     .delete()
