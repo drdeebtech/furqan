@@ -92,6 +92,48 @@ export default async function TeacherDashboardPage() {
   }
   const pendingGrading = gradingLoad.count;
 
+  // Sprint 2.1 (2026-05-05): proactive eval-discipline count.
+  // Mirrors the same 2-step query that dashboard/actions.ts uses for the
+  // CONFIRM-booking gate (lines 54–80). Surfacing the count here lets the
+  // teacher clear their backlog *before* the gate hardens on 2026-05-19
+  // instead of getting blocked at confirm time. PostgREST has no clean
+  // NOT EXISTS — same fetch-and-filter pattern as the gate.
+  const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const oldCompletedRes = await supabase.from("bookings")
+    .select("id, student_id, scheduled_at")
+    .eq("teacher_id", user.id)
+    .eq("status", "completed")
+    .lt("scheduled_at", sevenDaysAgoIso)
+    .returns<{ id: string; student_id: string; scheduled_at: string }[]>();
+  const oldCompletedLoad = loadOrFail(
+    oldCompletedRes,
+    [] as { id: string; student_id: string; scheduled_at: string }[],
+    { route: "teacher-dashboard", widget: "overdue-evals-bookings" },
+  );
+  anyFailed = anyFailed || oldCompletedLoad.failed;
+
+  let overdueEvalsCount = 0;
+  if (oldCompletedLoad.data.length > 0) {
+    const studentIds = [...new Set(oldCompletedLoad.data.map(b => b.student_id))];
+    const evalsRes = await supabase.from("session_evaluations")
+      .select("student_id, created_at")
+      .eq("teacher_id", user.id)
+      .in("student_id", studentIds)
+      .returns<{ student_id: string; created_at: string }[]>();
+    const evalsLoad = loadOrFail(
+      evalsRes,
+      [] as { student_id: string; created_at: string }[],
+      { route: "teacher-dashboard", widget: "overdue-evals-evaluations" },
+    );
+    anyFailed = anyFailed || evalsLoad.failed;
+    overdueEvalsCount = oldCompletedLoad.data.filter(b => {
+      const matchingEval = evalsLoad.data.find(
+        e => e.student_id === b.student_id && new Date(e.created_at) > new Date(b.scheduled_at),
+      );
+      return !matchingEval;
+    }).length;
+  }
+
   const fullName = profileLoad.data.full_name;
   const hasProfile = !!(profileLoad.data.full_name && profileLoad.data.phone && profileLoad.data.avatar_url);
   const hasBio = !!(tpLoad.data.bio);
@@ -144,7 +186,7 @@ export default async function TeacherDashboardPage() {
           recentStudents,
           actionQueue: {
             pendingGrading,
-            overdueEvals: 0,
+            overdueEvals: overdueEvalsCount,
             unreadMessages,
             todaySessionCount: todaySessions.length,
             lowAvailability: !hasAvailability,
