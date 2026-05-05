@@ -28,9 +28,9 @@ FURQAN is a serious production education platform with strong domain fit, cohere
 ## 1. Product Strategy
 
 ### Strengths
-- Product coherence: homework, evaluations, progress, parent reports, packages all reinforce the same educational loop
+- Product coherence: follow-up, evaluations, progress, parent reports, packages all reinforce the same educational loop
 - 4-role model (student/teacher/admin/moderator) shows operational maturity
-- Homework creates academic continuity; packages create monetization structure
+- Follow-up creates academic continuity; packages create monetization structure
 - CV review workflow demonstrates governance thinking
 
 ### Gaps
@@ -40,7 +40,7 @@ FURQAN is a serious production education platform with strong domain fit, cohere
 
 ### Priority Outcomes (next cycle)
 1. **Frictionless conversion:** public page → trial → paid package with zero friction
-2. **Reliable learning loop:** booking → session → homework → evaluation → next booking as one continuous system
+2. **Reliable learning loop:** booking → session → follow-up → evaluation → next booking as one continuous system
 3. **Parent confidence:** parents should never feel uninformed
 4. **Scalable operations:** admins spend less time chasing status, more time improving quality
 
@@ -70,7 +70,7 @@ Logic currently exists in 5 places:
 |--------|------|----------------|
 | **Booking** | Creation, status transitions, conflicts, cancellation | `bookings` table + server actions |
 | **Session** | Room creation, lifecycle, attendance, completion/no-show | `sessions` table + Daily.co |
-| **Homework** | Assignment lifecycle, readiness, grading, regeneration | `homework_assignments` + actions |
+| **Follow-up** | Assignment lifecycle, readiness, grading, regeneration | `homework_assignments` + actions |
 | **Progress/Evaluation** | Academic performance records, reporting triggers | `student_progress` + `session_evaluations` |
 | **Package/Payments** | Commercial entitlements, sessions remaining, expiry, payment | `packages` + `student_packages` + Stripe |
 | **Communication** | Templates, channel routing, preferences, delivery tracking | `notifications` + `parent_reports` |
@@ -118,7 +118,7 @@ Logic currently exists in 5 places:
 
 **Student dashboard should emphasize:**
 - Next session
-- Homework due
+- Follow-up due
 - Remaining package sessions
 - Progress streak / current target
 - One primary next action
@@ -140,7 +140,7 @@ Logic currently exists in 5 places:
 
 ### 4 Critical Journeys to Audit End-to-End
 1. Lead → trial → paid package
-2. Student booking → session → homework → next booking
+2. Student booking → session → follow-up → next booking
 3. Teacher onboarding → first approved session
 4. Missed session → recovery → parent communication
 
@@ -149,7 +149,7 @@ Logic currently exists in 5 places:
 ## 5. Student Lifecycle & Retention
 
 ### What Exists
-- Package structure, progress visibility, homework loop, evaluations, messaging, notifications
+- Package structure, progress visibility, follow-up loop, evaluations, messaging, notifications
 
 ### What's Missing: Retention Engine
 
@@ -157,13 +157,13 @@ Logic currently exists in 5 places:
 |--------|-----------|----------|
 | No booking in 14 days | Medium | Nudge message |
 | Repeated no-show | High | Parent alert + admin flag |
-| Falling homework completion | Medium | Teacher coaching prompt |
+| Falling follow-up completion | Medium | Teacher coaching prompt |
 | Package expired without renewal | High | Win-back campaign |
 | No login or message response | Critical | Admin intervention queue |
 
 ### Recommended Flows
 - **Trial-to-paid engine:** thank-you → teacher feedback → package recommendation → admin follow-up if no action in 48h
-- **Early engagement window (first 2 weeks):** remind booking, encourage homework, nudge progress, reassure parent
+- **Early engagement window (first 2 weeks):** remind booking, encourage follow-up, nudge progress, reassure parent
 - **Package threshold logic:** notify at low balance, highlight renewal, alert admin for high-value students
 
 ---
@@ -172,7 +172,7 @@ Logic currently exists in 5 places:
 
 ### Strengths
 - 5-step onboarding checklist with progress bar
-- Broad capabilities: availability, sessions, homework, evaluations, messaging, CV
+- Broad capabilities: availability, sessions, follow-up, evaluations, messaging, CV
 
 ### Risks
 - Too many post-session obligations
@@ -220,14 +220,14 @@ Parent trust is probably the single most important retention driver. Parents are
 
 | Tier | Type | Example |
 |------|------|---------|
-| 1 | Routine update | Session completed, homework assigned |
-| 2 | Attention needed | Student missed homework, needs reinforcement |
+| 1 | Routine update | Session completed, follow-up assigned |
+| 2 | Attention needed | Student missed follow-up, needs reinforcement |
 | 3 | Concern | Missed session, repeated issue |
 | 4 | Escalation | Admin follow-up required |
 
 ### Parent Reassurance Moments
 - First session completed
-- First homework submitted
+- First follow-up submitted
 - First milestone reached
 - Evaluation improvement detected
 
@@ -364,7 +364,7 @@ Parent trust is probably the single most important retention driver. Parents are
 | Document | Purpose |
 |----------|---------|
 | **Event Catalog** | Event name, trigger, payload, source of truth, subscribers, side effects |
-| **Lifecycle Docs** | Booking, session, homework, package, evaluation lifecycles |
+| **Lifecycle Docs** | Booking, session, follow-up, package, evaluation lifecycles |
 | **Automation Registry** | Per-workflow: owner, inputs, outputs, retry policy, KPI |
 | **Communication Templates** | Arabic + bilingual templates for reminders, reports, alerts, renewals |
 | **Exception Playbooks** | What admins do when: room fails, teacher misses, payment fails, parent complains |

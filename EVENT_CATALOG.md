@@ -17,9 +17,9 @@
 | `session.ended` | Teacher ends session | `src/app/teacher/dashboard/actions.ts` | booking_id, teacher_id, actual_duration | Parent report, completion tracking |
 | `session.no_show` | Teacher marks no-show | `src/app/teacher/dashboard/actions.ts` | student_id, teacher_id | Parent alert, risk scoring, admin flag |
 | `session.notes_saved` | Teacher saves post-session notes | `src/app/teacher/sessions/[id]/actions.ts` | has_notes, has_homework | Parent report trigger |
-| `homework.assigned` | Teacher assigns homework | `src/lib/actions/homework.ts` | student_id, teacher_id, homework_type, title | Student notification |
+| `homework.assigned` | Teacher assigns follow-up | `src/lib/actions/homework.ts` | student_id, teacher_id, homework_type, title | Student notification |
 | `homework.student_ready` | Student marks ready | `src/lib/actions/homework.ts` | student_id, teacher_id | Teacher notification |
-| `homework.graded` | Teacher grades homework | `src/lib/actions/homework.ts` | student_id, teacher_id, grade | Student notification, parent report (if not_done), auto-regeneration |
+| `homework.graded` | Teacher grades follow-up | `src/lib/actions/homework.ts` | student_id, teacher_id, grade | Student notification, parent report (if not_done), auto-regeneration |
 | `booking.no_show` | Booking transitions to no_show status | `src/app/teacher/dashboard/actions.ts` (via `markNoShow`) | student_id, teacher_id, booking_id | Risk scoring, parent alert |
 | `retention.signal_triggered` | Churn-scoring computes a new signal | `src/app/admin/retention/actions.ts` | user_id, signal_type, score | Re-engagement workflows (gated on `retention_automation_enabled`) |
 | `course.submitted` | Teacher submits course for review | `src/lib/actions/courses.ts` (`submitForReview`) | (none — entity_id = courseId) | Admin notification fanout, moderator queue |

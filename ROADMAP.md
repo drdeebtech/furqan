@@ -159,7 +159,7 @@ pending → confirmed → completed
 created → started → ended
 ```
 
-**Homework lifecycle:**
+**Follow-up lifecycle:**
 ```
 assigned → student_ready → completed_* (with auto-regeneration branch)
 ```
@@ -187,16 +187,16 @@ created → reviewed by student (read-only)
 > **Estimated effort:** 1 session
 
 ### Student dashboard changes
-- Reorder widgets: **next session → homework due → package remaining → progress**
+- Reorder widgets: **next session → follow-up due → package remaining → progress**
 - Add "primary action" CTA based on state:
-  - Has homework due? → "Go to homework"
+  - Has follow-up due? → "Go to follow-up"
   - No upcoming session? → "Book a session"
   - Package low? → "Renew package"
 
 ### Teacher dashboard changes
 **Create:** `src/app/teacher/dashboard/action-queue.tsx`
 - Single component showing prioritized action items:
-  - Students awaiting grading (homework status=student_ready)
+  - Students awaiting grading (follow-up status=student_ready)
   - Overdue evaluations
   - Unread messages
   - Low availability warnings
@@ -240,7 +240,7 @@ computed_at (timestamptz), created_at
 |--------|--------|--------|
 | No booking in 14 days | High | bookings table |
 | Repeated no-show (3+) | High | bookings.status = no_show |
-| Falling homework completion | Medium | homework_assignments completed_needs_work/not_done |
+| Falling follow-up completion | Medium | homework_assignments completed_needs_work/not_done |
 | Package expired without renewal | Critical | student_packages.status = expired |
 | No login in 7 days | Medium | profiles.updated_at or auth |
 | Cancellation rate > 30% | High | bookings.status = cancelled |
@@ -267,7 +267,7 @@ computed_at (timestamptz), created_at
 
 ### Teacher action queue (code)
 **Create:** `src/app/teacher/dashboard/action-queue.tsx`
-- Pending homework to grade (count + links)
+- Pending follow-up to grade (count + links)
 - Overdue evaluations (students with >4 sessions since last eval)
 - Unread student messages
 - Upcoming sessions today
@@ -278,7 +278,7 @@ computed_at (timestamptz), created_at
 - Query from bookings + homework_assignments + session_evaluations
 
 ### n8n workflows (VPS session)
-- **Grading follow-up** — homework in student_ready > 48h → remind teacher
+- **Grading follow-up** — follow-up in student_ready > 48h → remind teacher
 - **Evaluation compliance** — >4 sessions without evaluation → prompt teacher + admin
 - **Weekly teacher snapshot** — summary to each teacher + admin overview
 
@@ -333,14 +333,14 @@ Each widget links to a filtered list page where admin can take action.
 
 ### AI Parent Narratives (n8n workflow)
 - Trigger: session.notes_saved
-- Fetch rich context (session, homework, evaluation, progress)
+- Fetch rich context (session, follow-up, evaluation, progress)
 - Claude API generates warm Arabic summary
 - Fallback to structured template if AI fails
 - Send via dispatcher (email/WhatsApp/in-app)
 - Save to parent_reports
 
 ### AI Curriculum Advisor (n8n workflow)
-- Weekly scan of recitation_errors + homework outcomes
+- Weekly scan of recitation_errors + follow-up outcomes
 - Identify patterns (e.g., "student struggles with makharij in surah 2")
 - Generate teaching suggestions for teacher dashboard
 
@@ -404,7 +404,7 @@ Sprint 8 (AI) ───────────────── depends on Ant
 | Document | Sprint | Purpose |
 |----------|--------|---------|
 | `EVENT_CATALOG.md` | Sprint 3 | Every event: trigger, payload, subscribers |
-| `LIFECYCLES.md` | Sprint 3 | State machines for booking, session, homework, package |
+| `LIFECYCLES.md` | Sprint 3 | State machines for booking, session, follow-up, package |
 | `AUDIT.md` | Done | Full platform audit |
 | `ROADMAP.md` | This file | Implementation plan |
 | `PROJECT.md` | Done | Technical reference |

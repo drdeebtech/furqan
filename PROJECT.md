@@ -7,7 +7,7 @@
 
 ## 1. Overview
 
-FURQAN Academy is a full-stack online Quran teaching platform connecting students with certified teachers for live video sessions. The platform supports Arabic-first RTL design, 4 user roles, structured homework with grading, package-based pricing, in-app notifications, and Progressive Web App capabilities.
+FURQAN Academy is a full-stack online Quran teaching platform connecting students with certified teachers for live video sessions. The platform supports Arabic-first RTL design, 4 user roles, structured follow-up with grading, package-based pricing, in-app notifications, and Progressive Web App capabilities.
 
 **Live URL:** https://furqan.today
 **Repository:** github.com/drdeebtech/furqan (private)
@@ -43,8 +43,8 @@ FURQAN Academy is a full-stack online Quran teaching platform connecting student
 
 | Role | Access | Key Capabilities |
 |------|--------|-----------------|
-| **student** | `/student/*` | Browse teachers, book sessions, join video, track progress, view homework, manage packages, messaging |
-| **teacher** | `/teacher/*` | Manage availability, confirm bookings, conduct sessions, assign/grade homework, CV workflow, evaluations, messaging |
+| **student** | `/student/*` | Browse teachers, book sessions, join video, track progress, view follow-up, manage packages, messaging |
+| **teacher** | `/teacher/*` | Manage availability, confirm bookings, conduct sessions, assign/grade follow-up, CV workflow, evaluations, messaging |
 | **admin** | `/admin/*` + `/moderator/*` | Full platform management: users, teachers, bookings, sessions, evaluations, packages, services, blog, payments, settings, notifications |
 | **moderator** | `/moderator/*` | Users (students+teachers), CV review, session observation, evaluations, audit log (read-only) |
 
@@ -68,7 +68,7 @@ FURQAN Academy is a full-stack online Quran teaching platform connecting student
 | 8 | `teacher_availability` | Weekly recurring slots | day_of_week, start_time, end_time, slot_duration |
 | 9 | `availability_exceptions` | Date-based blocks | date, is_blocked, reason |
 | 10 | `bookings` | Session reservations | student_id, teacher_id, status, scheduled_at, duration_min, student_package_id |
-| 11 | `sessions` | Video call records | booking_id, room_url, started_at, ended_at, post_session_notes, homework |
+| 11 | `sessions` | Video call records | booking_id, room_url, started_at, ended_at, post_session_notes, follow-up |
 | 12 | `conversations` | Messaging channels | student_id, teacher_id, status, last_message_at |
 | 13 | `messages` | Individual messages | conversation_id, sender_id, content, msg_type, is_read |
 | 14 | `student_progress` | Surah/ayah tracking | progress_type, surah_from/to, quality_rating, level |
@@ -94,7 +94,7 @@ FURQAN Academy is a full-stack online Quran teaching platform connecting student
 | # | Table | Purpose |
 |---|-------|---------|
 | 26 | `services` | Dynamic service definitions (bilingual, features array) |
-| 27 | `homework_assignments` | Structured homework with state machine, grading, auto-regeneration |
+| 27 | `homework_assignments` | Structured follow-up with state machine, grading, auto-regeneration |
 
 ### V11 Tables (2)
 
@@ -112,7 +112,7 @@ FURQAN Academy is a full-stack online Quran teaching platform connecting student
 - `session_type`: hifz | muraja | tajweed | tilawa | qiraat | tafsir | combined | other
 - `payment_status`: pending | succeeded | failed | refunded
 - `msg_type`: text | audio | file
-- `notif_type`: booking | payment | message | reminder | system | homework
+- `notif_type`: booking | payment | message | reminder | system | follow-up
 - `student_level`: beginner | intermediate | advanced
 - `cv_status`: draft | pending_review | approved | rejected
 - `evaluation_type`: weekly | biweekly | monthly | quarterly
@@ -146,7 +146,7 @@ FURQAN Academy is a full-stack online Quran teaching platform connecting student
 src/lib/supabase/migrations/
 ├── v9_001_schema.sql       — Moderator role, CV workflow, evaluations, observations, feature flags
 ├── v10_001_services.sql    — Dynamic services table
-├── v10_002_homework.sql    — Homework assignments with state machine
+├── v10_002_homework.sql    — Follow-up assignments with state machine
 └── v11_001_packages.sql    — Packages & pricing system
 ```
 
@@ -154,16 +154,16 @@ src/lib/supabase/migrations/
 
 ## 5. Completed Features
 
-### Phase A: Homework System (V10)
-- 6 homework types: hifz, muraja, recitation, tajweed, writing, listening
+### Phase A: Follow-up System (V10)
+- 6 follow-up types: hifz, muraja, recitation, tajweed, writing, listening
 - State machine: assigned -> student_ready -> completed_excellent | good | needs_work | not_done
 - "I'm Ready" button (student confirms readiness before next session)
 - Teacher grades with 4 outcomes in post-session form
-- Auto-regeneration: needs_work/not_done auto-creates new homework via parent_assignment_id
+- Auto-regeneration: needs_work/not_done auto-creates new follow-up via parent_assignment_id
 - Edit window: teacher can edit until next session starts
 - 4 notification flows: assigned, ready, graded, parent report for not_done
-- Dashboard widgets: BreakdownBar with real homework data
-- Pages: `/student/homework`, `/teacher/homework`
+- Dashboard widgets: BreakdownBar with real follow-up data
+- Pages: `/student/follow-up`, `/teacher/follow-up`
 
 ### Phase B: Package & Pricing System (V11)
 - 5 package types: single_session ($8), pack_4/Starter ($40), pack_8/Standard ($50), pack_12/Premium ($65), full_course ($180)
@@ -177,7 +177,7 @@ src/lib/supabase/migrations/
 
 ### Phase C: In-App Notifications
 - NotificationBell component in topbar with unread count badge + dropdown
-- 6 notification types with icons/colors: booking, payment, message, reminder, system, homework
+- 6 notification types with icons/colors: booking, payment, message, reminder, system, follow-up
 - Server actions: fetchNotifications, markAsRead, markAllAsRead, deleteNotification
 - Full pages: `/student/notifications`, `/teacher/notifications`
 - Role-aware "View All" link
@@ -187,7 +187,7 @@ src/lib/supabase/migrations/
 - 30-Juz tracker: visual grid highlighting studied juz from student_progress records
 - Evaluation chart: bar visualization of hifz/tajweed/overall scores over time
 - Latest evaluation summary with strengths/recommendations
-- Homework performance breakdown (excellent/good/needs_work/not_done)
+- Follow-up performance breakdown (excellent/good/needs_work/not_done)
 - Milestone badges: 1, 10, 25, 50, 100 sessions
 - Progress log with surah ranges, quality ratings, type badges
 
@@ -304,8 +304,8 @@ furqan/
 │   │   ├── (public)/          — landing, about, contact, packages, services, teachers, blog
 │   │   ├── admin/             — 33 pages: users, teachers, bookings, sessions, evaluations, packages, services, blog, payments, notifications, settings
 │   │   ├── moderator/         — 10 pages: users, cv-review, sessions, evaluations, audit
-│   │   ├── student/           — 12 pages: dashboard, teachers, bookings, sessions, homework, packages, progress, notifications, messages, notes
-│   │   ├── teacher/           — 11 pages: dashboard, sessions, availability, students, homework, cv, evaluations, notifications, messages
+│   │   ├── student/           — 12 pages: dashboard, teachers, bookings, sessions, follow-up, packages, progress, notifications, messages, notes
+│   │   ├── teacher/           — 11 pages: dashboard, sessions, availability, students, follow-up, cv, evaluations, notifications, messages
 │   │   └── api/               — stripe webhook, bookings, auth
 │   ├── components/
 │   │   ├── shared/ (20)       — dashboard-layout, nav, topbar, notification-bell, stat-card, widget-card, data-table, analytics-chart, breakdown-bar, live-sessions-widget, messages-view, session-timer, session-status, booking-steps, device-check, skeleton, toast, logout-button, pwa-install-prompt, GlassButton
@@ -324,7 +324,7 @@ furqan/
 │   │   ├── whatsapp.ts        — WhatsApp via CallMeBot
 │   │   ├── settings.ts        — Feature flags utilities
 │   │   ├── feature-flags-context.tsx — Client-side flags provider
-│   │   ├── constants.ts       — Arabic labels (session types, homework, packages, statuses)
+│   │   ├── constants.ts       — Arabic labels (session types, follow-up, packages, statuses)
 │   │   ├── dashboard-queries.ts — Dashboard data aggregation
 │   │   ├── cn.ts              — classNames utility
 │   │   └── contact.ts         — Contact form handling
@@ -482,7 +482,7 @@ Located in `supabase/functions/` — excluded from `tsconfig.json` (Deno runtime
 
 ---
 
-## 13. Homework State Machine (V10)
+## 13. Follow-up State Machine (V10)
 
 ```
 assigned (teacher creates after session)
@@ -494,8 +494,8 @@ student_ready (student clicks "I'm Ready")
 Teacher grades → one of:
   ├── completed_excellent  (done)
   ├── completed_good       (done)
-  ├── completed_needs_work (auto-creates new homework → parent notification)
-  └── completed_not_done   (auto-creates new homework → parent notification)
+  ├── completed_needs_work (auto-creates new follow-up → parent notification)
+  └── completed_not_done   (auto-creates new follow-up → parent notification)
 ```
 
 - 6 types: hifz, muraja, recitation, tajweed, writing, listening
@@ -519,7 +519,7 @@ SESSION:  created → started → ended
 2. Teacher confirms → `confirmed` + Daily.co room created
 3. Both join video → session `started`
 4. Teacher ends → session `ended`, booking `completed`
-5. Post-session: teacher adds notes + structured homework + optional evaluation
+5. Post-session: teacher adds notes + structured follow-up + optional evaluation
 6. Parent notified (session complete / no-show / evaluation)
 
 ---
@@ -560,7 +560,7 @@ See `ROADMAP.md` for detailed 8-sprint implementation plan.
 | P4 | Sprint 8 | AI + advanced | Needs Anthropic key |
 
 ### Completed Phases
-- Phase A: Homework System (V10)
+- Phase A: Follow-up System (V10)
 - Phase B: Package & Pricing (V11)
 - Phase C: In-App Notifications
 - Phase D: Student Progress & Reports

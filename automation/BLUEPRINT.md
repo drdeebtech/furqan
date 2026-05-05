@@ -24,7 +24,7 @@ Its job is to turn a feature-rich Quran learning platform into a responsive, pre
 - revenue recovery and package renewal
 - AI-assisted academic intelligence
 
-The core app already has strong foundations: 4 roles, 29 tables, package management, structured homework, evaluations, messaging, notifications, video sessions, and feature flags. The automation layer should now capitalize on that maturity.
+The core app already has strong foundations: 4 roles, 29 tables, package management, structured follow-up, evaluations, messaging, notifications, video sessions, and feature flags. The automation layer should now capitalize on that maturity.
 
 This document replaces the earlier n8n plan with a more comprehensive blueprint that includes:
 
@@ -465,7 +465,7 @@ Flow: receive recording URL → store on session → notify parent or admin base
 
 ### 2.1 AI Parent Post-Session Report 🔴
 Trigger: `session.notes_saved`  
-Flow: fetch session + student + parent + homework + evaluation context → AI summary in Arabic or bilingual mode → send → save copy in `parent_reports`
+Flow: fetch session + student + parent + follow-up + evaluation context → AI summary in Arabic or bilingual mode → send → save copy in `parent_reports`
 
 ### 2.2 Structured Fallback Parent Report 🔴
 Trigger: same as 2.1 when AI unavailable  
@@ -473,7 +473,7 @@ Flow: generate templated summary without LLM → send → save copy
 
 ### 2.3 Weekly Progress Digest 🟠
 Trigger: weekly schedule  
-Flow: aggregate sessions, progress, homework outcomes, evaluations → send parent digest
+Flow: aggregate sessions, progress, follow-up outcomes, evaluations → send parent digest
 
 ### 2.4 Monthly Parent Master Report 🟣
 Trigger: first of month  
@@ -483,7 +483,7 @@ Flow: AI-generated narrative report + charts/PDF if desired → email parent
 Trigger: `session.no_show_detected`  
 Flow: notify parent quickly with next step guidance
 
-### 2.6 Homework Non-Completion Parent Alert 🟠
+### 2.6 Follow-up Non-Completion Parent Alert 🟠
 Trigger: `homework.graded` where outcome is `completed_not_done` or repeated `needs_work`  
 Flow: notify parent with encouraging and actionable language
 
@@ -497,7 +497,7 @@ Flow: celebrate juz completion, session count milestones, consistency streaks
 
 ### 3.1 Student At-Risk Detector 🔴
 Trigger: daily schedule  
-Flow: identify low attendance, repeated cancellations, no login, or stalled homework → score risk → create flag → notify retention queue/admin
+Flow: identify low attendance, repeated cancellations, no login, or stalled follow-up → score risk → create flag → notify retention queue/admin
 
 ### 3.2 Inactivity Re-Engagement Campaign 🟠
 Trigger: daily or weekly schedule  
@@ -715,7 +715,7 @@ Flow: synthesize all academic signals into a narrative progress report for paren
 
 ### 12.2 AI Curriculum Advisor 🟣
 Trigger: weekly  
-Flow: analyze recurring recitation errors and homework trends → suggest next focus areas for teacher
+Flow: analyze recurring recitation errors and follow-up trends → suggest next focus areas for teacher
 
 ### 12.3 Student Weakness Pattern Detector 🟣
 Trigger: daily or weekly  
@@ -723,7 +723,7 @@ Flow: identify recurring rule-level or memorization weaknesses → store insight
 
 ### 12.4 AI Academic Risk Classifier 🟣
 Trigger: daily  
-Flow: classify academic risk from attendance, errors, stagnation, homework, and evaluations
+Flow: classify academic risk from attendance, errors, stagnation, follow-up, and evaluations
 
 ---
 
@@ -764,7 +764,7 @@ Build first:
 13. Teacher Quality Monitor
 14. Teacher Evaluation Compliance Reminder
 15. Booking Conflict Detector
-16. Homework Non-Completion Parent Alert
+16. Follow-up Non-Completion Parent Alert
 17. Trial-to-Paid Conversion Journey
 18. Package Renewal Campaign
 

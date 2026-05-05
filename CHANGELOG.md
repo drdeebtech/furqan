@@ -26,7 +26,7 @@ A long autonomous session that closed the "silent failure" anti-pattern across t
 - **Failures filter** on `/admin/audit`; **"Failed Admin Actions (24h)" widget** on `/admin/control-tower`.
 - **Telegram alert on critical errors** — `logError(..., { severity: 'critical' })` now buzzes the operator.
 - **Every route `error.tsx` boundary now logs to Sentry** (5 boundaries: root + admin + student + teacher + moderator). Admin tagged critical.
-- **14 silent-fail Supabase mutations fixed** across admin/teachers, blog, contacts, packages, services, reviews, users, stripe (fulfillment + refund + checkout), teacher dashboard, homework auto-regen.
+- **14 silent-fail Supabase mutations fixed** across admin/teachers, blog, contacts, packages, services, reviews, users, stripe (fulfillment + refund + checkout), teacher dashboard, follow-up auto-regen.
 
 ### Added — Database hardening (B+ → A++)
 
@@ -107,7 +107,7 @@ Shipped 16 commits in a single session taking the retention feature from skeleto
 
 ### Added — Sprint 8 scaffolding (parent reports, AI-swappable slot)
 
-- **`src/lib/reports/session-narrative.ts`** — `buildSessionNarrative(sessionId)` assembles structured report from session notes + homework + evaluation. The `narrative_paragraph` field is AI-swappable — template today, Claude tomorrow, no surrounding shape change.
+- **`src/lib/reports/session-narrative.ts`** — `buildSessionNarrative(sessionId)` assembles structured report from session notes + follow-up + evaluation. The `narrative_paragraph` field is AI-swappable — template today, Claude tomorrow, no surrounding shape change.
 - **`/api/reports/session/[id]`** (GET) — dual-auth (X-N8N-Secret or cookie admin/moderator/teacher) for n8n + UI inspection.
 - **`/api/reports/session/[id]/send`** (POST) — accepts optional `narrative_paragraph` body override, runs dispatcher + writes `parent_reports` + emits `session.report_sent`.
 - **Idempotency guard** — `automation_logs` prevents duplicate sends across admin button + n8n workflow + future Vercel Cron.

@@ -25,7 +25,7 @@
 
 ### T-SESS-ENDED · Student
 **AR**
-> تمت الجلسة بنجاح. لمراجعة الملاحظات والواجبات، افتح لوحة التحكم.
+> تمت الجلسة بنجاح. لمراجعة الملاحظات والمتابعات، افتح لوحة التحكم.
 
 ### T-SESS-NO-SHOW-STUDENT · Parent
 **AR** (urgent)
@@ -37,19 +37,19 @@
 
 ---
 
-## 2. Homework
+## 2. Follow-up
 
 ### T-HW-ASSIGNED · Student + Parent
 **AR**
-> تم إعطاء واجب جديد: {homework_title}. التسليم قبل {due_at}.
+> تم إعطاء متابعة جديد: {homework_title}. التسليم قبل {due_at}.
 
 ### T-HW-DUE-SOON · Student
 **AR**
-> تذكير: الواجب {homework_title} مطلوب تسليمه خلال {hours_left} ساعة.
+> تذكير: المتابعة {homework_title} مطلوب تسليمه خلال {hours_left} ساعة.
 
 ### T-HW-GRADED · Student + Parent
 **AR**
-> تم تصحيح الواجب {homework_title}. التقدير: {grade}. ملاحظات الأستاذ: {feedback}.
+> تم تصحيح المتابعة {homework_title}. التقدير: {grade}. ملاحظات الأستاذ: {feedback}.
 
 ---
 
@@ -83,14 +83,14 @@
 **AR** (AI-filled when enabled, template otherwise)
 > عزيزي ولي الأمر،
 > اليوم حضر {student_name} جلسة مع الأستاذ {teacher_name} لمدة {duration} دقيقة.
-> {ai_summary | fallback: "تمت دراسة {topic}. مستوى الحضور والتفاعل: {engagement}. الواجب التالي: {homework}."}
+> {ai_summary | fallback: "تمت دراسة {topic}. مستوى الحضور والتفاعل: {engagement}. المتابعة التالي: {follow-up}."}
 > شكراً لثقتكم.
 
 ### T-PARENT-WEEKLY-DIGEST · Parent
 **AR**
 > تقرير الأسبوع لـ {student_name}:
 > • جلسات مكتملة: {completed_count}/{scheduled_count}
-> • واجبات مُسلَّمة: {hw_submitted}/{hw_assigned}
+> • متابعات مُسلَّمة: {hw_submitted}/{hw_assigned}
 > • التقدم في الحفظ: {progress_summary}
 > • ملاحظة الأستاذ: {teacher_note}
 
@@ -112,7 +112,7 @@
 
 ### T-TCH-GRADING-OVERDUE · Teacher
 **AR**
-> لديك {count} واجبات بانتظار التصحيح منذ أكثر من 48 ساعة. افتح لوحة المعلم.
+> لديك {count} متابعات بانتظار التصحيح منذ أكثر من 48 ساعة. افتح لوحة المعلم.
 
 ### T-TCH-EVAL-OVERDUE · Teacher
 **AR**

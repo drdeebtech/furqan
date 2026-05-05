@@ -28,7 +28,7 @@ FURQAN App (furqan.today)          n8n (n8n.drdeeb.tech)
 │                     │            │                     │
 │  Server Actions ────────webhook──→  Webhook Triggers    │
 │  (booking, session,  │            │  Schedule Triggers   │
-│   homework events)   │            │  Supabase Node       │
+│   follow-up events)   │            │  Supabase Node       │
 │                     │            │  HTTP / AI / Email   │
 │  /api/webhooks/n8n ←────callback──  Write logs/notifs   │
 └─────────────────────┘            └─────────────────────┘
@@ -133,9 +133,9 @@ The app sends events to n8n via webhook POST. Event payload shape:
 | `session.ended` | Teacher ends session | booking_id, teacher_id, actual_duration |
 | `session.no_show` | Teacher marks no-show | student_id, teacher_id |
 | `session.notes_saved` | Teacher saves post-session notes | has_notes, has_homework |
-| `homework.assigned` | Teacher assigns homework | student_id, teacher_id, homework_type, title |
+| `homework.assigned` | Teacher assigns follow-up | student_id, teacher_id, homework_type, title |
 | `homework.student_ready` | Student marks ready | student_id, teacher_id |
-| `homework.graded` | Teacher grades homework | student_id, teacher_id, grade |
+| `homework.graded` | Teacher grades follow-up | student_id, teacher_id, grade |
 
 ---
 
@@ -165,7 +165,7 @@ teacher_confirmed, student_package_id
 ### sessions
 ```sql
 id, booking_id, room_name, room_url, expires_at, started_at, ended_at,
-actual_duration, post_session_notes, homework, teacher_joined, student_joined
+actual_duration, post_session_notes, follow-up, teacher_joined, student_joined
 ```
 
 ### homework_assignments
@@ -202,7 +202,7 @@ status ('active'|'expired'|'cancelled'), expires_at
 
 ### notifications
 ```sql
-id, user_id, type ('booking'|'payment'|'message'|'reminder'|'system'|'homework'),
+id, user_id, type ('booking'|'payment'|'message'|'reminder'|'system'|'follow-up'),
 title, body, channel[], is_read, created_at
 ```
 
@@ -312,7 +312,7 @@ Examples:
 - **Trigger:** Webhook (receives `session.notes_saved` event from app)
 - **Flow:**
   1. Check `ai_parent_reports_enabled` flag
-  2. Fetch: session notes, homework, student name, teacher name, parent contacts, recent evaluations
+  2. Fetch: session notes, follow-up, student name, teacher name, parent contacts, recent evaluations
   3. Build AI prompt with context (Arabic, warm, faith-aligned tone)
   4. Call Anthropic API (Claude) for summary generation
   5. Send to parent via WhatsApp/email
@@ -324,7 +324,7 @@ Examples:
 - **Trigger:** Same as WF-6, used when AI is unavailable
 - **Flow:**
   1. Fetch same context as WF-6
-  2. Generate template-based Arabic report: "أكمل/ت ابنكم جلسة بتاريخ X مع المعلم Y. الملاحظات: Z. الواجب: W."
+  2. Generate template-based Arabic report: "أكمل/ت ابنكم جلسة بتاريخ X مع المعلم Y. الملاحظات: Z. المتابعة: W."
   3. Send + save + log
 
 ### WF-8: Low Package Balance Alert 🔴
@@ -349,7 +349,7 @@ Examples:
 - Weekly: aggregate no-shows, late starts, poor reviews, missing evaluations → flag admin
 
 ### WF-12: Student At-Risk Detector
-- Daily: score risk from attendance + cancellations + homework + login → flag admin
+- Daily: score risk from attendance + cancellations + follow-up + login → flag admin
 
 ---
 
@@ -367,14 +367,14 @@ CONTEXT:
 - Session type: {session_type}
 - Duration: {duration} minutes
 - Teacher notes: {post_session_notes}
-- Homework assigned: {homework_title} — {homework_description}
+- Follow-up assigned: {homework_title} — {homework_description}
 - Recent evaluation (if any): Hifz {hifz}/10, Tajweed {tajweed}/10, Overall {overall}/10
 
 RULES:
 - Write in Arabic
 - Warm, encouraging, faith-aligned tone
 - 3-5 sentences maximum
-- Mention what was learned, how the student performed, and what homework was assigned
+- Mention what was learned, how the student performed, and what follow-up was assigned
 - End with an encouraging note
 - Do NOT mention scores unless they are 7+ (positive only)
 - Do NOT invent facts not in the context

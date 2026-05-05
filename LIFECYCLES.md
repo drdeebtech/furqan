@@ -59,7 +59,7 @@
               Post-session flow
                        │
             ┌──────────▼──────────┐
-            │ notes + homework    │
+            │ notes + follow-up    │
             │ saved by teacher    │
             └─────────────────────┘
 ```
@@ -72,11 +72,11 @@
 - Max 2 participants (3 with observer)
 - Observer joins with camera/mic off
 - actual_duration computed in minutes from started_at → ended_at
-- Post-session: teacher adds notes, homework, optional evaluation
+- Post-session: teacher adds notes, follow-up, optional evaluation
 
 ---
 
-## 3. Homework Lifecycle
+## 3. Follow-up Lifecycle
 
 ```
                   ┌──────────┐
@@ -99,7 +99,7 @@
                             └──────┬─────────┘
                                    │
                           Auto-regenerate
-                          (new homework with
+                          (new follow-up with
                            parent_assignment_id)
                                    │
                             ┌──────▼─────┐
@@ -108,7 +108,7 @@
 ```
 
 **Source of truth:** `homework_assignments.status`
-**Owner:** Homework domain (`src/lib/actions/homework.ts`)
+**Owner:** Follow-up domain (`src/lib/actions/homework.ts`)
 
 **Types:** hifz, muraja, recitation, tajweed, writing, listening
 **Edit window:** Teacher can edit until next session starts

@@ -41,8 +41,8 @@ FURQAN Academy — Online Quran teaching platform (V13)
 - **Deployed on Vercel** (Hobby plan, furqan.today)
 
 ## Roles (4)
-- **student** — browse teachers, book sessions, join video, track progress, homework, packages, messages
-- **teacher** — manage availability, confirm bookings, conduct sessions, assign/grade homework, CV workflow, evaluations, messages
+- **student** — browse teachers, book sessions, join video, track progress, follow-up, packages, messages
+- **teacher** — manage availability, confirm bookings, conduct sessions, assign/grade follow-up, CV workflow, evaluations, messages
 - **admin** — full platform management: users, teachers, bookings, sessions, evaluations, packages, services, blog, payments, notifications, automation, n8n control, settings
 - **moderator** — users (students+teachers only), CV review, session observation, evaluations, audit log (read-only)
 
@@ -52,7 +52,7 @@ FURQAN Academy — Online Quran teaching platform (V13)
 |--------|----------------|------------|---------------|
 | **Booking** | `bookings` table | bookings, teacher_availability, availability_exceptions | createBooking, updateBookingStatus |
 | **Session** | `sessions` table | sessions, session_observers | endSession, markNoShow, savePostSessionNotes |
-| **Homework** | `homework_assignments` table | homework_assignments | createHomework, markStudentReady, gradeHomework |
+| **Follow-up** | `homework_assignments` table | homework_assignments | createHomework, markStudentReady, gradeHomework |
 | **Progress** | `student_progress` + `session_evaluations` | student_progress, recitation_errors, session_evaluations | createEvaluation, createTeacherEvaluation |
 | **Package** | `packages` + `student_packages` | packages, student_packages, payments, invoices | deduct_package_session(), Stripe webhook |
 | **Communication** | `notifications` + `parent_reports` | notifications, parent_reports, messages, conversations, message_delivery_log, communication_preferences | dispatchNotification(), notify(), parent notifications |
@@ -66,7 +66,7 @@ FURQAN Academy — Online Quran teaching platform (V13)
 - **Parent notifications**: `src/lib/notifications/parent.ts` — report system for parents
 - **Notification dispatcher**: `src/lib/notifications/dispatcher.ts` — multi-channel with preferences, quiet hours, delivery logging to message_delivery_log
 - **Session observation**: Daily.co observer tokens with mic/camera off, max_participants bumped to 3
-- **Homework system**: `src/lib/actions/homework.ts` — 5 server actions with state machine and auto-regeneration
+- **Follow-up system**: `src/lib/actions/homework.ts` — 5 server actions with state machine and auto-regeneration
 - **Event emission**: `src/lib/automation/emit.ts` — non-blocking webhooks to n8n with per-event routing
 - **n8n callback**: `src/app/api/webhooks/n8n/route.ts` — log, notify, idempotency check
 - **n8n REST client**: `src/lib/n8n/client.ts` — workflows, executions, toggle, Telegram alerts
@@ -197,8 +197,8 @@ src/
 │   ├── (public)/        — landing, about, contact, packages, services, teachers, blog
 │   ├── admin/           — 35+ pages: users, teachers, bookings, sessions, evaluations, packages, services, blog, payments, notifications, automation, n8n, control-tower, settings
 │   ├── moderator/       — 10 pages: users, cv-review, sessions, evaluations, audit
-│   ├── student/         — 12+ pages: dashboard, teachers, bookings, sessions, homework, packages, progress, notifications, messages, notes
-│   ├── teacher/         — 11+ pages: dashboard, sessions, availability, students, homework, cv, evaluations, notifications, messages
+│   ├── student/         — 12+ pages: dashboard, teachers, bookings, sessions, follow-up, packages, progress, notifications, messages, notes
+│   ├── teacher/         — 11+ pages: dashboard, sessions, availability, students, follow-up, cv, evaluations, notifications, messages
 │   └── api/             — stripe webhook, bookings, n8n (workflows/executions/toggle/auto-restart), webhooks/n8n
 ├── components/
 │   ├── shared/ (20+)    — nav, topbar, notification-bell, stat-card, widget-card, data-table, analytics-chart, breakdown-bar, live-sessions-widget, messages-view, pwa-install-prompt
@@ -230,14 +230,14 @@ supabase/functions/      — 4 edge functions (auto-reminder, auto-complete, no-
 ### Feature Development (Phases A–I)
 - 4 role dashboards with real Supabase data + shared widget system
 - Bilingual RTL/LTR with Arabic/English toggle + dark/light mode (Liquid Glass Design System v3)
-- Database schema V9→V13 (sessions, evaluations, homework, packages, automation, communication, retention)
+- Database schema V9→V13 (sessions, evaluations, follow-up, packages, automation, communication, retention)
 - Blog CMS, SEO, RLS policies
 - CV review workflow for moderators
 - Basic booking + sessions with Daily.co video
-- **Homework system** (V10) — state machine, 6 types, grading, auto-regeneration
+- **Follow-up system** (V10) — state machine, 6 types, grading, auto-regeneration
 - **Package & pricing** (V11) — DB-driven packages, admin CRUD, 5 seed packages, student view
 - **In-app notifications** — bell + dropdown + full pages + mark-read/delete
-- **Student progress** — juz tracker, eval chart, milestones, homework performance
+- **Student progress** — juz tracker, eval chart, milestones, follow-up performance
 - **Teacher onboarding** — 5-step checklist with progress bar, CV in nav
 - **Student discovery** — gender/specialty filter, sort controls
 - **Messaging** — read receipts, unread counts, message notifications

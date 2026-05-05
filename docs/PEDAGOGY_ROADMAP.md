@@ -55,7 +55,7 @@
 
 ## #12 — AI Curriculum Advisor (student-facing)
 
-**What it is.** A weekly AI-generated paragraph of "your next focus" for the student, based on `recitation_errors` patterns + recent homework grades + the last 3 evaluations. Rendered as a notification + pinned card on the dashboard.
+**What it is.** A weekly AI-generated paragraph of "your next focus" for the student, based on `recitation_errors` patterns + recent follow-up grades + the last 3 evaluations. Rendered as a notification + pinned card on the dashboard.
 
 **Why now.** BLUEPRINT.md item 12.2 (AI Curriculum Advisor) is currently scoped for the teacher only. Mirror it for the student so the student also gets the benefit of the same AI synthesis. Compounds the value of items #1, #3, #6 from the analysis.
 
@@ -190,7 +190,7 @@
 **Architecture sketch.**
 - **Parent profile elevation.** Today, parents are not first-class users (the platform stores `parent_email` and `parent_phone` on `profiles` for outbound notifications, but parents have no login). To give parents a timeline view we need either:
   - **Option A (lightweight).** Magic-link tokenised access. The parent receives an email with a tokenised URL `furqan.today/parent/student/{student_id}/timeline?token=...`. Server-side token validation; no parent account creation. Simpler; lower commitment.
-  - **Option B (full parent role).** Add `parent` as a `user_role` enum value, extend `profiles` to support parent-of relationships, build a parent dashboard. Higher cost; enables future parent features (homework feedback, communication).
+  - **Option B (full parent role).** Add `parent` as a `user_role` enum value, extend `profiles` to support parent-of relationships, build a parent dashboard. Higher cost; enables future parent features (follow-up feedback, communication).
   - **Recommendation:** Start with Option A. Migrate to Option B if/when parents express need for richer interaction.
 - **Teacher view.** Reuses the student-side query. New route `/teacher/students/{studentId}/timeline`. RLS gates — teacher sees the timeline only if they have ever had a `bookings` row with this student.
 - **Comments on timeline events.** New table `timeline_comments` (event_id polymorphic, author_id, body_text, created_at). Parents and teachers can comment; students see comments inline on their timeline.
@@ -224,7 +224,7 @@
 
 ## #17 — Halaqa group sessions (strategic bet)
 
-**What it is.** Multi-student sessions in the traditional `halaqa` format: 4-8 students, one teacher, group recitation, individual correction rotations. The platform's `session_observers` table is a half-step toward this; full halaqa support needs group lifecycle, group homework, group evaluation, group dynamics.
+**What it is.** Multi-student sessions in the traditional `halaqa` format: 4-8 students, one teacher, group recitation, individual correction rotations. The platform's `session_observers` table is a half-step toward this; full halaqa support needs group lifecycle, group follow-up, group evaluation, group dynamics.
 
 **Why this matters.** A halaqa is the classical setting in which most Muslim students first learn to recite. Replicating it digitally unlocks (a) a price point lower than 1:1 sessions, (b) a social bond that 1:1 cannot, and (c) the Islamic concept of `jama'ah` — group learning is itself a religious value.
 

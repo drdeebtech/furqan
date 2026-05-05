@@ -75,11 +75,11 @@
 
 > **Audit complete (2026-04-30)**: 312 `revalidatePath` calls across 56 files in 10 domains. This is **not a single PR** — it's a 4-phase migration. See "Phased rollout" below.
 
-**Why**: Highest-ROI single upgrade. Many small writes (booking flips, homework grading) currently nuke whole route segments. Tag-based invalidation = 5-10x faster perceived dashboard updates.
+**Why**: Highest-ROI single upgrade. Many small writes (booking flips, follow-up grading) currently nuke whole route segments. Tag-based invalidation = 5-10x faster perceived dashboard updates.
 
 **Phased rollout (from audit)**:
 - **Phase 1 — LOW** (~30 call sites): bookings, notifications, individual settings, moderation. Single-path migrations, safe to start immediately.
-- **Phase 2 — MEDIUM** (~120 call sites): homework + dashboard actions. Multi-path tag coordination; needs integration tests.
+- **Phase 2 — MEDIUM** (~120 call sites): follow-up + dashboard actions. Multi-path tag coordination; needs integration tests.
 - **Phase 3 — HIGH** (~28 call sites): public cache clears (`clearPublicCache()` invalidates 10 paths), retention admin. System-wide invalidation; needs E2E tests + fallback.
 - **Phase 4** — migrate `unstable_cache` → `'use cache'` directive with `cacheTag()` / `cacheLife()`.
 
@@ -116,7 +116,7 @@ n8n-workflows         # admin /admin/n8n
 - Read paths use Next 16's `'use cache'` + `cacheTag(...)` (per the vercel-plugin knowledge update at session start).
 - `EVENT_CATALOG.md` updated with the tag taxonomy.
 
-**Verification**: simulate a homework grading action — only the affected student's dashboard widgets re-fetch, not the whole `/student/[id]` segment. Verify with React DevTools Profiler.
+**Verification**: simulate a follow-up grading action — only the affected student's dashboard widgets re-fetch, not the whole `/student/[id]` segment. Verify with React DevTools Profiler.
 
 **Risk**: HIGH per gitnexus impact analysis. Before edit, run `gitnexus_impact({target: "revalidatePath", direction: "upstream"})`.
 
@@ -154,7 +154,7 @@ n8n-workflows         # admin /admin/n8n
 
 **Files to edit**:
 - `src/lib/actions/loud.ts` — extend `loudAction` config with optional `schema: z.ZodType<I>`; parse FormData/object before calling `handler`.
-- Top 10 most-called server actions (use `gitnexus_query({query: "use server"})` to rank by callers): bookings, homework grading, evaluations, profile updates, package selection.
+- Top 10 most-called server actions (use `gitnexus_query({query: "use server"})` to rank by callers): bookings, follow-up grading, evaluations, profile updates, package selection.
 - `package.json` — confirm `zod` already installed (likely yes via Supabase types); if not, `npm i zod`.
 
 **Pattern** (in `loud.ts`):
