@@ -92,7 +92,7 @@ export default async function TeacherFollowUpPage() {
           <p className="text-muted">{t("لا توجد متابعات بعد", "No follow-ups yet")}</p>
           <p className="mt-1 text-sm text-muted/60">
             {t(
-              "اضغط \"+ إضافة متابعة\" لإسناد أول واجب، أو أنشئ متابعة من صفحة الجلسة بعد انتهائها",
+              "اضغط \"+ إضافة متابعة\" لإسناد أول متابعة، أو أنشئ متابعة من صفحة الجلسة بعد انتهائها",
               "Click \"+ Add follow-up\" to assign the first one, or create one from the session page after it ends",
             )}
           </p>

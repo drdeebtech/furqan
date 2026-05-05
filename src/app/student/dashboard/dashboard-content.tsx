@@ -151,7 +151,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
       items.push({
         id: `h:${h.id}`,
         kind: "homework",
-        title: h.description ?? t("واجب", "Assignment"),
+        title: h.description ?? t("متابعة", "Assignment"),
         detail: t(`نوع: ${h.homework_type}`, `Type: ${h.homework_type}`),
         href: "/student/follow-up",
         at: h.due_date,

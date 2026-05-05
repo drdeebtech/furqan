@@ -119,7 +119,7 @@ export function GraderClient({ items }: { items: HomeworkItem[] }) {
         >
           {result.failed === 0 ? <CheckCircle size={14} className="me-1 inline" /> : <AlertCircle size={14} className="me-1 inline" />}
           {t(
-            `تم تقييم ${result.graded} واجب${result.failed > 0 ? ` · فشل ${result.failed}` : ""}`,
+            `تم تقييم ${result.graded} متابعة${result.failed > 0 ? ` · فشل ${result.failed}` : ""}`,
             `Graded ${result.graded}${result.failed > 0 ? ` · ${result.failed} failed` : ""}`,
           )}
           {result.errors.length > 0 && (

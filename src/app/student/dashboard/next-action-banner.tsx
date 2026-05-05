@@ -182,7 +182,7 @@ export function NextActionBanner({ data, renderedAtMs }: { data: NextActionData;
             eyebrow={t("اليوم", "Today")}
             eyebrowTone="warning"
             title={t(
-              `${state.count} واجب يحتاج تسليم اليوم`,
+              `${state.count} متابعة يحتاج تسليم اليوم`,
               `${state.count} assignment${state.count > 1 ? "s" : ""} due today`,
             )}
           />

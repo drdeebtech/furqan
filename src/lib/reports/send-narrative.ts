@@ -28,7 +28,7 @@ function renderEmailBody(n: SessionNarrative): string {
     lines.push("");
   }
   if (n.homework) {
-    lines.push(`الواجب: ${n.homework.title}`);
+    lines.push(`المتابعة: ${n.homework.title}`);
     if (n.homework.description) lines.push(n.homework.description);
     lines.push("");
   }

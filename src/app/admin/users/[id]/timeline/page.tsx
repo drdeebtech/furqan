@@ -329,7 +329,7 @@ export default async function UserTimelinePage({ params }: Props) {
         id: `hw-graded:${h.id}`,
         type: "homework_graded",
         at: h.completed_at,
-        title_ar: "تم تقييم الواجب",
+        title_ar: "تم تقييم المتابعة",
         title_en: "Homework graded",
         detail: `${h.title} · ${h.status}`,
         href: `/admin/users/${id}`,

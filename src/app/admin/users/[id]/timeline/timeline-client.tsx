@@ -200,7 +200,7 @@ export function TimelineClient({
     { key: "all", label_ar: "الكل", label_en: "All" },
     { key: "bookings", label_ar: "الحجوزات", label_en: "Bookings" },
     { key: "sessions", label_ar: "الجلسات", label_en: "Sessions" },
-    { key: "homework", label_ar: "الواجبات", label_en: "Homework" },
+    { key: "homework", label_ar: "المتابعات", label_en: "Homework" },
     { key: "evaluations", label_ar: "التقييمات", label_en: "Evaluations" },
     { key: "notifications", label_ar: "الإشعارات", label_en: "Notifications" },
     { key: "audit", label_ar: "سجل التدقيق", label_en: "Audit" },

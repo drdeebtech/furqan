@@ -168,7 +168,7 @@ function HomeworkCard({
             <p className="text-xs text-gold/80">💬 {hw.teacher_notes}</p>
           )}
           {hw.parent_assignment_id && (
-            <span className="text-xs text-warning">↩ {t("واجب مُعاد", "Re-assigned")}</span>
+            <span className="text-xs text-warning">↩ {t("متابعة مُعاد", "Re-assigned")}</span>
           )}
         </div>
         {children && <div className="shrink-0">{children}</div>}

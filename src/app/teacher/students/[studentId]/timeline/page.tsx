@@ -290,7 +290,7 @@ function TimelineEntry({
       body = (
         <>
           <p className="text-sm font-medium">
-            {t(`واجب: ${event.title} — ${g.ar}`, `Homework: ${event.title} — ${g.en}`)}
+            {t(`متابعة: ${event.title} — ${g.ar}`, `Homework: ${event.title} — ${g.en}`)}
           </p>
           {event.teacherNotes && (
             <p className="mt-1 text-xs text-gold/80 line-clamp-2">💬 {event.teacherNotes}</p>

@@ -527,7 +527,7 @@ export default async function TeacherSessionPage({ params }: Props) {
               Collapsed by default so it doesn't compete with the video room. */}
           <details className="glass-card mt-4 p-4">
             <summary className="cursor-pointer text-sm font-medium">
-              {t("اعتماد واجب الآن", "Assign homework now")}
+              {t("اعتماد متابعة الآن", "Assign homework now")}
             </summary>
             <div className="mt-3">
               <HomeworkAssignmentForm

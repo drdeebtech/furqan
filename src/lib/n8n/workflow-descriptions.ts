@@ -120,7 +120,7 @@ const META: Record<string, WorkflowMeta> = {
     area: "parent_communication",
   },
   "homework-graded": {
-    ar: "ينفّذ بعد تقييم الواجب: يُخطر الطالب وولي الأمر بنتيجة المراجعة.",
+    ar: "ينفّذ بعد تقييم المتابعة: يُخطر الطالب وولي الأمر بنتيجة المراجعة.",
     en: "Runs after homework grading: notifies student and parent of the review outcome.",
     area: "parent_communication",
   },
