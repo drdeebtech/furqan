@@ -113,6 +113,67 @@ export default async function StudentRecitationsPage() {
             </div>
           </div>
 
+          {/* Sprint 3.3 (2026-05-05): "compare past" card. Surfaces the
+              oldest + most-recent recordings side-by-side so the student
+              can hear their own progress. Only renders when there are at
+              least 2 recordings; otherwise the comparison is moot. The
+              chronology IS the value — "me three months ago vs me today"
+              is the moment that proves the platform is working. */}
+          {submissions.length >= 2 && (() => {
+            const newest = submissions[0];
+            const oldest = submissions[submissions.length - 1];
+            const newestDate = new Date(newest.ready_at ?? newest.created_at);
+            const oldestDate = new Date(oldest.ready_at ?? oldest.created_at);
+            const daysApart = Math.round((newestDate.getTime() - oldestDate.getTime()) / 86400_000);
+            return (
+              <section className="mb-6 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-5">
+                <div className="mb-4 flex items-center justify-between gap-2">
+                  <h2 className="flex items-center gap-2 font-display text-base font-bold">
+                    <Mic size={16} className="text-violet-400" aria-hidden="true" />
+                    {t("استمع لتطورك", "Hear your progress")}
+                  </h2>
+                  <span className="text-xs text-muted">
+                    {t(`الفرق ${daysApart} يوماً`, `${daysApart} days apart`)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-card-border bg-card p-3">
+                    <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-muted-light">
+                      {t("أول تسجيل", "First recording")}
+                      {" · "}
+                      {oldestDate.toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" })}
+                    </p>
+                    <p className="mb-2 text-sm font-semibold">{oldest.title}</p>
+                    <HomeworkAudioPlayer
+                      homeworkId={oldest.id}
+                      durationSeconds={oldest.audio_duration_seconds}
+                      label={{ ar: "تسميعك السابق", en: "Your earlier recitation" }}
+                    />
+                  </div>
+                  <div className="rounded-xl border border-violet-500/30 bg-violet-500/10 p-3">
+                    <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-violet-400">
+                      {t("أحدث تسجيل", "Most recent")}
+                      {" · "}
+                      {newestDate.toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" })}
+                    </p>
+                    <p className="mb-2 text-sm font-semibold">{newest.title}</p>
+                    <HomeworkAudioPlayer
+                      homeworkId={newest.id}
+                      durationSeconds={newest.audio_duration_seconds}
+                      label={{ ar: "تسميعك الأخير", en: "Your latest recitation" }}
+                    />
+                  </div>
+                </div>
+                <p className="mt-3 text-[11px] text-muted-light">
+                  {t(
+                    "ركّز على ما تحسّن — مخارج الحروف، الطلاقة، الوقف.",
+                    "Listen for what got better — articulation, fluency, stops.",
+                  )}
+                </p>
+              </section>
+            );
+          })()}
+
           <ul className="space-y-3">
             {submissions.map(r => {
               const style = HOMEWORK_STATUS_STYLE[r.status];
