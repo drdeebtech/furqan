@@ -29,7 +29,10 @@ export async function toggleUserActive(userId: string, isActive: boolean) {
     .single<{ is_active: boolean }>();
 
   const { error } = await admin.from("profiles").update({ is_active: isActive } satisfies TableUpdate<"profiles">).eq("id", userId);
-  if (error) return { error: "فشل تحديث حالة المستخدم" };
+  if (error) {
+    logError("admin updateUserStatus failed", error, { tag: "admin-users", severity: "warning", metadata: { userId, isActive } });
+    return { error: "فشل تحديث حالة المستخدم" };
+  }
 
   await admin.from("audit_log").insert({
     changed_by: auth.id,
@@ -96,7 +99,10 @@ export async function setUserRoles(userId: string, roles: string[]) {
     roles: dedup,
     role: newActive,
   } satisfies TableUpdate<"profiles">).eq("id", userId);
-  if (error) return { error: "فشل تحديث الأدوار — " + error.message };
+  if (error) {
+    logError("admin updateUserRoles failed", error, { tag: "admin-users", severity: "warning", metadata: { userId, roles: dedup } });
+    return { error: "فشل تحديث الأدوار — " + error.message };
+  }
 
   invalidateRoleCache(userId);
 

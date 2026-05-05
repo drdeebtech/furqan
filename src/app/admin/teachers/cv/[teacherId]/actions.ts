@@ -45,7 +45,10 @@ export async function saveCvAsAdmin(
     } as never)
     .eq("teacher_id", teacherId);
 
-  if (error) return { error: "فشل حفظ السيرة الذاتية" };
+  if (error) {
+    logError("admin saveCvAsAdmin failed", error, { tag: "admin-cv", severity: "warning", metadata: { teacherId } });
+    return { error: "فشل حفظ السيرة الذاتية" };
+  }
 
   revalidatePath(`/admin/teachers/cv/${teacherId}`);
   revalidatePath("/admin/teachers/cv");
@@ -70,7 +73,10 @@ export async function approveCv(teacherId: string) {
     } as never)
     .eq("teacher_id", teacherId);
 
-  if (error) return { error: "فشل قبول السيرة الذاتية" };
+  if (error) {
+    logError("admin approveCv failed", error, { tag: "admin-cv", severity: "warning", metadata: { teacherId, approvedBy: user.id } });
+    return { error: "فشل قبول السيرة الذاتية" };
+  }
 
   try {
     await notify(
@@ -136,7 +142,10 @@ export async function resetCvToPending(teacherId: string) {
     } as never)
     .eq("teacher_id", teacherId);
 
-  if (error) return { error: "فشل إعادة الحالة" };
+  if (error) {
+    logError("admin resetCvToPending failed", error, { tag: "admin-cv", severity: "warning", metadata: { teacherId, resetBy: user.id } });
+    return { error: "فشل إعادة الحالة" };
+  }
 
   revalidatePath("/admin/teachers/cv");
   revalidatePath(`/admin/teachers/cv/${teacherId}`);
@@ -164,7 +173,10 @@ export async function rejectCv(teacherId: string, reason: string) {
     } as never)
     .eq("teacher_id", teacherId);
 
-  if (error) return { error: "فشل رفض السيرة الذاتية" };
+  if (error) {
+    logError("admin rejectCv failed", error, { tag: "admin-cv", severity: "warning", metadata: { teacherId, rejectedBy: user.id } });
+    return { error: "فشل رفض السيرة الذاتية" };
+  }
 
   try {
     await notify(

@@ -10,6 +10,7 @@ import {
 } from "@/lib/automation/emit";
 import { signWebhookPayload } from "@/lib/security/secrets";
 import { requireAdmin as requireAdminStrict, ForbiddenError } from "@/lib/auth/require-admin";
+import { logError } from "@/lib/logger";
 
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
 const N8N_WEBHOOK_SECRET = process.env.N8N_WEBHOOK_SECRET;
@@ -206,7 +207,10 @@ export async function markDeadLetterResolved({
     } as never)
     .eq("id", id);
 
-  if (error) return { error: "فشل تحديث السجل" };
+  if (error) {
+    logError("admin automation-replay update failed", error, { tag: "admin-automation", severity: "warning", metadata: { id, resolvedBy: auth.userId } });
+    return { error: "فشل تحديث السجل" };
+  }
 
   await admin.from("audit_log").insert({
     changed_by: auth.userId,

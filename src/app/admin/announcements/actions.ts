@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin as requireAdminStrict, ForbiddenError } from "@/lib/auth/require-admin";
+import { logError } from "@/lib/logger";
 import type { AnnouncementSeverity } from "@/types/database";
 
 export interface AnnouncementResult {
@@ -122,7 +123,10 @@ export async function updateAnnouncement(
     .update(parsed.data!)
     .eq("id", id);
 
-  if (error) return { error: "تعذر تحديث التنبيه" };
+  if (error) {
+    logError("admin updateAnnouncement failed", error, { tag: "admin-announcements", severity: "warning", metadata: { id } });
+    return { error: "تعذر تحديث التنبيه" };
+  }
 
   revalidatePath("/admin/announcements");
   revalidatePath("/");
@@ -135,7 +139,10 @@ export async function deleteAnnouncement(id: string): Promise<AnnouncementResult
 
   const admin = createAdminClient();
   const { error } = await admin.from("site_announcements").delete().eq("id", id);
-  if (error) return { error: "تعذر الحذف" };
+  if (error) {
+    logError("admin deleteAnnouncement failed", error, { tag: "admin-announcements", severity: "warning", metadata: { id } });
+    return { error: "تعذر الحذف" };
+  }
 
   revalidatePath("/admin/announcements");
   revalidatePath("/");
@@ -151,7 +158,10 @@ export async function deactivateAnnouncement(id: string): Promise<AnnouncementRe
     .from("site_announcements")
     .update({ active_until: new Date().toISOString() })
     .eq("id", id);
-  if (error) return { error: "تعذر الإيقاف" };
+  if (error) {
+    logError("admin deactivateAnnouncement failed", error, { tag: "admin-announcements", severity: "warning", metadata: { id } });
+    return { error: "تعذر الإيقاف" };
+  }
 
   revalidatePath("/admin/announcements");
   revalidatePath("/");

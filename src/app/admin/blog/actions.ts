@@ -48,10 +48,16 @@ export async function savePost(
 
   if (id) {
     const { error } = await supabase.from("blog_posts").update(row).eq("id", id);
-    if (error) return { error: "حدث خطأ أثناء التحديث" };
+    if (error) {
+      logError("admin blog update failed", error, { tag: "admin-blog", severity: "warning", metadata: { postId: id } });
+      return { error: "حدث خطأ أثناء التحديث" };
+    }
   } else {
     const { error } = await supabase.from("blog_posts").insert(row);
-    if (error) return { error: "حدث خطأ أثناء الإنشاء" };
+    if (error) {
+      logError("admin blog insert failed", error, { tag: "admin-blog", severity: "warning" });
+      return { error: "حدث خطأ أثناء الإنشاء" };
+    }
   }
 
   revalidatePath("/admin/blog");

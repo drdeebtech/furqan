@@ -21,7 +21,10 @@ export async function approveCv(teacherId: string) {
     cv_rejection_reason: null,
   } as never).eq("teacher_id", teacherId);
 
-  if (error) return { error: "فشل قبول السيرة الذاتية" };
+  if (error) {
+    logError("moderator approveCv failed", error, { tag: "cv-review", severity: "warning", metadata: { teacherId, approvedBy: user.id } });
+    return { error: "فشل قبول السيرة الذاتية" };
+  }
 
   try {
     await notify(
@@ -84,7 +87,10 @@ export async function rejectCv(teacherId: string, reason: string) {
     cv_rejection_reason: reason,
   } as never).eq("teacher_id", teacherId);
 
-  if (error) return { error: "فشل رفض السيرة الذاتية" };
+  if (error) {
+    logError("moderator rejectCv failed", error, { tag: "cv-review", severity: "warning", metadata: { teacherId, rejectedBy: user.id } });
+    return { error: "فشل رفض السيرة الذاتية" };
+  }
 
   try {
     await notify(

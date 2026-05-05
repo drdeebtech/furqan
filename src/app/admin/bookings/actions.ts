@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { emitEvent } from "@/lib/automation/emit";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
+import { logError } from "@/lib/logger";
 
 export async function adminUpdateBookingStatus(bookingId: string, status: string) {
   let actorId: string;
@@ -28,7 +29,10 @@ export async function adminUpdateBookingStatus(bookingId: string, status: string
     .update({ status } as never)
     .eq("id", bookingId);
 
-  if (error) return { error: "تعذر تحديث الحجز" };
+  if (error) {
+    logError("admin updateBookingStatus failed", error, { tag: "admin-bookings", severity: "warning", metadata: { bookingId, status, actorId } });
+    return { error: "تعذر تحديث الحجز" };
+  }
 
   await supabase.from("audit_log").insert({
     changed_by: actorId,
