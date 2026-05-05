@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { fetchNameMap } from "@/lib/supabase/helpers";
-import { loadOrFail } from "@/lib/supabase/load-or-fail";
+import { loadOrFail, countOrFail } from "@/lib/supabase/load-or-fail";
 import type { SessionType } from "@/types/database";
 import { TeacherDashboardContent } from "./dashboard-content";
 import { TeacherAtRiskStudents } from "./at-risk-students";
@@ -61,42 +61,60 @@ export default async function TeacherDashboardPage() {
     getTeacherRecentStudents(user.id),
   ]);
 
-  // loadOrFail wraps the direct supabase queries in this batch so each
-  // failure tags Sentry with the dashboard widget that broke. anyFailed
-  // accumulates across the page → drives <DataLoadBanner /> below.
+  // loadOrFail/countOrFail wrap the direct supabase queries in this batch so
+  // each failure tags Sentry with the dashboard widget that broke. anyFailed
+  // accumulates across the whole page → drives <DataLoadBanner /> below.
   const profileLoad = loadOrFail(profileRes, { full_name: null, phone: null, avatar_url: null }, { route: "teacher-dashboard", widget: "profile" });
   const tpLoad = loadOrFail(tpRes, { total_sessions: 0, rating_avg: 0, cv_status: "draft", bio: null }, { route: "teacher-dashboard", widget: "teacher-profile" });
   const pendingLoad = loadOrFail(pendingRes, [] as PendingBooking[], { route: "teacher-dashboard", widget: "pending-bookings" });
   const todayLoad = loadOrFail(todayRes, [] as PendingBooking[], { route: "teacher-dashboard", widget: "today-sessions" });
   const allStudentsLoad = loadOrFail(allStudentsRes, [] as { student_id: string }[], { route: "teacher-dashboard", widget: "all-students" });
   const convosLoad = loadOrFail(convosRes, [] as { id: string }[], { route: "teacher-dashboard", widget: "conversations" });
-  const anyFailed = profileLoad.failed || tpLoad.failed || pendingLoad.failed || todayLoad.failed || allStudentsLoad.failed || convosLoad.failed;
+  // Count-only queries — countOrFail returns { count, failed } so we don't
+  // have to read .count separately from the original Res object.
+  const monthLoad = countOrFail(monthRes, { route: "teacher-dashboard", widget: "month-sessions" });
+  const availLoad = countOrFail(availRes, { route: "teacher-dashboard", widget: "active-availability" });
+  const gradingLoad = countOrFail(gradingRes, { route: "teacher-dashboard", widget: "pending-grading" });
+  // anyFailed must be `let` because the unread-messages and today-session-data
+  // loads run sequentially below and OR their flags in.
+  let anyFailed = profileLoad.failed || tpLoad.failed || pendingLoad.failed
+    || todayLoad.failed || allStudentsLoad.failed || convosLoad.failed
+    || monthLoad.failed || availLoad.failed || gradingLoad.failed;
 
   const convIds = convosLoad.data.map(c => c.id);
   let unreadMessages = 0;
   if (convIds.length > 0) {
-    const { count } = await supabase.from("messages").select("id", { count: "exact", head: true })
+    const messagesRes = await supabase.from("messages").select("id", { count: "exact", head: true })
       .in("conversation_id", convIds).neq("sender_id", user.id).eq("is_read", false);
-    unreadMessages = count ?? 0;
+    const messagesLoad = countOrFail(messagesRes, { route: "teacher-dashboard", widget: "unread-messages" });
+    unreadMessages = messagesLoad.count;
+    anyFailed = anyFailed || messagesLoad.failed;
   }
-  const pendingGrading = gradingRes.count ?? 0;
+  const pendingGrading = gradingLoad.count;
 
   const fullName = profileLoad.data.full_name;
   const hasProfile = !!(profileLoad.data.full_name && profileLoad.data.phone && profileLoad.data.avatar_url);
   const hasBio = !!(tpLoad.data.bio);
-  const hasAvailability = (availRes.count ?? 0) > 0;
+  const hasAvailability = availLoad.count > 0;
   const ratingAvg = Number(tpLoad.data.rating_avg ?? 0);
   const cvStatus = (tpLoad.data.cv_status ?? "draft") as "draft" | "pending_review" | "approved" | "rejected";
   const pending = pendingLoad.data;
   const todaySessions = todayLoad.data;
-  const monthSessions = monthRes.count ?? 0;
+  const monthSessions = monthLoad.count;
   const uniqueStudents = new Set(allStudentsLoad.data.map(s => s.student_id)).size;
 
   let sessionDataMap: Record<string, { id: string; room_url: string; expires_at: string | null; started_at: string | null; ended_at: string | null }> = {};
   if (todaySessions.length > 0) {
     const bIds = todaySessions.map(b => b.id);
-    const { data: sessions } = await supabase.from("sessions").select("id, booking_id, room_url, expires_at, started_at, ended_at").in("booking_id", bIds).returns<{ id: string; booking_id: string; room_url: string; expires_at: string | null; started_at: string | null; ended_at: string | null }[]>();
-    if (sessions) sessionDataMap = Object.fromEntries(sessions.map(s => [s.booking_id, s]));
+    const sessionsRes = await supabase.from("sessions")
+      .select("id, booking_id, room_url, expires_at, started_at, ended_at")
+      .in("booking_id", bIds)
+      .returns<{ id: string; booking_id: string; room_url: string; expires_at: string | null; started_at: string | null; ended_at: string | null }[]>();
+    const sessionsLoad = loadOrFail(sessionsRes, [] as { id: string; booking_id: string; room_url: string; expires_at: string | null; started_at: string | null; ended_at: string | null }[], { route: "teacher-dashboard", widget: "today-session-data" });
+    anyFailed = anyFailed || sessionsLoad.failed;
+    if (sessionsLoad.data.length > 0) {
+      sessionDataMap = Object.fromEntries(sessionsLoad.data.map(s => [s.booking_id, s]));
+    }
   }
 
   const allStudentIds = [...new Set([...pending.map(b => b.student_id), ...todaySessions.map(b => b.student_id)])];
