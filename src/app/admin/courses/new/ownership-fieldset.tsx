@@ -5,7 +5,10 @@ import { useState } from "react";
 interface TeacherOption {
   id: string;
   full_name: string | null;
-  email: string | null;
+  // email lives on auth.users, not public.profiles. The page no longer
+  // ships it — kept optional so the dropdown still renders cleanly when
+  // populated from a separate admin.auth.admin lookup later.
+  email?: string | null;
 }
 
 interface OwnershipFieldsetProps {
