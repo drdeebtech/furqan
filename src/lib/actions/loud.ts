@@ -37,6 +37,7 @@ import type { ZodType } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTelegramAlert } from "@/lib/n8n/client";
 import { logError } from "@/lib/logger";
+import { attachGeoToSentryScope } from "@/lib/sentry-geo";
 
 export type LoudResult = {
   ok: true;
@@ -90,6 +91,11 @@ export function loudAction<TInput, THandlerResult extends void | { message?: str
     });
     Sentry.setTag?.("action.name", config.name);
     Sentry.setTag?.("action.severity", config.severity ?? "info");
+    // Stream 12C — geo tags from Vercel-injected headers so Sentry events
+    // captured anywhere in this action's call tree are filterable by
+    // country/region/city in the Sentry UI. await is fire-and-forget
+    // safe — the helper swallows its own errors.
+    await attachGeoToSentryScope();
 
     let actorId: string | null = null;
     try {
