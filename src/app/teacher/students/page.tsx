@@ -170,9 +170,9 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
                 <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
                   {s.ungraded > 0 && (
                     <Link
-                      href="/teacher/homework"
+                      href="/teacher/follow-up"
                       className="inline-flex items-center gap-1 rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 font-medium text-warning hover:bg-warning/15 focus-ring"
-                      title={t(`${s.ungraded} واجبات بانتظار التقييم`, `${s.ungraded} homework awaiting grading`)}
+                      title={t(`${s.ungraded} متابعات بانتظار التقييم`, `${s.ungraded} follow-ups awaiting grading`)}
                     >
                       <ClipboardCheck size={11} aria-hidden="true" />
                       {s.ungraded} {t("بانتظار التقييم", "to grade")}

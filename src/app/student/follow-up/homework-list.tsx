@@ -1,12 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { BookOpen, CheckCircle, Clock, AlertTriangle, RefreshCw, Mic } from "lucide-react";
+import { BookOpen, CheckCircle, Clock, RefreshCw, Mic, Sparkles, Repeat, Archive } from "lucide-react";
 import { markStudentReady } from "@/lib/actions/homework";
 import { HOMEWORK_TYPE_AR, HOMEWORK_STATUS_STYLE } from "@/lib/constants";
 import { useLang } from "@/lib/i18n/context";
 import type { HomeworkAssignment } from "@/types/database";
 import { AudioRecorder } from "./audio-recorder";
+
+// Pedagogical buckets for the student dashboard. Order matters — "near"
+// goes first because that's the consolidation work the student must do
+// before next session; "far" is the spaced-repetition refresh; "new" is
+// brand-new material; history is collapsed at the bottom.
+type Bucket = "near" | "far" | "new" | "history";
+
+function bucketFor(a: HomeworkAssignment): Bucket {
+  if (a.status.startsWith("completed_")) return "history";
+  // Older rows pre-migration may have null/undefined; treat as "new".
+  const horizon = (a as HomeworkAssignment & { review_horizon?: string | null }).review_horizon;
+  if (horizon === "near") return "near";
+  if (horizon === "far") return "far";
+  return "new";
+}
 
 type ParentInfo = {
   id: string;
@@ -29,74 +44,102 @@ export function HomeworkList({
 }) {
   const { t } = useLang();
 
-  const pending = assignments.filter(a => a.status === "assigned");
-  const ready = assignments.filter(a => a.status === "student_ready");
-  const completed = assignments.filter(a => a.status.startsWith("completed_"));
+  // Bucket each assignment by horizon × status, then within each bucket
+  // sort assigned-first (the student's actionable work) followed by
+  // student_ready (already turned in, awaiting grading). History
+  // (completed_*) goes by completion date, newest first.
+  const groups: Record<Bucket, HomeworkAssignment[]> = {
+    near: [],
+    far: [],
+    new: [],
+    history: [],
+  };
+  for (const a of assignments) groups[bucketFor(a)].push(a);
+
+  const sortActive = (arr: HomeworkAssignment[]) =>
+    arr.sort((x, y) => {
+      const xPri = x.status === "assigned" ? 0 : 1;
+      const yPri = y.status === "assigned" ? 0 : 1;
+      if (xPri !== yPri) return xPri - yPri;
+      return new Date(y.assigned_at).getTime() - new Date(x.assigned_at).getTime();
+    });
+  sortActive(groups.near);
+  sortActive(groups.far);
+  sortActive(groups.new);
+  groups.history.sort((x, y) => {
+    const xt = x.completed_at ? new Date(x.completed_at).getTime() : 0;
+    const yt = y.completed_at ? new Date(y.completed_at).getTime() : 0;
+    return yt - xt;
+  });
+
+  const renderCard = (a: HomeworkAssignment) => (
+    <HomeworkCard
+      key={a.id}
+      hw={a}
+      nameMap={nameMap}
+      parent={a.parent_assignment_id ? parentMap?.[a.parent_assignment_id] : undefined}
+      studentId={studentId}
+      t={t}
+      showReadyButton={a.status === "assigned"}
+    />
+  );
 
   return (
     <div className="space-y-8">
-      {/* Pending — student needs to mark ready */}
-      {pending.length > 0 && (
+      {groups.near.length > 0 && (
         <Section
-          title={t("واجبات جديدة", "New Assignments")}
-          subtitle={t("اضغط 'أنا جاهز' عند إتمام الحفظ", "Click 'I'm Ready' when done")}
-          icon={<AlertTriangle size={18} className="text-blue-400" />}
-          count={pending.length}
+          title={t("من جلستك الأخيرة", "From your last session")}
+          subtitle={t(
+            "ثبّت ما درسته قبل أن يتلاشى — أهم متابعة هذه الفترة",
+            "Lock in what you covered before it fades — the most important follow-up right now",
+          )}
+          icon={<Sparkles size={18} className="text-gold" />}
+          count={groups.near.length}
         >
-          {pending.map(a => (
-            <HomeworkCard
-              key={a.id}
-              hw={a}
-              nameMap={nameMap}
-              parent={a.parent_assignment_id ? parentMap?.[a.parent_assignment_id] : undefined}
-              studentId={studentId}
-              t={t}
-              showReadyButton
-            />
-          ))}
+          {groups.near.map(renderCard)}
         </Section>
       )}
 
-      {/* Ready — waiting for teacher grading */}
-      {ready.length > 0 && (
+      {groups.far.length > 0 && (
         <Section
-          title={t("بانتظار التسميع", "Awaiting Grading")}
-          subtitle={t("معلمك سيراجع أداءك في الجلسة القادمة", "Your teacher will review in the next session")}
-          icon={<Clock size={18} className="text-warning" />}
-          count={ready.length}
+          title={t("لتثبيت ما درسته سابقاً", "Refresh older lessons")}
+          subtitle={t(
+            "مراجعة سريعة لدرس قديم لتحافظ عليه طازجاً في ذاكرتك",
+            "A quick refresher of an older lesson to keep it fresh in your memory",
+          )}
+          icon={<Repeat size={18} className="text-blue-400" />}
+          count={groups.far.length}
         >
-          {ready.map(a => (
-            <HomeworkCard
-              key={a.id}
-              hw={a}
-              nameMap={nameMap}
-              parent={a.parent_assignment_id ? parentMap?.[a.parent_assignment_id] : undefined}
-              studentId={studentId}
-              t={t}
-            />
-          ))}
+          {groups.far.map(renderCard)}
         </Section>
       )}
 
-      {/* Completed */}
-      {completed.length > 0 && (
+      {groups.new.length > 0 && (
         <Section
-          title={t("واجبات مكتملة", "Completed Homework")}
-          icon={<CheckCircle size={18} className="text-success" />}
-          count={completed.length}
+          title={t("جديد", "New material")}
+          subtitle={t(
+            "محتوى جديد لم يُربط بمراجعة جلسة معينة",
+            "Brand-new material — not tied to reviewing a specific past session",
+          )}
+          icon={<BookOpen size={18} className="text-success" />}
+          count={groups.new.length}
         >
-          {completed.map(a => (
-            <HomeworkCard
-              key={a.id}
-              hw={a}
-              nameMap={nameMap}
-              parent={a.parent_assignment_id ? parentMap?.[a.parent_assignment_id] : undefined}
-              studentId={studentId}
-              t={t}
-            />
-          ))}
+          {groups.new.map(renderCard)}
         </Section>
       )}
+
+      {groups.history.length > 0 && (
+        <Section
+          title={t("الأرشيف", "History")}
+          subtitle={t("متابعات سابقة تم تقييمها", "Past follow-ups already graded")}
+          icon={<Archive size={18} className="text-muted" />}
+          count={groups.history.length}
+        >
+          {groups.history.map(renderCard)}
+        </Section>
+      )}
+
+      {Object.values(groups).every((g) => g.length === 0) && null}
     </div>
   );
 }
@@ -258,7 +301,7 @@ function HomeworkCard({
               )}
               {!parent && (
                 <p className="mt-0.5 text-xs text-muted">
-                  {t("هذا الواجب أُعيد بناءً على المحاولة السابقة. حاول مجدداً.", "This homework was reissued from a prior attempt. Try again.")}
+                  {t("أُعيدت هذه المتابعة بناءً على المحاولة السابقة. حاول مجدداً.", "This follow-up was reissued from a prior attempt. Try again.")}
                 </p>
               )}
             </div>

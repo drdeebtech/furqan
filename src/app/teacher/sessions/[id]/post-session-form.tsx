@@ -78,7 +78,7 @@ export function PostSessionForm({
       <div className="glass-card p-6 text-center">
         <CheckCircle size={32} className="mx-auto mb-2 text-success" />
         <p className="text-lg font-semibold">{t("تمت الجلسة بنجاح", "Session completed")}</p>
-        <p className="mt-1 text-sm text-muted">{t("أضف ملاحظاتك والواجب للطالب", "Add notes and homework for the student")}</p>
+        <p className="mt-1 text-sm text-muted">{t("أضف ملاحظاتك والمتابعة للطالب", "Add notes and a follow-up for the student")}</p>
       </div>
 
       {error && (

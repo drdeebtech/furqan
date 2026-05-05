@@ -76,6 +76,31 @@ export const HOMEWORK_TYPE_BILINGUAL: Record<HomeworkType, { ar: string; en: str
   listening: { ar: "استماع", en: "Listening" },
 };
 
+// ─── Follow-up review horizon ───────────────────────────────────────────────
+// Teacher's pedagogical intent at creation time:
+//  - near: consolidate the very last session before fading
+//  - far:  spaced-repetition refresher of an older topic
+//  - none: brand-new material with no review attribution (e.g. fresh hifz)
+export type ReviewHorizon = "near" | "far" | "none";
+
+export const REVIEW_HORIZON_BILINGUAL: Record<ReviewHorizon, { ar: string; en: string; hint: { ar: string; en: string } }> = {
+  near: {
+    ar: "متابعة قريبة",
+    en: "Near-past review",
+    hint: { ar: "تثبيت ما درسه الطالب في الجلسة الأخيرة", en: "Consolidate what the student covered in the last session" },
+  },
+  far: {
+    ar: "متابعة بعيدة",
+    en: "Far-past review",
+    hint: { ar: "تذكير بدرس قديم لكي لا يُنسى", en: "Refresher of an older lesson to keep memory fresh" },
+  },
+  none: {
+    ar: "محتوى جديد",
+    en: "New material",
+    hint: { ar: "حفظ أو موضوع جديد بلا مراجعة", en: "Fresh hifz or new topic, no review attribution" },
+  },
+};
+
 export const HOMEWORK_STATUS_AR: Record<HomeworkStatus, string> = {
   assigned: "تم التكليف",
   student_ready: "جاهز",

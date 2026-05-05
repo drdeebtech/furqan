@@ -107,8 +107,8 @@ function EmptyPlan({ homeworkPulse }: { homeworkPulse: { overdue: number; dueTod
       <p className="mt-1 max-w-xs text-xs leading-relaxed text-muted">
         {hasHwSignal
           ? t(
-              "لكن هناك واجبات قادمة. ربما الوقت مناسب لمراجعة هادئة.",
-              "There are assignments coming up. A quiet review might be a good use of the time.",
+              "لكن هناك متابعات قادمة. ربما الوقت مناسب لمراجعة هادئة.",
+              "There are follow-ups coming up. A quiet review might be a good use of the time.",
             )
           : t(
               "وقت مفتوح. مراجعة، حفظ، أو احجز جلسة قادمة.",

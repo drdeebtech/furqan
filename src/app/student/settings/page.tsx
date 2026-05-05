@@ -86,9 +86,9 @@ export default async function StudentSettingsPage() {
             <Calendar size={16} className="shrink-0 text-gold" aria-hidden="true" />
             <span className="text-sm">{t("حجوزاتي", "My Bookings")}</span>
           </Link>
-          <Link href="/student/homework" className="flex min-h-[44px] items-center gap-3 rounded-xl border border-[var(--surface-border)] p-3 transition-colors hover:border-gold/30 hover:bg-foreground/5">
+          <Link href="/student/follow-up" className="flex min-h-[44px] items-center gap-3 rounded-xl border border-[var(--surface-border)] p-3 transition-colors hover:border-gold/30 hover:bg-foreground/5">
             <BookOpen size={16} className="shrink-0 text-gold" aria-hidden="true" />
-            <span className="text-sm">{t("الواجبات", "Homework")}</span>
+            <span className="text-sm">{t("المتابعة", "Follow-up")}</span>
           </Link>
           <Link href="/student/packages" className="flex min-h-[44px] items-center gap-3 rounded-xl border border-[var(--surface-border)] p-3 transition-colors hover:border-gold/30 hover:bg-foreground/5">
             <Package size={16} className="shrink-0 text-gold" aria-hidden="true" />

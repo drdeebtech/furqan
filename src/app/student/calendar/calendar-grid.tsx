@@ -50,7 +50,7 @@ export function CalendarGrid({ monthIso, events }: Props) {
   // ── Legend chips ────────────────────────────────────────────────
   const legend = [
     { color: "#3B82F6", label: t("جلسة", "Session") },
-    { color: "#F59E0B", label: t("واجب", "Homework") },
+    { color: "#F59E0B", label: t("متابعة", "Follow-up") },
     { color: "#8B5CF6", label: t("انتهاء باقة", "Package expiry") },
     { color: "#06B6D4", label: t("تقييم", "Evaluation") },
   ];

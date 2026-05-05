@@ -55,7 +55,7 @@ export function GradeForm({
     return (
       <div className="flex items-center gap-2 rounded-xl border border-success/30 bg-success/10 p-3 text-sm text-success">
         <CheckCircle size={16} />
-        {t("تم تقييم الواجب بنجاح", "Homework graded successfully")}
+        {t("تم تقييم المتابعة بنجاح", "Follow-up graded successfully")}
         {(selectedGrade === "completed_needs_work" || selectedGrade === "completed_not_done") && (
           <span className="text-xs text-muted"> — {t("تم إعادة تكليف الطالب تلقائياً", "Student auto-reassigned")}</span>
         )}

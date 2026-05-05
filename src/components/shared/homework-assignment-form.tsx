@@ -4,10 +4,16 @@ import { useState } from "react";
 import { Plus, BookOpen, CheckCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { createHomework } from "@/lib/actions/homework";
-import { HOMEWORK_TYPE_AR, HOMEWORK_STATUS_STYLE } from "@/lib/constants";
+import {
+  HOMEWORK_TYPE_AR,
+  HOMEWORK_STATUS_STYLE,
+  REVIEW_HORIZON_BILINGUAL,
+  type ReviewHorizon,
+} from "@/lib/constants";
 import type { HomeworkType, HomeworkAssignment } from "@/types/database";
 
 const QURAN_TYPES: HomeworkType[] = ["hifz", "muraja", "recitation", "tajweed"];
+const HORIZON_ORDER: ReviewHorizon[] = ["near", "far", "none"];
 
 interface Props {
   bookingId: string;
@@ -32,6 +38,7 @@ export function HomeworkAssignmentForm({
 }: Props) {
   const { t } = useLang();
   const [showHwForm, setShowHwForm] = useState(defaultOpen);
+  const [horizon, setHorizon] = useState<ReviewHorizon>(sessionId ? "near" : "none");
   const [hwType, setHwType] = useState<HomeworkType>("hifz");
   const [hwTitle, setHwTitle] = useState("");
   const [hwDesc, setHwDesc] = useState("");
@@ -46,7 +53,7 @@ export function HomeworkAssignmentForm({
 
   async function handleCreateHomework() {
     if (!hwTitle.trim()) {
-      setHwError(t("عنوان الواجب مطلوب", "Homework title is required"));
+      setHwError(t("عنوان المتابعة مطلوب", "Follow-up title is required"));
       return;
     }
     setHwSaving(true);
@@ -56,6 +63,7 @@ export function HomeworkAssignmentForm({
     fd.set("booking_id", bookingId);
     fd.set("student_id", studentId);
     if (sessionId) fd.set("session_id", sessionId);
+    fd.set("review_horizon", horizon);
     fd.set("homework_type", hwType);
     fd.set("title", hwTitle.trim());
     if (hwDesc.trim()) fd.set("description", hwDesc.trim());
@@ -93,7 +101,7 @@ export function HomeworkAssignmentForm({
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-base font-semibold">
             <BookOpen size={18} className="ms-2 inline text-gold" />
-            {t("الواجبات المهيكلة", "Structured Homework")}
+            {t("المتابعة المهيكلة", "Structured Follow-up")}
           </h3>
           {!showHwForm && (
             <button
@@ -101,7 +109,7 @@ export function HomeworkAssignmentForm({
               className="glass-pill flex items-center gap-1 bg-gold/10 px-3 py-1.5 text-sm text-gold transition-colors hover:bg-gold/20"
             >
               <Plus size={14} />
-              {t("إضافة واجب", "Add homework")}
+              {t("إضافة متابعة", "Add follow-up")}
             </button>
           )}
         </div>
@@ -144,12 +152,48 @@ export function HomeworkAssignmentForm({
           {hwSuccess && (
             <div className="rounded-xl border border-success/30 bg-success/10 p-2 text-sm text-success">
               <CheckCircle size={14} className="ms-1 inline" />
-              {t("تم إنشاء الواجب بنجاح", "Homework created successfully")}
+              {t("تم إنشاء المتابعة بنجاح", "Follow-up created successfully")}
             </div>
           )}
 
           <div>
-            <label className="mb-1 block text-sm font-medium">{t("نوع الواجب", "Type")}</label>
+            <label className="mb-1 block text-sm font-medium">
+              {t("هدف المتابعة", "Follow-up target")}
+            </label>
+            <p className="mb-2 text-xs text-muted-light">
+              {t(
+                "اختر متى يجب على الطالب مراجعة هذا المحتوى",
+                "Pick when the student should review this content",
+              )}
+            </p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {HORIZON_ORDER.map((h) => {
+                const meta = REVIEW_HORIZON_BILINGUAL[h];
+                const active = horizon === h;
+                return (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => setHorizon(h)}
+                    aria-pressed={active}
+                    className={`glass-card cursor-pointer rounded-xl p-3 text-start transition-colors focus-ring ${
+                      active
+                        ? "border-gold/60 bg-gold/10 text-foreground"
+                        : "border-transparent text-muted hover:text-foreground"
+                    }`}
+                  >
+                    <p className="text-sm font-semibold">{t(meta.ar, meta.en)}</p>
+                    <p className="mt-0.5 text-xs text-muted-light">
+                      {t(meta.hint.ar, meta.hint.en)}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium">{t("نوع المتابعة", "Type")}</label>
             <select
               value={hwType}
               onChange={(e) => setHwType(e.target.value as HomeworkType)}
@@ -174,6 +218,7 @@ export function HomeworkAssignmentForm({
 
           <div>
             <label className="mb-1 block text-sm font-medium">{t("الوصف", "Description")}</label>
+            {/* horizon hint reused from above; description placeholder unchanged */}
             <textarea
               value={hwDesc}
               onChange={(e) => setHwDesc(e.target.value)}
@@ -251,7 +296,7 @@ export function HomeworkAssignmentForm({
               ) : (
                 <Plus size={16} />
               )}
-              {t("إنشاء الواجب", "Create homework")}
+              {t("إنشاء المتابعة", "Create follow-up")}
             </button>
             {!defaultOpen && (
               <button

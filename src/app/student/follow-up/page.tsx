@@ -6,9 +6,9 @@ import { getT } from "@/lib/i18n/server";
 import type { HomeworkAssignment } from "@/types/database";
 import { HomeworkList } from "./homework-list";
 
-export const metadata: Metadata = { title: "الواجبات" };
+export const metadata: Metadata = { title: "متابعاتي" };
 
-export default async function StudentHomeworkPage() {
+export default async function StudentFollowUpPage() {
   const { t, dir } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -67,15 +67,15 @@ export default async function StudentHomeworkPage() {
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center gap-3">
         <BookOpen size={24} className="text-gold" />
-        <h1 className="text-xl font-bold">{t("واجباتي", "My Homework")}</h1>
+        <h1 className="text-xl font-bold">{t("متابعاتي", "My Follow-ups")}</h1>
       </div>
 
       {!assignments || assignments.length === 0 ? (
         <div className="glass-card p-12 text-center">
           <Inbox size={40} className="mx-auto mb-3 text-muted/40" />
-          <p className="text-muted">{t("لا توجد واجبات بعد", "No homework yet")}</p>
+          <p className="text-muted">{t("لا توجد متابعات بعد", "No follow-ups yet")}</p>
           <p className="mt-1 text-sm text-muted/60">
-            {t("سيكلّفك معلمك بالواجبات بعد كل جلسة", "Your teacher will assign homework after each session")}
+            {t("سيكلّفك معلمك بمتابعات بعد كل جلسة لتثبيت ما تعلمته", "Your teacher will assign follow-ups after each session to lock in what you learned")}
           </p>
         </div>
       ) : (

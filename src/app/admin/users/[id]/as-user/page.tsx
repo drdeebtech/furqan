@@ -187,9 +187,9 @@ export default async function AdminAsUserPage({
             )}
           </Card>
 
-          <Card icon={BookOpen} label={t("الواجبات", "Homework")} value={homework.length}>
+          <Card icon={BookOpen} label={t("المتابعة", "Follow-up")} value={homework.length}>
             {homework.length === 0 ? (
-              <p className="text-xs text-muted">{t("لا يوجد واجبات.", "No homework.")}</p>
+              <p className="text-xs text-muted">{t("لا توجد متابعات.", "No follow-ups.")}</p>
             ) : (
               <ul className="space-y-2">
                 {homework.slice(0, 5).map((h) => (

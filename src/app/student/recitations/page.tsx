@@ -64,8 +64,8 @@ export default async function StudentRecitationsPage() {
           <h1 className="text-xl font-bold">{t("أرشيف تسميعاتي", "My Recitation Archive")}</h1>
           <p className="mt-0.5 text-xs text-muted">
             {t(
-              "كل تسميع سجلته مع واجباتك — رحلتك صوتية وتاريخ صادق.",
-              "Every recitation you've recorded with your homework — an honest audio history of your journey.",
+              "كل تسميع سجلته مع متابعاتك — رحلتك صوتية وتاريخ صادق.",
+              "Every recitation you've recorded with your follow-ups — an honest audio history of your journey.",
             )}
           </p>
         </div>
@@ -79,15 +79,15 @@ export default async function StudentRecitationsPage() {
           </p>
           <p className="mt-1 text-xs text-muted/60">
             {t(
-              "عند تسجيلك تلاوة مع واجب، تظهر هنا.",
-              "When you record a recitation with a homework submission, it appears here.",
+              "عند تسجيلك تلاوة مع متابعة، تظهر هنا.",
+              "When you record a recitation with a follow-up submission, it appears here.",
             )}
           </p>
           <Link
-            href="/student/homework"
+            href="/student/follow-up"
             className="mt-4 inline-flex items-center gap-1 text-sm text-gold hover:text-gold-hover focus-ring rounded"
           >
-            {t("افتح واجباتي", "Open My Homework")}
+            {t("افتح متابعاتي", "Open My Follow-ups")}
             <ChevronRight size={14} aria-hidden="true" />
           </Link>
         </div>

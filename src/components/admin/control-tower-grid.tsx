@@ -32,7 +32,7 @@ const WIDGETS: Widget[] = [
   { key: "low-balance", labelAr: "باقات منخفضة الرصيد", labelEn: "Low Balance Packages", icon: Package, tier: "info", href: "/admin/credits", threshold: 0 },
   { key: "new-signups", labelAr: "مسجلون جدد (7 أيام)", labelEn: "New Signups (7d)", icon: Users, tier: "success", href: "/admin/users", threshold: -1 },
   { key: "at-risk", labelAr: "طلاب في خطر التسرب", labelEn: "At-Risk Students", icon: TrendingDown, tier: "error", href: "/admin/retention", threshold: 0 },
-  { key: "grading", labelAr: "واجبات بانتظار التقييم", labelEn: "Pending Grading", icon: BookOpen, tier: "info", href: "/admin/notes", threshold: 0 },
+  { key: "grading", labelAr: "متابعات بانتظار التقييم", labelEn: "Pending Grading", icon: BookOpen, tier: "info", href: "/admin/notes", threshold: 0 },
   { key: "recitation", labelAr: "أخطاء تلاوة غير محلولة", labelEn: "Unresolved Errors", icon: AlertTriangle, tier: "warning", href: "/admin/sessions", threshold: 10 },
   { key: "failed-actions", labelAr: "إجراءات إدارية فاشلة (24 ساعة)", labelEn: "Failed Admin Actions (24h)", icon: XCircle, tier: "error", href: "/admin/audit", threshold: 0 },
 ];

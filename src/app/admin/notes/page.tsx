@@ -76,7 +76,7 @@ export default async function AdminNotesPage() {
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
       <h1 className="text-2xl font-bold">{t("ملاحظات الجلسات", "Session Notes")}</h1>
-      <p className="mt-1 text-sm text-muted">{t("جميع ملاحظات المعلمين والواجبات المنزلية", "All teacher notes and homework")}</p>
+      <p className="mt-1 text-sm text-muted">{t("جميع ملاحظات المعلمين والمتابعات", "All teacher notes and follow-ups")}</p>
 
       {/* Stats */}
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -93,7 +93,7 @@ export default async function AdminNotesPage() {
         <div className="glass-card rounded-xl p-4">
           <BookOpen size={16} className="mb-1 text-gold" />
           <p className="text-2xl font-bold text-gold">{homeworkCount}</p>
-          <p className="text-xs text-muted">{t("واجبات منزلية", "Homework")}</p>
+          <p className="text-xs text-muted">{t("متابعات", "Follow-ups")}</p>
         </div>
       </div>
 
@@ -139,7 +139,7 @@ export default async function AdminNotesPage() {
 
                 {s.homework && (
                   <div className="mt-2 rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
-                    <p className="mb-1 text-xs font-medium text-blue-400">{t("الواجب المنزلي", "Homework")}:</p>
+                    <p className="mb-1 text-xs font-medium text-blue-400">{t("المتابعة", "Follow-up")}:</p>
                     <p className="text-sm text-foreground whitespace-pre-wrap">{s.homework}</p>
                   </div>
                 )}

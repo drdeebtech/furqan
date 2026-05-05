@@ -90,14 +90,14 @@ export async function bulkGradeHomework(
 
       if (fetchErr || !hw) {
         result.failed += 1;
-        result.errors.push(`الواجب ${item.id} غير موجود`);
+        result.errors.push(`المتابعة ${item.id} غير موجودة`);
         continue;
       }
 
       if (hw.status !== "student_ready") {
         result.failed += 1;
         result.errors.push(
-          `الواجب ${item.id} ليس في حالة "جاهز" (الحالة الحالية: ${hw.status})`,
+          `المتابعة ${item.id} ليست في حالة "جاهز" (الحالة الحالية: ${hw.status})`,
         );
         continue;
       }
@@ -148,8 +148,8 @@ export async function bulkGradeHomework(
         await notify(
           hw.student_id,
           "homework",
-          "تم تقييم واجبك",
-          `تم تقييم واجب "${hw.title}" — النتيجة: ${gradeLabel}`,
+          "تم تقييم متابعتك",
+          `تم تقييم متابعة "${hw.title}" — النتيجة: ${gradeLabel}`,
           "homework",
           item.id,
         );
@@ -186,9 +186,9 @@ export async function bulkGradeHomework(
   }
 
   // Revalidate affected paths so the page reflects the latest queue.
-  revalidatePath("/admin/homework/grade");
-  revalidatePath("/teacher/homework");
-  revalidatePath("/student/homework");
+  revalidatePath("/admin/follow-up/grade");
+  revalidatePath("/teacher/follow-up");
+  revalidatePath("/student/follow-up");
 
   return result;
 }

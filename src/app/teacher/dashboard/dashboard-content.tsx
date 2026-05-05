@@ -129,7 +129,7 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
     { combo: "g a", description: { ar: "المواعيد", en: "Availability" }, group: { ar: "تنقل", en: "Navigate" }, href: "/teacher/availability" },
     { combo: "g s", description: { ar: "الجلسات", en: "Sessions" }, group: { ar: "تنقل", en: "Navigate" }, href: "/teacher/sessions" },
     { combo: "g t", description: { ar: "الطلاب", en: "Students" }, group: { ar: "تنقل", en: "Navigate" }, href: "/teacher/students" },
-    { combo: "g h", description: { ar: "الواجبات", en: "Homework" }, group: { ar: "تنقل", en: "Navigate" }, href: "/teacher/homework" },
+    { combo: "g h", description: { ar: "المتابعة", en: "Follow-up" }, group: { ar: "تنقل", en: "Navigate" }, href: "/teacher/follow-up" },
     { combo: "g c", description: { ar: "الدورات المسجلة", en: "Recorded courses" }, group: { ar: "تنقل", en: "Navigate" }, href: "/teacher/courses" },
     { combo: "g e", description: { ar: "التقييمات", en: "Evaluations" }, group: { ar: "تنقل", en: "Navigate" }, href: "/teacher/evaluations" },
     { combo: "g v", description: { ar: "السيرة الذاتية", en: "My CV" }, group: { ar: "تنقل", en: "Navigate" }, href: "/teacher/cv" },

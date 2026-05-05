@@ -393,7 +393,7 @@ async function OverviewPanel({
                 ? "—"
                 : `${fmt(avgGradingLagHours)} ${t("س", "h")}`
             }
-            sub={`${gradedHw.length} ${t("واجب", "homework")}`}
+            sub={`${gradedHw.length} ${t("متابعة", "follow-up")}`}
             toneClass={tone(
               avgGradingLagHours <= 24,
               avgGradingLagHours <= 48,

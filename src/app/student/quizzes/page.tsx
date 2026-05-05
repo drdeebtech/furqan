@@ -44,8 +44,8 @@ export default async function StudentQuizzesPage() {
               </p>
               <p className="mt-2 text-sm leading-relaxed text-muted">
                 {t(
-                  "الاختبارات هنا مرتبطة بالدورات المسجلة — كل دورة لها اختباراتها التي تثبّت ما تعلمته. عند اشتراكك في دورة تظهر اختباراتها هنا تلقائياً. الاختبارات تختلف عن الواجبات التي يكلّفك بها معلمك في الجلسات المباشرة.",
-                  "Quizzes are tied to enrolled courses — each course has its own quizzes that consolidate what you've learned. When you enroll in a course, its quizzes appear here automatically. Quizzes are different from the homework your teacher assigns in your live sessions.",
+                  "الاختبارات هنا مرتبطة بالدورات المسجلة — كل دورة لها اختباراتها التي تثبّت ما تعلمته. عند اشتراكك في دورة تظهر اختباراتها هنا تلقائياً. الاختبارات تختلف عن المتابعات التي يكلّفك بها معلمك في الجلسات المباشرة.",
+                  "Quizzes are tied to enrolled courses — each course has its own quizzes that consolidate what you've learned. When you enroll in a course, its quizzes appear here automatically. Quizzes are different from the follow-ups your teacher assigns in your live sessions.",
                 )}
               </p>
             </div>
@@ -58,10 +58,10 @@ export default async function StudentQuizzesPage() {
               {t("تصفح الدورات", "Browse courses")}
             </Link>
             <Link
-              href="/student/homework"
+              href="/student/follow-up"
               className="text-xs text-muted hover:text-foreground/80 focus-ring rounded"
             >
-              {t("واجباتي من المعلم ←", "My homework from teacher →")}
+              {t("متابعاتي من المعلم ←", "My follow-ups from teacher →")}
             </Link>
           </div>
         </div>

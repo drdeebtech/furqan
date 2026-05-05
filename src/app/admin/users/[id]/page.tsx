@@ -357,7 +357,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
                   )}
                   {note?.homework && (
                     <div className="mt-1 rounded-lg border border-blue-500/20 bg-blue-500/5 p-2">
-                      <p className="text-xs font-medium text-blue-400"><BookOpen size={12} className="inline" /> {t("واجب", "Homework")}:</p>
+                      <p className="text-xs font-medium text-blue-400"><BookOpen size={12} className="inline" /> {t("المتابعة", "Follow-up")}:</p>
                       <p className="mt-1 text-xs whitespace-pre-wrap">{note.homework}</p>
                     </div>
                   )}

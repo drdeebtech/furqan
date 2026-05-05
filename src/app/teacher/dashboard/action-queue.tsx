@@ -22,8 +22,8 @@ export function TeacherActionQueue({ data }: { data: ActionQueueData }) {
   const items: Item[] = [
     pendingGrading > 0 && {
       icon: BookOpen,
-      label: t(`${pendingGrading} واجبات بانتظار التقييم`, `${pendingGrading} homework awaiting grading`),
-      href: "/teacher/homework",
+      label: t(`${pendingGrading} متابعات بانتظار التقييم`, `${pendingGrading} follow-ups awaiting grading`),
+      href: "/teacher/follow-up",
       severity: "warning" as const,
     },
     overdueEvals > 0 && {

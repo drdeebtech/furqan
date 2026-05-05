@@ -90,8 +90,8 @@ const META: Record<string, WorkflowMeta> = {
 
   // Area 02 — Parent Communication
   "post-session-report": {
-    ar: "تقرير AI لأولياء الأمور بعد كل جلسة يلخص الواجب والتقييم والتوصيات.",
-    en: "AI parent report after each session summarising homework, evaluation, and next steps.",
+    ar: "تقرير AI لأولياء الأمور بعد كل جلسة يلخص المتابعة والتقييم والتوصيات.",
+    en: "AI parent report after each session summarising follow-up, evaluation, and next steps.",
     area: "parent_communication",
   },
   "fallback-parent-report": {
@@ -100,8 +100,8 @@ const META: Record<string, WorkflowMeta> = {
     area: "parent_communication",
   },
   "weekly-digest": {
-    ar: "خلاصة أسبوعية لأولياء الأمور تجمع الجلسات والتقدم والواجبات والتقييمات.",
-    en: "Weekly parent digest aggregating sessions, progress, homework, and evaluations.",
+    ar: "خلاصة أسبوعية لأولياء الأمور تجمع الجلسات والتقدم والمتابعات والتقييمات.",
+    en: "Weekly parent digest aggregating sessions, progress, follow-ups, and evaluations.",
     area: "parent_communication",
   },
   "monthly-master-report": {
@@ -115,8 +115,8 @@ const META: Record<string, WorkflowMeta> = {
     area: "parent_communication",
   },
   "homework-alert": {
-    ar: "تنبيه ولي الأمر عند تقصير الطالب في الواجب بأسلوب محفّز.",
-    en: "Encouraging parent alert when a student under-performs on homework.",
+    ar: "تنبيه ولي الأمر عند تقصير الطالب في المتابعة بأسلوب محفّز.",
+    en: "Encouraging parent alert when a student under-performs on a follow-up.",
     area: "parent_communication",
   },
   "homework-graded": {
@@ -387,8 +387,8 @@ const META: Record<string, WorkflowMeta> = {
     area: "ai_intelligence",
   },
   "risk-classifier": {
-    ar: "تصنيف يومي للمخاطر الأكاديمية من الحضور والأخطاء والركود والواجبات.",
-    en: "Daily academic-risk classification from attendance, errors, stagnation, homework.",
+    ar: "تصنيف يومي للمخاطر الأكاديمية من الحضور والأخطاء والركود والمتابعات.",
+    en: "Daily academic-risk classification from attendance, errors, stagnation, follow-ups.",
     area: "ai_intelligence",
   },
 };

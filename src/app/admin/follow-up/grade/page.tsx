@@ -5,7 +5,7 @@ import { getT } from "@/lib/i18n/server";
 import { GraderClient } from "./grader-client";
 
 export const metadata: Metadata = {
-  title: "تقييم الواجبات · Bulk Homework Grader",
+  title: "تقييم المتابعات · Bulk Follow-up Grader",
 };
 
 interface PendingHomeworkRow {
@@ -81,7 +81,7 @@ export default async function AdminHomeworkGradePage() {
       <header className="mb-6">
         <div className="flex items-center gap-3">
           <GraduationCap size={24} className="text-gold" />
-          <h1 className="text-xl font-bold">{t("قائمة الواجبات بانتظار التقييم", "Homework Awaiting Grading")}</h1>
+          <h1 className="text-xl font-bold">{t("قائمة المتابعات بانتظار التقييم", "Follow-ups Awaiting Grading")}</h1>
         </div>
         <p className="mt-2 text-sm text-muted">
           {t(

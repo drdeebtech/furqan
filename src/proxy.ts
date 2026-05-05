@@ -83,6 +83,16 @@ const PROTECTED_ROUTES: Record<string, UserRole> = {
 
 const PUBLIC_ROUTES = ["/login", "/register", "/forgot-password"];
 
+// Legacy URL renames. These pages were renamed from "homework" to "follow-up"
+// in the dashboards (the user-facing concept is closer to a continuity loop
+// than to a one-off chore). Keep 301 redirects so any cached link, pasted
+// URL, or in-flight n8n notification still lands the user on the right page.
+const RENAMED_ROUTES: Array<readonly [from: string, to: string]> = [
+  ["/teacher/homework", "/teacher/follow-up"],
+  ["/student/homework", "/student/follow-up"],
+  ["/admin/homework", "/admin/follow-up"],
+];
+
 async function getUserRoleState(
   _supabase: Awaited<ReturnType<typeof updateSession>>["supabase"],
   userId: string,
@@ -94,6 +104,16 @@ async function getUserRoleState(
 }
 
 export async function proxy(request: NextRequest) {
+  // Apply legacy rename redirects before auth — a 301 here is cheaper than
+  // running the full auth/role pipeline only to redirect at the route layer.
+  for (const [from, to] of RENAMED_ROUTES) {
+    if (request.nextUrl.pathname === from || request.nextUrl.pathname.startsWith(`${from}/`)) {
+      const url = request.nextUrl.clone();
+      url.pathname = request.nextUrl.pathname.replace(from, to);
+      return NextResponse.redirect(url, 301);
+    }
+  }
+
   const { supabaseResponse, user, supabase } = await updateSession(request);
   const { pathname } = request.nextUrl;
 

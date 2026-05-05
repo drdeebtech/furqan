@@ -84,7 +84,7 @@ export default async function StudentNotesPage() {
                 </div>
                 {s.homework && (
                   <div className="mt-4 glass rounded-lg p-3">
-                    <p className="mb-1 text-xs font-medium text-gold">{t("الواجب", "Homework")}</p>
+                    <p className="mb-1 text-xs font-medium text-gold">{t("المتابعة", "Follow-up")}</p>
                     <p className="text-sm text-muted">{s.homework}</p>
                   </div>
                 )}

@@ -121,7 +121,7 @@ export async function buildSessionNarrative(sessionId: string): Promise<SessionN
   if (evalRes.data?.weaknesses) teachingPoints.push(`ما يحتاج متابعة: ${evalRes.data.weaknesses}`);
 
   const nextSteps = homeworkRes.data?.title
-    ? `الواجب القادم: ${homeworkRes.data.title}. نشجعكم على المراجعة معه/ها قبل الجلسة القادمة.`
+    ? `المتابعة القادمة: ${homeworkRes.data.title}. نشجعكم على المراجعة معه/ها قبل الجلسة القادمة.`
     : "ننصح بمراجعة ما تم اليوم قبل الجلسة القادمة لترسيخ التعلم.";
 
   return {

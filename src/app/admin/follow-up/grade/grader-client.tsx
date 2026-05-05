@@ -67,7 +67,7 @@ export function GraderClient({ items }: { items: HomeworkItem[] }) {
   if (items.length === 0) {
     return (
       <div className="rounded-2xl border border-surface-border/60 bg-surface/40 p-10 text-center text-sm text-muted">
-        {t("لا يوجد واجبات بانتظار التقييم.", "No pending homework.")}
+        {t("لا توجد متابعات بانتظار التقييم.", "No pending follow-ups.")}
       </div>
     );
   }

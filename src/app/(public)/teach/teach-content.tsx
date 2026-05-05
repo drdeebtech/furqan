@@ -77,8 +77,8 @@ export default function TeachContent() {
                 icon: Video,
                 ar: "منصة متكاملة",
                 en: "Integrated platform",
-                dAr: "فيديو مدمج وتتبع للحفظ وأدوات تصحيح الواجبات.",
-                dEn: "Built-in video, memorization tracking, and homework grading.",
+                dAr: "فيديو مدمج وتتبع للحفظ وأدوات تصحيح المتابعات.",
+                dEn: "Built-in video, memorization tracking, and follow-up grading.",
               },
               {
                 icon: GraduationCap,

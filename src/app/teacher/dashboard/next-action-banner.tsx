@@ -161,11 +161,11 @@ export function TeacherNextActionBanner({ data }: { data: TeacherNextActionData 
             eyebrow={t("تقييم بانتظارك", "Grading queue")}
             eyebrowTone="warning"
             title={t(
-              `${state.count} واجب جاهز للتقييم`,
-              `${state.count} assignment${state.count > 1 ? "s" : ""} ready to grade`,
+              `${state.count} متابعة جاهزة للتقييم`,
+              `${state.count} follow-up${state.count > 1 ? "s" : ""} ready to grade`,
             )}
           />
-          <Primary href="/teacher/homework" label={t("ابدأ التقييم", "Start grading")} arrow={<Arrow size={14} aria-hidden="true" />} />
+          <Primary href="/teacher/follow-up" label={t("ابدأ التقييم", "Start grading")} arrow={<Arrow size={14} aria-hidden="true" />} />
         </Banner>
       );
     case "unread-messages":

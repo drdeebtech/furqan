@@ -206,7 +206,7 @@ export default async function StudentSessionsPage() {
                   )}
                   {session?.homework && (
                     <div className="mt-2 glass rounded-lg p-3">
-                      <p className="mb-1 text-xs font-medium text-gold">{t("الواجب", "Homework")}</p>
+                      <p className="mb-1 text-xs font-medium text-gold">{t("المتابعة", "Follow-up")}</p>
                       <p className="text-sm text-muted">{session.homework}</p>
                     </div>
                   )}

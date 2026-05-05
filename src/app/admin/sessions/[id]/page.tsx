@@ -290,7 +290,7 @@ export default async function SessionDetailPage({
           )}
           {session.homework && (
             <div>
-              <p className="text-xs text-muted">{t("الواجب", "Homework")}</p>
+              <p className="text-xs text-muted">{t("المتابعة", "Follow-up")}</p>
               <p className="mt-1 text-sm">{session.homework}</p>
             </div>
           )}

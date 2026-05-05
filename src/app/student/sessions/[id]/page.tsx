@@ -145,7 +145,7 @@ export default async function SessionPage({ params }: Props) {
 
           {session.homework && (
             <div className="glass-card p-5">
-              <h2 className="mb-2 font-display text-sm font-semibold text-gold">{t("الواجب", "Homework")}</h2>
+              <h2 className="mb-2 font-display text-sm font-semibold text-gold">{t("المتابعة", "Follow-up")}</h2>
               <p className="text-sm leading-relaxed text-muted">{session.homework}</p>
             </div>
           )}

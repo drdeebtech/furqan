@@ -1394,6 +1394,7 @@ export type Database = {
           pages_count: number | null
           parent_assignment_id: string | null
           ready_at: string | null
+          review_horizon: string
           session_id: string | null
           status: Database["public"]["Enums"]["homework_status"]
           student_id: string
@@ -1419,6 +1420,7 @@ export type Database = {
           pages_count?: number | null
           parent_assignment_id?: string | null
           ready_at?: string | null
+          review_horizon?: string
           session_id?: string | null
           status?: Database["public"]["Enums"]["homework_status"]
           student_id: string
@@ -1444,6 +1446,7 @@ export type Database = {
           pages_count?: number | null
           parent_assignment_id?: string | null
           ready_at?: string | null
+          review_horizon?: string
           session_id?: string | null
           status?: Database["public"]["Enums"]["homework_status"]
           student_id?: string

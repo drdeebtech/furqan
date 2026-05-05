@@ -152,8 +152,8 @@ export async function notifyParentHomeworkNotDone(
     studentId,
     teacherId,
     reportType: "custom",
-    title: `واجب ${gradeLabel}`,
-    body: `تم تقييم واجب "${homeworkTitle}" لابنكم/ابنتكم: ${gradeLabel}. تم إعادة تكليفه بالواجب.`,
+    title: `متابعة ${gradeLabel}`,
+    body: `تم تقييم متابعة "${homeworkTitle}" لابنكم/ابنتكم: ${gradeLabel}. تمت إعادة تكليفه بالمتابعة.`,
     createdBy,
   });
 }

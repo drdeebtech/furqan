@@ -387,7 +387,7 @@ export default async function StudentDetailPage({ params }: Props) {
                 )}
                 {session?.homework && (
                   <div className="mt-2 rounded-lg border border-gold/20 bg-gold/5 p-3">
-                    <p className="mb-1 text-xs font-medium text-gold">{t("واجب", "Homework")}</p>
+                    <p className="mb-1 text-xs font-medium text-gold">{t("المتابعة", "Follow-up")}</p>
                     <p className="text-sm text-muted break-words whitespace-pre-wrap">{session.homework}</p>
                   </div>
                 )}
