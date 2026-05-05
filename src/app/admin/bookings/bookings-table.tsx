@@ -178,7 +178,7 @@ export function BookingsTable({
         <div className="overflow-x-auto rounded-xl glass-card">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/10 bg-white/5">
+              <tr className="glass-thead">
                 <th scope="col" className="w-10 px-3 py-3 text-start">
                   <input
                     type="checkbox"

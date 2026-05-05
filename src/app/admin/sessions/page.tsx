@@ -172,7 +172,7 @@ export default async function AdminSessionsPage() {
         <div className="overflow-x-auto rounded-2xl glass-card">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/10 bg-white/5">
+              <tr className="glass-thead">
                 <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("الطالب", "Student")}</th>
                 <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("المعلم", "Teacher")}</th>
                 <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("الموعد", "Date")}</th>

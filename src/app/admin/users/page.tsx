@@ -83,7 +83,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
       ) : (
         <div className="overflow-hidden rounded-xl glass-card">
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-white/10 bg-white/5">
+            <thead><tr className="glass-thead">
               <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الاسم", "Name")}</th>
               <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الدور", "Role")}</th>
               <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("الدولة", "Country")}</th>
