@@ -7,6 +7,7 @@ import { ToastProvider } from "@/components/shared/toast";
 import { PwaInstallPrompt } from "@/components/shared/pwa-install-prompt";
 import { HydrationBeacon } from "@/components/shared/hydration-beacon";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -146,6 +147,7 @@ export default async function RootLayout({
         </ThemeProvider>
         <HydrationBeacon />
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
