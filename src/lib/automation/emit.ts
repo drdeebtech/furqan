@@ -11,6 +11,8 @@
  *     }));
  */
 
+import { after } from "next/server";
+import { track } from "@vercel/analytics/server";
 import { signWebhookPayload } from "@/lib/security/secrets";
 import { getSettings } from "@/lib/settings";
 import { serializePayload, type EventPayload } from "./payload";
@@ -77,60 +79,78 @@ export async function emitEvent(
     data,
   };
 
-  // Kill-switch: respect the master flag and any event-specific sub-flag.
-  // On suppression we record a `status=skipped` row so admins can audit
-  // exactly which events the kill-switch swallowed.
-  const settings = await getSettings().catch(() => ({} as Record<string, string>));
-  if (settings.automation_enabled !== "true") {
-    await recordSkipped(payload, "automation_enabled=false");
-    return;
-  }
-  const subFlag = EVENT_SUB_FLAGS[eventName];
-  if (subFlag && settings[subFlag] !== "true") {
-    await recordSkipped(payload, `${subFlag}=false`);
-    return;
-  }
-
-  // Send to specific webhook if mapped, otherwise to generic events endpoint
-  const path = WEBHOOK_ROUTES[eventName] ?? DEFAULT_WEBHOOK_PATH;
-
-  // Serialize once; the same exact bytes are signed and sent on the wire.
-  // Any reordering or whitespace difference between sign-time and send-time
-  // would invalidate the verifier's recomputed HMAC.
-  const rawBody = serializePayload(payload);
-
-  // Fire-and-forget with 5s timeout. Failures record to automation_logs
-  // rather than bubbling to the caller — the caller already wraps this in
-  // try/catch and discards the error, so without this the failure is invisible.
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
-
-  try {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "X-Furqan-Event": eventName,
+  // Mirror the event into Vercel Web Analytics as a custom event. Only
+  // scalar properties are allowed; we hoist entity_type/entity_id and any
+  // string|number|boolean|null fields out of `data`. Returns void; if not
+  // running on Vercel it's a no-op.
+  after(() => {
+    const props: Record<string, string | number | boolean | null> = {
+      entity_type: entityType,
+      entity_id: entityId,
     };
+    if (actorId != null) props.actor_id = actorId;
+    for (const [key, value] of Object.entries(data)) {
+      if (
+        value === null ||
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean"
+      ) {
+        props[key] = value;
+      }
+    }
+    try { track(eventName, props); } catch { /* tolerate analytics outage */ }
+  });
 
-    if (N8N_WEBHOOK_SECRET) {
-      const { timestamp, signature } = signWebhookPayload(rawBody, N8N_WEBHOOK_SECRET);
-      headers["X-Furqan-Timestamp"] = timestamp;
-      headers["X-Furqan-Signature"] = signature;
+  // Whole webhook flow runs in after(): kill-switch check, signing, fetch,
+  // and outcome recording. The caller's response ships immediately while
+  // n8n/automation_logs work happens in the background — no more 5s timeout
+  // sitting on the request critical path.
+  after(async () => {
+    const settings = await getSettings().catch(() => ({} as Record<string, string>));
+    if (settings.automation_enabled !== "true") {
+      await recordSkipped(payload, "automation_enabled=false");
+      return;
+    }
+    const subFlag = EVENT_SUB_FLAGS[eventName];
+    if (subFlag && settings[subFlag] !== "true") {
+      await recordSkipped(payload, `${subFlag}=false`);
+      return;
     }
 
-    const res = await fetch(`${N8N_WEBHOOK_URL}${path}`, {
-      method: "POST",
-      headers,
-      body: rawBody,
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      await recordFailure(payload, `n8n ${res.status}`);
+    const path = WEBHOOK_ROUTES[eventName] ?? DEFAULT_WEBHOOK_PATH;
+    // Serialize once; the same exact bytes are signed and sent on the wire.
+    // Any reordering or whitespace difference between sign-time and send-time
+    // would invalidate the verifier's recomputed HMAC.
+    const rawBody = serializePayload(payload);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "X-Furqan-Event": eventName,
+      };
+      if (N8N_WEBHOOK_SECRET) {
+        const { timestamp, signature } = signWebhookPayload(rawBody, N8N_WEBHOOK_SECRET);
+        headers["X-Furqan-Timestamp"] = timestamp;
+        headers["X-Furqan-Signature"] = signature;
+      }
+      const res = await fetch(`${N8N_WEBHOOK_URL}${path}`, {
+        method: "POST",
+        headers,
+        body: rawBody,
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        await recordFailure(payload, `n8n ${res.status}`);
+      }
+    } catch (err) {
+      await recordFailure(payload, err instanceof Error ? err.message : "fetch failed");
+    } finally {
+      clearTimeout(timeout);
     }
-  } catch (err) {
-    await recordFailure(payload, err instanceof Error ? err.message : "fetch failed");
-  } finally {
-    clearTimeout(timeout);
-  }
+  });
 }
 
 

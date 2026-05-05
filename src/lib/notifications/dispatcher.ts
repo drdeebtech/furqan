@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { NotifType } from "@/types/database";
 import { isInQuietHours } from "./dispatcher-quiet-hours";
@@ -63,7 +64,11 @@ export async function dispatchNotification(opts: DispatchOptions): Promise<void>
     if (isInQuietHours(currentTime, prefs.quiet_hours_start, prefs.quiet_hours_end)) return;
   }
 
-  // 2. Send in-app notification (primary channel — always attempted)
+  // 2. Send in-app notification (primary channel — always attempted).
+  // The notifications insert stays sync because the user's next page
+  // load may include the notifications panel; the message_delivery_log
+  // insert is observability-only and runs in after() so the caller
+  // doesn't wait for two writes back-to-back.
   if (inAppEnabled) {
     const { error } = await supabase.from("notifications").insert({
       user_id: opts.userId,
@@ -74,16 +79,17 @@ export async function dispatchNotification(opts: DispatchOptions): Promise<void>
       channel: ["in_app"],
     } as never);
 
-    // Log delivery
-    await logDelivery(supabase, {
-      recipientUserId: opts.userId,
-      channel: "in_app",
-      templateName: opts.templateName,
-      entityType: opts.entityType,
-      entityId: opts.entityId,
-      status: error ? "failed" : "sent",
-      failureReason: error?.message,
-    });
+    after(() =>
+      logDelivery(supabase, {
+        recipientUserId: opts.userId,
+        channel: "in_app",
+        templateName: opts.templateName,
+        entityType: opts.entityType,
+        entityId: opts.entityId,
+        status: error ? "failed" : "sent",
+        failureReason: error?.message,
+      }),
+    );
   }
 
   // 3. Email channel (future — log as skipped for now)
