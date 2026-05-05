@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
+import { loadOrFail, countOrFail } from "@/lib/supabase/load-or-fail";
 import { ProgressContent } from "./progress-content";
+import { DataLoadBanner } from "@/components/shared/data-load-banner";
 
 export const metadata: Metadata = { title: "تقدمي" };
 
@@ -67,13 +69,20 @@ export default async function StudentProgressPage() {
       .returns<{ id: string; scheduled_at: string }[]>(),
   ]);
 
-  const completedCount = completedRes.count ?? 0;
-  const progressRecords = progressRes.data ?? [];
-  const evaluations = evalsRes.data ?? [];
-  const homeworkRaw = hwRes.data ?? [];
+  const completedLoad = countOrFail(completedRes, { route: "student-progress", widget: "completed-count" });
+  const progressLoad = loadOrFail(progressRes, [], { route: "student-progress", widget: "progress-records" });
+  const evalsLoad = loadOrFail(evalsRes, [], { route: "student-progress", widget: "evaluations" });
+  const hwLoad = loadOrFail(hwRes, [], { route: "student-progress", widget: "homework-counts" });
+  const totalHoursLoad = loadOrFail(totalHoursRes, [], { route: "student-progress", widget: "total-hours" });
+  const anyFailed = completedLoad.failed || progressLoad.failed || evalsLoad.failed || hwLoad.failed || totalHoursLoad.failed;
+
+  const completedCount = completedLoad.count;
+  const progressRecords = progressLoad.data;
+  const evaluations = evalsLoad.data;
+  const homeworkRaw = hwLoad.data;
 
   // Get total study hours from student's completed sessions
-  const completedBookingIds = (totalHoursRes.data ?? []).map(b => b.id);
+  const completedBookingIds = totalHoursLoad.data.map(b => b.id);
   let totalMinutes = 0;
   if (completedBookingIds.length > 0) {
     const { data: sessionsData } = await supabase.from("sessions")
@@ -171,12 +180,14 @@ export default async function StudentProgressPage() {
   // weekly rate. Returns 0 when the student is brand-new or has been
   // inactive — in that case the projection card hides itself entirely.
   const twentyEightDaysAgoIso = new Date(Date.now() - 28 * 86400_000).toISOString();
-  const sessionsLast28d = (totalHoursRes.data ?? []).filter(
+  const sessionsLast28d = totalHoursLoad.data.filter(
     b => b.scheduled_at >= twentyEightDaysAgoIso,
   ).length;
   const sessionsPerWeek = sessionsLast28d / 4;
 
   return (
+    <>
+      <DataLoadBanner failed={anyFailed} />
     <ProgressContent
       data={{
         completedCount,
@@ -193,5 +204,6 @@ export default async function StudentProgressPage() {
         parentReport,
       }}
     />
+    </>
   );
 }
