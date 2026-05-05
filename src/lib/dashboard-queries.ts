@@ -914,6 +914,11 @@ export async function getStudentRecentRecordings(
     progress: Math.min(100, 50 + i * 10),
     assignee: nameMap[b.teacher_id] ?? "—",
     view: "view",
+    // Direct link to the recording if Daily.co provided one, else the
+    // session detail page (which embeds the recording when present).
+    // Was previously undefined → DataTable fell back to /student/courses,
+    // which made no sense for a session recording.
+    _href: sessionMap[b.id] ?? `/student/sessions/${b.id}`,
   }));
 }
 

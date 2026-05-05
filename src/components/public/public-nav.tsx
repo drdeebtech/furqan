@@ -27,7 +27,7 @@ const TAIL_LINKS = [
   { href: "/contact", ar: "اتصل بنا", en: "Contact" },
 ];
 
-export function PublicNav() {
+export function PublicNav({ dashboardHref }: { dashboardHref?: string }) {
   const pathname = usePathname();
   const { t } = useLang();
   const { hideTeachersPage } = useFeatureFlags();
@@ -75,15 +75,26 @@ export function PublicNav() {
           <div className="hidden items-center gap-3 lg:flex">
             <ThemeToggle />
             <LangToggle />
-            <Link href="/login" className="text-sm text-muted transition-colors hover:text-gold">
-              {t("تسجيل الدخول", "Sign In")}
-            </Link>
-            <Link
-              href="/register"
-              className="glass glass-pill px-4 py-2 text-sm font-medium text-gold transition-all duration-200 hover:bg-gold hover:text-background"
-            >
-              {t("سجّل الآن", "Register Now")}
-            </Link>
+            {dashboardHref ? (
+              <Link
+                href={dashboardHref}
+                className="glass glass-pill px-4 py-2 text-sm font-medium text-gold transition-all duration-200 hover:bg-gold hover:text-background"
+              >
+                {t("لوحتي", "My Dashboard")}
+              </Link>
+            ) : (
+              <>
+                <Link href="/login" className="text-sm text-muted transition-colors hover:text-gold">
+                  {t("تسجيل الدخول", "Sign In")}
+                </Link>
+                <Link
+                  href="/register"
+                  className="glass glass-pill px-4 py-2 text-sm font-medium text-gold transition-all duration-200 hover:bg-gold hover:text-background"
+                >
+                  {t("سجّل الآن", "Register Now")}
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile: theme + lang + hamburger only.
@@ -118,12 +129,20 @@ export function PublicNav() {
               </Link>
             ))}
             <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4">
-              <Link href="/login" className="flex min-h-[44px] items-center text-sm text-muted">
-                {t("تسجيل الدخول", "Sign In")}
-              </Link>
-              <Link href="/register" className="inline-flex min-h-[44px] items-center justify-center glass-gold glass-pill px-4 text-sm font-medium transition-colors duration-200">
-                {t("سجّل الآن", "Register Now")}
-              </Link>
+              {dashboardHref ? (
+                <Link href={dashboardHref} className="inline-flex min-h-[44px] items-center justify-center glass-gold glass-pill px-4 text-sm font-medium transition-colors duration-200">
+                  {t("لوحتي", "My Dashboard")}
+                </Link>
+              ) : (
+                <>
+                  <Link href="/login" className="flex min-h-[44px] items-center text-sm text-muted">
+                    {t("تسجيل الدخول", "Sign In")}
+                  </Link>
+                  <Link href="/register" className="inline-flex min-h-[44px] items-center justify-center glass-gold glass-pill px-4 text-sm font-medium transition-colors duration-200">
+                    {t("سجّل الآن", "Register Now")}
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         )}

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Phone, Mail, User, BarChart3, AlertTriangle, Inbox, BookMarked, MessageSquareQuote, Mic, ScrollText } from "lucide-react";
@@ -25,6 +26,14 @@ const LEVEL_EN: Record<StudentLevel, string> = { beginner: "Beginner", intermedi
 const ERROR_TYPE_EN: Record<string, string> = { makharij: "Makharij", sifat: "Sifat", madd: "Madd", waqf: "Waqf", ghunna: "Ghunna", other: "Other" };
 
 interface Props { params: Promise<{ studentId: string }>; }
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { studentId } = await params;
+  const supabase = await createClient();
+  const { data } = await supabase.from("profiles").select("full_name").eq("id", studentId).single<{ full_name: string | null }>();
+  const name = data?.full_name?.trim() || "طالب";
+  return { title: `${name} | فرقان` };
+}
 
 interface BookingRow { id: string; scheduled_at: string; duration_min: number; session_type: SessionType; status: string; }
 interface SessionRow { booking_id: string; post_session_notes: string | null; homework: string | null; }
