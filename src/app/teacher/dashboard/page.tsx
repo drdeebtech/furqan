@@ -32,9 +32,26 @@ export default async function TeacherDashboardPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+  // Anchor "today" to Asia/Kuwait (operator timezone) instead of the
+  // Vercel runtime's UTC. Without this, todayStart/todayEnd were UTC
+  // midnight bounds — for Kuwait users that meant "today" started at
+  // 3 AM local. Kuwait has no DST, so the static +03:00 offset is safe.
+  const TZ = "Asia/Kuwait";
+  const TZ_OFFSET = "+03:00";
+  const dateParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const todayStart = new Date(`${dateParts}T00:00:00${TZ_OFFSET}`);
+  const todayEnd = new Date(`${dateParts}T23:59:59.999${TZ_OFFSET}`);
+  const monthParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "2-digit",
+  }).format(new Date());
+  const monthStart = new Date(`${monthParts}-01T00:00:00${TZ_OFFSET}`).toISOString();
 
   // Batch 1 — every query depends only on user.id, so they all parallelize.
   // The 4 secondary widgets (talqeen, roster-error-pulse, parent-report,
