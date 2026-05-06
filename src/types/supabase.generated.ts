@@ -3251,7 +3251,7 @@ export type Database = {
           admin_observer_id: string | null
           allow_recording: boolean
           ayah_range: string | null
-          booking_id: string
+          booking_id: string | null
           capacity: number
           created_at: string
           created_via: string
@@ -3284,7 +3284,7 @@ export type Database = {
           admin_observer_id?: string | null
           allow_recording?: boolean
           ayah_range?: string | null
-          booking_id: string
+          booking_id?: string | null
           capacity?: number
           created_at?: string
           created_via?: string
@@ -3317,7 +3317,7 @@ export type Database = {
           admin_observer_id?: string | null
           allow_recording?: boolean
           ayah_range?: string | null
-          booking_id?: string
+          booking_id?: string | null
           capacity?: number
           created_at?: string
           created_via?: string
