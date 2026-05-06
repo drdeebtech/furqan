@@ -61,7 +61,10 @@ export default async function ModerationPage() {
       .from("session_evaluations")
       .select("id, student_id, teacher_id, evaluation_type, evaluation_date, overall_score, areas_for_improvement, created_at")
       .not("overall_score", "is", null)
-      .lte("overall_score", 2.5)
+      // overall_score is a smallint column; lte(2.5) → "invalid input
+      // syntax for type integer". Round threshold to 2 (anything ≤ 2/10
+      // is the moderation queue cutoff). Sentry JAVASCRIPT-NEXTJS-E4-1X.
+      .lte("overall_score", 2)
       .gte("created_at", sevenDaysAgo)
       .order("created_at", { ascending: false })
       .limit(100)

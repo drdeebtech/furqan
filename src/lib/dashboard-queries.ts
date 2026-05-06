@@ -1330,7 +1330,11 @@ export async function getAdminLiveSessions(): Promise<LiveSessionItem[]> {
   const { data: sessions } = await supabase
     .from("sessions")
     .select(
-      "id, started_at, booking:bookings(session_type, student:profiles!student_id(full_name), teacher:profiles!teacher_id(full_name))",
+      // Disambiguate which sessions↔bookings FK to embed: the schema has
+      // both bookings.session_id (one-to-many) and sessions.booking_id
+      // (one-to-one). Without the !sessions_booking_id_fkey hint
+      // PostgREST returns PGRST201. (Sentry JAVASCRIPT-NEXTJS-E4-17.)
+      "id, started_at, booking:bookings!sessions_booking_id_fkey(session_type, student:profiles!student_id(full_name), teacher:profiles!teacher_id(full_name))",
     )
     .not("started_at", "is", null)
     .is("ended_at", null)
