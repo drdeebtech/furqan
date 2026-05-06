@@ -29,6 +29,9 @@ on:
       - "scripts/.silent-fail-baseline.txt"
       - ".github/workflows/silent-fail-check.yml"
 
+permissions:
+  contents: read
+
 jobs:
   check:
     name: silent-fail tripwire
