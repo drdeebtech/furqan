@@ -452,6 +452,22 @@
 }
 
 /* =====================
+   GLASS THEAD — table header tint
+   ===================== */
+/* Consolidates the inline `border-b border-white/10 bg-white/5` pattern
+ * scattered across ~8 admin tables. A single utility for thead/tr keeps
+ * the dark + light treatments in sync and makes future tweaks one-liners.
+ * Apply on the <tr> (or wrapper) inside <thead>. */
+.glass-thead {
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+}
+.light .glass-thead {
+  background: rgba(0, 0, 0, 0.025);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* =====================
    GLASS ROW — table row hover
    ===================== */
 .glass-row {

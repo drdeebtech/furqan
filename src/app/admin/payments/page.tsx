@@ -56,7 +56,7 @@ export default async function AdminPaymentsPage() {
       ) : (
         <div className="mb-8 overflow-x-auto rounded-xl glass-card">
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-white/10 bg-white/5">
+            <thead><tr className="glass-thead">
               <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("الطالب", "Student")}</th>
               <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("المبلغ", "Amount")}</th>
               <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("الحالة", "Status")}</th>
@@ -85,7 +85,7 @@ export default async function AdminPaymentsPage() {
       ) : (
         <div className="overflow-x-auto rounded-xl glass-card">
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-white/10 bg-white/5">
+            <thead><tr className="glass-thead">
               <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("رقم الفاتورة", "Invoice #")}</th>
               <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("الطالب", "Student")}</th>
               <th scope="col" className="px-3 py-3 text-start font-medium text-muted">{t("المبلغ", "Amount")}</th>
