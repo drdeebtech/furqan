@@ -6,7 +6,7 @@ import { BreadcrumbSchema } from "@/components/seo/structured-data";
 export const metadata: Metadata = {
   title: "اتصل بنا",
   description: "تواصل مع أكاديمية فرقان عبر واتساب أو البريد الإلكتروني. نرد خلال 24 ساعة. سجّل الآن وابدأ.",
-  alternates: { canonical: "https://furqan.today/contact" },
+  alternates: { canonical: "https://www.furqan.today/contact" },
 };
 
 export default async function ContactPage() {
@@ -16,8 +16,8 @@ export default async function ContactPage() {
   return (
     <>
       <BreadcrumbSchema items={[
-        { name: "الرئيسية", url: "https://furqan.today" },
-        { name: "اتصل بنا", url: "https://furqan.today/contact" },
+        { name: "الرئيسية", url: "https://www.furqan.today" },
+        { name: "اتصل بنا", url: "https://www.furqan.today/contact" },
       ]} />
       <ContactContent faqSlot={faqSlot} />
     </>

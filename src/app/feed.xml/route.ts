@@ -23,8 +23,8 @@ export async function GET() {
     .map(
       (p) => `    <item>
       <title><![CDATA[${p.title_ar}]]></title>
-      <link>https://furqan.today/blog/${p.slug}</link>
-      <guid isPermaLink="true">https://furqan.today/blog/${p.slug}</guid>
+      <link>https://www.furqan.today/blog/${p.slug}</link>
+      <guid isPermaLink="true">https://www.furqan.today/blog/${p.slug}</guid>
       <description><![CDATA[${p.excerpt_ar}]]></description>
       <pubDate>${new Date(p.published_at).toUTCString()}</pubDate>
     </item>`,
@@ -35,10 +35,10 @@ export async function GET() {
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>فرقان — المدونة</title>
-    <link>https://furqan.today/blog</link>
+    <link>https://www.furqan.today/blog</link>
     <description>مقالات ونصائح لتعلم القرآن الكريم من أكاديمية فرقان</description>
     <language>ar</language>
-    <atom:link href="https://furqan.today/feed.xml" rel="self" type="application/rss+xml"/>
+    <atom:link href="https://www.furqan.today/feed.xml" rel="self" type="application/rss+xml"/>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
 ${items}
   </channel>

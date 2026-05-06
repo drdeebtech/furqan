@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!post) return { title: "مقال" };
 
-  const url = `https://furqan.today/blog/${post.slug}`;
+  const url = `https://www.furqan.today/blog/${post.slug}`;
   const ogImage = `${url}/opengraph-image`;
 
   return {
@@ -87,17 +87,17 @@ export default async function ArticlePage({ params }: Props) {
   return (
     <div dir={dir}>
       <BreadcrumbSchema items={[
-        { name: t("الرئيسية", "Home"), url: "https://furqan.today" },
-        { name: t("المدونة", "Blog"), url: "https://furqan.today/blog" },
-        { name: title, url: `https://furqan.today/blog/${post.slug}` },
+        { name: t("الرئيسية", "Home"), url: "https://www.furqan.today" },
+        { name: t("المدونة", "Blog"), url: "https://www.furqan.today/blog" },
+        { name: title, url: `https://www.furqan.today/blog/${post.slug}` },
       ]} />
       <ArticleSchema
         headline={title}
-        image={`https://furqan.today/blog/${post.slug}/opengraph-image`}
+        image={`https://www.furqan.today/blog/${post.slug}/opengraph-image`}
         datePublished={post.published_at}
         dateModified={post.updated_at}
         description={excerpt}
-        url={`https://furqan.today/blog/${post.slug}`}
+        url={`https://www.furqan.today/blog/${post.slug}`}
       />
       <section className="glass-card border-b border-white/10 py-16 text-center">
         <p className="text-sm text-muted">

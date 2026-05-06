@@ -21,8 +21,8 @@ export function OrganizationSchema() {
     "@type": "EducationalOrganization",
     name: "فرقان — FURQAN Quran Academy",
     alternateName: "Furqan Academy",
-    url: "https://furqan.today",
-    logo: "https://furqan.today/logo-512.png",
+    url: "https://www.furqan.today",
+    logo: "https://www.furqan.today/logo-512.png",
     description: "Online Quran academy offering Hifz, Tajweed, and Tilawa with certified teachers holding Ijazah.",
     email: "alforqan.egy@gmail.com",
     telephone: "+96597795626",
@@ -78,12 +78,12 @@ export function ArticleSchema({
     author: {
       "@type": "Organization",
       name: "FURQAN Academy",
-      url: "https://furqan.today",
+      url: "https://www.furqan.today",
     },
     publisher: {
       "@type": "Organization",
       name: "FURQAN Academy",
-      logo: { "@type": "ImageObject", url: "https://furqan.today/logo-512.png" },
+      logo: { "@type": "ImageObject", url: "https://www.furqan.today/logo-512.png" },
     },
   };
 

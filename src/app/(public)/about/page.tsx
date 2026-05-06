@@ -6,7 +6,7 @@ import { getFeaturesBySlot } from "@/lib/site-content/queries";
 export const metadata: Metadata = {
   title: "من نحن",
   description: "تعرف على أكاديمية فرقان — فريق من المعلمين المعتمدين المتخصصين في تعليم القرآن الكريم عبر الإنترنت.",
-  alternates: { canonical: "https://furqan.today/about" },
+  alternates: { canonical: "https://www.furqan.today/about" },
 };
 
 // ISR — about_values lives in site_features. Admin edits in /admin/content
@@ -20,8 +20,8 @@ export default async function AboutPage() {
   return (
     <>
       <BreadcrumbSchema items={[
-        { name: "الرئيسية", url: "https://furqan.today" },
-        { name: "من نحن", url: "https://furqan.today/about" },
+        { name: "الرئيسية", url: "https://www.furqan.today" },
+        { name: "من نحن", url: "https://www.furqan.today/about" },
       ]} />
       <AboutContent values={values} />
     </>

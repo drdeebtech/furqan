@@ -45,7 +45,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://furqan.today"),
+  metadataBase: new URL("https://www.furqan.today"),
   title: {
     default: "فرقان — تعلم القرآن الكريم مع معلمين معتمدين",
     template: "%s | فرقان",
@@ -58,7 +58,7 @@ export const metadata: Metadata = {
     "online Quran teacher", "Hifz program", "Quran for kids", "female Quran teacher",
     "furqan academy", "فرقان",
   ],
-  authors: [{ name: "FURQAN Academy", url: "https://furqan.today" }],
+  authors: [{ name: "FURQAN Academy", url: "https://www.furqan.today" }],
   creator: "FURQAN Academy",
   publisher: "FURQAN Academy",
   formatDetection: { email: false, address: false, telephone: false },
@@ -74,7 +74,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: "ar_SA",
     alternateLocale: ["en_US"],
-    url: "https://furqan.today",
+    url: "https://www.furqan.today",
     siteName: "فرقان — FURQAN Academy",
     title: "فرقان — تعلم القرآن الكريم مع معلمين معتمدين",
     description: "تعلّم الحفظ والتجويد مع معلمين حاصلين على الإجازة. سجّل الآن وابدأ.",
@@ -90,14 +90,14 @@ export const metadata: Metadata = {
     googleBot: { index: true, follow: true, "max-video-preview": -1, "max-image-preview": "large", "max-snippet": -1 },
   },
   alternates: {
-    canonical: "https://furqan.today",
+    canonical: "https://www.furqan.today",
     // `x-default` tells Google the canonical URL for users whose preferred
     // language isn't specified. We keep the same origin for both locales but
     // distinguish via the `?lang=` query so crawlers can pick up both variants.
     languages: {
-      ar: "https://furqan.today/?lang=ar",
-      en: "https://furqan.today/?lang=en",
-      "x-default": "https://furqan.today",
+      ar: "https://www.furqan.today/?lang=ar",
+      en: "https://www.furqan.today/?lang=en",
+      "x-default": "https://www.furqan.today",
     },
   },
   appleWebApp: {

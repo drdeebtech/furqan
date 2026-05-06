@@ -307,7 +307,7 @@ export async function submitTeacherApplication(
         `<b>Email:</b> ${email}\n` +
         `<b>Phone:</b> ${phone}\n` +
         `<b>Specialties:</b> ${specialties.join(", ")}\n\n` +
-        `<a href="https://furqan.today/admin/teachers/cv/${teacherId}">Review →</a>`,
+        `<a href="https://www.furqan.today/admin/teachers/cv/${teacherId}">Review →</a>`,
     ).catch((err) => logError("teach-apply telegram failed", err, { tag: "teach-apply" })),
   ]);
 

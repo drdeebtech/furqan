@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: "شروط الاستخدام · Terms of Service",
   description:
     "شروط استخدام أكاديمية فرقان لتعلم القرآن الكريم. Terms of service for FURQAN Quran Academy.",
-  alternates: { canonical: "https://furqan.today/terms" },
+  alternates: { canonical: "https://www.furqan.today/terms" },
 };
 
 export default async function TermsPage() {

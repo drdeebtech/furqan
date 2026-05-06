@@ -50,7 +50,7 @@ async function logBunnyWebhook(
 // Bunny.net Stream webhook receiver.
 //
 // Configured in the Bunny dashboard at: Library → Settings → Webhook
-//   URL:    https://furqan.today/api/webhooks/bunny
+//   URL:    https://www.furqan.today/api/webhooks/bunny
 //   Method: POST
 //   Auth:   HMAC SHA256 with BUNNY_WEBHOOK_SECRET, header `Bunny-Signature`
 //   Events: Video Encoded, Video Failed

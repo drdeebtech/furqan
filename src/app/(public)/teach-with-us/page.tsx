@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "درّس معنا — فرقان أكاديمي",
   description:
     "انضم إلى هيئة التدريس في أكاديمية فرقان. نبحث عن معلمين حاصلين على الإجازة في القرآن الكريم لتعليم الطلاب حول العالم.",
-  alternates: { canonical: "https://furqan.today/teach" },
+  alternates: { canonical: "https://www.furqan.today/teach" },
 };
 
 export default function TeachPage() {

@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: "تقديم طلب تدريس | Apply to teach — FURQAN",
   description:
     "املأ نموذج التقديم للانضمام إلى هيئة التدريس في أكاديمية فُرقان.",
-  alternates: { canonical: "https://furqan.today/teach-with-us/apply" },
+  alternates: { canonical: "https://www.furqan.today/teach-with-us/apply" },
 };
 
 export default async function ApplyPage() {
