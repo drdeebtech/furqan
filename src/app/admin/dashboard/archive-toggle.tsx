@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Archive, ArchiveRestore, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { toggleArchiveTeacher } from "./actions";
+import { useToast } from "@/components/shared/toast";
 
 type GateHint =
   | { kind: "ok" }
@@ -23,6 +24,7 @@ export function ArchiveToggle({
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [gateHint, setGateHint] = useState<GateHint>(null);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     return () => {
@@ -62,6 +64,11 @@ export function ArchiveToggle({
           dismissTimerRef.current = setTimeout(() => setGateHint(null), 4000);
         }
       }
+    } else if (result.error) {
+      // The action already calls logError on failure (Sentry sees it under
+      // tag=admin-teachers). Surface the same error to the admin so they
+      // know the click did nothing — silent no-op was the audit complaint.
+      toast.error(result.error);
     }
 
     setLoading(false);
