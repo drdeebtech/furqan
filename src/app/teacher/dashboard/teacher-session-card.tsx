@@ -144,8 +144,8 @@ export function TeacherSessionCard({
   async function handleSaveNotes() {
     if (!sessionId) return;
     setLoading("notes");
-    const result = await saveQuickNotes(sessionId, notes);
-    if (result.error) setError(result.error);
+    const result = await saveQuickNotes({ sessionId, notes });
+    if (!result.ok) setError(result.error);
     else {
       setNotesSaved(true);
       setTimeout(() => setNotesSaved(false), 3000);

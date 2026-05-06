@@ -8,6 +8,7 @@ import { notifyParentSessionComplete, notifyParentNoShow } from "@/lib/notificat
 import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
+import { loudAction } from "@/lib/actions/loud";
 
 export async function updateBookingStatus(
   bookingId: string,
@@ -448,44 +449,52 @@ export async function recreateRoom(bookingId: string) {
 /* ------------------------------------------------------------------ */
 /*  saveQuickNotes – save quick notes from the dashboard card         */
 /* ------------------------------------------------------------------ */
-export async function saveQuickNotes(sessionId: string, notes: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "غير مصرح" };
+export const saveQuickNotes = loudAction<
+  { sessionId: string; notes: string },
+  { message: string }
+>({
+  name: "teacher.saveQuickNotes",
+  severity: "warning",
+  audit: {
+    table: "sessions",
+    recordId: i => i.sessionId,
+    action: "UPDATE",
+  },
+  preflight: async () => {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("غير مصرح");
+    return { actorId: user.id };
+  },
+  handler: async ({ sessionId, notes }, { actorId }) => {
+    const supabase = await createClient();
 
-  // Verify ownership through booking
-  const { data: session } = await supabase
-    .from("sessions")
-    .select("id, booking_id")
-    .eq("id", sessionId)
-    .single<{ id: string; booking_id: string }>();
+    // Verify ownership through booking
+    const { data: session } = await supabase
+      .from("sessions")
+      .select("id, booking_id")
+      .eq("id", sessionId)
+      .single<{ id: string; booking_id: string }>();
+    if (!session) throw new Error("الجلسة غير موجودة");
 
-  if (!session) return { error: "الجلسة غير موجودة" };
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select("teacher_id")
+      .eq("id", session.booking_id)
+      .eq("teacher_id", actorId!)
+      .single<{ teacher_id: string }>();
+    if (!booking) throw new Error("ليس لديك صلاحية");
 
-  const { data: booking } = await supabase
-    .from("bookings")
-    .select("teacher_id")
-    .eq("id", session.booking_id)
-    .eq("teacher_id", user.id)
-    .single<{ teacher_id: string }>();
+    const { error } = await supabase
+      .from("sessions")
+      .update({ post_session_notes: notes || null } satisfies TableUpdate<"sessions">)
+      .eq("id", sessionId);
+    if (error) throw error;
 
-  if (!booking) return { error: "ليس لديك صلاحية" };
-
-  const { error } = await supabase
-    .from("sessions")
-    .update({ post_session_notes: notes || null } satisfies TableUpdate<"sessions">)
-    .eq("id", sessionId);
-
-  if (error) {
-    logError("teacher savePostSessionNotes failed", error, { tag: "teacher-sessions", severity: "warning", metadata: { sessionId } });
-    return { error: "حدث خطأ أثناء حفظ الملاحظات" };
-  }
-
-  revalidatePath("/teacher/dashboard");
-  return { success: true };
-}
+    revalidatePath("/teacher/dashboard");
+    return { message: "تم حفظ الملاحظات" };
+  },
+});
 
 /* ------------------------------------------------------------------ */
 /*  startInstantSession – create booking + room in one step           */
