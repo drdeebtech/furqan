@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Archive, ArchiveRestore, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { toggleArchiveTeacher } from "./actions";
+import { useToast } from "@/components/shared/toast";
 
 type GateHint =
   | { kind: "ok" }
@@ -22,6 +23,16 @@ export function ArchiveToggle({
   const [loading, setLoading] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
   const [gateHint, setGateHint] = useState<GateHint>(null);
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toast = useToast();
+
+  useEffect(() => {
+    return () => {
+      if (dismissTimerRef.current !== null) {
+        clearTimeout(dismissTimerRef.current);
+      }
+    };
+  }, []);
 
   async function handle() {
     setLoading(true);
@@ -48,9 +59,16 @@ export function ArchiveToggle({
           setGateHint({ kind: "ok" });
           // Auto-dismiss the success hint after 4s; the persistent
           // "still gated" hints stay until the admin acts on them.
-          setTimeout(() => setGateHint(null), 4000);
+          // Tracked via ref so unmount-during-the-4s clears it.
+          if (dismissTimerRef.current !== null) clearTimeout(dismissTimerRef.current);
+          dismissTimerRef.current = setTimeout(() => setGateHint(null), 4000);
         }
       }
+    } else if (result.error) {
+      // The action already calls logError on failure (Sentry sees it under
+      // tag=admin-teachers). Surface the same error to the admin so they
+      // know the click did nothing — silent no-op was the audit complaint.
+      toast.error(result.error);
     }
 
     setLoading(false);

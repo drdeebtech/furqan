@@ -1367,18 +1367,18 @@ export async function getAdminLiveSessions(): Promise<LiveSessionItem[]> {
   });
 }
 
-const BOOKING_STATUS_COLORS: Record<string, { label: string; color: string }> =
+const BOOKING_STATUS_COLORS: Record<string, { ar: string; en: string; color: string }> =
   {
-    completed: { label: "Completed", color: "#22C55E" },
-    confirmed: { label: "Confirmed", color: "#7C5CFF" },
-    pending: { label: "Pending", color: "#F59E0B" },
-    cancelled: { label: "Cancelled", color: "#EF4444" },
-    no_show: { label: "No Show", color: "#9CA3AF" },
+    completed: { ar: "مكتمل", en: "Completed", color: "#22C55E" },
+    confirmed: { ar: "مؤكد", en: "Confirmed", color: "#7C5CFF" },
+    pending: { ar: "معلق", en: "Pending", color: "#F59E0B" },
+    cancelled: { ar: "ملغي", en: "Cancelled", color: "#EF4444" },
+    no_show: { ar: "لم يحضر", en: "No Show", color: "#9CA3AF" },
   };
 
-export async function getAdminBookingStatusBreakdown(): Promise<
-  { label: string; value: number; color: string }[]
-> {
+export async function getAdminBookingStatusBreakdown(
+  lang: Lang = "ar",
+): Promise<{ label: string; value: number; color: string }[]> {
   const supabase = await createClient();
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -1399,16 +1399,16 @@ export async function getAdminBookingStatusBreakdown(): Promise<
   return Object.entries(counts)
     .sort((a, b) => b[1] - a[1])
     .map(([status, count]) => {
-      const meta = BOOKING_STATUS_COLORS[status] ?? {
-        label: status,
-        color: "#9CA3AF",
-      };
-      return { label: meta.label, value: count, color: meta.color };
+      const meta = BOOKING_STATUS_COLORS[status];
+      const label = meta ? meta[lang] : status;
+      const color = meta ? meta.color : "#9CA3AF";
+      return { label, value: count, color };
     });
 }
 
 export async function getAdminRecentBookings(
-  limit = 6
+  limit = 6,
+  lang: Lang = "ar",
 ): Promise<{ id: string; [key: string]: unknown }[]> {
   const supabase = await createClient();
 
@@ -1436,11 +1436,7 @@ export async function getAdminRecentBookings(
   return bookings.map((b) => ({
     id: b.id.slice(0, 6).toUpperCase(),
     subject: b.session_type ?? "—",
-    date: new Date(b.created_at).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-    }),
+    date: formatDate(b.created_at, lang),
     progress:
       b.status === "completed"
         ? 100

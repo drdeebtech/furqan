@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { fetchNameMap } from "@/lib/supabase/helpers";
 import { withTimeout } from "@/lib/promise-utils";
 import { AdminDashboardContent } from "./dashboard-content";
@@ -33,6 +34,7 @@ export default async function AdminDashboardPage() {
   // closes a hang point: a slow auth.getUser() here would freeze the page
   // before withTimeout's wrap on the queries can save it.
   const supabase = await createClient();
+  const { lang } = await getT();
 
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -78,8 +80,8 @@ export default async function AdminDashboardPage() {
     withTimeout(supabase.from("sessions").select("id", { count: "exact", head: true }).not("started_at", "is", null).is("ended_at", null), DASHBOARD_QUERY_TIMEOUT_MS, { count: 0 } as never, "activeSessionsRes"),
     withTimeout(getAdminDailyRevenue(), DASHBOARD_QUERY_TIMEOUT_MS, [], "dailyRevenue"),
     withTimeout(getAdminLiveSessions(), DASHBOARD_QUERY_TIMEOUT_MS, [], "adminLiveSessions"),
-    withTimeout(getAdminBookingStatusBreakdown(), DASHBOARD_QUERY_TIMEOUT_MS, [], "bookingBreakdown"),
-    withTimeout(getAdminRecentBookings(), DASHBOARD_QUERY_TIMEOUT_MS, [], "recentBookings"),
+    withTimeout(getAdminBookingStatusBreakdown(lang), DASHBOARD_QUERY_TIMEOUT_MS, [], "bookingBreakdown"),
+    withTimeout(getAdminRecentBookings(6, lang), DASHBOARD_QUERY_TIMEOUT_MS, [], "recentBookings"),
     withTimeout(getAdminMonthlyRevenueTrend(), DASHBOARD_QUERY_TIMEOUT_MS, { currentMonthUsd: 0, previousMonthUsd: 0, changePct: 0 }, "revenueTrend"),
   ]);
 

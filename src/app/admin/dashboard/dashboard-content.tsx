@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 import {
-  BookOpen, Bell, CalendarDays, DollarSign, GraduationCap, Keyboard,
-  Plus, RefreshCw, UserPlus, Users, Video,
+  AlertCircle, Archive, BookOpen, Bell, CalendarDays, CheckCircle2,
+  Circle, Clock, DollarSign, GraduationCap, Keyboard, Plus, RefreshCw,
+  UserPlus, Users, Video,
 } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/components/shared/toast";
@@ -17,6 +19,8 @@ import { DataTable } from "@/components/shared/data-table";
 import { ShortcutsHelp } from "@/components/shared/shortcuts-help";
 import { SectionErrorBoundary } from "@/components/shared/section-error-boundary";
 import { useKeyboardShortcuts, useShortcutsHelp, type Shortcut } from "@/lib/hooks/use-keyboard-shortcuts";
+import { useNowTicker } from "@/lib/hooks/use-now-ticker";
+import { StatusPill } from "@/components/shared/status-pill";
 import { ArchiveToggle } from "./archive-toggle";
 import { AdminWelcomeHeader } from "./welcome-header";
 import { AdminNextActionBanner } from "./next-action-banner";
@@ -56,14 +60,12 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
 
   const formatTime = (d: string) => new Date(d).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 
-  // Seed from the server render time so the first client render matches SSR,
-  // then let the browser advance it every minute.
-  const [now, setNow] = useState(renderedAtMs);
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 60_000);
-    return () => window.clearInterval(id);
-  }, []);
-  const weekday = new Date(now).toLocaleDateString(locale, { weekday: "long" });
+  // Seeded from the server render time so first client render matches SSR;
+  // useNowTicker preserves the seed across initial mount, then snaps fresh
+  // on visibility-resume. One shared timer instead of a local setInterval.
+  const now = useNowTicker(60_000, renderedAtMs);
+  const weekday = now.toLocaleDateString(locale, { weekday: "long" });
+  const router = useRouter();
 
   const alertCount = (pendingCount > 0 ? 1 : 0) + (newStudentCount > 0 ? 1 : 0);
   const pendingPreview = useMemo(() => pendingBookings.slice(0, 3).map(b => ({
@@ -81,7 +83,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
       description: { ar: "افتح الجلسات النشطة", en: "Open live sessions" },
       group: { ar: "إجراءات", en: "Actions" },
       onTrigger: () => {
-        if (activeSessionCount > 0) window.location.assign("/admin/sessions/live");
+        if (activeSessionCount > 0) router.push("/admin/sessions/live");
         else toast.info(t("لا جلسات نشطة الآن", "No live sessions"));
       },
     },
@@ -89,7 +91,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
       combo: "p",
       description: { ar: "الحجوزات المعلقة", en: "Pending bookings" },
       group: { ar: "إجراءات", en: "Actions" },
-      onTrigger: () => window.location.assign("/admin/bookings?status=pending"),
+      onTrigger: () => router.push("/admin/bookings?status=pending"),
     },
     { combo: "g d", description: { ar: "اللوحة", en: "Dashboard" }, group: { ar: "تنقل", en: "Navigate" }, href: "/admin/dashboard" },
     { combo: "g c", description: { ar: "مركز التحكم", en: "Control Tower" }, group: { ar: "تنقل", en: "Navigate" }, href: "/admin/control-tower" },
@@ -102,7 +104,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
     { combo: "g a", description: { ar: "سجل المراجعة", en: "Audit log" }, group: { ar: "تنقل", en: "Navigate" }, href: "/admin/audit" },
     { combo: "g n", description: { ar: "تحكم n8n", en: "n8n Control" }, group: { ar: "تنقل", en: "Navigate" }, href: "/admin/n8n" },
     { combo: "?", description: { ar: "إظهار الاختصارات", en: "Show shortcuts" }, group: { ar: "مساعدة", en: "Help" }, onTrigger: () => setHelpOpen(true) },
-  ], [activeSessionCount, toast, t, setHelpOpen]);
+  ], [activeSessionCount, toast, t, setHelpOpen, router]);
   useKeyboardShortcuts(shortcuts, true);
 
   const lastRefreshLabel = new Date(renderedAtMs).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
@@ -224,8 +226,14 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
                           <p className="text-sm font-medium">{nameMap[b.student_id] ?? t("طالب", "Student")} <span className="text-muted">{t("مع", "with")}</span> {nameMap[b.teacher_id] ?? t("معلم", "Teacher")}</p>
                           <p className="mt-0.5 text-xs text-muted">{b.session_type}</p>
                         </div>
-                        <span className={`shrink-0 glass-badge ${b.status === "confirmed" ? "border-success/30 bg-success/10 text-success" : b.status === "pending" ? "border-warning/30 bg-warning/10 text-warning" : "border-muted/30 text-muted"}`}>
-                          {b.status === "confirmed" ? t("مؤكد", "Confirmed") : b.status === "pending" ? t("معلق", "Pending") : b.status}
+                        <span className="shrink-0">
+                          {b.status === "confirmed" ? (
+                            <StatusPill tone="success" icon={<CheckCircle2 size={11} />} label={t("مؤكد", "Confirmed")} />
+                          ) : b.status === "pending" ? (
+                            <StatusPill tone="warning" icon={<Clock size={11} />} label={t("معلق", "Pending")} />
+                          ) : (
+                            <StatusPill tone="neutral" icon={<Circle size={11} />} label={b.status} />
+                          )}
                         </span>
                       </li>
                     ))}
@@ -300,9 +308,9 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
                             </Link>
                           </td>
                           <td className="py-3">
-                            {teacher.is_archived && <span className="glass-badge border-error/30 bg-error/10 text-error">{t("مؤرشف", "Archived")}</span>}
-                            {!teacher.is_archived && teacher.is_accepting && <span className="glass-badge border-success/30 bg-success/10 text-success">{t("يقبل", "Open")}</span>}
-                            {!teacher.is_archived && !teacher.is_accepting && <span className="glass-badge border-primary/30 bg-primary/10">{t("مشغول", "Busy")}</span>}
+                            {teacher.is_archived && <StatusPill tone="danger" icon={<Archive size={11} />} label={t("مؤرشف", "Archived")} />}
+                            {!teacher.is_archived && teacher.is_accepting && <StatusPill tone="success" icon={<CheckCircle2 size={11} />} label={t("يقبل", "Open")} />}
+                            {!teacher.is_archived && !teacher.is_accepting && <StatusPill tone="info" icon={<AlertCircle size={11} />} label={t("مشغول", "Busy")} />}
                           </td>
                           <td className="py-3 text-muted">{teacher.total_sessions}</td>
                           <td className="py-3 text-muted">{Number(teacher.rating_avg) > 0 ? Number(teacher.rating_avg).toFixed(1) : "—"}</td>

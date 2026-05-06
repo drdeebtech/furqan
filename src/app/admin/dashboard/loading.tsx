@@ -1,10 +1,11 @@
 import { Skeleton } from "@/components/shared/skeleton";
+import { DashboardShell } from "@/components/shared/dashboard-shell";
 
 export default function AdminDashboardLoading() {
   return (
     <>
       <div className="h-0.5 bg-gradient-to-l from-gold/0 via-gold/30 to-gold/0" />
-      <div dir="rtl" className="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6">
+      <DashboardShell className="space-y-6">
         {/* Title */}
         <div>
           <Skeleton className="h-8 w-40" />
@@ -121,7 +122,7 @@ export default function AdminDashboardLoading() {
             ))}
           </div>
         </div>
-      </div>
+      </DashboardShell>
     </>
   );
 }
