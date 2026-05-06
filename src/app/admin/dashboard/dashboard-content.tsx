@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo } from "react";
 import {
   BookOpen, Bell, CalendarDays, DollarSign, GraduationCap, Keyboard,
   Plus, RefreshCw, UserPlus, Users, Video,
@@ -17,6 +18,7 @@ import { DataTable } from "@/components/shared/data-table";
 import { ShortcutsHelp } from "@/components/shared/shortcuts-help";
 import { SectionErrorBoundary } from "@/components/shared/section-error-boundary";
 import { useKeyboardShortcuts, useShortcutsHelp, type Shortcut } from "@/lib/hooks/use-keyboard-shortcuts";
+import { useNowTicker } from "@/lib/hooks/use-now-ticker";
 import { ArchiveToggle } from "./archive-toggle";
 import { AdminWelcomeHeader } from "./welcome-header";
 import { AdminNextActionBanner } from "./next-action-banner";
@@ -56,14 +58,12 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
 
   const formatTime = (d: string) => new Date(d).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 
-  // Seed from the server render time so the first client render matches SSR,
-  // then let the browser advance it every minute.
-  const [now, setNow] = useState(renderedAtMs);
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 60_000);
-    return () => window.clearInterval(id);
-  }, []);
-  const weekday = new Date(now).toLocaleDateString(locale, { weekday: "long" });
+  // Seeded from the server render time so first client render matches SSR;
+  // useNowTicker preserves the seed across initial mount, then snaps fresh
+  // on visibility-resume. One shared timer instead of a local setInterval.
+  const now = useNowTicker(60_000, renderedAtMs);
+  const weekday = now.toLocaleDateString(locale, { weekday: "long" });
+  const router = useRouter();
 
   const alertCount = (pendingCount > 0 ? 1 : 0) + (newStudentCount > 0 ? 1 : 0);
   const pendingPreview = useMemo(() => pendingBookings.slice(0, 3).map(b => ({
@@ -81,7 +81,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
       description: { ar: "افتح الجلسات النشطة", en: "Open live sessions" },
       group: { ar: "إجراءات", en: "Actions" },
       onTrigger: () => {
-        if (activeSessionCount > 0) window.location.assign("/admin/sessions/live");
+        if (activeSessionCount > 0) router.push("/admin/sessions/live");
         else toast.info(t("لا جلسات نشطة الآن", "No live sessions"));
       },
     },
@@ -89,7 +89,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
       combo: "p",
       description: { ar: "الحجوزات المعلقة", en: "Pending bookings" },
       group: { ar: "إجراءات", en: "Actions" },
-      onTrigger: () => window.location.assign("/admin/bookings?status=pending"),
+      onTrigger: () => router.push("/admin/bookings?status=pending"),
     },
     { combo: "g d", description: { ar: "اللوحة", en: "Dashboard" }, group: { ar: "تنقل", en: "Navigate" }, href: "/admin/dashboard" },
     { combo: "g c", description: { ar: "مركز التحكم", en: "Control Tower" }, group: { ar: "تنقل", en: "Navigate" }, href: "/admin/control-tower" },
@@ -102,7 +102,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
     { combo: "g a", description: { ar: "سجل المراجعة", en: "Audit log" }, group: { ar: "تنقل", en: "Navigate" }, href: "/admin/audit" },
     { combo: "g n", description: { ar: "تحكم n8n", en: "n8n Control" }, group: { ar: "تنقل", en: "Navigate" }, href: "/admin/n8n" },
     { combo: "?", description: { ar: "إظهار الاختصارات", en: "Show shortcuts" }, group: { ar: "مساعدة", en: "Help" }, onTrigger: () => setHelpOpen(true) },
-  ], [activeSessionCount, toast, t, setHelpOpen]);
+  ], [activeSessionCount, toast, t, setHelpOpen, router]);
   useKeyboardShortcuts(shortcuts, true);
 
   const lastRefreshLabel = new Date(renderedAtMs).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
