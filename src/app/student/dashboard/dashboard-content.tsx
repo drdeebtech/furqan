@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Calendar, CheckCircle, Clock, Briefcase, Eye, Keyboard, RefreshCw, Sparkles } from "lucide-react";
@@ -316,12 +317,12 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                   <Sparkles size={14} aria-hidden="true" />
                   {t("تركيز معلمك لهذا الأسبوع", "Your teacher's focus this week")}
                 </h2>
-                <a
+                <Link
                   href="/student/progress"
                   className="text-xs text-muted-light hover:text-gold focus-ring rounded"
                 >
                   {t("عرض التقييم الكامل ←", "View full evaluation →")}
-                </a>
+                </Link>
               </div>
               <p className="mt-2 text-base leading-relaxed text-foreground">
                 {latestEvaluation.next_goals}
