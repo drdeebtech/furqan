@@ -30,6 +30,9 @@ export async function savePost(
 
   if (!categoryEn || !cat) return { error: "اختر التصنيف" };
 
+  const coverAltEn = ((formData.get("cover_alt_en") as string | null) ?? "").trim() || null;
+  const coverAltAr = ((formData.get("cover_alt_ar") as string | null) ?? "").trim() || null;
+
   const row = {
     slug: formData.get("slug") as string,
     title_ar: formData.get("title_ar") as string,
@@ -44,20 +47,46 @@ export async function savePost(
     read_time_ar: (formData.get("read_time_ar") as string) || "٥ دقائق",
     read_time_en: (formData.get("read_time_en") as string) || "5 min",
     is_published: isPublished,
+    cover_alt_en: coverAltEn,
+    cover_alt_ar: coverAltAr,
     updated_at: new Date().toISOString(),
   };
 
+  let postId: string;
   if (id) {
-    const { error } = await supabase.from("blog_posts").update(row).eq("id", id);
+    const { error } = await supabase.from("blog_posts").update(row as never).eq("id", id);
     if (error) {
       logError("admin blog update failed", error, { tag: "admin-blog", severity: "warning", metadata: { postId: id } });
       return { error: "حدث خطأ أثناء التحديث" };
     }
+    postId = id;
   } else {
-    const { error } = await supabase.from("blog_posts").insert(row);
-    if (error) {
+    const { data, error } = await supabase.from("blog_posts").insert(row as never).select("id").single();
+    if (error || !data) {
       logError("admin blog insert failed", error, { tag: "admin-blog", severity: "warning" });
       return { error: "حدث خطأ أثناء الإنشاء" };
+    }
+    postId = (data as { id: string }).id;
+  }
+
+  // Cover image upload — optional. Path: blog-images/{post_id}/cover.{ext}
+  const coverFile = formData.get("cover_image") as File | null;
+  if (coverFile && coverFile.size > 0) {
+    const ext = (coverFile.name.split(".").pop() ?? "jpg").toLowerCase();
+    const path = `${postId}/cover.${ext}`;
+    const { error: upErr } = await supabase.storage
+      .from("blog-images")
+      .upload(path, coverFile, { upsert: true, contentType: coverFile.type });
+    if (upErr) {
+      logError("blog cover upload failed", upErr, { tag: "admin-blog", severity: "warning", metadata: { postId } });
+      return { error: "فشل رفع صورة الغلاف" };
+    }
+    const { error: pathErr } = await supabase
+      .from("blog_posts")
+      .update({ cover_image_path: path } as never)
+      .eq("id", postId);
+    if (pathErr) {
+      logError("blog cover path update failed", pathErr, { tag: "admin-blog", metadata: { postId } });
     }
   }
 

@@ -32,7 +32,7 @@ export default async function BlogPage() {
   const [postsRes, dbCategories] = await Promise.all([
     supabase
       .from("blog_posts")
-      .select("slug, title_ar, title_en, excerpt_ar, excerpt_en, category_ar, category_en, color, read_time_ar, read_time_en, published_at")
+      .select("slug, title_ar, title_en, excerpt_ar, excerpt_en, category_ar, category_en, color, read_time_ar, read_time_en, published_at, cover_image_path, cover_alt_en, cover_alt_ar")
       .eq("is_published", true)
       .order("published_at", { ascending: false })
       .returns<Omit<BlogPost, "id" | "body_ar" | "body_en" | "is_published" | "created_at" | "updated_at">[]>(),
