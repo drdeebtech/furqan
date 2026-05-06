@@ -1,5 +1,5 @@
 "use server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { invalidateByTag } from "@vercel/functions";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -69,7 +69,8 @@ export async function createTeacher(formData: FormData): Promise<void> {
   revalidatePath("/admin/teachers");
   revalidatePath("/admin/users");
   revalidatePath("/teachers"); // public list now ISR-cached (300s) — invalidate on create
-  await invalidateByTag("teachers-public"); // CDN edge cache
+  revalidateTag("teachers-public", "max"); // Next.js Data Cache (unstable_cache wrap on /teachers)
+  await invalidateByTag("teachers-public"); // CDN edge cache (active once layout becomes cookie-free)
   redirect("/admin/teachers?success=created");
 }
 
@@ -102,7 +103,8 @@ export async function updateTeacher(formData: FormData): Promise<void> {
 
   revalidatePath("/admin/teachers");
   revalidatePath("/teachers"); // updates bio/rate/is_accepting — public-page-visible
-  await invalidateByTag("teachers-public"); // CDN edge cache
+  revalidateTag("teachers-public", "max"); // Next.js Data Cache (unstable_cache wrap on /teachers)
+  await invalidateByTag("teachers-public"); // CDN edge cache (active once layout becomes cookie-free)
   redirect("/admin/teachers?success=updated");
 }
 
