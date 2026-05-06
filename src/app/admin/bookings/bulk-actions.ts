@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
+import { logError } from "@/lib/logger";
 import type { BookingStatus } from "@/types/database";
 
 export interface BulkBookingResult {
@@ -93,7 +94,9 @@ export async function bulkUpdateBookingStatus({
         old_data: { status: existing.status },
         new_data: { status, reason: effectiveReason },
         reason: `admin bulk ${status}: ${effectiveReason}`,
-      } as never);
+      } as never).then((r) => {
+        if (r.error) logError("bulkUpdateBookingStatus: audit row failed", r.error, { tag: "admin-bookings", metadata: { id } });
+      });
 
       result.updated += 1;
     } catch (err) {
