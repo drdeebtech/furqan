@@ -222,11 +222,14 @@ export async function deleteTeacherResourceAction(
   } = await supabase.auth.getUser();
   if (!user) return { error: "غير مسجل الدخول" };
 
-  const { error } = await supabase
-    .from("resources")
-    .delete()
-    .eq("id", resourceId)
-    .eq("created_by_teacher_id", user.id);
+  // `created_by_teacher_id` was added in migration 20260506134112; the
+  // generated `.eq()` types don't yet include it. Cast for now — the
+  // post-merge types regen drops this need.
+  const { error } = await (
+    supabase.from("resources").delete().eq("id", resourceId) as unknown as {
+      eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>;
+    }
+  ).eq("created_by_teacher_id", user.id);
   if (error) {
     logError("deleteResource: failed", error, {
       component: "teacher.resources.delete",

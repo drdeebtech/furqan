@@ -49,13 +49,29 @@ export default async function TeacherResourcesPage() {
   //  2. Assignment rows for those resources (so we can show "N students" per resource).
   //  3. Distinct student_ids from teacher's bookings + their names — the roster
   //     dropdown source for the per-row assign form.
+  // `created_by_teacher_id` is from migration 20260506134112; cast `.eq`
+  // until `supabase.generated.ts` regenerates post-merge.
+  type ResourcesByOwnerClient = {
+    from: (table: string) => {
+      select: (cols: string) => {
+        eq: (
+          col: string,
+          val: string,
+        ) => {
+          order: (
+            col: string,
+            opts: { ascending: boolean },
+          ) => Promise<{ data: ResourceRow[] | null; error: unknown }>;
+        };
+      };
+    };
+  };
   const [resourcesRes, bookingsRes] = await Promise.all([
-    supabase
+    (supabase as unknown as ResourcesByOwnerClient)
       .from("resources")
       .select("id, title_ar, resource_type, file_url, external_url, created_at")
       .eq("created_by_teacher_id", user.id)
-      .order("created_at", { ascending: false })
-      .returns<ResourceRow[]>(),
+      .order("created_at", { ascending: false }),
     supabase
       .from("bookings")
       .select("student_id")
