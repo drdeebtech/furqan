@@ -72,6 +72,18 @@ export default async function HalaqaDetailPage({
   const studentRoster = roster.filter((r) => r.role === "student");
   const isEnrolled = studentRoster.some((r) => r.user_id === user.id);
 
+  // Waiting-list status for the current user. NULL promoted_at means
+  // still pending; the row is removed once the student is promoted off
+  // the list (deferred — promotion flow is a future PR).
+  const { data: waitingRow } = await admin
+    .from("halaqa_waiting_list")
+    .select("position")
+    .eq("session_id", id)
+    .eq("student_id", user.id)
+    .is("promoted_at", null)
+    .maybeSingle<{ position: number }>();
+  const waitlistPosition = waitingRow?.position ?? null;
+
   const title = (lang === "ar" ? halaqa.session_topic_ar : halaqa.session_topic_en) ?? "—";
   const date = halaqa.scheduled_at ? new Date(halaqa.scheduled_at) : null;
   const isPast = date ? date.getTime() < Date.now() : false;
@@ -159,13 +171,18 @@ export default async function HalaqaDetailPage({
           </p>
         ) : isEnrolled ? (
           <EnrollButton sessionId={halaqa.id} mode="cancel" />
+        ) : waitlistPosition !== null ? (
+          <div className="space-y-3">
+            <p className="rounded-xl border border-info/30 bg-info/10 p-4 text-center text-sm text-info">
+              {t(
+                `أنت في قائمة الانتظار — الموقع ${waitlistPosition}. سيتم إعلامك إن تحرر مقعد.`,
+                `You're on the waiting list — position ${waitlistPosition}. You'll be notified if a seat opens up.`,
+              )}
+            </p>
+            <EnrollButton sessionId={halaqa.id} mode="leave-waitlist" />
+          </div>
         ) : isFull ? (
-          <p className="rounded-xl border border-card-border bg-surface/40 p-4 text-center text-sm text-muted">
-            {t(
-              "الحلقة ممتلئة. ستتوفر قائمة الانتظار قريباً.",
-              "Halaqa is full. Waiting list coming soon.",
-            )}
-          </p>
+          <EnrollButton sessionId={halaqa.id} mode="join-waitlist" />
         ) : (
           <EnrollButton sessionId={halaqa.id} mode="enroll" />
         )}
