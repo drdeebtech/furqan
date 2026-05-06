@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notify } from "@/lib/notifications/dispatcher";
+import { logError } from "@/lib/logger";
 
 export interface GrantResult {
   success?: string;
@@ -96,7 +97,9 @@ export async function grantCreditAction(
     old_data: { sessions_total: activePkg.sessions_total },
     new_data: { sessions_total: activePkg.sessions_total + sessions, granted: sessions },
     reason: `Manual credit grant (${sessions} sessions): ${reason}`,
-  } as never);
+  } as never).then((r) => {
+    if (r.error) logError("grantCreditAction: audit row failed", r.error, { tag: "admin-credits" });
+  });
 
   // Notify the student.
   try {
@@ -108,7 +111,9 @@ export async function grantCreditAction(
       "student_package",
       activePkg.id,
     );
-  } catch { /* non-blocking */ }
+  } catch (err) {
+    logError("grantCreditAction: notify failed", err, { tag: "admin-credits" });
+  }
 
   revalidatePath("/admin/credits");
   revalidatePath("/student/packages");
