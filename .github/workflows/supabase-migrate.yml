@@ -79,7 +79,16 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           echo "::group::Migrations that would be applied"
-          supabase db push --dry-run
+          # --include-all so the dry-run validates pending migrations that
+          # have an EARLIER timestamp than the most-recently-applied one on
+          # the remote DB. Otherwise Supabase CLI's out-of-order safety
+          # guard returns exit 1 with "Rerun the command with --include-all
+          # flag to apply these migrations" — which we want to do anyway.
+          # The guard exists to protect against accidental backdating; for
+          # this repo's workflow (timestamps are generated, not hand-typed),
+          # the guard is a false positive that breaks legitimate parallel
+          # PRs that merge out of timestamp order.
+          supabase db push --dry-run --include-all
           echo "::endgroup::"
 
       - name: Apply migrations (push to main / manual dispatch)
@@ -88,7 +97,13 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          supabase db push
+          # --include-all: see comment in the dry-run step. Required for
+          # parallel-PR workflows where a later-timestamped migration may
+          # land in main before an earlier-timestamped one (happened
+          # 2026-05-06 with the session-modes Stage 7 → Stages 2/3/5
+          # merge order, which advanced the remote tracker past Stages
+          # 2/3/5's timestamps).
+          supabase db push --include-all
 
       - name: Verify tracker is in sync
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
