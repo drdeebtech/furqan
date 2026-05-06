@@ -12,7 +12,10 @@ on:
     branches: [main]
     paths:
       - "src/**"
+      - "package.json"
+      - "vitest.config.ts"
       - "tsconfig.json"
+      - ".github/workflows/rls-tests.yml"
 
 permissions:
   contents: read
