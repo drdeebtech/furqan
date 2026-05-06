@@ -11,14 +11,7 @@ import { HomeworkAudioPlayer } from "@/components/shared/homework-audio-player";
 import { DataLoadBanner } from "@/components/shared/data-load-banner";
 import { EvalForm } from "./eval-form";
 import { ResolveErrorButton } from "./resolve-error-button";
-
-const RECITATION_STANDARD_LABEL: Record<string, { ar: string; en: string }> = {
-  hafs: { ar: "حفص عن عاصم", en: "Hafs an Asim" },
-  warsh: { ar: "ورش عن نافع", en: "Warsh an Nafi" },
-  qalon: { ar: "قالون عن نافع", en: "Qalun an Nafi" },
-  al_duri: { ar: "الدوري عن أبي عمرو", en: "Al-Duri an Abu Amr" },
-  shu_ba: { ar: "شعبة عن عاصم", en: "Shu'ba an Asim" },
-};
+import { RECITATION_STANDARD_LABEL } from "@/lib/recitation-constants";
 
 const SESSION_TYPE_EN: Record<SessionType, string> = {
   hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
