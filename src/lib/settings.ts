@@ -53,11 +53,15 @@ export async function getSetting(key: string): Promise<string | null> {
   if (cached !== null) return cached;
 
   const supabase = await createClient();
+  // maybeSingle() — a missing key (e.g. paypal_purchase_enabled before
+  // an admin toggles it) is a valid "not configured" state, not an error.
+  // .single() raises PGRST116 on 0 rows and surfaced on every /packages
+  // load. (Sentry JAVASCRIPT-NEXTJS-E4-1F.)
   const { data } = await supabase
     .from("platform_settings")
     .select("value")
     .eq("key", key)
-    .single<{ value: string }>();
+    .maybeSingle<{ value: string }>();
 
   return data?.value ?? null;
 }

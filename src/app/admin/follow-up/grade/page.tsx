@@ -18,7 +18,7 @@ interface PendingHomeworkRow {
   ayah_end: number | null;
   pages_count: number | null;
   created_at: string;
-  due_at: string | null;
+  due_date: string | null;
   student_id: string;
   teacher_id: string;
   booking_id: string;
@@ -35,7 +35,7 @@ export default async function AdminHomeworkGradePage() {
 
   const { data: rows } = await supabase
     .from("homework_assignments")
-    .select("id, title, description, homework_type, surah_number, ayah_start, ayah_end, pages_count, created_at, due_at, student_id, teacher_id, booking_id")
+    .select("id, title, description, homework_type, surah_number, ayah_start, ayah_end, pages_count, created_at, due_date, student_id, teacher_id, booking_id")
     .eq("status", "student_ready")
     .order("created_at", { ascending: true })
     .limit(30)
@@ -71,7 +71,7 @@ export default async function AdminHomeworkGradePage() {
     ayahEnd: h.ayah_end,
     pagesCount: h.pages_count,
     createdAt: h.created_at,
-    dueAt: h.due_at,
+    dueAt: h.due_date,
     studentName: nameMap[h.student_id] ?? "—",
     teacherName: nameMap[h.teacher_id] ?? "—",
   }));

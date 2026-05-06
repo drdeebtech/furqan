@@ -51,7 +51,7 @@ interface HomeworkRow {
   id: string;
   title: string;
   status: string;
-  due_at: string | null;
+  due_date: string | null;
   created_at: string;
 }
 
@@ -122,7 +122,7 @@ export default async function AdminAsUserPage({
         .returns<PackageRow[]>(),
       admin
         .from("homework_assignments")
-        .select("id, title, status, due_at, created_at")
+        .select("id, title, status, due_date, created_at")
         .eq("student_id", id)
         .order("created_at", { ascending: false })
         .limit(10)
@@ -203,7 +203,7 @@ export default async function AdminAsUserPage({
                 {homework.slice(0, 5).map((h) => (
                   <li key={h.id} className="text-xs text-muted">
                     <span className="text-foreground">{h.title}</span> · {h.status}
-                    {h.due_at && ` · ${t("يُسلَّم", "due")} ${new Date(h.due_at).toLocaleDateString()}`}
+                    {h.due_date && ` · ${t("يُسلَّم", "due")} ${new Date(h.due_date).toLocaleDateString()}`}
                   </li>
                 ))}
               </ul>
