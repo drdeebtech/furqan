@@ -90,7 +90,7 @@ const PUBLIC_ROUTES = ["/login", "/register", "/forgot-password"];
 const RENAMED_ROUTES: Array<readonly [from: string, to: string]> = [
   ["/teacher/homework", "/teacher/follow-up"],
   ["/student/homework", "/student/follow-up"],
-  ["/admin/homework", "/admin/follow-up"],
+  ["/admin/homework", "/admin/follow-up/grade"],
   ["/teachers-page", "/teachers"],
   ["/teach", "/teach-with-us"],
 ];
