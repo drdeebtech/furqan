@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { SessionStatus } from "@/components/shared/session-status";
 import { SessionModeBadge, type SessionMode } from "@/components/sessions/SessionModeBadge";
+import { StatTile } from "@/components/shared/stat-tile";
 import { SessionRowActions } from "./session-row-actions";
 
 export const metadata: Metadata = { title: "إدارة الجلسات" };
@@ -148,13 +149,11 @@ export default async function AdminSessionsPage({
 
       {/* ── Metrics Summary ─────────────────────────────────────────── */}
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <div className="glass-card p-4">
-          <div className="flex items-center gap-2 text-sm text-muted">
-            <BarChart3 size={14} />
-            {t("إجمالي الجلسات", "Total Sessions")}
-          </div>
-          <p className="mt-1 text-2xl font-bold text-gold">{totalSessions}</p>
-        </div>
+        <StatTile
+          icon={<BarChart3 size={14} />}
+          label={t("إجمالي الجلسات", "Total Sessions")}
+          value={totalSessions}
+        />
 
         <Link
           href="/admin/sessions/live"
@@ -167,21 +166,17 @@ export default async function AdminSessionsPage({
           <p className="mt-1 text-2xl font-bold text-success">{activeCount}</p>
         </Link>
 
-        <div className="glass-card p-4">
-          <div className="flex items-center gap-2 text-sm text-muted">
-            <Users size={14} />
-            {t("نسبة الحضور", "Attendance Rate")}
-          </div>
-          <p className="mt-1 text-2xl font-bold text-gold">{attendanceRate}%</p>
-        </div>
+        <StatTile
+          icon={<Users size={14} />}
+          label={t("نسبة الحضور", "Attendance Rate")}
+          value={`${attendanceRate}%`}
+        />
 
-        <div className="glass-card p-4">
-          <div className="flex items-center gap-2 text-sm text-muted">
-            <TrendingUp size={14} />
-            {t("نسبة المدة", "Duration Ratio")}
-          </div>
-          <p className="mt-1 text-2xl font-bold text-gold">{avgDurationRatio}%</p>
-        </div>
+        <StatTile
+          icon={<TrendingUp size={14} />}
+          label={t("نسبة المدة", "Duration Ratio")}
+          value={`${avgDurationRatio}%`}
+        />
       </div>
 
       {/* ── Mode Filter Chips ──────────────────────────────────────── */}
