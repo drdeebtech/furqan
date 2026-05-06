@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight, ArrowLeft } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
@@ -7,6 +8,13 @@ import { useLang } from "@/lib/i18n/context";
 interface StatusBadge {
   text: string;
   type: "active" | "info" | "warning";
+  /**
+   * Optional inline-SVG icon (typically a lucide-react `<Icon size={11} />`).
+   * When provided, replaces the colour-only dot — surfaces three signals
+   * (icon + colour + label) so the badge is colour-blind safe. Backward-
+   * compat: omitting `icon` preserves the legacy coloured-dot rendering.
+   */
+  icon?: ReactNode;
 }
 
 interface StatCardProps {
@@ -45,11 +53,18 @@ export function StatCard({ icon: Icon, label, value, href, subtitle, actionLabel
                   ? "var(--muted)"
                   : "var(--accent-green,#22C55E)";
             return (
-              <div className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-medium">
-                {(statusBadge.type === "active" || statusBadge.type === "warning") && (
+              <div
+                className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-medium"
+                style={{ color }}
+              >
+                {statusBadge.icon ? (
+                  <span aria-hidden="true" className="inline-flex shrink-0">
+                    {statusBadge.icon}
+                  </span>
+                ) : (statusBadge.type === "active" || statusBadge.type === "warning") ? (
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} />
-                )}
-                <span style={{ color }}>{statusBadge.text}</span>
+                ) : null}
+                <span>{statusBadge.text}</span>
               </div>
             );
           })()}

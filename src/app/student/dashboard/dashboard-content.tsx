@@ -226,7 +226,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
           value={valueLabel}
           href={`/student/quizzes/${nextQuiz.id}/take`}
           actionLabel={t("ابدأ", "Start")}
-          statusBadge={{ text: t("مفتوح", "Open"), type: "info" }}
+          statusBadge={{ text: t("مفتوح", "Open"), type: "info", icon: <Sparkles size={11} /> }}
         />
       );
     }
@@ -243,7 +243,9 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
         }
         statusBadge={
           nextBooking
-            ? { text: isImminent ? t("جاهز", "Ready") : t("مجدول", "Scheduled"), type: isImminent ? "active" : "info" }
+            ? isImminent
+              ? { text: t("جاهز", "Ready"), type: "active", icon: <Sparkles size={11} /> }
+              : { text: t("مجدول", "Scheduled"), type: "info", icon: <Calendar size={11} /> }
             : undefined
         }
       />
@@ -343,8 +345,8 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                 href="/student/packages"
                 actionLabel={primaryPackage ? `${pkgPct}% ${t("مستخدم", "used")}` : t("اشتر باقة", "Buy Package")}
                 statusBadge={primaryPackage
-                  ? { text: t("نشط", "Active"), type: "active" }
-                  : isEmptyShell ? { text: t("ابدأ", "Start"), type: "info" } : undefined}
+                  ? { text: t("نشط", "Active"), type: "active", icon: <CheckCircle size={11} /> }
+                  : isEmptyShell ? { text: t("ابدأ", "Start"), type: "info", icon: <Sparkles size={11} /> } : undefined}
                 subtitle={primaryPackage ? t("جلسات متبقية", "sessions left") : undefined}
                 progressPct={primaryPackage ? pkgPct : undefined}
               />
