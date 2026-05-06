@@ -200,55 +200,69 @@ export async function updateBookingStatus(
 /* ------------------------------------------------------------------ */
 /*  markNoShow – teacher marks student as no-show                     */
 /* ------------------------------------------------------------------ */
-export async function markNoShow(bookingId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "غير مصرح" };
+export const markNoShow = loudAction<{ bookingId: string }, { message: string }>({
+  name: "teacher.markNoShow",
+  severity: "warning",
+  audit: {
+    table: "bookings",
+    recordId: i => i.bookingId,
+    action: "UPDATE",
+  },
+  preflight: async () => {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("غير مصرح");
+    return { actorId: user.id };
+  },
+  handler: async ({ bookingId }, { actorId }) => {
+    const supabase = await createClient();
 
-  const { data: booking } = await supabase
-    .from("bookings")
-    .select("student_id, teacher_id")
-    .eq("id", bookingId)
-    .eq("teacher_id", user.id)
-    .single<{ student_id: string; teacher_id: string }>();
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select("student_id, teacher_id")
+      .eq("id", bookingId)
+      .eq("teacher_id", actorId!)
+      .single<{ student_id: string; teacher_id: string }>();
 
-  if (!booking) return { error: "الحجز غير موجود أو ليس لديك صلاحية" };
+    if (!booking) throw new Error("الحجز غير موجود أو ليس لديك صلاحية");
 
-  const { error } = await supabase
-    .from("bookings")
-    .update({ status: "no_show" } satisfies TableUpdate<"bookings">)
-    .eq("id", bookingId)
-    .eq("teacher_id", user.id);
+    const { error } = await supabase
+      .from("bookings")
+      .update({ status: "no_show" } satisfies TableUpdate<"bookings">)
+      .eq("id", bookingId)
+      .eq("teacher_id", actorId!);
 
-  if (error) {
-    logError("teacher markNoShow failed", error, { tag: "teacher-bookings", severity: "warning", metadata: { bookingId, teacherId: user.id } });
-    return { error: "حدث خطأ أثناء تحديث الحجز" };
-  }
+    if (error) throw error;
 
-  // Mark session as ended
-  await supabase
-    .from("sessions")
-    .update({ ended_at: new Date().toISOString() } satisfies TableUpdate<"sessions">)
-    .eq("booking_id", bookingId);
+    // Mark session as ended — non-blocking (no-show is not gated on session row existing).
+    const { error: sessErr } = await supabase
+      .from("sessions")
+      .update({ ended_at: new Date().toISOString() } satisfies TableUpdate<"sessions">)
+      .eq("booking_id", bookingId);
+    if (sessErr) logError("markNoShow: sessions ended_at update failed", sessErr, { tag: "teacher-bookings" });
 
-  // Notify student
-  try {
-    await notify(booking.student_id, "booking", "تم تسجيل غيابك", "سجّل المعلم غيابك عن الجلسة — تواصل مع المعلم لإعادة الجدولة", "booking", bookingId);
-  } catch { /* non-blocking */ }
+    // Notify student (best-effort)
+    try {
+      await notify(booking.student_id, "booking", "تم تسجيل غيابك", "سجّل المعلم غيابك عن الجلسة — تواصل مع المعلم لإعادة الجدولة", "booking", bookingId);
+    } catch (err) {
+      logError("markNoShow: notify student failed", err, { tag: "teacher-bookings" });
+    }
 
-  // V9: Notify parent of no-show
-  try {
-    await notifyParentNoShow(booking.student_id, user.id, new Date().toISOString(), user.id);
-  } catch { /* non-blocking */ }
+    // V9: Notify parent of no-show (best-effort)
+    try {
+      await notifyParentNoShow(booking.student_id, actorId!, new Date().toISOString(), actorId!);
+    } catch (err) {
+      logError("markNoShow: notifyParentNoShow failed", err, { tag: "teacher-bookings" });
+    }
 
-  revalidatePath("/teacher/dashboard");
-  revalidatePath("/teacher/sessions");
-  await emitEvent("session.no_show", "booking", bookingId, { student_id: booking.student_id, teacher_id: user.id })
-    .catch((err) => logError("emit session.no_show failed", err, { tag: "automation", event: "session.no_show" }));
-  return { success: true };
-}
+    revalidatePath("/teacher/dashboard");
+    revalidatePath("/teacher/sessions");
+    await emitEvent("session.no_show", "booking", bookingId, { student_id: booking.student_id, teacher_id: actorId! })
+      .catch((err) => logError("emit session.no_show failed", err, { tag: "automation", event: "session.no_show" }));
+
+    return { message: "تم تسجيل الغياب" };
+  },
+});
 
 /* ------------------------------------------------------------------ */
 /*  endSession – teacher manually ends a live session                 */
