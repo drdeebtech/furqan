@@ -7,6 +7,7 @@ import { SESSION_TYPE_AR, STATUS_STYLE } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
 import type { BookingStatus, SessionType, SessionMode } from "@/types/database";
 import { SessionModeBadge } from "@/components/sessions/SessionModeBadge";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata: Metadata = { title: "جلساتي" };
 
@@ -74,11 +75,12 @@ export default async function TeacherSessionsPage() {
       </h1>
 
       {list.length === 0 ? (
-        <div className="glass-card p-12 text-center">
-          <Inbox size={32} className="mx-auto mb-3 text-muted" />
-          <p className="text-muted">{t("لا توجد جلسات مؤكدة", "No confirmed sessions yet")}</p>
-          <p className="mt-1 text-sm text-muted">{t("ستظهر هنا بعد تأكيد الحجوزات", "They'll appear here once bookings are confirmed")}</p>
-        </div>
+        <EmptyState
+          variant="glass-card"
+          icon={<Inbox size={32} className="text-muted" />}
+          message={t("لا توجد جلسات مؤكدة", "No confirmed sessions yet")}
+          hint={t("ستظهر هنا بعد تأكيد الحجوزات", "They'll appear here once bookings are confirmed")}
+        />
       ) : (
         <div className="space-y-3">
           {list.map((booking) => {

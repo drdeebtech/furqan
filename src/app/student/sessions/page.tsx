@@ -9,6 +9,7 @@ import { getT } from "@/lib/i18n/server";
 import type { BookingStatus, SessionType, SessionMode } from "@/types/database";
 import { LiveBadge } from "./live-badge";
 import { SessionModeBadge } from "@/components/sessions/SessionModeBadge";
+import { EmptyState } from "@/components/shared/empty-state";
 import { AttestationButtons } from "./attestation-buttons";
 
 export const metadata: Metadata = { title: "جلساتي" };
@@ -90,17 +91,20 @@ export default async function StudentSessionsPage() {
       </h1>
 
       {list.length === 0 ? (
-        <div className="glass-card p-12 text-center">
-          <Inbox size={32} className="mx-auto mb-3 text-muted" />
-          <p className="text-muted">{t("لا توجد جلسات بعد", "No sessions yet")}</p>
-          <p className="mt-1 text-sm text-muted">{t("ستظهر هنا بعد تأكيد حجوزاتك", "They'll appear here once your bookings are confirmed")}</p>
-          <Link
-            href="/student/teachers"
-            className="mt-4 inline-block glass-gold glass-pill px-5 py-2.5 text-sm font-semibold text-white transition-colors focus-ring"
-          >
-            {t("تصفح المعلمين", "Browse Teachers")}
-          </Link>
-        </div>
+        <EmptyState
+          variant="glass-card"
+          icon={<Inbox size={32} className="text-muted" />}
+          message={t("لا توجد جلسات بعد", "No sessions yet")}
+          hint={t("ستظهر هنا بعد تأكيد حجوزاتك", "They'll appear here once your bookings are confirmed")}
+          action={
+            <Link
+              href="/student/teachers"
+              className="inline-block glass-gold glass-pill px-5 py-2.5 text-sm font-semibold text-white transition-colors focus-ring"
+            >
+              {t("تصفح المعلمين", "Browse Teachers")}
+            </Link>
+          }
+        />
       ) : (() => {
         // Bucket sessions by state so the page stops being a flat
         // chronological dump. The "needs attention" bucket surfaces past
