@@ -56,6 +56,7 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/teacher/availability", ar: "المواعيد", en: "Availability", icon: Clock },
     { href: "/teacher/sessions", ar: "جلساتي", en: "Sessions", icon: Calendar },
     { href: "/teacher/calendar", ar: "التقويم", en: "Calendar", icon: CalendarDays },
+    { href: "/teacher/time-tracker", ar: "ساعاتي", en: "Teaching Hours", icon: Clock },
     { href: "/teacher/students", ar: "طلابي", en: "Students", icon: Users, group: { ar: "الطلاب", en: "STUDENTS" } },
     { href: "/teacher/halaqas", ar: "حلقاتي", en: "My Halaqas", icon: Users },
     { href: "/teacher/recitations", ar: "تسميعات الطلاب", en: "Recitations", icon: Mic },
