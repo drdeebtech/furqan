@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { SearchInput } from "@/components/shared/search-input";
 import { UserRow } from "./user-row";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata: Metadata = { title: "المستخدمون" };
 
@@ -74,12 +75,11 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
         ))}
       </div>
       {users.length === 0 ? (
-        <div className="glass-card rounded-xl p-12 text-center">
-          <Inbox size={32} className="mx-auto mb-3 text-muted" aria-hidden="true" />
-          <p className="text-muted">
-            {q ? t("لا نتائج لبحثك", "No matches for your search") : t("لا يوجد مستخدمون", "No users yet")}
-          </p>
-        </div>
+        <EmptyState
+          variant="glass-card"
+          icon={<Inbox size={32} className="text-muted" aria-hidden="true" />}
+          message={q ? t("لا نتائج لبحثك", "No matches for your search") : t("لا يوجد مستخدمون", "No users yet")}
+        />
       ) : (
         <div className="overflow-hidden rounded-xl glass-card">
           <table className="w-full text-sm">

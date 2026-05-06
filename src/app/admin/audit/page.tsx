@@ -5,6 +5,7 @@ import { Shield, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { buildNameMap } from "@/lib/admin/name-map";
 import { getT } from "@/lib/i18n/server";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata: Metadata = { title: "سجل المراجعة" };
 
@@ -90,7 +91,11 @@ export default async function AdminAuditPage({
       </div>
 
       {logs.length === 0 ? (
-        <div className="glass-card rounded-xl p-12 text-center"><Inbox size={32} className="mx-auto mb-3 text-muted" aria-hidden="true" /><p className="text-muted">{t("لا توجد سجلات", "No records")}</p></div>
+        <EmptyState
+          variant="glass-card"
+          icon={<Inbox size={32} className="text-muted" aria-hidden="true" />}
+          message={t("لا توجد سجلات", "No records")}
+        />
       ) : (
         <div className="overflow-x-auto rounded-xl glass-card">
           <table className="w-full text-sm">
