@@ -31,19 +31,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Install Supabase CLI
-        uses: supabase/setup-cli@b60b5899c73b63a2d2d651b1e90db8d4c9392f51 # v1.6.0
+      - name: Install Supabase CLI + link project
+        uses: ./.github/actions/supabase-setup
         with:
-          version: latest
+          project-ref: ${{ vars.SUPABASE_PROJECT_REF }}
+          access-token: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
       - name: Run schema lint against linked project
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
-        run: |
-          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
-            echo "::warning::SUPABASE_ACCESS_TOKEN not set — skipping lint. Add it in repo Settings → Secrets."
-            exit 0
-          fi
-          supabase link --project-ref "$SUPABASE_PROJECT_REF"
-          supabase db lint --linked --schema public --level warning --fail-on warning
+        run: supabase db lint --linked --schema public --level warning --fail-on warning
