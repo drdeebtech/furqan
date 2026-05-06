@@ -169,33 +169,44 @@ export async function getTalqeenQueueForTeacher(
 
 // ─── Calendar events ────────────────────────────────────────────────────────
 
-export type TeacherCalendarEventKind = "booking" | "halaqa" | "availability";
+export type TeacherCalendarEventKind = "booking" | "halaqa";
 
 export interface TeacherCalendarEvent {
   id: string;
-  /** ISO yyyy-mm-dd. */
-  date: string;
   kind: TeacherCalendarEventKind;
-  title: string;
+  /**
+   * Raw ISO timestamp (server returns UTC; client formats time + groups by
+   * local-date). Pre-2026-05-06 the server formatted these into "HH:mm"
+   * strings using `Date.getHours()`, which on Vercel returns UTC — every
+   * non-UTC teacher saw the wrong time. Now the grid component formats
+   * client-side via `toLocaleTimeString`.
+   */
+  isoStart: string;
+  /** Title segment AFTER the time (e.g. "hifz", "Surah Al-Mulk"). */
+  label: string;
   href: string;
   /** Hex color used by the grid for the event dot + text tint. */
   color: string;
 }
 
+export interface TeacherWeeklyAvailabilityRow {
+  /** 0 = Sunday … 6 = Saturday (matches `Date.prototype.getDay()`). */
+  dayOfWeek: number;
+  totalMinutes: number;
+}
+
+export interface TeacherCalendarPayload {
+  events: TeacherCalendarEvent[];
+  /** Recurring weekly availability — rendered as a single summary row above
+   *  the grid, NOT projected per-cell. The 2026-05-06 visual audit caught
+   *  the per-cell repetition (5+ identical "14h available" chips per
+   *  column) as banner-blindness. */
+  weeklyAvailability: TeacherWeeklyAvailabilityRow[];
+}
+
 const COLOR_BOOKING = "#F59E0B"; // gold
 const COLOR_HALAQA = "#10B981"; // emerald
-const COLOR_AVAILABILITY = "#94A3B8"; // slate-400 (ghost)
-
-function dateKey(iso: string): string {
-  return iso.slice(0, 10);
-}
-
-function fmtTime(iso: string): string {
-  const d = new Date(iso);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${hh}:${mm}`;
-}
+const COLOR_BOOKING_NO_SHOW = "#EF4444";
 
 /**
  * Minutes between two HH:MM strings (e.g. "14:00" → "15:30" = 90).
@@ -209,24 +220,19 @@ function diffMinutes(start: string, end: string): number {
 }
 
 /**
- * Unified calendar event stream for /teacher/calendar — three layers:
+ * Unified calendar payload for /teacher/calendar — two layers:
  *
- *  1. **Bookings** (gold) — concrete 1:1 sessions with this teacher.
- *  2. **Halaqas** (emerald) — group sessions where this teacher is the
- *     `role='teacher'` participant.
- *  3. **Availability summary** (ghost) — one chip per day showing the
- *     total free hours, projected from the teacher's recurring weekly
- *     `teacher_availability` slots. Surfaces "I have capacity here"
- *     at a glance without cluttering the day cell with N hourly chips.
- *
- * Returns a flat list keyed by ISO date; the grid groups client-side.
- * Order matters — bookings first so they win the 3-event-per-cell cap.
+ *  1. **Bookings** (gold) + **Halaqas** (emerald) — concrete sessions, returned
+ *     as raw ISO timestamps so the grid client component can format times in
+ *     the teacher's local timezone.
+ *  2. **weeklyAvailability** — one row per weekday with non-zero recurring
+ *     availability. Surfaced ONCE in a summary row, not per-cell.
  */
 export async function getTeacherCalendarEvents(
   teacherId: TeacherId,
   monthStart: Date,
   monthEnd: Date,
-): Promise<TeacherCalendarEvent[]> {
+): Promise<TeacherCalendarPayload> {
   const supabase = await createClient();
   const startIso = monthStart.toISOString();
   const endIso = monthEnd.toISOString();
@@ -261,8 +267,6 @@ export async function getTeacherCalendarEvents(
         }[]
       >(),
     // Halaqas the teacher leads — read participant rows, then join sessions.
-    // Two-step (rather than a big inner-join) so each table's RLS gates
-    // independently; simpler to reason about during a CV-status edge case.
     supabase
       .from("session_participants")
       .select("session_id")
@@ -276,21 +280,20 @@ export async function getTeacherCalendarEvents(
 
   const events: TeacherCalendarEvent[] = [];
 
-  // 1. Bookings — gold
   if (bookingsRes.data) {
     for (const b of bookingsRes.data) {
       events.push({
         id: `booking_${b.id}`,
-        date: dateKey(b.scheduled_at),
         kind: "booking",
-        title: `${fmtTime(b.scheduled_at)} · ${b.session_type}`,
+        isoStart: b.scheduled_at,
+        label: b.session_type,
         href: `/teacher/sessions/${b.id}`,
-        color: b.status === "no_show" ? "#EF4444" : COLOR_BOOKING,
+        color:
+          b.status === "no_show" ? COLOR_BOOKING_NO_SHOW : COLOR_BOOKING,
       });
     }
   }
 
-  // 2. Halaqas — emerald (resolved via the participant rows fetched above)
   const halaqaIds = halaqaParticipantsRes.data
     ? halaqaParticipantsRes.data.map((r) => r.session_id)
     : [];
@@ -321,9 +324,9 @@ export async function getTeacherCalendarEvents(
           h.session_topic_ar ?? h.session_topic_en ?? "Halaqa";
         events.push({
           id: `halaqa_${h.id}`,
-          date: dateKey(h.scheduled_at),
           kind: "halaqa",
-          title: `${fmtTime(h.scheduled_at)} · ${topic}`,
+          isoStart: h.scheduled_at,
+          label: topic,
           href: `/teacher/halaqas`,
           color: COLOR_HALAQA,
         });
@@ -331,12 +334,22 @@ export async function getTeacherCalendarEvents(
     }
   }
 
-  // 3. Availability summary — one ghost chip per matching day. Project
-  // the recurring weekly slots across the visible date range and sum
-  // active-slot duration per day. Surfaces "I have capacity here" without
-  // littering the cell with N hour-chips.
-  if (slotsRes.data && slotsRes.data.length > 0) {
-    const minutesByWeekday = new Map<number, number>(); // 0..6 → total minutes
+  // Bookings first per ISO start so the grid's 3-event-per-day cap never
+  // hides a real commitment.
+  const kindOrder: Record<TeacherCalendarEventKind, number> = {
+    booking: 0,
+    halaqa: 1,
+  };
+  events.sort((a, b) => {
+    if (a.isoStart !== b.isoStart)
+      return a.isoStart < b.isoStart ? -1 : 1;
+    return kindOrder[a.kind] - kindOrder[b.kind];
+  });
+
+  // Weekly availability — collapse to one row per weekday with non-zero
+  // recurring slots. Rendered as a summary row above the grid.
+  const minutesByWeekday = new Map<number, number>();
+  if (slotsRes.data) {
     for (const s of slotsRes.data) {
       const mins = diffMinutes(s.start_time, s.end_time);
       if (mins <= 0) continue;
@@ -345,43 +358,16 @@ export async function getTeacherCalendarEvents(
         (minutesByWeekday.get(s.day_of_week) ?? 0) + mins,
       );
     }
-    const cursor = new Date(monthStart);
-    while (cursor <= monthEnd) {
-      const dow = cursor.getDay();
-      const mins = minutesByWeekday.get(dow);
-      if (mins && mins > 0) {
-        const hours = mins / 60;
-        const hoursLabel =
-          hours === Math.floor(hours)
-            ? hours.toFixed(0)
-            : hours.toFixed(1);
-        const iso = cursor.toISOString().slice(0, 10);
-        events.push({
-          id: `avail_${iso}`,
-          date: iso,
-          kind: "availability",
-          title: `${hoursLabel}h available`,
-          href: `/teacher/availability`,
-          color: COLOR_AVAILABILITY,
-        });
-      }
-      cursor.setDate(cursor.getDate() + 1);
+  }
+  const weeklyAvailability: TeacherWeeklyAvailabilityRow[] = [];
+  for (let dow = 0; dow < 7; dow++) {
+    const minutes = minutesByWeekday.get(dow);
+    if (minutes && minutes > 0) {
+      weeklyAvailability.push({ dayOfWeek: dow, totalMinutes: minutes });
     }
   }
 
-  // Sort within each day: booking → halaqa → availability. Bookings win the
-  // 3-event cap so the teacher never loses sight of a real commitment.
-  const kindOrder: Record<TeacherCalendarEventKind, number> = {
-    booking: 0,
-    halaqa: 1,
-    availability: 2,
-  };
-  events.sort((a, b) => {
-    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
-    return kindOrder[a.kind] - kindOrder[b.kind];
-  });
-
-  return events;
+  return { events, weeklyAvailability };
 }
 
 // ─── Recitation roster ──────────────────────────────────────────────────────

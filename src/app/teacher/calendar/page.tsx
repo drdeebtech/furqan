@@ -29,9 +29,13 @@ export default async function TeacherCalendarPage({ searchParams }: PageProps) {
   const monthStart = startOfMonth(viewMonth);
   const monthEnd = endOfMonth(viewMonth);
 
-  const events = await getTeacherCalendarEvents(user.id, monthStart, monthEnd);
+  const payload = await getTeacherCalendarEvents(user.id, monthStart, monthEnd);
 
   return (
-    <TeacherCalendarGrid monthIso={viewMonth.toISOString()} events={events} />
+    <TeacherCalendarGrid
+      monthIso={viewMonth.toISOString()}
+      events={payload.events}
+      weeklyAvailability={payload.weeklyAvailability}
+    />
   );
 }
