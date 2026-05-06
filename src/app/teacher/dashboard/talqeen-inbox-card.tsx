@@ -102,7 +102,7 @@ export async function TalqeenInboxCard({ teacherId }: { teacherId: string }) {
           </h3>
         </div>
         <Link
-          href="/teacher/follow-up"
+          href="/teacher/talqeen"
           className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-gold px-3 py-1.5 text-xs font-medium text-background hover:bg-gold-hover focus-ring"
         >
           {t("ابدأ التصحيح", "Start corrections")}

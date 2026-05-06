@@ -31,6 +31,7 @@ async function requireStudent(supabase: Awaited<ReturnType<typeof createClient>>
 
 function revalidateFollowUpPaths() {
   revalidatePath("/teacher/follow-up");
+  revalidatePath("/teacher/talqeen");
   revalidatePath("/teacher/sessions");
   revalidatePath("/student/follow-up");
   revalidatePath("/student/dashboard");
