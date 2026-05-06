@@ -112,7 +112,7 @@ export default async function AdminAutomationPage() {
                       <td className="py-2 text-muted">{log.event_name ?? "—"}</td>
                       <td className="py-2 text-muted">{log.channel ?? "—"}</td>
                       <td className="py-2 text-xs text-muted">
-                        {new Date(log.started_at).toLocaleString(locale, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                        {new Date(log.started_at).toLocaleString(locale, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "UTC" })}
                       </td>
                     </tr>
                   );

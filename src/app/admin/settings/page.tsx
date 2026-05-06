@@ -5,6 +5,7 @@ import { Settings, CheckCircle, XCircle, AlertTriangle, Database, ToggleRight } 
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { FeatureToggle } from "./feature-toggle";
+import { RefreshButton } from "./refresh-button";
 
 export const metadata: Metadata = { title: "Platform Settings | الإعدادات" };
 
@@ -162,7 +163,15 @@ export default async function AdminSettingsPage() {
 
   return (
     <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><Settings size={24} className="text-gold" /> {t("إعدادات المنصة", "Platform Settings")}</h1>
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h1 className="flex items-center gap-2 text-2xl font-bold"><Settings size={24} className="text-gold" /> {t("إعدادات المنصة", "Platform Settings")}</h1>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted" suppressHydrationWarning>
+            {`Loaded: ${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC`}
+          </span>
+          <RefreshButton ar="تحديث" en="Refresh" />
+        </div>
+      </div>
 
       {/* Health check */}
       <div className="mb-6 glass-card rounded-xl p-6">
@@ -298,7 +307,7 @@ export default async function AdminSettingsPage() {
                     <p className="text-sm font-medium text-gold">{m.version}</p>
                     <p className="truncate text-xs text-muted" title={desc}>{truncated}</p>
                   </div>
-                  <p className="ms-3 shrink-0 text-xs text-muted">{new Date(m.applied_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}</p>
+                  <p className="ms-3 shrink-0 text-xs text-muted">{new Date(m.applied_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US", { timeZone: "UTC" })}</p>
                 </div>
               );
             })}
