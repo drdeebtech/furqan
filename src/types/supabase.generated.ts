@@ -1293,6 +1293,55 @@ export type Database = {
           },
         ]
       }
+      halaqa_waiting_list: {
+        Row: {
+          created_at: string
+          id: string
+          position: number
+          promoted_at: string | null
+          session_id: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          position: number
+          promoted_at?: string | null
+          session_id: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          position?: number
+          promoted_at?: string | null
+          session_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "halaqa_waiting_list_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "halaqa_waiting_list_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "halaqa_waiting_list_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       help_articles: {
         Row: {
           body_ar: string
@@ -1987,6 +2036,7 @@ export type Database = {
           duration_min: number
           features: string[] | null
           features_ar: string[] | null
+          halaqa_pricing_tiers: Json | null
           id: string
           is_active: boolean | null
           is_featured: boolean | null
@@ -1998,6 +2048,8 @@ export type Database = {
           price_sar: number | null
           price_usd: number
           session_count: number
+          session_mode_allowances: Json
+          supports_session_modes: string[]
           updated_at: string
         }
         Insert: {
@@ -2008,6 +2060,7 @@ export type Database = {
           duration_min?: number
           features?: string[] | null
           features_ar?: string[] | null
+          halaqa_pricing_tiers?: Json | null
           id?: string
           is_active?: boolean | null
           is_featured?: boolean | null
@@ -2019,6 +2072,8 @@ export type Database = {
           price_sar?: number | null
           price_usd: number
           session_count: number
+          session_mode_allowances?: Json
+          supports_session_modes?: string[]
           updated_at?: string
         }
         Update: {
@@ -2029,6 +2084,7 @@ export type Database = {
           duration_min?: number
           features?: string[] | null
           features_ar?: string[] | null
+          halaqa_pricing_tiers?: Json | null
           id?: string
           is_active?: boolean | null
           is_featured?: boolean | null
@@ -2040,6 +2096,8 @@ export type Database = {
           price_sar?: number | null
           price_usd?: number
           session_count?: number
+          session_mode_allowances?: Json
+          supports_session_modes?: string[]
           updated_at?: string
         }
         Relationships: []
@@ -3054,6 +3112,87 @@ export type Database = {
           },
         ]
       }
+      session_participants: {
+        Row: {
+          attendance_status: Database["public"]["Enums"]["attendance_status"]
+          booking_id: string | null
+          created_at: string
+          daily_token: string | null
+          id: string
+          joined_at: string | null
+          left_at: string | null
+          notes: string | null
+          role: Database["public"]["Enums"]["participant_role"]
+          session_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attendance_status?: Database["public"]["Enums"]["attendance_status"]
+          booking_id?: string | null
+          created_at?: string
+          daily_token?: string | null
+          id?: string
+          joined_at?: string | null
+          left_at?: string | null
+          notes?: string | null
+          role: Database["public"]["Enums"]["participant_role"]
+          session_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attendance_status?: Database["public"]["Enums"]["attendance_status"]
+          booking_id?: string | null
+          created_at?: string
+          daily_token?: string | null
+          id?: string
+          joined_at?: string | null
+          left_at?: string | null
+          notes?: string | null
+          role?: Database["public"]["Enums"]["participant_role"]
+          session_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_participants_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_participants_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "v_bookings"
+            referencedColumns: ["booking_id"]
+          },
+          {
+            foreignKeyName: "session_participants_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_participants_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_presence_events: {
         Row: {
           client_info: Json | null
@@ -3110,70 +3249,100 @@ export type Database = {
         Row: {
           actual_duration: number | null
           admin_observer_id: string | null
+          allow_recording: boolean
+          ayah_range: string | null
           booking_id: string
           capacity: number
           created_at: string
           created_via: string
+          current_enrollment: number
+          daily_room_mode: string
           ended_at: string | null
           expires_at: string | null
+          external_lecture_url: string | null
           homework: string | null
           id: string
           is_group: boolean
           is_observable: boolean
           lesson_plan: Json | null
+          min_participants: number
           observer_joined_at: string | null
           post_session_notes: string | null
           recording_url: string | null
           room_name: string
           room_url: string
+          session_mode: Database["public"]["Enums"]["session_mode"]
+          session_topic_ar: string | null
+          session_topic_en: string | null
           started_at: string | null
           student_joined: boolean
+          surah_reference: string | null
           teacher_joined: boolean
         }
         Insert: {
           actual_duration?: number | null
           admin_observer_id?: string | null
+          allow_recording?: boolean
+          ayah_range?: string | null
           booking_id: string
           capacity?: number
           created_at?: string
           created_via?: string
+          current_enrollment?: number
+          daily_room_mode?: string
           ended_at?: string | null
           expires_at?: string | null
+          external_lecture_url?: string | null
           homework?: string | null
           id?: string
           is_group?: boolean
           is_observable?: boolean
           lesson_plan?: Json | null
+          min_participants?: number
           observer_joined_at?: string | null
           post_session_notes?: string | null
           recording_url?: string | null
           room_name?: string
           room_url: string
+          session_mode?: Database["public"]["Enums"]["session_mode"]
+          session_topic_ar?: string | null
+          session_topic_en?: string | null
           started_at?: string | null
           student_joined?: boolean
+          surah_reference?: string | null
           teacher_joined?: boolean
         }
         Update: {
           actual_duration?: number | null
           admin_observer_id?: string | null
+          allow_recording?: boolean
+          ayah_range?: string | null
           booking_id?: string
           capacity?: number
           created_at?: string
           created_via?: string
+          current_enrollment?: number
+          daily_room_mode?: string
           ended_at?: string | null
           expires_at?: string | null
+          external_lecture_url?: string | null
           homework?: string | null
           id?: string
           is_group?: boolean
           is_observable?: boolean
           lesson_plan?: Json | null
+          min_participants?: number
           observer_joined_at?: string | null
           post_session_notes?: string | null
           recording_url?: string | null
           room_name?: string
           room_url?: string
+          session_mode?: Database["public"]["Enums"]["session_mode"]
+          session_topic_ar?: string | null
+          session_topic_en?: string | null
           started_at?: string | null
           student_joined?: boolean
+          surah_reference?: string | null
           teacher_joined?: boolean
         }
         Relationships: [
@@ -3558,6 +3727,7 @@ export type Database = {
           package_id: string
           payment_id: string | null
           purchased_at: string
+          session_mode_used: Json
           sessions_remaining: number | null
           sessions_total: number
           sessions_used: number
@@ -3571,6 +3741,7 @@ export type Database = {
           package_id: string
           payment_id?: string | null
           purchased_at?: string
+          session_mode_used?: Json
           sessions_remaining?: number | null
           sessions_total: number
           sessions_used?: number
@@ -3584,6 +3755,7 @@ export type Database = {
           package_id?: string
           payment_id?: string | null
           purchased_at?: string
+          session_mode_used?: Json
           sessions_remaining?: number | null
           sessions_total?: number
           sessions_used?: number
@@ -4433,6 +4605,10 @@ export type Database = {
         Args: { p_package_id: string }
         Returns: boolean
       }
+      deduct_package_session_mode: {
+        Args: { p_mode: string; p_package_id: string }
+        Returns: boolean
+      }
       is_admin: { Args: never; Returns: boolean }
       is_admin_or_mod: { Args: never; Returns: boolean }
       is_moderator: { Args: never; Returns: boolean }
@@ -4443,6 +4619,12 @@ export type Database = {
       redact_pii: { Args: { payload: Json }; Returns: Json }
     }
     Enums: {
+      attendance_status:
+        | "registered"
+        | "attended"
+        | "absent"
+        | "late"
+        | "left_early"
       booking_status:
         | "pending"
         | "confirmed"
@@ -4475,6 +4657,7 @@ export type Database = {
         | "system"
         | "homework"
         | "course"
+      participant_role: "teacher" | "student"
       payment_status: "pending" | "succeeded" | "failed" | "refunded"
       report_type:
         | "session_summary"
@@ -4482,6 +4665,7 @@ export type Database = {
         | "custom"
         | "missed_session"
         | "schedule_change"
+      session_mode: "private" | "halaqa" | "lecture"
       session_type:
         | "hifz"
         | "muraja"
@@ -4623,6 +4807,13 @@ export const Constants = {
   },
   public: {
     Enums: {
+      attendance_status: [
+        "registered",
+        "attended",
+        "absent",
+        "late",
+        "left_early",
+      ],
       booking_status: [
         "pending",
         "confirmed",
@@ -4659,6 +4850,7 @@ export const Constants = {
         "homework",
         "course",
       ],
+      participant_role: ["teacher", "student"],
       payment_status: ["pending", "succeeded", "failed", "refunded"],
       report_type: [
         "session_summary",
@@ -4667,6 +4859,7 @@ export const Constants = {
         "missed_session",
         "schedule_change",
       ],
+      session_mode: ["private", "halaqa", "lecture"],
       session_type: [
         "hifz",
         "muraja",

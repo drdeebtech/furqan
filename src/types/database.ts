@@ -32,6 +32,12 @@ export type SessionType = Database["public"]["Enums"]["session_type"];
 export type StudentLevel = Database["public"]["Enums"]["student_level"];
 export type UserRole = Database["public"]["Enums"]["user_role"];
 
+// Stage 1 session-mode enums (group structure: private/halaqa/lecture).
+// Distinct from SessionType (Quranic subject: hifz/tajweed/etc.).
+export type SessionMode = Database["public"]["Enums"]["session_mode"];
+export type ParticipantRole = Database["public"]["Enums"]["participant_role"];
+export type AttendanceStatus = Database["public"]["Enums"]["attendance_status"];
+
 // ─── Text-CHECK enum types ──────────────────────────────────────────────────
 // These columns are TEXT with CHECK constraints (per CLAUDE.md), not pg_enum,
 // so the generator can't see them. Kept hand-authored — must match the CHECKs
@@ -91,6 +97,7 @@ export type SessionEvaluation = T["session_evaluations"]["Row"];
 export type ParentReport = T["parent_reports"]["Row"];
 export type SessionNotesHistory = T["session_notes_history"]["Row"];
 export type SessionObserver = T["session_observers"]["Row"];
+export type SessionParticipant = T["session_participants"]["Row"];
 export type HomeworkAssignment = T["homework_assignments"]["Row"];
 export type Package = T["packages"]["Row"];
 export type StudentPackage = T["student_packages"]["Row"];
