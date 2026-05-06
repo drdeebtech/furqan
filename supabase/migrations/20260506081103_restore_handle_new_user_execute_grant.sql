@@ -1,0 +1,34 @@
+-- Restore EXECUTE on public.handle_new_user() to supabase_auth_admin.
+--
+-- Background:
+-- 20260428095637_hardening_security_definer_and_rls.sql revoked EXECUTE
+-- from anon + authenticated, then 20260428102110_revoke_execute_from_public_on_secdef.sql
+-- revoked it from PUBLIC. The 20260428110357_restore_role_check_function_grants.sql
+-- migration explicitly chose NOT to re-grant handle_new_user() (lines 31-33),
+-- on the assumption that "trigger-only functions don't need EXECUTE granted".
+--
+-- That assumption is wrong. Postgres requires EXECUTE permission on the
+-- trigger function for the role performing the table operation, even when
+-- the function is SECURITY DEFINER. The DEFINER attribute changes whose
+-- privileges are used inside the function body; it does not bypass the
+-- EXECUTE permission check on the function itself.
+--
+-- After the revoke chain, supabase_auth_admin (the role Supabase Auth uses
+-- to INSERT into auth.users) lost its EXECUTE through PUBLIC. Every signup
+-- since 2026-04-28 silently failed with:
+--   ERROR: permission denied for function handle_new_user
+-- which auth.users rolled back into:
+--   HTTP 500 unexpected_failure: "Database error saving new user"
+-- surfaced to the client as the generic Arabic banner. Low signup volume
+-- on the Hobby plan masked this for 8 days until the first new student
+-- (ahmed maher, 2026-05-06) hit it.
+--
+-- Sentry: JAVASCRIPT-NEXTJS-E4-1T (auth-signup-unexpected, captured by the
+-- logError path added in fix/register-loud-error-triage / PR #90).
+--
+-- Fix: re-grant EXECUTE to supabase_auth_admin. We do NOT re-grant to PUBLIC
+-- because the original hardening intent (preventing direct calls from
+-- untrusted roles) is still correct — the trigger only needs the auth admin
+-- role to be able to invoke it on auth.users INSERT.
+
+grant execute on function public.handle_new_user() to supabase_auth_admin;
