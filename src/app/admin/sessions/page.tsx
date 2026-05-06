@@ -5,6 +5,7 @@ import { Video, Inbox, Radio, BarChart3, Users, TrendingUp } from "lucide-react"
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { SessionStatus } from "@/components/shared/session-status";
+import { SessionModeBadge, type SessionMode } from "@/components/sessions/SessionModeBadge";
 import { SessionRowActions } from "./session-row-actions";
 
 export const metadata: Metadata = { title: "إدارة الجلسات" };
@@ -203,16 +204,24 @@ export default async function AdminSessionsPage() {
                       {b ? new Date(b.scheduled_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US") : "—"}
                     </td>
                     <td className="px-3 py-3">
-                      {b ? (
-                        <SessionStatus
-                          scheduledAt={b.scheduled_at}
-                          durationMin={b.duration_min}
-                          expiresAt={s.expires_at}
-                          endedAt={s.ended_at}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {b ? (
+                          <SessionStatus
+                            scheduledAt={b.scheduled_at}
+                            durationMin={b.duration_min}
+                            expiresAt={s.expires_at}
+                            endedAt={s.ended_at}
+                          />
+                        ) : (
+                          <span className="text-xs text-muted">—</span>
+                        )}
+                        {/* session_mode is added in Stage 1 migration; before it lands the
+                            cast falls through to the badge's 'private' default. */}
+                        <SessionModeBadge
+                          mode={(s as { session_mode?: SessionMode | null }).session_mode}
+                          size="sm"
                         />
-                      ) : (
-                        <span className="text-xs text-muted">—</span>
-                      )}
+                      </div>
                     </td>
                     <td className="px-3 py-3 text-xs">
                       {s.actual_duration
