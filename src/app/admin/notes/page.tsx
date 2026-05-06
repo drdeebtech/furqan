@@ -7,6 +7,7 @@ import { buildNameMap } from "@/lib/admin/name-map";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
 import type { SessionType } from "@/types/database";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "ملاحظات الجلسات" };
 
@@ -75,8 +76,10 @@ export default async function AdminNotesPage() {
 
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="text-2xl font-bold">{t("ملاحظات الجلسات", "Session Notes")}</h1>
-      <p className="mt-1 text-sm text-muted">{t("جميع ملاحظات المعلمين والمتابعات", "All teacher notes and follow-ups")}</p>
+      <PageHeader
+        title={t("ملاحظات الجلسات", "Session Notes")}
+        subtitle={t("جميع ملاحظات المعلمين والمتابعات", "All teacher notes and follow-ups")}
+      />
 
       {/* Stats */}
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
