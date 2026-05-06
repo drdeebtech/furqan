@@ -14,6 +14,9 @@ on:
       - "supabase/migrations/**"
       - ".github/workflows/migration-drift.yml"
 
+permissions:
+  contents: read
+
 jobs:
   drift-check:
     name: schema_migrations vs repo files
@@ -25,7 +28,7 @@ jobs:
       - name: Compare repo migrations vs production
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF: xyqscjnqfeusgrhmwjts
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
         run: |
           set -e
 
@@ -98,7 +101,7 @@ jobs:
       - name: Compare supabase/migrations against the Branching tracker
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF: xyqscjnqfeusgrhmwjts
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
         run: |
           set -e
 

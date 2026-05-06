@@ -14,6 +14,9 @@ name: Auth Smoke on Preview
 on:
   deployment_status:
 
+permissions:
+  contents: read
+
 jobs:
   smoke:
     name: auth-smoke (preview)

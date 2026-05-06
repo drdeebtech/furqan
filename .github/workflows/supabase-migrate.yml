@@ -30,6 +30,9 @@ on:
       - "supabase/migrations/**"
       - ".github/workflows/supabase-migrate.yml"
 
+permissions:
+  contents: read
+
 # Serialize runs so two concurrent pushes can't race against the same DB.
 concurrency:
   group: supabase-migrate-${{ github.ref }}
@@ -70,7 +73,7 @@ jobs:
             echo "::error::SUPABASE_DB_PASSWORD is unset. Add it under Settings → Secrets → Actions (find the value in Supabase Dashboard → Project Settings → Database → Connection string)."
             exit 1
           fi
-          supabase link --project-ref xyqscjnqfeusgrhmwjts
+          supabase link --project-ref "${{ vars.SUPABASE_PROJECT_REF }}"
 
       - name: Dry-run (PR validation)
         if: github.event_name == 'pull_request'
