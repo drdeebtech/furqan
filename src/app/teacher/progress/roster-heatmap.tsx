@@ -172,6 +172,11 @@ export function RosterHeatmap({
                   {t("طلاقة", "Fluency")} <SortIcon k="fluency" />
                 </button>
               </th>
+              <th className="px-3 py-2 text-end" title={t("عدد التقييمات المستخدمة في الحساب", "How many evaluations the average is based on")}>
+                <span className="font-medium uppercase tracking-wide">
+                  {t("ن", "n")}
+                </span>
+              </th>
               <th className="px-3 py-2 text-end">
                 <button
                   type="button"
@@ -185,11 +190,12 @@ export function RosterHeatmap({
           </thead>
           <tbody>
             {sorted.map((row) => (
+              // Row tint dropped — the AlertTriangle next to the name is the
+              // canonical at-risk signal. Audit caught the row tint + cell
+              // tint + icon as triple-redundant.
               <tr
                 key={row.studentId}
-                className={`border-b border-card-border/60 last:border-0 ${
-                  row.atRisk ? "bg-error/5" : ""
-                }`}
+                className="border-b border-card-border/60 last:border-0"
               >
                 <td className="px-3 py-2">
                   <Link
@@ -228,6 +234,15 @@ export function RosterHeatmap({
                   className={`px-3 py-2 text-center text-xs tabular-nums ${scoreCellClass(row.fluencyAvg)}`}
                 >
                   {format1(row.fluencyAvg)}
+                </td>
+                <td
+                  className="px-3 py-2 text-end text-xs text-muted-light tabular-nums"
+                  title={t(
+                    `${row.evalCount} تقييم في المتوسط`,
+                    `${row.evalCount} evaluation${row.evalCount === 1 ? "" : "s"} in the average`,
+                  )}
+                >
+                  {row.evalCount}
                 </td>
                 <td className="px-3 py-2 text-end text-xs text-muted">
                   {relativeDays(row.daysSinceLastEval, langKey)}

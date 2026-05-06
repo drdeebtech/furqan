@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Zap } from "lucide-react";
+import { useLang } from "@/lib/i18n/context";
 import { startInstantSession } from "./actions";
 
 interface Student {
@@ -11,6 +12,7 @@ interface Student {
 }
 
 export function InstantSessionButton({ students }: { students: Student[] }) {
+  const { t } = useLang();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState("");
@@ -43,7 +45,7 @@ export function InstantSessionButton({ students }: { students: Student[] }) {
         className="glass-success glass-pill flex min-h-[44px] items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-green-700"
       >
         <Zap size={16} />
-        جلسة فورية
+        {t("جلسة فورية", "Instant session")}
       </button>
     );
   }
@@ -52,7 +54,7 @@ export function InstantSessionButton({ students }: { students: Student[] }) {
     <div className="glass-card border-gold/30 p-5">
       <h3 className="mb-3 flex items-center gap-2 text-sm font-bold">
         <Zap size={16} className="text-green-400" />
-        بدء جلسة فورية
+        {t("بدء جلسة فورية", "Start an instant session")}
       </h3>
 
       {error && (
@@ -63,7 +65,9 @@ export function InstantSessionButton({ students }: { students: Student[] }) {
 
       <div className="space-y-3">
         <div>
-          <label htmlFor="instant-student" className="mb-1 block text-xs text-muted">اختر الطالب</label>
+          <label htmlFor="instant-student" className="mb-1 block text-xs text-muted">
+            {t("اختر الطالب", "Pick a student")}
+          </label>
           <select
             id="instant-student"
             name="instant-student"
@@ -71,7 +75,7 @@ export function InstantSessionButton({ students }: { students: Student[] }) {
             onChange={(e) => setSelectedStudent(e.target.value)}
             className="glass-input w-full px-3 py-2 text-sm focus:border-gold focus:outline-none"
           >
-            <option value="">— اختر طالباً —</option>
+            <option value="">— {t("اختر طالباً", "Select a student")} —</option>
             {students.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
@@ -79,7 +83,9 @@ export function InstantSessionButton({ students }: { students: Student[] }) {
         </div>
 
         <div>
-          <span id="instant-duration-label" className="mb-1 block text-xs text-muted">المدة</span>
+          <span id="instant-duration-label" className="mb-1 block text-xs text-muted">
+            {t("المدة", "Duration")}
+          </span>
           <div role="radiogroup" aria-labelledby="instant-duration-label" className="flex gap-2">
             {[30, 45, 60].map((d) => (
               <button
@@ -94,7 +100,7 @@ export function InstantSessionButton({ students }: { students: Student[] }) {
                     : "border-[var(--surface-border)] text-muted hover:border-gold/50"
                 }`}
               >
-                {d} د
+                {d} {t("د", "min")}
               </button>
             ))}
           </div>
@@ -111,7 +117,7 @@ export function InstantSessionButton({ students }: { students: Student[] }) {
             ) : (
               <>
                 <Zap size={14} />
-                ابدأ الآن
+                {t("ابدأ الآن", "Start now")}
               </>
             )}
           </button>
@@ -119,7 +125,7 @@ export function InstantSessionButton({ students }: { students: Student[] }) {
             onClick={() => { setOpen(false); setError(null); }}
             className="glass glass-pill px-4 py-2 text-sm text-muted transition-colors hover:text-foreground"
           >
-            إلغاء
+            {t("إلغاء", "Cancel")}
           </button>
         </div>
       </div>
