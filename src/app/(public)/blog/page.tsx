@@ -1,10 +1,43 @@
 import type { Metadata } from "next";
+import { unstable_cache } from "next/cache";
 import { addCacheTag } from "@vercel/functions";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { BlogPost } from "@/types/blog";
+import type { SiteBlogCategory } from "@/lib/site-content/types";
 import { BlogContent } from "./content";
 import { BreadcrumbSchema } from "@/components/seo/structured-data";
-import { getActiveBlogCategories } from "@/lib/site-content/queries";
+
+// Cache the blog index (posts + categories) at the Next.js Data Cache
+// layer. Same rationale as /teachers — the (public) layout reads
+// cookies, so the route stays ƒ (dynamic) and we can't get full CDN
+// ISR. The 10-min cache window still drops the 50+ row select cost
+// to a single shared fetch across every public visitor.
+const getBlogIndex = unstable_cache(
+  async () => {
+    const supabase = createAdminClient();
+    const [postsRes, categoriesRes] = await Promise.all([
+      supabase
+        .from("blog_posts")
+        .select("slug, title_ar, title_en, excerpt_ar, excerpt_en, category_ar, category_en, color, read_time_ar, read_time_en, published_at, cover_image_path, cover_alt_en, cover_alt_ar")
+        .eq("is_published", true)
+        .order("published_at", { ascending: false })
+        .returns<Omit<BlogPost, "id" | "body_ar" | "body_en" | "is_published" | "created_at" | "updated_at">[]>(),
+      supabase
+        .from("site_blog_categories")
+        .select("id, key, label_ar, label_en, sort_order, is_active")
+        .eq("is_active", true)
+        .order("sort_order")
+        .returns<SiteBlogCategory[]>(),
+    ]);
+
+    return {
+      posts: postsRes.data ?? [],
+      categories: (categoriesRes.data ?? []).map(c => ({ key: c.key, ar: c.label_ar, en: c.label_en })),
+    };
+  },
+  ["public-blog-index"],
+  { tags: ["blog-public"], revalidate: 600 },
+);
 
 export const metadata: Metadata = {
   title: "المدونة — مقالات في علوم القرآن",
@@ -22,24 +55,9 @@ export const metadata: Metadata = {
 export const revalidate = 600;
 
 export default async function BlogPage() {
-  // Tag the CDN-cached response so admin publishing can invalidate
-  // the global edge copy via invalidateByTag('blog-public') in addition
-  // to the existing revalidatePath('/blog') call.
   await addCacheTag("blog-public");
 
-  const supabase = await createClient();
-
-  const [postsRes, dbCategories] = await Promise.all([
-    supabase
-      .from("blog_posts")
-      .select("slug, title_ar, title_en, excerpt_ar, excerpt_en, category_ar, category_en, color, read_time_ar, read_time_en, published_at, cover_image_path, cover_alt_en, cover_alt_ar")
-      .eq("is_published", true)
-      .order("published_at", { ascending: false })
-      .returns<Omit<BlogPost, "id" | "body_ar" | "body_en" | "is_published" | "created_at" | "updated_at">[]>(),
-    getActiveBlogCategories(),
-  ]);
-
-  const categories = dbCategories.map(c => ({ key: c.key, ar: c.label_ar, en: c.label_en }));
+  const { posts, categories } = await getBlogIndex();
 
   return (
     <>
@@ -47,7 +65,7 @@ export default async function BlogPage() {
         { name: "الرئيسية", url: "https://furqan.today" },
         { name: "المدونة", url: "https://furqan.today/blog" },
       ]} />
-      <BlogContent posts={postsRes.data ?? []} categories={categories} />
+      <BlogContent posts={posts} categories={categories} />
     </>
   );
 }
