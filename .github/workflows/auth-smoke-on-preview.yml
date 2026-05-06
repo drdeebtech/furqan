@@ -51,6 +51,17 @@ jobs:
       - name: Run auth-smoke against preview URL
         env:
           BASE_URL: ${{ github.event.deployment_status.target_url }}
+          # Vercel deployment-protection bypass token. Generated in
+          # Vercel project Settings → Deployment Protection → Protection
+          # Bypass for Automation, then mirrored into this repo's GH
+          # Actions secrets. Without it, every preview-URL request
+          # returns HTTP 401 (Vercel's gate) before our own /login etc.
+          # have a chance to respond — which was the entire root cause
+          # of the 26-of-90 auth-smoke failures observed in the 48h
+          # preceding the 2026-05-06 audit. The spec gracefully skips
+          # if this is unset against a Vercel preview, so no contributor
+          # without the secret hits a confusing 401.
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           echo "Testing against: $BASE_URL"
           # Override the playwright.config.ts webServer block so it doesn't

@@ -30,6 +30,34 @@ import { test, expect } from "@playwright/test";
 const AUTH_ROUTES = ["/login", "/register", "/forgot-password"];
 
 test.describe("Auth pages smoke", () => {
+  // Vercel preview deployments are gated by deployment-protection; raw
+  // requests get HTTP 401 from Vercel itself before /login can respond.
+  // The bypass header (issued in Vercel project Settings → Deployment
+  // Protection → Protection Bypass for Automation) lets automation
+  // skip that gate. We attach the header only when running against
+  // *.vercel.app to keep local + non-Vercel runs untouched.
+  const bypassToken = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  const baseUrl = process.env.BASE_URL ?? "";
+  const isVercelPreview = /\.vercel\.app(\/|$)/.test(baseUrl);
+
+  test.skip(
+    isVercelPreview && !bypassToken,
+    "VERCEL_AUTOMATION_BYPASS_SECRET not set — Vercel preview URLs return 401 before /login can respond. Set the secret to run this smoke (it's a no-op on local + production)."
+  );
+
+  if (bypassToken) {
+    test.use({
+      extraHTTPHeaders: {
+        "x-vercel-protection-bypass": bypassToken,
+        // Tells Vercel to set a bypass cookie on the first response so
+        // subsequent navigation within the same browser context (e.g.
+        // form submits, soft navigations) doesn't re-prompt for the
+        // header.
+        "x-vercel-set-bypass-cookie": "true",
+      },
+    });
+  }
+
   for (const route of AUTH_ROUTES) {
     test(`${route} loads + hydrates without CSP violations or console errors`, async ({ page }) => {
       const allErrors: string[] = [];
