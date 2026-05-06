@@ -223,32 +223,32 @@ export default async function TeacherDashboardPage() {
           aggregation query runs, then swaps in the real content as it
           resolves. Graceful: a widget whose data load fails still renders
           its empty/error state (helperOrFail inside each component). */}
-      <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 pb-2 sm:px-6">
         <Suspense fallback={<TalqeenInboxCardSkeleton />}>
           <TalqeenInboxCard teacherId={user.id} />
         </Suspense>
       </div>
 
-      <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 pb-2 sm:px-6">
         <Suspense fallback={<RosterErrorPulseSkeleton />}>
           <RosterErrorPulse teacherId={user.id} />
         </Suspense>
       </div>
 
-      <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 pb-2 sm:px-6">
         <Suspense fallback={<ParentReportDigestCardSkeleton />}>
           <ParentReportDigestCard teacherId={user.id} />
         </Suspense>
       </div>
 
-      <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 pb-2 sm:px-6">
         <Suspense fallback={<RecitationStandardRosterSkeleton />}>
           <RecitationStandardRoster teacherId={user.id} />
         </Suspense>
       </div>
 
       {cvStatus === "approved" && (
-        <div className="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
+        <div className="mx-auto max-w-7xl px-4 pb-8 sm:px-6">
           {/* AtRiskStudents was already self-fetching; just wrap in
               Suspense so its 90-day-bookings + retention_signals + names
               fan-out doesn't block first paint. */}
