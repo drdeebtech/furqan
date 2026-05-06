@@ -8,6 +8,7 @@ import type { BlogPost } from "@/types/blog";
 import { DeletePostButton } from "./delete-button";
 import { TogglePublished } from "./toggle-published";
 import { PageHeader } from "@/components/shared/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata: Metadata = { title: "إدارة المدونة" };
 
@@ -41,9 +42,10 @@ export default async function AdminBlogPage() {
       />
 
       {list.length === 0 ? (
-        <div className="glass-card rounded-xl p-12 text-center">
-          <p className="text-muted">{t("لا توجد مقالات بعد", "No posts yet")}</p>
-        </div>
+        <EmptyState
+          variant="glass-card"
+          message={t("لا توجد مقالات بعد", "No posts yet")}
+        />
       ) : (
         <div className="overflow-hidden rounded-xl glass-card">
           <table className="w-full text-sm">

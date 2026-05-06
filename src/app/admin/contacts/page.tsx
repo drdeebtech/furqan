@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
 import { getT } from "@/lib/i18n/server";
 import { MarkReadButton } from "./mark-read";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata: Metadata = { title: "رسائل التواصل" };
 
@@ -42,10 +43,11 @@ export default async function AdminContactsPage() {
       </p>
 
       {submissions.length === 0 ? (
-        <div className="glass-card rounded-xl p-12 text-center">
-          <Inbox size={32} className="mx-auto mb-3 text-muted" />
-          <p className="text-muted">{t("لا توجد رسائل بعد", "No messages yet")}</p>
-        </div>
+        <EmptyState
+          variant="glass-card"
+          icon={<Inbox size={32} className="text-muted" />}
+          message={t("لا توجد رسائل بعد", "No messages yet")}
+        />
       ) : (
         <div className="space-y-3">
           {submissions.map(s => (
