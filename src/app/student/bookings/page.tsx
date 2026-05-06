@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR, STATUS_STYLE } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
 import type { BookingStatus, SessionType } from "@/types/database";
+import { EmptyState } from "@/components/shared/empty-state";
 
 const SESSION_TYPE_EN: Record<SessionType, string> = {
   hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
@@ -80,17 +81,20 @@ export default async function StudentBookingsPage() {
       </div>
 
       {list.length === 0 ? (
-        <div className="glass-card p-12 text-center">
-          <Inbox size={40} className="mx-auto mb-4 text-muted" />
-          <p className="text-lg text-muted">{t("لم تقم بأي حجز حتى الآن", "You haven't made any bookings yet")}</p>
-          <p className="mt-1 text-sm text-muted">{t("ابدأ بتصفح المعلمين واحجز جلستك الأولى", "Browse teachers and book your first session")}</p>
-          <Link
-            href="/student/teachers"
-            className="mt-4 inline-flex items-center gap-1.5 glass-gold glass-pill px-5 py-2.5 text-sm font-semibold text-white transition-colors"
-          >
-            {t("تصفح المعلمين", "Browse Teachers")}
-          </Link>
-        </div>
+        <EmptyState
+          variant="glass-card"
+          icon={<Inbox size={40} className="text-muted" />}
+          message={t("لم تقم بأي حجز حتى الآن", "You haven't made any bookings yet")}
+          hint={t("ابدأ بتصفح المعلمين واحجز جلستك الأولى", "Browse teachers and book your first session")}
+          action={
+            <Link
+              href="/student/teachers"
+              className="inline-flex items-center gap-1.5 glass-gold glass-pill px-5 py-2.5 text-sm font-semibold text-white transition-colors"
+            >
+              {t("تصفح المعلمين", "Browse Teachers")}
+            </Link>
+          }
+        />
       ) : (
         <div className="space-y-3">
           {list.map((booking) => {
