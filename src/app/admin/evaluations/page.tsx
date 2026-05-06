@@ -5,6 +5,7 @@ import { ClipboardCheck, Inbox, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { buildNameMap } from "@/lib/admin/name-map";
 import { getT } from "@/lib/i18n/server";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "التقييمات" };
 
@@ -69,19 +70,19 @@ export default async function AdminEvaluationsPage() {
 
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
-      {/* Header */}
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="flex items-center gap-2 text-2xl font-bold">
-          <ClipboardCheck size={24} className="text-gold" /> {t("التقييمات", "Evaluations")}
-        </h1>
-        <Link
-          href="/admin/evaluations/new"
-          className="me-auto inline-flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-semibold transition-colors"
-        >
-          <Plus size={16} />
-          {t("إنشاء تقييم", "New Evaluation")}
-        </Link>
-      </div>
+      <PageHeader
+        icon={<ClipboardCheck size={24} className="text-gold" />}
+        title={t("التقييمات", "Evaluations")}
+        actions={
+          <Link
+            href="/admin/evaluations/new"
+            className="inline-flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-semibold transition-colors"
+          >
+            <Plus size={16} />
+            {t("إنشاء تقييم", "New Evaluation")}
+          </Link>
+        }
+      />
 
       {/* Table */}
       {list.length === 0 ? (

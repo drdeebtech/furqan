@@ -8,6 +8,7 @@ import { getT } from "@/lib/i18n/server";
 import { buildNameMap } from "@/lib/admin/name-map";
 import { Avatar } from "@/components/shared/avatar";
 import { SearchInput } from "@/components/shared/search-input";
+import { PageHeader } from "@/components/shared/page-header";
 import { ArchiveToggle } from "../dashboard/archive-toggle";
 
 export const metadata: Metadata = { title: "إدارة المعلمين" };
@@ -64,21 +65,24 @@ export default async function AdminTeachersPage({ searchParams }: PageProps) {
 
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold"><GraduationCap size={24} className="text-gold" /> {t("إدارة المعلمين", "Manage Teachers")}</h1>
-        <div className="flex items-center gap-3">
-          {(pendingCvCount ?? 0) > 0 && (
-            <Link href="/admin/teachers/cv" className="flex items-center gap-2 rounded border border-warning/30 bg-warning/10 px-3 py-2 text-sm font-medium text-warning transition-colors hover:bg-warning/20">
-              <FileText size={16} />
-              {t("سير ذاتية معلقة", "Pending CVs")}
-              <span className="rounded-md bg-warning/90 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{pendingCvCount}</span>
+      <PageHeader
+        icon={<GraduationCap size={24} className="text-gold" />}
+        title={t("إدارة المعلمين", "Manage Teachers")}
+        actions={
+          <>
+            {(pendingCvCount ?? 0) > 0 && (
+              <Link href="/admin/teachers/cv" className="flex items-center gap-2 rounded border border-warning/30 bg-warning/10 px-3 py-2 text-sm font-medium text-warning transition-colors hover:bg-warning/20">
+                <FileText size={16} />
+                {t("سير ذاتية معلقة", "Pending CVs")}
+                <span className="rounded-md bg-warning/90 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{pendingCvCount}</span>
+              </Link>
+            )}
+            <Link href="/admin/teachers/new" className="flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-medium">
+              <Plus size={16} /> {t("إضافة معلم", "Add Teacher")}
             </Link>
-          )}
-          <Link href="/admin/teachers/new" className="flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-medium">
-            <Plus size={16} /> {t("إضافة معلم", "Add Teacher")}
-          </Link>
-        </div>
-      </div>
+          </>
+        }
+      />
       {list.length > 0 && (
         <div className="mb-4">
           <SearchInput placeholder={t("ابحث بالاسم أو البريد...", "Search by name or email...")} ariaLabel={t("بحث المعلمين", "Search teachers")} />
