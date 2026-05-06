@@ -62,6 +62,7 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/teacher/talqeen", ar: "صندوق التلقين", en: "Talqeen Inbox", icon: Mic },
     { href: "/teacher/follow-up", ar: "المتابعة", en: "Follow-up", icon: BookOpen },
     { href: "/teacher/courses", ar: "دوراتي المسجلة", en: "Recorded Courses", icon: GraduationCap },
+    { href: "/teacher/resources", ar: "مصادري", en: "My Resources", icon: FileText },
     { href: "/teacher/cv", ar: "السيرة الذاتية", en: "My CV", icon: FileText },
     { href: "/teacher/evaluations", ar: "التقييمات", en: "Evaluations", icon: ClipboardCheck },
     { href: "/teacher/notifications", ar: "الإشعارات", en: "Notifications", icon: Bell },
