@@ -8,13 +8,20 @@ import { SearchInput } from "@/components/shared/search-input";
 
 export const metadata: Metadata = { title: "طلابي" };
 
+type SortKey = "name" | "balance" | "eval";
+
 interface PageProps {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; sort?: string }>;
 }
 
 export default async function TeacherStudentsPage({ searchParams }: PageProps) {
   const { t, dir, lang } = await getT();
-  const { q = "" } = await searchParams;
+  const params = await searchParams;
+  const q = params.q ?? "";
+  const sort: SortKey =
+    params.sort === "balance" || params.sort === "eval"
+      ? params.sort
+      : "name";
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -147,9 +154,47 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
   }));
 
   const needle = q.trim().toLowerCase();
-  const students = needle
+  const filtered = needle
     ? allStudents.filter(s => s.name.toLowerCase().includes(needle))
     : allStudents;
+
+  // Sort logic — three modes:
+  //  - "name" (default): A→Z by display name
+  //  - "balance": ascending sessions remaining (lowest = needs attention first;
+  //               students without an active package go to the bottom)
+  //  - "eval": ascending days since last eval (oldest = needs attention first;
+  //            never-evaluated students go to the top)
+  const students = [...filtered].sort((a, b) => {
+    if (sort === "balance") {
+      // Bucket: has package + 0 left first, has package + low next, etc.
+      // No package goes last (no urgency to act).
+      const aBucket = !a.hasActivePackage ? 9999 : a.sessionsRemaining;
+      const bBucket = !b.hasActivePackage ? 9999 : b.sessionsRemaining;
+      if (aBucket !== bBucket) return aBucket - bBucket;
+      return a.name.localeCompare(b.name);
+    }
+    if (sort === "eval") {
+      const aDays = a.lastEvalAt
+        ? Math.floor((Date.now() - new Date(a.lastEvalAt).getTime()) / 86400_000)
+        : Number.POSITIVE_INFINITY; // never evaluated → top
+      const bDays = b.lastEvalAt
+        ? Math.floor((Date.now() - new Date(b.lastEvalAt).getTime()) / 86400_000)
+        : Number.POSITIVE_INFINITY;
+      if (aDays !== bDays) return bDays - aDays;
+      return a.name.localeCompare(b.name);
+    }
+    return a.name.localeCompare(b.name);
+  });
+
+  // Build sort-link href that preserves the search query so a teacher can
+  // filter by name AND change sort without losing context.
+  const sortLink = (key: SortKey) => {
+    const sp = new URLSearchParams();
+    if (q) sp.set("q", q);
+    if (key !== "name") sp.set("sort", key);
+    const qs = sp.toString();
+    return qs ? `/teacher/students?${qs}` : "/teacher/students";
+  };
 
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
@@ -157,8 +202,33 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
       <p className="mb-4 text-sm text-muted">{allStudents.length} {t("طالب", "students")}</p>
 
       {allStudents.length > 0 && (
-        <div className="mb-6">
-          <SearchInput placeholder={t("ابحث باسم الطالب...", "Search by student name...")} ariaLabel={t("بحث الطلاب", "Search students")} />
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <div className="min-w-[240px] flex-1">
+            <SearchInput placeholder={t("ابحث باسم الطالب...", "Search by student name...")} ariaLabel={t("بحث الطلاب", "Search students")} />
+          </div>
+          <div role="group" aria-label={t("الترتيب", "Sort")} className="flex flex-wrap items-center gap-1 text-xs">
+            <span className="text-muted-light">{t("الترتيب:", "Sort:")}</span>
+            {([
+              { key: "name" as SortKey, ar: "الاسم", en: "Name" },
+              { key: "balance" as SortKey, ar: "الرصيد", en: "Balance" },
+              { key: "eval" as SortKey, ar: "آخر تقييم", en: "Last eval" },
+            ]).map((opt) => {
+              const active = sort === opt.key;
+              return (
+                <Link
+                  key={opt.key}
+                  href={sortLink(opt.key)}
+                  className={`rounded-full border px-3 py-1 transition-colors focus-ring ${
+                    active
+                      ? "border-gold/50 bg-gold/15 text-gold"
+                      : "border-card-border bg-card/30 text-muted hover:bg-card/50"
+                  }`}
+                >
+                  {t(opt.ar, opt.en)}
+                </Link>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -184,11 +254,11 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
             return (
               <div key={s.id} className="glass-card p-6">
                 <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-gold/30 bg-gold/10 font-display text-xl font-bold text-gold">
-                  {s.name.charAt(0)}
+                  {(s.name.trim().charAt(0) || "—").toUpperCase()}
                 </div>
                 <p className="text-lg font-bold">{s.name}</p>
                 <p className="mt-1 text-sm text-muted">
-                  {t("آخر جلسة", "Last session")}: {new Date(s.lastSession).toLocaleDateString(localeArg)}
+                  {t("آخر جلسة", "Last session")}: {new Date(s.lastSession).toLocaleDateString(localeArg, { year: "numeric", month: "short", day: "numeric" })}
                 </p>
                 <p className="text-sm text-muted">
                   {s.total} {t("جلسة مكتملة", "completed")} · {s.thisMonth} {t("هذا الشهر", "this month")}

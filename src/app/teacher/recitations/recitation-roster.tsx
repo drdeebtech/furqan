@@ -12,8 +12,17 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useLang } from "@/lib/i18n/context";
+import { surahName } from "@/lib/quran/surahs";
 import type { TeacherRecitationRosterRow } from "@/lib/teacher-queries";
 import { requestFreshRecitationAction } from "./actions";
+
+/** Uppercase the first character of a name for the avatar fallback.
+ *  Audit finding 2026-05-06: students whose name starts lowercase ("test
+ *  student farag") rendered with lowercase initial "t". Always uppercase. */
+function avatarInitial(name: string): string {
+  const first = name.trim().charAt(0);
+  return first ? first.toUpperCase() : "—";
+}
 
 function relativeDays(days: number | null, lang: "ar" | "en"): string {
   if (days === null) return lang === "ar" ? "لم يُسجَّل بعد" : "Never recorded";
@@ -99,11 +108,20 @@ export function RecitationRoster({
     <ul className="mt-6 space-y-3">
       {rows.map((row) => {
         const stars = qualityStars(row.qualityAvgLast5);
+        // Resolve surah numbers to qira'a names (Al-Fatiha, etc.) via the
+        // shared `surahName` helper. Audit caught "Surah 1" instead of the
+        // pedagogically-meaningful name.
+        const fromName = row.surahFrom
+          ? surahName(row.surahFrom, langKey)
+          : null;
+        const toName = row.surahTo
+          ? surahName(row.surahTo, langKey)
+          : null;
         const surahLabel =
           row.surahFrom && row.surahTo && row.surahFrom !== row.surahTo
-            ? `${t("سور", "Surahs")} ${row.surahFrom}–${row.surahTo}`
+            ? `${fromName ?? row.surahFrom} → ${toName ?? row.surahTo}`
             : row.currentSurah
-              ? `${t("سورة", "Surah")} ${row.currentSurah}`
+              ? (toName ?? fromName ?? `${t("سورة", "Surah")} ${row.currentSurah}`)
               : null;
         return (
           <li
@@ -122,15 +140,15 @@ export function RecitationRoster({
                     className="rounded-full"
                   />
                 ) : (
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-sm text-muted">
-                    {row.studentName.slice(0, 1)}
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-sm font-medium text-muted">
+                    {avatarInitial(row.studentName)}
                   </div>
                 )}
                 <div className="min-w-0">
                   <p className="truncate font-medium">
                     <Link
                       href={`/teacher/students/${row.studentId}`}
-                      className="hover:text-gold focus-ring"
+                      className="underline-offset-4 hover:text-gold hover:underline focus-ring"
                     >
                       {row.studentName}
                     </Link>
@@ -158,8 +176,16 @@ export function RecitationRoster({
 
               <div className="flex flex-col items-end gap-2">
                 {row.qualityAvgLast5 !== null && (
+                  // Stars-only — the numeric "4.0" was dropped (audit caught
+                  // it as redundant with the 5-star pictogram). The exact
+                  // value still surfaces via aria-label and title for SR
+                  // users and on hover.
                   <div
                     className="flex items-center gap-0.5"
+                    title={t(
+                      `متوسط الجودة ${row.qualityAvgLast5.toFixed(1)} من 5`,
+                      `Quality average ${row.qualityAvgLast5.toFixed(1)} of 5`,
+                    )}
                     aria-label={t(
                       `متوسط الجودة ${row.qualityAvgLast5.toFixed(1)} من 5`,
                       `Quality average ${row.qualityAvgLast5.toFixed(1)} of 5`,
@@ -177,9 +203,6 @@ export function RecitationRoster({
                         aria-hidden="true"
                       />
                     ))}
-                    <span className="ms-1 text-[11px] tabular-nums text-muted">
-                      {row.qualityAvgLast5.toFixed(1)}
-                    </span>
                   </div>
                 )}
                 <RequestRecitationButton studentId={row.studentId} />
