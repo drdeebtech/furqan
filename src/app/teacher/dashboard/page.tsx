@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/shared/skeleton";
 import type { SessionType } from "@/types/database";
 import { TeacherDashboardContent } from "./dashboard-content";
 import { TeacherAtRiskStudents } from "./at-risk-students";
-import { MentorshipCard } from "./mentorship-card";
+import { MentorshipCard, MentorshipCardSkeleton } from "./mentorship-card";
 import { DataLoadBanner } from "@/components/shared/data-load-banner";
 import {
   getTeacherWeeklyHours,
@@ -32,9 +32,26 @@ export default async function TeacherDashboardPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+  // Anchor "today" to Asia/Kuwait (operator timezone) instead of the
+  // Vercel runtime's UTC. Without this, todayStart/todayEnd were UTC
+  // midnight bounds — for Kuwait users that meant "today" started at
+  // 3 AM local. Kuwait has no DST, so the static +03:00 offset is safe.
+  const TZ = "Asia/Kuwait";
+  const TZ_OFFSET = "+03:00";
+  const dateParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const todayStart = new Date(`${dateParts}T00:00:00${TZ_OFFSET}`);
+  const todayEnd = new Date(`${dateParts}T23:59:59.999${TZ_OFFSET}`);
+  const monthParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "2-digit",
+  }).format(new Date());
+  const monthStart = new Date(`${monthParts}-01T00:00:00${TZ_OFFSET}`).toISOString();
 
   // Batch 1 — every query depends only on user.id, so they all parallelize.
   // The 4 secondary widgets (talqeen, roster-error-pulse, parent-report,
@@ -223,32 +240,32 @@ export default async function TeacherDashboardPage() {
           aggregation query runs, then swaps in the real content as it
           resolves. Graceful: a widget whose data load fails still renders
           its empty/error state (helperOrFail inside each component). */}
-      <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 pb-2 sm:px-6">
         <Suspense fallback={<TalqeenInboxCardSkeleton />}>
           <TalqeenInboxCard teacherId={user.id} />
         </Suspense>
       </div>
 
-      <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 pb-2 sm:px-6">
         <Suspense fallback={<RosterErrorPulseSkeleton />}>
           <RosterErrorPulse teacherId={user.id} />
         </Suspense>
       </div>
 
-      <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 pb-2 sm:px-6">
         <Suspense fallback={<ParentReportDigestCardSkeleton />}>
           <ParentReportDigestCard teacherId={user.id} />
         </Suspense>
       </div>
 
-      <div className="mx-auto max-w-6xl px-4 pb-2 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 pb-2 sm:px-6">
         <Suspense fallback={<RecitationStandardRosterSkeleton />}>
           <RecitationStandardRoster teacherId={user.id} />
         </Suspense>
       </div>
 
       {cvStatus === "approved" && (
-        <div className="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
+        <div className="mx-auto max-w-7xl px-4 pb-8 sm:px-6">
           {/* AtRiskStudents was already self-fetching; just wrap in
               Suspense so its 90-day-bookings + retention_signals + names
               fan-out doesn't block first paint. */}
@@ -270,8 +287,11 @@ export default async function TeacherDashboardPage() {
 
       {/* Mentorship card — renders only when this teacher has an active
           mentor relationship in either direction. Pairings are admin-
-          driven for now. */}
-      <MentorshipCard teacherId={user.id} />
+          driven for now. Wrapped in Suspense so its 3 sequential queries
+          (mentorships, profiles, feedback) don't block the page tail. */}
+      <Suspense fallback={<MentorshipCardSkeleton />}>
+        <MentorshipCard teacherId={user.id} />
+      </Suspense>
     </main>
   );
 }
