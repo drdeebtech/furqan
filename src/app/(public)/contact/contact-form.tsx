@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { useLang } from "@/lib/i18n/context";
+import { FormField } from "@/components/shared/form-field";
 import { submitContactForm } from "./actions";
 
 const inputClass = "glass-input w-full rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold";
@@ -30,25 +31,35 @@ export function ContactForm() {
       )}
 
       <form action={formAction} className="mt-6 space-y-4">
-        <div>
-          <label htmlFor="full_name" className="mb-1 block text-sm font-medium">{t("الاسم الكامل", "Full Name")}</label>
-          <input id="full_name" name="full_name" type="text" required className={inputClass} placeholder={t("محمد أحمد", "Mohammed Ahmed")} />
+        <FormField
+          label={t("الاسم الكامل", "Full Name")}
+          name="full_name"
+          required
+          placeholder={t("محمد أحمد", "Mohammed Ahmed")}
+        />
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <FormField
+            label={t("البريد الإلكتروني", "Email")}
+            name="email"
+            type="email"
+            required
+            dir="ltr"
+            placeholder="you@example.com"
+            inputClassName={`${inputClass} text-left`}
+          />
+          <FormField
+            label={t("رقم واتساب", "WhatsApp Number")}
+            name="whatsapp"
+            type="tel"
+            dir="ltr"
+            placeholder="+965 9779 5626"
+            inputClassName={`${inputClass} text-left`}
+          />
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium">{t("البريد الإلكتروني", "Email")}</label>
-            <input id="email" name="email" type="email" required dir="ltr" className={`${inputClass} text-left`} placeholder="you@example.com" />
-          </div>
-          <div>
-            <label htmlFor="whatsapp" className="mb-1 block text-sm font-medium">{t("رقم واتساب", "WhatsApp Number")}</label>
-            <input id="whatsapp" name="whatsapp" type="tel" dir="ltr" className={`${inputClass} text-left`} placeholder="+965 9779 5626" />
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <label htmlFor="country" className="mb-1 block text-sm font-medium">{t("الدولة", "Country")}</label>
+          <FormField label={t("الدولة", "Country")} name="country">
             <select id="country" name="country" required className={inputClass}>
               <option value="">{t("اختر الدولة", "Select Country")}</option>
               {[
@@ -63,20 +74,18 @@ export function ContactForm() {
                 { ar: "أخرى", en: "Other" },
               ].map((c) => <option key={c.en} value={c.en}>{t(c.ar, c.en)}</option>)}
             </select>
-          </div>
-          <div>
-            <label htmlFor="student_age" className="mb-1 block text-sm font-medium">{t("عمر الطالب", "Student Age")}</label>
+          </FormField>
+          <FormField label={t("عمر الطالب", "Student Age")} name="student_age">
             <select id="student_age" name="student_age" className={inputClass}>
               <option value="">{t("اختر الفئة العمرية", "Select Age Range")}</option>
               {["3-5", "6-10", "11-15", "16-20", "21+"].map((a) => (
                 <option key={a} value={a}>{a} {t("سنوات", "years")}</option>
               ))}
             </select>
-          </div>
+          </FormField>
         </div>
 
-        <div>
-          <label htmlFor="package" className="mb-1 block text-sm font-medium">{t("الباقة المهتم بها", "Package Interest")}</label>
+        <FormField label={t("الباقة المهتم بها", "Package Interest")} name="package">
           <select id="package" name="package" className={inputClass}>
             <option value="">{t("اختر الباقة", "Select Package")}</option>
             {[
@@ -88,12 +97,21 @@ export function ContactForm() {
               { ar: "أريد أن أكون معلماً", en: "I want to be a teacher" },
             ].map((p) => <option key={p.en} value={p.en}>{t(p.ar, p.en)}</option>)}
           </select>
-        </div>
+        </FormField>
 
-        <div>
-          <label htmlFor="message" className="mb-1 block text-sm font-medium">{t("رسالتك", "Your Message")} <span className="text-xs text-muted">({t("اختياري", "optional")})</span></label>
-          <textarea id="message" name="message" rows={4} className={`${inputClass} resize-none`} placeholder={t("أخبرنا عن أهدافك...", "Tell us about your goals...")} />
-        </div>
+        <FormField
+          label={t("رسالتك", "Your Message")}
+          name="message"
+          optional
+        >
+          <textarea
+            id="message"
+            name="message"
+            rows={4}
+            className={`${inputClass} resize-none`}
+            placeholder={t("أخبرنا عن أهدافك...", "Tell us about your goals...")}
+          />
+        </FormField>
 
         <button type="submit" disabled={pending} className="glass-gold glass-pill w-full py-3 font-semibold transition-colors hover:bg-gold-hover disabled:opacity-50">
           {pending ? t("جاري الإرسال...", "Sending...") : t("أرسل طلبك", "Submit Request")}
