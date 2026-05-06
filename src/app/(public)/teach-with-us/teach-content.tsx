@@ -13,13 +13,13 @@ export default function TeachContent() {
       <section className="islamic-pattern relative overflow-hidden pt-28 pb-20">
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-background" />
         <div className="relative mx-auto max-w-4xl px-6 text-center">
-          <p className="text-sm font-medium uppercase tracking-[0.2em] text-gold/80">
+          <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted">
             {t("انضم إلى فريق فرقان", "Join the FURQAN faculty")}
           </p>
           <h1 className="font-display mt-4 text-4xl font-bold leading-tight md:text-6xl lg:text-7xl">
             {t("درّس القرآن", "Teach the Quran")}
             <br />
-            <span className="text-gold">{t("مع طلاب حول العالم", "To Students Worldwide")}</span>
+            <span>{t("مع طلاب حول العالم", "To Students Worldwide")}</span>
           </h1>
           <p className="mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-muted">
             {t(
@@ -56,7 +56,7 @@ export default function TeachContent() {
       <section className="section-light py-24">
         <div className="mx-auto max-w-7xl px-6">
           <div className="text-center">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-gold/80">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted">
               {t("لماذا التدريس معنا", "Why teach with us")}
             </p>
             <h2 className="font-display mt-3 text-3xl font-bold leading-tight md:text-4xl">
@@ -125,7 +125,7 @@ export default function TeachContent() {
       <section className="py-24">
         <div className="mx-auto max-w-3xl px-6">
           <div className="text-center">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-gold/80">
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted">
               {t("ما نبحث عنه", "What we look for")}
             </p>
             <h2 className="font-display mt-3 text-3xl font-bold leading-tight md:text-4xl">
