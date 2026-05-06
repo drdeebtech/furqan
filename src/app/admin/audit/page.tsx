@@ -23,12 +23,16 @@ const FILTER_ACTIONS: Record<FilterType, string[] | null> = {
 export default async function AdminAuditPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string }>;
+  searchParams: Promise<{ type?: string; page?: string }>;
 }) {
   const { t, dir, lang } = await getT();
   const sp = await searchParams;
   const filter: FilterType =
     sp.type === "mutations" || sp.type === "auth" || sp.type === "failures" ? sp.type : "all";
+
+  const PAGE_SIZE = 50;
+  const page = Math.max(1, Number(sp.page) || 1);
+  const offset = (page - 1) * PAGE_SIZE;
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -37,14 +41,15 @@ export default async function AdminAuditPage({
   let query = supabase.from("audit_log")
     .select("id, changed_by, table_name, record_id, action, reason, ip_address, created_at")
     .order("created_at", { ascending: false })
-    .limit(50);
+    .range(offset, offset + PAGE_SIZE);
 
   const allowed = FILTER_ACTIONS[filter];
   if (allowed) query = query.in("action", allowed);
   if (filter === "failures") query = query.ilike("reason", "%FAILED%");
 
   const { data } = await query.returns<AuditRow[]>();
-  const logs = data ?? [];
+  const hasNextPage = (data?.length ?? 0) > PAGE_SIZE;
+  const logs = (data ?? []).slice(0, PAGE_SIZE);
 
   const nameMap = await buildNameMap(
     supabase,
@@ -121,6 +126,22 @@ export default async function AdminAuditPage({
             </tbody>
           </table>
         </div>
+      )}
+
+      {(logs.length > 0 || page > 1) && (
+        <nav className="mt-4 flex items-center justify-between text-sm" aria-label="audit pagination">
+          {page > 1 ? (
+            <Link href={`/admin/audit?${new URLSearchParams({ ...(filter !== "all" ? { type: filter } : {}), page: String(page - 1) }).toString()}`} className="text-fg hover:underline">
+              ← {t("السابق", "Previous")}
+            </Link>
+          ) : <span className="text-muted opacity-40">← {t("السابق", "Previous")}</span>}
+          <span className="text-xs text-muted">{t(`صفحة ${page}`, `Page ${page}`)}</span>
+          {hasNextPage ? (
+            <Link href={`/admin/audit?${new URLSearchParams({ ...(filter !== "all" ? { type: filter } : {}), page: String(page + 1) }).toString()}`} className="text-fg hover:underline">
+              {t("التالي", "Next")} →
+            </Link>
+          ) : <span className="text-muted opacity-40">{t("التالي", "Next")} →</span>}
+        </nav>
       )}
     </div>
   );

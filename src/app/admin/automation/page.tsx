@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Activity, CheckCircle, XCircle, Clock, SkipForward } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
@@ -13,9 +14,13 @@ const STATUS_ICON: Record<string, { icon: typeof CheckCircle; color: string }> =
   skipped: { icon: SkipForward, color: "text-muted" },
 };
 
-export default async function AdminAutomationPage() {
+export default async function AdminAutomationPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const { t, dir, lang } = await getT();
   const locale = lang === "ar" ? "ar" : "en-US";
+  const sp = await searchParams;
+  const PAGE_SIZE = 50;
+  const page = Math.max(1, Number(sp.page) || 1);
+  const offset = (page - 1) * PAGE_SIZE;
   const supabase = await createClient();
 
   // Recent logs
@@ -23,11 +28,11 @@ export default async function AdminAutomationPage() {
     .from("automation_logs")
     .select("*")
     .order("started_at", { ascending: false })
-    .limit(50)
+    .range(offset, offset + PAGE_SIZE)
     .returns<AutomationLog[]>();
 
   // Stats
-  const allLogs = logs ?? [];
+  const allLogs = (logs ?? []).slice(0, PAGE_SIZE);
   const succeeded = allLogs.filter(l => l.status === "succeeded").length;
   const failed = allLogs.filter(l => l.status === "failed").length;
   const total = allLogs.length;
@@ -38,6 +43,9 @@ export default async function AdminAutomationPage() {
     .select("key, value")
     .in("key", ["automation_enabled", "whatsapp_enabled", "ai_parent_reports_enabled", "teacher_quality_monitor_enabled", "retention_automation_enabled", "renewal_campaigns_enabled"])
     .returns<{ key: string; value: string }[]>();
+
+  const hasNextPage = (logs ?? []).length > PAGE_SIZE;
+
 
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
@@ -121,6 +129,20 @@ export default async function AdminAutomationPage() {
             </table>
           </div>
         )}
+
+        <nav className="mt-4 flex items-center justify-between text-sm" aria-label="automation pagination">
+          {page > 1 ? (
+            <Link href={`/admin/automation?page=${page - 1}`} className="text-fg hover:underline">
+              ← {t("السابق", "Previous")}
+            </Link>
+          ) : <span className="text-muted opacity-40">← {t("السابق", "Previous")}</span>}
+          <span className="text-xs text-muted">{t(`صفحة ${page}`, `Page ${page}`)}</span>
+          {hasNextPage ? (
+            <Link href={`/admin/automation?page=${page + 1}`} className="text-fg hover:underline">
+              {t("التالي", "Next")} →
+            </Link>
+          ) : <span className="text-muted opacity-40">{t("التالي", "Next")} →</span>}
+        </nav>
       </div>
     </div>
   );
