@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { LegalForm } from "./legal-form";
 import type { LegalDocument, LegalDocumentVersion } from "@/lib/site-content/legal";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "الوثائق القانونية" };
 
@@ -34,10 +35,10 @@ export default async function AdminLegalPage() {
 
   return (
     <main dir={dir} className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-      <div className="mb-6 flex items-center gap-2">
-        <Scale size={24} className="text-gold" aria-hidden="true" />
-        <h1 className="text-2xl font-bold">{t("الوثائق القانونية", "Legal Documents")}</h1>
-      </div>
+      <PageHeader
+        icon={<Scale size={24} className="text-gold" aria-hidden="true" />}
+        title={t("الوثائق القانونية", "Legal Documents")}
+      />
       <p className="mb-6 text-sm text-muted">
         {t(
           "اترك الحقل فارغاً للعودة إلى النص الأصلي المُضمَّن في الكود. عند ملء الحقل، يتم تجاوز النص الأصلي وعرض ما تكتبه هنا.",
