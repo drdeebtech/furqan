@@ -166,3 +166,220 @@ export async function getTalqeenQueueForTeacher(
 
   return enriched;
 }
+
+// ─── Calendar events ────────────────────────────────────────────────────────
+
+export type TeacherCalendarEventKind = "booking" | "halaqa" | "availability";
+
+export interface TeacherCalendarEvent {
+  id: string;
+  /** ISO yyyy-mm-dd. */
+  date: string;
+  kind: TeacherCalendarEventKind;
+  title: string;
+  href: string;
+  /** Hex color used by the grid for the event dot + text tint. */
+  color: string;
+}
+
+const COLOR_BOOKING = "#F59E0B"; // gold
+const COLOR_HALAQA = "#10B981"; // emerald
+const COLOR_AVAILABILITY = "#94A3B8"; // slate-400 (ghost)
+
+function dateKey(iso: string): string {
+  return iso.slice(0, 10);
+}
+
+function fmtTime(iso: string): string {
+  const d = new Date(iso);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+/**
+ * Minutes between two HH:MM strings (e.g. "14:00" → "15:30" = 90).
+ * Handles only same-day windows; teacher_availability never crosses
+ * midnight by convention.
+ */
+function diffMinutes(start: string, end: string): number {
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  return eh * 60 + em - (sh * 60 + sm);
+}
+
+/**
+ * Unified calendar event stream for /teacher/calendar — three layers:
+ *
+ *  1. **Bookings** (gold) — concrete 1:1 sessions with this teacher.
+ *  2. **Halaqas** (emerald) — group sessions where this teacher is the
+ *     `role='teacher'` participant.
+ *  3. **Availability summary** (ghost) — one chip per day showing the
+ *     total free hours, projected from the teacher's recurring weekly
+ *     `teacher_availability` slots. Surfaces "I have capacity here"
+ *     at a glance without cluttering the day cell with N hourly chips.
+ *
+ * Returns a flat list keyed by ISO date; the grid groups client-side.
+ * Order matters — bookings first so they win the 3-event-per-cell cap.
+ */
+export async function getTeacherCalendarEvents(
+  teacherId: TeacherId,
+  monthStart: Date,
+  monthEnd: Date,
+): Promise<TeacherCalendarEvent[]> {
+  const supabase = await createClient();
+  const startIso = monthStart.toISOString();
+  const endIso = monthEnd.toISOString();
+
+  const [bookingsRes, slotsRes, halaqaParticipantsRes] = await Promise.all([
+    supabase
+      .from("bookings")
+      .select("id, scheduled_at, session_type, status")
+      .eq("teacher_id", teacherId)
+      .gte("scheduled_at", startIso)
+      .lte("scheduled_at", endIso)
+      .returns<
+        {
+          id: string;
+          scheduled_at: string;
+          session_type: string;
+          status: string;
+        }[]
+      >(),
+    supabase
+      .from("teacher_availability")
+      .select("id, day_of_week, start_time, end_time, is_active")
+      .eq("teacher_id", teacherId)
+      .eq("is_active", true)
+      .returns<
+        {
+          id: string;
+          day_of_week: number;
+          start_time: string;
+          end_time: string;
+          is_active: boolean;
+        }[]
+      >(),
+    // Halaqas the teacher leads — read participant rows, then join sessions.
+    // Two-step (rather than a big inner-join) so each table's RLS gates
+    // independently; simpler to reason about during a CV-status edge case.
+    supabase
+      .from("session_participants")
+      .select("session_id")
+      .eq("user_id", teacherId)
+      .eq("role", "teacher")
+      .returns<{ session_id: string }[]>(),
+  ]);
+  if (bookingsRes.error) throw bookingsRes.error;
+  if (slotsRes.error) throw slotsRes.error;
+  if (halaqaParticipantsRes.error) throw halaqaParticipantsRes.error;
+
+  const events: TeacherCalendarEvent[] = [];
+
+  // 1. Bookings — gold
+  if (bookingsRes.data) {
+    for (const b of bookingsRes.data) {
+      events.push({
+        id: `booking_${b.id}`,
+        date: dateKey(b.scheduled_at),
+        kind: "booking",
+        title: `${fmtTime(b.scheduled_at)} · ${b.session_type}`,
+        href: `/teacher/sessions/${b.id}`,
+        color: b.status === "no_show" ? "#EF4444" : COLOR_BOOKING,
+      });
+    }
+  }
+
+  // 2. Halaqas — emerald (resolved via the participant rows fetched above)
+  const halaqaIds = halaqaParticipantsRes.data
+    ? halaqaParticipantsRes.data.map((r) => r.session_id)
+    : [];
+  if (halaqaIds.length > 0) {
+    const halaqasRes = await supabase
+      .from("sessions")
+      .select(
+        "id, scheduled_at, session_topic_ar, session_topic_en, session_mode",
+      )
+      .in("id", halaqaIds)
+      .eq("session_mode", "halaqa")
+      .gte("scheduled_at", startIso)
+      .lte("scheduled_at", endIso)
+      .returns<
+        {
+          id: string;
+          scheduled_at: string | null;
+          session_topic_ar: string | null;
+          session_topic_en: string | null;
+          session_mode: string;
+        }[]
+      >();
+    if (halaqasRes.error) throw halaqasRes.error;
+    if (halaqasRes.data) {
+      for (const h of halaqasRes.data) {
+        if (!h.scheduled_at) continue;
+        const topic =
+          h.session_topic_ar ?? h.session_topic_en ?? "Halaqa";
+        events.push({
+          id: `halaqa_${h.id}`,
+          date: dateKey(h.scheduled_at),
+          kind: "halaqa",
+          title: `${fmtTime(h.scheduled_at)} · ${topic}`,
+          href: `/teacher/halaqas`,
+          color: COLOR_HALAQA,
+        });
+      }
+    }
+  }
+
+  // 3. Availability summary — one ghost chip per matching day. Project
+  // the recurring weekly slots across the visible date range and sum
+  // active-slot duration per day. Surfaces "I have capacity here" without
+  // littering the cell with N hour-chips.
+  if (slotsRes.data && slotsRes.data.length > 0) {
+    const minutesByWeekday = new Map<number, number>(); // 0..6 → total minutes
+    for (const s of slotsRes.data) {
+      const mins = diffMinutes(s.start_time, s.end_time);
+      if (mins <= 0) continue;
+      minutesByWeekday.set(
+        s.day_of_week,
+        (minutesByWeekday.get(s.day_of_week) ?? 0) + mins,
+      );
+    }
+    const cursor = new Date(monthStart);
+    while (cursor <= monthEnd) {
+      const dow = cursor.getDay();
+      const mins = minutesByWeekday.get(dow);
+      if (mins && mins > 0) {
+        const hours = mins / 60;
+        const hoursLabel =
+          hours === Math.floor(hours)
+            ? hours.toFixed(0)
+            : hours.toFixed(1);
+        const iso = cursor.toISOString().slice(0, 10);
+        events.push({
+          id: `avail_${iso}`,
+          date: iso,
+          kind: "availability",
+          title: `${hoursLabel}h available`,
+          href: `/teacher/availability`,
+          color: COLOR_AVAILABILITY,
+        });
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  }
+
+  // Sort within each day: booking → halaqa → availability. Bookings win the
+  // 3-event cap so the teacher never loses sight of a real commitment.
+  const kindOrder: Record<TeacherCalendarEventKind, number> = {
+    booking: 0,
+    halaqa: 1,
+    availability: 2,
+  };
+  events.sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    return kindOrder[a.kind] - kindOrder[b.kind];
+  });
+
+  return events;
+}
