@@ -152,14 +152,27 @@ export async function assignResourceToStudentAction(
     return { error: "ليس لديك صلاحية على هذا المصدر" };
   }
 
-  const insertRes = await supabase
+  // The Supabase `from(...)` overload is generated from the live schema and
+  // not yet aware of `resource_assignments` (added in migration
+  // 20260506134112). `supabase.generated.ts` regenerates only after merge to
+  // main when supabase-migrate finishes; until then cast the client so this
+  // compiles. Same intent as the existing `as never` insert pattern.
+  const insertRes = await (
+    supabase as unknown as {
+      from: (table: string) => {
+        insert: (row: Record<string, unknown>) => Promise<{
+          error: { code?: string; message: string } | null;
+        }>;
+      };
+    }
+  )
     .from("resource_assignments")
     .insert({
       resource_id: resourceId,
       student_id: studentId,
       halaqa_id: null,
       assigned_by: user.id,
-    } as never);
+    });
   if (insertRes.error) {
     // Unique-index violation when re-assigning to the same student is
     // handled gracefully — the teacher's intent ("share with this student")

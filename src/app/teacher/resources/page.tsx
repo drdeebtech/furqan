@@ -72,21 +72,32 @@ export default async function TeacherResourcesPage() {
     ? [...new Set(bookingsRes.data.map((b) => b.student_id))]
     : [];
 
+  // See actions.ts — `resource_assignments` is added in migration
+  // 20260506134112 but `supabase.generated.ts` regenerates only after merge.
+  type AssignmentsClient = {
+    from: (table: string) => {
+      select: (cols: string) => {
+        in: (
+          col: string,
+          values: string[],
+        ) => Promise<{ data: AssignmentCountRow[] | null; error: unknown }>;
+      };
+    };
+  };
   const [assignmentsRes, profilesRes] = await Promise.all([
     resourceIds.length > 0
-      ? supabase
+      ? (supabase as unknown as AssignmentsClient)
           .from("resource_assignments")
           .select("resource_id")
           .in("resource_id", resourceIds)
-          .returns<AssignmentCountRow[]>()
-      : Promise.resolve({ data: [], error: null } as const),
+      : Promise.resolve({ data: [] as AssignmentCountRow[], error: null }),
     studentIds.length > 0
       ? supabase
           .from("profiles")
           .select("id, full_name")
           .in("id", studentIds)
           .returns<ProfileRow[]>()
-      : Promise.resolve({ data: [], error: null } as const),
+      : Promise.resolve({ data: [] as ProfileRow[], error: null }),
   ]);
   if (assignmentsRes.error) throw assignmentsRes.error;
   if (profilesRes.error) throw profilesRes.error;
