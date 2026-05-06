@@ -102,7 +102,15 @@ async function checkAuthRate(
   max: number,
 ): Promise<boolean> {
   try {
-    const supabase = await createClient();
+    // Service-role client. The rate-limit check runs PRE-AUTHENTICATION
+    // (the user has no session yet on POST /login or /forgot-password),
+    // so the regular SSR client carries only the anon key. RLS on
+    // automation_logs allows anon SELECT but not anon INSERT — the INSERT
+    // was returning 401 and tripping the silent_fail observability hook
+    // (Sentry JAVASCRIPT-NEXTJS-E4-1M). Service-role bypasses RLS for
+    // both the count check and the row insert; the rate limiter is purely
+    // server-side bookkeeping so privilege escalation is not a concern.
+    const supabase = createAdminClient();
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     // automation_logs.entity_id is UUID-typed in production despite the
     // generated .ts declaring it `string | null`. Passing the raw email
