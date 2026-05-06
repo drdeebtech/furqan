@@ -105,10 +105,10 @@ export function TeacherSessionCard({
   async function handleMarkNoShow() {
     setLoading("noshow");
     setError(null);
-    const result = await markNoShow(bookingId);
-    if (result.error) setError(result.error);
+    const result = await markNoShow({ bookingId });
+    if (!result.ok) setError(result.error);
     else {
-      setSuccess("تم تسجيل الغياب");
+      setSuccess(result.message ?? "تم تسجيل الغياب");
       setIsEnded(true);
     }
     setLoading(null);
