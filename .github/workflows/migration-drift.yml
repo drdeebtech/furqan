@@ -105,7 +105,12 @@ jobs:
   branching-drift-check:
     name: supabase_migrations.schema_migrations vs supabase/migrations files
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    # Skip on pull_request — Supabase Migrate is dry-run on PRs (per
+    # CLAUDE.md "Database Migrations Policy"), so any new file added in
+    # the PR is correctly absent from the Branching tracker until merge.
+    # The workflow_run trigger above re-runs this job after the post-merge
+    # apply finishes on main, where the assertion is meaningful.
+    if: ${{ github.event_name != 'pull_request' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
