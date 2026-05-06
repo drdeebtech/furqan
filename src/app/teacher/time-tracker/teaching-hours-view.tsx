@@ -141,9 +141,14 @@ export function TeachingHoursView({
           {daily.map((d) => {
             const heightPct = (d.minutes / maxDaily) * 100;
             return (
+              // h-full on the column wrapper so the inner bar's
+              // `height: ${heightPct}%` resolves against the parent's 128px
+              // (h-32) instead of the column's intrinsic 0. Without h-full,
+              // the bar collapses to a sliver — caught in the 2026-05-06
+              // visual audit.
               <div
                 key={d.date}
-                className="group relative flex-1"
+                className="group relative h-full flex-1 flex items-end"
                 title={`${new Date(d.date).toLocaleDateString(localeArg, {
                   month: "short",
                   day: "numeric",

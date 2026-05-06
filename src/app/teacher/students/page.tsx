@@ -117,14 +117,20 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
   for (const b of upcomingRowsRes.data ?? []) {
     if (!nextSessionAt[b.student_id]) nextSessionAt[b.student_id] = b.scheduled_at;
   }
-  // Sum sessions_remaining across active packages per student. Use explicit
-  // null-guard rather than `?? []` to keep the silent-fail tripwire at
-  // baseline.
+  // Sum sessions_remaining across active packages per student, AND track
+  // whether the student has an active package row at all. The two states
+  // are visually different (caught in the 2026-05-06 visual audit):
+  //   - hasActivePackage=false → "No package" in neutral grey
+  //   - hasActivePackage=true,  remaining=0  → red "0 left" (consumed)
+  //   - hasActivePackage=true,  remaining≤2  → amber
+  //   - hasActivePackage=true,  remaining>2  → emerald
   const sessionsRemaining: Record<string, number> = {};
+  const hasActivePackage: Record<string, boolean> = {};
   if (pkgRowsRes.data) {
     for (const p of pkgRowsRes.data) {
       sessionsRemaining[p.student_id] =
         (sessionsRemaining[p.student_id] ?? 0) + (p.sessions_remaining ?? 0);
+      hasActivePackage[p.student_id] = true;
     }
   }
 
@@ -136,6 +142,7 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
     ungraded: ungradedCount[id] ?? 0,
     nextSessionAt: nextSessionAt[id] ?? null,
     sessionsRemaining: sessionsRemaining[id] ?? 0,
+    hasActivePackage: hasActivePackage[id] ?? false,
     ...studentStats.get(id)!,
   }));
 
@@ -210,24 +217,35 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
                       {t("قادم", "Next")}: {new Date(s.nextSessionAt).toLocaleDateString(localeArg, { month: "short", day: "numeric" })}
                     </span>
                   )}
-                  {/* Sessions-remaining chip — color-shifts as the balance
-                      runs low so a teacher mid-lesson can see scope. */}
+                  {/* Sessions-remaining chip — three visual states: no
+                      active package (neutral grey), package consumed
+                      (red), running low (amber), healthy (emerald).
+                      Distinguishing "never bought a package" from
+                      "consumed all sessions" was a finding in the
+                      2026-05-06 visual audit. */}
                   <span
                     className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
-                      s.sessionsRemaining === 0
-                        ? "border-error/30 bg-error/10 text-red-300"
-                        : s.sessionsRemaining <= 2
-                          ? "border-warning/30 bg-warning/10 text-warning"
-                          : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                      !s.hasActivePackage
+                        ? "border-card-border/60 bg-card/30 text-muted"
+                        : s.sessionsRemaining === 0
+                          ? "border-error/30 bg-error/10 text-red-300"
+                          : s.sessionsRemaining <= 2
+                            ? "border-warning/30 bg-warning/10 text-warning"
+                            : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
                     }`}
-                    title={t(
-                      `${s.sessionsRemaining} جلسة متبقية في الباقات الفعّالة`,
-                      `${s.sessionsRemaining} session${s.sessionsRemaining === 1 ? "" : "s"} remaining across active packages`,
-                    )}
+                    title={
+                      !s.hasActivePackage
+                        ? t("لا توجد باقة فعّالة لهذا الطالب", "No active package for this student")
+                        : t(
+                            `${s.sessionsRemaining} جلسة متبقية في الباقات الفعّالة`,
+                            `${s.sessionsRemaining} session${s.sessionsRemaining === 1 ? "" : "s"} remaining across active packages`,
+                          )
+                    }
                   >
                     <Briefcase size={11} aria-hidden="true" />
-                    {s.sessionsRemaining}{" "}
-                    {t("متبقية", "left")}
+                    {!s.hasActivePackage
+                      ? t("بلا باقة", "No package")
+                      : <>{s.sessionsRemaining}{" "}{t("متبقية", "left")}</>}
                   </span>
                   {evalOverdue && (
                     <span
