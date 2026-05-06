@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
 import { addCacheTag } from "@vercel/functions";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logError } from "@/lib/logger";
 import type { BlogPost } from "@/types/blog";
 import type { SiteBlogCategory } from "@/lib/site-content/types";
 import { BlogContent } from "./content";
@@ -29,6 +30,17 @@ const getBlogIndex = unstable_cache(
         .order("sort_order")
         .returns<SiteBlogCategory[]>(),
     ]);
+
+    // Surface query errors instead of silently returning [] — the
+    // `?? []` defaults below keep the page rendering, but Sentry now
+    // sees the failure. (Closes the silent-fail baseline regression
+    // introduced when this route was wrapped in unstable_cache.)
+    if (postsRes.error) {
+      logError("public blog: posts query failed", postsRes.error, { tag: "public-blog" });
+    }
+    if (categoriesRes.error) {
+      logError("public blog: categories query failed", categoriesRes.error, { tag: "public-blog" });
+    }
 
     return {
       posts: postsRes.data ?? [],
