@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { NotifType } from "@/types/database";
 import { isInQuietHours } from "./dispatcher-quiet-hours";
 
@@ -24,7 +24,11 @@ export interface DispatchOptions {
  * Non-blocking — wrap in try/catch at call site.
  */
 export async function dispatchNotification(opts: DispatchOptions): Promise<void> {
-  const supabase = await createClient();
+  // Service-role client. The dispatcher is system bookkeeping that
+  // writes to RLS-protected tables (notifications, message_delivery_log)
+  // on behalf of the platform, not the calling user. Anonymous /
+  // authenticated INSERT is denied on those tables by design.
+  const supabase = createAdminClient();
 
   // 1. Fetch user preferences (fallback to defaults if none set)
   const { data: prefs } = await supabase
@@ -39,7 +43,10 @@ export async function dispatchNotification(opts: DispatchOptions): Promise<void>
       quiet_hours_end: string | null;
       important_only_mode: boolean;
     }[]>()
-    .single();
+    // maybeSingle() so a missing prefs row returns null instead of
+    // throwing PGRST116. The fallbacks below already handle the
+    // null case via `?? defaultValue`. (Sentry JAVASCRIPT-NEXTJS-E4-1R.)
+    .maybeSingle();
 
   const inAppEnabled = prefs?.in_app_enabled ?? true;
   const importantOnly = prefs?.important_only_mode ?? false;
@@ -112,7 +119,7 @@ export async function notify(
 // ─── Delivery logging helper ────────────────────────────────────────────────
 
 async function logDelivery(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   opts: {
     recipientUserId: string;
     channel: string;
