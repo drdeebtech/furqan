@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/shared/skeleton";
 import type { SessionType } from "@/types/database";
 import { TeacherDashboardContent } from "./dashboard-content";
 import { TeacherAtRiskStudents } from "./at-risk-students";
-import { MentorshipCard } from "./mentorship-card";
+import { MentorshipCard, MentorshipCardSkeleton } from "./mentorship-card";
 import { DataLoadBanner } from "@/components/shared/data-load-banner";
 import {
   getTeacherWeeklyHours,
@@ -270,8 +270,11 @@ export default async function TeacherDashboardPage() {
 
       {/* Mentorship card — renders only when this teacher has an active
           mentor relationship in either direction. Pairings are admin-
-          driven for now. */}
-      <MentorshipCard teacherId={user.id} />
+          driven for now. Wrapped in Suspense so its 3 sequential queries
+          (mentorships, profiles, feedback) don't block the page tail. */}
+      <Suspense fallback={<MentorshipCardSkeleton />}>
+        <MentorshipCard teacherId={user.id} />
+      </Suspense>
     </main>
   );
 }

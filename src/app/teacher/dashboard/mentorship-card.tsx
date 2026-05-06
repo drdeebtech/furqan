@@ -3,7 +3,22 @@ import { Users2, MessageSquareQuote } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { formatDate } from "@/lib/i18n/format-date";
+import { Skeleton } from "@/components/shared/skeleton";
 import type { TeacherMentorship } from "@/types/database";
+
+export function MentorshipCardSkeleton() {
+  return (
+    <div className="mx-auto mt-6 max-w-7xl px-4 sm:px-6">
+      <div className="rounded-2xl border border-card-border bg-card p-5">
+        <Skeleton className="mb-3 h-4 w-24" />
+        <div className="grid gap-3 md:grid-cols-2">
+          <Skeleton className="h-20 w-full rounded-xl" />
+          <Skeleton className="h-20 w-full rounded-xl" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Async server component embedded in /teacher/dashboard. Surfaces the
