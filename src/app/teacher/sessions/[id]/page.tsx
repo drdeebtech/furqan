@@ -7,7 +7,8 @@ import { SESSION_TYPE_AR } from "@/lib/constants";
 import { surahName } from "@/lib/quran/surahs";
 import { getT } from "@/lib/i18n/server";
 import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
-import type { SessionType, HomeworkAssignment } from "@/types/database";
+import type { SessionType, SessionMode, HomeworkAssignment } from "@/types/database";
+import { SessionModeBadge } from "@/components/sessions/SessionModeBadge";
 
 const SESSION_TYPE_EN: Record<SessionType, string> = {
   hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
@@ -39,11 +40,12 @@ export default async function TeacherSessionPage({ params }: Props) {
 
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, booking_id, room_url, room_name, expires_at, started_at, ended_at, actual_duration, post_session_notes, homework, lesson_plan, is_group, capacity")
+    .select("id, booking_id, session_mode, room_url, room_name, expires_at, started_at, ended_at, actual_duration, post_session_notes, homework, lesson_plan, is_group, capacity")
     .eq("id", id)
     .single<{
       id: string;
       booking_id: string;
+      session_mode: SessionMode;
       room_url: string;
       room_name: string;
       expires_at: string | null;
@@ -269,6 +271,7 @@ export default async function TeacherSessionPage({ params }: Props) {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-bold">{studentName}</h1>
+            <SessionModeBadge mode={session.session_mode} size="sm" />
             {studentRisk != null && studentRisk >= 40 && (
               <span className={`glass-badge ${riskBadgeClass(studentRisk)}`} title={`${t("خطر التسرب", "Churn risk")}: ${studentRisk.toFixed(0)}`}>
                 {riskLabel(studentRisk)}

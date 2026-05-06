@@ -5,7 +5,8 @@ import { ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
-import type { SessionType } from "@/types/database";
+import type { SessionType, SessionMode } from "@/types/database";
+import { SessionModeBadge } from "@/components/sessions/SessionModeBadge";
 
 const SESSION_TYPE_EN: Record<SessionType, string> = {
   hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
@@ -33,11 +34,12 @@ export default async function SessionPage({ params }: Props) {
   // Fetch session with booking details
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, booking_id, room_url, room_name, expires_at, started_at, ended_at, actual_duration, post_session_notes, homework")
+    .select("id, booking_id, session_mode, room_url, room_name, expires_at, started_at, ended_at, actual_duration, post_session_notes, homework")
     .eq("id", id)
     .single<{
       id: string;
       booking_id: string;
+      session_mode: SessionMode;
       room_url: string;
       room_name: string;
       expires_at: string | null;
@@ -101,7 +103,10 @@ export default async function SessionPage({ params }: Props) {
       {/* Session info bar */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4 glass-card p-4">
         <div>
-          <h1 className="font-display text-xl font-bold">{teacherName}</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="font-display text-xl font-bold">{teacherName}</h1>
+            <SessionModeBadge mode={session.session_mode} size="sm" />
+          </div>
           <p className="mt-1 text-sm text-gold">
             {lang === "ar" ? SESSION_TYPE_AR[booking.session_type] : SESSION_TYPE_EN[booking.session_type]}
             <span className="me-2 text-muted">· {booking.duration_min} {t("دقيقة", "min")}</span>
