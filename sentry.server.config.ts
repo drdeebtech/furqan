@@ -3,6 +3,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import { getEnv } from "@vercel/functions";
 import { beforeSend } from "@/lib/sentry/before-send";
 
 // `||` not `??` — Vercel sometimes stores envs as empty strings rather than
@@ -14,6 +15,11 @@ const canonicalDsn =
 const rawDsn = process.env.SENTRY_DSN?.trim() || canonicalDsn;
 const dsn = rawDsn.includes("/4511287551197264") ? canonicalDsn : rawDsn;
 
+// Vercel system env vars — pulled via @vercel/functions getEnv() so every
+// captured event is filterable by deployment, region, and commit. Local
+// dev gets "unknown" placeholders; production gets the real values.
+const env = getEnv();
+
 Sentry.init({
   dsn,
   environment: process.env.VERCEL_ENV ?? "development",
@@ -21,4 +27,12 @@ Sentry.init({
   enableLogs: true,
   sendDefaultPii: true,
   beforeSend,
+  initialScope: {
+    tags: {
+      vercel_env: env.VERCEL_ENV ?? "unknown",
+      vercel_region: env.VERCEL_REGION ?? "unknown",
+      vercel_deployment_id: env.VERCEL_DEPLOYMENT_ID ?? "unknown",
+      vercel_git_commit_sha: env.VERCEL_GIT_COMMIT_SHA ?? "unknown",
+    },
+  },
 });

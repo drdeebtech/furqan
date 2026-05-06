@@ -32,6 +32,7 @@
  * impossible inside a loudAction handler.
  */
 import "server-only";
+import { after } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import type { ZodType } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -121,9 +122,11 @@ export function loudAction<TInput, THandlerResult extends void | { message?: str
       const message = (result && typeof result === "object" && "message" in result)
         ? result.message
         : undefined;
-      // Audit on success.
+      // Audit on success — flushed via Next.js after() so the response ships
+      // before the audit_log insert completes (~50-150ms shaved off TTFB).
       if (config.audit) {
-        await writeAudit(config.audit, input, actorId, "success", null);
+        const auditConfig = config.audit;
+        after(() => writeAudit(auditConfig, input, actorId, "success", null));
       }
       return { ok: true, message };
     } catch (err) {
@@ -135,17 +138,24 @@ export function loudAction<TInput, THandlerResult extends void | { message?: str
       });
 
       if (config.severity === "critical") {
-        await sendTelegramAlert(
-          `🚨 <b>Critical action failed</b>\n\n<b>Action:</b> ${config.name}\n<b>Error:</b> ${escapeHtml(message)}`,
-        ).catch(() => { /* don't double-fail */ });
+        // Telegram alert deferred to after() — caller sees the error response
+        // immediately; alert delivery happens in the background.
+        after(() =>
+          sendTelegramAlert(
+            `🚨 <b>Critical action failed</b>\n\n<b>Action:</b> ${config.name}\n<b>Error:</b> ${escapeHtml(message)}`,
+          ).catch(() => { /* don't double-fail */ }),
+        );
       }
       // Audit on failure too — silent failure is the bug we're killing.
       if (config.audit) {
-        await writeAudit(config.audit, input, actorId, "failure", message).catch((auditErr) =>
-          logError("loudAction audit write failed (failure path)", auditErr, {
-            tag: "loud-action",
-            actionName: config.name,
-          }),
+        const auditConfig = config.audit;
+        after(() =>
+          writeAudit(auditConfig, input, actorId, "failure", message).catch((auditErr) =>
+            logError("loudAction audit write failed (failure path)", auditErr, {
+              tag: "loud-action",
+              actionName: config.name,
+            }),
+          ),
         );
       }
       return { ok: false, error: message };
