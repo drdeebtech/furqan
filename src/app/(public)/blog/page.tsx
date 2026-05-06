@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { addCacheTag } from "@vercel/functions";
 import { createClient } from "@/lib/supabase/server";
 import type { BlogPost } from "@/types/blog";
 import { BlogContent } from "./content";
@@ -21,6 +22,11 @@ export const metadata: Metadata = {
 export const revalidate = 600;
 
 export default async function BlogPage() {
+  // Tag the CDN-cached response so admin publishing can invalidate
+  // the global edge copy via invalidateByTag('blog-public') in addition
+  // to the existing revalidatePath('/blog') call.
+  await addCacheTag("blog-public");
+
   const supabase = await createClient();
 
   const [postsRes, dbCategories] = await Promise.all([
