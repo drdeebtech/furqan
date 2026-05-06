@@ -53,7 +53,7 @@ const updatePersonalInfoBase = loudAction<PersonalInfoInput, { message?: string 
 
     revalidatePath("/teacher/settings");
     revalidatePath("/teacher/dashboard");
-    revalidatePath("/teachers-page");
+    revalidatePath("/teachers");
     return { message: "تم حفظ البيانات بنجاح" };
   },
 });
@@ -105,7 +105,7 @@ const updateTeachingStatusBase = loudAction<TeachingStatusInput, { message?: str
     revalidatePath("/teacher/settings");
     revalidatePath("/teacher/dashboard");
     revalidatePath("/admin/teachers");
-    revalidatePath("/teachers-page");
+    revalidatePath("/teachers");
     return {
       message: input.isAccepting
         ? "أنت تقبل طلابًا جددًا الآن"

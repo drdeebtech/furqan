@@ -34,7 +34,7 @@ export function ArchiveToggle({
       setArchived(nowArchived);
 
       // After a successful UNARCHIVE, check whether the teacher actually
-      // becomes publicly visible. The public /teachers-page filters on
+      // becomes publicly visible. The public /teachers filters on
       // three gates: !is_archived AND is_accepting AND cv_status='approved'.
       // We just cleared the first one — surface the other two so the
       // admin doesn't expect them on the public page only to find them

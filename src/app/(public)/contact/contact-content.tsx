@@ -37,7 +37,7 @@ export function ContactContent({ faqSlot }: { faqSlot?: ReactNode } = {}) {
       <section className="py-24">
         <div className="mx-auto max-w-7xl gap-12 px-6 md:flex">
           <div className="mb-12 md:mb-0 md:w-2/5">
-            <p className="text-sm font-medium tracking-widest text-gold">❖ {t("تواصل معنا", "Get in Touch")}</p>
+            <p className="text-sm font-medium tracking-widest text-muted">❖ {t("تواصل معنا", "Get in Touch")}</p>
             <h2 className="font-display mt-3 text-3xl font-bold leading-tight">{t("نسعد بخدمتك", "We'd Love to Hear from You")}</h2>
 
             <div className="mt-8 space-y-6">

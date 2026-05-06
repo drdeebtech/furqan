@@ -40,7 +40,7 @@ export function AboutContent({ values }: { values: SiteFeature[] }) {
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-6 md:flex md:gap-16">
           <div className="flex-1">
-            <p className="text-sm font-medium tracking-widest text-gold">❖ {t("قصتنا", "Our Story")}</p>
+            <p className="text-sm font-medium tracking-widest text-muted">❖ {t("قصتنا", "Our Story")}</p>
             <h2 className="font-display mt-3 text-3xl font-bold leading-tight">{t("عن أكاديمية فرقان", "About FURQAN Academy")}</h2>
             <div className="mt-8 space-y-6 text-sm leading-relaxed text-muted">
               <p>{t(
@@ -65,7 +65,7 @@ export function AboutContent({ values }: { values: SiteFeature[] }) {
               { num: t("مجاناً", "Free"), label: t("التسجيل", "Registration") },
             ].map((s) => (
               <div key={s.label} className="glass-card p-5 text-center">
-                <p className="font-display text-2xl font-bold text-gold">{s.num}</p>
+                <p className="font-display text-2xl font-bold text-foreground">{s.num}</p>
                 <p className="mt-1 text-xs text-muted">{s.label}</p>
               </div>
             ))}
@@ -75,7 +75,7 @@ export function AboutContent({ values }: { values: SiteFeature[] }) {
 
       <section className="border-t border-white/10 bg-card/30 py-24">
         <div className="mx-auto max-w-7xl px-6">
-          <p className="text-sm font-medium tracking-widest text-gold">❖ {t("قيمنا", "Our Values")}</p>
+          <p className="text-sm font-medium tracking-widest text-muted">❖ {t("قيمنا", "Our Values")}</p>
           <h2 className="font-display mt-3 text-3xl font-bold leading-tight">{t("ما نؤمن به", "What We Believe")}</h2>
           <div className="mt-12 grid gap-6 md:grid-cols-4">
             {values.map((v) => {

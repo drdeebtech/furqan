@@ -127,6 +127,6 @@ export async function saveProfilePhoto(
   revalidatePath("/teacher/dashboard");
   revalidatePath("/admin/teachers");
   revalidatePath(`/admin/teachers/${user.id}`);
-  revalidatePath("/teachers-page");
+  revalidatePath("/teachers");
   return { success: true };
 }

@@ -84,7 +84,7 @@ try {
       { path: "/register", method: "POST" },
       { path: "/forgot-password", method: "POST" },
       { path: "/student/bookings/new", method: "POST" },
-      { path: "/teach/apply", method: "POST" },
+      { path: "/teach-with-us/apply", method: "POST" },
       { path: "/contact", method: "POST" },
     ],
   });

@@ -29,7 +29,7 @@ export default function TeachContent() {
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <a
-              href="/teach/apply"
+              href="/teach-with-us/apply"
               className="glass-gold glass-pill flex items-center justify-center gap-2 px-10 py-4 text-lg font-bold transition-colors duration-200 hover:bg-gold-hover"
             >
               {t("التقديم عبر النموذج", "Apply via form")}

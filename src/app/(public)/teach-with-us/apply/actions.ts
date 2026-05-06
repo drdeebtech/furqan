@@ -318,7 +318,7 @@ export async function submitTeacherApplication(
     action: "INSERT",
     old_data: null,
     new_data: { email, full_name, source: "teach-apply" },
-    reason: "Teacher self-applied via /teach/apply",
+    reason: "Teacher self-applied via /teach-with-us/apply",
   } as never);
 
   return {

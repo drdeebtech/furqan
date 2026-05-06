@@ -43,7 +43,7 @@ export default function HomePage({
           <div className="text-center">
             {/* Badge */}
             <div className="glass glass-pill mb-8 inline-flex items-center gap-2 px-4 py-1.5 text-xs">
-              <span className="text-gold">{t("أكاديمية القرآن الكريم عبر الإنترنت", "Online Quran Learning Academy")}</span>
+              <span className="text-muted">{t("أكاديمية القرآن الكريم عبر الإنترنت", "Online Quran Learning Academy")}</span>
             </div>
 
             {/* Logo */}
@@ -127,7 +127,7 @@ export default function HomePage({
       <section className="section-light py-24">
         <div className="mx-auto max-w-7xl px-6">
           <div className="text-center">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-gold/80">{t("كيف يعمل", "How it works")}</p>
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted">{t("كيف يعمل", "How it works")}</p>
             <h2 className="font-display mt-3 text-4xl font-bold leading-tight">{t("ابدأ في ٣ خطوات بسيطة", "Start in 3 Simple Steps")}</h2>
           </div>
 
@@ -171,7 +171,7 @@ export default function HomePage({
         <div className="pointer-events-none absolute inset-0 bg-background/40" />
         <div className="relative mx-auto max-w-7xl px-6">
           <div className="text-center">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-gold/80">{t("لماذا فرقان", "Why Furqan")}</p>
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted">{t("لماذا فرقان", "Why Furqan")}</p>
             <h2 className="font-display mt-3 text-4xl font-bold leading-tight">{t("لماذا تختار فرقان؟", "Why Choose FURQAN?")}</h2>
           </div>
 
@@ -225,7 +225,7 @@ export default function HomePage({
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-6">
           <div className="text-center">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-gold/80">{t("التخصصات", "Courses")}</p>
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted">{t("التخصصات", "Courses")}</p>
             <h2 className="font-display mt-3 text-4xl font-bold leading-tight">{t("ما نُعلّمه في فرقان", "What We Teach at FURQAN")}</h2>
           </div>
 
@@ -313,7 +313,7 @@ export default function HomePage({
       <section className="py-24">
         <div className="mx-auto max-w-5xl px-6">
           <div className="text-center">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-gold/80">{t("الباقات", "Packages")}</p>
+            <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted">{t("الباقات", "Packages")}</p>
             <h2 className="font-display mt-3 text-4xl font-bold leading-tight">{t("باقاتنا", "Our Packages")}</h2>
             <p className="mx-auto mt-3 max-w-xl text-sm text-muted">
               {t(

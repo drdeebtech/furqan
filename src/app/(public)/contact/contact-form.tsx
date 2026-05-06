@@ -42,7 +42,7 @@ export function ContactForm() {
           </div>
           <div>
             <label htmlFor="whatsapp" className="mb-1 block text-sm font-medium">{t("رقم واتساب", "WhatsApp Number")}</label>
-            <input id="whatsapp" name="whatsapp" type="tel" dir="ltr" className={`${inputClass} text-left`} placeholder="+44 7400 000000" />
+            <input id="whatsapp" name="whatsapp" type="tel" dir="ltr" className={`${inputClass} text-left`} placeholder="+965 9779 5626" />
           </div>
         </div>
 

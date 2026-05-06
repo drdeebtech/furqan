@@ -43,7 +43,7 @@ export async function toggleArchiveTeacher(
   revalidatePath("/admin/dashboard");
   revalidatePath("/admin/teachers");
   revalidatePath(`/admin/teachers/${teacherId}`);
-  revalidatePath("/teachers-page");
+  revalidatePath("/teachers");
 
   // Return the gate-state so the UI can warn admins when a teacher was
   // unarchived but still won't appear publicly because cv_status isn't

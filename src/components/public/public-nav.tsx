@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Phone, Mail, Clock } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { LangToggle } from "@/lib/i18n/lang-toggle";
 import { ThemeToggle } from "@/lib/theme/theme-toggle";
@@ -19,11 +19,11 @@ const BASE_LINKS = [
   { href: "/courses", ar: "الدورات المسجلة", en: "Courses" },
 ];
 
-const TEACHERS_LINK = { href: "/teachers-page", ar: "المعلمون", en: "Teachers" };
+const TEACHERS_LINK = { href: "/teachers", ar: "المعلمون", en: "Teachers" };
 
 const TAIL_LINKS = [
   { href: "/blog", ar: "المدونة", en: "Blog" },
-  { href: "/teach", ar: "درّس معنا", en: "Teach With Us" },
+  { href: "/teach-with-us", ar: "درّس معنا", en: "Teach With Us" },
   { href: "/contact", ar: "اتصل بنا", en: "Contact" },
 ];
 
@@ -36,14 +36,22 @@ export function PublicNav({ dashboardHref }: { dashboardHref?: string }) {
 
   return (
     <>
-      {/* Top bar */}
-      <div className="border-b border-gold/20 bg-gold/5 px-4 py-2">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 text-xs text-muted">
-          <div className="flex items-center gap-4">
-            <a href={CONTACT.whatsappUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 transition-colors hover:text-gold">{CONTACT.flag} {CONTACT.whatsapp}</a>
-          </div>
-          <a href={CONTACT.emailUrl} className="hidden transition-colors hover:text-gold sm:inline">{CONTACT.email}</a>
-          {/* Social links — add back when accounts are ready */}
+      {/* Top utility strip — phone left, hours middle, email right.
+          Hours + email collapse on small viewports so the WhatsApp CTA stays prominent. */}
+      <div className="border-b border-gold/15 bg-gold/[0.04] px-4 py-2 text-xs text-muted">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-5 gap-y-1">
+          <a href={CONTACT.whatsappUrl} target="_blank" rel="noopener noreferrer" aria-label={t("تواصل عبر واتساب", "Contact via WhatsApp")} className="flex items-center gap-1.5 transition-colors hover:text-gold focus-ring">
+            <Phone size={12} aria-hidden="true" strokeWidth={1.75} />
+            <span dir="ltr">{CONTACT.whatsapp}</span>
+          </a>
+          <span className="hidden items-center gap-1.5 sm:flex">
+            <Clock size={12} aria-hidden="true" strokeWidth={1.75} />
+            {t(CONTACT.availability.ar, CONTACT.availability.en)}
+          </span>
+          <a href={CONTACT.emailUrl} aria-label={t("راسلنا عبر البريد الإلكتروني", "Email us")} className="hidden items-center gap-1.5 transition-colors hover:text-gold focus-ring sm:flex">
+            <Mail size={12} aria-hidden="true" strokeWidth={1.75} />
+            <span dir="ltr">{CONTACT.email}</span>
+          </a>
         </div>
       </div>
 
