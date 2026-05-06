@@ -44,7 +44,17 @@ const wrapped = withBundleAnalyzer(withBotId(nextConfig));
  * `release.setCommits.auto: true` makes the plugin tag the release with the
  * commit list since the previous release (drives suspect-commit detection
  * + the GitHub integration's PR comments).
+ *
+ * Release creation is gated on `VERCEL_ENV === "production"`. Preview
+ * deploys (~100/day during active sprints) were generating one Sentry
+ * release each, almost all carrying zero events — pure noise on the
+ * release timeline + quota burn. Source maps still upload for previews
+ * because the plugin uploads them irrespective of the release lifecycle
+ * (they're attached by `release.name` once a release with the matching
+ * commit SHA exists, which production builds will create).
  */
+const isProductionDeploy = process.env.VERCEL_ENV === "production";
+
 export default withSentryConfig(wrapped, {
   silent: true,
   org: process.env.SENTRY_ORG ?? "furqan-academy",
@@ -53,6 +63,8 @@ export default withSentryConfig(wrapped, {
   widenClientFileUpload: true,
   tunnelRoute: "/monitoring",
   release: {
+    create: isProductionDeploy,
+    finalize: isProductionDeploy,
     // `ignoreMissingRepository` is a real sentry-cli flag but the
     // @sentry/nextjs v10.49 type defs haven't surfaced it yet. The plugin
     // forwards it to sentry-cli unchanged at runtime — cast through unknown
