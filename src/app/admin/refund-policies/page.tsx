@@ -4,6 +4,7 @@ import { Shield, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { PolicyToggle } from "./policy-toggle";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata: Metadata = { title: "سياسات الاسترداد" };
 
@@ -23,7 +24,11 @@ export default async function AdminRefundPoliciesPage() {
     <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><Shield size={24} className="text-gold" /> {t("سياسات الاسترداد", "Refund Policies")}</h1>
       {policies.length === 0 ? (
-        <div className="glass-card rounded-xl p-12 text-center"><Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">{t("لا توجد سياسات", "No policies yet")}</p></div>
+        <EmptyState
+          variant="glass-card"
+          icon={<Inbox size={32} className="text-muted" />}
+          message={t("لا توجد سياسات", "No policies yet")}
+        />
       ) : (
         <div className="overflow-hidden rounded-xl glass-card">
           <table className="w-full text-sm">
