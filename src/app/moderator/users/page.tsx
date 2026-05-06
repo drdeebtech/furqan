@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Users, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata: Metadata = { title: "المستخدمون" };
 
@@ -36,7 +37,11 @@ export default async function ModeratorUsersPage() {
         ))}
       </div>
       {users.length === 0 ? (
-        <div className="glass-card rounded-xl p-12 text-center"><Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">{t("لا يوجد مستخدمون", "No users yet")}</p></div>
+        <EmptyState
+          variant="glass-card"
+          icon={<Inbox size={32} className="text-muted" />}
+          message={t("لا يوجد مستخدمون", "No users yet")}
+        />
       ) : (
         <div className="glass-card overflow-hidden rounded-xl p-0">
           <table className="w-full text-sm">

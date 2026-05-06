@@ -5,6 +5,7 @@ import { Video, Inbox, Radio, Eye } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { SessionStatus } from "@/components/shared/session-status";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata: Metadata = { title: "الجلسات" };
 
@@ -56,9 +57,11 @@ export default async function ModeratorSessionsPage() {
       </div>
 
       {list.length === 0 ? (
-        <div className="glass-card rounded-xl p-12 text-center">
-          <Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">{t("لا توجد جلسات", "No sessions yet")}</p>
-        </div>
+        <EmptyState
+          variant="glass-card"
+          icon={<Inbox size={32} className="text-muted" />}
+          message={t("لا توجد جلسات", "No sessions yet")}
+        />
       ) : (
         <div className="space-y-3">
           {list.map(s => {
