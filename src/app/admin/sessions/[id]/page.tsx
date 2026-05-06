@@ -9,12 +9,14 @@ import { getT } from "@/lib/i18n/server";
 import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
 import { SessionDetailActions } from "./detail-actions";
 import { SendReportButton } from "./send-report-button";
+import { SessionModeBadge, type SessionMode } from "@/components/sessions/SessionModeBadge";
 
 export const metadata: Metadata = { title: "تفاصيل الجلسة" };
 
 interface SessionRow {
   id: string;
-  booking_id: string;
+  booking_id: string | null;
+  session_mode: SessionMode;
   room_name: string;
   room_url: string;
   expires_at: string | null;
@@ -66,20 +68,23 @@ export default async function SessionDetailPage({
   /* Fetch session */
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, booking_id, room_name, room_url, expires_at, created_via, started_at, ended_at, actual_duration, recording_url, teacher_joined, student_joined, post_session_notes, homework, created_at")
+    .select("id, booking_id, session_mode, room_name, room_url, expires_at, created_via, started_at, ended_at, actual_duration, recording_url, teacher_joined, student_joined, post_session_notes, homework, created_at")
     .eq("id", id)
     .single()
     .then((r) => ({ data: r.data as SessionRow | null }));
 
   if (!session) notFound();
 
-  /* Fetch booking */
-  const { data: booking } = await supabase
-    .from("bookings")
-    .select("id, student_id, teacher_id, scheduled_at, duration_min, session_type, status, amount_usd")
-    .eq("id", session.booking_id)
-    .single()
-    .then((r) => ({ data: r.data as BookingRow | null }));
+  /* Fetch booking — only when one exists. Halaqa sessions have NULL
+     booking_id (per #76); they don't have an anchor booking. */
+  const { data: booking } = session.booking_id
+    ? await supabase
+        .from("bookings")
+        .select("id, student_id, teacher_id, scheduled_at, duration_min, session_type, status, amount_usd")
+        .eq("id", session.booking_id)
+        .single()
+        .then((r) => ({ data: r.data as BookingRow | null }))
+    : { data: null as BookingRow | null };
 
   /* Resolve names */
   let nameMap: Record<string, string> = {};
@@ -146,6 +151,7 @@ export default async function SessionDetailPage({
           <Video size={24} className="text-gold" />
           {t("تفاصيل الجلسة", "Session Details")}
         </h1>
+        <SessionModeBadge mode={session.session_mode} />
         {booking && (
           <SessionStatus
             scheduledAt={booking.scheduled_at}
