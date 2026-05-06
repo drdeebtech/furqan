@@ -7,6 +7,7 @@ import { getT } from "@/lib/i18n/server";
 import type { BlogPost } from "@/types/blog";
 import { DeletePostButton } from "./delete-button";
 import { TogglePublished } from "./toggle-published";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "إدارة المدونة" };
 
@@ -26,16 +27,18 @@ export default async function AdminBlogPage() {
 
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{t("إدارة المدونة", "Manage Blog")}</h1>
-        <Link
-          href="/admin/blog/new"
-          className="flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-medium"
-        >
-          <Plus size={16} />
-          {t("مقال جديد", "New Post")}
-        </Link>
-      </div>
+      <PageHeader
+        title={t("إدارة المدونة", "Manage Blog")}
+        actions={
+          <Link
+            href="/admin/blog/new"
+            className="flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-medium"
+          >
+            <Plus size={16} />
+            {t("مقال جديد", "New Post")}
+          </Link>
+        }
+      />
 
       {list.length === 0 ? (
         <div className="glass-card rounded-xl p-12 text-center">

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { PicklistEditor } from "./picklist-editor";
 import type { TeacherLanguage } from "@/lib/site-content/types";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "قوائم المعلمين" };
 
@@ -25,16 +26,14 @@ export default async function AdminPicklistsPage() {
 
   return (
     <main dir={dir} className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-      <div className="mb-2 flex items-center gap-2">
-        <Tags size={24} className="text-gold" aria-hidden="true" />
-        <h1 className="text-2xl font-bold">{t("قوائم المعلمين", "Teacher Picklists")}</h1>
-      </div>
-      <p className="mb-8 text-sm text-muted">
-        {t(
+      <PageHeader
+        icon={<Tags size={24} className="text-gold" aria-hidden="true" />}
+        title={t("قوائم المعلمين", "Teacher Picklists")}
+        subtitle={t(
           "اللغات والتخصصات والقراءات الظاهرة في نماذج تسجيل المعلمين والسيرة الذاتية. التعديل ينعكس فوراً.",
           "Languages, specialties, and recitations shown in teacher signup + CV forms. Changes propagate immediately.",
         )}
-      </p>
+      />
 
       <section className="mb-10">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
