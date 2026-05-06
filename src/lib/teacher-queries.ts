@@ -383,3 +383,175 @@ export async function getTeacherCalendarEvents(
 
   return events;
 }
+
+// ─── Recitation roster ──────────────────────────────────────────────────────
+
+export interface TeacherRecitationRosterRow {
+  studentId: string;
+  studentName: string;
+  avatarUrl: string | null;
+  /** Most recent surah this student is reciting (from progress_type='new'). */
+  currentSurah: number | null;
+  surahFrom: number | null;
+  surahTo: number | null;
+  /** ISO timestamp of the most recent recorded recitation event. */
+  lastHeardAt: string | null;
+  daysSinceLastHeard: number | null;
+  /** Average quality rating across the last 5 recorded events (0..5). */
+  qualityAvgLast5: number | null;
+  /** True when daysSinceLastHeard >= STREAK_BREAK_DAYS_DEFAULT. */
+  streakBreakRisk: boolean;
+}
+
+/**
+ * Threshold (in days) above which a student's recitation cadence is treated
+ * as cold. Default 7 days globally.
+ *
+ * TODO(human): a senior Quran teacher should validate whether 7 days is the
+ * right "going cold" cutoff, or whether the threshold should differ by
+ * student level (beginner stricter than advanced) or by the configured
+ * `recitation_standard`. See Learning by Doing #2 in the parity plan.
+ */
+const STREAK_BREAK_DAYS_DEFAULT = 7;
+
+/**
+ * Roster-lens recitation tracker for /teacher/recitations. Returns one row
+ * per student the teacher is connected to, with:
+ *  - their current surah (from the most recent `progress_type='new'` row)
+ *  - the most recent recorded recitation event timestamp
+ *  - a quality average over the last 5 events
+ *  - a streak-break-risk flag when no event in N days
+ *
+ * Data source is `student_progress` filtered by progress_type='new'. We
+ * intentionally do NOT join `homework_assignments` here — talqeen
+ * submissions are surfaced on /teacher/talqeen, and mixing two definitions
+ * of "last heard" muddies the mental model. This page asks: when did the
+ * teacher last *record* something for this student?
+ *
+ * One result row per student-with-a-booking. Students without any
+ * `student_progress` row still appear (with null fields) so the teacher
+ * sees brand-new students that haven't been recorded yet.
+ */
+export async function getTeacherRecitationRoster(
+  teacherId: TeacherId,
+): Promise<TeacherRecitationRosterRow[]> {
+  const supabase = await createClient();
+
+  // Step 1: distinct student IDs from teacher's bookings (any status).
+  const bookingsRes = await supabase
+    .from("bookings")
+    .select("student_id")
+    .eq("teacher_id", teacherId)
+    .returns<{ student_id: string }[]>();
+  if (bookingsRes.error) throw bookingsRes.error;
+  const bookings = bookingsRes.data;
+  if (!bookings || bookings.length === 0) return [];
+  const studentIds = [...new Set(bookings.map((b) => b.student_id))];
+
+  // Step 2: parallel fetch profiles + recent progress rows for those students.
+  const [profilesRes, progressRes] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url")
+      .in("id", studentIds)
+      .returns<
+        { id: string; full_name: string | null; avatar_url: string | null }[]
+      >(),
+    // Pull a generous window of progress rows so we can compute an avg of
+    // the last 5 per student client-side. 50 per teacher × 5-event tail
+    // is a reasonable upper bound for active rosters; cap defensively.
+    supabase
+      .from("student_progress")
+      .select(
+        "student_id, surah_from, surah_to, quality_rating, created_at",
+      )
+      .in("student_id", studentIds)
+      .eq("progress_type", "new")
+      .order("created_at", { ascending: false })
+      .limit(500)
+      .returns<
+        {
+          student_id: string;
+          surah_from: number | null;
+          surah_to: number | null;
+          quality_rating: number | null;
+          created_at: string;
+        }[]
+      >(),
+  ]);
+  if (profilesRes.error) throw profilesRes.error;
+  if (progressRes.error) throw progressRes.error;
+
+  const profileById = new Map<
+    string,
+    { name: string; avatar: string | null }
+  >();
+  if (profilesRes.data) {
+    for (const p of profilesRes.data) {
+      profileById.set(p.id, {
+        name: p.full_name ?? "—",
+        avatar: p.avatar_url,
+      });
+    }
+  }
+
+  // Group progress rows by student, sort newest-first (DB already orders).
+  const progressByStudent = new Map<
+    string,
+    typeof progressRes.data extends infer R
+      ? R extends { student_id: string }[]
+        ? R
+        : never
+      : never
+  >();
+  if (progressRes.data) {
+    for (const row of progressRes.data) {
+      const list = progressByStudent.get(row.student_id);
+      if (list) {
+        list.push(row);
+      } else {
+        progressByStudent.set(row.student_id, [row]);
+      }
+    }
+  }
+
+  const now = Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  return studentIds.map((id) => {
+    const profile = profileById.get(id);
+    const rows = progressByStudent.get(id);
+    const latest = rows && rows.length > 0 ? rows[0] : null;
+
+    let qualityAvg: number | null = null;
+    if (rows && rows.length > 0) {
+      const window = rows
+        .slice(0, 5)
+        .map((r) => r.quality_rating)
+        .filter((q): q is number => typeof q === "number");
+      if (window.length > 0) {
+        qualityAvg =
+          window.reduce((s, n) => s + n, 0) / window.length;
+      }
+    }
+
+    const lastHeardAt = latest ? latest.created_at : null;
+    const days = lastHeardAt
+      ? Math.floor((now - new Date(lastHeardAt).getTime()) / dayMs)
+      : null;
+
+    return {
+      studentId: id,
+      studentName: profile?.name ?? "—",
+      avatarUrl: profile?.avatar ?? null,
+      currentSurah: latest?.surah_to ?? latest?.surah_from ?? null,
+      surahFrom: latest?.surah_from ?? null,
+      surahTo: latest?.surah_to ?? null,
+      lastHeardAt,
+      daysSinceLastHeard: days,
+      qualityAvgLast5: qualityAvg,
+      streakBreakRisk:
+        days !== null && days >= STREAK_BREAK_DAYS_DEFAULT,
+    };
+  });
+}
