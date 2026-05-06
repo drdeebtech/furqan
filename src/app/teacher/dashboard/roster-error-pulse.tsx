@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Activity, ArrowRight } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
-import type { RecitationErrorCategory } from "@/lib/dashboard-queries";
+import { helperOrFail } from "@/lib/supabase/load-or-fail";
+import { getTeacherRosterErrorPulse, type RecitationErrorCategory } from "@/lib/dashboard-queries";
+import { Skeleton } from "@/components/shared/skeleton";
 
 /**
  * Sprint Improvement #3 (2026-05-05) — roster-wide recitation-error pulse.
@@ -22,11 +24,14 @@ const CATEGORY_LABELS: Record<RecitationErrorCategory, { ar: string; en: string 
   other: { ar: "أخرى", en: "Other" },
 };
 
-export async function RosterErrorPulse({
-  data,
-}: {
-  data: { category: RecitationErrorCategory; count: number }[];
-}) {
+export async function RosterErrorPulse({ teacherId }: { teacherId: string }) {
+  // Self-fetching for Suspense streaming (Stream 1B).
+  const { data } = await helperOrFail(
+    () => getTeacherRosterErrorPulse(teacherId),
+    [] as { category: RecitationErrorCategory; count: number }[],
+    { route: "teacher-dashboard", widget: "roster-error-pulse" },
+  );
+
   const { t, lang } = await getT();
 
   if (data.length === 0) {
@@ -104,6 +109,23 @@ export async function RosterErrorPulse({
           "Plan next week's curriculum around the top category. \"No errors observed\" attestations are excluded.",
         )}
       </p>
+    </section>
+  );
+}
+
+export function RosterErrorPulseSkeleton() {
+  return (
+    <section className="mt-4 glass-card p-4 sm:p-5" aria-hidden="true">
+      <Skeleton className="mb-3 h-5 w-64" />
+      <div className="space-y-2.5">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="grid grid-cols-[6rem_1fr_2rem] items-center gap-3">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-2 w-full rounded-full" />
+            <Skeleton className="h-3 w-6" />
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

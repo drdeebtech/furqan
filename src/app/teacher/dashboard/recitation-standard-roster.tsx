@@ -1,5 +1,8 @@
 import { BookMarked } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
+import { helperOrFail } from "@/lib/supabase/load-or-fail";
+import { getTeacherRecitationStandardRoster } from "@/lib/dashboard-queries";
+import { Skeleton } from "@/components/shared/skeleton";
 
 /**
  * Recitation-standard roster summary card. Groups the teacher's
@@ -21,11 +24,15 @@ const STANDARD_LABELS: Record<string, { ar: string; en: string }> = {
   unspecified: { ar: "غير محدد", en: "Unspecified" },
 };
 
-export async function RecitationStandardRoster({
-  data,
-}: {
-  data: { standard: string; count: number }[];
-}) {
+export async function RecitationStandardRoster({ teacherId }: { teacherId: string }) {
+  // Self-fetching for Suspense streaming (Stream 1B). Falls back to []
+  // on helper error — same as the page-level helperOrFail did before.
+  const { data } = await helperOrFail(
+    () => getTeacherRecitationStandardRoster(teacherId),
+    [] as { standard: string; count: number }[],
+    { route: "teacher-dashboard", widget: "recitation-standard-roster" },
+  );
+
   const { t, lang } = await getT();
   const langKey: "ar" | "en" = lang === "ar" ? "ar" : "en";
 
@@ -80,6 +87,19 @@ export async function RecitationStandardRoster({
           )}
         </p>
       )}
+    </section>
+  );
+}
+
+export function RecitationStandardRosterSkeleton() {
+  return (
+    <section className="mt-4 glass-card p-4 sm:p-5" aria-hidden="true">
+      <Skeleton className="mb-3 h-5 w-56" />
+      <div className="flex flex-wrap gap-1.5">
+        <Skeleton className="h-7 w-32 rounded-full" />
+        <Skeleton className="h-7 w-28 rounded-full" />
+        <Skeleton className="h-7 w-36 rounded-full" />
+      </div>
     </section>
   );
 }
