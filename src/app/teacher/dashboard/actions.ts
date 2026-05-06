@@ -435,6 +435,18 @@ export const extendSessionRoom = loudAction<{ sessionId: string }, { message: st
 /* ------------------------------------------------------------------ */
 /*  recreateRoom – create a new Daily room for expired / failed rooms */
 /* ------------------------------------------------------------------ */
+//
+// Scope-adjusted hardening (Phase 8.4): not wrapped in `loudAction`
+// because the structured `{ roomUrl }` return is consumed by the
+// caller's optimistic UI update — `loudAction`'s `{ ok, message? }`
+// contract would drop it and force a page refresh to show the new room.
+// Same precedent as Phase 4.6's `toggleArchiveTeacher` adjustment.
+//
+// What we DO get inline:
+// - bare `catch {}` on createRoom replaced with logError(severity:'critical'),
+//   which routes to Sentry AND fires a Telegram alert (logger.ts:50–62).
+// - DB write failures already log via logError — kept as-is.
+// - actionName tag pinned on every error so the issue feed is filterable.
 export async function recreateRoom(bookingId: string) {
   const supabase = await createClient();
   const {
@@ -457,7 +469,14 @@ export async function recreateRoom(bookingId: string) {
   let room;
   try {
     room = await createRoom(roomName, expiresAt);
-  } catch {
+  } catch (err) {
+    logError("recreateRoom: createRoom failed", err, {
+      tag: "bookings",
+      actionName: "teacher.recreateRoom",
+      severity: "critical",
+      component: "teacher.dashboard.recreateRoom",
+      bookingId,
+    });
     return { error: "حدث خطأ أثناء إنشاء الغرفة" };
   }
 
@@ -485,7 +504,12 @@ export async function recreateRoom(bookingId: string) {
         created_via: "manual",
       } satisfies TableInsert<"sessions">);
   if (roomErr) {
-    logError("teacher.regenerateRoom: sessions write failed", roomErr, { tag: "bookings" });
+    logError("recreateRoom: sessions write failed", roomErr, {
+      tag: "bookings",
+      actionName: "teacher.recreateRoom",
+      severity: "critical",
+      bookingId,
+    });
     return { success: false, error: `فشل حفظ الغرفة: ${roomErr.message}` };
   }
 
