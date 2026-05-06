@@ -10,6 +10,20 @@ import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import { loudAction } from "@/lib/actions/loud";
 
+// Scope-adjusted hardening (Phase 8.5): not wrapped in `loudAction`
+// because the structured `{ roomUrl, warning }` return is consumed by
+// the caller's optimistic UI (booking-actions.tsx:28–30) — loudAction's
+// `{ ok, message? }` contract would drop both fields and the partial-
+// success "تم تأكيد لكن فشل إنشاء الغرفة" warning would vanish.
+//
+// Inline hardening covers all silent-fail paths:
+// - 3 bare `catch {}` on notify dispatches → logError + actionName tag
+// - bookings UPDATE error message captured for ops, not just user-facing
+// - auto-cancel UPDATE error (overlapping bookings) was previously
+//   discarded without any error capture; now logged
+// - createRoom + session insert errors carry actionName tag for filterable
+//   Sentry queries (severity 'warning' — booking confirms aren't P0 the
+//   same way live session ends are)
 export async function updateBookingStatus(
   bookingId: string,
   status: "confirmed" | "cancelled",
@@ -105,6 +119,13 @@ export async function updateBookingStatus(
     .eq("teacher_id", user.id);
 
   if (error) {
+    logError("updateBookingStatus: bookings update failed", error, {
+      tag: "bookings",
+      actionName: "teacher.updateBookingStatus",
+      severity: "warning",
+      bookingId,
+      newStatus: status,
+    });
     return { error: "حدث خطأ أثناء تحديث الحجز" };
   }
 
@@ -129,7 +150,7 @@ export async function updateBookingStatus(
 
         // Check overlap: two intervals overlap if start1 < end2 AND start2 < end1
         if (scheduledStart < otherEnd && otherStart < scheduledEnd) {
-          await supabase
+          const { error: cancelErr } = await supabase
             .from("bookings")
             .update({
               status: "cancelled",
@@ -139,11 +160,25 @@ export async function updateBookingStatus(
               decline_reason: "تعارض مع حجز مؤكد",
             } satisfies TableUpdate<"bookings">)
             .eq("id", other.id);
+          if (cancelErr) {
+            logError("updateBookingStatus: auto-cancel of overlapping booking failed", cancelErr, {
+              tag: "bookings",
+              actionName: "teacher.updateBookingStatus",
+              severity: "warning",
+              overlappingBookingId: other.id,
+            });
+          }
 
-          // Notify student of auto-cancellation
+          // Notify student of auto-cancellation (best-effort)
           try {
             await notify(other.student_id, "booking", "تم إلغاء حجزك تلقائياً", "تم إلغاء حجزك بسبب تعارض مع حجز آخر مؤكد — يمكنك حجز موعد بديل", "booking", other.id);
-          } catch { /* non-blocking */ }
+          } catch (err) {
+            logError("updateBookingStatus: auto-cancel notify failed", err, {
+              tag: "bookings",
+              actionName: "teacher.updateBookingStatus",
+              overlappingBookingId: other.id,
+            });
+          }
         }
       }
     }
@@ -170,30 +205,56 @@ export async function updateBookingStatus(
         created_via: "auto",
       } satisfies TableInsert<"sessions">);
       if (sessInsErr) {
-        logError("teacher.confirmBooking: sessions insert failed", sessInsErr, { tag: "bookings" });
+        logError("updateBookingStatus: sessions insert failed", sessInsErr, {
+          tag: "bookings",
+          actionName: "teacher.updateBookingStatus",
+          severity: "warning",
+          bookingId,
+        });
         roomWarning = "تم تأكيد الحجز لكن فشل تسجيل الجلسة — راسل الدعم";
       }
     } catch (err) {
-      logError("teacher.confirmBooking: createRoom threw", err, { tag: "bookings" });
+      logError("updateBookingStatus: createRoom threw", err, {
+        tag: "bookings",
+        actionName: "teacher.updateBookingStatus",
+        severity: "warning",
+        bookingId,
+      });
       roomWarning =
         "تم تأكيد الحجز لكن حدث خطأ في إنشاء غرفة الفيديو — يرجى المحاولة يدوياً أو التواصل مع الدعم";
     }
 
-    // Notify student that booking is confirmed
+    // Notify student that booking is confirmed (best-effort)
     try {
       const scheduledDate = new Date(booking.scheduled_at).toLocaleDateString("ar");
       await notify(booking.student_id, "booking", "تم تأكيد حجزك", `تم تأكيد جلستك بتاريخ ${scheduledDate} — يمكنك الانضمام من صفحة الجلسات`, "booking", bookingId);
-    } catch { /* non-blocking */ }
+    } catch (err) {
+      logError("updateBookingStatus: confirm notify failed", err, {
+        tag: "bookings",
+        actionName: "teacher.updateBookingStatus",
+        bookingId,
+      });
+    }
   } else if (status === "cancelled") {
-    // Notify student that booking is cancelled
+    // Notify student that booking is cancelled (best-effort)
     try {
       await notify(booking.student_id, "booking", "تم رفض حجزك", "للأسف تم رفض حجزك من قبل المعلم — يمكنك حجز موعد آخر", "booking", bookingId);
-    } catch { /* non-blocking */ }
+    } catch (err) {
+      logError("updateBookingStatus: cancel notify failed", err, {
+        tag: "bookings",
+        actionName: "teacher.updateBookingStatus",
+        bookingId,
+      });
+    }
   }
 
   revalidatePath("/teacher/dashboard");
   await emitEvent("booking.confirmed", "booking", bookingId, { student_id: booking.student_id, teacher_id: user.id })
-    .catch((err) => logError("emit booking.confirmed failed", err, { tag: "automation", event: "booking.confirmed" }));
+    .catch((err) => logError("emit booking.confirmed failed", err, {
+      tag: "automation",
+      actionName: "teacher.updateBookingStatus",
+      event: "booking.confirmed",
+    }));
   return { success: true, roomUrl, warning: roomWarning };
 }
 
