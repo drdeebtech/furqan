@@ -267,85 +267,102 @@ export const markNoShow = loudAction<{ bookingId: string }, { message: string }>
 /* ------------------------------------------------------------------ */
 /*  endSession – teacher manually ends a live session                 */
 /* ------------------------------------------------------------------ */
-export async function endSession(sessionId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "غير مصرح" };
+export const endSession = loudAction<{ sessionId: string }, { message: string }>({
+  name: "teacher.endSession",
+  // Critical: ending a live session affects in-flight video. If this fails
+  // the operator needs to know fast — Telegram alert.
+  severity: "critical",
+  audit: {
+    table: "sessions",
+    recordId: i => i.sessionId,
+    action: "UPDATE",
+  },
+  preflight: async () => {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("غير مصرح");
+    return { actorId: user.id };
+  },
+  handler: async ({ sessionId }, { actorId }) => {
+    const supabase = await createClient();
 
-  const { data: session } = await supabase
-    .from("sessions")
-    .select("id, booking_id, started_at, ended_at")
-    .eq("id", sessionId)
-    .single<{
-      id: string;
-      booking_id: string;
-      started_at: string | null;
-      ended_at: string | null;
-    }>();
+    const { data: session } = await supabase
+      .from("sessions")
+      .select("id, booking_id, started_at, ended_at")
+      .eq("id", sessionId)
+      .single<{
+        id: string;
+        booking_id: string;
+        started_at: string | null;
+        ended_at: string | null;
+      }>();
 
-  if (!session) return { error: "الجلسة غير موجودة" };
-  if (session.ended_at) return { error: "الجلسة منتهية بالفعل" };
+    if (!session) throw new Error("الجلسة غير موجودة");
+    if (session.ended_at) throw new Error("الجلسة منتهية بالفعل");
 
-  // Verify teacher owns the booking
-  const { data: booking } = await supabase
-    .from("bookings")
-    .select("student_id, teacher_id, duration_min")
-    .eq("id", session.booking_id)
-    .eq("teacher_id", user.id)
-    .single<{ student_id: string; teacher_id: string; duration_min: number }>();
+    // Verify teacher owns the booking
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select("student_id, teacher_id, duration_min")
+      .eq("id", session.booking_id)
+      .eq("teacher_id", actorId!)
+      .single<{ student_id: string; teacher_id: string; duration_min: number }>();
 
-  if (!booking) return { error: "ليس لديك صلاحية لإنهاء هذه الجلسة" };
+    if (!booking) throw new Error("ليس لديك صلاحية لإنهاء هذه الجلسة");
 
-  const now = new Date();
-  const actualDuration = session.started_at
-    ? Math.round((now.getTime() - new Date(session.started_at).getTime()) / 60_000)
-    : booking.duration_min;
+    const now = new Date();
+    const actualDuration = session.started_at
+      ? Math.round((now.getTime() - new Date(session.started_at).getTime()) / 60_000)
+      : booking.duration_min;
 
-  const { error: sessionError } = await supabase
-    .from("sessions")
-    .update({
-      ended_at: now.toISOString(),
-      actual_duration: actualDuration,
-    } satisfies TableUpdate<"sessions">)
-    .eq("id", sessionId);
+    const { error: sessionError } = await supabase
+      .from("sessions")
+      .update({
+        ended_at: now.toISOString(),
+        actual_duration: actualDuration,
+      } satisfies TableUpdate<"sessions">)
+      .eq("id", sessionId);
 
-  if (sessionError) return { error: "حدث خطأ أثناء إنهاء الجلسة" };
+    if (sessionError) throw sessionError;
 
-  // Mark booking as completed
-  await supabase
-    .from("bookings")
-    .update({ status: "completed" } satisfies TableUpdate<"bookings">)
-    .eq("id", session.booking_id)
-    .eq("teacher_id", user.id);
+    // Mark booking as completed (best-effort — session row is the source of truth for "ended").
+    const { error: bookingErr } = await supabase
+      .from("bookings")
+      .update({ status: "completed" } satisfies TableUpdate<"bookings">)
+      .eq("id", session.booking_id)
+      .eq("teacher_id", actorId!);
+    if (bookingErr) logError("endSession: bookings status=completed update failed", bookingErr, { tag: "teacher-bookings" });
 
-  // Notify student
-  try {
-    await notify(booking.student_id, "booking", "تمت الجلسة", `أنهى المعلم الجلسة — المدة الفعلية: ${actualDuration} دقيقة`, "session", sessionId);
-  } catch (err) {
-    logError("notify student failed during teacher endSession", err, {
-      component: "teacher.dashboard.endSession",
-      metadata: { student_id: booking.student_id, sessionId },
-    });
-  }
+    // Notify student (best-effort)
+    try {
+      await notify(booking.student_id, "booking", "تمت الجلسة", `أنهى المعلم الجلسة — المدة الفعلية: ${actualDuration} دقيقة`, "session", sessionId);
+    } catch (err) {
+      logError("endSession: notify student failed", err, {
+        component: "teacher.dashboard.endSession",
+        metadata: { student_id: booking.student_id, sessionId },
+      });
+    }
 
-  // V9: Notify parent of session completion
-  try {
-    await notifyParentSessionComplete(
-      booking.student_id, user.id,
-      session.started_at ?? now.toISOString(),
-      actualDuration, user.id,
-    );
-  } catch { /* non-blocking */ }
+    // V9: Notify parent of session completion (best-effort)
+    try {
+      await notifyParentSessionComplete(
+        booking.student_id, actorId!,
+        session.started_at ?? now.toISOString(),
+        actualDuration, actorId!,
+      );
+    } catch (err) {
+      logError("endSession: notifyParentSessionComplete failed", err, { tag: "teacher-bookings" });
+    }
 
-  revalidatePath("/teacher/dashboard");
-  revalidatePath(`/teacher/sessions/${sessionId}`);
-  revalidatePath("/teacher/sessions");
-  await emitEvent("session.ended", "session", sessionId, { booking_id: session.booking_id, teacher_id: user.id, actual_duration: actualDuration })
-    .catch((err) => logError("emit session.ended failed", err, { tag: "automation", event: "session.ended" }));
-  return { success: true };
-}
+    revalidatePath("/teacher/dashboard");
+    revalidatePath(`/teacher/sessions/${sessionId}`);
+    revalidatePath("/teacher/sessions");
+    await emitEvent("session.ended", "session", sessionId, { booking_id: session.booking_id, teacher_id: actorId!, actual_duration: actualDuration })
+      .catch((err) => logError("emit session.ended failed", err, { tag: "automation", event: "session.ended" }));
+
+    return { message: "تم إنهاء الجلسة" };
+  },
+});
 
 /* ------------------------------------------------------------------ */
 /*  extendSessionRoom – extend an about-to-expire Daily room (+1 hr)  */
