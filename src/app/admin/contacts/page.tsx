@@ -6,6 +6,7 @@ import { logError } from "@/lib/logger";
 import { getT } from "@/lib/i18n/server";
 import { MarkReadButton } from "./mark-read";
 import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "رسائل التواصل" };
 
@@ -35,12 +36,15 @@ export default async function AdminContactsPage() {
 
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="mb-2 flex items-center gap-2 text-2xl font-bold"><Mail size={24} className="text-gold" /> {t("رسائل التواصل", "Contact Messages")}</h1>
-      <p className="mb-6 text-sm text-muted">
-        {lang === "ar"
-          ? `${submissions.length} رسالة · ${unreadCount} غير مقروءة`
-          : `${submissions.length} message${submissions.length === 1 ? "" : "s"} · ${unreadCount} unread`}
-      </p>
+      <PageHeader
+        icon={<Mail size={24} className="text-gold" />}
+        title={t("رسائل التواصل", "Contact Messages")}
+        subtitle={
+          lang === "ar"
+            ? `${submissions.length} رسالة · ${unreadCount} غير مقروءة`
+            : `${submissions.length} message${submissions.length === 1 ? "" : "s"} · ${unreadCount} unread`
+        }
+      />
 
       {submissions.length === 0 ? (
         <EmptyState

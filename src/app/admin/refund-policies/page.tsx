@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { PolicyToggle } from "./policy-toggle";
 import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "سياسات الاسترداد" };
 
@@ -22,7 +23,7 @@ export default async function AdminRefundPoliciesPage() {
 
   return (
     <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><Shield size={24} className="text-gold" /> {t("سياسات الاسترداد", "Refund Policies")}</h1>
+      <PageHeader icon={<Shield size={24} className="text-gold" />} title={t("سياسات الاسترداد", "Refund Policies")} />
       {policies.length === 0 ? (
         <EmptyState
           variant="glass-card"
