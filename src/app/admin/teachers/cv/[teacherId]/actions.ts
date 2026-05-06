@@ -87,7 +87,9 @@ export async function approveCv(teacherId: string) {
       "teacher_profile",
       teacherId,
     );
-  } catch { /* non-blocking */ }
+  } catch (err) {
+    logError("approveCv: notify failed", err, { tag: "admin-cv" });
+  }
 
   // Fan-out to n8n welcome workflows + Telegram audit trail + congrats email.
   const adminCli = createAdminClient();
@@ -187,7 +189,9 @@ export async function rejectCv(teacherId: string, reason: string) {
       "teacher_profile",
       teacherId,
     );
-  } catch { /* non-blocking */ }
+  } catch (err) {
+    logError("rejectCv: notify failed", err, { tag: "admin-cv" });
+  }
 
   revalidatePath("/admin/teachers/cv");
   revalidatePath("/teacher/cv");
