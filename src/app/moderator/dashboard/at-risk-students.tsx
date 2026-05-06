@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { TrendingDown } from "lucide-react";
+import { ArrowLeft, ArrowRight, TrendingDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
 import { EmptyCard } from "@/components/shared/empty-card";
 
@@ -19,6 +20,8 @@ function daysAgo(iso: string | null): string {
  */
 export async function ModeratorAtRiskStudents() {
   const supabase = await createClient();
+  const { dir } = await getT();
+  const Arrow = dir === "rtl" ? ArrowLeft : ArrowRight;
 
   const { data: signals } = await supabase
     .from("retention_signals")
@@ -54,8 +57,12 @@ export async function ModeratorAtRiskStudents() {
           <h3 className="text-sm font-bold">طلاب في خطر التسرب</h3>
           <span className="rounded-full bg-warning/10 px-2 py-0.5 text-xs text-warning">{signals.length}</span>
         </div>
-        <Link href="/admin/retention" className="text-xs text-gold hover:text-gold-hover">
-          عرض الكل ←
+        <Link
+          href="/admin/retention"
+          className="inline-flex items-center gap-1 text-xs text-gold hover:text-gold-hover"
+        >
+          <span>عرض الكل</span>
+          <Arrow size={12} aria-hidden="true" />
         </Link>
       </div>
       <div className="space-y-2">
