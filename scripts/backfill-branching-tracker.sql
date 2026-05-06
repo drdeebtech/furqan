@@ -28,5 +28,6 @@ insert into supabase_migrations.schema_migrations (version, name) values
   ('20260501173121', 'multi_role_support'),
   ('20260501174844', 'group_sessions_phase1'),
   ('20260501175419', 'group_sessions_phase2_offerings'),
-  ('20260502114946', 'courses_platform_ownership')
+  ('20260502114946', 'courses_platform_ownership'),
+  ('20260506134112', 'resources_teacher_visibility')
 on conflict (version) do nothing;
