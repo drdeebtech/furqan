@@ -87,8 +87,8 @@ export default async function TeacherHalaqasPage() {
           icon={<Inbox size={32} className="text-muted" />}
           message={t("لا توجد حلقات بعد", "No halaqas yet")}
           hint={t(
-            "ستظهر هنا عند تعيينك معلماً لحلقة من قبل فريق الإدارة.",
-            "They'll appear here once the admin team assigns you to a halaqa.",
+            "ستظهر حلقاتك الجماعية هنا. الإدارة تتولى إنشاء حلقات جديدة وتعيين المعلمين بناءً على الاحتياج.",
+            "Your group halaqas will appear here. New halaqas are created by the admin team based on roster need; you'll be notified when assigned.",
           )}
         />
       ) : (
