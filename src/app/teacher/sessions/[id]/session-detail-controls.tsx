@@ -56,8 +56,8 @@ export function SessionDetailControls({
     if (!window.confirm(message)) return;
     setLoading("end");
     setError(null);
-    const result = await endSession(sessionId);
-    if (result.error) setError(result.error);
+    const result = await endSession({ sessionId });
+    if (!result.ok) setError(result.error);
     else setEnded(true);
     setLoading(null);
   }

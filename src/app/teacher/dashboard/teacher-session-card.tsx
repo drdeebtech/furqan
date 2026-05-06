@@ -93,10 +93,10 @@ export function TeacherSessionCard({
     if (!sessionId) return;
     setLoading("end");
     setError(null);
-    const result = await endSession(sessionId);
-    if (result.error) setError(result.error);
+    const result = await endSession({ sessionId });
+    if (!result.ok) setError(result.error);
     else {
-      setSuccess("تم إنهاء الجلسة");
+      setSuccess(result.message ?? "تم إنهاء الجلسة");
       setIsEnded(true);
     }
     setLoading(null);
