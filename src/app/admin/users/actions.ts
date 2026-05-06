@@ -42,7 +42,9 @@ export async function toggleUserActive(userId: string, isActive: boolean) {
     old_data: { is_active: existing?.is_active ?? null },
     new_data: { is_active: isActive },
     reason: isActive ? "Admin reactivated user" : "Admin deactivated user",
-  } satisfies TableInsert<"audit_log">);
+  } satisfies TableInsert<"audit_log">).then((r) => {
+    if (r.error) logError("toggleUserActive: audit row failed", r.error, { tag: "admin-users" });
+  });
 
   revalidatePath("/admin/users");
   return { success: true };
@@ -114,7 +116,9 @@ export async function setUserRoles(userId: string, roles: string[]) {
     old_data: { role: oldActive, roles: oldRoles },
     new_data: { role: newActive, roles: dedup },
     reason: `Admin set roles: [${oldRoles.join(",")}] → [${dedup.join(",")}]`,
-  } satisfies TableInsert<"audit_log">);
+  } satisfies TableInsert<"audit_log">).then((r) => {
+    if (r.error) logError("setUserRoles: audit row failed", r.error, { tag: "admin-users" });
+  });
 
   // teacher_profiles bookkeeping driven by membership change, not active role.
   const wasTeacher = oldRoles.includes("teacher");
@@ -215,8 +219,8 @@ export async function softDeleteUser(userId: string, reason: string) {
   // by middleware role check + is_active filter.
   try {
     await admin.auth.admin.updateUserById(userId, { ban_duration: "8760h" }); // 1 year
-  } catch {
-    /* non-blocking */
+  } catch (err) {
+    logError("softDeleteUser: auth ban failed", err, { tag: "admin-users" });
   }
 
   // If the deleted user was a teacher, archive the teacher_profiles row too.
@@ -236,7 +240,9 @@ export async function softDeleteUser(userId: string, reason: string) {
     old_data: { is_active: existing.is_active, deleted_at: null },
     new_data: { is_active: false, deleted_at: now },
     reason: `Admin soft-deleted user (${existing.role}): ${trimmed}`,
-  } satisfies TableInsert<"audit_log">);
+  } satisfies TableInsert<"audit_log">).then((r) => {
+    if (r.error) logError("softDeleteUser: audit row failed", r.error, { tag: "admin-users" });
+  });
 
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${userId}`);
@@ -272,8 +278,8 @@ export async function restoreUser(userId: string) {
 
   try {
     await admin.auth.admin.updateUserById(userId, { ban_duration: "none" });
-  } catch {
-    /* non-blocking */
+  } catch (err) {
+    logError("restoreUser: auth unban failed", err, { tag: "admin-users" });
   }
 
   if (existing.role === "teacher") {
@@ -292,7 +298,9 @@ export async function restoreUser(userId: string) {
     old_data: { is_active: false, deleted_at: existing.deleted_at },
     new_data: { is_active: true, deleted_at: null },
     reason: "Admin restored deleted user",
-  } satisfies TableInsert<"audit_log">);
+  } satisfies TableInsert<"audit_log">).then((r) => {
+    if (r.error) logError("restoreUser: audit row failed", r.error, { tag: "admin-users" });
+  });
 
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${userId}`);
@@ -485,7 +493,9 @@ export async function createUserFromScratch(
     old_data: null,
     new_data: { email, role, full_name, country },
     reason: `Admin created ${role} account`,
-  } satisfies TableInsert<"audit_log">);
+  } satisfies TableInsert<"audit_log">).then((r) => {
+    if (r.error) logError("createUserFromScratch: audit row failed", r.error, { tag: "admin-users" });
+  });
 
   revalidatePath("/admin/users");
   return { success: true };
