@@ -65,10 +65,12 @@ export function SessionDetailControls({
   async function handleExtend() {
     setLoading("extend");
     setError(null);
-    const result = await extendSessionRoom(sessionId);
-    if (result.error) setError(result.error);
+    const result = await extendSessionRoom({ sessionId });
+    if (!result.ok) setError(result.error);
     else {
-      if (result.newExpiresAt) setCurrentExpiresAt(result.newExpiresAt);
+      // Server adds 60m to its own `Date.now()`. Mirror locally — drift
+      // is sub-second, indistinguishable from the prior structured return.
+      setCurrentExpiresAt(new Date(Date.now() + 60 * 60 * 1000).toISOString());
       setExtendSuccess(true);
       setTimeout(() => setExtendSuccess(false), 3000);
     }
