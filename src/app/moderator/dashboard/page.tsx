@@ -17,6 +17,10 @@ export default async function ModeratorDashboardPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Bounded to 90d so the count doesn't grow linearly forever — this KPI
+  // slot reads as "recent activity", and an all-time number misleads.
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+
   const [
     { count: studentCount },
     { count: teacherCount },
@@ -28,7 +32,7 @@ export default async function ModeratorDashboardPage() {
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "teacher"),
     supabase.from("teacher_profiles").select("id", { count: "exact", head: true }).eq("cv_status", "pending_review"),
     supabase.from("sessions").select("id", { count: "exact", head: true }).not("started_at", "is", null).is("ended_at", null),
-    supabase.from("session_evaluations").select("id", { count: "exact", head: true }),
+    supabase.from("session_evaluations").select("id", { count: "exact", head: true }).gte("created_at", ninetyDaysAgo),
   ]);
 
   const [weeklyCVActivity, liveSessions, ratingDistribution, flaggedEvaluations] = await Promise.all([
