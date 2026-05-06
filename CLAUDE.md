@@ -276,6 +276,9 @@ supabase/functions/      — 4 edge functions (auto-reminder, auto-complete, no-
 - `retention_automation_enabled` = false (enable when confident)
 - `renewal_campaigns_enabled` = false
 
+### Infrastructure improvements
+- Set up Supabase Branching so Preview deployments get an isolated, ephemeral database (not the production one). Resolves the "Preview database isolation — known gap" risk. ~30min one-time setup, then per-PR branches auto-spin.
+
 ## Documentation Files
 | File | Purpose |
 |------|---------|
@@ -411,6 +414,16 @@ This uses the Management API via your `supabase login` session. Bypasses both tr
 - `npx supabase migration list --linked` shows **timestamped** files only (Local vs Remote columns). Use it to confirm a new migration applied.
 - For the v* files, `select version from public.schema_migrations order by version` is the source of truth.
 - CI runs `supabase db lint --linked` on every PR (`.github/workflows/supabase-lint.yml`) — catches syntax issues, does NOT catch un-applied migrations.
+
+## Preview database isolation — known gap (P2)
+
+All three Vercel environments (Production, Preview, Development) currently point at the same Supabase project (`xyqscjnqfeusgrhmwjts`). Preview deployments share `SUPABASE_SERVICE_ROLE_KEY` with Production, so any preview URL has full write access to the production database — RLS-bypassing inserts, updates, and deletes will all hit real rows.
+
+**Until Supabase Branching is set up, treat every preview URL as production for the purposes of data-mutation testing.** Concrete don'ts on a preview deploy: do not test deletes, bulk updates, payment flows, role changes, cron-trigger curls, or anything that writes to `audit_log` unless you would do the same on `www.furqan.today`. Any CI job that runs against a preview sees real production data.
+
+Detection is implicit — there's no environment guard in code that distinguishes Preview from Production. The only signal is the deployment URL itself. If a future migration or feature needs a sandbox, request a fresh Supabase project and a separate `*_PREVIEW` env var set, or wait for Branching (see Remaining Work).
+
+Long-term fix: enable Supabase Branching for Preview so each PR auto-spins an ephemeral, isolated database that mirrors prod schema. Tracked in Remaining Work → Infrastructure improvements.
 
 ## Sentry — activating in production
 
