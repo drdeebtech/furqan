@@ -4,6 +4,8 @@ import Link from "next/link";
 import { ClipboardCheck, Plus, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
+import { PageHeader } from "@/components/shared/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata: Metadata = { title: "التقييمات" };
 
@@ -37,17 +39,22 @@ export default async function ModeratorEvaluationsPage() {
 
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold"><ClipboardCheck size={24} className="text-gold" /> {t("التقييمات", "Evaluations")}</h1>
-        <Link href="/moderator/evaluations/new" className="glass-gold glass-pill flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors">
-          <Plus size={16} /> {t("تقييم جديد", "New Evaluation")}
-        </Link>
-      </div>
+      <PageHeader
+        icon={<ClipboardCheck size={24} className="text-gold" />}
+        title={t("التقييمات", "Evaluations")}
+        actions={
+          <Link href="/moderator/evaluations/new" className="glass-gold glass-pill flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors">
+            <Plus size={16} /> {t("تقييم جديد", "New Evaluation")}
+          </Link>
+        }
+      />
 
       {list.length === 0 ? (
-        <div className="glass-card rounded-xl p-12 text-center">
-          <Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">{t("لا توجد تقييمات", "No evaluations yet")}</p>
-        </div>
+        <EmptyState
+          variant="glass-card"
+          icon={<Inbox size={32} className="text-muted" />}
+          message={t("لا توجد تقييمات", "No evaluations yet")}
+        />
       ) : (
         <div className="glass-card overflow-hidden rounded-xl p-0">
           <table className="w-full text-sm">
