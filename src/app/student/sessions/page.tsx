@@ -6,8 +6,9 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchNameMap } from "@/lib/supabase/helpers";
 import { SESSION_TYPE_AR, STATUS_STYLE } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
-import type { BookingStatus, SessionType } from "@/types/database";
+import type { BookingStatus, SessionType, SessionMode } from "@/types/database";
 import { LiveBadge } from "./live-badge";
+import { SessionModeBadge } from "@/components/sessions/SessionModeBadge";
 import { AttestationButtons } from "./attestation-buttons";
 
 export const metadata: Metadata = { title: "جلساتي" };
@@ -21,6 +22,7 @@ interface SessionRow {
   id: string;
   booking_id: string;
   room_url: string;
+  session_mode: SessionMode;
   started_at: string | null;
   ended_at: string | null;
   actual_duration: number | null;
@@ -65,7 +67,7 @@ export default async function StudentSessionsPage() {
     const bookingIds = list.map((b) => b.id);
     const { data: sessions } = await supabase
       .from("sessions")
-      .select("id, booking_id, room_url, started_at, ended_at, actual_duration, post_session_notes, homework")
+      .select("id, booking_id, room_url, session_mode, started_at, ended_at, actual_duration, post_session_notes, homework")
       .in("booking_id", bookingIds)
       .returns<SessionRow[]>();
     if (sessions) {
@@ -148,7 +150,10 @@ export default async function StudentSessionsPage() {
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium">{nameMap[booking.teacher_id] ?? t("معلم", "Teacher")}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium">{nameMap[booking.teacher_id] ?? t("معلم", "Teacher")}</p>
+                    <SessionModeBadge mode={sessionMap[booking.id]?.session_mode} size="sm" />
+                  </div>
                   <p className="mt-1 text-sm text-gold">
                     {lang === "ar" ? SESSION_TYPE_AR[booking.session_type] : SESSION_TYPE_EN[booking.session_type]}
                     <span className="me-2 text-muted">· {booking.duration_min} {t("دقيقة", "min")}</span>

@@ -5,7 +5,8 @@ import { Video, Inbox, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR, STATUS_STYLE } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
-import type { BookingStatus, SessionType } from "@/types/database";
+import type { BookingStatus, SessionType, SessionMode } from "@/types/database";
+import { SessionModeBadge } from "@/components/sessions/SessionModeBadge";
 
 export const metadata: Metadata = { title: "جلساتي" };
 
@@ -40,15 +41,17 @@ export default async function TeacherSessionsPage() {
 
   const list = bookings ?? [];
 
-  // Fetch sessions for join links
+  // Fetch sessions for join links + session_mode for the mode badge.
   let sessionIdMap: Record<string, string> = {};
+  let sessionModeMap: Record<string, SessionMode> = {};
   if (list.length > 0) {
     const bookingIds = list.map((b) => b.id);
     const { data: sessions } = await supabase
-      .from("sessions").select("id, booking_id").in("booking_id", bookingIds)
-      .returns<{ id: string; booking_id: string }[]>();
+      .from("sessions").select("id, booking_id, session_mode").in("booking_id", bookingIds)
+      .returns<{ id: string; booking_id: string; session_mode: SessionMode }[]>();
     if (sessions) {
       sessionIdMap = Object.fromEntries(sessions.map((s) => [s.booking_id, s.id]));
+      sessionModeMap = Object.fromEntries(sessions.map((s) => [s.booking_id, s.session_mode]));
     }
   }
 
@@ -95,7 +98,10 @@ export default async function TeacherSessionsPage() {
               <div key={booking.id} className="glass-card p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="font-medium">{nameMap[booking.student_id] ?? t("طالب", "Student")}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium">{nameMap[booking.student_id] ?? t("طالب", "Student")}</p>
+                      <SessionModeBadge mode={sessionModeMap[booking.id]} size="sm" />
+                    </div>
                     <p className="mt-1 text-sm text-gold">
                       {lang === "ar" ? SESSION_TYPE_AR[booking.session_type] : SESSION_TYPE_EN[booking.session_type]}
                       <span className="me-2 text-muted">· {booking.duration_min} {t("دقيقة", "min")}</span>
