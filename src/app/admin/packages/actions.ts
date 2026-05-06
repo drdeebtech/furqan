@@ -56,7 +56,9 @@ export async function savePackage(_prev: { success?: boolean; error?: string }, 
       old_data: previous ?? null,
       new_data: { price_usd: data.price_usd, name: data.name, is_active: data.is_active },
       reason: "Admin updated package",
-    } as never);
+    } as never).then((r) => {
+      if (r.error) logError("upsertPackage(update): audit row failed", r.error, { tag: "admin-packages" });
+    });
   } else {
     const { data: inserted } = await supabase
       .from("packages")
@@ -72,7 +74,9 @@ export async function savePackage(_prev: { success?: boolean; error?: string }, 
         old_data: null,
         new_data: { price_usd: data.price_usd, name: data.name, is_active: data.is_active },
         reason: "Admin created package",
-      } as never);
+      } as never).then((r) => {
+        if (r.error) logError("upsertPackage(insert): audit row failed", r.error, { tag: "admin-packages" });
+      });
     }
   }
 
@@ -103,7 +107,9 @@ export async function deletePackage(packageId: string) {
     old_data: previous ?? null,
     new_data: null,
     reason: "Admin deleted package",
-  } as never);
+  } as never).then((r) => {
+    if (r.error) logError("deletePackage: audit row failed", r.error, { tag: "admin-packages" });
+  });
 
   revalidatePath("/admin/packages");
   revalidatePath("/packages");
@@ -126,7 +132,9 @@ export async function togglePackageActive(packageId: string, isActive: boolean) 
     old_data: { is_active: !isActive },
     new_data: { is_active: isActive },
     reason: isActive ? "Admin enabled package" : "Admin disabled package",
-  } as never);
+  } as never).then((r) => {
+    if (r.error) logError("togglePackageActive: audit row failed", r.error, { tag: "admin-packages" });
+  });
 
   revalidatePath("/admin/packages");
   revalidatePath("/packages");
