@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { TrendingDown, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getT, type Lang } from "@/lib/i18n/server";
 import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
 import { EmptyCard } from "@/components/shared/empty-card";
 
@@ -16,12 +17,12 @@ interface AtRiskRow {
   package_remaining: number | null;
 }
 
-function daysAgo(iso: string | null): string {
+function daysAgo(iso: string | null, lang: Lang): string {
   if (!iso) return "—";
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 60 * 60 * 1000));
-  if (d === 0) return "اليوم";
-  if (d === 1) return "أمس";
-  return `قبل ${d} يوم`;
+  if (d === 0) return lang === "ar" ? "اليوم" : "today";
+  if (d === 1) return lang === "ar" ? "أمس" : "yesterday";
+  return lang === "ar" ? `قبل ${d} يوم` : `${d}d ago`;
 }
 
 /**
@@ -31,6 +32,7 @@ function daysAgo(iso: string | null): string {
  */
 export async function TeacherAtRiskStudents({ teacherId }: Props) {
   const supabase = await createClient();
+  const { t, lang } = await getT();
 
   // eslint-disable-next-line react-hooks/purity -- server component, deterministic per-request
   const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
@@ -57,8 +59,11 @@ export async function TeacherAtRiskStudents({ teacherId }: Props) {
     return (
       <EmptyCard
         variant="celebration"
-        title="أحسنت"
-        body="جميع طلابك ضمن نطاق الالتزام الجيد — لا حاجة لانتباه إضافي الآن"
+        title={t("أحسنت", "Well done")}
+        body={t(
+          "جميع طلابك ضمن نطاق الالتزام الجيد — لا حاجة لانتباه إضافي الآن",
+          "All your students are engaged — no extra attention needed right now",
+        )}
       />
     );
   }
@@ -69,13 +74,14 @@ export async function TeacherAtRiskStudents({ teacherId }: Props) {
     .in("id", signals.map(s => s.student_id))
     .returns<{ id: string; full_name: string | null }[]>();
 
-  const nameById = new Map((profiles ?? []).map(p => [p.id, p.full_name ?? "بدون اسم"]));
+  const unnamed = t("بدون اسم", "Unnamed");
+  const nameById = new Map((profiles ?? []).map(p => [p.id, p.full_name ?? unnamed]));
 
   return (
     <div className="glass-card mt-4 rounded-xl p-4">
       <div className="mb-3 flex items-center gap-2">
         <TrendingDown size={16} className="text-warning" />
-        <h3 className="text-sm font-bold">طلاب يحتاجون انتباهاً</h3>
+        <h3 className="text-sm font-bold">{t("طلاب يحتاجون انتباهاً", "Students who need attention")}</h3>
         <span className="rounded-full bg-warning/10 px-2 py-0.5 text-xs text-warning">{signals.length}</span>
       </div>
       <div className="space-y-2">
@@ -94,10 +100,10 @@ export async function TeacherAtRiskStudents({ teacherId }: Props) {
                 <span className="text-sm font-medium">{nameById.get(s.student_id) ?? "—"}</span>
               </div>
               <div className="flex items-center gap-3 text-xs text-muted">
-                <span>آخر جلسة: {daysAgo(s.last_session_at)}</span>
+                <span>{t("آخر جلسة:", "Last session:")} {daysAgo(s.last_session_at, lang)}</span>
                 {s.package_remaining !== null && s.package_remaining <= 2 && (
                   <span className="flex items-center gap-1 text-warning">
-                    <AlertTriangle size={12} /> {s.package_remaining} جلسة
+                    <AlertTriangle size={12} /> {t(`${s.package_remaining} جلسة`, `${s.package_remaining} session${s.package_remaining === 1 ? "" : "s"}`)}
                   </span>
                 )}
               </div>
@@ -106,7 +112,10 @@ export async function TeacherAtRiskStudents({ teacherId }: Props) {
         })}
       </div>
       <p className="mt-3 text-xs text-muted">
-        اعرض تقدمهم واضبط وتيرة الجلسة. فريق الإدارة يتابع التواصل الخارجي.
+        {t(
+          "اعرض تقدمهم واضبط وتيرة الجلسة. فريق الإدارة يتابع التواصل الخارجي.",
+          "Review their progress and adjust the session pace. Admin handles outbound contact.",
+        )}
       </p>
     </div>
   );
