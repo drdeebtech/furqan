@@ -2,6 +2,7 @@ import Link from "next/link";
 import { TrendingDown, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
+import { EmptyCard } from "@/components/shared/empty-card";
 
 interface Props {
   teacherId: string;
@@ -52,7 +53,15 @@ export async function TeacherAtRiskStudents({ teacherId }: Props) {
     .limit(5)
     .returns<Omit<AtRiskRow, "full_name">[]>();
 
-  if (!signals || signals.length === 0) return null;
+  if (!signals || signals.length === 0) {
+    return (
+      <EmptyCard
+        variant="celebration"
+        title="أحسنت"
+        body="جميع طلابك ضمن نطاق الالتزام الجيد — لا حاجة لانتباه إضافي الآن"
+      />
+    );
+  }
 
   const { data: profiles } = await supabase
     .from("profiles")
