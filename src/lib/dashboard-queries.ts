@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import type { Lang } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format-date";
 
 interface ChartDataPoint {
   day: string;
@@ -1539,7 +1541,8 @@ export async function getModeratorRatingDistribution(): Promise<
 }
 
 export async function getModeratorFlaggedEvaluations(
-  limit = 6
+  limit = 6,
+  lang: Lang = "ar",
 ): Promise<{ id: string; [key: string]: unknown }[]> {
   const supabase = await createClient();
   const sevenDaysAgo = new Date();
@@ -1585,11 +1588,7 @@ export async function getModeratorFlaggedEvaluations(
   return evals.map((e) => ({
     id: e.id.slice(0, 6).toUpperCase(),
     subject: e.evaluation_type ?? "—",
-    date: new Date(e.created_at).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-    }),
+    date: formatDate(e.created_at, lang),
     progress: Math.round((Number(e.overall_score) / 5) * 100),
     assignee: nameMap[e.teacher_id] ?? "—",
     view: "view",

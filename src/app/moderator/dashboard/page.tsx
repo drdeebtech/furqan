@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { ModeratorDashboardContent } from "./dashboard-content";
 import { ModeratorAtRiskStudents } from "./at-risk-students";
 import {
@@ -14,6 +15,7 @@ export const metadata: Metadata = { title: "لوحة المشرف" };
 
 export default async function ModeratorDashboardPage() {
   const supabase = await createClient();
+  const { lang } = await getT();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
@@ -39,7 +41,7 @@ export default async function ModeratorDashboardPage() {
     getModeratorWeeklyCVActivity(),
     getAdminLiveSessions(),
     getModeratorRatingDistribution(),
-    getModeratorFlaggedEvaluations(),
+    getModeratorFlaggedEvaluations(6, lang),
   ]);
 
   return (
