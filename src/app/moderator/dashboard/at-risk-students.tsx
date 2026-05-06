@@ -2,6 +2,7 @@ import Link from "next/link";
 import { TrendingDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
+import { EmptyCard } from "@/components/shared/empty-card";
 
 function daysAgo(iso: string | null): string {
   if (!iso) return "—";
@@ -27,7 +28,15 @@ export async function ModeratorAtRiskStudents() {
     .limit(5)
     .returns<{ student_id: string; churn_risk_score: number | null; last_session_at: string | null }[]>();
 
-  if (!signals || signals.length === 0) return null;
+  if (!signals || signals.length === 0) {
+    return (
+      <EmptyCard
+        variant="celebration"
+        title="أحسنت"
+        body="لا توجد إشارات تسرب نشطة الآن — التزام الطلاب جيد"
+      />
+    );
+  }
 
   const { data: profiles } = await supabase
     .from("profiles")
