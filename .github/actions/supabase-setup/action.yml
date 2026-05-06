@@ -18,13 +18,13 @@ description: |
 
 inputs:
   project-ref:
-    description: Supabase project ref (e.g. xyqscjnqfeusgrhmwjts). Pass via `${{ vars.SUPABASE_PROJECT_REF }}`.
+    description: 'Supabase project ref (e.g. xyqscjnqfeusgrhmwjts). Pass via vars.SUPABASE_PROJECT_REF.'
     required: true
   access-token:
-    description: SUPABASE_ACCESS_TOKEN. Pass via `${{ secrets.SUPABASE_ACCESS_TOKEN }}`.
+    description: 'SUPABASE_ACCESS_TOKEN. Pass via secrets.SUPABASE_ACCESS_TOKEN.'
     required: true
   db-password:
-    description: SUPABASE_DB_PASSWORD — needed only for migrate operations (db push, db query). Pass via `${{ secrets.SUPABASE_DB_PASSWORD }}`.
+    description: 'SUPABASE_DB_PASSWORD — needed only for migrate operations (db push, db query). Pass via secrets.SUPABASE_DB_PASSWORD.'
     required: false
     default: ''
 
@@ -36,14 +36,25 @@ runs:
       with:
         version: latest
 
-    - name: Link project
+    - name: Link project + persist auth env
       shell: bash
       env:
         SUPABASE_ACCESS_TOKEN: ${{ inputs.access-token }}
         SUPABASE_DB_PASSWORD: ${{ inputs.db-password }}
+        PROJECT_REF: ${{ inputs.project-ref }}
       run: |
         if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
           echo "::error::access-token input is empty. Pass secrets.SUPABASE_ACCESS_TOKEN. (Add it under Settings → Secrets → Actions.)"
           exit 1
         fi
-        supabase link --project-ref "${{ inputs.project-ref }}"
+        supabase link --project-ref "$PROJECT_REF"
+        # Persist auth env so subsequent caller steps that run `supabase --linked`
+        # inherit credentials. Step-level env from a composite does NOT leak
+        # back to the caller, so without this, db-types-fresh / supabase-lint
+        # silently fail authentication on the next step. (Sentry Seer flagged
+        # this on PR #119.) GitHub masks `secrets.*` values in logs even when
+        # written to $GITHUB_ENV, so this is the documented pattern.
+        echo "SUPABASE_ACCESS_TOKEN=$SUPABASE_ACCESS_TOKEN" >> "$GITHUB_ENV"
+        if [ -n "$SUPABASE_DB_PASSWORD" ]; then
+          echo "SUPABASE_DB_PASSWORD=$SUPABASE_DB_PASSWORD" >> "$GITHUB_ENV"
+        fi
