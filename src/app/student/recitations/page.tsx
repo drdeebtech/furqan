@@ -7,6 +7,7 @@ import { getT } from "@/lib/i18n/server";
 import { HOMEWORK_TYPE_AR, HOMEWORK_STATUS_STYLE } from "@/lib/constants";
 import { surahName } from "@/lib/quran/surahs";
 import { HomeworkAudioPlayer } from "@/components/shared/homework-audio-player";
+import { EmptyState } from "@/components/shared/empty-state";
 import type { HomeworkAssignment } from "@/types/database";
 
 export const metadata: Metadata = { title: "تسميعاتي" };
@@ -72,25 +73,24 @@ export default async function StudentRecitationsPage() {
       </div>
 
       {submissions.length === 0 ? (
-        <div className="glass-card p-12 text-center">
-          <Mic size={40} className="mx-auto mb-3 text-muted/40" aria-hidden="true" />
-          <p className="text-muted">
-            {t("لا توجد تسميعات بعد", "No recitations yet")}
-          </p>
-          <p className="mt-1 text-xs text-muted/60">
-            {t(
-              "عند تسجيلك تلاوة مع متابعة، تظهر هنا.",
-              "When you record a recitation with a follow-up submission, it appears here.",
-            )}
-          </p>
-          <Link
-            href="/student/follow-up"
-            className="mt-4 inline-flex items-center gap-1 text-sm text-gold hover:text-gold-hover focus-ring rounded"
-          >
-            {t("افتح متابعاتي", "Open My Follow-ups")}
-            <ChevronRight size={14} aria-hidden="true" />
-          </Link>
-        </div>
+        <EmptyState
+          variant="glass-card"
+          icon={<Mic size={40} className="text-muted/40" aria-hidden="true" />}
+          message={t("لا توجد تسميعات بعد", "No recitations yet")}
+          hint={t(
+            "عند تسجيلك تلاوة مع متابعة، تظهر هنا.",
+            "When you record a recitation with a follow-up submission, it appears here.",
+          )}
+          action={
+            <Link
+              href="/student/follow-up"
+              className="inline-flex items-center gap-1 text-sm text-gold hover:text-gold-hover focus-ring rounded"
+            >
+              {t("افتح متابعاتي", "Open My Follow-ups")}
+              <ChevronRight size={14} aria-hidden="true" />
+            </Link>
+          }
+        />
       ) : (
         <>
           {/* Aggregate strip — quietly tells the student how much they've

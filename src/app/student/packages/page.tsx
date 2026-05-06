@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { StudentPackage, Package as PackageType, StudentPackageStatus } from "@/types/database";
 import { STUDENT_PACKAGE_STATUS_STYLE, PACKAGE_TYPE_AR } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata: Metadata = { title: "باقاتي" };
 
@@ -57,14 +58,17 @@ export default async function StudentPackagesPage() {
       </div>
 
       {(!studentPackages || studentPackages.length === 0) ? (
-        <div className="glass-card p-12 text-center">
-          <Inbox size={40} className="mx-auto mb-3 text-muted/40" />
-          <p className="text-muted">{t("لا توجد باقات بعد", "No packages yet")}</p>
-          <p className="mt-1 text-sm text-muted/60">{t("اشترِ باقة لبدء حجز الجلسات", "Buy a package to start booking sessions")}</p>
-          <Link href="/packages" className="mt-4 inline-block text-sm text-gold hover:text-gold-hover">
-            {t("تصفح الباقات ←", "Browse Packages →")}
-          </Link>
-        </div>
+        <EmptyState
+          variant="glass-card"
+          icon={<Inbox size={40} className="text-muted/40" />}
+          message={t("لا توجد باقات بعد", "No packages yet")}
+          hint={t("اشترِ باقة لبدء حجز الجلسات", "Buy a package to start booking sessions")}
+          action={
+            <Link href="/packages" className="text-sm text-gold hover:text-gold-hover">
+              {t("تصفح الباقات ←", "Browse Packages →")}
+            </Link>
+          }
+        />
       ) : (
         <div className="space-y-6">
           {/* Active packages */}
