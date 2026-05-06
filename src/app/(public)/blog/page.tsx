@@ -55,8 +55,8 @@ export const metadata: Metadata = {
   title: "المدونة — مقالات في علوم القرآن",
   description: "مقالات ونصائح في حفظ القرآن والتجويد والتلاوة من معلمي أكاديمية فرقان.",
   alternates: {
-    canonical: "https://furqan.today/blog",
-    types: { "application/rss+xml": "https://furqan.today/feed.xml" },
+    canonical: "https://www.furqan.today/blog",
+    types: { "application/rss+xml": "https://www.furqan.today/feed.xml" },
   },
 };
 
@@ -74,8 +74,8 @@ export default async function BlogPage() {
   return (
     <>
       <BreadcrumbSchema items={[
-        { name: "الرئيسية", url: "https://furqan.today" },
-        { name: "المدونة", url: "https://furqan.today/blog" },
+        { name: "الرئيسية", url: "https://www.furqan.today" },
+        { name: "المدونة", url: "https://www.furqan.today/blog" },
       ]} />
       <BlogContent posts={posts} categories={categories} />
     </>

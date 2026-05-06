@@ -22,7 +22,7 @@
  * To wire on n8n.drdeeb.tech:
  *   1. Create a new Cron workflow, schedule "0 9 * * *" (09:00 UTC daily)
  *   2. Add an HTTP Request node:
- *        URL: https://furqan.today/api/cron/murajaah-due
+ *        URL: https://www.furqan.today/api/cron/murajaah-due
  *        Method: GET
  *        Headers: { "X-N8N-Secret": "{{ $env.N8N_WEBHOOK_SECRET }}" }
  *   3. Activate the workflow

@@ -46,7 +46,7 @@ export async function sendAdminTeacherApplicationAlert(data: {
     spec: escapeHtml(data.specialties.join(", ")),
     years: data.yearsExperience ? escapeHtml(String(data.yearsExperience)) : "—",
   };
-  const reviewUrl = `https://furqan.today/admin/teachers/cv/${encodeURIComponent(data.teacherId)}`;
+  const reviewUrl = `https://www.furqan.today/admin/teachers/cv/${encodeURIComponent(data.teacherId)}`;
   try {
     await resend.emails.send({
       from: `FURQAN Academy <${FROM_EMAIL}>`,
@@ -156,7 +156,7 @@ export async function sendTeacherApprovalEmail(data: {
           </p>
           <p style="color: #444; margin-top: 32px;">من لوحة المعلم يمكنك إضافة أوقات الإتاحة وإكمال بياناتك:</p>
           <p style="margin: 12px 0;">
-            <a href="https://furqan.today/teacher/dashboard" style="color: #C8A652; text-decoration: underline; font-size: 14px;">دخول لوحة المعلم ←</a>
+            <a href="https://www.furqan.today/teacher/dashboard" style="color: #C8A652; text-decoration: underline; font-size: 14px;">دخول لوحة المعلم ←</a>
           </p>
           <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;">
           <p style="margin-top: 24px; font-size: 12px; color: #999;">— أكاديمية فُرقان | furqan.today</p>

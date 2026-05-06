@@ -14,7 +14,7 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: "anthropic-ai", allow: ["/"] },
       { userAgent: "CCBot", allow: ["/"] },
     ],
-    sitemap: "https://furqan.today/sitemap.xml",
-    host: "https://furqan.today",
+    sitemap: "https://www.furqan.today/sitemap.xml",
+    host: "https://www.furqan.today",
   };
 }

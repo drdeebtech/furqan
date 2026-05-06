@@ -433,7 +433,7 @@ export async function forgotPassword(
   // Fallback to production domain if env is missing/blank — without this,
   // the redirectTo template stringifies to "undefined/login" and Supabase
   // rejects the call with a generic error.
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://furqan.today";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://www.furqan.today";
   const redirectTo = `${appUrl}/login`;
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {

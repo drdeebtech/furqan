@@ -60,7 +60,7 @@ export async function approveCv(teacherId: string) {
       ? sendTeacherApprovalEmail({
           to: teacherEmail,
           fullName: teacherName,
-          listingUrl: `https://furqan.today/teachers#teacher-${teacherId}`,
+          listingUrl: `https://www.furqan.today/teachers#teacher-${teacherId}`,
         }).catch((err) => logError("approveCv approval email failed", err, { tag: "cv-review" }))
       : Promise.resolve(),
   ]);

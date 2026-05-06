@@ -426,6 +426,17 @@ The Sentry SDK is fully scaffolded (`@sentry/nextjs@10.49.0`, three config files
 
 Until DSN is set, `logError` falls back to `console.error` in dev and Telegram alerts on `severity: 'critical'`. No-op behavior in production keeps the app running normally.
 
+### Sentry GitHub auto-resolve — currently broken (follow-up)
+
+Two PRs in a row (PR #78 closing E4-1E, PR #146 closing E4-1F/-1D/-1X/-1W/-17/-11) shipped `Fixes JAVASCRIPT-NEXTJS-E4-<N>` keywords in their commit messages and merged to `main` with a successful Vercel build, yet Sentry did NOT auto-resolve the referenced issues. Both PRs required manual closure. The keyword convention itself is sound (Sentry's docs list `Fixes`/`Resolves`/`Closes`); the wiring between commit → release → issue is not firing.
+
+Likely causes to check, in order of probability:
+1. `release.setCommits.auto: true` in `next.config.ts` requires the `@sentry/nextjs` plugin to receive a writable `GITHUB_TOKEN` at build time, AND the Sentry org's GitHub App integration must be installed on the repo. If either is missing, the release lands but with no commit list, so the keyword can't be parsed.
+2. The Sentry GitHub integration might be installed at the user level (`drdeebtech`) rather than the org. Sentry-side: visit https://furqan-academy.sentry.io/settings/integrations/github/ and confirm the repo `drdeebtech/furqan` is listed.
+3. The Sentry release's `commits` field on the dashboard would show empty for these releases — that's the diagnostic; if commits ARE shown but issues stay open, it's a parsing or permissions bug instead.
+
+Until fixed, manually resolve via the Sentry MCP `update_issue` tool (status `resolvedInNextRelease` or `resolved`) on every PR that ships a `Fixes JAVASCRIPT-NEXTJS-...` keyword. Track this as a P1 ops item; the auto-close is the only thing keeping the issue queue from growing during high-fix-velocity sprints.
+
 ## Supabase Auth — leaked password protection
 
 Supabase Auth can reject passwords known to be in the HaveIBeenPwned breach corpus. This is **off by default** and cannot be migrated — it's a dashboard toggle. Enable once per environment:

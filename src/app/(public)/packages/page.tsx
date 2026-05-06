@@ -8,7 +8,7 @@ import { isFeatureEnabled } from "@/lib/settings";
 export const metadata: Metadata = {
   title: "باقاتنا — أسعار تعلم القرآن",
   description: "باقات أكاديمية فرقان لتعليم القرآن. من 2 جلسات أسبوعياً إلى 5 جلسات. أسعار مناسبة بالدولار والجنيه الإسترليني والريال.",
-  alternates: { canonical: "https://furqan.today/packages" },
+  alternates: { canonical: "https://www.furqan.today/packages" },
 };
 
 // Dynamic — page contents depend on the signed-in user (PayPal Smart
@@ -40,8 +40,8 @@ export default async function PackagesPage() {
   return (
     <>
       <BreadcrumbSchema items={[
-        { name: "الرئيسية", url: "https://furqan.today" },
-        { name: "باقاتنا", url: "https://furqan.today/packages" },
+        { name: "الرئيسية", url: "https://www.furqan.today" },
+        { name: "باقاتنا", url: "https://www.furqan.today/packages" },
       ]} />
       <PackagesContent
         packages={packages ?? []}

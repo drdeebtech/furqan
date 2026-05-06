@@ -88,7 +88,7 @@ const getPublicTeachers = unstable_cache(
 export const metadata: Metadata = {
   title: "معلمونا — معلمو القرآن المعتمدون",
   description: "معلمو أكاديمية فرقان حاصلون على الإجازة من كبار العلماء. خريجو الأزهر. متاح معلمات للأخوات.",
-  alternates: { canonical: "https://furqan.today/teachers" },
+  alternates: { canonical: "https://www.furqan.today/teachers" },
 };
 
 // ISR — public teacher list changes when an admin approves/archives a

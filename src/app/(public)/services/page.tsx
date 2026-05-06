@@ -6,7 +6,7 @@ import { BreadcrumbSchema } from "@/components/seo/structured-data";
 export const metadata: Metadata = {
   title: "خدماتنا — حفظ وتجويد وتلاوة",
   description: "خدمات أكاديمية فرقان: حفظ القرآن، أحكام التجويد، المراجعة، التلاوة، القراءات، التفسير.",
-  alternates: { canonical: "https://furqan.today/services" },
+  alternates: { canonical: "https://www.furqan.today/services" },
 };
 
 export default async function ServicesPage() {
@@ -27,8 +27,8 @@ export default async function ServicesPage() {
   return (
     <>
       <BreadcrumbSchema items={[
-        { name: "الرئيسية", url: "https://furqan.today" },
-        { name: "خدماتنا", url: "https://furqan.today/services" },
+        { name: "الرئيسية", url: "https://www.furqan.today" },
+        { name: "خدماتنا", url: "https://www.furqan.today/services" },
       ]} />
       <ServicesContent services={data ?? []} />
     </>
