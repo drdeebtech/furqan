@@ -111,7 +111,9 @@ export async function replayAutomation({
     status: "started",
     payload_json: row.payload_json,
     error_message: null,
-  } as never);
+  } as never).then((r) => {
+    if (r.error) logError("replayAutomation: pre-dispatch log failed", r.error, { tag: "admin-automation" });
+  });
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10_000);
@@ -151,7 +153,9 @@ export async function replayAutomation({
         payload_json: row.payload_json,
         error_message: `replay HTTP ${res.status}`,
         finished_at: new Date().toISOString(),
-      } as never);
+      } as never).then((r) => {
+        if (r.error) logError("replayAutomation: HTTP-failure log insert failed", r.error, { tag: "admin-automation" });
+      });
       return { error: `فشل الإرسال: HTTP ${res.status}` };
     }
 
@@ -163,7 +167,9 @@ export async function replayAutomation({
       old_data: { event_name: row.event_name, original_id: row.id },
       new_data: { replay_key: replayKey, dispatched_to: path },
       reason: "Admin replayed automation event",
-    } as never);
+    } as never).then((r) => {
+      if (r.error) logError("replayAutomation: audit row failed", r.error, { tag: "admin-automation" });
+    });
 
     revalidatePath("/admin/automation/replay");
     return { success: `تم إعادة الإرسال (${replayKey.slice(0, 16)}…)` };
@@ -179,7 +185,9 @@ export async function replayAutomation({
       payload_json: row.payload_json,
       error_message: `replay error: ${message}`,
       finished_at: new Date().toISOString(),
-    } as never);
+    } as never).then((r) => {
+      if (r.error) logError("replayAutomation: catch-path log insert failed", r.error, { tag: "admin-automation" });
+    });
     return { error: `فشل الإرسال: ${message}` };
   } finally {
     clearTimeout(timeout);
@@ -220,7 +228,9 @@ export async function markDeadLetterResolved({
     old_data: { resolved_at: null },
     new_data: { resolved_at: new Date().toISOString(), notes: notes.trim() || null },
     reason: "Admin marked dead letter resolved",
-  } as never);
+  } as never).then((r) => {
+    if (r.error) logError("markDeadLetterResolved: audit row failed", r.error, { tag: "admin-automation" });
+  });
 
   revalidatePath("/admin/automation/replay");
   return { success: "تم تسجيل الحل" };
