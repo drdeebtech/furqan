@@ -248,4 +248,52 @@ After the main run closed, operator said "Cont all" — pick up the deferred ite
 
 The auto-rollback envelope held throughout the continuation. Pre-flight Sentry baseline (E4-1Y, 0 users) is unchanged at session-close.
 
+---
+
+## Continuation 2 — deep deferred-items closeout (2026-05-07, second autonomous run)
+
+Operator launched a second 6-hour unattended run targeting the items the first continuation could not safely ship: **Phase 6 (Supabase Branching enable) → Phase 7 (Postgres aggregates with diff-check) → Phase 8 (6-action loudAction sweep) → Phase 9 (cleanup) → Phase 10 (close)**. This run uses different phase numbering than the prior continuation by design — the prompt's Phase 6 is *new* (Branching enablement), not a re-do of the prior log's Phase 6 (i18n).
+
+### Phase 0 — Pre-flight verdict (Cont-2)
+
+| Check | Result |
+|-------|--------|
+| Branch protection on `main` | Enforced (linear history, no force pushes, PRs required, reviews=0 — self-merge allowed) |
+| `gh` auth | ✓ drdeebtech (ssh, scopes intact) |
+| `vercel` auth | ✓ drdeebtech |
+| `supabase` CLI | ✓ linked to `xyqscjnqfeusgrhmwjts` (alforqan.egy@gmail.com's project) |
+| `sentry-cli` | ✓ org:ci scope (issue queries via Sentry MCP) |
+| Git identity | ✓ drdeebtech / drdeebtech@gmail.com |
+| Working tree | Clean (2 untracked artefacts unchanged from prior run) |
+| Prod URLs | `/` 200, `/login` 200, 4 dashboards 307 (auth-gate, healthy) |
+| Recent CI runs (3 latest on `main`) | ✓ all `success` (Silent-fail check + Unit Tests + Type-Check) |
+
+### Sentry baseline — Cont-2 pre-flight (24h, project E4)
+
+Identical to prior run baseline. Single open issue:
+
+| ID | Title (truncated) | Events | Users | First seen |
+|----|-------------------|--------|-------|-----------|
+| `JAVASCRIPT-NEXTJS-E4-1Y` | `PGRST201` — embedding ambiguity on `sessions ↔ bookings` | 1 | 0 | ~2h before pre-flight |
+
+Fatals open: **0**. Auto-rollback signal: any new issue ID outside E4-1Y appearing in this run = real regression.
+
+### Phase plan (Cont-2)
+
+| Phase | Goal | Gate |
+|-------|------|------|
+| 0 (this commit) | No-op SESSION_LOG-only PR | Pipeline path validation before code changes |
+| 6 | Supabase Branching enable | Gates Phase 7. Skip Phase 7 entirely on failure. |
+| 7 | 2 admin Postgres aggregate RPCs + dashboard-queries.ts wire-up | Diff-check protocol mandatory. Abort commit on mismatch. |
+| 8 | 6-action teacher loudAction sweep | One commit per wrap. Hard stop on first failure. |
+| 9 | `getAdminLiveSessions → getPlatformLiveSessions` rename + 3 EmptyCard judgement-call sites + optional tripwire baseline bump | Mechanical, low-risk. |
+| 10 | SESSION_LOG update + #157 checkboxes + Telegram summary | Exit clean. No new feature work. |
+
+### Time-budget interpretation (Cont-2)
+
+Same as prior run: `feedback_no_shell_waits` rules out `sleep`/`until` polling. Each commit's natural latency (push → CI → merge → deploy ≈ 5–8 min) plus retroactive Sentry checks at the next phase's pre-flight serve as the observation window. With Phase 7 (DDL) and Phase 8 (live-session side-effect actions) both higher-risk than UI polish, every Sentry pre-flight queries `firstSeen:-30m` for new fatals before the next sub-task.
+
+### Pre-flight gate
+
+All checks pass. Pipeline ships this no-op SESSION_LOG-only PR first to validate the full path before any code/SQL changes.
 
