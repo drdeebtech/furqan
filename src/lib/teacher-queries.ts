@@ -675,3 +675,174 @@ function _emptyDailyWindow(
   }
   return out;
 }
+
+// ─── Roster progress dashboard ──────────────────────────────────────────────
+
+export interface TeacherRosterProgressRow {
+  studentId: string;
+  studentName: string;
+  /** Average across the last 5 evaluations the teacher gave this student. */
+  hifzAvg: number | null;
+  tajweedAvg: number | null;
+  fluencyAvg: number | null;
+  attendanceAvg: number | null;
+  overallAvg: number | null;
+  /** Composite — 0.4·hifz + 0.4·tajweed + 0.2·fluency. Null when none of the
+   *  inputs are present. The schema has no `akhlaq_score`; we substitute
+   *  `fluency_score` as the third dimension. */
+  composite: number | null;
+  evalCount: number;
+  daysSinceLastEval: number | null;
+  /** Surfaces students who need attention. Three signals OR'd:
+   *   - composite < 3 (poor scores)
+   *   - daysSinceLastEval > 30 (eval lag)
+   *   - never evaluated despite a booking history */
+  atRisk: boolean;
+}
+
+const ROSTER_COMPOSITE_AT_RISK_THRESHOLD = 3.0;
+const ROSTER_EVAL_LAG_DAYS_DEFAULT = 30;
+
+/**
+ * Hifz / tajweed / fluency composite weights used by the roster heatmap.
+ *
+ * TODO(human): a senior Quran teacher should validate these weights —
+ * particularly which dimension matters most when a student is uneven (e.g.
+ * strong hifz but weak tajweed vs. the inverse). The schema lacks an
+ * akhlaq_score column so this composite uses fluency as the third dim;
+ * if/when akhlaq is added to evaluations, the weight 0.2 belongs to akhlaq
+ * and fluency should drop. See Learning by Doing #1 in the parity plan.
+ */
+const COMPOSITE_W_HIFZ = 0.4;
+const COMPOSITE_W_TAJWEED = 0.4;
+const COMPOSITE_W_FLUENCY = 0.2;
+
+interface EvalRow {
+  student_id: string;
+  evaluation_date: string;
+  hifz_score: number | null;
+  tajweed_score: number | null;
+  fluency_score: number | null;
+  attendance_score: number | null;
+  overall_score: number | null;
+}
+
+function avgOf(values: Array<number | null>): number | null {
+  const nums = values.filter((v): v is number => typeof v === "number");
+  if (nums.length === 0) return null;
+  return nums.reduce((s, n) => s + n, 0) / nums.length;
+}
+
+/**
+ * Per-student roster progress — the "command center" view a teacher uses
+ * to spot who's stuck, who's blooming, who's at risk. One row per student
+ * with at least one booking history entry.
+ *
+ * Per-student `.limit(5)` rather than a global `.limit(N)` to avoid the
+ * truncation pattern flagged on PR #125 (one very-active student crowds
+ * out the rest of the roster). N+1 queries are fine at typical roster
+ * sizes (5–30); revisit if a teacher hits 100+ students.
+ */
+export async function getTeacherRosterProgress(
+  teacherId: TeacherId,
+): Promise<TeacherRosterProgressRow[]> {
+  const supabase = await createClient();
+
+  // Step 1: distinct students from teacher's booking history.
+  const bookingsRes = await supabase
+    .from("bookings")
+    .select("student_id")
+    .eq("teacher_id", teacherId)
+    .returns<{ student_id: string }[]>();
+  if (bookingsRes.error) throw bookingsRes.error;
+  const bookings = bookingsRes.data;
+  if (!bookings || bookings.length === 0) return [];
+  const studentIds = [...new Set(bookings.map((b) => b.student_id))];
+
+  // Step 2: parallel — profiles + per-student last-5 evaluations.
+  const [profilesRes, ...evalResults] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", studentIds)
+      .returns<{ id: string; full_name: string | null }[]>(),
+    ...studentIds.map((id) =>
+      supabase
+        .from("session_evaluations")
+        .select(
+          "student_id, evaluation_date, hifz_score, tajweed_score, fluency_score, attendance_score, overall_score",
+        )
+        .eq("teacher_id", teacherId)
+        .eq("student_id", id)
+        .order("evaluation_date", { ascending: false })
+        .limit(5)
+        .returns<EvalRow[]>(),
+    ),
+  ]);
+  if (profilesRes.error) throw profilesRes.error;
+  for (const r of evalResults) {
+    if (r.error) throw r.error;
+  }
+
+  const nameById = new Map<string, string>();
+  if (profilesRes.data) {
+    for (const p of profilesRes.data)
+      nameById.set(p.id, p.full_name ?? "—");
+  }
+
+  const now = Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  return studentIds.map((id, i) => {
+    const evals = evalResults[i].data;
+    const evalRows = evals ? evals : [];
+    const hifzAvg = avgOf(evalRows.map((e) => e.hifz_score));
+    const tajweedAvg = avgOf(evalRows.map((e) => e.tajweed_score));
+    const fluencyAvg = avgOf(evalRows.map((e) => e.fluency_score));
+    const attendanceAvg = avgOf(evalRows.map((e) => e.attendance_score));
+    const overallAvg = avgOf(evalRows.map((e) => e.overall_score));
+
+    let composite: number | null = null;
+    if (hifzAvg !== null || tajweedAvg !== null || fluencyAvg !== null) {
+      let weighted = 0;
+      let weightSum = 0;
+      if (hifzAvg !== null) {
+        weighted += hifzAvg * COMPOSITE_W_HIFZ;
+        weightSum += COMPOSITE_W_HIFZ;
+      }
+      if (tajweedAvg !== null) {
+        weighted += tajweedAvg * COMPOSITE_W_TAJWEED;
+        weightSum += COMPOSITE_W_TAJWEED;
+      }
+      if (fluencyAvg !== null) {
+        weighted += fluencyAvg * COMPOSITE_W_FLUENCY;
+        weightSum += COMPOSITE_W_FLUENCY;
+      }
+      composite = weightSum > 0 ? weighted / weightSum : null;
+    }
+
+    const lastEvalDate = evalRows.length > 0 ? evalRows[0].evaluation_date : null;
+    const daysSinceLastEval = lastEvalDate
+      ? Math.floor((now - new Date(lastEvalDate).getTime()) / dayMs)
+      : null;
+
+    const atRisk =
+      (composite !== null && composite < ROSTER_COMPOSITE_AT_RISK_THRESHOLD) ||
+      daysSinceLastEval === null ||
+      daysSinceLastEval >= ROSTER_EVAL_LAG_DAYS_DEFAULT;
+
+    return {
+      studentId: id,
+      studentName: nameById.get(id) ?? "—",
+      hifzAvg,
+      tajweedAvg,
+      fluencyAvg,
+      attendanceAvg,
+      overallAvg,
+      composite,
+      evalCount: evalRows.length,
+      daysSinceLastEval,
+      atRisk,
+    };
+  });
+}
