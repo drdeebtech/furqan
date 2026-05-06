@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Calendar, Clock, Hourglass, Keyboard, RefreshCw, Star, Users, type LucideIcon } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/components/shared/toast";
@@ -14,6 +14,7 @@ import { DataTable } from "@/components/shared/data-table";
 import { ShortcutsHelp } from "@/components/shared/shortcuts-help";
 import { SectionErrorBoundary } from "@/components/shared/section-error-boundary";
 import { useKeyboardShortcuts, useShortcutsHelp, type Shortcut } from "@/lib/hooks/use-keyboard-shortcuts";
+import { useNowTicker } from "@/lib/hooks/use-now-ticker";
 import { BookingActions } from "./booking-actions";
 import { TeacherSessionCard } from "./teacher-session-card";
 import { TeacherGuidanceBanner } from "./guidance-banner";
@@ -77,12 +78,8 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
     timeToGrade,
   } = data;
 
-  // Live ticker.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 60_000);
-    return () => window.clearInterval(id);
-  }, []);
+  // Live ticker — shared useNowTicker pauses while tab is hidden.
+  const now = useNowTicker().getTime();
 
   // Greeting context.
   const firstName = fullName ? fullName.split(" ")[0] : null;

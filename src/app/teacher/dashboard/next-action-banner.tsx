@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ArrowLeft, ArrowRight, BookOpen, Calendar, ClipboardCheck, FileWarning, MessageSquare, Play, Video, X,
 } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
+import { useNowTicker } from "@/lib/hooks/use-now-ticker";
 
 interface TeacherNextActionData {
   cvStatus: "draft" | "pending_review" | "approved" | "rejected";
@@ -34,16 +35,11 @@ export function TeacherNextActionBanner({ data }: { data: TeacherNextActionData 
   const { t, dir, lang } = useLang();
   const Arrow = dir === "rtl" ? ArrowLeft : ArrowRight;
   const locale = lang === "ar" ? "ar" : "en-US";
-  const [now, setNow] = useState(() => Date.now());
+  const now = useNowTicker().getTime();
   const [dismissedKey, setDismissedKey] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     try { return window.localStorage.getItem(DISMISS_KEY); } catch { return null; }
   });
-
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 60_000);
-    return () => window.clearInterval(id);
-  }, []);
 
   const imminent = data.imminentSession;
   const minsUntilNext = imminent ? Math.floor((new Date(imminent.scheduledAt).getTime() - now) / 60_000) : null;

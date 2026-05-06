@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { useNowTicker } from "@/lib/hooks/use-now-ticker";
 import {
   Video,
   PhoneOff,
@@ -71,11 +72,8 @@ export function TeacherSessionCard({
   // Tick once a minute so isExpired / isAboutToExpire / inWindow re-evaluate
   // for tabs left open across the session start/end boundary. Every 60s is
   // tight enough that the user never sees a stale "Join" button for long.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 60_000);
-    return () => clearInterval(id);
-  }, []);
+  // Pauses while the tab is hidden via Page Visibility API.
+  const now = useNowTicker().getTime();
   const expiresMs = currentExpiresAt
     ? new Date(currentExpiresAt).getTime()
     : null;
