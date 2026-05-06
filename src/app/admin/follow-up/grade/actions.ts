@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { notify } from "@/lib/notifications/dispatcher";
+import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import { HOMEWORK_STATUS_AR } from "@/lib/constants";
 import type { HomeworkAssignment, HomeworkStatus } from "@/types/database";
@@ -137,9 +138,11 @@ export async function bulkGradeHomework(
             graded_by: user.id,
           },
           reason: "admin bulk-grade",
-        } as never);
-      } catch {
-        /* non-blocking audit */
+        } as never).then((r) => {
+          if (r.error) logError("bulkGradeFollowup: audit row failed", r.error, { tag: "admin-followup-grade" });
+        });
+      } catch (err) {
+        logError("bulkGradeFollowup: audit insert threw", err, { tag: "admin-followup-grade" });
       }
 
       // Notify student (mirror gradeHomework's pattern).
@@ -153,8 +156,8 @@ export async function bulkGradeHomework(
           "homework",
           item.id,
         );
-      } catch {
-        /* non-blocking notify */
+      } catch (err) {
+        logError("bulkGradeFollowup: notify failed", err, { tag: "admin-followup-grade" });
       }
 
       // Emit homework.graded event to n8n.
@@ -171,8 +174,8 @@ export async function bulkGradeHomework(
           },
           user.id,
         );
-      } catch {
-        /* non-blocking emit */
+      } catch (err) {
+        logError("bulkGradeFollowup: emitEvent failed", err, { tag: "admin-followup-grade" });
       }
 
       result.graded += 1;

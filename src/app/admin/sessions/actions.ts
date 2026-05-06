@@ -91,7 +91,9 @@ export async function forceEndSession(sessionId: string, reason: string) {
     old_data: oldData,
     new_data: newData,
     reason,
-  } satisfies TableInsert<"audit_log">);
+  } satisfies TableInsert<"audit_log">).then((r) => {
+    if (r.error) logError("endSession: audit row failed", r.error, { tag: "admin-sessions" });
+  });
 
   /* Notify teacher + student */
   const { data: booking } = await supabase
@@ -156,7 +158,8 @@ export async function adminCreateRoom(bookingId: string) {
   let room;
   try {
     room = await createRoom(roomName, expiresAt);
-  } catch {
+  } catch (err) {
+    logError("createSession: createRoom failed", err, { tag: "admin-sessions" });
     return { error: "فشل إنشاء غرفة الفيديو" };
   }
 
@@ -180,7 +183,9 @@ export async function adminCreateRoom(bookingId: string) {
     old_data: null,
     new_data: { room_name: room.name, room_url: room.url, created_via: "manual" },
     reason: "إنشاء غرفة يدوي بواسطة المسؤول",
-  } satisfies TableInsert<"audit_log">);
+  } satisfies TableInsert<"audit_log">).then((r) => {
+    if (r.error) logError("createRoomManual: audit row failed", r.error, { tag: "admin-sessions" });
+  });
 
   revalidatePath("/admin/sessions");
   return { success: true };
@@ -236,7 +241,8 @@ export async function adminRecreateRoom(sessionId: string) {
   let room;
   try {
     room = await createRoom(newRoomName, newExpiresAt);
-  } catch {
+  } catch (err) {
+    logError("recreateRoom: createRoom failed", err, { tag: "admin-sessions" });
     return { error: "فشل إنشاء غرفة الفيديو الجديدة" };
   }
 
@@ -273,7 +279,9 @@ export async function adminRecreateRoom(sessionId: string) {
     old_data: oldData,
     new_data: newData,
     reason: "إعادة إنشاء غرفة بواسطة المسؤول",
-  } satisfies TableInsert<"audit_log">);
+  } satisfies TableInsert<"audit_log">).then((r) => {
+    if (r.error) logError("recreateRoom: audit row failed", r.error, { tag: "admin-sessions" });
+  });
 
   revalidatePath("/admin/sessions");
   return { success: true };
@@ -302,7 +310,8 @@ export async function joinAsObserver(sessionId: string) {
   // Bump max participants to 3
   try {
     await updateRoomMaxParticipants(session.room_name, 3);
-  } catch {
+  } catch (err) {
+    logError("joinAsObserver: updateRoomMaxParticipants failed", err, { tag: "admin-sessions" });
     return { error: "فشل تحديث إعدادات الغرفة" };
   }
 
@@ -311,7 +320,8 @@ export async function joinAsObserver(sessionId: string) {
   let token: string;
   try {
     token = await createObserverToken(session.room_name, "مراقب", expiresAt);
-  } catch {
+  } catch (err) {
+    logError("joinAsObserver: createObserverToken failed", err, { tag: "admin-sessions" });
     return { error: "فشل إنشاء رمز المراقبة" };
   }
 
