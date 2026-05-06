@@ -120,3 +120,92 @@ function buildTokenProperties(input: CreateMeetingTokenInput): Record<string, un
       };
   }
 }
+
+// ────────────────────────────────────────────────────────────────────────
+// HIGH-LEVEL WRAPPER
+// ────────────────────────────────────────────────────────────────────────
+//
+// Bridges the role-lookup logic that Stage 6's halaqa video page needs.
+// Lookup order:
+//
+//   1. session_participants (halaqa enrollees + halaqa teacher)
+//   2. bookings (legacy private — teacher_id / student_id derive role)
+//   3. session_observers (admin observer flow per Stage 9 schema)
+//   4. is_admin_or_mod check (admin can join as observer even without a
+//      pre-recorded session_observers row — covers the "I'm dropping in
+//      to monitor" case)
+//
+// If none match, throws — caller doesn't have access to this session.
+
+import type { createAdminClient } from "@/lib/supabase/admin";
+
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+interface SessionForRoleLookup {
+  id: string;
+  booking_id: string | null;
+}
+
+/**
+ * Resolve a (session, user) pair to a meeting role.
+ *
+ * Returns null if the user has no claim on the session. Caller should
+ * surface this as an authorization error.
+ *
+ * Exported for unit testing and for callers that just need the role
+ * without a token (e.g. the join page rendering "you're not enrolled").
+ *
+ * Lookup order — first match wins:
+ *
+ *   1. session_participants — halaqa enrollees + halaqa teacher.
+ *      Stage 5 enrollment writes these rows; teacher row is written
+ *      by /admin/halaqas/new (#83).
+ *
+ *   2. bookings (only for private sessions where booking_id is set):
+ *      booking.teacher_id === userId → 'teacher'
+ *      booking.student_id === userId → 'student'
+ *      This is the path legacy 1:1 sessions take. Halaqa rows have
+ *      booking_id = NULL so this branch is skipped for them.
+ *
+ *   3. session_observers — admin who's joined as a hidden observer.
+ *      Pre-existing flow from V9 schema.
+ */
+export async function resolveMeetingRole(
+  admin: AdminClient,
+  session: SessionForRoleLookup,
+  userId: string,
+): Promise<MeetingRole | null> {
+  // 1. session_participants (halaqa path + halaqa teacher)
+  const { data: participant } = await admin
+    .from("session_participants")
+    .select("role")
+    .eq("session_id", session.id)
+    .eq("user_id", userId)
+    .maybeSingle<{ role: MeetingRole }>();
+  if (participant?.role) return participant.role;
+
+  // 2. bookings — only meaningful for private sessions
+  if (session.booking_id) {
+    const { data: booking } = await admin
+      .from("bookings")
+      .select("teacher_id, student_id")
+      .eq("id", session.booking_id)
+      .maybeSingle<{ teacher_id: string; student_id: string }>();
+    if (booking) {
+      if (booking.teacher_id === userId) return "teacher";
+      if (booking.student_id === userId) return "student";
+    }
+  }
+
+  // 3. session_observers (admin who's joined as hidden observer)
+  const { data: observer } = await admin
+    .from("session_observers")
+    .select("observer_id")
+    .eq("session_id", session.id)
+    .eq("observer_id", userId)
+    .maybeSingle();
+  if (observer) return "observer";
+
+  return null;
+}
+
