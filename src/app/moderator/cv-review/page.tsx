@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FileText, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata: Metadata = { title: "مراجعة السير الذاتية" };
 
@@ -41,10 +42,11 @@ export default async function ModeratorCvReviewPage() {
       </h1>
 
       {list.length === 0 ? (
-        <div className="glass-card rounded-xl p-12 text-center">
-          <Inbox size={32} className="mx-auto mb-3 text-muted" />
-          <p className="text-muted">{t("لا توجد سير ذاتية بانتظار المراجعة", "No CVs pending review")}</p>
-        </div>
+        <EmptyState
+          variant="glass-card"
+          icon={<Inbox size={32} className="text-muted" />}
+          message={t("لا توجد سير ذاتية بانتظار المراجعة", "No CVs pending review")}
+        />
       ) : (
         <div className="space-y-3">
           {list.map(cv => (

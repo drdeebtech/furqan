@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Shield, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata: Metadata = { title: "سجل المراجعة" };
 
@@ -38,9 +39,11 @@ export default async function ModeratorAuditPage() {
       <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><Shield size={24} className="text-gold" /> {t("سجل المراجعة", "Audit Log")}</h1>
 
       {list.length === 0 ? (
-        <div className="glass-card rounded-xl p-12 text-center">
-          <Inbox size={32} className="mx-auto mb-3 text-muted" /><p className="text-muted">{t("لا توجد سجلات", "No records")}</p>
-        </div>
+        <EmptyState
+          variant="glass-card"
+          icon={<Inbox size={32} className="text-muted" />}
+          message={t("لا توجد سجلات", "No records")}
+        />
       ) : (
         <div className="space-y-2">
           {list.map(l => (
