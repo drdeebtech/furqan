@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { loadOrFail } from "@/lib/supabase/load-or-fail";
+import { loadOrFail, countOrFail } from "@/lib/supabase/load-or-fail";
 import type { SessionType } from "@/types/database";
 import { StudentDashboardContent } from "./dashboard-content";
 import { DataLoadBanner } from "@/components/shared/data-load-banner";
@@ -113,8 +113,27 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
   // Parallel: packages + follow-up + dashboard widgets + most-recent learning
   // waypoint (drives the surah breadcrumb above the KPI grid) + streak +
   // follow-up pulse (drives the smart NextActionBanner).
+  // Homework status counts via 6 parallel HEAD queries (one per enum value)
+  // — replaces an unbounded SELECT-all-rows that scaled with student
+  // history. Each count uses a covering index on (student_id, status).
+  const HW_STATUSES = [
+    "assigned",
+    "student_ready",
+    "completed_excellent",
+    "completed_good",
+    "completed_needs_work",
+    "completed_not_done",
+  ] as const;
+  const hwCountsP = Promise.all(
+    HW_STATUSES.map(s =>
+      supabase.from("homework_assignments")
+        .select("id", { count: "exact", head: true })
+        .eq("student_id", user.id).eq("status", s)
+    )
+  );
+
   const [
-    packagesRes, hwRawRes, studyAnalytics, liveSessions, continueWatching,
+    packagesRes, hwCountsRaw, studyAnalytics, liveSessions, continueWatching,
     recentRecordings, nextQuiz, lastProgressRes, streakInfo, homeworkPulse,
     latestEvalRes, murajaahPlan,
   ] = await Promise.all([
@@ -122,9 +141,7 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
       .select("id, sessions_total, sessions_used, status, expires_at")
       .eq("student_id", user.id).eq("status", "active")
       .returns<{ id: string; sessions_total: number; sessions_used: number; status: string; expires_at: string | null }[]>(),
-    supabase.from("homework_assignments")
-      .select("status").eq("student_id", user.id)
-      .returns<{ status: string }[]>(),
+    hwCountsP,
     getStudentStudyAnalytics(user.id),
     getStudentLiveSessions(user.id),
     getStudentContinueWatching(user.id),
@@ -151,16 +168,23 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
     getStudentMurajaahPlan(user.id),
   ]);
   const packagesLoad = loadOrFail(packagesRes, [], { route: "student-dashboard", widget: "active-packages" });
-  const hwRawLoad = loadOrFail(hwRawRes, [], { route: "student-dashboard", widget: "homework-counts" });
   const lastProgressLoad = loadOrFail(lastProgressRes, null, { route: "student-dashboard", widget: "last-progress" });
   const latestEvalLoad = loadOrFail(latestEvalRes, null, { route: "student-dashboard", widget: "latest-evaluation" });
-  anyFailed = anyFailed || packagesLoad.failed || hwRawLoad.failed || lastProgressLoad.failed || latestEvalLoad.failed;
+
+  // Per-status counts with their own Sentry widget tags — Sentry now reads
+  // "student-dashboard.homework-completed_excellent failed" not just
+  // "homework-counts failed", so a flaky enum branch surfaces directly.
+  const hwCounts: Record<string, number> = {};
+  let hwCountsFailed = false;
+  HW_STATUSES.forEach((s, i) => {
+    const r = countOrFail(hwCountsRaw[i], { route: "student-dashboard", widget: `homework-${s}` });
+    hwCounts[s] = r.count;
+    if (r.failed) hwCountsFailed = true;
+  });
+
+  anyFailed = anyFailed || packagesLoad.failed || hwCountsFailed || lastProgressLoad.failed || latestEvalLoad.failed;
 
   const activePackages = packagesLoad.data;
-  const hwCounts: Record<string, number> = {};
-  for (const h of hwRawLoad.data) {
-    hwCounts[h.status] = (hwCounts[h.status] ?? 0) + 1;
-  }
   // Continue Watching prefers in-progress course lessons; falls back to recent
   // session recordings so the table is never empty for active students. The
   // boolean lets the client component title the section honestly — calling

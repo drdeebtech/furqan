@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { Calendar, CheckCircle, Clock, Briefcase, Eye, Keyboard, RefreshCw, Sparkles } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
@@ -13,6 +14,7 @@ import { BreakdownBar } from "@/components/shared/breakdown-bar";
 import { DataTable } from "@/components/shared/data-table";
 import { surahName } from "@/lib/quran/surahs";
 import { useKeyboardShortcuts, useShortcutsHelp, type Shortcut } from "@/lib/hooks/use-keyboard-shortcuts";
+import { useNowTicker } from "@/lib/hooks/use-now-ticker";
 import { ShortcutsHelp } from "@/components/shared/shortcuts-help";
 import { SectionErrorBoundary } from "@/components/shared/section-error-boundary";
 import { LessonRowActions } from "./lesson-row-actions";
@@ -84,13 +86,10 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Live ticker — every 60s. Seed from the server render time so the first
-  // countdown render matches SSR, then let the browser advance it.
-  const [now, setNow] = useState(renderedAtMs);
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 60_000);
-    return () => window.clearInterval(id);
-  }, []);
+  // Live ticker — every 60s. Seeded from server render time so SSR HTML
+  // matches first client render; useNowTicker preserves the seed across
+  // first start, then snaps fresh on visibility-resume.
+  const now = useNowTicker(60_000, renderedAtMs).getTime();
 
   const refresh = () => window.location.reload();
 
@@ -316,12 +315,12 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                   <Sparkles size={14} aria-hidden="true" />
                   {t("تركيز معلمك لهذا الأسبوع", "Your teacher's focus this week")}
                 </h2>
-                <a
+                <Link
                   href="/student/progress"
                   className="text-xs text-muted-light hover:text-gold focus-ring rounded"
                 >
                   {t("عرض التقييم الكامل ←", "View full evaluation →")}
-                </a>
+                </Link>
               </div>
               <p className="mt-2 text-base leading-relaxed text-foreground">
                 {latestEvaluation.next_goals}

@@ -6,6 +6,7 @@ import {
   ArrowLeft, ArrowRight, BookOpen, CalendarPlus, ClipboardCheck, Play, Video, X,
 } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
+import { useNowTicker } from "@/lib/hooks/use-now-ticker";
 
 interface NextActionData {
   /** Most-imminent confirmed booking, if any. */
@@ -40,13 +41,8 @@ export function NextActionBanner({ data, renderedAtMs }: { data: NextActionData;
   const { t, dir, lang } = useLang();
   const Arrow = dir === "rtl" ? ArrowLeft : ArrowRight;
   const locale = lang === "ar" ? "ar" : "en-US";
-  const [now, setNow] = useState(renderedAtMs);
+  const now = useNowTicker(60_000, renderedAtMs).getTime();
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
-
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 60_000);
-    return () => window.clearInterval(id);
-  }, []);
 
   useEffect(() => {
     try {

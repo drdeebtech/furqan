@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/shared/skeleton";
  */
 export default function StudentDashboardLoading() {
   return (
-    <div dir="rtl" className="space-y-6">
+    <div className="space-y-6">
       {/* Welcome row — greeting + day/surah breadcrumb */}
       <div>
         <Skeleton className="h-8 w-56" />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Shared 'now' clock for dashboard widgets.
@@ -15,16 +15,27 @@ import { useEffect, useState } from "react";
  * teacher, admin, moderator dashboard-content + their next-action banners +
  * teacher-session-card). One hook, one timer per page, one re-render per
  * minute per page instead of one per component.
+ *
+ * Pass `initial` (a Date or epoch ms) to seed the first render — typically
+ * the page's `renderedAtMs` from the server component — so SSR HTML matches
+ * the first client render exactly and there's no hydration mismatch. The
+ * seeded value is preserved across the first start; subsequent re-starts
+ * (after a visibility-hidden→visible transition) snap to real time.
  */
-export function useNowTicker(intervalMs: number = 60_000): Date {
-  const [now, setNow] = useState<Date>(() => new Date());
+export function useNowTicker(intervalMs: number = 60_000, initial?: Date | number): Date {
+  const [now, setNow] = useState<Date>(() => {
+    if (initial == null) return new Date();
+    return initial instanceof Date ? initial : new Date(initial);
+  });
+  const isFirstStartRef = useRef(true);
 
   useEffect(() => {
     let id: ReturnType<typeof setInterval> | null = null;
 
     const start = () => {
       if (id !== null) return;
-      setNow(new Date());
+      if (!isFirstStartRef.current) setNow(new Date());
+      isFirstStartRef.current = false;
       id = setInterval(() => setNow(new Date()), intervalMs);
     };
 
