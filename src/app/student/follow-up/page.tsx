@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import type { HomeworkAssignment } from "@/types/database";
 import { HomeworkList } from "./homework-list";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata: Metadata = { title: "متابعاتي" };
 
@@ -71,13 +72,12 @@ export default async function StudentFollowUpPage() {
       </div>
 
       {!assignments || assignments.length === 0 ? (
-        <div className="glass-card p-12 text-center">
-          <Inbox size={40} className="mx-auto mb-3 text-muted/40" />
-          <p className="text-muted">{t("لا توجد متابعات بعد", "No follow-ups yet")}</p>
-          <p className="mt-1 text-sm text-muted/60">
-            {t("سيكلّفك معلمك بمتابعات بعد كل جلسة لتثبيت ما تعلمته", "Your teacher will assign follow-ups after each session to lock in what you learned")}
-          </p>
-        </div>
+        <EmptyState
+          variant="glass-card"
+          icon={<Inbox size={40} className="text-muted/40" />}
+          message={t("لا توجد متابعات بعد", "No follow-ups yet")}
+          hint={t("سيكلّفك معلمك بمتابعات بعد كل جلسة لتثبيت ما تعلمته", "Your teacher will assign follow-ups after each session to lock in what you learned")}
+        />
       ) : (
         <HomeworkList
           assignments={assignments}

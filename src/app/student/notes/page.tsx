@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
 import type { SessionType } from "@/types/database";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata: Metadata = { title: "ملاحظات المعلم" };
 
@@ -56,11 +57,12 @@ export default async function StudentNotesPage() {
       <p className="mb-8 text-xs text-muted">{t("تجد هنا ملاحظات معلمك بعد كل جلسة", "Find your teacher's notes after each session here")}</p>
 
       {sessions.length === 0 ? (
-        <div className="glass-card p-12 text-center">
-          <Inbox size={32} className="mx-auto mb-3 text-muted" />
-          <p className="text-muted">{t("لا توجد ملاحظات بعد", "No notes yet")}</p>
-          <p className="mt-1 text-sm text-muted">{t("ستظهر ملاحظات معلمك هنا بعد كل جلسة مكتملة", "Your teacher's notes will appear here after each completed session")}</p>
-        </div>
+        <EmptyState
+          variant="glass-card"
+          icon={<Inbox size={32} className="text-muted" />}
+          message={t("لا توجد ملاحظات بعد", "No notes yet")}
+          hint={t("ستظهر ملاحظات معلمك هنا بعد كل جلسة مكتملة", "Your teacher's notes will appear here after each completed session")}
+        />
       ) : (
         <div className="space-y-4">
           {sessions.map(s => {
