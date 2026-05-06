@@ -117,8 +117,8 @@ export async function getTalqeenQueueForTeacher(
       }[]
     >();
   if (inboxRes.error) throw inboxRes.error;
-  const rows = inboxRes.data ?? [];
-  if (rows.length === 0) return [];
+  const rows = inboxRes.data;
+  if (!rows || rows.length === 0) return [];
 
   const studentIds = [...new Set(rows.map((r) => r.student_id))];
   const profilesRes = await supabase
@@ -128,7 +128,10 @@ export async function getTalqeenQueueForTeacher(
     .returns<{ id: string; full_name: string | null }[]>();
   if (profilesRes.error) throw profilesRes.error;
   const nameMap: Record<string, string> = {};
-  for (const p of profilesRes.data ?? []) nameMap[p.id] = p.full_name ?? "—";
+  const profiles = profilesRes.data;
+  if (profiles) {
+    for (const p of profiles) nameMap[p.id] = p.full_name ?? "—";
+  }
 
   const now = Date.now();
   const enriched: TalqeenQueueRow[] = rows.map((r) => {
