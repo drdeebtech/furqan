@@ -90,12 +90,15 @@ function recommendedAction(s: SignalRow, lang: Lang): { type: InterventionType; 
 }
 
 interface Props {
-  searchParams: Promise<{ risk?: string; pkg?: string; contacted?: string }>;
+  searchParams: Promise<{ risk?: string; pkg?: string; contacted?: string; page?: string }>;
 }
 
 export default async function RetentionPage({ searchParams }: Props) {
   const { t, dir, lang } = await getT();
   const sp = await searchParams;
+  const PAGE_SIZE = 100;
+  const page = Math.max(1, Number(sp.page) || 1);
+  const offset = (page - 1) * PAGE_SIZE;
   const filters = {
     risk: (sp.risk as RiskFilter) ?? "all",
     pkg: (sp.pkg as PkgFilter) ?? "all",
@@ -112,10 +115,11 @@ export default async function RetentionPage({ searchParams }: Props) {
     .from("retention_signals")
     .select("student_id, last_booking_at, last_session_at, package_remaining, package_expires_at, engagement_score, churn_risk_score, last_intervention_at, intervention_type, computed_at")
     .order("churn_risk_score", { ascending: false, nullsFirst: false })
-    .limit(100)
+    .range(offset, offset + PAGE_SIZE)
     .returns<SignalRow[]>();
 
-  const allSignals = signals ?? [];
+  const hasNextPage = (signals ?? []).length > PAGE_SIZE;
+  const allSignals = (signals ?? []).slice(0, PAGE_SIZE);
   const rows = applyFilters(allSignals, filters);
   const studentIds = rows.map(r => r.student_id);
 
@@ -216,6 +220,20 @@ export default async function RetentionPage({ searchParams }: Props) {
           </table>
         </div>
       )}
+
+      <nav className="mt-4 flex items-center justify-between text-sm" aria-label="retention pagination">
+        {page > 1 ? (
+          <Link href={(() => { const u = new URLSearchParams(); if (sp.risk) u.set("risk", sp.risk); if (sp.pkg) u.set("pkg", sp.pkg); if (sp.contacted) u.set("contacted", sp.contacted); u.set("page", String(page - 1)); return `/admin/retention?${u.toString()}`; })()} className="text-fg hover:underline">
+            ← {t("السابق", "Previous")}
+          </Link>
+        ) : <span className="text-muted opacity-40">← {t("السابق", "Previous")}</span>}
+        <span className="text-xs text-muted">{t(`صفحة ${page}`, `Page ${page}`)}</span>
+        {hasNextPage ? (
+          <Link href={(() => { const u = new URLSearchParams(); if (sp.risk) u.set("risk", sp.risk); if (sp.pkg) u.set("pkg", sp.pkg); if (sp.contacted) u.set("contacted", sp.contacted); u.set("page", String(page + 1)); return `/admin/retention?${u.toString()}`; })()} className="text-fg hover:underline">
+            {t("التالي", "Next")} →
+          </Link>
+        ) : <span className="text-muted opacity-40">{t("التالي", "Next")} →</span>}
+      </nav>
     </div>
   );
 }
