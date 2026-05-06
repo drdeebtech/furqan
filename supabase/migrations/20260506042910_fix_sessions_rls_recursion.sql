@@ -1,0 +1,62 @@
+-- HOTFIX — drop sessions_select_via_participants to break RLS recursion
+--
+-- Production breakage detected via Sentry within minutes of Stage 2 RLS
+-- migration applying:
+--
+--   PG error 42P17: "infinite recursion detected in policy for relation
+--   \"sessions\""
+--
+--   Issues: JAVASCRIPT-NEXTJS-E4-1J / -1K / -1N / -1P / -1Q / -1M
+--   Culprits: GET /teacher/dashboard, GET /student/dashboard
+--
+-- Root cause: mutual recursion between two RLS policies introduced by
+-- 20260505211142_add_session_modes_rls.sql:
+--
+--   sessions.sessions_select_via_participants
+--     → SELECT 1 FROM session_participants WHERE ...
+--
+--   session_participants.sp_select_self_or_teacher_or_admin
+--     → SELECT 1 FROM sessions JOIN bookings ... WHERE ...
+--
+-- When loading sessions, Postgres enforces sessions' RLS, which queries
+-- session_participants. session_participants' RLS then queries sessions.
+-- Sessions' RLS re-fires sessions_select_via_participants. Infinite loop.
+--
+-- Hotfix: DROP the new sessions policy. It was purely additive (halaqa
+-- enrollee read access) and no row exists in session_participants today
+-- because Stage 5 booking flow isn't built yet — so removing it has
+-- ZERO functional impact on production.
+--
+-- Re-introduction plan (Stage 5):
+--   The proper fix is a SECURITY DEFINER helper that bypasses RLS during
+--   the cross-table check. Sketch:
+--
+--     create or replace function user_is_session_participant(s_id uuid)
+--     returns boolean language sql
+--     security definer set search_path = public
+--     stable
+--     as $$
+--       select exists (
+--         select 1 from session_participants
+--         where session_id = s_id and user_id = auth.uid()
+--       );
+--     $$;
+--
+--     create policy "sessions_select_via_participants_v2"
+--       on sessions for select to authenticated
+--       using (user_is_session_participant(id));
+--
+--   Since SECURITY DEFINER functions run as their owner (postgres) and
+--   are NOT subject to the calling user's RLS, the function's internal
+--   SELECT bypasses session_participants' RLS, breaking the cycle. Stage 5
+--   PR will ship this redesigned policy alongside the booking flow.
+--
+-- The session_participants own SELECT policy (sp_select_self_or_teacher_or_admin)
+-- stays untouched. Without sessions_select_via_participants, the JOIN
+-- inside that policy will see sessions' OTHER (pre-Stage-2) policies,
+-- which query bookings — no recursion.
+
+drop policy if exists "sessions_select_via_participants" on public.sessions;
+
+comment on policy "sp_select_self_or_teacher_or_admin" on public.session_participants is
+  'Halaqa enrollment readability: own row OR teacher of session (via bookings.teacher_id) OR admin/moderator. The companion sessions read path for halaqa enrollees was dropped in the 2026-05-06 hotfix due to mutual recursion; Stage 5 will reintroduce it via a SECURITY DEFINER helper to break the cycle.';
