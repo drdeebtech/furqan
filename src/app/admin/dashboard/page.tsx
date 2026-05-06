@@ -6,7 +6,7 @@ import { withTimeout } from "@/lib/promise-utils";
 import { AdminDashboardContent } from "./dashboard-content";
 import {
   getAdminDailyRevenue,
-  getAdminLiveSessions,
+  getPlatformLiveSessions,
   getAdminBookingStatusBreakdown,
   getAdminRecentBookings,
   getAdminMonthlyRevenueTrend,
@@ -64,7 +64,7 @@ export default async function AdminDashboardPage() {
     todayBookingsRes,
     activeSessionsRes,
     dailyRevenue,
-    adminLiveSessions,
+    platformLiveSessions,
     bookingBreakdown,
     recentBookings,
     revenueTrend,
@@ -79,7 +79,7 @@ export default async function AdminDashboardPage() {
     withTimeout(supabase.from("bookings").select("id, student_id, teacher_id, scheduled_at, session_type, status, duration_min").gte("scheduled_at", todayStart).lte("scheduled_at", todayEnd).order("scheduled_at", { ascending: true }).returns<TodayBookingRow[]>(), DASHBOARD_QUERY_TIMEOUT_MS, { data: [] } as never, "todayBookingsRes"),
     withTimeout(supabase.from("sessions").select("id", { count: "exact", head: true }).not("started_at", "is", null).is("ended_at", null), DASHBOARD_QUERY_TIMEOUT_MS, { count: 0 } as never, "activeSessionsRes"),
     withTimeout(getAdminDailyRevenue(), DASHBOARD_QUERY_TIMEOUT_MS, [], "dailyRevenue"),
-    withTimeout(getAdminLiveSessions(), DASHBOARD_QUERY_TIMEOUT_MS, [], "adminLiveSessions"),
+    withTimeout(getPlatformLiveSessions(), DASHBOARD_QUERY_TIMEOUT_MS, [], "platformLiveSessions"),
     withTimeout(getAdminBookingStatusBreakdown(lang), DASHBOARD_QUERY_TIMEOUT_MS, [], "bookingBreakdown"),
     withTimeout(getAdminRecentBookings(6, lang), DASHBOARD_QUERY_TIMEOUT_MS, [], "recentBookings"),
     withTimeout(getAdminMonthlyRevenueTrend(), DASHBOARD_QUERY_TIMEOUT_MS, { currentMonthUsd: 0, previousMonthUsd: 0, changePct: 0 }, "revenueTrend"),
@@ -120,7 +120,7 @@ export default async function AdminDashboardPage() {
         renderedAtMs: now.getTime(),
         nameMap,
         dailyRevenue,
-        adminLiveSessions,
+        platformLiveSessions,
         bookingBreakdown,
         recentBookings,
       }}
