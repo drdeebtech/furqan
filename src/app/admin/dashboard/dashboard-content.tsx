@@ -42,7 +42,7 @@ interface AdminDashboardData {
   activeSessionCount: number;
   nameMap: Record<string, string>;
   dailyRevenue: { day: string; value: number; isActive: boolean }[];
-  adminLiveSessions: { id: string; title: string; subtitle: string; initials: string; timeRemaining?: string; progressPercent?: number }[];
+  platformLiveSessions: { id: string; title: string; subtitle: string; initials: string; timeRemaining?: string; progressPercent?: number }[];
   bookingBreakdown: { label: string; value: number; color: string }[];
   recentBookings: { id: string; [key: string]: unknown }[];
   renderedAtMs: number;
@@ -55,7 +55,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
   const {
     studentCount, teacherList, bookingsMonth, revenueMonth, revenueTrend,
     pendingCount, pendingBookings, newStudentCount, todayBookings, activeSessionCount,
-    nameMap, dailyRevenue, adminLiveSessions, bookingBreakdown, recentBookings, renderedAtMs,
+    nameMap, dailyRevenue, platformLiveSessions, bookingBreakdown, recentBookings, renderedAtMs,
   } = data;
 
   const formatTime = (d: string) => new Date(d).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
@@ -175,7 +175,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
           </div>
           <div className="space-y-4 lg:col-span-2">
             <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل الجلسات المباشرة", "Couldn't load live sessions")}>
-              <LiveSessionsWidget sessions={adminLiveSessions} title={t("الجلسات المباشرة", "Live Sessions")} ongoingCount={adminLiveSessions.length} />
+              <LiveSessionsWidget sessions={platformLiveSessions} title={t("الجلسات المباشرة", "Live Sessions")} ongoingCount={platformLiveSessions.length} />
             </SectionErrorBoundary>
             <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل توزيع الحجوزات", "Couldn't load booking breakdown")}>
               <BreakdownBar title={t("حالات الحجوزات", "Booking Status")} segments={bookingBreakdown} emptyMessage={t("لا توجد حجوزات في آخر 30 يوم", "No bookings in the last 30 days")} />

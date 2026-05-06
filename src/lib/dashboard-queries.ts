@@ -438,7 +438,7 @@ export async function getStudentLiveSessions(
 
   const bookingIds = bookings.map((b) => b.id);
 
-  // Stranded-session guard — see getAdminLiveSessions for rationale.
+  // Stranded-session guard — see getPlatformLiveSessions for rationale.
   const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
   const { data: sessions } = await supabase
     .from("sessions")
@@ -1016,7 +1016,7 @@ export async function getTeacherLiveSessions(
 
   const bookingIds = bookings.map((b) => b.id);
 
-  // Stranded-session guard — see getAdminLiveSessions for rationale.
+  // Stranded-session guard — see getPlatformLiveSessions for rationale.
   const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
   const sessionsRes = await supabase
     .from("sessions")
@@ -1309,7 +1309,7 @@ export async function getAdminDailyRevenue(
   return result;
 }
 
-export async function getAdminLiveSessions(): Promise<LiveSessionItem[]> {
+export async function getPlatformLiveSessions(): Promise<LiveSessionItem[]> {
   const supabase = await createClient();
 
   // Single round-trip via FK chain: sessions.booking_id → bookings →

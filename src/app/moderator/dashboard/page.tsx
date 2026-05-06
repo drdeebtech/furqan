@@ -8,7 +8,7 @@ import {
   getModeratorWeeklyCVActivity,
   getModeratorRatingDistribution,
   getModeratorFlaggedEvaluations,
-  getAdminLiveSessions,
+  getPlatformLiveSessions,
 } from "@/lib/dashboard-queries";
 
 export const metadata: Metadata = { title: "لوحة المشرف" };
@@ -39,7 +39,7 @@ export default async function ModeratorDashboardPage() {
 
   const [weeklyCVActivity, liveSessions, ratingDistribution, flaggedEvaluations, atRisk] = await Promise.all([
     getModeratorWeeklyCVActivity(),
-    getAdminLiveSessions(),
+    getPlatformLiveSessions(),
     getModeratorRatingDistribution(),
     getModeratorFlaggedEvaluations(6, lang),
     fetchModeratorAtRisk(),
