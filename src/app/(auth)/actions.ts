@@ -353,9 +353,60 @@ export async function register(
   });
 
   if (error) {
-    if (error.message.includes("already registered")) {
+    const signupErr = error as { status?: number; code?: string; message?: string };
+
+    // Triage by error code, mirroring login() above. Expected business
+    // cases get a tailored Arabic message and are NOT logged. Anything
+    // unrecognized falls through to logError so genuinely surprising
+    // failures (signup_disabled, SMTP, trigger errors) stay visible.
+
+    // Email already in auth.users. Supabase has changed both the code
+    // and the message string over time, so accept either form.
+    if (
+      signupErr.code === "user_already_exists" ||
+      signupErr.code === "email_exists" ||
+      signupErr.message?.includes("already registered")
+    ) {
       return { error: "هذا البريد الإلكتروني مسجل بالفعل" };
     }
+
+    if (signupErr.code === "signup_disabled") {
+      return { error: "التسجيل متوقف مؤقتاً — تواصل معنا عبر واتساب" };
+    }
+
+    // Supabase Auth's own password checks (length, HaveIBeenPwned breach
+    // corpus). Our client-side rule is looser, so this can fire even on
+    // passwords that pass our UI validation.
+    if (
+      signupErr.code === "weak_password" ||
+      signupErr.code === "password_compromised"
+    ) {
+      return { error: "كلمة المرور سهلة التخمين — اختر كلمة مرور أقوى" };
+    }
+
+    // Supabase per-IP signup limit, separate from our automation_logs
+    // limiter (which only covers login + forgot-password).
+    if (
+      signupErr.code === "over_email_send_rate_limit" ||
+      signupErr.code === "over_request_rate_limit"
+    ) {
+      return { error: "تم تجاوز المحاولات المسموحة — حاول خلال ساعة" };
+    }
+
+    if (signupErr.code === "validation_failed") {
+      return { error: "تحقق من البريد الإلكتروني وأعد المحاولة" };
+    }
+
+    logError("Supabase signUp unexpected error", error, {
+      component: "auth.register",
+      tag: "auth-signup-unexpected",
+      metadata: {
+        email,
+        supabaseStatus: signupErr.status,
+        supabaseCode: signupErr.code,
+        supabaseMessage: signupErr.message,
+      },
+    });
     return { error: "حدث خطأ أثناء إنشاء الحساب" };
   }
 
