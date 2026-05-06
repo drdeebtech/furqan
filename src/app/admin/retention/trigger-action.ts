@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
+import { logError } from "@/lib/logger";
 
 /**
  * Manually run the retention scorer (same endpoint n8n calls on its daily cron).
@@ -32,6 +33,7 @@ export async function runScorerNow(): Promise<{ ok: boolean; scored?: number; hi
     revalidatePath("/admin/control-tower");
     return { ok: true, scored: json.scored, high_risk: json.high_risk };
   } catch (e) {
+    logError("runScorerNow: fetch to /api/retention/score failed", e, { tag: "admin-retention" });
     return { ok: false, error: e instanceof Error ? e.message : "فشل التشغيل" };
   }
 }
