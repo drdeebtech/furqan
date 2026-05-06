@@ -5,7 +5,7 @@ import { invalidateByTag } from "@vercel/functions";
 import { createClient } from "@/lib/supabase/server";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin } from "@/lib/auth/require-admin";
+import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
 
 export type ActionResult = { error?: string; success?: boolean; notice?: string };
@@ -46,7 +46,10 @@ export async function updateAccount(
 ): Promise<ActionResult> {
   try {
     await requireAdmin();
-  } catch {
+  } catch (e) {
+    if (!(e instanceof ForbiddenError)) {
+      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
+    }
     return { error: "غير مصرح" };
   }
 
@@ -85,7 +88,10 @@ export async function updateEmail(
 ): Promise<ActionResult> {
   try {
     await requireAdmin();
-  } catch {
+  } catch (e) {
+    if (!(e instanceof ForbiddenError)) {
+      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
+    }
     return { error: "غير مصرح" };
   }
 
@@ -113,7 +119,10 @@ export async function uploadTeacherPhoto(
 ): Promise<ActionResult> {
   try {
     await requireAdmin();
-  } catch {
+  } catch (e) {
+    if (!(e instanceof ForbiddenError)) {
+      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
+    }
     return { error: "غير مصرح" };
   }
 
@@ -169,7 +178,10 @@ export async function updateTeacherProfile(
 ): Promise<ActionResult> {
   try {
     await requireAdmin();
-  } catch {
+  } catch (e) {
+    if (!(e instanceof ForbiddenError)) {
+      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
+    }
     return { error: "غير مصرح" };
   }
 
@@ -206,7 +218,10 @@ export async function upsertIjaza(
 ): Promise<ActionResult> {
   try {
     await requireAdmin();
-  } catch {
+  } catch (e) {
+    if (!(e instanceof ForbiddenError)) {
+      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
+    }
     return { error: "غير مصرح" };
   }
 
@@ -260,7 +275,10 @@ export async function upsertIjaza(
 export async function deleteIjaza(teacherId: string, ijazaId: string): Promise<ActionResult> {
   try {
     await requireAdmin();
-  } catch {
+  } catch (e) {
+    if (!(e instanceof ForbiddenError)) {
+      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
+    }
     return { error: "غير مصرح" };
   }
 
@@ -287,7 +305,10 @@ export async function setIjazaVerified(
   let admin;
   try {
     admin = await requireAdmin();
-  } catch {
+  } catch (e) {
+    if (!(e instanceof ForbiddenError)) {
+      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
+    }
     return { error: "غير مصرح" };
   }
 
@@ -318,7 +339,10 @@ export async function upsertAvailability(
 ): Promise<ActionResult> {
   try {
     await requireAdmin();
-  } catch {
+  } catch (e) {
+    if (!(e instanceof ForbiddenError)) {
+      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
+    }
     return { error: "غير مصرح" };
   }
 
@@ -374,7 +398,10 @@ export async function upsertAvailability(
 export async function deleteAvailability(teacherId: string, slotId: string): Promise<ActionResult> {
   try {
     await requireAdmin();
-  } catch {
+  } catch (e) {
+    if (!(e instanceof ForbiddenError)) {
+      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
+    }
     return { error: "غير مصرح" };
   }
 
@@ -402,7 +429,10 @@ export async function upsertException(
 ): Promise<ActionResult> {
   try {
     await requireAdmin();
-  } catch {
+  } catch (e) {
+    if (!(e instanceof ForbiddenError)) {
+      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
+    }
     return { error: "غير مصرح" };
   }
 
@@ -430,7 +460,10 @@ export async function upsertException(
 export async function deleteException(teacherId: string, exceptionId: string): Promise<ActionResult> {
   try {
     await requireAdmin();
-  } catch {
+  } catch (e) {
+    if (!(e instanceof ForbiddenError)) {
+      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
+    }
     return { error: "غير مصرح" };
   }
 
