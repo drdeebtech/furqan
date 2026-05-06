@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Users2, MessageSquareQuote } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n/format-date";
 import type { TeacherMentorship } from "@/types/database";
 
 /**
@@ -14,7 +15,7 @@ import type { TeacherMentorship } from "@/types/database";
  * for now until admins start pairing teachers.
  */
 export async function MentorshipCard({ teacherId }: { teacherId: string }) {
-  const { t } = await getT();
+  const { t, lang } = await getT();
   const supabase = await createClient();
 
   // Pull active mentorships in either direction. RLS ensures we only see
@@ -76,8 +77,8 @@ export async function MentorshipCard({ teacherId }: { teacherId: string }) {
               <p className="mt-1 text-sm font-semibold">{nameMap[asMentee.mentor_id] ?? "—"}</p>
               <p className="mt-1 text-[11px] text-muted">
                 {t(
-                  `بدأ منذ ${new Date(asMentee.started_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}`,
-                  `Started ${new Date(asMentee.started_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}`,
+                  `بدأ منذ ${formatDate(asMentee.started_at, lang)}`,
+                  `Started ${formatDate(asMentee.started_at, lang)}`,
                 )}
               </p>
             </div>
@@ -117,7 +118,7 @@ export async function MentorshipCard({ teacherId }: { teacherId: string }) {
                 <MessageSquareQuote size={11} aria-hidden="true" />
                 {t("آخر ملاحظة", "Latest note")}
                 <span className="text-muted-light">·</span>
-                <span>{new Date(latestFeedback.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                <span>{formatDate(latestFeedback.created_at, lang)}</span>
                 {latestFeedback.severity !== "info" && (
                   <span className={`ms-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
                     latestFeedback.severity === "critical" ? "bg-error/20 text-error" : "bg-warning/20 text-warning"
