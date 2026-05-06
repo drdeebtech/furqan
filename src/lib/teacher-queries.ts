@@ -448,8 +448,21 @@ export async function getTeacherRecitationRoster(
   if (!bookings || bookings.length === 0) return [];
   const studentIds = [...new Set(bookings.map((b) => b.student_id))];
 
-  // Step 2: parallel fetch profiles + recent progress rows for those students.
-  const [profilesRes, progressRes] = await Promise.all([
+  // Step 2: parallel fetches.
+  // Per-student `.limit(5)` instead of one global `.limit(N)`: a single
+  // very-active student can otherwise dominate a union limit and starve
+  // quieter students of any rows. With Promise.all the N+1 cost is
+  // amortized in parallel; for typical rosters (5–30 students) latency
+  // is unchanged. For very large rosters (100+) consider a Postgres
+  // window-function RPC instead.
+  type ProgressRow = {
+    student_id: string;
+    surah_from: number | null;
+    surah_to: number | null;
+    quality_rating: number | null;
+    created_at: string;
+  };
+  const [profilesRes, ...progressResults] = await Promise.all([
     supabase
       .from("profiles")
       .select("id, full_name, avatar_url")
@@ -457,30 +470,23 @@ export async function getTeacherRecitationRoster(
       .returns<
         { id: string; full_name: string | null; avatar_url: string | null }[]
       >(),
-    // Pull a generous window of progress rows so we can compute an avg of
-    // the last 5 per student client-side. 50 per teacher × 5-event tail
-    // is a reasonable upper bound for active rosters; cap defensively.
-    supabase
-      .from("student_progress")
-      .select(
-        "student_id, surah_from, surah_to, quality_rating, created_at",
-      )
-      .in("student_id", studentIds)
-      .eq("progress_type", "new")
-      .order("created_at", { ascending: false })
-      .limit(500)
-      .returns<
-        {
-          student_id: string;
-          surah_from: number | null;
-          surah_to: number | null;
-          quality_rating: number | null;
-          created_at: string;
-        }[]
-      >(),
+    ...studentIds.map((id) =>
+      supabase
+        .from("student_progress")
+        .select(
+          "student_id, surah_from, surah_to, quality_rating, created_at",
+        )
+        .eq("student_id", id)
+        .eq("progress_type", "new")
+        .order("created_at", { ascending: false })
+        .limit(5)
+        .returns<ProgressRow[]>(),
+    ),
   ]);
   if (profilesRes.error) throw profilesRes.error;
-  if (progressRes.error) throw progressRes.error;
+  for (const r of progressResults) {
+    if (r.error) throw r.error;
+  }
 
   const profileById = new Map<
     string,
@@ -495,25 +501,13 @@ export async function getTeacherRecitationRoster(
     }
   }
 
-  // Group progress rows by student, sort newest-first (DB already orders).
-  const progressByStudent = new Map<
-    string,
-    typeof progressRes.data extends infer R
-      ? R extends { student_id: string }[]
-        ? R
-        : never
-      : never
-  >();
-  if (progressRes.data) {
-    for (const row of progressRes.data) {
-      const list = progressByStudent.get(row.student_id);
-      if (list) {
-        list.push(row);
-      } else {
-        progressByStudent.set(row.student_id, [row]);
-      }
-    }
-  }
+  // Map results back to students by index — Promise.all preserves order
+  // matching the input array, so progressResults[i] belongs to studentIds[i].
+  const progressByStudent = new Map<string, ProgressRow[]>();
+  studentIds.forEach((id, i) => {
+    const data = progressResults[i].data;
+    progressByStudent.set(id, data ? data : []);
+  });
 
   const now = Date.now();
   const dayMs = 24 * 60 * 60 * 1000;
