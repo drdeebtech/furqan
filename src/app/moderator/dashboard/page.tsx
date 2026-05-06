@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { ModeratorDashboardContent } from "./dashboard-content";
-import { ModeratorAtRiskStudents } from "./at-risk-students";
+import { ModeratorAtRiskStudents, fetchModeratorAtRisk } from "./at-risk-students";
 import {
   getModeratorWeeklyCVActivity,
   getModeratorRatingDistribution,
@@ -14,8 +15,13 @@ export const metadata: Metadata = { title: "لوحة المشرف" };
 
 export default async function ModeratorDashboardPage() {
   const supabase = await createClient();
+  const { lang, dir } = await getT();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+
+  // Bounded to 90d so the count doesn't grow linearly forever — this KPI
+  // slot reads as "recent activity", and an all-time number misleads.
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
 
   const [
     { count: studentCount },
@@ -28,14 +34,15 @@ export default async function ModeratorDashboardPage() {
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "teacher"),
     supabase.from("teacher_profiles").select("id", { count: "exact", head: true }).eq("cv_status", "pending_review"),
     supabase.from("sessions").select("id", { count: "exact", head: true }).not("started_at", "is", null).is("ended_at", null),
-    supabase.from("session_evaluations").select("id", { count: "exact", head: true }),
+    supabase.from("session_evaluations").select("id", { count: "exact", head: true }).gte("created_at", ninetyDaysAgo),
   ]);
 
-  const [weeklyCVActivity, liveSessions, ratingDistribution, flaggedEvaluations] = await Promise.all([
+  const [weeklyCVActivity, liveSessions, ratingDistribution, flaggedEvaluations, atRisk] = await Promise.all([
     getModeratorWeeklyCVActivity(),
     getAdminLiveSessions(),
     getModeratorRatingDistribution(),
-    getModeratorFlaggedEvaluations(),
+    getModeratorFlaggedEvaluations(6, lang),
+    fetchModeratorAtRisk(),
   ]);
 
   return (
@@ -54,8 +61,8 @@ export default async function ModeratorDashboardPage() {
           flaggedEvaluations,
         }}
       />
-      <div className="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
-        <ModeratorAtRiskStudents />
+      <div className="mx-auto max-w-7xl px-4 pb-8 sm:px-6">
+        <ModeratorAtRiskStudents data={{ ...atRisk, dir }} />
       </div>
     </>
   );

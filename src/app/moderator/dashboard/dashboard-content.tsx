@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowLeft, ArrowRight, ClipboardList, Eye, FileCheck, FileText, Keyboard,
   RefreshCw, ShieldCheck, Star, Video, X,
 } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
+import { useNowTicker } from "@/lib/hooks/use-now-ticker";
 import { useToast } from "@/components/shared/toast";
 import { StatCard } from "@/components/shared/stat-card";
 import { WidgetCard } from "@/components/shared/widget-card";
@@ -43,12 +44,8 @@ export function ModeratorDashboardContent({ data }: { data: ModeratorDashboardDa
     weeklyCVActivity, liveSessions, ratingDistribution, flaggedEvaluations,
   } = data;
 
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 60_000);
-    return () => window.clearInterval(id);
-  }, []);
-  const weekday = new Date(now).toLocaleDateString(locale, { weekday: "long" });
+  const now = useNowTicker();
+  const weekday = now.toLocaleDateString(locale, { weekday: "long" });
 
   // Smart banner state — moderator priority cascade.
   type ModBannerState =
