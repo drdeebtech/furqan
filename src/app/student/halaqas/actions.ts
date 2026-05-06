@@ -10,6 +10,13 @@ export interface EnrollState {
   error?: string;
 }
 
+export interface WaitlistState {
+  ok?: boolean;
+  error?: string;
+  /** Position in line (1-indexed). Set when ok===true. */
+  position?: number;
+}
+
 interface SessionRow {
   id: string;
   session_mode: string;
@@ -194,6 +201,117 @@ export async function cancelHalaqaEnrollment(
   }
 
   revalidatePath("/student/halaqas");
+  revalidatePath(`/student/halaqas/${sessionId}`);
+  return { ok: true };
+}
+
+/**
+ * Join the halaqa waiting list. Used when capacity is full.
+ *
+ * Position is computed from current max + 1 via snapshot read.
+ * Race tolerance: two simultaneous joiners may collide on the same
+ * position number — acceptable for v1 because the eventual
+ * cancellation flow re-ranks. UNIQUE(session_id, student_id)
+ * prevents the same student from joining twice.
+ */
+export async function joinHalaqaWaitingList(
+  _prev: WaitlistState,
+  formData: FormData,
+): Promise<WaitlistState> {
+  const sessionId = String(formData.get("session_id") ?? "").trim();
+  if (!sessionId) return { error: "session_id missing" };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "غير مسجل الدخول" };
+
+  const admin = createAdminClient();
+
+  // Reject if already enrolled — joining the waiting list would be
+  // a no-op and confusing in the UI.
+  const { data: existingParticipant } = await admin
+    .from("session_participants")
+    .select("id")
+    .eq("session_id", sessionId)
+    .eq("user_id", user.id)
+    .eq("role", "student")
+    .maybeSingle();
+  if (existingParticipant) return { error: "أنت مسجل بالفعل" };
+
+  // Snapshot-read the current max position for this session.
+  const { data: lastRow } = await admin
+    .from("halaqa_waiting_list")
+    .select("position")
+    .eq("session_id", sessionId)
+    .is("promoted_at", null)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ position: number }>();
+  const nextPosition = (lastRow?.position ?? 0) + 1;
+
+  const { error: insErr } = await admin
+    .from("halaqa_waiting_list")
+    .insert({
+      session_id: sessionId,
+      student_id: user.id,
+      position: nextPosition,
+    } as never);
+
+  if (insErr) {
+    if (insErr.code === "23505") return { error: "أنت في قائمة الانتظار بالفعل" };
+    logError("joinHalaqaWaitingList: insert failed", insErr, {
+      tag: "halaqa.waitlist",
+      metadata: { session_id: sessionId, user_id: user.id },
+    });
+    return { error: `فشل الانضمام إلى قائمة الانتظار: ${insErr.message}` };
+  }
+
+  revalidatePath(`/student/halaqas/${sessionId}`);
+  return { ok: true, position: nextPosition };
+}
+
+/**
+ * Leave the halaqa waiting list. Position re-ranking is deferred —
+ * gaps in the sequence are acceptable for v1 because every read
+ * sorts by position ascending and the absolute number is advisory.
+ */
+export async function leaveHalaqaWaitingList(
+  _prev: WaitlistState,
+  formData: FormData,
+): Promise<WaitlistState> {
+  const sessionId = String(formData.get("session_id") ?? "").trim();
+  if (!sessionId) return { error: "session_id missing" };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "غير مسجل الدخول" };
+
+  const admin = createAdminClient();
+
+  const { data: deleted, error: delErr } = await admin
+    .from("halaqa_waiting_list")
+    .delete()
+    .eq("session_id", sessionId)
+    .eq("student_id", user.id)
+    .is("promoted_at", null)
+    .select("id");
+
+  if (delErr) {
+    logError("leaveHalaqaWaitingList: delete failed", delErr, {
+      tag: "halaqa.waitlist",
+      metadata: { session_id: sessionId, user_id: user.id },
+    });
+    return { error: `فشل المغادرة: ${delErr.message}` };
+  }
+
+  if (!deleted || deleted.length === 0) {
+    return { error: "لست في قائمة الانتظار" };
+  }
+
   revalidatePath(`/student/halaqas/${sessionId}`);
   return { ok: true };
 }
