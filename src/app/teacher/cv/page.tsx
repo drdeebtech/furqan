@@ -7,6 +7,7 @@ import { CvForm } from "./cv-form";
 import { MyIjazas } from "./my-ijazas";
 import { getAllTeacherPicklists } from "@/lib/site-content/queries";
 import { Award } from "lucide-react";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "السيرة الذاتية" };
 
@@ -96,17 +97,17 @@ export default async function TeacherCvPage() {
 
   return (
     <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold">
-          <FileText size={24} className="text-gold" />
-          {t("السيرة الذاتية", "Teacher CV")}
-        </h1>
-        <span
-          className={`glass-badge rounded-full px-2 py-0.5 text-xs ${badge.classes}`}
-        >
-          {lang === "ar" ? badge.ar : badge.en}
-        </span>
-      </div>
+      <PageHeader
+        icon={<FileText size={24} className="text-gold" />}
+        title={t("السيرة الذاتية", "Teacher CV")}
+        actions={
+          <span
+            className={`glass-badge rounded-full px-2 py-0.5 text-xs ${badge.classes}`}
+          >
+            {lang === "ar" ? badge.ar : badge.en}
+          </span>
+        }
+      />
 
       {status === "rejected" && profile.cv_rejection_reason && (
         <div className="mb-6 rounded-xl border border-error/30 bg-error/10 p-4 text-sm text-red-400">

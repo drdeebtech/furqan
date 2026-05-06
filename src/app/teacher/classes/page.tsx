@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import type { SessionType } from "@/types/database";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "الجلسات الجماعية" };
 
@@ -63,19 +64,19 @@ export default async function TeacherClassesPage() {
 
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold">
-          <Users size={24} className="text-gold" />
-          {t("الجلسات الجماعية", "Group Classes")}
-        </h1>
-        <Link
-          href="/teacher/classes/new"
-          className="flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-medium text-white"
-        >
-          <Plus size={16} aria-hidden="true" />
-          {t("جلسة جديدة", "New class")}
-        </Link>
-      </div>
+      <PageHeader
+        icon={<Users size={24} className="text-gold" />}
+        title={t("الجلسات الجماعية", "Group Classes")}
+        actions={
+          <Link
+            href="/teacher/classes/new"
+            className="flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-medium text-white"
+          >
+            <Plus size={16} aria-hidden="true" />
+            {t("جلسة جديدة", "New class")}
+          </Link>
+        }
+      />
 
       {(offerings ?? []).length === 0 ? (
         <div className="glass-card rounded-xl p-12 text-center">
