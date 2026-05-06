@@ -44,7 +44,24 @@ export async function TeacherAtRiskStudents({ teacherId }: Props) {
     .returns<{ student_id: string }[]>();
 
   const studentIds = Array.from(new Set((bookings ?? []).map(b => b.student_id)));
-  if (studentIds.length === 0) return null;
+  if (studentIds.length === 0) {
+    // Pre-data state — teacher hasn't received any bookings in 90d. Quiet
+    // onboarding hint rather than `return null` so the dashboard's grid
+    // rhythm stays stable + the new teacher gets a "this is where the data
+    // will land" cue. (mentorship-card and recitation-standard-roster
+    // intentionally still return null — those are admin-paired/signal-driven
+    // rather than onboarding-stage.)
+    return (
+      <EmptyCard
+        variant="quiet"
+        title={t("لا توجد بيانات طلاب بعد", "No student data yet")}
+        body={t(
+          "ستظهر مؤشرات احتفاظ الطلاب هنا بعد أن تبدأ في استقبال الحجوزات",
+          "Student retention signals will appear here once you start receiving bookings",
+        )}
+      />
+    );
+  }
 
   const { data: signals } = await supabase
     .from("retention_signals")
