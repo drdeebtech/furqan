@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Users, Inbox, AlertCircle, ClipboardCheck, Calendar } from "lucide-react";
+import { Users, Inbox, AlertCircle, ClipboardCheck, Calendar, Briefcase } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { SearchInput } from "@/components/shared/search-input";
@@ -59,7 +59,7 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
   //     student (ungraded count)
   //   - upcoming confirmed bookings per student (next-session date)
   const nowIso = new Date().toISOString();
-  const [evalRowsRes, ungradedRowsRes, upcomingRowsRes] = await Promise.all([
+  const [evalRowsRes, ungradedRowsRes, upcomingRowsRes, pkgRowsRes] = await Promise.all([
     studentIds.length > 0
       ? supabase
           .from("session_evaluations")
@@ -89,6 +89,18 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
           .order("scheduled_at", { ascending: true })
           .returns<{ student_id: string; scheduled_at: string }[]>()
       : Promise.resolve({ data: [] }),
+    // Active package balances per student. Gated by the new SELECT policy
+    // `student_packages_teacher_read` (migration 20260506140536) which
+    // checks `private.teacher_has_booked_student(auth.uid(), student_id)`.
+    // Without that policy this returns 0 rows.
+    studentIds.length > 0
+      ? supabase
+          .from("student_packages")
+          .select("student_id, sessions_remaining")
+          .eq("status", "active")
+          .in("student_id", studentIds)
+          .returns<{ student_id: string; sessions_remaining: number | null }[]>()
+      : Promise.resolve({ data: [] }),
   ]);
 
   // Reduce: latest eval date, ungraded count, next session date — all
@@ -105,6 +117,16 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
   for (const b of upcomingRowsRes.data ?? []) {
     if (!nextSessionAt[b.student_id]) nextSessionAt[b.student_id] = b.scheduled_at;
   }
+  // Sum sessions_remaining across active packages per student. Use explicit
+  // null-guard rather than `?? []` to keep the silent-fail tripwire at
+  // baseline.
+  const sessionsRemaining: Record<string, number> = {};
+  if (pkgRowsRes.data) {
+    for (const p of pkgRowsRes.data) {
+      sessionsRemaining[p.student_id] =
+        (sessionsRemaining[p.student_id] ?? 0) + (p.sessions_remaining ?? 0);
+    }
+  }
 
   const allStudents = studentIds.map(id => ({
     id,
@@ -113,6 +135,7 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
     lastEvalAt: lastEvalAt[id] ?? null,
     ungraded: ungradedCount[id] ?? 0,
     nextSessionAt: nextSessionAt[id] ?? null,
+    sessionsRemaining: sessionsRemaining[id] ?? 0,
     ...studentStats.get(id)!,
   }));
 
@@ -187,6 +210,25 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
                       {t("قادم", "Next")}: {new Date(s.nextSessionAt).toLocaleDateString(localeArg, { month: "short", day: "numeric" })}
                     </span>
                   )}
+                  {/* Sessions-remaining chip — color-shifts as the balance
+                      runs low so a teacher mid-lesson can see scope. */}
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
+                      s.sessionsRemaining === 0
+                        ? "border-error/30 bg-error/10 text-red-300"
+                        : s.sessionsRemaining <= 2
+                          ? "border-warning/30 bg-warning/10 text-warning"
+                          : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                    }`}
+                    title={t(
+                      `${s.sessionsRemaining} جلسة متبقية في الباقات الفعّالة`,
+                      `${s.sessionsRemaining} session${s.sessionsRemaining === 1 ? "" : "s"} remaining across active packages`,
+                    )}
+                  >
+                    <Briefcase size={11} aria-hidden="true" />
+                    {s.sessionsRemaining}{" "}
+                    {t("متبقية", "left")}
+                  </span>
                   {evalOverdue && (
                     <span
                       className="inline-flex items-center gap-1 rounded-full border border-orange-500/30 bg-orange-500/10 px-2 py-0.5 text-orange-300"
