@@ -7,6 +7,7 @@ import { getT } from "@/lib/i18n/server";
 import { SearchInput } from "@/components/shared/search-input";
 import { UserRow } from "./user-row";
 import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "المستخدمون" };
 
@@ -53,12 +54,15 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
 
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold"><Users size={24} className="text-gold" /> {t("المستخدمون", "Users")}</h1>
-        <Link href="/admin/users/new" className="flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-medium">
-          <Plus size={16} /> {t("إنشاء مستخدم", "New User")}
-        </Link>
-      </div>
+      <PageHeader
+        icon={<Users size={24} className="text-gold" />}
+        title={t("المستخدمون", "Users")}
+        actions={
+          <Link href="/admin/users/new" className="flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-medium">
+            <Plus size={16} /> {t("إنشاء مستخدم", "New User")}
+          </Link>
+        }
+      />
       <div className="mb-4">
         <SearchInput placeholder={t("ابحث بالاسم...", "Search by name...")} ariaLabel={t("بحث المستخدمين", "Search users")} />
       </div>

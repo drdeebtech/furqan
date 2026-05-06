@@ -4,6 +4,7 @@ import { DollarSign, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { buildNameMap } from "@/lib/admin/name-map";
 import { getT } from "@/lib/i18n/server";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "المالية" };
 
@@ -41,7 +42,7 @@ export default async function AdminPaymentsPage() {
 
   return (
     <div dir={dir} className="mx-auto max-w-6xl px-4 py-8">
-      <h1 className="mb-6 flex items-center gap-2 text-2xl font-bold"><DollarSign size={24} className="text-gold" /> {t("المالية", "Payments")}</h1>
+      <PageHeader icon={<DollarSign size={24} className="text-gold" />} title={t("المالية", "Payments")} />
 
       <div className="mb-6 grid grid-cols-3 gap-3">
         <div className="glass-card rounded-xl p-4"><p className="text-sm text-muted">{t("إجمالي الإيرادات", "Total Revenue")}</p><p className="mt-1 text-2xl font-bold text-gold">${totalRevenue.toFixed(2)}</p></div>
