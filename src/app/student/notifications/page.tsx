@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import type { Notification } from "@/types/database";
 import { NotificationsList } from "./notifications-list";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata: Metadata = { title: "الإشعارات" };
 
@@ -30,10 +31,11 @@ export default async function StudentNotificationsPage() {
       </div>
 
       {!notifications || notifications.length === 0 ? (
-        <div className="glass-card p-12 text-center">
-          <Inbox size={40} className="mx-auto mb-3 text-muted/40" />
-          <p className="text-muted">{t("لا توجد إشعارات", "No notifications")}</p>
-        </div>
+        <EmptyState
+          variant="glass-card"
+          icon={<Inbox size={40} className="text-muted/40" />}
+          message={t("لا توجد إشعارات", "No notifications")}
+        />
       ) : (
         <NotificationsList notifications={notifications} />
       )}
