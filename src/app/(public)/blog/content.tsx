@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useLang } from "@/lib/i18n/context";
 import { RegisterBanner } from "@/components/public/register-banner";
@@ -17,6 +18,14 @@ interface Post {
   read_time_ar: string;
   read_time_en: string;
   published_at: string;
+  cover_image_path?: string | null;
+  cover_alt_en?: string | null;
+  cover_alt_ar?: string | null;
+}
+
+function coverUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/blog-images/${path}`;
 }
 
 interface Category { key: string; ar: string; en: string }
@@ -58,22 +67,37 @@ export function BlogContent({ posts, categories }: { posts: Post[]; categories: 
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-6">
           {/* Featured */}
-          {featured && (
-            <Link href={`/blog/${featured.slug}`} className="block glass-card p-8 transition-all hover:border-gold/50 md:p-12">
-              <span className={`glass-badge inline-block px-3 py-1 text-xs ${featured.color}`}>
-                {t(featured.category_ar, featured.category_en)}
-              </span>
-              <h2 className="font-display mt-4 text-3xl font-bold leading-tight">{t(featured.title_ar, featured.title_en)}</h2>
-              <p className="mt-4 text-sm leading-relaxed text-muted">{t(featured.excerpt_ar, featured.excerpt_en)}</p>
-              <div className="mt-4 flex items-center gap-4 text-xs text-muted">
-                <span>{formatDate(featured.published_at)}</span>
-                <span>{t(featured.read_time_ar, featured.read_time_en)} {t("للقراءة", "read")}</span>
-              </div>
-              <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-gold transition-colors hover:text-gold-light">
-                {t("اقرأ المزيد", "Read More")} <span aria-hidden>←</span>
-              </span>
-            </Link>
-          )}
+          {featured && (() => {
+            const featuredCover = coverUrl(featured.cover_image_path);
+            const featuredAlt = (t(featured.cover_alt_ar ?? "", featured.cover_alt_en ?? "")) || "";
+            return (
+              <Link href={`/blog/${featured.slug}`} className="block glass-card overflow-hidden transition-all hover:border-gold/50">
+                {featuredCover && (
+                  <Image
+                    src={featuredCover}
+                    alt={featuredAlt}
+                    width={1280}
+                    height={720}
+                    className="h-64 w-full object-cover md:h-80"
+                  />
+                )}
+                <div className="p-8 md:p-12">
+                  <span className={`glass-badge inline-block px-3 py-1 text-xs ${featured.color}`}>
+                    {t(featured.category_ar, featured.category_en)}
+                  </span>
+                  <h2 className="font-display mt-4 text-3xl font-bold leading-tight">{t(featured.title_ar, featured.title_en)}</h2>
+                  <p className="mt-4 text-sm leading-relaxed text-muted">{t(featured.excerpt_ar, featured.excerpt_en)}</p>
+                  <div className="mt-4 flex items-center gap-4 text-xs text-muted">
+                    <span>{formatDate(featured.published_at)}</span>
+                    <span>{t(featured.read_time_ar, featured.read_time_en)} {t("للقراءة", "read")}</span>
+                  </div>
+                  <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-gold transition-colors hover:text-gold-light">
+                    {t("اقرأ المزيد", "Read More")} <span aria-hidden>←</span>
+                  </span>
+                </div>
+              </Link>
+            );
+          })()}
 
           {/* Filter tabs */}
           <div className="mb-8 mt-12 flex flex-wrap gap-2">
@@ -97,23 +121,38 @@ export function BlogContent({ posts, categories }: { posts: Post[]; categories: 
             <p className="py-12 text-center text-sm text-muted">{t("لا توجد مقالات في هذا التصنيف", "No articles in this category")}</p>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((a) => (
-                <Link
-                  key={a.slug}
-                  href={`/blog/${a.slug}`}
-                  className="block glass-card p-5 transition-all hover:border-gold/30 hover:shadow-sm"
-                >
-                  <span className={`glass-badge inline-block px-2.5 py-0.5 text-xs ${a.color}`}>
-                    {t(a.category_ar, a.category_en)}
-                  </span>
-                  <h3 className="mt-3 font-bold">{t(a.title_ar, a.title_en)}</h3>
-                  <p className="mt-2 line-clamp-2 text-sm text-muted">{t(a.excerpt_ar, a.excerpt_en)}</p>
-                  <div className="mt-3 flex items-center justify-between text-xs text-muted">
-                    <span>{formatDate(a.published_at)} · {t(a.read_time_ar, a.read_time_en)}</span>
-                    <span className="text-gold">{t("اقرأ المزيد →", "Read More →")}</span>
-                  </div>
-                </Link>
-              ))}
+              {filtered.map((a) => {
+                const cover = coverUrl(a.cover_image_path);
+                const alt = t(a.cover_alt_ar ?? "", a.cover_alt_en ?? "") || "";
+                return (
+                  <Link
+                    key={a.slug}
+                    href={`/blog/${a.slug}`}
+                    className="block glass-card overflow-hidden transition-all hover:border-gold/30 hover:shadow-sm"
+                  >
+                    {cover && (
+                      <Image
+                        src={cover}
+                        alt={alt}
+                        width={640}
+                        height={360}
+                        className="h-40 w-full object-cover"
+                      />
+                    )}
+                    <div className="p-5">
+                      <span className={`glass-badge inline-block px-2.5 py-0.5 text-xs ${a.color}`}>
+                        {t(a.category_ar, a.category_en)}
+                      </span>
+                      <h3 className="mt-3 font-bold">{t(a.title_ar, a.title_en)}</h3>
+                      <p className="mt-2 line-clamp-2 text-sm text-muted">{t(a.excerpt_ar, a.excerpt_en)}</p>
+                      <div className="mt-3 flex items-center justify-between text-xs text-muted">
+                        <span>{formatDate(a.published_at)} · {t(a.read_time_ar, a.read_time_en)}</span>
+                        <span className="text-gold">{t("اقرأ المزيد →", "Read More →")}</span>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>

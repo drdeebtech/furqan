@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
@@ -78,6 +79,11 @@ export default async function ArticlePage({ params }: Props) {
     day: "numeric",
   });
 
+  const coverUrl = post.cover_image_path
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/blog-images/${post.cover_image_path}`
+    : null;
+  const coverAlt = (lang === "ar" ? post.cover_alt_ar : post.cover_alt_en) ?? "";
+
   return (
     <div dir={dir}>
       <BreadcrumbSchema items={[
@@ -111,6 +117,21 @@ export default async function ArticlePage({ params }: Props) {
           {date} · {readTime} {t("للقراءة", "read")}
         </p>
       </section>
+
+      {coverUrl && (
+        <section className="border-b border-white/10 bg-background">
+          <div className="mx-auto max-w-4xl px-6 py-8">
+            <Image
+              src={coverUrl}
+              alt={coverAlt}
+              width={1280}
+              height={720}
+              className="h-auto w-full rounded-2xl border border-white/10 object-cover"
+              priority
+            />
+          </div>
+        </section>
+      )}
 
       <section className="py-24">
         <div className="mx-auto max-w-3xl px-6">
