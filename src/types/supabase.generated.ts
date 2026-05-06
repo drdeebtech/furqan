@@ -250,6 +250,9 @@ export type Database = {
           category_ar: string
           category_en: string
           color: string
+          cover_alt_ar: string | null
+          cover_alt_en: string | null
+          cover_image_path: string | null
           created_at: string | null
           excerpt_ar: string
           excerpt_en: string
@@ -269,6 +272,9 @@ export type Database = {
           category_ar: string
           category_en: string
           color?: string
+          cover_alt_ar?: string | null
+          cover_alt_en?: string | null
+          cover_image_path?: string | null
           created_at?: string | null
           excerpt_ar: string
           excerpt_en: string
@@ -288,6 +294,9 @@ export type Database = {
           category_ar?: string
           category_en?: string
           color?: string
+          cover_alt_ar?: string | null
+          cover_alt_en?: string | null
+          cover_image_path?: string | null
           created_at?: string | null
           excerpt_ar?: string
           excerpt_en?: string
@@ -2370,7 +2379,7 @@ export type Database = {
           parent_phone?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
-          roles: Database["public"]["Enums"]["user_role"][]
+          roles?: Database["public"]["Enums"]["user_role"][]
           timezone?: string
           updated_at?: string
         }
@@ -4611,6 +4620,10 @@ export type Database = {
       deduct_package_session_mode: {
         Args: { p_mode: string; p_package_id: string }
         Returns: boolean
+      }
+      get_teacher_overdue_eval_count: {
+        Args: { p_teacher_id: string }
+        Returns: number
       }
       is_admin: { Args: never; Returns: boolean }
       is_admin_or_mod: { Args: never; Returns: boolean }
