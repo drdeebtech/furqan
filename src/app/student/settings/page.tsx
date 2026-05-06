@@ -7,6 +7,7 @@ import { getT } from "@/lib/i18n/server";
 import { AccountForm } from "./account-form";
 import { PasswordChangeForm } from "@/components/shared/password-change-form";
 import { EmailChangeForm } from "@/components/shared/email-change-form";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "إعداداتي" };
 
@@ -42,16 +43,14 @@ export default async function StudentSettingsPage() {
 
   return (
     <main dir={dir} className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-      <div className="mb-6 flex items-center gap-2">
-        <Settings size={24} className="text-gold" aria-hidden="true" />
-        <h1 className="text-2xl font-bold">{t("إعداداتي", "My Settings")}</h1>
-      </div>
-      <p className="mb-8 text-sm text-muted">
-        {t(
+      <PageHeader
+        icon={<Settings size={24} className="text-gold" aria-hidden="true" />}
+        title={t("إعداداتي", "My Settings")}
+        subtitle={t(
           "تحكم في بياناتك الشخصية، بيانات ولي الأمر، وكلمة المرور.",
           "Manage your personal info, guardian contact, and password.",
         )}
-      </p>
+      />
 
       <section className="glass-card mb-6 p-6">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">

@@ -4,6 +4,7 @@ import { Plus, Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { ServiceRow } from "./service-row";
+import { PageHeader } from "@/components/shared/page-header";
 
 export const metadata: Metadata = { title: "إدارة الخدمات" };
 
@@ -22,12 +23,15 @@ export default async function AdminServicesPage() {
 
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-2xl font-bold"><Settings size={24} className="text-gold" /> {t("إدارة الخدمات", "Manage Services")}</h1>
-        <Link href="/admin/services/new" className="flex items-center gap-2 glass-gold glass-pill px-5 py-2.5 text-sm font-semibold">
-          <Plus size={16} /> {t("إضافة خدمة", "Add Service")}
-        </Link>
-      </div>
+      <PageHeader
+        icon={<Settings size={24} className="text-gold" />}
+        title={t("إدارة الخدمات", "Manage Services")}
+        actions={
+          <Link href="/admin/services/new" className="flex items-center gap-2 glass-gold glass-pill px-5 py-2.5 text-sm font-semibold">
+            <Plus size={16} /> {t("إضافة خدمة", "Add Service")}
+          </Link>
+        }
+      />
 
       <div className="mb-4 text-sm text-muted">{services.length} {t("خدمة", "services")}</div>
 
