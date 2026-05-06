@@ -297,3 +297,85 @@ Same as prior run: `feedback_no_shell_waits` rules out `sleep`/`until` polling. 
 
 All checks pass. Pipeline ships this no-op SESSION_LOG-only PR first to validate the full path before any code/SQL changes.
 
+### Cont-2 commit log
+
+#### Phase 0 (PR #163, merged → `108f510`)
+SESSION_LOG-only seed. Validated CI + Vercel + Sentry + smoke pipeline. Required checks pass; Vercel deploy Ready in ~2m. **Notable side-finding:** the `Supabase Preview` integration check status of `skipping` was the first early signal that Branching wasn't enabled.
+
+#### Phase 6 — Supabase Branching enable (SKIPPED, blocked on plan tier)
+Probe via `supabase branches create test-phase-6 --project-ref xyqscjnqfeusgrhmwjts` returned a clean error:
+
+```
+unexpected create branch status 402: {"message":"Branching is supported only on the Pro plan or above"}
+Your organization does not have access to this feature.
+```
+
+The FURQAN Supabase organization (`gdbdezsjyshjwfmhrgwh`, `alforqan.egy@gmail.com`) is on the Free plan; Branching requires Pro+. Upgrading the org's billing tier is operator-only — out of scope for an autonomous run per the prompt's hard constraints (no env/billing changes). Per the prompt's explicit fallback: skipped Phase 6, **skipped Phase 7 entirely** (gated on Branching for the diff-check protocol), proceeded directly to Phase 8.
+
+#### Phase 7 — Postgres aggregates (SKIPPED, gated by Phase 6)
+Cannot run the spec-mandated diff-check (OLD JS-side query vs NEW RPC) without an isolated preview DB. Same root cause as the prior continuation log's Phase 10 deferral. Stays deferred until Branching is on the project.
+
+#### Phase 8 — Teacher loudAction sweep (6 PRs, all merged)
+
+| Sub | Action | PR | Approach | Severity | Risk |
+|-----|--------|----|----------|----------|------|
+| 8.1 | markNoShow | #164 → `ea1e53e` | Full loudAction wrap | warning | LOW (1 caller) |
+| 8.2 | endSession | #165 → `40ee048→merged` | Full loudAction wrap | critical | LOW (2 callers) |
+| 8.3 | extendSessionRoom | #166 → merged | Full loudAction wrap + caller-side deterministic expiry recomputation | critical | LOW (2 callers) |
+| 8.4 | recreateRoom | #167 → merged | Scope-adjusted inline hardening | critical | LOW (1 caller) |
+| 8.5 | updateBookingStatus | #168 → merged | Scope-adjusted inline hardening | warning | LOW (1 caller) |
+| 8.6 | startInstantSession | #169 → merged | Scope-adjusted inline hardening | critical | LOW (1 caller) |
+
+**3 full wraps + 3 scope-adjusted hardenings.** All 6 actions are now no-silent-fails compliant. Critical-tier failures route to Sentry **and** Telegram via `logError`'s severity-aware Telegram path (logger.ts:50–62) — same operator signal as a full `loudAction` wrap minus the `audit_log` row.
+
+**Why scope adjustment for 8.4–8.6:** all three actions return structured payloads (`roomUrl`, `warning`, `sessionId`) that the caller consumes for optimistic UX (link-to-room, partial-success warning, `router.push` redirect). `loudAction`'s `{ ok, message? }` contract drops payload fields beyond `message`, so a full wrap would break the UX. Same precedent as Phase 4.6 (`toggleArchiveTeacher`) in the prior continuation log. Inline hardening preserves UX while still routing critical failures to Sentry + Telegram.
+
+**Why deterministic recomputation worked for 8.3:** server-side `extendSessionRoom` always sets expiry to `Date.now() + 60m`. Caller computes the same value locally on success — sub-second drift, well inside the 15-min "about to expire" warning band, UI behaviour identical.
+
+#### Phase 9 — Cleanup (2 PRs, all merged)
+
+##### Phase 9.1 — `getAdminLiveSessions → getPlatformLiveSessions` rename (PR #170 → merged)
+Function consumed by both `/admin/dashboard` AND `/moderator/dashboard`. The "admin" name was misleading. Mechanical rename across 4 files (definition + 2 callers + 1 prop type). GitNexus risk: LOW (2 callers, identical SQL semantics). Also folded in the GitNexus index metadata bump (8429→9435 symbols, 14443→15865 edges) in AGENTS.md + CLAUDE.md — the indexer auto-edits these on every `npx gitnexus analyze` run.
+
+##### Phase 9.2 — `at-risk-students` no-bookings EmptyCard (PR #171 → merged)
+Per-site judgment per Phase 5.8 commit notes:
+
+| Site | Verdict |
+|------|---------|
+| `at-risk-students.tsx:47` (90d no-bookings) | ✅ Convert to quiet EmptyCard (user hasn't started yet) |
+| `mentorship-card.tsx:32` | ❌ Keep return null (admin-paired per file's own comment) |
+| `recitation-standard-roster.tsx:40` | ❌ Keep return null (signal-driven, "no signal to surface") |
+
+1 of 3 sites converted. The other 2 stay as intentional `return null` per the prompt's exact criteria.
+
+##### Phase 9.3 — Tripwire baseline bump (N/A)
+Silent-fail tripwire stayed at **133** throughout every commit of Cont-2 (verified in CI on each PR + locally between commits). No bump needed.
+
+### Cont-2 final totals
+
+| Metric | Value |
+|--------|-------|
+| PRs shipped (Cont-2 only) | **9** (#163–#171) |
+| Total PRs across full + cont1 + cont2 | **19** (#150–#169 plus #170, #171; #156, #157 are tracker) |
+| Commits (Cont-2 only) | **9** |
+| Rollbacks | **0** |
+| Hard stops | **0** (envelope held) |
+| New fatal Sentry issues introduced | **0** |
+| Sentry baseline at session close | **identical to pre-flight** — only E4-1Y unresolved (PGRST201, 0 users impacted, 1 event) |
+| Silent-fail tripwire delta | 133 → 133 (no drift) |
+| Phases shipped fully | 0, 8, 9 |
+| Phases skipped (with documented justification) | 6, 7 |
+
+### Items that remain genuinely deferred
+
+1. **Phase 7 — Postgres aggregates.** Blocked on Supabase Branching. To unblock: upgrade FURQAN's Supabase org to Pro plan ($25/mo), enable Branching on the project, then the diff-check protocol becomes viable.
+2. (Inherited from earlier sessions, not in scope for Cont-2): Phase A homework system, Stripe integration, AI workflows, WhatsApp Business setup, Google Calendar sync — all gated on external credentials or design work.
+
+### Sentry delta across Cont-2
+
+Pre-flight: 1 unresolved (E4-1Y, PGRST201, 0 users). Post-Phase-9.2 final check: identical. **Zero new Sentry issues introduced by any of the 9 Cont-2 commits.**
+
+### Time-budget interpretation note (Cont-2)
+
+Same compressed observation pattern as the prior runs: `feedback_no_shell_waits` rules out polling. Each commit's natural latency (push → CI → merge → deploy ≈ 5–8 min) plus retroactive Sentry checks at the next phase's pre-flight serve as the observation window. Auto-rollback triggers stayed armed throughout — none fired.
+
