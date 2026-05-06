@@ -12,7 +12,8 @@ export const metadata: Metadata = { title: "إدارة الجلسات" };
 
 interface SessionRow {
   id: string;
-  booking_id: string;
+  booking_id: string | null;
+  session_mode: SessionMode;
   room_url: string;
   room_name: string;
   expires_at: string | null;
@@ -24,6 +25,8 @@ interface SessionRow {
   created_at: string;
 }
 
+const VALID_MODES: SessionMode[] = ["private", "halaqa", "lecture"];
+
 interface BookingInfo {
   id: string;
   student_id: string;
@@ -34,20 +37,33 @@ interface BookingInfo {
   teacher: { id: string; full_name: string | null } | null;
 }
 
-export default async function AdminSessionsPage() {
+export default async function AdminSessionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mode?: string }>;
+}) {
   const { t, dir, lang } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Mode filter from URL. Defaults to "all" (no filter).
+  const sp = await searchParams;
+  const modeParam = sp.mode;
+  const activeMode = (modeParam && VALID_MODES.includes(modeParam as SessionMode))
+    ? (modeParam as SessionMode)
+    : null;
+
   /* ── Parallel queries ──────────────────────────────────────────── */
+  let sessionsQuery = supabase
+    .from("sessions")
+    .select("id, booking_id, session_mode, room_url, room_name, expires_at, started_at, ended_at, actual_duration, teacher_joined, student_joined, created_at")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (activeMode) sessionsQuery = sessionsQuery.eq("session_mode", activeMode);
+
   const [sessionsRes, activeCountRes] = await Promise.all([
-    supabase
-      .from("sessions")
-      .select("id, booking_id, room_url, room_name, expires_at, started_at, ended_at, actual_duration, teacher_joined, student_joined, created_at")
-      .order("created_at", { ascending: false })
-      .limit(100)
-      .returns<SessionRow[]>(),
+    sessionsQuery.returns<SessionRow[]>(),
     supabase
       .from("sessions")
       .select("id", { count: "exact", head: true })
@@ -63,7 +79,10 @@ export default async function AdminSessionsPage() {
   const nameMap: Record<string, string> = {};
 
   if (list.length > 0) {
-    const bIds = list.map((s) => s.booking_id);
+    // Halaqa rows have NULL booking_id — filter them out before the IN()
+    // lookup so we don't pass `null` into the query.
+    const bIds = list.map((s) => s.booking_id).filter((id): id is string => id !== null);
+    if (bIds.length > 0) {
     const { data: bookings } = await supabase
       .from("bookings")
       .select(
@@ -78,6 +97,7 @@ export default async function AdminSessionsPage() {
         if (b.teacher) nameMap[b.teacher.id] = b.teacher.full_name ?? "—";
       }
     }
+    }
   }
 
   /* ── Compute metrics ───────────────────────────────────────────── */
@@ -90,13 +110,14 @@ export default async function AdminSessionsPage() {
     : 0;
 
   const sessionsWithDuration = list.filter(
-    (s) => s.actual_duration && bookingMap[s.booking_id]?.duration_min,
+    (s) => s.actual_duration && s.booking_id && bookingMap[s.booking_id]?.duration_min,
   );
   const avgDurationRatio =
     sessionsWithDuration.length > 0
       ? Math.round(
           sessionsWithDuration.reduce((sum, s) => {
-            const b = bookingMap[s.booking_id];
+            const b = s.booking_id ? bookingMap[s.booking_id] : undefined;
+            if (!b) return sum;
             return sum + (s.actual_duration! / b.duration_min) * 100;
           }, 0) / sessionsWithDuration.length,
         )
@@ -163,6 +184,42 @@ export default async function AdminSessionsPage() {
         </div>
       </div>
 
+      {/* ── Mode Filter Chips ──────────────────────────────────────── */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="text-xs text-muted">{t("تصفية:", "Filter:")}</span>
+        <Link
+          href="/admin/sessions"
+          className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+            !activeMode
+              ? "border-gold/40 bg-gold/10 text-gold"
+              : "border-card-border bg-surface/40 text-muted hover:text-foreground"
+          }`}
+        >
+          {t("الكل", "All")}
+        </Link>
+        {VALID_MODES.map((m) => {
+          const label =
+            m === "private"
+              ? t("خاص", "Private")
+              : m === "halaqa"
+                ? t("حلقة", "Halaqa")
+                : t("مجلس", "Majlis");
+          return (
+            <Link
+              key={m}
+              href={`/admin/sessions?mode=${m}`}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                activeMode === m
+                  ? "border-gold/40 bg-gold/10 text-gold"
+                  : "border-card-border bg-surface/40 text-muted hover:text-foreground"
+              }`}
+            >
+              {label}
+            </Link>
+          );
+        })}
+      </div>
+
       {/* ── Sessions Table ──────────────────────────────────────────── */}
       {list.length === 0 ? (
         <div className="glass-card p-12 text-center">
@@ -185,7 +242,7 @@ export default async function AdminSessionsPage() {
             </thead>
             <tbody>
               {list.map((s) => {
-                const b = bookingMap[s.booking_id];
+                const b = s.booking_id ? bookingMap[s.booking_id] : undefined;
                 const isActive = !!s.started_at && !s.ended_at;
                 const isExpired =
                   s.expires_at &&
@@ -215,12 +272,7 @@ export default async function AdminSessionsPage() {
                         ) : (
                           <span className="text-xs text-muted">—</span>
                         )}
-                        {/* session_mode is added in Stage 1 migration; before it lands the
-                            cast falls through to the badge's 'private' default. */}
-                        <SessionModeBadge
-                          mode={(s as { session_mode?: SessionMode | null }).session_mode}
-                          size="sm"
-                        />
+                        <SessionModeBadge mode={s.session_mode} size="sm" />
                       </div>
                     </td>
                     <td className="px-3 py-3 text-xs">
