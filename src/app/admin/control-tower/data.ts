@@ -1,4 +1,5 @@
 import "server-only";
+import { getCache } from "@vercel/functions";
 import { createClient } from "@/lib/supabase/server";
 import { countOrFail } from "@/lib/supabase/load-or-fail";
 
@@ -24,12 +25,43 @@ export type ControlTowerSnapshot = {
 };
 
 /**
+ * Cache key + TTL for the snapshot in the Vercel Runtime Cache. The
+ * counts don't depend on the viewing admin (every admin sees the same
+ * platform-wide metrics), so a single shared cache entry per region is
+ * correct. TTL deliberately matches the page's 30 s polling cadence —
+ * a slower poll reads from cache, a refresh-burst doesn't pile up
+ * 11-query thundering herds against Postgres.
+ */
+const CONTROL_TOWER_CACHE_KEY = "admin-control-tower-snapshot";
+const CONTROL_TOWER_TTL_SECONDS = 30;
+const CONTROL_TOWER_TAG = "admin-tower";
+
+/**
  * Single source of truth for control-tower widget counts. Used by the page
  * for SSR and by `/api/admin/control-tower/snapshot` for the 30s polling
  * refresh. RLS-scoped via the user-cookie client; the snapshot route also
  * gates with `requireAdminForApi` for defense in depth.
+ *
+ * The 11-query Promise.all is wrapped in Vercel Runtime Cache (per-region,
+ * shared across admins) — a 30 s warm window means most polling refreshes
+ * skip Postgres entirely. Failed snapshots (anyFailed=true) are NOT cached
+ * so the next request retries fresh. Non-Vercel runtimes (local dev) are
+ * tolerated — getCache() throws are swallowed and the call falls through
+ * to a direct DB read.
  */
 export async function loadControlTowerSnapshot(): Promise<ControlTowerSnapshot> {
+  // Cache read — best-effort; never blocks the snapshot if the runtime
+  // cache is unavailable (local dev, transient regional issue, etc).
+  try {
+    const cached = (await getCache().get(CONTROL_TOWER_CACHE_KEY)) as
+      | ControlTowerSnapshot
+      | undefined
+      | null;
+    if (cached) return cached;
+  } catch {
+    // tolerate runtime-cache outages; fall through to DB
+  }
+
   const supabase = await createClient();
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
@@ -82,7 +114,7 @@ export async function loadControlTowerSnapshot(): Promise<ControlTowerSnapshot> 
     countOrFail(failedActionsRes, { route: "admin-control-tower", widget: "failed-actions" }),
   ];
 
-  return {
+  const snapshot: ControlTowerSnapshot = {
     generatedAt: new Date().toISOString(),
     anyFailed: widgets.some(w => w.failed),
     counts: {
@@ -99,4 +131,40 @@ export async function loadControlTowerSnapshot(): Promise<ControlTowerSnapshot> 
       "failed-actions": widgets[10].count,
     },
   };
+
+  // Cache only successful snapshots — a partial-failure result would
+  // serve stale "0"s for 30 s instead of retrying immediately, which is
+  // the wrong UX for an ops dashboard. Tagged so a future expireTag
+  // call (e.g. from CV approval) can punch through the TTL when an
+  // admin needs immediate freshness.
+  if (!snapshot.anyFailed) {
+    try {
+      await getCache().set(CONTROL_TOWER_CACHE_KEY, snapshot, {
+        ttl: CONTROL_TOWER_TTL_SECONDS,
+        tags: [CONTROL_TOWER_TAG],
+        name: "admin/control-tower/snapshot",
+      });
+    } catch {
+      // tolerate runtime-cache outages; the snapshot still returns fresh
+    }
+  }
+
+  return snapshot;
+}
+
+/**
+ * Punch through the snapshot's 30 s TTL when an admin action makes an
+ * immediate refresh worthwhile (e.g. approving a CV should drop the
+ * `pending-cvs` count to 0 right away rather than waiting up to 30 s).
+ * Best-effort — silently no-ops when the runtime cache is unavailable.
+ *
+ * Idempotent: calling expireTag with no matching cached entries is a
+ * cheap no-op. Safe to call from any admin server action.
+ */
+export async function expireControlTowerSnapshot(): Promise<void> {
+  try {
+    await getCache().expireTag(CONTROL_TOWER_TAG);
+  } catch {
+    // tolerate runtime-cache outages
+  }
 }
