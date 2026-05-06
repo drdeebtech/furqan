@@ -118,11 +118,13 @@ export function TeacherSessionCard({
     if (!sessionId) return;
     setLoading("extend");
     setError(null);
-    const result = await extendSessionRoom(sessionId);
-    if (result.error) setError(result.error);
+    const result = await extendSessionRoom({ sessionId });
+    if (!result.ok) setError(result.error);
     else {
-      setSuccess("تم تمديد الغرفة");
-      if (result.newExpiresAt) setCurrentExpiresAt(result.newExpiresAt);
+      setSuccess(result.message ?? "تم تمديد الغرفة");
+      // Server adds 60m to its own `Date.now()`. Mirror that locally —
+      // sub-second drift is well inside the 15-min warning band.
+      setCurrentExpiresAt(new Date(Date.now() + 60 * 60 * 1000).toISOString());
       setTimeout(() => setSuccess(null), 3000);
     }
     setLoading(null);
