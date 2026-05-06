@@ -42,7 +42,9 @@ export async function adminUpdateBookingStatus(bookingId: string, status: string
     old_data: { status: before?.status ?? null },
     new_data: { status },
     reason: `Admin set booking ${status}`,
-  } as never);
+  } as never).then((r) => {
+    if (r.error) logError("updateBookingStatus: audit row failed", r.error, { tag: "admin-bookings" });
+  });
 
   // Fire event for n8n routing (parent reports, alerts, etc.).
   // Per-status event names align with EVENT_CATALOG.md.
@@ -65,8 +67,8 @@ export async function adminUpdateBookingStatus(bookingId: string, status: string
         { student_id: booking.student_id, teacher_id: booking.teacher_id, new_status: status },
         actorId,
       );
-    } catch {
-      // Non-blocking; emit failures must not break admin flow.
+    } catch (err) {
+      logError("updateBookingStatus: emitEvent failed", err, { tag: "admin-bookings" });
     }
   }
 
