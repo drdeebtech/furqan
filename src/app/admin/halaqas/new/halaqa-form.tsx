@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/components/shared/toast";
 import { createHalaqa, type CreateHalaqaState } from "../actions";
+import { FormField } from "@/components/shared/form-field";
 
 interface TeacherOption {
   id: string;
@@ -71,62 +72,34 @@ export function HalaqaForm({ teachers }: Props) {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <label htmlFor="title_ar" className="mb-1 block text-sm font-medium">
-            {t("العنوان (عربي)", "Title (Arabic)")}
-          </label>
-          <input
-            id="title_ar"
-            name="title_ar"
-            type="text"
-            required
-            className={inputClass}
-            placeholder={t("حلقة حفص للمبتدئين", "Hafs Halaqa for Beginners")}
-          />
-        </div>
-        <div>
-          <label htmlFor="title_en" className="mb-1 block text-sm font-medium">
-            {t("العنوان (إنجليزي)", "Title (English)")}
-          </label>
-          <input
-            id="title_en"
-            name="title_en"
-            type="text"
-            required
-            className={inputClass}
-            placeholder="Hafs Halaqa for Beginners"
-          />
-        </div>
+        <FormField
+          label={t("العنوان (عربي)", "Title (Arabic)")}
+          name="title_ar"
+          required
+          placeholder={t("حلقة حفص للمبتدئين", "Hafs Halaqa for Beginners")}
+        />
+        <FormField
+          label={t("العنوان (إنجليزي)", "Title (English)")}
+          name="title_en"
+          required
+          placeholder="Hafs Halaqa for Beginners"
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <label htmlFor="surah_reference" className="mb-1 block text-sm font-medium">
-            {t("السورة", "Surah")}
-            <span className="ms-1 text-xs text-muted">({t("اختياري", "optional")})</span>
-          </label>
-          <input
-            id="surah_reference"
-            name="surah_reference"
-            type="text"
-            className={inputClass}
-            placeholder={t("البقرة", "Al-Baqarah")}
-          />
-        </div>
-        <div>
-          <label htmlFor="ayah_range" className="mb-1 block text-sm font-medium">
-            {t("نطاق الآيات", "Ayah Range")}
-            <span className="ms-1 text-xs text-muted">({t("اختياري", "optional")})</span>
-          </label>
-          <input
-            id="ayah_range"
-            name="ayah_range"
-            type="text"
-            className={inputClass}
-            placeholder="1-50"
-            dir="ltr"
-          />
-        </div>
+        <FormField
+          label={t("السورة", "Surah")}
+          name="surah_reference"
+          optional
+          placeholder={t("البقرة", "Al-Baqarah")}
+        />
+        <FormField
+          label={t("نطاق الآيات", "Ayah Range")}
+          name="ayah_range"
+          optional
+          placeholder="1-50"
+          dir="ltr"
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
