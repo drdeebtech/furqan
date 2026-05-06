@@ -632,6 +632,26 @@ export const saveQuickNotes = loudAction<
 /* ------------------------------------------------------------------ */
 /*  startInstantSession – create booking + room in one step           */
 /* ------------------------------------------------------------------ */
+//
+// Scope-adjusted hardening (Phase 8.6): not wrapped in `loudAction`
+// because the structured `{ sessionId }` return drives the caller's
+// `router.push(/teacher/sessions/${sessionId})` redirect — without it
+// the teacher clicks "ابدأ الآن" and stays on the dashboard. Same
+// precedent as Phase 8.4 (recreateRoom) and Phase 8.5
+// (updateBookingStatus).
+//
+// Inline hardening covers all silent-fail paths:
+// - bookingError now logged before returning user-facing error (was
+//   discarded — booking insert failures invisible to ops)
+// - bare `catch {}` on createRoom + sessions insert replaced with
+//   logError(severity:'critical') — both Daily.co API failures AND
+//   sessions DB write failures now surface to Sentry + Telegram
+//   (instant sessions are a high-touch UX path; failures need
+//   immediate operator visibility)
+// - existing notify catch upgraded with actionName tag for filterable
+//   Sentry queries
+// - sessions insert error inside the try-block was previously silently
+//   yielding null sessionId; now explicitly checked + logged + returned
 export async function startInstantSession(studentId: string, durationMin: number = 30) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -670,7 +690,16 @@ export async function startInstantSession(studentId: string, durationMin: number
     .select("id")
     .single<{ id: string }>();
 
-  if (bookingError || !booking) return { error: "حدث خطأ في إنشاء الحجز" };
+  if (bookingError || !booking) {
+    logError("startInstantSession: bookings insert failed", bookingError, {
+      tag: "bookings",
+      actionName: "teacher.startInstantSession",
+      severity: "critical",
+      studentId,
+      teacherId: user.id,
+    });
+    return { error: "حدث خطأ في إنشاء الحجز" };
+  }
 
   // Create Daily.co room
   let sessionId: string | null = null;
@@ -679,7 +708,7 @@ export async function startInstantSession(studentId: string, durationMin: number
     const roomName = `furqan-${booking.id.replace(/-/g, "")}`;
     const room = await createRoom(roomName, expiresAt);
 
-    const { data: sess } = await supabase.from("sessions").insert({
+    const { data: sess, error: sessErr } = await supabase.from("sessions").insert({
       booking_id: booking.id,
       room_name: room.name,
       room_url: room.url,
@@ -687,18 +716,41 @@ export async function startInstantSession(studentId: string, durationMin: number
       created_via: "manual",
     } satisfies TableInsert<"sessions">).select("id").single<{ id: string }>();
 
+    if (sessErr) {
+      // Booking insert succeeded but session insert failed — partial state.
+      // The teacher's UI state will be incoherent without sessionId.
+      logError("startInstantSession: sessions insert failed (booking already created)", sessErr, {
+        tag: "bookings",
+        actionName: "teacher.startInstantSession",
+        severity: "critical",
+        bookingId: booking.id,
+        studentId,
+      });
+      return { error: "تم إنشاء الحجز لكن فشل تسجيل الجلسة" };
+    }
+
     sessionId = sess?.id ?? null;
-  } catch {
+  } catch (err) {
+    logError("startInstantSession: createRoom or sessions insert threw", err, {
+      tag: "bookings",
+      actionName: "teacher.startInstantSession",
+      severity: "critical",
+      bookingId: booking.id,
+      studentId,
+    });
     return { error: "تم إنشاء الحجز لكن فشل إنشاء غرفة الفيديو" };
   }
 
-  // Notify student
+  // Notify student (best-effort)
   try {
     await notify(studentId, "booking", "جلسة فورية", "المعلم بدأ جلسة فورية — انضم الآن!", "booking", booking.id);
   } catch (err) {
-    logError("notify student failed during teacher startInstantSession", err, {
+    logError("startInstantSession: notify student failed", err, {
+      tag: "bookings",
+      actionName: "teacher.startInstantSession",
       component: "teacher.dashboard.startInstantSession",
-      metadata: { studentId, bookingId: booking.id },
+      studentId,
+      bookingId: booking.id,
     });
   }
 
