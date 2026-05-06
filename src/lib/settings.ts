@@ -1,6 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getFlag } from "@/lib/edge-config";
 import type { PlatformSetting } from "@/types/database";
 
 export const ALLOWED_SETTING_KEYS = [
@@ -44,6 +45,13 @@ export const getSettings = unstable_cache(
 );
 
 export async function getSetting(key: string): Promise<string | null> {
+  // Edge Config fast-path — sub-1ms global read when EDGE_CONFIG is
+  // provisioned and the key is mirrored to the store. Returns null on
+  // every miss path (env unset, key absent, transient EC outage), so
+  // we always have a Postgres safety net below.
+  const cached = await getFlag(key);
+  if (cached !== null) return cached;
+
   const supabase = await createClient();
   const { data } = await supabase
     .from("platform_settings")
