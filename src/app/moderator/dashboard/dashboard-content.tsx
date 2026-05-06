@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
-  ArrowLeft, ArrowRight, ClipboardList, Eye, FileCheck, FileText, Keyboard,
-  RefreshCw, ShieldCheck, Star, Video, X,
+  AlertCircle, ArrowLeft, ArrowRight, ClipboardList, Eye, FileCheck, FileText,
+  Keyboard, Radio, RefreshCw, ShieldCheck, Star, Video, X,
 } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useNowTicker } from "@/lib/hooks/use-now-ticker";
@@ -209,7 +209,7 @@ export function ModeratorDashboardContent({ data }: { data: ModeratorDashboardDa
               value={pendingCvCount}
               href="/moderator/cv-review"
               actionLabel={t("مراجعة", "Review")}
-              statusBadge={pendingCvCount > 0 ? { text: t("عاجل", "Urgent"), type: "warning" as const } : undefined}
+              statusBadge={pendingCvCount > 0 ? { text: t("عاجل", "Urgent"), type: "warning" as const, icon: <AlertCircle size={11} /> } : undefined}
             />
             <StatCard
               icon={Video}
@@ -217,7 +217,7 @@ export function ModeratorDashboardContent({ data }: { data: ModeratorDashboardDa
               value={activeSessionCount}
               href="/moderator/sessions"
               actionLabel={t("مراقبة", "Monitor")}
-              statusBadge={activeSessionCount > 0 ? { text: t("مباشر", "Live"), type: "active" as const } : undefined}
+              statusBadge={activeSessionCount > 0 ? { text: t("مباشر", "Live"), type: "active" as const, icon: <Radio size={11} /> } : undefined}
             />
             <StatCard
               icon={Star}
@@ -225,7 +225,7 @@ export function ModeratorDashboardContent({ data }: { data: ModeratorDashboardDa
               value={flaggedEvalCount}
               href="/moderator/evaluations?score=low"
               actionLabel={t("عرض", "View")}
-              statusBadge={flaggedEvalCount > 0 ? { text: t("للمراجعة", "Review"), type: "warning" as const } : undefined}
+              statusBadge={flaggedEvalCount > 0 ? { text: t("للمراجعة", "Review"), type: "warning" as const, icon: <Eye size={11} /> } : undefined}
             />
             <StatCard
               icon={ClipboardList}
