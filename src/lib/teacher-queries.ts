@@ -544,8 +544,13 @@ export async function getTeacherRecitationRoster(
       lastHeardAt,
       daysSinceLastHeard: days,
       qualityAvgLast5: qualityAvg,
+      // Treat "never recorded" (days === null) as the worst case — that
+      // student has never been recorded yet, which deserves the same
+      // AlertTriangle as a 7-day-quiet student (or worse). Caught in the
+      // 2026-05-06 visual audit: Amr/AHMAD showed no warning despite
+      // never-recorded status.
       streakBreakRisk:
-        days !== null && days >= STREAK_BREAK_DAYS_DEFAULT,
+        days === null || days >= STREAK_BREAK_DAYS_DEFAULT,
     };
   });
 }
