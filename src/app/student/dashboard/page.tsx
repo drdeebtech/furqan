@@ -91,23 +91,23 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
 
   // Only the next-session teacher name is shown above the fold; trim the
   // teacher-name fan-out that the old recent + evaluations tables required.
+  // Both the teacher-name lookup and the sessions.id lookup depend on
+  // nextBooking but on DIFFERENT fields — fan out as a parallel pair so
+  // the post-batch-1 sequential cost shrinks from 2 RTs to 1 RT. The
+  // .maybeSingle() on sessions is intentional: the sessions row only
+  // exists once the teacher starts the call, so 0 rows is the normal
+  // "no session yet" state (single() would throw PGRST116, Sentry E4-1A).
   const nameMap: Record<string, string> = {};
-  if (nextBooking?.teacher_id) {
-    const { data: profile } = await supabase.from("profiles")
-      .select("full_name").eq("id", nextBooking.teacher_id)
-      .single<{ full_name: string | null }>();
-    if (profile?.full_name) nameMap[nextBooking.teacher_id] = profile.full_name;
-  }
-
   let sessionId: string | null = null;
   if (nextBooking) {
-    // .maybeSingle() — sessions row only exists once the teacher actually
-    // starts the call. For a confirmed-but-not-yet-started booking the row
-    // is legitimately absent, so 0 rows is a normal "no session yet" state,
-    // not an error. .single() throws PGRST116 here (Sentry E4-1A); the
-    // surrounding `session?.id ?? null` already expects nullable.
-    const { data: session } = await supabase.from("sessions").select("id").eq("booking_id", nextBooking.id).maybeSingle<{ id: string }>();
-    sessionId = session?.id ?? null;
+    const [teacherProfile, session] = await Promise.all([
+      supabase.from("profiles")
+        .select("full_name").eq("id", nextBooking.teacher_id)
+        .single<{ full_name: string | null }>(),
+      supabase.from("sessions").select("id").eq("booking_id", nextBooking.id).maybeSingle<{ id: string }>(),
+    ]);
+    if (teacherProfile.data?.full_name) nameMap[nextBooking.teacher_id] = teacherProfile.data.full_name;
+    sessionId = session.data?.id ?? null;
   }
 
   // Parallel: packages + follow-up + dashboard widgets + most-recent learning
