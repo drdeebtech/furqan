@@ -58,8 +58,12 @@ export async function dispatchNotification(opts: DispatchOptions): Promise<void>
   // Check quiet hours (skip non-urgent during quiet period)
   if (!opts.urgent && prefs?.quiet_hours_start && prefs?.quiet_hours_end) {
     const now = new Date();
-    const hours = now.getHours().toString().padStart(2, "0");
-    const mins = now.getMinutes().toString().padStart(2, "0");
+    // Vercel runs UTC; quiet_hours_start/end are stored as wall-clock
+    // strings (e.g. "22:00"). Comparing in UTC is consistent across
+    // deployments. When per-user timezones are introduced, compute the
+    // user's local time before this comparison.
+    const hours = now.getUTCHours().toString().padStart(2, "0");
+    const mins = now.getUTCMinutes().toString().padStart(2, "0");
     const currentTime = `${hours}:${mins}`;
     if (isInQuietHours(currentTime, prefs.quiet_hours_start, prefs.quiet_hours_end)) return;
   }
