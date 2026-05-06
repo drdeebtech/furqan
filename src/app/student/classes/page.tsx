@@ -5,6 +5,7 @@ import { Users, Calendar, Clock, DollarSign } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { SESSION_TYPE_AR } from "@/lib/constants";
+import { EmptyState } from "@/components/shared/empty-state";
 import type { SessionType } from "@/types/database";
 
 export const metadata: Metadata = { title: "الجلسات الجماعية" };
@@ -80,15 +81,14 @@ export default async function StudentClassesBrowsePage() {
       </p>
 
       {(offerings ?? []).length === 0 ? (
-        <div className="glass-card rounded-xl p-12 text-center">
-          <Users size={32} className="mx-auto mb-3 text-muted" aria-hidden="true" />
-          <p className="text-muted">
-            {t(
-              "لا توجد جلسات جماعية متاحة حالياً. تابعنا قريباً.",
-              "No group classes available right now. Check back soon.",
-            )}
-          </p>
-        </div>
+        <EmptyState
+          variant="glass-card"
+          icon={<Users size={32} className="text-muted" aria-hidden="true" />}
+          message={t(
+            "لا توجد جلسات جماعية متاحة حالياً. تابعنا قريباً.",
+            "No group classes available right now. Check back soon.",
+          )}
+        />
       ) : (
         <ul className="space-y-3">
           {(offerings ?? []).map((o) => (

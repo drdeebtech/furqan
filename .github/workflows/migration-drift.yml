@@ -7,23 +7,34 @@ on:
       - "src/lib/supabase/migrations/**"
       - "supabase/migrations/**"
       - ".github/workflows/migration-drift.yml"
-  push:
+  # Race-free post-merge check: only run after Supabase Migrate has
+  # finished applying on main. Previously this fired on `push: main` in
+  # parallel with Supabase Migrate, often querying the Branching tracker
+  # before migrate had registered the new file → noisy false-positive
+  # failures (~34/90 in the 48h preceding 2026-05-06). The workflow_run
+  # trigger fires only after Supabase Migrate's run completes, eliminating
+  # the race. The `if:` on each job filters out failed-migrate runs so
+  # we don't pile a drift error on top of an apply failure.
+  workflow_run:
+    workflows: ["Supabase Migrate"]
+    types: [completed]
     branches: [main]
-    paths:
-      - "src/lib/supabase/migrations/**"
-      - "supabase/migrations/**"
-      - ".github/workflows/migration-drift.yml"
 
 permissions:
   contents: read
+
+concurrency:
+  group: migration-drift-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   drift-check:
     name: schema_migrations vs repo files
     runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Compare repo migrations vs production
         env:
@@ -94,9 +105,10 @@ jobs:
   branching-drift-check:
     name: supabase_migrations.schema_migrations vs supabase/migrations files
     runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Compare supabase/migrations against the Branching tracker
         env:

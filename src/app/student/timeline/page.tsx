@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { surahName } from "@/lib/quran/surahs";
 import { HOMEWORK_TYPE_AR, SESSION_TYPE_AR } from "@/lib/constants";
+import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata: Metadata = { title: "خط زمني" };
 
@@ -223,25 +224,24 @@ export default async function StudentTimelinePage() {
       </div>
 
       {events.length === 0 ? (
-        <div className="glass-card p-12 text-center">
-          <ScrollText size={40} className="mx-auto mb-3 text-muted/40" aria-hidden="true" />
-          <p className="text-muted">
-            {t("لم يحدث شيء بعد", "Nothing has happened yet")}
-          </p>
-          <p className="mt-1 text-xs text-muted/60">
-            {t(
-              "بعد جلستك الأولى تظهر هنا الجلسات والتقييمات والمتابعات وتقارير الأهل.",
-              "After your first session, this page will show sessions, evaluations, follow-ups, and parent reports.",
-            )}
-          </p>
-          <Link
-            href="/student/teachers"
-            className="mt-4 inline-flex items-center gap-1 text-sm text-gold hover:text-gold-hover focus-ring rounded"
-          >
-            {t("احجز جلستك الأولى", "Book your first session")}
-            <ChevronRight size={14} aria-hidden="true" />
-          </Link>
-        </div>
+        <EmptyState
+          variant="glass-card"
+          icon={<ScrollText size={40} className="text-muted/40" aria-hidden="true" />}
+          message={t("لم يحدث شيء بعد", "Nothing has happened yet")}
+          hint={t(
+            "بعد جلستك الأولى تظهر هنا الجلسات والتقييمات والمتابعات وتقارير الأهل.",
+            "After your first session, this page will show sessions, evaluations, follow-ups, and parent reports.",
+          )}
+          action={
+            <Link
+              href="/student/teachers"
+              className="inline-flex items-center gap-1 text-sm text-gold hover:text-gold-hover focus-ring rounded"
+            >
+              {t("احجز جلستك الأولى", "Book your first session")}
+              <ChevronRight size={14} aria-hidden="true" />
+            </Link>
+          }
+        />
       ) : (
         <ol className="space-y-6">
           {days.map(day => {
