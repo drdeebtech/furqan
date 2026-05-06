@@ -60,6 +60,7 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/teacher/students", ar: "طلابي", en: "Students", icon: Users, group: { ar: "الطلاب", en: "STUDENTS" } },
     { href: "/teacher/halaqas", ar: "حلقاتي", en: "My Halaqas", icon: Users },
     { href: "/teacher/recitations", ar: "تسميعات الطلاب", en: "Recitations", icon: Mic },
+    { href: "/teacher/progress", ar: "تقدم الطلاب", en: "Progress", icon: TrendingUp },
     { href: "/teacher/talqeen", ar: "صندوق التلقين", en: "Talqeen Inbox", icon: Mic },
     { href: "/teacher/follow-up", ar: "المتابعة", en: "Follow-up", icon: BookOpen },
     { href: "/teacher/courses", ar: "دوراتي المسجلة", en: "Recorded Courses", icon: GraduationCap },
