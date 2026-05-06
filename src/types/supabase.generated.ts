@@ -3271,6 +3271,7 @@ export type Database = {
           recording_url: string | null
           room_name: string
           room_url: string
+          scheduled_at: string | null
           session_mode: Database["public"]["Enums"]["session_mode"]
           session_topic_ar: string | null
           session_topic_en: string | null
@@ -3304,6 +3305,7 @@ export type Database = {
           recording_url?: string | null
           room_name?: string
           room_url: string
+          scheduled_at?: string | null
           session_mode?: Database["public"]["Enums"]["session_mode"]
           session_topic_ar?: string | null
           session_topic_en?: string | null
@@ -3337,6 +3339,7 @@ export type Database = {
           recording_url?: string | null
           room_name?: string
           room_url?: string
+          scheduled_at?: string | null
           session_mode?: Database["public"]["Enums"]["session_mode"]
           session_topic_ar?: string | null
           session_topic_en?: string | null
@@ -4617,6 +4620,7 @@ export type Database = {
         Returns: undefined
       }
       redact_pii: { Args: { payload: Json }; Returns: Json }
+      user_is_session_participant: { Args: { s_id: string }; Returns: boolean }
     }
     Enums: {
       attendance_status:
