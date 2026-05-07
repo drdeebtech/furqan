@@ -15,6 +15,7 @@ import { after } from "next/server";
 import { track } from "@vercel/analytics/server";
 import { signWebhookPayload } from "@/lib/security/secrets";
 import { getSettings } from "@/lib/settings";
+import { logError } from "@/lib/logger";
 import { serializePayload, type EventPayload } from "./payload";
 
 export { serializePayload, type EventPayload } from "./payload";
@@ -66,8 +67,6 @@ export async function emitEvent(
   data: Record<string, unknown>,
   actorId?: string | null,
 ): Promise<void> {
-  if (!N8N_WEBHOOK_URL) return; // Silently skip if not configured
-
   const payload: EventPayload = {
     event: eventName,
     occurred_at: new Date().toISOString(),
@@ -102,11 +101,26 @@ export async function emitEvent(
     try { track(eventName, props); } catch { /* tolerate analytics outage */ }
   });
 
-  // Whole webhook flow runs in after(): kill-switch check, signing, fetch,
-  // and outcome recording. The caller's response ships immediately while
-  // n8n/automation_logs work happens in the background — no more 5s timeout
-  // sitting on the request critical path.
+  // Whole webhook flow runs in after(): config check, kill-switch check,
+  // signing, fetch, and outcome recording. The caller's response ships
+  // immediately while n8n/automation_logs work happens in the background —
+  // no more 5s timeout sitting on the request critical path.
   after(async () => {
+    // Loud skip when N8N_WEBHOOK_URL is unset in production. In dev we keep
+    // the silent return so local-without-n8n DX is unchanged. Per CLAUDE.md
+    // "No Silent Failures Policy" — a missing env var in prod must surface
+    // in Sentry + automation_logs, not vanish.
+    if (!N8N_WEBHOOK_URL) {
+      if (process.env.NODE_ENV === "production") {
+        logError(
+          "emitEvent: N8N_WEBHOOK_URL not configured",
+          new Error("config-missing"),
+          { tag: "automation", kind: "config", event: eventName },
+        );
+        await recordSkipped(payload, "n8n_webhook_url unset");
+      }
+      return;
+    }
     const settings = await getSettings().catch(() => ({} as Record<string, string>));
     if (settings.automation_enabled !== "true") {
       await recordSkipped(payload, "automation_enabled=false");
