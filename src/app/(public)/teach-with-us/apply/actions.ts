@@ -233,11 +233,14 @@ export async function submitTeacherApplication(
     recitation_standards,
     languages,
     hourly_rate: 20,
-    gender: gender || null,
+    // Form input arrives as untyped string; the column is the gender_type
+    // enum ('male' | 'female'). Narrowing cast documents the expected type
+    // at the site (better than blanket `as never`).
+    gender: (gender || null) as "male" | "female" | null,
     intro_video_url: intro_video_url || null,
     cv_status,
     cv_submitted_at: new Date().toISOString(),
-  } as never);
+  });
   if (tpError) {
     logError("teach-apply teacher_profile insert failed", tpError, { tag: "teach-apply" });
     return { error: "تم إنشاء الحساب لكن فشل حفظ بيانات المعلم — راسل الدعم" };

@@ -98,7 +98,7 @@ const updateTeachingStatusBase = loudAction<TeachingStatusInput, { message?: str
     const supabase = await createClient();
     const { error } = await supabase
       .from("teacher_profiles")
-      .update({ is_accepting: input.isAccepting } as never)
+      .update({ is_accepting: input.isAccepting })
       .eq("teacher_id", input.userId);
     if (error) throw error;
 

@@ -19,7 +19,7 @@ export async function approveCv(teacherId: string) {
     cv_reviewed_by: user.id,
     cv_reviewed_at: new Date().toISOString(),
     cv_rejection_reason: null,
-  } as never).eq("teacher_id", teacherId);
+  }).eq("teacher_id", teacherId);
 
   if (error) {
     logError("moderator approveCv failed", error, { tag: "cv-review", severity: "warning", metadata: { teacherId, approvedBy: user.id } });
@@ -85,7 +85,7 @@ export async function rejectCv(teacherId: string, reason: string) {
     cv_reviewed_by: user.id,
     cv_reviewed_at: new Date().toISOString(),
     cv_rejection_reason: reason,
-  } as never).eq("teacher_id", teacherId);
+  }).eq("teacher_id", teacherId);
 
   if (error) {
     logError("moderator rejectCv failed", error, { tag: "cv-review", severity: "warning", metadata: { teacherId, rejectedBy: user.id } });

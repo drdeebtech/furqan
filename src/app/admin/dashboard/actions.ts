@@ -22,7 +22,7 @@ export async function toggleArchiveTeacher(
     .update({
       is_archived: archive,
       archived_at: archive ? new Date().toISOString() : null,
-    } as never)
+    })
     .eq("teacher_id", teacherId)
     .select("cv_status, is_accepting")
     .single<{ cv_status: string | null; is_accepting: boolean }>();
