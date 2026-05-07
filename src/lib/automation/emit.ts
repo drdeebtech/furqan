@@ -28,24 +28,39 @@ const N8N_WEBHOOK_SECRET = process.env.N8N_WEBHOOK_SECRET;
  * the emit is skipped (and logged). Events not listed here are gated only by
  * the master `automation_enabled` flag.
  */
-const EVENT_SUB_FLAGS: Record<string, string> = {
+const EVENT_SUB_FLAGS: Partial<Record<FurqanEvent, string>> = {
   "homework.graded": "ai_parent_reports_enabled",
   "session.notes_saved": "ai_parent_reports_enabled",
   "session.no_show": "ai_parent_reports_enabled",
-  "retention.signal_triggered": "retention_automation_enabled",
+  "retention.intervention_triggered": "retention_automation_enabled",
 };
 
 /**
  * Exported so the webhook-replay admin tool can route a replay to the same
  * path the original event used. Keep in sync when new events are added.
+ *
+ * The `as const` + `FurqanEvent` derived type below is the source of truth
+ * for the event taxonomy. Adding an entry here automatically adds a member
+ * to `FurqanEvent`; `emitEvent`'s first parameter is typed against it, so
+ * a typo'd event name fails at compile time instead of silent-routing to
+ * `DEFAULT_WEBHOOK_PATH`.
  */
-export const WEBHOOK_ROUTES: Record<string, string> = {
+export const WEBHOOK_ROUTES = {
+  "booking.created": "/webhook/furqan-booking-created",
   "booking.confirmed": "/webhook/furqan-booking-confirmed",
+  "booking.cancelled": "/webhook/furqan-booking-cancelled",
+  "booking.status_changed": "/webhook/furqan-booking-status-changed",
+  "session.ended": "/webhook/furqan-session-ended",
   "session.notes_saved": "/webhook/furqan-session-notes-saved",
   "session.no_show": "/webhook/furqan-no-show-parent",
   "session.auto_completed": "/webhook/furqan-session-auto-completed",
+  "session.report_sent": "/webhook/furqan-session-report-sent",
+  "homework.assigned": "/webhook/furqan-homework-assigned",
+  "homework.student_ready": "/webhook/furqan-homework-student-ready",
   "homework.graded": "/webhook/furqan-homework-graded",
+  "evaluation.created": "/webhook/furqan-evaluation-created",
   "profile.created": "/webhook/furqan-profile-created",
+  "teacher.applied": "/webhook/furqan-teacher-applied",
   "teacher.cv_submitted": "/webhook/furqan-cv-event",
   "teacher.cv_approved": "/webhook/furqan-cv-event",
   "teacher.cv_rejected": "/webhook/furqan-cv-event",
@@ -56,12 +71,21 @@ export const WEBHOOK_ROUTES: Record<string, string> = {
   "course.completed": "/webhook/furqan-course-completed",
   "lesson.completed": "/webhook/furqan-lesson-completed",
   "review.created": "/webhook/furqan-course-review",
-};
+  "retention.intervention_triggered": "/webhook/furqan-retention-intervention-triggered",
+  "package.purchased": "/webhook/furqan-package-purchased",
+} as const satisfies Record<string, string>;
+
+/**
+ * The canonical FURQAN event taxonomy, derived from `WEBHOOK_ROUTES`.
+ * `emitEvent` accepts only members of this union; any string outside it
+ * is a compile error. Adding a new event = adding a key to `WEBHOOK_ROUTES`.
+ */
+export type FurqanEvent = keyof typeof WEBHOOK_ROUTES;
 
 export const DEFAULT_WEBHOOK_PATH = "/webhook/furqan-events";
 
 export async function emitEvent(
-  eventName: string,
+  eventName: FurqanEvent,
   entityType: string,
   entityId: string,
   data: Record<string, unknown>,
