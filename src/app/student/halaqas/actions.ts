@@ -101,7 +101,7 @@ export async function enrollInHalaqa(
     .from("sessions")
     .update({
       current_enrollment: session.current_enrollment + 1,
-    } as never)
+    })
     .eq("id", sessionId)
     .lt("current_enrollment", session.capacity)
     .select("id")
@@ -188,7 +188,7 @@ export async function cancelHalaqaEnrollment(
 
   const { error: updErr } = await admin
     .from("sessions")
-    .update({ current_enrollment: next } as never)
+    .update({ current_enrollment: next })
     .eq("id", sessionId);
 
   if (updErr) {

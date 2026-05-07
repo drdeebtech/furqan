@@ -128,7 +128,7 @@ export async function createHalaqa(
       expires_at: expiresAt.toISOString(),
       is_group: true,
       created_via: "manual",
-    } as never)
+    })
     .select("id")
     .single<{ id: string }>();
 
