@@ -100,7 +100,7 @@ export const GET = withCronMonitor(
           .update({
             ended_at: now.toISOString(),
             actual_duration: actualDuration,
-          } as never)
+          })
           .eq("id", session.id)
           .is("ended_at", null);
         if (sessionUpdateErr) throw sessionUpdateErr;

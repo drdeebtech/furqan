@@ -33,7 +33,7 @@ export async function updateSessionNotes(sessionId: string, notes: string) {
 
   const { error } = await supabase
     .from("sessions")
-    .update({ post_session_notes: notes || null } as never)
+    .update({ post_session_notes: notes || null })
     .eq("id", sessionId);
 
   if (error) {

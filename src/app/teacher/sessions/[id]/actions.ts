@@ -19,7 +19,7 @@ export async function savePostSessionNotes(
     .update({
       post_session_notes: notes || null,
       homework: homework || null,
-    } as never)
+    })
     .eq("id", sessionId);
 
   if (error) {

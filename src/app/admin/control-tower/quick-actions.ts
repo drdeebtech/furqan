@@ -91,6 +91,9 @@ export const forceEndStuckSessions = loudAction({
     const nowIso = new Date().toISOString();
     const { count, error } = await admin
       .from("sessions")
+      // Phase 4d retention: chaining `.update(payload, { count: "exact" })`
+      // collapses Supabase's payload-type inference to `never` for this
+      // query shape. Cast bridges the gap — same precedent as loud.ts:182.
       .update({ ended_at: nowIso, ended_reason: "force-end-stuck" } as never, { count: "exact" })
       .is("ended_at", null)
       .not("started_at", "is", null)
