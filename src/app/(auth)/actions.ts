@@ -54,7 +54,7 @@ async function recordLogin(userId: string, email: string, role: string | null) {
         new_data: { email, role, user_agent: userAgent },
         ip_address: ip,
         reason: "User signed in",
-      } as never),
+      }),
       AUDIT_LOG_TIMEOUT_MS,
       null as never,
       "recordLogin",

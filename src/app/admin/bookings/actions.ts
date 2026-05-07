@@ -42,7 +42,7 @@ export async function adminUpdateBookingStatus(bookingId: string, status: string
     old_data: { status: before?.status ?? null },
     new_data: { status },
     reason: `Admin set booking ${status}`,
-  } as never).then((r) => {
+  }).then((r) => {
     if (r.error) logError("updateBookingStatus: audit row failed", r.error, { tag: "admin-bookings" });
   });
 

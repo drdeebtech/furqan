@@ -69,7 +69,7 @@ export async function POST(request: Request) {
           reason: r.success
             ? `auto-restart OK (${trigger})`
             : `auto-restart FAILED (${trigger}): ${r.error}`,
-        } as never).then(({ error }) => {
+        }).then(({ error }) => {
           if (error) logError("audit insert failed (n8n.auto-restart)", error, { tag: "audit" });
         });
       }

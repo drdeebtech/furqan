@@ -94,7 +94,7 @@ export async function bulkUpdateBookingStatus({
         old_data: { status: existing.status },
         new_data: { status, reason: effectiveReason },
         reason: `admin bulk ${status}: ${effectiveReason}`,
-      } as never).then((r) => {
+      }).then((r) => {
         if (r.error) logError("bulkUpdateBookingStatus: audit row failed", r.error, { tag: "admin-bookings", metadata: { id } });
       });
 
