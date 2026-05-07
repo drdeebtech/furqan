@@ -9,6 +9,11 @@ import { notifyNewBooking } from "@/lib/whatsapp";
 import { notify } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
+import { createBooking as createBookingDomain } from "@/lib/domains/booking/actions";
+import {
+  BookingValidationError,
+  BookingConflictError,
+} from "@/lib/domains/booking/types";
 
 export type BookingResult = {
   error?: string;
@@ -64,6 +69,18 @@ async function checkRateLimit(
   return true;
 }
 
+/**
+ * Route adapter for the student booking form. Owns the HTTP boundary:
+ *   BotID + Zod(FormData) + Supabase auth + rate limit
+ *     → call bookingDomain.createBooking(input)
+ *     → cross-domain fan-out (notify teacher, WhatsApp, emitEvent)
+ *     → redirect
+ *
+ * Per ADR-0002 §4 (2026-05-07 update): this is a redirect-style adapter
+ * (`useActionState`-bound, ends in `redirect()`), so it is NOT wrapped in
+ * `loudAction`. Domain still throws on failure; this catches and converts
+ * to the form's `{ error }` shape.
+ */
 export async function createBooking(
   _prev: BookingResult,
   formData: FormData,
@@ -97,140 +114,54 @@ export async function createBooking(
 
   const studentId = user.id;
 
-  // Durable rate limiting — DB-backed so it works across Fluid Compute instances
+  // Durable rate limiting — DB-backed so it works across Fluid Compute instances.
+  // Stays at the route adapter (writes to automation_logs, not bookings).
   try {
     if (!(await checkRateLimit(supabase, studentId))) {
       return { error: "لقد تجاوزت الحد المسموح — حاول لاحقاً" };
     }
   } catch (err) {
     logError("Booking rate-limit check failed — allowing request", err, { tag: "booking-rate-limit" });
-    // Fail-open so a transient DB blip doesn't block legitimate bookings
+    // Fail-open so a transient DB blip doesn't block legitimate bookings.
   }
 
-  // Fetch teacher rate server-side (Fix #3: never trust client-provided rate)
-  const { data: teacherProfile } = await supabase
-    .from("teacher_profiles")
-    .select("hourly_rate, specialties")
-    .eq("teacher_id", teacherId)
-    .eq("is_archived", false)
-    .eq("is_accepting", true)
-    .single<{ hourly_rate: number; specialties: string[] }>();
-
-  if (!teacherProfile) {
-    return { error: "المعلم غير متاح حالياً" };
-  }
-
-  // Validate session type is in teacher's specialties (skip if teacher has no specialties set)
-  if (teacherProfile.specialties.length > 0 && !teacherProfile.specialties.includes(sessionType)) {
-    return { error: "نوع الجلسة غير مدعوم من هذا المعلم" };
-  }
-
-  const rateSnapshot = Number(teacherProfile.hourly_rate);
-
+  // Combine date + time into a Date before handing to the domain.
+  // The domain function expects a parsed Date; isNaN-check stays at the
+  // adapter because it's tied to FormData parsing.
   const scheduledAt = new Date(`${date}T${time}:00`);
-
   if (isNaN(scheduledAt.getTime())) {
     return { error: "تاريخ أو وقت غير صالح" };
   }
 
-  // Allow bookings up to 30 minutes in the past (for instant/agreed sessions)
-  const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
-  if (scheduledAt < thirtyMinsAgo) {
-    return { error: "يجب اختيار وقت صالح" };
-  }
-
-  // Validate against teacher availability (Fix #8)
-  const dayOfWeek = scheduledAt.getDay();
-  const timeStr = time.length === 5 ? `${time}:00` : time; // ensure HH:MM:SS
-
-  const { data: slots } = await supabase
-    .from("teacher_availability")
-    .select("start_time, end_time, slot_duration")
-    .eq("teacher_id", teacherId)
-    .eq("day_of_week", dayOfWeek)
-    .eq("is_active", true)
-    .returns<{ start_time: string; end_time: string; slot_duration: number }[]>();
-
-  type Slot = { start_time: string; end_time: string; slot_duration: number };
-  if (slots && slots.length > 0) {
-    const timeOnly = timeStr.slice(0, 5); // HH:MM
-    const fitsSlot = slots.some(
-      (s: Slot) => timeOnly >= s.start_time.slice(0, 5) && timeOnly < s.end_time.slice(0, 5),
-    );
-    if (!fitsSlot) {
-      return { error: "الوقت المختار خارج أوقات المعلم المتاحة" };
-    }
-
-    // Fix #14: Check duration doesn't exceed slot
-    const matchingSlot = slots.find(
-      (s: Slot) => timeOnly >= s.start_time.slice(0, 5) && timeOnly < s.end_time.slice(0, 5),
-    );
-    if (matchingSlot && durationMin > matchingSlot.slot_duration) {
-      return {
-        error: `المدة المختارة (${durationMin} دقيقة) أطول من الحد المتاح (${matchingSlot.slot_duration} دقيقة)`,
-      };
-    }
-  }
-
-  // Check availability exceptions (Fix #8)
-  const dateStr = date; // YYYY-MM-DD
-  const { data: exceptions } = await supabase
-    .from("availability_exceptions")
-    .select("is_blocked, start_time, end_time")
-    .eq("teacher_id", teacherId)
-    .eq("date", dateStr)
-    .returns<{ is_blocked: boolean; start_time: string | null; end_time: string | null }[]>();
-
-  type Exception = { is_blocked: boolean; start_time: string | null; end_time: string | null };
-  if (exceptions && exceptions.length > 0) {
-    const blocked = exceptions.some((ex: Exception) => {
-      if (ex.is_blocked) {
-        // Full day blocked
-        if (!ex.start_time && !ex.end_time) return true;
-        // Time range blocked
-        const t = timeStr.slice(0, 5);
-        if (ex.start_time && ex.end_time) {
-          return t >= ex.start_time.slice(0, 5) && t < ex.end_time.slice(0, 5);
-        }
-      }
-      return false;
-    });
-    if (blocked) {
-      return { error: "المعلم غير متاح في هذا التاريخ — اختر تاريخاً آخر" };
-    }
-  }
-
-  const amountUsd = Number((rateSnapshot * (durationMin / 60)).toFixed(2));
-
-  const { data: newBooking, error } = await supabase
-    .from("bookings")
-    .insert({
-      student_id: studentId,
-      teacher_id: teacherId,
-      session_type: sessionType as SessionType,
-      duration_min: durationMin,
-      rate_snapshot: rateSnapshot,
-      amount_usd: amountUsd,
-      scheduled_at: scheduledAt.toISOString(),
+  // Delegate booking-specific logic to the domain module (ADR-0002 pilot).
+  let booking;
+  try {
+    booking = await createBookingDomain({
+      studentId,
+      teacherId,
+      sessionType: sessionType as SessionType,
+      durationMin,
+      scheduledAt,
       notes,
-    })
-    .select("id")
-    .single<{ id: string }>();
-
-  if (error) {
-    if (error.message.includes("no_booking_overlap")) {
-      return { error: "هذا الوقت محجوز بالفعل — اختر وقتاً آخر" };
+    });
+  } catch (err) {
+    if (err instanceof BookingValidationError || err instanceof BookingConflictError) {
+      return { error: err.message };
     }
+    // Unexpected error — domain already logged it; surface a generic message.
+    logError("createBooking adapter caught unexpected domain error", err, {
+      tag: "booking-route",
+      severity: "warning",
+    });
     return { error: "حدث خطأ أثناء إنشاء الحجز" };
   }
 
-  // Send notifications in parallel (non-blocking).
-  // Each branch is wrapped in its own try/catch + logError so that a
-  // failed channel (Resend down, n8n unreachable, CallMeBot rate-limited)
-  // surfaces in Sentry instead of being silently swallowed by allSettled.
-  // The booking itself is already committed at this point — the user must
-  // not be blocked or shown an error if a side-channel notification fails.
-  const bookingId = newBooking?.id ?? "";
+  // Cross-domain choreography stays at the route adapter (per ADR-0002 §1
+  // — orchestration is a separate later conversation). Send notifications
+  // in parallel; each branch wraps its own try/catch + logError so a failed
+  // channel surfaces in Sentry instead of being swallowed by allSettled.
+  // The booking is already committed at this point — the user must not be
+  // blocked or shown an error if a side-channel notification fails.
   await Promise.allSettled([
     notify({
       userId: teacherId,
@@ -238,9 +169,9 @@ export async function createBooking(
       title: "حجز جديد",
       body: `لديك حجز جديد بتاريخ ${scheduledAt.toLocaleDateString("ar")} — يرجى التأكيد`,
       entityType: "booking",
-      entityId: bookingId || undefined,
+      entityId: booking.id,
     }).catch((err) => logError("notify teacher booking.created failed", err, {
-      tag: "notify", severity: "warning", actionName: "booking.created", teacherId, bookingId,
+      tag: "notify", severity: "warning", actionName: "booking.created", teacherId, bookingId: booking.id,
     })),
     (async () => {
       const [{ data: studentProfile }, { data: teacherName }] = await Promise.all([
@@ -253,12 +184,12 @@ export async function createBooking(
         scheduledAt.toLocaleDateString("ar"),
       );
     })().catch((err) => logError("WhatsApp notify booking.created failed", err, {
-      tag: "whatsapp", severity: "warning", actionName: "booking.created", bookingId,
+      tag: "whatsapp", severity: "warning", actionName: "booking.created", bookingId: booking.id,
     })),
-    emitEvent("booking.created", "booking", bookingId, {
-      student_id: studentId, teacher_id: teacherId, session_type: sessionType, scheduled_at: scheduledAt.toISOString(),
+    emitEvent("booking.created", "booking", booking.id, {
+      student_id: studentId, teacher_id: teacherId, session_type: sessionType, scheduled_at: booking.scheduledAt,
     }).catch((err) => logError("emit booking.created failed", err, {
-      tag: "automation", severity: "warning", actionName: "booking.created", bookingId,
+      tag: "automation", severity: "warning", actionName: "booking.created", bookingId: booking.id,
     })),
   ]);
 

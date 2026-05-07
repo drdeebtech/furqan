@@ -46,6 +46,13 @@ Extract the **Booking domain's write surface** into `src/lib/domains/booking/{ac
 
 4. **Failure shape: throw on failure, return data on success.** Domain functions are internal-only. They throw on failure (using domain-specific Error subclasses or plain `Error`); return data on success. Route adapter is wrapped in `loudAction` (per the existing #161/#164–#169 sweep), which catches the throw and returns the unified `{ ok, error?, message? }` shape. Conflicts with `loudAction`'s contract are avoided; lines up with the `requireRole` pattern (throws `ForbiddenError`; loudAction handles it). Minimum boilerplate, same convention everywhere.
 
+   > **Update 2026-05-07 — useActionState vs redirect-style routes:**
+   > Two adapter shapes exist; only one fits `loudAction`.
+   > - **State-returning** (`useActionState`, expects `{ ok, error?, message? }`): wrap in `loudAction`.
+   > - **Redirect-style** (ends with `redirect()`): do NOT wrap. Domain throws; route adapter try/catches and either redirects or surfaces error via the form's existing mechanism.
+   >
+   > Invariant unchanged: domain throws on failure, returns data on success. The conversion mechanism follows the form contract.
+
 5. **Migration order: createBooking first.** Cleanest tracer bullet — single-table insert, minimal cross-domain entanglement (just emits `booking.created`). Validates the pattern before tackling the harder paths. Subsequent order: markNoShow (medium complexity, 2–3 cross-domain calls) → updateBookingStatus (heaviest, full Session+Package+notify+emit fan-out) → cancelBooking → admin bulk-actions.
 
 ## Alternatives considered
