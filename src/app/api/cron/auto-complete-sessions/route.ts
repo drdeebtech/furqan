@@ -107,7 +107,7 @@ export const GET = withCronMonitor(
 
         const { error: bookingUpdateErr } = await admin
           .from("bookings")
-          .update({ status: "completed" } as never)
+          .update({ status: "completed" })
           .eq("id", session.booking_id);
         if (bookingUpdateErr) throw bookingUpdateErr;
 

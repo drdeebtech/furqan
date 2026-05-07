@@ -72,6 +72,12 @@ export async function requestJoinGroupSession(sessionId: string): Promise<Action
 
   // Create a pending booking. amount_usd=0 (billing handled separately
   // in V1; documented in PEDAGOGY_ROADMAP.md).
+  //
+  // Phase 4f retention: the cast bridges a generated-types-vs-db-default
+  // mismatch. `rate_snapshot` has a Postgres DEFAULT but the Supabase
+  // generated Insert type marks it required. Postgres fills it at runtime;
+  // dropping the cast surfaces a misleading "Property 'rate_snapshot' is
+  // missing" error. Same category as Phase 4d's count:"exact" retention.
   const { error } = await supabase
     .from("bookings")
     .insert({

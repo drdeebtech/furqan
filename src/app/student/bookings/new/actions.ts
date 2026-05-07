@@ -213,7 +213,7 @@ export async function createBooking(
       amount_usd: amountUsd,
       scheduled_at: scheduledAt.toISOString(),
       notes,
-    } as never)
+    })
     .select("id")
     .single<{ id: string }>();
 
