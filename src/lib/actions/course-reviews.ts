@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 export type ReviewResult =
   | { ok: true }
@@ -111,7 +112,7 @@ export async function hideReview(reviewId: string): Promise<ReviewResult> {
 
   const { data, error } = await supabase
     .from("course_reviews")
-    .update({ status: "hidden" } as never)
+    .update({ status: "hidden" } satisfies TableUpdate<"course_reviews">)
     .eq("id", reviewId)
     .select("course_id")
     .single<{ course_id: string }>();

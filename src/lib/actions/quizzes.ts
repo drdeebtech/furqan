@@ -272,11 +272,14 @@ export async function submitQuizAttempt(
 
   const { error } = await supabase.from("quiz_attempts").update({
     submitted_at,
+    // `answers` arrives as a free-shape JSON object from the student form;
+    // the column type is `Json` but the gen-types model it as `never` for
+    // updates. Cast retained per ADR-0002 jsonb-retention category.
     answers: answers as never,
     score_pct,
     passed,
     duration_seconds,
-  } as TableUpdate<"quiz_attempts">).eq("id", attemptId);
+  } satisfies TableUpdate<"quiz_attempts">).eq("id", attemptId);
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/student/quizzes");
