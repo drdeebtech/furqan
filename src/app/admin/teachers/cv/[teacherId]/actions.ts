@@ -42,7 +42,7 @@ export async function saveCvAsAdmin(
       specialties,
       languages,
       recitation_standards: recitationStandards,
-    } as never)
+    })
     .eq("teacher_id", teacherId);
 
   if (error) {
@@ -70,7 +70,7 @@ export async function approveCv(teacherId: string) {
       cv_reviewed_by: user.id,
       cv_reviewed_at: new Date().toISOString(),
       cv_rejection_reason: null,
-    } as never)
+    })
     .eq("teacher_id", teacherId);
 
   if (error) {
@@ -141,7 +141,7 @@ export async function resetCvToPending(teacherId: string) {
       cv_reviewed_by: null,
       cv_reviewed_at: null,
       cv_rejection_reason: null,
-    } as never)
+    })
     .eq("teacher_id", teacherId);
 
   if (error) {
@@ -172,7 +172,7 @@ export async function rejectCv(teacherId: string, reason: string) {
       cv_reviewed_by: user.id,
       cv_reviewed_at: new Date().toISOString(),
       cv_rejection_reason: reason.trim(),
-    } as never)
+    })
     .eq("teacher_id", teacherId);
 
   if (error) {

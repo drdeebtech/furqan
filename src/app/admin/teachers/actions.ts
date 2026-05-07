@@ -29,7 +29,9 @@ export async function createTeacher(formData: FormData): Promise<void> {
     bio_en: (formData.get("bio_en") as string) || null,
     specialties: specialties.filter(Boolean),
     hourly_rate: Number(formData.get("hourly_rate")) || 20,
-    gender: (formData.get("gender") as string) || null,
+    // FormData arrives untyped; the column is the gender_type enum
+    // ('male' | 'female'). Narrowing cast documents the expected type.
+    gender: ((formData.get("gender") as string) || null) as "male" | "female" | null,
     // Languages now come from a checkbox group (formData.getAll). Fallback
     // to ["ar"] only if nothing was checked, preserving the prior default.
     languages: (() => {
@@ -86,7 +88,9 @@ export async function updateTeacher(formData: FormData): Promise<void> {
     bio_en: (formData.get("bio_en") as string) || null,
     specialties: specialties.filter(Boolean),
     hourly_rate: Number(formData.get("hourly_rate")) || 20,
-    gender: (formData.get("gender") as string) || null,
+    // FormData arrives untyped; the column is the gender_type enum
+    // ('male' | 'female'). Narrowing cast documents the expected type.
+    gender: ((formData.get("gender") as string) || null) as "male" | "female" | null,
     // Languages now come from a checkbox group (formData.getAll). Fallback
     // to ["ar"] only if nothing was checked, preserving the prior default.
     languages: (() => {
@@ -95,7 +99,7 @@ export async function updateTeacher(formData: FormData): Promise<void> {
     })(),
     recitation_standards: recitationStandards.length > 0 ? recitationStandards.filter(Boolean) : ["hafs"],
     is_accepting: formData.has("is_accepting"),
-  } as never).eq("teacher_id", teacherId);
+  }).eq("teacher_id", teacherId);
   if (error) {
     logError("admin.updateTeacher failed", error, { tag: "admin-teachers" });
     redirect(`/admin/teachers?error=${encodeURIComponent("فشل التحديث: " + error.message)}`);

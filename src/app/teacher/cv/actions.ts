@@ -43,7 +43,7 @@ export async function saveCvDraft(
       languages,
       recitation_standards,
       intro_video_url,
-    } as never)
+    })
     .eq("teacher_id", user.id);
 
   if (error) {
@@ -66,7 +66,7 @@ export async function submitCvForReview(): Promise<CvResult> {
     .update({
       cv_status: "pending_review",
       cv_submitted_at: new Date().toISOString(),
-    } as never)
+    })
     .eq("teacher_id", user.id);
 
   if (error) {
