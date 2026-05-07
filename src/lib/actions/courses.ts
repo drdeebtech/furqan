@@ -15,6 +15,7 @@ import type {
   CourseCurrency,
   CourseOwnership,
 } from "@/types/database";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 // ─── Auth helpers ───────────────────────────────────────────────────────────
 
@@ -251,7 +252,7 @@ export async function updateCourse(
     return { ok: false, error: (e as Error).message };
   }
 
-  const updates: Partial<Course> = {};
+  const updates: TableUpdate<"courses"> = {};
   const fields: (keyof Course)[] = [
     "title_ar",
     "title_en",
@@ -327,7 +328,7 @@ export async function updateCourse(
 
   const { error } = await supabase
     .from("courses")
-    .update(updates as never)
+    .update(updates)
     .eq("id", courseId);
 
   if (error) {

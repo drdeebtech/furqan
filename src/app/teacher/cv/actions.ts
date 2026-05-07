@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 export type CvResult = {
   error?: string;
@@ -116,7 +117,7 @@ export async function saveProfilePhoto(
 
   const { error: updErr } = await adminClient
     .from("profiles")
-    .update({ avatar_url: avatarUrl } as never)
+    .update({ avatar_url: avatarUrl } satisfies TableUpdate<"profiles">)
     .eq("id", user.id);
   if (updErr) {
     logError("teacher cv photo profile update failed", updErr, { tag: "teacher-cv-photo" });

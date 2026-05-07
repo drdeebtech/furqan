@@ -8,6 +8,7 @@ import { HOMEWORK_STATUS_AR, type ReviewHorizon } from "@/lib/constants";
 import { logError } from "@/lib/logger";
 import type { HomeworkStatus, HomeworkAssignment } from "@/types/database";
 import { emitEvent } from "@/lib/automation/emit";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 // ─── Auth helpers ───────────────────────────────────────────────────────────
 
@@ -171,7 +172,7 @@ export async function markStudentReady(
     }
   }
 
-  const updatePayload: Record<string, unknown> = {
+  const updatePayload: TableUpdate<"homework_assignments"> = {
     status: "student_ready",
     ready_at: new Date().toISOString(),
   };
@@ -182,7 +183,7 @@ export async function markStudentReady(
 
   const { error } = await supabase
     .from("homework_assignments")
-    .update(updatePayload as never)
+    .update(updatePayload)
     .eq("id", homeworkId);
 
   if (error) return { error: "فشل تحديث حالة المتابعة" };
@@ -402,13 +403,13 @@ export async function editHomework(homeworkId: string, formData: FormData) {
   }
 
   // Build update object
-  const updates: Record<string, unknown> = {};
+  const updates: TableUpdate<"homework_assignments"> = {};
   const title = formData.get("title") as string;
   if (title) updates.title = title;
   const description = formData.get("description") as string;
   if (description !== null) updates.description = description || null;
   const homework_type = formData.get("homework_type") as string;
-  if (homework_type) updates.homework_type = homework_type;
+  if (homework_type) updates.homework_type = homework_type as TableUpdate<"homework_assignments">["homework_type"];
   const surah_number = formData.get("surah_number");
   if (surah_number !== null) updates.surah_number = surah_number ? Number(surah_number) : null;
   const ayah_start = formData.get("ayah_start");
@@ -426,7 +427,7 @@ export async function editHomework(homeworkId: string, formData: FormData) {
 
   const { error } = await supabase
     .from("homework_assignments")
-    .update(updates as never)
+    .update(updates)
     .eq("id", homeworkId);
 
   if (error) return { error: "فشل تعديل المتابعة" };

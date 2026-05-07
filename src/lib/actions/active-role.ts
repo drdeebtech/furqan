@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { invalidateRoleCache } from "@/lib/auth/role-cache";
 import { logError } from "@/lib/logger";
 import type { UserRole } from "@/types/database";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 const VALID: ReadonlySet<UserRole> = new Set(["student", "teacher", "admin", "moderator"]);
 
@@ -68,7 +69,7 @@ export async function switchActiveRole(targetRole: UserRole): Promise<never> {
 
   const { error } = await supabase
     .from("profiles")
-    .update({ role: targetRole } as never)
+    .update({ role: targetRole } satisfies TableUpdate<"profiles">)
     .eq("id", user.id);
 
   if (error) {

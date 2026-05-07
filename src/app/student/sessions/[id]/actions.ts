@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createMeetingToken } from "@/lib/daily";
 import { logError } from "@/lib/logger";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 export async function generateSessionToken(sessionId: string) {
   const supabase = await createClient();
@@ -161,7 +162,7 @@ export async function trackSessionEvent(
   const now = new Date().toISOString();
 
   if (event === "joined") {
-    const updates: Record<string, unknown> = {};
+    const updates: TableUpdate<"sessions"> = {};
     if (isStudent) updates.student_joined = true;
     if (isTeacher) updates.teacher_joined = true;
     // Set started_at on first join
@@ -169,20 +170,20 @@ export async function trackSessionEvent(
 
     await supabase
       .from("sessions")
-      .update(updates as never)
+      .update(updates)
       .eq("id", sessionId);
   } else if (event === "left") {
     // Don't auto-end the session when a participant leaves.
     // The teacher explicitly ends the session via the "إنهاء الجلسة" button
     // which calls endSession() in teacher/dashboard/actions.ts.
     // Only track that the participant left by unsetting their joined flag.
-    const updates: Record<string, unknown> = {};
+    const updates: TableUpdate<"sessions"> = {};
     if (isStudent) updates.student_joined = false;
     if (isTeacher) updates.teacher_joined = false;
 
     await supabase
       .from("sessions")
-      .update(updates as never)
+      .update(updates)
       .eq("id", sessionId);
   }
 }
