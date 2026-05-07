@@ -79,7 +79,7 @@ export async function POST(request: Request) {
           related_entity_type: data.entity_type ?? null,
           related_entity_id: data.entity_id ?? null,
           status: "throttled",
-        } as never);
+        });
         return NextResponse.json(
           { error: "rate_limited", limit: NOTIFY_PER_USER_PER_MINUTE, window: "1m" },
           { status: 429 },
@@ -117,7 +117,7 @@ export async function POST(request: Request) {
         related_entity_type: data.entity_type ?? null,
         related_entity_id: data.entity_id ?? null,
         status: "sent",
-      } as never);
+      });
 
       return NextResponse.json({ notified: true });
     }
