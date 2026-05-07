@@ -3,40 +3,20 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { withTimeout } from "@/lib/promise-utils";
 import type { UserRole } from "@/types/database";
+import { ForbiddenError, UnauthenticatedError } from "./errors";
+import { assertRole } from "./role-check";
+
+// Re-export so existing importers (`@/lib/auth/require-admin`) keep working
+// unchanged. The classes themselves live in `./errors` so tests can import
+// them without the server-only barrier (see require-admin.test.ts). The
+// pure role-check primitive lives in `./role-check` for the same reason.
+export { ForbiddenError, UnauthenticatedError };
 
 // 4s is well below the Vercel function `maxDuration` for admin routes (30s)
 // and well above any healthy auth round-trip (~50–300ms). If we cross it,
 // something is really wrong upstream — bouncing to /login is safer than
 // holding the page forever.
 const AUTH_TIMEOUT_MS = 4000;
-
-/**
- * Thrown when the caller has a valid session but the wrong role for an
- * action. `UnauthenticatedError` (subclass) signals "no valid session"; a
- * plain `ForbiddenError` instance signals "session is fine, role is wrong".
- *
- * Existing `instanceof ForbiddenError` checks at all call sites match both
- * cases (backward-compatible). Callers that need to distinguish 401 vs 403
- * can check `instanceof UnauthenticatedError` first.
- */
-export class ForbiddenError extends Error {
-  constructor(message = "forbidden") {
-    super(message);
-    this.name = "ForbiddenError";
-  }
-}
-
-/**
- * Thrown when there is no valid session at all (vs `ForbiddenError` for
- * "session is fine, role is wrong"). API handlers map this to 401; route
- * handlers redirect to `/login`. See ADR-0001 for the design rationale.
- */
-export class UnauthenticatedError extends ForbiddenError {
-  constructor(message = "not authenticated") {
-    super(message);
-    this.name = "UnauthenticatedError";
-  }
-}
 
 async function getAuthedRole(): Promise<{ id: string; role: UserRole | null }> {
   const supabase = await createClient();
@@ -115,10 +95,11 @@ export async function requireRole(
   const allowed = Array.isArray(roleOrRoles)
     ? (roleOrRoles as readonly UserRole[])
     : [roleOrRoles as UserRole];
-  if (!role || !allowed.includes(role)) {
-    throw new ForbiddenError(`not ${allowed.join(" or ")}`);
-  }
-  return Array.isArray(roleOrRoles) ? { id, role } : { id };
+  // Pure decision delegated to ./role-check so the logic is unit-tested
+  // without the server-only barrier on this file. assertRole throws
+  // ForbiddenError if role is null or not in allowed.
+  assertRole(role, allowed);
+  return Array.isArray(roleOrRoles) ? { id, role: role as UserRole } : { id };
 }
 
 /**
