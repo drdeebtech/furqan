@@ -78,7 +78,7 @@ export async function hideMessage(
 
   const { error: updateErr } = await admin
     .from("messages")
-    .update({ hidden_at: now, hidden_by: auth.userId } as never)
+    .update({ hidden_at: now, hidden_by: auth.userId })
     .eq("id", messageId);
 
   if (updateErr) return { error: "فشل إخفاء الرسالة" };
@@ -122,7 +122,7 @@ export async function clearMessageFlag(messageId: string): Promise<ModerationRes
 
   const { error: updateErr } = await admin
     .from("messages")
-    .update({ flagged_at: null, flagged_by: null, flag_reason: null } as never)
+    .update({ flagged_at: null, flagged_by: null, flag_reason: null })
     .eq("id", messageId);
 
   if (updateErr) return { error: "فشل إزالة العلامة" };

@@ -114,7 +114,7 @@ export async function bulkGradeHomework(
           status,
           completed_at: now,
           teacher_notes: feedback,
-        } as never)
+        })
         .eq("id", item.id);
 
       if (updateErr) {

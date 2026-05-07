@@ -72,7 +72,7 @@ export async function requestFreshRecitationAction(
       description: "يرجى رفع تسجيل تلاوة جديدة لمراجعتي.",
       due_date: dueDate,
       review_horizon: "near",
-    } as never);
+    });
 
   if (insertError) {
     logError("requestFreshRecitation: insert failed", insertError, {
