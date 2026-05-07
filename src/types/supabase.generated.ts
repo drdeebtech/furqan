@@ -2124,6 +2124,7 @@ export type Database = {
           sent_via: string[] | null
           student_id: string
           teacher_id: string
+          title: string | null
         }
         Insert: {
           content: string
@@ -2137,6 +2138,7 @@ export type Database = {
           sent_via?: string[] | null
           student_id: string
           teacher_id: string
+          title?: string | null
         }
         Update: {
           content?: string
@@ -2150,6 +2152,7 @@ export type Database = {
           sent_via?: string[] | null
           student_id?: string
           teacher_id?: string
+          title?: string | null
         }
         Relationships: [
           {
@@ -2705,10 +2708,74 @@ export type Database = {
         }
         Relationships: []
       }
+      resource_assignments: {
+        Row: {
+          assigned_by: string
+          created_at: string
+          halaqa_id: string | null
+          id: string
+          resource_id: string
+          student_id: string | null
+        }
+        Insert: {
+          assigned_by: string
+          created_at?: string
+          halaqa_id?: string | null
+          id?: string
+          resource_id: string
+          student_id?: string | null
+        }
+        Update: {
+          assigned_by?: string
+          created_at?: string
+          halaqa_id?: string | null
+          id?: string
+          resource_id?: string
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_assignments_halaqa_id_fkey"
+            columns: ["halaqa_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_assignments_halaqa_id_fkey"
+            columns: ["halaqa_id"]
+            isOneToOne: false
+            referencedRelation: "v_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "resource_assignments_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_assignments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       resources: {
         Row: {
           category: string
           created_at: string
+          created_by_teacher_id: string | null
           description_ar: string | null
           description_en: string | null
           external_url: string | null
@@ -2725,6 +2792,7 @@ export type Database = {
         Insert: {
           category?: string
           created_at?: string
+          created_by_teacher_id?: string | null
           description_ar?: string | null
           description_en?: string | null
           external_url?: string | null
@@ -2741,6 +2809,7 @@ export type Database = {
         Update: {
           category?: string
           created_at?: string
+          created_by_teacher_id?: string | null
           description_ar?: string | null
           description_en?: string | null
           external_url?: string | null
@@ -2755,6 +2824,13 @@ export type Database = {
           uploaded_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "resources_created_by_teacher_id_fkey"
+            columns: ["created_by_teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "resources_uploaded_by_fkey"
             columns: ["uploaded_by"]
