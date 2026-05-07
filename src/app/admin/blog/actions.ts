@@ -5,6 +5,7 @@ import { invalidateByTag } from "@vercel/functions";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
+import type { TableInsert } from "@/lib/supabase/typed-helpers";
 
 const CATEGORIES: Record<string, { ar: string; color: string }> = {
   Hifz: { ar: "حفظ القرآن", color: "text-success border-success/30 bg-success/10" },
@@ -33,7 +34,11 @@ export async function savePost(
   const coverAltEn = ((formData.get("cover_alt_en") as string | null) ?? "").trim() || null;
   const coverAltAr = ((formData.get("cover_alt_ar") as string | null) ?? "").trim() || null;
 
-  const row = {
+  // Phase 4h proof-of-concept: typing the bare-variable explicitly with
+  // TableInsert<"blog_posts"> drops the need for `(row as never)` casts at
+  // the use sites. The same pattern works for the 16 other bare-variable
+  // sites flagged by the Phase 4h audit; each needs per-file conversion.
+  const row: TableInsert<"blog_posts"> = {
     slug: formData.get("slug") as string,
     title_ar: formData.get("title_ar") as string,
     title_en: formData.get("title_en") as string,
@@ -54,14 +59,14 @@ export async function savePost(
 
   let postId: string;
   if (id) {
-    const { error } = await supabase.from("blog_posts").update(row as never).eq("id", id);
+    const { error } = await supabase.from("blog_posts").update(row).eq("id", id);
     if (error) {
       logError("admin blog update failed", error, { tag: "admin-blog", severity: "warning", metadata: { postId: id } });
       return { error: "حدث خطأ أثناء التحديث" };
     }
     postId = id;
   } else {
-    const { data, error } = await supabase.from("blog_posts").insert(row as never).select("id").single();
+    const { data, error } = await supabase.from("blog_posts").insert(row).select("id").single();
     if (error || !data) {
       logError("admin blog insert failed", error, { tag: "admin-blog", severity: "warning" });
       return { error: "حدث خطأ أثناء الإنشاء" };
