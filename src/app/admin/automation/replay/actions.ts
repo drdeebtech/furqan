@@ -96,7 +96,11 @@ export async function replayAutomation({
   if (!row.payload_json) return { error: "لا يوجد محتوى للإرسال" };
   if (!row.event_name) return { error: "اسم الحدث مفقود" };
 
-  const path = WEBHOOK_ROUTES[row.event_name] ?? DEFAULT_WEBHOOK_PATH;
+  // Cast: replay reads event_name from automation_logs/dead_letter rows as
+  // an untyped DB string. WEBHOOK_ROUTES is now strictly typed (FurqanEvent
+  // union) for static callers; admin replay accepts unknown strings and
+  // falls back to DEFAULT_WEBHOOK_PATH for any that aren't in the map.
+  const path = (WEBHOOK_ROUTES as Record<string, string>)[row.event_name] ?? DEFAULT_WEBHOOK_PATH;
   const url = `${N8N_WEBHOOK_URL}${path}`;
 
   const replayKey = `${row.idempotency_key ?? crypto.randomUUID()}:replay:${Date.now()}`;
