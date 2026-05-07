@@ -24,9 +24,11 @@ export async function adminUpdateBookingStatus(bookingId: string, status: string
     .eq("id", bookingId)
     .single<{ status: string }>();
 
+  // The earlier select returns status as a generic string; the column is
+  // the booking_status enum. Narrowing cast documents the expected type.
   const { error } = await supabase
     .from("bookings")
-    .update({ status } as never)
+    .update({ status: status as "pending" | "confirmed" | "completed" | "cancelled" | "no_show" })
     .eq("id", bookingId);
 
   if (error) {

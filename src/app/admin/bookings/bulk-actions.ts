@@ -77,7 +77,7 @@ export async function bulkUpdateBookingStatus({
 
       const { error: updateErr } = await admin
         .from("bookings")
-        .update({ status } as never)
+        .update({ status })
         .eq("id", id);
 
       if (updateErr) {

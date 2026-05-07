@@ -80,10 +80,13 @@ export async function requestJoinGroupSession(sessionId: string): Promise<Action
       session_id: sessionId,
       scheduled_at: sourceBooking.scheduled_at,
       duration_min: sourceBooking.duration_min,
-      session_type: sourceBooking.session_type,
+      // sourceBooking.session_type comes from a generic-string select; the
+      // column is the session_type enum. Narrowing cast documents the
+      // expected type.
+      session_type: sourceBooking.session_type as "tajweed" | "qiraat" | "tafsir" | "hifz" | "muraja" | "tilawa" | "combined" | "other",
       amount_usd: 0,
       status: "pending",
-    } as never);
+    });
 
   if (error) {
     logError("requestJoinGroupSession failed", error, {
