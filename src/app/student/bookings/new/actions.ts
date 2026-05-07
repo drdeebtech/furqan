@@ -14,6 +14,11 @@ import {
   BookingValidationError,
   BookingConflictError,
 } from "@/lib/domains/booking/types";
+import {
+  requireRole,
+  ForbiddenError,
+  UnauthenticatedError,
+} from "@/lib/auth/require-admin";
 
 export type BookingResult = {
   error?: string;
@@ -105,14 +110,30 @@ export async function createBooking(
   }
   const { teacher_id: teacherId, session_type: sessionType, duration_min: durationMin, date, time, notes } = parsed.data;
 
+  // Auth: ADR-0002 §3 (and the route-adapter shape in CONTEXT.md).
+  // requireRole("student") enforces both authentication AND the student
+  // role — previously this route only checked auth, allowing any
+  // authenticated user (including teachers/admins) to insert a booking
+  // row with their own id as student_id. RLS already implies students-
+  // only ownership; this just enforces it at the route boundary.
+  let studentId: string;
+  try {
+    const result = await requireRole("student");
+    studentId = result.id;
+  } catch (err) {
+    if (err instanceof UnauthenticatedError) {
+      return { error: "يجب تسجيل الدخول أولاً" };
+    }
+    if (err instanceof ForbiddenError) {
+      return { error: "ليس لديك صلاحية" };
+    }
+    throw err;
+  }
+
+  // Supabase client still needed for rate-limit (automation_logs) and
+  // profile lookups in the cross-domain fan-out below. Domain function
+  // makes its own admin client.
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "يجب تسجيل الدخول أولاً" };
-
-  const studentId = user.id;
 
   // Durable rate limiting — DB-backed so it works across Fluid Compute instances.
   // Stays at the route adapter (writes to automation_logs, not bookings).
