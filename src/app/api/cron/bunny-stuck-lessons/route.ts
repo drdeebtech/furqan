@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { withCronMonitor } from "@/lib/sentry/cron";
 import { logError } from "@/lib/logger";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 import {
   bunnyStatusToVideoStatus,
   getVideo,
@@ -117,14 +118,14 @@ export const GET = withCronMonitor(
         if (newStatus === null) continue;
         if (newStatus === lesson.video_status) continue;
 
-        const updates: Record<string, unknown> = { video_status: newStatus };
+        const updates: TableUpdate<"course_lessons"> = { video_status: newStatus };
         if (info.length && info.length > 0) {
           updates.duration_seconds = Math.round(info.length);
         }
 
         const { error: updateErr } = await admin
           .from("course_lessons")
-          .update(updates as never)
+          .update(updates)
           .eq("id", lesson.id);
 
         if (updateErr) {

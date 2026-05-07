@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { withCronMonitor } from "@/lib/sentry/cron";
 import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
+import type { TableInsert } from "@/lib/supabase/typed-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -111,7 +112,7 @@ export const GET = withCronMonitor(
           .eq("id", session.booking_id);
         if (bookingUpdateErr) throw bookingUpdateErr;
 
-        const notifs = [booking.student_id, booking.teacher_id].map((uid) => ({
+        const notifs: TableInsert<"notifications">[] = [booking.student_id, booking.teacher_id].map((uid) => ({
           user_id: uid,
           type: "system",
           title: "تم إنهاء الجلسة تلقائياً",
@@ -120,7 +121,7 @@ export const GET = withCronMonitor(
         }));
         await admin
           .from("notifications")
-          .insert(notifs as never)
+          .insert(notifs)
           .then(({ error }) => {
             if (error) {
               logError("auto-complete-sessions: notifications insert failed", error, {

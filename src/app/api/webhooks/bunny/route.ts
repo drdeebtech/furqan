@@ -8,6 +8,7 @@ import {
   type BunnyWebhookPayload,
 } from "@/lib/bunny/client";
 import { logError, logWarn } from "@/lib/logger";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 // One-shot helper: write the outcome of a webhook delivery to automation_logs
 // so "did Bunny call us, and what happened" is answerable without log-diving.
@@ -182,12 +183,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const updatePayload: Record<string, unknown> = { video_status: newStatus };
+  const updatePayload: TableUpdate<"course_lessons"> = { video_status: newStatus };
   if (durationSeconds !== null) updatePayload.duration_seconds = durationSeconds;
 
   const { data: updated, error } = await supabase
     .from("course_lessons")
-    .update(updatePayload as never)
+    .update(updatePayload)
     .eq("bunny_video_id", payload.VideoGuid)
     .select("id, course_id")
     .single();
