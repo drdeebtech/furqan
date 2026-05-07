@@ -109,7 +109,16 @@ export default async function StudentTimelinePage() {
     supabase.from("homework_assignments")
       .select("id, title, status, teacher_id, teacher_notes, completed_at")
       .eq("student_id", user.id)
-      .like("status", "completed_%")
+      // Postgres LIKE doesn't work on enum columns (homework_status); use
+      // explicit value list. Fixes JAVASCRIPT-NEXTJS-E4-1Z. The four
+      // "completed_*" variants are the full set per the homework_status
+      // enum definition in supabase.generated.ts.
+      .in("status", [
+        "completed_excellent",
+        "completed_good",
+        "completed_needs_work",
+        "completed_not_done",
+      ])
       .gte("completed_at", ninetyDaysAgoIso)
       .order("completed_at", { ascending: false })
       .returns<HomeworkRow[]>(),
