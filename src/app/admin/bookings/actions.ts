@@ -1,10 +1,29 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { emitEvent } from "@/lib/automation/emit";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
+import type { BookingStatus } from "@/types/database";
+import { updateBookingStatus as updateBookingStatusDomain } from "@/lib/domains/booking/actions";
+import {
+  BookingNotFoundError,
+  BookingStatusUpdateError,
+} from "@/lib/domains/booking/types";
 
+/**
+ * Admin route adapter for single-booking status updates.
+ *
+ * Per ADR-0002:
+ *   - requireAdmin auth + revalidatePath stay here (route concerns).
+ *   - bookings UPDATE + audit_log INSERT delegate to the domain
+ *     `updateBookingStatus(input)`.
+ *   - emitEvent stays at the route adapter (per §1, mirroring createBooking).
+ *
+ * Not wrapped in `loudAction` because it's not useActionState-bound here;
+ * callers consume the `{ success } | { error }` shape directly. (Per
+ * ADR-0002 §4 update, that route shape is fine — the wrapper isn't
+ * mandatory, only the throw/return invariant on the domain side is.)
+ */
 export async function adminUpdateBookingStatus(bookingId: string, status: string) {
   let actorId: string;
   try {
@@ -15,62 +34,57 @@ export async function adminUpdateBookingStatus(bookingId: string, status: string
     throw e;
   }
 
-  const supabase = await createClient();
+  // The route accepts an unconstrained `string` to preserve the existing
+  // call shape from page.tsx. Narrowing happens here at the boundary.
+  const newStatus = status as BookingStatus;
 
-  // Capture old status for audit
-  const { data: before } = await supabase
-    .from("bookings")
-    .select("status")
-    .eq("id", bookingId)
-    .single<{ status: string }>();
-
-  // The earlier select returns status as a generic string; the column is
-  // the booking_status enum. Narrowing cast documents the expected type.
-  const { error } = await supabase
-    .from("bookings")
-    .update({ status: status as "pending" | "confirmed" | "completed" | "cancelled" | "no_show" })
-    .eq("id", bookingId);
-
-  if (error) {
-    logError("admin updateBookingStatus failed", error, { tag: "admin-bookings", severity: "warning", metadata: { bookingId, status, actorId } });
-    return { error: "تعذر تحديث الحجز" };
+  let result;
+  try {
+    result = await updateBookingStatusDomain({
+      bookingId,
+      newStatus,
+      actorId,
+      reason: `Admin set booking ${newStatus}`,
+    });
+  } catch (err) {
+    if (err instanceof BookingNotFoundError) return { error: "الحجز غير موجود" };
+    if (err instanceof BookingStatusUpdateError) {
+      logError("admin updateBookingStatus failed", err, {
+        tag: "admin-bookings",
+        severity: "warning",
+        metadata: { bookingId, status: newStatus, actorId },
+      });
+      return { error: "تعذر تحديث الحجز" };
+    }
+    throw err;
   }
 
-  await supabase.from("audit_log").insert({
-    changed_by: actorId,
-    table_name: "bookings",
-    record_id: bookingId,
-    action: "UPDATE",
-    old_data: { status: before?.status ?? null },
-    new_data: { status },
-    reason: `Admin set booking ${status}`,
-  }).then((r) => {
-    if (r.error) logError("updateBookingStatus: audit row failed", r.error, { tag: "admin-bookings" });
-  });
-
-  // Fire event for n8n routing (parent reports, alerts, etc.).
-  // Per-status event names align with EVENT_CATALOG.md.
-  const { data: booking } = await supabase
-    .from("bookings")
-    .select("student_id, teacher_id, status")
-    .eq("id", bookingId)
-    .single<{ student_id: string; teacher_id: string; status: string }>();
-
-  if (booking) {
+  // Emit per-status event only when the row actually transitioned.
+  // No-op transitions stay silent (matches the previous behavior where
+  // a same-status UPDATE would still write audit + emit; new behavior
+  // skips both — defensible improvement, no downstream consumer relies
+  // on duplicate-state events).
+  if (!result.alreadyInTargetState) {
     const eventName =
-      status === "confirmed" ? "booking.confirmed"
-      : status === "cancelled" ? "booking.cancelled"
+      newStatus === "confirmed" ? "booking.confirmed"
+      : newStatus === "cancelled" ? "booking.cancelled"
       : "booking.status_changed";
     try {
       await emitEvent(
         eventName,
         "booking",
         bookingId,
-        { student_id: booking.student_id, teacher_id: booking.teacher_id, new_status: status },
+        {
+          student_id: result.studentId,
+          teacher_id: result.teacherId,
+          new_status: newStatus,
+        },
         actorId,
       );
     } catch (err) {
-      logError("updateBookingStatus: emitEvent failed", err, { tag: "admin-bookings" });
+      logError("admin updateBookingStatus: emitEvent failed", err, {
+        tag: "admin-bookings",
+      });
     }
   }
 

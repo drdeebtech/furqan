@@ -1,20 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
-import { logError } from "@/lib/logger";
 import type { BookingStatus } from "@/types/database";
+import { updateBookingStatus as updateBookingStatusDomain } from "@/lib/domains/booking/actions";
+import {
+  BookingNotFoundError,
+  BookingStatusUpdateError,
+} from "@/lib/domains/booking/types";
 
 export interface BulkBookingResult {
   updated: number;
   failed: number;
   errors: string[];
-}
-
-interface BookingRow {
-  id: string;
-  status: BookingStatus;
 }
 
 const VALID_TRANSITIONS: ReadonlySet<BookingStatus> = new Set<BookingStatus>([
@@ -23,6 +21,20 @@ const VALID_TRANSITIONS: ReadonlySet<BookingStatus> = new Set<BookingStatus>([
   "no_show",
 ]);
 
+/**
+ * Admin route adapter for bulk booking status updates.
+ *
+ * Per ADR-0002:
+ *   - requireAdmin auth + VALID_TRANSITIONS gate + revalidatePath stay here.
+ *   - Each per-id status change delegates to the domain
+ *     `updateBookingStatus(input)`.
+ *
+ * Bulk does NOT emit events (preserves prior behavior — per-row events
+ * would amplify n8n traffic; bulk operations should be summarized
+ * separately if downstream consumers want to react). The domain still
+ * gets called for each id so audit rows are written and DB-level
+ * transition triggers fire normally.
+ */
 export async function bulkUpdateBookingStatus({
   ids,
   status,
@@ -50,7 +62,6 @@ export async function bulkUpdateBookingStatus({
     return result;
   }
 
-  const admin = createAdminClient();
   const effectiveReason =
     (reason ?? "").trim() ||
     (status === "no_show" ? "admin bulk mark: no-show" : "admin bulk action");
@@ -59,47 +70,28 @@ export async function bulkUpdateBookingStatus({
   // on each transition and so per-row audit rows are written.
   for (const id of ids) {
     try {
-      const { data: existing } = await admin
-        .from("bookings")
-        .select("id, status")
-        .eq("id", id)
-        .single<BookingRow>();
-
-      if (!existing) {
+      const res = await updateBookingStatusDomain({
+        bookingId: id,
+        newStatus: status,
+        actorId,
+        reason: `admin bulk ${status}: ${effectiveReason}`,
+      });
+      // Already-in-target-state stays silent (preserves the original
+      // skip-without-counting behavior).
+      if (!res.alreadyInTargetState) {
+        result.updated += 1;
+      }
+    } catch (err) {
+      if (err instanceof BookingNotFoundError) {
         result.failed += 1;
         result.errors.push(`الحجز ${id.slice(0, 8)}… غير موجود`);
         continue;
       }
-      if (existing.status === status) {
-        // Already in the target state — skip silently to keep the batch clean.
-        continue;
-      }
-
-      const { error: updateErr } = await admin
-        .from("bookings")
-        .update({ status })
-        .eq("id", id);
-
-      if (updateErr) {
+      if (err instanceof BookingStatusUpdateError) {
         result.failed += 1;
-        result.errors.push(`${id.slice(0, 8)}…: ${updateErr.message}`);
+        result.errors.push(`${id.slice(0, 8)}…: ${err.message}`);
         continue;
       }
-
-      await admin.from("audit_log").insert({
-        changed_by: actorId,
-        table_name: "bookings",
-        record_id: id,
-        action: "UPDATE",
-        old_data: { status: existing.status },
-        new_data: { status, reason: effectiveReason },
-        reason: `admin bulk ${status}: ${effectiveReason}`,
-      }).then((r) => {
-        if (r.error) logError("bulkUpdateBookingStatus: audit row failed", r.error, { tag: "admin-bookings", metadata: { id } });
-      });
-
-      result.updated += 1;
-    } catch (err) {
       result.failed += 1;
       result.errors.push(err instanceof Error ? err.message : "فشل غير متوقع");
     }
