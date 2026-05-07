@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdminOrModerator, ForbiddenError } from "@/lib/auth/require-admin";
-import { dispatchNotification } from "@/lib/notifications/dispatcher";
+import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
@@ -77,7 +77,7 @@ export async function createReply(threadId: string, formData: FormData): Promise
   // Notify the thread author (skip if they're replying to themselves).
   if (thread.author_id !== user.id) {
     try {
-      await dispatchNotification({
+      await notify({
         userId: thread.author_id,
         type: "system",
         title: `رد جديد على موضوعك`,

@@ -102,12 +102,12 @@ export const GET = withCronMonitor(
     let failed = 0;
     for (const studentId of dueIds) {
       try {
-        await notify(
-          studentId,
-          "system",
-          "تذكير المراجعة اليومية",
-          "حافظ على سلسلتك — راجع جزءاً من القرآن أو سجّل دراستك اليوم.",
-        );
+        await notify({
+          userId: studentId,
+          type: "system",
+          title: "تذكير المراجعة اليومية",
+          body: "حافظ على سلسلتك — راجع جزءاً من القرآن أو سجّل دراستك اليوم.",
+        });
         sent += 1;
       } catch (err) {
         failed += 1;

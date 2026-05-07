@@ -104,7 +104,14 @@ export async function createHomework(formData: FormData) {
 
   // Notify student
   try {
-    await notify(student_id, "homework", "متابعة جديدة", `كلّفك معلمك بمتابعة جديدة — ${title}`, "homework", booking_id);
+    await notify({
+      userId: student_id,
+      type: "homework",
+      title: "متابعة جديدة",
+      body: `كلّفك معلمك بمتابعة جديدة — ${title}`,
+      entityType: "homework",
+      entityId: booking_id,
+    });
   } catch (err) {
     logError("notify student failed during createHomework", err, {
       component: "homework.createHomework",
@@ -187,7 +194,14 @@ export async function markStudentReady(
       .single<{ full_name: string | null }>();
     const studentName = student?.full_name ?? "الطالب";
 
-    await notify(hw.teacher_id, "homework", "طالب جاهز", `${studentName} جاهز لتسميع المتابعة: ${hw.title}`, "homework", homeworkId);
+    await notify({
+      userId: hw.teacher_id,
+      type: "homework",
+      title: "طالب جاهز",
+      body: `${studentName} جاهز لتسميع المتابعة: ${hw.title}`,
+      entityType: "homework",
+      entityId: homeworkId,
+    });
   } catch (err) {
     logError("notify teacher failed during markStudentReady", err, {
       component: "homework.markStudentReady",
@@ -254,7 +268,14 @@ export async function gradeHomework(homeworkId: string, formData: FormData) {
 
   // Notify student
   try {
-    await notify(hw.student_id, "homework", "تم تقييم متابعتك", `تم تقييم متابعة "${hw.title}" — النتيجة: ${gradeLabel}`, "homework", homeworkId);
+    await notify({
+      userId: hw.student_id,
+      type: "homework",
+      title: "تم تقييم متابعتك",
+      body: `تم تقييم متابعة "${hw.title}" — النتيجة: ${gradeLabel}`,
+      entityType: "homework",
+      entityId: homeworkId,
+    });
   } catch (err) {
     logError("notify student failed during gradeHomework", err, {
       component: "homework.gradeHomework",
@@ -290,7 +311,14 @@ export async function gradeHomework(homeworkId: string, formData: FormData) {
       if (regenErr) logError("homework auto-regen failed", regenErr, { tag: "homework" });
 
       // Notify student about re-assignment
-      await notify(hw.student_id, "homework", "تم إعادة تكليفك بالمتابعة", `تمت إعادة تكليفك بمتابعة "${hw.title}" — يرجى المحاولة مجدداً`, "homework", homeworkId);
+      await notify({
+        userId: hw.student_id,
+        type: "homework",
+        title: "تم إعادة تكليفك بالمتابعة",
+        body: `تمت إعادة تكليفك بمتابعة "${hw.title}" — يرجى المحاولة مجدداً`,
+        entityType: "homework",
+        entityId: homeworkId,
+      });
 
       // Notify parent
       await notifyParentHomeworkNotDone(

@@ -1,7 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { dispatchNotification } from "@/lib/notifications/dispatcher";
+import { notify } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
 import { buildSessionNarrative, type SessionNarrative } from "./session-narrative";
 
@@ -133,7 +133,7 @@ export async function sendSessionNarrative(input: SendNarrativeInput): Promise<S
 
   // Dispatch in-app notification to the student (parent emails are handled by n8n / Resend later)
   try {
-    await dispatchNotification({
+    await notify({
       userId: booking.student_id,
       type: "system",
       title: "تم إرسال ملخص الجلسة لولي الأمر",

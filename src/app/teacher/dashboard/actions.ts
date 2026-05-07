@@ -171,7 +171,14 @@ export async function updateBookingStatus(
 
           // Notify student of auto-cancellation (best-effort)
           try {
-            await notify(other.student_id, "booking", "تم إلغاء حجزك تلقائياً", "تم إلغاء حجزك بسبب تعارض مع حجز آخر مؤكد — يمكنك حجز موعد بديل", "booking", other.id);
+            await notify({
+              userId: other.student_id,
+              type: "booking",
+              title: "تم إلغاء حجزك تلقائياً",
+              body: "تم إلغاء حجزك بسبب تعارض مع حجز آخر مؤكد — يمكنك حجز موعد بديل",
+              entityType: "booking",
+              entityId: other.id,
+            });
           } catch (err) {
             logError("updateBookingStatus: auto-cancel notify failed", err, {
               tag: "bookings",
@@ -227,7 +234,14 @@ export async function updateBookingStatus(
     // Notify student that booking is confirmed (best-effort)
     try {
       const scheduledDate = new Date(booking.scheduled_at).toLocaleDateString("ar");
-      await notify(booking.student_id, "booking", "تم تأكيد حجزك", `تم تأكيد جلستك بتاريخ ${scheduledDate} — يمكنك الانضمام من صفحة الجلسات`, "booking", bookingId);
+      await notify({
+        userId: booking.student_id,
+        type: "booking",
+        title: "تم تأكيد حجزك",
+        body: `تم تأكيد جلستك بتاريخ ${scheduledDate} — يمكنك الانضمام من صفحة الجلسات`,
+        entityType: "booking",
+        entityId: bookingId,
+      });
     } catch (err) {
       logError("updateBookingStatus: confirm notify failed", err, {
         tag: "bookings",
@@ -238,7 +252,14 @@ export async function updateBookingStatus(
   } else if (status === "cancelled") {
     // Notify student that booking is cancelled (best-effort)
     try {
-      await notify(booking.student_id, "booking", "تم رفض حجزك", "للأسف تم رفض حجزك من قبل المعلم — يمكنك حجز موعد آخر", "booking", bookingId);
+      await notify({
+        userId: booking.student_id,
+        type: "booking",
+        title: "تم رفض حجزك",
+        body: "للأسف تم رفض حجزك من قبل المعلم — يمكنك حجز موعد آخر",
+        entityType: "booking",
+        entityId: bookingId,
+      });
     } catch (err) {
       logError("updateBookingStatus: cancel notify failed", err, {
         tag: "bookings",
@@ -304,7 +325,14 @@ export const markNoShow = loudAction<{ bookingId: string }, { message: string }>
 
     // Notify student (best-effort)
     try {
-      await notify(booking.student_id, "booking", "تم تسجيل غيابك", "سجّل المعلم غيابك عن الجلسة — تواصل مع المعلم لإعادة الجدولة", "booking", bookingId);
+      await notify({
+        userId: booking.student_id,
+        type: "booking",
+        title: "تم تسجيل غيابك",
+        body: "سجّل المعلم غيابك عن الجلسة — تواصل مع المعلم لإعادة الجدولة",
+        entityType: "booking",
+        entityId: bookingId,
+      });
     } catch (err) {
       logError("markNoShow: notify student failed", err, { tag: "teacher-bookings" });
     }
@@ -396,7 +424,14 @@ export const endSession = loudAction<{ sessionId: string }, { message: string }>
 
     // Notify student (best-effort)
     try {
-      await notify(booking.student_id, "booking", "تمت الجلسة", `أنهى المعلم الجلسة — المدة الفعلية: ${actualDuration} دقيقة`, "session", sessionId);
+      await notify({
+        userId: booking.student_id,
+        type: "booking",
+        title: "تمت الجلسة",
+        body: `أنهى المعلم الجلسة — المدة الفعلية: ${actualDuration} دقيقة`,
+        entityType: "session",
+        entityId: sessionId,
+      });
     } catch (err) {
       logError("endSession: notify student failed", err, {
         component: "teacher.dashboard.endSession",
@@ -743,7 +778,14 @@ export async function startInstantSession(studentId: string, durationMin: number
 
   // Notify student (best-effort)
   try {
-    await notify(studentId, "booking", "جلسة فورية", "المعلم بدأ جلسة فورية — انضم الآن!", "booking", booking.id);
+    await notify({
+      userId: studentId,
+      type: "booking",
+      title: "جلسة فورية",
+      body: "المعلم بدأ جلسة فورية — انضم الآن!",
+      entityType: "booking",
+      entityId: booking.id,
+    });
   } catch (err) {
     logError("startInstantSession: notify student failed", err, {
       tag: "bookings",

@@ -108,7 +108,14 @@ export async function forceEndSession(sessionId: string, reason: string) {
     const body = reason || "تم إنهاء الجلسة بواسطة المسؤول";
     await Promise.all(
       [booking.student_id, booking.teacher_id].map((uid) =>
-        notify(uid, "system", title, body, "session", sessionId).catch((err) =>
+        notify({
+          userId: uid,
+          type: "system",
+          title,
+          body,
+          entityType: "session",
+          entityId: sessionId,
+        }).catch((err) =>
           logError("notify failed during admin endSession", err, {
             component: "admin.sessions.endSession",
             metadata: { uid, sessionId },

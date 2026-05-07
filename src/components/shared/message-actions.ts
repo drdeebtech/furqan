@@ -42,7 +42,14 @@ export async function sendMessage(conversationId: string, content: string) {
       const senderName = sender?.full_name ?? "مستخدم";
       const preview = content.length > 50 ? content.slice(0, 50) + "…" : content;
 
-      await notify(recipientId, "message", `رسالة جديدة من ${senderName}`, preview, "conversation", conversationId);
+      await notify({
+        userId: recipientId,
+        type: "message",
+        title: `رسالة جديدة من ${senderName}`,
+        body: preview,
+        entityType: "conversation",
+        entityId: conversationId,
+      });
     }
   } catch { /* non-blocking */ }
 

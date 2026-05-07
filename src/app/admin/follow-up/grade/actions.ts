@@ -148,14 +148,14 @@ export async function bulkGradeHomework(
       // Notify student (mirror gradeHomework's pattern).
       try {
         const gradeLabel = HOMEWORK_STATUS_AR[status];
-        await notify(
-          hw.student_id,
-          "homework",
-          "تم تقييم متابعتك",
-          `تم تقييم متابعة "${hw.title}" — النتيجة: ${gradeLabel}`,
-          "homework",
-          item.id,
-        );
+        await notify({
+          userId: hw.student_id,
+          type: "homework",
+          title: "تم تقييم متابعتك",
+          body: `تم تقييم متابعة "${hw.title}" — النتيجة: ${gradeLabel}`,
+          entityType: "homework",
+          entityId: item.id,
+        });
       } catch (err) {
         logError("bulkGradeFollowup: notify failed", err, { tag: "admin-followup-grade" });
       }

@@ -451,14 +451,14 @@ export async function submitForReview(
     .in("role", ["admin", "moderator"])
     .returns<{ id: string }[]>();
   for (const r of reviewers ?? []) {
-    await notify(
-      r.id,
-      "course",
-      "دورة بانتظار المراجعة",
-      `الدورة "${courseRow?.title_ar ?? ""}" مرفوعة للمراجعة`,
-      "course",
-      courseId,
-    ).catch((err) => logError("notify on submit failed", err, { tag: "courses", courseId, recipient: r.id }));
+    await notify({
+      userId: r.id,
+      type: "course",
+      title: "دورة بانتظار المراجعة",
+      body: `الدورة "${courseRow?.title_ar ?? ""}" مرفوعة للمراجعة`,
+      entityType: "course",
+      entityId: courseId,
+    }).catch((err) => logError("notify on submit failed", err, { tag: "courses", courseId, recipient: r.id }));
   }
 
   revalidateCoursePaths(courseId);
@@ -517,14 +517,14 @@ export async function approveCourse(courseId: string) {
   // teacher to ping — the n8n admin digest picks up the course.approved
   // event for those.
   if (course?.teacher_id) {
-    await notify(
-      course.teacher_id,
-      "course",
-      "تمت الموافقة على دورتك",
-      `الدورة "${course.title_ar}" منشورة الآن للطلاب`,
-      "course",
-      courseId,
-    ).catch((err) => logError("notify on approve failed", err, { tag: "courses", courseId }));
+    await notify({
+      userId: course.teacher_id,
+      type: "course",
+      title: "تمت الموافقة على دورتك",
+      body: `الدورة "${course.title_ar}" منشورة الآن للطلاب`,
+      entityType: "course",
+      entityId: courseId,
+    }).catch((err) => logError("notify on approve failed", err, { tag: "courses", courseId }));
   }
 
   revalidateCoursePaths(courseId);
@@ -582,14 +582,14 @@ export async function rejectCourse(courseId: string, reason: string) {
   // Notify the teacher with the reason — platform-owned courses skip this
   // (no teacher attached); admins see the rejection in the dashboard list.
   if (course?.teacher_id) {
-    await notify(
-      course.teacher_id,
-      "course",
-      "تم رفض دورتك",
-      `${course.title_ar} — السبب: ${reason.trim()}`,
-      "course",
-      courseId,
-    ).catch((err) => logError("notify on reject failed", err, { tag: "courses", courseId }));
+    await notify({
+      userId: course.teacher_id,
+      type: "course",
+      title: "تم رفض دورتك",
+      body: `${course.title_ar} — السبب: ${reason.trim()}`,
+      entityType: "course",
+      entityId: courseId,
+    }).catch((err) => logError("notify on reject failed", err, { tag: "courses", courseId }));
   }
 
   revalidateCoursePaths(courseId);

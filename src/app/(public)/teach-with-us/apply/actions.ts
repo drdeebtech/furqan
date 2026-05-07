@@ -281,7 +281,14 @@ export async function submitTeacherApplication(
       const body = `${full_name} (${country}) — ${specialties.slice(0, 3).join(", ")}`;
       await Promise.allSettled(
         (admins ?? []).map((a) =>
-          notify(a.id, "system", "طلب تدريس جديد", body, "teacher_profile", teacherId),
+          notify({
+            userId: a.id,
+            type: "system",
+            title: "طلب تدريس جديد",
+            body,
+            entityType: "teacher_profile",
+            entityId: teacherId,
+          }),
         ),
       );
     })().catch((err) => logError("teach-apply in-app notify failed", err, { tag: "teach-apply" })),

@@ -1,7 +1,7 @@
 "use server";
 import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { dispatchNotification } from "@/lib/notifications/dispatcher";
+import { notify } from "@/lib/notifications/dispatcher";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
 
@@ -28,13 +28,13 @@ export async function sendNotification(formData: FormData) {
   // Route through dispatcher so prefs, quiet hours, and delivery logging apply.
   await Promise.all(
     users.map((u) =>
-      dispatchNotification({
+      notify({
         userId: u.id,
         type: "system",
         title,
         body,
       }).catch((err) => {
-        logError("dispatchNotification failed during admin broadcast", err, {
+        logError("notify failed during admin broadcast", err, {
           component: "admin.notifications.sendNotification",
           metadata: { userId: u.id, title },
         });

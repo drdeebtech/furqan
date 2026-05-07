@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { NotifType } from "@/types/database";
 import { isInQuietHours } from "./dispatcher-quiet-hours";
 
-export interface DispatchOptions {
+export interface NotifyOptions {
   userId: string;
   type: NotifType;
   title: string;
@@ -18,13 +18,26 @@ export interface DispatchOptions {
 }
 
 /**
- * Centralized notification dispatcher.
- * Respects user communication preferences, logs delivery attempts,
- * and routes to enabled channels (in_app, email, whatsapp).
+ * Send an in-app notification, respecting user communication preferences.
  *
- * Non-blocking — wrap in try/catch at call site.
+ * Behavior:
+ *   - Reads `in_app_enabled`, quiet hours, and `important_only_mode` from
+ *     `communication_preferences` (falls back to permissive defaults if no
+ *     row exists for the user).
+ *   - Inserts into `notifications` (the row the user sees in the bell).
+ *   - Logs the attempt in `message_delivery_log` with `recipient_channel='in_app'`
+ *     (background via `after()` so the caller doesn't wait on observability).
+ *   - Skips non-urgent notifications during quiet hours and in important-only mode.
+ *
+ * **In-app only.** Per-user email and WhatsApp delivery are not implemented —
+ * `src/lib/email.ts` is event-template-specific (no generic `sendEmail(toUserId)`)
+ * and `src/lib/whatsapp.ts` is admin-broadcast-only via CallMeBot. When per-user
+ * channel infrastructure exists, this dispatcher can grow `EmailAdapter` /
+ * `WhatsAppAdapter` seams.
+ *
+ * Non-blocking — wrap in try/catch at the call site if you care about failures.
  */
-export async function dispatchNotification(opts: DispatchOptions): Promise<void> {
+export async function notify(opts: NotifyOptions): Promise<void> {
   // Service-role client. The dispatcher is system bookkeeping that
   // writes to RLS-protected tables (notifications, message_delivery_log)
   // on behalf of the platform, not the calling user. Anonymous /
@@ -34,12 +47,10 @@ export async function dispatchNotification(opts: DispatchOptions): Promise<void>
   // 1. Fetch user preferences (fallback to defaults if none set)
   const { data: prefs } = await supabase
     .from("communication_preferences")
-    .select("in_app_enabled, email_enabled, whatsapp_enabled, quiet_hours_start, quiet_hours_end, important_only_mode")
+    .select("in_app_enabled, quiet_hours_start, quiet_hours_end, important_only_mode")
     .eq("user_id", opts.userId)
     .returns<{
       in_app_enabled: boolean;
-      email_enabled: boolean;
-      whatsapp_enabled: boolean;
       quiet_hours_start: string | null;
       quiet_hours_end: string | null;
       important_only_mode: boolean;
@@ -68,7 +79,7 @@ export async function dispatchNotification(opts: DispatchOptions): Promise<void>
     if (isInQuietHours(currentTime, prefs.quiet_hours_start, prefs.quiet_hours_end)) return;
   }
 
-  // 2. Send in-app notification (primary channel — always attempted).
+  // 2. Insert the in-app notification (the row the user sees in the bell).
   // The notifications insert stays sync because the user's next page
   // load may include the notifications panel; the message_delivery_log
   // insert is observability-only and runs in after() so the caller
@@ -95,35 +106,6 @@ export async function dispatchNotification(opts: DispatchOptions): Promise<void>
       }),
     );
   }
-
-  // 3. Email channel (future — log as skipped for now)
-  // When email integration is active, send via Resend here
-  // For now, just log that email was considered
-
-  // 4. WhatsApp channel (future — handled by n8n workflows)
-  // n8n handles WhatsApp delivery via its own notification dispatcher
-}
-
-/**
- * Simplified dispatch for the common case: just send in-app notification.
- * Drop-in replacement for direct supabase.from("notifications").insert(...).
- */
-export async function notify(
-  userId: string,
-  type: NotifType,
-  title: string,
-  body?: string,
-  entityType?: string,
-  entityId?: string,
-): Promise<void> {
-  await dispatchNotification({
-    userId,
-    type,
-    title,
-    body,
-    entityType,
-    entityId,
-  });
 }
 
 // ─── Delivery logging helper ────────────────────────────────────────────────

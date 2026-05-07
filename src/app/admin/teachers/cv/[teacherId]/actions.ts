@@ -79,14 +79,14 @@ export async function approveCv(teacherId: string) {
   }
 
   try {
-    await notify(
-      teacherId,
-      "system",
-      "تم قبول سيرتك الذاتية",
-      "تمت الموافقة على سيرتك الذاتية — يمكنك الآن استقبال الطلاب",
-      "teacher_profile",
-      teacherId,
-    );
+    await notify({
+      userId: teacherId,
+      type: "system",
+      title: "تم قبول سيرتك الذاتية",
+      body: "تمت الموافقة على سيرتك الذاتية — يمكنك الآن استقبال الطلاب",
+      entityType: "teacher_profile",
+      entityId: teacherId,
+    });
   } catch (err) {
     logError("approveCv: notify failed", err, { tag: "admin-cv" });
   }
@@ -181,14 +181,14 @@ export async function rejectCv(teacherId: string, reason: string) {
   }
 
   try {
-    await notify(
-      teacherId,
-      "system",
-      "تم رفض سيرتك الذاتية",
-      `تم رفض سيرتك الذاتية — السبب: ${reason.trim()}`,
-      "teacher_profile",
-      teacherId,
-    );
+    await notify({
+      userId: teacherId,
+      type: "system",
+      title: "تم رفض سيرتك الذاتية",
+      body: `تم رفض سيرتك الذاتية — السبب: ${reason.trim()}`,
+      entityType: "teacher_profile",
+      entityId: teacherId,
+    });
   } catch (err) {
     logError("rejectCv: notify failed", err, { tag: "admin-cv" });
   }

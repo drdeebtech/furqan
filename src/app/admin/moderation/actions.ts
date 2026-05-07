@@ -174,14 +174,14 @@ export async function pingAdminOnEvaluation(evalId: string): Promise<ModerationR
   // Non-blocking multi-channel dispatch
   await Promise.all(
     recipients.map((a) =>
-      notify(
-        a.id,
-        "system",
-        "تقييم منخفض يحتاج مراجعة",
-        `تقييم بدرجة ${scoreText} يتطلب مراجعة المشرف.`,
-        "session_evaluation",
-        evalRow.id,
-      ).catch((err) =>
+      notify({
+        userId: a.id,
+        type: "system",
+        title: "تقييم منخفض يحتاج مراجعة",
+        body: `تقييم بدرجة ${scoreText} يتطلب مراجعة المشرف.`,
+        entityType: "session_evaluation",
+        entityId: evalRow.id,
+      }).catch((err) =>
         logError("notify admin failed during pingAdminOnEvaluation", err, {
           component: "admin.moderation.pingAdminOnEvaluation",
           metadata: { recipientId: a.id, evalId: evalRow.id },

@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
 import { getSettings } from "@/lib/settings";
 import { emitEvent } from "@/lib/automation/emit";
-import { dispatchNotification } from "@/lib/notifications/dispatcher";
+import { notify } from "@/lib/notifications/dispatcher";
 import { createOrder, captureOrder } from "@/lib/paypal/client";
 
 type Currency = "USD" | "GBP" | "SAR" | "AUD";
@@ -247,7 +247,7 @@ export async function captureAndGrantPackage(input: {
       sessions_total: pkgRow.session_count, amount_usd: payment.amount_usd,
     }).catch((e) => logError("emit package.purchased failed", e, { tag: "automation" }));
 
-    dispatchNotification({
+    notify({
       userId: user.id,
       type: "payment",
       title: "تم تفعيل الباقة",

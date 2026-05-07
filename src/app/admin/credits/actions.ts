@@ -103,14 +103,14 @@ export async function grantCreditAction(
 
   // Notify the student.
   try {
-    await notify(
-      student.id,
-      "system",
-      "تمت إضافة جلسات إلى باقتك",
-      `أضاف المشرف ${sessions} جلسة${sessions > 1 ? "" : ""} إلى باقتك. السبب: ${reason}`,
-      "student_package",
-      activePkg.id,
-    );
+    await notify({
+      userId: student.id,
+      type: "system",
+      title: "تمت إضافة جلسات إلى باقتك",
+      body: `أضاف المشرف ${sessions} جلسة${sessions > 1 ? "" : ""} إلى باقتك. السبب: ${reason}`,
+      entityType: "student_package",
+      entityId: activePkg.id,
+    });
   } catch (err) {
     logError("grantCreditAction: notify failed", err, { tag: "admin-credits" });
   }
