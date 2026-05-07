@@ -11,11 +11,11 @@ async function logEvent(eventType: string, status: "succeeded" | "failed", paylo
     entity_type: "stripe_event",
     entity_id: entityId ?? null,
     status,
-    payload_json: payload,
+    payload_json: payload as never,
     error_message: error ?? null,
     started_at: now,
     finished_at: now,
-  } as never);
+  });
 }
 
 export const maxDuration = 60;

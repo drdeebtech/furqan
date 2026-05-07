@@ -75,7 +75,7 @@ async function checkApplyRate(ipKey: string): Promise<boolean> {
       status: "succeeded",
       started_at: now,
       finished_at: now,
-    } as never);
+    });
     return true;
   } catch (err) {
     // Fail open — never block a real applicant because rate-limit table is down

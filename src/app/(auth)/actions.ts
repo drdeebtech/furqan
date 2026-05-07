@@ -140,7 +140,7 @@ async function checkAuthRate(
       status: "succeeded",
       started_at: now,
       finished_at: now,
-    } as never);
+    });
     return true;
   } catch (err) {
     logError(`${workflow} rate check failed — allowing request`, err, { tag: "auth-rate" });

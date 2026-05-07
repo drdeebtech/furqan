@@ -106,7 +106,7 @@ export async function logIntervention(formData: FormData): Promise<{ ok: boolean
     },
     started_at: now,
     finished_at: now,
-  } as never).then(({ error }) => {
+  }).then(({ error }) => {
     if (error) {
       logError("admin retention automation_logs insert failed", error, {
         tag: "admin-retention",

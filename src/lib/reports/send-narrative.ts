@@ -129,7 +129,7 @@ export async function sendSessionNarrative(input: SendNarrativeInput): Promise<S
     },
     started_at: nowIso,
     finished_at: nowIso,
-  } as never);
+  });
 
   // Dispatch in-app notification to the student (parent emails are handled by n8n / Resend later)
   try {

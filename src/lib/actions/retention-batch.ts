@@ -181,7 +181,7 @@ export async function scoreRetentionBatch(): Promise<RetentionBatchResult> {
     error_message: error?.message ?? null,
     started_at: startedAt,
     finished_at: new Date().toISOString(),
-  } as never);
+  });
 
   if (error) {
     throw new Error(error.message);

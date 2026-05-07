@@ -41,7 +41,7 @@ export async function POST(request: Request) {
         result_json: data.result ?? null,
         error_message: data.error_message ?? null,
         finished_at: new Date().toISOString(),
-      } as never);
+      });
       if (error) {
         logError("n8n webhook log insert failed", error, {
           tag: "n8n-webhook",

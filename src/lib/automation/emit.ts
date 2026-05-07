@@ -223,10 +223,10 @@ async function recordOutcome(
       entity_id: payload.entity_id,
       idempotency_key: payload.trace_id,
       status,
-      payload_json: payload as unknown as Record<string, unknown>,
+      payload_json: payload as never,
       error_message: reason,
       finished_at: new Date().toISOString(),
-    } as never);
+    });
   } catch {
     // Swallow — if we can't even log, the caller still gets normal control flow.
   }

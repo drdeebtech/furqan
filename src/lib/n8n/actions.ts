@@ -35,7 +35,7 @@ async function logAdminAction(
       error_message: errorMessage,
       payload_json: { actor_id: actorId, action, workflow_id: workflowId } as never,
       finished_at: new Date().toISOString(),
-    } as never);
+    });
   } catch (err) {
     logError("Failed to log n8n admin action", err, { tag: "n8n-admin" });
   }

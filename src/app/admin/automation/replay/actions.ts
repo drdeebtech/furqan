@@ -113,9 +113,9 @@ export async function replayAutomation({
     entity_id: row.entity_id,
     idempotency_key: replayKey,
     status: "started",
-    payload_json: row.payload_json,
+    payload_json: row.payload_json as never,
     error_message: null,
-  } as never).then((r) => {
+  }).then((r) => {
     if (r.error) logError("replayAutomation: pre-dispatch log failed", r.error, { tag: "admin-automation" });
   });
 
@@ -154,10 +154,10 @@ export async function replayAutomation({
         entity_id: row.entity_id,
         idempotency_key: `${replayKey}:result`,
         status: "failed",
-        payload_json: row.payload_json,
+        payload_json: row.payload_json as never,
         error_message: `replay HTTP ${res.status}`,
         finished_at: new Date().toISOString(),
-      } as never).then((r) => {
+      }).then((r) => {
         if (r.error) logError("replayAutomation: HTTP-failure log insert failed", r.error, { tag: "admin-automation" });
       });
       return { error: `فشل الإرسال: HTTP ${res.status}` };
@@ -186,10 +186,10 @@ export async function replayAutomation({
       entity_id: row.entity_id,
       idempotency_key: `${replayKey}:result`,
       status: "failed",
-      payload_json: row.payload_json,
+      payload_json: row.payload_json as never,
       error_message: `replay error: ${message}`,
       finished_at: new Date().toISOString(),
-    } as never).then((r) => {
+    }).then((r) => {
       if (r.error) logError("replayAutomation: catch-path log insert failed", r.error, { tag: "admin-automation" });
     });
     return { error: `فشل الإرسال: ${message}` };
