@@ -130,5 +130,5 @@ async function logDelivery(
     related_entity_id: opts.entityId ?? null,
     status: opts.status,
     failure_reason: opts.failureReason ?? null,
-  } as never);
+  });
 }

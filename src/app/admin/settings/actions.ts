@@ -33,7 +33,7 @@ export async function updateSetting(key: string, value: string) {
       value,
       updated_at: new Date().toISOString(),
       updated_by: actorId,
-    } as never, { onConflict: "key" });
+    }, { onConflict: "key" });
 
   if (error) {
     // Sprint 1.4 (2026-05-05) — purely additive observability. The user
