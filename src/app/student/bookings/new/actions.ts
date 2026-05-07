@@ -60,7 +60,7 @@ async function checkRateLimit(
     status: "succeeded",
     started_at: now,
     finished_at: now,
-  } as never);
+  });
   return true;
 }
 

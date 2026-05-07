@@ -78,7 +78,7 @@ export async function GET(request: Request) {
     finished_at: finishedAt,
     error_message: errorMessage,
     payload_json: { http_code: httpCode, url: HEALTHCHECK_URL },
-  } as never);
+  });
 
   // 4. Alert only on state change. First run (prevStatus === null) doesn't
   // alert — avoids a fanfare alert on initial deploy.
