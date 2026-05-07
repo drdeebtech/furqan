@@ -11,6 +11,7 @@ import { sendTelegramAlert } from "@/lib/n8n/client";
 import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
 import type { CvStatus } from "@/types/database";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 const MAX_APPLICATIONS_PER_HOUR = 3;
 const VALID_LANGUAGES = new Set(["ar", "en", "ur", "fr", "tr", "id", "ms"]);
@@ -213,7 +214,7 @@ export async function submitTeacherApplication(
           if (avatarUrl) {
             await adminClient
               .from("profiles")
-              .update({ avatar_url: avatarUrl } as never)
+              .update({ avatar_url: avatarUrl } satisfies TableUpdate<"profiles">)
               .eq("id", teacherId);
           }
         }

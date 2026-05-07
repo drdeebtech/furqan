@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
 import { logError } from "@/lib/logger";
+import type { TableInsert } from "@/lib/supabase/typed-helpers";
 
 function str(formData: FormData, key: string): string | null {
   const v = formData.get(key);
@@ -34,7 +35,7 @@ const upsertMyIjazaBase = loudAction<{
   },
   handler: async (input) => {
     const supabase = await createClient();
-    const row = {
+    const row: TableInsert<"teacher_ijaza"> = {
       teacher_id: input.teacherId,
       riwaya: input.riwaya,
       chain_text: input.chain_text,
@@ -48,7 +49,7 @@ const upsertMyIjazaBase = loudAction<{
       // AND is not yet verified. The .eq() chain enforces both.
       const { data, error } = await supabase
         .from("teacher_ijaza")
-        .update(row as never)
+        .update(row)
         .eq("id", input.id)
         .eq("teacher_id", input.teacherId)
         .is("verified_by", null)
@@ -58,7 +59,7 @@ const upsertMyIjazaBase = loudAction<{
         throw new Error("لا يمكن تعديل الإجازة الموثقة. تواصل مع الإدارة.");
       }
     } else {
-      const { error } = await supabase.from("teacher_ijaza").insert(row as never);
+      const { error } = await supabase.from("teacher_ijaza").insert(row);
       if (error) throw error;
     }
 

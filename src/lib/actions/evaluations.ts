@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notify } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
 // Helper to verify caller is admin or moderator
 async function requireAdminOrMod(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -40,10 +41,13 @@ export async function createEvaluation(formData: FormData) {
 
   const { error } = await supabase.from("session_evaluations").insert({
     student_id, teacher_id,
-    evaluation_type, evaluation_date,
+    // evaluation_type is the evaluation_type enum at the column;
+    // formData arrives untyped so a narrowing cast documents the contract.
+    evaluation_type: evaluation_type as TableInsert<"session_evaluations">["evaluation_type"],
+    evaluation_date,
     hifz_score, tajweed_score, fluency_score, attendance_score, overall_score,
     strengths, areas_for_improvement, next_goals, teacher_comments,
-  } as never);
+  } satisfies TableInsert<"session_evaluations">);
 
   if (error) return { error: "فشل إنشاء التقييم" };
 
@@ -110,7 +114,9 @@ export async function createTeacherEvaluation(
   const { error } = await supabase.from("session_evaluations").insert({
     student_id: studentId,
     teacher_id: user.id,
-    evaluation_type: evaluationType,
+    // evaluation_type is the evaluation_type enum at the column;
+    // arg arrives as a plain string so a narrowing cast documents the contract.
+    evaluation_type: evaluationType as TableInsert<"session_evaluations">["evaluation_type"],
     evaluation_date: evaluationDate,
     hifz_score: scores.hifz ?? null,
     tajweed_score: scores.tajweed ?? null,
@@ -121,7 +127,7 @@ export async function createTeacherEvaluation(
     areas_for_improvement: text.areas_for_improvement ?? null,
     next_goals: text.next_goals ?? null,
     teacher_comments: text.teacher_comments ?? null,
-  } as never);
+  } satisfies TableInsert<"session_evaluations">);
 
   if (error) return { error: "فشل إنشاء التقييم" };
 
@@ -150,18 +156,18 @@ export async function updateEvaluation(evaluationId: string, formData: FormData)
   const supabase = await createClient();
   await requireAdminOrMod(supabase);
 
-  const updates: Record<string, unknown> = {};
-  for (const key of ["hifz_score", "tajweed_score", "fluency_score", "attendance_score", "overall_score"]) {
+  const updates: TableUpdate<"session_evaluations"> = {};
+  for (const key of ["hifz_score", "tajweed_score", "fluency_score", "attendance_score", "overall_score"] as const) {
     const v = formData.get(key);
     if (v) updates[key] = Number(v);
   }
-  for (const key of ["strengths", "areas_for_improvement", "next_goals", "teacher_comments"]) {
+  for (const key of ["strengths", "areas_for_improvement", "next_goals", "teacher_comments"] as const) {
     const v = formData.get(key) as string;
     if (v !== null) updates[key] = v || null;
   }
 
   const { error } = await supabase.from("session_evaluations")
-    .update(updates as never).eq("id", evaluationId);
+    .update(updates).eq("id", evaluationId);
 
   if (error) return { error: "فشل تحديث التقييم" };
   revalidatePath("/admin/evaluations");
