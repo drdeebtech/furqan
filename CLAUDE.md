@@ -522,3 +522,17 @@ This project is indexed by GitNexus as **furqan** (9435 symbols, 15865 relations
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+## Agent skills
+
+### Issue tracker
+
+Issues live as GitHub issues at `github.com/drdeebtech/furqan/issues`, accessed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical triage labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. The first four don't exist on the repo yet — the `triage` skill creates them on first use; `wontfix` already exists. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout. `CONTEXT.md` and `docs/adr/` at the repo root (both empty for now; `/grill-with-docs` populates them lazily as terms and decisions resolve). See `docs/agents/domain.md`.
