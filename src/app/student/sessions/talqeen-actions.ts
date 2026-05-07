@@ -68,7 +68,7 @@ export async function createTalqeenHomework(
       status: "assigned",
       title,
       description,
-    } as never)
+    })
     .select("id")
     .single<{ id: string }>();
 

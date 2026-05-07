@@ -97,7 +97,7 @@ export async function createPackageOrder(input: {
       amount_local: Number(price),                       // what the buyer actually pays
       local_currency: input.currency,
       status: "pending",
-    } as never);
+    });
 
     if (insErr) {
       // Hard fail — surface to user so they don't think they've paid when no
@@ -185,7 +185,7 @@ export async function captureAndGrantPackage(input: {
         captured_at: new Date().toISOString(),
         payer_email: capture.payerEmail,
         paid_at: new Date().toISOString(),
-      } as never)
+      })
       .eq("id", payment.id);
 
     if (updErr) {

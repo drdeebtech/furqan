@@ -39,7 +39,7 @@ export async function addSlot(
     start_time: startTime,
     end_time: endTime,
     slot_duration: slotDuration,
-  } as never);
+  });
 
   if (error) {
     if (error.message.includes("avail_unique")) {

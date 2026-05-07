@@ -23,7 +23,7 @@ export async function sendMessage(conversationId: string, content: string) {
     conversation_id: conversationId,
     sender_id: user.id,
     content,
-  } as never);
+  });
 
   if (error) return { error: "حدث خطأ أثناء إرسال الرسالة" };
 
@@ -65,7 +65,7 @@ export async function markConversationAsRead(conversationId: string) {
 
   const { error } = await supabase
     .from("messages")
-    .update({ is_read: true } as never)
+    .update({ is_read: true })
     .eq("conversation_id", conversationId)
     .neq("sender_id", user.id)
     .eq("is_read", false);
@@ -133,7 +133,7 @@ export async function getMessages(conversationId: string) {
   if (unreadIncomingIds.length > 0) {
     const { error: markError } = await supabase
       .from("messages")
-      .update({ is_read: true } as never)
+      .update({ is_read: true })
       .in("id", unreadIncomingIds);
 
     if (markError) {

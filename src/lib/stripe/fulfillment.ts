@@ -53,7 +53,7 @@ export async function fulfillPackagePurchase(input: FulfillmentInput): Promise<F
       revenue_recognized: 0,
       status: "succeeded",
       paid_at: now,
-    } as never)
+    })
     .select("id")
     .single<{ id: string }>();
 
@@ -80,7 +80,7 @@ export async function fulfillPackagePurchase(input: FulfillmentInput): Promise<F
 
   if (spErr || !studentPkg) {
     // Roll back the payment by marking it failed
-    const { error: rbErr } = await supabase.from("payments").update({ status: "failed" } as never).eq("id", payment.id);
+    const { error: rbErr } = await supabase.from("payments").update({ status: "failed" }).eq("id", payment.id);
     if (rbErr) logError("stripe.fulfillment: payment rollback failed", rbErr, { tag: "stripe", severity: "critical" });
     return { ok: false, error: spErr?.message ?? "Failed to create student_package" };
   }

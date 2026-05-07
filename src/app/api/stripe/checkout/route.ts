@@ -64,7 +64,7 @@ export async function POST(request: Request) {
     tax_amount: 0,
     revenue_recognized: 0,
     status: "pending",
-  } as never);
+  });
   if (payErr) {
     logError("stripe.checkout: pending payment insert failed", payErr, { tag: "stripe", severity: "critical" });
     return NextResponse.json({ error: "Failed to record pending payment" }, { status: 500 });
