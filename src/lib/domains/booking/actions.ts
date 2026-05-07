@@ -1,9 +1,20 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
-import type { TableInsert } from "@/lib/supabase/typed-helpers";
-import type { CreateBookingInput, CreateBookingResult } from "./types";
-import { BookingValidationError, BookingConflictError } from "./types";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
+import type { BookingStatus } from "@/types/database";
+import type {
+  CreateBookingInput,
+  CreateBookingResult,
+  UpdateBookingStatusInput,
+  UpdateBookingStatusResult,
+} from "./types";
+import {
+  BookingValidationError,
+  BookingConflictError,
+  BookingNotFoundError,
+  BookingStatusUpdateError,
+} from "./types";
 import {
   type AvailabilitySlot,
   type AvailabilityException,
@@ -198,5 +209,114 @@ export async function createBooking(
     scheduledAt: scheduledAt.toISOString(),
     amountUsd,
     rateSnapshot,
+  };
+}
+
+/**
+ * Updates a booking's status and writes an audit row. Used by both the
+ * single-action admin route (`adminUpdateBookingStatus`) and the bulk
+ * admin route (`bulkUpdateBookingStatus`).
+ *
+ * Owns the booking-side state transition + audit. Does NOT emit events
+ * — that stays at the route adapter (per ADR-0002 §1, and matching the
+ * createBooking precedent: emitEvent calls live at the boundary, not in
+ * the domain).
+ *
+ * Behavior:
+ *   - Returns `alreadyInTargetState: true` and writes nothing if the
+ *     booking is already at `newStatus` (preserves bulk-actions silence
+ *     on no-op transitions).
+ *   - Throws `BookingNotFoundError` if the booking row doesn't exist.
+ *   - Throws `BookingStatusUpdateError` if the UPDATE itself fails.
+ *   - Audit-log INSERT failures are logged but don't fail the operation
+ *     (best-effort write per CLAUDE.md "best-effort writes" guidance).
+ */
+export async function updateBookingStatus(
+  input: UpdateBookingStatusInput,
+): Promise<UpdateBookingStatusResult> {
+  const { bookingId, newStatus, actorId, reason } = input;
+  const supabase = createAdminClient();
+
+  // Read current state so we can short-circuit no-ops, write the
+  // old_data audit field, and return the cross-domain ids the route
+  // adapter needs for emitEvent.
+  const { data: existing } = await supabase
+    .from("bookings")
+    .select("id, status, student_id, teacher_id")
+    .eq("id", bookingId)
+    .single<{
+      id: string;
+      status: BookingStatus;
+      student_id: string;
+      teacher_id: string;
+    }>();
+
+  if (!existing) {
+    throw new BookingNotFoundError(bookingId);
+  }
+
+  // Already-in-target-state short-circuit — preserves the existing bulk
+  // behavior of skipping silently when a row is already at newStatus.
+  if (existing.status === newStatus) {
+    return {
+      id: existing.id,
+      oldStatus: existing.status,
+      newStatus,
+      studentId: existing.student_id,
+      teacherId: existing.teacher_id,
+      alreadyInTargetState: true,
+    };
+  }
+
+  // Update.
+  const updatePayload: TableUpdate<"bookings"> = { status: newStatus };
+  const { error: updateErr } = await supabase
+    .from("bookings")
+    .update(updatePayload)
+    .eq("id", bookingId);
+
+  if (updateErr) {
+    logError("updateBookingStatus: bookings UPDATE failed", updateErr, {
+      tag: "booking-domain",
+      severity: "warning",
+      metadata: { bookingId, newStatus, actorId },
+    });
+    throw new BookingStatusUpdateError(updateErr.message);
+  }
+
+  // Audit row — best-effort. Failures are logged but don't fail the op
+  // because the bookings UPDATE has already committed; throwing here
+  // would leave the caller thinking the status change rolled back.
+  const auditPayload: TableInsert<"audit_log"> = {
+    changed_by: actorId,
+    table_name: "bookings",
+    record_id: bookingId,
+    action: "UPDATE",
+    old_data: { status: existing.status },
+    new_data: reason
+      ? { status: newStatus, reason }
+      : { status: newStatus },
+    reason: reason ?? `status set to ${newStatus}`,
+  };
+  await supabase
+    .from("audit_log")
+    .insert(auditPayload)
+    .then((r) => {
+      if (r.error) {
+        logError(
+          "updateBookingStatus: audit row INSERT failed",
+          r.error,
+          { tag: "booking-domain", metadata: { bookingId, newStatus } },
+        );
+      }
+    });
+
+  return {
+    id: existing.id,
+    oldStatus: existing.status,
+    newStatus,
+    studentId: existing.student_id,
+    teacherId: existing.teacher_id,
+    alreadyInTargetState: false,
   };
 }
