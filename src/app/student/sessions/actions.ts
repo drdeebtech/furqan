@@ -56,12 +56,12 @@ export async function attestSessionHappened(
     : "يرجى تحديث الحالة (لم تتم) أو حجز موعد بديل.";
 
   try {
-    await notify(
-      booking.teacher_id,
-      "system",
-      `إقرار الطالب: جلسة ${dateStr} ${verdict}`,
-      `${studentName} أفاد بأن جلسة ${booking.session_type} المحددة في ${dateStr} ${verdict}. ${action}`,
-    );
+    await notify({
+      userId: booking.teacher_id,
+      type: "system",
+      title: `إقرار الطالب: جلسة ${dateStr} ${verdict}`,
+      body: `${studentName} أفاد بأن جلسة ${booking.session_type} المحددة في ${dateStr} ${verdict}. ${action}`,
+    });
   } catch (err) {
     logError("attestSessionHappened: notify failed", err, {
       tag: "sessions",

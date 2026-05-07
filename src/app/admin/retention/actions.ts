@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdminOrModerator, ForbiddenError } from "@/lib/auth/require-admin";
-import { dispatchNotification } from "@/lib/notifications/dispatcher";
+import { notify } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
 
@@ -57,7 +57,7 @@ export async function logIntervention(formData: FormData): Promise<{ ok: boolean
   const tpl = TEMPLATES[type];
 
   try {
-    await dispatchNotification({
+    await notify({
       userId: studentId,
       type: "system",
       title: tpl.title,

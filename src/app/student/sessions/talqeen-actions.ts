@@ -83,14 +83,14 @@ export async function createTalqeenHomework(
   // Light notification to teacher that a recording slot has opened — they
   // get a louder one when the audio actually lands via markStudentReady.
   try {
-    await notify(
-      booking.teacher_id,
-      "homework",
-      "طلب تسميع جديد",
-      `الطالب أنشأ طلب تسميع من جلسة ${sessionDate} — سيصل الصوت قريباً.`,
-      "homework",
-      hw.id,
-    );
+    await notify({
+      userId: booking.teacher_id,
+      type: "homework",
+      title: "طلب تسميع جديد",
+      body: `الطالب أنشأ طلب تسميع من جلسة ${sessionDate} — سيصل الصوت قريباً.`,
+      entityType: "homework",
+      entityId: hw.id,
+    });
   } catch (err) {
     logError("createTalqeenHomework: notify failed", err, {
       tag: "talqeen",

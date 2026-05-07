@@ -232,14 +232,14 @@ export async function createBooking(
   // not be blocked or shown an error if a side-channel notification fails.
   const bookingId = newBooking?.id ?? "";
   await Promise.allSettled([
-    notify(
-      teacherId,
-      "booking",
-      "حجز جديد",
-      `لديك حجز جديد بتاريخ ${scheduledAt.toLocaleDateString("ar")} — يرجى التأكيد`,
-      "booking",
-      bookingId || undefined,
-    ).catch((err) => logError("notify teacher booking.created failed", err, {
+    notify({
+      userId: teacherId,
+      type: "booking",
+      title: "حجز جديد",
+      body: `لديك حجز جديد بتاريخ ${scheduledAt.toLocaleDateString("ar")} — يرجى التأكيد`,
+      entityType: "booking",
+      entityId: bookingId || undefined,
+    }).catch((err) => logError("notify teacher booking.created failed", err, {
       tag: "notify", severity: "warning", actionName: "booking.created", teacherId, bookingId,
     })),
     (async () => {

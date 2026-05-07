@@ -85,14 +85,14 @@ export async function requestFreshRecitationAction(
   // Notify the student. Best-effort — failure here doesn't roll back
   // the homework row, but is logged so it's visible in monitoring.
   try {
-    await notify(
-      studentId,
-      "homework",
-      "طلب تلاوة جديدة",
-      "طلب منك معلمك إرسال تسجيل تلاوة جديدة.",
-      "homework",
-      bookingRes.data.id,
-    );
+    await notify({
+      userId: studentId,
+      type: "homework",
+      title: "طلب تلاوة جديدة",
+      body: "طلب منك معلمك إرسال تسجيل تلاوة جديدة.",
+      entityType: "homework",
+      entityId: bookingRes.data.id,
+    });
   } catch (err) {
     logError("requestFreshRecitation: notify failed", err, {
       component: "teacher.recitations.requestFreshRecitation",

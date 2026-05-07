@@ -50,7 +50,12 @@ export async function createEvaluation(formData: FormData) {
   // Notify student and teacher
   try {
     for (const uid of [student_id, teacher_id]) {
-      await notify(uid, "system", "تقييم جديد", "تم إضافة تقييم جديد — يمكنك الاطلاع عليه من صفحة التقييمات");
+      await notify({
+        userId: uid,
+        type: "system",
+        title: "تقييم جديد",
+        body: "تم إضافة تقييم جديد — يمكنك الاطلاع عليه من صفحة التقييمات",
+      });
     }
   } catch (err) {
     logError("notify failed during createEvaluation", err, {
@@ -121,7 +126,12 @@ export async function createTeacherEvaluation(
   if (error) return { error: "فشل إنشاء التقييم" };
 
   try {
-    await notify(studentId, "system", "تقييم جديد من معلمك", "أضاف معلمك تقييماً جديداً — يمكنك الاطلاع عليه من صفحة التقييمات");
+    await notify({
+      userId: studentId,
+      type: "system",
+      title: "تقييم جديد من معلمك",
+      body: "أضاف معلمك تقييماً جديداً — يمكنك الاطلاع عليه من صفحة التقييمات",
+    });
   } catch (err) {
     logError("notify failed during createTeacherEvaluation", err, {
       component: "evaluations.createTeacherEvaluation",

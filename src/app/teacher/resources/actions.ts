@@ -189,14 +189,14 @@ export async function assignResourceToStudentAction(
 
   // Best-effort student notification.
   try {
-    await notify(
-      studentId,
-      "system",
-      "مصدر جديد",
-      `شارك معك معلمك مصدراً جديداً — ${ownerRes.data.title_ar}.`,
-      "system",
-      resourceId,
-    );
+    await notify({
+      userId: studentId,
+      type: "system",
+      title: "مصدر جديد",
+      body: `شارك معك معلمك مصدراً جديداً — ${ownerRes.data.title_ar}.`,
+      entityType: "system",
+      entityId: resourceId,
+    });
   } catch (err) {
     logError("assignResource: notify failed", err, {
       component: "teacher.resources.assign",

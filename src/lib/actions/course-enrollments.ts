@@ -86,14 +86,14 @@ export async function enrollFree(courseId: string) {
     .eq("id", user.id)
     .single<{ full_name: string | null }>();
   if (courseRow?.teacher_id) {
-    await notify(
-      courseRow.teacher_id,
-      "course",
-      "اشتراك جديد",
-      `${studentProfile?.full_name ?? "طالب"} اشترك في "${courseRow.title_ar}"`,
-      "course",
-      courseId,
-    ).catch((err) =>
+    await notify({
+      userId: courseRow.teacher_id,
+      type: "course",
+      title: "اشتراك جديد",
+      body: `${studentProfile?.full_name ?? "طالب"} اشترك في "${courseRow.title_ar}"`,
+      entityType: "course",
+      entityId: courseId,
+    }).catch((err) =>
       logError("notify on enroll failed", err, { tag: "course-enrollments", courseId }),
     );
   }
