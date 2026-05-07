@@ -9,7 +9,7 @@ import {
   type EventPayload,
 } from "@/lib/automation/emit";
 import { signWebhookPayload } from "@/lib/security/secrets";
-import { requireAdmin as requireAdminStrict, ForbiddenError } from "@/lib/auth/require-admin";
+import { requireAdmin as requireAdminStrict, ForbiddenError, UnauthenticatedError } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
 
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
@@ -30,8 +30,11 @@ async function requireAdmin(): Promise<AdminCheck> {
     const { id } = await requireAdminStrict();
     return { userId: id };
   } catch (e) {
+    if (e instanceof UnauthenticatedError) {
+      return { error: "غير مسجل الدخول" };
+    }
     if (e instanceof ForbiddenError) {
-      return { error: e.message === "not authenticated" ? "غير مسجل الدخول" : "ليس لديك صلاحية" };
+      return { error: "ليس لديك صلاحية" };
     }
     throw e;
   }
