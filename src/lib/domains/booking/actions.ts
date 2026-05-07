@@ -4,6 +4,19 @@ import { logError } from "@/lib/logger";
 import type { TableInsert } from "@/lib/supabase/typed-helpers";
 import type { CreateBookingInput, CreateBookingResult } from "./types";
 import { BookingValidationError, BookingConflictError } from "./types";
+import {
+  type AvailabilitySlot,
+  type AvailabilityException,
+  computeAmountUsd,
+  dateToYYYYMMDD,
+  findSlotContaining,
+  fitsAnySlot,
+  isBlockedByException,
+  isMoreThanWindowInPast,
+  timeToHHMM,
+} from "./validation";
+
+const THIRTY_MINUTES_MS = 30 * 60 * 1000;
 
 /**
  * Booking domain — write surface (Phase 5 pilot, ADR-0002).
@@ -79,8 +92,7 @@ export async function createBooking(
 
   // 3. Validate scheduledAt isn't more than 30 minutes in the past.
   // Allows instant/agreed sessions but blocks accidental backdating.
-  const thirtyMinsAgo = new Date(Date.now() - 30 * 60 * 1000);
-  if (scheduledAt < thirtyMinsAgo) {
+  if (isMoreThanWindowInPast(scheduledAt, THIRTY_MINUTES_MS)) {
     throw new BookingValidationError(
       "scheduled_at",
       "يجب اختيار وقت صالح",
@@ -92,34 +104,23 @@ export async function createBooking(
   // which `Date.getDay()` already produces. timeStr is "HH:MM" for
   // string-comparison against the time-typed slot bounds.
   const dayOfWeek = scheduledAt.getDay();
-  const timeStr = scheduledAt.toTimeString().slice(0, 5);
+  const timeStr = timeToHHMM(scheduledAt);
   const { data: slots } = await supabase
     .from("teacher_availability")
     .select("start_time, end_time, slot_duration")
     .eq("teacher_id", teacherId)
     .eq("day_of_week", dayOfWeek)
     .eq("is_active", true)
-    .returns<
-      { start_time: string; end_time: string; slot_duration: number }[]
-    >();
+    .returns<AvailabilitySlot[]>();
 
   if (slots && slots.length > 0) {
-    const fitsSlot = slots.some(
-      (s) =>
-        timeStr >= s.start_time.slice(0, 5) &&
-        timeStr < s.end_time.slice(0, 5),
-    );
-    if (!fitsSlot) {
+    if (!fitsAnySlot(timeStr, slots)) {
       throw new BookingValidationError(
         "scheduled_at",
         "الوقت المختار خارج أوقات المعلم المتاحة",
       );
     }
-    const matchingSlot = slots.find(
-      (s) =>
-        timeStr >= s.start_time.slice(0, 5) &&
-        timeStr < s.end_time.slice(0, 5),
-    );
+    const matchingSlot = findSlotContaining(timeStr, slots);
     if (matchingSlot && durationMin > matchingSlot.slot_duration) {
       throw new BookingValidationError(
         "duration_min",
@@ -130,45 +131,23 @@ export async function createBooking(
 
   // 5. Validate against availability_exceptions (blocked dates / time
   // ranges that override the regular weekly availability).
-  const dateStr = scheduledAt.toISOString().slice(0, 10);
   const { data: exceptions } = await supabase
     .from("availability_exceptions")
     .select("is_blocked, start_time, end_time")
     .eq("teacher_id", teacherId)
-    .eq("date", dateStr)
-    .returns<
-      {
-        is_blocked: boolean;
-        start_time: string | null;
-        end_time: string | null;
-      }[]
-    >();
+    .eq("date", dateToYYYYMMDD(scheduledAt))
+    .returns<AvailabilityException[]>();
 
-  if (exceptions && exceptions.length > 0) {
-    const blocked = exceptions.some((ex) => {
-      if (!ex.is_blocked) return false;
-      // Full-day block (no start/end times set).
-      if (!ex.start_time && !ex.end_time) return true;
-      // Time-range block.
-      if (ex.start_time && ex.end_time) {
-        return (
-          timeStr >= ex.start_time.slice(0, 5) &&
-          timeStr < ex.end_time.slice(0, 5)
-        );
-      }
-      return false;
-    });
-    if (blocked) {
-      throw new BookingValidationError(
-        "scheduled_at",
-        "المعلم غير متاح في هذا التاريخ — اختر تاريخاً آخر",
-      );
-    }
+  if (exceptions && isBlockedByException(timeStr, exceptions)) {
+    throw new BookingValidationError(
+      "scheduled_at",
+      "المعلم غير متاح في هذا التاريخ — اختر تاريخاً آخر",
+    );
   }
 
   // 6. Compute amount_usd from server-trusted rate.
   const rateSnapshot = Number(teacherProfile.hourly_rate);
-  const amountUsd = Number((rateSnapshot * (durationMin / 60)).toFixed(2));
+  const amountUsd = computeAmountUsd(rateSnapshot, durationMin);
 
   // 7. Insert. Typed via `TableInsert<"bookings">` per Phase 4 lessons —
   // surfaces a compile error if the column shape drifts (e.g. a future
