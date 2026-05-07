@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin as requireAdminStrict } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
+import type { TableInsert } from "@/lib/supabase/typed-helpers";
 
 async function requireAdminClient() {
   const { id } = await requireAdminStrict();
@@ -14,8 +15,10 @@ export async function savePackage(_prev: { success?: boolean; error?: string }, 
   const { actorId, supabase } = await requireAdminClient();
   const id = formData.get("id") as string | null;
 
-  const data = {
-    package_type: formData.get("package_type") as string,
+  const data: TableInsert<"packages"> = {
+    // package_type is a text CHECK constraint (per CLAUDE.md enums table).
+    // Narrowing cast documents the expected union at the form-input boundary.
+    package_type: formData.get("package_type") as "trial" | "single_session" | "package" | "subscription" | "custom",
     name: formData.get("name") as string,
     name_ar: (formData.get("name_ar") as string) || null,
     description: (formData.get("description") as string) || null,
@@ -43,7 +46,7 @@ export async function savePackage(_prev: { success?: boolean; error?: string }, 
       .select("price_usd, name, is_active")
       .eq("id", id)
       .single<{ price_usd: number; name: string; is_active: boolean }>();
-    const { error: updateErr } = await supabase.from("packages").update(data as never).eq("id", id);
+    const { error: updateErr } = await supabase.from("packages").update(data).eq("id", id);
     if (updateErr) {
       logError("admin.packages.update failed", updateErr, { tag: "admin-packages" });
       return { error: `فشل تحديث الباقة: ${updateErr.message}` };
@@ -62,7 +65,7 @@ export async function savePackage(_prev: { success?: boolean; error?: string }, 
   } else {
     const { data: inserted } = await supabase
       .from("packages")
-      .insert(data as never)
+      .insert(data)
       .select("id")
       .single<{ id: string }>();
     if (inserted?.id) {

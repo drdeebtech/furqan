@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { invalidateRoleCache } from "@/lib/auth/role-cache";
 import { logError } from "@/lib/logger";
+import type { TableInsert } from "@/lib/supabase/typed-helpers";
 
 export async function createTeacher(formData: FormData): Promise<void> {
   const supabase = await createClient();
@@ -23,13 +24,15 @@ export async function createTeacher(formData: FormData): Promise<void> {
   const specialties = formData.getAll("specialties") as string[];
   const recitationStandards = formData.getAll("recitation_standards") as string[];
 
-  const row = {
+  const row: TableInsert<"teacher_profiles"> = {
     teacher_id: teacherId,
     bio: (formData.get("bio") as string) || null,
     bio_en: (formData.get("bio_en") as string) || null,
     specialties: specialties.filter(Boolean),
     hourly_rate: Number(formData.get("hourly_rate")) || 20,
-    gender: (formData.get("gender") as string) || null,
+    // FormData arrives untyped; column is the gender_type enum.
+    // Same precedent as PR #181 (updateTeacher path).
+    gender: ((formData.get("gender") as string) || null) as "male" | "female" | null,
     // Languages now come from a checkbox group (formData.getAll). Fallback
     // to ["ar"] only if nothing was checked, preserving the prior default.
     languages: (() => {
@@ -40,13 +43,13 @@ export async function createTeacher(formData: FormData): Promise<void> {
   };
 
   if (existing) {
-    const { error } = await supabase.from("teacher_profiles").update(row as never).eq("teacher_id", teacherId);
+    const { error } = await supabase.from("teacher_profiles").update(row).eq("teacher_id", teacherId);
     if (error) {
       logError("admin.createTeacher: update failed", error, { tag: "admin-teachers" });
       redirect(`/admin/teachers?error=${encodeURIComponent("فشل تحديث الملف: " + error.message)}`);
     }
   } else {
-    const { error } = await supabase.from("teacher_profiles").insert(row as never);
+    const { error } = await supabase.from("teacher_profiles").insert(row);
     if (error) {
       logError("admin.createTeacher: insert failed", error, { tag: "admin-teachers" });
       redirect(`/admin/teachers?error=${encodeURIComponent("فشل إنشاء الملف: " + error.message)}`);
