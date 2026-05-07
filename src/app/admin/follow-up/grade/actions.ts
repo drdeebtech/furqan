@@ -138,7 +138,7 @@ export async function bulkGradeHomework(
             graded_by: user.id,
           },
           reason: "admin bulk-grade",
-        } as never).then((r) => {
+        }).then((r) => {
           if (r.error) logError("bulkGradeFollowup: audit row failed", r.error, { tag: "admin-followup-grade" });
         });
       } catch (err) {

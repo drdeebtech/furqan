@@ -57,7 +57,7 @@ export async function updateSetting(key: string, value: string) {
     old_data: { value: previous?.value ?? null },
     new_data: { value },
     reason: `Admin updated setting "${key}"`,
-  } as never);
+  });
   if (auditErr) {
     logError("settings.updateSetting audit insert failed", auditErr, { tag: "admin-settings" });
   }

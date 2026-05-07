@@ -171,7 +171,7 @@ export async function replayAutomation({
       old_data: { event_name: row.event_name, original_id: row.id },
       new_data: { replay_key: replayKey, dispatched_to: path },
       reason: "Admin replayed automation event",
-    } as never).then((r) => {
+    }).then((r) => {
       if (r.error) logError("replayAutomation: audit row failed", r.error, { tag: "admin-automation" });
     });
 
@@ -232,7 +232,7 @@ export async function markDeadLetterResolved({
     old_data: { resolved_at: null },
     new_data: { resolved_at: new Date().toISOString(), notes: notes.trim() || null },
     reason: "Admin marked dead letter resolved",
-  } as never).then((r) => {
+  }).then((r) => {
     if (r.error) logError("markDeadLetterResolved: audit row failed", r.error, { tag: "admin-automation" });
   });
 

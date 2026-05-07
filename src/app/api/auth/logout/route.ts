@@ -24,7 +24,7 @@ export async function POST() {
         new_data: { email: user.email ?? null },
         ip_address: ip,
         reason: "User signed out",
-      } as never);
+      });
     }
   } catch (err) {
     logError("recordLogout failed (non-blocking)", err, { tag: "auth-audit" });

@@ -179,11 +179,16 @@ async function writeAudit<TInput>(
       record_id: recordId,
       action: audit.action,
       old_data: null,
-      new_data: outcome === "success" ? { input } : null,
+      // The cast is the one Phase 4a retention: writeAudit is generic over
+      // TInput (any handler input shape), so TypeScript can't prove the
+      // wrapper { input } satisfies the Json union type that audit_log.new_data
+      // expects. Postgres jsonb coerces at runtime; the cast bridges the
+      // type/runtime gap for this single generic-payload case.
+      new_data: outcome === "success" ? ({ input } as never) : null,
       reason: outcome === "success"
         ? `${audit.reasonPrefix ?? "loudAction"} OK`
         : `${audit.reasonPrefix ?? "loudAction"} FAILED: ${errorMessage}`,
-    } as never);
+    });
   } catch (err) {
     logError("loudAction audit write failed", err, { tag: "loud-action" });
   }

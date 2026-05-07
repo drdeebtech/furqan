@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       old_data: null,
       new_data: { active },
       reason: `admin ${action} workflow OK`,
-    } as never).then(({ error }) => {
+    }).then(({ error }) => {
       if (error) logError("audit insert failed (n8n.toggle)", error, { tag: "audit" });
     });
     return NextResponse.json({ success: true, id, active });
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       old_data: null,
       new_data: null,
       reason: `admin ${action} workflow FAILED: ${message}`,
-    } as never).then(({ error }) => {
+    }).then(({ error }) => {
       if (error) logError("audit insert failed (n8n.toggle.error)", error, { tag: "audit" });
     });
     return NextResponse.json({ error: message }, { status: 500 });

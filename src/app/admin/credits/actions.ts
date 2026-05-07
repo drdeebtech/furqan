@@ -97,7 +97,7 @@ export async function grantCreditAction(
     old_data: { sessions_total: activePkg.sessions_total },
     new_data: { sessions_total: activePkg.sessions_total + sessions, granted: sessions },
     reason: `Manual credit grant (${sessions} sessions): ${reason}`,
-  } as never).then((r) => {
+  }).then((r) => {
     if (r.error) logError("grantCreditAction: audit row failed", r.error, { tag: "admin-credits" });
   });
 
