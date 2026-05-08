@@ -179,14 +179,14 @@ The directive explicitly calls out homework. All 6 actions in `src/lib/actions/h
 | `src/app/admin/teachers/[id]/actions.ts:42` | `updateAccount` | `auth.admin.updateUserById` | P0 | |
 | `src/app/admin/teachers/[id]/actions.ts:84` | `updateEmail` | `auth.admin.updateUserById` | P0 | |
 | `src/app/admin/teachers/[id]/actions.ts:115` | `uploadTeacherPhoto` | Storage + `teacher_profiles.update` | P2 | |
-| `src/app/admin/teachers/[id]/actions.ts:174` | `updateTeacherProfile` | `teacher_profiles.update` | P1 | |
-| `src/app/admin/teachers/[id]/actions.ts:214` | `upsertIjaza` | `teacher_ijazas.upsert` | P1 | |
-| `src/app/admin/teachers/[id]/actions.ts:275` | `deleteIjaza` | `teacher_ijazas.delete` | P1 | |
-| `src/app/admin/teachers/[id]/actions.ts:300` | `setIjazaVerified` | `teacher_ijazas.update` | P1 | |
-| `src/app/admin/teachers/[id]/actions.ts:335` | `upsertAvailability` | `teacher_availability.upsert` | P1 | |
-| `src/app/admin/teachers/[id]/actions.ts:398` | `deleteAvailability` | `teacher_availability.delete` | P1 | |
-| `src/app/admin/teachers/[id]/actions.ts:425` | `upsertException` | `availability_exceptions.upsert` | P1 | |
-| `src/app/admin/teachers/[id]/actions.ts:460` | `deleteException` | `availability_exceptions.delete` | P1 | |
+| `src/app/admin/teachers/[id]/actions.ts:174` | `updateTeacherProfile` | `teacher_profiles.update` | P1 | **Wrapped** ✅ (PR 13). |
+| `src/app/admin/teachers/[id]/actions.ts:214` | `upsertIjaza` | `teacher_ijaza.upsert` | P1 | **Wrapped** ✅ (PR 13). Audit had table as `teacher_ijazas` plural; actual schema is `teacher_ijaza` singular — corrected here. |
+| `src/app/admin/teachers/[id]/actions.ts:275` | `deleteIjaza` | `teacher_ijaza.delete` | P1 | **Wrapped** ✅ (PR 13). Singular table name (see above). |
+| `src/app/admin/teachers/[id]/actions.ts:300` | `setIjazaVerified` | `teacher_ijaza.update` | P1 | **Wrapped** ✅ (PR 13). Singular table name (see above). |
+| `src/app/admin/teachers/[id]/actions.ts:335` | `upsertAvailability` | `teacher_availability.upsert` | P1 | **Wrapped** ✅ (PR 14). Detects `avail_unique` constraint name to surface "يوجد فترة في نفس اليوم والوقت" Arabic copy. |
+| `src/app/admin/teachers/[id]/actions.ts:398` | `deleteAvailability` | `teacher_availability.delete` | P1 | **Wrapped** ✅ (PR 14). |
+| `src/app/admin/teachers/[id]/actions.ts:425` | `upsertException` | `availability_exceptions.insert` | P1 | **Wrapped** ✅ (PR 14). Insert-only despite "upsert" name. |
+| `src/app/admin/teachers/[id]/actions.ts:460` | `deleteException` | `availability_exceptions.delete` | P1 | **Wrapped** ✅ (PR 14). |
 | `src/app/admin/teachers/cv/[teacherId]/actions.ts:14` | `saveCvAsAdmin` | `teacher_profiles.update` | P1 | |
 | `src/app/admin/teachers/cv/[teacherId]/actions.ts:59` | `approveCv` | `teacher_profiles.update` + n8n emit | P0 | CV approval = onboarding gate |
 | `src/app/admin/teachers/cv/[teacherId]/actions.ts:130` | `resetCvToPending` | `teacher_profiles.update` | P1 | |
