@@ -40,11 +40,12 @@ FURQAN Academy — Online Quran teaching platform (V13)
 - **Telegram** (@furqantoday_bot — admin alerts + notifications)
 - **Deployed on Vercel** (Hobby plan, furqan.today)
 
-## Roles (4)
+## Roles (3)
+Per ADR-0003 (2026-05-08), the moderator role was dropped. CV review, audit log, session observation, and user management — all formerly moderator surfaces — are now admin-owned.
+
 - **student** — browse teachers, book sessions, join video, track progress, follow-up, packages, messages
 - **teacher** — manage availability, confirm bookings, conduct sessions, assign/grade follow-up, CV workflow, evaluations, messages
-- **admin** — full platform management: users, teachers, bookings, sessions, evaluations, packages, services, blog, payments, notifications, automation, n8n control, settings
-- **moderator** — users (students+teachers only), CV review, session observation, evaluations, audit log (read-only)
+- **admin** — full platform management: users, teachers, bookings, sessions, evaluations, packages, services, blog, payments, notifications, automation, n8n control, settings, CV review, audit log, session observation
 
 ## Domain Ownership Model
 
@@ -59,7 +60,7 @@ FURQAN Academy — Online Quran teaching platform (V13)
 | **Automation** | `automation_logs` | automation_logs, platform_settings, retention_signals | emitEvent(), n8n webhook callback |
 
 ## Key Architecture
-- **Route protection**: `src/proxy.ts` — role-based middleware, admin can access `/moderator/*`
+- **Route protection**: `src/proxy.ts` — role-based middleware. Legacy `/moderator/*` URLs 301-redirect to `/admin/*` (per ADR-0003); `/moderator/cv-review` → `/admin/teachers/cv` specifically.
 - **Server actions**: `"use server"` pattern with `revalidatePath`, `as never` casts for Supabase
 - **Admin client**: `src/lib/supabase/admin.ts` — service-role client for user creation
 - **Feature flags**: `src/lib/settings.ts` + `platform_settings` table
@@ -103,7 +104,7 @@ Postgres ENUMs: user_role, gender_type, booking_status, session_type, payment_st
 Text CHECK: package_type, student_package_status, automation_log_status, delivery_channel, delivery_status, preferred_language, conversation_status, credit_source, progress_type, recitation_error_type, transaction_type, session_created_via, audit_action, recitation_standard
 
 ## SQL Functions
-- `is_admin()`, `is_moderator()`, `is_admin_or_mod()`
+- `is_admin()` (per ADR-0003 — `is_moderator` and `is_admin_or_mod` were dropped along with the moderator role)
 - `deduct_package_session(uuid)` — atomic session deduction
 - `set_updated_at()` — trigger function
 - `sync_conv_ts()` — auto-update conversation timestamps
@@ -195,8 +196,7 @@ src/
 ├── app/
 │   ├── (auth)/          — login, register, forgot-password
 │   ├── (public)/        — landing, about, contact, packages, services, teachers, blog
-│   ├── admin/           — 35+ pages: users, teachers, bookings, sessions, evaluations, packages, services, blog, payments, notifications, automation, n8n, control-tower, settings
-│   ├── moderator/       — 10 pages: users, cv-review, sessions, evaluations, audit
+│   ├── admin/           — 35+ pages: users, teachers (incl. cv review), bookings, sessions, evaluations, audit, packages, services, blog, payments, notifications, automation, n8n, control-tower, settings
 │   ├── student/         — 12+ pages: dashboard, teachers, bookings, sessions, follow-up, packages, progress, notifications, messages, notes
 │   ├── teacher/         — 11+ pages: dashboard, sessions, availability, students, follow-up, cv, evaluations, notifications, messages
 │   └── api/             — stripe webhook, bookings, n8n (workflows/executions/toggle/auto-restart), webhooks/n8n
@@ -228,11 +228,11 @@ supabase/functions/      — 4 edge functions (auto-reminder, auto-complete, no-
 ## Completed Features
 
 ### Feature Development (Phases A–I)
-- 4 role dashboards with real Supabase data + shared widget system
+- 3 role dashboards with real Supabase data + shared widget system
 - Bilingual RTL/LTR with Arabic/English toggle + dark/light mode (Liquid Glass Design System v3)
 - Database schema V9→V13 (sessions, evaluations, follow-up, packages, automation, communication, retention)
 - Blog CMS, SEO, RLS policies
-- CV review workflow for moderators
+- CV review workflow (admin)
 - Basic booking + sessions with Daily.co video
 - **Follow-up system** (V10) — state machine, 6 types, grading, auto-regeneration
 - **Package & pricing** (V11) — DB-driven packages, admin CRUD, 5 seed packages, student view
