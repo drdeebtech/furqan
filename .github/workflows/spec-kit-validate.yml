@@ -1,0 +1,116 @@
+name: Spec-Kit Validate
+
+# CI gate for spec-kit artefacts. Triggers on PRs that touch specs/** or
+# .specify/**. Runs three pure-shell checks:
+#
+#   1. specs/**/*.md MUST NOT contain unresolved [NEEDS CLARIFICATION] markers.
+#   2. .specify/memory/constitution.md MUST have its Version line bumped if
+#      the file content changed (catches direct-edit drift past the
+#      Governance section's amendment rule).
+#   3. .specify/scripts/bash/check-prerequisites.sh MUST exist and be
+#      executable (so feature-branch invocations of /speckit.* work).
+#
+# No Node, no Python, no agent invocation — pure shell + grep, idempotent
+# and fast (<2 min wall-clock).
+#
+# Spec: specs/002-specs-index-generator/ (the canonical spec-kit tracer-bullet)
+# Plan: ~/.claude/plans/spec-kit-brownfield-iridescent-harbor.md (PR C of A/B/C)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "specs/**"
+      - ".specify/**"
+      - ".github/workflows/spec-kit-validate.yml"
+  push:
+    branches: [main]
+    paths:
+      - "specs/**"
+      - ".specify/**"
+      - ".github/workflows/spec-kit-validate.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spec-kit-validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: spec-kit artefact validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history for diff vs base)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Check 1 — no unresolved [NEEDS CLARIFICATION] markers in specs/
+        run: |
+          set -e
+          echo "Scanning specs/ for unresolved clarifications…"
+          if grep -rn '\[NEEDS CLARIFICATION' specs/ --include='*.md' 2>/dev/null; then
+            echo ""
+            echo "::error::Unresolved [NEEDS CLARIFICATION] markers found above."
+            echo "::error::Resolve via /speckit.clarify before merging this PR."
+            exit 1
+          fi
+          echo "  ✓ No unresolved markers."
+
+      - name: Check 2 — constitution version bump on direct edit
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -e
+          # Only meaningful on PR runs; skip on push-to-main (that's the merge result).
+          if [ -z "$BASE_SHA" ]; then
+            echo "  ⊘ Skipped (push to main; nothing to compare)."
+            exit 0
+          fi
+
+          if ! git diff --name-only "$BASE_SHA"...HEAD | grep -q '^\.specify/memory/constitution\.md$'; then
+            echo "  ⊘ Constitution unchanged in this PR; skipping version-bump check."
+            exit 0
+          fi
+
+          echo "Constitution was edited in this PR. Verifying Version line was bumped…"
+          OLD_VERSION="$(git show "$BASE_SHA":.specify/memory/constitution.md 2>/dev/null | grep -oE '\*\*Version\*\*: *[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)"
+          NEW_VERSION="$(grep -oE '\*\*Version\*\*: *[0-9]+\.[0-9]+\.[0-9]+' .specify/memory/constitution.md | head -1 || true)"
+
+          if [ -z "$NEW_VERSION" ]; then
+            echo "::error::No **Version** line found in current .specify/memory/constitution.md."
+            exit 1
+          fi
+          if [ "$OLD_VERSION" = "$NEW_VERSION" ]; then
+            echo "::error::Constitution content changed but Version line is unchanged ($NEW_VERSION)."
+            echo "::error::Per the constitution's Governance section, amendments require a semver bump:"
+            echo "::error::  MAJOR — adding/removing a Principle or NON-NEGOTIABLE marker"
+            echo "::error::  MINOR — new Additional Constraint or Workflow step"
+            echo "::error::  PATCH — clarifications, source-link updates, typo fixes"
+            exit 1
+          fi
+          echo "  ✓ Version bumped: $OLD_VERSION → $NEW_VERSION"
+
+      - name: Check 3 — check-prerequisites.sh smoke
+        run: |
+          set -e
+          echo "Verifying .specify/scripts/bash/check-prerequisites.sh exists and is executable…"
+          test -x .specify/scripts/bash/check-prerequisites.sh
+          echo "  ✓ Script present and executable."
+
+          # The script intentionally errors on non-feature branches (per design,
+          # to stop /speckit.* runs from firing on the wrong branch). The CI
+          # gate doesn't try to run it on main; it just verifies the script is
+          # present and executable so feature-branch invocations work.
+          echo "  ⊘ Skipping script execution (would error on main; only valid from a feature branch)."
+
+      - name: Summary
+        if: success()
+        run: |
+          echo ""
+          echo "✅ All spec-kit validation checks passed."
+          echo "   - No unresolved [NEEDS CLARIFICATION] markers."
+          echo "   - Constitution version-bump rule satisfied (or skipped, as applicable)."
+          echo "   - .specify/scripts/bash/check-prerequisites.sh present and executable."
