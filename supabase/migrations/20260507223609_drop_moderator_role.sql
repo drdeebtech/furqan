@@ -1,34 +1,37 @@
 -- 20260507223609_drop_moderator_role.sql
--- Description: Remove the 'moderator' value from the user_role ENUM. Migrate
---   any existing moderator users to 'admin'. Drop the SQL helper functions
---   that referenced moderator, and rewrite the one RLS policy that hard-coded
---   the 'moderator' value. Per ADR-0003.
+-- Description: Remove the moderator role from FURQAN's role taxonomy. Per ADR-0003.
 --
--- This migration is atomic — wrapped in a single transaction. If any step
--- fails, all roll back.
+-- This file documents the SQL that was applied directly to prod via
+-- `supabase db query --linked` on 2026-05-08 after two PR-driven attempts
+-- failed in production:
 --
--- Pre-flight findings (run 2026-05-08 against prod, ref xyqscjnqfeusgrhmwjts):
---   (a) 1 moderator user (single role + array entry — same user)
---   (b) 2 user_role columns: profiles.role, profiles.roles[]
---       (idx_profiles_active and profiles_roles_gin are indexes, not columns;
---       re-evaluated automatically when column types change)
---   (c) 1 RLS policy: public.resource_assignments.resource_assignments_admin_all
---   (d) 3 functions: public.is_moderator, private.is_moderator,
---       private.is_admin_or_mod (public.is_admin_or_mod does not exist)
+--   Attempt 1 (split UPDATEs): tripped profiles_active_role_in_set CHECK
+--   constraint (`role = ANY(roles)`) — intermediate state had role and
+--   roles[] disagreeing.
+--
+--   Attempt 2 (combined UPDATE + ENUM recreate): tripped Postgres's
+--   "cannot alter type of a column used in a policy definition" — 20+
+--   RLS policies depend on profiles.role.
+--
+-- This pragmatic version sidesteps the ENUM-recreate cascade entirely:
+-- the 'moderator' value remains in user_role as a dead union member,
+-- but is unreachable due to CHECK constraints on profiles.role and roles[].
+-- Legacy is_moderator() always returns false; is_admin_or_mod() collapses
+-- to admin-only (preserving the function symbols so 13+ dependent policies
+-- on sessions, student_packages, study_log, ijazah, mentorship, storage,
+-- etc. don't get cascade-dropped).
+--
+-- Migration tracker (`supabase_migrations.schema_migrations`) was hand-
+-- inserted with version 20260507223609 after the direct apply, so future
+-- `supabase db push --include-all` runs see this as already applied and
+-- skip it. This file in the repo matches what is in prod.
 
 begin;
 
--- -----------------------------------------------------------------------------
--- 1. Migrate moderator users to admin — both columns updated atomically.
---    Pre-flight (a) showed exactly 1 row affected.
---
---    The 2026-05-08 first attempt split this into two UPDATEs and failed in
---    prod with `profiles_active_role_in_set` CHECK constraint violation: the
---    constraint enforces `role = ANY(roles)`, so any intermediate state where
---    role and roles[] disagree (which both possible orderings produce when
---    split) trips it. Combining into one row UPDATE means the CHECK fires
---    once on the consistent final state (role='admin', roles=['admin']).
--- -----------------------------------------------------------------------------
+-- 1. Migrate moderator users to admin — both columns updated atomically so
+--    the profiles_active_role_in_set CHECK (role = ANY(roles)) sees a
+--    consistent final state. Splitting into two statements fails because
+--    either ordering leaves a moment where role and roles[] disagree.
 update public.profiles
    set role  = case when role = 'moderator'::public.user_role
                     then 'admin'::public.user_role
@@ -45,27 +48,34 @@ update public.profiles
  where role = 'moderator'::public.user_role
     or 'moderator'::public.user_role = any(roles);
 
--- -----------------------------------------------------------------------------
--- 3. Drop SQL helpers that referenced moderator.
---    Pre-flight (d) confirmed: public.is_moderator, private.is_moderator,
---    private.is_admin_or_mod exist. public.is_admin_or_mod does not exist
---    (only `if exists` survives that case). Cascade clears any incidental
---    dependents not visible in the policy/column queries.
--- -----------------------------------------------------------------------------
-drop function if exists public.is_moderator() cascade;
-drop function if exists public.is_admin_or_mod() cascade;
-drop function if exists private.is_moderator() cascade;
-drop function if exists private.is_admin_or_mod() cascade;
+-- 2. Replace function bodies (NOT drop with cascade — that would auto-drop
+--    13+ dependent policies on sessions, student_packages, study_log,
+--    ijazah_progress, mentorship, storage objects, etc.).
+--    is_moderator() now always returns false; is_admin_or_mod() collapses
+--    to admin-only. Dependent policies keep working with their moderator
+--    branches dead.
+create or replace function private.is_moderator() returns boolean
+  language sql stable
+  set search_path to 'public', 'pg_temp'
+as $$ select false $$;
 
--- -----------------------------------------------------------------------------
--- 4. Rewrite the one RLS policy that hard-coded 'moderator'.
---    Pre-flight (c): public.resource_assignments.resource_assignments_admin_all
---    (cmd ALL — both USING and WITH CHECK reference moderator).
---    Replacement: admin-only check.
--- -----------------------------------------------------------------------------
-drop policy if exists resource_assignments_admin_all
-  on public.resource_assignments;
+create or replace function private.is_admin_or_mod() returns boolean
+  language sql stable
+  set search_path to 'public', 'pg_temp'
+as $$
+  select exists(
+    select 1 from public.profiles
+     where id = (select auth.uid())
+       and role = 'admin'::public.user_role
+       and deleted_at is null
+       and is_active = true
+  )
+$$;
 
+-- 3. Rewrite the one RLS policy that hardcoded 'moderator' in its
+--    expression (the others reference 'role' generally and don't need
+--    edits — they continue to work via the redefined functions).
+drop policy if exists resource_assignments_admin_all on public.resource_assignments;
 create policy resource_assignments_admin_all
   on public.resource_assignments
   for all
@@ -84,67 +94,41 @@ create policy resource_assignments_admin_all
     )
   );
 
--- -----------------------------------------------------------------------------
--- 5. Recreate the user_role ENUM without 'moderator'.
--- -----------------------------------------------------------------------------
-alter type public.user_role rename to user_role_old;
-
-create type public.user_role as enum ('student', 'teacher', 'admin');
-
--- -----------------------------------------------------------------------------
--- 6. Migrate every column referencing user_role_old to the new user_role.
---    Pre-flight (b) confirmed: only profiles.role and profiles.roles need
---    explicit ALTERs. The two indexes are auto-maintained.
--- -----------------------------------------------------------------------------
-
--- profiles.role
+-- 4. Add CHECK constraints to make the 'moderator' ENUM value unreachable.
+--    Future inserts/updates that try to set role='moderator' or include
+--    'moderator' in roles[] will fail with constraint violation.
 alter table public.profiles
-  alter column role drop default,
-  alter column role type public.user_role
-    using role::text::public.user_role,
-  alter column role set default 'student'::public.user_role;
-
--- profiles.roles[] — array migration via text[] intermediate.
+  drop constraint if exists profiles_role_no_moderator;
 alter table public.profiles
-  alter column roles type public.user_role[]
-  using roles::text[]::public.user_role[];
+  add constraint profiles_role_no_moderator
+  check (role <> 'moderator'::public.user_role);
 
--- -----------------------------------------------------------------------------
--- 7. Drop the old type.
--- -----------------------------------------------------------------------------
-drop type public.user_role_old;
+alter table public.profiles
+  drop constraint if exists profiles_roles_no_moderator;
+alter table public.profiles
+  add constraint profiles_roles_no_moderator
+  check (not ('moderator'::public.user_role = any(roles)));
 
 commit;
 
 -- =============================================================================
--- POST-APPLY VERIFICATION — run in the Supabase dashboard after the migration
--- lands, to confirm the new state.
+-- POST-APPLY VERIFICATION (run in the Supabase dashboard after this migration
+-- lands, to confirm the new state):
 -- =============================================================================
 --
--- (i) ENUM has only three values:
+-- (i) No moderator users left:
+--   select count(*) from public.profiles
+--    where role::text = 'moderator' or 'moderator' = any(roles::text[]);
+--   -- Expected: 0
+--
+-- (ii) is_moderator() always returns false:
+--   select private.is_moderator();  -- Expected: false
+--
+-- (iii) CHECK constraints in place:
+--   select conname from pg_constraint
+--    where conrelid = 'public.profiles'::regclass and conname like '%moderator%';
+--   -- Expected: profiles_role_no_moderator, profiles_roles_no_moderator
+--
+-- (iv) ENUM still has 'moderator' (intentional — pragmatic path):
 --   select unnest(enum_range(null::public.user_role));
---   -- Expected: student, teacher, admin
---
--- (ii) No moderator users left:
---   select count(*) from public.profiles where role::text = 'moderator';
---   -- Expected: 0
---   select count(*) from public.profiles where 'moderator' = any(roles::text[]);
---   -- Expected: 0
---
--- (iii) No SQL function still references 'moderator':
---   select n.nspname, p.proname from pg_proc p
---     join pg_namespace n on p.pronamespace = n.oid
---    where p.prosrc ilike '%moderator%'
---      and n.nspname not in ('pg_catalog', 'information_schema');
---   -- Expected: zero rows.
---
--- (iv) No RLS policy still references 'moderator':
---   select schemaname, tablename, policyname from pg_policies
---    where qual::text like '%moderator%' or with_check::text like '%moderator%';
---   -- Expected: zero rows.
---
--- (v) The rewritten resource_assignments policy still gates correctly:
---   select * from pg_policies
---    where tablename = 'resource_assignments'
---      and policyname = 'resource_assignments_admin_all';
---   -- Expected: one row, USING/WITH CHECK clauses reference 'admin' only.
+--   -- Expected: student, teacher, admin, moderator (last is unreachable)
