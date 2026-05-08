@@ -1,11 +1,31 @@
 "use server";
 
+import { z } from "zod";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { invalidateByTag } from "@vercel/functions";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
+import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
+import { loudAction } from "@/lib/actions/loud";
 import type { TableInsert } from "@/lib/supabase/typed-helpers";
+
+class UserError extends Error {
+  readonly userError = true;
+  constructor(msg: string) { super(msg); this.name = "UserError"; }
+}
+
+type ActionResult = { error?: string; success?: boolean };
+
+async function adminPreflight(): Promise<{ actorId: string }> {
+  try {
+    const { id } = await requireAdmin();
+    return { actorId: id };
+  } catch (e) {
+    if (e instanceof ForbiddenError) throw new UserError("ليس لديك صلاحية");
+    throw e;
+  }
+}
 
 const CATEGORIES: Record<string, { ar: string; color: string }> = {
   Hifz: { ar: "حفظ القرآن", color: "text-success border-success/30 bg-success/10" },
@@ -16,116 +36,183 @@ const CATEGORIES: Record<string, { ar: string; color: string }> = {
   Tafsir: { ar: "تفسير", color: "text-warning border-warning/30 bg-warning/10" },
 };
 
+// savePost is a state-returning + redirect-style hybrid: returns { error }
+// on failure, redirects on success. With loudAction's isRedirectError patch
+// (PR #250), the redirect() throw propagates correctly through the wrapper.
+// The `id` parameter (when present) makes this an UPDATE; absence makes it
+// an INSERT — captured in the audit envelope as "save" since the row id
+// isn't known on insert until after the row is created.
+const savePostBase = loudAction<
+  {
+    id: string | null;
+    categoryEn: string;
+    isPublished: boolean;
+    slug: string;
+    title_ar: string;
+    title_en: string;
+    excerpt_ar: string;
+    excerpt_en: string;
+    body_ar: string;
+    body_en: string;
+    read_time_ar: string;
+    read_time_en: string;
+    cover_alt_ar: string | null;
+    cover_alt_en: string | null;
+    coverFile: File | null;
+  },
+  { message: string }
+>({
+  name: "admin.blog.save",
+  severity: "warning",
+  audit: { table: "blog_posts", recordId: (i) => i.id ?? "new", action: "UPDATE" },
+  preflight: adminPreflight,
+  handler: async (input) => {
+    const supabase = await createClient();
+    const cat = CATEGORIES[input.categoryEn];
+    if (!cat) throw new UserError("اختر التصنيف");
+
+    if (!input.slug) throw new UserError("الرابط الفريد مطلوب");
+    if (!input.title_ar) throw new UserError("العنوان العربي مطلوب");
+    if (!input.title_en) throw new UserError("العنوان الإنجليزي مطلوب");
+
+    const row: TableInsert<"blog_posts"> = {
+      slug: input.slug,
+      title_ar: input.title_ar,
+      title_en: input.title_en,
+      excerpt_ar: input.excerpt_ar,
+      excerpt_en: input.excerpt_en,
+      body_ar: input.body_ar,
+      body_en: input.body_en,
+      category_ar: cat.ar,
+      category_en: input.categoryEn,
+      color: cat.color,
+      read_time_ar: input.read_time_ar || "٥ دقائق",
+      read_time_en: input.read_time_en || "5 min",
+      is_published: input.isPublished,
+      cover_alt_en: input.cover_alt_en,
+      cover_alt_ar: input.cover_alt_ar,
+      updated_at: new Date().toISOString(),
+    };
+
+    let postId: string;
+    if (input.id) {
+      const { error } = await supabase.from("blog_posts").update(row).eq("id", input.id);
+      if (error) throw error;
+      postId = input.id;
+    } else {
+      const { data, error } = await supabase.from("blog_posts").insert(row).select("id").single();
+      if (error || !data) throw error ?? new Error("حدث خطأ أثناء الإنشاء");
+      postId = (data as { id: string }).id;
+    }
+
+    // Cover image upload — optional. Path: blog-images/{post_id}/cover.{ext}
+    if (input.coverFile && input.coverFile.size > 0) {
+      const ext = (input.coverFile.name.split(".").pop() ?? "jpg").toLowerCase();
+      const path = `${postId}/cover.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("blog-images")
+        .upload(path, input.coverFile, { upsert: true, contentType: input.coverFile.type });
+      if (upErr) throw new Error("فشل رفع صورة الغلاف");
+      const { error: pathErr } = await supabase
+        .from("blog_posts")
+        .update({ cover_image_path: path } as never)
+        .eq("id", postId);
+      if (pathErr) {
+        // Soft-fail: image uploaded but path update failed. Log and continue —
+        // the post saved successfully; admin can re-upload to fix the path.
+        logError("blog cover path update failed", pathErr, { tag: "admin-blog", metadata: { postId } });
+      }
+    }
+
+    revalidatePath("/admin/blog");
+    revalidatePath("/blog");
+    revalidateTag("blog-public", "max"); // Next.js Data Cache
+    await invalidateByTag("blog-public"); // CDN edge cache
+
+    // redirect() throws NEXT_REDIRECT — loudAction's isRedirectError branch
+    // re-throws so Next.js sees the redirect, while writing the audit envelope
+    // row as success. See loud.ts isRedirectError branch (PR #250).
+    redirect("/admin/blog");
+  },
+});
+
 export async function savePost(
   _prev: { error?: string } | null,
   formData: FormData,
 ): Promise<{ error?: string } | null> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "غير مصرح" };
-
-  const id = formData.get("id") as string | null;
-  const categoryEn = formData.get("category_en") as string;
-  const cat = CATEGORIES[categoryEn];
-  const isPublished = formData.has("is_published");
-
-  if (!categoryEn || !cat) return { error: "اختر التصنيف" };
-
-  const coverAltEn = ((formData.get("cover_alt_en") as string | null) ?? "").trim() || null;
-  const coverAltAr = ((formData.get("cover_alt_ar") as string | null) ?? "").trim() || null;
-
-  // Phase 4h proof-of-concept: typing the bare-variable explicitly with
-  // TableInsert<"blog_posts"> drops the need for `(row as never)` casts at
-  // the use sites. The same pattern works for the 16 other bare-variable
-  // sites flagged by the Phase 4h audit; each needs per-file conversion.
-  const row: TableInsert<"blog_posts"> = {
-    slug: formData.get("slug") as string,
-    title_ar: formData.get("title_ar") as string,
-    title_en: formData.get("title_en") as string,
-    excerpt_ar: formData.get("excerpt_ar") as string,
-    excerpt_en: formData.get("excerpt_en") as string,
-    body_ar: formData.get("body_ar") as string,
-    body_en: formData.get("body_en") as string,
-    category_ar: cat.ar,
-    category_en: categoryEn,
-    color: cat.color,
-    read_time_ar: (formData.get("read_time_ar") as string) || "٥ دقائق",
-    read_time_en: (formData.get("read_time_en") as string) || "5 min",
-    is_published: isPublished,
-    cover_alt_en: coverAltEn,
-    cover_alt_ar: coverAltAr,
-    updated_at: new Date().toISOString(),
-  };
-
-  let postId: string;
-  if (id) {
-    const { error } = await supabase.from("blog_posts").update(row).eq("id", id);
-    if (error) {
-      logError("admin blog update failed", error, { tag: "admin-blog", severity: "warning", metadata: { postId: id } });
-      return { error: "حدث خطأ أثناء التحديث" };
-    }
-    postId = id;
-  } else {
-    const { data, error } = await supabase.from("blog_posts").insert(row).select("id").single();
-    if (error || !data) {
-      logError("admin blog insert failed", error, { tag: "admin-blog", severity: "warning" });
-      return { error: "حدث خطأ أثناء الإنشاء" };
-    }
-    postId = (data as { id: string }).id;
-  }
-
-  // Cover image upload — optional. Path: blog-images/{post_id}/cover.{ext}
-  const coverFile = formData.get("cover_image") as File | null;
-  if (coverFile && coverFile.size > 0) {
-    const ext = (coverFile.name.split(".").pop() ?? "jpg").toLowerCase();
-    const path = `${postId}/cover.${ext}`;
-    const { error: upErr } = await supabase.storage
-      .from("blog-images")
-      .upload(path, coverFile, { upsert: true, contentType: coverFile.type });
-    if (upErr) {
-      logError("blog cover upload failed", upErr, { tag: "admin-blog", severity: "warning", metadata: { postId } });
-      return { error: "فشل رفع صورة الغلاف" };
-    }
-    const { error: pathErr } = await supabase
-      .from("blog_posts")
-      .update({ cover_image_path: path } as never)
-      .eq("id", postId);
-    if (pathErr) {
-      logError("blog cover path update failed", pathErr, { tag: "admin-blog", metadata: { postId } });
-    }
-  }
-
-  revalidatePath("/admin/blog");
-  revalidatePath("/blog");
-  revalidateTag("blog-public", "max"); // Next.js Data Cache
-  await invalidateByTag("blog-public"); // CDN edge cache
-  redirect("/admin/blog");
+  const idRaw = formData.get("id");
+  const result = await savePostBase({
+    id: idRaw && String(idRaw) ? String(idRaw) : null,
+    categoryEn: String(formData.get("category_en") ?? ""),
+    isPublished: formData.has("is_published"),
+    slug: String(formData.get("slug") ?? ""),
+    title_ar: String(formData.get("title_ar") ?? ""),
+    title_en: String(formData.get("title_en") ?? ""),
+    excerpt_ar: String(formData.get("excerpt_ar") ?? ""),
+    excerpt_en: String(formData.get("excerpt_en") ?? ""),
+    body_ar: String(formData.get("body_ar") ?? ""),
+    body_en: String(formData.get("body_en") ?? ""),
+    read_time_ar: String(formData.get("read_time_ar") ?? ""),
+    read_time_en: String(formData.get("read_time_en") ?? ""),
+    cover_alt_ar: String(formData.get("cover_alt_ar") ?? "").trim() || null,
+    cover_alt_en: String(formData.get("cover_alt_en") ?? "").trim() || null,
+    coverFile: formData.get("cover_image") as File | null,
+  });
+  // Unreachable on success path — handler calls redirect() which propagates
+  // through loudAction's isRedirectError branch. We only reach here on failure.
+  if (!result.ok) return { error: result.error };
+  return null;
 }
 
-export async function deletePost(postId: string) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("blog_posts").delete().eq("id", postId);
-  if (error) {
-    logError("admin.deletePost failed", error, { tag: "admin-blog" });
-    return { success: false, error: error.message };
-  }
-  revalidatePath("/admin/blog");
-  revalidatePath("/blog");
-  revalidateTag("blog-public", "max"); // Next.js Data Cache
-  await invalidateByTag("blog-public"); // CDN edge cache
+const deletePostBase = loudAction<{ postId: string }, { message: string }>({
+  name: "admin.blog.delete",
+  severity: "warning",
+  schema: z.object({ postId: z.string().uuid() }),
+  audit: { table: "blog_posts", recordId: (i) => i.postId, action: "DELETE" },
+  preflight: adminPreflight,
+  handler: async ({ postId }) => {
+    const supabase = await createClient();
+    const { error } = await supabase.from("blog_posts").delete().eq("id", postId);
+    if (error) throw error;
+
+    revalidatePath("/admin/blog");
+    revalidatePath("/blog");
+    revalidateTag("blog-public", "max");
+    await invalidateByTag("blog-public");
+    return { message: "تم حذف المقال" };
+  },
+});
+
+export async function deletePost(postId: string): Promise<ActionResult> {
+  const result = await deletePostBase({ postId });
+  if (!result.ok) return { success: false, error: result.error };
   return { success: true };
 }
 
-export async function togglePublished(postId: string, isPublished: boolean) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("blog_posts").update({ is_published: isPublished }).eq("id", postId);
-  if (error) {
-    logError("admin.togglePublished failed", error, { tag: "admin-blog" });
-    return { success: false, error: error.message };
-  }
-  revalidatePath("/admin/blog");
-  revalidatePath("/blog");
-  revalidateTag("blog-public", "max"); // Next.js Data Cache
-  await invalidateByTag("blog-public"); // CDN edge cache
+const togglePublishedBase = loudAction<{ postId: string; isPublished: boolean }, { message: string }>({
+  name: "admin.blog.toggle-published",
+  severity: "warning",
+  schema: z.object({ postId: z.string().uuid(), isPublished: z.boolean() }),
+  audit: { table: "blog_posts", recordId: (i) => i.postId, action: "UPDATE" },
+  preflight: adminPreflight,
+  handler: async ({ postId, isPublished }) => {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("blog_posts")
+      .update({ is_published: isPublished })
+      .eq("id", postId);
+    if (error) throw error;
+
+    revalidatePath("/admin/blog");
+    revalidatePath("/blog");
+    revalidateTag("blog-public", "max");
+    await invalidateByTag("blog-public");
+    return { message: isPublished ? "تم نشر المقال" : "تم إخفاء المقال" };
+  },
+});
+
+export async function togglePublished(postId: string, isPublished: boolean): Promise<ActionResult> {
+  const result = await togglePublishedBase({ postId, isPublished });
+  if (!result.ok) return { success: false, error: result.error };
   return { success: true };
 }

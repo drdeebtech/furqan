@@ -1,46 +1,71 @@
 "use server";
+
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
-import { logError } from "@/lib/logger";
+import { loudAction } from "@/lib/actions/loud";
 
-async function guardAdmin(): Promise<{ error: string } | null> {
+class UserError extends Error {
+  readonly userError = true;
+  constructor(msg: string) { super(msg); this.name = "UserError"; }
+}
+
+type ActionResult = { error?: string; success?: boolean };
+
+async function adminPreflight(): Promise<{ actorId: string }> {
   try {
-    await requireAdmin();
-    return null;
+    const { id } = await requireAdmin();
+    return { actorId: id };
   } catch (e) {
-    if (e instanceof ForbiddenError) {
-      return { error: e.message === "not authenticated" ? "غير مصرح" : "ليس لديك صلاحية" };
-    }
+    if (e instanceof ForbiddenError) throw new UserError("ليس لديك صلاحية");
     throw e;
   }
 }
 
-export async function toggleReviewPublic(reviewId: string, isPublic: boolean) {
-  const denied = await guardAdmin();
-  if (denied) return denied;
+const toggleReviewPublicBase = loudAction<{ reviewId: string; isPublic: boolean }, { message: string }>({
+  name: "admin.reviews.toggle-public",
+  severity: "warning",
+  schema: z.object({ reviewId: z.string().uuid(), isPublic: z.boolean() }),
+  audit: { table: "reviews", recordId: (i) => i.reviewId, action: "UPDATE" },
+  preflight: adminPreflight,
+  handler: async ({ reviewId, isPublic }) => {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("reviews")
+      .update({ is_public: isPublic } as never)
+      .eq("id", reviewId);
+    if (error) throw error;
 
-  const supabase = await createClient();
-  const { error } = await supabase.from("reviews").update({ is_public: isPublic } as never).eq("id", reviewId);
-  if (error) {
-    logError("admin.toggleReviewPublic failed", error, { tag: "admin-reviews" });
-    return { error: `فشل التحديث: ${error.message}` };
-  }
-  revalidatePath("/admin/reviews");
+    revalidatePath("/admin/reviews");
+    return { message: isPublic ? "تم نشر المراجعة" : "تم إخفاء المراجعة" };
+  },
+});
+
+export async function toggleReviewPublic(reviewId: string, isPublic: boolean): Promise<ActionResult> {
+  const result = await toggleReviewPublicBase({ reviewId, isPublic });
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }
 
-export async function deleteReview(reviewId: string) {
-  const denied = await guardAdmin();
-  if (denied) return denied;
+const deleteReviewBase = loudAction<{ reviewId: string }, { message: string }>({
+  name: "admin.reviews.delete",
+  severity: "warning",
+  schema: z.object({ reviewId: z.string().uuid() }),
+  audit: { table: "reviews", recordId: (i) => i.reviewId, action: "DELETE" },
+  preflight: adminPreflight,
+  handler: async ({ reviewId }) => {
+    const supabase = await createClient();
+    const { error } = await supabase.from("reviews").delete().eq("id", reviewId);
+    if (error) throw error;
 
-  const supabase = await createClient();
-  const { error } = await supabase.from("reviews").delete().eq("id", reviewId);
-  if (error) {
-    logError("admin deleteReview failed", error, { tag: "admin-reviews", severity: "warning", metadata: { reviewId } });
-    return { error: "فشل حذف المراجعة" };
-  }
+    revalidatePath("/admin/reviews");
+    return { message: "تم حذف المراجعة" };
+  },
+});
 
-  revalidatePath("/admin/reviews");
+export async function deleteReview(reviewId: string): Promise<ActionResult> {
+  const result = await deleteReviewBase({ reviewId });
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }
