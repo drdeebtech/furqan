@@ -292,8 +292,37 @@ supabase/functions/      — 4 edge functions (auto-reminder, auto-complete, no-
 | `LIFECYCLES.md` | 7 state machine diagrams |
 | `automation/BLUEPRINT.md` | 52-workflow master plan |
 | `automation/VPS_HANDOFF.md` | n8n VPS session context |
+| `.specify/memory/constitution.md` | Five-principle constitution checked by `/speckit.plan` and `/speckit.analyze` |
+| `specs/<feature>/spec.md` | Per-feature spec produced by `/speckit.specify`; one folder per net-new feature |
 
 > **Design rule for AI sessions:** before touching any visual surface (component, page, theme, color), open `.impeccable.md` and confirm the change aligns with the **Premium · Refined · Authentic** personality and the four explicit anti-references. The platform serves all ages from children to hāfiz; the brand stays dignified across all of them.
+
+## Spec-Kit Workflow
+
+Net-new features run through spec-kit before implementation; emergent architectural decisions during implementation continue to land as ADRs.
+
+**Use spec-kit when:**
+- Introducing a new owner-domain or a new role surface.
+- Roadmap-level scope (P0/P1 in `ROADMAP.md`) or multi-PR effort.
+- A feature whose ambiguity needs to be flushed before code lands.
+
+**Use ADR-only when:**
+- Refactoring existing code (e.g. ADR-0002, ADR-0004).
+- Mid-implementation pivot or unforeseen constraint.
+- Hotfix or single-PR fix.
+- Documenting a decision the team made on a call.
+
+**Cross-reference:** a `spec.md` may cite ADRs it depends on; an ADR may cite the spec it implements (`specs/<feature>/spec.md`). Both can coexist for one feature without duplication.
+
+**Workflow:**
+1. `/speckit.specify "<one-paragraph feature description>"` — generates `specs/<NNN-feature-slug>/spec.md` on a fresh feature branch.
+2. `/speckit.clarify` — interactive 5-question pass that closes spec gaps.
+3. `/speckit.plan` — produces `plan.md`, `research.md`, `data-model.md`, `contracts/`. The plan is checked against `.specify/memory/constitution.md`.
+4. `/speckit.tasks` — emits dependency-ordered `tasks.md`.
+5. `/speckit.analyze` — non-destructive cross-artefact consistency check.
+6. `/speckit.implement` — executes tasks one by one against the codebase.
+
+The constitution lives at `.specify/memory/constitution.md`. Amendments require a PR per its Governance section. The first worked example is `specs/murajaah-scheduler/spec.md`.
 
 ## No Silent Failures Policy
 

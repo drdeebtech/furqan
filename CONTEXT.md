@@ -2,7 +2,7 @@
 
 This file is the canonical glossary for FURQAN's domain language. Skills consume it to ground refactor proposals, hypotheses, and test names in the project's actual vocabulary. **Use these terms exactly. Don't drift to synonyms.**
 
-Single-context layout — one CONTEXT.md at the repo root (per `docs/agents/domain.md`). ADRs in `docs/adr/`.
+Single-context layout — one CONTEXT.md at the repo root (per `docs/agents/domain.md`). ADRs in `docs/adr/`. Feature specs in `specs/<feature>/spec.md` (spec-kit; see CLAUDE.md "Spec-Kit Workflow"). The five-principle constitution lives at `.specify/memory/constitution.md`.
 
 ---
 
