@@ -5,7 +5,6 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { logError } from "@/lib/logger";
 
 // Tables added in v16_001 — supabase.generated.ts not regenerated yet.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -97,20 +96,28 @@ export async function upsertFaq(_prev: LoudResult | null, formData: FormData): P
   });
 }
 
+const deleteFaqBase = loudAction<{ id: string }, { message: string }>({
+  name: "admin.content.delete-faq",
+  severity: "info",
+  schema: z.object({ id: z.string().uuid() }),
+  audit: {
+    table: "site_faqs",
+    recordId: (i) => i.id,
+    action: "DELETE",
+    reasonPrefix: "admin delete FAQ",
+  },
+  handler: async ({ id }) => {
+    const supabase = (await createClient()) as AnyClient;
+    const { error } = await supabase.from("site_faqs").delete().eq("id", id);
+    if (error) throw error;
+    revalidatePublicSurfaces();
+    return { message: "تم الحذف" };
+  },
+});
+
 export async function deleteFaq(id: string): Promise<LoudResult> {
   try { await requireAdmin(); } catch { return { ok: false, error: "غير مصرح" }; }
-  const supabase = (await createClient()) as AnyClient;
-  const { error } = await supabase.from("site_faqs").delete().eq("id", id);
-  if (error) {
-    logError("admin deleteFaq failed", error, {
-      tag: "admin-content",
-      severity: "warning",
-      metadata: { id },
-    });
-    return { ok: false, error: error.message };
-  }
-  revalidatePublicSurfaces();
-  return { ok: true, message: "تم الحذف" };
+  return deleteFaqBase({ id });
 }
 
 // ─── Features ──────────────────────────────────────────────────────────
@@ -189,20 +196,28 @@ export async function upsertFeature(_prev: LoudResult | null, formData: FormData
   });
 }
 
+const deleteFeatureBase = loudAction<{ id: string }, { message: string }>({
+  name: "admin.content.delete-feature",
+  severity: "info",
+  schema: z.object({ id: z.string().uuid() }),
+  audit: {
+    table: "site_features",
+    recordId: (i) => i.id,
+    action: "DELETE",
+    reasonPrefix: "admin delete feature",
+  },
+  handler: async ({ id }) => {
+    const supabase = (await createClient()) as AnyClient;
+    const { error } = await supabase.from("site_features").delete().eq("id", id);
+    if (error) throw error;
+    revalidatePublicSurfaces();
+    return { message: "تم الحذف" };
+  },
+});
+
 export async function deleteFeature(id: string): Promise<LoudResult> {
   try { await requireAdmin(); } catch { return { ok: false, error: "غير مصرح" }; }
-  const supabase = (await createClient()) as AnyClient;
-  const { error } = await supabase.from("site_features").delete().eq("id", id);
-  if (error) {
-    logError("admin deleteFeature failed", error, {
-      tag: "admin-content",
-      severity: "warning",
-      metadata: { id },
-    });
-    return { ok: false, error: error.message };
-  }
-  revalidatePublicSurfaces();
-  return { ok: true, message: "تم الحذف" };
+  return deleteFeatureBase({ id });
 }
 
 // ─── Blog Categories ───────────────────────────────────────────────────
@@ -256,18 +271,26 @@ export async function upsertCategory(_prev: LoudResult | null, formData: FormDat
   });
 }
 
+const deleteCategoryBase = loudAction<{ id: string }, { message: string }>({
+  name: "admin.content.delete-category",
+  severity: "info",
+  schema: z.object({ id: z.string().uuid() }),
+  audit: {
+    table: "site_blog_categories",
+    recordId: (i) => i.id,
+    action: "DELETE",
+    reasonPrefix: "admin delete blog category",
+  },
+  handler: async ({ id }) => {
+    const supabase = (await createClient()) as AnyClient;
+    const { error } = await supabase.from("site_blog_categories").delete().eq("id", id);
+    if (error) throw error;
+    revalidatePublicSurfaces();
+    return { message: "تم الحذف" };
+  },
+});
+
 export async function deleteCategory(id: string): Promise<LoudResult> {
   try { await requireAdmin(); } catch { return { ok: false, error: "غير مصرح" }; }
-  const supabase = (await createClient()) as AnyClient;
-  const { error } = await supabase.from("site_blog_categories").delete().eq("id", id);
-  if (error) {
-    logError("admin deleteCategory failed", error, {
-      tag: "admin-content",
-      severity: "warning",
-      metadata: { id },
-    });
-    return { ok: false, error: error.message };
-  }
-  revalidatePublicSurfaces();
-  return { ok: true, message: "تم الحذف" };
+  return deleteCategoryBase({ id });
 }
