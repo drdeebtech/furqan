@@ -7,6 +7,16 @@
 
 > This file is the canonical "what does a FURQAN spec look like" reference. It was authored by hand against `.specify/templates/spec-template.md` to prove the spec-kit loop works at the repo root after the brownfield activation. When the operator decides to actually build Murajaah, the next step is `/speckit.clarify` against this file.
 
+## Clarifications
+
+### Session 2026-05-08
+
+- Q: When does the SM-2 next-review-date computation run? → A: Cron + cache (Option B). A nightly n8n workflow at 02:00 UTC pre-computes tomorrow's batch into `student_review_schedule.batch_for_date`. The dashboard reads pre-computed rows; no on-the-fly compute on dashboard hit. New students wait up to 24h for their first batch — accepted as v1 tradeoff.
+- Q: When a student returns from a break with many overdue items, what does the daily batch contain? → A: Fresh-only ≤ 7 days late (Option B). Items 8+ days late drop out of Murajaah and surface on the teacher's panel as a "needs reteaching" signal instead. Decision rationale: at 50k user scale, backlog-shaming kills retention (SC-003); the teacher infrastructure is the right place to handle deep gaps because the app can't replace a teacher.
+- Q: Should the SM-2 algorithm version be stored alongside each schedule row? → A: Yes (Option A). `algorithm_version` (smallint) is written on every nightly compute. Decision rationale: zero runtime cost (no extra JOIN, ~20MB column at 50k × 200 rows scale), enables zero-migration tuning of EF / lapse penalty / algorithm swaps, and unlocks A/B partitioning post-launch — old rows keep their version until next compute cycle, new rows get the new version, no backfill ever needed.
+- Q: How is "opened the app today" defined for the FR-005 nudge? → A: Behavioural — "marked at least one Murajaah review complete today" (Option C). Cron suppresses the 7pm nudge if `EXISTS (SELECT 1 FROM student_review_schedule WHERE student_id = X AND last_reviewed_at::date = current_date)`. Decision rationale at 50k user scale: zero new writes (vs. Option B's ~250k profile UPDATEs/day from per-dashboard-render timestamping), zero new schema, uses an existing indexed column. Correctly nudges the opens-but-doesn't-click group, which is exactly the audience the 7pm reminder is designed for. Background PWA pings do not affect this signal.
+- Q: Does the SM-2 easiness factor (EF) drift per row, or stay globally fixed at the admin-tuned value? → A: Per-row drift; admin EF is initial-only (Option A). Each `student_review_schedule.easiness_factor` starts at the admin-set default and adapts per-row based on review quality (true SM-2). Admin retuning affects only newly-created rows; existing rows retain their drifted values. Decision rationale at 50k user scale: avoids Option B's 10M-row UPDATE storm whenever an admin moves the EF slider — admin tunes touch one row in `platform_settings` with zero fan-out. Per-review EF update piggybacks on the already-required `next_review_at`/`lapse_count` UPDATE, so it adds zero new write paths. Live system stays stable through tuning.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 — Student opens dashboard and sees today's review batch (Priority: P1)
@@ -59,7 +69,7 @@ An admin opens `/admin/settings`. A new "إعدادات المراجعة" sectio
 ### Edge Cases
 
 - **A student has zero `student_progress` rows.** Dashboard card hides. Teacher panel shows "لا توجد مراجعات مجدولة".
-- **All progress rows pre-date the SM-2 default.** The first daily batch will be huge (every memorised ayah is "overdue"). The query MUST cap to 15 rows per day; the rest stay queued for tomorrow's batch.
+- **All progress rows pre-date the SM-2 default.** Every memorised ayah is "overdue." Per FR-011, items 8+ days overdue do NOT flood the student's card — they go to the teacher's "needs reteaching" queue. Items within the 7-day fresh window are capped at 15/day. So a student returning after a long absence sees a calm 0–15-row card, not a wall of forgotten material.
 - **Student marks a review complete twice in quick succession.** Idempotency on the server action — the second click is a no-op if the row's `last_reviewed_at` is within 1 minute of now.
 - **Notification ran (per FR-005) but the student didn't open the app.** Tomorrow's batch absorbs today's overdue items; no double-notification is sent for the same item.
 - **A scheduled push fails (Communication outage).** The DB write that says "review scheduled" still committed; the notification retry is owned by `/api/cron/n8n-healthcheck` per Constitution Principle III.
@@ -72,17 +82,19 @@ An admin opens `/admin/settings`. A new "إعدادات المراجعة" sectio
 - **FR-002**: System MUST expose today's review batch (≤ 15 rows) to the student via the dashboard.
 - **FR-003**: System MUST expose the next 30 days of upcoming reviews to the student's teacher.
 - **FR-004**: Students MUST be able to mark a review complete; the action MUST recompute the row's next-review-date.
-- **FR-005**: System MUST send a notification (in-app + dispatcher channel preferences per `communication_preferences`) when a student has ≥ 3 due reviews and hasn't opened the app today. Per Principle III this notification is best-effort post-commit.
-- **FR-006**: Admins MUST be able to tune the SM-2 constants in `/admin/settings`; changes MUST be audit-logged.
+- **FR-005**: System MUST send a notification (in-app + dispatcher channel preferences per `communication_preferences`) when a student has ≥ 3 due reviews and has NOT marked any Murajaah review complete today. The "engaged today" check is `EXISTS (SELECT 1 FROM student_review_schedule WHERE student_id = X AND last_reviewed_at::date = current_date_in_student_timezone)` — purely behavioural; opening the app without clicking does NOT suppress the nudge. Per Principle III this notification is best-effort post-commit; the nightly cron computes the eligible cohort, the dispatcher fires at the cohort's local 7pm window respecting `communication_preferences` quiet-hours.
+- **FR-006**: Admins MUST be able to tune the SM-2 constants (`sm2_initial_interval_days`, `sm2_easiness_factor`, `sm2_lapse_penalty`) in `/admin/settings`; changes MUST be audit-logged. The admin-set `sm2_easiness_factor` is the **initial value** for newly-created `student_review_schedule` rows only — it never overwrites existing rows' drifted EF values. Live tuning therefore costs one row write in `platform_settings` with no fan-out, regardless of platform size.
 - **FR-007**: The "mark review complete" server action MUST be wrapped in `loudAction` and the consuming form MUST render `<ActionFeedback>` (Constitution Principle II).
-- **FR-008**: The compute step (FR-001) MUST run inside a Postgres function (per Principle III) since it touches `student_progress` and a new `student_review_schedule` table atomically.
+- **FR-008**: The compute step (FR-001) MUST run inside a Postgres function (per Principle III) since it touches `student_progress` and a new `student_review_schedule` table atomically. The function is invoked nightly at 02:00 UTC by an n8n workflow (registered in `automation/BLUEPRINT.md`); it MUST be idempotent — safe to re-run within the same UTC date without producing duplicate batch rows.
 - **FR-009**: Route adapters call `requireRole(...)` per Principle IV. Domain functions in `src/lib/domains/progress/orchestrate.ts` (or wherever the orchestrator lands per `/speckit.plan`) accept already-authenticated structured input.
-- **FR-010**: [NEEDS CLARIFICATION: should the SM-2 algorithm version be stored alongside each schedule row so historical data survives algorithm changes? Yes/No.]
-- **FR-011**: [NEEDS CLARIFICATION: when a student misses many days, should the next batch include all overdue items capped at 15, or only "fresh" overdue (≤ 7 days late)?]
+- **FR-010**: Each `student_review_schedule` row MUST carry an `algorithm_version` smallint set by the nightly cron at compute time. When the SM-2 constants or the algorithm itself change (per User Story 3 admin tuning), in-flight rows keep their old version until the next compute cycle touches them; new rows get the current version. The dashboard does NOT read or branch on `algorithm_version` — it is for analytics and A/B partitioning only, so there is no runtime cost on the hot path.
+- **FR-011**: When a student returns after a break, the nightly cron MUST select due rows where `next_review_at` is within the last 7 days (the "fresh window"), capped at 15 per day, ordered oldest-overdue-first within that window. Items whose `next_review_at` is 8+ days in the past MUST be excluded from the student's daily Murajaah card and instead added to the teacher's "needs reteaching" queue (see FR-013). This protects daily-card UX at 50k user scale — backlog-shaming kills the SC-003 return-rate metric.
+- **FR-013**: The teacher panel (User Story 2) MUST surface a "needs reteaching" section listing items where the student's `next_review_at` is 8+ days overdue. The teacher can mark items as reteached after a session, which resets the row to a fresh schedule (`lapse_count++`, `easiness_factor` reduced per SM-2 lapse penalty, `next_review_at` = today + 1 day).
+- **FR-012**: The student dashboard MUST read pre-computed rows where `batch_for_date = current_date` (in the student's timezone). No on-the-fly compute on dashboard render. If the cron has not yet produced a row for the current date (e.g., the nightly job failed), the dashboard MUST fall back to displaying yesterday's leftover unmarked items rather than an empty card; n8n healthcheck flags the missed run separately.
 
 ### Key Entities
 
-- **student_review_schedule** — one row per `(student_id, progress_id)` storing `next_review_at`, `easiness_factor`, `lapse_count`, `last_reviewed_at`, `algorithm_version`. Owned by the **Progress** domain (per CONTEXT.md "Domains").
+- **student_review_schedule** — one row per `(student_id, progress_id)` storing `next_review_at`, `easiness_factor`, `lapse_count`, `last_reviewed_at`, `algorithm_version`, `batch_for_date` (the date this row was scheduled into the cached daily batch by the nightly cron, or NULL if not in any cached batch). Owned by the **Progress** domain (per CONTEXT.md "Domains").
 - **student_progress** — existing table; the source-of-truth for *what was memorised*. Murajaah reads it; never writes to it.
 - **murajaah_settings** — three rows in `platform_settings` (per the existing pattern): `sm2_initial_interval_days`, `sm2_easiness_factor`, `sm2_lapse_penalty`.
 - **notifications** — existing; Murajaah dispatches via `notify(opts)` per Principle II's best-effort post-commit rule.
@@ -117,7 +129,7 @@ Per CONTEXT.md "Domains":
 - Cross-student leaderboards or "most consistent reviewer" gamification.
 - Audio recording of reviews or AI-graded recitation accuracy during Murajaah (separate spec).
 - Adaptive scheduling that uses session-evaluation scores as a quality signal — interesting but not v1.
-- Migration of pre-launch `student_progress` rows into a backfilled schedule. The first batch will be computed lazily on first dashboard load.
+- Migration of pre-launch `student_progress` rows into a backfilled schedule. The nightly cron picks up new `student_progress` rows on its next 02:00 UTC tick — brand-new students wait up to 24h for their first Murajaah card. Acceptable for v1; promote to dual-mode (cron + on-demand backfill on first dashboard hit) only if user feedback shows the wait is painful.
 - The `/admin/control-tower` widget for "students with ≥ 10 overdue reviews" — easy follow-up, but not v1.
 
 ## Cross-references
