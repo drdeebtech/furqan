@@ -187,10 +187,10 @@ The directive explicitly calls out homework. All 6 actions in `src/lib/actions/h
 | `src/app/admin/teachers/[id]/actions.ts:398` | `deleteAvailability` | `teacher_availability.delete` | P1 | **Wrapped** ✅ (PR 14). |
 | `src/app/admin/teachers/[id]/actions.ts:425` | `upsertException` | `availability_exceptions.insert` | P1 | **Wrapped** ✅ (PR 14). Insert-only despite "upsert" name. |
 | `src/app/admin/teachers/[id]/actions.ts:460` | `deleteException` | `availability_exceptions.delete` | P1 | **Wrapped** ✅ (PR 14). |
-| `src/app/admin/teachers/cv/[teacherId]/actions.ts:14` | `saveCvAsAdmin` | `teacher_profiles.update` | P1 | |
-| `src/app/admin/teachers/cv/[teacherId]/actions.ts:59` | `approveCv` | `teacher_profiles.update` + n8n emit | P0 | CV approval = onboarding gate |
-| `src/app/admin/teachers/cv/[teacherId]/actions.ts:130` | `resetCvToPending` | `teacher_profiles.update` | P1 | |
-| `src/app/admin/teachers/cv/[teacherId]/actions.ts:159` | `rejectCv` | `teacher_profiles.update` + n8n emit | P0 | |
+| `src/app/admin/teachers/cv/[teacherId]/actions.ts:14` | `saveCvAsAdmin` | `teacher_profiles.update` | P1 | **Wrapped** ✅ (PR 15). |
+| `src/app/admin/teachers/cv/[teacherId]/actions.ts:59` | `approveCv` | `teacher_profiles.update` + n8n emit + Telegram + email | P0 | **Wrapped** ✅ (PR 15). CV approval = onboarding gate. severity=warning. Side-effect fan-out (notify, n8n, Telegram, email) preserved as best-effort with `Promise.allSettled` + per-effect `.catch(logError)`. |
+| `src/app/admin/teachers/cv/[teacherId]/actions.ts:130` | `resetCvToPending` | `teacher_profiles.update` | P1 | **Wrapped** ✅ (PR 15). |
+| `src/app/admin/teachers/cv/[teacherId]/actions.ts:159` | `rejectCv` | `teacher_profiles.update` | P0 | **Wrapped** ✅ (PR 15). Note: audit had this listed with "n8n emit" surface; actual code does NOT emit to n8n on rejection (only on approval). Surface corrected. |
 | `src/app/admin/dashboard/actions.ts:8` | `toggleArchiveTeacher` | `teacher_profiles.update` | P1 | |
 | `src/app/teacher/cv/actions.ts:17` | `saveCvDraft` | `teacher_profiles.update` | P2 | |
 | `src/app/teacher/cv/actions.ts:58` | `submitCvForReview` | `teacher_profiles.update` + n8n emit | P1 | |
