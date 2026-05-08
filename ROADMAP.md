@@ -218,7 +218,7 @@ created → reviewed by student (read-only)
 
 ## Sprint 5: Retention Engine [P2] ✅ SHIPPED (app-side)
 
-> **Status:** App-side DONE across 7 phases (9, 10, 11, 12, 13, 14, 18, 19, 20). `retention_signals` table live; scorer endpoint at `/api/retention/score`; admin page + filters + intervention buttons + cooldown + history; teacher + moderator widgets; session-page risk hints; manual trigger button. Remaining: n8n daily cron on Mac mini → POST to /api/retention/score with X-N8N-Secret header.
+> **Status:** App-side DONE across 7 phases (9, 10, 11, 12, 13, 14, 18, 19, 20). `retention_signals` table live; scorer endpoint at `/api/retention/score`; admin page + filters + intervention buttons + cooldown + history; teacher + admin widgets; session-page risk hints; manual trigger button. Remaining: n8n daily cron on Mac mini → POST to /api/retention/score with X-N8N-Secret header.
 > **Impact:** Reduces churn, increases renewal rates
 > **Estimated effort:** 1 session (DB + types) + Mac-mini n8n session (cron + intervention workflow subscribers)
 
@@ -430,7 +430,7 @@ Phases shipped beyond the original 8-sprint plan, in a single session that took 
 | 17 | Report send | `sendSessionNarrative` + POST with optional AI override | `e73dc68` |
 | 18 | Session-page hint | Risk badge on admin + teacher session detail (≥40 only) | `a4ed636` |
 | 19 | Idempotency | `automation_logs` dedup guard before parent report send | `777782c` |
-| 20 | Moderator reach | Platform-wide at-risk widget on moderator dashboard | `bd1d9a0` |
+| 20 | Admin reach | Platform-wide at-risk widget on admin dashboard | `bd1d9a0` |
 
 **Patterns established this session:**
 - Shared helpers in `src/lib/retention/ui.ts` (Rule of Three, extracted at 3rd caller)

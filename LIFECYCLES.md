@@ -194,7 +194,7 @@
             Teacher submits CV
                        │
                   ┌────▼───────────┐
-                  │pending_review  │ ← Moderator/admin reviews
+                  │pending_review  │ ← Admin reviews
                   └────┬───────────┘
                        │
           ┌────────────┼────────────┐

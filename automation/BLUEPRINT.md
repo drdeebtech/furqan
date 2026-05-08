@@ -621,7 +621,7 @@ Flow: notify suitable students or admins to fill the opening
 
 ### 8.1 Message Content Moderation 🟠
 Trigger: `message.created`  
-Flow: keyword filter → AI classification if needed → flag moderator on suspicious content
+Flow: keyword filter → AI classification if needed → flag admin on suspicious content
 
 ### 8.2 Announcement Broadcaster 🟠
 Trigger: `announcement.created` or admin webhook  
@@ -651,7 +651,7 @@ Flow: detect KPI breaches such as no-show spike, API failure, message backlog, p
 Trigger: `audit_log.insert`  
 Flow: enrich with IP context, geo hint, severity score
 
-### 9.4 Moderator Review Queue Builder 🔵
+### 9.4 Admin Review Queue Builder (formerly Moderator — dropped per ADR-0003) 🔵
 Trigger: daily or event-based  
 Flow: build queue for CV review, flagged messages, risky teachers, unresolved anomalies
 

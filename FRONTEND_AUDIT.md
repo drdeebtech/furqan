@@ -28,7 +28,7 @@ Frontend-only audit covering RSC boundaries, state management, performance, rend
 | 1 | P1 | RSC | `src/components/shared/pwa-install-prompt.tsx:16` | `useState(() => typeof window !== "undefined" ? !!sessionStorage.getItem(...) : false)` causes hydration mismatch — server renders `false`, client may render `true`. | Initialize to `false`; read sessionStorage in `useEffect`. |
 | 2 | P1 | RSC | `src/components/shared/session-status.tsx:46` | `const now = Date.now()` directly in render. Server `now` ≠ client `now` → hydration drift on session "elapsed" badge. | Lift `Date.now()` into `useEffect` + `useState`; render `0` or `"—"` on first paint. |
 | 3 | P1 | Perf | `src/app/admin/announcements/actions.ts:104,128,141,157` | 4× `revalidatePath("/")` invalidates the entire site cache on every announcement create/update/delete/deactivate. | Tag-based: `unstable_cache(..., ["site_announcements"])` on the read side; `revalidateTag("site_announcements")` here. |
-| 4 | P1 | Design/RTL | `src/app/moderator/cv-review/[teacherId]/page.tsx:37`, `src/app/moderator/evaluations/new/page.tsx:31` | Hardcoded `<ArrowRight />` icon doesn't flip in RTL — points the wrong way for Arabic users on a "back" button. | Pattern from `stat-card.tsx`: `const Arrow = dir === "rtl" ? ArrowLeft : ArrowRight`. |
+| 4 | P1 | Design/RTL | `src/app/admin/cv-review/[teacherId]/page.tsx:37`, `src/app/admin/evaluations/new/page.tsx:31` | Hardcoded `<ArrowRight />` icon doesn't flip in RTL — points the wrong way for Arabic users on a "back" button. | Pattern from `stat-card.tsx`: `const Arrow = dir === "rtl" ? ArrowLeft : ArrowRight`. |
 | 5 | P1 | i18n | `src/app/admin/teachers/[id]/availability-editor.tsx:65,87,17` | Hardcoded Arabic strings ("تتعارض مع فترة موجودة", "الجدول الأسبوعي / Weekly slots", day names AR-only). Not bilingual. | Wrap in `t(ar, en)`; add `en` field to days array. |
 | 6 | P1 | RSC | `src/app/admin/teachers/[id]/availability-editor.tsx:30-50` | `addSlot` action result not checked before clearing form — failed action silently loses user input. | `const r = await action(fd); if (r.error) { showError(r.error); return; } setForm(initial)`. |
 | 7 | P2 | Perf | `src/components/shared/session-status.tsx:83` | `setInterval(check, 15_000)` polls for status changes — should be a Realtime subscription on `sessions`. | `supabase.channel("session-status").on("postgres_changes", {table:"sessions"}, check).subscribe()`. |
@@ -66,7 +66,7 @@ Frontend-only audit covering RSC boundaries, state management, performance, rend
 ## Wave plan (if executing)
 
 1. **Wave 1 — Hydration fixes** (#1, #2): two surgical edits, eliminate the Date-of-render mismatches.
-2. **Wave 2 — RTL arrows + i18n strings** (#4, #5, #21): `dir`-aware arrows, `t()` wraps for moderator + availability-editor.
+2. **Wave 2 — RTL arrows + i18n strings** (#4, #5, #21): `dir`-aware arrows, `t()` wraps for availability-editor.
 3. **Wave 3 — Cache busting** (#3): replace `revalidatePath("/")` with `revalidateTag` on announcements; minor read-side rewrite.
 4. **Wave 4 — Realtime conversion** (#7, #8): convert 4 polling intervals to Supabase Realtime. Biggest perf+UX gain in the audit.
 5. **Wave 5 — Motion-safe** (#15): repo-wide `motion-safe:`/`motion-reduce:` sweep on `transition-*` classes.
