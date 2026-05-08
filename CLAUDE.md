@@ -56,6 +56,47 @@ Notification format: state the conflict explicitly, name the alternative that fi
 - Memory file `~/.claude/projects/-Users-drdeeb-furqan/memory/project_furqan_scale.md` carries the same rule into future Claude Code sessions.
 - This rule supersedes any default sizing assumption in `.impeccable.md`, `ROADMAP.md`, or older docs that predate the 50k commitment.
 
+# Branch Hygiene Rule (NON-NEGOTIABLE)
+
+Every branch ends with a Pull Request OR a deletion. There is no third state. Stale local-only branches that "might be useful later" are how 33+ zombie branches accumulated in this repo before the 2026-05-08 audit; the rule below prevents recurrence.
+
+**The four don'ts (apply to every commit, no exceptions):**
+
+1. **Don't commit on whatever branch happens to be checked out.** Always run `git checkout main && git pull --ff-only && git checkout -b <name>` before starting any new work. The pattern that breaks this rule is how the 2026-05-07 fix-189 cast-cleanup ended up on a branch labeled "B3.4 design"; commits get orphaned and audits can't trace them.
+
+2. **Don't make "v2" branches.** If a branch is going stale, push it as a PR (draft is fine) or delete it. Never make `chore/repo-audit-v2` after `chore/repo-audit-bucket` — the 2026-05-08 audit found three branches of `audit-v*` with identical SHAs racing to ship the same work; none of them did.
+
+3. **Don't push speculative WIP to remote unless you'll PR it the same day.** A WIP commit that lives only locally for 2+ days is WIP for the bin. The image-captioning edge function (406 lines) sat as `wip/parallel-work-checkpoint` for 2 days, then got dropped at audit time because the path-to-ship was never clear. If unsure it's shippable, don't commit; if you commit, open a draft PR same day.
+
+4. **Don't fix the same thing twice without checking the first attempt.** The 2026-05-08 audit found 8 cases of re-fix-without-checking. One of them (`fix/auth-smoke-vercel-bypass`) would have re-introduced a feature that PR #121 explicitly removed as "chronically red." Pre-work check is 30 seconds and catches every case.
+
+**Pre-work checks (run before starting any fix):**
+
+```bash
+gh issue view <N>                              # is the issue still open?
+gh pr list                                     # is there an in-flight PR?
+git log main --oneline --grep="<topic>"        # has it shipped under another PR?
+git log main --diff-filter=D --oneline -- <file>   # was it deliberately removed?
+```
+
+The fourth check (`--diff-filter=D`) is the one that catches *retired* work — code that was on main, then someone deliberately deleted it. Without that check, "the file isn't on main" looks identical to "this is greenfield work."
+
+**Same-day discipline:**
+
+- Push and open PR (draft is fine) the same day you start coding.
+- Use `Closes #N` (or `Fixes`, `Resolves`) in the PR body so the issue auto-closes on merge.
+- After merge, GitHub auto-deletes the source branch (`delete_branch_on_merge: true` is enabled at the repo level). Never re-push to a merged branch — name a new one.
+
+**Conflict / drift policy:**
+
+If you find yourself about to: commit on `feat/something-else` instead of a fresh branch; create a `v2` of an existing branch; push WIP without a same-day PR; or start a fix without checking whether it's already shipped or removed — **stop and notify the operator before proceeding.** State the conflict, suggest the alternative, ask before continuing. Do NOT silently work around it.
+
+**Cross-references:**
+
+- `.specify/memory/constitution.md` Additional Constraints section MUST mirror this rule so `/speckit.plan` and `/speckit.analyze` enforce it on every feature spec.
+- Memory file `~/.claude/projects/-Users-drdeeb-furqan/memory/feedback_branch_hygiene.md` carries this rule into future Claude Code sessions.
+- Audit that surfaced these patterns: 2026-05-08 (closed PRs #217, #218; deleted ~33 stale branches).
+
 # Project Overview
 
 FURQAN Academy — Online Quran teaching platform (V13)
