@@ -41,7 +41,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .select("role")
       .eq("id", user.id)
       .single<{ role: string }>();
-    if (!actor || !["admin", "moderator", "teacher"].includes(actor.role)) {
+    if (!actor || !["admin", "teacher"].includes(actor.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 

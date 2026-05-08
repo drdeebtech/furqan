@@ -72,7 +72,7 @@ export async function getLessonPlaybackUrl(lessonId: string): Promise<
       .select("role")
       .eq("id", user.id)
       .single<{ role: string }>();
-    if (profile?.role === "admin" || profile?.role === "moderator") {
+    if (profile?.role === "admin") {
       allowed = true;
     }
   }

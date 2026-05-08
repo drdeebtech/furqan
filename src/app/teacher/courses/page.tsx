@@ -42,7 +42,7 @@ export default async function TeacherCoursesPage() {
     .single<{ role: string }>();
   if (
     !profile ||
-    !["admin", "moderator", "teacher"].includes(profile.role)
+    !["admin", "teacher"].includes(profile.role)
   ) {
     redirect("/login");
   }

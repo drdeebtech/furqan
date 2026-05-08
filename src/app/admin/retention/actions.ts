@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireAdminOrModerator, ForbiddenError } from "@/lib/auth/require-admin";
+import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { notify } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
@@ -47,7 +47,7 @@ export async function logIntervention(formData: FormData): Promise<{ ok: boolean
 
   let actor: { id: string };
   try {
-    actor = await requireAdminOrModerator();
+    actor = await requireAdmin();
   } catch (e) {
     if (e instanceof ForbiddenError) return { ok: false, error: "غير مصرح" };
     throw e;

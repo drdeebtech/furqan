@@ -8,12 +8,11 @@ Single-context layout — one CONTEXT.md at the repo root (per `docs/agents/doma
 
 ## Roles
 
-The `user_role` Postgres ENUM defines four roles:
+The `user_role` Postgres ENUM defines three roles (per ADR-0003 — moderator was dropped 2026-05-08):
 
 - **student** — books sessions with teachers, follows up on assigned work, tracks progress.
-- **teacher** — manages availability, conducts sessions, assigns and grades follow-up, submits CV for moderator review.
-- **admin** — full platform management.
-- **moderator** — limited admin (users + CV review + session observation + audit-log read-only).
+- **teacher** — manages availability, conducts sessions, assigns and grades follow-up, submits CV for admin review.
+- **admin** — full platform management. Owns CV review, audit log, session observation, user management.
 
 A user's *active role* is one value from this enum; a user *may* have multiple roles in their `roles[]` array (per `RoleState` in `src/lib/auth/role-cache.ts`) and switch between them. The active role is what server actions and route handlers gate on.
 
@@ -34,7 +33,7 @@ The canonical role check at action / route boundaries:
 
 - **`requireRole(role)`** — single-role check. Returns `{ id }`. Throws `UnauthenticatedError` if no session, `ForbiddenError` if role mismatch.
 - **`requireRole([role1, role2, ...])`** — any-of role check. Returns `{ id, role }` with the matched role narrowed to the input union.
-- **Sugar wrappers** — `requireAdmin()`, `requireModerator()`, `requireAdminOrModerator()` are one-line wrappers over `requireRole(...)`. They exist for readability at common call sites; new code may use either form.
+- **Sugar wrapper** — `requireAdmin()` is a one-line wrapper over `requireRole("admin")`. It exists for readability at common call sites; new code may use either form. (`requireModerator` and `requireAdminOrModerator` were removed per ADR-0003 when the moderator role was dropped.)
 
 All four primitives live in `src/lib/auth/require-admin.ts` (the file name is a slight misnomer post-`requireRole`; not worth a renaming-PR's blast radius — see ADR-0001).
 

@@ -29,7 +29,7 @@ async function authCourseOwner(courseId: string): Promise<{ ok: true; userId: st
 
   const { data: profile } = await supabase
     .from("profiles").select("role").eq("id", user.id).single<{ role: string }>();
-  if (profile?.role === "admin" || profile?.role === "moderator") {
+  if (profile?.role === "admin") {
     return { ok: true, userId: user.id };
   }
   return { ok: false, error: "غير مصرح" };

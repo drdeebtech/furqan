@@ -14,7 +14,7 @@ import type { LucideIcon } from "lucide-react";
 import { LogoutButton } from "./logout-button";
 import { useLang } from "@/lib/i18n/context";
 
-type Role = "student" | "teacher" | "admin" | "moderator";
+type Role = "student" | "teacher" | "admin";
 
 interface NavLink {
   href: string;
@@ -107,21 +107,11 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/admin/account", ar: "حسابي", en: "My Account", icon: Settings },
     { href: "/admin/settings", ar: "الإعدادات", en: "Settings", icon: Settings },
   ],
-  moderator: [
-    { href: "/moderator/dashboard", ar: "لوحة المشرف", en: "Dashboard", icon: LayoutDashboard, group: { ar: "الرئيسية", en: "MAIN" } },
-    { href: "/moderator/users", ar: "المستخدمون", en: "Users", icon: Users, group: { ar: "الإدارة", en: "MANAGEMENT" } },
-    { href: "/moderator/cv-review", ar: "مراجعة السير", en: "CV Review", icon: FileText },
-    { href: "/moderator/courses", ar: "مراجعة الدورات", en: "Course Review", icon: GraduationCap },
-    { href: "/moderator/sessions", ar: "الجلسات", en: "Sessions", icon: Video, group: { ar: "الجلسات", en: "SESSIONS" } },
-    { href: "/moderator/evaluations", ar: "التقييمات", en: "Evaluations", icon: ClipboardCheck },
-    { href: "/moderator/audit", ar: "سجل المراجعة", en: "Audit Log", icon: ScrollText, group: { ar: "التدقيق", en: "AUDIT" } },
-  ],
 };
 
 const ROLE_LABEL: Record<Role, { ar: string; en: string }> = {
   admin: { ar: "الإدارة", en: "Admin" },
   teacher: { ar: "المعلم", en: "Teacher" },
-  moderator: { ar: "المشرف", en: "Moderator" },
   student: { ar: "طالب القرآن", en: "Quran Student" },
 };
 
@@ -132,7 +122,6 @@ const SETTINGS_PATH: Record<Role, string> = {
   admin: "/admin/account",
   teacher: "/teacher/settings",
   student: "/student/settings",
-  moderator: "/moderator/settings",
 };
 
 export function Nav({ role, userName }: { role: Role; userName?: string }) {

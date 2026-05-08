@@ -18,7 +18,7 @@ async function requireTeacherOrAbove(supabase: Awaited<ReturnType<typeof createC
   const { data: profile } = await supabase
     .from("profiles").select("role").eq("id", user.id)
     .single().then(r => ({ data: r.data as { role: string } | null }));
-  if (!profile || !["admin", "moderator", "teacher"].includes(profile.role)) {
+  if (!profile || !["admin", "teacher"].includes(profile.role)) {
     throw new Error("غير مصرح");
   }
   return { user, role: profile.role };
@@ -80,7 +80,7 @@ export async function createHomework(formData: FormData) {
     const { data: p } = await supabase
       .from("profiles").select("role").eq("id", user.id)
       .single<{ role: string }>();
-    if (!p || !["admin", "moderator"].includes(p.role)) {
+    if (!p || !["admin"].includes(p.role)) {
       return { error: "ليس لديك صلاحية على هذا الحجز" };
     }
   }
@@ -245,7 +245,7 @@ export async function gradeHomework(homeworkId: string, formData: FormData) {
     const { data: p } = await supabase
       .from("profiles").select("role").eq("id", user.id)
       .single<{ role: string }>();
-    if (!p || !["admin", "moderator"].includes(p.role)) {
+    if (!p || !["admin"].includes(p.role)) {
       return { error: "غير مصرح" };
     }
   }
@@ -362,7 +362,7 @@ export async function editHomework(homeworkId: string, formData: FormData) {
     const { data: p } = await supabase
       .from("profiles").select("role").eq("id", user.id)
       .single<{ role: string }>();
-    if (!p || !["admin", "moderator"].includes(p.role)) {
+    if (!p || !["admin"].includes(p.role)) {
       return { error: "غير مصرح" };
     }
   }
@@ -499,7 +499,7 @@ export async function deleteHomework(homeworkId: string) {
     const { data: profile } = await supabase
       .from("profiles").select("role").eq("id", user.id)
       .single<{ role: string }>();
-    if (!profile || !["admin", "moderator"].includes(profile.role)) {
+    if (!profile || !["admin"].includes(profile.role)) {
       return { error: "ليس لديك صلاحية" };
     }
   }

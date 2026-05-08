@@ -127,7 +127,6 @@ export function CreateUserForm() {
             >
               <option value="student">{t("طالب", "Student")}</option>
               <option value="teacher">{t("معلم", "Teacher")}</option>
-              <option value="moderator">{t("مشرف", "Moderator")}</option>
             </select>
           </div>
 

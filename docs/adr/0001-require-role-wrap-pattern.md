@@ -1,6 +1,7 @@
 # ADR-0001: `requireRole` as the auth-seam primitive; named helpers as sugar wrappers
 
 **Status:** Accepted (2026-05-07)
+**Superseded in part by:** [ADR-0003](./0003-drop-moderator-role.md) (2026-05-08) — the `requireModerator` and `requireAdminOrModerator` sugar wrappers were removed when the moderator role was dropped. The Wrap pattern still applies to `requireAdmin`.
 **Context for:** Phase 5 pre-work (issue #186), Phase 5 pilot (issue #188)
 
 ## Context

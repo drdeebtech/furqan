@@ -28,7 +28,7 @@ async function requireTeacherOrAbove(
     .single<{ role: string }>();
   if (
     !profile ||
-    !["admin", "moderator", "teacher"].includes(profile.role)
+    !["admin", "teacher"].includes(profile.role)
   ) {
     throw new Error("غير مصرح");
   }

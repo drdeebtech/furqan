@@ -55,7 +55,7 @@ export default async function EditCoursePage({ params }: PageProps) {
       .select("role")
       .eq("id", user.id)
       .single<{ role: string }>();
-    if (!profile || !["admin", "moderator"].includes(profile.role)) {
+    if (!profile || !["admin"].includes(profile.role)) {
       redirect("/teacher/courses");
     }
   }

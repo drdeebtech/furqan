@@ -47,8 +47,8 @@ async function getAuthedRole(): Promise<{ id: string; role: UserRole | null }> {
   // Profile lookup uses .single() which returns { data: null, error: PGRST116 }
   // for zero rows — never throws on missing row. Wrap anyway for defense in
   // depth (network blip mid-query, schema drift, hang). null role propagates
-  // to requireRole/requireAdmin/requireModerator which reject with
-  // ForbiddenError, which the layout converts to redirect("/login").
+  // to requireRole/requireAdmin which reject with ForbiddenError, which the
+  // layout converts to redirect("/login").
   let role: UserRole | null = null;
   try {
     const { data: profile } = await withTimeout(
@@ -73,16 +73,18 @@ async function getAuthedRole(): Promise<{ id: string; role: UserRole | null }> {
  * Canonical role-gating primitive. See ADR-0001.
  *
  * Single-role: `requireRole("admin")` → returns `{ id }`.
- * Multi-role:  `requireRole(["admin", "moderator"])` → returns `{ id, role }`
+ * Multi-role:  `requireRole(["admin", "teacher"])` → returns `{ id, role }`
  *              with the matched role narrowed to the input union.
  *
  * Throws:
  *   - `UnauthenticatedError` (extends ForbiddenError) if no valid session.
  *   - `ForbiddenError` if session is valid but role isn't in the allowed set.
  *
- * The named sugar helpers (`requireAdmin`, `requireModerator`,
- * `requireAdminOrModerator`) are one-line wrappers over this primitive —
- * they exist for readability at common call sites. New code may use either.
+ * The named sugar helper `requireAdmin` is a one-line wrapper over this
+ * primitive — it exists for readability at common call sites. New code may
+ * use either. Per ADR-0003 the moderator-specific wrappers
+ * (`requireModerator`, `requireAdminOrModerator`) were removed when the
+ * moderator role was dropped.
  */
 export async function requireRole(role: UserRole): Promise<{ id: string }>;
 export async function requireRole<T extends UserRole>(
@@ -107,25 +109,6 @@ export async function requireRole(
  */
 export async function requireAdmin(): Promise<{ id: string }> {
   return requireRole("admin");
-}
-
-/**
- * Sugar wrapper. `requireModerator()` is equivalent to `requireRole("moderator")`.
- */
-export async function requireModerator(): Promise<{ id: string }> {
-  return requireRole("moderator");
-}
-
-/**
- * Sugar wrapper. `requireAdminOrModerator()` is equivalent to
- * `requireRole(["admin", "moderator"])`. Returns the matched role so callers
- * can branch on which one granted access.
- */
-export async function requireAdminOrModerator(): Promise<{
-  id: string;
-  role: "admin" | "moderator";
-}> {
-  return requireRole(["admin", "moderator"] as const);
 }
 
 /**

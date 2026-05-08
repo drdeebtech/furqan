@@ -22,7 +22,7 @@ export default async function AdminNewCoursePage() {
     .select("role")
     .eq("id", user.id)
     .single<{ role: string }>();
-  if (!profile || !["admin", "moderator"].includes(profile.role)) {
+  if (!profile || !["admin"].includes(profile.role)) {
     redirect("/login");
   }
 

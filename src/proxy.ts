@@ -65,7 +65,7 @@ const fetchRoleStateForUser = (userId: string) =>
 function deriveDomain(pathname: string): string {
   const seg = pathname.split("/")[1] ?? "";
   if (!seg) return "public";
-  if (seg === "admin" || seg === "moderator" || seg === "teacher" || seg === "student") return seg;
+  if (seg === "admin" || seg === "teacher" || seg === "student") return seg;
   if (seg === "api") return "api";
   if (seg === "login" || seg === "register" || seg === "forgot-password") return "auth";
   if (seg === "teach-with-us" || seg === "teachers") return "teachers";
@@ -78,7 +78,6 @@ const PROTECTED_ROUTES: Record<string, UserRole> = {
   "/student": "student",
   "/teacher": "teacher",
   "/admin": "admin",
-  "/moderator": "moderator",
 };
 
 const PUBLIC_ROUTES = ["/login", "/register", "/forgot-password"];
@@ -93,6 +92,12 @@ const RENAMED_ROUTES: Array<readonly [from: string, to: string]> = [
   ["/admin/homework", "/admin/follow-up/grade"],
   ["/teachers-page", "/teachers"],
   ["/teach", "/teach-with-us"],
+  // Moderator role removed per ADR-0003 (2026-05-08). Features absorbed into
+  // /admin/*. CV review's path differs (was /moderator/cv-review/[teacherId];
+  // admin equivalent at /admin/teachers/cv/[teacherId]) so it must come BEFORE
+  // the broader /moderator → /admin entry — the loop matches in array order.
+  ["/moderator/cv-review", "/admin/teachers/cv"],
+  ["/moderator", "/admin"],
 ];
 
 async function getUserRoleState(
@@ -139,7 +144,7 @@ export async function proxy(request: NextRequest) {
     );
       if (state) {
         setSentryUser(user.id, state.active);
-        const dashboard = state.active === "moderator" ? "/moderator/dashboard" : `/${state.active}/dashboard`;
+        const dashboard = `/${state.active}/dashboard`;
         return NextResponse.redirect(new URL(dashboard, request.url));
       }
     }
@@ -167,18 +172,6 @@ export async function proxy(request: NextRequest) {
 
     // Refresh Sentry scope with the active role for any errors below.
     setSentryUser(user.id, state?.active ?? null);
-
-    // Admin can access moderator routes when *actively* in admin mode.
-    // (Active-context permission semantic — a user with admin in their
-    // roles[] but currently active as e.g. teacher does NOT get the bypass.)
-    if (prefix === "/moderator" && state?.active === "admin") {
-      Sentry.addBreadcrumb?.({
-        category: "auth.admin-bypass",
-        level: "info",
-        message: `admin ${user.id} accessed moderator route ${pathname}`,
-      });
-      break;
-    }
 
     if (state?.active !== requiredRole) {
       // Active role mismatch. If the user *holds* the required role in

@@ -47,7 +47,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // teacher path intentionally absent so a teacher cannot spam a stranger's
     // parent. The matching read endpoint allows teachers but only for their
     // own sessions.
-    if (!actor || !["admin", "moderator"].includes(actor.role)) {
+    if (!actor || !["admin"].includes(actor.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
     actorId = user.id;

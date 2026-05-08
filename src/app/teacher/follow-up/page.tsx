@@ -19,7 +19,7 @@ export default async function TeacherFollowUpPage() {
   // Verify teacher role
   const { data: profile } = await supabase
     .from("profiles").select("role").eq("id", user.id).single();
-  if (!profile || !["admin", "moderator", "teacher"].includes((profile as { role: string }).role)) {
+  if (!profile || !["admin", "teacher"].includes((profile as { role: string }).role)) {
     redirect("/login");
   }
 

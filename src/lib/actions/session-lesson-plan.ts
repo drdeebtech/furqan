@@ -46,7 +46,7 @@ async function authorizeTeacherForSession(sessionId: string): Promise<{ ok: true
     .select("role")
     .eq("id", user.id)
     .single<{ role: string }>();
-  if (profile && (profile.role === "admin" || profile.role === "moderator")) {
+  if (profile && (profile.role === "admin")) {
     return { ok: true };
   }
   return { ok: false, error: "غير مصرح" };
