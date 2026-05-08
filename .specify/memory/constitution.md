@@ -75,6 +75,22 @@ The Supabase Branching GitHub integration silently skips applies more than once 
 
 `process.env.X` references and the `CLAUDE.md` env-var table are paired. A PR that adds a new `process.env.X` must add `X` to the table in the same PR. Vercel marketplace integrations can override env vars at build time without showing in `vercel env ls` — when an env var disappears from runtime, suspect a marketplace integration first.
 
+### 50,000-user scale target (NON-NEGOTIABLE)
+
+FURQAN is sized for **50,000 users**. Every spec, plan, ADR, and implementation choice MUST be evaluated at that scale, not at "today's traffic." Authoritative source of the rule and its concrete obligations is `CLAUDE.md` § "Scale Target Rule"; this section is a pointer so `/speckit.plan` and `/speckit.analyze` enforce it.
+
+**`/speckit.plan` MUST flag (and `/speckit.analyze` MUST report as CRITICAL) any of the following:**
+
+- A spec or plan that quantifies success at sub-50k user scale without justifying why the feature is segment-only.
+- A new column updated per page render (write amplification at 50k DAU).
+- An admin action that performs an unbounded UPDATE / DELETE / INSERT (bulk-fan-out at scale).
+- A hot-path JOIN added solely for analytics or provenance (push the column onto the row instead).
+- A returning-user UX surface that displays an unbounded backlog of overdue items.
+- A nightly cron whose worst-case fan-out is unsized at 50k × per-user-row-count.
+- An RLS predicate that hasn't been considered against a 10M-row table.
+
+When a feature legitimately cannot be sized for 50k (e.g., a true admin-only tool used by ~5 humans), the spec MUST state this explicitly under "Assumptions" and the plan MUST note the scope.
+
 ---
 
 ## Development Workflow
@@ -125,4 +141,8 @@ Version bumps follow semver on the constitution itself:
 
 `/speckit.plan` and `/speckit.analyze` consult this file by path. `/speckit.constitution` is the canonical editor; manual edits are allowed but should round-trip through `/speckit.constitution`'s validation before merge.
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-08 | **Last Amended**: 2026-05-08
+**Version**: 1.1.0 | **Ratified**: 2026-05-08 | **Last Amended**: 2026-05-08
+
+**Changelog:**
+- **1.1.0** (2026-05-08) — Added "50,000-user scale target" Additional Constraint mirroring the new `CLAUDE.md` § "Scale Target Rule"; defines the seven CRITICAL flags `/speckit.plan` and `/speckit.analyze` must surface.
+- **1.0.0** (2026-05-08) — Initial constitution: five core principles (Domain Ownership, Loud Failures, Atomic Critical Paths, Auth at the Boundary, Tracer-Bullet Adoption), three additional constraints, four-stage development workflow.
