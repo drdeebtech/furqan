@@ -239,3 +239,60 @@
 
 **Source of truth:** `message_delivery_log`
 **Owner:** Communication domain (`src/lib/notifications/dispatcher.ts`)
+
+---
+
+## 8. Murajaah Schedule Lifecycle
+
+The `student_review_schedule` row owns the SM-2 spaced-repetition state for one `(student_id, progress_id)` pair. Per spec `001-murajaah-scheduler/`.
+
+```
+                          ┌──────────┐
+                          │ created  │ ← nightly cron seeds row from
+                          └────┬─────┘    student_progress (initial EF=2.5,
+                               │          interval=1d, lapse_count=0)
+                  cron sets batch_for_date
+                               │
+                  ┌────────────┴────────────┐
+                  │                         │
+            ┌─────▼──────┐         ┌────────▼────────────┐
+            │ scheduled  │         │ in fresh window     │
+            │  (today)   │         │ (≤7d overdue, capped│
+            └─────┬──────┘         │ at 15/student/day)  │
+                  │                └─────────┬───────────┘
+       student clicks "أنهيت"               │
+       (markReviewComplete)                  │
+                  │                          │
+            ┌─────▼──────┐                   │
+            │ reviewed   │ ← SM-2 EF + interval recomputed via
+            └─────┬──────┘    complete_review() Postgres function;
+                  │           batch_for_date = NULL
+       next_review_at advances per SM-2
+                  │
+              ┌───┴───────────────────────────┐
+              │                               │
+        next due ≤ 7 days                next due > 7 days
+              │                               │
+              └─► (loops back to scheduled)   │
+                                              ▼
+                                  ┌───────────────────────┐
+                                  │ reteach-needed        │ ← surfaces in
+                                  │ (8+ days overdue)     │   teacher panel,
+                                  └──────────┬────────────┘   not student card
+                                             │
+                                  teacher marks reteached
+                                  (mark_reteach_complete)
+                                             │
+                                             ▼
+                                  ┌──────────────────────┐
+                                  │ reset to fresh       │
+                                  │ (lapse_count++,      │
+                                  │  EF × 0.8,           │
+                                  │  interval=1d,        │
+                                  │  next_review_at=+1d) │
+                                  └──────────────────────┘
+```
+
+**Source of truth:** `student_review_schedule` table (per spec 001-murajaah-scheduler/data-model.md)
+**Owner:** Progress domain. Reads via dashboard queries; writes via Postgres functions `complete_review()`, `mark_reteach_complete()`, and the cron's `compute_murajaah_batch_for_date()`.
+**Atomicity:** all state transitions go through Postgres functions per Constitution Principle III. Cron-driven `compute_murajaah_batch_for_date(p_date)` writes `batch_for_date` atomically per student.
