@@ -5,7 +5,6 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { logError } from "@/lib/logger";
 
 // teacher_languages / teacher_specialties / teacher_recitations were
 // added in v15_008. supabase.generated.ts isn't kept in sync — escape
@@ -111,21 +110,29 @@ export async function upsertPicklistRow(
   });
 }
 
+const deletePicklistRowBase = loudAction<{ table: PicklistTable; key: string }, { message: string }>({
+  name: "admin.picklist.delete",
+  severity: "info",
+  schema: z.object({ table: picklistTable, key: z.string().min(1).max(100) }),
+  audit: {
+    table: "teacher_picklist",
+    recordId: (i) => `${i.table}:${i.key}`,
+    action: "DELETE",
+    reasonPrefix: "admin delete teacher picklist row",
+  },
+  handler: async ({ table, key }) => {
+    const supabase = (await createClient()) as AnyClient;
+    const { error } = await supabase.from(table).delete().eq("key", key);
+    if (error) throw error;
+    revalidatePicklistConsumers();
+    return { message: "تم الحذف" };
+  },
+});
+
 export async function deletePicklistRow(
   table: PicklistTable,
   key: string,
 ): Promise<LoudResult> {
   try { await requireAdmin(); } catch { return { ok: false, error: "غير مصرح" }; }
-  const supabase = (await createClient()) as AnyClient;
-  const { error } = await supabase.from(table).delete().eq("key", key);
-  if (error) {
-    logError("admin deletePicklistRow failed", error, {
-      tag: "admin-picklists",
-      severity: "warning",
-      metadata: { table, key },
-    });
-    return { ok: false, error: error.message };
-  }
-  revalidatePicklistConsumers();
-  return { ok: true, message: "تم الحذف" };
+  return deletePicklistRowBase({ table, key });
 }
