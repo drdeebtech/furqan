@@ -9,6 +9,13 @@ import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import { loudAction } from "@/lib/actions/loud";
+import { confirmBooking } from "@/lib/domains/booking/orchestrate";
+import {
+  BookingAlreadyConfirmedError,
+  BookingConfirmError,
+  BookingNotFoundError,
+  BookingRoomCreationError,
+} from "@/lib/domains/booking/types";
 
 // Scope-adjusted hardening (Phase 8.5): not wrapped in `loudAction`
 // because the structured `{ roomUrl, warning }` return is consumed by
@@ -102,39 +109,63 @@ export async function updateBookingStatus(
     }
   }
 
-  // The validate_booking_status trigger guards invalid transitions.
-  // RLS ensures only booking parties can update.
-  const updateData: Record<string, unknown> = { status };
+  let roomUrl: string | null = null;
 
-  // V9: Set teacher_confirmed fields on confirmation
   if (status === "confirmed") {
-    updateData.teacher_confirmed = true;
-    updateData.teacher_confirmed_at = new Date().toISOString();
-  }
+    // Use-case orchestrator (ADR-0004). Replaces the previous inline
+    // sequence (bookings UPDATE → createRoom → sessions INSERT → notify
+    // → emitEvent) with a single domain call. Critical path is atomic
+    // via confirm_booking_with_session() Postgres function — no more
+    // half-confirmed bookings when sessions INSERT fails.
+    let confirmResult;
+    try {
+      confirmResult = await confirmBooking({ bookingId, actorId: user.id });
+    } catch (err) {
+      if (err instanceof BookingAlreadyConfirmedError) {
+        // The orchestrator's pre-read or the SQL function's status guard
+        // saw the booking in a non-pending state. Render as a benign UX
+        // message instead of a generic error.
+        return { error: "الحجز مؤكد بالفعل أو في حالة لا تسمح بالتأكيد" };
+      }
+      if (err instanceof BookingNotFoundError) {
+        return { error: "الحجز غير موجود" };
+      }
+      if (err instanceof BookingRoomCreationError) {
+        // Daily.co outage. Booking still pending — user can retry.
+        // Different from the previous "confirmed-with-warning" behavior
+        // (which left the booking confirmed but room-less); the atomic
+        // flow makes that state unreachable.
+        logError("updateBookingStatus: orchestrator createRoom failed", err, {
+          tag: "bookings",
+          actionName: "teacher.updateBookingStatus",
+          severity: "warning",
+          bookingId,
+        });
+        return { error: "تعذر إنشاء غرفة الفيديو — يرجى المحاولة مرة أخرى" };
+      }
+      if (err instanceof BookingConfirmError) {
+        logError("updateBookingStatus: orchestrator confirm failed", err, {
+          tag: "bookings",
+          actionName: "teacher.updateBookingStatus",
+          severity: "warning",
+          bookingId,
+        });
+        return { error: "حدث خطأ أثناء تأكيد الحجز" };
+      }
+      // Unexpected — let the framework / loudAction (in callers) capture.
+      throw err;
+    }
+    roomUrl = confirmResult.roomUrl;
 
-  const { error } = await supabase
-    .from("bookings")
-    .update(updateData as TableUpdate<"bookings">)
-    .eq("id", bookingId)
-    .eq("teacher_id", user.id);
-
-  if (error) {
-    logError("updateBookingStatus: bookings update failed", error, {
-      tag: "bookings",
-      actionName: "teacher.updateBookingStatus",
-      severity: "warning",
-      bookingId,
-      newStatus: status,
-    });
-    return { error: "حدث خطأ أثناء تحديث الحجز" };
-  }
-
-  // V9: Auto-cancel other pending bookings at overlapping times for this teacher
-  if (status === "confirmed") {
+    // V9: Auto-cancel other pending bookings at overlapping times for this
+    // teacher. Stays at the route adapter — this is teacher-side cleanup
+    // (teacher just locked in this slot, so any other pending bookings
+    // overlapping it can no longer be honored). NOT part of the booking-
+    // confirm cross-domain choreography per se; the admin path
+    // intentionally skips it.
     const scheduledStart = new Date(booking.scheduled_at);
     const scheduledEnd = new Date(scheduledStart.getTime() + booking.duration_min * 60 * 1000);
 
-    // Find other pending bookings for this teacher that overlap
     const { data: overlapping } = await supabase
       .from("bookings")
       .select("id, student_id, scheduled_at, duration_min")
@@ -189,68 +220,28 @@ export async function updateBookingStatus(
         }
       }
     }
-  }
+  } else if (status === "cancelled") {
+    // Cancellation path — out of scope for the orchestrator pilot
+    // (ADR-0004 §"Out of scope: cancelBooking choreography"). Stays
+    // inline. The validate_booking_status trigger guards invalid
+    // transitions; RLS ensures only the booking parties can update.
+    const { error } = await supabase
+      .from("bookings")
+      .update({ status } as TableUpdate<"bookings">)
+      .eq("id", bookingId)
+      .eq("teacher_id", user.id);
 
-  let roomUrl: string | null = null;
-  let roomWarning: string | null = null;
-
-  if (status === "confirmed") {
-    // Create Daily.co room and session
-    try {
-      const scheduledAt = new Date(booking.scheduled_at);
-      const expiresAt = new Date(scheduledAt.getTime() + 2 * 60 * 60 * 1000);
-      const roomName = `furqan-${bookingId.replace(/-/g, "")}`;
-
-      const room = await createRoom(roomName, expiresAt);
-      roomUrl = room.url;
-
-      const { error: sessInsErr } = await supabase.from("sessions").insert({
-        booking_id: bookingId,
-        room_name: room.name,
-        room_url: room.url,
-        expires_at: expiresAt.toISOString(),
-        created_via: "auto",
-      } satisfies TableInsert<"sessions">);
-      if (sessInsErr) {
-        logError("updateBookingStatus: sessions insert failed", sessInsErr, {
-          tag: "bookings",
-          actionName: "teacher.updateBookingStatus",
-          severity: "warning",
-          bookingId,
-        });
-        roomWarning = "تم تأكيد الحجز لكن فشل تسجيل الجلسة — راسل الدعم";
-      }
-    } catch (err) {
-      logError("updateBookingStatus: createRoom threw", err, {
+    if (error) {
+      logError("updateBookingStatus: bookings cancel update failed", error, {
         tag: "bookings",
         actionName: "teacher.updateBookingStatus",
         severity: "warning",
         bookingId,
+        newStatus: status,
       });
-      roomWarning =
-        "تم تأكيد الحجز لكن حدث خطأ في إنشاء غرفة الفيديو — يرجى المحاولة يدوياً أو التواصل مع الدعم";
+      return { error: "حدث خطأ أثناء تحديث الحجز" };
     }
 
-    // Notify student that booking is confirmed (best-effort)
-    try {
-      const scheduledDate = new Date(booking.scheduled_at).toLocaleDateString("ar");
-      await notify({
-        userId: booking.student_id,
-        type: "booking",
-        title: "تم تأكيد حجزك",
-        body: `تم تأكيد جلستك بتاريخ ${scheduledDate} — يمكنك الانضمام من صفحة الجلسات`,
-        entityType: "booking",
-        entityId: bookingId,
-      });
-    } catch (err) {
-      logError("updateBookingStatus: confirm notify failed", err, {
-        tag: "bookings",
-        actionName: "teacher.updateBookingStatus",
-        bookingId,
-      });
-    }
-  } else if (status === "cancelled") {
-    // Notify student that booking is cancelled (best-effort)
     try {
       await notify({
         userId: booking.student_id,
@@ -267,16 +258,29 @@ export async function updateBookingStatus(
         bookingId,
       });
     }
+
+    // Emit booking.cancelled. Pre-orchestrator code emitted
+    // booking.confirmed unconditionally for both branches (the emit
+    // sat outside the if/else); fixing in-place since this path is
+    // already being touched.
+    await emitEvent("booking.cancelled", "booking", bookingId, {
+      student_id: booking.student_id,
+      teacher_id: user.id,
+    }).catch((err) => logError("emit booking.cancelled failed", err, {
+      tag: "automation",
+      actionName: "teacher.updateBookingStatus",
+      event: "booking.cancelled",
+    }));
   }
 
   revalidatePath("/teacher/dashboard");
-  await emitEvent("booking.confirmed", "booking", bookingId, { student_id: booking.student_id, teacher_id: user.id })
-    .catch((err) => logError("emit booking.confirmed failed", err, {
-      tag: "automation",
-      actionName: "teacher.updateBookingStatus",
-      event: "booking.confirmed",
-    }));
-  return { success: true, roomUrl, warning: roomWarning };
+  // `warning` retained in the return shape for caller compatibility
+  // (booking-actions.tsx:29 reads result.warning). Always null now —
+  // the atomic critical path makes the prior partial-success state
+  // ("confirmed-but-no-room") unreachable. Cast to `string | null` so
+  // the consumer's `if (result.warning)` truthy narrowing doesn't
+  // collapse `result` to `never`.
+  return { success: true, roomUrl, warning: null as string | null };
 }
 
 /* ------------------------------------------------------------------ */
