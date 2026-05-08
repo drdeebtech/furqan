@@ -22,6 +22,40 @@ Run this at the start of every conversation before committing. Vercel Hobby plan
 - Edge functions in `supabase/functions/` are excluded from `tsconfig.json` (Deno imports)
 - **Cron jobs go on n8n, not Vercel.** Vercel Hobby caps `vercel.json` crons at one invocation per day per entry — a `*/30 * * * *` (or any sub-daily) entry causes Vercel to silently reject every subsequent build with `"Hobby accounts are limited to daily cron jobs"`, but the rejection is invisible in `vercel ls` (rejected builds never enter the queue), so this looks like a broken GitHub→Vercel webhook. Keep route handlers under `src/app/api/cron/*/route.ts` (the existing dual-auth `Authorization: Bearer ${CRON_SECRET}` + `X-N8N-Secret: ${N8N_WEBHOOK_SECRET}` pattern in `audit-cleanup/route.ts` is the canonical shape) and trigger from n8n on the Mac mini. The current daily Vercel crons (audit-cleanup, reconciliation, email-health) can stay; do not add new ones unless the schedule is exactly daily.
 
+# Scale Target Rule (NON-NEGOTIABLE)
+
+FURQAN is being built for **50,000 users**. Every plan, design, and implementation choice MUST be sized for that number from day one — not for "today's traffic" with a "we'll optimise later" intent. Late-stage retrofitting at 50k user scale is dramatically more expensive than getting it right up front.
+
+**Concrete obligations (apply before agreeing to any approach):**
+
+- **Performance budgets** — P95 latency, DB query plans, dashboard waterfalls, and bundle sizes must hold under ~50k DAU. Don't trust dev-time perf as a proxy.
+- **Write-amplification audit** — every "small column we'll update on each request" is a 250k-write/day decision at 50k DAU. Before adding a column that updates per page render, ask whether the same signal exists on a column that's already being written.
+- **No bulk-fan-out admin actions** — admin actions that fan out to N student rows turn into 10M-row UPDATEs at scale. Push state to per-row data with localised writes; admin-tunable settings should change defaults for *new* rows only, not retroactively rewrite existing rows.
+- **Returning-user UX** — backlog-shaming patterns ("you have 47 things to catch up") destroy retention at scale. Default to forgiving variants; route deep gaps to teacher-side panels rather than student-facing remediation cards.
+- **Teacher infrastructure is load-bearing** — when a student falls behind, route the signal to the teacher panel. Don't try to make the app replace a human teacher.
+- **Cron / batch sizing** — nightly jobs at 50k × ~200 rows/student ≈ 10M row-touches per night. Size n8n workflows, Postgres functions, and Supabase indexes accordingly. Avoid sub-daily Vercel crons; n8n on the Mac mini handles sub-daily.
+- **Hot-path JOINs** — every dashboard render at 50k DAU × ~5 hits/day = 250k reads/day. Each extra JOIN on the hot path multiplies that. Push provenance / versioning columns onto the row itself rather than a join target.
+- **RLS at scale** — multi-tenant policies must be load-tested, not just dev-tested. RLS predicates that work fine on a 100-row table can degrade catastrophically on a 10M-row table without the right index.
+
+**Conflict / drift policy:**
+
+If a plan, PR, proposed approach, slash command, or agent recommendation conflicts with the 50k target — **stop and notify the operator before proceeding**. Don't quietly accept a "this is fine for now" path that creates retrofit debt.
+
+Examples of conflicts that warrant notification:
+- A new feature that synchronously calls a third-party API per dashboard render.
+- A migration that adds an unbounded scan or a unique index on a low-selectivity column.
+- An admin action that does an unbounded UPDATE on schedule, evaluation, or progress tables.
+- A spec, ADR, or PRD that implicitly assumes "few hundred users" performance.
+- Recommended option A vs. B is identical at small scale but A becomes a write storm at 50k.
+
+Notification format: state the conflict explicitly, name the alternative that fits 50k, and ask before continuing. Do NOT silently switch the choice — operator decides.
+
+**Cross-references:**
+
+- `.specify/memory/constitution.md` Additional Constraints section MUST mirror this rule so `/speckit.plan` and `/speckit.analyze` enforce it on every feature spec.
+- Memory file `~/.claude/projects/-Users-drdeeb-furqan/memory/project_furqan_scale.md` carries the same rule into future Claude Code sessions.
+- This rule supersedes any default sizing assumption in `.impeccable.md`, `ROADMAP.md`, or older docs that predate the 50k commitment.
+
 # Project Overview
 
 FURQAN Academy — Online Quran teaching platform (V13)
