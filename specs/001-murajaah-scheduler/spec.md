@@ -1,6 +1,6 @@
 # Feature Specification: Murajaah Scheduler (مراجعة)
 
-**Feature Branch**: `feat/murajaah-scheduler` (pending — created when `/speckit.specify` re-runs against this draft)
+**Feature Branch**: `001-murajaah-scheduler`
 **Created**: 2026-05-08
 **Status**: Draft (worked example for spec-kit activation; ready for `/speckit.clarify`)
 **Input**: User description: "Convert flat student_progress history into a daily review prompt that respects spaced-repetition principles, surface the prompt on the student dashboard, and let teachers see what their students are due to revise."

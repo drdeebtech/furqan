@@ -8,7 +8,8 @@
 
 | # | Status | Branch | PR |
 |---|--------|--------|----|
-| [002-specs-index-generator](./002-specs-index-generator/spec.md) | Tasks-ready | `002-specs-index-generator` | _(pending)_ |
+| [001-murajaah-scheduler](./001-murajaah-scheduler/spec.md) | Shipped | `001-murajaah-scheduler` | [#221](https://github.com/drdeebtech/furqan/pull/221) |
+| [002-specs-index-generator](./002-specs-index-generator/spec.md) | Shipped | `002-specs-index-generator` | [#222](https://github.com/drdeebtech/furqan/pull/222) |
 
 ## Abandoned (last 90 days)
 
