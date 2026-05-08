@@ -2,13 +2,30 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { invalidateByTag } from "@vercel/functions";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
+import { loudAction } from "@/lib/actions/loud";
 
 export type ActionResult = { error?: string; success?: boolean; notice?: string };
+
+class UserError extends Error {
+  readonly userError = true;
+  constructor(msg: string) { super(msg); this.name = "UserError"; }
+}
+
+async function adminPreflight(): Promise<{ actorId: string }> {
+  try {
+    const { id } = await requireAdmin();
+    return { actorId: id };
+  } catch (e) {
+    if (e instanceof ForbiddenError) throw new UserError("غير مصرح");
+    throw e;
+  }
+}
 
 const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
@@ -39,93 +56,164 @@ function revalidateTeacher(_teacherId: string) {
 
 // ─── Account (profiles row) ────────────────────────────────────────────
 
+type UpdateAccountInput = {
+  teacherId: string;
+  fields: TableUpdate<"profiles">;
+};
+
+const updateAccountBase = loudAction<UpdateAccountInput, { message: string }>({
+  name: "admin.teacher.update-account",
+  severity: "warning",
+  // Schema kept permissive — public wrapper does the FormData decode and
+  // already filters to known columns. Re-validating each field here would
+  // duplicate the column allow-list.
+  schema: z.object({ teacherId: z.string().uuid(), fields: z.record(z.string(), z.unknown()) }) as unknown as z.ZodType<UpdateAccountInput>,
+  audit: {
+    table: "profiles",
+    recordId: (i) => i.teacherId,
+    action: "UPDATE",
+    reasonPrefix: "admin update teacher account",
+  },
+  preflight: adminPreflight,
+  handler: async ({ teacherId, fields }) => {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("profiles")
+      .update(fields)
+      .eq("id", teacherId);
+    if (error) throw new UserError("فشل حفظ بيانات الحساب");
+    revalidateTeacher(teacherId);
+    return { message: "saved" };
+  },
+});
+
 export async function updateAccount(
   teacherId: string,
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  try {
-    await requireAdmin();
-  } catch (e) {
-    if (!(e instanceof ForbiddenError)) {
-      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
-    }
-    return { error: "غير مصرح" };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      full_name: str(formData, "full_name"),
-      full_name_ar: str(formData, "full_name_ar"),
-      phone: str(formData, "phone"),
-      country: str(formData, "country"),
-      timezone: str(formData, "timezone"),
-      lang: str(formData, "lang"),
-      avatar_url: str(formData, "avatar_url"),
-      date_of_birth: str(formData, "date_of_birth"),
-      parent_name: str(formData, "parent_name"),
-      parent_phone: str(formData, "parent_phone"),
-      parent_email: str(formData, "parent_email"),
-      is_active: bool(formData, "is_active"),
-    } as TableUpdate<"profiles">)
-    .eq("id", teacherId);
-
-  if (error) {
-    logError("admin updateAccount failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId } });
-    return { error: "فشل حفظ بيانات الحساب" };
-  }
-
-  revalidateTeacher(teacherId);
+  // `str()` returns `string | null` but TableUpdate generated columns are
+  // typed `string | undefined`. Same cast the pre-wrap code used at the
+  // .update() call site — moved here so the typed Base contract stays clean.
+  const fields = {
+    full_name: str(formData, "full_name"),
+    full_name_ar: str(formData, "full_name_ar"),
+    phone: str(formData, "phone"),
+    country: str(formData, "country"),
+    timezone: str(formData, "timezone"),
+    lang: str(formData, "lang"),
+    avatar_url: str(formData, "avatar_url"),
+    date_of_birth: str(formData, "date_of_birth"),
+    parent_name: str(formData, "parent_name"),
+    parent_phone: str(formData, "parent_phone"),
+    parent_email: str(formData, "parent_email"),
+    is_active: bool(formData, "is_active"),
+  } as TableUpdate<"profiles">;
+  const result = await updateAccountBase({ teacherId, fields });
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }
+
+const updateEmailBase = loudAction<{ teacherId: string; email: string }, { message: string }>({
+  name: "admin.teacher.update-email",
+  // Triggers Supabase confirmation email — irreversible-ish (email queued
+  // before action result is observable). `warning` so a silent failure
+  // gets Sentry capture without paging Telegram on every routine retry.
+  severity: "warning",
+  schema: z.object({
+    teacherId: z.string().uuid(),
+    email: z.string().email("البريد الإلكتروني غير صالح"),
+  }),
+  audit: {
+    table: "auth.users",
+    recordId: (i) => i.teacherId,
+    action: "UPDATE",
+    reasonPrefix: "admin queue email change",
+  },
+  preflight: adminPreflight,
+  handler: async ({ teacherId, email }) => {
+    const admin = createAdminClient();
+    const { error } = await admin.auth.admin.updateUserById(teacherId, { email });
+    // Pass the raw error through — Supabase's auth error messages
+    // ("Email already registered", "Rate limit exceeded") are typically
+    // user-actionable. UserError keeps it user-facing instead of the
+    // generic "فشل" mapping; auth misconfig still gets captured to Sentry
+    // via the envelope.
+    if (error) throw new UserError(error.message);
+    revalidateTeacher(teacherId);
+    // `message` carries the user-visible notice text. The public wrapper
+    // remaps it to the existing `notice` field on ActionResult so callers
+    // see no shape change.
+    return {
+      message: "تم إرسال رابط التأكيد إلى البريد الجديد — لن يتغير البريد حتى يضغط المعلم على الرابط.",
+    };
+  },
+});
 
 export async function updateEmail(
   teacherId: string,
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  try {
-    await requireAdmin();
-  } catch (e) {
-    if (!(e instanceof ForbiddenError)) {
-      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
-    }
-    return { error: "غير مصرح" };
-  }
-
   const email = str(formData, "email");
   if (!email) return { error: "البريد الإلكتروني مطلوب" };
-
-  const admin = createAdminClient();
-  const { error } = await admin.auth.admin.updateUserById(teacherId, {
-    email,
-  });
-
-  if (error) return { error: error.message };
-
-  revalidateTeacher(teacherId);
-  return {
-    success: true,
-    notice: "تم إرسال رابط التأكيد إلى البريد الجديد — لن يتغير البريد حتى يضغط المعلم على الرابط.",
-  };
+  const result = await updateEmailBase({ teacherId, email });
+  if (!result.ok) return { error: result.error };
+  return { success: true, notice: result.message };
 }
+
+const uploadTeacherPhotoBase = loudAction<{ teacherId: string; photoFile: File }, { message: string }>({
+  name: "admin.teacher.upload-photo",
+  severity: "info",
+  // File can't sit in zod cleanly — accept it as unknown and validate
+  // shape inside the handler. Public wrapper has already done basic
+  // type/size checks before we reach here.
+  schema: z.object({ teacherId: z.string().uuid(), photoFile: z.unknown() }) as unknown as z.ZodType<{ teacherId: string; photoFile: File }>,
+  audit: {
+    table: "profiles",
+    recordId: (i) => i.teacherId,
+    action: "UPDATE",
+    reasonPrefix: "admin upload teacher photo",
+  },
+  preflight: adminPreflight,
+  handler: async ({ teacherId, photoFile }) => {
+    const adminClient = createAdminClient();
+    const ext = photoFile.type === "image/jpeg" ? "jpg" : photoFile.type.split("/")[1];
+    const path = `${teacherId}/${Date.now()}.${ext}`;
+
+    const { error: upErr } = await adminClient.storage
+      .from("teacher-avatars")
+      .upload(path, photoFile, { contentType: photoFile.type, upsert: false });
+    if (upErr) throw new UserError("فشل رفع الصورة — يرجى المحاولة مرة أخرى");
+
+    const { data: pub } = adminClient.storage.from("teacher-avatars").getPublicUrl(path);
+    const avatarUrl = pub?.publicUrl ?? null;
+    if (!avatarUrl) throw new UserError("تعذر إنشاء رابط الصورة");
+
+    // FOLLOW-UP: if this update fails after a successful upload, the
+    // storage bucket has an orphaned file. Real fix is a cleanup-on-fail
+    // (delete the just-uploaded object). Out of scope for this wrap PR.
+    const { error: updErr } = await adminClient
+      .from("profiles")
+      .update({ avatar_url: avatarUrl } satisfies TableUpdate<"profiles">)
+      .eq("id", teacherId);
+    if (updErr) throw new UserError("تم رفع الصورة لكن فشل حفظها");
+
+    revalidateTeacher(teacherId);
+    revalidatePath("/teachers");
+    revalidateTag("teachers-public", "max");
+    await invalidateByTag("teachers-public").catch((err) =>
+      logError("uploadTeacherPhoto: invalidateByTag failed", err, { tag: "admin-teacher-photo" })
+    );
+    return { message: "uploaded" };
+  },
+});
 
 export async function uploadTeacherPhoto(
   teacherId: string,
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  try {
-    await requireAdmin();
-  } catch (e) {
-    if (!(e instanceof ForbiddenError)) {
-      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
-    }
-    return { error: "غير مصرح" };
-  }
-
   const photoFile = formData.get("photo");
   if (!(photoFile instanceof File) || photoFile.size === 0) {
     return { error: "يرجى اختيار صورة" };
@@ -136,36 +224,8 @@ export async function uploadTeacherPhoto(
   if (photoFile.size > MAX_PHOTO_BYTES) {
     return { error: "الملف كبير جدًا — الحد الأقصى 2 ميغابايت" };
   }
-
-  const adminClient = createAdminClient();
-  const ext = photoFile.type === "image/jpeg" ? "jpg" : photoFile.type.split("/")[1];
-  const path = `${teacherId}/${Date.now()}.${ext}`;
-
-  const { error: upErr } = await adminClient.storage
-    .from("teacher-avatars")
-    .upload(path, photoFile, { contentType: photoFile.type, upsert: false });
-  if (upErr) {
-    logError("admin teacher photo upload failed", upErr, { tag: "admin-teacher-photo" });
-    return { error: "فشل رفع الصورة — يرجى المحاولة مرة أخرى" };
-  }
-
-  const { data: pub } = adminClient.storage.from("teacher-avatars").getPublicUrl(path);
-  const avatarUrl = pub?.publicUrl ?? null;
-  if (!avatarUrl) return { error: "تعذر إنشاء رابط الصورة" };
-
-  const { error: updErr } = await adminClient
-    .from("profiles")
-    .update({ avatar_url: avatarUrl } satisfies TableUpdate<"profiles">)
-    .eq("id", teacherId);
-  if (updErr) {
-    logError("admin teacher photo profile update failed", updErr, { tag: "admin-teacher-photo" });
-    return { error: "تم رفع الصورة لكن فشل حفظها" };
-  }
-
-  revalidateTeacher(teacherId);
-  revalidatePath("/teachers");
-  revalidateTag("teachers-public", "max"); // Next.js Data Cache
-  await invalidateByTag("teachers-public"); // CDN edge cache
+  const result = await uploadTeacherPhotoBase({ teacherId, photoFile });
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }
 
