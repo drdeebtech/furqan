@@ -19,29 +19,31 @@
 begin;
 
 -- -----------------------------------------------------------------------------
--- 1. Migrate moderator users to admin (single role column).
+-- 1. Migrate moderator users to admin — both columns updated atomically.
 --    Pre-flight (a) showed exactly 1 row affected.
+--
+--    The 2026-05-08 first attempt split this into two UPDATEs and failed in
+--    prod with `profiles_active_role_in_set` CHECK constraint violation: the
+--    constraint enforces `role = ANY(roles)`, so any intermediate state where
+--    role and roles[] disagree (which both possible orderings produce when
+--    split) trips it. Combining into one row UPDATE means the CHECK fires
+--    once on the consistent final state (role='admin', roles=['admin']).
 -- -----------------------------------------------------------------------------
 update public.profiles
-   set role = 'admin'::public.user_role
- where role = 'moderator'::public.user_role;
-
--- -----------------------------------------------------------------------------
--- 2. Migrate the multi-role roles[] array (added in 20260501173121).
---    Same user as step 1 — same row.
--- -----------------------------------------------------------------------------
--- Replace 'moderator' with 'admin' in every roles[] cell. Distinct keeps the
--- array deduplicated so a user who already had both ends up with just admin.
-update public.profiles
-   set roles = (
-     select array_agg(distinct
-              case when r = 'moderator'::public.user_role
-                   then 'admin'::public.user_role
-                   else r
-              end)::public.user_role[]
-       from unnest(roles) r
-   )
- where 'moderator'::public.user_role = any(roles);
+   set role  = case when role = 'moderator'::public.user_role
+                    then 'admin'::public.user_role
+                    else role
+               end,
+       roles = (
+         select array_agg(distinct
+                  case when r = 'moderator'::public.user_role
+                       then 'admin'::public.user_role
+                       else r
+                  end)::public.user_role[]
+           from unnest(roles) r
+       )
+ where role = 'moderator'::public.user_role
+    or 'moderator'::public.user_role = any(roles);
 
 -- -----------------------------------------------------------------------------
 -- 3. Drop SQL helpers that referenced moderator.
