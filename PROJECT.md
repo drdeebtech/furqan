@@ -45,10 +45,9 @@ FURQAN Academy is a full-stack online Quran teaching platform connecting student
 |------|--------|-----------------|
 | **student** | `/student/*` | Browse teachers, book sessions, join video, track progress, view follow-up, manage packages, messaging |
 | **teacher** | `/teacher/*` | Manage availability, confirm bookings, conduct sessions, assign/grade follow-up, CV workflow, evaluations, messaging |
-| **admin** | `/admin/*` + `/moderator/*` | Full platform management: users, teachers, bookings, sessions, evaluations, packages, services, blog, payments, settings, notifications |
-| **moderator** | `/moderator/*` | Users (students+teachers), CV review, session observation, evaluations, audit log (read-only) |
+| **admin** | `/admin/*` | Full platform management: users, teachers, bookings, sessions, evaluations, packages, services, blog, payments, settings, notifications |
 
-**Route protection:** `src/proxy.ts` — middleware-based, admin can access moderator routes.
+**Route protection:** `src/proxy.ts` — middleware-based, /admin/* paths 301-redirect to /admin/* per ADR-0003.
 
 ---
 
@@ -87,7 +86,7 @@ FURQAN Academy is a full-stack online Quran teaching platform connecting student
 | 22 | `session_evaluations` | Student assessment scores (hifz, tajweed, akhlaq, attendance, overall /10) |
 | 23 | `parent_reports` | Parent notification reports (session_summary, evaluation, missed_session) |
 | 24 | `session_notes_history` | Notes edit audit trail |
-| 25 | `session_observers` | Admin/moderator observation tracking |
+| 25 | `session_observers` | Admin observation tracking |
 
 ### V10 Tables (2)
 
@@ -106,7 +105,7 @@ FURQAN Academy is a full-stack online Quran teaching platform connecting student
 ### Enums
 
 **Postgres ENUM types (11):**
-- `user_role`: student | teacher | admin | moderator
+- `user_role`: student | teacher | admin 
 - `gender_type`: male | female
 - `booking_status`: pending | confirmed | completed | cancelled | no_show
 - `session_type`: hifz | muraja | tajweed | tilawa | qiraat | tafsir | combined | other
@@ -134,8 +133,6 @@ FURQAN Academy is a full-stack online Quran teaching platform connecting student
 | Function | Purpose |
 |----------|---------|
 | `is_admin()` | Check if user is admin |
-| `is_moderator()` | Check if user is moderator |
-| `is_admin_or_mod()` | Check if user is admin or moderator |
 | `deduct_package_session(uuid)` | Atomic session deduction (prevents race conditions) |
 | `set_updated_at()` | Trigger function for updated_at timestamps |
 | `sync_conv_ts()` | Auto-update conversation.last_message_at on message insert |
@@ -224,7 +221,7 @@ src/lib/supabase/migrations/
 - SEO (sitemap, robots, structured data, OG images)
 - RLS policies audited
 - n8n instance with 2 workflows
-- CV review workflow for moderators
+- CV review workflow (admin-owned)
 - Basic booking + sessions with Daily.co video
 - Stripe payment integration (basic schema)
 
@@ -303,7 +300,6 @@ furqan/
 │   │   ├── (auth)/            — login, register, forgot-password
 │   │   ├── (public)/          — landing, about, contact, packages, services, teachers, blog
 │   │   ├── admin/             — 33 pages: users, teachers, bookings, sessions, evaluations, packages, services, blog, payments, notifications, settings
-│   │   ├── moderator/         — 10 pages: users, cv-review, sessions, evaluations, audit
 │   │   ├── student/           — 12 pages: dashboard, teachers, bookings, sessions, follow-up, packages, progress, notifications, messages, notes
 │   │   ├── teacher/           — 11 pages: dashboard, sessions, availability, students, follow-up, cv, evaluations, notifications, messages
 │   │   └── api/               — stripe webhook, bookings, auth
@@ -375,7 +371,6 @@ furqan/
 | Admin | 33 | `/admin/*` |
 | Student | 12 | `/student/*` |
 | Teacher | 11 | `/teacher/*` |
-| Moderator | 10 | `/moderator/*` |
 
 ---
 

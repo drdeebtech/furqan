@@ -145,7 +145,7 @@ Access via Supabase node with service role key.
 
 ### profiles
 ```sql
-id, role ('student'|'teacher'|'admin'|'moderator'), full_name, phone, country,
+id, role ('student'|'teacher'|'admin'), full_name, phone, country,
 timezone, lang, is_active, parent_name, parent_phone, parent_email, date_of_birth
 ```
 

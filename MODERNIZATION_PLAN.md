@@ -132,7 +132,7 @@ n8n-workflows         # admin /admin/n8n
 - `src/app/admin/error.tsx`, `src/app/admin/not-found.tsx`
 - `src/app/teacher/error.tsx`, `src/app/teacher/not-found.tsx`
 - `src/app/student/error.tsx`, `src/app/student/not-found.tsx`
-- `src/app/moderator/error.tsx`, `src/app/moderator/not-found.tsx`
+- `src/app/admin/error.tsx`, `src/app/admin/not-found.tsx`
 - `src/app/(public)/error.tsx`, `src/app/(public)/not-found.tsx` (likely already exist — verify)
 - Top-level `src/app/error.tsx`, `src/app/not-found.tsx` (verify; create if missing)
 

@@ -1,6 +1,6 @@
 # Exception Playbooks
 
-> What admins/moderators do when something goes wrong.
+> What admins do when something goes wrong.
 > Each playbook: symptom → diagnosis steps → resolution → post-mortem note.
 
 ---
@@ -156,9 +156,9 @@
 **Symptom**: teacher reports CV pending > 48h; teacher list shows many `pending` statuses.
 
 **Resolve**
-1. `/moderator/cv-review` → filter `pending`, sort by `cv_submitted_at asc`
+1. `/admin/cv-review` → filter `pending`, sort by `cv_submitted_at asc`
 2. Process oldest first
-3. If moderator capacity is overloaded: admin takes overflow via `/admin/teachers/cv`
+3. If admin capacity is overloaded: admin takes overflow via `/admin/teachers/cv`
 4. Target SLA: 24h for CV review; 48h is the escalation line
 
 ---

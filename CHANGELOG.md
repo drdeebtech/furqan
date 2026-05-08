@@ -2,6 +2,46 @@
 
 All notable changes to FURQAN Academy are documented here.
 
+## 2026-05-08 — Moderator role retired (ADR-0003)
+
+The `moderator` role was removed from FURQAN's role taxonomy. Every moderator-owned feature already had an admin equivalent (`/admin/teachers/cv` mirrored `/moderator/cv-review`, `/admin/audit` mirrored `/moderator/audit`, etc.) — the role added vocabulary, route surface, ENUM value, RLS branches, and 14 auth-helper call sites without unique capability.
+
+Earlier CHANGELOG entries that mention moderator (the 5-boundary error.tsx note, the moderator at-risk widget, the dual-auth API row, etc.) describe historical state at the time of those releases — accurate as a record of what shipped then. Current state diverges per this 2026-05-08 work.
+
+### Database (PR #212/#213/#214 → migration `20260507223609_drop_moderator_role.sql`)
+
+- **1 moderator user migrated to admin** (atomic single-statement UPDATE so the `profiles_active_role_in_set` CHECK constraint sees consistent state).
+- **`private.is_moderator()` body replaced** to return `false`. `private.is_admin_or_mod()` body collapsed to admin-only. NOT dropped — 13+ dependent policies on sessions/student_packages/study_log/ijazah/mentorship/storage would have cascade-dropped.
+- **`resource_assignments_admin_all` RLS policy** rewritten admin-only (the only policy that hardcoded the `'moderator'` literal).
+- **CHECK constraints** added: `profiles_role_no_moderator` and `profiles_roles_no_moderator` make the `'moderator'` ENUM value unreachable. The value remains in `user_role` as a dead union member (pragmatic path; clean ENUM recreate was blocked by 20-policy column-type-ALTER cascade).
+
+### Code (PR #212)
+
+- Deleted `src/app/moderator/` (24 files; all routes 301-redirect to `/admin/*` equivalents via `RENAMED_ROUTES` in `src/proxy.ts`).
+- Removed `requireModerator()` and `requireAdminOrModerator()` from `src/lib/auth/require-admin.ts`. Migrated 4 call sites to `requireAdmin`.
+- Stripped `'moderator'` from ~28 role-check arrays, type unions, compound `&&`/`||` conditions, and `Record<Role, …>` literals.
+- Deleted 3 moderator queries from `src/lib/dashboard-queries.ts` (`getModeratorWeeklyCVActivity`, `getModeratorRatingDistribution`, `getModeratorFlaggedEvaluations`).
+- Updated `require-admin.test.ts` test inputs to use `'teacher'` instead of `'moderator'` for multi-role coverage.
+
+### Docs
+
+- New: `docs/adr/0003-drop-moderator-role.md`.
+- Amended: `docs/adr/0001-require-role-wrap-pattern.md` (supersession note for the dropped wrappers).
+- Updated: `CLAUDE.md`, `CONTEXT.md`, plus 11 reference docs across the repo (PROJECT, SCHEMA_FINAL, AUDIT, EVENT_CATALOG, ROADMAP, EXCEPTION_PLAYBOOKS, .impeccable, automation/BLUEPRINT, automation/VPS_HANDOFF, etc.) — current-state sections updated to 3 roles; historical/V9-era entries preserved as record.
+
+### Pre-flight lessons (added to ADR-0003)
+
+When dropping an ENUM value in Postgres, pre-flight queries must enumerate:
+1. `pg_attribute` rows for every column using the type
+2. `pg_policies` rows referencing the literal value
+3. `pg_proc` rows referencing the literal value
+4. `pg_constraint` rows (CHECK constraints) referencing the value — **caught the first PR-driven failure**
+5. `pg_policies` rows referencing the *column generally* (not just the value) — these block `ALTER COLUMN TYPE`, **caught the second**
+
+The original PR-driven attempts hit (4) and (5) sequentially; the pragmatic path (CHECK constraint + function-body-replace) sidesteps both.
+
+---
+
 ## 2026-04-26 — No-silent-failures pass + DB hardening + teacher onboarding
 
 A long autonomous session that closed the "silent failure" anti-pattern across the platform, hardened the Supabase project to A++ grade, and shipped a complete teacher self-application flow.
@@ -108,7 +148,7 @@ Shipped 16 commits in a single session taking the retention feature from skeleto
 ### Added — Sprint 8 scaffolding (parent reports, AI-swappable slot)
 
 - **`src/lib/reports/session-narrative.ts`** — `buildSessionNarrative(sessionId)` assembles structured report from session notes + follow-up + evaluation. The `narrative_paragraph` field is AI-swappable — template today, Claude tomorrow, no surrounding shape change.
-- **`/api/reports/session/[id]`** (GET) — dual-auth (X-N8N-Secret or cookie admin/moderator/teacher) for n8n + UI inspection.
+- **`/api/reports/session/[id]`** (GET) — dual-auth (X-N8N-Secret or cookie admin/teacher) for n8n + UI inspection.
 - **`/api/reports/session/[id]/send`** (POST) — accepts optional `narrative_paragraph` body override, runs dispatcher + writes `parent_reports` + emits `session.report_sent`.
 - **Idempotency guard** — `automation_logs` prevents duplicate sends across admin button + n8n workflow + future Vercel Cron.
 - **Admin "إرسال تقرير للوالد" button** on `/admin/sessions/[id]` once session has ended.

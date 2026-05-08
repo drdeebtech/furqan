@@ -16,7 +16,7 @@ FURQAN is a serious production education platform with strong domain fit, cohere
 | Product Architecture | A- | Coherent, domain-specific, 4-role model |
 | Data Model | A- | 30 tables, enums, RLS, SQL functions, migrations through V12 |
 | UX Direction | B+ | Arabic-first RTL, Liquid Glass design, good discovery/progress |
-| Operational Readiness | B | Moderator role, audit log, edge functions, but logic sprawl risk |
+| Operational Readiness | B | Admin role (formerly Moderator, dropped per ADR-0003), audit log, edge functions, but logic sprawl risk |
 | Automation Maturity | B- | Good plan (52 workflows), infrastructure built, governance not yet mature |
 | Revenue/Payment Readiness | C+ | Package model solid, but Stripe purchase flow still deferred |
 | Scale Readiness | B- | Good for small-mid, needs domain ownership and lifecycle docs |
@@ -29,7 +29,7 @@ FURQAN is a serious production education platform with strong domain fit, cohere
 
 ### Strengths
 - Product coherence: follow-up, evaluations, progress, parent reports, packages all reinforce the same educational loop
-- 4-role model (student/teacher/admin/moderator) shows operational maturity
+- 4-role model (student/teacher/admin) shows operational maturity
 - Follow-up creates academic continuity; packages create monetization structure
 - CV review workflow demonstrates governance thinking
 
@@ -319,7 +319,7 @@ Parent trust is probably the single most important retention driver. Parents are
 
 ### Strengths
 - Substantial admin surfaces: users, sessions, evaluations, packages, CV review, audit
-- Moderator role for narrower oversight
+- Admin role (formerly Moderator, dropped per ADR-0003) for narrower oversight
 
 ### Recommendation: Control Tower Dashboard
 
@@ -345,12 +345,12 @@ Parent trust is probably the single most important retention driver. Parents are
 ## 11. Security & Governance
 
 ### Current
-- Role-based routing, RLS, audit logging, admin/moderator separation
+- Role-based routing, RLS, audit logging, admin separation
 
 ### Recommendations
 1. **Sign all internal webhooks** (app ↔ n8n) with shared secrets
 2. **Minimize service-role exposure** — only workflows that truly need it
-3. **Periodic access audits** — admin users, moderator users, n8n credentials
+3. **Periodic access audits** — admin users, admin users, n8n credentials
 4. **Human-readable admin action logs** — not just raw JSON diffs
 5. **Failure escalation policy:**
    - Workflow failure > 5 min → Telegram

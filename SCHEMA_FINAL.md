@@ -1,11 +1,13 @@
 # FURQAN Academy — Schema FINAL (V7 + V8 + V9 Complete)
 
+> **Note (2026-05-08):** The moderator role described throughout this document was retired per [ADR-0003](docs/adr/0003-drop-moderator-role.md). All V9-era moderator-specific entries below (the `is_moderator()` function, the `moderator/` route directory, the moderator role row in user_role, the V9.0 changelog item) are preserved as historical record of what V9 introduced. In production today: the `moderator` ENUM value remains in `user_role` as a dead union member (CHECK constraints make it unreachable), `is_moderator()` body returns `false`, and the `/moderator/*` route tree was deleted. Admin owns CV review, audit log, session observation, and user management.
+
 ## Stack
 Next.js 16 App Router · Supabase (PostgreSQL 17) · Stripe · Daily.co · Vercel
 
 ## Overview
 - **Mode**: Academy Phase 1 — admin-appointed teachers, no marketplace
-- **Roles**: 4 (student, teacher, admin, moderator)
+- **Roles**: 3 (student, teacher, admin) — moderator dropped 2026-05-08 per ADR-0003
 - **Tables**: 25 (14 from V7 + 6 from V8 + 5 from V9)
 - **Triggers**: 16
 - **RLS Policies**: 32 (22 from V7/V8 + 10 from V9)
@@ -17,7 +19,7 @@ Next.js 16 App Router · Supabase (PostgreSQL 17) · Stripe · Daily.co · Verce
 ## ENUMS
 
 ```sql
-user_role:       student | teacher | admin | moderator        -- V9: added moderator
+user_role:       student | teacher | admin         -- V9: added moderator
 gender_type:     male | female
 booking_status:  pending | confirmed | completed | cancelled | no_show
 session_type:    hifz | muraja | tajweed | tilawa | qiraat | tafsir | combined | other
@@ -659,7 +661,7 @@ Key-value store for feature flags and platform configuration.
 
 ## TABLE 22 — session_evaluations *(V9 NEW)*
 
-Student evaluation scores by admin/moderator.
+Student evaluation scores by admin.
 
 | Column | Type | Constraints | Notes |
 |--------|------|-------------|-------|
@@ -787,7 +789,7 @@ $$ LANGUAGE sql STABLE SECURITY DEFINER;
 ```sql
 CREATE OR REPLACE FUNCTION is_admin_or_mod() RETURNS BOOLEAN AS $$
   SELECT EXISTS(
-    SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin', 'moderator')
+    SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin')
   );
 $$ LANGUAGE sql STABLE SECURITY DEFINER;
 ```
@@ -983,7 +985,7 @@ src/
 │   │   ├── middleware.ts
 │   │   └── admin.ts      — V9 NEW — service-role client
 │   ├── actions/
-│   │   └── evaluations.ts — V9 NEW — shared admin+moderator actions
+│   │   └── evaluations.ts — V9 NEW — shared admin actions
 │   ├── notifications/
 │   │   └── parent.ts      — V9 NEW — parent report system
 │   ├── i18n/             — context + lang-toggle

@@ -22,7 +22,7 @@
 | `homework.graded` | Teacher grades follow-up | `src/lib/actions/homework.ts` | student_id, teacher_id, grade | Student notification, parent report (if not_done), auto-regeneration |
 | `booking.no_show` | Booking transitions to no_show status | `src/app/teacher/dashboard/actions.ts` (via `markNoShow`) | student_id, teacher_id, booking_id | Risk scoring, parent alert |
 | `retention.signal_triggered` | Churn-scoring computes a new signal | `src/app/admin/retention/actions.ts` | user_id, signal_type, score | Re-engagement workflows (gated on `retention_automation_enabled`) |
-| `course.submitted` | Teacher submits course for review | `src/lib/actions/courses.ts` (`submitForReview`) | (none — entity_id = courseId) | Admin notification fanout, moderator queue |
+| `course.submitted` | Teacher submits course for review | `src/lib/actions/courses.ts` (`submitForReview`) | (none — entity_id = courseId) | Admin notification fanout, admin review queue |
 | `course.approved` | Admin/mod approves course | `src/lib/actions/courses.ts` (`approveCourse`) | actor = admin_id | Teacher notification, course goes public |
 | `course.rejected` | Admin/mod rejects course | `src/lib/actions/courses.ts` (`rejectCourse`) | reason | Teacher notification with reason |
 | `course.enrolled` | Student enrolls (free) | `src/lib/actions/course-enrollments.ts` (`enrollFree`) | student_id, source | Teacher notification, welcome email (planned) |
@@ -35,7 +35,7 @@
 | Event | When to Add | Purpose |
 |-------|-------------|---------|
 | `profile.created` | User registration | Welcome sequence, onboarding nudges |
-| `teacher.cv_submitted` | CV submission | Moderator review queue |
+| `teacher.cv_submitted` | CV submission | Admin review queue |
 | `teacher.cv_approved` | CV approved | Teacher notification, public listing |
 | `teacher.cv_rejected` | CV rejected | Teacher notification with reason |
 | `evaluation.created` | Evaluation saved | Student/parent notification |
