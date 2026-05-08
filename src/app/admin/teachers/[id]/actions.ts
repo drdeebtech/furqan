@@ -231,162 +231,204 @@ export async function uploadTeacherPhoto(
 
 // ─── Teacher profile (teacher_profiles, non-CV fields) ─────────────────
 
+type UpdateTeacherProfileInput = {
+  teacherId: string;
+  fields: TableUpdate<"teacher_profiles">;
+};
+
+const updateTeacherProfileBase = loudAction<UpdateTeacherProfileInput, { message: string }>({
+  name: "admin.teacher.update-profile",
+  severity: "info",
+  schema: z.object({ teacherId: z.string().uuid(), fields: z.record(z.string(), z.unknown()) }) as unknown as z.ZodType<UpdateTeacherProfileInput>,
+  audit: {
+    table: "teacher_profiles",
+    recordId: (i) => i.teacherId,
+    action: "UPDATE",
+    reasonPrefix: "admin update teacher profile",
+  },
+  preflight: adminPreflight,
+  handler: async ({ teacherId, fields }) => {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("teacher_profiles")
+      .update(fields)
+      .eq("teacher_id", teacherId);
+    if (error) throw new UserError("فشل حفظ بيانات المعلم");
+    revalidateTeacher(teacherId);
+    return { message: "saved" };
+  },
+});
+
 export async function updateTeacherProfile(
   teacherId: string,
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  try {
-    await requireAdmin();
-  } catch (e) {
-    if (!(e instanceof ForbiddenError)) {
-      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
-    }
-    return { error: "غير مصرح" };
-  }
-
   const hourlyRate = num(formData, "hourly_rate");
   const maxActive = num(formData, "max_active_students");
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("teacher_profiles")
-    .update({
-      hourly_rate: hourlyRate ?? undefined,
-      gender: str(formData, "gender"),
-      max_active_students: maxActive ?? undefined,
-      is_accepting: bool(formData, "is_accepting"),
-      is_archived: bool(formData, "is_archived"),
-    } as TableUpdate<"teacher_profiles">)
-    .eq("teacher_id", teacherId);
-
-  if (error) {
-    logError("admin updateTeacherProfile failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId } });
-    return { error: "فشل حفظ بيانات المعلم" };
-  }
-
-  revalidateTeacher(teacherId);
+  const fields = {
+    hourly_rate: hourlyRate ?? undefined,
+    gender: str(formData, "gender"),
+    max_active_students: maxActive ?? undefined,
+    is_accepting: bool(formData, "is_accepting"),
+    is_archived: bool(formData, "is_archived"),
+  } as TableUpdate<"teacher_profiles">;
+  const result = await updateTeacherProfileBase({ teacherId, fields });
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }
 
 // ─── Ijazas ────────────────────────────────────────────────────────────
+
+type UpsertIjazaInput = {
+  teacherId: string;
+  id: string | null;
+  riwaya: string;
+  chain_text: string;
+  granted_by: string | null;
+  granted_at: string | null;
+  document_url: string | null;
+};
+
+const upsertIjazaBase = loudAction<UpsertIjazaInput, { message: string }>({
+  name: "admin.teacher.upsert-ijaza",
+  severity: "info",
+  schema: z.object({
+    teacherId: z.string().uuid(),
+    id: z.string().uuid().nullable(),
+    riwaya: z.string().min(1, "الرواية مطلوبة"),
+    chain_text: z.string().min(1, "سند الإجازة مطلوب"),
+    granted_by: z.string().nullable(),
+    granted_at: z.string().nullable(),
+    document_url: z.string().nullable(),
+  }),
+  audit: {
+    table: "teacher_ijaza",
+    recordId: (i) => i.id ?? `(new for ${i.teacherId})`,
+    action: "UPDATE",
+    reasonPrefix: "admin upsert teacher ijaza",
+  },
+  preflight: adminPreflight,
+  handler: async ({ teacherId, id, riwaya, chain_text, granted_by, granted_at, document_url }) => {
+    const supabase = await createClient();
+    if (id) {
+      const { error } = await supabase
+        .from("teacher_ijaza")
+        .update({
+          riwaya,
+          chain_text,
+          granted_by,
+          granted_at,
+          document_url,
+        } satisfies TableUpdate<"teacher_ijaza">)
+        .eq("id", id)
+        .eq("teacher_id", teacherId);
+      if (error) throw new UserError("فشل تحديث الإجازة");
+    } else {
+      const { error } = await supabase.from("teacher_ijaza").insert({
+        teacher_id: teacherId,
+        riwaya,
+        chain_text,
+        granted_by,
+        granted_at,
+        document_url,
+      } satisfies TableInsert<"teacher_ijaza">);
+      if (error) throw new UserError("فشل إضافة الإجازة");
+    }
+    revalidateTeacher(teacherId);
+    return { message: id ? "updated" : "inserted" };
+  },
+});
 
 export async function upsertIjaza(
   teacherId: string,
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  try {
-    await requireAdmin();
-  } catch (e) {
-    if (!(e instanceof ForbiddenError)) {
-      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
-    }
-    return { error: "غير مصرح" };
-  }
+  const input = {
+    teacherId,
+    id: str(formData, "id"),
+    riwaya: str(formData, "riwaya") ?? "",
+    chain_text: str(formData, "chain_text") ?? "",
+    granted_by: str(formData, "granted_by"),
+    granted_at: str(formData, "granted_at"),
+    document_url: str(formData, "document_url"),
+  };
+  // Pre-validate required fields before the Base call so the Arabic
+  // copy reaches the form even if zod's lazier path would reformat them.
+  if (!input.riwaya) return { error: "الرواية مطلوبة" };
+  if (!input.chain_text) return { error: "سند الإجازة مطلوب" };
+  const result = await upsertIjazaBase(input);
+  if (!result.ok) return { error: result.error };
+  return { success: true };
+}
 
-  const id = str(formData, "id");
-  const riwaya = str(formData, "riwaya");
-  const chainText = str(formData, "chain_text");
-  const grantedBy = str(formData, "granted_by");
-  const grantedAt = str(formData, "granted_at");
-  const documentUrl = str(formData, "document_url");
+const deleteIjazaBase = loudAction<{ teacherId: string; ijazaId: string }, { message: string }>({
+  name: "admin.teacher.delete-ijaza",
+  // Routine admin correction (e.g. typo fix → re-add). No FK cascade to
+  // student data. Keep `info` to avoid Telegram noise on routine edits.
+  severity: "info",
+  schema: z.object({ teacherId: z.string().uuid(), ijazaId: z.string().uuid() }),
+  audit: {
+    table: "teacher_ijaza",
+    recordId: (i) => i.ijazaId,
+    action: "DELETE",
+    reasonPrefix: "admin delete teacher ijaza",
+  },
+  preflight: adminPreflight,
+  handler: async ({ teacherId, ijazaId }) => {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("teacher_ijaza")
+      .delete()
+      .eq("id", ijazaId)
+      .eq("teacher_id", teacherId);
+    if (error) throw new UserError("فشل حذف الإجازة");
+    revalidateTeacher(teacherId);
+    return { message: "deleted" };
+  },
+});
 
-  if (!riwaya) return { error: "الرواية مطلوبة" };
-  if (!chainText) return { error: "سند الإجازة مطلوب" };
+export async function deleteIjaza(teacherId: string, ijazaId: string): Promise<ActionResult> {
+  const result = await deleteIjazaBase({ teacherId, ijazaId });
+  if (!result.ok) return { error: result.error };
+  return { success: true };
+}
 
-  const supabase = await createClient();
-
-  if (id) {
+const setIjazaVerifiedBase = loudAction<{ teacherId: string; ijazaId: string; verified: boolean }, { message: string }>({
+  name: "admin.teacher.set-ijaza-verified",
+  severity: "info",
+  schema: z.object({ teacherId: z.string().uuid(), ijazaId: z.string().uuid(), verified: z.boolean() }),
+  audit: {
+    table: "teacher_ijaza",
+    recordId: (i) => i.ijazaId,
+    action: "UPDATE",
+    reasonPrefix: "admin set ijaza verified",
+  },
+  preflight: adminPreflight,
+  handler: async ({ teacherId, ijazaId, verified }, { actorId }) => {
+    const supabase = await createClient();
     const { error } = await supabase
       .from("teacher_ijaza")
       .update({
-        riwaya,
-        chain_text: chainText,
-        granted_by: grantedBy,
-        granted_at: grantedAt,
-        document_url: documentUrl,
+        verified_by: verified ? actorId : null,
+        verified_at: verified ? new Date().toISOString() : null,
       } satisfies TableUpdate<"teacher_ijaza">)
-      .eq("id", id)
+      .eq("id", ijazaId)
       .eq("teacher_id", teacherId);
-    if (error) {
-      logError("admin upsertIjaza update failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId, ijazaId: id } });
-      return { error: "فشل تحديث الإجازة" };
-    }
-  } else {
-    const { error } = await supabase.from("teacher_ijaza").insert({
-      teacher_id: teacherId,
-      riwaya,
-      chain_text: chainText,
-      granted_by: grantedBy,
-      granted_at: grantedAt,
-      document_url: documentUrl,
-    } satisfies TableInsert<"teacher_ijaza">);
-    if (error) {
-      logError("admin upsertIjaza insert failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId } });
-      return { error: "فشل إضافة الإجازة" };
-    }
-  }
-
-  revalidateTeacher(teacherId);
-  return { success: true };
-}
-
-export async function deleteIjaza(teacherId: string, ijazaId: string): Promise<ActionResult> {
-  try {
-    await requireAdmin();
-  } catch (e) {
-    if (!(e instanceof ForbiddenError)) {
-      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
-    }
-    return { error: "غير مصرح" };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("teacher_ijaza")
-    .delete()
-    .eq("id", ijazaId)
-    .eq("teacher_id", teacherId);
-  if (error) {
-    logError("admin deleteIjaza failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId, ijazaId } });
-    return { error: "فشل حذف الإجازة" };
-  }
-
-  revalidateTeacher(teacherId);
-  return { success: true };
-}
+    if (error) throw new UserError("فشل تحديث حالة التوثيق");
+    revalidateTeacher(teacherId);
+    return { message: verified ? "verified" : "unverified" };
+  },
+});
 
 export async function setIjazaVerified(
   teacherId: string,
   ijazaId: string,
   verified: boolean,
 ): Promise<ActionResult> {
-  let admin;
-  try {
-    admin = await requireAdmin();
-  } catch (e) {
-    if (!(e instanceof ForbiddenError)) {
-      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
-    }
-    return { error: "غير مصرح" };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("teacher_ijaza")
-    .update({
-      verified_by: verified ? admin.id : null,
-      verified_at: verified ? new Date().toISOString() : null,
-    } satisfies TableUpdate<"teacher_ijaza">)
-    .eq("id", ijazaId)
-    .eq("teacher_id", teacherId);
-  if (error) {
-    logError("admin setIjazaVerified failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId, ijazaId, verified } });
-    return { error: "فشل تحديث حالة التوثيق" };
-  }
-
-  revalidateTeacher(teacherId);
+  const result = await setIjazaVerifiedBase({ teacherId, ijazaId, verified });
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }
 
