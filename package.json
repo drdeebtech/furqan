@@ -25,7 +25,14 @@
     "sb:advisors": "bash scripts/sb/advisors.sh",
     "sb:grants": "bash scripts/sb/grants.sh",
     "sb:tables": "bash scripts/sb/tables.sh",
-    "sb:backup": "bash scripts/sb/backup.sh"
+    "sb:backup": "bash scripts/sb/backup.sh",
+    "specs:index": "tsx scripts/generate-specs-index.ts",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "specs/**/*.md": [
+      "bash -c 'npm run specs:index && git add specs/INDEX.md'"
+    ]
   },
   "dependencies": {
     "@daily-co/daily-js": "^0.89.1",
@@ -71,7 +78,10 @@
     "dotenv": "^17.4.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^6",
     "vitest": "^4.1.5"
   },

@@ -9,7 +9,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.ts", "scripts/**/*.test.ts"],
     // Exclude Playwright E2E — they run under a different harness
     exclude: ["e2e/**", "node_modules/**", ".next/**"],
   },

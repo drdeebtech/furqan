@@ -1166,3 +1166,31 @@ Confirmed bookings in reminder windows.
 Supabase, WhatsApp, Email, Telegram
 ```
 
+---
+
+## Spec-Kit Ops
+
+### specs-index-nightly
+
+**Trigger**: Cron `0 3 * * *` (03:00 UTC daily) on n8n.drdeeb.tech (Mac mini).
+
+**Input**: SSH to the Mac mini, run `bash /path/to/furqan/automation/workflows/specs-index-cron.sh`.
+
+**Business Rules**:
+- Pull latest `main` (FF-only).
+- Run `npx tsx scripts/generate-specs-index.ts` to regenerate `specs/INDEX.md`.
+- If INDEX.md changed: commit with subject `[index-bot] regenerate specs/INDEX.md (cron drift correction)` (author: `drdeebtech@gmail.com` per Git Identity Rule), push to main.
+- If INDEX.md unchanged: no-op (no empty commit).
+
+**Steps**: see `automation/workflows/specs-index-cron.sh`.
+
+**Failure Handling**:
+- gh CLI auth/API failure → exit non-zero → n8n self-healing pattern fires Telegram alert + retries on next 03:00 UTC tick.
+- No silent fall-back; INDEX.md correctness > coverage on a bad night (per spec FR-010).
+
+**Feature Flag**: none — this is internal tooling, not user-facing.
+
+**Dependencies**: Node 24.x (Mac mini), `gh` CLI authenticated, repo clone with push permission.
+
+**Spec**: `specs/002-specs-index-generator/`.
+
