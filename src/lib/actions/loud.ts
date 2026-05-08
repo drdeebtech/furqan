@@ -33,6 +33,7 @@
  */
 import "server-only";
 import { after } from "next/server";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import * as Sentry from "@sentry/nextjs";
 import type { ZodType } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -130,6 +131,24 @@ export function loudAction<TInput, THandlerResult extends void | { message?: str
       }
       return { ok: true, message };
     } catch (err) {
+      // Next.js implements redirect() and notFound() by throwing tagged
+      // errors that the framework catches at the response boundary. They
+      // are NOT failures — silencing them in our catch would convert a
+      // successful redirect into a fake { ok: false, error } and strand
+      // the caller. Re-throw so the framework sees the throw. Treat as
+      // SUCCESS for audit purposes: handlers that redirect have already
+      // performed their work (e.g. switchActiveRole writes profiles.role
+      // before redirecting). Skip Sentry / Telegram entirely — redirect
+      // is not an anomaly. If a handler wants to audit a failure-recovery
+      // redirect path explicitly, it can call logError itself before
+      // calling redirect(); that telemetry survives this branch.
+      if (isRedirectError(err)) {
+        if (config.audit) {
+          const auditConfig = config.audit;
+          after(() => writeAudit(auditConfig, input, actorId, "success", null));
+        }
+        throw err;
+      }
       const message = err instanceof Error ? err.message : String(err);
       logError(`loudAction[${config.name}] failed`, err, {
         tag: "loud-action",

@@ -66,16 +66,25 @@ Each row is one unwrapped action. **File:line** is the export site. **Surface** 
 
 ### 4.1 Auth & account (P0 — wrap first)
 
-| File:line | Action | Surface | Severity | Notes |
-|---|---|---|---|---|
-| `src/app/(auth)/actions.ts:164` | `login` | RPC + auth.session | P0 | Returns `{ error }` shape today; needs `loudAction` for audit_log of failed-login attempts |
-| `src/app/(auth)/actions.ts:297` | `register` | `auth.signUp` + `profiles.insert` | P0 | Most-cited silent fail risk; double-write coordination |
-| `src/app/(auth)/actions.ts:416` | `forgotPassword` | `auth.resetPasswordForEmail` | P0 | Currently swallows non-existent-email by design (anti-enumeration); preserve that, wrap for everything else |
-| `src/lib/actions/account.ts:13` | `updatePassword` | `auth.updateUser` | P0 | |
-| `src/lib/actions/account.ts:60` | `updateEmail` | `auth.updateUser` | P0 | |
-| `src/lib/actions/active-role.ts:30` | `switchActiveRole` | `profiles.update` + redirect | P1 | Throws `redirect()` — wrap must allow Next.js redirect throws to propagate |
+> **Updated 2026-05-08 by PR #2 (`chore/loud-actions-auth`).** Concrete code-reading
+> revealed the `(auth)/actions.ts` flows are *already* structurally loud (logError
+> + recordLogin audit + BotID + rate limiting + Supabase error-code triage). Wrapping
+> them in `loudAction` would regress the bespoke business-error UX. The
+> remaining silent-fail surface for those three is the *form-feedback rendering*
+> handled by PRs 11–13. PR #2 wraps the 3 actions where wrapping is a clear win.
 
-**Domain bucket:** `auth` (6 actions, 1 PR)
+| File:line | Action | Surface | Severity | PR #2 verdict | Notes |
+|---|---|---|---|---|---|
+| `src/app/(auth)/actions.ts:164` | `login` | RPC + auth.session | P0 | **Defer** | Already loud-by-hand: BotID, rate limit, Supabase error-code triage with tailored Arabic messages, recordLogin audit on success. `loudAction`'s catch-all model would convert expected business cases (invalid_credentials, user_banned, email_not_confirmed) into Sentry/Telegram noise. Real gap = `<ActionFeedback>` in `src/app/(auth)/login/login-form.tsx` (PR 11). |
+| `src/app/(auth)/actions.ts:297` | `register` | `auth.signUp` + `profiles.insert` | P0 | **Defer** | Same pattern as `login` — the trigger-driven `profiles` insert from `private.handle_new_user()` runs server-side; UI-side audit isn't the safety net. Real gap = `<ActionFeedback>` in `register-form.tsx`. |
+| `src/app/(auth)/actions.ts:416` | `forgotPassword` | `auth.resetPasswordForEmail` | P0 | **Defer** | Anti-enumeration semantics — non-existent emails return success-shaped result by design. `loudAction` would log every email's reset attempt to audit_log (privacy ding). Real gap = `<ActionFeedback>` in `forgot-form.tsx`. |
+| `src/lib/actions/account.ts:13` | `updatePassword` | `auth.updateUser` | P0 | **Wrapped** ✅ | Now: Zod schema for client-side validation, `severity: "warning"`, audit on `auth.users:self`, `UserError`-tagged business throws (wrong current password) still reach audit_log as `FAILED` (security telemetry). |
+| `src/lib/actions/account.ts:60` | `updateEmail` | `auth.updateUser` | P0 | **Wrapped** ✅ | Same shape as `updatePassword`. Verifies current password via admin client; throws `UserError` on mismatch. |
+| `src/lib/actions/active-role.ts:30` | `switchActiveRole` | `profiles.update` + redirect | P1 | **Wrapped** ✅ | Required a 3-line patch to `loudAction`: `isRedirectError(err)` re-throws redirect throws while still writing audit_log as success (handlers that redirect have completed their work). |
+
+**Domain bucket update:** `auth` was originally bucketed as 6 actions / 1 PR. After this PR-2 course correction:
+- 3 actions wrapped (`account.ts` × 2 + `active-role.ts` × 1) plus a `loudAction` enhancement
+- 3 actions deferred to the form-feedback PR series (PRs 11–13) where they actually live
 
 ### 4.2 Bookings (P0/P1 — wrap second)
 
