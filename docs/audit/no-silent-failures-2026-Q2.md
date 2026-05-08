@@ -17,7 +17,8 @@
 | Server-action files surveyed | **67** | 24 in `src/lib/actions/`, 43 as `src/app/**/actions.ts` (incl. `bulk-actions.ts`, `paypal-actions.ts`, `talqeen-actions.ts`, `ijaza-actions.ts`, `quick-actions.ts`) |
 | Exported actions identified | **120+** | Of which ~110 mutate (insert/update/delete/upsert/RPC); ~10 read-only with side effects (signed URLs, role switches) |
 | Already wrapped in `loudAction` | **17** across **9 files** | Up from the explore-agent's "4" — generic-typed `loudAction<...>(...)` calls were under-counted by an earlier grep |
-| **Unwrapped writing actions (this PR's punch list)** | **~93** | The remediation surface |
+| **Unwrapped writing actions (initial estimate)** | **~93** | Initial bucket count — see §10 for the route-adapter shape exception that revises this materially downward |
+| Wrappable after PR-2 + PR-3 audit revisions | **TBD** | §4.2 + §4.12 found 0+2 cleanly wrappable of 12 audited; §4.3–§4.13 likely follow the same architectural split. Real wrap surface estimated at **~25–40 actions**, not 93 |
 | Nullish anti-patterns (raw grep) | `?? []` × 306, `?? null` × 153 | Most are *safe defensive defaults* on read paths — see §5 triage |
 | `.catch(() => …)` swallows | **4** | Real silent fails. Listed in §5 |
 | Empty `try { … } catch {}` blocks | **0** | Clean |
@@ -86,18 +87,20 @@ Each row is one unwrapped action. **File:line** is the export site. **Surface** 
 - 3 actions wrapped (`account.ts` × 2 + `active-role.ts` × 1) plus a `loudAction` enhancement
 - 3 actions deferred to the form-feedback PR series (PRs 11–13) where they actually live
 
-### 4.2 Bookings (P0/P1 — wrap second)
+### 4.2 Bookings (revised 2026-05-08 — see §10 Route-Adapter Shape Exception)
 
-| File:line | Action | Surface | Severity | Notes |
+> **Revision summary:** All 6 booking actions are **deliberately not wrappable** in `loudAction` per ADR-0002 §4 (redirect-style adapters) and the Phase 8.4–8.6 inline-hardening sweep (multi-field structured returns consumed by optimistic UI). Each row below names the prior-art decision that determined the verdict. The *real* wrap target for the Booking domain is the domain layer at `src/lib/domains/booking/{actions,orchestrate}.ts` — see §10.
+
+| File:line | Action | Return shape | Prior-art decision | Verdict |
 |---|---|---|---|---|
-| `src/app/student/bookings/new/actions.ts:89` | `createBooking` | `bookings.insert` + n8n emit | P0 | Spec 003 owner-domain entry point |
-| `src/app/teacher/dashboard/actions.ts:34` | `updateBookingStatus` | `bookings.update` | P1 | Sister of the wrapped `markNoShow` — needs wrap for parity |
-| `src/app/teacher/dashboard/actions.ts:550` | `recreateRoom` | `sessions.update` + Daily.co | P1 | |
-| `src/app/teacher/dashboard/actions.ts:694` | `startInstantSession` | `bookings.insert` + `sessions.insert` | P0 | Two-write transaction; double-fail-mode |
-| `src/app/admin/bookings/actions.ts:38` | `adminUpdateBookingStatus` | `bookings.update` | P1 | |
-| `src/app/admin/bookings/bulk-actions.ts:38` | `bulkUpdateBookingStatus` | `bookings.update` (bulk) | P1 | Bulk = high blast radius; wrap mandatory |
+| `src/app/student/bookings/new/actions.ts:89` | `createBooking` | redirect (`useActionState` + `redirect()`) | ADR-0002 §4 (2026-05-07) — explicit "redirect-style: do NOT wrap" carve-out, cited at `actions.ts:84` | **Defer** — already loud via `BookingValidationError` / `BookingConflictError` typed throws from `lib/domains/booking/actions.ts`; route adapter catches and returns `{error}` |
+| `src/app/teacher/dashboard/actions.ts:34` | `updateBookingStatus` | `{success, error, roomUrl, warning}` | Phase 8.5 inline-harden (cited at `actions.ts:20-33`) — wrapping would drop the partial-success "تم تأكيد لكن فشل إنشاء الغرفة" warning | **Defer** — multi-field return required for optimistic UI |
+| `src/app/teacher/dashboard/actions.ts:550` | `recreateRoom` | `{success, error, roomUrl}` | Phase 8.4 inline-harden (cited at `actions.ts:540-549`) — `loudAction`'s `{ok, message?}` would force a page refresh to show the new room | **Defer** — multi-field return |
+| `src/app/teacher/dashboard/actions.ts:694` | `startInstantSession` | `{success, error, sessionId}` | Phase 8.6 inline-harden (cited at `actions.ts:674-693`) — `sessionId` drives `router.push(/teacher/sessions/${sessionId})`; without it the teacher stays on the dashboard | **Defer** — multi-field return |
+| `src/app/admin/bookings/actions.ts:38` | `adminUpdateBookingStatus` | `{success | error}` | ADR-0002 §4 cited at `actions.ts:33-36` — "the wrapper isn't mandatory, only the throw/return invariant on the domain side is"; delegates to domain `updateBookingStatusDomain` + `confirmBooking` orchestrator | **Defer** — domain-layer typed throws cover the silent-fail surface |
+| `src/app/admin/bookings/bulk-actions.ts:38` | `bulkUpdateBookingStatus` | `BulkBookingResult` = `{updated, failed, errors[]}` | Loop accumulates per-id errors into a structured result; `loudAction`'s flat `{ok, error}` shape can't represent N-row partial success | **Defer** — multi-field return; per-id failures already routed through domain typed throws |
 
-**Domain bucket:** `bookings` (6 actions, 1 PR)
+**Domain bucket revised:** `bookings` (route adapters) — **0 wrappable actions**, **6 deferred** with documented prior-art rationales. The booking-domain wrap question moves to **§10 — Route-Adapter Shape Exception** which proposes wrapping the domain layer (`src/lib/domains/booking/`) instead.
 
 ### 4.3 Sessions & video (P1 — wrap third)
 
@@ -318,18 +321,20 @@ The directive explicitly calls out homework. All 6 actions in `src/lib/actions/h
 
 **Domain bucket:** `learning` (53 actions, **split into 3 PRs**: `courses+lessons+playback`, `quizzes+modules+study-log`, `community+class-offerings+retention`)
 
-### 4.12 Halaqa & group sessions (P1)
+### 4.12 Halaqa & group sessions (revised 2026-05-08 — see §10)
 
-| File:line | Action | Surface | Severity | Notes |
+> **Revision summary:** Of 6 actions, **2 cleanly wrappable** (`cancelHalaqaEnrollment`, `requestJoinGroupSession`); **4 deferred** because their return shape carries a `position` (waiting list) or partial-success `{ok, error, id}` (createHalaqa) that would be flattened by `loudAction`. `enrollInHalaqa` is borderline — wrap-eligible by shape but its race-safe rollback logic is delicate enough that a follow-up "harden the rollback then wrap" PR is safer.
+
+| File:line | Action | Return shape | Verdict | Notes |
 |---|---|---|---|---|
-| `src/app/admin/halaqas/actions.ts:47` | `createHalaqa` | `sessions.insert` (halaqa mode) | P1 | |
-| `src/app/student/halaqas/actions.ts:43` | `enrollInHalaqa` | `bookings.insert` | P1 | |
-| `src/app/student/halaqas/actions.ts:142` | `cancelHalaqaEnrollment` | `bookings.update` | P1 | |
-| `src/app/student/halaqas/actions.ts:217` | `joinHalaqaWaitingList` | `halaqa_waiting_list.insert` | P2 | |
-| `src/app/student/halaqas/actions.ts:280` | `leaveHalaqaWaitingList` | `halaqa_waiting_list.delete` | P2 | |
-| `src/app/student/group-sessions/actions.ts:24` | `requestJoinGroupSession` | `bookings.insert` | P1 | |
+| `src/app/admin/halaqas/actions.ts:47` | `createHalaqa` | `CreateHalaqaState = {ok, error, id}` partial-success | **Defer** | Line 160-163: returns `{error, id}` when session insert succeeds but participant insert fails — caller needs `id` to direct admin to recovery flow. `loudAction` would drop `id`. |
+| `src/app/student/halaqas/actions.ts:43` | `enrollInHalaqa` | `EnrollState = {ok, error}` | **Defer (borderline)** | Shape matches `LoudResult`; race-safe enrollment-counter UPDATE + participant-row rollback (lines 80-130) is delicate. Suggest "wrap after rollback simplification" follow-up. |
+| `src/app/student/halaqas/actions.ts:142` | `cancelHalaqaEnrollment` | `EnrollState = {ok, error}` | **Wrap candidate** | `{ok, error}` shape matches `LoudResult`. Counter-decrement soft-fail (line 194-201) survives because it only `logError`s — handler doesn't depend on it. Audit_log gain: every cancellation tracked. |
+| `src/app/student/halaqas/actions.ts:217` | `joinHalaqaWaitingList` | `WaitlistState = {ok, error, position}` | **Defer** | `position` is the queue rank UI shows the user; `loudAction` can't carry it. |
+| `src/app/student/halaqas/actions.ts:280` | `leaveHalaqaWaitingList` | `WaitlistState = {ok, error, position?}` | **Defer** | Same `WaitlistState` type — `position` field is optional but typed in. |
+| `src/app/student/group-sessions/actions.ts:24` | `requestJoinGroupSession` | `ActionResult = {ok, error}` | **Wrap candidate** | `{ok, error}` shape matches `LoudResult`. Already calls `logError` + `emitEvent`; gap is only audit_log integration. |
 
-**Domain bucket:** `halaqa` (6 actions, folds into `bookings` PR or own PR)
+**Domain bucket revised:** `halaqa` — **2 wrap candidates** (`cancelHalaqaEnrollment`, `requestJoinGroupSession`), **4 deferred**. Subsequent PR can wrap the 2 candidates as a small ~80-line PR if operator approves.
 
 ### 4.13 Public-form actions (P1)
 
@@ -483,7 +488,90 @@ grep -c "ActionFeedback" src/   # should grow toward 45 (parity with useActionSt
 
 ---
 
-## 10. Cross-references
+## 10. Route-Adapter Shape Exception (added 2026-05-08 by PR #3)
+
+> **Decision rule for every action audited from this point forward.**
+
+### Why the rule exists
+
+Code reading of §4.2 + §4.12 revealed FURQAN has internalized a **two-shape architecture** for server actions, codified in [ADR-0002 §4](../adr/0002-booking-domain-pilot.md) (2026-05-07). The audit doc's original blanket "wrap every server action that writes" recipe conflicts with this architecture and would regress actions whose authors deliberately chose a different shape.
+
+### The two adapter shapes
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Shape A — STATE-RETURNING                                           │
+│   Bound to: useActionState(action, null)                            │
+│   Return:   { ok, error?, message? }   (== LoudResult)              │
+│   On fail:  state.error rendered by <ActionFeedback />              │
+│   Examples: updatePassword, updateEmail, upsertFaq, savePackage     │
+│   Verdict:  WRAP in loudAction. ✅                                  │
+├─────────────────────────────────────────────────────────────────────┤
+│ Shape B — REDIRECT-STYLE                                            │
+│   Bound to: useActionState OR direct call from a button             │
+│   Return:   never (ends in redirect()) OR opaque on success         │
+│   On fail:  returns { error } before reaching redirect()            │
+│   Examples: login, register, forgotPassword, createBooking          │
+│   Verdict:  DO NOT WRAP. Domain throws; route adapter try/catches.  │
+├─────────────────────────────────────────────────────────────────────┤
+│ Shape C — MULTI-FIELD STRUCTURED RETURN                             │
+│   Bound to: useActionState OR direct call                           │
+│   Return:   { ok|success, error?, ...domain-specific-fields }       │
+│   Examples: updateBookingStatus → { roomUrl, warning }              │
+│             startInstantSession → { sessionId }                     │
+│             joinHalaqaWaitingList → { position }                    │
+│             createHalaqa → { id }   (partial-success)               │
+│             bulkUpdateBookingStatus → { updated, failed, errors[] } │
+│   Reason:   Caller's optimistic UI / router.push / queue rank /     │
+│             partial-success recovery depends on the extra field(s). │
+│             loudAction's flat { ok, message? } would drop them.     │
+│   Verdict:  DO NOT WRAP at the route adapter. ❌                    │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### How to triage in subsequent wrap PRs
+
+For each candidate action in §4.3 — §4.13:
+
+1. **Read the docstring.** Many already cite ADR-0002 §4 or "Phase 8.x inline-harden." Honor those.
+2. **Check the return type.** If it has any field beyond `{ ok|success, error?, message? }`, it's Shape C — defer.
+3. **Check the call site.** If the caller does `if (result.foo)` to read a field other than `ok`/`error`, it's Shape C — defer.
+4. **Check for `redirect()`** in the function body. If present, it's Shape B — defer (or wrap only if the redirect throw is correctly handled; see PR #2's `loudAction` patch for the precedent).
+5. **Only Shape A wraps cleanly.** Estimate: of the ~93 originally-bucketed actions, **~25–40 are Shape A**. The rest are Shapes B/C and require a different remediation strategy.
+
+### Where the silent-fail risk for Shape B/C actually lives
+
+Shape B/C route adapters are *not* the silent-fail surface in the FURQAN architecture. The mutation work has been pushed down into:
+
+- **Domain modules** at `src/lib/domains/<domain>/{actions,orchestrate}.ts` (Booking is the pilot per ADR-0002; other domains use the older route-colocated pattern)
+- **`src/lib/actions/<domain>.ts`** for cross-role shared writes (Follow-up, Progress, Communication)
+- **Postgres functions / triggers** for atomic multi-table mutations (`deduct_package_session`, the v14.1 credits trigger, the v14.3 packages trigger)
+
+Each of these throws on failure. The route adapter catches typed domain errors and converts to the form's expected return shape. **The throw-on-failure invariant is the actual loudness mechanism** — `loudAction`'s envelope is just one way to honor it for Shape A adapters.
+
+### Revised remediation strategy (replaces §7 in part)
+
+**Phase 2a — Shape A wraps (~5 PRs total).** Re-audit §4.3 — §4.13 through the lens above; only wrap Shape A actions. Estimated 25–40 actions across 5 PRs grouped by domain.
+
+**Phase 2b — Domain-layer audit + wraps (new — proposed by this revision).** Audit `src/lib/domains/booking/` (Booking pilot), then `src/lib/actions/<domain>.ts`, then SQL functions. The domain layer is where booking writes actually happen; if `loudAction` is the right primitive for audit_log + Sentry + Telegram, wrap the domain function (not the route adapter). The route adapter then becomes a thin Shape B/C pass-through.
+
+**Phase 2c — Form-feedback gap (PRs 11–13 from §7, unchanged).** Add `<ActionFeedback>` to the 24 real form components. This work is **independent** of the wrap question — every Shape A wrap and every Shape B/C inline-hardened action returns `{ error }` that the form should render. Form-feedback gap is the highest user-visible silent-fail surface and is unaffected by the route-adapter shape exception.
+
+**Phase 2d — Tripwire (PR 15 from §7, unchanged).** Grep-based pre-commit hook prevents new silent-fail anti-patterns regardless of which shape a future action takes.
+
+### Open question for the operator (resolves before any more wrap PRs land)
+
+Is the operator's strategic intent for Phase 2:
+
+- **(a)** "Wrap every action that can be wrapped" — accept that ~50–60 actions stay deliberately unwrapped per ADR-0002 + Phase 8.x, and proceed with Shape A wraps + form-feedback only.
+- **(b)** "Wrap the actual mutation, wherever it lives" — pivot Phase 2 to wrap the domain layer (`src/lib/domains/booking/`, `src/lib/actions/<domain>.ts`, SQL functions) so audit_log integration covers the *actual* writes, not just the route surface.
+- **(c)** "Both — Shape A wraps now, domain wraps as Phase 2b" — sequential.
+
+Recommendation: **(c)**, sequential. Shape A wraps are tractable (~5 PRs). Domain wraps require deeper architectural conversation (e.g., does `confirmBooking` orchestrator get wrapped, or does each step inside it get wrapped?) and warrant their own ADR before code lands.
+
+---
+
+## 11. Cross-references
 
 - [`CLAUDE.md` — No Silent Failures Policy](../../CLAUDE.md)
 - [`src/lib/actions/loud.ts`](../../src/lib/actions/loud.ts) — `loudAction` source
