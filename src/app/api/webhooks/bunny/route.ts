@@ -239,7 +239,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         );
         await supabase
           .from("courses")
-          .update({ duration_seconds_cached: totalDuration } as never)
+          .update({ duration_seconds_cached: totalDuration } satisfies TableUpdate<"courses">)
           .eq("id", updated.course_id);
       }
     } catch (err) {

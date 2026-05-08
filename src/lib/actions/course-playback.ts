@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import { getSignedPlaybackUrl, isBunnyConfigured } from "@/lib/bunny/client";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
 // ─── getLessonPlaybackUrl ───────────────────────────────────────────────────
 // Mints a 5-minute signed Bunny CDN URL for the given lesson, after
@@ -152,7 +153,7 @@ export async function upsertLessonProgress(
   // Update enrollment.last_accessed_at
   await supabase
     .from("course_enrollments")
-    .update({ last_accessed_at: new Date().toISOString() } as never)
+    .update({ last_accessed_at: new Date().toISOString() } satisfies TableUpdate<"course_enrollments">)
     .eq("id", enrollment.id);
 
   // If just completed, emit event
@@ -199,7 +200,7 @@ export async function markLessonComplete(lessonId: string) {
   const { error } = await supabase
     .from("course_lesson_progress")
     .upsert(
-      { enrollment_id: enrollment.id, lesson_id: lessonId, completed_at: now } as never,
+      { enrollment_id: enrollment.id, lesson_id: lessonId, completed_at: now } satisfies TableInsert<"course_lesson_progress">,
       { onConflict: "enrollment_id,lesson_id", ignoreDuplicates: false },
     );
 
@@ -248,7 +249,7 @@ export async function setLessonHidden(lessonId: string, hidden: boolean) {
 
   const { error } = await supabase
     .from("course_lesson_progress")
-    .update({ hidden_from_dashboard: hidden } as never)
+    .update({ hidden_from_dashboard: hidden } satisfies TableUpdate<"course_lesson_progress">)
     .eq("enrollment_id", enrollment.id)
     .eq("lesson_id", lessonId);
 

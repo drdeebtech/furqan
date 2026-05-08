@@ -423,7 +423,7 @@ export async function submitForReview(
 
   const { error } = await supabase
     .from("courses")
-    .update({ status: "pending_review", rejection_reason: null } as never)
+    .update({ status: "pending_review", rejection_reason: null } satisfies TableUpdate<"courses">)
     .eq("id", courseId);
 
   if (error) {
@@ -607,7 +607,7 @@ export async function archiveCourse(courseId: string) {
 
   const { error } = await supabase
     .from("courses")
-    .update({ status: "archived" } as never)
+    .update({ status: "archived" } satisfies TableUpdate<"courses">)
     .eq("id", courseId);
 
   if (error) {

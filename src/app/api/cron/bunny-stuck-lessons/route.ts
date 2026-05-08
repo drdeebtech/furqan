@@ -167,7 +167,7 @@ export const GET = withCronMonitor(
           );
           await admin
             .from("courses")
-            .update({ duration_seconds_cached: total } as never)
+            .update({ duration_seconds_cached: total } satisfies TableUpdate<"courses">)
             .eq("id", courseId);
         }
       } catch (err) {

@@ -6,6 +6,7 @@ import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import { notify } from "@/lib/notifications/dispatcher";
 import { isFeatureEnabled } from "@/lib/settings";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 // ─── enrollFree ─────────────────────────────────────────────────────────────
 // Free path: only allowed when course.pricing_type='free' and course.status='published'.
@@ -60,7 +61,7 @@ export async function enrollFree(courseId: string) {
     if (count !== null) {
       await supabase
         .from("courses")
-        .update({ enrollment_count_cached: count } as never)
+        .update({ enrollment_count_cached: count } satisfies TableUpdate<"courses">)
         .eq("id", courseId);
     }
   });
