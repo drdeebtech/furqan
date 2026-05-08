@@ -91,6 +91,18 @@ FURQAN is sized for **50,000 users**. Every spec, plan, ADR, and implementation 
 
 When a feature legitimately cannot be sized for 50k (e.g., a true admin-only tool used by ~5 humans), the spec MUST state this explicitly under "Assumptions" and the plan MUST note the scope.
 
+### Branch hygiene (NON-NEGOTIABLE)
+
+Every branch ends with a Pull Request OR a deletion — never a third state. Authoritative source is `CLAUDE.md` § "Branch Hygiene Rule"; this section is a pointer so `/speckit.plan` and `/speckit.analyze` enforce it on every feature spec.
+
+**`/speckit.plan` MUST flag (and `/speckit.analyze` MUST report as CRITICAL) any of:**
+
+- A spec or plan that proposes a "v2 of an existing stale branch" approach instead of pushing v1 as a PR or deleting it.
+- A plan that does not include "open draft PR same day" as the first or second task.
+- A spec that doesn't link to a tracking issue (no `Closes #N` reference in the eventual PR body).
+- A plan that proposes committing on a branch other than a fresh `<feature>-<NNN>` cut from main.
+- A plan that proposes shipping a fix without first running the pre-work checks (`gh issue view`, `gh pr list`, `git log --grep`, `git log --diff-filter=D`) — particularly the `--diff-filter=D` check, which is the only one that catches *retired* features.
+
 ---
 
 ## Development Workflow
@@ -141,8 +153,9 @@ Version bumps follow semver on the constitution itself:
 
 `/speckit.plan` and `/speckit.analyze` consult this file by path. `/speckit.constitution` is the canonical editor; manual edits are allowed but should round-trip through `/speckit.constitution`'s validation before merge.
 
-**Version**: 1.1.0 | **Ratified**: 2026-05-08 | **Last Amended**: 2026-05-08
+**Version**: 1.2.0 | **Ratified**: 2026-05-08 | **Last Amended**: 2026-05-08
 
 **Changelog:**
+- **1.2.0** (2026-05-08) — Added "Branch hygiene" Additional Constraint mirroring the new `CLAUDE.md` § "Branch Hygiene Rule". Defines five CRITICAL flags for `/speckit.plan` and `/speckit.analyze`. Surfaced by the 2026-05-08 audit which found 33+ stale branches and 8 cases of re-fix-without-checking.
 - **1.1.0** (2026-05-08) — Added "50,000-user scale target" Additional Constraint mirroring the new `CLAUDE.md` § "Scale Target Rule"; defines the seven CRITICAL flags `/speckit.plan` and `/speckit.analyze` must surface.
 - **1.0.0** (2026-05-08) — Initial constitution: five core principles (Domain Ownership, Loud Failures, Atomic Critical Paths, Auth at the Boundary, Tracer-Bullet Adoption), three additional constraints, four-stage development workflow.
