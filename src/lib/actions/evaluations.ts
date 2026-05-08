@@ -13,7 +13,7 @@ async function requireAdminOrMod(supabase: Awaited<ReturnType<typeof createClien
   const { data: profile } = await supabase
     .from("profiles").select("role").eq("id", user.id)
     .single().then(r => ({ data: r.data as { role: string } | null }));
-  if (!profile || !["admin", "moderator"].includes(profile.role)) throw new Error("غير مصرح");
+  if (!profile || !["admin"].includes(profile.role)) throw new Error("غير مصرح");
   return user;
 }
 
@@ -90,7 +90,7 @@ export async function createTeacherEvaluation(
   const { data: profile } = await supabase
     .from("profiles").select("role").eq("id", user.id)
     .single<{ role: string }>();
-  if (!profile || !["admin", "moderator", "teacher"].includes(profile.role)) {
+  if (!profile || !["admin", "teacher"].includes(profile.role)) {
     return { error: "ليس لديك صلاحية" };
   }
 
@@ -183,7 +183,7 @@ export async function deleteEvaluation(evaluationId: string) {
   const { data: profile } = await supabase
     .from("profiles").select("role").eq("id", user.id)
     .single<{ role: string }>();
-  if (!profile || !["admin", "moderator"].includes(profile.role)) {
+  if (!profile || !["admin"].includes(profile.role)) {
     return { error: "ليس لديك صلاحية" };
   }
 

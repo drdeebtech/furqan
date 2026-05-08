@@ -5,13 +5,13 @@ import { assertRole } from "./role-check";
 describe("assertRole", () => {
   it("returns nothing when actual role is in the allowed list", () => {
     expect(() => assertRole("admin", ["admin"])).not.toThrow();
-    expect(() => assertRole("admin", ["admin", "moderator"])).not.toThrow();
-    expect(() => assertRole("moderator", ["admin", "moderator"])).not.toThrow();
+    expect(() => assertRole("admin", ["admin", "teacher"])).not.toThrow();
+    expect(() => assertRole("teacher", ["admin", "teacher"])).not.toThrow();
   });
 
   it("throws ForbiddenError when actual role is not in the allowed list", () => {
     expect(() => assertRole("teacher", ["admin"])).toThrow(ForbiddenError);
-    expect(() => assertRole("student", ["admin", "moderator"])).toThrow(ForbiddenError);
+    expect(() => assertRole("student", ["admin", "teacher"])).toThrow(ForbiddenError);
   });
 
   it("throws ForbiddenError when actual role is null (profile lookup miss)", () => {
@@ -23,7 +23,7 @@ describe("assertRole", () => {
 
   it("error message names the allowed role(s) for debuggability", () => {
     expect(() => assertRole("teacher", ["admin"])).toThrow(/not admin\b/);
-    expect(() => assertRole("teacher", ["admin", "moderator"])).toThrow(/not admin or moderator\b/);
+    expect(() => assertRole("student", ["admin", "teacher"])).toThrow(/not admin or teacher\b/);
   });
 });
 

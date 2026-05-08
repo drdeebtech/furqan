@@ -33,7 +33,7 @@ async function requireTeacherOrAbove(
     .single<{ role: string }>();
   if (
     !profile ||
-    !["admin", "moderator", "teacher"].includes(profile.role)
+    !["admin", "teacher"].includes(profile.role)
   ) {
     throw new Error("غير مصرح");
   }
@@ -52,7 +52,7 @@ async function requireAdminOrMod(
     .select("role")
     .eq("id", user.id)
     .single<{ role: string }>();
-  if (!profile || !["admin", "moderator"].includes(profile.role)) {
+  if (!profile || !["admin"].includes(profile.role)) {
     throw new Error("غير مصرح");
   }
   return { user, role: profile.role };
@@ -449,7 +449,7 @@ export async function submitForReview(
   const { data: reviewers } = await supabase
     .from("profiles")
     .select("id")
-    .in("role", ["admin", "moderator"])
+    .in("role", ["admin"])
     .returns<{ id: string }[]>();
   for (const r of reviewers ?? []) {
     await notify({

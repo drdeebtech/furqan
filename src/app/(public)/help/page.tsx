@@ -23,12 +23,11 @@ export default async function HelpCenterIndexPage() {
       .from("profiles")
       .select("role")
       .eq("id", user.id)
-      .single<{ role: "student" | "teacher" | "admin" | "moderator" | null }>();
+      .single<{ role: "student" | "teacher" | "admin" | null }>();
     const role = profile?.role;
     if (role === "student") dashboardHref = "/student/dashboard";
     else if (role === "teacher") dashboardHref = "/teacher/dashboard";
     else if (role === "admin") dashboardHref = "/admin/dashboard";
-    else if (role === "moderator") dashboardHref = "/moderator/dashboard";
   }
 
   const [categoriesRes, articlesRes] = await Promise.all([

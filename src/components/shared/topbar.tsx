@@ -12,7 +12,7 @@ import { RemoteHandoffButton } from "@/components/admin/remote-handoff-button";
 import { useLang } from "@/lib/i18n/context";
 import { switchActiveRole } from "@/lib/actions/active-role";
 
-type Role = "student" | "teacher" | "admin" | "moderator";
+type Role = "student" | "teacher" | "admin";
 
 // Roles that have a personal account / settings page. Admin's link points
 // at /admin/account (personal info), distinct from /admin/settings (platform
@@ -20,7 +20,6 @@ type Role = "student" | "teacher" | "admin" | "moderator";
 const SETTINGS_PATH_BY_ROLE: Partial<Record<Role, string>> = {
   teacher: "/teacher/settings",
   student: "/student/settings",
-  moderator: "/moderator/settings",
   admin: "/admin/account",
 };
 
@@ -28,13 +27,11 @@ const ROLE_LABEL_AR: Record<Role, string> = {
   student: "طالب",
   teacher: "معلم",
   admin: "مشرف",
-  moderator: "مراقب",
 };
 const ROLE_LABEL_EN: Record<Role, string> = {
   student: "Student",
   teacher: "Teacher",
   admin: "Admin",
-  moderator: "Moderator",
 };
 
 export function Topbar({ role, roles }: { role?: Role; roles?: Role[] } = {}) {

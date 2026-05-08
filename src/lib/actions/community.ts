@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdminOrModerator, ForbiddenError } from "@/lib/auth/require-admin";
+import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
@@ -165,7 +165,7 @@ export async function moderateThread(
   patch: { is_pinned?: boolean; is_locked?: boolean; is_hidden?: boolean },
 ): Promise<ActionResult> {
   try {
-    await requireAdminOrModerator();
+    await requireAdmin();
   } catch (e) {
     if (e instanceof ForbiddenError) return { ok: false, error: "ليس لديك صلاحية" };
     throw e;
@@ -196,7 +196,7 @@ export async function moderateReply(
   is_hidden: boolean,
 ): Promise<ActionResult> {
   try {
-    await requireAdminOrModerator();
+    await requireAdmin();
   } catch (e) {
     if (e instanceof ForbiddenError) return { ok: false, error: "ليس لديك صلاحية" };
     throw e;
@@ -217,7 +217,7 @@ export async function resolveReport(
 ): Promise<ActionResult> {
   let actor: { id: string };
   try {
-    actor = await requireAdminOrModerator();
+    actor = await requireAdmin();
   } catch (e) {
     if (e instanceof ForbiddenError) return { ok: false, error: "ليس لديك صلاحية" };
     throw e;

@@ -30,7 +30,7 @@ export default async function CourseQuizzesPage({ params }: Props) {
   if (course.teacher_id !== user.id) {
     const { data: profile } = await supabase
       .from("profiles").select("role").eq("id", user.id).single<{ role: string }>();
-    if (profile?.role !== "admin" && profile?.role !== "moderator") redirect("/teacher/courses");
+    if (profile?.role !== "admin") redirect("/teacher/courses");
   }
 
   const { data: quizzes } = await supabase.from("quizzes")

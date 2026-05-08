@@ -30,7 +30,7 @@ async function requireAdmin(supabase: Awaited<ReturnType<typeof createClient>>) 
     .single()
     .then((r) => ({ data: r.data as ProfileRole | null }));
 
-  if (!profile || !["admin", "moderator"].includes(profile.role)) throw new Error("غير مصرح");
+  if (!profile || !["admin"].includes(profile.role)) throw new Error("غير مصرح");
   return user;
 }
 

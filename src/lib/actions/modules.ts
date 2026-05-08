@@ -30,7 +30,7 @@ async function authorizeCourseOwner(courseId: string): Promise<{ ok: true } | { 
     .select("role")
     .eq("id", user.id)
     .single<{ role: string }>();
-  if (profile?.role === "admin" || profile?.role === "moderator") return { ok: true };
+  if (profile?.role === "admin") return { ok: true };
   return { ok: false, error: "غير مصرح" };
 }
 

@@ -105,7 +105,7 @@ export async function hideReview(reviewId: string): Promise<ReviewResult> {
     .select("role")
     .eq("id", user.id)
     .single<{ role: string }>();
-  if (!profile || !["admin", "moderator"].includes(profile.role)) {
+  if (!profile || !["admin"].includes(profile.role)) {
     return { ok: false, error: "غير مصرح" };
   }
 

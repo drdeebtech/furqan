@@ -33,7 +33,7 @@ export default async function CourseModulesPage({ params }: Props) {
   if (course.teacher_id !== user.id) {
     const { data: profile } = await supabase
       .from("profiles").select("role").eq("id", user.id).single<{ role: string }>();
-    if (profile?.role !== "admin" && profile?.role !== "moderator") {
+    if (profile?.role !== "admin") {
       redirect("/teacher/courses");
     }
   }

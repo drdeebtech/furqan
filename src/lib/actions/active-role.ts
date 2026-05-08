@@ -8,7 +8,7 @@ import { logError } from "@/lib/logger";
 import type { UserRole } from "@/types/database";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
-const VALID: ReadonlySet<UserRole> = new Set(["student", "teacher", "admin", "moderator"]);
+const VALID: ReadonlySet<UserRole> = new Set(["student", "teacher", "admin"]);
 
 /**
  * Switch the caller's *active* role to one of the roles they hold in their

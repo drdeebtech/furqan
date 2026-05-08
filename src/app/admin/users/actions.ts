@@ -50,8 +50,8 @@ export async function toggleUserActive(userId: string, isActive: boolean) {
   return { success: true };
 }
 
-type UserRole = "student" | "teacher" | "admin" | "moderator";
-const ALL_ROLES: ReadonlyArray<UserRole> = ["student", "teacher", "admin", "moderator"];
+type UserRole = "student" | "teacher" | "admin";
+const ALL_ROLES: ReadonlyArray<UserRole> = ["student", "teacher", "admin"];
 
 /**
  * Set the full role *set* for a user — supports multi-role profiles.
@@ -424,7 +424,7 @@ export async function createUserFromScratch(
     return { error: "جميع الحقول المطلوبة يجب ملؤها" };
   }
 
-  if (!["student", "teacher", "moderator"].includes(role)) {
+  if (!["student", "teacher"].includes(role)) {
     return { error: "دور غير صالح" };
   }
 

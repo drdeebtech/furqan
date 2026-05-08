@@ -5,19 +5,17 @@ import { toggleUserActive, setUserRoles, softDeleteUser, restoreUser } from "./a
 import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
 import { useLang } from "@/lib/i18n/context";
 
-type Role = "student" | "teacher" | "admin" | "moderator";
-const ALL_ROLES: ReadonlyArray<Role> = ["student", "teacher", "moderator", "admin"];
+type Role = "student" | "teacher" | "admin";
+const ALL_ROLES: ReadonlyArray<Role> = ["student", "teacher", "admin"];
 
 const ROLE_LABEL_AR: Record<Role, string> = {
   student: "طالب",
   teacher: "معلم",
-  moderator: "مشرف",
   admin: "مدير",
 };
 const ROLE_LABEL_EN: Record<Role, string> = {
   student: "Student",
   teacher: "Teacher",
-  moderator: "Moderator",
   admin: "Admin",
 };
 

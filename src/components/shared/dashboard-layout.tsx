@@ -3,7 +3,7 @@ import { Topbar } from "@/components/shared/topbar";
 import { LangProvider } from "@/lib/i18n/context";
 import { createClient } from "@/lib/supabase/server";
 
-type Role = "student" | "teacher" | "admin" | "moderator";
+type Role = "student" | "teacher" | "admin";
 
 export async function DashboardLayout({
   role,
