@@ -434,152 +434,233 @@ export async function setIjazaVerified(
 
 // ─── Availability ──────────────────────────────────────────────────────
 
+type UpsertAvailabilityInput = {
+  teacherId: string;
+  id: string | null;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  slot_duration: number;
+  is_active: boolean;
+};
+
+const upsertAvailabilityBase = loudAction<UpsertAvailabilityInput, { message: string }>({
+  name: "admin.teacher.upsert-availability",
+  severity: "info",
+  schema: z.object({
+    teacherId: z.string().uuid(),
+    id: z.string().uuid().nullable(),
+    day_of_week: z.number().int().min(0).max(6),
+    start_time: z.string().min(1),
+    end_time: z.string().min(1),
+    slot_duration: z.number().int().refine((n) => [30, 45, 60].includes(n), "مدة الفترة غير صحيحة"),
+    is_active: z.boolean(),
+  }),
+  audit: {
+    table: "teacher_availability",
+    recordId: (i) => i.id ?? `(new for ${i.teacherId})`,
+    action: "UPDATE",
+    reasonPrefix: "admin upsert teacher availability slot",
+  },
+  preflight: adminPreflight,
+  handler: async ({ teacherId, id, day_of_week, start_time, end_time, slot_duration, is_active }) => {
+    if (start_time >= end_time) {
+      throw new UserError("وقت البداية يجب أن يسبق وقت النهاية");
+    }
+    const supabase = await createClient();
+
+    if (id) {
+      const { error } = await supabase
+        .from("teacher_availability")
+        .update({
+          day_of_week,
+          start_time,
+          end_time,
+          slot_duration,
+          is_active,
+        } satisfies TableUpdate<"teacher_availability">)
+        .eq("id", id)
+        .eq("teacher_id", teacherId);
+      if (error) throw new UserError("فشل تحديث التوفر");
+    } else {
+      const { error } = await supabase.from("teacher_availability").insert({
+        teacher_id: teacherId,
+        day_of_week,
+        start_time,
+        end_time,
+        slot_duration,
+        is_active,
+      } satisfies TableInsert<"teacher_availability">);
+      if (error) {
+        // Detect the unique-constraint name to surface an actionable
+        // Arabic message; everything else falls back to a generic copy.
+        // Same pattern as the deletePackage FK-rebrand follow-up note.
+        throw new UserError(
+          error.message.includes("avail_unique")
+            ? "يوجد فترة في نفس اليوم والوقت"
+            : "فشل إضافة التوفر"
+        );
+      }
+    }
+    revalidateTeacher(teacherId);
+    return { message: id ? "updated" : "inserted" };
+  },
+});
+
 export async function upsertAvailability(
   teacherId: string,
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  try {
-    await requireAdmin();
-  } catch (e) {
-    if (!(e instanceof ForbiddenError)) {
-      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
-    }
-    return { error: "غير مصرح" };
-  }
-
-  const id = str(formData, "id");
+  // Decode + Arabic-friendly pre-validation. The Base re-validates with
+  // zod (defense in depth) but the wrapper surfaces friendlier copy on
+  // first failure.
   const day = num(formData, "day_of_week");
   const startTime = str(formData, "start_time");
   const endTime = str(formData, "end_time");
   const slotDuration = num(formData, "slot_duration") ?? 60;
-  const isActive = bool(formData, "is_active");
 
   if (day === null || day < 0 || day > 6) return { error: "اليوم غير صحيح" };
   if (!startTime || !endTime) return { error: "الوقت مطلوب" };
   if (startTime >= endTime) return { error: "وقت البداية يجب أن يسبق وقت النهاية" };
   if (![30, 45, 60].includes(slotDuration)) return { error: "مدة الفترة غير صحيحة" };
 
-  const supabase = await createClient();
-
-  if (id) {
-    const { error } = await supabase
-      .from("teacher_availability")
-      .update({
-        day_of_week: day,
-        start_time: startTime,
-        end_time: endTime,
-        slot_duration: slotDuration,
-        is_active: isActive,
-      } satisfies TableUpdate<"teacher_availability">)
-      .eq("id", id)
-      .eq("teacher_id", teacherId);
-    if (error) {
-      logError("admin upsertAvailability update failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId, slotId: id } });
-      return { error: "فشل تحديث التوفر" };
-    }
-  } else {
-    const { error } = await supabase.from("teacher_availability").insert({
-      teacher_id: teacherId,
-      day_of_week: day,
-      start_time: startTime,
-      end_time: endTime,
-      slot_duration: slotDuration,
-      is_active: isActive,
-    } satisfies TableInsert<"teacher_availability">);
-    if (error) {
-      logError("admin upsertAvailability insert failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId, day, startTime, endTime } });
-      return { error: error.message.includes("avail_unique") ? "يوجد فترة في نفس اليوم والوقت" : "فشل إضافة التوفر" };
-    }
-  }
-
-  revalidateTeacher(teacherId);
+  const result = await upsertAvailabilityBase({
+    teacherId,
+    id: str(formData, "id"),
+    day_of_week: day,
+    start_time: startTime,
+    end_time: endTime,
+    slot_duration: slotDuration,
+    is_active: bool(formData, "is_active"),
+  });
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }
 
+const deleteAvailabilityBase = loudAction<{ teacherId: string; slotId: string }, { message: string }>({
+  name: "admin.teacher.delete-availability",
+  severity: "info",
+  schema: z.object({ teacherId: z.string().uuid(), slotId: z.string().uuid() }),
+  audit: {
+    table: "teacher_availability",
+    recordId: (i) => i.slotId,
+    action: "DELETE",
+    reasonPrefix: "admin delete teacher availability slot",
+  },
+  preflight: adminPreflight,
+  handler: async ({ teacherId, slotId }) => {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("teacher_availability")
+      .delete()
+      .eq("id", slotId)
+      .eq("teacher_id", teacherId);
+    if (error) throw new UserError("فشل حذف الفترة");
+    revalidateTeacher(teacherId);
+    return { message: "deleted" };
+  },
+});
+
 export async function deleteAvailability(teacherId: string, slotId: string): Promise<ActionResult> {
-  try {
-    await requireAdmin();
-  } catch (e) {
-    if (!(e instanceof ForbiddenError)) {
-      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
-    }
-    return { error: "غير مصرح" };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("teacher_availability")
-    .delete()
-    .eq("id", slotId)
-    .eq("teacher_id", teacherId);
-  if (error) {
-    logError("admin deleteAvailability failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId, slotId } });
-    return { error: "فشل حذف الفترة" };
-  }
-
-  revalidateTeacher(teacherId);
+  const result = await deleteAvailabilityBase({ teacherId, slotId });
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }
 
 // ─── Availability exceptions ───────────────────────────────────────────
+
+type UpsertExceptionInput = {
+  teacherId: string;
+  date: string;
+  start_time: string | null;
+  end_time: string | null;
+  is_blocked: boolean;
+  reason: string | null;
+};
+
+const upsertExceptionBase = loudAction<UpsertExceptionInput, { message: string }>({
+  name: "admin.teacher.upsert-exception",
+  severity: "info",
+  schema: z.object({
+    teacherId: z.string().uuid(),
+    date: z.string().min(1, "التاريخ مطلوب"),
+    start_time: z.string().nullable(),
+    end_time: z.string().nullable(),
+    is_blocked: z.boolean(),
+    reason: z.string().nullable(),
+  }),
+  audit: {
+    table: "availability_exceptions",
+    // Inserts don't have an id yet — fall back to teacher+date for the
+    // envelope, since the (teacher, date) pair is the natural key for
+    // exceptions.
+    recordId: (i) => `${i.teacherId}:${i.date}`,
+    action: "INSERT",
+    reasonPrefix: "admin add teacher availability exception",
+  },
+  preflight: adminPreflight,
+  handler: async ({ teacherId, date, start_time, end_time, is_blocked, reason }) => {
+    const supabase = await createClient();
+    const { error } = await supabase.from("availability_exceptions").insert({
+      teacher_id: teacherId,
+      date,
+      start_time,
+      end_time,
+      is_blocked,
+      reason,
+    } satisfies TableInsert<"availability_exceptions">);
+    if (error) throw new UserError("فشل إضافة الاستثناء");
+    revalidateTeacher(teacherId);
+    return { message: "inserted" };
+  },
+});
 
 export async function upsertException(
   teacherId: string,
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  try {
-    await requireAdmin();
-  } catch (e) {
-    if (!(e instanceof ForbiddenError)) {
-      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
-    }
-    return { error: "غير مصرح" };
-  }
-
   const date = str(formData, "date");
   if (!date) return { error: "التاريخ مطلوب" };
-
-  const supabase = await createClient();
-  const { error } = await supabase.from("availability_exceptions").insert({
-    teacher_id: teacherId,
+  const result = await upsertExceptionBase({
+    teacherId,
     date,
     start_time: str(formData, "start_time"),
     end_time: str(formData, "end_time"),
     is_blocked: bool(formData, "is_blocked"),
     reason: str(formData, "reason"),
-  } satisfies TableInsert<"availability_exceptions">);
-  if (error) {
-    logError("admin upsertException failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId, date } });
-    return { error: "فشل إضافة الاستثناء" };
-  }
-
-  revalidateTeacher(teacherId);
+  });
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }
 
+const deleteExceptionBase = loudAction<{ teacherId: string; exceptionId: string }, { message: string }>({
+  name: "admin.teacher.delete-exception",
+  severity: "info",
+  schema: z.object({ teacherId: z.string().uuid(), exceptionId: z.string().uuid() }),
+  audit: {
+    table: "availability_exceptions",
+    recordId: (i) => i.exceptionId,
+    action: "DELETE",
+    reasonPrefix: "admin delete teacher availability exception",
+  },
+  preflight: adminPreflight,
+  handler: async ({ teacherId, exceptionId }) => {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("availability_exceptions")
+      .delete()
+      .eq("id", exceptionId)
+      .eq("teacher_id", teacherId);
+    if (error) throw new UserError("فشل حذف الاستثناء");
+    revalidateTeacher(teacherId);
+    return { message: "deleted" };
+  },
+});
+
 export async function deleteException(teacherId: string, exceptionId: string): Promise<ActionResult> {
-  try {
-    await requireAdmin();
-  } catch (e) {
-    if (!(e instanceof ForbiddenError)) {
-      logError("admin/teachers/[id]: auth check failed unexpectedly", e, { tag: "admin-teachers" });
-    }
-    return { error: "غير مصرح" };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("availability_exceptions")
-    .delete()
-    .eq("id", exceptionId)
-    .eq("teacher_id", teacherId);
-  if (error) {
-    logError("admin deleteException failed", error, { tag: "admin-teachers", severity: "warning", metadata: { teacherId, exceptionId } });
-    return { error: "فشل حذف الاستثناء" };
-  }
-
-  revalidateTeacher(teacherId);
+  const result = await deleteExceptionBase({ teacherId, exceptionId });
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }
