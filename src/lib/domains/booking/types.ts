@@ -126,3 +126,89 @@ export class BookingStatusUpdateError extends Error {
     this.name = "BookingStatusUpdateError";
   }
 }
+
+// ─── confirmBooking (use-case orchestrator) ─────────────────────────────────
+//
+// Per ADR-0004: the booking-confirm choreography (createRoom + sessions
+// INSERT + notify + emitEvent) is bundled into a single domain orchestrator
+// instead of being inlined at every route adapter. The orchestrator's
+// critical path (bookings UPDATE + sessions INSERT) is atomic via the
+// `confirm_booking_with_session(uuid, text, text, timestamptz)` Postgres
+// function (migration 20260508011953). Side-effect calls (notify + emit)
+// stay best-effort post-commit.
+
+/**
+ * Structured input for `confirmBooking`.
+ *
+ * The orchestrator does its own pre-read of the booking row to learn
+ * `student_id`, `teacher_id`, `scheduled_at`, and `duration_min` — so
+ * callers don't have to re-pass them. Only `bookingId` (the row to act
+ * on) and `actorId` (for `emitEvent` actor field) are required.
+ */
+export interface ConfirmBookingInput {
+  bookingId: string;
+  actorId: string;
+}
+
+/**
+ * Result of a successful `confirmBooking`. Returns enough for the route
+ * adapter to surface the confirmed booking + new session in the UI
+ * (roomUrl is consumed by the existing teacher dashboard optimistic
+ * update — see `src/app/teacher/dashboard/booking-actions.tsx`).
+ */
+export interface ConfirmBookingResult {
+  bookingId: string;
+  sessionId: string;
+  roomUrl: string;
+  roomName: string;
+  studentId: string;
+  teacherId: string;
+}
+
+/**
+ * Thrown when the booking is no longer in `pending` state at confirm
+ * time. Two paths can produce this:
+ *   - The orchestrator's pre-read sees `status !== 'pending'` (the common
+ *     case — user double-clicked confirm, or admin and teacher raced).
+ *   - The atomic SQL function `confirm_booking_with_session` raises
+ *     `booking_not_pending` because someone transitioned the row
+ *     between the pre-read and the UPDATE.
+ *
+ * Route adapters should surface this as a benign "booking already
+ * processed" message, NOT a generic error.
+ */
+export class BookingAlreadyConfirmedError extends Error {
+  constructor(public readonly bookingId: string) {
+    super(`Booking ${bookingId} is not in pending state`);
+    this.name = "BookingAlreadyConfirmedError";
+  }
+}
+
+/**
+ * Thrown when Daily.co `createRoom` fails BEFORE any DB write. Carries
+ * the underlying API message for ops-side debugging; route adapters
+ * translate to a generic Arabic user-facing error.
+ *
+ * This error means NOTHING was committed to Postgres — the booking
+ * stays `pending`, no `sessions` row exists. The user can retry
+ * without cleanup.
+ */
+export class BookingRoomCreationError extends Error {
+  constructor(message: string) {
+    super(`Daily.co room creation failed: ${message}`);
+    this.name = "BookingRoomCreationError";
+  }
+}
+
+/**
+ * Thrown for unexpected DB errors during the atomic confirm path
+ * (anything that's not `booking_not_pending`). Wrapped so route
+ * adapters can `instanceof` instead of inspecting Supabase error
+ * shapes.
+ */
+export class BookingConfirmError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BookingConfirmError";
+  }
+}
