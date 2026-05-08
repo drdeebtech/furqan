@@ -173,9 +173,9 @@ The directive explicitly calls out homework. All 6 actions in `src/lib/actions/h
 
 | File:line | Action | Surface | Severity | Notes |
 |---|---|---|---|---|
-| `src/app/admin/teachers/actions.ts:10` | `createTeacher` | `auth.admin.createUser` + `teacher_profiles.insert` | P0 | Double-write; uses admin client |
-| `src/app/admin/teachers/actions.ts:80` | `updateTeacher` | `teacher_profiles.update` | P1 | |
-| `src/app/admin/teachers/actions.ts:116` | `verifyIjaza` | `teacher_ijazas.update` + `audit_log` | P1 | |
+| `src/app/admin/teachers/actions.ts:10` | `createTeacher` | `teacher_profiles.upsert` + `profiles.role` update | P0 | **Wrapped** ✅ (PR 11). Audit's prior description was inaccurate — does not call `auth.admin.createUser`; promotes an existing user. Severity `warning` matches `setUserRoles`. |
+| ~~`src/app/admin/teachers/actions.ts:80` `updateTeacher`~~ | — | — | — | **Dead-code; deleted in PR 11.** Zero callers in src/. Active path is `updateTeacherProfile` in `[id]/actions.ts:174` (already listed below). |
+| ~~`src/app/admin/teachers/actions.ts:116` `verifyIjaza`~~ | — | — | — | **Dead-code; deleted in PR 11.** Zero callers in src/. Active path is `setIjazaVerified` in `[id]/actions.ts:300` (listed below). |
 | `src/app/admin/teachers/[id]/actions.ts:42` | `updateAccount` | `auth.admin.updateUserById` | P0 | |
 | `src/app/admin/teachers/[id]/actions.ts:84` | `updateEmail` | `auth.admin.updateUserById` | P0 | |
 | `src/app/admin/teachers/[id]/actions.ts:115` | `uploadTeacherPhoto` | Storage + `teacher_profiles.update` | P2 | |
