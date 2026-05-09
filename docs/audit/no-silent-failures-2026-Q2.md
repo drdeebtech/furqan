@@ -106,20 +106,20 @@ Each row is one unwrapped action. **File:line** is the export site. **Surface** 
 
 | File:line | Action | Surface | Severity | Notes |
 |---|---|---|---|---|
-| `src/app/teacher/sessions/[id]/actions.ts:8` | `savePostSessionNotes` | `sessions.update` + `audit_log` | P1 | Spec 003 endSession contract reference |
-| `src/app/teacher/sessions/[id]/actions.ts:47` | `markNoErrorsObserved` | `sessions.update` | P1 | |
-| `src/app/student/sessions/actions.ts:24` | `attestSessionHappened` | `sessions.update` | P1 | |
-| `src/app/student/sessions/[id]/actions.ts:8` | `generateSessionToken` | Daily.co token mint | P1 | Token failure = student can't join |
-| `src/app/student/sessions/[id]/actions.ts:74` | `submitReview` | `course_reviews.insert` | P2 | |
-| `src/app/student/sessions/[id]/actions.ts:130` | `trackSessionEvent` | `automation_logs.insert` | P2 | Best-effort; ensure failure logs through `logError` not bare `.catch` |
+| `src/app/teacher/sessions/[id]/actions.ts` | `savePostSessionNotes` | `sessions.update` + emit `session.notes_saved` | P1 | **Wrapped** ✅ (PR 271). severity=info. n8n emit kept as best-effort `.catch(logError)`. |
+| `src/app/teacher/sessions/[id]/actions.ts` | `markNoErrorsObserved` | `student_progress.upsert` + `recitation_errors.insert` (sentinel) | P1 | **Wrapped** ✅ (PR 271). severity=info. Sentinel idempotency preserved (returns `alreadyMarked: true` via message-channel). |
+| `src/app/student/sessions/actions.ts` | `attestSessionHappened` | notify-only (no DB write); audited against `bookings` | P1 | **Wrapped** ✅ (PR 271). severity=info. notify-failure now throws with `{ cause }` so Sentry captures. |
+| `src/app/student/sessions/[id]/actions.ts` | `generateSessionToken` | Daily.co token mint | P1 | **Deferred** (PR 271). Returns `{ token, roomUrl }` payload that doesn't fit `loudAction`'s `Output` constraint. Kept loud-by-hand; **manual `audit_log` row added** (was missing). Same pattern as `joinAsObserver` (PR 16) and `getHomeworkAudioUrl` (PR 18). |
+| `src/app/student/sessions/[id]/actions.ts` | `submitReview` | `reviews.insert` (NOTE: doc previously said `course_reviews` — actual table is `reviews`) | P2 | **Wrapped** ✅ (PR 271). severity=info. 23505 dup-review now throws plain `UserError` (silent passthrough — pure user-input mistake). |
+| `src/app/student/sessions/[id]/actions.ts` | `trackSessionEvent` | `sessions.update` (joined/left flags) | P2 | **Wrapped** ✅ (PR 271). severity=info. **No audit row** — high-frequency telemetry; per-event audit would dwarf the work. Sentry coverage on system failure only. |
 | `src/app/admin/sessions/actions.ts:39` | `forceEndSession` | `bookings.update` + `sessions.update` | P1 | **Wrapped** ✅ (PR 16). severity=warning. Booking-then-session ordering preserved (rationale: session.ended_at guard makes retries idempotent). |
 | ~~`src/app/admin/sessions/actions.ts:135` `adminCreateRoom`~~ | — | — | — | **Dead-code; deleted in PR 16.** Zero callers in src/. The active room-creation path lives in `src/app/api/sessions/route.ts` (auto-create on booking confirmation). |
 | `src/app/admin/sessions/actions.ts:203` | `adminRecreateRoom` | Daily.co + `sessions.update` | P1 | **Wrapped** ✅ (PR 16). severity=warning (recovery action disconnects existing participants). 404-tolerant `deleteRoom` preserved. |
 | `src/app/admin/sessions/actions.ts:301` | `joinAsObserver` | `session_observers.insert` + Daily.co token | P1 | **Deferred** (PR 16). Returns `{ token, roomUrl }` payload that doesn't fit `loudAction`'s `Output` constraint. Kept loud-by-hand; **manual audit_log row added** (was missing). Future fix: extend Output type or split into wrapped-DB-write + thin token-mint. |
-| `src/lib/actions/session-lesson-plan.ts:63` | `setLessonPlan` | `sessions.update` | P2 | |
-| `src/lib/actions/session-lesson-plan.ts:94` | `toggleCheckpoint` | `sessions.update` | P2 | |
-| `src/lib/actions/session-lesson-plan.ts:140` | `clearLessonPlan` | `sessions.update` | P2 | |
-| `src/lib/actions/group-session.ts:31` | `addStudentToSession` | `bookings.insert` (group) | P1 | |
+| `src/lib/actions/session-lesson-plan.ts` | `setLessonPlan` | `sessions.update` (jsonb lesson_plan) | P2 | **Wrapped** ✅ (PR 271). severity=info. Empty-labels path inlines the clear (was previously a recursive call into the wrapped `clearLessonPlan` — now single audit row per call). |
+| `src/lib/actions/session-lesson-plan.ts` | `toggleCheckpoint` | `sessions.update` (jsonb lesson_plan) | P2 | **Wrapped** ✅ (PR 271). severity=info. |
+| `src/lib/actions/session-lesson-plan.ts` | `clearLessonPlan` | `sessions.update` (jsonb null) | P2 | **Wrapped** ✅ (PR 271). severity=info. |
+| `src/lib/actions/group-session.ts` | `addStudentToSession` | `bookings.insert` (group) + `student_packages` deduct RPC + `sessions.update` (capacity bump) + Daily.co room resize | P1 | **Wrapped** ✅ (PR 271). severity=info. Diff `audit_log` row preserved (`changed_by`, captures cascade detail) alongside the framework's generic audit. Daily resize stays best-effort (logged via `logError`, non-fatal). |
 
 **Domain bucket:** `sessions` (14 actions, 1 PR or split into 2)
 
@@ -137,9 +137,9 @@ The directive explicitly calls out homework. All 6 actions in `src/lib/actions/h
 | `src/lib/actions/homework.ts:482` | `deleteHomework` | `homework_assignments.delete` | P0 | **Wrapped** ✅ (PR 18). severity=warning. Cascades child assignments. Diff audit row preserved (NOTE: uses `actor_id`/`metadata` columns, differs from rest of codebase's `changed_by` convention — flagged for follow-up). |
 | `src/app/student/sessions/talqeen-actions.ts:29` | `createTalqeenHomework` | `homework_assignments.insert` | P1 | **Wrapped** ✅ (PR 19). severity=info. Returns `{ ok, homeworkId }` — homeworkId carried via `loudAction`'s `message` slot, public wrapper remaps to caller's expected shape (same trick as PR 12 `updateEmail`'s `notice`). |
 | `src/app/admin/follow-up/grade/actions.ts:42` | `bulkGradeHomework` | `homework_assignments.update` (bulk) | P0 | **Deferred** (PR 19). Returns `BulkGradeResult { graded, failed, errors[] }` aggregate that doesn't fit `loudAction`'s `Output: { message?: string }` constraint. **Kept loud-by-hand** — `logError` ADDED on the two per-item silent-fail surfaces (fetch + update failure paths) so Sentry sees genuine Supabase errors that would otherwise be summarized away in `errors[]`. Audit row + notify + n8n emit per item already in place. |
-| `src/app/teacher/students/[studentId]/actions.ts:7` | `resolveRecitationError` | `recitation_errors.update` | P2 | |
-| `src/app/teacher/students/[studentId]/actions.ts:29` | `updateSessionNotes` | `session_notes_history.insert` + `sessions.update` | P1 | |
-| `src/app/teacher/recitations/actions.ts:21` | `requestFreshRecitationAction` | `homework_assignments.insert` | P1 | |
+| `src/app/teacher/students/[studentId]/actions.ts` | `resolveRecitationError` | `recitation_errors.update` | P2 | **Wrapped** ✅ (PR 271). severity=info. |
+| `src/app/teacher/students/[studentId]/actions.ts` | `updateSessionNotes` | `sessions.update` (NOTE: doc previously claimed `session_notes_history.insert` dual-write — actual code only updates `sessions.post_session_notes`. The history-table dual-write may be a future enhancement; flagged here for follow-up). No UI caller in src/. | P1 | **Wrapped** ✅ (PR 271). severity=info. |
+| `src/app/teacher/recitations/actions.ts` | `requestFreshRecitationAction` | `homework_assignments.insert` | P1 | **Wrapped** ✅ (PR 271). severity=info. Student notify kept as best-effort try/catch + `logError`. |
 
 **Domain bucket:** `follow-up` (11 actions, 1 PR)
 
@@ -147,14 +147,14 @@ The directive explicitly calls out homework. All 6 actions in `src/lib/actions/h
 
 | File:line | Action | Surface | Severity | Notes |
 |---|---|---|---|---|
-| `src/app/(public)/packages/paypal-actions.ts:35` | `createPackageOrder` | PayPal API + `payments.insert` | P0 | Money path |
-| `src/app/(public)/packages/paypal-actions.ts:138` | `captureAndGrantPackage` | PayPal capture + `student_packages.insert` + `deduct_package_session` RPC | P0 | Money path; double-write |
+| `src/app/(public)/packages/paypal-actions.ts` | `createPackageOrder` | PayPal API + `payments.insert` | P0 | **Wrapped** ✅ (PR 271). **severity=critical** (Telegram-alerts on failure). Returns `{ ok, orderId }` — orderId carried via `loudAction`'s `message` slot, public wrapper remaps to caller's expected shape (same trick as PR 19 createTalqeenHomework). |
+| `src/app/(public)/packages/paypal-actions.ts` | `captureAndGrantPackage` | PayPal capture + `payments.update` + `student_packages.insert` + emit + notify | P0 | **Wrapped** ✅ (PR 271). **severity=critical**. Capture-then-grant ordering preserved verbatim per research.md Decision 5 — every post-capture failure path throws `UserError(msg, { cause })` so framework Telegram-alerts. Idempotency on `status='succeeded'` preserved via the message channel. Returns `{ ok, studentPackageId }` via the same message-as-id transport as createPackageOrder. |
 | `src/app/admin/packages/actions.ts:14` | `savePackage` | `packages.upsert` | P1 | |
 | `src/app/admin/packages/actions.ts:89` | `deletePackage` | `packages.delete` | P0 | Destructive |
 | `src/app/admin/packages/actions.ts:120` | `togglePackageActive` | `packages.update` | P1 | |
 | `src/app/admin/credits/actions.ts:26` | `grantCreditAction` | `student_packages.insert` | P0 | Manual money grant; needs audit_log |
-| `src/lib/actions/course-enrollments.ts:16` | `enrollFree` | `course_enrollments.insert` | P1 | |
-| `src/lib/actions/course-enrollments.ts:112` | `initiateEnrollmentCheckout` | Stripe-shaped (deferred) | P0 | Will become live when Stripe ships |
+| `src/lib/actions/course-enrollments.ts` | `enrollFree` | `course_enrollments.insert` + enrollment-count update + emit + teacher notify | P1 | **Wrapped** ✅ (PR 271). severity=info. 23505 dup-enrollment treated as idempotent success (not a throw — matches prior semantics). emit + notify stay best-effort. |
+| `src/lib/actions/course-enrollments.ts` | `initiateEnrollmentCheckout` | Stripe-shaped (deferred) | P0 | **Deferred (Stripe not shipped)** (PR 271). Comment updated to flag that the future implementation must adopt `loudAction` with severity:critical (mirrors PayPal pattern). |
 
 **Domain bucket:** `packages` (8 actions, 1 PR)
 
