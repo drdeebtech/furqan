@@ -112,10 +112,10 @@ Each row is one unwrapped action. **File:line** is the export site. **Surface** 
 | `src/app/student/sessions/[id]/actions.ts:8` | `generateSessionToken` | Daily.co token mint | P1 | Token failure = student can't join |
 | `src/app/student/sessions/[id]/actions.ts:74` | `submitReview` | `course_reviews.insert` | P2 | |
 | `src/app/student/sessions/[id]/actions.ts:130` | `trackSessionEvent` | `automation_logs.insert` | P2 | Best-effort; ensure failure logs through `logError` not bare `.catch` |
-| `src/app/admin/sessions/actions.ts:39` | `forceEndSession` | `sessions.update` | P1 | |
-| `src/app/admin/sessions/actions.ts:135` | `adminCreateRoom` | Daily.co + `sessions.update` | P1 | |
-| `src/app/admin/sessions/actions.ts:203` | `adminRecreateRoom` | Daily.co + `sessions.update` | P1 | |
-| `src/app/admin/sessions/actions.ts:301` | `joinAsObserver` | `session_observers.insert` + Daily.co | P1 | |
+| `src/app/admin/sessions/actions.ts:39` | `forceEndSession` | `bookings.update` + `sessions.update` | P1 | **Wrapped** ✅ (PR 16). severity=warning. Booking-then-session ordering preserved (rationale: session.ended_at guard makes retries idempotent). |
+| ~~`src/app/admin/sessions/actions.ts:135` `adminCreateRoom`~~ | — | — | — | **Dead-code; deleted in PR 16.** Zero callers in src/. The active room-creation path lives in `src/app/api/sessions/route.ts` (auto-create on booking confirmation). |
+| `src/app/admin/sessions/actions.ts:203` | `adminRecreateRoom` | Daily.co + `sessions.update` | P1 | **Wrapped** ✅ (PR 16). severity=warning (recovery action disconnects existing participants). 404-tolerant `deleteRoom` preserved. |
+| `src/app/admin/sessions/actions.ts:301` | `joinAsObserver` | `session_observers.insert` + Daily.co token | P1 | **Deferred** (PR 16). Returns `{ token, roomUrl }` payload that doesn't fit `loudAction`'s `Output` constraint. Kept loud-by-hand; **manual audit_log row added** (was missing). Future fix: extend Output type or split into wrapped-DB-write + thin token-mint. |
 | `src/lib/actions/session-lesson-plan.ts:63` | `setLessonPlan` | `sessions.update` | P2 | |
 | `src/lib/actions/session-lesson-plan.ts:94` | `toggleCheckpoint` | `sessions.update` | P2 | |
 | `src/lib/actions/session-lesson-plan.ts:140` | `clearLessonPlan` | `sessions.update` | P2 | |
