@@ -64,11 +64,17 @@ const createTeacherBase = loudAction<CreateTeacherInput, { message: string }>({
   handler: async (input) => {
     const supabase = await createClient();
 
-    const { data: existing } = await supabase
+    // PGRST116 ("no row matched") is the EXPECTED case here — falls
+    // through to the insert path. Real errors (RLS, network) propagate
+    // via cause so a regression doesn't masquerade as "no profile yet".
+    const { data: existing, error: existingErr } = await supabase
       .from("teacher_profiles")
       .select("teacher_id")
       .eq("teacher_id", input.teacherId)
       .single();
+    if (existingErr && existingErr.code !== "PGRST116") {
+      throw new UserError("فشل تحديث الملف", { cause: existingErr });
+    }
 
     const row: TableInsert<"teacher_profiles"> = {
       teacher_id: input.teacherId,

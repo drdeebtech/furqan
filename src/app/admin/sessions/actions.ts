@@ -7,7 +7,7 @@ import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { createRoom, deleteRoom, updateRoomMaxParticipants, createObserverToken, DailyApiError } from "@/lib/daily";
 import { notify } from "@/lib/notifications/dispatcher";
 import { logError, logWarn } from "@/lib/logger";
-import { loudAction } from "@/lib/actions/loud";
+import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
 
 /* ── Row types for query results ──────────────────────────────────────────── */
 
@@ -66,14 +66,14 @@ const forceEndSessionBase = loudAction<{ sessionId: string; reason: string }, { 
     const supabase = await createClient();
 
     /* Fetch session */
-    const { data: session } = await supabase
+    const { data: session, error: sessionErr } = await supabase
       .from("sessions")
       .select("id, booking_id, started_at, ended_at, actual_duration, teacher_joined, student_joined")
       .eq("id", sessionId)
       .single()
-      .then((r) => ({ data: r.data as SessionForEnd | null }));
+      .then((r) => ({ data: r.data as SessionForEnd | null, error: r.error }));
 
-    if (!session) throw new UserError("الجلسة غير موجودة");
+    if (sessionErr || !session) throw notFoundOrInfra(sessionErr, "الجلسة غير موجودة");
     if (session.ended_at) throw new UserError("الجلسة منتهية بالفعل");
     if (!session.started_at) throw new UserError("الجلسة لم تبدأ بعد");
 
@@ -182,23 +182,23 @@ const adminRecreateRoomBase = loudAction<{ sessionId: string }, { message: strin
   handler: async ({ sessionId }, { actorId }) => {
     const supabase = await createClient();
 
-    const { data: session } = await supabase
+    const { data: session, error: sessionErr } = await supabase
       .from("sessions")
       .select("id, room_name, booking_id, expires_at, room_url")
       .eq("id", sessionId)
       .single()
-      .then((r) => ({ data: r.data as SessionForRecreate | null }));
+      .then((r) => ({ data: r.data as SessionForRecreate | null, error: r.error }));
 
-    if (!session) throw new UserError("الجلسة غير موجودة");
+    if (sessionErr || !session) throw notFoundOrInfra(sessionErr, "الجلسة غير موجودة");
 
-    const { data: booking } = await supabase
+    const { data: booking, error: bookingErr } = await supabase
       .from("bookings")
       .select("scheduled_at, duration_min")
       .eq("id", session.booking_id)
       .single()
-      .then((r) => ({ data: r.data as BookingSchedule | null }));
+      .then((r) => ({ data: r.data as BookingSchedule | null, error: r.error }));
 
-    if (!booking) throw new UserError("الحجز غير موجود");
+    if (bookingErr || !booking) throw notFoundOrInfra(bookingErr, "الحجز غير موجود");
 
     /* Try to delete old room. 404 means it's already gone — totally fine.
      * Anything else (5xx, network failure) is a real Daily.co problem the

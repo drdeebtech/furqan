@@ -61,6 +61,51 @@ export type LoudResult = {
   error: string;
 };
 
+/**
+ * Minimal user-facing Error with the `userError` duck-type flag the framework
+ * looks for in its catch block. Use this when constructing UserError-shaped
+ * throws from helpers (like `notFoundOrInfra`) that don't have access to a
+ * per-file `UserError` class.
+ *
+ * Per-file `class UserError extends Error` declarations across the codebase
+ * are equivalent — they all set `readonly userError = true` and accept the
+ * same `(msg, options?)` constructor signature. The framework duck-types,
+ * so any of them work.
+ */
+function loudUserError(msg: string, options?: { cause?: unknown }): Error {
+  const err = new Error(msg, options) as Error & { userError: true };
+  err.name = "UserError";
+  err.userError = true;
+  return err;
+}
+
+/**
+ * Distinguish supabase-js's "row not found" code (PGRST116) from real
+ * infrastructure failures. Returns a UserError-shaped throw target:
+ *
+ *   - PGRST116 / null err → plain UserError (silent passthrough — admins
+ *     typing in non-existent IDs shouldn't ping Sentry on every miss)
+ *
+ *   - any other code (network, RLS regression, schema mismatch) → UserError
+ *     with `cause` attached so the framework's catch routes the underlying
+ *     error to Sentry / Telegram (on critical) / FAILED audit
+ *
+ * Usage:
+ *   const { data: hw, error: hwErr } = await supabase.from("...").single();
+ *   if (hwErr || !hw) throw notFoundOrInfra(hwErr, "المتابعة غير موجودة");
+ *
+ * The narrow input type covers PostgrestError + plain Error + null.
+ */
+export function notFoundOrInfra(
+  err: { code?: string; message?: string } | null | undefined,
+  friendly: string,
+): Error {
+  if (!err || err.code === "PGRST116") {
+    return loudUserError(friendly);
+  }
+  return loudUserError(friendly, { cause: err });
+}
+
 type Severity = "info" | "warning" | "critical";
 
 interface AuditConfig<TInput> {
