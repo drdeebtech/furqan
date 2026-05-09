@@ -92,6 +92,17 @@ export async function bulkGradeHomework(
       if (fetchErr || !hw) {
         result.failed += 1;
         result.errors.push(`المتابعة ${item.id} غير موجودة`);
+        // Loud-by-hand: this action's BulkGradeResult shape doesn't fit
+        // loudAction's Output: { message?: string } constraint, so the
+        // full wrap is deferred. logError keeps Sentry observability for
+        // the genuine fetch failure (RLS denial, network, missing row)
+        // that would otherwise be summarized away in the aggregate result.
+        if (fetchErr) {
+          logError("bulkGradeHomework: fetch failed", fetchErr, {
+            tag: "admin-followup-grade",
+            metadata: { homeworkId: item.id },
+          });
+        }
         continue;
       }
 
@@ -120,6 +131,13 @@ export async function bulkGradeHomework(
       if (updateErr) {
         result.failed += 1;
         result.errors.push(`تعذّر تحديث ${item.id}: ${updateErr.message}`);
+        // Same rationale as the fetch-failure path above — Supabase
+        // update errors should reach Sentry even though the wrap itself
+        // is deferred for the BulkGradeResult shape.
+        logError("bulkGradeHomework: update failed", updateErr, {
+          tag: "admin-followup-grade",
+          metadata: { homeworkId: item.id, grade: item.grade },
+        });
         continue;
       }
 
