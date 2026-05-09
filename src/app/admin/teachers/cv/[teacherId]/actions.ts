@@ -15,7 +15,7 @@ export type AdminCvSaveResult = { error?: string; success?: boolean };
 
 class UserError extends Error {
   readonly userError = true;
-  constructor(msg: string) { super(msg); this.name = "UserError"; }
+  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
 }
 
 // Auth model preserved from pre-wrap: `auth.getUser()` (any logged-in
@@ -72,7 +72,7 @@ const saveCvAsAdminBase = loudAction<SaveCvInput, { message: string }>({
         recitation_standards,
       })
       .eq("teacher_id", teacherId);
-    if (error) throw new UserError("فشل حفظ السيرة الذاتية");
+    if (error) throw new UserError("فشل حفظ السيرة الذاتية", { cause: error });
 
     revalidatePath(`/admin/teachers/cv/${teacherId}`);
     revalidatePath("/admin/teachers/cv");
@@ -126,7 +126,7 @@ const approveCvBase = loudAction<{ teacherId: string }, { message: string }>({
         cv_rejection_reason: null,
       })
       .eq("teacher_id", teacherId);
-    if (error) throw new UserError("فشل قبول السيرة الذاتية");
+    if (error) throw new UserError("فشل قبول السيرة الذاتية", { cause: error });
 
     // Best-effort teacher notification — must not fail the approval.
     try {
@@ -209,7 +209,7 @@ const resetCvToPendingBase = loudAction<{ teacherId: string }, { message: string
         cv_rejection_reason: null,
       })
       .eq("teacher_id", teacherId);
-    if (error) throw new UserError("فشل إعادة الحالة");
+    if (error) throw new UserError("فشل إعادة الحالة", { cause: error });
 
     revalidatePath("/admin/teachers/cv");
     revalidatePath(`/admin/teachers/cv/${teacherId}`);
@@ -251,7 +251,7 @@ const rejectCvBase = loudAction<{ teacherId: string; reason: string }, { message
         cv_rejection_reason: reason,
       })
       .eq("teacher_id", teacherId);
-    if (error) throw new UserError("فشل رفض السيرة الذاتية");
+    if (error) throw new UserError("فشل رفض السيرة الذاتية", { cause: error });
 
     // Best-effort teacher notification — must not fail the rejection.
     try {

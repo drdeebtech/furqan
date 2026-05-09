@@ -12,7 +12,7 @@ type ActionResult = { success?: boolean; error?: string };
 
 class UserError extends Error {
   readonly userError = true;
-  constructor(msg: string) { super(msg); this.name = "UserError"; }
+  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
 }
 
 async function adminPreflight(): Promise<{ actorId: string }> {
@@ -154,8 +154,10 @@ const deletePackageBase = loudAction<{ packageId: string }, { message: string }>
       // Preserve the existing user-facing message. NOTE (follow-up):
       // currently rebrands all errors as FK-linked; better would be to
       // detect Postgres code 23503 and only surface that message for
-      // genuine FK violations. Leaving as-is to keep this PR scoped.
-      throw new UserError("فشل حذف الباقة — قد تكون مرتبطة بمشتريات طلاب");
+      // genuine FK violations. Leaving the rebrand here; cause is
+      // attached so ops sees the real Postgres error in Sentry even
+      // when the message is the FK-flavor placeholder.
+      throw new UserError("فشل حذف الباقة — قد تكون مرتبطة بمشتريات طلاب", { cause: error });
     }
 
     await supabase.from("audit_log").insert({

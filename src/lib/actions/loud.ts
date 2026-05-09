@@ -8,11 +8,17 @@
  *   - The audit_log row is written on success and on system-failure.
  *   - The caller always receives a consistent { ok, error?, message? } shape.
  *
- * UserError exception (see `userError` duck-type below): handlers can throw
- * a UserError to communicate a business-logic failure to the caller — "not
- * found", validation, auth denials. These don't fire Sentry / Telegram and
- * don't write a FAILED audit row. The user sees the message; ops sees
- * nothing because there's nothing for ops to fix.
+ * UserError exceptions (see `userError` duck-type below):
+ *
+ *   - `throw new UserError("غير مصرح")` — pure preflight/validation. NOT a
+ *     system error: skip Sentry / Telegram / FAILED audit. The user sees the
+ *     message; ops sees nothing because there's nothing to fix.
+ *
+ *   - `throw new UserError("فشل حفظ", { cause: supabaseError })` — wraps a
+ *     system error. The cause is logged to Sentry as a system failure (and
+ *     Telegram on severity=critical, FAILED audit row), but the USER still
+ *     sees the friendly Arabic message. Use this for any throw that follows
+ *     `if (supabaseError)` / `if (storageError)` / `if (dailyApiError)`.
  *
  * Usage:
  *   export const myAction = loudAction({
@@ -156,20 +162,58 @@ export function loudAction<TInput, THandlerResult extends void | { message?: str
         throw err;
       }
 
-      // UserError passthrough — business-logic failures surfaced to the
-      // user (routine "not found", validation, auth denials). These are
-      // expected outcomes, NOT system errors. Skip Sentry, Telegram, and
-      // the FAILED audit row. The user sees the friendly message; ops
-      // sees nothing because there's nothing for ops to fix.
+      // UserError handling — duck-typed because each action file declares
+      // its own UserError class (per-file scope is intentional — keeps
+      // imports light), so `instanceof UserError` from this module won't
+      // match cross-file. Convention: every UserError class sets
+      // `readonly userError = true`.
       //
-      // Duck-typed because each action file declares its own UserError
-      // class (per-file scope is intentional — keeps imports light), so
-      // `instanceof UserError` from this module won't match cross-file.
-      // Convention: every UserError class sets `readonly userError = true`.
+      // Two sub-cases:
       //
-      // If a security-telemetry trail is wanted for auth-denial cases,
-      // the handler can call logWarn/logError itself before throwing.
+      //   1. UserError WITHOUT cause — pure preflight/validation failure
+      //      (auth denial, "not found", required field). Skip Sentry,
+      //      Telegram, FAILED audit row. The user sees the friendly
+      //      message; ops sees nothing because there's nothing to fix.
+      //
+      //   2. UserError WITH cause — wraps a system error (Supabase, Daily,
+      //      storage, etc). Log the cause to Sentry, fire Telegram on
+      //      critical severity, and write the FAILED audit row using the
+      //      cause's message. The USER still sees the UserError's friendly
+      //      Arabic message — but ops sees the underlying infrastructure
+      //      failure for diagnosis.
+      //
+      // To use case 2, throw with the standard ES2022 cause option:
+      //   throw new UserError("فشل ...", { cause: supabaseError });
+      // The per-file UserError classes accept the second argument and
+      // forward it via super(msg, options).
       if (err instanceof Error && (err as { userError?: boolean }).userError === true) {
+        const cause = (err as { cause?: unknown }).cause;
+        if (cause !== undefined) {
+          const causeMessage = cause instanceof Error ? cause.message : String(cause);
+          logError(`loudAction[${config.name}] failed (user-facing wrap)`, cause, {
+            tag: "loud-action",
+            actionName: config.name,
+            severity: config.severity ?? "info",
+          });
+          if (config.severity === "critical") {
+            after(() =>
+              sendTelegramAlert(
+                `🚨 <b>Critical action failed</b>\n\n<b>Action:</b> ${config.name}\n<b>User-facing:</b> ${escapeHtml(err.message)}\n<b>Cause:</b> ${escapeHtml(causeMessage)}`,
+              ).catch(() => { /* don't double-fail */ }),
+            );
+          }
+          if (config.audit) {
+            const auditConfig = config.audit;
+            after(() =>
+              writeAudit(auditConfig, input, actorId, "failure", causeMessage).catch((auditErr) =>
+                logError("loudAction audit write failed (failure path)", auditErr, {
+                  tag: "loud-action",
+                  actionName: config.name,
+                }),
+              ),
+            );
+          }
+        }
         return { ok: false, error: err.message };
       }
 

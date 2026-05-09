@@ -12,7 +12,7 @@ import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
 class UserError extends Error {
   readonly userError = true;
-  constructor(msg: string) { super(msg); this.name = "UserError"; }
+  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
 }
 
 async function adminPreflight(): Promise<{ actorId: string }> {
@@ -83,17 +83,17 @@ const createTeacherBase = loudAction<CreateTeacherInput, { message: string }>({
 
     if (existing) {
       const { error } = await supabase.from("teacher_profiles").update(row).eq("teacher_id", input.teacherId);
-      if (error) throw new UserError("فشل تحديث الملف: " + error.message);
+      if (error) throw new UserError("فشل تحديث الملف: " + error.message, { cause: error });
     } else {
       const { error } = await supabase.from("teacher_profiles").insert(row);
-      if (error) throw new UserError("فشل إنشاء الملف: " + error.message);
+      if (error) throw new UserError("فشل إنشاء الملف: " + error.message, { cause: error });
     }
 
     const { error: roleError } = await supabase
       .from("profiles")
       .update({ role: "teacher" } satisfies TableUpdate<"profiles">)
       .eq("id", input.teacherId);
-    if (roleError) throw new UserError("تم إنشاء الملف لكن فشل تحديث الدور: " + roleError.message);
+    if (roleError) throw new UserError("تم إنشاء الملف لكن فشل تحديث الدور: " + roleError.message, { cause: roleError });
 
     // Promoted to teacher — flush per-user role cache so middleware
     // doesn't keep them as "student" for up to the 10s TTL fallback.
