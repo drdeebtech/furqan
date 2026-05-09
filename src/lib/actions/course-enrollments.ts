@@ -58,8 +58,13 @@ const enrollFreeBase = loudAction<{ courseId: string }, { message: string }>({
         currency: "USD",
       } as never);
 
-    if (error && error.code !== "23505") {
-      // 23505 = already enrolled — treat as success (idempotent re-click)
+    if (error) {
+      // 23505 = already enrolled — treat as idempotent success WITHOUT
+      // re-firing the side effects below (emitEvent / teacher notify /
+      // enrollment-count bump). Returning early matches the pre-wrap
+      // behavior. Sentry's bug-prediction caught this regression on the
+      // first wrap pass — see PR #271 review.
+      if (error.code === "23505") return { message: "already-enrolled" };
       throw new UserError("فشل الاشتراك — يرجى المحاولة مرة أخرى", { cause: error });
     }
 
