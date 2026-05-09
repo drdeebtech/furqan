@@ -63,7 +63,14 @@ export async function scoreRetentionBatch(): Promise<RetentionBatchResult> {
       .gte("created_at", since)
       .returns<BookingRow[]>(),
     supabase.from("sessions")
-      .select("started_at, bookings!inner(student_id, scheduled_at)")
+      // Explicit FK hint disambiguates the sessions ↔ bookings relationship —
+      // PostgREST raises PGRST201 (Sentry JAVASCRIPT-NEXTJS-E4-24) without it
+      // because bookings.session_id has both an M:1 FK
+      // (`bookings_session_id_fkey`) and a 1:1 unique-constraint shape
+      // (`sessions_booking_id_fkey`). For the retention-scoring path we want
+      // the M:1 FK from bookings.session_id → sessions.id. Same pattern as
+      // src/lib/actions/session-lesson-plan.ts.
+      .select("started_at, bookings!bookings_session_id_fkey!inner(student_id, scheduled_at)")
       .in("bookings.student_id", studentIds)
       .gte("bookings.scheduled_at", since)
       .returns<SessionRow[]>(),
