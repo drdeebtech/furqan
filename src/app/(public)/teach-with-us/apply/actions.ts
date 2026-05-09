@@ -10,6 +10,7 @@ import { sendTeacherWelcome, sendAdminTeacherApplicationAlert } from "@/lib/emai
 import { sendTelegramAlert } from "@/lib/n8n/client";
 import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
+import { loudAction } from "@/lib/actions/loud";
 import type { CvStatus } from "@/types/database";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
@@ -55,6 +56,26 @@ export type ApplyResult = {
   success?: string;
 };
 
+class UserError extends Error {
+  readonly userError = true;
+  constructor(msg: string, options?: { cause?: unknown }) {
+    super(msg, options);
+    this.name = "UserError";
+  }
+}
+
+// User-facing success strings. The handler stashes one of the keys in
+// loudAction's `message` slot; the public adapter remaps to the real text.
+// This indirection lets the handler distinguish soft-existing-email
+// (no enumeration; marketing-style ambiguous response) from a real new
+// application — both are "success" but display different copy.
+const SUCCESS_TEXT = {
+  applied:
+    "تم استلام طلبك بنجاح. تحقق من بريدك الإلكتروني — أرسلنا لك رابط دخول مباشر للوحة المعلم.",
+  alreadyRegistered:
+    "إذا كان هذا البريد مسجلاً مسبقاً فستصلك رسالة لتأكيد الطلب. وإلا فتحقق من بريدك الوارد قريباً.",
+} as const;
+
 async function checkApplyRate(ipKey: string): Promise<boolean> {
   try {
     const supabase = await createClient();
@@ -92,14 +113,282 @@ async function checkApplyRate(ipKey: string): Promise<boolean> {
   }
 }
 
+// ─── Wrapped DB-side handler (loudAction, severity=warning) ─────────────────
+
+type ApplyInput = {
+  full_name: string;
+  email: string;
+  phone: string;
+  country: string;
+  gender: string;
+  years_experience: number;
+  bio: string;
+  intro_video_url: string;
+  languages: string[];
+  recitation_standards: string[];
+  specialties: string[];
+  ipKey: string;
+  // Photo handed in raw — the handler does its own size/type guard. Wrapping
+  // a Blob through useActionState would lose the File metadata, so we hand
+  // the original File reference through.
+  photo: File | null;
+};
+
+const submitTeacherApplicationBase = loudAction<ApplyInput, { message: string }>({
+  name: "teach-apply.submit",
+  // P0-adjacent: a real teacher application going missing is operationally
+  // significant (would have surfaced "sheikh anas" the first time). Warning
+  // routes to Sentry without paging Telegram on every routine application;
+  // explicit Telegram still fires inside the handler for the new-applicant
+  // alert.
+  severity: "warning",
+  audit: {
+    table: "teacher_profiles",
+    // recordId resolved post-create; the audit envelope row written by the
+    // framework records the IP-based pseudo-id pre-create. The diff
+    // `audit_log.insert` at the end of the handler carries the real
+    // teacherId once auth.admin.createUser returns it.
+    recordId: (i) => `pending:${i.email}`,
+    action: "INSERT",
+    reasonPrefix: "teacher self-applied",
+  },
+  // No preflight — apply is anonymous (no auth). actorId stays null.
+  handler: async (input) => {
+    if (!(await checkApplyRate(input.ipKey))) {
+      throw new UserError("تم تجاوز عدد المحاولات المسموحة — حاول خلال ساعة");
+    }
+
+    const adminClient = createAdminClient();
+
+    const tempPassword = randomBytes(32).toString("hex");
+    const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+      email: input.email,
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: { full_name: input.full_name },
+    });
+
+    if (authError || !authData?.user) {
+      if (authError?.message?.includes("already been registered")) {
+        // Soft response — no enumeration of existing accounts.
+        // NOT a system error; plain UserError-shape return via message.
+        return { message: "alreadyRegistered" };
+      }
+      throw new UserError("تعذّر إنشاء الحساب — حاول لاحقاً", {
+        cause: authError ?? new Error("createUser returned no user"),
+      });
+    }
+
+    const teacherId = authData.user.id;
+
+    // Both `role` (scalar) AND `roles[]` (array) must transition together to
+    // satisfy `profiles_active_role_in_set` CHECK constraint. See the
+    // companion fixes in admin/teachers/actions.ts and admin/users/actions.ts
+    // (same root cause across all three role-mutating writers).
+    const { data: profileUpd, error: profileError } = await adminClient
+      .from("profiles")
+      .update({
+        role: "teacher",
+        roles: ["teacher"],
+        full_name: input.full_name,
+        phone: input.phone,
+        country: input.country,
+      } as never)
+      .eq("id", teacherId)
+      .select("id");
+    if (profileError || !profileUpd || profileUpd.length === 0) {
+      throw new UserError("تم إنشاء الحساب لكن فشل تحديث الملف — راسل الدعم", {
+        cause: profileError ?? new Error(`profile update affected 0 rows for teacherId=${teacherId}`),
+      });
+    }
+
+    // Optional photo upload — best-effort, never blocks the application.
+    if (input.photo && input.photo.size > 0) {
+      const okType = ["image/jpeg", "image/png", "image/webp"].includes(input.photo.type);
+      const okSize = input.photo.size <= 2 * 1024 * 1024;
+      if (okType && okSize) {
+        try {
+          const ext = input.photo.type === "image/jpeg" ? "jpg" : input.photo.type.split("/")[1];
+          const path = `${teacherId}/${Date.now()}.${ext}`;
+          const { error: upErr } = await adminClient.storage
+            .from("teacher-avatars")
+            .upload(path, input.photo, { contentType: input.photo.type, upsert: false });
+          if (upErr) {
+            logError("teach-apply photo upload failed", upErr, { tag: "teach-apply" });
+          } else {
+            const { data: pub } = adminClient.storage.from("teacher-avatars").getPublicUrl(path);
+            const avatarUrl = pub?.publicUrl ?? null;
+            if (avatarUrl) {
+              await adminClient
+                .from("profiles")
+                .update({ avatar_url: avatarUrl } satisfies TableUpdate<"profiles">)
+                .eq("id", teacherId);
+            }
+          }
+        } catch (err) {
+          logError("teach-apply photo flow crashed", err, { tag: "teach-apply" });
+        }
+      }
+    }
+
+    const cv_status: CvStatus = "pending_review";
+    // bio_en exists in TS types but not in the live Postgres schema — sending it
+    // makes the insert fail. Single bio field; admin can localise later if needed.
+    const { error: tpError } = await adminClient.from("teacher_profiles").insert({
+      teacher_id: teacherId,
+      bio: input.bio,
+      specialties: input.specialties,
+      recitation_standards: input.recitation_standards,
+      languages: input.languages,
+      hourly_rate: 20,
+      gender: (input.gender || null) as "male" | "female" | null,
+      intro_video_url: input.intro_video_url || null,
+      cv_status,
+      cv_submitted_at: new Date().toISOString(),
+    });
+    if (tpError) {
+      throw new UserError("تم إنشاء الحساب لكن فشل حفظ بيانات المعلم — راسل الدعم", {
+        cause: tpError,
+      });
+    }
+
+    let magicLink: string | null = null;
+    try {
+      const { data: linkData } = await adminClient.auth.admin.generateLink({
+        type: "magiclink",
+        email: input.email,
+      });
+      magicLink = linkData?.properties?.action_link ?? null;
+    } catch (err) {
+      logError("teach-apply generateLink failed", err, { tag: "teach-apply" });
+    }
+
+    if (magicLink) {
+      await sendTeacherWelcome({
+        to: input.email,
+        fullName: input.full_name,
+        magicLink,
+        yearsExperience: input.years_experience,
+      }).catch((err) => logError("teach-apply welcome email failed", err, { tag: "teach-apply" }));
+    }
+
+    await emitEvent(
+      "teacher.applied",
+      "teacher_profile",
+      teacherId,
+      {
+        email: input.email,
+        full_name: input.full_name,
+        country: input.country,
+        languages: input.languages,
+        recitation_standards: input.recitation_standards,
+        specialties: input.specialties,
+        years_experience: input.years_experience,
+      },
+      null,
+    ).catch((err) => logError("teach-apply emitEvent failed", err, { tag: "teach-apply" }));
+
+    // Multi-channel admin notification — fire-and-forget, never block the user.
+    // TODO: WhatsApp once cloud API token is configured.
+    await Promise.allSettled([
+      // 1. In-app bell for every admin.
+      //    Filter by `roles[] @> ['admin']` instead of `role = 'admin'` so
+      //    multi-role admins (e.g. an admin currently viewing as teacher with
+      //    role='teacher', roles=['admin','teacher']) still receive the alert.
+      //    The `profiles_roles_gin` index from migration 20260501173121
+      //    supports this filter cheaply.
+      (async () => {
+        const { data: admins } = await adminClient
+          .from("profiles")
+          .select("id")
+          .contains("roles", ["admin"])
+          .returns<{ id: string }[]>();
+        // Empty-broadcast fail-loud: if zero admins matched, ops would never
+        // see a new application again. Surface to Sentry + Telegram so the
+        // missing-admins state shows up the first time it happens, not the
+        // 50th. (Layer 4c per /Users/drdeeb/.claude/plans/one-tacher-aplied-to-cozy-swan.md.)
+        if (!admins || admins.length === 0) {
+          logError(
+            "teach-apply admin broadcast hit zero recipients",
+            new Error("no profiles with roles @> ['admin'] — admin alert silently dropped"),
+            { tag: "teach-apply", severity: "warning", metadata: { teacherId } },
+          );
+          sendTelegramAlert(
+            `⚠️ <b>Teacher application received but NO admin recipients found</b>\n\n` +
+              `<b>Applicant:</b> ${input.full_name}\n<b>Email:</b> ${input.email}\n` +
+              `Investigate: <code>profiles WHERE 'admin' = ANY(roles)</code> returned 0 rows.`,
+          ).catch((err) =>
+            logError("teach-apply zero-admin telegram fallback failed", err, { tag: "teach-apply" }),
+          );
+          return;
+        }
+        const body = `${input.full_name} (${input.country}) — ${input.specialties.slice(0, 3).join(", ")}`;
+        await Promise.allSettled(
+          admins.map((a) =>
+            notify({
+              userId: a.id,
+              type: "system",
+              title: "طلب تدريس جديد",
+              body,
+              entityType: "teacher_profile",
+              entityId: teacherId,
+            }),
+          ),
+        );
+      })().catch((err) => logError("teach-apply in-app notify failed", err, { tag: "teach-apply" })),
+
+      // 2. Email to ADMIN_EMAIL
+      sendAdminTeacherApplicationAlert({
+        fullName: input.full_name,
+        email: input.email,
+        phone: input.phone,
+        country: input.country,
+        languages: input.languages,
+        recitations: input.recitation_standards,
+        specialties: input.specialties,
+        yearsExperience: input.years_experience,
+        teacherId,
+      }).catch((err) => logError("teach-apply admin email failed", err, { tag: "teach-apply" })),
+
+      // 3. Telegram alert
+      sendTelegramAlert(
+        `🆕 <b>New teacher application</b>\n\n` +
+          `<b>Name:</b> ${input.full_name}\n` +
+          `<b>Country:</b> ${input.country}\n` +
+          `<b>Email:</b> ${input.email}\n` +
+          `<b>Phone:</b> ${input.phone}\n` +
+          `<b>Specialties:</b> ${input.specialties.join(", ")}\n\n` +
+          `<a href="https://www.furqan.today/admin/teachers/cv/${teacherId}">Review →</a>`,
+      ).catch((err) => logError("teach-apply telegram failed", err, { tag: "teach-apply" })),
+    ]);
+
+    // Diff audit row — preserved alongside the framework's generic envelope.
+    // Carries the actual teacherId (the framework's recordId is a `pending:`
+    // placeholder pre-create).
+    await adminClient.from("audit_log").insert({
+      changed_by: teacherId,
+      table_name: "teacher_profiles",
+      record_id: teacherId,
+      action: "INSERT",
+      old_data: null,
+      new_data: { email: input.email, full_name: input.full_name, source: "teach-apply" },
+      reason: "Teacher self-applied via /teach-with-us/apply",
+    });
+
+    return { message: "applied" };
+  },
+});
+
+// ─── Public wrapper ─────────────────────────────────────────────────────────
+
 export async function submitTeacherApplication(
   _prev: ApplyResult,
   formData: FormData,
 ): Promise<ApplyResult> {
+  // BotID + form parsing + validation OUTSIDE the loudAction wrap. These
+  // are user-input checks, not system failures — wrapping them would route
+  // every typo'd email into Sentry and the audit_log, which is noise.
   const verification = await checkBotId();
-  // Fail-closed: ambiguous BotID verdicts are treated as bot. Matches the
-  // contact-form pattern; previous `verification.isBot` only blocked confident
-  // verdicts, allowing partial-failure or novel-automation requests through.
   if (!verification.isHuman) {
     return { error: "تعذر التحقق من الطلب" };
   }
@@ -159,229 +448,30 @@ export async function submitTeacherApplication(
     hdrs.get("x-real-ip") ||
     "unknown";
 
-  if (!(await checkApplyRate(ipKey))) {
-    return { error: "تم تجاوز عدد المحاولات المسموحة — حاول خلال ساعة" };
-  }
-
-  const adminClient = createAdminClient();
-
-  const tempPassword = randomBytes(32).toString("hex");
-  const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
-    email,
-    password: tempPassword,
-    email_confirm: true,
-    user_metadata: { full_name },
-  });
-
-  if (authError || !authData?.user) {
-    if (authError?.message?.includes("already been registered")) {
-      // Soft response — no enumeration of existing accounts
-      return {
-        success:
-          "إذا كان هذا البريد مسجلاً مسبقاً فستصلك رسالة لتأكيد الطلب. وإلا فتحقق من بريدك الوارد قريباً.",
-      };
-    }
-    logError("teach-apply createUser failed", authError, { tag: "teach-apply" });
-    return { error: "تعذّر إنشاء الحساب — حاول لاحقاً" };
-  }
-
-  const teacherId = authData.user.id;
-
-  // Both `role` (scalar) AND `roles[]` (array) must transition together to
-  // satisfy `profiles_active_role_in_set` CHECK constraint (`role = ANY(roles)`,
-  // see migration 20260501173121). Schema default for `roles` is `['student']`
-  // (migration 20260506083602) — leaving it would make the CHECK fail and
-  // Postgres reject the UPDATE. The prior code updated only the scalar `role`,
-  // every applicant hit the constraint violation, the function exited early
-  // at this guard, and no admin notification ever fired. Operator audit
-  // 2026-05-09: confirmed via "sheikh anas" application that landed under
-  // students.
-  //
-  // `.select("id")` exposes zero-rows-affected as a fail-loud signal
-  // (CodeRabbit pattern from PR #271) — RLS denial would otherwise return
-  // `error: null` + `data: []` and the wrap below would treat it as success.
-  const { data: profileUpd, error: profileError } = await adminClient
-    .from("profiles")
-    .update({
-      role: "teacher",
-      roles: ["teacher"],
-      full_name,
-      phone,
-      country,
-    } as never)
-    .eq("id", teacherId)
-    .select("id");
-  if (profileError || !profileUpd || profileUpd.length === 0) {
-    logError("teach-apply profile update failed", profileError, {
-      tag: "teach-apply",
-      severity: "warning",
-      metadata: { teacherId, rowsAffected: profileUpd?.length ?? 0 },
-    });
-    return { error: "تم إنشاء الحساب لكن فشل تحديث الملف — راسل الدعم" };
-  }
-
-  // Optional photo upload — best-effort, never blocks the application.
   const photoFile = formData.get("photo");
-  if (photoFile instanceof File && photoFile.size > 0) {
-    const okType = ["image/jpeg", "image/png", "image/webp"].includes(photoFile.type);
-    const okSize = photoFile.size <= 2 * 1024 * 1024;
-    if (okType && okSize) {
-      try {
-        const ext = photoFile.type === "image/jpeg" ? "jpg" : photoFile.type.split("/")[1];
-        const path = `${teacherId}/${Date.now()}.${ext}`;
-        const { error: upErr } = await adminClient.storage
-          .from("teacher-avatars")
-          .upload(path, photoFile, { contentType: photoFile.type, upsert: false });
-        if (upErr) {
-          logError("teach-apply photo upload failed", upErr, { tag: "teach-apply" });
-        } else {
-          const { data: pub } = adminClient.storage.from("teacher-avatars").getPublicUrl(path);
-          const avatarUrl = pub?.publicUrl ?? null;
-          if (avatarUrl) {
-            await adminClient
-              .from("profiles")
-              .update({ avatar_url: avatarUrl } satisfies TableUpdate<"profiles">)
-              .eq("id", teacherId);
-          }
-        }
-      } catch (err) {
-        logError("teach-apply photo flow crashed", err, { tag: "teach-apply" });
-      }
-    }
-  }
+  const photo = photoFile instanceof File ? photoFile : null;
 
-  const cv_status: CvStatus = "pending_review";
-  // bio_en exists in TS types but not in the live Postgres schema — sending it
-  // makes the insert fail. Single bio field; admin can localise later if needed.
-  const { error: tpError } = await adminClient.from("teacher_profiles").insert({
-    teacher_id: teacherId,
+  const result = await submitTeacherApplicationBase({
+    full_name,
+    email,
+    phone,
+    country,
+    gender,
+    years_experience,
     bio,
-    specialties,
-    recitation_standards,
+    intro_video_url,
     languages,
-    hourly_rate: 20,
-    // Form input arrives as untyped string; the column is the gender_type
-    // enum ('male' | 'female'). Narrowing cast documents the expected type
-    // at the site (better than blanket `as never`).
-    gender: (gender || null) as "male" | "female" | null,
-    intro_video_url: intro_video_url || null,
-    cv_status,
-    cv_submitted_at: new Date().toISOString(),
-  });
-  if (tpError) {
-    logError("teach-apply teacher_profile insert failed", tpError, { tag: "teach-apply" });
-    return { error: "تم إنشاء الحساب لكن فشل حفظ بيانات المعلم — راسل الدعم" };
-  }
-
-  let magicLink: string | null = null;
-  try {
-    const { data: linkData } = await adminClient.auth.admin.generateLink({
-      type: "magiclink",
-      email,
-    });
-    magicLink = linkData?.properties?.action_link ?? null;
-  } catch (err) {
-    logError("teach-apply generateLink failed", err, { tag: "teach-apply" });
-  }
-
-  if (magicLink) {
-    await sendTeacherWelcome({ to: email, fullName: full_name, magicLink, yearsExperience: years_experience }).catch(
-      (err) => logError("teach-apply welcome email failed", err, { tag: "teach-apply" }),
-    );
-  }
-
-  await emitEvent(
-    "teacher.applied",
-    "teacher_profile",
-    teacherId,
-    { email, full_name, country, languages, recitation_standards, specialties, years_experience },
-    null,
-  ).catch((err) => logError("teach-apply emitEvent failed", err, { tag: "teach-apply" }));
-
-  // Multi-channel admin notification — fire-and-forget, never block the user.
-  // TODO: WhatsApp once cloud API token is configured.
-  await Promise.allSettled([
-    // 1. In-app bell for every admin.
-    //    Filter by `roles[] @> ['admin']` instead of `role = 'admin'` so
-    //    multi-role admins (e.g. an admin currently viewing as teacher with
-    //    role='teacher', roles=['admin','teacher']) still receive the alert.
-    //    The `profiles_roles_gin` index from migration 20260501173121
-    //    supports this filter cheaply.
-    (async () => {
-      const { data: admins } = await adminClient
-        .from("profiles")
-        .select("id")
-        .contains("roles", ["admin"])
-        .returns<{ id: string }[]>();
-      // Empty-broadcast fail-loud: if zero admins matched, ops would never
-      // see a new application again. Surface to Sentry + Telegram so the
-      // missing-admins state shows up the first time it happens, not the
-      // 50th. (Layer 4c per PR plan.)
-      if (!admins || admins.length === 0) {
-        logError(
-          "teach-apply admin broadcast hit zero recipients",
-          new Error("no profiles with roles @> ['admin'] — admin alert silently dropped"),
-          { tag: "teach-apply", severity: "warning", metadata: { teacherId } },
-        );
-        sendTelegramAlert(
-          `⚠️ <b>Teacher application received but NO admin recipients found</b>\n\n` +
-            `<b>Applicant:</b> ${full_name}\n<b>Email:</b> ${email}\n` +
-            `Investigate: <code>profiles WHERE 'admin' = ANY(roles)</code> returned 0 rows.`,
-        ).catch((err) => logError("teach-apply zero-admin telegram fallback failed", err, { tag: "teach-apply" }));
-        return;
-      }
-      const body = `${full_name} (${country}) — ${specialties.slice(0, 3).join(", ")}`;
-      await Promise.allSettled(
-        admins.map((a) =>
-          notify({
-            userId: a.id,
-            type: "system",
-            title: "طلب تدريس جديد",
-            body,
-            entityType: "teacher_profile",
-            entityId: teacherId,
-          }),
-        ),
-      );
-    })().catch((err) => logError("teach-apply in-app notify failed", err, { tag: "teach-apply" })),
-
-    // 2. Email to ADMIN_EMAIL
-    sendAdminTeacherApplicationAlert({
-      fullName: full_name,
-      email,
-      phone,
-      country,
-      languages,
-      recitations: recitation_standards,
-      specialties,
-      yearsExperience: years_experience,
-      teacherId,
-    }).catch((err) => logError("teach-apply admin email failed", err, { tag: "teach-apply" })),
-
-    // 3. Telegram alert
-    sendTelegramAlert(
-      `🆕 <b>New teacher application</b>\n\n` +
-        `<b>Name:</b> ${full_name}\n` +
-        `<b>Country:</b> ${country}\n` +
-        `<b>Email:</b> ${email}\n` +
-        `<b>Phone:</b> ${phone}\n` +
-        `<b>Specialties:</b> ${specialties.join(", ")}\n\n` +
-        `<a href="https://www.furqan.today/admin/teachers/cv/${teacherId}">Review →</a>`,
-    ).catch((err) => logError("teach-apply telegram failed", err, { tag: "teach-apply" })),
-  ]);
-
-  await adminClient.from("audit_log").insert({
-    changed_by: teacherId,
-    table_name: "teacher_profiles",
-    record_id: teacherId,
-    action: "INSERT",
-    old_data: null,
-    new_data: { email, full_name, source: "teach-apply" },
-    reason: "Teacher self-applied via /teach-with-us/apply",
+    recitation_standards,
+    specialties,
+    ipKey,
+    photo,
   });
 
-  return {
-    success:
-      "تم استلام طلبك بنجاح. تحقق من بريدك الإلكتروني — أرسلنا لك رابط دخول مباشر للوحة المعلم.",
-  };
+  if (!result.ok) return { error: result.error };
+  // result.message marks which success copy to render. Defaults to the
+  // happy-path "applied" text for any unrecognised marker (defensive).
+  if (result.message === "alreadyRegistered") {
+    return { success: SUCCESS_TEXT.alreadyRegistered };
+  }
+  return { success: SUCCESS_TEXT.applied };
 }

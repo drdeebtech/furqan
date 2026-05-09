@@ -102,12 +102,18 @@ const createTeacherBase = loudAction<CreateTeacherInput, { message: string }>({
     // `/teach-with-us/apply` 2026-05-09. We append "teacher" to existing
     // roles[] so any pre-existing held roles (e.g. user was already an admin)
     // are preserved; admin/users/actions.ts uses the same pattern.
-    const { data: prev } = await supabase
+    const { data: prev, error: prevErr } = await supabase
       .from("profiles")
       .select("roles")
       .eq("id", input.teacherId)
       .single<{ roles: string[] | null }>();
-    const newRoles = Array.from(new Set([...(prev?.roles ?? []), "teacher"])) as ("student" | "teacher" | "admin" | "moderator")[];
+    if (prevErr || !prev) {
+      throw new UserError("تم إنشاء الملف لكن لم نعثر على بيانات الدور الحالية", {
+        cause: prevErr ?? new Error(`profiles select returned no row for ${input.teacherId}`),
+      });
+    }
+    const heldRoles = prev.roles ?? [];
+    const newRoles = Array.from(new Set([...heldRoles, "teacher"])) as ("student" | "teacher" | "admin" | "moderator")[];
     const { data: roleUpd, error: roleError } = await supabase
       .from("profiles")
       .update({ role: "teacher", roles: newRoles } satisfies TableUpdate<"profiles">)
