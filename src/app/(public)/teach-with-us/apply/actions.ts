@@ -59,11 +59,17 @@ async function checkApplyRate(ipKey: string): Promise<boolean> {
   try {
     const supabase = await createClient();
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    // `automation_logs.entity_id` is a UUID column. Storing the raw IP
+    // string there caused Postgres 22P02 (`invalid input syntax for type
+    // uuid`) on every apply, which surfaced as JAVASCRIPT-NEXTJS-E4-25,
+    // E4-26, E4-29 in Sentry. Move the IP into `payload_json` (jsonb) and
+    // leave `entity_id` NULL — the IP is rate-limit metadata, not a domain
+    // entity. Query/insert pivot to `payload_json->>ip`.
     const { count } = await supabase
       .from("automation_logs")
       .select("id", { count: "exact", head: true })
       .eq("workflow_name", "teach-apply-attempt")
-      .eq("entity_id", ipKey)
+      .eq("payload_json->>ip", ipKey)
       .gte("started_at", oneHourAgo);
 
     if ((count ?? 0) >= MAX_APPLICATIONS_PER_HOUR) return false;
@@ -72,7 +78,8 @@ async function checkApplyRate(ipKey: string): Promise<boolean> {
     await supabase.from("automation_logs").insert({
       workflow_name: "teach-apply-attempt",
       entity_type: "ip",
-      entity_id: ipKey,
+      entity_id: null,
+      payload_json: { ip: ipKey },
       status: "succeeded",
       started_at: now,
       finished_at: now,
