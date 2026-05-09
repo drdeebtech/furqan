@@ -109,7 +109,7 @@ Open questions to resolve:
 - **Q4**: For `generateSessionToken` and `toggleArchiveTeacher`, defer or pack-into-`message`? *(Resolved: defer — pre-existing audit_log added.)*
 - **Q5**: PayPal `captureAndGrantPackage` — what's the failure recovery if the SQL `deduct_package_session` RPC fails AFTER the PayPal capture succeeds? *(Existing behaviour preserved: payment is captured, package row remains in `pending_grant` state, admin reconciles via `/admin/credits`. Wrap only adds observability — does not change the recovery flow.)*
 
-All Q1–Q5 resolved by reading the existing files; no `[NEEDS CLARIFICATION]` blockers remain.
+All Q1–Q5 resolved by reading the existing files; no clarification blockers remain.
 
 ## Phase 1 — Design Artefacts
 

@@ -1,7 +1,7 @@
 # Implementation Plan: Specs Index Generator
 
 **Branch**: `002-specs-index-generator` | **Date**: 2026-05-08 | **Spec**: [spec.md](./spec.md)
-**Input**: Feature specification from `/specs/002-specs-index-generator/spec.md` (clarified — 5 Q→A bullets, zero `[NEEDS CLARIFICATION]` markers)
+**Input**: Feature specification from `/specs/002-specs-index-generator/spec.md` (clarified — 5 Q→A bullets, zero clarification markers)
 **Constitution**: `.specify/memory/constitution.md` v1.2.0
 
 ## Summary

@@ -6,14 +6,14 @@
 
 ## Content Quality
 
-- [x] No implementation details (languages, frameworks, APIs) — *minor: FR-009 explicitly NEEDS CLARIFICATION between TypeScript / shell / declarative; that's surfaced for /speckit.clarify, not buried in the FR*
+- [x] No implementation details (languages, frameworks, APIs) — *FR-009 picks TypeScript (`npx tsx scripts/generate-specs-index.ts`); pre-commit framework picks husky + lint-staged. Both choices documented in spec.md FR-004 / FR-009 / Assumptions L107.*
 - [x] Focused on user value and business needs
 - [x] Written for non-technical stakeholders
 - [x] All mandatory sections completed
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain — **2 remain** (FR-009 generator language; Assumptions husky/pre-commit-framework). Both within the 3-marker limit; resolved by `/speckit.clarify` next.
+- [x] No clarification markers remain — both prior markers (FR-009 generator language; pre-commit framework) resolved via `/speckit.clarify`: TypeScript via `npx tsx`, husky + lint-staged.
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable (under-10-seconds; ≤24h drift; 100% folder coverage; zero stale-after-merge)
 - [x] Success criteria are technology-agnostic
@@ -31,7 +31,7 @@
 
 ## Notes
 
-- 2 [NEEDS CLARIFICATION] markers remain; both are below-priority resolutions that don't block /speckit.plan but are cleaner to resolve via /speckit.clarify.
+- All clarifications resolved. FR-009 picks TypeScript executed via `npx tsx scripts/generate-specs-index.ts` (consistency with the existing vitest-based tooling). Pre-commit framework picks husky + lint-staged, installed in this PR alongside the generator.
 - This is a tracer-bullet feature (PR B in the spec-kit gaps closure plan); the *implementation* of the generator is deferred to a future PR. The spec-kit artefacts ship in this PR for loop-validation purposes.
 
-**Status**: PASS with 2 deferred clarifications. Ready for `/speckit.clarify`.
+**Status**: PASS — zero open clarifications. Ready for `/speckit.plan`.

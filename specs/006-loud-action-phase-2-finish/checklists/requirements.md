@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [x] No [NEEDS CLARIFICATION] markers remain *— all 12 FRs concrete; assumptions documented in Assumptions section*
+- [x] No clarification markers remain *— all 12 FRs concrete; assumptions documented in Assumptions section*
 - [x] Requirements are testable and unambiguous *— each FR has a verifiable test command in SC-001 through SC-008*
 - [x] Success criteria are measurable *— grep counts, zero-discrepancy checks, timing thresholds (30s, 200ms)*
 - [x] Success criteria are technology-agnostic *— "wrapped action", "audit row", "user-visible error" — implementation-neutral*
