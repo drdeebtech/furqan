@@ -33,11 +33,20 @@ const resolveRecitationErrorBase = loudAction<{ errorId: string }, { message: st
   preflight: loggedInPreflight,
   handler: async ({ errorId }) => {
     const supabase = await createClient();
-    const { error } = await supabase
+    // `.select()` makes the update return the rows it touched. RLS-denied
+    // updates (or updates on a non-existent id) come back with `error: null`
+    // and `data: []` — without this, the wrap would silently log "success"
+    // for a write that affected zero rows. Defense-in-depth flagged by
+    // CodeRabbit on PR #271.
+    const { data, error } = await supabase
       .from("recitation_errors")
       .update({ resolved: true, resolved_at: new Date().toISOString() } as never)
-      .eq("id", errorId);
+      .eq("id", errorId)
+      .select("id");
     if (error) throw new UserError("فشل تحديث الخطأ — يرجى المحاولة مرة أخرى", { cause: error });
+    if (!data || data.length === 0) {
+      throw new UserError("الخطأ غير موجود أو ليس لديك صلاحية عليه");
+    }
     revalidatePath("/teacher/students");
     return { message: "resolved" };
   },
@@ -67,11 +76,17 @@ const updateSessionNotesBase = loudAction<UpdateSessionNotesInput, { message: st
   preflight: loggedInPreflight,
   handler: async ({ sessionId, notes }) => {
     const supabase = await createClient();
-    const { error } = await supabase
+    // See note in resolveRecitationError above — `.select()` catches the
+    // RLS-denial silent-no-op pattern. (CodeRabbit PR #271.)
+    const { data, error } = await supabase
       .from("sessions")
       .update({ post_session_notes: notes || null } as never)
-      .eq("id", sessionId);
+      .eq("id", sessionId)
+      .select("id");
     if (error) throw new UserError("فشل تحديث الملاحظات — يرجى المحاولة مرة أخرى", { cause: error });
+    if (!data || data.length === 0) {
+      throw new UserError("الجلسة غير موجودة أو ليس لديك صلاحية عليها");
+    }
     revalidatePath("/teacher/students");
     return { message: "saved" };
   },

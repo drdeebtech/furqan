@@ -41,15 +41,23 @@ const savePostSessionNotesBase = loudAction<SavePostSessionNotesInput, { message
   preflight: loggedInPreflight,
   handler: async ({ sessionId, notes, homework }) => {
     const supabase = await createClient();
-    const { error } = await supabase
+    // `.select()` makes the update return the rows it touched. RLS-denied
+    // updates come back as `error: null` + `data: []`, which would
+    // otherwise be reported as a successful save while nothing changed.
+    // Defense-in-depth flagged by CodeRabbit on PR #271.
+    const { data, error } = await supabase
       .from("sessions")
       .update({
         post_session_notes: notes || null,
         homework: homework || null,
       } as never)
-      .eq("id", sessionId);
+      .eq("id", sessionId)
+      .select("id");
     if (error) {
       throw new UserError("حدث خطأ أثناء حفظ الملاحظات — يرجى المحاولة مرة أخرى", { cause: error });
+    }
+    if (!data || data.length === 0) {
+      throw new UserError("الجلسة غير موجودة أو ليس لديك صلاحية عليها");
     }
 
     revalidatePath(`/teacher/sessions/${sessionId}`);
