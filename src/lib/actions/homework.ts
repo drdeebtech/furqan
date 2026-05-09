@@ -20,6 +20,18 @@ class UserError extends Error {
   }
 }
 
+// Distinguish "row not found" (supabase-js code PGRST116, business case)
+// from real infrastructure errors (RLS denial, network, Postgres restart).
+// Only the latter gets the cause attached so loudAction's framework
+// routes it to Sentry. Routine "not found" stays silent — admins typing
+// in non-existent IDs shouldn't ping Sentry on every miss.
+function notFoundOrInfra(err: { code?: string; message?: string } | null, friendly: string): UserError {
+  if (!err || err.code === "PGRST116") {
+    return new UserError(friendly);
+  }
+  return new UserError(friendly, { cause: err });
+}
+
 // ─── Auth helpers ───────────────────────────────────────────────────────────
 
 async function requireTeacherOrAbove(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -109,13 +121,21 @@ const createHomeworkBase = loudAction<CreateHomeworkInput, { message: string }>(
     const supabase = await createClient();
 
     // Verify teacher owns the booking; admins bypass ownership.
-    const { data: booking } = await supabase
+    // Real infra errors (non-PGRST116) block even the admin bypass —
+    // they indicate RLS regression or DB outage, not "row missing".
+    const { data: booking, error: bookingErr } = await supabase
       .from("bookings").select("teacher_id").eq("id", input.booking_id)
       .single<{ teacher_id: string }>();
+    if (bookingErr && bookingErr.code !== "PGRST116") {
+      throw new UserError("ليس لديك صلاحية على هذا الحجز", { cause: bookingErr });
+    }
     if (!booking || booking.teacher_id !== actorId) {
-      const { data: p } = await supabase
+      const { data: p, error: roleErr } = await supabase
         .from("profiles").select("role").eq("id", actorId as string)
         .single<{ role: string }>();
+      if (roleErr && roleErr.code !== "PGRST116") {
+        throw new UserError("ليس لديك صلاحية على هذا الحجز", { cause: roleErr });
+      }
       if (!p || !["admin"].includes(p.role)) {
         throw new UserError("ليس لديك صلاحية على هذا الحجز");
       }
@@ -245,14 +265,14 @@ const markStudentReadyBase = loudAction<MarkReadyInput, { message: string }>({
     const supabase = await createClient();
 
     // Verify ownership and current status
-    const { data: hw } = await supabase
+    const { data: hw, error: hwErr } = await supabase
       .from("homework_assignments")
       .select("student_id, teacher_id, status, title")
       .eq("id", homeworkId)
       .returns<{ student_id: string; teacher_id: string; status: string; title: string }[]>()
       .single();
 
-    if (!hw) throw new UserError("المتابعة غير موجودة");
+    if (hwErr || !hw) throw notFoundOrInfra(hwErr, "المتابعة غير موجودة");
     if (hw.student_id !== actorId) throw new UserError("غير مصرح");
     if (hw.status !== "assigned") throw new UserError("حالة المتابعة لا تسمح بهذا الإجراء");
 
@@ -367,18 +387,21 @@ const gradeHomeworkBase = loudAction<GradeHomeworkInput, { message: string }>({
     }
 
     // Fetch current follow-up
-    const { data: hw } = await supabase
+    const { data: hw, error: hwErr } = await supabase
       .from("homework_assignments")
       .select("*")
       .eq("id", homeworkId)
       .returns<HomeworkAssignment[]>()
       .single();
 
-    if (!hw) throw new UserError("المتابعة غير موجودة");
+    if (hwErr || !hw) throw notFoundOrInfra(hwErr, "المتابعة غير موجودة");
     if (hw.teacher_id !== actorId) {
-      const { data: p } = await supabase
+      const { data: p, error: roleErr } = await supabase
         .from("profiles").select("role").eq("id", actorId as string)
         .single<{ role: string }>();
+      if (roleErr && roleErr.code !== "PGRST116") {
+        throw new UserError("غير مصرح", { cause: roleErr });
+      }
       if (!p || !["admin"].includes(p.role)) {
         throw new UserError("غير مصرح");
       }
@@ -518,18 +541,21 @@ const editHomeworkBase = loudAction<EditHomeworkInput, { message: string }>({
     const supabase = await createClient();
 
     // Fetch follow-up — pull status so we can guard against editing graded rows.
-    const { data: hw } = await supabase
+    const { data: hw, error: hwErr } = await supabase
       .from("homework_assignments")
       .select("teacher_id, student_id, assigned_at, status")
       .eq("id", homeworkId)
       .returns<{ teacher_id: string; student_id: string; assigned_at: string; status: HomeworkStatus }[]>()
       .single();
 
-    if (!hw) throw new UserError("المتابعة غير موجودة");
+    if (hwErr || !hw) throw notFoundOrInfra(hwErr, "المتابعة غير موجودة");
     if (hw.teacher_id !== actorId) {
-      const { data: p } = await supabase
+      const { data: p, error: roleErr } = await supabase
         .from("profiles").select("role").eq("id", actorId as string)
         .single<{ role: string }>();
+      if (roleErr && roleErr.code !== "PGRST116") {
+        throw new UserError("غير مصرح", { cause: roleErr });
+      }
       if (!p || !["admin"].includes(p.role)) {
         throw new UserError("غير مصرح");
       }
@@ -546,8 +572,10 @@ const editHomeworkBase = loudAction<EditHomeworkInput, { message: string }>({
       throw new UserError("لا يمكن تعديل متابعة تم تقييمها. للتغيير، أنشئ متابعة جديدة.");
     }
 
-    // Check edit window: find next session between same teacher+student
-    const { data: nextBooking } = await supabase
+    // Check edit window: find next session between same teacher+student.
+    // PGRST116 (no row) is the common case (no future booking yet) — falls
+    // through to the no-window-needed branch. Real infra errors throw.
+    const { data: nextBooking, error: bookingErr } = await supabase
       .from("bookings")
       .select("id")
       .eq("teacher_id", hw.teacher_id)
@@ -558,12 +586,20 @@ const editHomeworkBase = loudAction<EditHomeworkInput, { message: string }>({
       .limit(1)
       .single<{ id: string }>();
 
+    if (bookingErr && bookingErr.code !== "PGRST116") {
+      throw new UserError("فشل تعديل المتابعة", { cause: bookingErr });
+    }
+
     if (nextBooking) {
-      const { data: nextSession } = await supabase
+      const { data: nextSession, error: sessionErr } = await supabase
         .from("sessions")
         .select("started_at")
         .eq("booking_id", nextBooking.id)
         .single<{ started_at: string | null }>();
+
+      if (sessionErr && sessionErr.code !== "PGRST116") {
+        throw new UserError("فشل تعديل المتابعة", { cause: sessionErr });
+      }
 
       if (nextSession?.started_at) {
         throw new UserError("انتهت فترة التعديل — بدأت الجلسة التالية");
@@ -686,20 +722,23 @@ const deleteHomeworkBase = loudAction<{ homeworkId: string }, { message: string 
   handler: async ({ homeworkId }, { actorId }) => {
     const supabase = await createClient();
 
-    const { data: hw } = await supabase
+    const { data: hw, error: hwErr } = await supabase
       .from("homework_assignments")
       .select("teacher_id")
       .eq("id", homeworkId)
       .returns<{ teacher_id: string }[]>()
       .single();
 
-    if (!hw) throw new UserError("المتابعة غير موجودة");
+    if (hwErr || !hw) throw notFoundOrInfra(hwErr, "المتابعة غير موجودة");
 
     // Verify ownership or admin
     if (hw.teacher_id !== actorId) {
-      const { data: profile } = await supabase
+      const { data: profile, error: roleErr } = await supabase
         .from("profiles").select("role").eq("id", actorId as string)
         .single<{ role: string }>();
+      if (roleErr && roleErr.code !== "PGRST116") {
+        throw new UserError("ليس لديك صلاحية", { cause: roleErr });
+      }
       if (!profile || !["admin"].includes(profile.role)) {
         throw new UserError("ليس لديك صلاحية");
       }
@@ -710,11 +749,16 @@ const deleteHomeworkBase = loudAction<{ homeworkId: string }, { message: string 
     // silently delete N regenerated child assignments — the student would
     // see them disappear from /student/follow-up with no explanation.
     // We log how many we cascaded so admins can trace "where did those go".
-    const { data: children } = await supabase
+    const { data: children, error: childrenErr } = await supabase
       .from("homework_assignments")
       .select("id, status, title")
       .eq("parent_assignment_id", homeworkId)
       .returns<{ id: string; status: string; title: string }[]>();
+    if (childrenErr) {
+      // Real infra error during the cascade-count read. Block the delete
+      // rather than risk an unbounded cascade with no audit.
+      throw new UserError("فشل حذف المتابعة", { cause: childrenErr });
+    }
     const childCount = children?.length ?? 0;
 
     if (childCount > 0) {
