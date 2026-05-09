@@ -10,10 +10,10 @@
 
 ## Phase 1 — Setup
 
-- [ ] T001 Verify branch state on `006-loud-action-phase-2-finish` and main is up-to-date: `git fetch origin && git log --oneline main..HEAD` should show only the spec commit
-- [ ] T002 Verify `loud.ts` post-PR-20 baseline (cause-aware + `notFoundOrInfra` exported): `grep -n "export function notFoundOrInfra\|userError === true" src/lib/actions/loud.ts` returns both
-- [ ] T003 Verify the existing silent-fail tripwire script location: `find . -name "pre-commit" -path "*husky*" 2>/dev/null` and inspect `.husky/pre-commit` to find the grep helper
-- [ ] T003a Push branch and open **draft PR** with title `chore: Phase 2 No-Silent-Failures finish (per spec 006)` and body containing `Closes #269`. Subsequent commits land on this draft PR. Rationale: Constitution § "Branch hygiene" CRITICAL flag #2 — draft PR opens as the 1st-or-2nd Phase-1 task. Tracking issue: https://github.com/drdeebtech/furqan/issues/269
+- [X] T001 Verify branch state on `006-loud-action-phase-2-finish` and main is up-to-date: `git fetch origin && git log --oneline main..HEAD` should show only the spec commit ✅ 3 commits ahead (spec, design artefacts, prior wrap work c402372 not yet on local main)
+- [X] T002 Verify `loud.ts` post-PR-20 baseline (cause-aware + `notFoundOrInfra` exported): `grep -n "export function notFoundOrInfra\|userError === true" src/lib/actions/loud.ts` returns both ✅ found at L99 + L234
+- [X] T003 Verify the existing silent-fail tripwire script location: `find . -name "pre-commit" -path "*husky*" 2>/dev/null` and inspect `.husky/pre-commit` to find the grep helper ✅ `.husky/pre-commit` exists (inspect deferred to T004)
+- [X] T003a Push branch and open **draft PR** with title `chore: Phase 2 No-Silent-Failures finish (per spec 006)` and body containing `Closes #269`. Subsequent commits land on this draft PR. Rationale: Constitution § "Branch hygiene" CRITICAL flag #2 — draft PR opens as the 1st-or-2nd Phase-1 task. ✅ PR #270 opened: https://github.com/drdeebtech/furqan/pull/270 (closes #269)
 
 ---
 
@@ -21,12 +21,12 @@
 
 **Purpose**: Extend the silent-fail tripwire to catch the `.single()` error-drop pattern. Doing this BEFORE the wrap phase means every subsequent commit gets validated against the new rule (catches drift before merge).
 
-- [ ] T004 [US4] Read the existing tripwire grep script to identify where to add the new pattern (`.husky/pre-commit` or a script it sources)
-- [ ] T005 [US4] Add the new tripwire grep per `contracts/tripwire-contract.md`: pattern `\{\s*data:\s*\w+\s*\}\s*=\s*await\s+.+\.(single|maybeSingle)\(\)` against staged `src/**/*.ts` + `src/**/*.tsx` files
-- [ ] T006 [US4] Add the block message naming the file:line + the suggested fix (use `notFoundOrInfra` from `@/lib/actions/loud`) per the contract
-- [ ] T007 [US4] Run a self-test: deliberately add `const { data: x } = await supabase.from("test").single();` to a throwaway test file, attempt `git commit`, confirm BLOCKED with the right message, then revert the test file
-- [ ] T008 [US4] Run `git grep "{ data: \w*\s*}\s*=" src/app src/lib/actions` against current main — confirm no false positives in already-wrapped files (allowlist is correct)
-- [ ] T009 [US4] Commit foundational changes: `chore: extend silent-fail tripwire to catch .single() error-drop (per spec 006 FR-007)`
+- [X] T004 [US4] Read existing tripwire — found at `scripts/check-silent-fail.sh` (invoked from `.github/workflows/silent-fail-check.yml`, not from `.husky/pre-commit`; pre-commit only runs lint-staged for INDEX regen). Spec wording adjusted in tasks.md notes.
+- [X] T005 [US4] Added new grep `\{\s*data:\s*\w+\s*\}\s*=\s*await\s+.+\.(single|maybeSingle)\(\)` against `src/**/*.ts` + `src/**/*.tsx` with parallel baseline file `scripts/.single-error-drop-baseline.txt` (matches existing baseline-count convention)
+- [X] T006 [US4] Block message per `contracts/tripwire-contract.md` — names file:line, the dropped-error pattern, the `notFoundOrInfra` fix, and links the spec dir
+- [X] T007 [US4] Self-test passed: synthetic offender in `src/__tripwire_self_test__.ts` → count went 1→2 → exit 1 with correct error message → file removed → count back to 1 → exit 0
+- [X] T008 [US4] Zero false positives in any `*actions.ts` files (wrapped server actions). Sole offender (count=1) is `src/app/admin/users/[id]/page.tsx:44` — `_authUser` underscore-prefix existence check in a page component, not a server action; grandfathered into baseline
+- [X] T009 [US4] Commit foundational changes: `chore: extend silent-fail tripwire to catch .single() error-drop (per spec 006 FR-007)`
 
 **Checkpoint**: Tripwire enforces during all subsequent wrap commits.
 
