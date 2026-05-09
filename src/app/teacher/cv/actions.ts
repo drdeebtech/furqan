@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
+import { loudAction } from "@/lib/actions/loud";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 export type CvResult = {
@@ -11,47 +13,83 @@ export type CvResult = {
   success?: boolean;
 };
 
+class UserError extends Error {
+  readonly userError = true;
+  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
+}
+
+async function teacherPreflight(): Promise<{ actorId: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new UserError("غير مصرح");
+  return { actorId: user.id };
+}
+
 const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
+
+type SaveCvInput = {
+  bio: string;
+  bio_en: string | null;
+  specialties: string[];
+  languages: string[];
+  recitation_standards: string[];
+  intro_video_url: string | null;
+};
+
+const saveCvDraftBase = loudAction<SaveCvInput, { message: string }>({
+  name: "teacher.cv.save-draft",
+  severity: "info",
+  schema: z.object({
+    bio: z.string(),
+    bio_en: z.string().nullable(),
+    specialties: z.array(z.string()),
+    languages: z.array(z.string()),
+    recitation_standards: z.array(z.string()),
+    intro_video_url: z.string().nullable(),
+  }),
+  audit: {
+    table: "teacher_profiles",
+    recordId: (_i) => "self",
+    action: "UPDATE",
+    reasonPrefix: "teacher save CV draft",
+  },
+  preflight: teacherPreflight,
+  handler: async (input, { actorId }) => {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("teacher_profiles")
+      .update({
+        bio: input.bio,
+        bio_en: input.bio_en,
+        specialties: input.specialties,
+        languages: input.languages,
+        recitation_standards: input.recitation_standards,
+        intro_video_url: input.intro_video_url,
+      })
+      .eq("teacher_id", actorId as string);
+    if (error) throw new UserError("فشل حفظ المسودة — يرجى المحاولة مرة أخرى", { cause: error });
+    revalidatePath("/teacher/cv");
+    return { message: "saved" };
+  },
+});
 
 export async function saveCvDraft(
   _prev: CvResult,
   formData: FormData,
 ): Promise<CvResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "غير مصرح" };
-
-  const bio = formData.get("bio") as string;
-  const bio_en = (formData.get("bio_en") as string) || null;
   // Form switched from comma-separated text to multi-checkbox — checkboxes
   // with the same `name` serialize as multiple values, so getAll() returns
   // the array directly.
-  const specialties = (formData.getAll("specialties") as string[]).filter(Boolean);
-  const languages = (formData.getAll("languages") as string[]).filter(Boolean);
-  const recitation_standards = (formData.getAll("recitation_standards") as string[]).filter(Boolean);
-  const intro_video_url =
-    (formData.get("intro_video_url") as string) || null;
-
-  const { error } = await supabase
-    .from("teacher_profiles")
-    .update({
-      bio,
-      bio_en,
-      specialties,
-      languages,
-      recitation_standards,
-      intro_video_url,
-    })
-    .eq("teacher_id", user.id);
-
-  if (error) {
-    logError("teacher saveCvDraft failed", error, { tag: "teacher-cv", severity: "warning", metadata: { teacherId: user.id } });
-    return { error: "فشل حفظ المسودة — يرجى المحاولة مرة أخرى" };
-  }
-  revalidatePath("/teacher/cv");
+  const result = await saveCvDraftBase({
+    bio: (formData.get("bio") as string) || "",
+    bio_en: (formData.get("bio_en") as string) || null,
+    specialties: (formData.getAll("specialties") as string[]).filter(Boolean),
+    languages: (formData.getAll("languages") as string[]).filter(Boolean),
+    recitation_standards: (formData.getAll("recitation_standards") as string[]).filter(Boolean),
+    intro_video_url: (formData.get("intro_video_url") as string) || null,
+  });
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }
 
