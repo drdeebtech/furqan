@@ -3,10 +3,16 @@
  *
  * Replaces the silent-fail anti-pattern where a server action discards its
  * Supabase { error } result and returns success. With this wrapper:
- *   - Every error is logged via logError (Sentry / console / file).
- *   - Critical errors (severity='critical') fire a Telegram alert.
- *   - The audit_log row is written regardless of outcome (success OR failure).
+ *   - Every SYSTEM error is logged via logError (Sentry / console / file).
+ *   - Critical SYSTEM errors (severity='critical') fire a Telegram alert.
+ *   - The audit_log row is written on success and on system-failure.
  *   - The caller always receives a consistent { ok, error?, message? } shape.
+ *
+ * UserError exception (see `userError` duck-type below): handlers can throw
+ * a UserError to communicate a business-logic failure to the caller — "not
+ * found", validation, auth denials. These don't fire Sentry / Telegram and
+ * don't write a FAILED audit row. The user sees the message; ops sees
+ * nothing because there's nothing for ops to fix.
  *
  * Usage:
  *   export const myAction = loudAction({
@@ -149,6 +155,24 @@ export function loudAction<TInput, THandlerResult extends void | { message?: str
         }
         throw err;
       }
+
+      // UserError passthrough — business-logic failures surfaced to the
+      // user (routine "not found", validation, auth denials). These are
+      // expected outcomes, NOT system errors. Skip Sentry, Telegram, and
+      // the FAILED audit row. The user sees the friendly message; ops
+      // sees nothing because there's nothing for ops to fix.
+      //
+      // Duck-typed because each action file declares its own UserError
+      // class (per-file scope is intentional — keeps imports light), so
+      // `instanceof UserError` from this module won't match cross-file.
+      // Convention: every UserError class sets `readonly userError = true`.
+      //
+      // If a security-telemetry trail is wanted for auth-denial cases,
+      // the handler can call logWarn/logError itself before throwing.
+      if (err instanceof Error && (err as { userError?: boolean }).userError === true) {
+        return { ok: false, error: err.message };
+      }
+
       const message = err instanceof Error ? err.message : String(err);
       logError(`loudAction[${config.name}] failed`, err, {
         tag: "loud-action",
