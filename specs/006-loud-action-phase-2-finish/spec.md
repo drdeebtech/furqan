@@ -1,6 +1,7 @@
 # Feature Specification: Phase 2 No-Silent-Failures Finish
 
 **Feature Branch**: `006-loud-action-phase-2-finish`
+**Tracking Issue**: [#269](https://github.com/drdeebtech/furqan/issues/269)
 **Created**: 2026-05-09
 **Status**: Draft
 **Input**: User description: "Phase 2 No-Silent-Failures finish — wrap the remaining 9 mutating server-action files in loudAction with cause-aware error handling, severity-calibrated audit_log writes, and consistent UserError discipline. Also includes Phase 2c form-feedback gap fixes, Phase 2d tripwire enhancement, and audit-doc regeneration."
@@ -108,8 +109,8 @@ When an operator or future contributor reads `docs/audit/no-silent-failures-2026
 - **FR-004**: System MUST calibrate severity per action: `info` for routine writes, `warning` for destructive-expected, `critical` for money/security paths (PayPal, manual credit grants, role mutations).
 - **FR-005**: System MUST preserve every existing public function signature (form callers must continue to work without changes).
 - **FR-006**: System MUST write `audit_log` rows using the canonical `changed_by` column shape — no `actor_id` / `metadata` columns from older drift.
-- **FR-007**: System MUST extend the silent-fail tripwire in `.husky/pre-commit` (or equivalent CI hook) to detect `\{\s*data:\s*\w+\s*\}\s*=\s*await\s+supabase\..+\.single` shapes that drop the `error` variable.
-- **FR-008**: System MUST add `<ActionFeedback>` to the highest-impact forms missing it (per audit doc §6); full sweep deferred to a follow-up PR series.
+- **FR-007**: System MUST extend the silent-fail tripwire run from `.husky/pre-commit` (the only currently-configured CI hook for staged-file grep enforcement) to detect `\{\s*data:\s*\w+\s*\}\s*=\s*await\s+supabase\..+\.(single|maybeSingle)` shapes that drop the `error` variable. The pattern matches both `.single()` and `.maybeSingle()` per `contracts/tripwire-contract.md`.
+- **FR-008**: System MUST add `<ActionFeedback>` to **exactly 3 forms** in this PR — the post-session-notes form (`teacher/sessions/[id]/post-session-form.tsx`), the PayPal checkout callback (`(public)/packages/paypal-checkout.tsx`), and the student-notes form (`teacher/students/[studentId]/notes-form.tsx`) — per `tasks.md` T024–T026. Full sweep of the remaining ~25 callers is deferred to a follow-up PR series.
 - **FR-009**: System MUST update `docs/audit/no-silent-failures-2026-Q2.md` with `Wrapped ✅` markers and severity for every newly wrapped action; correct any pre-existing inaccuracies discovered during the sweep.
 - **FR-010**: System MUST regenerate `specs/INDEX.md` to reflect spec 005's "Shipped" status (correcting "Tasks-ready" drift).
 - **FR-011**: System MUST ensure `npx tsc --noEmit` passes on the entire wrapped surface; the `silent-fail tripwire` and `vitest run` CI checks pass on the merged commit.
@@ -136,8 +137,8 @@ When an operator or future contributor reads `docs/audit/no-silent-failures-2026
 - **SC-004**: The CI tripwire blocks at least one synthetic test commit that introduces the `.single()` error-drop shape; verified by a deliberate failed-commit test in the PR.
 - **SC-005**: The audit doc's count of "Wrapped ✅" actions matches the count of `loudAction<...>(...)` instances under `src/app` and `src/lib/actions/` (within ±2 for legitimately deferred items).
 - **SC-006**: `specs/INDEX.md` shows spec 005 as "Shipped" (not "Tasks-ready") after `npm run specs:index` runs in the PR.
-- **SC-007**: For at least one wrapped action, an operator can trigger a forced infrastructure failure (e.g. RLS denial in a preview env) and observe a Sentry event with the underlying error attached as `cause` — within 30 seconds of the failure.
-- **SC-008**: For PayPal's `captureAndGrantPackage` (severity=critical), a forced failure during the wrap test fires both a Sentry event AND a Telegram alert.
+- **SC-007**: For at least one wrapped action, a unit test using a stubbed Supabase client that throws a synthetic Postgres error confirms (a) the user-facing return shape is `{ ok: false, error: <Arabic message> }`, (b) `Sentry.captureException` is called with the underlying error attached as `cause`, and (c) the call settles within 30 seconds. (Preview-env testing is deferred until Supabase Branching is live, per CLAUDE.md "Preview database isolation — known gap (P2)".)
+- **SC-008**: For PayPal's `captureAndGrantPackage` (severity=critical), a unit test using a stubbed PayPal client + stubbed `deduct_package_session` RPC that throws confirms both a Sentry event AND a Telegram alert fire. No live PayPal sandbox capture is performed (PayPal sandbox is non-prod but `student_packages.insert` would still hit the shared Supabase project — same Preview-env gap).
 
 ---
 
