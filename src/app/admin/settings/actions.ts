@@ -10,7 +10,7 @@ import { loudAction } from "@/lib/actions/loud";
 
 class UserError extends Error {
   readonly userError = true;
-  constructor(msg: string) { super(msg); this.name = "UserError"; }
+  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
 }
 
 type ActionResult = { error?: string; success?: boolean };

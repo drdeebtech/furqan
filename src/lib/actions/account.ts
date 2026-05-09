@@ -14,7 +14,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // tag = "user-error" to keep noise out of infra dashboards.
 class UserError extends Error {
   readonly userError = true;
-  constructor(msg: string) { super(msg); this.name = "UserError"; }
+  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
 }
 
 const passwordSchema = z.object({
@@ -63,7 +63,7 @@ const updatePasswordBase = loudAction<z.infer<typeof passwordSchema>, { message:
       email: user.email,
       password: current_password,
     });
-    if (verifyErr) throw new UserError("كلمة المرور الحالية غير صحيحة");
+    if (verifyErr) throw new UserError("كلمة المرور الحالية غير صحيحة", { cause: verifyErr });
 
     const { error: updErr } = await supabase.auth.updateUser({ password: new_password });
     if (updErr) throw updErr;
@@ -114,7 +114,7 @@ const updateEmailBase = loudAction<z.infer<typeof emailSchema>, { message: strin
       email: user.email,
       password: current_password,
     });
-    if (verifyErr) throw new UserError("كلمة المرور الحالية غير صحيحة");
+    if (verifyErr) throw new UserError("كلمة المرور الحالية غير صحيحة", { cause: verifyErr });
 
     const { error: updErr } = await supabase.auth.updateUser({ email: new_email });
     if (updErr) throw updErr;

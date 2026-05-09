@@ -14,7 +14,7 @@ export type ActionResult = { error?: string; success?: boolean; notice?: string 
 
 class UserError extends Error {
   readonly userError = true;
-  constructor(msg: string) { super(msg); this.name = "UserError"; }
+  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
 }
 
 async function adminPreflight(): Promise<{ actorId: string }> {
@@ -81,7 +81,7 @@ const updateAccountBase = loudAction<UpdateAccountInput, { message: string }>({
       .from("profiles")
       .update(fields)
       .eq("id", teacherId);
-    if (error) throw new UserError("فشل حفظ بيانات الحساب");
+    if (error) throw new UserError("فشل حفظ بيانات الحساب", { cause: error });
     revalidateTeacher(teacherId);
     return { message: "saved" };
   },
@@ -139,7 +139,7 @@ const updateEmailBase = loudAction<{ teacherId: string; email: string }, { messa
     // user-actionable. UserError keeps it user-facing instead of the
     // generic "فشل" mapping; auth misconfig still gets captured to Sentry
     // via the envelope.
-    if (error) throw new UserError(error.message);
+    if (error) throw new UserError(error.message, { cause: error });
     revalidateTeacher(teacherId);
     // `message` carries the user-visible notice text. The public wrapper
     // remaps it to the existing `notice` field on ActionResult so callers
@@ -184,7 +184,7 @@ const uploadTeacherPhotoBase = loudAction<{ teacherId: string; photoFile: File }
     const { error: upErr } = await adminClient.storage
       .from("teacher-avatars")
       .upload(path, photoFile, { contentType: photoFile.type, upsert: false });
-    if (upErr) throw new UserError("فشل رفع الصورة — يرجى المحاولة مرة أخرى");
+    if (upErr) throw new UserError("فشل رفع الصورة — يرجى المحاولة مرة أخرى", { cause: upErr });
 
     const { data: pub } = adminClient.storage.from("teacher-avatars").getPublicUrl(path);
     const avatarUrl = pub?.publicUrl ?? null;
@@ -197,7 +197,7 @@ const uploadTeacherPhotoBase = loudAction<{ teacherId: string; photoFile: File }
       .from("profiles")
       .update({ avatar_url: avatarUrl } satisfies TableUpdate<"profiles">)
       .eq("id", teacherId);
-    if (updErr) throw new UserError("تم رفع الصورة لكن فشل حفظها");
+    if (updErr) throw new UserError("تم رفع الصورة لكن فشل حفظها", { cause: updErr });
 
     revalidateTeacher(teacherId);
     revalidatePath("/teachers");
@@ -253,7 +253,7 @@ const updateTeacherProfileBase = loudAction<UpdateTeacherProfileInput, { message
       .from("teacher_profiles")
       .update(fields)
       .eq("teacher_id", teacherId);
-    if (error) throw new UserError("فشل حفظ بيانات المعلم");
+    if (error) throw new UserError("فشل حفظ بيانات المعلم", { cause: error });
     revalidateTeacher(teacherId);
     return { message: "saved" };
   },
@@ -323,7 +323,7 @@ const upsertIjazaBase = loudAction<UpsertIjazaInput, { message: string }>({
         } satisfies TableUpdate<"teacher_ijaza">)
         .eq("id", id)
         .eq("teacher_id", teacherId);
-      if (error) throw new UserError("فشل تحديث الإجازة");
+      if (error) throw new UserError("فشل تحديث الإجازة", { cause: error });
     } else {
       const { error } = await supabase.from("teacher_ijaza").insert({
         teacher_id: teacherId,
@@ -333,7 +333,7 @@ const upsertIjazaBase = loudAction<UpsertIjazaInput, { message: string }>({
         granted_at,
         document_url,
       } satisfies TableInsert<"teacher_ijaza">);
-      if (error) throw new UserError("فشل إضافة الإجازة");
+      if (error) throw new UserError("فشل إضافة الإجازة", { cause: error });
     }
     revalidateTeacher(teacherId);
     return { message: id ? "updated" : "inserted" };
@@ -383,7 +383,7 @@ const deleteIjazaBase = loudAction<{ teacherId: string; ijazaId: string }, { mes
       .delete()
       .eq("id", ijazaId)
       .eq("teacher_id", teacherId);
-    if (error) throw new UserError("فشل حذف الإجازة");
+    if (error) throw new UserError("فشل حذف الإجازة", { cause: error });
     revalidateTeacher(teacherId);
     return { message: "deleted" };
   },
@@ -416,7 +416,7 @@ const setIjazaVerifiedBase = loudAction<{ teacherId: string; ijazaId: string; ve
       } satisfies TableUpdate<"teacher_ijaza">)
       .eq("id", ijazaId)
       .eq("teacher_id", teacherId);
-    if (error) throw new UserError("فشل تحديث حالة التوثيق");
+    if (error) throw new UserError("فشل تحديث حالة التوثيق", { cause: error });
     revalidateTeacher(teacherId);
     return { message: verified ? "verified" : "unverified" };
   },
@@ -481,7 +481,7 @@ const upsertAvailabilityBase = loudAction<UpsertAvailabilityInput, { message: st
         } satisfies TableUpdate<"teacher_availability">)
         .eq("id", id)
         .eq("teacher_id", teacherId);
-      if (error) throw new UserError("فشل تحديث التوفر");
+      if (error) throw new UserError("فشل تحديث التوفر", { cause: error });
     } else {
       const { error } = await supabase.from("teacher_availability").insert({
         teacher_id: teacherId,
@@ -494,11 +494,14 @@ const upsertAvailabilityBase = loudAction<UpsertAvailabilityInput, { message: st
       if (error) {
         // Detect the unique-constraint name to surface an actionable
         // Arabic message; everything else falls back to a generic copy.
-        // Same pattern as the deletePackage FK-rebrand follow-up note.
+        // Cause attached either way so ops sees the underlying Postgres
+        // error in Sentry; for `avail_unique` it confirms the user-input
+        // collision, for anything else it's a real infra signal.
         throw new UserError(
           error.message.includes("avail_unique")
             ? "يوجد فترة في نفس اليوم والوقت"
-            : "فشل إضافة التوفر"
+            : "فشل إضافة التوفر",
+          { cause: error },
         );
       }
     }
@@ -556,7 +559,7 @@ const deleteAvailabilityBase = loudAction<{ teacherId: string; slotId: string },
       .delete()
       .eq("id", slotId)
       .eq("teacher_id", teacherId);
-    if (error) throw new UserError("فشل حذف الفترة");
+    if (error) throw new UserError("فشل حذف الفترة", { cause: error });
     revalidateTeacher(teacherId);
     return { message: "deleted" };
   },
@@ -610,7 +613,7 @@ const upsertExceptionBase = loudAction<UpsertExceptionInput, { message: string }
       is_blocked,
       reason,
     } satisfies TableInsert<"availability_exceptions">);
-    if (error) throw new UserError("فشل إضافة الاستثناء");
+    if (error) throw new UserError("فشل إضافة الاستثناء", { cause: error });
     revalidateTeacher(teacherId);
     return { message: "inserted" };
   },
@@ -653,7 +656,7 @@ const deleteExceptionBase = loudAction<{ teacherId: string; exceptionId: string 
       .delete()
       .eq("id", exceptionId)
       .eq("teacher_id", teacherId);
-    if (error) throw new UserError("فشل حذف الاستثناء");
+    if (error) throw new UserError("فشل حذف الاستثناء", { cause: error });
     revalidateTeacher(teacherId);
     return { message: "deleted" };
   },
