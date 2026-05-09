@@ -60,7 +60,9 @@ const createTalqeenHomeworkBase = loudAction<{ bookingId: string }, { message: s
 
     // Verify the booking belongs to this student (RLS gates this anyway).
     // Pull teacher_id + scheduled_at to populate the follow-up row.
-    const { data: booking } = await supabase
+    // Capture both data and error: PGRST116 = no row (business case),
+    // anything else = real infra (cause attached for Sentry).
+    const { data: booking, error: bookingErr } = await supabase
       .from("bookings")
       .select("id, teacher_id, student_id, scheduled_at, session_id")
       .eq("id", bookingId)
@@ -72,6 +74,9 @@ const createTalqeenHomeworkBase = loudAction<{ bookingId: string }, { message: s
         session_id: string | null;
       }>();
 
+    if (bookingErr && bookingErr.code !== "PGRST116") {
+      throw new UserError("الجلسة غير موجودة", { cause: bookingErr });
+    }
     if (!booking || booking.student_id !== actorId) {
       throw new UserError("الجلسة غير موجودة");
     }
