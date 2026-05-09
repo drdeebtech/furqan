@@ -50,7 +50,7 @@ const saveCvDraftBase = loudAction<SaveCvInput, { message: string }>({
   }),
   audit: {
     table: "teacher_profiles",
-    recordId: (_i) => "self",
+    recordId: (_i, actorId) => actorId ?? "unknown",
     action: "UPDATE",
     reasonPrefix: "teacher save CV draft",
   },
