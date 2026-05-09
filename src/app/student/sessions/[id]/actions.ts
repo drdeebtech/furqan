@@ -257,17 +257,34 @@ const trackSessionEventBase = loudAction<TrackSessionEventInput, void>({
     const now = new Date().toISOString();
 
     if (event === "joined") {
-      const updates: TableUpdate<"sessions"> = {};
-      if (isStudent) updates.student_joined = true;
-      if (isTeacher) updates.teacher_joined = true;
-      // Set started_at on first join
-      if (!session.started_at) updates.started_at = now;
-
-      const { error } = await supabase
+      // Two-step update so concurrent joins don't race on `started_at`.
+      // Previous code did `if (!session.started_at) updates.started_at = now`
+      // off a stale read — both parties checking the same null value would
+      // both write started_at, the later write winning. Splitting into:
+      //   (a) per-party joined-flag write (no shared field), and
+      //   (b) conditional started_at write gated on `.is("started_at",
+      //       null)` so Postgres applies the WHERE clause atomically.
+      // (CodeRabbit `--agent` review, post-#275 sweep.)
+      const flagUpdate: TableUpdate<"sessions"> = {};
+      if (isStudent) flagUpdate.student_joined = true;
+      if (isTeacher) flagUpdate.teacher_joined = true;
+      const { error: flagErr } = await supabase
         .from("sessions")
-        .update(updates)
+        .update(flagUpdate)
         .eq("id", sessionId);
-      if (error) throw new UserError("فشل تسجيل الانضمام", { cause: error });
+      if (flagErr) throw new UserError("فشل تسجيل الانضمام", { cause: flagErr });
+
+      // started_at is set atomically on first join only. The .is filter
+      // makes the write a no-op for the second-party join (the row no
+      // longer satisfies the predicate after the first write commits).
+      if (!session.started_at) {
+        const { error: startErr } = await supabase
+          .from("sessions")
+          .update({ started_at: now } satisfies TableUpdate<"sessions">)
+          .eq("id", sessionId)
+          .is("started_at", null);
+        if (startErr) throw new UserError("فشل تسجيل الانضمام", { cause: startErr });
+      }
     } else if (event === "left") {
       // Don't auto-end the session when a participant leaves.
       // The teacher explicitly ends the session via the "إنهاء الجلسة" button

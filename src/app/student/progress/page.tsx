@@ -163,11 +163,21 @@ export default async function StudentProgressPage() {
     makharij: 0, sifat: 0, madd: 0, waqf: 0, ghunna: 0, other: 0,
   };
   if (recentProgress && recentProgress.length > 0) {
+    // Filter out the "__no_errors_observed_sentinel__" rows inserted by
+    // teacher/sessions/[id]/actions.ts markNoErrorsObserved. Those rows
+    // carry error_type='other' but represent the *absence* of errors —
+    // counting them inflates the "other" bucket on the student's heatmap
+    // every time a teacher confirms a clean session, which is the opposite
+    // of the intended signal. (CodeRabbit `--agent` review,
+    // post-#275 sweep — critical.) Sibling queries that need the sentinel
+    // already filter it: teacher/sessions/[id]/page.tsx and
+    // lib/dashboard-queries.ts both do `note === sentinel` exclusion.
     const { data: errors } = await supabase
       .from("recitation_errors")
       .select("error_type")
       .in("progress_id", recentProgress.map(p => p.id))
       .gte("created_at", thirtyDaysAgoIso)
+      .neq("note", "__no_errors_observed_sentinel__")
       .returns<{ error_type: string }[]>();
     for (const e of errors ?? []) {
       if (e.error_type in errorBreakdown) errorBreakdown[e.error_type] += 1;
