@@ -6,7 +6,7 @@ import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
-import { loudAction } from "@/lib/actions/loud";
+import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
 
 export interface GrantResult {
   success?: string;
@@ -71,13 +71,13 @@ const grantCreditBase = loudAction<z.infer<typeof grantCreditSchema>, { message:
     const authUser = authList?.users.find((u) => u.email?.toLowerCase() === email);
     if (!authUser) throw new UserError("لم يتم العثور على الطالب بهذا البريد");
 
-    const { data: student } = await admin
+    const { data: student, error: studentErr } = await admin
       .from("profiles")
       .select("id, full_name")
       .eq("id", authUser.id)
       .eq("role", "student")
       .single<StudentLookup>();
-    if (!student) throw new UserError("لم يتم العثور على الطالب بهذا البريد");
+    if (studentErr || !student) throw notFoundOrInfra(studentErr, "لم يتم العثور على الطالب بهذا البريد");
 
     const { data: packages } = await admin
       .from("student_packages")

@@ -9,7 +9,7 @@ import { HOMEWORK_STATUS_AR, type ReviewHorizon } from "@/lib/constants";
 import { logError } from "@/lib/logger";
 import type { HomeworkStatus, HomeworkAssignment } from "@/types/database";
 import { emitEvent } from "@/lib/automation/emit";
-import { loudAction } from "@/lib/actions/loud";
+import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 class UserError extends Error {
@@ -18,18 +18,6 @@ class UserError extends Error {
     super(msg, options);
     this.name = "UserError";
   }
-}
-
-// Distinguish "row not found" (supabase-js code PGRST116, business case)
-// from real infrastructure errors (RLS denial, network, Postgres restart).
-// Only the latter gets the cause attached so loudAction's framework
-// routes it to Sentry. Routine "not found" stays silent — admins typing
-// in non-existent IDs shouldn't ping Sentry on every miss.
-function notFoundOrInfra(err: { code?: string; message?: string } | null, friendly: string): UserError {
-  if (!err || err.code === "PGRST116") {
-    return new UserError(friendly);
-  }
-  return new UserError(friendly, { cause: err });
 }
 
 // ─── Auth helpers ───────────────────────────────────────────────────────────
