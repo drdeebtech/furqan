@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { notifyParentHomeworkNotDone } from "@/lib/notifications/parent";
 import { notify } from "@/lib/notifications/dispatcher";
@@ -8,26 +9,47 @@ import { HOMEWORK_STATUS_AR, type ReviewHorizon } from "@/lib/constants";
 import { logError } from "@/lib/logger";
 import type { HomeworkStatus, HomeworkAssignment } from "@/types/database";
 import { emitEvent } from "@/lib/automation/emit";
+import { loudAction } from "@/lib/actions/loud";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
+
+class UserError extends Error {
+  readonly userError = true;
+  constructor(msg: string, options?: { cause?: unknown }) {
+    super(msg, options);
+    this.name = "UserError";
+  }
+}
 
 // ─── Auth helpers ───────────────────────────────────────────────────────────
 
 async function requireTeacherOrAbove(supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("غير مسجل الدخول");
+  if (!user) throw new UserError("غير مسجل الدخول");
   const { data: profile } = await supabase
     .from("profiles").select("role").eq("id", user.id)
     .single().then(r => ({ data: r.data as { role: string } | null }));
   if (!profile || !["admin", "teacher"].includes(profile.role)) {
-    throw new Error("غير مصرح");
+    throw new UserError("غير مصرح");
   }
   return { user, role: profile.role };
 }
 
 async function requireStudent(supabase: Awaited<ReturnType<typeof createClient>>) {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("غير مسجل الدخول");
+  if (!user) throw new UserError("غير مسجل الدخول");
   return user;
+}
+
+async function teacherOrAbovePreflight(): Promise<{ actorId: string }> {
+  const supabase = await createClient();
+  const { user } = await requireTeacherOrAbove(supabase);
+  return { actorId: user.id };
+}
+
+async function studentPreflight(): Promise<{ actorId: string }> {
+  const supabase = await createClient();
+  const user = await requireStudent(supabase);
+  return { actorId: user.id };
 }
 
 function revalidateFollowUpPaths() {
@@ -41,10 +63,110 @@ function revalidateFollowUpPaths() {
 
 // ─── 1. Create Follow-up ─────────────────────────────────────────────────────
 
-export async function createHomework(formData: FormData) {
-  const supabase = await createClient();
-  const { user } = await requireTeacherOrAbove(supabase);
+type CreateHomeworkInput = {
+  booking_id: string;
+  student_id: string;
+  session_id: string | null;
+  homework_type: string;
+  title: string;
+  description: string | null;
+  surah_number: number | null;
+  ayah_start: number | null;
+  ayah_end: number | null;
+  pages_count: number | null;
+  due_date: string | null;
+  review_horizon: ReviewHorizon;
+};
 
+const createHomeworkBase = loudAction<CreateHomeworkInput, { message: string }>({
+  name: "homework.create",
+  // P1 lifecycle entry. severity=info — routine assignment creation.
+  severity: "info",
+  // Schema is permissive; the public wrapper validates required fields and
+  // surfaces the existing Arabic copy on failure.
+  schema: z.object({
+    booking_id: z.string(),
+    student_id: z.string(),
+    session_id: z.string().nullable(),
+    homework_type: z.string(),
+    title: z.string(),
+    description: z.string().nullable(),
+    surah_number: z.number().nullable(),
+    ayah_start: z.number().nullable(),
+    ayah_end: z.number().nullable(),
+    pages_count: z.number().nullable(),
+    due_date: z.string().nullable(),
+    review_horizon: z.enum(["near", "far", "none"]),
+  }) as unknown as z.ZodType<CreateHomeworkInput>,
+  audit: {
+    table: "homework_assignments",
+    recordId: (i) => `${i.booking_id}:${i.student_id}`,
+    action: "INSERT",
+    reasonPrefix: "teacher create follow-up",
+  },
+  preflight: teacherOrAbovePreflight,
+  handler: async (input, { actorId }) => {
+    const supabase = await createClient();
+
+    // Verify teacher owns the booking; admins bypass ownership.
+    const { data: booking } = await supabase
+      .from("bookings").select("teacher_id").eq("id", input.booking_id)
+      .single<{ teacher_id: string }>();
+    if (!booking || booking.teacher_id !== actorId) {
+      const { data: p } = await supabase
+        .from("profiles").select("role").eq("id", actorId as string)
+        .single<{ role: string }>();
+      if (!p || !["admin"].includes(p.role)) {
+        throw new UserError("ليس لديك صلاحية على هذا الحجز");
+      }
+    }
+
+    const { error } = await supabase.from("homework_assignments").insert({
+      booking_id: input.booking_id,
+      student_id: input.student_id,
+      session_id: input.session_id,
+      teacher_id: actorId,
+      homework_type: input.homework_type,
+      title: input.title,
+      description: input.description,
+      surah_number: input.surah_number,
+      ayah_start: input.ayah_start,
+      ayah_end: input.ayah_end,
+      pages_count: input.pages_count,
+      due_date: input.due_date,
+      review_horizon: input.review_horizon,
+    } as never);
+    if (error) throw new UserError("فشل إنشاء المتابعة", { cause: error });
+
+    // Best-effort student notification — must not fail the assignment.
+    try {
+      await notify({
+        userId: input.student_id,
+        type: "homework",
+        title: "متابعة جديدة",
+        body: `كلّفك معلمك بمتابعة جديدة — ${input.title}`,
+        entityType: "homework",
+        entityId: input.booking_id,
+      });
+    } catch (err) {
+      logError("notify student failed during createHomework", err, {
+        component: "homework.createHomework",
+        metadata: { student_id: input.student_id, booking_id: input.booking_id },
+      });
+    }
+
+    revalidateFollowUpPaths();
+    await emitEvent("homework.assigned", "homework", input.booking_id, {
+      student_id: input.student_id,
+      teacher_id: actorId,
+      homework_type: input.homework_type,
+      title: input.title,
+    }).catch((err) => logError("emit homework.assigned failed", err, { tag: "automation", event: "homework.assigned" }));
+    return { message: "created" };
+  },
+});
+
+export async function createHomework(formData: FormData) {
   const booking_id = formData.get("booking_id") as string;
   const student_id = formData.get("student_id") as string;
   const session_id = (formData.get("session_id") as string) || null;
@@ -71,25 +193,10 @@ export async function createHomework(formData: FormData) {
     return { error: "جميع الحقول المطلوبة يجب ملؤها" };
   }
 
-  // Verify teacher owns the booking
-  const { data: booking } = await supabase
-    .from("bookings").select("teacher_id").eq("id", booking_id)
-    .single<{ teacher_id: string }>();
-  if (!booking || booking.teacher_id !== user.id) {
-    // Allow admin/mod to bypass ownership check
-    const { data: p } = await supabase
-      .from("profiles").select("role").eq("id", user.id)
-      .single<{ role: string }>();
-    if (!p || !["admin"].includes(p.role)) {
-      return { error: "ليس لديك صلاحية على هذا الحجز" };
-    }
-  }
-
-  const { error } = await supabase.from("homework_assignments").insert({
+  const result = await createHomeworkBase({
     booking_id,
     student_id,
     session_id,
-    teacher_id: user.id,
     homework_type,
     title,
     description,
@@ -99,30 +206,8 @@ export async function createHomework(formData: FormData) {
     pages_count,
     due_date,
     review_horizon,
-  } as never);
-
-  if (error) return { error: "فشل إنشاء المتابعة" };
-
-  // Notify student
-  try {
-    await notify({
-      userId: student_id,
-      type: "homework",
-      title: "متابعة جديدة",
-      body: `كلّفك معلمك بمتابعة جديدة — ${title}`,
-      entityType: "homework",
-      entityId: booking_id,
-    });
-  } catch (err) {
-    logError("notify student failed during createHomework", err, {
-      component: "homework.createHomework",
-      metadata: { student_id, booking_id },
-    });
-  }
-
-  revalidateFollowUpPaths();
-  await emitEvent("homework.assigned", "homework", booking_id, { student_id, teacher_id: user.id, homework_type, title })
-    .catch((err) => logError("emit homework.assigned failed", err, { tag: "automation", event: "homework.assigned" }));
+  });
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }
 
@@ -136,273 +221,374 @@ export async function createHomework(formData: FormData) {
  * before this is called so the upload + metadata write happen as one user
  * action from the UI's perspective.
  */
+type MarkReadyInput = {
+  homeworkId: string;
+  audio: { path: string; durationSeconds: number } | null;
+};
+
+const markStudentReadyBase = loudAction<MarkReadyInput, { message: string }>({
+  name: "homework.mark-student-ready",
+  // P1 state transition. severity=info — routine.
+  severity: "info",
+  schema: z.object({
+    homeworkId: z.string().uuid(),
+    audio: z.object({ path: z.string(), durationSeconds: z.number() }).nullable(),
+  }),
+  audit: {
+    table: "homework_assignments",
+    recordId: (i) => i.homeworkId,
+    action: "UPDATE",
+    reasonPrefix: "student mark ready",
+  },
+  preflight: studentPreflight,
+  handler: async ({ homeworkId, audio }, { actorId }) => {
+    const supabase = await createClient();
+
+    // Verify ownership and current status
+    const { data: hw } = await supabase
+      .from("homework_assignments")
+      .select("student_id, teacher_id, status, title")
+      .eq("id", homeworkId)
+      .returns<{ student_id: string; teacher_id: string; status: string; title: string }[]>()
+      .single();
+
+    if (!hw) throw new UserError("المتابعة غير موجودة");
+    if (hw.student_id !== actorId) throw new UserError("غير مصرح");
+    if (hw.status !== "assigned") throw new UserError("حالة المتابعة لا تسمح بهذا الإجراء");
+
+    // Validate optional audio payload — defense in depth (RLS already gates
+    // the upload itself, but we re-check here so a malformed call can't sneak
+    // a wrong-student path or out-of-range duration into the metadata row).
+    if (audio) {
+      const expectedPrefix = `${actorId}/${homeworkId}/`;
+      if (!audio.path.startsWith(expectedPrefix)) {
+        throw new UserError("مسار الصوت غير صالح");
+      }
+      if (
+        !Number.isFinite(audio.durationSeconds) ||
+        audio.durationSeconds < 1 ||
+        audio.durationSeconds > 300
+      ) {
+        throw new UserError("مدة الصوت غير صالحة");
+      }
+    }
+
+    const updatePayload: TableUpdate<"homework_assignments"> = {
+      status: "student_ready",
+      ready_at: new Date().toISOString(),
+    };
+    if (audio) {
+      updatePayload.audio_url = audio.path;
+      updatePayload.audio_duration_seconds = audio.durationSeconds;
+    }
+
+    const { error } = await supabase
+      .from("homework_assignments")
+      .update(updatePayload)
+      .eq("id", homeworkId);
+
+    if (error) throw new UserError("فشل تحديث حالة المتابعة", { cause: error });
+
+    // Best-effort teacher notification.
+    try {
+      const { data: student } = await supabase
+        .from("profiles").select("full_name").eq("id", actorId as string)
+        .single<{ full_name: string | null }>();
+      const studentName = student?.full_name ?? "الطالب";
+
+      await notify({
+        userId: hw.teacher_id,
+        type: "homework",
+        title: "طالب جاهز",
+        body: `${studentName} جاهز لتسميع المتابعة: ${hw.title}`,
+        entityType: "homework",
+        entityId: homeworkId,
+      });
+    } catch (err) {
+      logError("notify teacher failed during markStudentReady", err, {
+        component: "homework.markStudentReady",
+        metadata: { teacher_id: hw.teacher_id, homeworkId },
+      });
+    }
+
+    revalidateFollowUpPaths();
+    await emitEvent("homework.student_ready", "homework", homeworkId, {
+      student_id: actorId,
+      teacher_id: hw.teacher_id,
+    }).catch((err) => logError("emit homework.student_ready failed", err, { tag: "automation", event: "homework.student_ready" }));
+    return { message: "ready" };
+  },
+});
+
 export async function markStudentReady(
   homeworkId: string,
   audio?: { path: string; durationSeconds: number },
 ) {
-  const supabase = await createClient();
-  const user = await requireStudent(supabase);
-
-  // Verify ownership and current status
-  const { data: hw } = await supabase
-    .from("homework_assignments")
-    .select("student_id, teacher_id, status, title")
-    .eq("id", homeworkId)
-    .returns<{ student_id: string; teacher_id: string; status: string; title: string }[]>()
-    .single();
-
-  if (!hw) return { error: "المتابعة غير موجودة" };
-  if (hw.student_id !== user.id) return { error: "غير مصرح" };
-  if (hw.status !== "assigned") return { error: "حالة المتابعة لا تسمح بهذا الإجراء" };
-
-  // Validate optional audio payload — defense in depth (RLS already gates
-  // the upload itself, but we re-check here so a malformed call can't sneak
-  // a wrong-student path or out-of-range duration into the metadata row).
-  if (audio) {
-    const expectedPrefix = `${user.id}/${homeworkId}/`;
-    if (!audio.path.startsWith(expectedPrefix)) {
-      return { error: "مسار الصوت غير صالح" };
-    }
-    if (
-      !Number.isFinite(audio.durationSeconds) ||
-      audio.durationSeconds < 1 ||
-      audio.durationSeconds > 300
-    ) {
-      return { error: "مدة الصوت غير صالحة" };
-    }
-  }
-
-  const updatePayload: TableUpdate<"homework_assignments"> = {
-    status: "student_ready",
-    ready_at: new Date().toISOString(),
-  };
-  if (audio) {
-    updatePayload.audio_url = audio.path;
-    updatePayload.audio_duration_seconds = audio.durationSeconds;
-  }
-
-  const { error } = await supabase
-    .from("homework_assignments")
-    .update(updatePayload)
-    .eq("id", homeworkId);
-
-  if (error) return { error: "فشل تحديث حالة المتابعة" };
-
-  // Notify teacher
-  try {
-    const { data: student } = await supabase
-      .from("profiles").select("full_name").eq("id", user.id)
-      .single<{ full_name: string | null }>();
-    const studentName = student?.full_name ?? "الطالب";
-
-    await notify({
-      userId: hw.teacher_id,
-      type: "homework",
-      title: "طالب جاهز",
-      body: `${studentName} جاهز لتسميع المتابعة: ${hw.title}`,
-      entityType: "homework",
-      entityId: homeworkId,
-    });
-  } catch (err) {
-    logError("notify teacher failed during markStudentReady", err, {
-      component: "homework.markStudentReady",
-      metadata: { teacher_id: hw.teacher_id, homeworkId },
-    });
-  }
-
-  revalidateFollowUpPaths();
-  await emitEvent("homework.student_ready", "homework", homeworkId, { student_id: user.id, teacher_id: hw.teacher_id })
-    .catch((err) => logError("emit homework.student_ready failed", err, { tag: "automation", event: "homework.student_ready" }));
+  const result = await markStudentReadyBase({ homeworkId, audio: audio ?? null });
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }
 
 // ─── 3. Grade Follow-up ──────────────────────────────────────────────────────
 
-export async function gradeHomework(homeworkId: string, formData: FormData) {
-  const supabase = await createClient();
-  const { user } = await requireTeacherOrAbove(supabase);
+type GradeHomeworkInput = {
+  homeworkId: string;
+  grade: HomeworkStatus;
+  teacher_notes: string | null;
+};
 
-  const grade = formData.get("grade") as HomeworkStatus;
-  const teacher_notes = (formData.get("teacher_notes") as string) || null;
+const gradeHomeworkBase = loudAction<GradeHomeworkInput, { message: string }>({
+  name: "homework.grade",
+  // P0 highest blast radius — auto-regenerates next assignment on
+  // needs_work / not_done, fires student + parent notifications, fan-out
+  // through n8n. severity=warning so a silent system failure here gets
+  // Sentry capture without paging Telegram on every routine grade pass.
+  severity: "warning",
+  schema: z.object({
+    homeworkId: z.string().uuid(),
+    grade: z.string() as unknown as z.ZodType<HomeworkStatus>,
+    teacher_notes: z.string().nullable(),
+  }),
+  audit: {
+    table: "homework_assignments",
+    recordId: (i) => i.homeworkId,
+    action: "UPDATE",
+    reasonPrefix: "teacher grade follow-up",
+  },
+  preflight: teacherOrAbovePreflight,
+  handler: async ({ homeworkId, grade, teacher_notes }, { actorId }) => {
+    const supabase = await createClient();
 
-  const validGrades: HomeworkStatus[] = [
-    "completed_excellent", "completed_good", "completed_needs_work", "completed_not_done",
-  ];
-  if (!grade || !validGrades.includes(grade)) {
-    return { error: "يرجى اختيار تقييم صحيح" };
-  }
-
-  // Fetch current follow-up
-  const { data: hw } = await supabase
-    .from("homework_assignments")
-    .select("*")
-    .eq("id", homeworkId)
-    .returns<HomeworkAssignment[]>()
-    .single();
-
-  if (!hw) return { error: "المتابعة غير موجودة" };
-  if (hw.teacher_id !== user.id) {
-    const { data: p } = await supabase
-      .from("profiles").select("role").eq("id", user.id)
-      .single<{ role: string }>();
-    if (!p || !["admin"].includes(p.role)) {
-      return { error: "غير مصرح" };
+    const validGrades: HomeworkStatus[] = [
+      "completed_excellent", "completed_good", "completed_needs_work", "completed_not_done",
+    ];
+    if (!grade || !validGrades.includes(grade)) {
+      throw new UserError("يرجى اختيار تقييم صحيح");
     }
-  }
-  if (hw.status !== "student_ready") {
-    return { error: "الطالب لم يؤكد جاهزيته بعد" };
-  }
 
-  // Update grade
-  const { error } = await supabase
-    .from("homework_assignments")
-    .update({
-      status: grade,
-      completed_at: new Date().toISOString(),
-      teacher_notes,
-    } as never)
-    .eq("id", homeworkId);
+    // Fetch current follow-up
+    const { data: hw } = await supabase
+      .from("homework_assignments")
+      .select("*")
+      .eq("id", homeworkId)
+      .returns<HomeworkAssignment[]>()
+      .single();
 
-  if (error) return { error: "فشل تقييم المتابعة" };
+    if (!hw) throw new UserError("المتابعة غير موجودة");
+    if (hw.teacher_id !== actorId) {
+      const { data: p } = await supabase
+        .from("profiles").select("role").eq("id", actorId as string)
+        .single<{ role: string }>();
+      if (!p || !["admin"].includes(p.role)) {
+        throw new UserError("غير مصرح");
+      }
+    }
+    if (hw.status !== "student_ready") {
+      throw new UserError("الطالب لم يؤكد جاهزيته بعد");
+    }
 
-  const gradeLabel = HOMEWORK_STATUS_AR[grade];
+    // Update grade
+    const { error } = await supabase
+      .from("homework_assignments")
+      .update({
+        status: grade,
+        completed_at: new Date().toISOString(),
+        teacher_notes,
+      } as never)
+      .eq("id", homeworkId);
 
-  // Notify student
-  try {
-    await notify({
-      userId: hw.student_id,
-      type: "homework",
-      title: "تم تقييم متابعتك",
-      body: `تم تقييم متابعة "${hw.title}" — النتيجة: ${gradeLabel}`,
-      entityType: "homework",
-      entityId: homeworkId,
-    });
-  } catch (err) {
-    logError("notify student failed during gradeHomework", err, {
-      component: "homework.gradeHomework",
-      metadata: { student_id: hw.student_id, homeworkId, grade },
-    });
-  }
+    if (error) throw new UserError("فشل تقييم المتابعة", { cause: error });
 
-  // Auto-regeneration for needs_work / not_done
-  if (grade === "completed_needs_work" || grade === "completed_not_done") {
+    const gradeLabel = HOMEWORK_STATUS_AR[grade];
+
+    // Best-effort student notification.
     try {
-      // Create new assignment linked to the original. The child inherits
-      // parent.review_horizon so a "near" follow-up that gets re-assigned
-      // stays in the student's "From last session" bucket — losing the
-      // horizon would silently demote it to "New work".
-      const { error: regenErr } = await supabase.from("homework_assignments").insert({
-        booking_id: hw.booking_id,
-        student_id: hw.student_id,
-        teacher_id: hw.teacher_id,
-        homework_type: hw.homework_type,
-        title: hw.title,
-        description: hw.description,
-        surah_number: hw.surah_number,
-        ayah_start: hw.ayah_start,
-        ayah_end: hw.ayah_end,
-        pages_count: hw.pages_count,
-        // review_horizon shipped in 20260505131935; supabase.generated.ts is
-        // stale because CLI is auth'd to the wrong account (see CLAUDE.md
-        // "Supabase MCP — wrong-account gotcha"). Cast until next legitimate
-        // db:types regen.
-        review_horizon: (hw as unknown as { review_horizon: string | null }).review_horizon,
-        parent_assignment_id: homeworkId,
-      } as never);
-      if (regenErr) logError("homework auto-regen failed", regenErr, { tag: "homework" });
-
-      // Notify student about re-assignment
       await notify({
         userId: hw.student_id,
         type: "homework",
-        title: "تم إعادة تكليفك بالمتابعة",
-        body: `تمت إعادة تكليفك بمتابعة "${hw.title}" — يرجى المحاولة مجدداً`,
+        title: "تم تقييم متابعتك",
+        body: `تم تقييم متابعة "${hw.title}" — النتيجة: ${gradeLabel}`,
         entityType: "homework",
         entityId: homeworkId,
       });
-
-      // Notify parent
-      await notifyParentHomeworkNotDone(
-        hw.student_id,
-        hw.teacher_id,
-        hw.title,
-        grade,
-        user.id,
-      );
     } catch (err) {
-      logError("auto-regen branch failed during gradeHomework", err, {
-        component: "homework.gradeHomework.regen",
+      logError("notify student failed during gradeHomework", err, {
+        component: "homework.gradeHomework",
         metadata: { student_id: hw.student_id, homeworkId, grade },
       });
     }
-  }
 
-  revalidateFollowUpPaths();
-  await emitEvent("homework.graded", "homework", homeworkId, { student_id: hw.student_id, teacher_id: hw.teacher_id, grade })
-    .catch((err) => logError("emit homework.graded failed", err, { tag: "automation", event: "homework.graded" }));
+    // Auto-regeneration for needs_work / not_done. The whole branch is
+    // best-effort — a regen failure must not fail the grade DB write that
+    // already succeeded. Each side-effect inside (insert, notify, parent
+    // report) catches its own errors via logError.
+    if (grade === "completed_needs_work" || grade === "completed_not_done") {
+      try {
+        // Create new assignment linked to the original. The child inherits
+        // parent.review_horizon so a "near" follow-up that gets re-assigned
+        // stays in the student's "From last session" bucket — losing the
+        // horizon would silently demote it to "New work".
+        const { error: regenErr } = await supabase.from("homework_assignments").insert({
+          booking_id: hw.booking_id,
+          student_id: hw.student_id,
+          teacher_id: hw.teacher_id,
+          homework_type: hw.homework_type,
+          title: hw.title,
+          description: hw.description,
+          surah_number: hw.surah_number,
+          ayah_start: hw.ayah_start,
+          ayah_end: hw.ayah_end,
+          pages_count: hw.pages_count,
+          // review_horizon shipped in 20260505131935; supabase.generated.ts is
+          // stale because CLI is auth'd to the wrong account (see CLAUDE.md
+          // "Supabase MCP — wrong-account gotcha"). Cast until next legitimate
+          // db:types regen.
+          review_horizon: (hw as unknown as { review_horizon: string | null }).review_horizon,
+          parent_assignment_id: homeworkId,
+        } as never);
+        if (regenErr) logError("homework auto-regen failed", regenErr, { tag: "homework" });
+
+        // Notify student about re-assignment
+        await notify({
+          userId: hw.student_id,
+          type: "homework",
+          title: "تم إعادة تكليفك بالمتابعة",
+          body: `تمت إعادة تكليفك بمتابعة "${hw.title}" — يرجى المحاولة مجدداً`,
+          entityType: "homework",
+          entityId: homeworkId,
+        });
+
+        // Notify parent
+        await notifyParentHomeworkNotDone(
+          hw.student_id,
+          hw.teacher_id,
+          hw.title,
+          grade,
+          actorId as string,
+        );
+      } catch (err) {
+        logError("auto-regen branch failed during gradeHomework", err, {
+          component: "homework.gradeHomework.regen",
+          metadata: { student_id: hw.student_id, homeworkId, grade },
+        });
+      }
+    }
+
+    revalidateFollowUpPaths();
+    await emitEvent("homework.graded", "homework", homeworkId, {
+      student_id: hw.student_id,
+      teacher_id: hw.teacher_id,
+      grade,
+    }).catch((err) => logError("emit homework.graded failed", err, { tag: "automation", event: "homework.graded" }));
+    return { message: "graded" };
+  },
+});
+
+export async function gradeHomework(homeworkId: string, formData: FormData) {
+  const grade = formData.get("grade") as HomeworkStatus;
+  const teacher_notes = (formData.get("teacher_notes") as string) || null;
+  const result = await gradeHomeworkBase({ homeworkId, grade, teacher_notes });
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }
 
 // ─── 4. Edit Follow-up ───────────────────────────────────────────────────────
 
+type EditHomeworkInput = {
+  homeworkId: string;
+  updates: TableUpdate<"homework_assignments">;
+};
+
+const editHomeworkBase = loudAction<EditHomeworkInput, { message: string }>({
+  name: "homework.edit",
+  // P1 routine update. severity=info.
+  severity: "info",
+  schema: z.object({
+    homeworkId: z.string().uuid(),
+    updates: z.record(z.string(), z.unknown()),
+  }) as unknown as z.ZodType<EditHomeworkInput>,
+  audit: {
+    table: "homework_assignments",
+    recordId: (i) => i.homeworkId,
+    action: "UPDATE",
+    reasonPrefix: "teacher edit follow-up",
+  },
+  preflight: teacherOrAbovePreflight,
+  handler: async ({ homeworkId, updates }, { actorId }) => {
+    const supabase = await createClient();
+
+    // Fetch follow-up — pull status so we can guard against editing graded rows.
+    const { data: hw } = await supabase
+      .from("homework_assignments")
+      .select("teacher_id, student_id, assigned_at, status")
+      .eq("id", homeworkId)
+      .returns<{ teacher_id: string; student_id: string; assigned_at: string; status: HomeworkStatus }[]>()
+      .single();
+
+    if (!hw) throw new UserError("المتابعة غير موجودة");
+    if (hw.teacher_id !== actorId) {
+      const { data: p } = await supabase
+        .from("profiles").select("role").eq("id", actorId as string)
+        .single<{ role: string }>();
+      if (!p || !["admin"].includes(p.role)) {
+        throw new UserError("غير مصرح");
+      }
+    }
+
+    // Status guard: graded follow-ups are immutable. Editing the title/description
+    // post-grade would silently change what the student is being graded against,
+    // with no re-validation and no notification. To re-grade, use the explicit
+    // gradeHomework flow (which fires student notifications + parent reports).
+    const GRADED_STATUSES: HomeworkStatus[] = [
+      "completed_excellent", "completed_good", "completed_needs_work", "completed_not_done",
+    ];
+    if (GRADED_STATUSES.includes(hw.status)) {
+      throw new UserError("لا يمكن تعديل متابعة تم تقييمها. للتغيير، أنشئ متابعة جديدة.");
+    }
+
+    // Check edit window: find next session between same teacher+student
+    const { data: nextBooking } = await supabase
+      .from("bookings")
+      .select("id")
+      .eq("teacher_id", hw.teacher_id)
+      .eq("student_id", hw.student_id)
+      .eq("status", "confirmed")
+      .gt("scheduled_at", hw.assigned_at)
+      .order("scheduled_at", { ascending: true })
+      .limit(1)
+      .single<{ id: string }>();
+
+    if (nextBooking) {
+      const { data: nextSession } = await supabase
+        .from("sessions")
+        .select("started_at")
+        .eq("booking_id", nextBooking.id)
+        .single<{ started_at: string | null }>();
+
+      if (nextSession?.started_at) {
+        throw new UserError("انتهت فترة التعديل — بدأت الجلسة التالية");
+      }
+    }
+
+    const finalUpdates: TableUpdate<"homework_assignments"> = {
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase
+      .from("homework_assignments")
+      .update(finalUpdates)
+      .eq("id", homeworkId);
+
+    if (error) throw new UserError("فشل تعديل المتابعة", { cause: error });
+
+    revalidateFollowUpPaths();
+    return { message: "edited" };
+  },
+});
+
 export async function editHomework(homeworkId: string, formData: FormData) {
-  const supabase = await createClient();
-  const { user } = await requireTeacherOrAbove(supabase);
-
-  // Fetch follow-up — pull status so we can guard against editing graded rows.
-  const { data: hw } = await supabase
-    .from("homework_assignments")
-    .select("teacher_id, student_id, assigned_at, status")
-    .eq("id", homeworkId)
-    .returns<{ teacher_id: string; student_id: string; assigned_at: string; status: HomeworkStatus }[]>()
-    .single();
-
-  if (!hw) return { error: "المتابعة غير موجودة" };
-  if (hw.teacher_id !== user.id) {
-    const { data: p } = await supabase
-      .from("profiles").select("role").eq("id", user.id)
-      .single<{ role: string }>();
-    if (!p || !["admin"].includes(p.role)) {
-      return { error: "غير مصرح" };
-    }
-  }
-
-  // Status guard: graded follow-ups are immutable. Editing the title/description
-  // post-grade would silently change what the student is being graded against,
-  // with no re-validation and no notification. To re-grade, use the explicit
-  // gradeHomework flow (which fires student notifications + parent reports).
-  const GRADED_STATUSES: HomeworkStatus[] = [
-    "completed_excellent", "completed_good", "completed_needs_work", "completed_not_done",
-  ];
-  if (GRADED_STATUSES.includes(hw.status)) {
-    return { error: "لا يمكن تعديل متابعة تم تقييمها. للتغيير، أنشئ متابعة جديدة." };
-  }
-
-  // Check edit window: find next session between same teacher+student
-  const { data: nextBooking } = await supabase
-    .from("bookings")
-    .select("id")
-    .eq("teacher_id", hw.teacher_id)
-    .eq("student_id", hw.student_id)
-    .eq("status", "confirmed")
-    .gt("scheduled_at", hw.assigned_at)
-    .order("scheduled_at", { ascending: true })
-    .limit(1)
-    .single<{ id: string }>();
-
-  if (nextBooking) {
-    const { data: nextSession } = await supabase
-      .from("sessions")
-      .select("started_at")
-      .eq("booking_id", nextBooking.id)
-      .single<{ started_at: string | null }>();
-
-    if (nextSession?.started_at) {
-      return { error: "انتهت فترة التعديل — بدأت الجلسة التالية" };
-    }
-  }
-
-  // Build update object
+  // Build update object — same shape as pre-wrap, just hoisted to the wrapper.
   const updates: TableUpdate<"homework_assignments"> = {};
   const title = formData.get("title") as string;
   if (title) updates.title = title;
@@ -423,16 +609,8 @@ export async function editHomework(homeworkId: string, formData: FormData) {
   const teacher_notes = formData.get("teacher_notes") as string;
   if (teacher_notes !== null) updates.teacher_notes = teacher_notes || null;
 
-  updates.updated_at = new Date().toISOString();
-
-  const { error } = await supabase
-    .from("homework_assignments")
-    .update(updates)
-    .eq("id", homeworkId);
-
-  if (error) return { error: "فشل تعديل المتابعة" };
-
-  revalidateFollowUpPaths();
+  const result = await editHomeworkBase({ homeworkId, updates });
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }
 
@@ -442,6 +620,10 @@ export async function editHomework(homeworkId: string, formData: FormData) {
 // can sign their own, teacher can sign for any homework_assignments row
 // they own, admin/mod can sign all. The action just bridges from the
 // authenticated server-side client to the browser's <audio> element.
+//
+// NOT wrapped in loudAction — read-only, returns a URL payload that doesn't
+// fit Output: { message?: string }, no audit row warranted (signed URL
+// generation is not a state change).
 
 export async function getHomeworkAudioUrl(
   homeworkId: string,
@@ -479,75 +661,106 @@ export async function getHomeworkAudioUrl(
 
 // ─── 6. Delete Follow-up ─────────────────────────────────────────────────────
 
-export async function deleteHomework(homeworkId: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "غير مصرح" };
+const deleteHomeworkBase = loudAction<{ homeworkId: string }, { message: string }>({
+  name: "homework.delete",
+  // P0 destructive — cascades to child assignments. severity=warning so
+  // Sentry captures without Telegram-paging on routine teacher cleanup.
+  severity: "warning",
+  schema: z.object({ homeworkId: z.string().uuid() }),
+  audit: {
+    table: "homework_assignments",
+    recordId: (i) => i.homeworkId,
+    action: "DELETE",
+    reasonPrefix: "teacher delete follow-up",
+  },
+  // Custom preflight: any authenticated user passes; the handler does the
+  // teacher-owns-or-admin check inline (matches pre-wrap behavior — a
+  // student hitting this endpoint gets an "ليس لديك صلاحية" message after
+  // the role lookup, not a generic auth denial).
+  preflight: async () => {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new UserError("غير مصرح");
+    return { actorId: user.id };
+  },
+  handler: async ({ homeworkId }, { actorId }) => {
+    const supabase = await createClient();
 
-  // Fetch follow-up
-  const { data: hw } = await supabase
-    .from("homework_assignments")
-    .select("teacher_id")
-    .eq("id", homeworkId)
-    .returns<{ teacher_id: string }[]>()
-    .single();
+    const { data: hw } = await supabase
+      .from("homework_assignments")
+      .select("teacher_id")
+      .eq("id", homeworkId)
+      .returns<{ teacher_id: string }[]>()
+      .single();
 
-  if (!hw) return { error: "المتابعة غير موجودة" };
+    if (!hw) throw new UserError("المتابعة غير موجودة");
 
-  // Verify ownership or admin/mod
-  if (hw.teacher_id !== user.id) {
-    const { data: profile } = await supabase
-      .from("profiles").select("role").eq("id", user.id)
-      .single<{ role: string }>();
-    if (!profile || !["admin"].includes(profile.role)) {
-      return { error: "ليس لديك صلاحية" };
+    // Verify ownership or admin
+    if (hw.teacher_id !== actorId) {
+      const { data: profile } = await supabase
+        .from("profiles").select("role").eq("id", actorId as string)
+        .single<{ role: string }>();
+      if (!profile || !["admin"].includes(profile.role)) {
+        throw new UserError("ليس لديك صلاحية");
+      }
     }
-  }
 
-  // Count + delete children (auto-regenerated assignments) first.
-  // Without this audit trail, a teacher deleting a parent follow-up would
-  // silently delete N regenerated child assignments — the student would
-  // see them disappear from /student/follow-up with no explanation.
-  // We log how many we cascaded so admins can trace "where did those go".
-  const { data: children } = await supabase
-    .from("homework_assignments")
-    .select("id, status, title")
-    .eq("parent_assignment_id", homeworkId)
-    .returns<{ id: string; status: string; title: string }[]>();
-  const childCount = children?.length ?? 0;
+    // Count + delete children (auto-regenerated assignments) first.
+    // Without this audit trail, a teacher deleting a parent follow-up would
+    // silently delete N regenerated child assignments — the student would
+    // see them disappear from /student/follow-up with no explanation.
+    // We log how many we cascaded so admins can trace "where did those go".
+    const { data: children } = await supabase
+      .from("homework_assignments")
+      .select("id, status, title")
+      .eq("parent_assignment_id", homeworkId)
+      .returns<{ id: string; status: string; title: string }[]>();
+    const childCount = children?.length ?? 0;
 
-  if (childCount > 0) {
-    await supabase
+    if (childCount > 0) {
+      await supabase
+        .from("homework_assignments")
+        .delete()
+        .eq("parent_assignment_id", homeworkId);
+    }
+
+    // Delete the follow-up
+    const { error } = await supabase
       .from("homework_assignments")
       .delete()
-      .eq("parent_assignment_id", homeworkId);
-  }
+      .eq("id", homeworkId);
 
-  // Delete the follow-up
-  const { error } = await supabase
-    .from("homework_assignments")
-    .delete()
-    .eq("id", homeworkId);
+    if (error) throw new UserError("فشل حذف المتابعة", { cause: error });
 
-  if (error) return { error: "فشل حذف المتابعة" };
-
-  // Audit log the deletion + cascade size. Best-effort: an audit_log
-  // insert failure must never block the delete itself succeeding.
-  await supabase
-    .from("audit_log")
-    .insert({
-      actor_id: user.id,
-      action: "DELETE",
-      table_name: "homework_assignments",
-      record_id: homeworkId,
-      metadata: { cascaded_children: childCount, child_ids: children?.map((c) => c.id) ?? [] },
-    } as never)
-    .then((r) => {
-      if (r.error) logError("audit_log insert failed for homework delete", r.error, {
-        tag: "audit", homeworkId, childCount,
+    // Diff audit row carries cascade size — distinct from loudAction's
+    // input-only envelope. Best-effort: an audit_log insert failure must
+    // never block the delete itself succeeding.
+    // NOTE: column shape (`actor_id`, `metadata`) preserved verbatim from
+    // pre-wrap code; differs from the rest of the codebase's audit_log
+    // inserts (which use `changed_by` and no `metadata`). Pre-existing
+    // discrepancy, flagged in PR body for follow-up data audit.
+    await supabase
+      .from("audit_log")
+      .insert({
+        actor_id: actorId,
+        action: "DELETE",
+        table_name: "homework_assignments",
+        record_id: homeworkId,
+        metadata: { cascaded_children: childCount, child_ids: children?.map((c) => c.id) ?? [] },
+      } as never)
+      .then((r) => {
+        if (r.error) logError("audit_log insert failed for homework delete", r.error, {
+          tag: "audit", homeworkId, childCount,
+        });
       });
-    });
 
-  revalidateFollowUpPaths();
+    revalidateFollowUpPaths();
+    return { message: "deleted" };
+  },
+});
+
+export async function deleteHomework(homeworkId: string) {
+  const result = await deleteHomeworkBase({ homeworkId });
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }
