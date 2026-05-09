@@ -129,12 +129,12 @@ The directive explicitly calls out homework. All 6 actions in `src/lib/actions/h
 
 | File:line | Action | Surface | Severity | Notes |
 |---|---|---|---|---|
-| `src/lib/actions/homework.ts:44` | `createHomework` | `homework_assignments.insert` + n8n emit | P1 | Spec 004 owner-domain entry; lifecycle state machine starts here |
-| `src/lib/actions/homework.ts:139` | `markStudentReady` | `homework_assignments.update` | P1 | State transition assigned→student_ready |
-| `src/lib/actions/homework.ts:221` | `gradeHomework` | `homework_assignments.update` + auto-regen | P0 | Highest blast radius — auto-regenerates next assignment on success |
-| `src/lib/actions/homework.ts:348` | `editHomework` | `homework_assignments.update` | P1 | |
-| `src/lib/actions/homework.ts:446` | `getHomeworkAudioUrl` | (read only — signed URL) | P2 | Not a write; wrap for audit_log of access events |
-| `src/lib/actions/homework.ts:482` | `deleteHomework` | `homework_assignments.delete` | P0 | Destructive |
+| `src/lib/actions/homework.ts:44` | `createHomework` | `homework_assignments.insert` + n8n emit | P1 | **Wrapped** ✅ (PR 18). severity=info. n8n emit + student notify preserved as best-effort. |
+| `src/lib/actions/homework.ts:139` | `markStudentReady` | `homework_assignments.update` | P1 | **Wrapped** ✅ (PR 18). State transition assigned→student_ready. Audio defense-in-depth validation preserved. |
+| `src/lib/actions/homework.ts:221` | `gradeHomework` | `homework_assignments.update` + auto-regen | P0 | **Wrapped** ✅ (PR 18). severity=warning. Auto-regen + parent notify + n8n emit all preserved with isolated try/catch. |
+| `src/lib/actions/homework.ts:348` | `editHomework` | `homework_assignments.update` | P1 | **Wrapped** ✅ (PR 18). Graded-status guard + edit-window check preserved. |
+| `src/lib/actions/homework.ts:446` | `getHomeworkAudioUrl` | (read only — signed URL) | P2 | **Deferred** (PR 18). Returns `{ url }` payload that doesn't fit `loudAction`'s `Output` constraint; same shape issue as `joinAsObserver`. Read-only, not a state change — no audit row warranted. |
+| `src/lib/actions/homework.ts:482` | `deleteHomework` | `homework_assignments.delete` | P0 | **Wrapped** ✅ (PR 18). severity=warning. Cascades child assignments. Diff audit row preserved (NOTE: uses `actor_id`/`metadata` columns, differs from rest of codebase's `changed_by` convention — flagged for follow-up). |
 | `src/app/student/sessions/talqeen-actions.ts:29` | `createTalqeenHomework` | `homework_assignments.insert` | P1 | **Wrapped** ✅ (PR 19). severity=info. Returns `{ ok, homeworkId }` — homeworkId carried via `loudAction`'s `message` slot, public wrapper remaps to caller's expected shape (same trick as PR 12 `updateEmail`'s `notice`). |
 | `src/app/admin/follow-up/grade/actions.ts:42` | `bulkGradeHomework` | `homework_assignments.update` (bulk) | P0 | **Deferred** (PR 19). Returns `BulkGradeResult { graded, failed, errors[] }` aggregate that doesn't fit `loudAction`'s `Output: { message?: string }` constraint. **Kept loud-by-hand** — `logError` ADDED on the two per-item silent-fail surfaces (fetch + update failure paths) so Sentry sees genuine Supabase errors that would otherwise be summarized away in `errors[]`. Audit row + notify + n8n emit per item already in place. |
 | `src/app/teacher/students/[studentId]/actions.ts:7` | `resolveRecitationError` | `recitation_errors.update` | P2 | |
