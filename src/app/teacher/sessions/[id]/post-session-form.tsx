@@ -69,7 +69,9 @@ export function PostSessionForm({
       setError(result.error);
     } else {
       setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      // Match ActionFeedback's internal 4s auto-clear so the parent's
+      // saved-flag cleanup doesn't yank the banner first. (CodeRabbit PR #271.)
+      setTimeout(() => setSaved(false), 4000);
     }
     setSaving(false);
   }

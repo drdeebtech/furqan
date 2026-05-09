@@ -215,34 +215,50 @@ const captureAndGrantPackageBase = loudAction<{ orderId: string }, { message: st
       });
     }
 
-    // Idempotency: if already captured, return the linked student_package.
+    // Idempotency + partial-failure recovery.
+    //
+    // Three states to handle when payment.status === "succeeded":
+    //   (a) student_packages row exists  → fully done, return its id.
+    //   (b) student_packages row missing → previous run captured + updated
+    //       payments but crashed BEFORE inserting student_packages. We
+    //       must NOT re-capture (PayPal will reject "already captured" or
+    //       — worse on some flows — double-charge). Skip to the
+    //       package-grant step using the stored capture data.
+    //   (c) Capture not yet performed (status='pending') → run the full
+    //       capture-then-grant path.
+    //
+    // (Flagged by CodeRabbit on PR #271 — closing the gap for state (b).)
+    let paymentAlreadyCaptured = false;
     if (payment.status === "succeeded") {
       const { data: existing } = await admin
         .from("student_packages").select("id").eq("payment_id", payment.id).maybeSingle<{ id: string }>();
       if (existing) return { message: existing.id };
+      paymentAlreadyCaptured = true;
     }
 
-    // 2. Capture at PayPal.
-    let capture: Awaited<ReturnType<typeof captureOrder>>;
-    try {
-      capture = await captureOrder(orderId);
-    } catch (err) {
-      throw new UserError("حدث خطأ أثناء إتمام الدفع. تواصل مع الدعم.", { cause: err });
-    }
+    if (!paymentAlreadyCaptured) {
+      // 2. Capture at PayPal.
+      let capture: Awaited<ReturnType<typeof captureOrder>>;
+      try {
+        capture = await captureOrder(orderId);
+      } catch (err) {
+        throw new UserError("حدث خطأ أثناء إتمام الدفع. تواصل مع الدعم.", { cause: err });
+      }
 
-    // 3. Mark the payment captured.
-    const { error: updErr } = await admin.from("payments")
-      .update({
-        status: "succeeded",
-        paypal_capture_id: capture.captureId,
-        captured_at: new Date().toISOString(),
-        payer_email: capture.payerEmail,
-        paid_at: new Date().toISOString(),
-      })
-      .eq("id", payment.id);
-    if (updErr) {
-      // Critical: PayPal has the money but our payments row didn't update.
-      throw new UserError("تم الدفع لكن تعذر تحديث السجل. تم إخطار الإدارة.", { cause: updErr });
+      // 3. Mark the payment captured.
+      const { error: updErr } = await admin.from("payments")
+        .update({
+          status: "succeeded",
+          paypal_capture_id: capture.captureId,
+          captured_at: new Date().toISOString(),
+          payer_email: capture.payerEmail,
+          paid_at: new Date().toISOString(),
+        })
+        .eq("id", payment.id);
+      if (updErr) {
+        // Critical: PayPal has the money but our payments row didn't update.
+        throw new UserError("تم الدفع لكن تعذر تحديث السجل. تم إخطار الإدارة.", { cause: updErr });
+      }
     }
 
     // 4. Resolve the package via the explicit FK we stored at order-creation time.

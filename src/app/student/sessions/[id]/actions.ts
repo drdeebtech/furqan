@@ -118,14 +118,26 @@ export async function generateSessionToken(sessionId: string) {
       },
       reason: "student.session.generate-token via loud-by-hand",
     } as never)
-    .then((r) => {
-      if (r.error) {
-        logError("generateSessionToken: audit row failed", r.error, {
+    .then(
+      (r) => {
+        if (r.error) {
+          logError("generateSessionToken: audit row failed", r.error, {
+            component: "student.sessions.generateSessionToken",
+            metadata: { sessionId },
+          });
+        }
+      },
+      (err: unknown) => {
+        // Network/serialization failure before Supabase responded — keep
+        // best-effort guarantee by routing through logError. PostgrestBuilder
+        // returns PromiseLike (no .catch), so use the two-arg .then form.
+        // (CodeRabbit PR #271.)
+        logError("generateSessionToken: audit row promise rejected", err, {
           component: "student.sessions.generateSessionToken",
           metadata: { sessionId },
         });
-      }
-    });
+      },
+    );
 
   return { token, roomUrl: session.room_url };
 }

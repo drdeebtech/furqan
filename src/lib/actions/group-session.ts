@@ -137,8 +137,18 @@ const addStudentToSessionBase = loudAction<AddStudentInput, { message: string }>
       .eq("session_id", sessionId);
     if (enrolledCountErr) throw new UserError("تعذر حساب عدد الطلاب الحالي", { cause: enrolledCountErr });
     const currentEnrolled = enrolledCount ?? 0;
-    if (currentEnrolled >= session.capacity && currentEnrolled >= 20) {
+    // Two independent caps: (1) the per-session capacity, and (2) a
+    // platform hard cap of 20. The original combined predicate used
+    // `&&`, which fails open if `session.capacity` ever exceeds 20
+    // (manual DB edit, future migration, off-by-one). Splitting the
+    // checks fails closed in both cases.
+    // (Flagged by CodeRabbit on PR #271 review.)
+    const PLATFORM_GROUP_CAP = 20;
+    if (currentEnrolled >= PLATFORM_GROUP_CAP) {
       throw new UserError("وصلت الجلسة للحد الأقصى للطلاب");
+    }
+    if (currentEnrolled >= session.capacity) {
+      throw new UserError("وصلت الجلسة لسعتها المحددة");
     }
 
     // Try to deduct a package credit. Failure here doesn't block the booking
@@ -259,9 +269,19 @@ const addStudentToSessionBase = loudAction<AddStudentInput, { message: string }>
         via: isAdmin ? "admin.addStudentToSession" : "teacher.addStudentToSession",
       },
       reason: `Added ${studentProfile.full_name ?? studentId.slice(0, 8)} to session ${sessionId.slice(0, 8)}`,
-    } satisfies TableInsert<"audit_log">).then((r) => {
-      if (r.error) logError("addStudentToSession: audit insert failed", r.error, { tag: "group-session" });
-    });
+    } satisfies TableInsert<"audit_log">).then(
+      (r) => {
+        if (r.error) logError("addStudentToSession: audit insert failed", r.error, { tag: "group-session" });
+      },
+      (err: unknown) => {
+        // Network/serialization failure before Supabase responded — keep
+        // best-effort guarantee by routing through logError instead of
+        // surfacing as an unhandled rejection. PostgrestBuilder returns
+        // PromiseLike (no .catch), so use the two-arg .then form.
+        // (CodeRabbit PR #271.)
+        logError("addStudentToSession: audit insert promise rejected", err, { tag: "group-session" });
+      },
+    );
 
     revalidatePath(`/teacher/sessions/${sessionId}`);
     revalidatePath("/teacher/sessions");

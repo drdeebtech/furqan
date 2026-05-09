@@ -34,12 +34,13 @@ type AttestInput = { bookingId: string; didHappen: boolean };
 const attestSessionHappenedBase = loudAction<AttestInput, { message: string }>({
   name: "student.session.attest",
   severity: "info",
-  audit: {
-    table: "bookings",
-    recordId: (i) => i.bookingId,
-    action: "UPDATE",
-    reasonPrefix: "student attest session",
-  },
+  // Note: no `audit:` block. The handler only reads `bookings` + `profiles`
+  // and dispatches a notification — there is NO DB mutation on `bookings`.
+  // Auditing this as `bookings UPDATE` (the prior shape) created misleading
+  // audit rows that suggested a booking-status change had occurred. The
+  // notification itself has its own message_delivery_log audit trail via
+  // `notify()`, so we don't lose observability by dropping this row.
+  // (Flagged by CodeRabbit on PR #271 review — confirmed accurate.)
   preflight: async () => {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
