@@ -110,7 +110,7 @@ type Severity = "info" | "warning" | "critical";
 
 interface AuditConfig<TInput> {
   table: string;
-  recordId: string | ((input: TInput) => string);
+  recordId: string | ((input: TInput, actorId: string | null) => string);
   action: "INSERT" | "UPDATE" | "DELETE";
   reasonPrefix?: string;
 }
@@ -303,7 +303,7 @@ async function writeAudit<TInput>(
   errorMessage: string | null,
 ) {
   try {
-    const recordId = typeof audit.recordId === "function" ? audit.recordId(input) : audit.recordId;
+    const recordId = typeof audit.recordId === "function" ? audit.recordId(input, actorId) : audit.recordId;
     const admin = createAdminClient();
     await admin.from("audit_log").insert({
       changed_by: actorId,
