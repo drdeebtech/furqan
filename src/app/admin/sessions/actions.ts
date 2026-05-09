@@ -19,7 +19,7 @@ interface BookingParties { student_id: string; teacher_id: string }
 
 class UserError extends Error {
   readonly userError = true;
-  constructor(msg: string) { super(msg); this.name = "UserError"; }
+  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
 }
 
 /* ── helper: verify caller is admin (preserved from pre-wrap) ─────────────── */
@@ -98,14 +98,14 @@ const forceEndSessionBase = loudAction<{ sessionId: string; reason: string }, { 
       .update({ status: "completed" } satisfies TableUpdate<"bookings">)
       .eq("id", session.booking_id);
 
-    if (bookingErr) throw new UserError("فشل تحديث حالة الحجز");
+    if (bookingErr) throw new UserError("فشل تحديث حالة الحجز", { cause: bookingErr });
 
     const { error: updateErr } = await supabase
       .from("sessions")
       .update({ ended_at: now, actual_duration: actualDuration } satisfies TableUpdate<"sessions">)
       .eq("id", sessionId);
 
-    if (updateErr) throw new UserError("فشل إنهاء الجلسة");
+    if (updateErr) throw new UserError("فشل إنهاء الجلسة", { cause: updateErr });
 
     /* Diff audit row — distinct from loudAction's input-only envelope row.
      * Carries old/new ended_at + actual_duration so reconciliation scripts
@@ -224,8 +224,10 @@ const adminRecreateRoomBase = loudAction<{ sessionId: string }, { message: strin
     try {
       room = await createRoom(newRoomName, newExpiresAt);
     } catch (err) {
-      logError("recreateRoom: createRoom failed", err, { tag: "admin-sessions" });
-      throw new UserError("فشل إنشاء غرفة الفيديو الجديدة");
+      // Cause attached so the Daily.co error reaches Sentry via
+      // loudAction's framework cause-handling path; no need for the
+      // explicit logError we used pre-PR-17.
+      throw new UserError("فشل إنشاء غرفة الفيديو الجديدة", { cause: err });
     }
 
     const oldData = {
@@ -249,7 +251,7 @@ const adminRecreateRoomBase = loudAction<{ sessionId: string }, { message: strin
       } satisfies TableUpdate<"sessions">)
       .eq("id", sessionId);
 
-    if (updateErr) throw new UserError("فشل تحديث الجلسة");
+    if (updateErr) throw new UserError("فشل تحديث الجلسة", { cause: updateErr });
 
     await supabase.from("audit_log").insert({
       changed_by: actorId,
