@@ -13,6 +13,17 @@ const cleanEnv = (v: string | undefined) => (v ?? "").replace(/\\n|\\r|[\r\n]+/g
 const N8N_API_URL = cleanEnv(process.env.N8N_API_URL).replace(/\/+$/, "");
 const N8N_API_KEY = cleanEnv(process.env.N8N_API_KEY);
 
+/**
+ * Whether the n8n REST client has the env vars it needs to make requests.
+ * Public actions should gate on this and return a friendly user-facing
+ * message instead of letting `n8nFetch` throw — the throw bubbles up as a
+ * high-priority Sentry event (JAVASCRIPT-NEXTJS-E4-10) on Preview
+ * deploys where N8N_API_KEY isn't set.
+ */
+export function isN8nConfigured(): boolean {
+  return Boolean(N8N_API_KEY) && Boolean(N8N_API_URL);
+}
+
 async function n8nFetch<T>(path: string, options?: RequestInit): Promise<T> {
   if (!N8N_API_KEY) throw new Error("N8N_API_KEY not configured");
   if (!N8N_API_URL) throw new Error("N8N_API_URL not configured");
