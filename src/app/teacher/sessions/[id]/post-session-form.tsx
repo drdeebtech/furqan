@@ -5,6 +5,7 @@ import { CheckCircle, Save, Users } from "lucide-react";
 import { savePostSessionNotes } from "./actions";
 import { EvalForm } from "@/app/teacher/students/[studentId]/eval-form";
 import { HomeworkAssignmentForm } from "@/components/shared/homework-assignment-form";
+import { ActionFeedback } from "@/components/shared/action-feedback";
 import type { HomeworkAssignment } from "@/types/database";
 import { useLang } from "@/lib/i18n/context";
 
@@ -81,11 +82,19 @@ export function PostSessionForm({
         <p className="mt-1 text-sm text-muted">{t("أضف ملاحظاتك والمتابعة للطالب", "Add notes and a follow-up for the student")}</p>
       </div>
 
-      {error && (
-        <div role="alert" aria-atomic="true" className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">
-          {error}
-        </div>
-      )}
+      {/* Surfaces both successful save (auto-clears in 4s) and failure
+          (sticky red banner). Replaces the prior error-only banner so a
+          green confirmation is visible inline as well. */}
+      <ActionFeedback
+        state={
+          error
+            ? { error }
+            : saved
+              ? { success: true, message: t("تم حفظ الملاحظات", "Notes saved") }
+              : null
+        }
+      />
+
 
       {/* Session Notes — narrative summary of the session itself.
           Homework is assigned via the structured form below; the legacy

@@ -6,54 +6,64 @@ import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import { notify } from "@/lib/notifications/dispatcher";
 import { isFeatureEnabled } from "@/lib/settings";
+import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
+
+class UserError extends Error {
+  readonly userError = true;
+  constructor(msg: string, options?: { cause?: unknown }) {
+    super(msg, options);
+    this.name = "UserError";
+  }
+}
 
 // ─── enrollFree ─────────────────────────────────────────────────────────────
 // Free path: only allowed when course.pricing_type='free' and course.status='published'.
 // RLS already enforces both, but we also check defensively in the action so we
 // can return a friendly error instead of letting Postgres throw.
 
-export async function enrollFree(courseId: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false as const, error: "غير مسجل الدخول" };
+const enrollFreeBase = loudAction<{ courseId: string }, { message: string }>({
+  name: "course.enroll-free",
+  severity: "info",
+  audit: {
+    table: "course_enrollments",
+    recordId: (i) => i.courseId,
+    action: "INSERT",
+    reasonPrefix: "student enroll free",
+  },
+  preflight: async () => {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new UserError("غير مسجل الدخول");
+    return { actorId: user.id };
+  },
+  handler: async ({ courseId }, { actorId }) => {
+    const supabase = await createClient();
 
-  const { data: course } = await supabase
-    .from("courses")
-    .select("id, status, pricing_type")
-    .eq("id", courseId)
-    .single<{ id: string; status: string; pricing_type: string }>();
+    const { data: course, error: courseErr } = await supabase
+      .from("courses")
+      .select("id, status, pricing_type")
+      .eq("id", courseId)
+      .single<{ id: string; status: string; pricing_type: string }>();
+    if (courseErr || !course) throw notFoundOrInfra(courseErr, "الدورة غير موجودة");
+    if (course.status !== "published") throw new UserError("الدورة غير متاحة للاشتراك");
+    if (course.pricing_type !== "free") throw new UserError("هذه الدورة غير مجانية");
 
-  if (!course) return { ok: false as const, error: "الدورة غير موجودة" };
-  if (course.status !== "published") {
-    return { ok: false as const, error: "الدورة غير متاحة للاشتراك" };
-  }
-  if (course.pricing_type !== "free") {
-    return { ok: false as const, error: "هذه الدورة غير مجانية" };
-  }
+    const { error } = await supabase
+      .from("course_enrollments")
+      .insert({
+        student_id: actorId!,
+        course_id: courseId,
+        source: "free",
+        currency: "USD",
+      } as never);
 
-  const { error } = await supabase
-    .from("course_enrollments")
-    .insert({
-      student_id: user.id,
-      course_id: courseId,
-      source: "free",
-      currency: "USD",
-    } as never);
-
-  if (error) {
-    if (error.code === "23505") {
-      // Already enrolled — treat as success
-      return { ok: true as const };
+    if (error && error.code !== "23505") {
+      // 23505 = already enrolled — treat as success (idempotent re-click)
+      throw new UserError("فشل الاشتراك — يرجى المحاولة مرة أخرى", { cause: error });
     }
-    logError("enrollFree failed", error, { tag: "course-enrollments", courseId });
-    return { ok: false as const, error: error.message };
-  }
 
-  // Bump course's enrollment count
-  await supabase.rpc("noop" as never).then(async () => {
+    // Bump course's enrollment count. Best-effort.
     const { count } = await supabase
       .from("course_enrollments")
       .select("id", { count: "exact", head: true })
@@ -64,50 +74,58 @@ export async function enrollFree(courseId: string) {
         .update({ enrollment_count_cached: count } satisfies TableUpdate<"courses">)
         .eq("id", courseId);
     }
-  });
 
-  await emitEvent("course.enrolled", "course", courseId, {
-    student_id: user.id,
-    source: "free",
-  }, user.id).catch((err) =>
-    logError("emit course.enrolled failed", err, { tag: "course-enrollments", courseId }),
-  );
-
-  // Notify the teacher of the new enrollment when there is one.
-  // Platform-owned courses have no teacher attached — the admin digest
-  // covers those.
-  const { data: courseRow } = await supabase
-    .from("courses")
-    .select("teacher_id, title_ar")
-    .eq("id", courseId)
-    .single<{ teacher_id: string | null; title_ar: string }>();
-  const { data: studentProfile } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", user.id)
-    .single<{ full_name: string | null }>();
-  if (courseRow?.teacher_id) {
-    await notify({
-      userId: courseRow.teacher_id,
-      type: "course",
-      title: "اشتراك جديد",
-      body: `${studentProfile?.full_name ?? "طالب"} اشترك في "${courseRow.title_ar}"`,
-      entityType: "course",
-      entityId: courseId,
-    }).catch((err) =>
-      logError("notify on enroll failed", err, { tag: "course-enrollments", courseId }),
+    await emitEvent("course.enrolled", "course", courseId, {
+      student_id: actorId!,
+      source: "free",
+    }, actorId!).catch((err) =>
+      logError("emit course.enrolled failed", err, { tag: "course-enrollments", courseId }),
     );
-  }
 
-  revalidatePath(`/student/courses`);
-  revalidatePath(`/courses`);
-  return { ok: true as const };
+    // Notify the teacher of the new enrollment when there is one.
+    // Platform-owned courses have no teacher attached — the admin digest
+    // covers those.
+    const { data: courseRow } = await supabase
+      .from("courses")
+      .select("teacher_id, title_ar")
+      .eq("id", courseId)
+      .single<{ teacher_id: string | null; title_ar: string }>();
+    const { data: studentProfile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", actorId!)
+      .single<{ full_name: string | null }>();
+    if (courseRow?.teacher_id) {
+      await notify({
+        userId: courseRow.teacher_id,
+        type: "course",
+        title: "اشتراك جديد",
+        body: `${studentProfile?.full_name ?? "طالب"} اشترك في "${courseRow.title_ar}"`,
+        entityType: "course",
+        entityId: courseId,
+      }).catch((err) =>
+        logError("notify on enroll failed", err, { tag: "course-enrollments", courseId }),
+      );
+    }
+
+    revalidatePath(`/student/courses`);
+    revalidatePath(`/courses`);
+    return { message: "enrolled" };
+  },
+});
+
+export async function enrollFree(courseId: string): Promise<{ ok: boolean; error?: string }> {
+  const result = await enrollFreeBase({ courseId });
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true };
 }
 
 // ─── initiateEnrollmentCheckout ─────────────────────────────────────────────
-// Paid path. When paid_courses_enabled feature flag is off, returns a clear
-// "soon" error instead of breaking. When on, will create a Stripe Checkout
-// Session (Stage 11). For now this is the placeholder.
+// Paid path. Stripe-deferred per audit (separate concern from this spec).
+// Not wrapped in loudAction — read-only short-circuit when feature flag off,
+// and the actual checkout integration will land in Stage 11. When that work
+// happens, the new implementation should adopt loudAction with severity:
+// "critical" since money is at stake (mirrors PayPal pattern).
 
 export async function initiateEnrollmentCheckout(courseId: string) {
   const enabled = await isFeatureEnabled("paid_courses_enabled");

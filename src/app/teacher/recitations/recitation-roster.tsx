@@ -53,13 +53,13 @@ function RequestRecitationButton({
     setFeedback(null);
     startTransition(async () => {
       const result = await requestFreshRecitationAction(studentId);
-      if ("success" in result) {
+      if (result.success) {
         setFeedback({
           kind: "ok",
           message: t("تم إرسال الطلب", "Request sent"),
         });
       } else {
-        setFeedback({ kind: "err", message: result.error });
+        setFeedback({ kind: "err", message: result.error ?? t("فشل الطلب", "Request failed") });
       }
     });
   }

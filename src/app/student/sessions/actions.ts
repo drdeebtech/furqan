@@ -3,7 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { notify } from "@/lib/notifications/dispatcher";
-import { logError } from "@/lib/logger";
+import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
+
+class UserError extends Error {
+  readonly userError = true;
+  constructor(msg: string, options?: { cause?: unknown }) {
+    super(msg, options);
+    this.name = "UserError";
+  }
+}
 
 /**
  * Student attests whether a stale-confirmed session actually happened.
@@ -19,57 +27,73 @@ import { logError } from "@/lib/logger";
  * Notification target is the booking's teacher_id, regardless of who
  * created the room. Idempotency is intentionally NOT enforced — a
  * student who clicks twice should send two notifications, and the
- * teacher can read both. Hardening duplicate-suppression can come later.
+ * teacher can read both.
  */
+type AttestInput = { bookingId: string; didHappen: boolean };
+
+const attestSessionHappenedBase = loudAction<AttestInput, { message: string }>({
+  name: "student.session.attest",
+  severity: "info",
+  audit: {
+    table: "bookings",
+    recordId: (i) => i.bookingId,
+    action: "UPDATE",
+    reasonPrefix: "student attest session",
+  },
+  preflight: async () => {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new UserError("غير مسجل الدخول");
+    return { actorId: user.id };
+  },
+  handler: async ({ bookingId, didHappen }, { actorId }) => {
+    const supabase = await createClient();
+
+    // Verify the booking belongs to this student. RLS gates this anyway,
+    // but an explicit check returns a clearer error than "no rows".
+    const { data: booking, error: bookingErr } = await supabase
+      .from("bookings")
+      .select("id, teacher_id, student_id, scheduled_at, session_type")
+      .eq("id", bookingId)
+      .single<{ id: string; teacher_id: string; student_id: string; scheduled_at: string; session_type: string }>();
+    if (bookingErr || !booking) throw notFoundOrInfra(bookingErr, "الجلسة غير موجودة");
+    if (booking.student_id !== actorId) throw new UserError("الجلسة غير موجودة");
+
+    // Pull student's display name for the notification body.
+    const { data: profile } = await supabase
+      .from("profiles").select("full_name").eq("id", actorId!)
+      .single<{ full_name: string | null }>();
+    const studentName = profile?.full_name?.trim() || "الطالب";
+
+    const dateStr = new Date(booking.scheduled_at).toLocaleDateString("ar-EG", {
+      month: "long", day: "numeric",
+    });
+    const verdict = didHappen ? "تمّت" : "لم تتم";
+    const action = didHappen
+      ? "يرجى تأكيدها وإنهاء الجلسة من لوحة التحكم."
+      : "يرجى تحديث الحالة (لم تتم) أو حجز موعد بديل.";
+
+    try {
+      await notify({
+        userId: booking.teacher_id,
+        type: "system",
+        title: `إقرار الطالب: جلسة ${dateStr} ${verdict}`,
+        body: `${studentName} أفاد بأن جلسة ${booking.session_type} المحددة في ${dateStr} ${verdict}. ${action}`,
+      });
+    } catch (err) {
+      throw new UserError("فشل إرسال الإشعار للمعلم", { cause: err });
+    }
+
+    revalidatePath("/student/sessions");
+    return { message: didHappen ? "happened" : "missed" };
+  },
+});
+
 export async function attestSessionHappened(
   bookingId: string,
   didHappen: boolean,
 ): Promise<{ ok: boolean; error?: string }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "غير مسجل الدخول" };
-
-  // Verify the booking belongs to this student. RLS gates this anyway,
-  // but an explicit check returns a clearer error than "no rows".
-  const { data: booking } = await supabase
-    .from("bookings")
-    .select("id, teacher_id, student_id, scheduled_at, session_type")
-    .eq("id", bookingId)
-    .single<{ id: string; teacher_id: string; student_id: string; scheduled_at: string; session_type: string }>();
-
-  if (!booking || booking.student_id !== user.id) {
-    return { ok: false, error: "الجلسة غير موجودة" };
-  }
-
-  // Pull student's display name for the notification body.
-  const { data: profile } = await supabase
-    .from("profiles").select("full_name").eq("id", user.id)
-    .single<{ full_name: string | null }>();
-  const studentName = profile?.full_name?.trim() || "الطالب";
-
-  const dateStr = new Date(booking.scheduled_at).toLocaleDateString("ar-EG", {
-    month: "long", day: "numeric",
-  });
-  const verdict = didHappen ? "تمّت" : "لم تتم";
-  const action = didHappen
-    ? "يرجى تأكيدها وإنهاء الجلسة من لوحة التحكم."
-    : "يرجى تحديث الحالة (لم تتم) أو حجز موعد بديل.";
-
-  try {
-    await notify({
-      userId: booking.teacher_id,
-      type: "system",
-      title: `إقرار الطالب: جلسة ${dateStr} ${verdict}`,
-      body: `${studentName} أفاد بأن جلسة ${booking.session_type} المحددة في ${dateStr} ${verdict}. ${action}`,
-    });
-  } catch (err) {
-    logError("attestSessionHappened: notify failed", err, {
-      tag: "sessions",
-      metadata: { bookingId, didHappen, teacherId: booking.teacher_id },
-    });
-    return { ok: false, error: "فشل إرسال الإشعار للمعلم" };
-  }
-
-  revalidatePath("/student/sessions");
+  const result = await attestSessionHappenedBase({ bookingId, didHappen });
+  if (!result.ok) return { ok: false, error: result.error };
   return { ok: true };
 }
