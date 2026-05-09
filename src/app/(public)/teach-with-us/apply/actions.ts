@@ -364,16 +364,39 @@ const submitTeacherApplicationBase = loudAction<ApplyInput, { message: string }>
 
     // Diff audit row — preserved alongside the framework's generic envelope.
     // Carries the actual teacherId (the framework's recordId is a `pending:`
-    // placeholder pre-create).
-    await adminClient.from("audit_log").insert({
-      changed_by: teacherId,
-      table_name: "teacher_profiles",
-      record_id: teacherId,
-      action: "INSERT",
-      old_data: null,
-      new_data: { email: input.email, full_name: input.full_name, source: "teach-apply" },
-      reason: "Teacher self-applied via /teach-with-us/apply",
-    });
+    // placeholder pre-create). Best-effort: a failed audit insert must NOT
+    // fail the action itself, but it also must NOT be silently dropped.
+    // Two-arg `.then(onFulfilled, onRejected)` because PostgrestBuilder
+    // returns PromiseLike (no `.catch`) — same pattern as
+    // src/lib/actions/group-session.ts addStudentToSession. (CodeRabbit
+    // post-#274 review.)
+    await adminClient
+      .from("audit_log")
+      .insert({
+        changed_by: teacherId,
+        table_name: "teacher_profiles",
+        record_id: teacherId,
+        action: "INSERT",
+        old_data: null,
+        new_data: { email: input.email, full_name: input.full_name, source: "teach-apply" },
+        reason: "Teacher self-applied via /teach-with-us/apply",
+      })
+      .then(
+        (r) => {
+          if (r.error) {
+            logError("teach-apply audit_log insert failed", r.error, {
+              tag: "teach-apply",
+              metadata: { teacherId },
+            });
+          }
+        },
+        (err: unknown) => {
+          logError("teach-apply audit_log insert promise rejected", err, {
+            tag: "teach-apply",
+            metadata: { teacherId },
+          });
+        },
+      );
 
     return { message: "applied" };
   },
