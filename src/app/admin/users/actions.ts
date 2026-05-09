@@ -567,10 +567,17 @@ const createUserFromScratchBase = loudAction<z.infer<typeof createUserSchema>, {
 
     const userId = authData.user.id;
 
-    const { error: profileError } = await adminClient
+    // Both `role` (scalar) AND `roles[]` (array) must transition together to
+    // satisfy `profiles_active_role_in_set` CHECK (`role = ANY(roles)`,
+    // migration 20260501173121). The trigger-created profile starts with
+    // `roles=['student']`; if the admin is creating a teacher or admin we
+    // must overwrite both columns or the UPDATE rejects. Same fix as
+    // /teach-with-us/apply (2026-05-09).
+    const { data: profileUpd, error: profileError } = await adminClient
       .from("profiles")
       .update({
         role: input.role as UserRole,
+        roles: [input.role as UserRole],
         full_name: input.full_name,
         phone: input.phone,
         country: input.country,
@@ -579,9 +586,10 @@ const createUserFromScratchBase = loudAction<z.infer<typeof createUserSchema>, {
         parent_email: input.parent_email,
         date_of_birth: input.date_of_birth,
       } satisfies TableUpdate<"profiles">)
-      .eq("id", userId);
+      .eq("id", userId)
+      .select("id");
 
-    if (profileError) {
+    if (profileError || !profileUpd || profileUpd.length === 0) {
       throw new Error("تم إنشاء المستخدم لكن فشل تحديث الملف الشخصي");
     }
 

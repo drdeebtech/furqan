@@ -95,11 +95,36 @@ const createTeacherBase = loudAction<CreateTeacherInput, { message: string }>({
       if (error) throw new UserError("فشل إنشاء الملف: " + error.message, { cause: error });
     }
 
-    const { error: roleError } = await supabase
+    // Both `role` (scalar) AND `roles[]` (array) must transition together to
+    // satisfy the `profiles_active_role_in_set` CHECK constraint. Setting
+    // scalar `role` only would leave `roles=['student']` from the schema
+    // default and Postgres would reject the UPDATE — same bug fixed in
+    // `/teach-with-us/apply` 2026-05-09. We append "teacher" to existing
+    // roles[] so any pre-existing held roles (e.g. user was already an admin)
+    // are preserved; admin/users/actions.ts uses the same pattern.
+    const { data: prev, error: prevErr } = await supabase
       .from("profiles")
-      .update({ role: "teacher" } satisfies TableUpdate<"profiles">)
-      .eq("id", input.teacherId);
+      .select("roles")
+      .eq("id", input.teacherId)
+      .single<{ roles: string[] | null }>();
+    if (prevErr || !prev) {
+      throw new UserError("تم إنشاء الملف لكن لم نعثر على بيانات الدور الحالية", {
+        cause: prevErr ?? new Error(`profiles select returned no row for ${input.teacherId}`),
+      });
+    }
+    const heldRoles = prev.roles ?? [];
+    const newRoles = Array.from(new Set([...heldRoles, "teacher"])) as ("student" | "teacher" | "admin" | "moderator")[];
+    const { data: roleUpd, error: roleError } = await supabase
+      .from("profiles")
+      .update({ role: "teacher", roles: newRoles } satisfies TableUpdate<"profiles">)
+      .eq("id", input.teacherId)
+      .select("id");
     if (roleError) throw new UserError("تم إنشاء الملف لكن فشل تحديث الدور: " + roleError.message, { cause: roleError });
+    if (!roleUpd || roleUpd.length === 0) {
+      throw new UserError("تم إنشاء الملف لكن لم يتم تحديث الدور — يرجى إعادة المحاولة", {
+        cause: new Error(`profiles update affected 0 rows for teacherId=${input.teacherId}`),
+      });
+    }
 
     // Promoted to teacher — flush per-user role cache so middleware
     // doesn't keep them as "student" for up to the 10s TTL fallback.
