@@ -187,17 +187,36 @@ export async function submitTeacherApplication(
 
   const teacherId = authData.user.id;
 
-  const { error: profileError } = await adminClient
+  // Both `role` (scalar) AND `roles[]` (array) must transition together to
+  // satisfy `profiles_active_role_in_set` CHECK constraint (`role = ANY(roles)`,
+  // see migration 20260501173121). Schema default for `roles` is `['student']`
+  // (migration 20260506083602) — leaving it would make the CHECK fail and
+  // Postgres reject the UPDATE. The prior code updated only the scalar `role`,
+  // every applicant hit the constraint violation, the function exited early
+  // at this guard, and no admin notification ever fired. Operator audit
+  // 2026-05-09: confirmed via "sheikh anas" application that landed under
+  // students.
+  //
+  // `.select("id")` exposes zero-rows-affected as a fail-loud signal
+  // (CodeRabbit pattern from PR #271) — RLS denial would otherwise return
+  // `error: null` + `data: []` and the wrap below would treat it as success.
+  const { data: profileUpd, error: profileError } = await adminClient
     .from("profiles")
     .update({
       role: "teacher",
+      roles: ["teacher"],
       full_name,
       phone,
       country,
     } as never)
-    .eq("id", teacherId);
-  if (profileError) {
-    logError("teach-apply profile update failed", profileError, { tag: "teach-apply" });
+    .eq("id", teacherId)
+    .select("id");
+  if (profileError || !profileUpd || profileUpd.length === 0) {
+    logError("teach-apply profile update failed", profileError, {
+      tag: "teach-apply",
+      severity: "warning",
+      metadata: { teacherId, rowsAffected: profileUpd?.length ?? 0 },
+    });
     return { error: "تم إنشاء الحساب لكن فشل تحديث الملف — راسل الدعم" };
   }
 
@@ -282,16 +301,38 @@ export async function submitTeacherApplication(
   // Multi-channel admin notification — fire-and-forget, never block the user.
   // TODO: WhatsApp once cloud API token is configured.
   await Promise.allSettled([
-    // 1. In-app bell for every admin
+    // 1. In-app bell for every admin.
+    //    Filter by `roles[] @> ['admin']` instead of `role = 'admin'` so
+    //    multi-role admins (e.g. an admin currently viewing as teacher with
+    //    role='teacher', roles=['admin','teacher']) still receive the alert.
+    //    The `profiles_roles_gin` index from migration 20260501173121
+    //    supports this filter cheaply.
     (async () => {
       const { data: admins } = await adminClient
         .from("profiles")
         .select("id")
-        .eq("role", "admin")
+        .contains("roles", ["admin"])
         .returns<{ id: string }[]>();
+      // Empty-broadcast fail-loud: if zero admins matched, ops would never
+      // see a new application again. Surface to Sentry + Telegram so the
+      // missing-admins state shows up the first time it happens, not the
+      // 50th. (Layer 4c per PR plan.)
+      if (!admins || admins.length === 0) {
+        logError(
+          "teach-apply admin broadcast hit zero recipients",
+          new Error("no profiles with roles @> ['admin'] — admin alert silently dropped"),
+          { tag: "teach-apply", severity: "warning", metadata: { teacherId } },
+        );
+        sendTelegramAlert(
+          `⚠️ <b>Teacher application received but NO admin recipients found</b>\n\n` +
+            `<b>Applicant:</b> ${full_name}\n<b>Email:</b> ${email}\n` +
+            `Investigate: <code>profiles WHERE 'admin' = ANY(roles)</code> returned 0 rows.`,
+        ).catch((err) => logError("teach-apply zero-admin telegram fallback failed", err, { tag: "teach-apply" }));
+        return;
+      }
       const body = `${full_name} (${country}) — ${specialties.slice(0, 3).join(", ")}`;
       await Promise.allSettled(
-        (admins ?? []).map((a) =>
+        admins.map((a) =>
           notify({
             userId: a.id,
             type: "system",
