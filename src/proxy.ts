@@ -124,6 +124,7 @@ export async function proxy(request: NextRequest) {
 
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const { supabaseResponse, user, supabase } = await updateSession(request, nonce);
+  supabaseResponse.headers.set("x-nonce", nonce);
   supabaseResponse.headers.set(
     "Content-Security-Policy",
     buildContentSecurityPolicy(nonce),
