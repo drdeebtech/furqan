@@ -79,6 +79,13 @@ export async function updateSession(request: NextRequest, cspNonce?: string) {
     request: { headers: mergedRequestHeaders },
   });
 
+  // Forward the nonce to response headers so layout components can read it
+  // via Next.js headers(). Setting it only on request headers makes it
+  // available to Server Components during this render cycle, but headers()
+  // reads from the *response* headers that Next.js exposes — so we must
+  // copy it there as well.
+  if (cspNonce) supabaseResponse.headers.set("x-nonce", cspNonce);
+
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -96,6 +103,8 @@ export async function updateSession(request: NextRequest, cspNonce?: string) {
           supabaseResponse = NextResponse.next({
             request: { headers: mergedRequestHeaders },
           });
+          // Re-apply the nonce to the new response object created in setAll.
+          if (cspNonce) supabaseResponse.headers.set("x-nonce", cspNonce);
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options),
           );
