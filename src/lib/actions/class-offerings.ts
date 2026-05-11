@@ -230,14 +230,25 @@ export async function enrollInOffering(
 
   if (activePkg) {
     studentPackageId = activePkg.id;
-    const { data: deducted, error: deductErr } = await admin.rpc("deduct_package_session", { p_package_id: activePkg.id });
-    if (deductErr) {
-      creditNote = `[deduct-failed: ${deductErr.message}] `;
-      return { error: "تعذر خصم رصيد الباقة. حاول مرة أخرى أو تواصل مع الدعم." };
-    }
-    if (deducted !== true) {
-      creditNote = "[package-expired-or-exhausted] ";
-      return { error: "هذه الباقة منتهية أو مستهلكة ولا يمكن استخدامها للتسجيل." };
+    try {
+      const { data: deducted, error: deductErr } = await admin.rpc("deduct_package_session", { p_package_id: activePkg.id });
+      if (deductErr) {
+        creditNote = `[deduct-failed: ${deductErr.message}] `;
+        logError("enrollInOffering: deduct_package_session RPC error", deductErr, {
+          tag: "class-offerings", metadata: { offeringId, studentId: user.id, packageId: activePkg.id },
+        });
+        return { error: "تعذر خصم رصيد الباقة. حاول مرة أخرى أو تواصل مع الدعم." };
+      }
+      if (deducted !== true) {
+        creditNote = "[package-expired-or-exhausted] ";
+        return { error: "هذه الباقة منتهية أو مستهلكة ولا يمكن استخدامها للتسجيل." };
+      }
+    } catch (e) {
+      creditNote = creditNote || "[deduct-threw] ";
+      logError("enrollInOffering: deduct_package_session call failed", e, {
+        tag: "class-offerings", metadata: { offeringId, studentId: user.id, packageId: activePkg.id },
+      });
+      return { error: "خطأ في معالجة الباقة. حاول مرة أخرى أو تواصل مع الدعم." };
     }
   } else {
     creditNote = "[no-active-package] ";
