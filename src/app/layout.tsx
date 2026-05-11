@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { cookies } from "next/headers";
+import { connection } from "next/server";
+import { cookies, headers } from "next/headers";
 import { Inter, Rakkas, IBM_Plex_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme/context";
@@ -115,10 +116,12 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  await connection();
   // Read the persisted language cookie so `<html lang>` and `dir` match the
   // user's choice on the first byte — important for screen readers and for
   // search engines that don't execute JS.
   const cookieStore = await cookies();
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   const langCookie = cookieStore.get("furqan-lang")?.value;
   const lang: "ar" | "en" = langCookie === "en" ? "en" : "ar";
   const dir = lang === "ar" ? "rtl" : "ltr";
@@ -130,7 +133,7 @@ export default async function RootLayout({
       className={`${inter.variable} ${rakkas.variable} ${body.variable} h-full antialiased`}
     >
       <head>
-        <script src="/sw-register.js" defer />
+        <script src="/sw-register.js" defer nonce={nonce} />
       </head>
       <body className="min-h-full flex flex-col">
         <a

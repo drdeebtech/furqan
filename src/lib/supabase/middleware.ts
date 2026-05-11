@@ -71,9 +71,12 @@ function isValidAuthCookieValue(name: string, value: string): boolean {
   return true;
 }
 
-export async function updateSession(request: NextRequest) {
+export async function updateSession(request: NextRequest, cspNonce?: string) {
+  const mergedRequestHeaders = new Headers(request.headers);
+  if (cspNonce) mergedRequestHeaders.set("x-nonce", cspNonce);
+
   let supabaseResponse = NextResponse.next({
-    request,
+    request: { headers: mergedRequestHeaders },
   });
 
   const supabase = createServerClient<Database>(
@@ -91,7 +94,7 @@ export async function updateSession(request: NextRequest) {
             request.cookies.set(name, value),
           );
           supabaseResponse = NextResponse.next({
-            request,
+            request: { headers: mergedRequestHeaders },
           });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options),
