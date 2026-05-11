@@ -1,9 +1,13 @@
 # Feature Specification: Complete Loud Action Phase 2
 
-**Feature Branch**: `[007-feature]`  
+**Feature Branch**: `007-feature`  
 **Created**: 2026-05-10  
 **Status**: Draft  
 **Input**: User description: "Finish loud action phase 2"
+
+## Context
+
+Phase 2 in this document means the **second phase of completing loud-action coverage** for sensitive admin writes (audit logging, operator visibility). It is distinct from booking sessions (spec 003), package deduction (spec 005), and teacher CV workflows. “Phase” here refers to the staged checklist of actions that must be finished before this feature’s operational gate is considered closed—not a `sessions` table row or a Quran class session. Related concepts: **Phase**, **Phase Action**, and **Completion Event** below; authorization aligns with `profiles.role` (`student` \| `teacher` \| `admin`) per CLAUDE.md and ADR-0003 (no legacy moderator role).
 
 ## Clarifications
 
@@ -11,7 +15,7 @@
 
 - Q: How should concurrent updates to the same Phase 2 action be handled? → A: Optimistic concurrency control (reject stale update, require user refresh/retry).
 - Q: Should completion history be mutable after recording? → A: Keep completion history immutable; corrections are recorded as new reversal/correction events.
-- Q: Which roles can close Phase 2? → A: Operators can update actions; only manager/supervisor roles can close Phase 2.
+- Q: Which roles can close Phase 2? → A: Operators can update actions; only **admin** can close Phase 2.
 - Q: What should happen if a closure attempt encounters stale data or a version conflict? → A: Block completion and show conflict details until the user refreshes and retries.
 - Q: Which events must be audited for Phase 2 completion controls? → A: Audit action status changes and phase-close attempts (success or blocked) with actor, timestamp, and reason.
 
@@ -49,7 +53,7 @@ As an operator, I can see real-time progress for Phase 2 so I know what is done,
 
 ### User Story 3 - Ensure completion is auditable (Priority: P3)
 
-As a manager, I can review who completed Phase 2 actions and when, so completion decisions are transparent and verifiable.
+As an **admin**, I can review who completed Phase 2 actions and when, so completion decisions are transparent and verifiable.
 
 **Why this priority**: Auditability supports accountability and operational review.
 
@@ -58,7 +62,7 @@ As a manager, I can review who completed Phase 2 actions and when, so completion
 **Acceptance Scenarios**:
 
 1. **Given** a user completes an action, **When** completion is recorded, **Then** the system stores the user identity and completion time.
-2. **Given** a completed Phase 2 record, **When** a manager reviews history, **Then** all required completion events are visible.
+2. **Given** a completed Phase 2 record, **When** an **admin** reviews history, **Then** all required completion events are visible.
 
 ---
 
@@ -75,14 +79,14 @@ As a manager, I can review who completed Phase 2 actions and when, so completion
 
 - **FR-001**: The system MUST present a definitive list of all Phase 2 actions with each action labeled as required or optional.
 - **FR-002**: The system MUST allow authorized users to mark Phase 2 actions as complete and incomplete.
-- **FR-002a**: The system MUST permit operators to update Phase 2 action statuses but restrict the explicit phase-close operation to manager/supervisor roles.
+- **FR-002a**: The system MUST permit operators to update Phase 2 action statuses but restrict the explicit phase-close operation to **admin** users.
 - **FR-003**: The system MUST prevent Phase 2 from being marked complete while any required action remains incomplete.
 - **FR-004**: The system MUST automatically set Phase 2 status to complete when all required actions are complete.
 - **FR-005**: The system MUST automatically revert Phase 2 status to in-progress if any required action becomes incomplete after completion.
 - **FR-006**: The system MUST display current completion progress for Phase 2, including counts of required actions completed and remaining.
 - **FR-007**: The system MUST record completion history for required actions, including acting user and timestamp for each status change.
 - **FR-008**: The system MUST provide a clear reason when completion is blocked, including the specific required actions that remain incomplete.
-- **FR-009**: The system MUST preserve Phase 2 completion records so managers can review historical completion details.
+- **FR-009**: The system MUST preserve Phase 2 completion records so **admins** can review historical completion details.
 - **FR-010**: The system MUST enforce optimistic concurrency for Phase Action updates by rejecting stale writes when the record version has changed since read and requiring the user to refresh before retry.
 - **FR-011**: The system MUST treat Completion Event records as immutable; any correction MUST be captured as a new event linked to the prior event rather than editing or deleting historical entries.
 - **FR-012**: The system MUST block phase-close attempts when stale data or version conflicts are detected and present conflict details with a refresh-and-retry path.
@@ -108,4 +112,4 @@ As a manager, I can review who completed Phase 2 actions and when, so completion
 - Phase 2 already exists in the product lifecycle and this feature extends its completion behavior rather than introducing a new phase model.
 - Authorized user roles for updating Phase 2 actions are already defined in the existing system.
 - Required versus optional designation for actions is available from current business rules.
-- Historical completion data is expected to be available to managers for operational review.
+- Historical completion data is expected to be available to **admins** for operational review.

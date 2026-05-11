@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { connection } from "next/server";
 import { cookies, headers } from "next/headers";
 import { Inter, Rakkas, IBM_Plex_Sans_Arabic } from "next/font/google";
 import "./globals.css";
@@ -116,7 +115,6 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  await connection();
   // Read the persisted language cookie so `<html lang>` and `dir` match the
   // user's choice on the first byte — important for screen readers and for
   // search engines that don't execute JS.
