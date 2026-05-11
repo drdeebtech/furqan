@@ -230,8 +230,15 @@ export async function enrollInOffering(
 
   if (activePkg) {
     studentPackageId = activePkg.id;
-    const { error: deductErr } = await admin.rpc("deduct_package_session", { p_package_id: activePkg.id });
-    if (deductErr) creditNote = `[deduct-failed: ${deductErr.message}] `;
+    const { data: deducted, error: deductErr } = await admin.rpc("deduct_package_session", { p_package_id: activePkg.id });
+    if (deductErr) {
+      creditNote = `[deduct-failed: ${deductErr.message}] `;
+      return { error: "تعذر خصم رصيد الباقة. حاول مرة أخرى أو تواصل مع الدعم." };
+    }
+    if (deducted !== true) {
+      creditNote = "[package-expired-or-exhausted] ";
+      return { error: "هذه الباقة منتهية أو مستهلكة ولا يمكن استخدامها للتسجيل." };
+    }
   } else {
     creditNote = "[no-active-package] ";
   }
