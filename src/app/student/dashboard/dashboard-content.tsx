@@ -503,7 +503,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                 }
                 return <LessonRowActions lessonId={lessonId} href={href} />;
               }}
-              emptyMessage={t("لا توجد دروس جارية — تصفّح الكورسات لتبدأ", "No lessons in progress — browse courses to get started")}
+              emptyMessage={t("ستظهر تسجيلات جلساتك هنا بعد جلستك الأولى", "Your session recordings will appear here after your first session")}
             />
           </SectionErrorBoundary>
         </div>

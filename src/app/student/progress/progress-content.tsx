@@ -508,7 +508,7 @@ export function ProgressContent({ data }: { data: ProgressData }) {
       )}
 
       {/* Empty state */}
-      {completedCount === 0 && (
+      {completedCount === 0 && progressRecords.length === 0 && (
         <div className="glass-card p-12 text-center">
           <BookOpen size={40} className="mx-auto mb-3 text-muted/40" />
           <p className="text-muted">{t("لم تُكمل أي تلاوة بعد", "No recitations completed yet")}</p>
