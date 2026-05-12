@@ -881,7 +881,7 @@ export async function getStudentContinueWatching(
         id: course.id.slice(0, 6).toUpperCase(),
         subject: title,
         date: new Date(r.updated_at).toLocaleDateString(
-          lang === "ar" ? "ar" : "en-US",
+          lang === "ar" ? "ar-EG" : "en-US",
           { year: "numeric", month: "short", day: "2-digit" },
         ),
         progress: pct,
@@ -942,7 +942,7 @@ export async function getStudentRecentRecordings(
     id: b.id.slice(0, 6).toUpperCase(),
     subject: b.session_type ?? "—",
     date: new Date(b.scheduled_at).toLocaleDateString(
-      lang === "ar" ? "ar" : "en-US",
+      lang === "ar" ? "ar-EG" : "en-US",
       { year: "numeric", month: "short", day: "2-digit" }
     ),
     progress: Math.min(100, 50 + i * 10),

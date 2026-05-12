@@ -9,7 +9,7 @@ const STYLE_OPTIONS: Record<Style, Intl.DateTimeFormatOptions> = {
 };
 
 const LOCALE: Record<Lang, string> = {
-  ar: "ar",
+  ar: "ar-EG",
   en: "en-US",
 };
 

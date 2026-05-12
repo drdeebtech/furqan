@@ -78,7 +78,7 @@ export default async function StudentNotesPage() {
                       · {booking.duration_min} {t("د", "m")}
                     </span>
                   </div>
-                  <span className="text-xs text-muted">{new Date(booking.scheduled_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US", { year: "numeric", month: "long", day: "numeric" })}</span>
+                  <span className="text-xs text-muted">{new Date(booking.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "long", day: "numeric" })}</span>
                 </div>
                 <div className="border-t border-white/10 pt-4">
                   <p className="mb-2 text-xs font-medium text-gold">{t("ملاحظات الجلسة", "Session Notes")}</p>

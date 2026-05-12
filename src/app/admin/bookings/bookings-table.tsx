@@ -233,7 +233,7 @@ export function BookingsTable({
                     {lang === "ar" ? SESSION_TYPE_AR[b.session_type] : SESSION_TYPE_EN[b.session_type]}
                   </td>
                   <td className="px-3 py-3 text-xs text-muted">
-                    {new Date(b.scheduled_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}{" "}
+                    {new Date(b.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US")}{" "}
                     {lang === "ar" ? `${b.duration_min}د` : `${b.duration_min}m`}
                   </td>
                   <td className="px-3 py-3 text-gold">${b.amount_usd}</td>

@@ -37,7 +37,7 @@ const STANDARD_LABEL: Record<string, { ar: string; en: string }> = {
  */
 export default async function StudentIjazahPage() {
   const { t, dir, lang } = await getT();
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");

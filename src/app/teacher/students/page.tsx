@@ -250,7 +250,7 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
               ? Math.floor((Date.now() - new Date(s.lastEvalAt).getTime()) / 86400_000)
               : null;
             const evalOverdue = daysSinceEval == null || daysSinceEval > 30;
-            const localeArg = lang === "ar" ? "ar" : "en-US";
+            const localeArg = lang === "ar" ? "ar-EG" : "en-US";
             return (
               <div key={s.id} className="glass-card p-6">
                 <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-gold/30 bg-gold/10 font-display text-xl font-bold text-gold">

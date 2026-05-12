@@ -82,7 +82,7 @@ export default async function AdminPaymentsPage() {
                   <td className="px-3 py-3 font-bold text-gold">${Number(p.amount_usd).toFixed(2)}</td>
                   <td className="px-3 py-3"><span className={`glass-badge ${STATUS_COLORS[p.status] ?? ""}`}>{p.status}</span></td>
                   <td className="px-3 py-3 text-xs text-muted" dir="ltr">{p.stripe_payment_intent.slice(0, 20)}...</td>
-                  <td className="px-3 py-3 text-xs text-muted">{new Date(p.created_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}</td>
+                  <td className="px-3 py-3 text-xs text-muted">{new Date(p.created_at).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US")}</td>
                 </tr>
               ))}
             </tbody>
@@ -111,7 +111,7 @@ export default async function AdminPaymentsPage() {
                   <td className="px-3 py-3">{inv.student_name_snapshot}</td>
                   <td className="px-3 py-3">${Number(inv.amount_usd).toFixed(2)}</td>
                   <td className="px-3 py-3 text-xs text-muted">{inv.currency}</td>
-                  <td className="px-3 py-3 text-xs text-muted">{new Date(inv.created_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}</td>
+                  <td className="px-3 py-3 text-xs text-muted">{new Date(inv.created_at).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US")}</td>
                 </tr>
               ))}
             </tbody>

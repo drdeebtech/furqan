@@ -92,7 +92,7 @@ export default async function CommunityIndexPage() {
                     </p>
                   </div>
                   <p className="mt-0.5 truncate text-[11px] text-muted">
-                    {nameMap[th.author_id] ?? "—"} · {th.category} · {new Date(th.created_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}
+                    {nameMap[th.author_id] ?? "—"} · {th.category} · {new Date(th.created_at).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US")}
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-muted">

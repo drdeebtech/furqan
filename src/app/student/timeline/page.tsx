@@ -44,7 +44,7 @@ const EVENT_META: Record<TimelineEvent["kind"], { icon: typeof Video; tint: stri
 
 export default async function StudentTimelinePage() {
   const { t, dir, lang } = await getT();
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");

@@ -76,7 +76,7 @@ export default async function ThreadPage({ params }: Props) {
         </div>
         <h1 className="font-display text-2xl font-bold">{title}</h1>
         <p className="mt-1 text-xs text-muted">
-          {nameMap[thread.author_id] ?? "—"} · {new Date(thread.created_at).toLocaleString(lang === "ar" ? "ar" : "en-US")}
+          {nameMap[thread.author_id] ?? "—"} · {new Date(thread.created_at).toLocaleString(lang === "ar" ? "ar-EG" : "en-US")}
         </p>
         <div className="mt-4 whitespace-pre-wrap text-sm leading-relaxed">{body}</div>
       </article>
@@ -92,7 +92,7 @@ export default async function ThreadPage({ params }: Props) {
             {replies.map((r) => (
               <li key={r.id} className="glass-card p-4">
                 <p className="text-xs text-muted">
-                  {nameMap[r.author_id] ?? "—"} · {new Date(r.created_at).toLocaleString(lang === "ar" ? "ar" : "en-US")}
+                  {nameMap[r.author_id] ?? "—"} · {new Date(r.created_at).toLocaleString(lang === "ar" ? "ar-EG" : "en-US")}
                 </p>
                 <div className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
                   {lang === "ar" ? r.body_ar : (r.body_en ?? r.body_ar)}

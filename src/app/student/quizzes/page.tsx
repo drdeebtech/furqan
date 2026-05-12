@@ -165,7 +165,7 @@ export default async function StudentQuizzesPage() {
                     </p>
                     <p className="mt-0.5 truncate text-[11px] text-muted">
                       {courseTitle}
-                      {q.due_at && <> · {t("الموعد:", "due:")} {new Date(q.due_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}</>}
+                      {q.due_at && <> · {t("الموعد:", "due:")} {new Date(q.due_at).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US")}</>}
                     </p>
                   </div>
                   {taken && last.score_pct != null ? (

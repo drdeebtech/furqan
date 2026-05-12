@@ -75,7 +75,7 @@ export function BookingForm({
     return legacy ?? key;
   }
 
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
   const maxSlotDuration = availability.length > 0 ? Math.max(...availability.map((s) => s.slotDuration)) : 60;
   const durations = ALL_DURATIONS.filter((d) => d.value <= maxSlotDuration);
   const defaultDuration = durations.length > 0 ? durations[durations.length - 1].value : 30;
@@ -283,7 +283,7 @@ export function BookingForm({
                 <button
                   type="button"
                   onClick={() => setDateRangeDays((n) => Math.min(n + 14, 56))}
-                  aria-label="تحميل مواعيد أبعد"
+                  aria-label={t("تحميل مواعيد أبعد", "Load more dates")}
                   className="shrink-0 rounded-xl border border-gold/30 px-3 py-2.5 text-xs text-gold transition-colors hover:bg-gold/10"
                 >
                   + ١٤ يوم

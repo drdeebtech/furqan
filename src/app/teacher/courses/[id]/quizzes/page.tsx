@@ -75,7 +75,7 @@ export default async function CourseQuizzesPage({ params }: Props) {
                   {q.time_limit_minutes ? `${q.time_limit_minutes} ${t("دقيقة", "min")}` : t("بدون حد زمني", "untimed")}
                   {" · "}
                   {q.passing_score_pct}% {t("للنجاح", "pass")}
-                  {q.due_at && <> · {t("الموعد:", "due:")} {new Date(q.due_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}</>}
+                  {q.due_at && <> · {t("الموعد:", "due:")} {new Date(q.due_at).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US")}</>}
                 </p>
               </div>
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${

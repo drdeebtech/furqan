@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useLang } from "@/lib/i18n/context";
 
 type Props = {
   next?: string;
@@ -10,6 +11,8 @@ type Props = {
 export function GoogleSignInButton({ next }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { lang } = useLang();
+  const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
 
   async function handleClick() {
     setPending(true);
@@ -31,7 +34,12 @@ export function GoogleSignInButton({ next }: Props) {
     });
 
     if (oauthError) {
-      setError("تعذر بدء تسجيل الدخول بحساب جوجل. حاول مرة أخرى.");
+      setError(
+        t(
+          "تعذر بدء تسجيل الدخول بحساب جوجل. حاول مرة أخرى.",
+          "Could not start Google sign-in. Please try again.",
+        ),
+      );
       setPending(false);
     }
   }
@@ -51,7 +59,7 @@ export function GoogleSignInButton({ next }: Props) {
         onClick={handleClick}
         disabled={pending}
         className="flex w-full items-center justify-center gap-3 rounded-full glass-pill border border-white/40 bg-white py-2.5 font-semibold text-neutral-900 shadow-sm transition-colors hover:bg-neutral-50 disabled:opacity-50"
-        aria-label="تسجيل الدخول بحساب جوجل"
+        aria-label={t("تسجيل الدخول بحساب جوجل", "Sign in with Google")}
       >
         {pending ? (
           <span className="h-5 w-5 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-700" />

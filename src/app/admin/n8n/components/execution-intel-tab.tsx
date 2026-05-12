@@ -35,7 +35,7 @@ const BREAKDOWN_COLORS = [
 
 export function ExecutionIntelTab() {
   const { t, lang } = useLang();
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
   const [allExecs, setAllExecs] = useState<Execution[]>([]);
   const [, setErrorExecs] = useState<ErrorExecution[]>([]);
   const [workflowNameMap, setWorkflowNameMap] = useState<Map<string, string>>(new Map());

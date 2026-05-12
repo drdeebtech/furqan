@@ -184,7 +184,7 @@ export default async function TeacherEvaluationsPage() {
       ) : (
         <div className="space-y-4">
           {list.map((ev) => {
-            const locale = lang === "ar" ? "ar" : "en-US";
+            const locale = lang === "ar" ? "ar-EG" : "en-US";
             return (
             <div key={ev.id} className="glass-card p-6">
               {/* Header row */}

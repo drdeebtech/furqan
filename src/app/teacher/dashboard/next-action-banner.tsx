@@ -34,7 +34,7 @@ const DISMISS_KEY = "furqan-teacher-banner-dismissed-key";
 export function TeacherNextActionBanner({ data }: { data: TeacherNextActionData }) {
   const { t, dir, lang } = useLang();
   const Arrow = dir === "rtl" ? ArrowLeft : ArrowRight;
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
   const now = useNowTicker().getTime();
   const [dismissedKey, setDismissedKey] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;

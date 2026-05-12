@@ -94,7 +94,7 @@ interface ProgressData {
 
 export function ProgressContent({ data }: { data: ProgressData }) {
   const { t, dir, lang } = useLang();
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
   const { completedCount, currentLevel, avgQuality, juzTouched, totalHours, evalScores, hwStats, latestEval, progressRecords, sessionsPerWeek, errorBreakdown, parentReport } = data;
 
   const level = LEVEL_CONFIG[currentLevel] ?? LEVEL_CONFIG.beginner;

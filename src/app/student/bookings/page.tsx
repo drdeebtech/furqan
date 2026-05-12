@@ -100,7 +100,7 @@ export default async function StudentBookingsPage() {
           {list.map((booking) => {
             const date = new Date(booking.scheduled_at);
             const statusInfo = STATUS_STYLE[booking.status];
-            const locale = lang === "ar" ? "ar" : "en-US";
+            const locale = lang === "ar" ? "ar-EG" : "en-US";
 
             return (
               <div

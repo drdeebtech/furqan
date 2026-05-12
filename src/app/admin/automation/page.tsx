@@ -16,7 +16,7 @@ const STATUS_ICON: Record<string, { icon: typeof CheckCircle; color: string }> =
 
 export default async function AdminAutomationPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const { t, dir, lang } = await getT();
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
   const sp = await searchParams;
   const PAGE_SIZE = 50;
   const page = Math.max(1, Number(sp.page) || 1);

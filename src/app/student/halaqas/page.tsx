@@ -29,7 +29,7 @@ interface TeacherRow {
 
 export default async function StudentHalaqasPage() {
   const { t, dir, lang } = await getT();
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
 
   // Auth check on the user-facing client (so the route stays
   // gated). The actual browse query runs on the admin client because
