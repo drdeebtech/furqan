@@ -58,7 +58,9 @@ jobs:
       - name: Run review against base branch
         if: steps.gate.outputs.skip != 'true'
         env:
-          CODERABBITAI_API_KEY: ${{ secrets.CODERABBITAI_API_KEY }}
+          # The CLI reads CODERABBIT_API_KEY (no "AI"); the secret keeps its
+          # original name to avoid rotating the stored value.
+          CODERABBIT_API_KEY: ${{ secrets.CODERABBITAI_API_KEY }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           set -o pipefail
