@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { isFeatureEnabled } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
+import { getT } from "@/lib/i18n/server";
 import { createThread } from "@/lib/actions/community";
 import { getDashboardHref } from "@/lib/auth/dashboard-href";
 
@@ -11,6 +12,7 @@ export const metadata: Metadata = { title: "موضوع جديد" };
 export default async function NewThreadPage() {
   if (!(await isFeatureEnabled("community_enabled"))) notFound();
 
+  const { t } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -28,9 +30,12 @@ export default async function NewThreadPage() {
     <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
       {dashboardHref && (
         <div className="mb-6 flex items-center justify-between gap-3 border-b border-card-border/60 pb-4 text-sm">
-          <span className="text-muted">المجتمع — يمكنك العودة إلى لوحة التحكم في أي وقت.</span>
+          <span className="text-muted">
+            {t("المجتمع — يمكنك العودة إلى لوحة التحكم في أي وقت.",
+               "Community — return to your dashboard anytime.")}
+          </span>
           <Link href={dashboardHref} className="shrink-0 font-medium text-gold hover:text-gold-hover focus-ring rounded">
-            العودة للوحة التحكم
+            {t("العودة للوحة التحكم", "Back to dashboard")}
           </Link>
         </div>
       )}
