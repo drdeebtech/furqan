@@ -72,7 +72,7 @@ export async function POST(request: Request) {
         .gte("created_at", oneMinuteAgo);
 
       if ((count ?? 0) >= NOTIFY_PER_USER_PER_MINUTE) {
-        await supabase.from("message_delivery_log").insert({
+        const { error: throttleLogError } = await supabase.from("message_delivery_log").insert({
           recipient_user_id: data.user_id,
           recipient_channel: "in_app",
           template_name: data.template_name ?? null,
@@ -80,6 +80,11 @@ export async function POST(request: Request) {
           related_entity_id: data.entity_id ?? null,
           status: "throttled",
         });
+        if (throttleLogError) {
+          logError("delivery_log throttled-insert failed", throttleLogError, {
+            tag: "n8n-webhook", channel: "in_app", status: "throttled",
+          });
+        }
         return NextResponse.json(
           { error: "rate_limited", limit: NOTIFY_PER_USER_PER_MINUTE, window: "1m" },
           { status: 429 },
@@ -109,8 +114,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Failed to notify" }, { status: 500 });
       }
 
-      // Mirror to delivery log for observability parity with dispatcher path
-      await supabase.from("message_delivery_log").insert({
+      // Mirror to delivery log for observability parity with dispatcher path.
+      // Best-effort — never blocks the webhook response.
+      const { error: sentLogError } = await supabase.from("message_delivery_log").insert({
         recipient_user_id: data.user_id,
         recipient_channel: "in_app",
         template_name: data.template_name ?? null,
@@ -118,6 +124,11 @@ export async function POST(request: Request) {
         related_entity_id: data.entity_id ?? null,
         status: "sent",
       });
+      if (sentLogError) {
+        logError("delivery_log sent-insert failed", sentLogError, {
+          tag: "n8n-webhook", channel: "in_app", status: "sent",
+        });
+      }
 
       return NextResponse.json({ notified: true });
     }

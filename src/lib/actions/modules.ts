@@ -159,8 +159,16 @@ export async function assignLesson(
   const auth = await authorizeCourseOwner(m.course_id);
   if (!auth.ok) return auth;
 
-  // Remove any prior assignment first.
-  await supabase.from("module_lessons").delete().eq("lesson_id", lessonId);
+  // Remove any prior assignment first. A silent failure here masks into a
+  // confusing unique-constraint error on the subsequent insert; log so the
+  // real cause (RLS denial, FK violation, etc.) is visible.
+  const { error: deleteError } = await supabase.from("module_lessons").delete().eq("lesson_id", lessonId);
+  if (deleteError) {
+    logError("assignLesson: prior-assignment delete failed", deleteError, {
+      tag: "modules", lessonId,
+    });
+    return { ok: false, error: deleteError.message };
+  }
 
   const { error } = await supabase
     .from("module_lessons")

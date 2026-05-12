@@ -96,7 +96,7 @@ async function checkApplyRate(ipKey: string): Promise<boolean> {
     if ((count ?? 0) >= MAX_APPLICATIONS_PER_HOUR) return false;
 
     const now = new Date().toISOString();
-    await supabase.from("automation_logs").insert({
+    const { error: autoLogError } = await supabase.from("automation_logs").insert({
       workflow_name: "teach-apply-attempt",
       entity_type: "ip",
       entity_id: null,
@@ -105,6 +105,9 @@ async function checkApplyRate(ipKey: string): Promise<boolean> {
       started_at: now,
       finished_at: now,
     });
+    if (autoLogError) {
+      logError("teach-apply rate-limit log insert failed", autoLogError, { tag: "teach-apply" });
+    }
     return true;
   } catch (err) {
     // Fail open — never block a real applicant because rate-limit table is down

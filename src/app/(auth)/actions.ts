@@ -133,7 +133,7 @@ async function checkAuthRate(
     if ((count ?? 0) >= max) return false;
 
     const now = new Date().toISOString();
-    await supabase.from("automation_logs").insert({
+    const { error: autoLogError } = await supabase.from("automation_logs").insert({
       workflow_name: workflow,
       entity_type: "email",
       entity_id: entityId,
@@ -141,6 +141,11 @@ async function checkAuthRate(
       started_at: now,
       finished_at: now,
     });
+    if (autoLogError) {
+      logError(`${workflow} rate-limit log insert failed`, autoLogError, {
+        tag: "auth-rate", workflow, entityId,
+      });
+    }
     return true;
   } catch (err) {
     logError(`${workflow} rate check failed — allowing request`, err, { tag: "auth-rate" });

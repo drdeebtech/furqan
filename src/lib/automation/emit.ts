@@ -145,7 +145,15 @@ export async function emitEvent(
       }
       return;
     }
-    const settings = await getSettings().catch(() => ({} as Record<string, string>));
+    const settings = await getSettings().catch((err) => {
+      // Settings drive automation_enabled + per-event sub-flags. Silently
+      // falling through to {} means every event gets dropped as if
+      // automation_enabled=false — indistinguishable from operator intent.
+      logError("emit: getSettings failed; defaulting to empty settings", err, {
+        tag: "automation", kind: "config", event: eventName,
+      });
+      return {} as Record<string, string>;
+    });
     if (settings.automation_enabled !== "true") {
       await recordSkipped(payload, "automation_enabled=false");
       return;
@@ -216,7 +224,7 @@ async function recordOutcome(
   try {
     const { createAdminClient } = await import("@/lib/supabase/admin");
     const supabase = createAdminClient();
-    await supabase.from("automation_logs").insert({
+    const { error: autoLogError } = await supabase.from("automation_logs").insert({
       workflow_name: "furqan-app:emitEvent",
       event_name: payload.event,
       entity_type: payload.entity_type,
@@ -227,7 +235,16 @@ async function recordOutcome(
       error_message: reason,
       finished_at: new Date().toISOString(),
     });
-  } catch {
-    // Swallow — if we can't even log, the caller still gets normal control flow.
+    if (autoLogError) {
+      logError("recordSkipped/recordFailed automation_log insert failed", autoLogError, {
+        tag: "automation", event: payload.event, kind: status,
+      });
+    }
+  } catch (err) {
+    // Network-level rejection (rare). Still log so persistent failures
+    // (e.g. admin client init crash) don't disappear entirely.
+    logError("recordSkipped/recordFailed crashed before insert", err, {
+      tag: "automation", event: payload.event, kind: status,
+    });
   }
 }

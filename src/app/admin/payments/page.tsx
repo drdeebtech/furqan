@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { DollarSign, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { logError } from "@/lib/logger";
 import { buildNameMap } from "@/lib/admin/name-map";
 import { getT } from "@/lib/i18n/server";
 import { PageHeader } from "@/components/shared/page-header";
@@ -24,6 +25,16 @@ export default async function AdminPaymentsPage() {
       .order("created_at", { ascending: false }).limit(50).returns<InvoiceRow[]>(),
   ]);
 
+  for (const [name, res] of [
+    ["payments", paymentsRes],
+    ["invoices", invoicesRes],
+  ] as const) {
+    if (res.error) {
+      logError(`admin payments page: ${name} query failed`, res.error, {
+        tag: "admin-payments", route: "/admin/payments", userId: user.id,
+      });
+    }
+  }
   const payments = paymentsRes.data ?? [];
   const invoices = invoicesRes.data ?? [];
 

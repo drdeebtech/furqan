@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight, ArrowLeft } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
+import { useCountUp } from "@/lib/hooks/use-count-up";
 
 interface StatusBadge {
   text: string;
@@ -33,6 +34,11 @@ interface StatCardProps {
 export function StatCard({ icon: Icon, label, value, href, subtitle, actionLabel, statusBadge, progressPct }: StatCardProps) {
   const { dir } = useLang();
   const Arrow = dir === "rtl" ? ArrowLeft : ArrowRight;
+  // Animate numeric values from 0 → target on mount. Non-numeric values
+  // (e.g. "12 hr", "—") are passed through unchanged.
+  const isNumeric = typeof value === "number";
+  const animated = useCountUp(isNumeric ? value : 0, { disabled: !isNumeric });
+  const displayValue = isNumeric ? animated : value;
 
   return (
     <Link
@@ -69,7 +75,7 @@ export function StatCard({ icon: Icon, label, value, href, subtitle, actionLabel
             );
           })()}
         </div>
-        <p className="mt-3 text-[clamp(2rem,4vw,3rem)] font-bold tracking-tight leading-none tabular-nums text-foreground">{value}</p>
+        <p className="mt-3 text-[clamp(2rem,4vw,3rem)] font-bold tracking-tight leading-none tabular-nums text-foreground">{displayValue}</p>
         {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}
         {progressPct != null && (
           <div className="mt-3 h-1.5 w-full rounded-full bg-[var(--surface-divider,#E5E7EB)]">

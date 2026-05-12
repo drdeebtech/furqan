@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { logError } from "@/lib/logger";
 import { getT } from "@/lib/i18n/server";
 import { isFeatureEnabled } from "@/lib/settings";
 
@@ -17,10 +18,16 @@ export default async function StudentQuizzesPage() {
   if (!user) redirect("/login");
 
   // Pull all enrollments → quizzes for those courses → joined attempts.
-  const { data: enrollments } = await supabase.from("course_enrollments")
+  const { data: enrollments, error: enrollmentsError } = await supabase.from("course_enrollments")
     .select("course_id")
     .eq("student_id", user.id)
     .returns<{ course_id: string }[]>();
+
+  if (enrollmentsError) {
+    logError("quizzes page: course_enrollments query failed", enrollmentsError, {
+      tag: "quizzes", route: "/student/quizzes", userId: user.id,
+    });
+  }
 
   if (!enrollments || enrollments.length === 0) {
     // No-enrollment branch: keep the page header (audit P2-1 caught this
@@ -89,6 +96,17 @@ export default async function StudentQuizzesPage() {
       .returns<{ id: string; title_ar: string; title_en: string | null }[]>(),
   ]);
 
+  for (const [name, res] of [
+    ["quizzes", quizzesRes],
+    ["quiz_attempts", attemptsRes],
+    ["courses", coursesRes],
+  ] as const) {
+    if (res.error) {
+      logError(`quizzes page: ${name} query failed`, res.error, {
+        tag: "quizzes", route: "/student/quizzes", userId: user.id,
+      });
+    }
+  }
   const quizzes = quizzesRes.data ?? [];
   const attempts = attemptsRes.data ?? [];
   const courses = coursesRes.data ?? [];

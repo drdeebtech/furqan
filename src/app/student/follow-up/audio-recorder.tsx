@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Mic, Square, Trash2, Upload, AlertCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { createClient } from "@/lib/supabase/client";
+import { logWarn } from "@/lib/logger";
 import { markStudentReady } from "@/lib/actions/homework";
 
 const MAX_DURATION_SECONDS = 90;
@@ -169,7 +170,14 @@ export function AudioRecorder({ homeworkId, studentId, onSubmitted, onSkipAudio 
       // Best-effort cleanup of the orphaned upload — leaving the file in
       // place would still be safe (storage RLS prevents anyone but the
       // student + teacher from reading it) but it's wasteful.
-      await supabase.storage.from("homework-audio").remove([path]).catch(() => {});
+      await supabase.storage.from("homework-audio").remove([path]).catch((err) => {
+        // Orphan-file leak; safe storage-wise (RLS prevents external read)
+        // but accumulates wasted bytes. Warn for visibility, never throw.
+        logWarn("audio cleanup of orphan upload failed", {
+          tag: "follow-up", kind: "storage-cleanup", path,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
       setStage("previewing");
       setErrorMsg(result.error);
       return;

@@ -373,25 +373,26 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
           </section>
         </SectionErrorBoundary>
 
-        {/* Today's Plan — unified what's-on-my-plate-now surface. */}
-        <section aria-labelledby="todays-plan-heading" className="mt-10">
-          <h2 id="todays-plan-heading" className="sr-only">
-            {t("خطة اليوم", "Today's Plan")}
-          </h2>
+        {/* Today's Plan — unified what's-on-my-plate-now surface.
+            The TodaysPlan widget renders its own visible heading via
+            WidgetCard, so the outer wrapper does NOT add a duplicate
+            sr-only heading (screen readers would announce the title
+            twice). */}
+        <div className="mt-10">
           <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل خطة اليوم", "Couldn't load Today's Plan")}>
             <TodaysPlan items={todaysPlanItems} homeworkPulse={homeworkPulse} />
           </SectionErrorBoundary>
-        </section>
+        </div>
 
         {/* Murajaah daily prompt — scaffolds memorization-decay protection
             via three review windows (yesterday / last week / last month).
             The component hides itself when the student is brand-new (no
             'new' progress entries) or has already logged review today,
             so it doesn't nag. */}
-        <section aria-labelledby="murajaah-heading" className="mt-6">
-          <h2 id="murajaah-heading" className="sr-only">
-            {t("مراجعة اليوم", "Today's Murajaah")}
-          </h2>
+        {/* MurajaahCard renders its own <section> with a visible h2 heading.
+            Wrapping it in another section + sr-only h2 here would double the
+            announcement for screen reader users. */}
+        <div className="mt-6">
           <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل المراجعة", "Couldn't load Murajaah")}>
             <MurajaahCard
               yesterday={murajaahPlan.yesterday}
@@ -400,7 +401,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
               reviewedToday={murajaahPlan.reviewedToday}
             />
           </SectionErrorBoundary>
-        </section>
+        </div>
 
         {/* Analytics + sidebar widgets. */}
         <section aria-label={t("التحليلات", "Analytics")} className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-5">
@@ -468,12 +469,9 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
             off") and the recent-session-recordings fallback. The audit
             (P2-3) caught the dashboard mislabelling session recordings
             as enrolled-course progress. */}
-        <section aria-labelledby="pick-up-heading" className="mt-10">
-          <h2 id="pick-up-heading" className="sr-only">
-            {continueIsLessons
-              ? t("أكمل من حيث توقفت", "Pick up where you left off")
-              : t("تسجيلات جلساتك الأخيرة", "Your recent session recordings")}
-          </h2>
+        {/* DataTable accepts `title` and renders its own visible heading,
+            so we don't wrap it in a redundant <section> + sr-only h2. */}
+        <div className="mt-10">
           <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل القائمة", "Couldn't load this list")}>
             <DataTable
               title={continueIsLessons
@@ -508,7 +506,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
               emptyMessage={t("لا توجد دروس قيد المتابعة بعد", "No lessons in progress yet")}
             />
           </SectionErrorBoundary>
-        </section>
+        </div>
 
         {/* Footer — last refresh + shortcut hint + refresh button. Keeps the
             page feeling alive without consuming visual real estate above the

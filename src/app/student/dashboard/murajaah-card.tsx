@@ -76,7 +76,7 @@ export function MurajaahCard({
         </p>
       </div>
 
-      <ul className="space-y-2">
+      <ul className="space-y-2 stagger-children motion-reduce:[&>*]:animate-none">
         {windows.map(w => (
           <li
             key={w.key}

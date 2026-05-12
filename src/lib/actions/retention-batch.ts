@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logError } from "@/lib/logger";
 
 /**
  * Canonical retention batch scorer — single source of truth called by both
@@ -176,7 +177,7 @@ export async function scoreRetentionBatch(): Promise<RetentionBatchResult> {
 
   const high_risk = upserts.filter(u => (u.churn_risk_score ?? 0) >= 60).length;
 
-  await supabase.from("automation_logs").insert({
+  const { error: autoLogError } = await supabase.from("automation_logs").insert({
     workflow_name: "retention-scorer",
     event_name: "retention.scored",
     entity_type: "batch",
@@ -189,6 +190,11 @@ export async function scoreRetentionBatch(): Promise<RetentionBatchResult> {
     started_at: startedAt,
     finished_at: new Date().toISOString(),
   });
+  if (autoLogError) {
+    logError("retention-scorer batch log insert failed", autoLogError, {
+      tag: "retention-scorer", traceId,
+    });
+  }
 
   if (error) {
     throw new Error(error.message);
