@@ -60,6 +60,15 @@ export function MurajaahCard({
     { key: "lastMonth", labelAr: "الشهر الماضي", labelEn: "Last month", data: lastMonth },
   ];
 
+  // Sparse render guard: when 0 or 1 of 3 windows has data, the original
+  // 3-row list shows 2-3 "Nothing new in this window" placeholders, which
+  // reads sparse and repetitive — undercutting the "Premium · Refined"
+  // brand. The dataCount === 0 case is normally caught by the early-return
+  // above, but kept here defensively in case future call sites bypass the
+  // guard (e.g. all three params present but with stale/broken loggedAt).
+  const sparse = windows.filter(w => w.data).length <= 1;
+  const onlyWindow = windows.find(w => w.data);
+
   return (
     <section
       id="today-murajaah"
@@ -76,27 +85,53 @@ export function MurajaahCard({
         </p>
       </div>
 
-      <ul className="space-y-2 stagger-children motion-reduce:[&>*]:animate-none">
-        {windows.map(w => (
-          <li
-            key={w.key}
-            className="flex items-baseline justify-between gap-3 rounded-lg border border-card-border/60 bg-card/30 px-3 py-2"
-          >
-            <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-light">
-              {t(w.labelAr, w.labelEn)}
-            </span>
-            {w.data ? (
-              <span className="text-sm text-foreground/90">
-                {formatRange(w.data, lang === "ar" ? "ar" : "en", locale, t)}
+      {sparse ? (
+        <div className="rounded-lg border border-card-border/60 bg-card/30 p-4 text-sm">
+          {onlyWindow?.data ? (
+            <>
+              <p className="text-foreground/90">
+                {t(
+                  `آخر حفظ جديد: ${formatRange(onlyWindow.data, lang === "ar" ? "ar" : "en", locale, t)}`,
+                  `Most recent memorization — ${formatRange(onlyWindow.data, "en", locale, t)}`,
+                )}
+              </p>
+              <p className="mt-1 text-xs text-muted">
+                {t(
+                  "وقت مناسب لتثبيته قبل أن يتجاوزه الزمن.",
+                  "A good time to consolidate it before it fades.",
+                )}
+              </p>
+            </>
+          ) : (
+            <p className="text-foreground/90">
+              {t(
+                "لم تُسجَّل أي مراجعة في الفترات الأخيرة — وقت مناسب لتثبيت ما حفظته.",
+                "No memorization logged in any recent window — a good time to consolidate what you already have.",
+              )}
+            </p>
+          )}
+        </div>
+      ) : (
+        <ul className="space-y-2 stagger-children motion-reduce:[&>*]:animate-none">
+          {windows.map(w => (
+            <li
+              key={w.key}
+              className="flex items-baseline justify-between gap-3 rounded-lg border border-card-border/60 bg-card/30 px-3 py-2"
+            >
+              <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-light">
+                {t(w.labelAr, w.labelEn)}
               </span>
-            ) : (
-              <span className="text-xs italic text-muted/70">
-                {t("لا شيء جديد في هذه الفترة", "Nothing new in this window")}
-              </span>
-            )}
-          </li>
-        ))}
-      </ul>
+              {w.data ? (
+                <span className="text-sm text-foreground/90">
+                  {formatRange(w.data, lang === "ar" ? "ar" : "en", locale, t)}
+                </span>
+              ) : (
+                <span aria-label={t("لا شيء", "Nothing")} className="text-muted/50">—</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
 
       <div className="mt-4 flex items-center justify-end">
         <Link
