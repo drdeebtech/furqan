@@ -49,6 +49,7 @@ export function LangProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!mounted) return;
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+    document.documentElement.lang = lang;
   }, [lang, mounted]);
 
   const toggle = useCallback(() => {
