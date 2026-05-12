@@ -7,6 +7,7 @@ import { getT } from "@/lib/i18n/server";
 import { isFeatureEnabled } from "@/lib/settings";
 import { buildNameMap } from "@/lib/admin/name-map";
 import { createReply } from "@/lib/actions/community";
+import { getDashboardHref } from "@/lib/auth/dashboard-href";
 
 export const metadata: Metadata = { title: "موضوع المجتمع" };
 
@@ -60,9 +61,21 @@ export default async function ThreadPage({ params }: Props) {
   const Arrow = dir === "rtl" ? ArrowRight : ArrowLeft;
   const title = lang === "ar" ? thread.title_ar : (thread.title_en ?? thread.title_ar);
   const body = lang === "ar" ? thread.body_ar : (thread.body_en ?? thread.body_ar);
+  const dashboardHref = await getDashboardHref(supabase);
 
   return (
     <div dir={dir} className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+      {dashboardHref && (
+        <div className="mb-6 flex items-center justify-between gap-3 border-b border-card-border/60 pb-4 text-sm">
+          <span className="text-muted">
+            {t("المجتمع — يمكنك العودة إلى لوحة التحكم في أي وقت.",
+               "Community — return to your dashboard anytime.")}
+          </span>
+          <Link href={dashboardHref} className="shrink-0 font-medium text-gold hover:text-gold-hover focus-ring rounded">
+            {t("العودة للوحة التحكم", "Back to dashboard")}
+          </Link>
+        </div>
+      )}
       <Link href="/community" className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
         <Arrow size={14} aria-hidden="true" />
         {t("العودة للمجتمع", "Back to Community")}
