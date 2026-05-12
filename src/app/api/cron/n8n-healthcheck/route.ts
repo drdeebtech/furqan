@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTelegramAlert } from "@/lib/n8n/client";
 import { safeCompareSecret } from "@/lib/security/secrets";
+import { logError } from "@/lib/logger";
 
 const HEALTHCHECK_URL =
   process.env.N8N_HEALTHCHECK_URL ?? "https://n8n.drdeeb.tech/healthz";
@@ -78,6 +79,8 @@ export async function GET(request: Request) {
     finished_at: finishedAt,
     error_message: errorMessage,
     payload_json: { http_code: httpCode, url: HEALTHCHECK_URL },
+  }).then(({ error }) => {
+    if (error) logError("n8n-healthcheck: automation_logs insert failed", error, { tag: "automation" });
   });
 
   // 4. Alert only on state change. First run (prevStatus === null) doesn't
