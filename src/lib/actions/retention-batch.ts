@@ -197,6 +197,10 @@ export async function scoreRetentionBatch(): Promise<RetentionBatchResult> {
   }
 
   if (error) {
+    logError("retention-scorer upsert failed", error, {
+      tag: "retention-scorer", traceId, severity: "warning",
+      metadata: { scored: upserts.length, high_risk },
+    });
     throw new Error(error.message);
   }
 

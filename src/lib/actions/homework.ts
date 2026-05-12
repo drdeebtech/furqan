@@ -457,7 +457,10 @@ const gradeHomeworkBase = loudAction<GradeHomeworkInput, { message: string }>({
           review_horizon: (hw as unknown as { review_horizon: string | null }).review_horizon,
           parent_assignment_id: homeworkId,
         } as never);
-        if (regenErr) logError("homework auto-regen failed", regenErr, { tag: "homework" });
+        if (regenErr) logError("homework auto-regen failed", regenErr, {
+          tag: "homework", severity: "warning",
+          metadata: { homeworkId, studentId: hw.student_id, grade },
+        });
 
         // Notify student about re-assignment
         await notify({

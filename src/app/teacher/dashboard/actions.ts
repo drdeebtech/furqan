@@ -325,7 +325,7 @@ export const markNoShow = loudAction<{ bookingId: string }, { message: string }>
       .from("sessions")
       .update({ ended_at: new Date().toISOString() } satisfies TableUpdate<"sessions">)
       .eq("booking_id", bookingId);
-    if (sessErr) logError("markNoShow: sessions ended_at update failed", sessErr, { tag: "teacher-bookings" });
+    if (sessErr) logError("markNoShow: sessions ended_at update failed", sessErr, { tag: "teacher-bookings", severity: "warning" });
 
     // Notify student (best-effort)
     try {
@@ -379,7 +379,7 @@ export const endSession = loudAction<{ sessionId: string }, { message: string }>
   handler: async ({ sessionId }, { actorId }) => {
     const supabase = await createClient();
 
-    const { data: session } = await supabase
+    const { data: session, error: sessReadErr } = await supabase
       .from("sessions")
       .select("id, booking_id, started_at, ended_at")
       .eq("id", sessionId)
@@ -390,17 +390,19 @@ export const endSession = loudAction<{ sessionId: string }, { message: string }>
         ended_at: string | null;
       }>();
 
+    if (sessReadErr) throw sessReadErr;
     if (!session) throw new Error("الجلسة غير موجودة");
     if (session.ended_at) throw new Error("الجلسة منتهية بالفعل");
 
     // Verify teacher owns the booking
-    const { data: booking } = await supabase
+    const { data: booking, error: bookReadErr } = await supabase
       .from("bookings")
       .select("student_id, teacher_id, duration_min")
       .eq("id", session.booking_id)
       .eq("teacher_id", actorId!)
       .single<{ student_id: string; teacher_id: string; duration_min: number }>();
 
+    if (bookReadErr) throw bookReadErr;
     if (!booking) throw new Error("ليس لديك صلاحية لإنهاء هذه الجلسة");
 
     const now = new Date();
