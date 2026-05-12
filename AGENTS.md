@@ -50,5 +50,5 @@ This project is indexed by GitNexus as **furqan** (10496 symbols, 16677 relation
 
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
+shell commands, and other important information, read the current plan: [specs/007-daily-webhooks/plan.md](specs/007-daily-webhooks/plan.md)
 <!-- SPECKIT END -->
