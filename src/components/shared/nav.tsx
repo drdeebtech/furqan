@@ -256,7 +256,7 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
       </div>
 
       {/* Middle: Nav links */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Main navigation">
+      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label={t("التنقل الرئيسي", "Main navigation")}>
         {groups.map((group, gi) => {
           const groupKey = group.label ? group.label.en : `__ungrouped_${gi}`;
           const isCollapsed = collapsedGroups.has(groupKey);
