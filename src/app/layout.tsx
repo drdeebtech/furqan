@@ -5,6 +5,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/lib/theme/context";
 import { ToastProvider } from "@/components/shared/toast";
 import { PwaInstallPrompt } from "@/components/shared/pwa-install-prompt";
+import { PreviewDeploymentBanner } from "@/components/shared/preview-deployment-banner";
 import { HydrationBeacon } from "@/components/shared/hydration-beacon";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -140,6 +141,7 @@ export default async function RootLayout({
         >
           {lang === "ar" ? "تخطي إلى المحتوى" : "Skip to main content"}
         </a>
+        <PreviewDeploymentBanner />
         <ThemeProvider>
           <ToastProvider>
             {children}
