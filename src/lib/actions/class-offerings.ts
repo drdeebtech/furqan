@@ -297,7 +297,9 @@ export async function enrollInOffering(
     old_data: null,
     new_data: { class_offering_id: offeringId, student_id: user.id },
     reason: `Student self-enrolled in offering ${offeringId.slice(0, 8)}`,
-  } satisfies TableInsert<"audit_log">);
+  } satisfies TableInsert<"audit_log">).then(({ error }) => {
+    if (error) logError("class-offerings.enroll: audit row failed", error, { tag: "class-offerings" });
+  });
 
   revalidatePath("/student/classes");
   revalidatePath("/student/dashboard");

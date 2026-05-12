@@ -91,6 +91,8 @@ export async function hideMessage(
     old_data: { hidden_at: null, hidden_by: null },
     new_data: { hidden_at: now, hidden_by: auth.userId },
     reason: `Admin hid flagged message: ${trimmedReason}`,
+  }).then(({ error }) => {
+    if (error) logError("hideFlaggedMessage: audit row failed", error, { tag: "admin-moderation" });
   });
 
   revalidatePath("/admin/moderation");
@@ -135,6 +137,8 @@ export async function clearMessageFlag(messageId: string): Promise<ModerationRes
     old_data: oldData,
     new_data: { flagged_at: null, flagged_by: null, flag_reason: null },
     reason: "Admin cleared message flag after review",
+  }).then(({ error }) => {
+    if (error) logError("clearMessageFlag: audit row failed", error, { tag: "admin-moderation" });
   });
 
   revalidatePath("/admin/moderation");
@@ -199,6 +203,8 @@ export async function pingAdminOnEvaluation(evalId: string): Promise<ModerationR
     old_data: null,
     new_data: { admins_pinged: recipients.length, overall_score: evalRow.overall_score },
     reason: "Admin pinged admin team about low-scoring evaluation",
+  }).then(({ error }) => {
+    if (error) logError("pingAdminOnEvaluation: audit row failed", error, { tag: "admin-moderation" });
   });
 
   revalidatePath("/admin/moderation");
@@ -236,6 +242,8 @@ export async function dismissEvaluation(
     reason: trimmedNote
       ? `Moderator reviewed evaluation: ${trimmedNote}`
       : "Moderator reviewed evaluation",
+  }).then(({ error }) => {
+    if (error) logError("dismissEvaluation: audit row failed", error, { tag: "admin-moderation" });
   });
 
   revalidatePath("/admin/moderation");

@@ -10,7 +10,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
-import { createHmac } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -37,10 +37,14 @@ const { POST } = await import("./route");
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const SECRET = "test-daily-secret-32chars-abcdefgh";
+// Daily.co's hmac field at registration time is base64; the signing key is
+// the decoded bytes. Fixtures must match the same protocol.
+const SECRET_BYTES = randomBytes(32);
+const SECRET = SECRET_BYTES.toString("base64");
+const WEBHOOK_TS = "1778619696910";
 
-function sign(body: string): string {
-  return createHmac("sha256", SECRET).update(body).digest("hex");
+function sign(body: string, timestamp = WEBHOOK_TS): string {
+  return createHmac("sha256", SECRET_BYTES).update(`${timestamp}.${body}`).digest("base64");
 }
 
 function makePayload(timestampMs: number, type = "meeting.ended"): string {
@@ -65,6 +69,7 @@ function makeRequest(body: string): NextRequest {
     headers: {
       "content-type":        "application/json",
       "x-webhook-signature": sig,
+      "x-webhook-timestamp": WEBHOOK_TS,
     },
     body,
   });

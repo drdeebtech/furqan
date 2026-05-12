@@ -22,6 +22,7 @@ const SKEW_WINDOW_MS = 15 * 60 * 1000; // ±15 minutes (FR-001)
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const rawBody = await request.text();
   const sig = request.headers.get("x-webhook-signature") ?? "";
+  const timestampHeader = request.headers.get("x-webhook-timestamp") ?? "";
 
   // HMAC verification — try current secret, then optional previous (rotation overlap)
   const currentSecret = process.env.DAILY_WEBHOOK_SECRET;
@@ -36,8 +37,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const prevSecret = process.env.DAILY_WEBHOOK_SECRET_PREVIOUS;
   const validSig =
-    verifyDailySignature(rawBody, sig, currentSecret) ||
-    (!!prevSecret && verifyDailySignature(rawBody, sig, prevSecret));
+    verifyDailySignature(rawBody, sig, currentSecret, timestampHeader) ||
+    (!!prevSecret && verifyDailySignature(rawBody, sig, prevSecret, timestampHeader));
 
   if (!validSig) {
     logError("daily-webhook: invalid HMAC signature", new Error("hmac-fail"), {
