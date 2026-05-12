@@ -13,6 +13,25 @@ export async function POST(request: Request) {
     sameSite: "lax",
   });
 
+  // Validate referer to prevent open redirect and CSRF attacks.
+  // Only allow redirecting to same-origin URLs.
   const referer = request.headers.get("referer");
-  return NextResponse.redirect(referer ?? new URL("/", request.url));
+  const requestUrl = new URL(request.url);
+  let redirectUrl = new URL("/", requestUrl);
+
+  if (referer) {
+    try {
+      const refererUrl = new URL(referer);
+      // Only redirect to same origin (same protocol + host)
+      if (
+        refererUrl.origin === requestUrl.origin
+      ) {
+        redirectUrl = refererUrl;
+      }
+    } catch {
+      // Invalid URL in referer header — ignore it and use fallback
+    }
+  }
+
+  return NextResponse.redirect(redirectUrl);
 }
