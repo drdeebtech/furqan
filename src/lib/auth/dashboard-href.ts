@@ -18,11 +18,12 @@ export async function getDashboardHref(
     .from("profiles")
     .select("role")
     .eq("id", user.id)
-    .single<{ role: "student" | "teacher" | "admin" | null }>();
+    .single<{ role: "student" | "teacher" | "admin" | "moderator" | null }>();
 
   const role = profile?.role;
   if (role === "student") return "/student/dashboard";
   if (role === "teacher") return "/teacher/dashboard";
   if (role === "admin") return "/admin/dashboard";
+  if (role === "moderator") return "/admin/dashboard";
   return null;
 }
