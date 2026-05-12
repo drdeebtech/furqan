@@ -5,6 +5,7 @@ import { GraduationCap, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { isFeatureEnabled } from "@/lib/settings";
+import { logWarn } from "@/lib/logger";
 import type { Course } from "@/types/database";
 
 export const metadata: Metadata = { title: "الدورات المسجلة" };
@@ -88,14 +89,22 @@ export default async function TeacherCoursesPage() {
         )}
       </p>
 
-      {!enabled && (
-        <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-warning dark:border-amber-700 dark:bg-amber-950 dark:text-warning">
-          {t(
-            "ميزة الدورات لا تزال في وضع التطوير. الدورات التي تنشئها الآن ستكون مرئية للطلاب فور تفعيل الميزة.",
-            "The courses feature is still in development. Courses you create now will become visible to students once the feature is enabled.",
-          )}
-        </div>
-      )}
+      {!enabled && (() => {
+        // Surface a usage signal to the admin so the decision to flip the
+        // courses_enabled flag is driven by real teacher interest, not by
+        // guessing. Best-effort — never blocks the page render.
+        logWarn("teacher viewed /teacher/courses while courses_enabled flag is off", {
+          tag: "courses-flag", route: "/teacher/courses", userId: user.id,
+        });
+        return (
+          <div className="mb-6 rounded-lg border border-card-border/60 bg-surface/40 p-4 text-sm text-muted">
+            {t(
+              "الميزة في إصدار تجريبي — الدورات التي تنشئها هنا محفوظة ومرئية لك، وستظهر للطلاب فور تفعيل الميزة من قبل الإدارة.",
+              "Beta feature — courses you create here are saved and visible to you. They'll appear to students once an admin enables the feature.",
+            )}
+          </div>
+        );
+      })()}
 
       {!courses || courses.length === 0 ? (
         <div className="glass-card p-12 text-center">
