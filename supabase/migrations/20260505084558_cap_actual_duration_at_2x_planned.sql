@@ -1,3 +1,10 @@
+-- CLEANUP CANDIDATE (30-day post-launch verification window).
+-- Once spec 007-daily-webhooks has been live for 30 days and no session row
+-- has hit the 2× cap, this migration + the calc_actual_duration trigger should
+-- be removed in a follow-up PR. SC-002 asserts no row will hit the cap after
+-- the Daily webhook receiver is the authoritative source of ended_at.
+-- Track via: grep "CLEANUP CANDIDATE" supabase/migrations/
+
 -- Cap sessions.actual_duration at 2× the booking's planned duration.
 --
 -- Why: The 2026-05-05 process audit caught sessions with absurd actual_duration

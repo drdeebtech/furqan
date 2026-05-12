@@ -14,7 +14,7 @@ Run this at the start of every conversation before committing. Vercel Hobby plan
 
 # Deployment Rules
 
-- **Platform**: Vercel Hobby plan → furqan.today
+- **Platform**: Vercel pro plan → furqan.today
 - **Node version**: 24.x (set in `.nvmrc` and `package.json` `engines`, matching the Vercel project setting). Aligned 2026-04-27 — was previously split (`.nvmrc=20`, project=`24.x`).
 - After pushing, verify deployment status: `npx vercel ls furqan --prod`
 - If deployment is "Blocked", check git author email matches `drdeebtech@gmail.com`

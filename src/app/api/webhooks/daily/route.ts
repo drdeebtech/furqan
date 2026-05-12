@@ -1,179 +1,263 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { logError, logWarn } from "@/lib/logger";
+import { logError } from "@/lib/logger";
+import { emitEvent } from "@/lib/automation/emit";
+import { verifyDailySignature } from "@/lib/daily/webhook-verify";
+import { dispatchDailyEvent, type DailyPayload } from "@/lib/daily/webhook-handler";
 
 /**
- * Stage 6 attendance tracking — Daily.co webhook receiver.
+ * Daily.co webhook receiver — session lifecycle source of truth.
  *
- * Daily.co posts to this endpoint when participants join/leave a meeting.
- * We map those events to session_participants.attendance_status updates so
- * the teacher roster (#89) reflects "attended / late / absent" without
- * any manual marking.
+ * Handles meeting.started / meeting.ended for session lifecycle (US1–US4),
+ * plus the legacy participant.joined / participant.left for attendance tracking.
  *
- * Configure on the Daily side at: https://dashboard.daily.co/developers
- *   - Webhook URL: https://www.furqan.today/api/webhooks/daily
- *   - Subscribe to: participant.joined, participant.left, meeting.ended
- *   - Verification: HMAC-SHA256 with `DAILY_WEBHOOK_SECRET`
- *
- * Required env:
- *   DAILY_WEBHOOK_SECRET  — shared secret with Daily for HMAC verification
- *
- * Local dev / staging: if DAILY_WEBHOOK_SECRET is unset the handler
- * accepts unsigned payloads but logs a warning. NEVER deploy that
- * configuration to production.
+ * Configure on the Daily side:
+ *   URL:    https://www.furqan.today/api/webhooks/daily
+ *   Events: meeting.started, meeting.ended, participant.joined, participant.left
+ *   HMAC:   DAILY_WEBHOOK_SECRET (SHA-256)
  */
 
-interface DailyWebhookEvent {
-  version?: string;
-  type: string;
-  id?: string;
-  event_ts?: number;
-  payload?: {
-    room?: string;
-    room_name?: string;
-    participant?: {
-      user_id?: string;
-      user_name?: string;
-      joined_at?: number;
-      session_id?: string;
-    };
-  };
-}
-
-const SIGNATURE_HEADER = "x-webhook-signature";
+const SKEW_WINDOW_MS = 15 * 60 * 1000; // ±15 minutes (FR-001)
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const rawBody = await request.text();
+  const sig = request.headers.get("x-webhook-signature") ?? "";
 
-  // Verify HMAC signature.
-  const secret = process.env.DAILY_WEBHOOK_SECRET;
-  const provided = request.headers.get(SIGNATURE_HEADER) ?? "";
-  if (secret) {
-    const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
-    let match = false;
-    try {
-      match =
-        expected.length === provided.length &&
-        timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(provided, "hex"));
-    } catch {
-      match = false;
-    }
-    if (!match) {
-      return NextResponse.json({ error: "invalid signature" }, { status: 401 });
-    }
-  } else {
-    logWarn("Daily webhook: DAILY_WEBHOOK_SECRET unset — accepting unsigned payload", {
-      tag: "daily.webhook",
+  // HMAC verification — try current secret, then optional previous (rotation overlap)
+  const currentSecret = process.env.DAILY_WEBHOOK_SECRET;
+  if (!currentSecret) {
+    logError(
+      "daily-webhook: DAILY_WEBHOOK_SECRET not configured",
+      new Error("config-missing"),
+      { tag: "daily-webhook", severity: "critical" },
+    );
+    return NextResponse.json({ error: "internal_error" }, { status: 500 });
+  }
+
+  const prevSecret = process.env.DAILY_WEBHOOK_SECRET_PREVIOUS;
+  const validSig =
+    verifyDailySignature(rawBody, sig, currentSecret) ||
+    (!!prevSecret && verifyDailySignature(rawBody, sig, prevSecret));
+
+  if (!validSig) {
+    logError("daily-webhook: invalid HMAC signature", new Error("hmac-fail"), {
+      tag: "daily-webhook",
+      severity: "warning",
+      metric: "daily_webhook.hmac_failure",
+      threshold_alert: "failed-verification > 5/min",
     });
+    return NextResponse.json({ error: "invalid_signature" }, { status: 401 });
   }
 
-  let event: DailyWebhookEvent;
+  // Parse JSON
+  let payload: DailyPayload;
   try {
-    event = JSON.parse(rawBody) as DailyWebhookEvent;
-  } catch (err) {
-    logError("Daily webhook: invalid JSON", err, { tag: "daily.webhook" });
-    return NextResponse.json({ error: "invalid json" }, { status: 400 });
+    payload = JSON.parse(rawBody) as DailyPayload;
+  } catch {
+    return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   }
 
-  // Daily uses both `room` and `room_name` historically — accept either.
-  const roomName = event.payload?.room ?? event.payload?.room_name;
-  const participantUserId = event.payload?.participant?.user_id;
+  // FR-001: reject events outside the ±15-min skew window.
+  // Return 200 so Daily doesn't retry — this is a valid event, just too old/future.
+  const skewMs = Math.abs(Date.now() - payload.timestamp);
+  if (skewMs > SKEW_WINDOW_MS) {
+    logError(
+      "daily-webhook: event outside ±15-min skew window",
+      new Error("stale-event"),
+      {
+        tag: "daily-webhook",
+        severity: "warning",
+        metadata: { eventId: payload.id, timestamp: payload.timestamp, skewMs },
+      },
+    );
+    return NextResponse.json({ ok: true, applied: false, reason: "stale-event" });
+  }
 
+  // Route by event type
+  if (payload.type === "meeting.started" || payload.type === "meeting.ended") {
+    return handleSessionLifecycle(payload, rawBody);
+  }
+
+  // Legacy attendance tracking path (participant.joined / participant.left)
+  return handleParticipantEvent(payload);
+}
+
+// ── Session lifecycle (US1–US4) ───────────────────────────────────────────────
+
+async function handleSessionLifecycle(
+  payload: DailyPayload,
+  rawBody: string,
+): Promise<NextResponse> {
+  let result;
+  try {
+    result = await dispatchDailyEvent(payload, rawBody);
+  } catch (err) {
+    logError("daily-webhook: dispatchDailyEvent threw", err, {
+      tag: "daily-webhook",
+      severity: "critical",
+    });
+    return NextResponse.json({ error: "internal_error" }, { status: 500 });
+  }
+
+  switch (result.kind) {
+    case "unsupported-type":
+      return NextResponse.json({ ok: true, applied: false, reason: "unsupported-event-type" });
+
+    case "unmapped":
+      // T015: log unmapped rooms so operator has Sentry signal (FR-010)
+      logError("daily-webhook: unmappable room_name", new Error("unmapped-room"), {
+        tag: "daily-webhook",
+        severity: "warning",
+        metric: "daily_webhook.unmapped_room",
+        threshold_alert: "unmapped-room > 10/hour",
+        metadata: { roomName: result.roomName, eventType: payload.type },
+      });
+      return NextResponse.json({ ok: true, applied: false, reason: "no-matching-session" });
+
+    case "started":
+      return NextResponse.json({ ok: true, applied: true, event: "meeting.started" });
+
+    case "started-duplicate":
+      return NextResponse.json({ ok: true, applied: false, reason: "duplicate" });
+
+    case "duplicate":
+      return NextResponse.json({
+        ok: true,
+        session_id: result.sessionId,
+        applied: false,
+        reason: "duplicate",
+      });
+
+    case "applied": {
+      const { sessionId, bookingId, studentId, teacherId, statusOutcome, isReconcile } = result;
+      const durationSeconds = payload.data.duration ?? 0;
+
+      // T014: post-commit event selection by status_outcome (FR-006 + Clarify Q1)
+      // Fire-and-forget — never awaited to keep hot path under 500ms (FR-009)
+      if (statusOutcome === "completed") {
+        emitEvent("session.ended", "session", sessionId, {
+          booking_id:     bookingId,
+          student_id:     studentId,
+          teacher_id:     teacherId,
+          source:         "daily-webhook",
+          status_outcome: statusOutcome,
+          is_reconcile:   isReconcile,
+        }).catch((err) =>
+          logError("daily-webhook: emit session.ended failed", err, {
+            tag: "daily-webhook",
+            event: "session.ended",
+          }),
+        );
+      } else if (statusOutcome === "no_show") {
+        emitEvent("session.no_show", "session", sessionId, {
+          booking_id:       bookingId,
+          student_id:       studentId,
+          teacher_id:       teacherId,
+          source:           "daily-webhook",
+          reason:           "misclick-filter",
+          duration_seconds: durationSeconds,
+        }).catch((err) =>
+          logError("daily-webhook: emit session.no_show failed", err, {
+            tag: "daily-webhook",
+            event: "session.no_show",
+          }),
+        );
+      }
+      // statusOutcome === "preserved": booking-domain ownership preserved — emit nothing
+      // (duplicate kind handled above)
+
+      const body: Record<string, unknown> = {
+        ok:         true,
+        session_id: sessionId,
+        applied:    true,
+        status_outcome: statusOutcome,
+      };
+      if (isReconcile)                body.reason = "reconciled";
+      if (statusOutcome === "no_show") body.reason = "misclick-filter";
+      if (statusOutcome === "preserved") {
+        body.applied = "session-only";
+        body.reason  = "booking-status-preserved";
+      }
+
+      return NextResponse.json(body);
+    }
+  }
+}
+
+// ── Attendance tracking (legacy, stage 6) ────────────────────────────────────
+
+async function handleParticipantEvent(payload: DailyPayload): Promise<NextResponse> {
+  if (payload.type !== "participant.joined" && payload.type !== "participant.left") {
+    return NextResponse.json({ ok: true, applied: false, reason: "unsupported-event-type" });
+  }
+
+  const roomName = payload.room?.name;
   if (!roomName) {
-    return NextResponse.json({ ok: true, ignored: "no room_name" });
+    return NextResponse.json({ ok: true, applied: false, reason: "no-room-name" });
   }
 
   const admin = createAdminClient();
-
-  // Look up our session by Daily's room_name.
   const { data: session } = await admin
     .from("sessions")
-    .select("id, scheduled_at, ended_at")
+    .select("id, scheduled_at")
     .eq("room_name", roomName)
-    .maybeSingle<{ id: string; scheduled_at: string | null; ended_at: string | null }>();
+    .maybeSingle<{ id: string; scheduled_at: string | null }>();
 
   if (!session) {
-    // Unknown room — Daily forwarded a webhook for a room we don't track
-    // (e.g. test rooms, manual creations). Ack 200 so Daily stops retrying.
-    return NextResponse.json({ ok: true, ignored: "unknown room", room_name: roomName });
+    logError("daily-webhook: unmappable room (participant event)", new Error("unmapped-room"), {
+      tag: "daily-webhook",
+      severity: "warning",
+      metric: "daily_webhook.unmapped_room",
+      threshold_alert: "unmapped-room > 10/hour",
+      metadata: { roomName, eventType: payload.type },
+    });
+    return NextResponse.json({ ok: true, applied: false, reason: "no-matching-session" });
   }
 
-  const eventType = event.type;
+  // Daily sends participant data in a different shape — cast through unknown
+  const raw = payload as unknown as {
+    payload?: { participant?: { user_id?: string } };
+  };
+  const participantUserId = raw.payload?.participant?.user_id;
   const nowIso = new Date().toISOString();
 
-  switch (eventType) {
-    case "participant.joined": {
-      if (!participantUserId) {
-        return NextResponse.json({ ok: true, ignored: "no participant.user_id" });
-      }
-
-      // Late vs on-time: if the participant joined more than 5 min after
-      // scheduled_at, mark 'late'; otherwise 'attended'. Halaqa rows have
-      // scheduled_at; private rows derive scheduled time from bookings —
-      // we only do the late check when scheduled_at is present.
-      let attendanceStatus: "attended" | "late" = "attended";
-      if (session.scheduled_at) {
-        const lateThresholdMs = new Date(session.scheduled_at).getTime() + 5 * 60 * 1000;
-        if (Date.now() > lateThresholdMs) attendanceStatus = "late";
-      }
-
-      const { error } = await admin
-        .from("session_participants")
-        .update({
-          joined_at: nowIso,
-          attendance_status: attendanceStatus,
-        } as never)
-        .eq("session_id", session.id)
-        .eq("user_id", participantUserId);
-
-      if (error) {
-        logError("Daily webhook: participant.joined update failed", error, {
-          tag: "daily.webhook",
-          metadata: { session_id: session.id, user_id: participantUserId },
-        });
-      }
-      return NextResponse.json({ ok: true, event: eventType });
+  if (payload.type === "participant.joined") {
+    if (!participantUserId) {
+      return NextResponse.json({ ok: true, applied: false, reason: "no-participant-id" });
     }
-
-    case "participant.left": {
-      if (!participantUserId) {
-        return NextResponse.json({ ok: true, ignored: "no participant.user_id" });
-      }
-
-      const { error } = await admin
-        .from("session_participants")
-        .update({ left_at: nowIso } as never)
-        .eq("session_id", session.id)
-        .eq("user_id", participantUserId);
-
-      if (error) {
-        logError("Daily webhook: participant.left update failed", error, {
-          tag: "daily.webhook",
-          metadata: { session_id: session.id, user_id: participantUserId },
-        });
-      }
-      return NextResponse.json({ ok: true, event: eventType });
+    let attendanceStatus: "attended" | "late" = "attended";
+    if (session.scheduled_at) {
+      const lateThresholdMs = new Date(session.scheduled_at).getTime() + 5 * 60 * 1000;
+      if (Date.now() > lateThresholdMs) attendanceStatus = "late";
     }
-
-    case "meeting.ended": {
-      // Anyone still marked 'registered' at meeting end is 'absent'.
-      const { error } = await admin
-        .from("session_participants")
-        .update({ attendance_status: "absent" } as never)
-        .eq("session_id", session.id)
-        .eq("attendance_status", "registered");
-
-      if (error) {
-        logError("Daily webhook: meeting.ended absence sweep failed", error, {
-          tag: "daily.webhook",
-          metadata: { session_id: session.id },
-        });
-      }
-      return NextResponse.json({ ok: true, event: eventType });
+    const { error } = await admin
+      .from("session_participants")
+      .update({ joined_at: nowIso, attendance_status: attendanceStatus } as never)
+      .eq("session_id", session.id)
+      .eq("user_id", participantUserId);
+    if (error) {
+      logError("daily-webhook: participant.joined update failed", error, {
+        tag: "daily-webhook",
+        metadata: { session_id: session.id, user_id: participantUserId },
+      });
     }
-
-    default:
-      return NextResponse.json({ ok: true, ignored: eventType });
+    return NextResponse.json({ ok: true, applied: true, event: payload.type });
   }
+
+  // participant.left
+  if (!participantUserId) {
+    return NextResponse.json({ ok: true, applied: false, reason: "no-participant-id" });
+  }
+  const { error } = await admin
+    .from("session_participants")
+    .update({ left_at: nowIso } as never)
+    .eq("session_id", session.id)
+    .eq("user_id", participantUserId);
+  if (error) {
+    logError("daily-webhook: participant.left update failed", error, {
+      tag: "daily-webhook",
+      metadata: { session_id: session.id, user_id: participantUserId },
+    });
+  }
+  return NextResponse.json({ ok: true, applied: true, event: payload.type });
 }
