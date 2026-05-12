@@ -36,7 +36,10 @@ Additive column, no breaking changes.
 alter table public.sessions
   add column room_name text;
 
-create index sessions_room_name_idx
+-- Partial UNIQUE — enforces invariant that Daily-side names are globally unique
+-- without breaking the backfill window when room_name is still NULL on old rows.
+-- Doubles as the lookup index (UNIQUE indexes are usable for SELECT planning).
+create unique index sessions_room_name_unique_idx
   on public.sessions (room_name)
   where room_name is not null;
 

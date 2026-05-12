@@ -64,6 +64,7 @@ Endpoint we expose: `POST https://www.furqan.today/api/webhooks/daily`
 | Valid signature + recognized room + new event + booking already `completed` (manual end ran first) | `200` | `{ "ok": true, "session_id": "...", "applied": true, "status_outcome": "completed", "reason": "reconciled" }` |
 | Valid signature + recognized room + duplicate event | `200` | `{ "ok": true, "session_id": "...", "applied": false, "reason": "duplicate" }` |
 | Valid signature + unmappable room | `200` | `{ "ok": true, "applied": false, "reason": "no-matching-session" }` |
+| Valid signature + payload timestamp outside ±15 min skew window | `200` | `{ "ok": true, "applied": false, "reason": "stale-event" }` |
 | Invalid signature (both current + previous fail) | `401` | `{ "error": "invalid_signature" }` |
 | Malformed JSON body | `400` | `{ "error": "invalid_payload" }` |
 | Unsupported event type (anything but `meeting.started`/`meeting.ended`) | `200` | `{ "ok": true, "applied": false, "reason": "unsupported-event-type" }` |
