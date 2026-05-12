@@ -54,12 +54,12 @@ export default async function HelpCenterIndexPage() {
   return (
     <div dir={dir} className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
       {dashboardHref && (
-        <div className="mb-6 flex items-center justify-between gap-3 rounded-xl border border-gold/30 bg-gold/10 px-4 py-3 text-sm">
-          <span className="text-foreground">
-            {t("أنت مسجَّل الدخول — لم تُسجّل خروجك.",
-               "You're still signed in — you haven't been logged out.")}
+        <div className="mb-6 flex items-center justify-between gap-3 border-b border-card-border/60 pb-4 text-sm">
+          <span className="text-muted">
+            {t("مركز المساعدة — يمكنك العودة إلى لوحة التحكم في أي وقت.",
+               "Help Center — return to your dashboard anytime.")}
           </span>
-          <Link href={dashboardHref} className="shrink-0 font-medium text-gold hover:text-gold-hover">
+          <Link href={dashboardHref} className="shrink-0 font-medium text-gold hover:text-gold-hover focus-ring rounded">
             {t("العودة للوحة التحكم", "Back to dashboard")}
           </Link>
         </div>
