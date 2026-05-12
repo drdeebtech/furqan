@@ -2,6 +2,7 @@
 
 import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logError } from "@/lib/logger";
 import type { NotifType } from "@/types/database";
 import { isInQuietHours } from "./dispatcher-quiet-hours";
 
@@ -122,7 +123,7 @@ async function logDelivery(
     failureReason?: string;
   },
 ): Promise<void> {
-  await supabase.from("message_delivery_log").insert({
+  const { error } = await supabase.from("message_delivery_log").insert({
     recipient_user_id: opts.recipientUserId,
     recipient_channel: opts.channel,
     template_name: opts.templateName ?? null,
@@ -131,4 +132,13 @@ async function logDelivery(
     status: opts.status,
     failure_reason: opts.failureReason ?? null,
   });
+  // Best-effort write — never blocks notification dispatch. Surface failures
+  // through logError so the audit gap is at least visible in Sentry.
+  if (error) {
+    logError("message_delivery_log insert failed", error, {
+      tag: "delivery-log",
+      channel: opts.channel,
+      status: opts.status,
+    });
+  }
 }

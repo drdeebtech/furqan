@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { logWarn } from "@/lib/logger";
+import { logError, logWarn } from "@/lib/logger";
 
 interface ParentInfo {
   parent_name: string | null;
@@ -54,7 +54,7 @@ async function createParentReport(opts: {
   }
 
   const supabase = await createClient();
-  await supabase.from("parent_reports").insert({
+  const { error } = await supabase.from("parent_reports").insert({
     student_id: opts.studentId,
     teacher_id: opts.teacherId,
     report_type: opts.reportType,
@@ -65,6 +65,14 @@ async function createParentReport(opts: {
     created_by: opts.createdBy,
     // sent_at remains null until actual email/SMS integration
   } as never);
+  if (error) {
+    logError("parent report insert failed", error, {
+      tag: "parent-notify",
+      studentId: opts.studentId,
+      reportType: opts.reportType,
+    });
+    throw error;
+  }
 }
 
 /**
