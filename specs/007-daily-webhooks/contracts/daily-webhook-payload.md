@@ -58,7 +58,10 @@ Endpoint we expose: `POST https://www.furqan.today/api/webhooks/daily`
 
 | Scenario | HTTP | Body |
 |---|---|---|
-| Valid signature + recognized room + new event | `200` | `{ "ok": true, "session_id": "...", "applied": true }` |
+| Valid signature + recognized room + new event + booking `confirmed` + duration ≥ 5min | `200` | `{ "ok": true, "session_id": "...", "applied": true, "status_outcome": "completed" }` |
+| Valid signature + recognized room + new event + booking `confirmed` + duration < 5min | `200` | `{ "ok": true, "session_id": "...", "applied": true, "status_outcome": "no_show", "reason": "misclick-filter" }` |
+| Valid signature + recognized room + new event + booking `cancelled` or `no_show` | `200` | `{ "ok": true, "session_id": "...", "applied": "session-only", "status_outcome": "preserved", "reason": "booking-status-preserved" }` |
+| Valid signature + recognized room + new event + booking already `completed` (manual end ran first) | `200` | `{ "ok": true, "session_id": "...", "applied": true, "status_outcome": "completed", "reason": "reconciled" }` |
 | Valid signature + recognized room + duplicate event | `200` | `{ "ok": true, "session_id": "...", "applied": false, "reason": "duplicate" }` |
 | Valid signature + unmappable room | `200` | `{ "ok": true, "applied": false, "reason": "no-matching-session" }` |
 | Invalid signature (both current + previous fail) | `401` | `{ "error": "invalid_signature" }` |

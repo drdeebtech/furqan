@@ -63,21 +63,32 @@
 
 ## Decision 6: Critical-path SQL function shape
 
-**Decision**: New SQL function `end_session_from_webhook(p_session_id uuid, p_ended_at timestamptz, p_duration_min int, p_event_id text)` that atomically:
+**Decision**: New SQL function `end_session_from_webhook(p_session_id, p_ended_at, p_duration_min, p_duration_seconds, p_event_id, p_event_type, p_room_name, p_payload_json)` that atomically:
 
 1. INSERTs `(event_id, event_type, ...)` into `daily_webhook_events` with `ON CONFLICT DO NOTHING` (returns NULL on duplicate → function short-circuits with no-op).
-2. UPDATEs `sessions SET ended_at=$2, actual_duration=$3 WHERE id=$1` (always Daily-canonical).
-3. UPDATEs `bookings SET status='completed' WHERE id=(SELECT booking_id FROM sessions WHERE id=$1) AND status='confirmed'` (no-op if already completed or cancelled).
-4. INSERTs `audit_log` row with action `session.webhook.ended` or `session.webhook.reconciled` (if `sessions.ended_at` was already non-null before this call).
-5. Returns the booking_id so the route adapter can `emitEvent("session.ended", "session", session_id, { booking_id, student_id, teacher_id })`.
+2. Captures prior state (`sessions.ended_at`, `sessions.started_at`, `bookings.status`) for branch decisions + audit metadata.
+3. **Retroactive `started_at` fill** *(Clarify session 2)*: if `sessions.started_at IS NULL`, computes `started_at = p_ended_at - make_interval(secs => p_duration_seconds)`. Daily's `end_time - duration` is authoritative — no second roundtrip waiting on a `meeting.started` that may never arrive.
+4. UPDATEs `sessions SET ended_at, actual_duration, started_at` (Daily-canonical; `started_at` only when previously null, never overwriting a real prior value).
+5. **Branches on (prior_booking_status × duration)** *(Clarify session 2)*:
+   - `confirmed + duration >= 300s` → flip booking to `completed`, audit action `session.webhook.ended` (or `session.webhook.reconciled` if manual end ran first).
+   - `confirmed + duration < 300s` → flip booking to `no_show` (misclick filter at 50k DAU), audit action `session.webhook.misclick_filtered`.
+   - `cancelled` or `no_show` → **booking status preserved** (booking domain owns these decisions), audit action `session.webhook.ended_on_cancelled`.
+   - `completed` (manual end ran first) → no flip, audit action `session.webhook.reconciled`.
+6. INSERTs `audit_log` row with the branch's chosen action + structured metadata (`prior_ended_at`, `prior_started_at`, `prior_booking_status`, `started_at_filled`, `status_outcome`).
+7. Returns `(booking_id, student_id, teacher_id, is_duplicate, is_reconcile, status_outcome)` so the route adapter can `emitEvent("session.ended", "session", session_id, { booking_id, student_id, teacher_id, source: "daily-webhook", status_outcome })`.
 
 Mirror function `start_session_from_webhook(p_session_id, p_started_at, p_event_id)` for the simpler `meeting.started` case.
 
-**Rationale**: Matches ADR-0004 atomic-critical-path pattern (`confirm_booking_with_session`, `deduct_package_session`). Eliminates partial-state failure modes (sessions updated but bookings stale, or vice versa).
+**Rationale**: Matches ADR-0004 atomic-critical-path pattern (`confirm_booking_with_session`, `deduct_package_session`). Eliminates partial-state failure modes (sessions updated but bookings stale, or vice versa). The 4-branch booking-status logic + retroactive `started_at` fill encode FR-005's full shape from Clarify session 2 — implementer reads SQL, not prose, so the function MUST carry the behavior.
+
+**The 5-minute misclick threshold (300s)** is a "save the operator from themselves" decision: at 50k DAU, a teacher accidentally joining a room for 15 seconds would otherwise debit the student's package + fire a parent report saying "session: 15 seconds." Filter at the protocol boundary (SQL function), not in application code — a misclick can't even reach the dashboards.
+
+**The cancelled-booking guard** preserves booking-domain ownership: cancellation decisions belong to the user who clicked cancel, not to Daily.co's event stream. Sessions row updates honestly for audit, booking status stays user-owned.
 
 **Alternatives considered**:
 - Server-action choreography (sequential client calls): rejected per Constitution Principle III.
 - Trigger-based reconciliation on `sessions` table: rejected — triggers run on every UPDATE regardless of source; harder to reason about + harder to test.
+- Encoding the threshold in TypeScript at the route adapter: rejected — leaves a gap where a future direct caller of the SQL function bypasses the filter. Boundary lives at the SQL layer.
 
 ## Decision 7: Post-commit event emission
 

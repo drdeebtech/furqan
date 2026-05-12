@@ -61,19 +61,21 @@ No schema change. Behavior change: now sourced from Daily's `duration / 60` roun
 
 ```sql
 create or replace function public.end_session_from_webhook(
-  p_session_id     uuid,
-  p_ended_at       timestamptz,
-  p_duration_min   int,
-  p_event_id       text,
-  p_event_type     text,
-  p_room_name      text,
-  p_payload_json   jsonb
+  p_session_id       uuid,
+  p_ended_at         timestamptz,
+  p_duration_min     int,
+  p_duration_seconds int,           -- raw seconds from Daily payload (for 5-min threshold check)
+  p_event_id         text,
+  p_event_type       text,
+  p_room_name        text,
+  p_payload_json     jsonb
 ) returns table (
-  booking_id   uuid,
-  student_id   uuid,
-  teacher_id   uuid,
-  is_duplicate boolean,
-  is_reconcile boolean
+  booking_id        uuid,
+  student_id        uuid,
+  teacher_id        uuid,
+  is_duplicate      boolean,
+  is_reconcile      boolean,
+  status_outcome    text   -- 'completed' | 'no_show' | 'preserved' (cancelled stayed cancelled)
 )
 language plpgsql
 security definer
@@ -82,9 +84,18 @@ as $$
 declare
   v_inserted_event_id   text;
   v_prior_ended_at      timestamptz;
+  v_prior_started_at    timestamptz;
+  v_prior_booking_status text;
+  v_started_at_fill     timestamptz;
   v_booking_id          uuid;
   v_student_id          uuid;
   v_teacher_id          uuid;
+  v_status_outcome      text;
+  v_audit_action        text;
+  -- FR-005 (Clarify session 2): misclick filter at 50k DAU.
+  -- Below 5 min (300s), a "completed" booking would debit the student's
+  -- package + spam parent reports. Flip to no_show instead.
+  c_misclick_threshold_seconds constant int := 300;
 begin
   -- Step 1: idempotency check via PK conflict
   insert into public.daily_webhook_events
@@ -95,65 +106,106 @@ begin
   returning event_id into v_inserted_event_id;
 
   if v_inserted_event_id is null then
-    -- Duplicate: read existing session for return, but do not re-apply.
     select b.id, b.student_id, b.teacher_id
       into v_booking_id, v_student_id, v_teacher_id
     from public.sessions s
     join public.bookings b on b.id = s.booking_id
     where s.id = p_session_id;
-    return query select v_booking_id, v_student_id, v_teacher_id, true, false;
+    return query select v_booking_id, v_student_id, v_teacher_id, true, false, 'duplicate'::text;
     return;
   end if;
 
-  -- Step 2: capture prior state for reconciliation flag
-  select s.ended_at into v_prior_ended_at
-  from public.sessions s where s.id = p_session_id;
+  -- Step 2: capture prior state (for reconcile flag + cancelled guard)
+  select s.ended_at, s.started_at, b.status
+    into v_prior_ended_at, v_prior_started_at, v_prior_booking_status
+  from public.sessions s
+  join public.bookings b on b.id = s.booking_id
+  where s.id = p_session_id;
 
-  -- Step 3: update sessions (Daily-canonical)
+  -- FR-005 (Clarify session 2): retroactive started_at fill.
+  -- If meeting.started never arrived (out-of-order or dropped event),
+  -- compute started_at from Daily's end_time - duration. Daily-canonical.
+  if v_prior_started_at is null then
+    v_started_at_fill := p_ended_at - make_interval(secs => p_duration_seconds);
+  else
+    v_started_at_fill := v_prior_started_at;  -- preserve existing
+  end if;
+
+  -- Step 3: update sessions (Daily-canonical; ended_at + actual_duration
+  -- always, started_at only when previously null)
   update public.sessions
   set ended_at        = p_ended_at,
-      actual_duration = p_duration_min
+      actual_duration = p_duration_min,
+      started_at      = v_started_at_fill
   where id = p_session_id;
 
-  -- Step 4: update bookings status if currently 'confirmed'
-  update public.bookings b
-  set status = 'completed'
-  from public.sessions s
-  where s.id = p_session_id
-    and b.id = s.booking_id
-    and b.status = 'confirmed'
-  returning b.id, b.student_id, b.teacher_id
-  into v_booking_id, v_student_id, v_teacher_id;
-
-  -- If bookings update didn't match (already completed/cancelled),
-  -- fetch via plain join.
-  if v_booking_id is null then
+  -- Step 4 (FR-005, Clarify session 2): booking-status flip with all 4 branches.
+  --   confirmed + duration >= 5min  → completed
+  --   confirmed + duration < 5min   → no_show (misclick filter)
+  --   completed                     → leave alone (was already done by manual endSession)
+  --   cancelled / no_show           → leave alone (booking domain owns these decisions);
+  --                                    audit log records session.webhook.ended_on_cancelled
+  if v_prior_booking_status = 'confirmed' then
+    if p_duration_seconds >= c_misclick_threshold_seconds then
+      update public.bookings b
+      set status = 'completed'
+      from public.sessions s
+      where s.id = p_session_id and b.id = s.booking_id
+      returning b.id, b.student_id, b.teacher_id
+      into v_booking_id, v_student_id, v_teacher_id;
+      v_status_outcome := 'completed';
+      v_audit_action   := case when v_prior_ended_at is not null
+                              then 'session.webhook.reconciled'
+                              else 'session.webhook.ended' end;
+    else
+      update public.bookings b
+      set status = 'no_show'
+      from public.sessions s
+      where s.id = p_session_id and b.id = s.booking_id
+      returning b.id, b.student_id, b.teacher_id
+      into v_booking_id, v_student_id, v_teacher_id;
+      v_status_outcome := 'no_show';
+      v_audit_action   := 'session.webhook.misclick_filtered';
+    end if;
+  else
+    -- cancelled, no_show, or already completed: do NOT flip status
     select b.id, b.student_id, b.teacher_id
       into v_booking_id, v_student_id, v_teacher_id
     from public.sessions s
     join public.bookings b on b.id = s.booking_id
     where s.id = p_session_id;
+    v_status_outcome := 'preserved';
+    v_audit_action   := case v_prior_booking_status
+                          when 'cancelled' then 'session.webhook.ended_on_cancelled'
+                          when 'no_show'   then 'session.webhook.ended_on_cancelled'
+                          else (case when v_prior_ended_at is not null
+                                     then 'session.webhook.reconciled'
+                                     else 'session.webhook.ended' end)
+                        end;
   end if;
 
-  -- Step 5: audit log
+  -- Step 5: audit log (uses v_audit_action computed in Step 4)
   insert into public.audit_log (actor_id, action, table_name, record_id, metadata)
   values (
     null,  -- system actor
-    case when v_prior_ended_at is not null
-         then 'session.webhook.reconciled'
-         else 'session.webhook.ended' end,
+    v_audit_action,
     'sessions',
     p_session_id,
     jsonb_build_object(
       'event_id', p_event_id,
       'ended_at', p_ended_at,
       'duration_min', p_duration_min,
-      'prior_ended_at', v_prior_ended_at
+      'duration_seconds', p_duration_seconds,
+      'prior_ended_at', v_prior_ended_at,
+      'prior_started_at', v_prior_started_at,
+      'prior_booking_status', v_prior_booking_status,
+      'started_at_filled', (v_prior_started_at is null),
+      'status_outcome', v_status_outcome
     )
   );
 
   return query select v_booking_id, v_student_id, v_teacher_id, false,
-                     (v_prior_ended_at is not null);
+                     (v_prior_ended_at is not null), v_status_outcome;
 end;
 $$;
 
@@ -222,9 +274,31 @@ grant execute on function public.start_session_from_webhook to service_role;
 
 ```
 [Daily meeting.started] → SQL fn → sessions.started_at SET (Daily-canonical)
-[Daily meeting.ended] → SQL fn → sessions.ended_at + actual_duration SET, bookings.status='completed'
+
+[Daily meeting.ended] → SQL fn evaluates 4 branches:
+  ├─ booking.status = 'confirmed' + duration >= 5min
+  │   → ended_at + actual_duration SET, bookings.status='completed'
+  │   → audit: session.webhook.ended (or session.webhook.reconciled if manual ran first)
+  │
+  ├─ booking.status = 'confirmed' + duration < 5min (misclick filter)
+  │   → ended_at + actual_duration SET, bookings.status='no_show'
+  │   → audit: session.webhook.misclick_filtered
+  │
+  ├─ booking.status = 'cancelled' or 'no_show' (booking-domain owns these)
+  │   → ended_at + actual_duration SET, booking.status PRESERVED
+  │   → audit: session.webhook.ended_on_cancelled
+  │
+  └─ booking.status = 'completed' (already finalized)
+      → ended_at + actual_duration OVERWRITTEN (Daily canonical)
+      → audit: session.webhook.reconciled
+
+[Daily meeting.ended with sessions.started_at IS NULL] (out-of-order or dropped meeting.started)
+   → SQL fn fills started_at = end_time - duration (Daily-canonical math)
+   → then proceeds through the 4 branches above
+
 [teacher click "End session" before webhook] → sessions.ended_at SET (manual);
-   later [Daily meeting.ended] → SQL fn → ended_at + actual_duration OVERWRITTEN; audit_log records reconciliation
+   later [Daily meeting.ended] → ended_at + actual_duration OVERWRITTEN; audit_log records reconciliation
+
 [teacher click "End session" after webhook] → guard WHERE ended_at IS NULL matches zero rows;
    action returns success without error
 ```

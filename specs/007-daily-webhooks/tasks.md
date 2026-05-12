@@ -71,7 +71,7 @@
 **Independent test**: Load-test against a staging environment with 200 distinct event IDs; confirm 100% applied + P99 < 500ms.
 
 - [ ] T017 [US2] Audit the route handler from T013 for synchronous awaited side effects on the hot path — confirm only DB ops (SQL function + `emitEvent` non-blocking) are awaited; remove any accidental `await` on notifications, n8n, or other slow paths
-- [ ] T018 [P] [US2] Write a load-test script `tests/load/daily-webhook-burst.ts` (using `autocannon` or a plain `Promise.all` over 200 fetch calls) that sends 200 signed payloads in 60s against a configurable URL; output P50/P95/P99 latency + error count
+- [ ] T018 [P] [US2] Write a load-test script `tests/load/daily-webhook-burst.ts` (using `autocannon` or a plain `Promise.all` over 200 fetch calls) that sends 200 signed `meeting.ended` payloads (without preceding `meeting.started` events) in 60s against a configurable URL; output P50/P95/P99 latency + error count. Add assertion: after the burst, all 200 sessions have non-null `started_at` — implicitly verifies the retroactive-fill branch from FR-005 under load (covers `/speckit-analyze` finding C3).
 - [ ] T019 [US2] Add metrics to `logError` payload so failed-verification and unmapped-room counts feed the operator dashboard alerts per FR-010 thresholds (failed-verification > 5/min OR unmapped-room > 10/hour)
 - [ ] T019.5 [P] [US2] Verify SC-005 end-to-end: send a synthetic HMAC-failure payload to a preview deployment, assert a Telegram alert lands within 5 minutes via the direct `logError(severity: "warning", tag: "daily-webhook")` path (not the hourly Sentry-watcher cron). Capture as `tests/load/sc005-detection-window.ts` or as a manual quickstart-section step.
 
@@ -86,6 +86,7 @@
 **Independent test**: Send the same payload twice within 5 seconds; confirm `daily_webhook_events` has exactly 1 row, `sessions.ended_at` set once, exactly 1 audit_log entry.
 
 - [ ] T020 [US3] Validate idempotency end-to-end: call the route handler twice with the same `event_id`; assert the second call returns `{ "ok": true, "applied": false, "reason": "duplicate" }` (SQL `ON CONFLICT DO NOTHING` already handles the DB side from T005)
+- [ ] T020.5 [P] [US3] Validate FR-005 misclick filter: send a `meeting.ended` payload with `duration: 240` (seconds) to a confirmed booking; assert response `status_outcome: "no_show"`, `bookings.status='no_show'` (not `completed`), `audit_log` has action `session.webhook.misclick_filtered`, no parent-report event emitted. Critical at 50k DAU because misclick filtering prevents auto-fired parent reports for 15-second misclicks (covers `/speckit-analyze` finding C1).
 - [ ] T021 [P] [US3] Write E2E test `tests/e2e/daily-webhook-idempotency.spec.ts` covering: duplicate event, invalid signature, malformed JSON, unsupported event type
 
 **Checkpoint**: After Phase 5, the receiver is safe to expose to Daily.co's retry behavior.
@@ -101,6 +102,7 @@
 - [ ] T022 [US4] In `src/app/teacher/dashboard/actions.ts`, modify the `endSession` SQL UPDATE to add `WHERE ended_at IS NULL` so a post-webhook click is a no-op match; return success state (not error) when zero rows match
 - [ ] T023 [P] [US4] Add audit_log insert `session.manual_end_post_webhook` when the manual handler's UPDATE matches zero rows (so the noop attempt is visible)
 - [ ] T024 [P] [US4] Write E2E test `tests/e2e/daily-webhook-reconciliation.spec.ts` covering: manual end → webhook reconcile sequence; the resulting `sessions.actual_duration` matches the webhook's value, not the manual click time
+- [ ] T024.5 [P] [US4] Validate FR-005 cancelled-booking guard: pre-cancel a booking (`bookings.status='cancelled'`); send a `meeting.ended` payload; assert `sessions.ended_at`+`actual_duration` SET (audit trail accurate), `bookings.status='cancelled'` UNCHANGED (booking domain ownership preserved), `audit_log` has action `session.webhook.ended_on_cancelled`. Covers `/speckit-analyze` finding C2.
 
 **Checkpoint**: After Phase 6, the teacher UX is loss-free across the manual/webhook race.
 
@@ -164,10 +166,10 @@ US2, US3, US4 can be implemented in parallel after Phase 2 completes — they to
 | Foundational | T004–T008 (5) | 2 of 5 |
 | US1 | T009–T016 (8) | 3 of 8 |
 | US2 | T017–T019.5 (4) | 2 of 4 |
-| US3 | T020–T021 (2) | 1 of 2 |
-| US4 | T022–T024 (3) | 2 of 3 |
+| US3 | T020–T021 (3, incl. T020.5) | 2 of 3 |
+| US4 | T022–T024.5 (4, incl. T024.5) | 3 of 4 |
 | Polish | T025–T029 (5) | 4 of 5 |
-| **Total** | **30** | **16** |
+| **Total** | **32** | **18** |
 
 ## Independent test criteria per story
 
@@ -178,9 +180,9 @@ US2, US3, US4 can be implemented in parallel after Phase 2 completes — they to
 
 ## Format validation
 
-All 30 tasks follow the required checklist format:
+All 32 tasks follow the required checklist format:
 - `- [ ]` checkbox ✓
-- Sequential TaskID (T001–T029 plus T019.5) ✓
+- Sequential TaskID (T001–T029 plus T019.5, T020.5, T024.5 sub-numbered for /analyze-driven inserts) ✓
 - `[P]` only on parallelizable tasks ✓
 - `[US1]`/`[US2]`/`[US3]`/`[US4]` ONLY on Phase 3–6 tasks ✓
 - No story label on Setup/Foundational/Polish ✓
