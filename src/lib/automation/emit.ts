@@ -145,7 +145,15 @@ export async function emitEvent(
       }
       return;
     }
-    const settings = await getSettings().catch(() => ({} as Record<string, string>));
+    const settings = await getSettings().catch((err) => {
+      // Settings drive automation_enabled + per-event sub-flags. Silently
+      // falling through to {} means every event gets dropped as if
+      // automation_enabled=false — indistinguishable from operator intent.
+      logError("emit: getSettings failed; defaulting to empty settings", err, {
+        tag: "automation", kind: "config", event: eventName,
+      });
+      return {} as Record<string, string>;
+    });
     if (settings.automation_enabled !== "true") {
       await recordSkipped(payload, "automation_enabled=false");
       return;

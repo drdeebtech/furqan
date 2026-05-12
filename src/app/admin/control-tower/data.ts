@@ -2,6 +2,7 @@ import "server-only";
 import { getCache } from "@vercel/functions";
 import { createClient } from "@/lib/supabase/server";
 import { countOrFail } from "@/lib/supabase/load-or-fail";
+import { logWarn } from "@/lib/logger";
 
 export type WidgetTier = "warning" | "error" | "info" | "success";
 export type WidgetKey =
@@ -58,8 +59,12 @@ export async function loadControlTowerSnapshot(): Promise<ControlTowerSnapshot> 
       | undefined
       | null;
     if (cached) return cached;
-  } catch {
-    // tolerate runtime-cache outages; fall through to DB
+  } catch (err) {
+    // Tolerate runtime-cache outages but surface them as warnings so
+    // persistent cache problems are visible in Sentry → Logs.
+    logWarn("control-tower cache read failed; falling through to DB", {
+      tag: "control-tower", kind: "cache-read", error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   const supabase = await createClient();
@@ -144,8 +149,12 @@ export async function loadControlTowerSnapshot(): Promise<ControlTowerSnapshot> 
         tags: [CONTROL_TOWER_TAG],
         name: "admin/control-tower/snapshot",
       });
-    } catch {
-      // tolerate runtime-cache outages; the snapshot still returns fresh
+    } catch (err) {
+      // Snapshot still returns fresh; warn so persistent write failures
+      // (e.g. quota, regional outage) are visible.
+      logWarn("control-tower cache write failed; snapshot still served", {
+        tag: "control-tower", kind: "cache-write", error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -164,7 +173,9 @@ export async function loadControlTowerSnapshot(): Promise<ControlTowerSnapshot> 
 export async function expireControlTowerSnapshot(): Promise<void> {
   try {
     await getCache().expireTag(CONTROL_TOWER_TAG);
-  } catch {
-    // tolerate runtime-cache outages
+  } catch (err) {
+    logWarn("control-tower expireTag failed; next read may serve stale snapshot", {
+      tag: "control-tower", kind: "cache-expire", error: err instanceof Error ? err.message : String(err),
+    });
   }
 }
