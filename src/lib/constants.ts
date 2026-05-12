@@ -32,26 +32,26 @@ export const RIWAYA_AR: Record<RecitationStandard, string> = {
 
 export const STATUS_STYLE: Record<
   BookingStatus,
-  { label: string; className: string }
+  { label: { ar: string; en: string }; className: string }
 > = {
   pending: {
-    label: "بانتظار التأكيد",
+    label: { ar: "بانتظار التأكيد", en: "Pending" },
     className: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30",
   },
   confirmed: {
-    label: "مؤكد",
+    label: { ar: "مؤكد", en: "Confirmed" },
     className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
   },
   completed: {
-    label: "مكتمل",
+    label: { ar: "مكتمل", en: "Completed" },
     className: "bg-sky-500/10 text-sky-400 border-sky-500/30",
   },
   cancelled: {
-    label: "ملغى",
+    label: { ar: "ملغى", en: "Cancelled" },
     className: "bg-red-500/10 text-red-400 border-red-500/30",
   },
   no_show: {
-    label: "لم يحضر",
+    label: { ar: "لم يحضر", en: "No-show" },
     className: "bg-red-500/10 text-red-400 border-red-500/30",
   },
 };

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLang } from "@/lib/i18n/context";
 
 export function LiveBadge({
   scheduledAt,
@@ -10,10 +11,12 @@ export function LiveBadge({
 }: {
   scheduledAt: string;
   durationMin: number;
-  defaultLabel: string;
+  defaultLabel: { ar: string; en: string };
   className: string;
 }) {
-  const [label, setLabel] = useState(defaultLabel);
+  const { t } = useLang();
+  const resolvedDefault = t(defaultLabel.ar, defaultLabel.en);
+  const [label, setLabel] = useState(resolvedDefault);
 
   useEffect(() => {
     function check() {
@@ -21,15 +24,15 @@ export function LiveBadge({
       const start = new Date(scheduledAt).getTime();
       const end = start + durationMin * 60000;
       if (now >= start && now < end) {
-        setLabel("جارية الآن");
+        setLabel(t("جارية الآن", "Live now"));
       } else {
-        setLabel(defaultLabel);
+        setLabel(t(defaultLabel.ar, defaultLabel.en));
       }
     }
     check();
     const interval = setInterval(check, 30000); // re-check every 30s
     return () => clearInterval(interval);
-  }, [scheduledAt, durationMin, defaultLabel]);
+  }, [scheduledAt, durationMin, defaultLabel, t]);
 
   return <span className={className}>{label}</span>;
 }
