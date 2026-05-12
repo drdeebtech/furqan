@@ -48,6 +48,32 @@ create unique index sessions_room_name_unique_idx
 update public.sessions
 set room_name = substring(room_url from '/([^/]+)$')
 where room_url is not null and room_name is null;
+
+-- Pre-flight duplicate check BEFORE the partial UNIQUE constraint applies.
+-- Daily-side names are globally unique by construction, but historical rows
+-- could legitimately share a parsed room_name (legacy createRoom bug, manual
+-- SQL insert, restored backup). Surfacing this BEFORE the constraint fires
+-- prevents an opaque migration failure.
+do $$
+declare
+  v_dup_count int;
+  v_dup_list  text;
+begin
+  select count(*), string_agg(room_name, ', ' order by room_name)
+    into v_dup_count, v_dup_list
+  from (
+    select room_name
+    from public.sessions
+    where room_name is not null
+    group by room_name
+    having count(*) > 1
+  ) dups;
+
+  if v_dup_count > 0 then
+    raise exception 'Backfill produced % duplicate room_name values: %. Clean these manually before re-running the migration (or temporarily skip the UNIQUE index creation below and resolve in a follow-up).',
+      v_dup_count, v_dup_list;
+  end if;
+end$$;
 ```
 
 **Notes**:
@@ -61,6 +87,12 @@ No schema change. Behavior change: now sourced from Daily's `duration / 60` roun
 ## New SQL functions
 
 ### `end_session_from_webhook(...)` — critical path
+
+> **Boundary**: signature verification and the ±15-minute clock-skew check
+> (FR-001) are the **route adapter's responsibility**. This SQL function
+> trusts `p_ended_at` as Daily-canonical truth — by the time it executes,
+> the payload has already passed HMAC + skew checks. Same boundary policy
+> applies to `start_session_from_webhook` below.
 
 ```sql
 create or replace function public.end_session_from_webhook(

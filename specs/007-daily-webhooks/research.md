@@ -92,12 +92,26 @@ Mirror function `start_session_from_webhook(p_session_id, p_started_at, p_event_
 
 ## Decision 7: Post-commit event emission
 
-**Decision**: After the SQL function commits, the route adapter calls `emitEvent("session.ended", "session", sessionId, { booking_id, student_id, teacher_id, source: "daily-webhook" })`. This fires the existing `WEBHOOK_ROUTES["session.ended"]` n8n callback, which downstream fans out parent-report generation, package deduction confirmation, and any other registered consumers.
+**Decision** *(updated by Clarify session 3, Q1)*: After the SQL function commits, the route adapter branches on the returned `status_outcome` to pick the correct event:
 
-**Rationale**: Zero new n8n workflows needed; the `source` discriminator lets n8n branches treat webhook-triggered ends differently from manual ones if needed.
+| `status_outcome` | Event emitted | Payload extras |
+|---|---|---|
+| `completed` | `session.ended` | `source: "daily-webhook"` |
+| `reconciled` | `session.ended` | `source: "daily-webhook", was_reconciled: true` |
+| `no_show` (misclick filter) | `session.no_show` | `source: "daily-webhook", reason: "misclick-filter", duration_seconds` |
+| `preserved` (cancelled/no_show booking) | (none) | — |
+| `duplicate` | (none) | — |
+
+**Rationale**: Reuses existing `WEBHOOK_ROUTES["session.ended"]` and `WEBHOOK_ROUTES["session.no_show"]` n8n callbacks — zero new workflows needed. Critically, the misclick branch routes through `session.no_show` because:
+
+1. **The existing `session.no_show` n8n consumer already has gentler parent copy** ("we noticed the call didn't happen; here are rescheduling options") — emitting `session.ended` for a 15-second misclick would fire a "session report: 0 minutes" parent SMS, which is exactly the failure Q3 of Clarify session 2 was designed to prevent.
+2. **`deduct_package_session` is wired to `session.ended` only**, so emitting `session.no_show` preserves the student's package by default — no special-case code in the deduction path.
+3. **Booking-domain ownership** (Clarify session 2 Q2): the `preserved` outcome (cancelled/no_show booking) emits nothing, because the booking-domain has already issued its own events for that state. A stray Daily event MUST NOT re-trigger downstream consumers that the user explicitly cancelled.
 
 **Alternatives considered**:
-- New event type `session.webhook.ended` distinct from `session.ended`: rejected — doubles every n8n consumer's wiring; the source field captures the only meaningful distinction.
+- Always emit `session.ended` and gate downstream on a new `status_outcome` field: rejected — pushes filtering logic into 5+ n8n workflows; high coordination cost and easy to forget in a new consumer.
+- New event type `session.webhook.ended` distinct from `session.ended`: rejected — doubles every n8n consumer's wiring; the `source` field captures the only meaningful distinction.
+- New event type `session.misclick` for the no_show branch: rejected — invents a parallel workflow + new parent-report template for a case the existing `session.no_show` consumer handles correctly.
 
 ## Decision 8: Manual `endSession` reconciliation
 

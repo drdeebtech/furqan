@@ -55,8 +55,14 @@
 - [ ] T010 [P] [US1] Write unit tests for `verifyDailySignature` in `src/lib/daily/webhook-verify.test.ts` covering: valid signature, wrong signature, length mismatch, missing header
 - [ ] T011 [US1] Implement `dispatchDailyEvent(payload)` in `src/lib/daily/webhook-handler.ts` that maps payload `type` to one of the two SQL functions, looks up `sessions.id` via `room_name`, and returns a discriminated result (`{ kind: "applied" | "duplicate" | "unmapped" | "unsupported-type", ... }`)
 - [ ] T012 [P] [US1] Write unit tests for `dispatchDailyEvent` in `src/lib/daily/webhook-handler.test.ts` covering: `meeting.ended` on a confirmed booking → applied; duplicate event_id → duplicate (no second SQL call); unknown room_name → unmapped; unsupported event type → unsupported
-- [ ] T013 [US1] Implement the route handler `POST /api/webhooks/daily` in `src/app/api/webhooks/daily/route.ts` that: reads `req.text()`, verifies signature against current + optional previous secret, parses JSON, calls `dispatchDailyEvent`, returns the response matrix from contracts/daily-webhook-payload.md
-- [ ] T014 [US1] After SQL function commits successfully, call `emitEvent("session.ended", "session", session_id, { booking_id, student_id, teacher_id, source: "daily-webhook" })` from `src/lib/automation/emit.ts` post-commit, fire-and-forget (do NOT await on its result for the 500ms ack budget)
+- [ ] T013 [US1] Implement the route handler `POST /api/webhooks/daily` in `src/app/api/webhooks/daily/route.ts` that: reads `req.text()`, verifies signature against current + optional previous secret, parses JSON, **enforces FR-001 ±15-min skew window on `payload.timestamp` (top-level epoch-ms; reject with 200 + `applied:false` + `reason:"stale-event"` and `logError(severity:"warning")` outside the window — do NOT write to audit_log)**, calls `dispatchDailyEvent`, returns the response matrix from contracts/daily-webhook-payload.md
+- [ ] T013.5 [P] [US1] Verify FR-001 skew rejection end-to-end: send two signed payloads — one with `payload.timestamp = now-30min` and one with `payload.timestamp = now+30min` — and assert both return 200 + `applied:false` + `reason:"stale-event"`, no `sessions` row mutated, exactly one Sentry warning per call. Covers /speckit-analyze pass 3 finding C1.
+- [ ] T014 [US1] After SQL function commits successfully, branch on the returned `status_outcome` to select the correct event (FR-006 + Clarify Q1):
+  - `completed` or `reconciled` → `emitEvent("session.ended", "session", session_id, { booking_id, student_id, teacher_id, source:"daily-webhook", status_outcome })`
+  - `no_show` (misclick filter) → `emitEvent("session.no_show", "session", session_id, { booking_id, student_id, teacher_id, source:"daily-webhook", reason:"misclick-filter", duration_seconds })`
+  - `preserved` (cancelled/no_show booking) → emit NOTHING; booking-domain ownership preserved
+  - `duplicate` → emit NOTHING; idempotency already handled
+  All emits are fire-and-forget post-commit (do NOT await on their result for the 500ms ack budget).
 - [ ] T015 [US1] On unmapped-room and HMAC-failure paths, log via `logError(...)` with `severity: "warning"` and `tag: "daily-webhook"` so the operator gets Sentry signal per FR-008/FR-010
 - [ ] T016 [P] [US1] Update CLAUDE.md "Events Emitted (to n8n)" table to add `source: "daily-webhook"` discriminator on `session.ended`
 
@@ -86,7 +92,7 @@
 **Independent test**: Send the same payload twice within 5 seconds; confirm `daily_webhook_events` has exactly 1 row, `sessions.ended_at` set once, exactly 1 audit_log entry.
 
 - [ ] T020 [US3] Validate idempotency end-to-end: call the route handler twice with the same `event_id`; assert the second call returns `{ "ok": true, "applied": false, "reason": "duplicate" }` (SQL `ON CONFLICT DO NOTHING` already handles the DB side from T005)
-- [ ] T020.5 [P] [US3] Validate FR-005 misclick filter: send a `meeting.ended` payload with `duration: 240` (seconds) to a confirmed booking; assert response `status_outcome: "no_show"`, `bookings.status='no_show'` (not `completed`), `audit_log` has action `session.webhook.misclick_filtered`, no parent-report event emitted. Critical at 50k DAU because misclick filtering prevents auto-fired parent reports for 15-second misclicks (covers `/speckit-analyze` finding C1).
+- [ ] T020.5 [P] [US3] Validate FR-005 misclick filter + Q1 event selection: send a `meeting.ended` payload with `duration: 240` (seconds) to a confirmed booking; assert response `status_outcome: "no_show"`, `bookings.status='no_show'` (not `completed`), `audit_log` has action `session.webhook.misclick_filtered`, **exactly one event emitted with type `session.no_show`** (carrying `reason:"misclick-filter"`, `duration_seconds:240`), **zero `session.ended` events emitted**. Critical at 50k DAU because misclick filtering prevents auto-fired parent reports for 15-second misclicks (covers `/speckit-analyze` pass 2 finding C1 + pass 3 finding C2).
 - [ ] T021 [P] [US3] Write E2E test `tests/e2e/daily-webhook-idempotency.spec.ts` covering: duplicate event, invalid signature, malformed JSON, unsupported event type
 
 **Checkpoint**: After Phase 5, the receiver is safe to expose to Daily.co's retry behavior.
@@ -169,7 +175,9 @@ US2, US3, US4 can be implemented in parallel after Phase 2 completes — they to
 | US3 | T020–T021 (3, incl. T020.5) | 2 of 3 |
 | US4 | T022–T024.5 (4, incl. T024.5) | 3 of 4 |
 | Polish | T025–T029 (5) | 4 of 5 |
-| **Total** | **32** | **18** |
+| **Total** | **33** | **19** |
+
+> US1 grew from 8 → 9 with the addition of T013.5 (FR-001 skew verification).
 
 ## Independent test criteria per story
 
@@ -180,9 +188,9 @@ US2, US3, US4 can be implemented in parallel after Phase 2 completes — they to
 
 ## Format validation
 
-All 32 tasks follow the required checklist format:
+All 33 tasks follow the required checklist format:
 - `- [ ]` checkbox ✓
-- Sequential TaskID (T001–T029 plus T019.5, T020.5, T024.5 sub-numbered for /analyze-driven inserts) ✓
+- Sequential TaskID (T001–T029 plus T013.5, T019.5, T020.5, T024.5 sub-numbered for /analyze-driven inserts) ✓
 - `[P]` only on parallelizable tasks ✓
 - `[US1]`/`[US2]`/`[US3]`/`[US4]` ONLY on Phase 3–6 tasks ✓
 - No story label on Setup/Foundational/Polish ✓
