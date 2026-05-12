@@ -383,6 +383,44 @@ body {
 .animate-delay-2 { animation-delay: 100ms; }
 .animate-delay-3 { animation-delay: 150ms; }
 .animate-delay-4 { animation-delay: 200ms; }
+.animate-delay-5 { animation-delay: 250ms; }
+.animate-delay-6 { animation-delay: 300ms; }
+.animate-delay-7 { animation-delay: 350ms; }
+
+/* Scroll-triggered reveal — sections fade up when they enter the viewport.
+   Driven by useInView hook setting data-in-view="true" on the wrapper. */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+.scroll-reveal[data-in-view="true"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Leading-edge accent on hover for plan rows. RTL-mirrored via logical
+   property `border-inline-start`. Avoids layout shift by reserving the
+   1px space with transparent border, then colouring on hover. */
+.edge-accent {
+  border-inline-start: 2px solid transparent;
+  transition: border-color 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.edge-accent:hover {
+  border-inline-start-color: var(--gold);
+}
+@media (prefers-reduced-motion: reduce) {
+  .edge-accent { transition: none; }
+}
 
 /* Staggered grid children entrance */
 .stagger-children > * {

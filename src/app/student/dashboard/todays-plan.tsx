@@ -63,7 +63,7 @@ export function TodaysPlan({ items, homeworkPulse }: TodaysPlanProps) {
               <li key={item.id}>
                 <Link
                   href={item.href}
-                  className={`group flex items-center gap-3 rounded-xl border ${tone} p-3 transition-colors hover:border-gold/30`}
+                  className={`group edge-accent flex items-center gap-3 rounded-xl border ${tone} p-3 transition-colors hover:border-gold/30`}
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/10 text-gold">
                     <Icon size={18} aria-hidden="true" />

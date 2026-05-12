@@ -3,11 +3,24 @@
 import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
+import type { ReactNode } from "react";
 import { GraduationCap, Play, Star, Users } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
+import { useInView } from "@/lib/hooks/use-in-view";
 import { RegisterBanner } from "@/components/public/register-banner";
 import { resolveIcon } from "@/lib/site-content/icon-map";
 import type { SiteFeature, SubjectMeta, PackagePreviewMeta } from "@/lib/site-content/types";
+
+/** Section wrapper that fades + slides 16px on viewport entry (one-shot).
+ *  Reduced-motion users see content statically per the CSS guard. */
+function RevealSection({ className = "", children }: { className?: string; children: ReactNode }) {
+  const [ref, inView] = useInView<HTMLElement>();
+  return (
+    <section ref={ref} data-in-view={inView} className={`scroll-reveal ${className}`}>
+      {children}
+    </section>
+  );
+}
 
 const Testimonials = dynamic(
   () => import("@/components/public/testimonials").then((m) => m.Testimonials),
@@ -42,17 +55,17 @@ export default function HomePage({
         <div className="relative mx-auto max-w-5xl px-6">
           <div className="text-center">
             {/* Badge */}
-            <div className="glass glass-pill mb-8 inline-flex items-center gap-2 px-4 py-1.5 text-xs">
+            <div className="glass glass-pill mb-8 inline-flex items-center gap-2 px-4 py-1.5 text-xs animate-fade-up motion-reduce:animate-none">
               <span className="text-muted">{t("أكاديمية القرآن الكريم عبر الإنترنت", "Online Quran Learning Academy")}</span>
             </div>
 
             {/* Logo */}
-            <div className="mb-6 flex justify-center">
+            <div className="mb-6 flex justify-center animate-fade-up animate-delay-1 motion-reduce:animate-none">
               <Image src="/logo-192.png" alt="فرقان" width={80} height={80} className="rounded-full border-2 border-gold/30" priority />
             </div>
 
             {/* Heading */}
-            <h1 className="font-display text-4xl font-bold leading-[1.3] md:text-6xl md:leading-[1.2] lg:text-7xl">
+            <h1 className="font-display text-4xl font-bold leading-[1.3] md:text-6xl md:leading-[1.2] lg:text-7xl animate-fade-up animate-delay-2 motion-reduce:animate-none">
               {t("تعلّم", "Learn")}{" "}
               <span className="text-gold">{t("القرآن", "Quran")}</span>
               <br />
@@ -60,7 +73,7 @@ export default function HomePage({
             </h1>
 
             {/* Subtitle */}
-            <p className="mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-muted md:text-xl">
+            <p className="mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-muted md:text-xl animate-fade-up animate-delay-3 motion-reduce:animate-none">
               {t(
                 "معلمون حاصلون على الإجازة · جلسات فيديو مباشرة · جدول يناسبك · من أي مكان في العالم",
                 "Certified teachers with Ijazah · Live video sessions · Flexible schedule · From anywhere in the world",
@@ -68,10 +81,10 @@ export default function HomePage({
             </p>
 
             {/* CTA buttons — primary filled, secondary text link */}
-            <div className="mt-10 flex w-full flex-col items-center gap-4 px-4 sm:w-auto sm:flex-row sm:justify-center sm:px-0">
+            <div className="mt-10 flex w-full flex-col items-center gap-4 px-4 sm:w-auto sm:flex-row sm:justify-center sm:px-0 animate-fade-up animate-delay-4 motion-reduce:animate-none">
               <Link
                 href="/register"
-                className="glass-gold glass-pill flex w-full items-center justify-center gap-2 px-10 py-4 text-lg font-semibold tracking-tight transition-all duration-200 hover:bg-gold-hover sm:w-auto"
+                className="glass-gold glass-pill animate-pulse-slow flex w-full items-center justify-center gap-2 px-10 py-4 text-lg font-semibold tracking-tight transition-all duration-200 hover:bg-gold-hover motion-reduce:animate-none sm:w-auto"
               >
                 <Play size={18} aria-hidden="true" />
                 {t("سجّل الآن", "Register Now")}
@@ -124,7 +137,7 @@ export default function HomePage({
       {/* ══════════════════════════════════════════
           HOW IT WORKS — alternating bg
           ══════════════════════════════════════════ */}
-      <section className="section-light py-24">
+      <RevealSection className="section-light py-24">
         <div className="mx-auto max-w-7xl px-6">
           <div className="text-center">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted">{t("كيف يعمل", "How it works")}</p>
@@ -158,7 +171,7 @@ export default function HomePage({
             </ol>
           </div>
         </div>
-      </section>
+      </RevealSection>
 
       {/* ══════════════════════════════════════════
           WHY FURQAN — editorial spotlight
@@ -167,7 +180,7 @@ export default function HomePage({
           differentiators stacked as compact rows. Breaks
           the 4-card grid monotony of the rest of the page.
           ══════════════════════════════════════════ */}
-      <section className="section-accent islamic-pattern relative py-24">
+      <RevealSection className="section-accent islamic-pattern relative py-24">
         <div className="pointer-events-none absolute inset-0 bg-background/40" />
         <div className="relative mx-auto max-w-7xl px-6">
           <div className="text-center">
@@ -217,12 +230,12 @@ export default function HomePage({
             );
           })()}
         </div>
-      </section>
+      </RevealSection>
 
       {/* ══════════════════════════════════════════
           COURSES — clean section
           ══════════════════════════════════════════ */}
-      <section className="py-24">
+      <RevealSection className="py-24">
         <div className="mx-auto max-w-7xl px-6">
           <div className="text-center">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted">{t("التخصصات", "Courses")}</p>
@@ -274,14 +287,14 @@ export default function HomePage({
             </Link>
           </div>
         </div>
-      </section>
+      </RevealSection>
 
       {/* ══════════════════════════════════════════
           CREDENTIALS — scholar certification bar
           (distinct from hero trust strip — this is
           about institutional authority, not product)
           ══════════════════════════════════════════ */}
-      <section className="border-y border-surface-border/60 bg-surface/30 py-10">
+      <RevealSection className="border-y border-surface-border/60 bg-surface/30 py-10">
         <div className="mx-auto max-w-5xl px-6">
           <p className="text-center text-xs font-medium uppercase tracking-[0.2em] text-muted">
             {t("الاعتمادات العلمية", "Scholarly credentials")}
@@ -298,7 +311,7 @@ export default function HomePage({
             })}
           </div>
         </div>
-      </section>
+      </RevealSection>
 
       {/* ══════════════════════════════════════════
           TESTIMONIALS — with pattern bg
@@ -310,7 +323,7 @@ export default function HomePage({
       {/* ══════════════════════════════════════════
           PACKAGES PREVIEW
           ══════════════════════════════════════════ */}
-      <section className="py-24">
+      <RevealSection className="py-24">
         <div className="mx-auto max-w-5xl px-6">
           <div className="text-center">
             <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted">{t("الباقات", "Packages")}</p>
@@ -364,7 +377,7 @@ export default function HomePage({
             </Link>
           </div>
         </div>
-      </section>
+      </RevealSection>
 
       {/* ── FINAL CTA ── */}
       <RegisterBanner />

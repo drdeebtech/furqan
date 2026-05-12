@@ -267,7 +267,7 @@ function BannerShell({ tone, children, onDismiss, dismissLabel }: { tone: Tone; 
     <div
       role="region"
       aria-label="Next action"
-      className={`relative flex flex-col items-stretch gap-3 rounded-2xl border ${baseTone} p-4 sm:flex-row sm:items-center sm:gap-4 sm:p-5`}
+      className={`relative flex flex-col items-stretch gap-3 rounded-2xl border ${baseTone} p-4 animate-fade-up motion-reduce:animate-none sm:flex-row sm:items-center sm:gap-4 sm:p-5`}
     >
       {children}
       {onDismiss && (
