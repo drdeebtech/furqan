@@ -511,7 +511,8 @@ export function ProgressContent({ data }: { data: ProgressData }) {
       {completedCount === 0 && (
         <div className="glass-card p-12 text-center">
           <BookOpen size={40} className="mx-auto mb-3 text-muted/40" />
-          <p className="text-muted">{t("ابدأ رحلتك مع القرآن", "Start your Quran journey")}</p>
+          <p className="text-muted">{t("لم تُكمل أي تلاوة بعد", "No recitations completed yet")}</p>
+          <p className="mt-1 text-sm text-muted/60">{t("ستظهر تلاواتك هنا بعد كل جلسة مع معلمك", "Your recitations will appear here after each session with your teacher")}</p>
           <Link href="/student/teachers" className="mt-4 inline-block text-sm text-gold hover:text-gold-hover">
             {t("احجز جلستك الأولى ←", "Book your first session →")}
           </Link>

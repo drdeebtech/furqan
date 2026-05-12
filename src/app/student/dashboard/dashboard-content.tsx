@@ -190,7 +190,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
       group: { ar: "إجراءات", en: "Actions" },
       onTrigger: () => {
         if (sessionId && isImminent) window.location.assign(`/student/sessions/${sessionId}`);
-        else toast.info(t("لا توجد جلسة وشيكة", "No imminent session"));
+        else toast.info(t("لا توجد جلسة قادمة قريبًا", "No upcoming session soon"));
       },
     },
     { combo: "g d", description: { ar: "اللوحة", en: "Dashboard" }, group: { ar: "تنقل", en: "Navigate" }, href: "/student/dashboard" },
@@ -458,7 +458,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                       }]
                     : []),
                 ]}
-                emptyMessage={t("ابدأ تتبع المتابعات لرؤية التقدم", "Start tracking follow-ups to see progress")}
+                emptyMessage={t("ستظهر المتابعات هنا بعد تعيينها من معلمك", "Follow-ups will appear here once your teacher assigns them")}
               />
             </SectionErrorBoundary>
           </div>
@@ -503,7 +503,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
                 }
                 return <LessonRowActions lessonId={lessonId} href={href} />;
               }}
-              emptyMessage={t("لا توجد دروس قيد المتابعة بعد", "No lessons in progress yet")}
+              emptyMessage={t("لا توجد دروس جارية — تصفّح الكورسات لتبدأ", "No lessons in progress — browse courses to get started")}
             />
           </SectionErrorBoundary>
         </div>
