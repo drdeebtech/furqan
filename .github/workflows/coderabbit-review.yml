@@ -58,14 +58,16 @@ jobs:
       - name: Run review against base branch
         if: steps.gate.outputs.skip != 'true'
         env:
-          # The CLI reads CODERABBIT_API_KEY (no "AI"); the secret keeps its
-          # original name to avoid rotating the stored value.
-          CODERABBIT_API_KEY: ${{ secrets.CODERABBITAI_API_KEY }}
+          # The CLI's `review` subcommand authenticates only via --api-key
+          # flag (verified via `coderabbit review --help`); env vars are
+          # not read. Secret name kept as CODERABBITAI_API_KEY to avoid
+          # rotation.
+          API_KEY: ${{ secrets.CODERABBITAI_API_KEY }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           set -o pipefail
           git fetch origin "$BASE_REF":"refs/remotes/origin/$BASE_REF" --depth=1 || true
-          coderabbit review --agent --base "origin/$BASE_REF" 2>&1 | tee review.md
+          coderabbit review --plain --api-key "$API_KEY" --base "origin/$BASE_REF" 2>&1 | tee review.md
           # Keep non-zero exit codes from breaking the gate — we still want
           # to post whatever output we got.
         continue-on-error: true
