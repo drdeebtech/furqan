@@ -14,7 +14,7 @@
 | [003-booking-lifecycle](./003-booking-lifecycle/spec.md) | Shipped | `003-booking-lifecycle` | [#226](https://github.com/drdeebtech/furqan/pull/226) |
 | [004-followup-lifecycle](./004-followup-lifecycle/spec.md) | Shipped | `004-followup-lifecycle` | [#231](https://github.com/drdeebtech/furqan/pull/231) |
 | [005-package-deduction-lifecycle](./005-package-deduction-lifecycle/spec.md) | Shipped | `005-package-deduction-lifecycle` | [#238](https://github.com/drdeebtech/furqan/pull/238) |
-| [007-daily-webhooks](./007-daily-webhooks/spec.md) | Draft | `007-daily-webhooks` | _(pending)_ |
+| [007-daily-webhooks](./007-daily-webhooks/spec.md) | Implementing | `007-daily-webhooks` | [#293](https://github.com/drdeebtech/furqan/pull/293) |
 
 ## Abandoned (last 90 days)
 

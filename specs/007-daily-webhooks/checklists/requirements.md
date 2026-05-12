@@ -34,3 +34,4 @@
 - Items marked incomplete require spec updates before `/speckit-clarify` or `/speckit-plan`
 - Path constraint: the spec mentions `src/app/api/webhooks/daily/route.ts` only as Input context; FR text avoids implementation paths.
 - Scale obligations (FR-006, FR-009, SC-003) cite 200-event burst / 500ms P99 / 50k-user sizing per CLAUDE.md Scale Target Rule.
+- **Clarify session 2026-05-12**: 5 high-impact ambiguities resolved in batch using 50k-fit defaults per `feedback_50k_default_in_clarify` memory (no interactive Q&A). Resolved: idempotency storage (new `daily_webhook_events` table), room-mapping mechanism (new `sessions.room_name` column), async work mechanism (reuse `emitEvent`), secret rotation overlap (24hr previous-secret env var), and `actual_duration` overwrite race (Daily canonical). See spec.md `## Clarifications` section.

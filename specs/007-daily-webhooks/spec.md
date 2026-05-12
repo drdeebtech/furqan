@@ -5,6 +5,16 @@
 **Status**: Draft
 **Input**: Wire Daily.co `meeting.started` and `meeting.ended` server-side webhooks into the FURQAN session lifecycle so the platform's `sessions.started_at` and `sessions.ended_at` reflect *actual call presence* rather than *page-visit heuristics*. Replaces the current `trackSessionEvent` page-join semantics, which never auto-clears or auto-ends and has produced 18,630-min durations on 30-min slots (Findings Backlog F1, currently band-aided by a 2x-planned cap migration).
 
+## Clarifications
+
+### Session 2026-05-12
+
+- Q: Where should processed webhook event IDs be stored for idempotency? → A: New dedicated `daily_webhook_events` table with `UNIQUE(event_id)` + index on `received_at`; 7-day TTL via existing `audit-cleanup` daily cron. Reuses Postgres (the project's only durable store); no new infra needed.
+- Q: How is a Daily.co room name mapped to a `sessions` row? → A: Additive `sessions.room_name` column (TEXT, indexed). Substring-matching the existing `sessions.room_url` is a hot-path write amplifier at 50k DAU (every webhook scans 300k+ rows). The migration backfills `room_name` from parsed `room_url` for existing rows.
+- Q: How are parent notifications, package deduction, and n8n events moved off the webhook critical path? → A: Reuse the existing `emitEvent("session.ended", ...)` non-blocking fire-and-forget pattern from `src/lib/automation/emit.ts`. Webhook handler does only: HMAC verify → idempotency check → sessions update → bookings status flip → emitEvent. No new queue infra.
+- Q: What if the operator rotates `DAILY_WEBHOOK_SECRET` mid-flight? → A: Receiver supports both the current and previous secret for 24 hours after rotation, gated by an env var `DAILY_WEBHOOK_SECRET_PREVIOUS` (optional). Eliminates the secret-rotation ops scramble; in-flight retries from the old secret still validate.
+- Q: When manual `endSession` writes `ended_at` first and the Daily webhook then arrives, who wins on `actual_duration`? → A: Daily wins. FR-004/FR-005 mark Daily as canonical; FR-007 already covers reconciliation. Manual writes are advisory until the webhook supersedes them. The audit log records both touches so the divergence is auditable.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 — Accurate billable duration on every completed session (Priority: P1)
@@ -83,12 +93,12 @@ When a teacher clicks "End session" on `/teacher/sessions/[uuid]` after the room
 
 ### Functional Requirements
 
-- **FR-001**: System MUST verify every inbound Daily.co webhook payload against the configured shared-secret HMAC signature before reading any field from the body. Failed verification MUST return 401 and MUST NOT touch the database.
-- **FR-002**: System MUST maintain a record of every processed Daily.co event ID for at least 7 days, and MUST reject duplicate event IDs idempotently — returning 200 to Daily without re-applying side effects.
-- **FR-003**: System MUST map an inbound Daily.co room identifier to exactly one `sessions` row. If the room corresponds to no known session, the system MUST 200 the response (Daily must not retry) and emit an operator-visible signal (Sentry warning).
+- **FR-001**: System MUST verify every inbound Daily.co webhook payload against the configured shared-secret HMAC signature before reading any field from the body. Verification MUST attempt the current `DAILY_WEBHOOK_SECRET` first, then — if an optional `DAILY_WEBHOOK_SECRET_PREVIOUS` env var is set — the previous secret. The previous-secret path MUST be removable by clearing the env var after a 24-hour overlap window. Failed verification under both secrets MUST return 401 and MUST NOT touch the database.
+- **FR-002**: System MUST maintain a record of every processed Daily.co event ID for at least 7 days in a dedicated `daily_webhook_events` table with `UNIQUE(event_id)` and an index on `received_at`; the existing `audit-cleanup` daily cron MUST be extended to purge rows older than 7 days. Duplicate event IDs MUST be rejected idempotently — returning 200 to Daily without re-applying side effects.
+- **FR-003**: System MUST map an inbound Daily.co room name to exactly one `sessions` row via the `sessions.room_name` column (added as an additive migration, indexed, backfilled from existing `room_url` values). If the room corresponds to no known session, the system MUST 200 the response (Daily must not retry) and emit an operator-visible signal (Sentry warning).
 - **FR-004**: On `meeting.started`, system MUST set `sessions.started_at` to Daily's reported timestamp, overwriting any prior value (Daily is canonical).
 - **FR-005**: On `meeting.ended`, system MUST set `sessions.ended_at` to Daily's reported timestamp, set `sessions.actual_duration` to the duration Daily reports, and — if the corresponding `bookings.status` is `confirmed` — flip it to `completed`. If the booking is already `completed`, system MUST leave the status unchanged but still update `ended_at` and `actual_duration`.
-- **FR-006**: Webhook receiver MUST acknowledge each event with a 2xx response within 500ms (P99). All non-critical downstream side effects (parent notifications, n8n event emission, package-deduction confirmation) MUST be performed asynchronously off the request path.
+- **FR-006**: Webhook receiver MUST acknowledge each event with a 2xx response within 500ms (P99). The handler's hot path MUST be limited to: HMAC verification → idempotency check → `sessions` row update → `bookings.status` flip → fire-and-forget `emitEvent("session.ended", ...)`. All other downstream side effects (parent notifications, package-deduction confirmation, n8n routing) MUST flow through the existing `emitEvent` pattern in `src/lib/automation/emit.ts` and execute off the request path.
 - **FR-007**: System MUST treat the manual `endSession` server action as idempotent against the webhook: if the webhook has already set `ended_at`, the manual end is a no-op success (not an error). If the manual end has already set `ended_at`, an arriving webhook reconciles `ended_at` and `actual_duration` to Daily's values without surfacing an error to the teacher.
 - **FR-008**: Webhook receiver MUST log every accepted event (event ID, room, session ID, action taken) to `audit_log` for traceability. Failed verifications and unmappable rooms MUST be logged with `logError` at `warning` severity per the project's silent-failure policy.
 - **FR-009**: System MUST tolerate webhook bursts of up to 500 events in a 60-second window without dropping events or exceeding 500ms P99 acknowledgement latency. Receiver MUST NOT perform per-event synchronous Supabase queries that scale linearly with payload size.
@@ -98,9 +108,9 @@ When a teacher clicks "End session" on `/teacher/sessions/[uuid]` after the room
 ### Key Entities
 
 - **Daily.co webhook event**: a server-to-server message from Daily.co carrying an event type (`meeting.started`/`meeting.ended`), a unique event ID, an HMAC signature, and a payload with `room.name`, `start_time`, `end_time`, `duration` (for `meeting.ended`).
-- **`sessions` row**: the FURQAN-internal record of a single class-session occurrence. Owned by the bookings/sessions domain. Existing columns `started_at`, `ended_at`, `actual_duration`, `room_url` (or `room_name`) all stay; webhook becomes a new write path with higher canonical priority than the page-visit path.
-- **Webhook event log**: a small persistence layer (table or KV) storing event IDs we've processed, for idempotency. Must support a 7-day-or-longer retention window.
-- **Audit log entry**: existing `audit_log` table. New action codes: `session.webhook.started`, `session.webhook.ended`, `session.webhook.duplicate`, `session.webhook.unmapped`.
+- **`sessions` row**: the FURQAN-internal record of a single class-session occurrence. Owned by the bookings/sessions domain. Existing columns `started_at`, `ended_at`, `actual_duration`, `room_url` all stay; webhook becomes a new write path with higher canonical priority than the page-visit path. **New column**: `room_name` (TEXT, indexed, additive migration; backfilled from parsed `room_url` for existing rows) — the lookup key for webhook → session mapping. Daily wins on `actual_duration` and `ended_at` if both manual `endSession` and the webhook touch the same row.
+- **`daily_webhook_events` (new)**: idempotency log. Columns: `event_id` (TEXT PRIMARY KEY), `received_at` (TIMESTAMPTZ, index for cleanup), `event_type` (TEXT), `room_name` (TEXT nullable), `session_id` (UUID nullable, FK to sessions). 7-day retention via `audit-cleanup` cron extension.
+- **Audit log entry**: existing `audit_log` table. New action codes: `session.webhook.started`, `session.webhook.ended`, `session.webhook.duplicate`, `session.webhook.unmapped`, `session.webhook.reconciled` (when webhook overwrites a manual end).
 
 ## Success Criteria *(mandatory)*
 
@@ -117,7 +127,7 @@ When a teacher clicks "End session" on `/teacher/sessions/[uuid]` after the room
 
 - Daily.co's webhook delivery is at-least-once with retries on 4xx/5xx within their published budget; we don't need our own retry queue.
 - Daily.co exposes a shared-secret HMAC for webhook authentication. (Confirmed by Daily docs; secret will be stored as `DAILY_WEBHOOK_SECRET` in Vercel env.)
-- The `sessions` row's `room_url` already contains a value that Daily.co's webhook payload can be cross-referenced against (either as room name or as a parseable URL). If not, an additive `room_name` column will be added in implementation.
+- The additive `sessions.room_name` column will be populated for new rows by `confirm_booking_with_session()` (which already calls `createRoom`); existing rows backfill via the same migration that adds the column. Without this column, substring-matching `room_url` at 50k DAU would be a 250k-reads/day write amplifier (CLAUDE.md Scale Target Rule).
 - The existing audit-log infrastructure (`src/lib/notifications/parent.ts` notification flow + `loudAction` audit metadata) can absorb the new action codes without schema changes.
 - n8n is the right destination for asynchronous side-effects (parent notification, package deduction confirmation) per the existing event-emission pattern (`src/lib/automation/emit.ts`).
 - Daily.co's webhook payload's `duration` field is in seconds (per Daily docs); the platform converts to minutes for `sessions.actual_duration` (which is stored as integer minutes today).
