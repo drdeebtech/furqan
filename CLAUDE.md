@@ -1,347 +1,219 @@
 @AGENTS.md
 
 # currentDate
-Today's date is 2026-04-10.
+Today's date is 2026-05-12.
 
 # Git Identity Rule
-
-Before making ANY git commit, you MUST ensure the git author matches the GitHub account:
+Before ANY commit:
 ```
 git config user.email "drdeebtech@gmail.com"
 git config user.name "drdeebtech"
 ```
-Run this at the start of every conversation before committing. Vercel Hobby plan blocks deployments from unrecognized git authors on private repos. Do NOT rely on the machine default identity.
+Vercel Hobby blocks deployments from unrecognized git authors on private repos. Do NOT rely on the machine default identity.
 
 # Deployment Rules
-
-- **Platform**: Vercel Hobby plan → furqan.today
-- **Node version**: 24.x (set in `.nvmrc` and `package.json` `engines`, matching the Vercel project setting). Aligned 2026-04-27 — was previously split (`.nvmrc=20`, project=`24.x`).
-- After pushing, verify deployment status: `npx vercel ls furqan --prod`
-- If deployment is "Blocked", check git author email matches `drdeebtech@gmail.com`
-- The `vercel.json` has `installCommand: "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install"` — do not remove this
-- Edge functions in `supabase/functions/` are excluded from `tsconfig.json` (Deno imports)
-- **Cron jobs go on n8n, not Vercel.** Vercel Hobby caps `vercel.json` crons at one invocation per day per entry — a `*/30 * * * *` (or any sub-daily) entry causes Vercel to silently reject every subsequent build with `"Hobby accounts are limited to daily cron jobs"`, but the rejection is invisible in `vercel ls` (rejected builds never enter the queue), so this looks like a broken GitHub→Vercel webhook. Keep route handlers under `src/app/api/cron/*/route.ts` (the existing dual-auth `Authorization: Bearer ${CRON_SECRET}` + `X-N8N-Secret: ${N8N_WEBHOOK_SECRET}` pattern in `audit-cleanup/route.ts` is the canonical shape) and trigger from n8n on the Mac mini. The current daily Vercel crons (audit-cleanup, reconciliation, email-health) can stay; do not add new ones unless the schedule is exactly daily.
+- **Platform**: Vercel Pro (since 2026-05-05; was Hobby) → furqan.today.
+- **Node**: 24.x (`.nvmrc`, `package.json` `engines`, Vercel project setting — all aligned 2026-04-27).
+- After push: `npx vercel ls furqan --prod`. If "Blocked", check git author email.
+- `vercel.json` has `installCommand: "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install"` — do not remove.
+- Edge functions in `supabase/functions/` are excluded from `tsconfig.json` (Deno imports).
+- **Cron jobs go on n8n, not Vercel.** n8n on the Mac mini owns sub-daily schedules. Keep route handlers under `src/app/api/cron/*/route.ts` with the dual-auth `Authorization: Bearer ${CRON_SECRET}` + `X-N8N-Secret: ${N8N_WEBHOOK_SECRET}` pattern (canonical: `audit-cleanup/route.ts`); trigger from n8n. Historical note: while on Hobby, sub-daily `vercel.json` crons caused silent build rejection invisible in `vercel ls`; even on Pro now, n8n stays canonical.
 
 # Scale Target Rule (NON-NEGOTIABLE)
 
-FURQAN is being built for **50,000 users**. Every plan, design, and implementation choice MUST be sized for that number from day one — not for "today's traffic" with a "we'll optimise later" intent. Late-stage retrofitting at 50k user scale is dramatically more expensive than getting it right up front.
+FURQAN is built for **50,000 users**. Every plan, design, and implementation choice must size for that target — never "today's traffic with retrofit later." Late-stage retrofits at 50k cost dramatically more than getting it right up front.
 
-**Concrete obligations (apply before agreeing to any approach):**
+**Concrete obligations:**
+- **Performance budgets** — P95 latency, query plans, dashboard waterfalls, bundle sizes must hold under ~50k DAU. Dev-time perf is not a proxy.
+- **Write-amplification audit** — every per-render column update is 250k writes/day at 50k DAU. Reuse columns that already write on that path.
+- **No bulk-fan-out admin actions** — admin actions that fan out to N student rows become 10M-row UPDATEs at scale. Change defaults for *new* rows, not retroactively rewrite existing rows.
+- **Returning-user UX** — backlog-shaming patterns ("you have 47 things to catch up") kill retention. Default forgiving; route deep gaps to teacher-side panels.
+- **Teacher infrastructure is load-bearing** — route falling-behind signals to teachers, don't try to make the app replace them.
+- **Cron / batch sizing** — nightly jobs at 50k × ~200 rows/student ≈ 10M row-touches/night. Size n8n, Postgres functions, indexes accordingly. n8n on Mac mini handles sub-daily.
+- **Hot-path JOINs** — every dashboard render × ~5 hits/day = 250k reads/day. Each extra JOIN multiplies that. Push provenance/versioning onto the row.
+- **RLS at scale** — load-test multi-tenant policies; predicates fine on 100 rows can degrade catastrophically on 10M rows without the right index.
 
-- **Performance budgets** — P95 latency, DB query plans, dashboard waterfalls, and bundle sizes must hold under ~50k DAU. Don't trust dev-time perf as a proxy.
-- **Write-amplification audit** — every "small column we'll update on each request" is a 250k-write/day decision at 50k DAU. Before adding a column that updates per page render, ask whether the same signal exists on a column that's already being written.
-- **No bulk-fan-out admin actions** — admin actions that fan out to N student rows turn into 10M-row UPDATEs at scale. Push state to per-row data with localised writes; admin-tunable settings should change defaults for *new* rows only, not retroactively rewrite existing rows.
-- **Returning-user UX** — backlog-shaming patterns ("you have 47 things to catch up") destroy retention at scale. Default to forgiving variants; route deep gaps to teacher-side panels rather than student-facing remediation cards.
-- **Teacher infrastructure is load-bearing** — when a student falls behind, route the signal to the teacher panel. Don't try to make the app replace a human teacher.
-- **Cron / batch sizing** — nightly jobs at 50k × ~200 rows/student ≈ 10M row-touches per night. Size n8n workflows, Postgres functions, and Supabase indexes accordingly. Avoid sub-daily Vercel crons; n8n on the Mac mini handles sub-daily.
-- **Hot-path JOINs** — every dashboard render at 50k DAU × ~5 hits/day = 250k reads/day. Each extra JOIN on the hot path multiplies that. Push provenance / versioning columns onto the row itself rather than a join target.
-- **RLS at scale** — multi-tenant policies must be load-tested, not just dev-tested. RLS predicates that work fine on a 100-row table can degrade catastrophically on a 10M-row table without the right index.
+**Conflict / drift policy:** if a plan, PR, ADR, slash command, or agent recommendation conflicts with the 50k target — **stop and notify the operator.** State the conflict, name the 50k-fitting alternative, ask before continuing. Examples: synchronous third-party API per render; unbounded scan / low-selectivity unique index in a migration; scheduled unbounded UPDATE on schedule/evaluation/progress tables; spec implicitly assuming "few hundred users"; option-A vs option-B identical at small scale but A becomes a write storm at 50k.
 
-**Conflict / drift policy:**
-
-If a plan, PR, proposed approach, slash command, or agent recommendation conflicts with the 50k target — **stop and notify the operator before proceeding**. Don't quietly accept a "this is fine for now" path that creates retrofit debt.
-
-Examples of conflicts that warrant notification:
-- A new feature that synchronously calls a third-party API per dashboard render.
-- A migration that adds an unbounded scan or a unique index on a low-selectivity column.
-- An admin action that does an unbounded UPDATE on schedule, evaluation, or progress tables.
-- A spec, ADR, or PRD that implicitly assumes "few hundred users" performance.
-- Recommended option A vs. B is identical at small scale but A becomes a write storm at 50k.
-
-Notification format: state the conflict explicitly, name the alternative that fits 50k, and ask before continuing. Do NOT silently switch the choice — operator decides.
-
-**Cross-references:**
-
-- `.specify/memory/constitution.md` Additional Constraints section MUST mirror this rule so `/speckit.plan` and `/speckit.analyze` enforce it on every feature spec.
-- Memory file `~/.claude/projects/-Users-drdeeb-furqan/memory/project_furqan_scale.md` carries the same rule into future Claude Code sessions.
-- This rule supersedes any default sizing assumption in `.impeccable.md`, `ROADMAP.md`, or older docs that predate the 50k commitment.
+**Cross-references:** `.specify/memory/constitution.md` Additional Constraints mirrors this; memory file `~/.claude/projects/-Users-drdeeb-furqan/memory/project_furqan_scale.md` carries it forward; supersedes any older sizing assumption in `.impeccable.md`, `ROADMAP.md`, or pre-50k docs.
 
 # Branch Hygiene Rule (NON-NEGOTIABLE)
 
-Every branch ends with a Pull Request OR a deletion. There is no third state. Stale local-only branches that "might be useful later" are how 33+ zombie branches accumulated in this repo before the 2026-05-08 audit; the rule below prevents recurrence.
+Every branch ends in a PR or a deletion — no third state. The 2026-05-08 audit closed PRs #217/#218 and deleted ~33 stale branches; the rule below prevents recurrence.
 
-**The four don'ts (apply to every commit, no exceptions):**
+**The four don'ts:**
+1. **Don't commit on whatever branch is checked out.** Always: `git checkout main && git pull --ff-only && git checkout -b <name>` before new work. The 2026-05-07 fix-189 cast-cleanup ended up on a branch labeled "B3.4 design" because of this.
+2. **Don't make "v2" branches.** If a branch is going stale, push it as a draft PR or delete it. The 2026-05-08 audit found three `audit-v*` branches racing identical SHAs — none shipped.
+3. **Don't push speculative WIP without same-day PR.** A WIP commit that lives only locally 2+ days is for the bin. A 406-line image-captioning edge function sat as `wip/parallel-work-checkpoint` for 2 days and was dropped at audit time. If unsure it's shippable, don't commit; if you commit, draft PR same day.
+4. **Don't fix the same thing twice without checking the first attempt.** The 2026-05-08 audit found 8 re-fix-without-checking cases (e.g. `fix/auth-smoke-vercel-bypass` would have re-introduced what PR #121 deliberately removed).
 
-1. **Don't commit on whatever branch happens to be checked out.** Always run `git checkout main && git pull --ff-only && git checkout -b <name>` before starting any new work. The pattern that breaks this rule is how the 2026-05-07 fix-189 cast-cleanup ended up on a branch labeled "B3.4 design"; commits get orphaned and audits can't trace them.
-
-2. **Don't make "v2" branches.** If a branch is going stale, push it as a PR (draft is fine) or delete it. Never make `chore/repo-audit-v2` after `chore/repo-audit-bucket` — the 2026-05-08 audit found three branches of `audit-v*` with identical SHAs racing to ship the same work; none of them did.
-
-3. **Don't push speculative WIP to remote unless you'll PR it the same day.** A WIP commit that lives only locally for 2+ days is WIP for the bin. The image-captioning edge function (406 lines) sat as `wip/parallel-work-checkpoint` for 2 days, then got dropped at audit time because the path-to-ship was never clear. If unsure it's shippable, don't commit; if you commit, open a draft PR same day.
-
-4. **Don't fix the same thing twice without checking the first attempt.** The 2026-05-08 audit found 8 cases of re-fix-without-checking. One of them (`fix/auth-smoke-vercel-bypass`) would have re-introduced a feature that PR #121 explicitly removed as "chronically red." Pre-work check is 30 seconds and catches every case.
-
-**Pre-work checks (run before starting any fix):**
-
+**Pre-work checks** (30 seconds; catches every case):
 ```bash
-gh issue view <N>                              # is the issue still open?
-gh pr list                                     # is there an in-flight PR?
-git log main --oneline --grep="<topic>"        # has it shipped under another PR?
-git log main --diff-filter=D --oneline -- <file>   # was it deliberately removed?
+gh issue view <N>                                  # still open?
+gh pr list                                         # in-flight PR?
+git log main --oneline --grep="<topic>"            # shipped under another PR?
+git log main --diff-filter=D --oneline -- <file>   # was the file deliberately removed?
 ```
+The fourth check is the one that catches *retired* work — code on main, then deliberately deleted. Without it, "not on main" looks identical to "greenfield."
 
-The fourth check (`--diff-filter=D`) is the one that catches *retired* work — code that was on main, then someone deliberately deleted it. Without that check, "the file isn't on main" looks identical to "this is greenfield work."
+**Same-day discipline:** push + open draft PR same day. Use `Closes #N` / `Fixes #N` / `Resolves #N` in the body so issue auto-closes on merge. Repo has `delete_branch_on_merge: true` — never re-push to a merged branch.
 
-**Same-day discipline:**
+**Conflict / drift policy:** if you're about to commit on the wrong branch, make a `v2`, push WIP without same-day PR, or fix something without the four checks — **stop and notify the operator.** State conflict, suggest alternative, ask before continuing.
 
-- Push and open PR (draft is fine) the same day you start coding.
-- Use `Closes #N` (or `Fixes`, `Resolves`) in the PR body so the issue auto-closes on merge.
-- After merge, GitHub auto-deletes the source branch (`delete_branch_on_merge: true` is enabled at the repo level). Never re-push to a merged branch — name a new one.
+**Cross-references:** `.specify/memory/constitution.md` mirrors this; memory file `~/.claude/projects/-Users-drdeeb-furqan/memory/feedback_branch_hygiene.md` carries it forward.
 
-**Conflict / drift policy:**
+# Project Reference
 
-If you find yourself about to: commit on `feat/something-else` instead of a fresh branch; create a `v2` of an existing branch; push WIP without a same-day PR; or start a fix without checking whether it's already shipped or removed — **stop and notify the operator before proceeding.** State the conflict, suggest the alternative, ask before continuing. Do NOT silently work around it.
+FURQAN Academy — Online Quran teaching platform (V13/V17). Full descriptive snapshot (stack, roles, domain ownership, database tables, enums, SQL functions, events catalog, n8n workflow registry, file structure, completed features, remaining work, docs index): **`docs/agents/project-reference.md`**. Deep references: `PROJECT.md`, `SCHEMA_FINAL.md`, `AUTOMATION_REGISTRY.md`, `EVENT_CATALOG.md`, `ROADMAP.md`, `.impeccable.md`.
 
-**Cross-references:**
-
-- `.specify/memory/constitution.md` Additional Constraints section MUST mirror this rule so `/speckit.plan` and `/speckit.analyze` enforce it on every feature spec.
-- Memory file `~/.claude/projects/-Users-drdeeb-furqan/memory/feedback_branch_hygiene.md` carries this rule into future Claude Code sessions.
-- Audit that surfaced these patterns: 2026-05-08 (closed PRs #217, #218; deleted ~33 stale branches).
-
-# Project Reference (stack, roles, schema, n8n registry, file map, feature status)
-
-FURQAN Academy — Online Quran teaching platform (V13/V17). See `docs/agents/project-reference.md` for the full descriptive snapshot: tech stack, roles, domain ownership table, database tables, enums, SQL functions, events catalog, n8n workflow registry, file structure, completed features, remaining work, docs index. Deep references: `PROJECT.md`, `SCHEMA_FINAL.md`, `AUTOMATION_REGISTRY.md`, `EVENT_CATALOG.md`, `ROADMAP.md`, `.impeccable.md`.
+**Roles (3, per ADR-0003):** student · teacher · admin. The moderator role was dropped 2026-05-08; legacy `/moderator/*` URLs 301-redirect to `/admin/*` (`/moderator/cv-review` → `/admin/teachers/cv`). Use `is_admin()` only — `is_moderator()` and `is_admin_or_mod()` no longer exist.
 
 ## Key Architecture
-- **Route protection**: `src/proxy.ts` — role-based middleware. Legacy `/moderator/*` URLs 301-redirect to `/admin/*` (per ADR-0003); `/moderator/cv-review` → `/admin/teachers/cv` specifically.
-- **Server actions**: `"use server"` pattern with `revalidatePath`, `as never` casts for Supabase
-- **Admin client**: `src/lib/supabase/admin.ts` — service-role client for user creation
-- **Feature flags**: `src/lib/settings.ts` + `platform_settings` table
-- **Parent notifications**: `src/lib/notifications/parent.ts` — report system for parents
-- **Notification dispatcher**: `src/lib/notifications/dispatcher.ts` — multi-channel with preferences, quiet hours, delivery logging to message_delivery_log
-- **Session observation**: Daily.co observer tokens with mic/camera off, max_participants bumped to 3
-- **Follow-up system**: `src/lib/actions/homework.ts` — 5 server actions with state machine and auto-regeneration
-- **Event emission**: `src/lib/automation/emit.ts` — non-blocking webhooks to n8n with per-event routing
-- **n8n callback**: `src/app/api/webhooks/n8n/route.ts` — log, notify, idempotency check
-- **n8n REST client**: `src/lib/n8n/client.ts` — workflows, executions, toggle, Telegram alerts
-- **n8n control panel**: `/admin/n8n` — view/toggle/search/filter/auto-restart all n8n workflows
-- **n8n instance**: n8n.drdeeb.tech (self-hosted on Mac mini) — **44+ active FURQAN workflows** across 9 areas
-- **Telegram bot**: @furqantoday_bot — auto-restart alerts, failure notifications, admin digests
-- **Notification bell**: `src/components/shared/notification-bell.tsx` — topbar dropdown with unread count
-- **Admin control tower**: `/admin/control-tower` — 7 real-time operational widgets with alert badges
-- **Teacher action queue**: `src/app/teacher/dashboard/action-queue.tsx` — prioritized pending tasks
-- **PWA**: `public/sw.js` — service worker + install prompt
+- **Route protection**: `src/proxy.ts` — role middleware + legacy moderator redirects.
+- **Server actions**: `"use server"` + `revalidatePath`; `as never` for Supabase `.insert/.update/.upsert` (migrating to typed-helpers per ADR-0002).
+- **Admin client**: `src/lib/supabase/admin.ts` — service-role.
+- **Feature flags**: `src/lib/settings.ts` + `platform_settings` table.
+- **Notifications**: `src/lib/notifications/dispatcher.ts` (multi-channel + quiet hours + `message_delivery_log`); parent reports in `src/lib/notifications/parent.ts`.
+- **Event emission**: `src/lib/automation/emit.ts` (non-blocking webhooks → n8n).
+- **n8n integration**: REST client `src/lib/n8n/client.ts`; callback `src/app/api/webhooks/n8n/route.ts`; control panel `/admin/n8n`; instance `n8n.drdeeb.tech` on Mac mini (44+ active FURQAN workflows).
+- **Telegram bot**: @furqantoday_bot — alerts, failure notifications, admin digests.
+- **Admin control tower**: `/admin/control-tower` — 7 real-time operational widgets.
+- **Follow-up state machine**: `src/lib/actions/homework.ts` (5 actions, auto-regeneration).
+- **Session observation**: Daily.co observer tokens, mic/camera off, max_participants=3.
+- **Session lifecycle source of truth (spec 007, shipped 2026-05-12)**: `src/app/api/webhooks/daily/route.ts` receives Daily.co `meeting.started` / `meeting.ended` with HMAC-SHA256 verification + ±15-min skew window. SQL functions `start_session_from_webhook` / `end_session_from_webhook` (SECURITY DEFINER) write `sessions.started_at` / `sessions.ended_at`. Idempotency via `daily_webhook_events` table. Lib at `src/lib/daily/`. The teacher-side `endSession` is now a no-op when the webhook arrived first (reconciliation guard).
+- **PWA**: `public/sw.js` + install prompt.
+
+More file-path detail in `docs/agents/project-reference.md` § File Structure.
 
 ## Environment Variables
 
-All env vars are declared in `docs/agents/env-vars.md` (variable → purpose). **Rule:** if you add `process.env.X` to code, add `X` to that table in the same PR. Run `npx vercel env ls` to verify each is set in Production / Preview / Development.
+All env vars declared in **`docs/agents/env-vars.md`** (variable → purpose). **Rule:** if you add `process.env.X` to code, add `X` to that table in the same PR. Verify with `npx vercel env ls`.
 
 ## Coding Patterns
-- All server actions use `"use server"` directive
-- Use `as never` for Supabase `.insert()` / `.update()` calls
-- Use `.returns<Type[]>()` for queries on V10+ tables
-- Use `useActionState` from `"react"` (NOT from `"react-dom"`)
-- Use `startTransition` for setState inside useEffect (React compiler compliance)
-- All user-facing text in Arabic, bilingual labels optional (Arabic + English hint)
-- `revalidatePath()` after every mutation
-- Audit logging for admin destructive actions
-- **All notifications must go through `notify()` or `dispatchNotification()`** — never insert directly into notifications table
-- **All event-emitting server actions must call `emitEvent()`** from `src/lib/automation/emit.ts`
+- All server actions use `"use server"`.
+- Supabase writes: prefer `TableInsert<"X">` / `TableUpdate<"X">` from `src/lib/supabase/typed-helpers` over `as never` (per ADR-0002, Phase 4 sweep).
+- Use `.returns<Type[]>()` for queries on V10+ tables.
+- `useActionState` from `"react"` (NOT `"react-dom"`).
+- `startTransition` for setState inside useEffect (React compiler compliance).
+- All user-facing text in Arabic; bilingual labels optional (Arabic + English hint).
+- `revalidatePath()` after every mutation.
+- Audit logging for admin destructive actions.
+- **Notifications**: only `notify()` / `dispatchNotification()` — never insert directly into `notifications`.
+- **Events**: every state-change server action must call `emitEvent()` from `src/lib/automation/emit.ts`.
 
 ## Docs map
 
-File tree, completed-feature log, remaining work, and the full docs index all live in `docs/agents/project-reference.md`. Deep references when needed: `PROJECT.md`, `ROADMAP.md`, `EVENT_CATALOG.md`, `LIFECYCLES.md`, `automation/BLUEPRINT.md`, `.specify/memory/constitution.md`, `specs/<feature>/spec.md`.
+File tree, completed features, remaining work, full docs index all in `docs/agents/project-reference.md`. Deep references when needed: `PROJECT.md`, `ROADMAP.md`, `EVENT_CATALOG.md`, `LIFECYCLES.md`, `automation/BLUEPRINT.md`, `.specify/memory/constitution.md`, `specs/INDEX.md`, `specs/<feature>/spec.md`.
 
-> **Design rule for AI sessions:** before touching any visual surface (component, page, theme, color), open `.impeccable.md` and confirm the change aligns with the **Premium · Refined · Authentic** personality and the four explicit anti-references. The platform serves all ages from children to hāfiz; the brand stays dignified across all of them.
+> **Design rule:** before touching any visual surface (component, page, theme, color), open `.impeccable.md` and confirm alignment with the **Premium · Refined · Authentic** personality and the four anti-references. The platform serves all ages from children to hāfiz; the brand stays dignified across all.
 
 ## Spec-Kit Workflow
 
-Net-new features run through spec-kit before implementation; emergent architectural decisions during implementation continue to land as ADRs.
+Net-new features run through spec-kit before implementation; mid-implementation pivots and refactors stay as ADRs.
 
-**Use spec-kit when:**
-- Introducing a new owner-domain or a new role surface.
-- Roadmap-level scope (P0/P1 in `ROADMAP.md`) or multi-PR effort.
-- A feature whose ambiguity needs to be flushed before code lands.
+**Spec-kit when:** new owner-domain or role surface · P0/P1 roadmap scope · multi-PR effort · ambiguity that needs flushing pre-code.
+**ADR-only when:** refactoring existing code · mid-implementation pivot · hotfix / single-PR · documenting a call-decision.
 
-**Use ADR-only when:**
-- Refactoring existing code (e.g. ADR-0002, ADR-0004).
-- Mid-implementation pivot or unforeseen constraint.
-- Hotfix or single-PR fix.
-- Documenting a decision the team made on a call.
+Both can coexist for one feature; `spec.md` may cite ADRs and vice versa.
 
-**Cross-reference:** a `spec.md` may cite ADRs it depends on; an ADR may cite the spec it implements (`specs/<feature>/spec.md`). Both can coexist for one feature without duplication.
+**Commands:** `/speckit.specify` → `/speckit.clarify` → `/speckit.plan` (checked against `.specify/memory/constitution.md`) → `/speckit.tasks` → `/speckit.analyze` → `/speckit.implement`. Constitution amendments require a PR per its Governance section.
 
-**Workflow:**
-1. `/speckit.specify "<one-paragraph feature description>"` — generates `specs/<NNN-feature-slug>/spec.md` on a fresh feature branch.
-2. `/speckit.clarify` — interactive 5-question pass that closes spec gaps.
-3. `/speckit.plan` — produces `plan.md`, `research.md`, `data-model.md`, `contracts/`. The plan is checked against `.specify/memory/constitution.md`.
-4. `/speckit.tasks` — emits dependency-ordered `tasks.md`.
-5. `/speckit.analyze` — non-destructive cross-artefact consistency check.
-6. `/speckit.implement` — executes tasks one by one against the codebase.
-
-The constitution lives at `.specify/memory/constitution.md`. Amendments require a PR per its Governance section. The first worked example is `specs/001-murajaah-scheduler/spec.md` (PR #221 renames it from the original `specs/murajaah-scheduler/`).
-
-**Index of all specs**: `specs/INDEX.md` is auto-generated by `scripts/generate-specs-index.ts` (regenerated by husky pre-commit on `specs/**/*.md` changes and by an n8n nightly cron at 03:00 UTC). Read INDEX.md first to find the lifecycle status of any feature spec — beats `ls specs/` + per-folder grep.
+**Index of all specs**: `specs/INDEX.md` is auto-generated by `scripts/generate-specs-index.ts` (husky pre-commit + n8n nightly 03:00 UTC). Read INDEX.md first to find feature lifecycle status — beats `ls specs/` + grep. First worked example: `specs/001-murajaah-scheduler/spec.md` (PR #221).
 
 ## No Silent Failures Policy
 
-Every server action that writes to the DB or has side-effects MUST be loud: the user sees the outcome, the operator sees the error, and the audit trail records the attempt.
+Every DB-write or side-effect server action MUST be loud: user sees the outcome, operator sees the error, audit trail records the attempt.
 
 **Two mandatory primitives:**
-- **`loudAction`** from `src/lib/actions/loud.ts` — wraps the handler so every throw is logged + (if critical) Telegram'd + audit_log'd. Returns `{ ok, message?, error? }`.
-- **`<ActionFeedback state={...} />`** from `src/components/shared/action-feedback.tsx` — drop-in renderer that shows green/red banner from any `loudAction` result. Every form using `useActionState` MUST render it.
+- **`loudAction`** (`src/lib/actions/loud.ts`) — wraps the handler; every throw is logged + (if critical) Telegram'd + `audit_log`'d. Returns `{ ok, message?, error? }`.
+- **`<ActionFeedback state={...} />`** (`src/components/shared/action-feedback.tsx`) — drop-in renderer for any `loudAction` result. Every form using `useActionState` MUST render it.
 
-**Forbidden anti-patterns:**
+**Forbidden:** discarded errors (`await supabase.from(X).insert(... as never)` with no `.error` capture); caught-and-swallowed `try{} catch{}`; form-action returning `{ error }` that the page doesn't render.
 
-```ts
-// ❌ Silent fail: discarded error.
-await supabase.from("teacher_profiles").insert({ ... } as never);
+**Required (one of):** capture-and-return-error; wrap in `loudAction` for free logging + audit; render `ActionFeedback` in the form.
 
-// ❌ Caught and swallowed.
-try { await x.update(...); } catch { /* ignored */ }
-
-// ❌ Form returns { error } but page doesn't render it.
-const [state, formAction] = useActionState(myAction, null);
-return <form action={formAction}>{/* no error display */}</form>;
-```
-
-**Required patterns:**
-
-```ts
-// ✅ Capture the error, return it to the caller.
-const { error } = await supabase.from("teacher_profiles").insert({ ... } as never);
-if (error) return { error: `فشل: ${error.message}` };
-
-// ✅ Or wrap in loudAction for free logging + audit.
-export const archiveTeacher = loudAction({
-  name: "admin.archive-teacher",
-  severity: "warning",
-  audit: { table: "teacher_profiles", recordId: i => i.teacherId, action: "UPDATE" },
-  handler: async ({ teacherId }) => {
-    const { error } = await supabase.from("teacher_profiles").update(...).eq(...);
-    if (error) throw error;
-    return { message: "تم الأرشفة" };
-  },
-});
-
-// ✅ Form renders ActionFeedback.
-return <form action={formAction}><ActionFeedback state={state} />...</form>;
-```
-
-**Best-effort writes (audit_log, automation_logs)** — keep them non-blocking but pipe failures through `logError` so they're visible:
-
+**Best-effort writes** (`audit_log`, `automation_logs`): keep non-blocking but pipe failures through `logError`:
 ```ts
 await supabase.from("audit_log").insert({...} as never)
   .catch(err => logError("audit insert failed", err, { tag: "audit" }));
 ```
 
-**Migration plan**: existing 60+ silent-fail call sites are being migrated incrementally. New code MUST follow the patterns above. Reviewers should reject any PR introducing a new silent fail.
+**Migration:** 60+ existing silent-fail sites being migrated incrementally; new code MUST follow the patterns above; reviewers reject any new silent fail.
 
 ## Sentry ↔ Git commit convention
 
-When a commit fixes a Sentry-reported issue, **include `Fixes JAVASCRIPT-NEXTJS-E4-<N>`** in the commit message body (or PR title/description). Sentry's GitHub integration auto-resolves the matching issue when the next release tagged on `main` contains the commit. Release tagging is owned by the `@sentry/nextjs` plugin (`withSentryConfig` in `next.config.ts`), which runs `release.setCommits.auto: true` during the Vercel build — no separate script involved.
+When a commit fixes a Sentry issue, include `Fixes JAVASCRIPT-NEXTJS-E4-<N>` in the commit message body (or PR title/description). `Fixes` / `Resolves` / `Closes` all work. Release tagging via `withSentryConfig` in `next.config.ts` (`release.setCommits.auto: true`); fires once the commit lands on `main` and the next Vercel build ships.
 
-Example:
-```
-fix(og): wrap blog OG image in try/catch + fallback + 24h cache
+Find the short ID in the Sentry issue header (e.g. `JAVASCRIPT-NEXTJS-E4-NN`).
 
-Fixes JAVASCRIPT-NEXTJS-E4-3
-```
+**Auto-resolve currently broken** — see `docs/runbooks/sentry-auto-resolve-fix.md`. Two PRs (#78, #146) shipped the keyword and merged but didn't auto-resolve; diagnosis 2026-05-12 found releases are created but the GitHub integration likely lacks org-level repo read access, so commit lists on releases are empty. Until operator runs the runbook, manually resolve via Sentry MCP `update_issue` on every `Fixes JAVASCRIPT-NEXTJS-…` PR.
 
-Find the short ID in the Sentry issue header (looks like `JAVASCRIPT-NEXTJS-E4-NN`). Keywords `Fixes`, `Resolves`, and `Closes` all work. The convention only kicks in once the commit lands on `main` and the next Vercel build ships — local commits don't trigger it.
+DSN one-time activation: `docs/runbooks/sentry-activation.md`.
 
 ## Database Migrations Policy
 
-⚠️ **The Supabase Branching GitHub integration silently skips applies more than once a month** (incidents: 2026-04-26..27, 2026-05-01..02, 2026-05-03). Each time, the SQL never runs and the tracker never updates, but no error surfaces — you only find out when prod code SELECTs columns the schema doesn't have. **Do not trust the integration as the source of truth.**
+⚠️ **The Supabase Branching GitHub integration silently skips applies more than once a month** (incidents: 2026-04-26..27, 2026-05-01..02, 2026-05-03). Each time, the SQL never runs, the tracker never updates, no error surfaces — you only find out when prod code SELECTs missing columns. **Do not trust the integration as source of truth.**
 
-The `.github/workflows/supabase-migrate.yml` workflow is now the source of truth. It runs `supabase db push --linked` on every push to `main` that touches `supabase/migrations/**`, and a dry-run on every PR. A failed push is a failed CI step that you can read, fix, and re-run. The Branching integration is left enabled as belt-and-suspenders but is no longer load-bearing.
+`.github/workflows/supabase-migrate.yml` is the source of truth: runs `supabase db push --linked` on every push to `main` touching `supabase/migrations/**`, plus dry-run on every PR. A failed push is a failed CI step. The Branching integration is left enabled as belt-and-suspenders.
 
-**Required secret to make the workflow actually run:** `SUPABASE_DB_PASSWORD`. Without it, every run of `supabase-migrate.yml` fails fast with a pointer to the Supabase Dashboard → Project Settings → Database → Connection string. Set once with:
-
+**Required secret:** `SUPABASE_DB_PASSWORD`. Without it, the workflow fails fast pointing at Supabase Dashboard → Project Settings → Database → Connection string:
 ```bash
 gh secret set SUPABASE_DB_PASSWORD
-# paste the Postgres password at the prompt
 ```
+If the workflow is red on `main`, check `gh secret list` first.
 
-If you see this workflow red on `main`, the secret is missing — the migrate is then quietly falling back to the Branching integration (the same vulnerability the workflow was meant to close). Check `gh secret list` first before debugging anything else.
-
-### Going forward — new migrations
-
-Use the helper script:
-
+### New migrations
 ```bash
 ./scripts/new-migration.sh add_session_tags
-# → creates supabase/migrations/<UTC timestamp>_add_session_tags.sql
+# → supabase/migrations/<UTC timestamp>_add_session_tags.sql
 ```
+Edit, commit, push to `main`. Tracked in `supabase_migrations.schema_migrations`; **don't** add the legacy `insert into public.schema_migrations` footer.
 
-Then edit the file with your DDL, commit, push to `main`. The `Supabase Migrate` GitHub Action runs `supabase db push --linked` and verifies the tracker. PRs get a dry-run preview that shows exactly what would apply.
-
-New migrations are tracked in `supabase_migrations.schema_migrations` (Supabase's internal tracker) — **don't** add the `insert into public.schema_migrations` footer that the v* files use.
-
-Optional local dry-run before push:
-```bash
-npx supabase db push --linked --dry-run
-```
+Optional local dry-run: `npx supabase db push --linked --dry-run`.
 
 ### Existing v* migrations
+The 30+ files at `src/lib/supabase/migrations/v*.sql` stay where they are — already applied to production via `public.schema_migrations`. Invisible to `supabase migration list --linked` (different naming/location/tracker). Don't migrate them; schema is already there.
 
-The 30+ files at `src/lib/supabase/migrations/v*.sql` all stay where they are — they're already applied to production via the project's own `public.schema_migrations` table. They're invisible to `supabase migration list --linked` (different naming, different location, different tracker). That's fine — don't try to migrate them across; the schema is already there.
-
-### Manual / hotfix path (still works)
-
-For migrations that need to bypass GitHub (e.g. a fix you want immediately), run any SQL file directly:
-
+### Manual / hotfix path
 ```bash
 npx supabase db query --linked --file <path/to/file.sql>
 ```
-
-This uses the Management API via your `supabase login` session. Bypasses both trackers, so use sparingly + remember to commit the file afterward so future readers see what changed.
+Uses Management API via `supabase login` session. Bypasses both trackers — use sparingly + commit the file afterward.
 
 ### Detecting drift
-
-- `npx supabase migration list --linked` shows **timestamped** files only (Local vs Remote columns). Use it to confirm a new migration applied.
-- For the v* files, `select version from public.schema_migrations order by version` is the source of truth.
-- CI runs `supabase db lint --linked` on every PR (`.github/workflows/supabase-lint.yml`) — catches syntax issues, does NOT catch un-applied migrations.
+- `npx supabase migration list --linked` — timestamped files only (Local vs Remote).
+- For v* files: `select version from public.schema_migrations order by version`.
+- CI runs `supabase db lint --linked` on every PR (`.github/workflows/supabase-lint.yml`) — catches syntax, NOT un-applied migrations.
 
 ## Preview database isolation — known gap (P2)
 
-All three Vercel environments (Production, Preview, Development) currently point at the same Supabase project (`xyqscjnqfeusgrhmwjts`). Preview deployments share `SUPABASE_SERVICE_ROLE_KEY` with Production, so any preview URL has full write access to the production database — RLS-bypassing inserts, updates, and deletes will all hit real rows.
+All three Vercel environments (Production, Preview, Development) currently point at the same Supabase project (`xyqscjnqfeusgrhmwjts`). Preview deployments share `SUPABASE_SERVICE_ROLE_KEY` with Production — any preview URL has full write access to the production database.
 
-**Until Supabase Branching is set up, treat every preview URL as production for the purposes of data-mutation testing.** Concrete don'ts on a preview deploy: do not test deletes, bulk updates, payment flows, role changes, cron-trigger curls, or anything that writes to `audit_log` unless you would do the same on `www.furqan.today`. Any CI job that runs against a preview sees real production data.
+**Until Supabase Branching is set up, treat every preview URL as production for data-mutation testing.** Don't on a preview: deletes, bulk updates, payment flows, role changes, cron-trigger curls, anything that writes to `audit_log` — unless you'd do it on `www.furqan.today`. CI jobs against preview see real production data. There's no environment guard in code; only signal is the deployment URL.
 
-Detection is implicit — there's no environment guard in code that distinguishes Preview from Production. The only signal is the deployment URL itself. If a future migration or feature needs a sandbox, request a fresh Supabase project and a separate `*_PREVIEW` env var set, or wait for Branching (see Remaining Work).
-
-Long-term fix: enable Supabase Branching for Preview so each PR auto-spins an ephemeral, isolated database that mirrors prod schema. Tracked in Remaining Work → Infrastructure improvements.
-
-## Sentry GitHub auto-resolve — currently broken (follow-up)
-
-> One-time DSN activation steps: `docs/runbooks/sentry-activation.md`.
-> **Auto-resolve fix runbook: `docs/runbooks/sentry-auto-resolve-fix.md`** — operator action required (install Sentry GitHub App at org level, link `drdeebtech/furqan`).
-
-Two PRs in a row (PR #78, PR #146) shipped `Fixes JAVASCRIPT-NEXTJS-E4-<N>` keywords and merged to `main` with a successful Vercel build, yet Sentry did NOT auto-resolve the referenced issues. Diagnosis confirmed on 2026-05-12: releases are being created (`setCommits: { auto: true }` is configured + `SENTRY_AUTH_TOKEN` is set in Vercel Production) but the GitHub integration likely isn't granting the org read access to the repo, so the commit list on each release is empty and the keyword has nothing to match.
-
-Until the operator runs the runbook above, manually resolve via the Sentry MCP `update_issue` tool (status `resolvedInNextRelease` or `resolved`) on every PR that ships a `Fixes JAVASCRIPT-NEXTJS-...` keyword.
+Long-term fix: Supabase Branching for Preview — tracked in `docs/agents/project-reference.md` § Infrastructure improvements.
 
 ## Supabase Auth — leaked password protection
 
-One-time HIBP toggle steps are in `docs/runbooks/supabase-leaked-password.md`.
+One-time HIBP toggle: `docs/runbooks/supabase-leaked-password.md`.
 
 ## Supabase MCP — wrong-account gotcha
 
-The `mcp__claude_ai_Supabase__*` tools (and the `supabase` CLI when logged in via the host machine) are authenticated to the user's *primary* Supabase account, which is **not** the account that owns the FURQAN database. FURQAN's project lives under a separate account (`alforqan.egy@gmail.com`); MCP only sees `Dr Deeb Urology Clinic`.
+`mcp__claude_ai_Supabase__*` tools (and host `supabase` CLI) authenticate to the user's **primary** account, which is NOT FURQAN's owner. FURQAN lives under `alforqan.egy@gmail.com`; MCP sees `Dr Deeb Urology Clinic` instead.
 
-**Consequences:**
-- `list_projects`, `get_advisors`, `execute_sql`, `get_logs`, `apply_migration` and friends silently target the **wrong project** if called blindly. They will return data for the urology clinic schema, not FURQAN.
-- The CLAUDE.md instruction to "Re-run `get_advisors`" only works if FURQAN's account is added to MCP/CLI auth. Until that's wired up, treat all Supabase verification steps as "browser only".
+**Consequences:** `list_projects`, `get_advisors`, `execute_sql`, `get_logs`, `apply_migration` silently target the wrong project. For audits/advisors/one-off SQL on FURQAN, use the browser dashboard signed in as `alforqan.egy@gmail.com`, or generate a personal access token under that account and pass via `--token` / `SUPABASE_ACCESS_TOKEN`.
 
-**For audits / advisors / one-off SQL on FURQAN**: open the dashboard at https://supabase.com/dashboard signed in as `alforqan.egy@gmail.com`. For programmatic access, generate a personal access token under that account and use the `supabase` CLI with `--token`, or set `SUPABASE_ACCESS_TOKEN` in a shell-scoped env var.
+Full account-switch procedure: `docs/runbooks/supabase-mcp-account-switch.md`.
 
 ## Verification Checklist
 After any code change:
-1. `npx next build` — must pass with zero errors
-2. `npm run lint` — no new errors
-3. `npx playwright test` — all existing tests pass
-4. `npx vercel ls furqan --prod` — verify deployment succeeds
+1. `npx next build` — zero errors.
+2. `npm run lint` — no new errors.
+3. `npx playwright test` — all existing tests pass.
+4. `npx vercel ls furqan --prod` — deployment succeeds.
 
 ## Agent skills
 
-### Issue tracker
-
-Issues live as GitHub issues at `github.com/drdeebtech/furqan/issues`, accessed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Canonical triage labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. The first four don't exist on the repo yet — the `triage` skill creates them on first use; `wontfix` already exists. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context layout. `CONTEXT.md` and `docs/adr/` at the repo root (both empty for now; `/grill-with-docs` populates them lazily as terms and decisions resolve). See `docs/agents/domain.md`.
+- **Issue tracker** — GitHub issues at `github.com/drdeebtech/furqan/issues` via `gh` CLI. See `docs/agents/issue-tracker.md`.
+- **Triage labels** — `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. The `triage` skill creates the first four on first use; `wontfix` already exists. See `docs/agents/triage-labels.md`.
+- **Domain docs** — single-context layout. `CONTEXT.md` and `docs/adr/` at repo root (both lazily populated by `/grill-with-docs`). See `docs/agents/domain.md`.

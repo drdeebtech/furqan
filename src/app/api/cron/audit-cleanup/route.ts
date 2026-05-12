@@ -48,6 +48,7 @@ export const GET = withCronMonitor("cron-audit-cleanup", "0 2 * * *", async (req
   }
 
   const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const webhookCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const admin = createAdminClient();
 
   const { count, error } = await admin
@@ -61,10 +62,24 @@ export const GET = withCronMonitor("cron-audit-cleanup", "0 2 * * *", async (req
     throw new Error(`audit-cleanup: ${error.message}`);
   }
 
+  // 7-day retention for Daily.co webhook events (idempotency log).
+  // At 50k DAU × ~5 sessions/week × 2 events/session ≈ 500k rows/week;
+  // cleanup keeps the table at roughly one week's window.
+  const { count: webhookCount, error: webhookError } = await admin
+    .from("daily_webhook_events" as never)
+    .delete({ count: "exact" })
+    .lt("received_at", webhookCutoff);
+
+  if (webhookError) {
+    throw new Error(`audit-cleanup daily_webhook_events: ${webhookError.message}`);
+  }
+
   return NextResponse.json({
     ok: true,
     deleted: count ?? 0,
+    webhook_events_deleted: webhookCount ?? 0,
     cutoff,
+    webhook_cutoff: webhookCutoff,
     at: new Date().toISOString(),
   });
 });

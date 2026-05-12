@@ -43,3 +43,5 @@
 | `PAYPAL_API_BASE` | `https://api-m.sandbox.paypal.com` (sandbox) or `https://api-m.paypal.com` (live). Defaults to sandbox if missing |
 | `SENTRY_WATCH_SECRET` | Shared bearer token for `POST /api/sentry-watch/notify`. The hourly Claude Code Sentry-watcher cron presents it; the endpoint validates against it before sending the WhatsApp triage alert |
 | `BOTID_BYPASS_EMAILS` | Comma-separated allow-list of admin emails that skip BotID on `/login` + `/register`. Emergency-glass when the BotID client SDK fails to mint a token in a specific browser. The per-email rate limiter (10/hr) still gates stuffing attempts. Optional — leave unset to enforce BotID for everyone |
+| `DAILY_WEBHOOK_SECRET` | Daily.co webhook HMAC-SHA256 signing secret — **required** for the `/api/webhooks/daily` receiver. Set this in Vercel Production + Preview + Development, and in the Daily.co dashboard webhook config |
+| `DAILY_WEBHOOK_SECRET_PREVIOUS` | Previous Daily.co webhook secret — **optional**. Set during the 24-hour rotation overlap window so old-signed events still verify while rotating to a new secret. Remove after the rotation window closes |

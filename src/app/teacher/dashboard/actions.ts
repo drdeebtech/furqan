@@ -392,7 +392,6 @@ export const endSession = loudAction<{ sessionId: string }, { message: string }>
 
     if (sessReadErr) throw sessReadErr;
     if (!session) throw new Error("الجلسة غير موجودة");
-    if (session.ended_at) throw new Error("الجلسة منتهية بالفعل");
 
     // Verify teacher owns the booking
     const { data: booking, error: bookReadErr } = await supabase
@@ -404,6 +403,25 @@ export const endSession = loudAction<{ sessionId: string }, { message: string }>
 
     if (bookReadErr) throw bookReadErr;
     if (!booking) throw new Error("ليس لديك صلاحية لإنهاء هذه الجلسة");
+
+    // T022/T023: If the Daily webhook already ended this session, the
+    // session row will have ended_at set. Rather than error, audit-log
+    // the noop attempt and return success — from the teacher's perspective
+    // the session is correctly ended either way.
+    if (session.ended_at) {
+      const adminClient = (await import("@/lib/supabase/admin")).createAdminClient();
+      const { error: auditErr } = await adminClient
+        .from("audit_log")
+        .insert({
+          actor_id:   actorId,
+          action:     "session.manual_end_post_webhook",
+          table_name: "sessions",
+          record_id:  sessionId,
+          metadata:   { note: "manual endSession called after Daily webhook already ended the session; noop" },
+        } as never);
+      if (auditErr) logError("endSession: manual_end_post_webhook audit insert failed", auditErr, { tag: "teacher-bookings" });
+      return { message: "تم إنهاء الجلسة" };
+    }
 
     const now = new Date();
     const actualDuration = session.started_at

@@ -72,6 +72,10 @@ Text CHECK: package_type, student_package_status, automation_log_status, deliver
 ## Events Emitted (to n8n)
 booking.created, booking.confirmed, booking.cancelled, session.ended, session.no_show, session.notes_saved, homework.assigned, homework.student_ready, homework.graded, evaluation.created
 
+**`session.ended` sources**: `source:"furqan-app"` (teacher manual end via `endSession`) OR `source:"daily-webhook"` (Daily.co `meeting.ended` via `/api/webhooks/daily`). n8n workflows MUST check `source` to avoid double-firing side effects on reconcile. `is_reconcile:true` in the payload indicates Daily arrived after manual end.
+
+**`session.no_show` sources**: `source:"daily-webhook"` only (misclick filter — `meeting.ended` with `duration < 5min`). Payload includes `reason:"misclick-filter"` and `duration_seconds`.
+
 **Webhook routes** (in emit.ts):
 - booking.confirmed → /webhook/furqan-booking-confirmed
 - session.notes_saved → /webhook/furqan-session-notes-saved
