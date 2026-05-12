@@ -117,7 +117,7 @@ export default async function TeacherSessionsPage() {
                     ) : (
                       statusInfo && (
                         <span className={`glass-badge rounded-full px-2.5 py-0.5 text-xs ${statusInfo.className}`}>
-                          {statusInfo.label}
+                          {t(statusInfo.label.ar, statusInfo.label.en)}
                         </span>
                       )
                     )}

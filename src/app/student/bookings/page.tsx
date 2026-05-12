@@ -123,7 +123,7 @@ export default async function StudentBookingsPage() {
                     <span
                       className={`glass-badge px-2.5 py-0.5 text-xs ${statusInfo.className}`}
                     >
-                      {statusInfo.label}
+                      {t(statusInfo.label.ar, statusInfo.label.en)}
                     </span>
                   </div>
                 </div>
