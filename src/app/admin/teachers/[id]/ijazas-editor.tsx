@@ -9,6 +9,7 @@ import {
   setIjazaVerified,
   type ActionResult,
 } from "./actions";
+import { useLang } from "@/lib/i18n/context";
 
 const input =
   "w-full rounded-xl glass-input px-4 py-2.5 text-sm text-foreground focus:border-gold focus:outline-none";
@@ -118,6 +119,7 @@ function IjazaRow({
   onChanged: () => void;
 }) {
   const [pending, startTransition] = useTransition();
+  const { t } = useLang();
   const riwayaLabel = RIWAYAT.find((r) => r.value === ijaza.riwaya)?.label ?? ijaza.riwaya;
 
   const handleDelete = () => {
@@ -178,7 +180,7 @@ function IjazaRow({
             disabled={pending}
             className="glass-pill px-3 py-1.5 text-xs font-medium hover:bg-success/10 hover:text-success disabled:opacity-50"
             title={ijaza.verified_at ? "إلغاء التوثيق" : "توثيق"}
-            aria-label={ijaza.verified_at ? "إلغاء التوثيق" : "توثيق"}
+            aria-label={ijaza.verified_at ? t("إلغاء التوثيق", "Unverify") : t("توثيق", "Verify")}
           >
             <Check size={12} />
           </button>
@@ -187,7 +189,7 @@ function IjazaRow({
             onClick={onEdit}
             className="glass-pill px-3 py-1.5 text-xs font-medium hover:bg-gold/10 hover:text-gold"
             title="تعديل"
-            aria-label="تعديل"
+            aria-label={t("تعديل", "Edit")}
           >
             <Pencil size={12} />
           </button>
@@ -197,7 +199,7 @@ function IjazaRow({
             disabled={pending}
             className="glass-pill px-3 py-1.5 text-xs font-medium hover:bg-error/10 hover:text-error disabled:opacity-50"
             title="حذف"
-            aria-label="حذف"
+            aria-label={t("حذف", "Delete")}
           >
             <Trash2 size={12} />
           </button>

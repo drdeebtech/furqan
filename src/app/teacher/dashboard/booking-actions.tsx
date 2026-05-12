@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check, X, ExternalLink } from "lucide-react";
 import { updateBookingStatus } from "./actions";
 import { useToast } from "@/components/shared/toast";
+import { useLang } from "@/lib/i18n/context";
 
 export function BookingActions({ bookingId, isFirst }: { bookingId: string; isFirst?: boolean }) {
   const [loading, setLoading] = useState<"confirm" | "decline" | null>(null);
@@ -12,6 +13,7 @@ export function BookingActions({ bookingId, isFirst }: { bookingId: string; isFi
   const [confirmDecline, setConfirmDecline] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
+  const { t } = useLang();
 
   async function handle(status: "confirmed" | "cancelled") {
     setLoading(status === "confirmed" ? "confirm" : "decline");
@@ -43,7 +45,7 @@ export function BookingActions({ bookingId, isFirst }: { bookingId: string; isFi
             href={roomUrl}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="رابط الجلسة (يفتح في تبويب جديد)"
+            aria-label={t("رابط الجلسة (يفتح في تبويب جديد)", "Session link (opens in a new tab)")}
             className="inline-flex items-center gap-1 text-xs text-gold hover:text-gold-hover"
           >
             رابط الجلسة

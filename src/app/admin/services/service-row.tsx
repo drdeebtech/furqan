@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Trash2 } from "lucide-react";
 import { toggleServiceActive, deleteService } from "./actions";
 import { useToast } from "@/components/shared/toast";
+import { useLang } from "@/lib/i18n/context";
 
 interface Props {
   service: { id: string; title: string; title_ar: string | null; description: string; display_order: number; is_active: boolean; created_at: string };
@@ -15,6 +16,7 @@ export function ServiceRow({ service }: Props) {
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const toast = useToast();
+  const { t } = useLang();
 
   return (
     <div className={`glass-card rounded-xl p-4 ${!active ? "border-error/20 opacity-60" : ""}`}>
@@ -52,7 +54,7 @@ export function ServiceRow({ service }: Props) {
             <button
               type="button"
               onClick={() => setConfirmDelete(true)}
-              aria-label="حذف الخدمة"
+              aria-label={t("حذف الخدمة", "Delete service")}
               title="حذف الخدمة"
               className="rounded p-1 text-muted hover:text-error focus-ring"
             >
