@@ -73,6 +73,7 @@
 - [ ] T017 [US2] Audit the route handler from T013 for synchronous awaited side effects on the hot path — confirm only DB ops (SQL function + `emitEvent` non-blocking) are awaited; remove any accidental `await` on notifications, n8n, or other slow paths
 - [ ] T018 [P] [US2] Write a load-test script `tests/load/daily-webhook-burst.ts` (using `autocannon` or a plain `Promise.all` over 200 fetch calls) that sends 200 signed payloads in 60s against a configurable URL; output P50/P95/P99 latency + error count
 - [ ] T019 [US2] Add metrics to `logError` payload so failed-verification and unmapped-room counts feed the operator dashboard alerts per FR-010 thresholds (failed-verification > 5/min OR unmapped-room > 10/hour)
+- [ ] T019.5 [P] [US2] Verify SC-005 end-to-end: send a synthetic HMAC-failure payload to a preview deployment, assert a Telegram alert lands within 5 minutes via the direct `logError(severity: "warning", tag: "daily-webhook")` path (not the hourly Sentry-watcher cron). Capture as `tests/load/sc005-detection-window.ts` or as a manual quickstart-section step.
 
 **Checkpoint**: After Phase 4, the receiver is verified at scale. Bad-list item #1 (preview deployment) doesn't gate this — even on Preview, the burst test runs against the same Supabase project so the numbers are real.
 
@@ -162,11 +163,11 @@ US2, US3, US4 can be implemented in parallel after Phase 2 completes — they to
 | Setup | T001–T003 (3) | 2 of 3 |
 | Foundational | T004–T008 (5) | 2 of 5 |
 | US1 | T009–T016 (8) | 3 of 8 |
-| US2 | T017–T019 (3) | 1 of 3 |
+| US2 | T017–T019.5 (4) | 2 of 4 |
 | US3 | T020–T021 (2) | 1 of 2 |
 | US4 | T022–T024 (3) | 2 of 3 |
 | Polish | T025–T029 (5) | 4 of 5 |
-| **Total** | **29** | **15** |
+| **Total** | **30** | **16** |
 
 ## Independent test criteria per story
 
@@ -177,9 +178,9 @@ US2, US3, US4 can be implemented in parallel after Phase 2 completes — they to
 
 ## Format validation
 
-All 29 tasks follow the required checklist format:
+All 30 tasks follow the required checklist format:
 - `- [ ]` checkbox ✓
-- Sequential TaskID (T001–T029) ✓
+- Sequential TaskID (T001–T029 plus T019.5) ✓
 - `[P]` only on parallelizable tasks ✓
 - `[US1]`/`[US2]`/`[US3]`/`[US4]` ONLY on Phase 3–6 tasks ✓
 - No story label on Setup/Foundational/Polish ✓
