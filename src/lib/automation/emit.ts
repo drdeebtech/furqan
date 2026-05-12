@@ -224,7 +224,7 @@ async function recordOutcome(
   try {
     const { createAdminClient } = await import("@/lib/supabase/admin");
     const supabase = createAdminClient();
-    await supabase.from("automation_logs").insert({
+    const { error: autoLogError } = await supabase.from("automation_logs").insert({
       workflow_name: "furqan-app:emitEvent",
       event_name: payload.event,
       entity_type: payload.entity_type,
@@ -235,7 +235,16 @@ async function recordOutcome(
       error_message: reason,
       finished_at: new Date().toISOString(),
     });
-  } catch {
-    // Swallow — if we can't even log, the caller still gets normal control flow.
+    if (autoLogError) {
+      logError("recordSkipped/recordFailed automation_log insert failed", autoLogError, {
+        tag: "automation", event: payload.event, kind: status,
+      });
+    }
+  } catch (err) {
+    // Network-level rejection (rare). Still log so persistent failures
+    // (e.g. admin client init crash) don't disappear entirely.
+    logError("recordSkipped/recordFailed crashed before insert", err, {
+      tag: "automation", event: payload.event, kind: status,
+    });
   }
 }

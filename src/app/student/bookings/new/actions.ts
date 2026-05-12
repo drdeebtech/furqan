@@ -62,7 +62,11 @@ async function checkRateLimit(
   if ((count ?? 0) >= MAX_BOOKINGS_PER_HOUR) return false;
 
   const now = new Date().toISOString();
-  await supabase.from("automation_logs").insert({
+  // Critical: the rate-limit check (above) counts these exact rows. Silent
+  // insert failure makes the limiter unenforceable — every attempt looks
+  // like the first. Fail open (still return true so the user can book) but
+  // log loudly so the broken limiter is visible.
+  const { error: autoLogError } = await supabase.from("automation_logs").insert({
     workflow_name: "booking-attempt",
     event_name: "booking.attempt",
     entity_type: "user",
@@ -71,6 +75,11 @@ async function checkRateLimit(
     started_at: now,
     finished_at: now,
   });
+  if (autoLogError) {
+    logError("booking rate-limit log insert failed — limiter degraded", autoLogError, {
+      tag: "booking-rate-limit", userId,
+    });
+  }
   return true;
 }
 

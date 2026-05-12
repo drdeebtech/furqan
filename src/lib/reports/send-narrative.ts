@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notify } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
+import { logError } from "@/lib/logger";
 import { buildSessionNarrative, type SessionNarrative } from "./session-narrative";
 
 export interface SendNarrativeInput {
@@ -114,9 +115,11 @@ export async function sendSessionNarrative(input: SendNarrativeInput): Promise<S
     return { ok: false, error: reportErr?.message ?? "Failed to persist report" };
   }
 
-  // Idempotency marker — future calls for this session see priorSend and short-circuit
+  // Idempotency marker — future calls for this session see priorSend and short-circuit.
+  // If the marker fails to land, idempotency is broken (a second call would
+  // re-send the report). Log loudly so ops can spot and clean up duplicates.
   const nowIso = new Date().toISOString();
-  await supabase.from("automation_logs").insert({
+  const { error: autoLogError } = await supabase.from("automation_logs").insert({
     workflow_name: "parent-session-report",
     event_name: "session.report_sent",
     entity_type: "session",
@@ -130,6 +133,11 @@ export async function sendSessionNarrative(input: SendNarrativeInput): Promise<S
     started_at: nowIso,
     finished_at: nowIso,
   });
+  if (autoLogError) {
+    logError("send-narrative idempotency marker insert failed — duplicate risk", autoLogError, {
+      tag: "parent-report", sessionId: input.sessionId, reportId: report.id,
+    });
+  }
 
   // Dispatch in-app notification to the student (parent emails are handled by n8n / Resend later)
   try {

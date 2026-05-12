@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { fulfillPackagePurchase } from "@/lib/stripe/fulfillment";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logError } from "@/lib/logger";
 
 async function logEvent(eventType: string, status: "succeeded" | "failed", payload: unknown, error?: string, entityId?: string) {
   const supabase = createAdminClient();
   const now = new Date().toISOString();
-  await supabase.from("automation_logs").insert({
+  const { error: autoLogError } = await supabase.from("automation_logs").insert({
     workflow_name: "stripe-webhook",
     event_name: eventType,
     entity_type: "stripe_event",
@@ -16,6 +17,11 @@ async function logEvent(eventType: string, status: "succeeded" | "failed", paylo
     started_at: now,
     finished_at: now,
   });
+  if (autoLogError) {
+    logError("stripe-webhook automation_log insert failed", autoLogError, {
+      tag: "stripe-webhook", event: eventType, kind: status,
+    });
+  }
 }
 
 export const maxDuration = 60;
