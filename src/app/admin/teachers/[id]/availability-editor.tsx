@@ -10,6 +10,7 @@ import {
   deleteException,
   type ActionResult,
 } from "./actions";
+import { useLang } from "@/lib/i18n/context";
 
 const input =
   "w-full rounded-xl glass-input px-3 py-2 text-sm text-foreground focus:border-gold focus:outline-none";
@@ -212,6 +213,7 @@ function SlotRow({
   onChanged: () => void;
 }) {
   const [pending, startTransition] = useTransition();
+  const { t } = useLang();
   const dayMeta = DAYS.find((d) => d.value === slot.day_of_week);
   const dayLabel = dayMeta ? `${dayMeta.ar} / ${dayMeta.en}` : "—";
 
@@ -239,7 +241,7 @@ function SlotRow({
         <button
           type="button"
           onClick={onEdit}
-          aria-label="تعديل"
+          aria-label={t("تعديل", "Edit")}
           className="glass-pill px-3 py-1.5 text-xs hover:bg-gold/10 hover:text-gold"
         >
           <Pencil size={12} />
@@ -248,7 +250,7 @@ function SlotRow({
           type="button"
           onClick={handleDelete}
           disabled={pending}
-          aria-label="حذف"
+          aria-label={t("حذف", "Delete")}
           className="glass-pill px-3 py-1.5 text-xs hover:bg-error/10 hover:text-error disabled:opacity-50"
         >
           <Trash2 size={12} />
@@ -395,6 +397,7 @@ function ExceptionRow({
   onChanged: () => void;
 }) {
   const [pending, startTransition] = useTransition();
+  const { t } = useLang();
 
   const handleDelete = () => {
     if (!confirm("حذف هذا الاستثناء؟")) return;
@@ -430,7 +433,7 @@ function ExceptionRow({
         type="button"
         onClick={handleDelete}
         disabled={pending}
-        aria-label="حذف الاستثناء"
+        aria-label={t("حذف الاستثناء", "Delete exception")}
         className="glass-pill px-3 py-1.5 text-xs hover:bg-error/10 hover:text-error disabled:opacity-50"
       >
         <Trash2 size={12} />
