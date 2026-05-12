@@ -97,42 +97,9 @@ If you find yourself about to: commit on `feat/something-else` instead of a fres
 - Memory file `~/.claude/projects/-Users-drdeeb-furqan/memory/feedback_branch_hygiene.md` carries this rule into future Claude Code sessions.
 - Audit that surfaced these patterns: 2026-05-08 (closed PRs #217, #218; deleted ~33 stale branches).
 
-# Project Overview
+# Project Reference (stack, roles, schema, n8n registry, file map, feature status)
 
-FURQAN Academy — Online Quran teaching platform (V13)
-
-**Current phase:** Platform hardening & operational leverage (post-audit)
-**Audit report:** `AUDIT.md` — full platform audit with grades and recommendations
-**Implementation roadmap:** `ROADMAP.md` — 8 sprints from P1 to P4
-
-## Stack
-- **Next.js 16.2.2** (App Router, Turbopack) · **React 19** · **TypeScript 5**
-- **Supabase** (PostgreSQL 17, Auth, RLS, Realtime) · **@supabase/ssr**
-- **Daily.co** (Video sessions + observer mode)
-- **Stripe** (Payments — schema ready, checkout flow deferred until API keys provided)
-- **TailwindCSS 4** · **next-intl** (i18n, Arabic/English)
-- **n8n** (n8n.drdeeb.tech — 44+ active automation workflows)
-- **Telegram** (@furqantoday_bot — admin alerts + notifications)
-- **Deployed on Vercel** (Hobby plan, furqan.today)
-
-## Roles (3)
-Per ADR-0003 (2026-05-08), the moderator role was dropped. CV review, audit log, session observation, and user management — all formerly moderator surfaces — are now admin-owned.
-
-- **student** — browse teachers, book sessions, join video, track progress, follow-up, packages, messages
-- **teacher** — manage availability, confirm bookings, conduct sessions, assign/grade follow-up, CV workflow, evaluations, messages
-- **admin** — full platform management: users, teachers, bookings, sessions, evaluations, packages, services, blog, payments, notifications, automation, n8n control, settings, CV review, audit log, session observation
-
-## Domain Ownership Model
-
-| Domain | Source of Truth | Key Tables | Owner Actions |
-|--------|----------------|------------|---------------|
-| **Booking** | `bookings` table | bookings, teacher_availability, availability_exceptions | createBooking, updateBookingStatus |
-| **Session** | `sessions` table | sessions, session_observers | endSession, markNoShow, savePostSessionNotes |
-| **Follow-up** | `homework_assignments` table | homework_assignments | createHomework, markStudentReady, gradeHomework |
-| **Progress** | `student_progress` + `session_evaluations` | student_progress, recitation_errors, session_evaluations | createEvaluation, createTeacherEvaluation |
-| **Package** | `packages` + `student_packages` | packages, student_packages, payments, invoices | deduct_package_session(), Stripe webhook |
-| **Communication** | `notifications` + `parent_reports` | notifications, parent_reports, messages, conversations, message_delivery_log, communication_preferences | dispatchNotification(), notify(), parent notifications |
-| **Automation** | `automation_logs` | automation_logs, platform_settings, retention_signals | emitEvent(), n8n webhook callback |
+FURQAN Academy — Online Quran teaching platform (V13/V17). See `docs/agents/project-reference.md` for the full descriptive snapshot: tech stack, roles, domain ownership table, database tables, enums, SQL functions, events catalog, n8n workflow registry, file structure, completed features, remaining work, docs index. Deep references: `PROJECT.md`, `SCHEMA_FINAL.md`, `AUTOMATION_REGISTRY.md`, `EVENT_CATALOG.md`, `ROADMAP.md`, `.impeccable.md`.
 
 ## Key Architecture
 - **Route protection**: `src/proxy.ts` — role-based middleware. Legacy `/moderator/*` URLs 301-redirect to `/admin/*` (per ADR-0003); `/moderator/cv-review` → `/admin/teachers/cv` specifically.
@@ -154,104 +121,9 @@ Per ADR-0003 (2026-05-08), the moderator role was dropped. CV review, audit log,
 - **Teacher action queue**: `src/app/teacher/dashboard/action-queue.tsx` — prioritized pending tasks
 - **PWA**: `public/sw.js` — service worker + install prompt
 
-## Database (44 tables)
-Original 20 tables + 5 V9 tables + 2 V10 tables + 2 V11 tables + 1 V12 table + 3 V13 tables + 11 V17 tables (15-feature build).
-
-V9: platform_settings, session_evaluations, parent_reports, session_notes_history, session_observers
-V10: services, homework_assignments
-V11: packages, student_packages
-V12: automation_logs
-V13: message_delivery_log, communication_preferences, retention_signals
-V17 (15-feature build, 2026-04-29):
-  - study_log — Time Tracker
-  - help_articles, help_categories — Help Center CMS
-  - resources — Resources library
-  - modules, module_lessons — Curriculum modules with linear/thematic gating
-  - quizzes, quiz_questions, quiz_attempts — Quiz system (text-only auto-graded)
-  - forum_threads, forum_replies, forum_likes, forum_reports — Community forum
-
-Plus added columns: course_lesson_progress.hidden_from_dashboard, sessions.lesson_plan (jsonb).
-
-Migration files: v9_001, v10_001, v10_002, v11_001, v12_001, v13_001, v13_002 (legacy under src/lib/supabase/migrations/), then timestamped at supabase/migrations/ from 2026-04-26 onwards.
-
-## Enums (26 total)
-Postgres ENUMs: user_role, gender_type, booking_status, session_type, payment_status, msg_type, notif_type, student_level, cv_status, evaluation_type, report_type, homework_type, homework_status
-Text CHECK: package_type, student_package_status, automation_log_status, delivery_channel, delivery_status, preferred_language, conversation_status, credit_source, progress_type, recitation_error_type, transaction_type, session_created_via, audit_action, recitation_standard
-
-## SQL Functions
-- `is_admin()` (per ADR-0003 — `is_moderator` and `is_admin_or_mod` were dropped along with the moderator role)
-- `deduct_package_session(uuid)` — atomic session deduction
-- `set_updated_at()` — trigger function
-- `sync_conv_ts()` — auto-update conversation timestamps
-
-## Events Emitted (to n8n)
-booking.created, booking.confirmed, booking.cancelled, session.ended, session.no_show, session.notes_saved, homework.assigned, homework.student_ready, homework.graded, evaluation.created
-
-**Webhook routes** (in emit.ts):
-- booking.confirmed → /webhook/furqan-booking-confirmed
-- session.notes_saved → /webhook/furqan-session-notes-saved
-- session.no_show → /webhook/furqan-no-show-parent
-- homework.graded → /webhook/furqan-homework-graded
-- profile.created → /webhook/furqan-profile-created
-- teacher.cv_* → /webhook/furqan-cv-event
-
-## n8n Workflows (44+ active)
-
-| Area | Count | Key Workflows |
-|------|-------|---------------|
-| Session Lifecycle | 7 | health-check, failure-sentinel, reminder-engine, room-creation, no-show, auto-decline, auto-complete |
-| Parent Communication | 4 | post-session-report (AI+fallback), missed-session-alert, homework-alert, weekly-digest |
-| Student Retention | 7 | low-balance, expiry-countdown, renewal, abandoned-booking, inactivity, at-risk, milestones |
-| Teacher Management | 5 | quality-monitor, onboarding-nudges, cv-approval, eval-compliance, welcome |
-| Admin Operations | 2 | daily-digest, kpi-alerting |
-| Revenue | 3+ | upsell, lapsed-return, trial-to-paid, teacher-payout |
-| Booking Intelligence | 3+ | conflict-detector, recurring-booking, waitlist-fill |
-| Messaging | 3+ | moderation, announcement-broadcaster, telegram-admin-bot |
-| Platform Health | 3+ | old-data-cleanup, broken-link-check, credential-watcher |
-
 ## Environment Variables
 
-| Variable | Purpose |
-|----------|---------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase admin key |
-| `NEXT_PUBLIC_APP_URL` | App base URL |
-| `DAILY_API_KEY` | Daily.co video rooms |
-| `RESEND_API_KEY` | Email sending |
-| `ADMIN_EMAIL` | Admin notification email |
-| `N8N_WEBHOOK_URL` | n8n base URL (https://n8n.drdeeb.tech) |
-| `N8N_WEBHOOK_SECRET` | Shared secret for n8n callbacks |
-| `N8N_API_URL` | n8n REST API (https://n8n.drdeeb.tech/api/v1) |
-| `N8N_API_KEY` | n8n API key for control panel |
-| `TG_BOT_TOKEN` | Telegram bot @furqantoday_bot |
-| `TG_ADMIN_CHAT_ID` | Admin Telegram chat (707213038) |
-| `STRIPE_SECRET_KEY` | Stripe payments (deferred) |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe client (deferred) |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook (deferred) |
-| `SENTRY_DSN` | Sentry server/edge ingest (DE region) |
-| `NEXT_PUBLIC_SENTRY_DSN` | Sentry browser ingest (publicly bundled) |
-| `CRON_SECRET` | Bearer token gating `/api/cron/*` against unauthenticated hits |
-| `RESEND_FROM_EMAIL` | "From" header for transactional email |
-| `N8N_HEALTHCHECK_URL` | Endpoint hit by `/api/cron/n8n-healthcheck` |
-| `NEXT_PUBLIC_N8N_UI_URL` | Link target from `/admin/n8n` to the n8n UI |
-| `CALLMEBOT_KEY_EG` | CallMeBot API key (Egypt WhatsApp routing) |
-| `CALLMEBOT_KEY_KW` | CallMeBot API key (Kuwait WhatsApp routing) |
-| `CALLMEBOT_PHONE_EG` | CallMeBot recipient phone (Egypt) |
-| `CALLMEBOT_PHONE_KW` | CallMeBot recipient phone (Kuwait) |
-| `BUNNY_STREAM_API_KEY` | Bunny.net Stream library API key (server-only; never sent to client) |
-| `BUNNY_STREAM_LIBRARY_ID` | Bunny.net Stream library numeric ID |
-| `BUNNY_STREAM_PULL_ZONE_HOSTNAME` | Bunny CDN pull-zone hostname for video playback (e.g. `vz-12345678-abc.b-cdn.net`) |
-| `BUNNY_STREAM_TOKEN_AUTH_KEY` | Bunny CDN token-auth key for signing playback URLs |
-| `BUNNY_WEBHOOK_SECRET` | Bunny.net webhook HMAC SHA256 signing secret (verifies status callbacks) |
-| `PAYPAL_CLIENT_ID` | PayPal app client ID — server-side and surfaced as NEXT_PUBLIC_PAYPAL_CLIENT_ID for the SDK loader |
-| `PAYPAL_CLIENT_SECRET` | PayPal app client secret — server-only, used for OAuth client-credentials grant |
-| `NEXT_PUBLIC_PAYPAL_CLIENT_ID` | Same value as `PAYPAL_CLIENT_ID`; needed in the browser by `@paypal/react-paypal-js` |
-| `PAYPAL_API_BASE` | `https://api-m.sandbox.paypal.com` (sandbox) or `https://api-m.paypal.com` (live). Defaults to sandbox if missing |
-| `SENTRY_WATCH_SECRET` | Shared bearer token for `POST /api/sentry-watch/notify`. The hourly Claude Code Sentry-watcher cron presents it; the endpoint validates against it before sending the WhatsApp triage alert |
-| `BOTID_BYPASS_EMAILS` | Comma-separated allow-list of admin emails that skip BotID on `/login` + `/register`. Emergency-glass when the BotID client SDK fails to mint a token in a specific browser. The per-email rate limiter (10/hr) still gates stuffing attempts. Optional — leave unset to enforce BotID for everyone |
-
-> This table is the source of truth. If you add `process.env.X` to code, add `X` here in the same PR. Run `npx vercel env ls` to verify each is set in Production / Preview / Development.
+All env vars are declared in `docs/agents/env-vars.md` (variable → purpose). **Rule:** if you add `process.env.X` to code, add `X` to that table in the same PR. Run `npx vercel env ls` to verify each is set in Production / Preview / Development.
 
 ## Coding Patterns
 - All server actions use `"use server"` directive
@@ -265,110 +137,9 @@ booking.created, booking.confirmed, booking.cancelled, session.ended, session.no
 - **All notifications must go through `notify()` or `dispatchNotification()`** — never insert directly into notifications table
 - **All event-emitting server actions must call `emitEvent()`** from `src/lib/automation/emit.ts`
 
-## File Structure (key paths)
-```
-src/
-├── app/
-│   ├── (auth)/          — login, register, forgot-password
-│   ├── (public)/        — landing, about, contact, packages, services, teachers, blog
-│   ├── admin/           — 35+ pages: users, teachers (incl. cv review), bookings, sessions, evaluations, audit, packages, services, blog, payments, notifications, automation, n8n, control-tower, settings
-│   ├── student/         — 12+ pages: dashboard, teachers, bookings, sessions, follow-up, packages, progress, notifications, messages, notes
-│   ├── teacher/         — 11+ pages: dashboard, sessions, availability, students, follow-up, cv, evaluations, notifications, messages
-│   └── api/             — stripe webhook, bookings, n8n (workflows/executions/toggle/auto-restart), webhooks/n8n
-├── components/
-│   ├── shared/ (20+)    — nav, topbar, notification-bell, stat-card, widget-card, data-table, analytics-chart, breakdown-bar, live-sessions-widget, messages-view, pwa-install-prompt
-│   ├── public/ (9)      — public-nav, public-footer, testimonials, register-banner, whatsapp-button
-│   └── seo/ (1)         — structured-data
-├── lib/
-│   ├── supabase/        — client.ts, server.ts, middleware.ts, admin.ts, helpers.ts, migrations/
-│   ├── actions/         — evaluations.ts, homework.ts, notifications.ts
-│   ├── automation/      — emit.ts (event emission to n8n with per-event routing)
-│   ├── notifications/   — parent.ts, dispatcher.ts
-│   ├── n8n/             — client.ts (REST API client for n8n control)
-│   ├── stripe/          — .gitkeep (Stripe integration deferred)
-│   ├── i18n/            — context.tsx, lang-toggle.tsx
-│   ├── theme/           — context.tsx, theme-toggle.tsx
-│   ├── daily.ts, email.ts, whatsapp.ts, settings.ts, constants.ts, dashboard-queries.ts, cn.ts
-│   └── feature-flags-context.tsx
-├── types/
-│   └── database.ts      — 33 table interfaces, 26 enums (~1022 lines)
-└── proxy.ts             — middleware route protection
-automation/
-├── BLUEPRINT.md         — 52-workflow master plan (12 areas)
-├── VPS_HANDOFF.md       — Legacy context (n8n was on VPS, now on Mac mini — kept for history)
-└── VPS_ANSWERS.md       — Legacy setup answers and credentials checklist
-supabase/functions/      — 4 edge functions (auto-reminder, auto-complete, no-show-detector, weekly-report)
-```
+## Docs map
 
-## Completed Features
-
-### Feature Development (Phases A–I)
-- 3 role dashboards with real Supabase data + shared widget system
-- Bilingual RTL/LTR with Arabic/English toggle + dark/light mode (Liquid Glass Design System v3)
-- Database schema V9→V13 (sessions, evaluations, follow-up, packages, automation, communication, retention)
-- Blog CMS, SEO, RLS policies
-- CV review workflow (admin)
-- Basic booking + sessions with Daily.co video
-- **Follow-up system** (V10) — state machine, 6 types, grading, auto-regeneration
-- **Package & pricing** (V11) — DB-driven packages, admin CRUD, 5 seed packages, student view
-- **In-app notifications** — bell + dropdown + full pages + mark-read/delete
-- **Student progress** — juz tracker, eval chart, milestones, follow-up performance
-- **Teacher onboarding** — 5-step checklist with progress bar, CV in nav
-- **Student discovery** — gender/specialty filter, sort controls
-- **Messaging** — read receipts, unread counts, message notifications
-- **PWA** — service worker, install prompt, iOS meta tags
-- **Automation infrastructure** (V12) — automation_logs, event emission, n8n webhook endpoint, admin dashboard, feature flags
-
-### Hardening (Post-Audit)
-- **Communication infrastructure** (V13) — message_delivery_log, communication_preferences, notification dispatcher with quiet hours
-- **Notification migration** — all direct notification inserts replaced with `notify()` dispatcher
-- **Event catalog + lifecycle docs** — EVENT_CATALOG.md, LIFECYCLES.md (7 state machines)
-- **Teacher action queue** — prioritized pending tasks on teacher dashboard
-- **Retention signals table** — churn scoring foundation
-- **Admin control tower** — 7 operational widgets with alert badges
-- **Dashboard performance** — reduced Supabase round-trips from 5-7 to 2-3 per dashboard
-- **Audit fixes** — 28 issues resolved (accessibility, performance, theming, responsive)
-- **n8n control panel** — `/admin/n8n` with workflow view/toggle/search/filter/auto-restart + Telegram alerts
-
-### n8n Automation (VPS)
-- **44+ active workflows** on n8n.drdeeb.tech across session lifecycle, parent communication, retention, teacher management, admin operations, revenue, booking, messaging, platform health
-- **Credentials configured**: Supabase, Daily.co, Resend, Telegram (@furqantoday_bot)
-- **Self-healing**: auto-restart failed workflows with Telegram notification
-
-## Remaining Work
-
-### Blocked (needs external input)
-1. **Stripe payment flow** — needs Stripe API keys to complete checkout + webhook + fulfillment
-2. **AI workflows** — needs Anthropic API key in n8n for AI parent reports, curriculum advisor
-3. **WhatsApp Business** — needs WhatsApp Cloud API token for parent messaging
-4. **Google Calendar sync** — needs OAuth setup for teacher calendar integration
-
-### Feature Flags (toggle from /admin/settings)
-- `automation_enabled` = true
-- `whatsapp_enabled` = true
-- `ai_parent_reports_enabled` = false (enable when AI key ready)
-- `teacher_quality_monitor_enabled` = false (enable when confident)
-- `retention_automation_enabled` = false (enable when confident)
-- `renewal_campaigns_enabled` = false
-
-### Infrastructure improvements
-- Set up Supabase Branching so Preview deployments get an isolated, ephemeral database (not the production one). Resolves the "Preview database isolation — known gap" risk. ~30min one-time setup, then per-PR branches auto-spin.
-
-## Documentation Files
-| File | Purpose |
-|------|---------|
-| `CLAUDE.md` | This file — AI assistant instructions |
-| `.impeccable.md` | **Design Context — read before any UI work.** Brand personality, references/anti-references, principles, tokens, components. |
-| `.github/copilot-instructions.md` | Synced summary of `.impeccable.md` for Copilot/Vercel Agent surfaces |
-| `PROJECT.md` | Full technical reference (563 lines) |
-| `AUDIT.md` | Platform audit report (433 lines) |
-| `ROADMAP.md` | Implementation roadmap — 8 sprints (404 lines) |
-| `EVENT_CATALOG.md` | Event taxonomy — 9 active + 13 planned |
-| `LIFECYCLES.md` | 7 state machine diagrams |
-| `automation/BLUEPRINT.md` | 52-workflow master plan |
-| `automation/VPS_HANDOFF.md` | n8n VPS session context |
-| `.specify/memory/constitution.md` | Five-principle constitution checked by `/speckit.plan` and `/speckit.analyze` |
-| `specs/<feature>/spec.md` | Per-feature spec produced by `/speckit.specify`; one folder per net-new feature |
+File tree, completed-feature log, remaining work, and the full docs index all live in `docs/agents/project-reference.md`. Deep references when needed: `PROJECT.md`, `ROADMAP.md`, `EVENT_CATALOG.md`, `LIFECYCLES.md`, `automation/BLUEPRINT.md`, `.specify/memory/constitution.md`, `specs/<feature>/spec.md`.
 
 > **Design rule for AI sessions:** before touching any visual surface (component, page, theme, color), open `.impeccable.md` and confirm the change aligns with the **Premium · Refined · Authentic** personality and the four explicit anti-references. The platform serves all ages from children to hāfiz; the brand stays dignified across all of them.
 
@@ -531,21 +302,10 @@ Detection is implicit — there's no environment guard in code that distinguishe
 
 Long-term fix: enable Supabase Branching for Preview so each PR auto-spins an ephemeral, isolated database that mirrors prod schema. Tracked in Remaining Work → Infrastructure improvements.
 
-## Sentry — activating in production
+## Sentry GitHub auto-resolve — currently broken (follow-up)
 
-The Sentry SDK is fully scaffolded (`@sentry/nextjs@10.49.0`, three config files at the repo root, `logError` routes through `Sentry.captureException` when DSN is set). Activation is a 5-minute task:
+> One-time DSN activation steps are in `docs/runbooks/sentry-activation.md`.
 
-1. Create a free Sentry account at https://sentry.io/signup/ — pick the **Next.js** platform when prompted.
-2. Sentry shows you a DSN that looks like `https://xxxx@oNNNN.ingest.sentry.io/PPPP`. Copy it.
-3. In Vercel → furqan project → Settings → Environment Variables, add:
-   - `SENTRY_DSN` = (the DSN, all environments)
-   - `NEXT_PUBLIC_SENTRY_DSN` = (same value, all environments — used by client SDK)
-4. Trigger a redeploy (push any commit, or click "Redeploy" on the latest Vercel deployment).
-5. Verify by intentionally throwing in any server action — the error should appear in Sentry within ~30 seconds.
-
-Until DSN is set, `logError` falls back to `console.error` in dev and Telegram alerts on `severity: 'critical'`. No-op behavior in production keeps the app running normally.
-
-### Sentry GitHub auto-resolve — currently broken (follow-up)
 
 Two PRs in a row (PR #78 closing E4-1E, PR #146 closing E4-1F/-1D/-1X/-1W/-17/-11) shipped `Fixes JAVASCRIPT-NEXTJS-E4-<N>` keywords in their commit messages and merged to `main` with a successful Vercel build, yet Sentry did NOT auto-resolve the referenced issues. Both PRs required manual closure. The keyword convention itself is sound (Sentry's docs list `Fixes`/`Resolves`/`Closes`); the wiring between commit → release → issue is not firing.
 
@@ -558,15 +318,7 @@ Until fixed, manually resolve via the Sentry MCP `update_issue` tool (status `re
 
 ## Supabase Auth — leaked password protection
 
-Supabase Auth can reject passwords known to be in the HaveIBeenPwned breach corpus. This is **off by default** and cannot be migrated — it's a dashboard toggle. Enable once per environment:
-
-1. Supabase Dashboard → **Authentication** → **Providers** → **Email** (or the project's auth settings page).
-2. Find **Leaked password protection** (sometimes labeled "HaveIBeenPwned check").
-3. Toggle on. Save.
-4. Verify by attempting to register / reset with a known-pwned password (e.g. `password123`) — the request must be rejected.
-5. Verify via Dashboard → Advisors — the `auth_leaked_password_protection` finding should be gone. (Do **not** use `mcp__claude_ai_Supabase__*` here — see Supabase MCP gotcha below.)
-
-Docs: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
+One-time HIBP toggle steps are in `docs/runbooks/supabase-leaked-password.md`.
 
 ## Supabase MCP — wrong-account gotcha
 
@@ -584,50 +336,6 @@ After any code change:
 2. `npm run lint` — no new errors
 3. `npx playwright test` — all existing tests pass
 4. `npx vercel ls furqan --prod` — verify deployment succeeds
-
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
-
-This project is indexed by GitNexus as **furqan** (10496 symbols, 16677 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
-
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
-
-## Always Do
-
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
-
-## Never Do
-
-- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
-- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
-
-## Resources
-
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/furqan/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/furqan/clusters` | All functional areas |
-| `gitnexus://repo/furqan/processes` | All execution flows |
-| `gitnexus://repo/furqan/process/{name}` | Step-by-step execution trace |
-
-## CLI
-
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-
-<!-- gitnexus:end -->
 
 ## Agent skills
 
