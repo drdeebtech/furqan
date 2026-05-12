@@ -71,10 +71,20 @@ function isValidAuthCookieValue(name: string, value: string): boolean {
   return true;
 }
 
-export async function updateSession(request: NextRequest) {
+export async function updateSession(request: NextRequest, cspNonce?: string) {
+  const mergedRequestHeaders = new Headers(request.headers);
+  if (cspNonce) mergedRequestHeaders.set("x-nonce", cspNonce);
+
   let supabaseResponse = NextResponse.next({
-    request,
+    request: { headers: mergedRequestHeaders },
   });
+
+  // Forward the nonce to response headers so layout components can read it
+  // via Next.js headers(). Setting it only on request headers makes it
+  // available to Server Components during this render cycle, but headers()
+  // reads from the *response* headers that Next.js exposes — so we must
+  // copy it there as well.
+  if (cspNonce) supabaseResponse.headers.set("x-nonce", cspNonce);
 
   const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -91,8 +101,10 @@ export async function updateSession(request: NextRequest) {
             request.cookies.set(name, value),
           );
           supabaseResponse = NextResponse.next({
-            request,
+            request: { headers: mergedRequestHeaders },
           });
+          // Re-apply the nonce to the new response object created in setAll.
+          if (cspNonce) supabaseResponse.headers.set("x-nonce", cspNonce);
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options),
           );

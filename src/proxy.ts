@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { buildRoleTag, type RoleState } from "@/lib/auth/role-cache";
 import { withTimeout } from "@/lib/promise-utils";
 import type { UserRole } from "@/types/database";
+import { buildContentSecurityPolicy } from "@/lib/csp";
 
 // Per-request timeout for the role-state lookup (Supabase admin query, cached
 // via unstable_cache). Hangs here block every protected-route request before
@@ -121,7 +122,13 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  const { supabaseResponse, user, supabase } = await updateSession(request);
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const { supabaseResponse, user, supabase } = await updateSession(request, nonce);
+  supabaseResponse.headers.set("x-nonce", nonce);
+  supabaseResponse.headers.set(
+    "Content-Security-Policy",
+    buildContentSecurityPolicy(nonce),
+  );
   const { pathname } = request.nextUrl;
 
   // Tag every Sentry event from this request with the authenticated user's id

@@ -51,9 +51,14 @@ jobs:
         run: |
           set -e
           echo "Scanning specs/ for unresolved clarifications…"
-          if grep -rn '\[NEEDS CLARIFICATION' specs/ --include='*.md' 2>/dev/null; then
+          # Real spec-kit markers always carry the question after a colon, e.g.
+          # `[NEEDS CLARIFICATION: which framework?]`. The colon is what separates
+          # an unresolved marker from recap text like "No [NEEDS CLARIFICATION]
+          # markers remain" that legitimately appears in checklists describing
+          # their own resolution status.
+          if grep -rnE '\[NEEDS CLARIFICATION:' specs/ --include='*.md' 2>/dev/null; then
             echo ""
-            echo "::error::Unresolved [NEEDS CLARIFICATION] markers found above."
+            echo "::error::Unresolved [NEEDS CLARIFICATION:] markers found above."
             echo "::error::Resolve via /speckit.clarify before merging this PR."
             exit 1
           fi

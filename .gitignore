@@ -46,6 +46,10 @@ verification/
 supabase/.temp/
 .gitnexus
 
+# Local MCP configs (machine-specific paths; copy from .mcp.json.example)
+.mcp.json
+.idx/
+
 # claude runtime artifacts (keep skills tracked, ignore transient state)
 .claude/scheduled_tasks.lock
 .claude/plans/

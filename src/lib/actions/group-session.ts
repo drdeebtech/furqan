@@ -151,11 +151,10 @@ const addStudentToSessionBase = loudAction<AddStudentInput, { message: string }>
       throw new UserError("وصلت الجلسة لسعتها المحددة");
     }
 
-    // Try to deduct a package credit. Failure here doesn't block the booking
-    // — the session is still created and the operator can reconcile billing
-    // out-of-band. We capture which path was taken in the booking notes.
-    // The SQL function takes a package id (not a student id), so first find
-    // the student's active package with credits remaining.
+    // Deduct a package credit before creating the booking. A null return from
+    // deduct_package_session() means the predicate failed (package expired or
+    // exhausted) even though the RPC itself succeeded — callers MUST check data,
+    // not just error. Spec 005 FR-002 / T14 / deduct_package_session.md §Return.
     let creditNote = "";
     let studentPackageId: string | null = null;
     const { data: activePkg } = await admin
@@ -171,13 +170,21 @@ const addStudentToSessionBase = loudAction<AddStudentInput, { message: string }>
     if (activePkg) {
       studentPackageId = activePkg.id;
       try {
-        const { error: deductErr } = await admin.rpc("deduct_package_session", { p_package_id: activePkg.id });
-        if (deductErr) creditNote = `[deduct-failed: ${deductErr.message}] `;
+        const { data: deducted, error: deductErr } = await admin.rpc("deduct_package_session", { p_package_id: activePkg.id });
+        if (deductErr) {
+          creditNote = `[deduct-failed: ${deductErr.message}] `;
+          throw new UserError("تعذر خصم رصيد الباقة. حاول مرة أخرى.");
+        }
+        if (deducted !== true) {
+          creditNote = "[package-expired-or-exhausted] ";
+          throw new UserError("هذه الباقة منتهية أو مستهلكة ولا يمكن استخدامها لتسجيل الطالب.");
+        }
       } catch (e) {
-        creditNote = "[deduct-threw] ";
+        creditNote = creditNote || "[deduct-threw] ";
         logError("addStudentToSession: deduct_package_session call failed", e, {
           tag: "group-session", metadata: { sessionId, studentId, packageId: activePkg.id },
         });
+        throw e;
       }
     } else {
       creditNote = "[no-active-package] ";

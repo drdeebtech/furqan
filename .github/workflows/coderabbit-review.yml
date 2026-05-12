@@ -1,0 +1,106 @@
+name: CodeRabbit Review
+
+# Auto-runs the CodeRabbit CLI on every PR and posts the review as a comment.
+# Drop this file into any repo that should be auto-reviewed.
+#
+# One-time setup per repo:
+#   1. Generate an API key at https://app.coderabbit.ai/settings/api-keys
+#   2. gh secret set CODERABBITAI_API_KEY    (paste the key when prompted)
+#
+# Without the secret, this workflow exits gracefully — it does NOT fail
+# the PR check.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: coderabbit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: CodeRabbit AI review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip if API key not configured
+        id: gate
+        env:
+          KEY: ${{ secrets.CODERABBITAI_API_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::notice::CODERABBITAI_API_KEY not set on this repo. Skipping review."
+            echo "::notice::Generate a key at https://app.coderabbit.ai/settings/api-keys, then run 'gh secret set CODERABBITAI_API_KEY'."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout PR head
+        if: steps.gate.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Install CodeRabbit CLI
+        if: steps.gate.outputs.skip != 'true'
+        run: |
+          curl -fsSL https://cli.coderabbit.ai/install.sh | sh
+          # Installer drops the binary in ~/.local/bin or /usr/local/bin
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          coderabbit --version || cr --version
+
+      - name: Run review against base branch
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          CODERABBITAI_API_KEY: ${{ secrets.CODERABBITAI_API_KEY }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -o pipefail
+          git fetch origin "$BASE_REF":"refs/remotes/origin/$BASE_REF" --depth=1 || true
+          coderabbit review --agent --base "origin/$BASE_REF" 2>&1 | tee review.md
+          # Keep non-zero exit codes from breaking the gate — we still want
+          # to post whatever output we got.
+        continue-on-error: true
+
+      - name: Post review as PR comment
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ ! -s review.md ]; then
+            echo "No review output produced."
+            exit 0
+          fi
+
+          # Wrap in a marker block so subsequent runs can find + replace
+          # the prior comment instead of stacking.
+          {
+            printf '<!-- coderabbit-cli-review -->\n'
+            printf '## 🐰 CodeRabbit CLI review\n\n'
+            printf '_Last updated: %s_\n\n' "$(date -u +%FT%TZ)"
+            printf '<details><summary>Review output</summary>\n\n'
+            printf '```\n'
+            cat review.md
+            printf '\n```\n\n</details>\n'
+          } > comment.md
+
+          # Find any prior comment we authored and update it; otherwise create.
+          PRIOR_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+            --jq '.[] | select(.body | startswith("<!-- coderabbit-cli-review -->")) | .id' \
+            | head -1)
+
+          if [ -n "$PRIOR_ID" ]; then
+            gh api --method PATCH "repos/${{ github.repository }}/issues/comments/${PRIOR_ID}" \
+              -f body="$(cat comment.md)" > /dev/null
+            echo "Updated prior review comment ($PRIOR_ID)."
+          else
+            gh pr comment "$PR_NUMBER" --body-file comment.md
+            echo "Posted new review comment."
+          fi
