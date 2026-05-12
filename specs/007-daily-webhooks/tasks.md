@@ -39,8 +39,8 @@
 
 - [x] T004 Generate migration file via `./scripts/new-migration.sh add_sessions_room_name_column` and fill with the additive `ALTER TABLE` + `CREATE INDEX` + backfill SQL from `specs/007-daily-webhooks/data-model.md`
 - [x] T005 Generate migration file via `./scripts/new-migration.sh add_daily_webhook_events_table` and fill with the table DDL + RLS deny-all + both SQL functions (`end_session_from_webhook` and `start_session_from_webhook`) from `data-model.md`
-- [ ] T006 Run `npx supabase db push --linked --dry-run` locally to validate both migrations; commit and push to trigger `.github/workflows/supabase-migrate.yml`
-- [ ] T007 [P] Regenerate `src/types/database.ts` once both migrations apply (so the new `sessions.room_name` column and `daily_webhook_events` table type correctly in `src/types/database.ts`); commit the regenerated file
+- [x] T006 Run `npx supabase db push --linked --dry-run` locally to validate both migrations; commit and push to trigger `.github/workflows/supabase-migrate.yml`
+- [x] T007 [P] Regenerate `src/types/database.ts` once both migrations apply (so the new `sessions.room_name` column and `daily_webhook_events` table type correctly in `src/types/database.ts`); commit the regenerated file
 - [x] T008 [P] Add the `audit-cleanup` cron extension: in `src/app/api/cron/audit-cleanup/route.ts`, append a `DELETE FROM daily_webhook_events WHERE received_at < NOW() - INTERVAL '7 days'` execution and audit the count deleted
 
 ---
