@@ -34,7 +34,7 @@ interface ExecutionDetail {
 
 export function ExecutionDetailModal({ executionId, onClose }: ExecutionDetailModalProps) {
   const { t, lang } = useLang();
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
   const [detail, setDetail] = useState<ExecutionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

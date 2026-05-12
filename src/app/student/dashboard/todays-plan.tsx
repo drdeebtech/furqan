@@ -30,7 +30,7 @@ interface TodaysPlanProps {
 export function TodaysPlan({ items, homeworkPulse }: TodaysPlanProps) {
   const { t, dir, lang } = useLang();
   const Arrow = dir === "rtl" ? ArrowLeft : ArrowRight;
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
 
   const headerAction = (
     <Link

@@ -209,7 +209,7 @@ export function TimeTrackerView({ openSession, history, weekSeconds }: Props) {
               {openSession && (
                 <p className="text-xs text-muted">
                   {kindLabel(openSession.kind)} ·{" "}
-                  {new Date(openSession.started_at).toLocaleTimeString(lang === "ar" ? "ar" : "en-US")}
+                  {new Date(openSession.started_at).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-US")}
                 </p>
               )}
             </div>
@@ -300,7 +300,7 @@ export function TimeTrackerView({ openSession, history, weekSeconds }: Props) {
                         {kindLabel(h.kind)}{h.notes ? ` — ${h.notes}` : ""}
                       </p>
                       <p className="text-xs text-muted">
-                        {new Date(h.started_at).toLocaleString(lang === "ar" ? "ar" : "en-US", {
+                        {new Date(h.started_at).toLocaleString(lang === "ar" ? "ar-EG" : "en-US", {
                           dateStyle: "medium",
                           timeStyle: "short",
                         })}

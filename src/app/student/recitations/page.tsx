@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "تسميعاتي" };
 
 export default async function StudentRecitationsPage() {
   const { t, dir, lang } = await getT();
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");

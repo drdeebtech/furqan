@@ -27,7 +27,7 @@ interface Props {
 
 export function UserRow({ user, churnRisk, currentAdminId }: Props) {
   const { t, lang } = useLang();
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
   const [active, setActive] = useState(user.is_active);
   // Initial set: prefer the new roles[] column, fall back to single role for
   // any row that slipped through the backfill.

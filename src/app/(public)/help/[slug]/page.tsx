@@ -63,7 +63,7 @@ export default async function HelpArticlePage({ params }: Props) {
         <h1 className="font-display text-2xl font-bold sm:text-3xl">{title}</h1>
         <p className="mt-2 text-xs text-muted-light">
           {t("آخر تحديث:", "Last updated:")}{" "}
-          {new Date(article.updated_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US", {
+          {new Date(article.updated_at).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", {
             year: "numeric", month: "long", day: "numeric",
           })}
         </p>

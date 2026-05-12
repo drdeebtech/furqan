@@ -26,7 +26,7 @@ const SURAH_TO_JUZ: Record<number, number> = {
 
 export default async function StudentProgressPage() {
   const { lang } = await getT();
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");

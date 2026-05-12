@@ -19,6 +19,7 @@
 import { useEffect, useState, startTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
+import { useLang } from "@/lib/i18n/context";
 
 interface Props {
   placeholder?: string;
@@ -29,14 +30,18 @@ interface Props {
 }
 
 export function SearchInput({
-  placeholder = "بحث...",
+  placeholder,
   paramName = "q",
-  ariaLabel = "بحث",
+  ariaLabel,
   debounceMs = 250,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { lang } = useLang();
+  const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
+  const resolvedPlaceholder = placeholder ?? t("بحث...", "Search...");
+  const resolvedAriaLabel = ariaLabel ?? t("بحث", "Search");
   const [value, setValue] = useState(() => searchParams.get(paramName) ?? "");
 
   // When the URL changes externally (e.g. browser back), keep the input synced.
@@ -78,8 +83,8 @@ export function SearchInput({
       <input
         type="search"
         inputMode="search"
-        aria-label={ariaLabel}
-        placeholder={placeholder}
+        aria-label={resolvedAriaLabel}
+        placeholder={resolvedPlaceholder}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         className="glass-input focus-ring w-full rounded-xl py-2 pe-10 ps-10 text-sm text-foreground placeholder:text-muted/50"
@@ -88,7 +93,7 @@ export function SearchInput({
         <button
           type="button"
           onClick={() => setValue("")}
-          aria-label="مسح البحث"
+          aria-label={t("مسح البحث", "Clear search")}
           className="focus-ring absolute end-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground"
         >
           <X size={14} aria-hidden="true" />

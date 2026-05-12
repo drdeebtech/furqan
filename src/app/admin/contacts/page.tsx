@@ -77,7 +77,7 @@ export default async function AdminContactsPage() {
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <p className="text-xs text-muted">
-                    <Clock size={12} className="inline" /> {new Date(s.created_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}
+                    <Clock size={12} className="inline" /> {new Date(s.created_at).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US")}
                   </p>
                   {!s.is_read && <MarkReadButton submissionId={s.id} />}
                 </div>

@@ -129,7 +129,7 @@ export default async function AdminNotesPage() {
                     </p>
                   </div>
                   <p dir="ltr" className="text-left text-xs text-muted">
-                    {new Date(b.scheduled_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US", { year: "numeric", month: "short", day: "numeric" })}
+                    {new Date(b.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" })}
                   </p>
                 </div>
 

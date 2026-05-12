@@ -21,7 +21,7 @@ interface Props { params: Promise<{ id: string }> }
 export default async function AdminUserDetailPage({ params }: Props) {
   const { id } = await params;
   const { t, dir, lang } = await getT();
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
   const supabase = await createClient();
   const { data: { user: admin } } = await supabase.auth.getUser();
   if (!admin) redirect("/login");

@@ -70,7 +70,7 @@ function StatInline({
 export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }) {
   const { t, dir, lang } = useLang();
   const toast = useToast();
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
   const {
     fullName, cvStatus, hasProfile, hasBio, hasAvailability, uniqueStudents,
     monthSessions, pendingCount, ratingAvg, todaySessions, pending, sessionDataMap,

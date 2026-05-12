@@ -51,7 +51,7 @@ export default async function TeacherHalaqaPage({
 }) {
   const { id } = await params;
   const { t, dir, lang } = await getT();
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
 
   const supabase = await createClient();
   const {

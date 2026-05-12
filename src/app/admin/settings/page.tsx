@@ -307,7 +307,7 @@ export default async function AdminSettingsPage() {
                     <p className="text-sm font-medium text-gold">{m.version}</p>
                     <p className="truncate text-xs text-muted" title={desc}>{truncated}</p>
                   </div>
-                  <p className="ms-3 shrink-0 text-xs text-muted">{new Date(m.applied_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US", { timeZone: "UTC" })}</p>
+                  <p className="ms-3 shrink-0 text-xs text-muted">{new Date(m.applied_at).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { timeZone: "UTC" })}</p>
                 </div>
               );
             })}

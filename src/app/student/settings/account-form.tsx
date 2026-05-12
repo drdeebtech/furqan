@@ -5,6 +5,7 @@ import { Save } from "lucide-react";
 import { updatePersonalInfo } from "./actions";
 import { ActionFeedback } from "@/components/shared/action-feedback";
 import type { LoudResult } from "@/lib/actions/loud";
+import { useLang } from "@/lib/i18n/context";
 
 const input =
   "w-full rounded-xl glass-input px-4 py-2.5 text-sm text-foreground focus:border-gold focus:outline-none";
@@ -25,6 +26,8 @@ interface Props {
 }
 
 export function AccountForm({ profile }: Props) {
+  const { lang } = useLang();
+  const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
   const [state, formAction, pending] = useActionState<LoudResult | null, FormData>(
     updatePersonalInfo,
     null,
@@ -61,7 +64,7 @@ export function AccountForm({ profile }: Props) {
           ) : (
             <Save size={14} aria-hidden="true" />
           )}
-          حفظ البيانات
+          {t("حفظ البيانات", "Save changes")}
         </button>
       </div>
     </form>

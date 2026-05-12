@@ -133,9 +133,9 @@ export default async function TeacherSessionsPage() {
                   </div>
                 </div>
                 <p dir="ltr" className="mt-3 text-left text-sm text-muted">
-                  {date.toLocaleDateString(lang === "ar" ? "ar" : "en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                  {date.toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
                   <span className="mx-2">·</span>
-                  {date.toLocaleTimeString(lang === "ar" ? "ar" : "en-US", { hour: "2-digit", minute: "2-digit" })}
+                  {date.toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-US", { hour: "2-digit", minute: "2-digit" })}
                 </p>
                 {isPastUnresolved && (
                   <div className="mt-3 rounded-lg border border-warning/30 bg-warning/10 p-3">

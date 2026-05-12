@@ -37,7 +37,7 @@ export function NotificationsList({
       : pathname.startsWith("/moderator")
         ? "/moderator"
         : rolePrefix;
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
   const [notifications, setNotifications] = useState(initial);
   const [loading, setLoading] = useState(false);
 

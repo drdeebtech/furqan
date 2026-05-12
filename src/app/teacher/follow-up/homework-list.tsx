@@ -16,7 +16,7 @@ export function HomeworkList({
   nameMap: Record<string, string>;
 }) {
   const { t, lang } = useLang();
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
   const [gradingId, setGradingId] = useState<string | null>(null);
 
   // Group assignments

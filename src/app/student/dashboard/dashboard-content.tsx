@@ -124,7 +124,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
   // Greeting context. The `today` Date wraps `now` so it stays stable inside
   // useMemo dependencies (useMemo dep is `now` directly, not the Date object).
   const firstName = fullName ? fullName.split(" ")[0] : null;
-  const weekday = new Date(now).toLocaleDateString(lang === "ar" ? "ar" : "en-US", { weekday: "long" });
+  const weekday = new Date(now).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { weekday: "long" });
   const surahNum = lastProgress?.surah_to ?? lastProgress?.surah_from ?? null;
   const ayahNum = lastProgress?.ayah_to ?? lastProgress?.ayah_from ?? null;
   const surahLabel = surahName(surahNum, lang === "ar" ? "ar" : "en");
@@ -207,7 +207,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
   useKeyboardShortcuts(shortcuts, true);
 
   // Last refresh marker — derived from the server render time.
-  const lastRefreshLabel = new Date(renderedAtMs).toLocaleTimeString(lang === "ar" ? "ar" : "en-US", { hour: "2-digit", minute: "2-digit" });
+  const lastRefreshLabel = new Date(renderedAtMs).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-US", { hour: "2-digit", minute: "2-digit" });
 
   // KPI 4 — quiz takes priority, else next session, else "no upcoming".
   const kpi4 = (() => {

@@ -54,7 +54,7 @@ export default async function AdminCommunityPage() {
                   <div className="flex-1">
                     <p className="text-xs text-muted-light">
                       {r.target_type === "thread" ? t("موضوع", "Thread") : t("رد", "Reply")} ·{" "}
-                      {nameMap[r.reporter_id] ?? "—"} · {new Date(r.created_at).toLocaleString(lang === "ar" ? "ar" : "en-US")}
+                      {nameMap[r.reporter_id] ?? "—"} · {new Date(r.created_at).toLocaleString(lang === "ar" ? "ar-EG" : "en-US")}
                     </p>
                     <p className="mt-1 text-sm">{r.reason}</p>
                   </div>
@@ -89,7 +89,7 @@ export default async function AdminCommunityPage() {
                     <span className="truncate">{lang === "ar" ? th.title_ar : (th.title_en ?? th.title_ar)}</span>
                   </Link>
                   <p className="text-[11px] text-muted">
-                    {nameMap[th.author_id] ?? "—"} · {th.reply_count} {t("ردود", "replies")} · {new Date(th.created_at).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}
+                    {nameMap[th.author_id] ?? "—"} · {th.reply_count} {t("ردود", "replies")} · {new Date(th.created_at).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US")}
                   </p>
                 </div>
                 <ModerationControls

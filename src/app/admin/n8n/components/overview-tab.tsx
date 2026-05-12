@@ -38,7 +38,7 @@ interface Execution {
 
 export function OverviewTab() {
   const { t, lang } = useLang();
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [errorExecutions, setErrorExecutions] = useState<Execution[]>([]);
   const [allExecutions, setAllExecutions] = useState<Execution[]>([]);

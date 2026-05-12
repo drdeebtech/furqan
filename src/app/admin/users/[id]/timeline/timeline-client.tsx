@@ -257,7 +257,7 @@ export function TimelineClient({
                   {t("عضو منذ", "Member since")}{" "}
                   <span dir="ltr">
                     {new Date(memberSince).toLocaleDateString(
-                      lang === "ar" ? "ar" : "en-US",
+                      lang === "ar" ? "ar-EG" : "en-US",
                       { year: "numeric", month: "short", day: "numeric" },
                     )}
                   </span>

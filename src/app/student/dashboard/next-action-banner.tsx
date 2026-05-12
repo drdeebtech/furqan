@@ -40,7 +40,7 @@ const DISMISS_KEY = "furqan-student-banner-dismissed-key";
 export function NextActionBanner({ data, renderedAtMs }: { data: NextActionData; renderedAtMs: number }) {
   const { t, dir, lang } = useLang();
   const Arrow = dir === "rtl" ? ArrowLeft : ArrowRight;
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
   const now = useNowTicker(60_000, renderedAtMs).getTime();
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
 

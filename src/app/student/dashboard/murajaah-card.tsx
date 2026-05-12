@@ -33,7 +33,7 @@ export function MurajaahCard({
   yesterday, lastWeek, lastMonth, reviewedToday,
 }: MurajaahCardProps) {
   const { t, lang } = useLang();
-  const locale = lang === "ar" ? "ar" : "en-US";
+  const locale = lang === "ar" ? "ar-EG" : "en-US";
 
   // Nothing to review yet — student is brand-new.
   if (!yesterday && !lastWeek && !lastMonth) return null;

@@ -43,7 +43,7 @@ const STYLES = {
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const { dir } = useLang();
+  const { dir, lang } = useLang();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const timeoutRefs = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -98,7 +98,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             >
               <Icon size={18} className="shrink-0" aria-hidden="true" />
               <p className="flex-1 text-sm">{t.message}</p>
-              <button onClick={() => removeToast(t.id)} aria-label="إغلاق" className="focus-ring shrink-0 rounded-full opacity-60 transition-opacity hover:opacity-100">
+              <button onClick={() => removeToast(t.id)} aria-label={lang === "ar" ? "إغلاق" : "Close"} className="focus-ring shrink-0 rounded-full opacity-60 transition-opacity hover:opacity-100">
                 <X size={14} aria-hidden="true" />
               </button>
             </div>

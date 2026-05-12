@@ -257,7 +257,7 @@ export function MessagesView({
                 </p>
                 {c.lastMessageAt && (
                   <p className="mt-0.5 text-xs text-muted">
-                    {new Date(c.lastMessageAt).toLocaleDateString(lang === "ar" ? "ar" : "en-US")}
+                    {new Date(c.lastMessageAt).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US")}
                   </p>
                 )}
               </button>
@@ -299,7 +299,7 @@ export function MessagesView({
                           <p>{msg.content}</p>
                           <div className="mt-1 flex items-center gap-1.5">
                             <span className="text-xs text-muted">
-                              {new Date(msg.created_at).toLocaleTimeString(lang === "ar" ? "ar" : "en-US", { hour: "2-digit", minute: "2-digit" })}
+                              {new Date(msg.created_at).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-US", { hour: "2-digit", minute: "2-digit" })}
                             </span>
                             {isMine && msg.status === "sending" && (
                               <span className="h-3 w-3 animate-spin rounded-full border border-muted/30 border-t-muted" />

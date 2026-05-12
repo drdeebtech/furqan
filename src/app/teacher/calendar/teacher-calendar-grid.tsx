@@ -67,7 +67,7 @@ export function TeacherCalendarGrid({
   const { t, dir, lang } = useLang();
   const month = new Date(monthIso);
   const today = new Date();
-  const localeArg = lang === "ar" ? "ar" : "en-US";
+  const localeArg = lang === "ar" ? "ar-EG" : "en-US";
 
   const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
   const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 1 });

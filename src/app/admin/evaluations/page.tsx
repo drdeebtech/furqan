@@ -106,7 +106,7 @@ export default async function AdminEvaluationsPage() {
             </thead>
             <tbody>
               {list.map((ev) => {
-                const locale = lang === "ar" ? "ar" : "en-US";
+                const locale = lang === "ar" ? "ar-EG" : "en-US";
                 return (
                 <tr key={ev.id} className="border-b border-white/10 last:border-b-0 hover:bg-surface-alt/50">
                   <td className="px-3 py-3 font-medium">{nameMap[ev.student_id] ?? "—"}</td>
