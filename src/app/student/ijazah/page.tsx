@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Award, CheckCircle2, Circle, BookMarked, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { logError } from "@/lib/logger";
 import { getT } from "@/lib/i18n/server";
 import type {
   IjazahPathway,
@@ -59,6 +60,24 @@ export default async function StudentIjazahPage() {
       .returns<StudentIjazahRequirementProgress[]>(),
   ]);
 
+  // Surface query failures explicitly. Without this, a 401/500/RLS-denial
+  // collapses into "no ijazah data" — indistinguishable from a brand-new
+  // student. Log each failed query (Sentry tag: ijazah) and fall through
+  // to the empty path so the page still renders.
+  for (const [name, res] of [
+    ["student_ijazah_progress", enrolmentsRes],
+    ["ijazah_pathways", pathwaysRes],
+    ["ijazah_requirements", requirementsRes],
+    ["student_ijazah_requirement_progress", reqProgressRes],
+  ] as const) {
+    if (res.error) {
+      logError(`ijazah page: ${name} query failed`, res.error, {
+        tag: "ijazah",
+        route: "/student/ijazah",
+        userId: user.id,
+      });
+    }
+  }
   const enrolments = enrolmentsRes.data ?? [];
   const pathways = pathwaysRes.data ?? [];
   const requirements = requirementsRes.data ?? [];
