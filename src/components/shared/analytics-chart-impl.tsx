@@ -144,7 +144,7 @@ export function AnalyticsChart({
               tick={{ fontSize: 12, fill: "var(--muted-light)" }}
               tickFormatter={fmt}
               domain={[0, unit === "h" ? 24 : "auto"]}
-              ticks={unit === "h" ? [0, 4, 8, 16, 24] : undefined}
+              ticks={unit === "h" ? [0, 6, 12, 18, 24] : undefined}
               allowDecimals={unit !== "#"}
             />
             <Bar dataKey="value" maxBarSize={48} radius={[8, 8, 0, 0]}>
