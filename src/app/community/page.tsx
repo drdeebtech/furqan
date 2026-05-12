@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { isFeatureEnabled } from "@/lib/settings";
 import { buildNameMap } from "@/lib/admin/name-map";
+import { getDashboardHref } from "@/lib/auth/dashboard-href";
 
 export const metadata: Metadata = { title: "المجتمع" };
 
@@ -14,6 +15,11 @@ export default async function CommunityIndexPage() {
 
   const { t, dir, lang } = await getT();
   const supabase = await createClient();
+
+  // /community lives outside any role-specific layout so the sidebar/topbar
+  // drops away — render a "back to dashboard" banner so signed-in users
+  // don't feel stranded (audit P1-1, 2026-05-04).
+  const dashboardHref = await getDashboardHref(supabase);
 
   const { data: threads } = await supabase.from("forum_threads")
     .select("id, author_id, title_ar, title_en, category, is_pinned, is_locked, reply_count, last_reply_at, created_at")
@@ -36,6 +42,17 @@ export default async function CommunityIndexPage() {
 
   return (
     <div dir={dir} className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+      {dashboardHref && (
+        <div className="mb-6 flex items-center justify-between gap-3 border-b border-card-border/60 pb-4 text-sm">
+          <span className="text-muted">
+            {t("المجتمع — يمكنك العودة إلى لوحة التحكم في أي وقت.",
+               "Community — return to your dashboard anytime.")}
+          </span>
+          <Link href={dashboardHref} className="shrink-0 font-medium text-gold hover:text-gold-hover focus-ring rounded">
+            {t("العودة للوحة التحكم", "Back to dashboard")}
+          </Link>
+        </div>
+      )}
       <header className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold sm:text-3xl">
