@@ -304,17 +304,12 @@ Long-term fix: enable Supabase Branching for Preview so each PR auto-spins an ep
 
 ## Sentry GitHub auto-resolve — currently broken (follow-up)
 
-> One-time DSN activation steps are in `docs/runbooks/sentry-activation.md`.
+> One-time DSN activation steps: `docs/runbooks/sentry-activation.md`.
+> **Auto-resolve fix runbook: `docs/runbooks/sentry-auto-resolve-fix.md`** — operator action required (install Sentry GitHub App at org level, link `drdeebtech/furqan`).
 
+Two PRs in a row (PR #78, PR #146) shipped `Fixes JAVASCRIPT-NEXTJS-E4-<N>` keywords and merged to `main` with a successful Vercel build, yet Sentry did NOT auto-resolve the referenced issues. Diagnosis confirmed on 2026-05-12: releases are being created (`setCommits: { auto: true }` is configured + `SENTRY_AUTH_TOKEN` is set in Vercel Production) but the GitHub integration likely isn't granting the org read access to the repo, so the commit list on each release is empty and the keyword has nothing to match.
 
-Two PRs in a row (PR #78 closing E4-1E, PR #146 closing E4-1F/-1D/-1X/-1W/-17/-11) shipped `Fixes JAVASCRIPT-NEXTJS-E4-<N>` keywords in their commit messages and merged to `main` with a successful Vercel build, yet Sentry did NOT auto-resolve the referenced issues. Both PRs required manual closure. The keyword convention itself is sound (Sentry's docs list `Fixes`/`Resolves`/`Closes`); the wiring between commit → release → issue is not firing.
-
-Likely causes to check, in order of probability:
-1. `release.setCommits.auto: true` in `next.config.ts` requires the `@sentry/nextjs` plugin to receive a writable `GITHUB_TOKEN` at build time, AND the Sentry org's GitHub App integration must be installed on the repo. If either is missing, the release lands but with no commit list, so the keyword can't be parsed.
-2. The Sentry GitHub integration might be installed at the user level (`drdeebtech`) rather than the org. Sentry-side: visit https://furqan-academy.sentry.io/settings/integrations/github/ and confirm the repo `drdeebtech/furqan` is listed.
-3. The Sentry release's `commits` field on the dashboard would show empty for these releases — that's the diagnostic; if commits ARE shown but issues stay open, it's a parsing or permissions bug instead.
-
-Until fixed, manually resolve via the Sentry MCP `update_issue` tool (status `resolvedInNextRelease` or `resolved`) on every PR that ships a `Fixes JAVASCRIPT-NEXTJS-...` keyword. Track this as a P1 ops item; the auto-close is the only thing keeping the issue queue from growing during high-fix-velocity sprints.
+Until the operator runs the runbook above, manually resolve via the Sentry MCP `update_issue` tool (status `resolvedInNextRelease` or `resolved`) on every PR that ships a `Fixes JAVASCRIPT-NEXTJS-...` keyword.
 
 ## Supabase Auth — leaked password protection
 
