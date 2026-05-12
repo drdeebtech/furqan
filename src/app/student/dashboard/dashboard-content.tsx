@@ -134,7 +134,13 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
   // Today's Plan items — sorted chronologically.
   const todaysPlanItems = useMemo(() => {
     const items: { id: string; kind: "session" | "homework" | "quiz"; title: string; detail: string; href: string; at: string | null; urgent?: boolean }[] = [];
+    // Client-side today boundaries (local time via `now` ticker) — trims the
+    // ±1-day server window down to the student's actual local day.
+    const localTodayStart = new Date(now); localTodayStart.setHours(0, 0, 0, 0);
+    const localTodayEnd = new Date(now); localTodayEnd.setHours(23, 59, 59, 999);
     for (const s of todaySessions) {
+      const sessionTime = new Date(s.scheduled_at).getTime();
+      if (sessionTime < localTodayStart.getTime() || sessionTime > localTodayEnd.getTime()) continue;
       const teacherName = nameMap[s.teacher_id] ?? t("معلمك", "your teacher");
       items.push({
         id: `s:${s.id}`,

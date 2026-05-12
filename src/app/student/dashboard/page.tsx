@@ -36,7 +36,7 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
   // When the topbar year filter selects a non-current year, scope ALL counts
   // and the "this month" widget to that year (Jan 1 → Dec 31 of selectedYear).
   const yearStart = new Date(selectedYear, 0, 1).toISOString();
-  const yearEnd = new Date(selectedYear, 11, 31, 23, 59, 59).toISOString();
+  const yearEnd = new Date(selectedYear, 11, 31, 23, 59, 59, 999).toISOString();
   const monthStart = isCurrentYear
     ? new Date(currentYear, now.getMonth(), 1).toISOString()
     : yearStart;
@@ -85,7 +85,7 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
   const pendingBookings = pendingRes.count ?? 0;
 
   // New students with no activity → guide them to teachers page
-  if (totalSessions === 0 && pendingBookings === 0 && !nextBooking) {
+  if (!anyFailed && totalSessions === 0 && pendingBookings === 0 && !nextBooking) {
     redirect("/student/teachers?new=1");
   }
 
@@ -207,8 +207,11 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
 
   // Today's plan items — sessions today + follow-up due today + quiz due today.
   // Built server-side so the widget never re-queries client-side.
-  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+  // Use a UTC ±1-day window so students in any timezone (up to UTC+14 / UTC-12)
+  // always receive their local-today sessions. The client-side todaysPlanItems
+  // useMemo already has the live `now` ticker and trims to true local-today.
+  const todayStart = new Date(now); todayStart.setUTCHours(0, 0, 0, 0); todayStart.setUTCDate(todayStart.getUTCDate() - 1);
+  const todayEnd = new Date(now); todayEnd.setUTCHours(23, 59, 59, 999); todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
 
   const [todaySessionsRes, todayHomeworkRes] = await Promise.all([
     supabase.from("bookings")
