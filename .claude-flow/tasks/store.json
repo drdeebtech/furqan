@@ -1,0 +1,65 @@
+{
+  "tasks": {
+    "task-1778659321273-6lqq23": {
+      "taskId": "task-1778659321273-6lqq23",
+      "type": "bugfix",
+      "description": "Task A — Patch Next.js: change package.json \"next\" from \"^16.2.4\" to \"16.2.6\" (exact pin). Run npm install to update lock file. Fixes 13 CVEs including middleware bypass, cache poisoning, DoS, and XSS.",
+      "priority": "critical",
+      "status": "pending",
+      "progress": 0,
+      "assignedTo": [
+        "coder-001",
+        "sec-arch-001"
+      ],
+      "tags": [
+        "security",
+        "dependency",
+        "cve"
+      ],
+      "createdAt": "2026-05-13T08:02:01.273Z",
+      "startedAt": null,
+      "completedAt": null
+    },
+    "task-1778659321590-7pqwxo": {
+      "taskId": "task-1778659321590-7pqwxo",
+      "type": "bugfix",
+      "description": "Task B — Remove hardcoded k6 password: k6/debug-auth.js line 11 replace 'K6Test!2026001' with __ENV.K6_TEST_PASSWORD. Create k6/.env.example with K6_TEST_PASSWORD=<your-k6-test-password>.",
+      "priority": "high",
+      "status": "pending",
+      "progress": 0,
+      "assignedTo": [
+        "coder-001",
+        "sec-arch-001"
+      ],
+      "tags": [
+        "security",
+        "credentials",
+        "k6"
+      ],
+      "createdAt": "2026-05-13T08:02:01.590Z",
+      "startedAt": null,
+      "completedAt": null
+    },
+    "task-1778659323928-mvz7s0": {
+      "taskId": "task-1778659323928-mvz7s0",
+      "type": "bugfix",
+      "description": "Task C — Redact e2e JSDoc example passwords: e2e/session-flow.spec.ts lines 12-13 replace TestStudent2026! and TestTeacher2026! with <password> placeholder. Runtime code already uses process.env — do not touch lines 17-20.",
+      "priority": "high",
+      "status": "pending",
+      "progress": 0,
+      "assignedTo": [
+        "coder-001",
+        "sec-arch-001"
+      ],
+      "tags": [
+        "security",
+        "credentials",
+        "e2e"
+      ],
+      "createdAt": "2026-05-13T08:02:03.928Z",
+      "startedAt": null,
+      "completedAt": null
+    }
+  },
+  "version": "3.0.0"
+}

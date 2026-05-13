@@ -56,6 +56,13 @@ const TARGETS = [
   ["cdb2iKW0dlNFWZm8", "audit-log-enrichment"],
   ["HpCTrDfCFqE0wziT", "announcement-broadcaster"],
   ["lqdQg2BvGTUpHJjF", "message-content-moderation"],
+
+  // New cron workflows wired via n8n MCP (spec 009):
+  ["9HJZmdeLsaUKgZC0", "cron-auto-complete-sessions"],
+  ["ezrnzox3Awy4pGMy", "cron-cache-clear"],
+  ["ucQUFb31nnQY0brM", "cron-handoff-cleanup"],
+  ["ddPFuoV80kGo0mkT", "cron-murajaah-due"],
+  ["RvOlWJygNON7R53Q", "cron-n8n-healthcheck"],
 ];
 
 const args = process.argv.slice(2);

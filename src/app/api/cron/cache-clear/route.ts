@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { clearPublicCache } from "@/lib/actions/cache";
+import { withCronMonitor } from "@/lib/sentry/cron";
+
+export const dynamic = "force-dynamic";
 
 function safeCompare(a: string | null, b: string | undefined): boolean {
   if (!a || !b) return false;
@@ -10,15 +13,7 @@ function safeCompare(a: string | null, b: string | undefined): boolean {
   return timingSafeEqual(aBuf, bBuf);
 }
 
-/**
- * Cron-triggered cache-clear endpoint.
- * Invoked every 30 minutes by Vercel Cron (configured in vercel.json).
- *
- * Vercel Cron sends `Authorization: Bearer ${CRON_SECRET}` automatically when
- * CRON_SECRET is set in env; we accept it OR the existing N8N_WEBHOOK_SECRET
- * header so n8n can also pull this trigger if needed.
- */
-export async function GET(request: Request) {
+export const GET = withCronMonitor("cron-cache-clear", "0 4 * * *", async (request: Request) => {
   const cronAuth = request.headers.get("authorization");
   const expectedCron = `Bearer ${process.env.CRON_SECRET}`;
   const cronOk = !!process.env.CRON_SECRET && cronAuth === expectedCron;
@@ -37,4 +32,4 @@ export async function GET(request: Request) {
     const msg = err instanceof Error ? err.message : "cache clear failed";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
-}
+});

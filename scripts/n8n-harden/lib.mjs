@@ -52,6 +52,12 @@ export async function putWorkflow(id, payload) {
   return res.body;
 }
 
+export async function listWorkflows() {
+  const res = await n8n("/workflows?limit=250");
+  if (res.status !== 200) throw new Error(`GET /workflows: ${res.status} ${JSON.stringify(res.body)}`);
+  return res.body.data ?? res.body;
+}
+
 // Minimum settings shape n8n REST PUT accepts. Strips MCP-specific extras.
 export function safeSettings(existing) {
   return {
@@ -78,6 +84,33 @@ export function detectCredential(node) {
     return { httpHeaderAuth: CRED.webhookSecret };
   }
   return null;
+}
+
+// Builds a "log failure" node wired to Call Route's error output.
+// Fires only when the cron-route HTTP call returns a non-2xx or throws.
+// Posts status='failed' with execution context for dead-letter diagnosis.
+export function buildLogFailureNode({ workflowSlug, position }) {
+  return {
+    id: "log_failure",
+    name: "Log Failure",
+    type: "n8n-nodes-base.httpRequest",
+    typeVersion: 4.2,
+    position,
+    parameters: {
+      method: "POST",
+      url: `${SUPABASE_URL}/rest/v1/automation_logs`,
+      authentication: "predefinedCredentialType",
+      nodeCredentialType: "supabaseApi",
+      sendBody: true,
+      specifyBody: "json",
+      jsonBody:
+        `={ "workflow_name": "${workflowSlug}", "event_name": "trigger.failed", "status": "failed", "started_at": "{{ $now.toISO() }}", "finished_at": "{{ $now.toISO() }}", "error_message": "{{ $json.error?.message ?? $json.message ?? 'execution error' }}", "attempt_count": {{ $execution.retryOf !== null ? 1 : 0 }}, "payload_json": { "workflow_id": "{{ $workflow.id }}", "execution_id": "{{ $execution.id }}" } }`,
+      options: {},
+    },
+    credentials: { supabaseApi: CRED.supabaseApi },
+    onError: "continueRegularOutput",
+    alwaysOutputData: true,
+  };
 }
 
 // Builds a parallel "log to automation_logs" node. Always status='succeeded'
@@ -127,12 +160,22 @@ export function applyHardening(wf, workflowSlug) {
   const trigger = findTrigger(wf.nodes);
   if (!trigger) throw new Error(`no trigger node found in workflow ${wf.id}`);
 
+  // Identify the cron-route HTTP node for special error-output routing.
+  // Only the node calling our app URL routes to Log Failure on error;
+  // all other HTTP nodes continue normally so chain failures are non-fatal.
+  const callRouteName = wf.nodes.find(
+    (n) => n.type === "n8n-nodes-base.httpRequest" &&
+           (n.parameters?.url || "").includes("furqan.today/api/cron"),
+  )?.name ?? null;
+
   const newNodes = wf.nodes.map((n) => {
     if (n.type === "n8n-nodes-base.httpRequest") {
       const cred = detectCredential(n);
+      const isCallRoute = n.name === callRouteName;
       return {
         ...n,
-        onError: "continueRegularOutput",
+        // Call Route uses error-output routing so Log Failure fires on HTTP errors.
+        onError: isCallRoute ? "continueErrorOutput" : "continueRegularOutput",
         alwaysOutputData: true,
         ...(cred ? { credentials: cred } : {}),
       };
@@ -150,18 +193,36 @@ export function applyHardening(wf, workflowSlug) {
   });
   newNodes.push(logNode);
 
+  const callRouteNode = wf.nodes.find((n) => n.name === callRouteName);
+  const failNode = buildLogFailureNode({
+    workflowSlug,
+    position: callRouteNode
+      ? [callRouteNode.position[0], callRouteNode.position[1] + 200]
+      : [trigger.position[0], trigger.position[1] + 400],
+  });
+  newNodes.push(failNode);
+
   const newConnections = { ...wf.connections };
-  // Add Log Run as a sibling output of the trigger, alongside whatever the
-  // trigger already outputs to. n8n connections are { [sourceNode]: { main: [[{node, type, index}, ...], ...] } }.
-  // We append to the first output array so the trigger fires both branches.
+
+  // Add Log Run as a sibling output of the trigger (parallel to existing chain).
   const triggerEntry = newConnections[trigger.name] ?? { main: [[]] };
   if (!triggerEntry.main) triggerEntry.main = [[]];
   if (!triggerEntry.main[0]) triggerEntry.main[0] = [];
-  // Avoid duplicate addition on re-runs.
   if (!triggerEntry.main[0].some((c) => c.node === "Log Run")) {
     triggerEntry.main[0] = [...triggerEntry.main[0], { node: "Log Run", type: "main", index: 0 }];
   }
   newConnections[trigger.name] = triggerEntry;
+
+  // Connect Call Route error output (index 1) → Log Failure.
+  if (callRouteName) {
+    const callEntry = newConnections[callRouteName] ?? { main: [[], []] };
+    if (!callEntry.main) callEntry.main = [[], []];
+    if (!callEntry.main[1]) callEntry.main[1] = [];
+    if (!callEntry.main[1].some((c) => c.node === "Log Failure")) {
+      callEntry.main[1] = [...callEntry.main[1], { node: "Log Failure", type: "main", index: 0 }];
+    }
+    newConnections[callRouteName] = callEntry;
+  }
 
   return {
     name: wf.name,
@@ -174,8 +235,10 @@ export function applyHardening(wf, workflowSlug) {
 // Convenience wrapper: full read → transform → write cycle.
 export async function hardenWorkflow(id, workflowSlug) {
   const wf = await getWorkflow(id);
-  if (wf.nodes.some((n) => n.id === "log_run" || n.name === "Log Run")) {
-    return { id, name: wf.name, status: "skipped", reason: "already hardened (Log Run node present)" };
+  const hasLogRun = wf.nodes.some((n) => n.id === "log_run" || n.name === "Log Run");
+  const hasLogFailure = wf.nodes.some((n) => n.id === "log_failure" || n.name === "Log Failure");
+  if (hasLogRun && hasLogFailure) {
+    return { id, name: wf.name, status: "skipped", reason: "already hardened (Log Run + Log Failure present)" };
   }
   const payload = applyHardening(wf, workflowSlug);
   await putWorkflow(id, payload);
