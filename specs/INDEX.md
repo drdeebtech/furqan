@@ -15,7 +15,8 @@
 | [004-followup-lifecycle](./004-followup-lifecycle/spec.md) | Shipped | `004-followup-lifecycle` | [#231](https://github.com/drdeebtech/furqan/pull/231) |
 | [005-package-deduction-lifecycle](./005-package-deduction-lifecycle/spec.md) | Shipped | `005-package-deduction-lifecycle` | [#238](https://github.com/drdeebtech/furqan/pull/238) |
 | [007-daily-webhooks](./007-daily-webhooks/spec.md) | Shipped | `007-daily-webhooks` | [#293](https://github.com/drdeebtech/furqan/pull/293) |
-| [008-ops-debt-cleanup](./008-ops-debt-cleanup/spec.md) | Implementing | `008-ops-debt-cleanup` | [#298](https://github.com/drdeebtech/furqan/pull/298) |
+| [008-ops-debt-cleanup](./008-ops-debt-cleanup/spec.md) | Shipped | `008-ops-debt-cleanup` | [#298](https://github.com/drdeebtech/furqan/pull/298) |
+| [009-n8n-cron-all-routes](./009-n8n-cron-all-routes/spec.md) | Draft | `009-n8n-cron-all-routes` | _(pending)_ |
 
 ## Abandoned (last 90 days)
 
