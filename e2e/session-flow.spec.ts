@@ -9,8 +9,8 @@ import { test, expect, type Page } from "@playwright/test";
  *   3. The test teacher must have availability set and be accepting students
  *
  * Run:
- *   TEST_STUDENT_EMAIL=test.student@furqan.app TEST_STUDENT_PASSWORD='TestStudent2026!' \
- *   TEST_TEACHER_EMAIL=test.teacher@furqan.app TEST_TEACHER_PASSWORD='TestTeacher2026!' \
+ *   TEST_STUDENT_EMAIL=test.student@furqan.app TEST_STUDENT_PASSWORD='<password>' \
+ *   TEST_TEACHER_EMAIL=test.teacher@furqan.app TEST_TEACHER_PASSWORD='<password>' \
  *   npx playwright test e2e/session-flow.spec.ts
  */
 
