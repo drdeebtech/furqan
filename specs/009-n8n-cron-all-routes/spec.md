@@ -32,6 +32,9 @@ This spec is the **close-the-gap plan**: wire the 5 missing cron routes, run har
 - Q: How is a workflow "critical-tagged" for Telegram alerts (FR-015)? → A: B — Critical = `furqan-workflow-failure-sentinel` watch-list ∪ the 5 newly-wired cron routes. No new tag column.
 - Q: How should this spec treat the existing `automation_logs` schema? → A: A — use existing schema as authoritative; new fields go into `result_json` JSONB; no migration in this spec.
 - Q: Source-of-truth for cron schedules between route file and n8n Schedule Trigger? → A: A — route's `withCronMonitor` schedule string is canonical; n8n Schedule Trigger MUST match it.
+- Q: `automation_dead_letter` table doesn't exist; FR-014 references it. Resolution? → A: B — reuse `automation_logs` with `status='failed' AND attempt_count >= max_retries` as the dead-letter equivalent; no new table.
+- Q: `cache-clear/route.ts` has no `withCronMonitor`; FR-004 demands canonical schedule. Resolution? → A: A — add `withCronMonitor("cron-cache-clear", "0 4 * * *", ...)` in this spec (04:00 UTC, aligned with other cleanup crons).
+- Q: `n8n-healthcheck/route.ts` has no `withCronMonitor` either. Cadence? → A: A — add `withCronMonitor("cron-n8n-healthcheck", "*/15 * * * *", ...)` (every 15min; 96 fires/day; detects n8n outages ≤15min).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -152,7 +155,7 @@ Today there's no single command to answer "which workflows in `AUTOMATION_REGIST
 **Failure semantics**
 
 - **FR-013**: Every workflow MUST write to `automation_logs` at start (`status='started'`) and end (`'succeeded'`/`'failed'`/`'skipped'`).
-- **FR-014**: Final-retry failures MUST write to `automation_dead_letter` with full payload + last error.
+- **FR-014**: Final-retry failures MUST write a terminal row to `automation_logs` with `status='failed'`, `attempt_count >= max_retries`, full payload in `payload_json`, and last error in `error_message`. (No separate `automation_logs (dead-letter view)` table — the sentinel queries `automation_logs` with that filter as the dead-letter view.)
 - **FR-015**: "Critical" workflows MUST fire a Telegram admin alert on final failure. Critical is defined as: workflows already in the `furqan-workflow-failure-sentinel` watch-list ∪ the 5 newly-wired cron routes (`auto-complete-sessions`, `cache-clear`, `handoff-cleanup`, `murajaah-due`, `n8n-healthcheck`). No new `critical: bool` column in the registry — sentinel logic is the source of truth.
 - **FR-016**: Best-effort writes (`audit_log`, `automation_logs`, post-commit `notify`/`emitEvent`) MUST NOT block the critical path; failures pipe through `logError` (per constitution Principle II).
 
@@ -171,7 +174,7 @@ Today there's no single command to answer "which workflows in `AUTOMATION_REGIST
 
 - **n8n Workflow**: A trigger + chain of nodes; identified by stable `(workflowId, slug)` pair in `scripts/n8n-harden/run.mjs` TARGETS.
 - **`automation_logs` row**: Durable per-run record. **Schema is authoritative as currently deployed** (referenced in `supabase/migrations/20260428*`); this spec does NOT modify the table. Per-workflow extra fields go into the existing `result_json` JSONB column. Any column-level change requires a separate migration + ADR.
-- **`automation_dead_letter` row**: Final-failure record with full payload + last error; one row per terminal-failed workflow run.
+- **`automation_logs (dead-letter view)` row**: Final-failure record with full payload + last error; one row per terminal-failed workflow run.
 - **Cron route handler**: `src/app/api/cron/<name>/route.ts` — Next.js route with `withCronMonitor("cron-<name>", "<cron>", handler)` and dual-auth.
 - **Credential (n8n)**: Stored in n8n's credential vault, referenced by ID in workflow JSON.
 

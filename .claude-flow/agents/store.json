@@ -1,0 +1,33 @@
+{
+  "agents": {
+    "sec-arch-001": {
+      "agentId": "sec-arch-001",
+      "agentType": "security-architect",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "model": "sonnet"
+      },
+      "createdAt": "2026-05-13T08:01:51.141Z",
+      "domain": "security",
+      "model": "sonnet",
+      "modelRoutedBy": "explicit"
+    },
+    "coder-001": {
+      "agentId": "coder-001",
+      "agentType": "coder",
+      "status": "idle",
+      "health": 1,
+      "taskCount": 0,
+      "config": {
+        "model": "sonnet"
+      },
+      "createdAt": "2026-05-13T08:01:52.105Z",
+      "domain": "implementation",
+      "model": "sonnet",
+      "modelRoutedBy": "explicit"
+    }
+  },
+  "version": "3.0.0"
+}
