@@ -46,7 +46,7 @@
 | `payment.failed` | Stripe webhook | Recovery flow |
 | `message.created` | New message sent | Notification to recipient |
 | `progress.milestone_reached` | Juz/session milestone | Celebration message |
-| `murajaah.due` | Nightly cron (per spec 001-murajaah-scheduler FR-005); fired when a student has ≥3 due reviews and hasn't marked any review complete today | 7pm local nudge via `notify(opts)` per Communication-domain dispatcher |
+| `murajaah.due` | Nightly cron (per spec 001-murajaah-scheduler FR-005); fired when a student has ≥3 due reviews and hasn't marked any review complete today | 7pm local nudge via `notify(opts)` per Communication-domain dispatcher. **Note (spec 009)**: `/api/cron/murajaah-due` currently calls `notify()` directly rather than `emitEvent("murajaah.due")` — wire `emitEvent` before this row graduates to Currently Emitted. |
 | `murajaah.completed` | Student clicks "أنهيت المراجعة" on a Murajaah card row | Optional encouragement message (gated by `communication_preferences`); n8n analytics for SC-003 return-rate tracking |
 
 ## Event Payload Shape

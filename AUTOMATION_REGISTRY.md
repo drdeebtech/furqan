@@ -2,6 +2,10 @@
 
 > Per-workflow ownership, contracts, retry policy, and KPIs.
 > Scope: n8n workflows on n8n.drdeeb.tech. Source of truth for operational responsibility.
+>
+> **Status convention**: rows without a `status` field are **live** (active in n8n and in `scripts/n8n-harden/run.mjs` TARGETS). Rows with `status: stubbed` are planned but not yet wired. Use `node scripts/n8n-audit.mjs` to diff this file against live n8n state.
+>
+> **WF-NN assignment**: IDs are stable and never reused. When adding a new workflow, scan for the highest existing WF-NN in its section range and use the next sequential number. Backlog rows use their planned section ranges (e.g., Session Lifecycle = 01–09, Student Retention = 20–29).
 
 **Format for every workflow:**
 
@@ -57,6 +61,17 @@
 ### WF-06 furqan-session-failure-sentinel
 ### WF-07 furqan-session-health-check
 
+### WF-08 furqan-cron-auto-complete-sessions
+- **owner**: ops
+- **trigger**: cron `*/15 * * * *` → GET `/api/cron/auto-complete-sessions`
+- **input**: `cron.fired` — polls sessions past end-time without a completed status
+- **output**: session rows set to `auto_completed`; `session.auto_completed` event emitted
+- **idempotency**: `cron-acs:{YYYYMMDD-HH-bucket}` — route-level per-session guard handles fine-grained dedup
+- **retry**: 2 attempts, 2m backoff; terminal failure → `automation_logs` dead-letter row
+- **alert_on**: `automation_logs` shows `status='failed'` for 3+ consecutive fires
+- **kpi**: % sessions auto-completed within 30 min of scheduled end
+- **flag**: none
+
 ---
 
 ## Parent Communication (4)
@@ -96,6 +111,17 @@
 ### WF-26 furqan-retention-at-risk (feeds off WF-20 churn_risk_score ≥ 60)
 ### WF-27 furqan-retention-milestones
 
+### WF-28 furqan-cron-murajaah-due
+- **owner**: product
+- **trigger**: cron `0 9 * * *` → GET `/api/cron/murajaah-due`
+- **input**: `cron.fired` — queries students with murajaah (revision) sessions due today
+- **output**: `notify()` to student reminding them to book or start a revision session
+- **idempotency**: `murajaah-due:{student_id}:{YYYYMMDD}`
+- **retry**: 2 attempts, 5m backoff
+- **alert_on**: zero notifications sent when >0 students have murajaah due (suggests query or notify failure)
+- **kpi**: % murajaah-due students notified within 1h of 09:00 UTC
+- **flag**: none
+
 ---
 
 ## Teacher Management (5)
@@ -120,6 +146,17 @@
   - workflow failure rate > 5% in 1h
   - no-show rate > 15% in a day
   - delivery_log failure rate > 10% in 1h
+
+### WF-42 furqan-cron-handoff-cleanup
+- **owner**: ops
+- **trigger**: cron `0 3 * * *` → GET `/api/cron/handoff-cleanup`
+- **input**: `cron.fired` — queries stale handoff records older than configured TTL
+- **output**: stale handoff rows deleted; `handoff.cleanup_completed` event emitted
+- **idempotency**: `handoff-cleanup:{YYYYMMDD}` — daily scoped
+- **retry**: 2 attempts, 5m backoff
+- **alert_on**: `automation_logs` shows `status='failed'` for 2+ consecutive fires
+- **kpi**: handoff table row count stays bounded (< 500 open rows)
+- **flag**: none
 
 ---
 
@@ -154,6 +191,28 @@
 ### WF-81 furqan-health-broken-link-check
 ### WF-82 furqan-health-credential-watcher
 
+### WF-83 furqan-cron-cache-clear
+- **owner**: ops
+- **trigger**: cron `0 4 * * *` → GET `/api/cron/cache-clear`
+- **input**: `cron.fired` — daily ISR/CDN cache bust
+- **output**: Next.js revalidatePath() called for public routes; stale CDN entries invalidated
+- **idempotency**: `cache-clear:{YYYYMMDD}` — daily scoped; revalidation is safe to repeat
+- **retry**: 2 attempts, 5m backoff
+- **alert_on**: `automation_logs` shows `status='failed'` for 2+ consecutive fires
+- **kpi**: stale-content incidents zero after the 04:00 UTC window
+- **flag**: none
+
+### WF-84 furqan-cron-n8n-healthcheck
+- **owner**: ops
+- **trigger**: cron `*/15 * * * *` → GET `/api/cron/n8n-healthcheck`
+- **input**: `cron.fired` — probes `n8n.drdeeb.tech/healthz` with 8s timeout
+- **output**: state-change Telegram alert (up→down or down→up); `automation_logs` row per fire
+- **idempotency**: `n8n-health:{YYYYMMDD-HH-MM-bucket}` — once-per-fire, stateful via automation_logs prev-status read
+- **retry**: 1 attempt only (probe result is already the retry signal)
+- **alert_on**: status flips from `up` to `down` (Telegram alert fires automatically from route logic)
+- **kpi**: n8n downtime detected within 15 min; false-positive rate < 1/week
+- **flag**: none
+
 ---
 
 ## Cross-cutting Rules
@@ -172,3 +231,56 @@
 4. **Naming**: `furqan-<area>-<verb>` kebab-case. Never rename; deprecate + superseded-by.
 
 5. **Versioning**: append `-v2` to name when contract changes; keep v1 alive for 1 week
+
+6. **Registry status**: rows in the `## Phase-N Backlog` section below are planned but not yet live. The `scripts/n8n-audit.mjs` script compares live workflows against ALL rows in this file — backlog rows will appear under `Registered + Missing` until activated. This is expected and not an error.
+
+---
+
+## Phase-N Backlog
+
+> Planned workflows not yet wired to n8n. Grouped by rollout phase.
+> Active (live) rows live in the numbered sections above.
+> When a backlog workflow goes live: move its row to the appropriate section above and add it to `scripts/n8n-harden/run.mjs` TARGETS.
+
+### Phase-2 Backlog — Retention Deepening
+
+Stubs from `## Student Retention`, `## Teacher Management`, `## Revenue`, `## Booking Intelligence` sections above that have no full 11-field entry yet:
+
+- `WF-21 furqan-retention-low-balance` — **status**: stubbed
+- `WF-22 furqan-retention-expiry-countdown` — **status**: stubbed
+- `WF-23 furqan-retention-renewal` — **status**: stubbed
+- `WF-24 furqan-retention-abandoned-booking` — **status**: stubbed
+- `WF-25 furqan-retention-inactivity` — **status**: stubbed
+- `WF-26 furqan-retention-at-risk` — **status**: stubbed
+- `WF-31 furqan-teacher-onboarding-nudges` — **status**: stubbed
+- `WF-32 furqan-teacher-cv-approval` — **status**: stubbed
+- `WF-33 furqan-teacher-eval-compliance` — **status**: stubbed
+- `WF-34 furqan-teacher-welcome` — **status**: stubbed
+- `WF-50 furqan-revenue-upsell` — **status**: stubbed
+- `WF-51 furqan-revenue-lapsed-return` — **status**: stubbed
+- `WF-52 furqan-revenue-trial-to-paid` — **status**: stubbed
+- `WF-53 furqan-revenue-teacher-payout` — **status**: stubbed
+- `WF-60 furqan-booking-conflict-detector` — **status**: stubbed
+- `WF-61 furqan-booking-recurring` — **status**: stubbed
+- `WF-62 furqan-booking-waitlist-fill` — **status**: stubbed
+
+### Phase-3 Backlog — AI & Messaging Workflows
+
+- `WF-70 furqan-messaging-moderation` — **status**: stubbed
+- `WF-71 furqan-messaging-announcement-broadcaster` — **status**: stubbed
+- `WF-72 furqan-telegram-admin-bot` — **status**: stubbed
+
+### Phase-4 Backlog — Platform Hardening
+
+- `WF-04 furqan-session-auto-complete` — **status**: stubbed (replaced by WF-08 for cron path)
+- `WF-05 furqan-session-auto-decline` — **status**: stubbed
+- `WF-06 furqan-session-failure-sentinel` — **status**: stubbed
+- `WF-07 furqan-session-health-check` — **status**: stubbed
+- `WF-11 furqan-parent-missed-session-alert` — **status**: stubbed
+- `WF-12 furqan-parent-homework-alert` — **status**: stubbed
+- `WF-13 furqan-parent-weekly-digest` — **status**: stubbed
+- `WF-27 furqan-retention-milestones` — **status**: stubbed
+- `WF-30 furqan-teacher-quality-monitor` — **status**: stubbed
+- `WF-80 furqan-health-old-data-cleanup` — **status**: stubbed
+- `WF-81 furqan-health-broken-link-check` — **status**: stubbed
+- `WF-82 furqan-health-credential-watcher` — **status**: stubbed

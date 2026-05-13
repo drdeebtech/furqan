@@ -3,6 +3,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTelegramAlert } from "@/lib/n8n/client";
 import { safeCompareSecret } from "@/lib/security/secrets";
 import { logError } from "@/lib/logger";
+import { withCronMonitor } from "@/lib/sentry/cron";
+
+export const dynamic = "force-dynamic";
 
 const HEALTHCHECK_URL =
   process.env.N8N_HEALTHCHECK_URL ?? "https://n8n.drdeeb.tech/healthz";
@@ -20,7 +23,7 @@ const WORKFLOW_NAME = "n8n-healthcheck";
  * Tier note: sub-daily schedules require Vercel Pro. On Hobby this cron
  * is silently dropped; use UptimeRobot or similar as a fallback.
  */
-export async function GET(request: Request) {
+export const GET = withCronMonitor("cron-n8n-healthcheck", "*/15 * * * *", async (request: Request) => {
   const cronAuth = request.headers.get("authorization");
   const expectedCron = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
   const cronOk = !!expectedCron && safeCompareSecret(cronAuth, expectedCron);
@@ -112,4 +115,4 @@ export async function GET(request: Request) {
     alerted,
     at: finishedAt,
   });
-}
+});

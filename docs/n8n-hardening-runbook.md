@@ -74,8 +74,70 @@ For schema validation during workflow design, MCP's `validate_workflow` is still
 
 The sentinel was previously broken (always returned `status='skipped'`) — that's a separate fix tracked in the project memory.
 
+## Verifying coverage
+
+Use `scripts/n8n-coverage.sql` (two `-- @block` sections, copy-paste into Supabase Studio):
+
+**Block 1 — last log per workflow**: shows every TARGETS slug, when it last fired, and whether it's within its expected cadence. Cadence reference:
+
+| Workflow | Expected interval |
+|----------|------------------|
+| `cron-auto-complete-sessions`, `no-show-detector`, `session-auto-complete`, `session-reminder-engine`, `cron-n8n-healthcheck` | 16 min |
+| All other daily cron routes | 25 h |
+
+**Block 2 — dead-letter view**: surfaces rows where `status='failed' AND attempt_count >= max_retries`. These are terminal failures that exhausted retries and need operator intervention.
+
+After the first hardening run, some workflows may show `NEVER LOGGED` in Block 1 — that's expected until they fire at least once. After 24 h, every TARGETS workflow should show `OK` or `OVERDUE` (the latter means a missed fire that needs investigation).
+
+## Audit script
+
+`scripts/n8n-audit.mjs` diffs live n8n workflows against `AUTOMATION_REGISTRY.md` and outputs Markdown with four sections:
+
+| Section | What it shows |
+|---------|---------------|
+| `## Registered + Live` | Healthy: in registry AND active in n8n, with last-fire timestamp |
+| `## Registered + Missing` | Risk: in registry but NOT active in n8n — stale doc or deactivated workflow |
+| `## Live + Unregistered` | Risk: active in n8n but NOT in registry — orphaned workflow, nobody owns it |
+| `## Naming Violations` | Any live workflow not matching `furqan-[a-z0-9]+(-[a-z0-9]+)*` |
+
+**Run it:**
+```bash
+node scripts/n8n-audit.mjs > /tmp/n8n-audit.md
+cat /tmp/n8n-audit.md
+```
+
+**Target state** (per SC-005, SC-006):
+- `Registered + Missing` ≤ 5
+- `Live + Unregistered` = 0
+- `Naming Violations` = 0
+
+**CI integration (recommended):** run weekly in GitHub Actions and pipe to Telegram admin channel when `Live + Unregistered > 0`:
+
+```yaml
+# .github/workflows/n8n-audit.yml
+on:
+  schedule:
+    - cron: '0 8 * * 1'  # 08:00 UTC every Monday
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node scripts/n8n-audit.mjs > /tmp/audit.md
+        env:
+          N8N_API_KEY: ${{ secrets.N8N_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      - name: Alert if unregistered workflows found
+        run: |
+          COUNT=$(grep -c "^- " /tmp/audit.md | tail -1 || echo 0)
+          # post to Telegram if Live+Unregistered > 0 ...
+```
+
 ## Files
 
 - `scripts/n8n-harden/lib.mjs` — REST API helpers, credential map, hardening transform.
 - `scripts/n8n-harden/run.mjs` — Driver that takes the workflow list and applies the transform.
+- `scripts/n8n-coverage.sql` — Coverage + dead-letter SQL (copy-paste into Supabase Studio).
+- `scripts/n8n-audit.mjs` — Registry-vs-live diff script outputting Markdown.
 - `docs/n8n-hardening-runbook.md` — This file.

@@ -93,7 +93,9 @@ This is a strong base. The automation layer can already do meaningful work witho
 
 ### 3.2 Current n8n status
 
-Already active on the n8n instance:
+> **[Updated 2026-05-13 — spec 009]**: The live workflow count has grown well beyond this section's original snapshot. For the authoritative list of active workflows, owner assignments, and cron schedules, see `AUTOMATION_REGISTRY.md` and `scripts/n8n-harden/run.mjs` TARGETS (34+ entries as of spec 009). The "only 2 workflows" framing below was the state at blueprint-writing time.
+
+Already active on the n8n instance (at blueprint-writing time; see registry for current state):
 
 - Kuwait Daily News
 - Claude Code via Telegram

@@ -41,8 +41,8 @@ description: "Task list for spec 009 — n8n Re-establish & Harden"
 
 **⚠️ BLOCKS**: US-3 (hardening run) and US-5 (audit script) require this phase complete.
 
-- [ ] T004 Inspect `scripts/n8n-harden/lib.mjs`; confirm `listWorkflows()` exists and returns `{id, name, active, ...}[]`. If absent, add it: GET `${N8N_BASE}/api/v1/workflows` with `X-N8N-API-KEY` header, return array.
-- [ ] T005 Confirm `scripts/n8n-harden/lib.mjs` `CRED` constant has all needed credential IDs (Supabase FURQAN, Telegram bot, Daily.co API, Resend, n8n webhook secret); cross-check via `node -e "console.log(require('./scripts/n8n-harden/lib.mjs').CRED)"`.
+- [X] T004 Inspect `scripts/n8n-harden/lib.mjs`; confirm `listWorkflows()` exists and returns `{id, name, active, ...}[]`. If absent, add it: GET `${N8N_BASE}/api/v1/workflows` with `X-N8N-API-KEY` header, return array.
+- [X] T005 Confirm `scripts/n8n-harden/lib.mjs` `CRED` constant has all needed credential IDs (Supabase FURQAN, Telegram bot, Daily.co API, Resend, n8n webhook secret); cross-check via `node -e "console.log(require('./scripts/n8n-harden/lib.mjs').CRED)"`.
 
 **Checkpoint**: `lib.mjs` is the shared substrate for both `run.mjs` (hardening) and `n8n-audit.mjs` (audit). Both downstream stories depend on it.
 
@@ -58,11 +58,11 @@ description: "Task list for spec 009 — n8n Re-establish & Harden"
 
 ### Implementation for User Story 1
 
-- [ ] T006 [P] [US1] Create `scripts/n8n-coverage.sql` containing two queries, separated by `-- @block` comments:
+- [X] T006 [P] [US1] Create `scripts/n8n-coverage.sql` containing two queries, separated by `-- @block` comments:
    1. "last log per workflow" parameterized by `INTERVAL` — verifies presence.
    2. "dead-letter view" — `SELECT * FROM automation_logs WHERE status='failed' AND attempt_count >= (result_json->>'max_retries')::int ORDER BY finished_at DESC` — closes FR-014's documentation gap (per data-model.md E-002).
    Both copy-paste-runnable in Supabase Studio.
-- [ ] T007 [US1] Append a `## Verifying coverage` section to `docs/n8n-hardening-runbook.md` linking `scripts/n8n-coverage.sql` and explaining the daily/15-min cadence expectations per workflow type.
+- [X] T007 [US1] Append a `## Verifying coverage` section to `docs/n8n-hardening-runbook.md` linking `scripts/n8n-coverage.sql` and explaining the daily/15-min cadence expectations per workflow type.
 
 **Checkpoint**: Operator has a single SQL artifact + doc pointing at it. The data behind the query gets populated by US-3.
 
@@ -78,8 +78,8 @@ description: "Task list for spec 009 — n8n Re-establish & Harden"
 
 #### 2a. Add `withCronMonitor` wrappers to the 2 bare routes (per Clarification Q7+Q8)
 
-- [ ] T008 [P] [US2] Wrap the handler in `src/app/api/cron/cache-clear/route.ts` with `withCronMonitor("cron-cache-clear", "0 4 * * *", async (request) => { … })`; import `withCronMonitor` from `@/lib/sentry/cron`; add `export const dynamic = "force-dynamic";` if missing.
-- [ ] T009 [P] [US2] Wrap the handler in `src/app/api/cron/n8n-healthcheck/route.ts` with `withCronMonitor("cron-n8n-healthcheck", "*/15 * * * *", async (request) => { … })`; identical structure to T008.
+- [X] T008 [P] [US2] Wrap the handler in `src/app/api/cron/cache-clear/route.ts` with `withCronMonitor("cron-cache-clear", "0 4 * * *", async (request) => { … })`; import `withCronMonitor` from `@/lib/sentry/cron`; add `export const dynamic = "force-dynamic";` if missing.
+- [X] T009 [P] [US2] Wrap the handler in `src/app/api/cron/n8n-healthcheck/route.ts` with `withCronMonitor("cron-n8n-healthcheck", "*/15 * * * *", async (request) => { … })`; identical structure to T008.
 - [ ] T010 [US2] Run `npm run build` to confirm both wrappers type-check (depends on T008, T009).
 
 #### 2b. Create 5 new n8n workflows (per contracts/n8n-workflow-shape.md)
@@ -114,7 +114,7 @@ description: "Task list for spec 009 — n8n Re-establish & Harden"
 - [ ] T018 [US3] Run `node scripts/n8n-harden/run.mjs --dry-run`; inspect the diff for each workflow. Confirm `daily-admin-digest` and `platform-health-check` are commented-out (already hardened). For the ~20 remaining, the diff should add `Log Run` + `onError` flags.
 - [ ] T019 [US3] Apply hardening: `node scripts/n8n-harden/run.mjs` (no flag). Capture stdout to `/tmp/n8n-harden-run-<date>.log` for audit.
 - [ ] T020 [US3] Re-run `node scripts/n8n-harden/run.mjs`; confirm every workflow shows `"skip — already hardened"` (FR-009 idempotency check).
-- [ ] T035 [US3] Extend `scripts/n8n-harden/lib.mjs` hardening transform to inject a second HTTP node `Log Failure` (parallel to `Log Run`) that fires on workflow execution error. Posts to `automation_logs` with `status='failed'`, `attempt_count` from `$execution.retryOf`, `error_message` from `$json.error.message`, `payload_json` from `$workflow`. Re-run `run.mjs` to apply. Closes FR-014.
+- [X] T035 [US3] Extend `scripts/n8n-harden/lib.mjs` hardening transform to inject a second HTTP node `Log Failure` (parallel to `Log Run`) that fires on workflow execution error. Posts to `automation_logs` with `status='failed'`, `attempt_count` from `$execution.retryOf`, `error_message` from `$json.error.message`, `payload_json` from `$workflow`. Re-run `run.mjs` to apply. Closes FR-014.
 - [ ] T021 [US3] After 24 hours, run `scripts/n8n-coverage.sql` from T006; confirm every TARGETS slug has `last_log` within its expected interval. Document any gaps in the PR description.
 
 **Checkpoint**: SC-002 achieved — 100% of TARGETS workflows write to `automation_logs` on every fire.
@@ -129,10 +129,10 @@ description: "Task list for spec 009 — n8n Re-establish & Harden"
 
 ### Implementation for User Story 4
 
-- [ ] T022 [P] [US4] In `AUTOMATION_REGISTRY.md`, add complete rows for the 5 newly-created workflows from T011–T015. Use owner assignments from `research.md` §R-008. **Before assigning, grep the registry for existing rows with the same area to ensure owner consistency**: `grep -A1 "### WF-" AUTOMATION_REGISTRY.md | grep "owner"` — if `Session Lifecycle` rows already say `owner: ops`, keep that; if conflict, ask the operator in PR review. Each row uses the 11-field template from `data-model.md` E-003.
+- [X] T022 [P] [US4] In `AUTOMATION_REGISTRY.md`, add complete rows for the 5 newly-created workflows from T011–T015. Use owner assignments from `research.md` §R-008. **Before assigning, grep the registry for existing rows with the same area to ensure owner consistency**: `grep -A1 "### WF-" AUTOMATION_REGISTRY.md | grep "owner"` — if `Session Lifecycle` rows already say `owner: ops`, keep that; if conflict, ask the operator in PR review. Each row uses the 11-field template from `data-model.md` E-003.
 - [ ] T023 [P] [US4] In `AUTOMATION_REGISTRY.md`, audit each existing TARGETS workflow's row (~17 of them). For every row missing fields, fill them from `scripts/n8n-harden/run.mjs` slug + the n8n workflow JSON viewable in the UI.
-- [ ] T024 [US4] In `AUTOMATION_REGISTRY.md`, add a new `## Phase-N Backlog` section at the bottom **organized into three subsections**: `### Phase-2 Backlog` (retention-deepening), `### Phase-3 Backlog` (AI workflows), `### Phase-4 Backlog` (payments). Move every registry row not in TARGETS into the appropriate subsection. **Do not also tag rows individually — section placement is the single source of truth.** (Resolves analyze finding I2.)
-- [ ] T025 [US4] Update `AUTOMATION_REGISTRY.md` legend/header to explain the `status: stubbed` convention and the Phase-N Backlog section.
+- [X] T024 [US4] In `AUTOMATION_REGISTRY.md`, add a new `## Phase-N Backlog` section at the bottom **organized into three subsections**: `### Phase-2 Backlog` (retention-deepening), `### Phase-3 Backlog` (AI workflows), `### Phase-4 Backlog` (payments). Move every registry row not in TARGETS into the appropriate subsection. **Do not also tag rows individually — section placement is the single source of truth.** (Resolves analyze finding I2.)
+- [X] T025 [US4] Update `AUTOMATION_REGISTRY.md` legend/header to explain the `status: stubbed` convention and the Phase-N Backlog section.
 
 **Checkpoint**: SC-003 + SC-006 achieved — registry matches reality.
 
@@ -146,10 +146,10 @@ description: "Task list for spec 009 — n8n Re-establish & Harden"
 
 ### Implementation for User Story 5
 
-- [ ] T026 [US5] Create `scripts/n8n-audit.mjs`. Import `listWorkflows` + REST helpers from `scripts/n8n-harden/lib.mjs` (T004). Parse `AUTOMATION_REGISTRY.md` table rows via regex to extract `name` slugs. Diff three sets: registered ∩ live, registered \ live, live \ registered. **Additionally validate every live workflow name matches `^furqan-[a-z0-9]+(-[a-z0-9]+)*$` (FR-012 kebab-case enforcement); emit a fourth section `## Naming Violations` listing non-conformant names with the regex pattern that failed.**
-- [ ] T027 [US5] In `scripts/n8n-audit.mjs`, render Markdown output per `data-model.md` E-005: H1 timestamp header, three H2 sections (`## Registered + Live`, `## Registered + Missing`, `## Live + Unregistered`), bullet rows sorted alphabetically by slug. Counts in section headers.
-- [ ] T028 [US5] In `scripts/n8n-audit.mjs`, for each `Registered + Live` row, query `automation_logs` for `MAX(started_at)` and include it inline (`last fire: <ts>` or `no logs`). Use the Supabase service-role key from env.
-- [ ] T029 [US5] Append a `## Audit script` subsection to `docs/n8n-hardening-runbook.md` documenting how to run it, expected output, and CI integration recommendation (run weekly in GitHub Actions, post to admin Telegram channel on `live+unregistered > 0`).
+- [X] T026 [US5] Create `scripts/n8n-audit.mjs`. Import `listWorkflows` + REST helpers from `scripts/n8n-harden/lib.mjs` (T004). Parse `AUTOMATION_REGISTRY.md` table rows via regex to extract `name` slugs. Diff three sets: registered ∩ live, registered \ live, live \ registered. **Additionally validate every live workflow name matches `^furqan-[a-z0-9]+(-[a-z0-9]+)*$` (FR-012 kebab-case enforcement); emit a fourth section `## Naming Violations` listing non-conformant names with the regex pattern that failed.**
+- [X] T027 [US5] In `scripts/n8n-audit.mjs`, render Markdown output per `data-model.md` E-005: H1 timestamp header, three H2 sections (`## Registered + Live`, `## Registered + Missing`, `## Live + Unregistered`), bullet rows sorted alphabetically by slug. Counts in section headers.
+- [X] T028 [US5] In `scripts/n8n-audit.mjs`, for each `Registered + Live` row, query `automation_logs` for `MAX(started_at)` and include it inline (`last fire: <ts>` or `no logs`). Use the Supabase service-role key from env.
+- [X] T029 [US5] Append a `## Audit script` subsection to `docs/n8n-hardening-runbook.md` documenting how to run it, expected output, and CI integration recommendation (run weekly in GitHub Actions, post to admin Telegram channel on `live+unregistered > 0`).
 - [ ] T030 [US5] Run `node scripts/n8n-audit.mjs > /tmp/audit-1.md && node scripts/n8n-audit.mjs > /tmp/audit-2.md && diff /tmp/audit-1.md /tmp/audit-2.md`; confirm empty diff (FR-002 deterministic output).
 
 **Checkpoint**: SC-005 + SC-006 verifiable via audit script. SC-007 (no silent failures) confirmed by `loud-or-logError` policy already enforced.
@@ -160,8 +160,8 @@ description: "Task list for spec 009 — n8n Re-establish & Harden"
 
 **Purpose**: Documentation alignment + final verification.
 
-- [ ] T031 [P] Update `automation/BLUEPRINT.md` §3.2 with current-reality footnote pointing at `AUTOMATION_REGISTRY.md` and `scripts/n8n-harden/run.mjs` TARGETS; correct the "only 2 live" claim.
-- [ ] T032 [P] Update `EVENT_CATALOG.md` "Events Planned" rows that this spec promotes to "Events Currently Emitted" (e.g., murajaah-due events).
+- [X] T031 [P] Update `automation/BLUEPRINT.md` §3.2 with current-reality footnote pointing at `AUTOMATION_REGISTRY.md` and `scripts/n8n-harden/run.mjs` TARGETS; correct the "only 2 live" claim.
+- [X] T032 [P] Update `EVENT_CATALOG.md` "Events Planned" rows that this spec promotes to "Events Currently Emitted" (e.g., murajaah-due events).
 - [ ] T033 Run `quickstart.md` end-to-end Definition of Done checklist; tick every box. Document any failures in the PR description.
 - [ ] T034 Final PR review:
    - Confirm no n8n workflow JSON committed (FR-019).
