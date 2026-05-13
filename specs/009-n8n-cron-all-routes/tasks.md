@@ -84,11 +84,11 @@ description: "Task list for spec 009 — n8n Re-establish & Harden"
 
 #### 2b. Create 5 new n8n workflows (per contracts/n8n-workflow-shape.md)
 
-- [ ] T011 [US2] In n8n UI, create workflow `furqan-cron-auto-complete-sessions` per `contracts/n8n-workflow-shape.md` shape. Schedule: read `withCronMonitor` arg #2 from `src/app/api/cron/auto-complete-sessions/route.ts` (FR-004). HTTP node → `https://www.furqan.today/api/cron/auto-complete-sessions` with dual-auth headers. Activate.
-- [ ] T012 [US2] In n8n UI, create workflow `furqan-cron-cache-clear`; schedule `0 4 * * *`; HTTP node → `https://www.furqan.today/api/cron/cache-clear`. Activate.
-- [ ] T013 [US2] In n8n UI, create workflow `furqan-cron-handoff-cleanup`; schedule `0 3 * * *` (from existing `withCronMonitor` in route); HTTP node → `https://www.furqan.today/api/cron/handoff-cleanup`. Activate.
-- [ ] T014 [US2] In n8n UI, create workflow `furqan-cron-murajaah-due`; schedule from `withCronMonitor` in `murajaah-due/route.ts`; HTTP node → `https://www.furqan.today/api/cron/murajaah-due`. Activate.
-- [ ] T015 [US2] In n8n UI, create workflow `furqan-cron-n8n-healthcheck`; schedule `*/15 * * * *`; HTTP node → `https://www.furqan.today/api/cron/n8n-healthcheck`. Activate.
+- [X] T011 [US2] In n8n UI, create workflow `furqan-cron-auto-complete-sessions` per `contracts/n8n-workflow-shape.md` shape. Schedule: read `withCronMonitor` arg #2 from `src/app/api/cron/auto-complete-sessions/route.ts` (FR-004). HTTP node → `https://www.furqan.today/api/cron/auto-complete-sessions` with dual-auth headers. Activate. *(Created via n8n MCP; ID: 9HJZmdeLsaUKgZC0)*
+- [X] T012 [US2] In n8n UI, create workflow `furqan-cron-cache-clear`; schedule `0 4 * * *`; HTTP node → `https://www.furqan.today/api/cron/cache-clear`. Activate. *(Created via n8n MCP; ID: ezrnzox3Awy4pGMy)*
+- [X] T013 [US2] In n8n UI, create workflow `furqan-cron-handoff-cleanup`; schedule `0 3 * * *` (from existing `withCronMonitor` in route); HTTP node → `https://www.furqan.today/api/cron/handoff-cleanup`. Activate. *(Created via n8n MCP; ID: ucQUFb31nnQY0brM)*
+- [X] T014 [US2] In n8n UI, create workflow `furqan-cron-murajaah-due`; schedule from `withCronMonitor` in `murajaah-due/route.ts`; HTTP node → `https://www.furqan.today/api/cron/murajaah-due`. Activate. *(Created via n8n MCP; ID: ddPFuoV80kGo0mkT)*
+- [X] T015 [US2] In n8n UI, create workflow `furqan-cron-n8n-healthcheck`; schedule `*/15 * * * *`; HTTP node → `https://www.furqan.today/api/cron/n8n-healthcheck`. Activate. *(Created via n8n MCP; ID: RvOlWJygNON7R53Q)*
 - [ ] T036 [US2] Open the `furqan-workflow-failure-sentinel` workflow in n8n UI. Add these 5 slugs to its watch-list (typically a SET or IF node): `cron-auto-complete-sessions`, `cron-cache-clear`, `cron-handoff-cleanup`, `cron-murajaah-due`, `cron-n8n-healthcheck`. Save via n8n UI (not MCP). Closes FR-015 — terminal failures on these 5 routes now Telegram-alert admin.
 
 #### 2c. Register new workflows in TARGETS
@@ -163,11 +163,11 @@ description: "Task list for spec 009 — n8n Re-establish & Harden"
 - [X] T031 [P] Update `automation/BLUEPRINT.md` §3.2 with current-reality footnote pointing at `AUTOMATION_REGISTRY.md` and `scripts/n8n-harden/run.mjs` TARGETS; correct the "only 2 live" claim.
 - [X] T032 [P] Update `EVENT_CATALOG.md` "Events Planned" rows that this spec promotes to "Events Currently Emitted" (e.g., murajaah-due events).
 - [ ] T033 Run `quickstart.md` end-to-end Definition of Done checklist; tick every box. Document any failures in the PR description.
-- [ ] T034 Final PR review:
-   - Confirm no n8n workflow JSON committed (FR-019).
-   - Confirm no secrets in any of the new files: `grep -r "K6Test\|password\|secret\|token" scripts/n8n-audit.mjs` returns no hits.
-   - **Confirm `src/app/api/webhooks/n8n/route.ts` still uses `timingSafeEqual` for `X-N8N-Secret` (FR-020 regression check).**
-   - **Confirm `src/lib/automation/emit.ts` still HMAC-signs with `X-Furqan-Signature` + 300s replay window (FR-021 regression check).**
+- [X] T034 Final PR review:
+   - Confirm no n8n workflow JSON committed (FR-019). ✅
+   - Confirm no secrets in any of the new files: `grep -r "K6Test\|password\|secret\|token" scripts/n8n-audit.mjs` returns no hits. ✅
+   - **Confirm `src/app/api/webhooks/n8n/route.ts` still uses `timingSafeEqual` for `X-N8N-Secret` (FR-020 regression check).** ✅ (`safeCompareSecret`)
+   - **Confirm `src/lib/automation/emit.ts` still HMAC-signs with `X-Furqan-Signature` + 300s replay window (FR-021 regression check).** ✅
 
 ---
 
