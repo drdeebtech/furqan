@@ -115,7 +115,7 @@ Today there's no single command to answer "which workflows in `AUTOMATION_REGIST
 
 ### Edge Cases
 
-- **n8n outage during the rollout** — workflows can't fire; `automation_logs` writes from app emit-events go to dead-letter; `notify` failures pipe through `logError` (per ADR-0004 best-effort side effects).
+- **n8n outage during the rollout** — workflows can't fire; app emit-events that fail to reach n8n write to `automation_logs` with `status='failed'`; `notify` failures pipe through `logError` (per ADR-0004 best-effort side effects). Terminal `automation_logs` rows are the dead-letter view (no separate table — see Q6 + FR-014).
 - **Credential rotation mid-rollout** — hardening script re-binds by ID; rotated values work without re-hardening (per runbook §"Rotating a credential").
 - **MCP regen-UUID issue** — the MCP `update_workflow` regenerates node UUIDs and breaks credential bindings. All saves go through REST API direct-PUT (per runbook §"Why MCP can't do this"). MCP `validate_workflow` is still used for schema validation.
 - **Sub-daily schedules at 50k DAU** — n8n on Mac mini owns sub-daily schedules per `CLAUDE.md`; Vercel cron is forbidden (and a previous attempt entered a stuck state, missing 2+ fires before detection).
@@ -223,7 +223,7 @@ Today there's no single command to answer "which workflows in `AUTOMATION_REGIST
 - **Principle II — Loud Failures**: ✅ FR-006, FR-013–016 enforce logging on every fire; failures dead-letter + Telegram.
 - **Principle III — Atomic critical paths**: ✅ n8n workflows are post-commit side effects; they don't replace SQL functions for multi-table writes.
 - **Principle IV — Auth at the boundary**: ✅ FR-005, FR-020 keep dual-auth at route adapters; n8n never bypasses route auth.
-- **Principle V — Tracer-bullet adoption**: ✅ Phase-1 (12 workflows) is the pilot; Phase-2 and Phase-3 follow after Phase-1 KPIs stabilize.
+- **Principle V — Tracer-bullet adoption**: ✅ The 5-cron-wiring (US-2) is the pilot; once 10/10 cron routes show clean fires in `automation_logs`, the same pattern generalizes to Phase-2 backlog items (parent reports v2, Stripe webhook).
 
 ---
 
