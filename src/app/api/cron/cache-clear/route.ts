@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { clearPublicCache } from "@/lib/actions/cache";
-import { withCronMonitor } from "@/lib/sentry/cron";
-
 export const dynamic = "force-dynamic";
 
 function safeCompare(a: string | null, b: string | undefined): boolean {
@@ -13,7 +11,7 @@ function safeCompare(a: string | null, b: string | undefined): boolean {
   return timingSafeEqual(aBuf, bBuf);
 }
 
-export const GET = withCronMonitor("cron-cache-clear", "0 4 * * *", async (request: Request) => {
+export async function GET(request: Request) {
   const cronAuth = request.headers.get("authorization");
   const expectedCron = `Bearer ${process.env.CRON_SECRET}`;
   const cronOk = !!process.env.CRON_SECRET && cronAuth === expectedCron;
@@ -32,4 +30,4 @@ export const GET = withCronMonitor("cron-cache-clear", "0 4 * * *", async (reque
     const msg = err instanceof Error ? err.message : "cache clear failed";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
-});
+}
