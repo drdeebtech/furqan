@@ -9,17 +9,29 @@
 
 ## Context
 
-The automation layer is partially landed but unevenly built:
+The automation layer is **further along than the blueprint suggests**. Reality-check via `scripts/n8n-harden/run.mjs` TARGETS:
 
-- **`AUTOMATION_REGISTRY.md`** lists 52 workflows across 12 owner-areas (`WF-01`…`WF-82`); only ~5 are confirmed active.
-- **`automation/BLUEPRINT.md` §3.2** confirms only **Kuwait Daily News** and **Claude Code via Telegram** were live on n8n at writing time.
-- **`docs/n8n-hardening-runbook.md`** documents a script (`scripts/n8n-harden/run.mjs`) that adds `onError`+`alwaysOutputData`+`Log Run` parallel node — but only some workflows have been hardened (the runbook explicitly cites `furqan-daily-admin-digest` as broken for 14 days because it wasn't logging).
-- **`src/app/api/cron/*`** ships **10 cron route handlers** with `withCronMonitor`+dual-auth (`CRON_SECRET` Bearer + `X-N8N-Secret`); only **`audit-cleanup`** is confirmed triggered by n8n end-to-end.
-- **`EVENT_CATALOG.md`** lists 19 emitted events; the registry shows webhook routes for them, but most n8n subscribers are stubs.
+- **~22 n8n workflows already exist** with stable workflow IDs (daily-admin-digest, platform-health-check, retention-scorer, dailyco-room-creation, no-show-detector, session-reminder-engine, workflow-failure-sentinel, package-expiry-countdown, low-package-balance-alert, abandoned-booking-recovery, package-renewal-campaign, auto-decline-stale-bookings, cv-approval-notification, teacher-onboarding-nudges, role-based-welcome, learning-streak-encouragement, first-student-celebration, missed-session-parent-alert, homework-noncompletion-parent-alert, cron-audit-cleanup, cron-email-health, cron-reconciliation, bunny-stuck-lessons).
+- **Only 5 of 10 cron routes are wired** to n8n: `audit-cleanup`, `bunny-stuck-lessons`, `email-health`, `reconciliation`, `retention-score`. **Missing 5:** `auto-complete-sessions`, `cache-clear`, `handoff-cleanup`, `murajaah-due`, `n8n-healthcheck`.
+- **`automation_logs` table exists** (referenced in `supabase/migrations/20260428*`).
+- **`AUTOMATION_REGISTRY.md`** lists 52 workflow rows (`WF-01`…`WF-82`), but ~30 are stubs without trigger/owner/kpi fields filled.
+- **`docs/n8n-hardening-runbook.md`** documents the hardening standard; only `daily-admin-digest` and `platform-health-check` are confirmed already-hardened (commented out in TARGETS as such). The remaining ~20 in TARGETS still need the script run against them.
+- **`automation/BLUEPRINT.md` §3.2 is outdated** (claims only 2 workflows live, last revised 2026-04-09).
+- **`EVENT_CATALOG.md`** lists 19 emitted events; webhook routes exist, but per-event n8n subscribers are partly stubbed.
 
-This spec is the **re-establish plan**: audit what exists, harden everything live, build the Phase-1 critical workflows from the blueprint, and wire all 10 cron routes.
+This spec is the **close-the-gap plan**: wire the 5 missing cron routes, run hardening against everything in TARGETS, and bring `AUTOMATION_REGISTRY.md` to truth.
 
 ---
+
+## Clarifications
+
+### Session 2026-05-13
+
+- Q: BLUEPRINT.md §3.2 said only 2 workflows live, but `scripts/n8n-harden/run.mjs` shows 22+ workflow IDs. How should this spec be re-scoped? → A: B — re-scope to "wire 5 missing cron routes + harden+register all existing 22 workflows".
+- Q: Audit script REST auth + output format? → A: A — reuse `scripts/n8n-harden/lib.mjs` n8n PAT; output Markdown with three sections (Registered+Live, Registered+Missing, Live+Unregistered).
+- Q: How is a workflow "critical-tagged" for Telegram alerts (FR-015)? → A: B — Critical = `furqan-workflow-failure-sentinel` watch-list ∪ the 5 newly-wired cron routes. No new tag column.
+- Q: How should this spec treat the existing `automation_logs` schema? → A: A — use existing schema as authoritative; new fields go into `result_json` JSONB; no migration in this spec.
+- Q: Source-of-truth for cron schedules between route file and n8n Schedule Trigger? → A: A — route's `withCronMonitor` schedule string is canonical; n8n Schedule Trigger MUST match it.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -68,34 +80,18 @@ Per the hardening runbook, the standard (effective 2026-05-03) is: every active 
 
 ---
 
-### User Story 4 — Phase-1 critical workflows from the blueprint are live (Priority: P2)
+### User Story 4 — Existing workflows match AUTOMATION_REGISTRY.md (Priority: P2)
 
-Per `BLUEPRINT.md` §10 Phase 1 and §19 Core Workflow Shortlist, the 8 most operationally critical workflows are:
+The ~22 workflows already in n8n need to land truthful rows in `AUTOMATION_REGISTRY.md`. The registry's 52 stub rows include both "live + needs full row" and "stubbed + not built yet". The deliverable here is: for every workflow in `scripts/n8n-harden/run.mjs` TARGETS, the registry has a complete row (all 11 fields), AND every registry row not yet built is explicitly marked `status: stubbed`.
 
-1. Platform Health Check (`WF-80` family)
-2. Workflow Failure Sentinel (`WF-81` family)
-3. Session Reminder Engine (`WF-02`)
-4. Daily.co Room Auto-Creation (`WF-01`)
-5. No-Show Detector (`WF-03`)
-6. AI Parent Post-Session Report (`WF-10`)
-7. Structured Fallback Parent Report (`WF-10` fallback)
-8. Low Package Balance Alert (`WF-21`)
+**Why this priority**: Without this, the registry stays a misleading document. New PR reviewers can't tell "live but undocumented" from "documented but not built". The audit script (US-5) is the lock-in mechanism.
 
-Plus the four Phase-1-extended:
-
-9. Package Expiry Countdown (`WF-22`)
-10. Daily Admin Digest (`WF-40`)
-11. Teacher Quality Monitor (`WF-30`)
-12. Student At-Risk Detector (`WF-26`)
-
-**Why this priority**: These directly affect reliability, retention, revenue, or parent trust. They are also the prerequisites for any further phase work.
-
-**Independent Test**: Each workflow has an entry in `AUTOMATION_REGISTRY.md` with **all eleven fields** filled (`id, name, owner, trigger, input, output, idempotency, retry, alert_on, kpi, flag`), an n8n workflow with the same slug, and ≥1 successful fire in `automation_logs`.
+**Independent Test**: For every `(workflowId, slug)` pair in TARGETS, `AUTOMATION_REGISTRY.md` has a row with all 11 fields (`id, name, owner, trigger, input, output, idempotency, retry, alert_on, kpi, flag`). For every row in the registry not in TARGETS, the row carries `status: stubbed` or is explicitly moved out to a "Phase-N Backlog" section.
 
 **Acceptance Scenarios**:
 
-1. **Given** the 12 Phase-1 workflows, **When** the operator queries `automation_logs`, **Then** each has logged within its expected interval and the success rate ≥95% in the last 7 days.
-2. **Given** a Phase-1 workflow's primary integration fails (e.g. Daily.co API), **When** the failure happens 3 times consecutively, **Then** the workflow writes to `automation_dead_letter` AND fires a Telegram admin alert.
+1. **Given** the TARGETS array in `scripts/n8n-harden/run.mjs`, **When** an operator opens `AUTOMATION_REGISTRY.md`, **Then** every live workflow has a complete row and every stub is labeled as such.
+2. **Given** a new workflow is added to n8n, **When** it's added to TARGETS, **Then** the registry must gain a row in the same PR (enforced by the audit script's `live+unregistered` check).
 
 ---
 
@@ -131,13 +127,13 @@ Today there's no single command to answer "which workflows in `AUTOMATION_REGIST
 
 **Audit & Inventory**
 
-- **FR-001**: System MUST provide `scripts/n8n-audit.mjs` that emits three lists from the n8n REST API + `AUTOMATION_REGISTRY.md` diff: `registered+live`, `registered+missing`, `live+unregistered`.
-- **FR-002**: Audit output MUST be reproducible — same n8n state → same output, deterministic ordering.
+- **FR-001**: System MUST provide `scripts/n8n-audit.mjs` that reuses `scripts/n8n-harden/lib.mjs` REST helpers (and the n8n personal access token already plumbed there) to fetch the n8n workflow list and diff it against `AUTOMATION_REGISTRY.md`. Output MUST be Markdown with three sections: `## Registered + Live`, `## Registered + Missing`, `## Live + Unregistered`.
+- **FR-002**: Audit output MUST be reproducible — same n8n state → same Markdown bytes, deterministic ordering (alphabetical by slug within each section).
 
 **Cron route ↔ n8n workflow coverage**
 
 - **FR-003**: For each of the 10 cron route handlers in `src/app/api/cron/*/route.ts`, an n8n workflow MUST exist with a Schedule Trigger, an HTTP node calling the route, both auth headers (`Authorization: Bearer ${CRON_SECRET}` + `X-N8N-Secret: ${N8N_WEBHOOK_SECRET}`), and a `Log Run` parallel node.
-- **FR-004**: The cron expression in the n8n Schedule Trigger MUST match the schedule string passed to `withCronMonitor` in the route file (Sentry monitor cadence label is the source of truth).
+- **FR-004**: The `withCronMonitor` schedule string in the route file is the **canonical source-of-truth**. The n8n Schedule Trigger expression MUST match it byte-for-byte. For the 5 missing routes (`auto-complete-sessions`, `cache-clear`, `handoff-cleanup`, `murajaah-due`, `n8n-healthcheck`), if the route file lacks an explicit `withCronMonitor` schedule, the planning phase (`/speckit-plan`) picks it and updates both atomically in the same PR.
 - **FR-005**: Routes MUST continue to accept `Bearer CRON_SECRET` (operator manual invocation) AND `X-N8N-Secret` (n8n) — both auth paths preserved per `audit-cleanup/route.ts` canonical pattern.
 
 **Hardening**
@@ -147,17 +143,17 @@ Today there's no single command to answer "which workflows in `AUTOMATION_REGIST
 - **FR-008**: Every credential reference MUST be bound by credential ID (not name) using the `CRED` constant in `scripts/n8n-harden/lib.mjs`.
 - **FR-009**: The hardening script MUST be idempotent — running it twice MUST NOT add duplicate `Log Run` nodes or duplicate-write the same transforms.
 
-**Phase-1 Workflow Build**
+**Registry Truth-Sync**
 
-- **FR-010**: System MUST have the 8 Phase-1-core + 4 Phase-1-extended workflows active in n8n (US-4 enumerates them).
-- **FR-011**: Each Phase-1 workflow MUST have a full row in `AUTOMATION_REGISTRY.md` with all 11 fields populated (id, name, owner, trigger, input, output, idempotency, retry, alert_on, kpi, flag).
+- **FR-010**: For every `(workflowId, slug)` in `scripts/n8n-harden/run.mjs` TARGETS, `AUTOMATION_REGISTRY.md` MUST contain a row with all 11 fields populated.
+- **FR-011**: Registry rows that are NOT in TARGETS MUST carry `status: stubbed` OR be moved to a "Phase-N Backlog" subsection (no silent stubs intermixed with live rows).
 - **FR-012**: Workflow names MUST follow `furqan-<area>-<verb>` kebab-case; renames are forbidden (deprecate + `-v2` instead, per blueprint §16).
 
 **Failure semantics**
 
 - **FR-013**: Every workflow MUST write to `automation_logs` at start (`status='started'`) and end (`'succeeded'`/`'failed'`/`'skipped'`).
 - **FR-014**: Final-retry failures MUST write to `automation_dead_letter` with full payload + last error.
-- **FR-015**: Critical-tagged workflows MUST fire a Telegram admin alert on final failure.
+- **FR-015**: "Critical" workflows MUST fire a Telegram admin alert on final failure. Critical is defined as: workflows already in the `furqan-workflow-failure-sentinel` watch-list ∪ the 5 newly-wired cron routes (`auto-complete-sessions`, `cache-clear`, `handoff-cleanup`, `murajaah-due`, `n8n-healthcheck`). No new `critical: bool` column in the registry — sentinel logic is the source of truth.
 - **FR-016**: Best-effort writes (`audit_log`, `automation_logs`, post-commit `notify`/`emitEvent`) MUST NOT block the critical path; failures pipe through `logError` (per constitution Principle II).
 
 **Documentation**
@@ -174,7 +170,7 @@ Today there's no single command to answer "which workflows in `AUTOMATION_REGIST
 ### Key Entities
 
 - **n8n Workflow**: A trigger + chain of nodes; identified by stable `(workflowId, slug)` pair in `scripts/n8n-harden/run.mjs` TARGETS.
-- **`automation_logs` row**: Durable per-run record. Required fields per blueprint §7.1: `workflow_name, event_name, idempotency_key, status, started_at, finished_at, trace_id`.
+- **`automation_logs` row**: Durable per-run record. **Schema is authoritative as currently deployed** (referenced in `supabase/migrations/20260428*`); this spec does NOT modify the table. Per-workflow extra fields go into the existing `result_json` JSONB column. Any column-level change requires a separate migration + ADR.
 - **`automation_dead_letter` row**: Final-failure record with full payload + last error; one row per terminal-failed workflow run.
 - **Cron route handler**: `src/app/api/cron/<name>/route.ts` — Next.js route with `withCronMonitor("cron-<name>", "<cron>", handler)` and dual-auth.
 - **Credential (n8n)**: Stored in n8n's credential vault, referenced by ID in workflow JSON.
@@ -187,7 +183,7 @@ Today there's no single command to answer "which workflows in `AUTOMATION_REGIST
 
 - **SC-001**: 100% of cron route handlers in `src/app/api/cron/*` have a confirmed-firing n8n workflow (10/10).
 - **SC-002**: 100% of active n8n workflows write to `automation_logs` on every trigger fire — verifiable by the "last log per workflow" SQL query in the hardening runbook §"Verifying a workflow is logging".
-- **SC-003**: 12/12 Phase-1 workflows from `BLUEPRINT.md` §19 are live, registered, and logging.
+- **SC-003**: 100% of workflows in `scripts/n8n-harden/run.mjs` TARGETS have complete `AUTOMATION_REGISTRY.md` rows (all 11 fields); stubs are explicitly labeled.
 - **SC-004**: Zero workflows go undetected-broken for >24h — the workflow-failure-sentinel + admin daily digest catches any gap in `automation_logs`.
 - **SC-005**: The `scripts/n8n-audit.mjs` "registered+missing" count drops from current (~35 stubs) to ≤5 over the rollout horizon; remaining ≤5 are explicitly deferred to Phase-2/Phase-3.
 - **SC-006**: 0 workflows in `live+unregistered` after the audit (everything live is documented).
