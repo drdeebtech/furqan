@@ -8,7 +8,8 @@ export const options = { vus: 1, iterations: 1 };
 export default function () {
   const payload = JSON.stringify({
     email: 'k6-student001@furqan.test',
-    password: 'K6Test!2026001',
+    // set K6_TEST_PASSWORD env var before running
+    password: __ENV.K6_TEST_PASSWORD,
   });
   const res = http.post(url, payload, {
     headers: {
