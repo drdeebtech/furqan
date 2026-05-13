@@ -93,7 +93,7 @@ description: "Task list for spec 009 — n8n Re-establish & Harden"
 
 #### 2c. Register new workflows in TARGETS
 
-- [ ] T016 [US2] Append 5 new `(workflowId, slug)` rows to TARGETS array in `scripts/n8n-harden/run.mjs` for the workflows created in T011–T015. Workflow IDs come from the n8n UI after save.
+- [X] T016 [US2] Append 5 new `(workflowId, slug)` rows to TARGETS array in `scripts/n8n-harden/run.mjs` for the workflows created in T011–T015. Workflow IDs come from the n8n UI after save.
 
 #### 2d. Verify
 
