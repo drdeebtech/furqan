@@ -74,12 +74,11 @@ export async function GET(request: Request) {
     workflow_name: WORKFLOW_NAME,
     event_name: "n8n.health",
     entity_type: "service",
-    entity_id: "n8n.drdeeb.tech",
     status: status === "up" ? "succeeded" : "failed",
     started_at: startedAt,
     finished_at: finishedAt,
     error_message: errorMessage,
-    payload_json: { http_code: httpCode, url: HEALTHCHECK_URL },
+    payload_json: { http_code: httpCode, url: HEALTHCHECK_URL, service: "n8n.drdeeb.tech" },
   }).then(({ error }) => {
     if (error) logError("n8n-healthcheck: automation_logs insert failed", error, { tag: "automation" });
   });
