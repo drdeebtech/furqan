@@ -1,0 +1,3 @@
+## 2025-03-01 - Add missing `disabled:cursor-not-allowed` to custom buttons
+**Learning:** While the primary `GlassButton` component includes the `disabled:cursor-not-allowed` class, many bespoke buttons within the app only used `disabled:opacity-50`, resulting in an inconsistent and less clear user experience when buttons are disabled.
+**Action:** Ensure that all buttons, especially custom ones that don't rely on `GlassButton`, include both `disabled:opacity-50` and `disabled:cursor-not-allowed` to provide clear visual feedback to users that an action is disabled.

@@ -127,7 +127,7 @@ export function Topbar({ role, roles }: { role?: Role; roles?: Role[] } = {}) {
             aria-haspopup="listbox"
             disabled={switching}
             onClick={() => setRoleOpen((v) => !v)}
-            className="glass glass-gold flex h-11 items-center gap-2 rounded-xl px-3.5 disabled:opacity-50"
+            className="glass glass-gold flex h-11 items-center gap-2 rounded-xl px-3.5 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <UserCog size={16} className="text-gold" aria-hidden="true" />
             <span className="text-sm font-medium">{labelFor(role!)}</span>
@@ -152,7 +152,7 @@ export function Topbar({ role, roles }: { role?: Role; roles?: Role[] } = {}) {
                       await switchActiveRole(r);
                     });
                   }}
-                  className="flex min-h-[44px] w-full items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-foreground/5 disabled:opacity-50"
+                  className="flex min-h-[44px] w-full items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-foreground/5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <UserCog size={14} className="text-muted" aria-hidden="true" />
                   <span>{t("تحويل إلى", "Switch to")} {labelFor(r)}</span>

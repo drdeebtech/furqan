@@ -120,7 +120,7 @@ export function NotificationBell() {
                 type="button"
                 onClick={handleMarkAllRead}
                 disabled={loading}
-                className="flex items-center gap-1 text-xs text-gold transition-colors hover:text-gold-hover disabled:opacity-50"
+                className="flex items-center gap-1 text-xs text-gold transition-colors hover:text-gold-hover disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <CheckCheck size={12} aria-hidden="true" />
                 {t("قراءة الكل", "Mark all read")}
