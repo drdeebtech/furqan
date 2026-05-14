@@ -9,6 +9,7 @@ import { emitEvent } from "@/lib/automation/emit";
 import { sendTeacherWelcome, sendAdminTeacherApplicationAlert } from "@/lib/email";
 import { sendTelegramAlert } from "@/lib/n8n/client";
 import { notify } from "@/lib/notifications/dispatcher";
+import { notifyNewTeacherApplication } from "@/lib/whatsapp";
 import { logError } from "@/lib/logger";
 import { loudAction } from "@/lib/actions/loud";
 import type { CvStatus } from "@/types/database";
@@ -292,7 +293,6 @@ const submitTeacherApplicationBase = loudAction<ApplyInput, { message: string }>
     ).catch((err) => logError("teach-apply emitEvent failed", err, { tag: "teach-apply" }));
 
     // Multi-channel admin notification — fire-and-forget, never block the user.
-    // TODO: WhatsApp once cloud API token is configured.
     await Promise.allSettled([
       // 1. In-app bell for every admin.
       //    Filter by `roles[] @> ['admin']` instead of `role = 'admin'` so
@@ -363,6 +363,13 @@ const submitTeacherApplicationBase = loudAction<ApplyInput, { message: string }>
           `<b>Specialties:</b> ${input.specialties.join(", ")}\n\n` +
           `<a href="https://www.furqan.today/admin/teachers/cv/${teacherId}">Review →</a>`,
       ).catch((err) => logError("teach-apply telegram failed", err, { tag: "teach-apply" })),
+
+      // 4. WhatsApp notification
+      notifyNewTeacherApplication(
+        input.full_name,
+        input.country,
+        input.specialties,
+      ).catch((err) => logError("teach-apply whatsapp failed", err, { tag: "teach-apply" })),
     ]);
 
     // Diff audit row — preserved alongside the framework's generic envelope.
