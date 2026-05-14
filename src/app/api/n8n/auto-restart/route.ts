@@ -58,21 +58,24 @@ export async function POST(request: Request) {
     // Audit each restart attempt so admins can trace who/what triggered it.
     if (results.length > 0) {
       const trigger = isN8nCron ? "n8n-cron" : "admin-ui";
-      for (const r of results) {
-        await admin.from("audit_log").insert({
-          changed_by: actorId,
-          table_name: "n8n_workflows",
-          record_id: r.id,
-          action: "UPDATE",
-          old_data: null,
-          new_data: { auto_restart: true, trigger, success: r.success },
-          reason: r.success
-            ? `auto-restart OK (${trigger})`
-            : `auto-restart FAILED (${trigger}): ${r.error}`,
-        }).then(({ error }) => {
-          if (error) logError("audit insert failed (n8n.auto-restart)", error, { tag: "audit" });
+      const auditEntries = results.map(r => ({
+        changed_by: actorId,
+        table_name: "n8n_workflows",
+        record_id: r.id,
+        action: "UPDATE",
+        old_data: null,
+        new_data: { auto_restart: true, trigger, success: r.success },
+        reason: r.success
+          ? `auto-restart OK (${trigger})`
+          : `auto-restart FAILED (${trigger}): ${r.error}`,
+      }));
+
+      await admin
+        .from("audit_log")
+        .insert(auditEntries)
+        .then(({ error }) => {
+          if (error) logError("audit batch insert failed (n8n.auto-restart)", error, { tag: "audit" });
         });
-      }
     }
 
     // Telegram dedup: don't spam if we already alerted in the last 30 min.
