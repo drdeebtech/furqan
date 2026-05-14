@@ -1,14 +1,6 @@
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
 import { scoreRetentionBatch } from "@/lib/actions/retention-batch";
-
-function safeCompare(a: string | null, b: string | undefined): boolean {
-  if (!a || !b) return false;
-  const aBuf = Buffer.from(a);
-  const bBuf = Buffer.from(b);
-  if (aBuf.length !== bBuf.length) return false;
-  return timingSafeEqual(aBuf, bBuf);
-}
+import { safeCompareSecret } from "@/lib/security/secrets";
 
 /**
  * Daily retention scorer endpoint.
@@ -17,7 +9,7 @@ function safeCompare(a: string | null, b: string | undefined): boolean {
  */
 export async function POST(request: Request) {
   const secret = request.headers.get("X-N8N-Secret");
-  if (!safeCompare(secret, process.env.N8N_WEBHOOK_SECRET)) {
+  if (!safeCompareSecret(secret, process.env.N8N_WEBHOOK_SECRET)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
