@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   BunnyApiError,
@@ -59,7 +59,7 @@ async function logBunnyWebhook(
 // Idempotency: keyed on VideoGuid. Late or duplicate deliveries simply
 // re-run the status update; result is the same.
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
+export async function POST(req: Request): Promise<NextResponse> {
   const startedAt = new Date().toISOString();
   const rawBody = await req.text();
   // Per Bunny stream webhook docs (signature version v1):
