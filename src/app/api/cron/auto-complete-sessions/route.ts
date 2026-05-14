@@ -1,20 +1,12 @@
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { withCronMonitor } from "@/lib/sentry/cron";
 import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
+import { safeCompareSecret } from "@/lib/security/secrets";
 import type { TableInsert } from "@/lib/supabase/typed-helpers";
 
 export const dynamic = "force-dynamic";
-
-function safeCompare(a: string | null, b: string | undefined): boolean {
-  if (!a || !b) return false;
-  const aBuf = Buffer.from(a);
-  const bBuf = Buffer.from(b);
-  if (aBuf.length !== bBuf.length) return false;
-  return timingSafeEqual(aBuf, bBuf);
-}
 
 /**
  * Closes "stranded" sessions — those where started_at is set but ended_at is
@@ -41,11 +33,11 @@ export const GET = withCronMonitor(
   "*/15 * * * *",
   async (request: Request) => {
     const cronAuth = request.headers.get("authorization");
-    const expectedCron = `Bearer ${process.env.CRON_SECRET}`;
-    const cronOk = !!process.env.CRON_SECRET && cronAuth === expectedCron;
+    const expectedCron = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
+    const cronOk = !!expectedCron && safeCompareSecret(cronAuth, expectedCron);
 
     const n8nSecret = request.headers.get("X-N8N-Secret");
-    const n8nOk = safeCompare(n8nSecret, process.env.N8N_WEBHOOK_SECRET);
+    const n8nOk = safeCompareSecret(n8nSecret, process.env.N8N_WEBHOOK_SECRET);
 
     if (!cronOk && !n8nOk) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
