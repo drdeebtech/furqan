@@ -72,3 +72,9 @@ export async function notifySessionStarted(studentName: string, teacherName: str
     `🎥 جلسة بدأت الآن\n\nالطالب: ${studentName}\nالمعلم: ${teacherName}`,
   );
 }
+
+export async function notifyNewTeacherApplication(name: string, country: string, specialties: string[]) {
+  await sendWhatsAppNotification(
+    `🆕 طلب انضمام معلم جديد\n\nالاسم: ${name}\nالبلد: ${country}\nالتخصصات: ${specialties.join("، ")}\n\nراجع /admin/teachers`,
+  );
+}
