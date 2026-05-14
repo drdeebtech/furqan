@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, LogIn } from "lucide-react";
-import { login, type AuthResult } from "../actions";
+import { login } from "../actions";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { ActionFeedback } from "@/components/shared/action-feedback";
 
@@ -35,7 +35,7 @@ export function LoginForm() {
   const oauthError = oauthErrorMessage(searchParams.get("error"));
 
   const [showPassword, setShowPassword] = useState(false);
-  const [state, formAction, pending] = useActionState<AuthResult, FormData>(
+  const [state, formAction, pending] = useActionState(
     login,
     {},
   );
