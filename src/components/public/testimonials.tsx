@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { useLang } from "@/lib/i18n/context";
 import { useFeatureFlags } from "@/lib/feature-flags-context";
 
@@ -14,7 +15,7 @@ const REVIEWS = [
   { name: { ar: "فاطمة السيد", en: "Fatima Al-Sayed" }, loc: "Kuwait 🇰🇼", ar: "أتممت حفظ جزء عمّ في ثلاثة أشهر بفضل الله ثم بفضل معلمي المتميز.", en: "I completed memorizing Juz Amma in just three months, by the grace of Allah and my wonderful teacher." },
 ];
 
-export function Testimonials() {
+const TestimonialsComponent = function Testimonials() {
   const { t } = useLang();
   const { hideReviews } = useFeatureFlags();
 
@@ -45,3 +46,5 @@ export function Testimonials() {
     </section>
   );
 }
+
+export const Testimonials = memo(TestimonialsComponent);
