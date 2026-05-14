@@ -289,7 +289,7 @@ export function HomeworkAssignmentForm({
             <button
               onClick={handleCreateHomework}
               disabled={hwSaving}
-              className="glass-gold glass-pill flex items-center gap-2 px-5 py-2 text-sm font-semibold transition-colors hover:bg-primary-hover disabled:opacity-50 focus-ring"
+              className="glass-gold glass-pill flex items-center gap-2 px-5 py-2 text-sm font-semibold transition-colors hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed focus-ring"
             >
               {hwSaving ? (
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />

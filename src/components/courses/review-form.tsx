@@ -88,7 +88,7 @@ export function ReviewForm({
         <button
           type="submit"
           disabled={isPending || stars < 1}
-          className="flex items-center gap-2 rounded-lg bg-gold px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg bg-gold px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isPending && <Loader2 size={14} className="animate-spin" />}
           {existingStars ? labels.update : labels.submit}

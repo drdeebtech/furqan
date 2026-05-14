@@ -166,7 +166,7 @@ export function ControlTowerGrid({ initialData }: { initialData: ControlTowerSna
                   type="button"
                   disabled={pendingKey === w.key}
                   onClick={() => runAction(w.key, quickAction.run)}
-                  className="rounded-lg border border-[var(--surface-border)] py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-foreground/5 disabled:opacity-50"
+                  className="rounded-lg border border-[var(--surface-border)] py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-foreground/5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {pendingKey === w.key
                     ? t("جارٍ التنفيذ...", "Working...")

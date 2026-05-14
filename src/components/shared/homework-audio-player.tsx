@@ -72,7 +72,7 @@ export function HomeworkAudioPlayer({ homeworkId, durationSeconds, label }: Home
         type="button"
         onClick={handleLoad}
         disabled={loading}
-        className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-300 hover:bg-violet-500/15 disabled:opacity-50 focus-ring"
+        className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-300 hover:bg-violet-500/15 disabled:opacity-50 disabled:cursor-not-allowed focus-ring"
       >
         {loading ? (
           <Loader2 size={12} className="animate-spin" aria-hidden="true" />

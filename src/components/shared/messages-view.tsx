@@ -342,7 +342,7 @@ export function MessagesView({
                     type="submit"
                     disabled={sending || !newMsg.trim()}
                     aria-label={t("إرسال", "Send")}
-                    className="glass-gold rounded-xl px-4 py-2.5 text-white transition-colors hover:bg-gold-hover disabled:opacity-50"
+                    className="glass-gold rounded-xl px-4 py-2.5 text-white transition-colors hover:bg-gold-hover disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Send size={16} />
                   </button>
