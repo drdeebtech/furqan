@@ -69,9 +69,10 @@ export function createObservedFetch(
     if (!isSupabaseApiUrl(url)) return response;
 
     // 2xx = OK, 3xx redirect = OK (supabase-js follows automatically).
-    // 401 from auth API is expected on token refresh — skip to avoid noise.
+    // All auth/v1 4xx are expected user-facing flows (expired tokens,
+    // invalid credentials, refresh_token_not_found) handled by the SDK.
     if (response.ok) return response;
-    if (url.includes("/auth/v1/") && response.status === 401) return response;
+    if (url.includes("/auth/v1/") && response.status < 500) return response;
 
     const method = init?.method ?? "GET";
     const summary = summarizeRequest(url, method);

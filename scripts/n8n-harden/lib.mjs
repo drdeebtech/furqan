@@ -8,7 +8,8 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-const BASE = process.env.N8N_API_URL || "https://n8n.drdeeb.tech/api/v1";
+// .env.local stores N8N_API_URL without /api/v1; normalize either form.
+const BASE = (process.env.N8N_API_URL || "https://n8n.drdeeb.tech").replace(/\/api\/v1\/?$/, "") + "/api/v1";
 const KEY = process.env.N8N_API_KEY;
 if (!KEY) throw new Error("missing N8N_API_KEY");
 
@@ -187,20 +188,27 @@ export function applyHardening(wf, workflowSlug) {
     return n;
   });
 
-  const logNode = buildLogNode({
-    workflowSlug,
-    position: [trigger.position[0], trigger.position[1] + 200],
-  });
-  newNodes.push(logNode);
+  // Only push Log Run / Log Failure if not already present — keeps the
+  // transform idempotent when a workflow already has one (e.g., when
+  // fix-cron-creds.mjs added a Log Run before this script ran).
+  const hasLogRun = newNodes.some((n) => n.name === "Log Run");
+  if (!hasLogRun) {
+    newNodes.push(buildLogNode({
+      workflowSlug,
+      position: [trigger.position[0], trigger.position[1] + 200],
+    }));
+  }
 
-  const callRouteNode = wf.nodes.find((n) => n.name === callRouteName);
-  const failNode = buildLogFailureNode({
-    workflowSlug,
-    position: callRouteNode
-      ? [callRouteNode.position[0], callRouteNode.position[1] + 200]
-      : [trigger.position[0], trigger.position[1] + 400],
-  });
-  newNodes.push(failNode);
+  const hasLogFailure = newNodes.some((n) => n.name === "Log Failure");
+  if (!hasLogFailure) {
+    const callRouteNode = wf.nodes.find((n) => n.name === callRouteName);
+    newNodes.push(buildLogFailureNode({
+      workflowSlug,
+      position: callRouteNode
+        ? [callRouteNode.position[0], callRouteNode.position[1] + 200]
+        : [trigger.position[0], trigger.position[1] + 400],
+    }));
+  }
 
   const newConnections = { ...wf.connections };
 
