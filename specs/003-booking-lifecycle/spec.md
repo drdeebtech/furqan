@@ -142,7 +142,7 @@ Either the student (their own pending booking) or admin (any pending booking) ca
 
 ## Known divergences from production (filed as follow-up issues at end of Phase 1)
 
-- **D-001**: `createBooking()`, `updateBookingStatus()`, and `recreateRoom()` are NOT yet wrapped in `loudAction` despite all being DB-write server actions. They use ad-hoc `{ error }` returns instead. FR-008 documents the target state; remediation lands in Phase 2.
+- **D-001**: `createBooking()` is exempt from `loudAction` per ADR-0002 §4 (redirect-style adapter — `useActionState` + redirect; wrapping would drop the `BookingResult` shape the optimistic UI consumes). `updateBookingStatus()` and `recreateRoom()` are similarly exempt (return `{ roomUrl, warning }` / `{ success, roomUrl }` consumed by caller UI). All three now have best-effort `audit_log` writes (`booking.confirmed`, `booking.cancelled`, `booking.room_recreated`) matching the `endSession` pattern. FR-008 is satisfied via inline hardening rather than `loudAction` wrapping.
 - **D-002**: The `cancel_reason` column has no enum constraint — cancellations from different surfaces use freeform strings, making admin reporting noisy. Possible normalization candidate.
 - **D-003**: ~~`startInstantSession()` created bookings without the FR-009 package-balance check.~~ **RESOLVED** in PR #314 — `startInstantSession` now queries `student_packages`, calls `deduct_package_session()`, and rejects exhausted/inactive packages before any DB insert.
 
