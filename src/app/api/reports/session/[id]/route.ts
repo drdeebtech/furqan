@@ -1,17 +1,9 @@
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
+import { safeCompareSecret } from "@/lib/security/secrets";
 import { createClient } from "@/lib/supabase/server";
 import { buildSessionNarrative } from "@/lib/reports/session-narrative";
 
 export const maxDuration = 60;
-
-function safeCompare(a: string | null, b: string | undefined): boolean {
-  if (!a || !b) return false;
-  const aBuf = Buffer.from(a);
-  const bBuf = Buffer.from(b);
-  if (aBuf.length !== bBuf.length) return false;
-  return timingSafeEqual(aBuf, bBuf);
-}
 
 /**
  * Return a structured parent-facing session narrative.
@@ -28,7 +20,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   // Server-to-server path
   const n8nSecret = request.headers.get("X-N8N-Secret");
-  const hasN8nSecret = safeCompare(n8nSecret, process.env.N8N_WEBHOOK_SECRET);
+  const hasN8nSecret = safeCompareSecret(n8nSecret, process.env.N8N_WEBHOOK_SECRET);
 
   if (!hasN8nSecret) {
     // Fall back to cookie-based auth

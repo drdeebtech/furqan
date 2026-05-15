@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Smartphone, Copy, Check, X, Loader2 } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { requestHandoff, revokeMyHandoffs } from "@/lib/auth/remote-handoff";
@@ -49,12 +49,13 @@ export function RemoteHandoffButton({ targetPath = "/admin/control-tower" }: { t
     return () => clearInterval(id);
   }, [state.kind]);
 
-  // Auto-flip to expired when the countdown hits zero.
-  useEffect(() => {
+  // Derive expired UI state rather than calling setState inside useEffect.
+  const displayState = useMemo((): State => {
     if (state.kind === "ready" && now >= state.expiresAt) {
-      setState({ kind: "error", message: t("انتهت صلاحية الرمز.", "Code expired.") });
+      return { kind: "error", message: t("انتهت صلاحية الرمز.", "Code expired.") };
     }
-  }, [now, state, t]);
+    return state;
+  }, [state, now, t]);
 
   // Close on Escape.
   useEffect(() => {
@@ -127,19 +128,19 @@ export function RemoteHandoffButton({ targetPath = "/admin/control-tower" }: { t
               <h2 className="font-display text-lg font-bold">{t("افتح على الهاتف", "Open on phone")}</h2>
             </div>
 
-            {state.kind === "loading" && (
+            {displayState.kind === "loading" && (
               <div className="flex h-64 items-center justify-center">
                 <Loader2 size={28} className="animate-spin text-gold" aria-hidden="true" />
               </div>
             )}
 
-            {state.kind === "error" && (
+            {displayState.kind === "error" && (
               <div role="alert" className="rounded-xl border border-error/30 bg-error/10 p-4 text-sm text-error">
-                {state.message}
+                {displayState.message}
               </div>
             )}
 
-            {state.kind === "ready" && (
+            {displayState.kind === "ready" && (
               <>
                 <p className="mb-3 text-xs text-muted">
                   {t(
@@ -151,12 +152,12 @@ export function RemoteHandoffButton({ targetPath = "/admin/control-tower" }: { t
                 <div
                   className="mx-auto mb-4 w-fit rounded-xl bg-white p-3"
                   // eslint-disable-next-line react/no-danger -- our own server-rendered SVG
-                  dangerouslySetInnerHTML={{ __html: state.qrSvg }}
+                  dangerouslySetInnerHTML={{ __html: displayState.kind === "ready" ? displayState.qrSvg : "" }}
                   aria-label={t("رمز الاستجابة السريعة", "QR code")}
                 />
 
                 <div className="mb-3 flex items-center justify-between rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-2 ps-3">
-                  <code className="truncate text-xs text-muted">{state.url}</code>
+                  <code className="truncate text-xs text-muted">{displayState.kind === "ready" ? displayState.url : ""}</code>
                   <button
                     type="button"
                     onClick={handleCopy}
