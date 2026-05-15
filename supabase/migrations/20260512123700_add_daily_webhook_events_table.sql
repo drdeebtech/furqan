@@ -141,7 +141,13 @@ begin
   end if;
 
   -- Step 5: audit log
-  insert into public.audit_log (actor_id, action, table_name, record_id, metadata)
+  -- 2026-05-15 amendment: column names corrected (was: actor_id, metadata —
+  -- those columns don't exist; the live schema is changed_by + new_data).
+  -- Original prod state was unblocked by 20260515162723 which recreates
+  -- both functions. Editing this file in place so that fresh-environment
+  -- replays (local dev `db reset`, branch restores) land on the correct
+  -- function bodies even before reaching the patch migration.
+  insert into public.audit_log (changed_by, action, table_name, record_id, new_data)
   values (
     null,
     v_audit_action,
@@ -198,7 +204,8 @@ begin
   set started_at = p_started_at
   where id = p_session_id;
 
-  insert into public.audit_log (actor_id, action, table_name, record_id, metadata)
+  -- 2026-05-15 amendment: see end_session_from_webhook above for context.
+  insert into public.audit_log (changed_by, action, table_name, record_id, new_data)
   values (
     null,
     'session.webhook.started',
