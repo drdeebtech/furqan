@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { createRoom, updateRoomExpiry } from "@/lib/daily";
 import { notifyParentSessionComplete, notifyParentNoShow } from "@/lib/notifications/parent";
@@ -730,6 +731,42 @@ export async function startInstantSession(studentId: string, durationMin: number
   const rate = Number(tp.hourly_rate);
   const amountUsd = Number((rate * (durationMin / 60)).toFixed(2));
   const scheduledAt = new Date();
+
+  // Enforce package balance before creating any booking (FR-009). Closes #229 / #247.
+  const admin = createAdminClient();
+  const { data: activePkg, error: pkgQueryErr } = await admin
+    .from("student_packages")
+    .select("id, sessions_remaining")
+    .eq("student_id", studentId)
+    .eq("status", "active")
+    .gt("sessions_remaining", 0)
+    .order("expires_at", { ascending: true, nullsFirst: false })
+    .limit(1)
+    .maybeSingle<{ id: string; sessions_remaining: number }>();
+
+  if (pkgQueryErr) {
+    logError("startInstantSession: student_packages query failed", pkgQueryErr, {
+      tag: "bookings",
+      actionName: "teacher.startInstantSession",
+      studentId,
+      teacherId: user.id,
+    });
+    return { error: "فشل التحقق من رصيد الباقة" };
+  }
+  if (!activePkg) return { error: "لا توجد باقة نشطة للطالب — يرجى تجديد الاشتراك" };
+
+  const { data: deducted, error: deductErr } = await admin.rpc("deduct_package_session", { p_package_id: activePkg.id });
+  if (deductErr) {
+    logError("startInstantSession: deduct_package_session failed", deductErr, {
+      tag: "bookings",
+      actionName: "teacher.startInstantSession",
+      studentId,
+      teacherId: user.id,
+      packageId: activePkg.id,
+    });
+    return { error: "تعذر خصم رصيد الباقة" };
+  }
+  if (deducted !== true) return { error: "هذه الباقة منتهية أو مستهلكة" };
 
   // Create booking (already confirmed)
   const { data: booking, error: bookingError } = await supabase
