@@ -158,6 +158,19 @@ export async function updateBookingStatus(
     }
     roomUrl = confirmResult.roomUrl;
 
+    // Audit trail — updateBookingStatus not wrapped in loudAction (ADR-0002 §4)
+    const adminForAudit = createAdminClient();
+    const { error: confirmAuditErr } = await adminForAudit
+      .from("audit_log")
+      .insert({
+        actor_id:   user.id,
+        action:     "booking.confirmed",
+        table_name: "bookings",
+        record_id:  bookingId,
+        metadata:   { student_id: booking.student_id, teacher_id: user.id },
+      } as never);
+    if (confirmAuditErr) logError("updateBookingStatus: audit insert failed", confirmAuditErr, { tag: "bookings", actionName: "teacher.updateBookingStatus" });
+
     // V9: Auto-cancel other pending bookings at overlapping times for this
     // teacher. Stays at the route adapter — this is teacher-side cleanup
     // (teacher just locked in this slot, so any other pending bookings
@@ -242,6 +255,17 @@ export async function updateBookingStatus(
       });
       return { error: "حدث خطأ أثناء تحديث الحجز" };
     }
+
+    const { error: cancelAuditErr } = await createAdminClient()
+      .from("audit_log")
+      .insert({
+        actor_id:   user.id,
+        action:     "booking.cancelled",
+        table_name: "bookings",
+        record_id:  bookingId,
+        metadata:   { student_id: booking.student_id, teacher_id: user.id },
+      } as never);
+    if (cancelAuditErr) logError("updateBookingStatus: cancel audit insert failed", cancelAuditErr, { tag: "bookings", actionName: "teacher.updateBookingStatus" });
 
     try {
       await notify({
@@ -633,6 +657,17 @@ export async function recreateRoom(bookingId: string) {
     });
     return { success: false, error: `فشل حفظ الغرفة: ${roomErr.message}` };
   }
+
+  const { error: recreateAuditErr } = await createAdminClient()
+    .from("audit_log")
+    .insert({
+      actor_id:   user.id,
+      action:     "booking.room_recreated",
+      table_name: "bookings",
+      record_id:  bookingId,
+      metadata:   { new_room: room.name },
+    } as never);
+  if (recreateAuditErr) logError("recreateRoom: audit insert failed", recreateAuditErr, { tag: "bookings", actionName: "teacher.recreateRoom" });
 
   revalidatePath("/teacher/dashboard");
   revalidatePath("/teacher/sessions");
