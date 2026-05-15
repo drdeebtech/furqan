@@ -1,0 +1,112 @@
+version: 2.1
+
+# ────────────────────────────────────────────────────────────────
+# FURQAN Academy — CircleCI CI Pipeline
+#
+# Required CircleCI project environment variables (Settings → Env Vars):
+#   NEXT_PUBLIC_SUPABASE_URL       — Supabase project URL
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY  — Supabase anon key
+#   SUPABASE_SERVICE_ROLE_KEY      — for RLS tests that need admin client
+#
+# Supabase migrations + drift checks remain in GitHub Actions
+# (supabase-migrate.yml, migration-drift.yml) — they use the
+# supabase/setup-cli GHA action and SUPABASE_DB_PASSWORD secret.
+#
+# Lint is intentionally NOT enforced here — repo has 26 pre-existing
+# eslint errors that would block all PRs. Re-add a `lint` job once
+# the backlog is cleared (and bring it under the rls-tests.yml GHA
+# umbrella too, for parity).
+# ────────────────────────────────────────────────────────────────
+
+orbs:
+  node: circleci/node@6.1
+
+executors:
+  node-24:
+    docker:
+      - image: cimg/node:24.15
+    environment:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+    resource_class: medium
+
+jobs:
+  # ── Install dependencies ──────────────────────────────────────
+  install:
+    executor: node-24
+    steps:
+      - checkout
+      - node/install-packages:
+          pkg-manager: npm
+          cache-path: ~/project/node_modules
+          override-ci-command: npm ci
+      - persist_to_workspace:
+          root: .
+          paths:
+            - node_modules
+
+  # ── TypeScript type-check ─────────────────────────────────────
+  typecheck:
+    executor: node-24
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: tsc --noEmit
+          command: npx tsc --noEmit
+
+  # ── Unit tests via Smarter Testing ───────────────────────────
+  # Uses circleci run testsuite which enables:
+  #   - Test Impact Analysis (run only impacted tests)
+  #   - Dynamic Test Splitting (parallel execution)
+  #   - Auto Rerun Failed Tests (flake resilience)
+  # See .circleci/test-suites.yml for discovery + run config.
+  unit-test:
+    executor: node-24
+    parallelism: 2
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Run vitest via testsuite
+          command: circleci run testsuite "ci tests"
+      - store_test_results:
+          path: test-reports
+
+  # ── Next.js production build (main only) ─────────────────────
+  # Vercel owns the authoritative build on deploy; this catches
+  # build-breaking changes before they reach main.
+  build:
+    executor: node-24
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: next build
+          command: npm run build
+
+workflows:
+  ci:
+    jobs:
+      - install
+
+      # typecheck after install
+      - typecheck:
+          requires:
+            - install
+
+      # unit tests after install (independent of typecheck)
+      - unit-test:
+          requires:
+            - install
+
+      # build only on main, after all checks pass
+      - build:
+          requires:
+            - typecheck
+            - unit-test
+          filters:
+            branches:
+              only: main

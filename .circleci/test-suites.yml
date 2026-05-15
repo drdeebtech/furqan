@@ -1,0 +1,6 @@
+---
+name: ci tests
+discover: npx vitest list --filesOnly
+run: npx vitest run --reporter=junit --outputFile="<< outputs.junit >>" --bail 0 << test.atoms >>
+outputs:
+  junit: test-reports/tests.xml
