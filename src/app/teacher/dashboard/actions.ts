@@ -163,12 +163,12 @@ export async function updateBookingStatus(
     const { error: confirmAuditErr } = await adminForAudit
       .from("audit_log")
       .insert({
-        actor_id:   user.id,
+        changed_by: user.id,
         action:     "booking.confirmed",
         table_name: "bookings",
         record_id:  bookingId,
-        metadata:   { student_id: booking.student_id, teacher_id: user.id },
-      } as never);
+        new_data:   { student_id: booking.student_id, teacher_id: user.id },
+      } satisfies TableInsert<"audit_log">);
     if (confirmAuditErr) logError("updateBookingStatus: audit insert failed", confirmAuditErr, { tag: "bookings", actionName: "teacher.updateBookingStatus" });
 
     // V9: Auto-cancel other pending bookings at overlapping times for this
@@ -259,12 +259,12 @@ export async function updateBookingStatus(
     const { error: cancelAuditErr } = await createAdminClient()
       .from("audit_log")
       .insert({
-        actor_id:   user.id,
+        changed_by: user.id,
         action:     "booking.cancelled",
         table_name: "bookings",
         record_id:  bookingId,
-        metadata:   { student_id: booking.student_id, teacher_id: user.id },
-      } as never);
+        new_data:   { student_id: booking.student_id, teacher_id: user.id },
+      } satisfies TableInsert<"audit_log">);
     if (cancelAuditErr) logError("updateBookingStatus: cancel audit insert failed", cancelAuditErr, { tag: "bookings", actionName: "teacher.updateBookingStatus" });
 
     try {
@@ -438,12 +438,12 @@ export const endSession = loudAction<{ sessionId: string }, { message: string }>
       const { error: auditErr } = await adminClient
         .from("audit_log")
         .insert({
-          actor_id:   actorId,
+          changed_by: actorId ?? null,
           action:     "session.manual_end_post_webhook",
           table_name: "sessions",
           record_id:  sessionId,
-          metadata:   { note: "manual endSession called after Daily webhook already ended the session; noop" },
-        } as never);
+          new_data:   { note: "manual endSession called after Daily webhook already ended the session; noop" },
+        } satisfies TableInsert<"audit_log">);
       if (auditErr) logError("endSession: manual_end_post_webhook audit insert failed", auditErr, { tag: "teacher-bookings" });
       return { message: "تم إنهاء الجلسة" };
     }
@@ -661,12 +661,12 @@ export async function recreateRoom(bookingId: string) {
   const { error: recreateAuditErr } = await createAdminClient()
     .from("audit_log")
     .insert({
-      actor_id:   user.id,
+      changed_by: user.id,
       action:     "booking.room_recreated",
       table_name: "bookings",
       record_id:  bookingId,
-      metadata:   { new_room: room.name },
-    } as never);
+      new_data:   { new_room: room.name },
+    } satisfies TableInsert<"audit_log">);
   if (recreateAuditErr) logError("recreateRoom: audit insert failed", recreateAuditErr, { tag: "bookings", actionName: "teacher.recreateRoom" });
 
   revalidatePath("/teacher/dashboard");

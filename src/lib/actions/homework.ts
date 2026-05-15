@@ -10,7 +10,7 @@ import { logError } from "@/lib/logger";
 import type { HomeworkStatus, HomeworkAssignment } from "@/types/database";
 import { emitEvent } from "@/lib/automation/emit";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
-import type { TableUpdate } from "@/lib/supabase/typed-helpers";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
 class UserError extends Error {
   readonly userError = true;
@@ -770,19 +770,15 @@ const deleteHomeworkBase = loudAction<{ homeworkId: string }, { message: string 
     // Diff audit row carries cascade size — distinct from loudAction's
     // input-only envelope. Best-effort: an audit_log insert failure must
     // never block the delete itself succeeding.
-    // NOTE: column shape (`actor_id`, `metadata`) preserved verbatim from
-    // pre-wrap code; differs from the rest of the codebase's audit_log
-    // inserts (which use `changed_by` and no `metadata`). Pre-existing
-    // discrepancy, flagged in PR body for follow-up data audit.
     await supabase
       .from("audit_log")
       .insert({
-        actor_id: actorId,
+        changed_by: actorId,
         action: "DELETE",
         table_name: "homework_assignments",
         record_id: homeworkId,
-        metadata: { cascaded_children: childCount, child_ids: children?.map((c) => c.id) ?? [] },
-      } as never)
+        new_data: { cascaded_children: childCount, child_ids: children?.map((c) => c.id) ?? [] },
+      } satisfies TableInsert<"audit_log">)
       .then((r) => {
         if (r.error) logError("audit_log insert failed for homework delete", r.error, {
           tag: "audit", homeworkId, childCount,
