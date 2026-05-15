@@ -1,17 +1,9 @@
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
+import { safeCompareSecret } from "@/lib/security/secrets";
 import { createClient } from "@/lib/supabase/server";
 import { sendSessionNarrative } from "@/lib/reports/send-narrative";
 
 export const maxDuration = 60;
-
-function safeCompare(a: string | null, b: string | undefined): boolean {
-  if (!a || !b) return false;
-  const aBuf = Buffer.from(a);
-  const bBuf = Buffer.from(b);
-  if (aBuf.length !== bBuf.length) return false;
-  return timingSafeEqual(aBuf, bBuf);
-}
 
 /**
  * POST: Generate and send the parent session narrative.
@@ -27,7 +19,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
 
   const n8nSecret = request.headers.get("X-N8N-Secret");
-  const hasN8nSecret = safeCompare(n8nSecret, process.env.N8N_WEBHOOK_SECRET);
+  const hasN8nSecret = safeCompareSecret(n8nSecret, process.env.N8N_WEBHOOK_SECRET);
 
   let actorId: string;
   if (hasN8nSecret) {

@@ -38,6 +38,16 @@ function relativeDays(days: number | null, lang: "ar" | "en"): string {
   return lang === "ar" ? `قبل ${days} يوم` : `${days}d ago`;
 }
 
+function SortIcon({ sortKey, sort }: { sortKey: SortKey; sort: SortState }) {
+  if (sort.key !== sortKey)
+    return <Minus size={11} className="opacity-30" aria-hidden="true" />;
+  return sort.dir === "asc" ? (
+    <ArrowUp size={11} aria-hidden="true" />
+  ) : (
+    <ArrowDown size={11} aria-hidden="true" />
+  );
+}
+
 export function RosterHeatmap({
   rows,
 }: {
@@ -94,15 +104,6 @@ export function RosterHeatmap({
     );
   }
 
-  function SortIcon({ k }: { k: SortKey }) {
-    if (sort.key !== k)
-      return <Minus size={11} className="opacity-30" aria-hidden="true" />;
-    return sort.dir === "asc" ? (
-      <ArrowUp size={11} aria-hidden="true" />
-    ) : (
-      <ArrowDown size={11} aria-hidden="true" />
-    );
-  }
 
   const atRiskCount = rows.filter((r) => r.atRisk).length;
 
@@ -133,7 +134,7 @@ export function RosterHeatmap({
                   onClick={() => clickSort("name")}
                   className="inline-flex items-center gap-1 font-medium uppercase tracking-wide focus-ring"
                 >
-                  {t("الطالب", "Student")} <SortIcon k="name" />
+                  {t("الطالب", "Student")} <SortIcon sort={sort} sortKey="name" />
                 </button>
               </th>
               <th className="px-3 py-2">
@@ -142,7 +143,7 @@ export function RosterHeatmap({
                   onClick={() => clickSort("composite")}
                   className="inline-flex items-center gap-1 font-medium uppercase tracking-wide focus-ring"
                 >
-                  {t("مركّب", "Composite")} <SortIcon k="composite" />
+                  {t("مركّب", "Composite")} <SortIcon sort={sort} sortKey="composite" />
                 </button>
               </th>
               <th className="px-3 py-2">
@@ -151,7 +152,7 @@ export function RosterHeatmap({
                   onClick={() => clickSort("hifz")}
                   className="inline-flex items-center gap-1 font-medium uppercase tracking-wide focus-ring"
                 >
-                  {t("حفظ", "Hifz")} <SortIcon k="hifz" />
+                  {t("حفظ", "Hifz")} <SortIcon sort={sort} sortKey="hifz" />
                 </button>
               </th>
               <th className="px-3 py-2">
@@ -160,7 +161,7 @@ export function RosterHeatmap({
                   onClick={() => clickSort("tajweed")}
                   className="inline-flex items-center gap-1 font-medium uppercase tracking-wide focus-ring"
                 >
-                  {t("تجويد", "Tajweed")} <SortIcon k="tajweed" />
+                  {t("تجويد", "Tajweed")} <SortIcon sort={sort} sortKey="tajweed" />
                 </button>
               </th>
               <th className="px-3 py-2">
@@ -169,7 +170,7 @@ export function RosterHeatmap({
                   onClick={() => clickSort("fluency")}
                   className="inline-flex items-center gap-1 font-medium uppercase tracking-wide focus-ring"
                 >
-                  {t("طلاقة", "Fluency")} <SortIcon k="fluency" />
+                  {t("طلاقة", "Fluency")} <SortIcon sort={sort} sortKey="fluency" />
                 </button>
               </th>
               <th className="px-3 py-2 text-end" title={t("عدد التقييمات المستخدمة في الحساب", "How many evaluations the average is based on")}>
@@ -183,7 +184,7 @@ export function RosterHeatmap({
                   onClick={() => clickSort("lastEval")}
                   className="inline-flex items-center gap-1 font-medium uppercase tracking-wide focus-ring"
                 >
-                  {t("آخر تقييم", "Last eval")} <SortIcon k="lastEval" />
+                  {t("آخر تقييم", "Last eval")} <SortIcon sort={sort} sortKey="lastEval" />
                 </button>
               </th>
             </tr>
