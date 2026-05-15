@@ -111,7 +111,7 @@ Either the student (their own pending booking) or admin (any pending booking) ca
 - **FR-003**: Confirmation MUST atomically create the corresponding `sessions` row and the Daily.co room. If room creation fails, the booking remains `pending`. (See PB-01.)
 - **FR-004**: System MUST detect and reject overlapping bookings at confirmation time, regardless of whether the overlap is with a `pending` or `confirmed` row. (See PB-06.)
 - **FR-005**: Cancellation MUST record `cancelled_by` (`student | teacher | admin | system`), `cancel_reason`, and `cancelled_at`. Silent cancellation is forbidden.
-- **FR-006**: Terminal-state transitions (`completed`, `no_show`) MUST drive downstream effects exactly once: package deduction on `completed`, parent notification on `no_show`, retention signal write on either.
+- **FR-006**: Terminal-state transitions (`completed`, `no_show`) MUST drive downstream effects exactly once: package deduction on `completed` and on `no_show` when `no_show_party='student'` (see FR-007), parent notification on `no_show`, retention signal write on either. `cancelled` MUST NOT deduct — the `restore_student_credit` trigger credits back on `confirmed → cancelled`.
 - **FR-007**: `no_show` MUST distinguish `no_show_party` (`student | teacher | both`). Package deduction is **skipped** when `no_show_party ∈ {teacher, both}`. (See PB-02.)
 - **FR-008**: Every state-changing server action that writes to `bookings` MUST go through `loudAction` (per CLAUDE.md "No Silent Failures Policy"). [DRIFT — see "Known divergences from production" below.]
 - **FR-009**: Booking creation MUST verify the student has remaining sessions in an active `student_packages` row before insert; an exhausted package MUST reject the request with a user-readable message.
@@ -144,7 +144,7 @@ Either the student (their own pending booking) or admin (any pending booking) ca
 
 - **D-001**: `createBooking()`, `updateBookingStatus()`, and `recreateRoom()` are NOT yet wrapped in `loudAction` despite all being DB-write server actions. They use ad-hoc `{ error }` returns instead. FR-008 documents the target state; remediation lands in Phase 2.
 - **D-002**: The `cancel_reason` column has no enum constraint — cancellations from different surfaces use freeform strings, making admin reporting noisy. Possible normalization candidate.
-- **D-003**: `startInstantSession()` (`src/app/teacher/dashboard/actions.ts:694`) creates a booking + session inline without the package-balance check FR-009 requires. Edge case: instant session against an exhausted package.
+- **D-003**: ~~`startInstantSession()` created bookings without the FR-009 package-balance check.~~ **RESOLVED** in PR #314 — `startInstantSession` now queries `student_packages`, calls `deduct_package_session()`, and rejects exhausted/inactive packages before any DB insert.
 
 ## Assumptions
 
