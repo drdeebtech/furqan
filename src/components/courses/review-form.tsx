@@ -61,7 +61,7 @@ export function ReviewForm({
               onMouseEnter={() => setHover(n)}
               onMouseLeave={() => setHover(0)}
               aria-label={`${n} stars`}
-              className="rounded p-0.5 transition"
+              className="rounded p-0.5 transition focus-ring"
             >
               <Star
                 size={22}
@@ -81,14 +81,15 @@ export function ReviewForm({
         value={comment}
         onChange={(e) => setComment(e.target.value)}
         placeholder={labels.placeholder}
-        className="w-full rounded-lg border bg-white/40 px-3 py-2 text-sm dark:bg-white/5"
+        aria-label={labels.placeholder}
+        className="w-full rounded-lg border bg-white/40 px-3 py-2 text-sm dark:bg-white/5 focus-ring"
       />
 
       <div className="flex items-center gap-2">
         <button
           type="submit"
           disabled={isPending || stars < 1}
-          className="flex items-center gap-2 rounded-lg bg-gold px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 rounded-lg bg-gold px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed focus-ring"
         >
           {isPending && <Loader2 size={14} className="animate-spin" />}
           {existingStars ? labels.update : labels.submit}
