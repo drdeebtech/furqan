@@ -16,7 +16,7 @@
  *     .ilike("full_name", `%${q}%`);
  *   return <SearchInput placeholder="..." paramName="q" />;
  */
-import { useEffect, useState, startTransition } from "react";
+import { useEffect, useState, startTransition, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
@@ -43,6 +43,7 @@ export function SearchInput({
   const resolvedPlaceholder = placeholder ?? t("بحث...", "Search...");
   const resolvedAriaLabel = ariaLabel ?? t("بحث", "Search");
   const [value, setValue] = useState(() => searchParams.get(paramName) ?? "");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // When the URL changes externally (e.g. browser back), keep the input synced.
   // startTransition keeps this off the synchronous render path — required by
@@ -81,6 +82,7 @@ export function SearchInput({
         className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-muted"
       />
       <input
+        ref={inputRef}
         type="search"
         inputMode="search"
         aria-label={resolvedAriaLabel}
@@ -92,7 +94,10 @@ export function SearchInput({
       {value && (
         <button
           type="button"
-          onClick={() => setValue("")}
+          onClick={() => {
+            setValue("");
+            inputRef.current?.focus();
+          }}
           aria-label={t("مسح البحث", "Clear search")}
           className="focus-ring absolute end-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground"
         >
