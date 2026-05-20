@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { startTransition, useEffect, useRef, useState } from "react";
+import { startTransition, useEffect, useRef, useState, useMemo } from "react";
 import {
   Menu, X, LayoutDashboard, GraduationCap, Calendar, TrendingUp, TrendingDown,
   MessageSquare, Clock, Users, ClipboardCheck, BookOpen, StickyNote, Mic, Award,
@@ -183,20 +183,26 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
   const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
   const links = LINKS[role];
 
-  // Group links by their group field
-  const groups: { label: { ar: string; en: string } | null; links: NavLink[] }[] = [];
-  let currentGroup: (typeof groups)[number] | null = null;
-  for (const link of links) {
-    if (link.group) {
-      currentGroup = { label: link.group, links: [link] };
-      groups.push(currentGroup);
-    } else if (currentGroup) {
-      currentGroup.links.push(link);
-    } else {
-      currentGroup = { label: null, links: [link] };
-      groups.push(currentGroup);
+  // ⚡ Bolt: Group links by their group field
+  // What: Wrap the link grouping loop in a useMemo hook.
+  // Why: The Nav component previously recalculated the groups array on every render, including mobile menu toggles and route changes.
+  // Impact: O(N) array allocation avoided. Reduces work done during frequent state changes.
+  const groups = useMemo(() => {
+    const result: { label: { ar: string; en: string } | null; links: NavLink[] }[] = [];
+    let currentGroup: (typeof result)[number] | null = null;
+    for (const link of links) {
+      if (link.group) {
+        currentGroup = { label: link.group, links: [link] };
+        result.push(currentGroup);
+      } else if (currentGroup) {
+        currentGroup.links.push(link);
+      } else {
+        currentGroup = { label: null, links: [link] };
+        result.push(currentGroup);
+      }
     }
-  }
+    return result;
+  }, [links]);
 
   const sidebarContent = (
     <div dir={dir} className="flex h-full flex-col glass-sidebar">
