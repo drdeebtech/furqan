@@ -52,6 +52,19 @@ export default async function EditQuizPage({ params }: Props) {
   if (!quizRes.data || quizRes.data.course_id !== courseId) notFound();
   const quiz = quizRes.data;
 
+  // Course-ownership gate (audit H2): path-consistency alone (course_id ===
+  // courseId) is not authorization. Without this, any authenticated user who
+  // knows a course+quiz id could open another teacher's editor. Mirror the
+  // sibling quizzes/modules pages: owner or admin only.
+  const { data: course } = await supabase.from("courses")
+    .select("teacher_id").eq("id", courseId).single<{ teacher_id: string | null }>();
+  if (!course) notFound();
+  if (course.teacher_id !== user.id) {
+    const { data: profile } = await supabase
+      .from("profiles").select("role").eq("id", user.id).single<{ role: string }>();
+    if (profile?.role !== "admin") redirect("/teacher/courses");
+  }
+
   // Flatten the embedded key (PostgREST returns object or single-element array
   // for the 1:1 relation) back onto each question for the editor.
   const questions = (questionsRes.data ?? []).map((q) => {
