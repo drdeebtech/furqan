@@ -34,7 +34,9 @@ export default async function EditQuizPage({ params }: Props) {
         course_id: string;
       }>(),
     supabase.from("quiz_questions")
-      .select("id, question_ar, question_en, question_type, options, correct_answer, points, sort_order")
+      // Answer keys live in quiz_question_keys (audit C1); embed them — RLS
+      // returns keys only to the course's teacher/admin.
+      .select("id, question_ar, question_en, question_type, options, points, sort_order, quiz_question_keys(correct_answer)")
       .eq("quiz_id", quizId)
       .order("sort_order", { ascending: true })
       .returns<{
@@ -42,13 +44,20 @@ export default async function EditQuizPage({ params }: Props) {
         question_ar: string; question_en: string | null;
         question_type: string;
         options: { id: string; text_ar: string }[] | null;
-        correct_answer: { mcq?: string; fill_in?: string[]; true_false?: boolean };
         points: number; sort_order: number;
+        quiz_question_keys: { correct_answer: { mcq?: string; fill_in?: string[]; true_false?: boolean } } | { correct_answer: { mcq?: string; fill_in?: string[]; true_false?: boolean } }[] | null;
       }[]>(),
   ]);
 
   if (!quizRes.data || quizRes.data.course_id !== courseId) notFound();
   const quiz = quizRes.data;
+
+  // Flatten the embedded key (PostgREST returns object or single-element array
+  // for the 1:1 relation) back onto each question for the editor.
+  const questions = (questionsRes.data ?? []).map((q) => {
+    const k = Array.isArray(q.quiz_question_keys) ? q.quiz_question_keys[0] : q.quiz_question_keys;
+    return { ...q, correct_answer: k?.correct_answer ?? {} };
+  });
 
   return (
     <div dir={dir} className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
@@ -57,7 +66,7 @@ export default async function EditQuizPage({ params }: Props) {
         Quizzes
       </Link>
 
-      <QuizEditor quiz={quiz} questions={questionsRes.data ?? []} courseId={courseId} />
+      <QuizEditor quiz={quiz} questions={questions} courseId={courseId} />
     </div>
   );
 }

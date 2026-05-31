@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
@@ -165,7 +166,6 @@ export async function addQuestion(quizId: string, formData: FormData): Promise<A
     question_en: String(formData.get("question_en") ?? "").trim() || null,
     question_type,
     options: options as never,
-    correct_answer: correct_answer as never,
     points: Math.max(0, Number(formData.get("points") ?? 1) || 1),
     sort_order: Number(formData.get("sort_order") ?? 0) || 0,
   };
@@ -176,6 +176,19 @@ export async function addQuestion(quizId: string, formData: FormData): Promise<A
     logError("addQuestion failed", error, { tag: "quizzes", quizId });
     return { ok: false, error: error.message };
   }
+
+  // Answer key lives in a separate table students cannot read (audit C1).
+  const { error: keyErr } = await supabase
+    .from("quiz_question_keys")
+    .insert({ question_id: data!.id, correct_answer: correct_answer as never } satisfies TableInsert<"quiz_question_keys">);
+  if (keyErr) {
+    // Roll back the orphan question so we never leave a question with no key
+    // (grading would silently mark it unanswerable for every student).
+    await supabase.from("quiz_questions").delete().eq("id", data!.id);
+    logError("addQuestion key insert failed", keyErr, { tag: "quizzes", quizId });
+    return { ok: false, error: keyErr.message };
+  }
+
   revalidatePath(`/teacher/courses/${auth.courseId}/quizzes/${quizId}/edit`);
   return { ok: true, id: data!.id };
 }
@@ -230,31 +243,45 @@ export async function submitQuizAttempt(
   if (attempt.student_id !== user.id) return { ok: false, error: "غير مصرح" };
   if (attempt.submitted_at) return { ok: false, error: "تم التسليم بالفعل" };
 
-  // Auto-grade.
+  // Auto-grade. Answer keys live in quiz_question_keys, which students cannot
+  // read (audit C1). Read them via the service-role admin client, which bypasses
+  // RLS — grading is server-side and the student never sees the key.
   const { data: questions } = await supabase.from("quiz_questions")
-    .select("id, question_type, options, correct_answer, points")
+    .select("id, question_type, options, points")
     .eq("quiz_id", attempt.quiz_id)
     .returns<{
       id: string; question_type: string;
       options: { id: string }[] | null;
-      correct_answer: { mcq?: string; fill_in?: string[]; true_false?: boolean };
       points: number;
     }[]>();
+
+  const admin = createAdminClient();
+  const { data: keys, error: keysErr } = await admin.from("quiz_question_keys")
+    .select("question_id, correct_answer")
+    .in("question_id", (questions ?? []).map((q) => q.id))
+    .returns<{ question_id: string; correct_answer: { mcq?: string; fill_in?: string[]; true_false?: boolean } }[]>();
+  if (keysErr) {
+    logError("submitQuizAttempt key read failed", keysErr, { tag: "quizzes", attemptId });
+    return { ok: false, error: "تعذّر تصحيح الاختبار" };
+  }
+  const keyById = new Map((keys ?? []).map((k) => [k.question_id, k.correct_answer]));
 
   let earned = 0;
   let total = 0;
   for (const q of questions ?? []) {
     total += q.points;
     const ans = answers[q.id];
+    const key = keyById.get(q.id);
+    if (!key) continue;
     if (q.question_type === "mcq") {
-      if (typeof ans === "string" && ans === q.correct_answer.mcq) earned += q.points;
+      if (typeof ans === "string" && ans === key.mcq) earned += q.points;
     } else if (q.question_type === "fill_in") {
       if (typeof ans === "string") {
         const norm = ans.trim().toLowerCase();
-        if ((q.correct_answer.fill_in ?? []).includes(norm)) earned += q.points;
+        if ((key.fill_in ?? []).includes(norm)) earned += q.points;
       }
     } else if (q.question_type === "true_false") {
-      if (typeof ans === "boolean" && ans === q.correct_answer.true_false) earned += q.points;
+      if (typeof ans === "boolean" && ans === key.true_false) earned += q.points;
     }
   }
   const score_pct = total > 0 ? Math.round((earned / total) * 100) : 0;
