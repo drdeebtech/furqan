@@ -2,7 +2,8 @@
   "installCommand": "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install",
   "functions": {
     "src/app/admin/**/page.tsx": { "maxDuration": 30 },
-    "src/app/admin/**/route.ts": { "maxDuration": 30 }
+    "src/app/admin/**/route.ts": { "maxDuration": 30 },
+    "src/app/api/cron/**/route.ts": { "maxDuration": 300 }
   },
   "headers": [
     {
