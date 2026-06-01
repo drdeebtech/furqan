@@ -4769,6 +4769,23 @@ export type Database = {
           created_at: string
         }[]
       }
+      search_teachers: {
+        Args: { p_needle: string; p_limit: number; p_offset: number }
+        Returns: {
+          teacher_id: string
+          full_name: string | null
+          email: string | null
+          avatar_url: string | null
+          specialties: string[]
+          hourly_rate: number
+          rating_avg: number
+          total_sessions: number
+          is_accepting: boolean
+          is_archived: boolean
+          cv_status: string | null
+          total_count: number
+        }[]
+      }
       user_is_session_participant: { Args: { s_id: string }; Returns: boolean }
     }
     Enums: {
