@@ -59,6 +59,11 @@ export const WEBHOOK_ROUTES = {
   "homework.student_ready": "/webhook/furqan-homework-student-ready",
   "homework.graded": "/webhook/furqan-homework-graded",
   "evaluation.created": "/webhook/furqan-evaluation-created",
+  // Progress domain (spec 010): fired when a teacher records a validated ḥifẓ
+  // range. Consumed by parent reports + the 001 SM-2 nightly compute. NOTE: the
+  // n8n workflow for this route must be created, else dispatch logs a loud
+  // non-fatal failed-delivery automation_log until it lands.
+  "progress.recorded": "/webhook/furqan-progress-recorded",
   "profile.created": "/webhook/furqan-profile-created",
   "teacher.applied": "/webhook/furqan-teacher-applied",
   "teacher.cv_submitted": "/webhook/furqan-cv-event",
