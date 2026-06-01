@@ -4738,6 +4738,10 @@ export type Database = {
         Args: { p_active_since: string; p_today_start: string }
         Returns: { student_id: string }[]
       }
+      profiles_role_counts: {
+        Args: Record<string, never>
+        Returns: { role: string; n: number }[]
+      }
       recompute_course_review_aggregates: {
         Args: { p_course_id: string }
         Returns: undefined
