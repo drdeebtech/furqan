@@ -100,7 +100,8 @@ export const EVENT_EFFECTS: Partial<Record<FurqanEvent, EffectResolver[]>> = {
   ],
 
   // A teacher assigned follow-up → notify the student.
-  // (Migrated from src/lib/actions/homework.ts createHomework.)
+  // (Dispatched from the follow-up domain: src/lib/domains/follow-up/actions.ts
+  // createFollowUp, which the homework.ts route adapter delegates to.)
   "homework.assigned": [
     (ctx) => {
       const studentId = asId(ctx.studentId);

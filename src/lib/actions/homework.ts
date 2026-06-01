@@ -3,15 +3,37 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { notifyParentHomeworkNotDone } from "@/lib/notifications/parent";
-import { notify } from "@/lib/notifications/dispatcher";
-import { HOMEWORK_STATUS_AR, type ReviewHorizon } from "@/lib/constants";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { type ReviewHorizon } from "@/lib/constants";
 import { logError } from "@/lib/logger";
-import type { HomeworkStatus, HomeworkAssignment } from "@/types/database";
-import { emitEvent } from "@/lib/automation/emit";
-import { dispatchEffects } from "@/lib/automation/effects";
-import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
-import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
+import type { HomeworkStatus } from "@/types/database";
+import { loudAction } from "@/lib/actions/loud";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
+import {
+  createFollowUp,
+  markStudentReady as markStudentReadyDomain,
+  gradeFollowUp,
+} from "@/lib/domains/follow-up/actions";
+import { editFollowUp, deleteFollowUp } from "@/lib/domains/follow-up/manage";
+import type { FollowUpActor } from "@/lib/domains/follow-up/types";
+
+/**
+ * Follow-up (homework) write surface — route adapters.
+ *
+ * Per ADR-0002, these are thin `loudAction`-wrapped boundaries:
+ *   1. authenticate + resolve the role into a `FollowUpActor`,
+ *   2. parse FormData / scalar arguments into structured input,
+ *   3. delegate the actual write to `@/lib/domains/follow-up`,
+ *   4. `revalidatePath(...)` the affected surfaces.
+ *
+ * The domain functions own the ownership/state guards, DB writes,
+ * notifications, auto-regen, audit rows, and the `homework.*` events. The
+ * `loudAction` wrapper keeps the audit envelope + Sentry/Telegram plumbing
+ * unchanged at the boundary.
+ *
+ * Domain language note: user-facing copy says "follow-up" / "متابعة";
+ * the `homework_assignments` table + this file's legacy name are internal.
+ */
 
 class UserError extends Error {
   readonly userError = true;
@@ -21,36 +43,64 @@ class UserError extends Error {
   }
 }
 
-// ─── Auth helpers ───────────────────────────────────────────────────────────
+// ─── Auth helpers (route boundary — resolve the actor) ───────────────────────
 
-async function requireTeacherOrAbove(supabase: Awaited<ReturnType<typeof createClient>>) {
+/**
+ * Resolve a teacher-or-admin actor. Throws `UserError` on no-session /
+ * wrong-role (preflight failure: surfaced to the user, no Sentry).
+ */
+async function teacherOrAboveActor(): Promise<FollowUpActor> {
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new UserError("غير مسجل الدخول");
   const { data: profile } = await supabase
     .from("profiles").select("role").eq("id", user.id)
-    .single().then(r => ({ data: r.data as { role: string } | null }));
+    .single<{ role: string }>();
   if (!profile || !["admin", "teacher"].includes(profile.role)) {
     throw new UserError("غير مصرح");
   }
-  return { user, role: profile.role };
+  return { id: user.id, isAdmin: profile.role === "admin" };
 }
 
-async function requireStudent(supabase: Awaited<ReturnType<typeof createClient>>) {
+/**
+ * Resolve a student actor — any authenticated user (the domain enforces
+ * the student-owns-the-row check). Students are never admins for this
+ * surface.
+ */
+async function studentActor(): Promise<FollowUpActor> {
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new UserError("غير مسجل الدخول");
-  return user;
+  return { id: user.id, isAdmin: false };
 }
 
-async function teacherOrAbovePreflight(): Promise<{ actorId: string }> {
+/**
+ * Resolve any authenticated actor + their admin flag (for delete, whose
+ * legacy preflight let any signed-in user through and did the
+ * teacher-or-admin check inline).
+ */
+async function anyAuthedActor(): Promise<FollowUpActor> {
   const supabase = await createClient();
-  const { user } = await requireTeacherOrAbove(supabase);
-  return { actorId: user.id };
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new UserError("غير مصرح");
+  const { data: profile } = await supabase
+    .from("profiles").select("role").eq("id", user.id)
+    .single<{ role: string }>();
+  return { id: user.id, isAdmin: profile?.role === "admin" };
 }
 
-async function studentPreflight(): Promise<{ actorId: string }> {
+/**
+ * Lightweight authentication for the `loudAction` preflight — resolves
+ * only the user id for the audit `changed_by` field. The handler then
+ * resolves the full `FollowUpActor` (with role) once. Splitting it this
+ * way keeps the audit envelope populated without doing the role read in
+ * both preflight and handler.
+ */
+async function requireUserId(): Promise<string> {
   const supabase = await createClient();
-  const user = await requireStudent(supabase);
-  return { actorId: user.id };
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new UserError("غير مسجل الدخول");
+  return user.id;
 }
 
 function revalidateFollowUpPaths() {
@@ -83,8 +133,6 @@ const createHomeworkBase = loudAction<CreateHomeworkInput, { message: string }>(
   name: "homework.create",
   // P1 lifecycle entry. severity=info — routine assignment creation.
   severity: "info",
-  // Schema is permissive; the public wrapper validates required fields and
-  // surfaces the existing Arabic copy on failure.
   schema: z.object({
     booking_id: z.string(),
     student_id: z.string(),
@@ -105,65 +153,24 @@ const createHomeworkBase = loudAction<CreateHomeworkInput, { message: string }>(
     action: "INSERT",
     reasonPrefix: "teacher create follow-up",
   },
-  preflight: teacherOrAbovePreflight,
-  handler: async (input, { actorId }) => {
-    const supabase = await createClient();
-
-    // Verify teacher owns the booking; admins bypass ownership.
-    // Real infra errors (non-PGRST116) block even the admin bypass —
-    // they indicate RLS regression or DB outage, not "row missing".
-    const { data: booking, error: bookingErr } = await supabase
-      .from("bookings").select("teacher_id").eq("id", input.booking_id)
-      .single<{ teacher_id: string }>();
-    if (bookingErr && bookingErr.code !== "PGRST116") {
-      throw new UserError("ليس لديك صلاحية على هذا الحجز", { cause: bookingErr });
-    }
-    if (!booking || booking.teacher_id !== actorId) {
-      const { data: p, error: roleErr } = await supabase
-        .from("profiles").select("role").eq("id", actorId as string)
-        .single<{ role: string }>();
-      if (roleErr && roleErr.code !== "PGRST116") {
-        throw new UserError("ليس لديك صلاحية على هذا الحجز", { cause: roleErr });
-      }
-      if (!p || !["admin"].includes(p.role)) {
-        throw new UserError("ليس لديك صلاحية على هذا الحجز");
-      }
-    }
-
-    const { error } = await supabase.from("homework_assignments").insert({
-      booking_id: input.booking_id,
-      student_id: input.student_id,
-      session_id: input.session_id,
-      teacher_id: actorId,
-      homework_type: input.homework_type,
+  preflight: async () => ({ actorId: await requireUserId() }),
+  handler: async (input) => {
+    const actor = await teacherOrAboveActor();
+    await createFollowUp(createAdminClient(), actor, {
+      bookingId: input.booking_id,
+      studentId: input.student_id,
+      sessionId: input.session_id,
+      homeworkType: input.homework_type,
       title: input.title,
       description: input.description,
-      surah_number: input.surah_number,
-      ayah_start: input.ayah_start,
-      ayah_end: input.ayah_end,
-      pages_count: input.pages_count,
-      due_date: input.due_date,
-      review_horizon: input.review_horizon,
-    } as never);
-    if (error) throw new UserError("فشل إنشاء المتابعة", { cause: error });
-
-    // Best-effort student notification — must not fail the assignment. The
-    // in-app fan-out is now declared in EVENT_EFFECTS["homework.assigned"]
-    // (src/lib/automation/effects.ts); dispatchEffects never throws, so the
-    // assignment is safe regardless of notification outcome.
-    await dispatchEffects("homework.assigned", {
-      studentId: input.student_id,
-      entityId: input.booking_id,
-      title: input.title,
+      surahNumber: input.surah_number,
+      ayahStart: input.ayah_start,
+      ayahEnd: input.ayah_end,
+      pagesCount: input.pages_count,
+      dueDate: input.due_date,
+      reviewHorizon: input.review_horizon,
     });
-
     revalidateFollowUpPaths();
-    await emitEvent("homework.assigned", "homework", input.booking_id, {
-      student_id: input.student_id,
-      teacher_id: actorId,
-      homework_type: input.homework_type,
-      title: input.title,
-    }).catch((err) => logError("emit homework.assigned failed", err, { tag: "automation", event: "homework.assigned" }));
     return { message: "created" };
   },
 });
@@ -182,9 +189,7 @@ export async function createHomework(formData: FormData) {
   const due_date = (formData.get("due_date") as string) || null;
 
   // Pedagogical intent at creation time. Defaults to 'none' so an older
-  // form that doesn't post review_horizon still works. Validated against the
-  // CHECK constraint values; anything else falls back to 'none' rather than
-  // failing, since the field is teacher metadata not user-blocking.
+  // form that doesn't post review_horizon still works.
   const horizonRaw = formData.get("review_horizon") as string | null;
   const review_horizon: ReviewHorizon =
     horizonRaw === "near" || horizonRaw === "far" || horizonRaw === "none"
@@ -215,14 +220,6 @@ export async function createHomework(formData: FormData) {
 
 // ─── 2. Mark Student Ready ──────────────────────────────────────────────────
 
-/**
- * Mark a follow-up assignment "ready" for the teacher to grade. Optionally
- * attaches an audio submission in one atomic update so the teacher sees both
- * the ready-state and the audio together (no half-submitted state). Audio
- * payload (path + duration) is validated separately via attachHomeworkAudio
- * before this is called so the upload + metadata write happen as one user
- * action from the UI's perspective.
- */
 type MarkReadyInput = {
   homeworkId: string;
   audio: { path: string; durationSeconds: number } | null;
@@ -230,7 +227,6 @@ type MarkReadyInput = {
 
 const markStudentReadyBase = loudAction<MarkReadyInput, { message: string }>({
   name: "homework.mark-student-ready",
-  // P1 state transition. severity=info — routine.
   severity: "info",
   schema: z.object({
     homeworkId: z.string().uuid(),
@@ -242,82 +238,14 @@ const markStudentReadyBase = loudAction<MarkReadyInput, { message: string }>({
     action: "UPDATE",
     reasonPrefix: "student mark ready",
   },
-  preflight: studentPreflight,
-  handler: async ({ homeworkId, audio }, { actorId }) => {
-    const supabase = await createClient();
-
-    // Verify ownership and current status
-    const { data: hw, error: hwErr } = await supabase
-      .from("homework_assignments")
-      .select("student_id, teacher_id, status, title")
-      .eq("id", homeworkId)
-      .returns<{ student_id: string; teacher_id: string; status: string; title: string }[]>()
-      .single();
-
-    if (hwErr || !hw) throw notFoundOrInfra(hwErr, "المتابعة غير موجودة");
-    if (hw.student_id !== actorId) throw new UserError("غير مصرح");
-    if (hw.status !== "assigned") throw new UserError("حالة المتابعة لا تسمح بهذا الإجراء");
-
-    // Validate optional audio payload — defense in depth (RLS already gates
-    // the upload itself, but we re-check here so a malformed call can't sneak
-    // a wrong-student path or out-of-range duration into the metadata row).
-    if (audio) {
-      const expectedPrefix = `${actorId}/${homeworkId}/`;
-      if (!audio.path.startsWith(expectedPrefix)) {
-        throw new UserError("مسار الصوت غير صالح");
-      }
-      if (
-        !Number.isFinite(audio.durationSeconds) ||
-        audio.durationSeconds < 1 ||
-        audio.durationSeconds > 300
-      ) {
-        throw new UserError("مدة الصوت غير صالحة");
-      }
-    }
-
-    const updatePayload: TableUpdate<"homework_assignments"> = {
-      status: "student_ready",
-      ready_at: new Date().toISOString(),
-    };
-    if (audio) {
-      updatePayload.audio_url = audio.path;
-      updatePayload.audio_duration_seconds = audio.durationSeconds;
-    }
-
-    const { error } = await supabase
-      .from("homework_assignments")
-      .update(updatePayload)
-      .eq("id", homeworkId);
-
-    if (error) throw new UserError("فشل تحديث حالة المتابعة", { cause: error });
-
-    // Best-effort teacher notification.
-    try {
-      const { data: student } = await supabase
-        .from("profiles").select("full_name").eq("id", actorId as string)
-        .single<{ full_name: string | null }>();
-      const studentName = student?.full_name ?? "الطالب";
-
-      await notify({
-        userId: hw.teacher_id,
-        type: "homework",
-        title: "طالب جاهز",
-        body: `${studentName} جاهز لتسميع المتابعة: ${hw.title}`,
-        entityType: "homework",
-        entityId: homeworkId,
-      });
-    } catch (err) {
-      logError("notify teacher failed during markStudentReady", err, {
-        component: "homework.markStudentReady",
-        metadata: { teacher_id: hw.teacher_id, homeworkId },
-      });
-    }
-
+  preflight: async () => ({ actorId: await requireUserId() }),
+  handler: async ({ homeworkId, audio }) => {
+    const actor = await studentActor();
+    await markStudentReadyDomain(createAdminClient(), actor, {
+      followUpId: homeworkId,
+      audio,
+    });
     revalidateFollowUpPaths();
-    await emitEvent("homework.student_ready", "homework", homeworkId, {
-      student_id: actorId,
-      teacher_id: hw.teacher_id,
-    }).catch((err) => logError("emit homework.student_ready failed", err, { tag: "automation", event: "homework.student_ready" }));
     return { message: "ready" };
   },
 });
@@ -343,8 +271,7 @@ const gradeHomeworkBase = loudAction<GradeHomeworkInput, { message: string }>({
   name: "homework.grade",
   // P0 highest blast radius — auto-regenerates next assignment on
   // needs_work / not_done, fires student + parent notifications, fan-out
-  // through n8n. severity=warning so a silent system failure here gets
-  // Sentry capture without paging Telegram on every routine grade pass.
+  // through n8n. severity=warning.
   severity: "warning",
   schema: z.object({
     homeworkId: z.string().uuid(),
@@ -357,137 +284,15 @@ const gradeHomeworkBase = loudAction<GradeHomeworkInput, { message: string }>({
     action: "UPDATE",
     reasonPrefix: "teacher grade follow-up",
   },
-  preflight: teacherOrAbovePreflight,
-  handler: async ({ homeworkId, grade, teacher_notes }, { actorId }) => {
-    const supabase = await createClient();
-
-    const validGrades: HomeworkStatus[] = [
-      "completed_excellent", "completed_good", "completed_needs_work", "completed_not_done",
-    ];
-    if (!grade || !validGrades.includes(grade)) {
-      throw new UserError("يرجى اختيار تقييم صحيح");
-    }
-
-    // Fetch current follow-up
-    const { data: hw, error: hwErr } = await supabase
-      .from("homework_assignments")
-      .select("*")
-      .eq("id", homeworkId)
-      .returns<HomeworkAssignment[]>()
-      .single();
-
-    if (hwErr || !hw) throw notFoundOrInfra(hwErr, "المتابعة غير موجودة");
-    if (hw.teacher_id !== actorId) {
-      const { data: p, error: roleErr } = await supabase
-        .from("profiles").select("role").eq("id", actorId as string)
-        .single<{ role: string }>();
-      if (roleErr && roleErr.code !== "PGRST116") {
-        throw new UserError("غير مصرح", { cause: roleErr });
-      }
-      if (!p || !["admin"].includes(p.role)) {
-        throw new UserError("غير مصرح");
-      }
-    }
-    if (hw.status !== "student_ready") {
-      throw new UserError("الطالب لم يؤكد جاهزيته بعد");
-    }
-
-    // Update grade
-    const { error } = await supabase
-      .from("homework_assignments")
-      .update({
-        status: grade,
-        completed_at: new Date().toISOString(),
-        teacher_notes,
-      } as never)
-      .eq("id", homeworkId);
-
-    if (error) throw new UserError("فشل تقييم المتابعة", { cause: error });
-
-    const gradeLabel = HOMEWORK_STATUS_AR[grade];
-
-    // Best-effort student notification.
-    try {
-      await notify({
-        userId: hw.student_id,
-        type: "homework",
-        title: "تم تقييم متابعتك",
-        body: `تم تقييم متابعة "${hw.title}" — النتيجة: ${gradeLabel}`,
-        entityType: "homework",
-        entityId: homeworkId,
-      });
-    } catch (err) {
-      logError("notify student failed during gradeHomework", err, {
-        component: "homework.gradeHomework",
-        metadata: { student_id: hw.student_id, homeworkId, grade },
-      });
-    }
-
-    // Auto-regeneration for needs_work / not_done. The whole branch is
-    // best-effort — a regen failure must not fail the grade DB write that
-    // already succeeded. Each side-effect inside (insert, notify, parent
-    // report) catches its own errors via logError.
-    if (grade === "completed_needs_work" || grade === "completed_not_done") {
-      try {
-        // Create new assignment linked to the original. The child inherits
-        // parent.review_horizon so a "near" follow-up that gets re-assigned
-        // stays in the student's "From last session" bucket — losing the
-        // horizon would silently demote it to "New work".
-        const { error: regenErr } = await supabase.from("homework_assignments").insert({
-          booking_id: hw.booking_id,
-          student_id: hw.student_id,
-          teacher_id: hw.teacher_id,
-          homework_type: hw.homework_type,
-          title: hw.title,
-          description: hw.description,
-          surah_number: hw.surah_number,
-          ayah_start: hw.ayah_start,
-          ayah_end: hw.ayah_end,
-          pages_count: hw.pages_count,
-          // review_horizon shipped in 20260505131935; supabase.generated.ts is
-          // stale because CLI is auth'd to the wrong account (see CLAUDE.md
-          // "Supabase MCP — wrong-account gotcha"). Cast until next legitimate
-          // db:types regen.
-          review_horizon: (hw as unknown as { review_horizon: string | null }).review_horizon,
-          parent_assignment_id: homeworkId,
-        } as never);
-        if (regenErr) logError("homework auto-regen failed", regenErr, {
-          tag: "homework", severity: "warning",
-          metadata: { homeworkId, studentId: hw.student_id, grade },
-        });
-
-        // Notify student about re-assignment
-        await notify({
-          userId: hw.student_id,
-          type: "homework",
-          title: "تم إعادة تكليفك بالمتابعة",
-          body: `تمت إعادة تكليفك بمتابعة "${hw.title}" — يرجى المحاولة مجدداً`,
-          entityType: "homework",
-          entityId: homeworkId,
-        });
-
-        // Notify parent
-        await notifyParentHomeworkNotDone(
-          hw.student_id,
-          hw.teacher_id,
-          hw.title,
-          grade,
-          actorId as string,
-        );
-      } catch (err) {
-        logError("auto-regen branch failed during gradeHomework", err, {
-          component: "homework.gradeHomework.regen",
-          metadata: { student_id: hw.student_id, homeworkId, grade },
-        });
-      }
-    }
-
-    revalidateFollowUpPaths();
-    await emitEvent("homework.graded", "homework", homeworkId, {
-      student_id: hw.student_id,
-      teacher_id: hw.teacher_id,
+  preflight: async () => ({ actorId: await requireUserId() }),
+  handler: async ({ homeworkId, grade, teacher_notes }) => {
+    const actor = await teacherOrAboveActor();
+    await gradeFollowUp(createAdminClient(), actor, {
+      followUpId: homeworkId,
       grade,
-    }).catch((err) => logError("emit homework.graded failed", err, { tag: "automation", event: "homework.graded" }));
+      teacherNotes: teacher_notes,
+    });
+    revalidateFollowUpPaths();
     return { message: "graded" };
   },
 });
@@ -509,7 +314,6 @@ type EditHomeworkInput = {
 
 const editHomeworkBase = loudAction<EditHomeworkInput, { message: string }>({
   name: "homework.edit",
-  // P1 routine update. severity=info.
   severity: "info",
   schema: z.object({
     homeworkId: z.string().uuid(),
@@ -521,88 +325,13 @@ const editHomeworkBase = loudAction<EditHomeworkInput, { message: string }>({
     action: "UPDATE",
     reasonPrefix: "teacher edit follow-up",
   },
-  preflight: teacherOrAbovePreflight,
-  handler: async ({ homeworkId, updates }, { actorId }) => {
-    const supabase = await createClient();
-
-    // Fetch follow-up — pull status so we can guard against editing graded rows.
-    const { data: hw, error: hwErr } = await supabase
-      .from("homework_assignments")
-      .select("teacher_id, student_id, assigned_at, status")
-      .eq("id", homeworkId)
-      .returns<{ teacher_id: string; student_id: string; assigned_at: string; status: HomeworkStatus }[]>()
-      .single();
-
-    if (hwErr || !hw) throw notFoundOrInfra(hwErr, "المتابعة غير موجودة");
-    if (hw.teacher_id !== actorId) {
-      const { data: p, error: roleErr } = await supabase
-        .from("profiles").select("role").eq("id", actorId as string)
-        .single<{ role: string }>();
-      if (roleErr && roleErr.code !== "PGRST116") {
-        throw new UserError("غير مصرح", { cause: roleErr });
-      }
-      if (!p || !["admin"].includes(p.role)) {
-        throw new UserError("غير مصرح");
-      }
-    }
-
-    // Status guard: graded follow-ups are immutable. Editing the title/description
-    // post-grade would silently change what the student is being graded against,
-    // with no re-validation and no notification. To re-grade, use the explicit
-    // gradeHomework flow (which fires student notifications + parent reports).
-    const GRADED_STATUSES: HomeworkStatus[] = [
-      "completed_excellent", "completed_good", "completed_needs_work", "completed_not_done",
-    ];
-    if (GRADED_STATUSES.includes(hw.status)) {
-      throw new UserError("لا يمكن تعديل متابعة تم تقييمها. للتغيير، أنشئ متابعة جديدة.");
-    }
-
-    // Check edit window: find next session between same teacher+student.
-    // PGRST116 (no row) is the common case (no future booking yet) — falls
-    // through to the no-window-needed branch. Real infra errors throw.
-    const { data: nextBooking, error: bookingErr } = await supabase
-      .from("bookings")
-      .select("id")
-      .eq("teacher_id", hw.teacher_id)
-      .eq("student_id", hw.student_id)
-      .eq("status", "confirmed")
-      .gt("scheduled_at", hw.assigned_at)
-      .order("scheduled_at", { ascending: true })
-      .limit(1)
-      .single<{ id: string }>();
-
-    if (bookingErr && bookingErr.code !== "PGRST116") {
-      throw new UserError("فشل تعديل المتابعة", { cause: bookingErr });
-    }
-
-    if (nextBooking) {
-      const { data: nextSession, error: sessionErr } = await supabase
-        .from("sessions")
-        .select("started_at")
-        .eq("booking_id", nextBooking.id)
-        .single<{ started_at: string | null }>();
-
-      if (sessionErr && sessionErr.code !== "PGRST116") {
-        throw new UserError("فشل تعديل المتابعة", { cause: sessionErr });
-      }
-
-      if (nextSession?.started_at) {
-        throw new UserError("انتهت فترة التعديل — بدأت الجلسة التالية");
-      }
-    }
-
-    const finalUpdates: TableUpdate<"homework_assignments"> = {
-      ...updates,
-      updated_at: new Date().toISOString(),
-    };
-
-    const { error } = await supabase
-      .from("homework_assignments")
-      .update(finalUpdates)
-      .eq("id", homeworkId);
-
-    if (error) throw new UserError("فشل تعديل المتابعة", { cause: error });
-
+  preflight: async () => ({ actorId: await requireUserId() }),
+  handler: async ({ homeworkId, updates }) => {
+    const actor = await teacherOrAboveActor();
+    await editFollowUp(createAdminClient(), actor, {
+      followUpId: homeworkId,
+      updates,
+    });
     revalidateFollowUpPaths();
     return { message: "edited" };
   },
@@ -639,12 +368,12 @@ export async function editHomework(homeworkId: string, formData: FormData) {
 // The homework-audio bucket is private; playback requires a short-lived
 // signed URL. Storage RLS gates which paths the caller can sign — student
 // can sign their own, teacher can sign for any homework_assignments row
-// they own, admin/mod can sign all. The action just bridges from the
+// they own, admin can sign all. The action just bridges from the
 // authenticated server-side client to the browser's <audio> element.
 //
 // NOT wrapped in loudAction — read-only, returns a URL payload that doesn't
-// fit Output: { message?: string }, no audit row warranted (signed URL
-// generation is not a state change).
+// fit Output: { message?: string }, no audit row warranted. Stays a route
+// boundary read (out of the writes-only domain scope per ADR-0002 §1).
 
 export async function getHomeworkAudioUrl(
   homeworkId: string,
@@ -684,8 +413,7 @@ export async function getHomeworkAudioUrl(
 
 const deleteHomeworkBase = loudAction<{ homeworkId: string }, { message: string }>({
   name: "homework.delete",
-  // P0 destructive — cascades to child assignments. severity=warning so
-  // Sentry captures without Telegram-paging on routine teacher cleanup.
+  // P0 destructive — cascades to child assignments. severity=warning.
   severity: "warning",
   schema: z.object({ homeworkId: z.string().uuid() }),
   audit: {
@@ -694,91 +422,14 @@ const deleteHomeworkBase = loudAction<{ homeworkId: string }, { message: string 
     action: "DELETE",
     reasonPrefix: "teacher delete follow-up",
   },
-  // Custom preflight: any authenticated user passes; the handler does the
-  // teacher-owns-or-admin check inline (matches pre-wrap behavior — a
-  // student hitting this endpoint gets an "ليس لديك صلاحية" message after
-  // the role lookup, not a generic auth denial).
-  preflight: async () => {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new UserError("غير مصرح");
-    return { actorId: user.id };
-  },
-  handler: async ({ homeworkId }, { actorId }) => {
-    const supabase = await createClient();
-
-    const { data: hw, error: hwErr } = await supabase
-      .from("homework_assignments")
-      .select("teacher_id")
-      .eq("id", homeworkId)
-      .returns<{ teacher_id: string }[]>()
-      .single();
-
-    if (hwErr || !hw) throw notFoundOrInfra(hwErr, "المتابعة غير موجودة");
-
-    // Verify ownership or admin
-    if (hw.teacher_id !== actorId) {
-      const { data: profile, error: roleErr } = await supabase
-        .from("profiles").select("role").eq("id", actorId as string)
-        .single<{ role: string }>();
-      if (roleErr && roleErr.code !== "PGRST116") {
-        throw new UserError("ليس لديك صلاحية", { cause: roleErr });
-      }
-      if (!profile || !["admin"].includes(profile.role)) {
-        throw new UserError("ليس لديك صلاحية");
-      }
-    }
-
-    // Count + delete children (auto-regenerated assignments) first.
-    // Without this audit trail, a teacher deleting a parent follow-up would
-    // silently delete N regenerated child assignments — the student would
-    // see them disappear from /student/follow-up with no explanation.
-    // We log how many we cascaded so admins can trace "where did those go".
-    const { data: children, error: childrenErr } = await supabase
-      .from("homework_assignments")
-      .select("id, status, title")
-      .eq("parent_assignment_id", homeworkId)
-      .returns<{ id: string; status: string; title: string }[]>();
-    if (childrenErr) {
-      // Real infra error during the cascade-count read. Block the delete
-      // rather than risk an unbounded cascade with no audit.
-      throw new UserError("فشل حذف المتابعة", { cause: childrenErr });
-    }
-    const childCount = children?.length ?? 0;
-
-    if (childCount > 0) {
-      await supabase
-        .from("homework_assignments")
-        .delete()
-        .eq("parent_assignment_id", homeworkId);
-    }
-
-    // Delete the follow-up
-    const { error } = await supabase
-      .from("homework_assignments")
-      .delete()
-      .eq("id", homeworkId);
-
-    if (error) throw new UserError("فشل حذف المتابعة", { cause: error });
-
-    // Diff audit row carries cascade size — distinct from loudAction's
-    // input-only envelope. Best-effort: an audit_log insert failure must
-    // never block the delete itself succeeding.
-    await supabase
-      .from("audit_log")
-      .insert({
-        changed_by: actorId,
-        action: "DELETE",
-        table_name: "homework_assignments",
-        record_id: homeworkId,
-        new_data: { cascaded_children: childCount, child_ids: children?.map((c) => c.id) ?? [] },
-      } satisfies TableInsert<"audit_log">)
-      .then((r) => {
-        if (r.error) logError("audit_log insert failed for homework delete", r.error, {
-          tag: "audit", homeworkId, childCount,
-        });
-      });
-
+  // Custom preflight: any authenticated user passes; the domain does the
+  // teacher-owns-or-admin check (a student hitting this gets the Arabic
+  // "no permission" message after the ownership check, not a generic auth
+  // denial — matches pre-wrap behavior).
+  preflight: async () => ({ actorId: await requireUserId() }),
+  handler: async ({ homeworkId }) => {
+    const actor = await anyAuthedActor();
+    await deleteFollowUp(createAdminClient(), actor, { followUpId: homeworkId });
     revalidateFollowUpPaths();
     return { message: "deleted" };
   },
