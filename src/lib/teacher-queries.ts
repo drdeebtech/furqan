@@ -468,6 +468,12 @@ export async function getTeacherRecitationRoster(
       .in("student_id", studentIds)
       .eq("progress_type", "new")
       .order("created_at", { ascending: false })
+      // Safety cap on the over-fetch (CodeRabbit). NOTE: a global cap can, in the
+      // worst case, starve a quiet student if a few prolific students fill it —
+      // the fully-correct bound is the deferred window-function RPC. Generous
+      // headroom (10× roster) makes starvation unlikely for the dashboard's
+      // last-5-per-student use.
+      .limit(Math.min(studentIds.length * 10, 500))
       .returns<ProgressRow[]>(),
   ]);
   if (profilesRes.error) throw profilesRes.error;
@@ -767,6 +773,9 @@ export async function getTeacherRosterProgress(
       .eq("teacher_id", teacherId)
       .in("student_id", studentIds)
       .order("evaluation_date", { ascending: false })
+      // Safety cap on the over-fetch (CodeRabbit); window-function RPC remains
+      // the fully-correct per-student bound (deferred).
+      .limit(Math.min(studentIds.length * 10, 500))
       .returns<EvalRow[]>(),
   ]);
   if (profilesRes.error) throw profilesRes.error;
