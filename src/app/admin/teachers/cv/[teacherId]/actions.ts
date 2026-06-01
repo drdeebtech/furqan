@@ -8,7 +8,7 @@ import { emitEvent } from "@/lib/automation/emit";
 import { sendTelegramAlert } from "@/lib/n8n/client";
 import { sendTeacherApprovalEmail } from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
+import { requireAdmin, ForbiddenError, UnauthenticatedError } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
 import { loudAction } from "@/lib/actions/loud";
 
@@ -30,9 +30,8 @@ async function authPreflight(): Promise<{ actorId: string }> {
     const { id } = await requireAdmin();
     return { actorId: id };
   } catch (e) {
-    if (e instanceof ForbiddenError) {
-      throw new UserError(e.message === "not authenticated" ? "غير مسجل الدخول" : "ليس لديك صلاحية");
-    }
+    if (e instanceof UnauthenticatedError) throw new UserError("غير مسجل الدخول");
+    if (e instanceof ForbiddenError) throw new UserError("ليس لديك صلاحية");
     throw e;
   }
 }
