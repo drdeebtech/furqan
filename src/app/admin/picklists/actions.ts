@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { loudAction, type LoudResult } from "@/lib/actions/loud";
-import { requireAdmin } from "@/lib/auth/require-admin";
+import { type LoudResult } from "@/lib/actions/loud";
+import { routeAction } from "@/lib/actions/route-action";
 
 // teacher_languages / teacher_specialties / teacher_recitations were
 // added in v15_008. supabase.generated.ts isn't kept in sync — escape
@@ -50,8 +50,9 @@ function revalidatePicklistConsumers() {
   revalidatePath("/teachers");
 }
 
-const upsertBase = loudAction<z.infer<typeof upsertPicklistSchema>, { message?: string }>({
+const upsertBase = routeAction<z.infer<typeof upsertPicklistSchema>, { message?: string }>({
   name: "admin.picklist.upsert",
+  role: "admin",
   severity: "info",
   schema: upsertPicklistSchema,
   audit: {
@@ -95,7 +96,8 @@ export async function upsertPicklistRow(
   _prev: LoudResult | null,
   formData: FormData,
 ): Promise<LoudResult> {
-  try { await requireAdmin(); } catch { return { ok: false, error: "غير مصرح" }; }
+  // Auth is now the routeAction preflight on upsertBase (role: "admin") —
+  // ForbiddenError surfaces as { ok: false, error: "ليس لديك صلاحية" }.
   // Hand the raw values to the schema; loudAction surfaces a friendly
   // Arabic field-level error for any shape violation (invalid table,
   // missing label, etc).
@@ -110,8 +112,9 @@ export async function upsertPicklistRow(
   });
 }
 
-const deletePicklistRowBase = loudAction<{ table: PicklistTable; key: string }, { message: string }>({
+const deletePicklistRowBase = routeAction<{ table: PicklistTable; key: string }, { message: string }>({
   name: "admin.picklist.delete",
+  role: "admin",
   severity: "info",
   schema: z.object({ table: picklistTable, key: z.string().min(1).max(100) }),
   audit: {
@@ -133,6 +136,6 @@ export async function deletePicklistRow(
   table: PicklistTable,
   key: string,
 ): Promise<LoudResult> {
-  try { await requireAdmin(); } catch { return { ok: false, error: "غير مصرح" }; }
+  // Auth is the routeAction preflight on deletePicklistRowBase (role: "admin").
   return deletePicklistRowBase({ table, key });
 }

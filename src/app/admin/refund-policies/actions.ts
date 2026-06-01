@@ -3,32 +3,16 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
-import { loudAction } from "@/lib/actions/loud";
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
-}
+import { routeAction } from "@/lib/actions/route-action";
 
 type ActionResult = { error?: string; success?: boolean };
 
-async function adminPreflight(): Promise<{ actorId: string }> {
-  try {
-    const { id } = await requireAdmin();
-    return { actorId: id };
-  } catch (e) {
-    if (e instanceof ForbiddenError) throw new UserError("ليس لديك صلاحية");
-    throw e;
-  }
-}
-
-const togglePolicyActiveBase = loudAction<{ policyId: string; isActive: boolean }, { message: string }>({
+const togglePolicyActiveBase = routeAction<{ policyId: string; isActive: boolean }, { message: string }>({
   name: "admin.refund-policies.toggle-active",
+  role: "admin",
   severity: "warning",
   schema: z.object({ policyId: z.string().uuid(), isActive: z.boolean() }),
   audit: { table: "refund_policies", recordId: (i) => i.policyId, action: "UPDATE" },
-  preflight: adminPreflight,
   handler: async ({ policyId, isActive }) => {
     const supabase = await createClient();
     const { error } = await supabase
