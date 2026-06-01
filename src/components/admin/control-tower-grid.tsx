@@ -57,7 +57,9 @@ type ActionState = { ok: true; message?: string } | { ok: false; error: string }
 export function ControlTowerGrid({ initialData }: { initialData: ControlTowerSnapshot }) {
   const { t, lang } = useLang();
   const [snapshot, setSnapshot] = useState(initialData);
-  const lastFetchRef = useRef(Date.now());
+  // 0 until mount; the effect stamps the real mount time. Avoids calling the
+  // impure Date.now() during render (react-hooks/purity, issue #325).
+  const lastFetchRef = useRef(0);
   const [actionState, setActionState] = useState<ActionState>(null);
   const [pendingKey, setPendingKey] = useState<WidgetKey | null>(null);
   const [, startAction] = useTransition();
@@ -67,6 +69,8 @@ export function ControlTowerGrid({ initialData }: { initialData: ControlTowerSna
   // full interval.
   useEffect(() => {
     let cancelled = false;
+    // Stamp mount time here rather than in render (purity rule).
+    lastFetchRef.current = Date.now();
 
     async function refresh() {
       try {

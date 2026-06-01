@@ -12,10 +12,8 @@ version: 2.1
 # (supabase-migrate.yml, migration-drift.yml) — they use the
 # supabase/setup-cli GHA action and SUPABASE_DB_PASSWORD secret.
 #
-# Lint is intentionally NOT enforced here — repo has 26 pre-existing
-# eslint errors that would block all PRs. Re-add a `lint` job once
-# the backlog is cleared (and bring it under the rls-tests.yml GHA
-# umbrella too, for parity).
+# Lint runs as the `lint` job below (issue #325 cleared the 26-error
+# backlog). Mirrored in rls-tests.yml (GHA) for parity.
 # ────────────────────────────────────────────────────────────────
 
 orbs:
@@ -54,6 +52,18 @@ jobs:
       - run:
           name: tsc --noEmit
           command: npx tsc --noEmit
+
+  # ── ESLint ────────────────────────────────────────────────────
+  # Re-enabled once the 26-error backlog was cleared (issue #325).
+  lint:
+    executor: node-24
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: eslint
+          command: npm run lint
 
   # ── Unit tests via Smarter Testing ───────────────────────────
   # Uses circleci run testsuite which enables:
@@ -97,6 +107,11 @@ workflows:
           requires:
             - install
 
+      # eslint after install (independent of typecheck)
+      - lint:
+          requires:
+            - install
+
       # unit tests after install (independent of typecheck)
       - unit-test:
           requires:
@@ -106,6 +121,7 @@ workflows:
       - build:
           requires:
             - typecheck
+            - lint
             - unit-test
           filters:
             branches:

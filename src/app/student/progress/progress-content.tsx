@@ -1,5 +1,6 @@
 "use client";
 
+import { startTransition, useEffect, useState } from "react";
 import Link from "next/link";
 import { TrendingUp, BookOpen, CheckCircle, Clock, Star, Award, Target, MessageSquareQuote, Sparkles, AlertCircle, Mail } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
@@ -95,6 +96,11 @@ interface ProgressData {
 export function ProgressContent({ data }: { data: ProgressData }) {
   const { t, dir, lang } = useLang();
   const locale = lang === "ar" ? "ar-EG" : "en-US";
+  // Read "now" after mount only — calling Date.now() during render is impure
+  // (react-hooks/purity) and would also risk an SSR/client hydration mismatch
+  // on the milestone-ETA label below (issue #325). Null until mounted.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => { startTransition(() => setNow(Date.now())); }, []);
   const { completedCount, currentLevel, avgQuality, juzTouched, totalHours, evalScores, hwStats, latestEval, progressRecords, sessionsPerWeek, errorBreakdown, parentReport } = data;
 
   const level = LEVEL_CONFIG[currentLevel] ?? LEVEL_CONFIG.beginner;
@@ -455,10 +461,10 @@ export function ProgressContent({ data }: { data: ProgressData }) {
             if all milestones are already achieved. */}
         {(() => {
           const next = milestones.find(m => completedCount < m.threshold);
-          if (!next || sessionsPerWeek <= 0) return null;
+          if (!next || sessionsPerWeek <= 0 || now === null) return null;
           const remaining = next.threshold - completedCount;
           const weeks = remaining / sessionsPerWeek;
-          const eta = new Date(Date.now() + weeks * 7 * 86400_000);
+          const eta = new Date(now + weeks * 7 * 86400_000);
           const etaLabel = eta.toLocaleDateString(locale, { month: "short", day: "numeric", year: weeks > 26 ? "numeric" : undefined });
           // Round pace to one decimal (e.g. 1.5/week reads cleaner than 1.4285714285).
           const paceLabel = Math.round(sessionsPerWeek * 10) / 10;
