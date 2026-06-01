@@ -9,6 +9,11 @@
 --
 -- The application-layer mirror is src/lib/quran/ayah-counts.ts; a unit test
 -- asserts the two agree.
+--
+-- Provenance: all 114 counts were programmatically cross-verified (2026-06-01)
+-- against an independent authoritative source (api.alquran.cloud/v1/surah,
+-- standard Ḥafṣ numbering) — 0 mismatches, total 6236 = 6236. A human
+-- Qurʾān-teacher sign-off remains the final gate per the lens-2 non-negotiable.
 
 create table if not exists public.quran_surahs (
   surah_num  smallint primary key check (surah_num between 1 and 114),

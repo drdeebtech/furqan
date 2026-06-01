@@ -2,9 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
+import { recordProgress } from "@/lib/domains/progress/capture";
+import type { ProgressType, StudentLevel } from "@/lib/domains/progress/types";
 
 class UserError extends Error {
   readonly userError = true;
@@ -177,5 +180,93 @@ export async function markNoErrorsObserved(
   if (result.message === "already-marked") {
     return { success: true, alreadyMarked: true };
   }
+  return { success: true };
+}
+
+// ─── recordSessionProgress (spec 010 — ḥifẓ capture) ────────────────────────
+
+export interface RecordSessionProgressInput {
+  sessionId: string;
+  bookingId: string;
+  progressType: ProgressType;
+  // null range allowed for muraja/correction; required for `new` (domain enforces)
+  surahFrom: number | null;
+  ayahFrom: number | null;
+  surahTo: number | null;
+  ayahTo: number | null;
+  pagesReviewed?: number | null;
+  qualityRating?: number | null;
+  level?: StudentLevel;
+  teacherNotes?: string | null;
+}
+
+const recordSessionProgressBase = loudAction<RecordSessionProgressInput, { message: string }>({
+  name: "teacher.session.record-progress",
+  // Academic record write — info severity (not a live-session disruption like
+  // endSession). Audit envelope captures who recorded what.
+  severity: "info",
+  audit: {
+    table: "student_progress",
+    recordId: (i) => i.bookingId,
+    action: "UPDATE",
+    reasonPrefix: "teacher record hifz progress",
+  },
+  preflight: loggedInPreflight,
+  handler: async (input, { actorId }) => {
+    const supabase = await createClient();
+
+    // Principle IV — authorize at the boundary: the teacher must own this booking.
+    const { data: booking, error: bookErr } = await supabase
+      .from("bookings")
+      .select("teacher_id")
+      .eq("id", input.bookingId)
+      .single<{ teacher_id: string }>();
+    if (bookErr || !booking) throw notFoundOrInfra(bookErr, "تعذر العثور على الحجز");
+    if (booking.teacher_id !== actorId) throw new UserError("ليس لديك صلاحية على هذه الجلسة");
+
+    const range =
+      input.surahFrom != null && input.ayahFrom != null && input.surahTo != null && input.ayahTo != null
+        ? { surahFrom: input.surahFrom, ayahFrom: input.ayahFrom, surahTo: input.surahTo, ayahTo: input.ayahTo }
+        : null;
+
+    const admin = createAdminClient();
+    const outcome = await recordProgress(admin, {
+      bookingId: input.bookingId,
+      progressType: input.progressType,
+      range,
+      pagesReviewed: input.pagesReviewed ?? null,
+      qualityRating: input.qualityRating ?? null,
+      level: input.level,
+      teacherNotes: input.teacherNotes ?? null,
+    });
+
+    if (!outcome.ok) {
+      // invalid_range / missing_range carry an Arabic message; not_found/error too.
+      throw new UserError(
+        "message" in outcome ? outcome.message : "تعذر تسجيل الحفظ — يرجى المحاولة مرة أخرى",
+      );
+    }
+
+    revalidatePath(`/teacher/sessions/${input.sessionId}`);
+    revalidatePath("/teacher/dashboard");
+    await emitEvent("progress.recorded", "student_progress", outcome.progressId, {
+      booking_id: input.bookingId,
+      teacher_id: actorId,
+      progress_type: input.progressType,
+      surah_from: input.surahFrom,
+      surah_to: input.surahTo,
+    }).catch((err) =>
+      logError("emit progress.recorded failed", err, { tag: "automation", event: "progress.recorded" }),
+    );
+
+    return { message: "recorded" };
+  },
+});
+
+export async function recordSessionProgress(
+  input: RecordSessionProgressInput,
+): Promise<{ success?: true; error?: string }> {
+  const result = await recordSessionProgressBase(input);
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }
