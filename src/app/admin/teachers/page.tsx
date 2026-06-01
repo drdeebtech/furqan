@@ -3,10 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { GraduationCap, Plus, Star, Inbox, FileText, Archive, CheckCircle2, Clock, XCircle, Pause } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { getT } from "@/lib/i18n/server";
-import { buildNameMap } from "@/lib/admin/name-map";
-import { logError } from "@/lib/logger";
 import { Avatar } from "@/components/shared/avatar";
 import { SearchInput } from "@/components/shared/search-input";
 import { PageHeader } from "@/components/shared/page-header";
@@ -14,66 +11,61 @@ import { ArchiveToggle } from "../dashboard/archive-toggle";
 
 export const metadata: Metadata = { title: "إدارة المعلمين" };
 
-interface TeacherRow { teacher_id: string; specialties: string[]; hourly_rate: number; rating_avg: number; total_sessions: number; is_accepting: boolean; is_archived: boolean; cv_status: string | null; }
+const PAGE_SIZE = 50;
+
+interface TeacherRow {
+  teacher_id: string;
+  full_name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  specialties: string[];
+  hourly_rate: number;
+  rating_avg: number;
+  total_sessions: number;
+  is_accepting: boolean;
+  is_archived: boolean;
+  cv_status: string | null;
+  total_count: number;
+}
 
 interface PageProps {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }
 
 export default async function AdminTeachersPage({ searchParams }: PageProps) {
   const { t, dir } = await getT();
-  const { q = "" } = await searchParams;
+  const { q = "", page: pageParam } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Escape LIKE wildcards so a term like "50%" matches literally (backslash
+  // first). Search + pagination + email resolution all happen server-side via
+  // the admin-gated search_teachers RPC (audit #341 follow-up) — no more
+  // load-all + per-teacher getUserById fan-out.
+  const needle = q.trim();
+  const escaped = needle.replace(/\\/g, "\\\\").replace(/[%_]/g, (c) => `\\${c}`);
+  const page = Math.max(1, Number(pageParam) || 1);
+  const offset = (page - 1) * PAGE_SIZE;
+
   const [teachersRes, cvCountRes] = await Promise.all([
-    supabase.from("teacher_profiles")
-      .select("teacher_id, specialties, hourly_rate, rating_avg, total_sessions, is_accepting, is_archived, cv_status")
-      .order("total_sessions", { ascending: false }).returns<TeacherRow[]>(),
+    supabase.rpc("search_teachers", {
+      p_needle: escaped,
+      p_limit: PAGE_SIZE,
+      p_offset: offset,
+    }).returns<TeacherRow[]>(),
     supabase.from("teacher_profiles")
       .select("teacher_id", { count: "exact", head: true })
       .eq("cv_status", "pending_review"),
   ]);
-  const list = teachersRes.data ?? [];
+  const rows = teachersRes.data ?? [];
   const pendingCvCount = cvCountRes.count;
+  const totalCount = rows[0]?.total_count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const hasAny = totalCount > 0 || page > 1;
 
-  const teacherIds = list.map(x => x.teacher_id);
-  const adminCli = createAdminClient();
-  const [nameMap, avatarRes] = await Promise.all([
-    buildNameMap(supabase, teacherIds, t("معلم", "Teacher")),
-    teacherIds.length > 0
-      ? supabase.from("profiles").select("id, avatar_url").in("id", teacherIds).returns<{ id: string; avatar_url: string | null }[]>()
-      : Promise.resolve({ data: [] as { id: string; avatar_url: string | null }[] }),
-  ]);
-  const avatarMap = Object.fromEntries((avatarRes.data ?? []).map(p => [p.id, p.avatar_url ?? null]));
-
-  // Resolve each teacher's email by id (audit H6 — listUsers({perPage:1000})
-  // only saw the 1000 most-recent auth users, so most teachers' emails were
-  // missing). Resolve in bounded batches rather than one unbounded Promise.all
-  // (CodeRabbit), and logError per-id failures instead of dropping silently.
-  const emailMap: Record<string, string> = {};
-  const EMAIL_BATCH = 10;
-  for (let i = 0; i < teacherIds.length; i += EMAIL_BATCH) {
-    const batch = teacherIds.slice(i, i + EMAIL_BATCH);
-    const results = await Promise.all(batch.map((id) => adminCli.auth.admin.getUserById(id)));
-    results.forEach((r, j) => {
-      if (r.error || !r.data?.user) {
-        logError("admin/teachers: getUserById failed", r.error, {
-          tag: "admin-teachers", metadata: { teacherId: batch[j] },
-        });
-        return;
-      }
-      if (r.data.user.email) emailMap[batch[j]] = r.data.user.email;
-    });
-  }
-
-  // Server-side filter by teacher name (resolved via nameMap) when ?q= is set.
-  const needle = q.trim().toLowerCase();
-  const filteredList = needle
-    ? list.filter(x => (nameMap[x.teacher_id] ?? "").toLowerCase().includes(needle)
-        || (emailMap[x.teacher_id] ?? "").toLowerCase().includes(needle))
-    : list;
+  const pageHref = (p: number) =>
+    `/admin/teachers?${new URLSearchParams({ ...(needle ? { q: needle } : {}), page: String(p) })}`;
 
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
@@ -95,20 +87,15 @@ export default async function AdminTeachersPage({ searchParams }: PageProps) {
           </>
         }
       />
-      {list.length > 0 && (
+      {(hasAny || needle) && (
         <div className="mb-4">
           <SearchInput placeholder={t("ابحث بالاسم أو البريد...", "Search by name or email...")} ariaLabel={t("بحث المعلمين", "Search teachers")} />
         </div>
       )}
-      {list.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="glass-card rounded-xl p-12 text-center">
           <Inbox size={32} className="mx-auto mb-3 text-muted" aria-hidden="true" />
-          <p className="text-muted">{t("لا يوجد معلمون", "No teachers yet")}</p>
-        </div>
-      ) : filteredList.length === 0 ? (
-        <div className="glass-card rounded-xl p-12 text-center">
-          <Inbox size={32} className="mx-auto mb-3 text-muted" aria-hidden="true" />
-          <p className="text-muted">{t("لا نتائج لبحثك", "No matches for your search")}</p>
+          <p className="text-muted">{needle ? t("لا نتائج لبحثك", "No matches for your search") : t("لا يوجد معلمون", "No teachers yet")}</p>
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl glass-card">
@@ -123,20 +110,20 @@ export default async function AdminTeachersPage({ searchParams }: PageProps) {
               <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("إجراءات", "Actions")}</th>
             </tr></thead>
             <tbody>
-              {filteredList.map(x => (
+              {rows.map(x => (
                 <tr key={x.teacher_id} className={`border-b border-white/10 last:border-b-0 ${x.is_archived ? "opacity-50" : ""}`}>
                   <td className="px-4 py-3 font-medium">
                     <span className="flex items-center gap-2">
-                      <Avatar src={avatarMap[x.teacher_id] ?? null} name={nameMap[x.teacher_id] ?? null} size={32} />
+                      <Avatar src={x.avatar_url} name={x.full_name} size={32} />
                       <span className="flex flex-col leading-tight">
-                        <span>{nameMap[x.teacher_id] ?? t("معلم", "Teacher")}</span>
-                        {emailMap[x.teacher_id] ? (
+                        <span>{x.full_name ?? t("معلم", "Teacher")}</span>
+                        {x.email ? (
                           <a
-                            href={`mailto:${emailMap[x.teacher_id]}`}
+                            href={`mailto:${x.email}`}
                             className="select-all text-[11px] font-normal text-muted hover:text-gold"
                             dir="ltr"
                           >
-                            {emailMap[x.teacher_id]}
+                            {x.email}
                           </a>
                         ) : null}
                       </span>
@@ -173,6 +160,17 @@ export default async function AdminTeachersPage({ searchParams }: PageProps) {
             </tbody>
           </table>
         </div>
+      )}
+      {totalPages > 1 && (
+        <nav className="mt-4 flex items-center justify-between text-sm" aria-label={t("ترقيم الصفحات", "Pagination")}>
+          {page > 1 ? (
+            <Link href={pageHref(page - 1)} className="glass-pill inline-flex items-center min-h-[44px] px-4 py-2 focus-ring">{t("السابق", "Previous")}</Link>
+          ) : <span />}
+          <span className="text-muted">{t(`صفحة ${page} من ${totalPages}`, `Page ${page} of ${totalPages}`)}</span>
+          {page < totalPages ? (
+            <Link href={pageHref(page + 1)} className="glass-pill inline-flex items-center min-h-[44px] px-4 py-2 focus-ring">{t("التالي", "Next")}</Link>
+          ) : <span />}
+        </nav>
       )}
     </div>
   );
