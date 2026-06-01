@@ -150,13 +150,30 @@ export async function upsertLessonProgress(
     return { ok: false as const, error: error.message };
   }
 
-  // Update enrollment.last_accessed_at
-  await supabase
+  // Refresh enrollment.last_accessed_at, but at most once per 5 minutes per
+  // enrollment. The player ticks every ~15s, so an unconditional UPDATE here is
+  // ~250k+ writes/day at 50k learners (audit H10). The courses list only needs
+  // coarse recency for its ordering, so gate the write on a staleness WHERE
+  // clause — most ticks become a no-op match.
+  const staleThreshold = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  // The timestamp must be double-quoted inside the PostgREST or() filter — the
+  // ISO `:`/`.` characters otherwise break value parsing (CodeRabbit).
+  const { error: touchErr } = await supabase
     .from("course_enrollments")
     .update({ last_accessed_at: new Date().toISOString() } satisfies TableUpdate<"course_enrollments">)
-    .eq("id", enrollment.id);
+    .eq("id", enrollment.id)
+    .or(`last_accessed_at.is.null,last_accessed_at.lt."${staleThreshold}"`);
+  if (touchErr) {
+    logError("upsertLessonProgress last_accessed_at refresh failed", touchErr, {
+      tag: "course-playback",
+      lessonId,
+    });
+  }
 
-  // If just completed, emit event
+  // If just completed, emit the event and revalidate the courses list — a
+  // meaningful state change. Position-only ticks must NOT bust the courses
+  // cache every 15s (audit H10); the position upsert above already persists
+  // resume state, which the page re-reads on its next natural load.
   if (completed_at) {
     await emitEvent("lesson.completed", "course_lesson", lessonId, {
       enrollment_id: enrollment.id,
@@ -164,9 +181,9 @@ export async function upsertLessonProgress(
     }, user.id).catch((err) =>
       logError("emit lesson.completed failed", err, { tag: "course-playback" }),
     );
+    revalidatePath(`/student/courses`);
   }
 
-  revalidatePath(`/student/courses`);
   return { ok: true as const, completed: !!completed_at };
 }
 
