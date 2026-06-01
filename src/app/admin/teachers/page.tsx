@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getT } from "@/lib/i18n/server";
 import { buildNameMap } from "@/lib/admin/name-map";
+import { logError } from "@/lib/logger";
 import { Avatar } from "@/components/shared/avatar";
 import { SearchInput } from "@/components/shared/search-input";
 import { PageHeader } from "@/components/shared/page-header";
@@ -39,22 +40,33 @@ export default async function AdminTeachersPage({ searchParams }: PageProps) {
 
   const teacherIds = list.map(x => x.teacher_id);
   const adminCli = createAdminClient();
-  const [nameMap, avatarRes, authRes] = await Promise.all([
+  const [nameMap, avatarRes] = await Promise.all([
     buildNameMap(supabase, teacherIds, t("معلم", "Teacher")),
     teacherIds.length > 0
       ? supabase.from("profiles").select("id, avatar_url").in("id", teacherIds).returns<{ id: string; avatar_url: string | null }[]>()
       : Promise.resolve({ data: [] as { id: string; avatar_url: string | null }[] }),
-    teacherIds.length > 0
-      ? adminCli.auth.admin.listUsers({ page: 1, perPage: 1000 })
-      : Promise.resolve({ data: { users: [] as { id: string; email?: string | null }[] } }),
   ]);
   const avatarMap = Object.fromEntries((avatarRes.data ?? []).map(p => [p.id, p.avatar_url ?? null]));
-  const teacherIdSet = new Set(teacherIds);
-  const emailMap: Record<string, string> = Object.fromEntries(
-    (authRes.data?.users ?? [])
-      .filter(u => teacherIdSet.has(u.id))
-      .map(u => [u.id, u.email ?? ""]),
-  );
+
+  // Resolve each teacher's email by id (audit H6 — listUsers({perPage:1000})
+  // only saw the 1000 most-recent auth users, so most teachers' emails were
+  // missing). Resolve in bounded batches rather than one unbounded Promise.all
+  // (CodeRabbit), and logError per-id failures instead of dropping silently.
+  const emailMap: Record<string, string> = {};
+  const EMAIL_BATCH = 10;
+  for (let i = 0; i < teacherIds.length; i += EMAIL_BATCH) {
+    const batch = teacherIds.slice(i, i + EMAIL_BATCH);
+    const results = await Promise.all(batch.map((id) => adminCli.auth.admin.getUserById(id)));
+    results.forEach((r, j) => {
+      if (r.error || !r.data?.user) {
+        logError("admin/teachers: getUserById failed", r.error, {
+          tag: "admin-teachers", metadata: { teacherId: batch[j] },
+        });
+        return;
+      }
+      if (r.data.user.email) emailMap[batch[j]] = r.data.user.email;
+    });
+  }
 
   // Server-side filter by teacher name (resolved via nameMap) when ?q= is set.
   const needle = q.trim().toLowerCase();
