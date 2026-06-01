@@ -5,13 +5,15 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { createRoom, updateRoomExpiry } from "@/lib/daily";
-import { notifyParentSessionComplete, notifyParentNoShow } from "@/lib/notifications/parent";
+import { notifyParentNoShow } from "@/lib/notifications/parent";
 import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import { loudAction } from "@/lib/actions/loud";
 import { confirmBooking } from "@/lib/domains/booking/orchestrate";
 import { selectActivePackage, debitPackage } from "@/lib/domains/package/ledger";
+import { endSession as endSessionOrchestrator } from "@/lib/domains/session/orchestrate";
+import { SessionNotFoundError } from "@/lib/domains/session/types";
 import {
   BookingAlreadyConfirmedError,
   BookingConfirmError,
@@ -405,106 +407,42 @@ export const endSession = loudAction<{ sessionId: string }, { message: string }>
   handler: async ({ sessionId }, { actorId }) => {
     const supabase = await createClient();
 
+    // Authorize: the teacher must own the session's booking. Authz stays at
+    // the route adapter (ADR-0002); the orchestrator owns the cross-domain
+    // end-session choreography (ADR-0004).
     const { data: session, error: sessReadErr } = await supabase
       .from("sessions")
-      .select("id, booking_id, started_at, ended_at")
+      .select("id, booking_id")
       .eq("id", sessionId)
-      .single<{
-        id: string;
-        booking_id: string;
-        started_at: string | null;
-        ended_at: string | null;
-      }>();
+      .single<{ id: string; booking_id: string }>();
 
     if (sessReadErr) throw sessReadErr;
     if (!session) throw new Error("الجلسة غير موجودة");
 
-    // Verify teacher owns the booking
-    const { data: booking, error: bookReadErr } = await supabase
+    const { data: owned, error: ownErr } = await supabase
       .from("bookings")
-      .select("student_id, teacher_id, duration_min")
+      .select("id")
       .eq("id", session.booking_id)
       .eq("teacher_id", actorId!)
-      .single<{ student_id: string; teacher_id: string; duration_min: number }>();
+      .maybeSingle<{ id: string }>();
 
-    if (bookReadErr) throw bookReadErr;
-    if (!booking) throw new Error("ليس لديك صلاحية لإنهاء هذه الجلسة");
+    if (ownErr) throw ownErr;
+    if (!owned) throw new Error("ليس لديك صلاحية لإنهاء هذه الجلسة");
 
-    // T022/T023: If the Daily webhook already ended this session, the
-    // session row will have ended_at set. Rather than error, audit-log
-    // the noop attempt and return success — from the teacher's perspective
-    // the session is correctly ended either way.
-    if (session.ended_at) {
-      const adminClient = (await import("@/lib/supabase/admin")).createAdminClient();
-      const { error: auditErr } = await adminClient
-        .from("audit_log")
-        .insert({
-          changed_by: actorId ?? null,
-          action:     "session.manual_end_post_webhook",
-          table_name: "sessions",
-          record_id:  sessionId,
-          new_data:   { note: "manual endSession called after Daily webhook already ended the session; noop" },
-        } satisfies TableInsert<"audit_log">);
-      if (auditErr) logError("endSession: manual_end_post_webhook audit insert failed", auditErr, { tag: "teacher-bookings" });
-      return { message: "تم إنهاء الجلسة" };
-    }
-
-    const now = new Date();
-    const actualDuration = session.started_at
-      ? Math.round((now.getTime() - new Date(session.started_at).getTime()) / 60_000)
-      : booking.duration_min;
-
-    const { error: sessionError } = await supabase
-      .from("sessions")
-      .update({
-        ended_at: now.toISOString(),
-        actual_duration: actualDuration,
-      } satisfies TableUpdate<"sessions">)
-      .eq("id", sessionId);
-
-    if (sessionError) throw sessionError;
-
-    // Mark booking as completed (best-effort — session row is the source of truth for "ended").
-    const { error: bookingErr } = await supabase
-      .from("bookings")
-      .update({ status: "completed" } satisfies TableUpdate<"bookings">)
-      .eq("id", session.booking_id)
-      .eq("teacher_id", actorId!);
-    if (bookingErr) logError("endSession: bookings status=completed update failed", bookingErr, { tag: "teacher-bookings" });
-
-    // Notify student (best-effort)
+    // Atomic sessions+bookings end + best-effort notify(student/parent) +
+    // emitEvent("session.ended"). Idempotent when the Daily webhook already
+    // ended the session (returns alreadyEnded). The actor IS the teacher, so
+    // the orchestrator does not self-notify.
     try {
-      await notify({
-        userId: booking.student_id,
-        type: "booking",
-        title: "تمت الجلسة",
-        body: `أنهى المعلم الجلسة — المدة الفعلية: ${actualDuration} دقيقة`,
-        entityType: "session",
-        entityId: sessionId,
-      });
+      await endSessionOrchestrator({ sessionId, actorId: actorId! });
     } catch (err) {
-      logError("endSession: notify student failed", err, {
-        component: "teacher.dashboard.endSession",
-        metadata: { student_id: booking.student_id, sessionId },
-      });
-    }
-
-    // V9: Notify parent of session completion (best-effort)
-    try {
-      await notifyParentSessionComplete(
-        booking.student_id, actorId!,
-        session.started_at ?? now.toISOString(),
-        actualDuration, actorId!,
-      );
-    } catch (err) {
-      logError("endSession: notifyParentSessionComplete failed", err, { tag: "teacher-bookings" });
+      if (err instanceof SessionNotFoundError) throw new Error("الجلسة غير موجودة");
+      throw err; // SessionEndError / unexpected → loudAction captures (critical)
     }
 
     revalidatePath("/teacher/dashboard");
     revalidatePath(`/teacher/sessions/${sessionId}`);
     revalidatePath("/teacher/sessions");
-    await emitEvent("session.ended", "session", sessionId, { booking_id: session.booking_id, teacher_id: actorId!, actual_duration: actualDuration })
-      .catch((err) => logError("emit session.ended failed", err, { tag: "automation", event: "session.ended" }));
 
     return { message: "تم إنهاء الجلسة" };
   },
