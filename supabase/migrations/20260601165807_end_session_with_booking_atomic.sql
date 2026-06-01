@@ -62,6 +62,16 @@ begin
             detail = 'session ' || p_session_id || ' is already ended or does not exist';
   end if;
 
+  -- sessions.booking_id is nullable. A session with no booking has nothing to
+  -- complete — failing here keeps the "session + booking in one transaction"
+  -- guarantee honest (the session UPDATE above rolls back too) rather than
+  -- silently ending the session while completing zero booking rows.
+  if v_booking_id is null then
+    raise exception 'session_without_booking'
+      using errcode = 'P0001',
+            detail = 'session ' || p_session_id || ' has no booking_id to complete';
+  end if;
+
   -- 2. Complete the booking. Guarded so a re-completion is a no-op rather than
   --    re-firing the confirmed->completed work (e.g. t_inc_teacher_sessions).
   update public.bookings
@@ -72,3 +82,10 @@ begin
   return v_ended_at;
 end;
 $$;
+
+-- Lock down EXECUTE: this is SECURITY DEFINER (runs as owner, bypasses RLS), so
+-- it must not be callable by end-user roles — otherwise it is an authorization-
+-- bypass primitive to end arbitrary sessions. Mirror confirm_booking_with_session
+-- (migration 20260508011953): revoke from public, grant only to service_role.
+revoke all on function public.end_session_with_booking(uuid, int) from public;
+grant execute on function public.end_session_with_booking(uuid, int) to service_role;

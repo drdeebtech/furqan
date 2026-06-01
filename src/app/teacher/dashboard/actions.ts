@@ -410,11 +410,14 @@ export const endSession = loudAction<{ sessionId: string }, { message: string }>
     // Authorize: the teacher must own the session's booking. Authz stays at
     // the route adapter (ADR-0002); the orchestrator owns the cross-domain
     // end-session choreography (ADR-0004).
+    // `.maybeSingle()` so a missing session yields the friendly "الجلسة غير
+    // موجودة" below — `.single()` returns a PGRST116 error on 0 rows, which the
+    // `if (sessReadErr) throw` above would surface as a generic error instead.
     const { data: session, error: sessReadErr } = await supabase
       .from("sessions")
       .select("id, booking_id")
       .eq("id", sessionId)
-      .single<{ id: string; booking_id: string }>();
+      .maybeSingle<{ id: string; booking_id: string }>();
 
     if (sessReadErr) throw sessReadErr;
     if (!session) throw new Error("الجلسة غير موجودة");

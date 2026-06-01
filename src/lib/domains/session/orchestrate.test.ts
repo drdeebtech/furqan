@@ -64,7 +64,7 @@ beforeEach(() => {
   mockRpc.mockResolvedValue({ error: null });
   mockAuditInsert.mockReturnValue({ error: null });
   mockBookingSingle.mockResolvedValue({
-    data: { student_id: STUDENT, teacher_id: TEACHER, duration_min: 30 },
+    data: { student_id: STUDENT, teacher_id: TEACHER, duration_min: 30, scheduled_at: "2026-06-01T09:00:00Z" },
     error: null,
   });
 });
