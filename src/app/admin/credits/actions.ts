@@ -67,14 +67,18 @@ const grantCreditBase = loudAction<z.infer<typeof grantCreditSchema>, { message:
   handler: async ({ email, sessions, reason }, { actorId }) => {
     const admin = createAdminClient();
 
-    const { data: authList } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
-    const authUser = authList?.users.find((u) => u.email?.toLowerCase() === email);
-    if (!authUser) throw new UserError("لم يتم العثور على الطالب بهذا البريد");
+    // Resolve the user id directly from auth.users by email (audit H5). The old
+    // listUsers({perPage:200}) + JS .find() silently failed for any student past
+    // the first page — at 50k that's almost everyone. The RPC is service-role
+    // only, so it is not an email-enumeration oracle.
+    const { data: matchedId, error: lookupErr } = await admin.rpc("get_user_id_by_email", { p_email: email });
+    if (lookupErr) throw notFoundOrInfra(lookupErr, "تعذّر البحث عن الطالب");
+    if (!matchedId) throw new UserError("لم يتم العثور على الطالب بهذا البريد");
 
     const { data: student, error: studentErr } = await admin
       .from("profiles")
       .select("id, full_name")
-      .eq("id", authUser.id)
+      .eq("id", matchedId)
       .eq("role", "student")
       .single<StudentLookup>();
     if (studentErr || !student) throw notFoundOrInfra(studentErr, "لم يتم العثور على الطالب بهذا البريد");
