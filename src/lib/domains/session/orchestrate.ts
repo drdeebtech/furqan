@@ -51,26 +51,30 @@ interface BookingParties {
   student_id: string;
   teacher_id: string;
   duration_min: number;
+  scheduled_at: string;
 }
 
 export async function endSession(input: EndSessionInput): Promise<EndSessionResult> {
   const { sessionId, actorId, reason } = input;
   const supabase = createAdminClient();
 
+  // `.maybeSingle()` so a missing row is `{ data: null, error: null }` and maps
+  // to SessionNotFoundError — `.single()` returns a PGRST116 *error* on 0 rows,
+  // which would surface as a generic SessionEndError instead.
   const { data: session, error: sessReadErr } = await supabase
     .from("sessions")
     .select("booking_id, started_at, ended_at")
     .eq("id", sessionId)
-    .single<SessionPreRead>();
+    .maybeSingle<SessionPreRead>();
 
   if (sessReadErr) throw new SessionEndError("session pre-read failed", { cause: sessReadErr });
   if (!session) throw new SessionNotFoundError(sessionId);
 
   const { data: booking, error: bookReadErr } = await supabase
     .from("bookings")
-    .select("student_id, teacher_id, duration_min")
+    .select("student_id, teacher_id, duration_min, scheduled_at")
     .eq("id", session.booking_id)
-    .single<BookingParties>();
+    .maybeSingle<BookingParties>();
 
   if (bookReadErr) throw new SessionEndError("booking pre-read failed", { cause: bookReadErr });
   if (!booking) throw new SessionNotFoundError(session.booking_id);
@@ -137,7 +141,9 @@ export async function endSession(input: EndSessionInput): Promise<EndSessionResu
     await notifyParentSessionComplete(
       booking.student_id,
       booking.teacher_id,
-      session.started_at ?? now.toISOString(),
+      // When force-ending a not-yet-started session, date the parent's
+      // completion report to the booked session date, not the admin-action time.
+      session.started_at ?? booking.scheduled_at,
       actualDuration,
       actorId,
     );
