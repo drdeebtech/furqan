@@ -31,10 +31,19 @@ create index if not exists legal_versions_kind_version_idx
 
 alter table public.legal_document_versions enable row level security;
 
+-- Inline admin predicate (audit H16): is_admin() is not defined until a
+-- LATER migration (20260428095637), so referencing the helper here broke a
+-- fresh apply from zero. The self-contained EXISTS has no function dependency.
 drop policy if exists legal_versions_admin_read on public.legal_document_versions;
 create policy legal_versions_admin_read on public.legal_document_versions
-  for select using (is_admin());
+  for select using (
+    exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin')
+  );
 
 drop policy if exists legal_versions_admin_write on public.legal_document_versions;
 create policy legal_versions_admin_write on public.legal_document_versions
-  for all using (is_admin()) with check (is_admin());
+  for all using (
+    exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin')
+  ) with check (
+    exists (select 1 from public.profiles where id = (select auth.uid()) and role = 'admin')
+  );
