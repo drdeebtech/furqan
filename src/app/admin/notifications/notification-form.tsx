@@ -6,7 +6,7 @@ import { sendNotification } from "./actions";
 const input = "w-full rounded-xl glass-input px-4 py-3 text-sm text-foreground focus:border-gold focus:outline-none";
 
 export function NotificationForm() {
-  const [sent, setSent] = useState<{ count: number } | null>(null);
+  const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -14,10 +14,11 @@ export function NotificationForm() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
     const result = await sendNotification(formData);
     if (result.error) setError(result.error);
-    else if (result.count) { setSent({ count: result.count }); e.currentTarget.reset(); }
+    else if (result.success) { setSent(true); form.reset(); }
     setLoading(false);
   }
 
@@ -27,7 +28,7 @@ export function NotificationForm() {
 
       {sent && (
         <div className="mb-4 rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success">
-          تم إرسال الإشعار إلى {sent.count} مستخدم بنجاح
+          تم وضع الإشعار في قائمة الإرسال — يصل إلى المستهدفين خلال دقائق.
         </div>
       )}
       {error && (

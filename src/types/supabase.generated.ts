@@ -1989,6 +1989,56 @@ export type Database = {
           },
         ]
       }
+      notification_broadcasts: {
+        Row: {
+          id: string
+          target: string
+          title: string
+          body: string | null
+          initiated_by: string | null
+          status: string
+          cursor_after: string | null
+          recipients_sent: number
+          recipients_failed: number
+          created_at: string
+          processed_at: string | null
+        }
+        Insert: {
+          id?: string
+          target: string
+          title: string
+          body?: string | null
+          initiated_by?: string | null
+          status?: string
+          cursor_after?: string | null
+          recipients_sent?: number
+          recipients_failed?: number
+          created_at?: string
+          processed_at?: string | null
+        }
+        Update: {
+          id?: string
+          target?: string
+          title?: string
+          body?: string | null
+          initiated_by?: string | null
+          status?: string
+          cursor_after?: string | null
+          recipients_sent?: number
+          recipients_failed?: number
+          created_at?: string
+          processed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_broadcasts_initiated_by_fkey"
+            columns: ["initiated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
