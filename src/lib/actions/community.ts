@@ -114,15 +114,25 @@ export async function toggleLike(
     .maybeSingle();
 
   if (existing) {
+    // Delete is already idempotent — removing a row that a racing click
+    // already removed is a no-op, not an error.
     const { error } = await supabase.from("forum_likes").delete()
       .eq("user_id", user.id)
       .eq("target_type", targetType)
       .eq("target_id", targetId);
     if (error) return { ok: false, error: error.message };
   } else {
-    const { error } = await supabase.from("forum_likes").insert({
+    // Idempotent like: the read above is a stale snapshot, so two racing
+    // double-clicks can both reach this branch. ON CONFLICT DO NOTHING (the
+    // composite PK user_id+target_type+target_id dedupes) means the loser of
+    // the race silently succeeds instead of surfacing a 23505 duplicate-key
+    // error to the user (correctness tail, #345).
+    const { error } = await supabase.from("forum_likes").upsert({
       user_id: user.id, target_type: targetType, target_id: targetId,
-    } satisfies TableInsert<"forum_likes">);
+    } satisfies TableInsert<"forum_likes">, {
+      onConflict: "user_id,target_type,target_id",
+      ignoreDuplicates: true,
+    });
     if (error) return { ok: false, error: error.message };
   }
   revalidatePath("/community");
