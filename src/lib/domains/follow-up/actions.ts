@@ -3,6 +3,7 @@ import "server-only";
 import { notify } from "@/lib/notifications/dispatcher";
 import { notifyParentHomeworkNotDone } from "@/lib/notifications/parent";
 import { emitEvent } from "@/lib/automation/emit";
+import { dispatchEffects } from "@/lib/automation/effects";
 import { HOMEWORK_STATUS_AR } from "@/lib/constants";
 import { logError } from "@/lib/logger";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
@@ -102,22 +103,15 @@ export async function createFollowUp(
   const { error } = await admin.from("homework_assignments").insert(insertPayload);
   if (error) throw new FollowUpUserError("فشل إنشاء المتابعة", { cause: error });
 
-  // Best-effort student notification — must not fail the assignment.
-  try {
-    await notify({
-      userId: input.studentId,
-      type: "homework",
-      title: "متابعة جديدة",
-      body: `كلّفك معلمك بمتابعة جديدة — ${input.title}`,
-      entityType: "homework",
-      entityId: input.bookingId,
-    });
-  } catch (err) {
-    logError("notify student failed during createFollowUp", err, {
-      component: "follow-up.createFollowUp",
-      metadata: { student_id: input.studentId, booking_id: input.bookingId },
-    });
-  }
+  // Best-effort student notification — must not fail the assignment. The in-app
+  // fan-out is declared once in EVENT_EFFECTS["homework.assigned"]
+  // (src/lib/automation/effects.ts) per ADR's notify-locality refactor;
+  // dispatchEffects fans out through notify() and never throws.
+  await dispatchEffects("homework.assigned", {
+    studentId: input.studentId,
+    entityId: input.bookingId,
+    title: input.title,
+  });
 
   await emitEvent("homework.assigned", "homework", input.bookingId, {
     student_id: input.studentId,
