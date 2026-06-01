@@ -168,11 +168,11 @@ export function TimeTrackerView({ openSession, history, weekSeconds }: Props) {
                       );
                     })}
                   </div>
-                  {/* Cross-surface affordance: starting a "Review" session
-                      writes a study_log row with kind='review' that the
-                      dashboard's getStudentMurajaahPlan() reads to mark
-                      today's Murajaah done. Without this hint the
-                      connection is invisible to the student. */}
+                  {/* Cross-surface affordance: a "Review" session writes a
+                      study_log row with kind='review', logging review time on
+                      the dashboard. (Advancing the SM-2 schedule itself is done
+                      explicitly from the dashboard's Murajaah card.) Without
+                      this hint the connection is invisible to the student. */}
                   {selectedKind === "review" && (
                     <p className="-mt-2 text-center text-xs text-muted">
                       {t(

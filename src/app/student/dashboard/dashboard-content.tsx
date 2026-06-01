@@ -22,7 +22,7 @@ import { NextActionBanner } from "./next-action-banner";
 import { WelcomeHeader } from "./welcome-header";
 import { TodaysPlan } from "./todays-plan";
 import { MurajaahCard } from "./murajaah-card";
-import type { MurajaahWindow } from "@/lib/dashboard-queries";
+import type { MurajaahDueItem } from "@/lib/dashboard-queries";
 
 interface ChartDataPoint {
   day: string;
@@ -56,12 +56,7 @@ interface DashboardData {
   todaySessions: { id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: string; status: string }[];
   todayHomework: { id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[];
   latestEvaluation: { next_goals: string | null; evaluation_type: string; created_at: string } | null;
-  murajaahPlan: {
-    yesterday: MurajaahWindow | null;
-    lastWeek: MurajaahWindow | null;
-    lastMonth: MurajaahWindow | null;
-    reviewedToday: boolean;
-  };
+  murajaahBatch: MurajaahDueItem[];
   renderedAtMs: number;
 }
 
@@ -73,7 +68,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
     fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, nameMap,
     studyAnalytics, liveSessions, watchingRows, continueIsLessons, hwCounts,
     activePackages, nextQuiz, lastProgress, resumeLesson, streakInfo,
-    homeworkPulse, todaySessions, todayHomework, latestEvaluation, murajaahPlan,
+    homeworkPulse, todaySessions, todayHomework, latestEvaluation, murajaahBatch,
     renderedAtMs,
   } = data;
 
@@ -400,12 +395,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
             announcement for screen reader users. */}
         <div className="mt-6">
           <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل المراجعة", "Couldn't load Murajaah")}>
-            <MurajaahCard
-              yesterday={murajaahPlan.yesterday}
-              lastWeek={murajaahPlan.lastWeek}
-              lastMonth={murajaahPlan.lastMonth}
-              reviewedToday={murajaahPlan.reviewedToday}
-            />
+            <MurajaahCard items={murajaahBatch} />
           </SectionErrorBoundary>
         </div>
 

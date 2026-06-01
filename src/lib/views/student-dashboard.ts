@@ -9,8 +9,8 @@ import {
   getStudentNextQuiz,
   getStudentStreak,
   getStudentHomeworkPulse,
-  getStudentMurajaahPlan,
-  type MurajaahWindow,
+  getTodaysMurajaahBatch,
+  type MurajaahDueItem,
 } from "@/lib/dashboard-queries";
 
 /**
@@ -92,12 +92,7 @@ export interface StudentDashboardData {
   todaySessions: { id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: string; status: string }[];
   todayHomework: { id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[];
   latestEvaluation: { next_goals: string | null; evaluation_type: string; created_at: string } | null;
-  murajaahPlan: {
-    yesterday: MurajaahWindow | null;
-    lastWeek: MurajaahWindow | null;
-    lastMonth: MurajaahWindow | null;
-    reviewedToday: boolean;
-  };
+  murajaahBatch: MurajaahDueItem[];
   renderedAtMs: number;
 }
 
@@ -227,7 +222,7 @@ export async function studentDashboardView(
   const [
     packagesRes, hwCountsRaw, studyAnalytics, liveSessions, continueWatching,
     recentRecordings, nextQuiz, lastProgressRes, streakInfo, homeworkPulse,
-    latestEvalRes, murajaahPlan,
+    latestEvalRes, murajaahBatch,
   ] = await Promise.all([
     supabase.from("student_packages")
       .select("id, sessions_total, sessions_used, status, expires_at")
@@ -257,7 +252,7 @@ export async function studentDashboardView(
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle<{ next_goals: string | null; evaluation_type: string; created_at: string }>(),
-    getStudentMurajaahPlan(studentId),
+    getTodaysMurajaahBatch(studentId),
   ]);
   const packagesLoad = loadOrFail(packagesRes, [], { route: ROUTE, widget: "active-packages" });
   const lastProgressLoad = loadOrFail(lastProgressRes, null, { route: ROUTE, widget: "last-progress" });
@@ -365,7 +360,7 @@ export async function studentDashboardView(
       todaySessions,
       todayHomework,
       latestEvaluation: latestEvalLoad.data,
-      murajaahPlan,
+      murajaahBatch,
       renderedAtMs: now.getTime(),
     },
     anyFailed,
@@ -401,7 +396,7 @@ function emptyData(fullName: string | null, now: Date): StudentDashboardData {
     todaySessions: [],
     todayHomework: [],
     latestEvaluation: null,
-    murajaahPlan: { yesterday: null, lastWeek: null, lastMonth: null, reviewedToday: false },
+    murajaahBatch: [],
     renderedAtMs: now.getTime(),
   };
 }
