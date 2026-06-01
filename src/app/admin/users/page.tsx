@@ -13,31 +13,43 @@ export const metadata: Metadata = { title: "المستخدمون" };
 
 interface ProfileRow { id: string; role: string; roles: string[] | null; full_name: string | null; country: string | null; is_active: boolean; deleted_at: string | null; created_at: string; }
 
+const PAGE_SIZE = 50;
+
 interface PageProps {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }
 
 export default async function AdminUsersPage({ searchParams }: PageProps) {
   const { t, dir } = await getT();
-  const { q = "" } = await searchParams;
+  const { q = "", page: pageParam } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Stats query: always over the full set, unaffected by search.
-  const { data: allProfiles } = await supabase.from("profiles")
-    .select("id, role")
-    .returns<{ id: string; role: string }[]>();
-  const allUsers = allProfiles ?? [];
+  // Stats via head:true count queries — never load 50k rows just to count
+  // by role (audit H8). Roles are student/teacher/admin (ADR-0003); `all` is
+  // the unfiltered total to capture any null/legacy role too.
+  const countWhere = async (role?: "student" | "teacher" | "admin") => {
+    let qy = supabase.from("profiles").select("*", { count: "exact", head: true });
+    if (role) qy = qy.eq("role", role);
+    return (await qy).count ?? 0;
+  };
+  const [allCount, students, teachers, admins] = await Promise.all([
+    countWhere(), countWhere("student"), countWhere("teacher"), countWhere("admin"),
+  ]);
 
-  // Listing query: filtered by name when ?q is set.
-  const baseQuery = supabase.from("profiles")
-    .select("id, role, roles, full_name, country, is_active, deleted_at, created_at")
-    .order("created_at", { ascending: false });
-  const { data } = q
-    ? await baseQuery.ilike("full_name", `%${q}%`).returns<ProfileRow[]>()
-    : await baseQuery.returns<ProfileRow[]>();
+  // Listing: paginated (audit H8 — was an unbounded full-table load). ?q filters
+  // by name; ?page selects the window.
+  const page = Math.max(1, Number(pageParam) || 1);
+  const from = (page - 1) * PAGE_SIZE;
+  let listQuery = supabase.from("profiles")
+    .select("id, role, roles, full_name, country, is_active, deleted_at, created_at", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(from, from + PAGE_SIZE - 1);
+  if (q) listQuery = listQuery.ilike("full_name", `%${q}%`);
+  const { data, count: filteredCount } = await listQuery.returns<ProfileRow[]>();
   const users = data ?? [];
+  const totalPages = Math.max(1, Math.ceil((filteredCount ?? 0) / PAGE_SIZE));
 
   const studentIds = users.filter(u => u.role === "student").map(u => u.id);
   const { data: signals } = studentIds.length > 0
@@ -47,10 +59,6 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
         .returns<{ student_id: string; churn_risk_score: number | null }[]>()
     : { data: [] };
   const riskByStudent = new Map((signals ?? []).map(s => [s.student_id, s.churn_risk_score]));
-
-  const students = allUsers.filter(u => u.role === "student").length;
-  const teachers = allUsers.filter(u => u.role === "teacher").length;
-  const admins = allUsers.filter(u => u.role === "admin").length;
 
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
@@ -68,7 +76,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
       </div>
       <div className="mb-6 grid grid-cols-4 gap-3">
         {[
-          { key: "all", l: t("الكل", "All"), v: allUsers.length },
+          { key: "all", l: t("الكل", "All"), v: allCount },
           { key: "students", l: t("طلاب", "Students"), v: students },
           { key: "teachers", l: t("معلمون", "Teachers"), v: teachers },
           { key: "admins", l: t("مدراء", "Admins"), v: admins },
@@ -99,6 +107,21 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
             <tbody>{users.map(u => <UserRow key={u.id} user={u} currentAdminId={user.id} churnRisk={u.role === "student" ? riskByStudent.get(u.id) ?? null : undefined} />)}</tbody>
           </table>
         </div>
+      )}
+      {totalPages > 1 && (
+        <nav className="mt-4 flex items-center justify-between text-sm" aria-label={t("ترقيم الصفحات", "Pagination")}>
+          {page > 1 ? (
+            <Link href={`/admin/users?${new URLSearchParams({ ...(q ? { q } : {}), page: String(page - 1) })}`} className="glass-pill px-4 py-2">
+              {t("السابق", "Previous")}
+            </Link>
+          ) : <span />}
+          <span className="text-muted">{t(`صفحة ${page} من ${totalPages}`, `Page ${page} of ${totalPages}`)}</span>
+          {page < totalPages ? (
+            <Link href={`/admin/users?${new URLSearchParams({ ...(q ? { q } : {}), page: String(page + 1) })}`} className="glass-pill px-4 py-2">
+              {t("التالي", "Next")}
+            </Link>
+          ) : <span />}
+        </nav>
       )}
     </div>
   );
