@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Lang } from "@/lib/i18n/server";
 import { formatDate } from "@/lib/i18n/format-date";
+import { logError } from "@/lib/logger";
 
 interface ChartDataPoint {
   day: string;
@@ -82,11 +83,12 @@ export async function getStudentStreak(
   // Resolve the student's preferred timezone — defaults to UTC if missing or
   // if Intl rejects the value. Using the student's tz aligns "today" with
   // their local midnight, not the Vercel region's.
-  const { data: prof } = await supabase
+  const { data: prof, error: profErr } = await supabase
     .from("profiles")
     .select("timezone")
     .eq("id", studentId)
     .single<{ timezone: string | null }>();
+  if (profErr) logError("dashboard-queries: streak profile timezone fetch failed", profErr, { tag: "dashboard-queries" });
   let tz = prof?.timezone ?? "UTC";
   try {
     new Intl.DateTimeFormat("en-CA", { timeZone: tz });
@@ -97,13 +99,14 @@ export async function getStudentStreak(
   const now = new Date();
   const fortyNineDaysAgo = new Date(now.getTime() - 49 * 24 * 60 * 60 * 1000);
 
-  const { data: logs } = await supabase
+  const { data: logs, error: logsErr } = await supabase
     .from("study_log")
     .select("started_at, duration_seconds")
     .eq("student_id", studentId)
     .gte("started_at", fortyNineDaysAgo.toISOString())
     .order("started_at", { ascending: false })
     .returns<{ started_at: string; duration_seconds: number }[]>();
+  if (logsErr) logError("dashboard-queries: streak study_log fetch failed", logsErr, { tag: "dashboard-queries" });
 
   const list = logs ?? [];
 
@@ -188,13 +191,14 @@ export async function getStudentHomeworkPulse(
   const endOfDay = new Date(now); endOfDay.setHours(23, 59, 59, 999);
   const inSevenDays = new Date(now); inSevenDays.setDate(inSevenDays.getDate() + 7);
 
-  const { data: items } = await supabase
+  const { data: items, error: itemsErr } = await supabase
     .from("homework_assignments")
     .select("id, description, due_date, homework_type, status")
     .eq("student_id", studentId)
     .in("status", ["assigned", "completed_needs_work"])
     .order("due_date", { ascending: true, nullsFirst: false })
     .returns<{ id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[]>();
+  if (itemsErr) logError("dashboard-queries: homework pulse fetch failed", itemsErr, { tag: "dashboard-queries" });
 
   let overdue = 0;
   let dueToday = 0;
@@ -223,12 +227,13 @@ export async function getStudentWeeklyStudyTime(
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  const { data: bookings } = await supabase
+  const { data: bookings, error: bookingsErr } = await supabase
     .from("bookings")
     .select("id")
     .eq("student_id", studentId)
     .gte("scheduled_at", sevenDaysAgo.toISOString())
     .returns<{ id: string }[]>();
+  if (bookingsErr) logError("dashboard-queries: weekly study time bookings fetch failed", bookingsErr, { tag: "dashboard-queries" });
 
   if (!bookings || bookings.length === 0) {
     return generateEmptyWeek(lang);
@@ -236,13 +241,14 @@ export async function getStudentWeeklyStudyTime(
 
   const bookingIds = bookings.map((b) => b.id);
 
-  const { data: sessions } = await supabase
+  const { data: sessions, error: sessionsErr } = await supabase
     .from("sessions")
     .select("actual_duration, started_at")
     .in("booking_id", bookingIds)
     .not("ended_at", "is", null)
     .gte("started_at", sevenDaysAgo.toISOString())
     .returns<{ actual_duration: number | null; started_at: string | null }[]>();
+  if (sessionsErr) logError("dashboard-queries: weekly study time sessions fetch failed", sessionsErr, { tag: "dashboard-queries" });
 
   return groupSessionsByDay(sessions ?? [], lang);
 }
@@ -272,12 +278,13 @@ export async function getStudentStudyAnalytics(
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const { data: bookings } = await supabase
+  const { data: bookings, error: bookingsErr } = await supabase
     .from("bookings")
     .select("id")
     .eq("student_id", studentId)
     .gte("scheduled_at", thirtyDaysAgo.toISOString())
     .returns<{ id: string }[]>();
+  if (bookingsErr) logError("dashboard-queries: study analytics bookings fetch failed", bookingsErr, { tag: "dashboard-queries" });
 
   const empty = {
     daily: generateEmptyDay(),
@@ -427,12 +434,13 @@ export async function getStudentLiveSessions(
 ): Promise<LiveSessionItem[]> {
   const supabase = await createClient();
 
-  const { data: bookings } = await supabase
+  const { data: bookings, error: bookingsErr } = await supabase
     .from("bookings")
     .select("id, teacher_id, session_type")
     .eq("student_id", studentId)
     .eq("status", "confirmed")
     .returns<{ id: string; teacher_id: string; session_type: string }[]>();
+  if (bookingsErr) logError("dashboard-queries: student live sessions bookings fetch failed", bookingsErr, { tag: "dashboard-queries" });
 
   if (!bookings || bookings.length === 0) return [];
 
@@ -440,7 +448,7 @@ export async function getStudentLiveSessions(
 
   // Stranded-session guard — see getPlatformLiveSessions for rationale.
   const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
-  const { data: sessions } = await supabase
+  const { data: sessions, error: sessionsErr } = await supabase
     .from("sessions")
     .select("id, booking_id, started_at, ended_at, lesson_plan")
     .in("booking_id", bookingIds)
@@ -454,15 +462,17 @@ export async function getStudentLiveSessions(
       ended_at: string | null;
       lesson_plan: { checkpoints?: { id: string; completed_at: string | null }[] } | null;
     }[]>();
+  if (sessionsErr) logError("dashboard-queries: student live sessions fetch failed", sessionsErr, { tag: "dashboard-queries" });
 
   if (!sessions || sessions.length === 0) return [];
 
   const teacherIds = bookings.map((b) => b.teacher_id);
-  const { data: profiles } = await supabase
+  const { data: profiles, error: profilesErr } = await supabase
     .from("profiles")
     .select("id, full_name")
     .in("id", teacherIds)
     .returns<{ id: string; full_name: string | null }[]>();
+  if (profilesErr) logError("dashboard-queries: student live sessions teacher profiles fetch failed", profilesErr, { tag: "dashboard-queries" });
 
   const nameMap: Record<string, string> = {};
   if (profiles) {
@@ -512,16 +522,17 @@ export async function getStudentNextQuiz(
   studentId: string,
 ): Promise<{ id: string; title: string; due_at: string | null } | null> {
   const supabase = await createClient();
-  const { data: enrollments } = await supabase.from("course_enrollments")
+  const { data: enrollments, error: enrollmentsErr } = await supabase.from("course_enrollments")
     .select("course_id")
     .eq("student_id", studentId)
     .returns<{ course_id: string }[]>();
+  if (enrollmentsErr) logError("dashboard-queries: next quiz enrollments fetch failed", enrollmentsErr, { tag: "dashboard-queries" });
   if (!enrollments || enrollments.length === 0) return null;
 
   const courseIds = enrollments.map((e) => e.course_id);
   const nowIso = new Date().toISOString();
 
-  const { data: quizzes } = await supabase.from("quizzes")
+  const { data: quizzes, error: quizzesErr } = await supabase.from("quizzes")
     .select("id, title_ar, title_en, due_at")
     .in("course_id", courseIds)
     .eq("is_published", true)
@@ -529,17 +540,19 @@ export async function getStudentNextQuiz(
     .order("due_at", { ascending: true, nullsFirst: false })
     .limit(20)
     .returns<{ id: string; title_ar: string; title_en: string | null; due_at: string | null }[]>();
+  if (quizzesErr) logError("dashboard-queries: next quiz quizzes fetch failed", quizzesErr, { tag: "dashboard-queries" });
 
   if (!quizzes || quizzes.length === 0) return null;
 
   // Filter out quizzes the student already passed.
   const ids = quizzes.map((q) => q.id);
-  const { data: attempts } = await supabase.from("quiz_attempts")
+  const { data: attempts, error: attemptsErr } = await supabase.from("quiz_attempts")
     .select("quiz_id, passed")
     .eq("student_id", studentId)
     .in("quiz_id", ids)
     .not("submitted_at", "is", null)
     .returns<{ quiz_id: string; passed: boolean | null }[]>();
+  if (attemptsErr) logError("dashboard-queries: next quiz attempts fetch failed", attemptsErr, { tag: "dashboard-queries" });
   const passed = new Set((attempts ?? []).filter((a) => a.passed).map((a) => a.quiz_id));
 
   const upcoming = quizzes.find((q) => !passed.has(q.id));
@@ -796,11 +809,12 @@ export async function getStudentContinueWatching(
 
   // course_lesson_progress is keyed by enrollment_id, so resolve the
   // student's enrollments first, then pull in-progress rows for them.
-  const { data: enrollments } = await supabase
+  const { data: enrollments, error: enrollmentsErr } = await supabase
     .from("course_enrollments")
     .select("id")
     .eq("student_id", studentId)
     .returns<{ id: string }[]>();
+  if (enrollmentsErr) logError("dashboard-queries: continue watching enrollments fetch failed", enrollmentsErr, { tag: "dashboard-queries" });
 
   if (!enrollments || enrollments.length === 0) return [];
 
@@ -824,7 +838,7 @@ export async function getStudentContinueWatching(
     } | null;
   };
 
-  const { data } = await supabase
+  const { data, error: progressErr } = await supabase
     .from("course_lesson_progress")
     .select(
       "lesson_id, last_position_seconds, updated_at, " +
@@ -838,6 +852,7 @@ export async function getStudentContinueWatching(
     .order("updated_at", { ascending: false })
     .limit(limit)
     .returns<Row[]>();
+  if (progressErr) logError("dashboard-queries: continue watching lesson progress fetch failed", progressErr, { tag: "dashboard-queries" });
 
   if (!data || data.length === 0) return [];
 
@@ -847,11 +862,12 @@ export async function getStudentContinueWatching(
     data.map((r) => r.lesson?.course?.teacher_id).filter(Boolean) as string[],
   )];
   const profileIds = [studentId, ...teacherIds];
-  const { data: profiles } = await supabase
+  const { data: profiles, error: profilesErr } = await supabase
     .from("profiles")
     .select("id, full_name, avatar_url")
     .in("id", profileIds)
     .returns<{ id: string; full_name: string | null; avatar_url: string | null }[]>();
+  if (profilesErr) logError("dashboard-queries: continue watching profiles fetch failed", profilesErr, { tag: "dashboard-queries" });
   const pmap: Record<string, { name: string; avatar_url: string | null }> = {};
   for (const p of profiles ?? []) {
     pmap[p.id] = { name: p.full_name ?? "—", avatar_url: p.avatar_url };
@@ -900,7 +916,7 @@ export async function getStudentRecentRecordings(
 ): Promise<Record<string, unknown>[]> {
   const supabase = await createClient();
 
-  const { data: bookings } = await supabase
+  const { data: bookings, error: bookingsErr } = await supabase
     .from("bookings")
     .select("id, teacher_id, session_type, scheduled_at")
     .eq("student_id", studentId)
@@ -908,6 +924,7 @@ export async function getStudentRecentRecordings(
     .order("scheduled_at", { ascending: false })
     .limit(limit)
     .returns<{ id: string; teacher_id: string; session_type: string; scheduled_at: string }[]>();
+  if (bookingsErr) logError("dashboard-queries: recent recordings bookings fetch failed", bookingsErr, { tag: "dashboard-queries" });
 
   if (!bookings || bookings.length === 0) return [];
 
@@ -1272,12 +1289,13 @@ export async function getAdminDailyRevenue(
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  const { data: bookings } = await supabase
+  const { data: bookings, error: bookingsErr } = await supabase
     .from("bookings")
     .select("amount_usd, created_at")
     .eq("status", "completed")
     .gte("created_at", sevenDaysAgo.toISOString())
     .returns<{ amount_usd: number; created_at: string }[]>();
+  if (bookingsErr) logError("dashboard-queries: admin daily revenue bookings fetch failed", bookingsErr, { tag: "dashboard-queries" });
 
   if (!bookings || bookings.length === 0) return generateEmptyWeek(lang);
 
@@ -1329,7 +1347,7 @@ export async function getPlatformLiveSessions(): Promise<LiveSessionItem[]> {
   // covers 2× the longest realistic 90-min session and stays in sync with the
   // auto-complete cron's 2× duration_min cutoff.
   const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
-  const { data: sessions } = await supabase
+  const { data: sessions, error: sessionsErr } = await supabase
     .from("sessions")
     .select(
       // Disambiguate which sessions↔bookings FK to embed: the schema has
@@ -1342,6 +1360,7 @@ export async function getPlatformLiveSessions(): Promise<LiveSessionItem[]> {
     .is("ended_at", null)
     .gte("started_at", fourHoursAgo)
     .returns<Row[]>();
+  if (sessionsErr) logError("dashboard-queries: platform live sessions fetch failed", sessionsErr, { tag: "dashboard-queries" });
 
   if (!sessions || sessions.length === 0) return [];
 
@@ -1383,11 +1402,12 @@ export async function getAdminBookingStatusBreakdown(
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const { data: bookings } = await supabase
+  const { data: bookings, error: bookingsErr } = await supabase
     .from("bookings")
     .select("status")
     .gte("created_at", thirtyDaysAgo.toISOString())
     .returns<{ status: string }[]>();
+  if (bookingsErr) logError("dashboard-queries: admin booking status breakdown fetch failed", bookingsErr, { tag: "dashboard-queries" });
 
   if (!bookings || bookings.length === 0) return [];
 
@@ -1422,7 +1442,7 @@ export async function getAdminRecentBookings(
     student: { full_name: string | null } | null;
   };
 
-  const { data: bookings } = await supabase
+  const { data: bookings, error: bookingsErr } = await supabase
     .from("bookings")
     .select(
       "id, session_type, amount_usd, status, created_at, student:profiles!student_id(full_name)",
@@ -1430,6 +1450,7 @@ export async function getAdminRecentBookings(
     .order("created_at", { ascending: false })
     .limit(limit)
     .returns<Row[]>();
+  if (bookingsErr) logError("dashboard-queries: admin recent bookings fetch failed", bookingsErr, { tag: "dashboard-queries" });
 
   if (!bookings || bookings.length === 0) return [];
 
