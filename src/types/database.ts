@@ -4732,6 +4732,14 @@ export type Database = {
       }
     }
     Functions: {
+      compute_murajaah_batch_for_date: {
+        Args: { p_date: string }
+        Returns: { students_processed: number; rows_scheduled: number }[]
+      }
+      complete_review: {
+        Args: { p_schedule_id: string; p_quality: number }
+        Returns: { next_review_at: string; easiness_factor: number; interval_days: number }[]
+      }
       confirm_booking_with_session: {
         Args: {
           p_booking_id: string

@@ -1836,3 +1836,46 @@ export async function getTeacherRecitationStandardRoster(
     .sort((a, b) => b[1] - a[1])
     .map(([standard, count]) => ({ standard, count }));
 }
+
+/**
+ * Today's murajaah review batch (spec 001) — the SM-2 schedule rows the nightly
+ * cron flagged for today, joined to their memorised range. Ordered oldest-due
+ * first. RLS gates this to the student's own rows.
+ */
+export interface MurajaahDueItem {
+  scheduleId: string;
+  surahFrom: number | null;
+  ayahFrom: number | null;
+  surahTo: number | null;
+  ayahTo: number | null;
+}
+
+export async function getTodaysMurajaahBatch(studentId: string): Promise<MurajaahDueItem[]> {
+  const supabase = await createClient();
+  const today = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD (matches the compute cron)
+  const { data } = await supabase
+    .from("student_review_schedule")
+    .select("id, student_progress(surah_from, ayah_from, surah_to, ayah_to)")
+    .eq("student_id", studentId)
+    .eq("batch_for_date", today)
+    .order("next_review_at", { ascending: true })
+    .returns<
+      {
+        id: string;
+        student_progress: {
+          surah_from: number | null;
+          ayah_from: number | null;
+          surah_to: number | null;
+          ayah_to: number | null;
+        } | null;
+      }[]
+    >();
+
+  return (data ?? []).map((r) => ({
+    scheduleId: r.id,
+    surahFrom: r.student_progress?.surah_from ?? null,
+    ayahFrom: r.student_progress?.ayah_from ?? null,
+    surahTo: r.student_progress?.surah_to ?? null,
+    ayahTo: r.student_progress?.ayah_to ?? null,
+  }));
+}

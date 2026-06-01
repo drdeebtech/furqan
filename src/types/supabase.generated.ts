@@ -4033,6 +4033,59 @@ export type Database = {
           },
         ]
       }
+      student_review_schedule: {
+        Row: {
+          algorithm_version: number
+          batch_for_date: string | null
+          created_at: string
+          easiness_factor: number
+          id: string
+          interval_days: number
+          lapse_count: number
+          last_reviewed_at: string | null
+          next_review_at: string
+          progress_id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          algorithm_version?: number
+          batch_for_date?: string | null
+          created_at?: string
+          easiness_factor?: number
+          id?: string
+          interval_days?: number
+          lapse_count?: number
+          last_reviewed_at?: string | null
+          next_review_at: string
+          progress_id: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          algorithm_version?: number
+          batch_for_date?: string | null
+          created_at?: string
+          easiness_factor?: number
+          id?: string
+          interval_days?: number
+          lapse_count?: number
+          last_reviewed_at?: string | null
+          next_review_at?: string
+          progress_id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_review_schedule_progress_id_fkey"
+            columns: ["progress_id"]
+            isOneToOne: false
+            referencedRelation: "student_progress"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       study_log: {
         Row: {
           created_at: string
