@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
+import { selectActivePackage, debitPackage } from "@/lib/domains/package/ledger";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import type { SessionType } from "@/types/database";
 
@@ -218,28 +219,20 @@ export async function enrollInOffering(
   // Try to deduct a package credit; same pattern as addStudentToSession.
   let creditNote = "";
   let studentPackageId: string | null = null;
-  const { data: activePkg } = await admin
-    .from("student_packages")
-    .select("id, sessions_remaining")
-    .eq("student_id", user.id)
-    .eq("status", "active")
-    .gt("sessions_remaining", 0)
-    .order("expires_at", { ascending: true, nullsFirst: false })
-    .limit(1)
-    .maybeSingle<{ id: string; sessions_remaining: number }>();
+  const activePkg = await selectActivePackage(admin, user.id);
 
   if (activePkg) {
     studentPackageId = activePkg.id;
     try {
-      const { data: deducted, error: deductErr } = await admin.rpc("deduct_package_session", { p_package_id: activePkg.id });
-      if (deductErr) {
-        creditNote = `[deduct-failed: ${deductErr.message}] `;
-        logError("enrollInOffering: deduct_package_session RPC error", deductErr, {
+      const debit = await debitPackage(admin, activePkg.id);
+      if (!debit.ok && debit.reason === "error") {
+        creditNote = `[deduct-failed: ${debit.message}] `;
+        logError("enrollInOffering: deduct_package_session RPC error", new Error(debit.message), {
           tag: "class-offerings", metadata: { offeringId, studentId: user.id, packageId: activePkg.id },
         });
         return { error: "تعذر خصم رصيد الباقة. حاول مرة أخرى أو تواصل مع الدعم." };
       }
-      if (deducted !== true) {
+      if (!debit.ok && debit.reason === "exhausted") {
         creditNote = "[package-expired-or-exhausted] ";
         return { error: "هذه الباقة منتهية أو مستهلكة ولا يمكن استخدامها للتسجيل." };
       }
