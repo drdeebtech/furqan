@@ -46,7 +46,12 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
     .select("id, role, roles, full_name, country, is_active, deleted_at, created_at", { count: "exact" })
     .order("created_at", { ascending: false })
     .range(from, from + PAGE_SIZE - 1);
-  if (q) listQuery = listQuery.ilike("full_name", `%${q}%`);
+  if (q) {
+    // Escape LIKE wildcards (CodeRabbit) so a term like "50%" or "a_b" matches
+    // literally instead of as a pattern. Backslash first.
+    const escaped = q.replace(/\\/g, "\\\\").replace(/[%_]/g, (c) => `\\${c}`);
+    listQuery = listQuery.ilike("full_name", `%${escaped}%`);
+  }
   const { data, count: filteredCount } = await listQuery.returns<ProfileRow[]>();
   const users = data ?? [];
   const totalPages = Math.max(1, Math.ceil((filteredCount ?? 0) / PAGE_SIZE));
@@ -111,13 +116,13 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
       {totalPages > 1 && (
         <nav className="mt-4 flex items-center justify-between text-sm" aria-label={t("ترقيم الصفحات", "Pagination")}>
           {page > 1 ? (
-            <Link href={`/admin/users?${new URLSearchParams({ ...(q ? { q } : {}), page: String(page - 1) })}`} className="glass-pill px-4 py-2">
+            <Link href={`/admin/users?${new URLSearchParams({ ...(q ? { q } : {}), page: String(page - 1) })}`} className="glass-pill inline-flex items-center min-h-[44px] px-4 py-2 focus-ring">
               {t("السابق", "Previous")}
             </Link>
           ) : <span />}
           <span className="text-muted">{t(`صفحة ${page} من ${totalPages}`, `Page ${page} of ${totalPages}`)}</span>
           {page < totalPages ? (
-            <Link href={`/admin/users?${new URLSearchParams({ ...(q ? { q } : {}), page: String(page + 1) })}`} className="glass-pill px-4 py-2">
+            <Link href={`/admin/users?${new URLSearchParams({ ...(q ? { q } : {}), page: String(page + 1) })}`} className="glass-pill inline-flex items-center min-h-[44px] px-4 py-2 focus-ring">
               {t("التالي", "Next")}
             </Link>
           ) : <span />}
