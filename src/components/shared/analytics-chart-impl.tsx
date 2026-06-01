@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   BarChart,
   Bar,
@@ -39,6 +39,7 @@ export function AnalyticsChart({
   const { t } = useLang();
   const [activeTab, setActiveTab] = useState(1);
   const [toast, setToast] = useState<number | null>(null);
+  const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
 
   const datasets: (ChartDataPoint[] | undefined)[] = [dailyData, data, monthlyData];
 
@@ -83,13 +84,36 @@ export function AnalyticsChart({
     <div>
       {/* Tabs — Daily | Weekly | Monthly. Active state uses surface tokens
           so the tab inverts cleanly between dark and light themes. */}
-      <div className="relative inline-flex gap-0 rounded-[10px] bg-[var(--surface-light)] p-1">
+      <div
+        role="tablist"
+        aria-label={t("الفترات الزمنية", "Time periods")}
+        className="relative inline-flex gap-0 rounded-[10px] bg-[var(--surface-light)] p-1"
+        onKeyDown={(e) => {
+          const currentIndex = tabs.findIndex(t => t.i === activeTab);
+          let nextIndex = currentIndex;
+          if (e.key === "ArrowRight") {
+            nextIndex = (currentIndex + 1) % tabs.length;
+          } else if (e.key === "ArrowLeft") {
+            nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+          } else {
+            return;
+          }
+          e.preventDefault();
+          handleTab(tabs[nextIndex].i);
+          tabsRef.current[nextIndex]?.focus();
+        }}
+      >
         {tabs.map((tab) => (
           <button
             key={tab.i}
+            ref={(el) => { tabsRef.current[tabs.findIndex(t => t.i === tab.i)] = el; }}
             type="button"
+            role="tab"
+            aria-selected={activeTab === tab.i}
+            tabIndex={activeTab === tab.i ? 0 : -1}
+
             onClick={() => handleTab(tab.i)}
-            className={`relative rounded-md px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
+            className={`focus-ring relative rounded-md px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
               activeTab === tab.i
                 ? "bg-[var(--card)] text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
                 : "text-muted hover:text-foreground"
