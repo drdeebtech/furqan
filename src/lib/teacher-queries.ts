@@ -448,7 +448,11 @@ export async function getTeacherRecitationRoster(
     quality_rating: number | null;
     created_at: string;
   };
-  const [profilesRes, ...progressResults] = await Promise.all([
+  // Single IN-query instead of one query per student (audit H11: the old
+  // per-student fan-out was N round-trips on every dashboard render). Rows
+  // arrive globally created_at-desc; we keep the first 5 seen per student,
+  // which reproduces the previous per-student `.limit(5)` exactly.
+  const [profilesRes, progressRes] = await Promise.all([
     supabase
       .from("profiles")
       .select("id, full_name, avatar_url")
@@ -456,23 +460,18 @@ export async function getTeacherRecitationRoster(
       .returns<
         { id: string; full_name: string | null; avatar_url: string | null }[]
       >(),
-    ...studentIds.map((id) =>
-      supabase
-        .from("student_progress")
-        .select(
-          "student_id, surah_from, surah_to, quality_rating, created_at",
-        )
-        .eq("student_id", id)
-        .eq("progress_type", "new")
-        .order("created_at", { ascending: false })
-        .limit(5)
-        .returns<ProgressRow[]>(),
-    ),
+    supabase
+      .from("student_progress")
+      .select(
+        "student_id, surah_from, surah_to, quality_rating, created_at",
+      )
+      .in("student_id", studentIds)
+      .eq("progress_type", "new")
+      .order("created_at", { ascending: false })
+      .returns<ProgressRow[]>(),
   ]);
   if (profilesRes.error) throw profilesRes.error;
-  for (const r of progressResults) {
-    if (r.error) throw r.error;
-  }
+  if (progressRes.error) throw progressRes.error;
 
   const profileById = new Map<
     string,
@@ -487,13 +486,13 @@ export async function getTeacherRecitationRoster(
     }
   }
 
-  // Map results back to students by index — Promise.all preserves order
-  // matching the input array, so progressResults[i] belongs to studentIds[i].
+  // Group the single ordered result into last-5-per-student.
   const progressByStudent = new Map<string, ProgressRow[]>();
-  studentIds.forEach((id, i) => {
-    const data = progressResults[i].data;
-    progressByStudent.set(id, data ? data : []);
-  });
+  for (const id of studentIds) progressByStudent.set(id, []);
+  for (const row of progressRes.data ?? []) {
+    const arr = progressByStudent.get(row.student_id);
+    if (arr && arr.length < 5) arr.push(row);
+  }
 
   const now = Date.now();
   const dayMs = 24 * 60 * 60 * 1000;
@@ -750,30 +749,28 @@ export async function getTeacherRosterProgress(
   if (!bookings || bookings.length === 0) return [];
   const studentIds = [...new Set(bookings.map((b) => b.student_id))];
 
-  // Step 2: parallel — profiles + per-student last-5 evaluations.
-  const [profilesRes, ...evalResults] = await Promise.all([
+  // Step 2: profiles + last-5 evaluations per student in a single IN-query
+  // instead of one query per student (audit H11). Rows arrive globally
+  // evaluation_date-desc; keeping the first 5 seen per student reproduces the
+  // previous per-student `.limit(5)`.
+  const [profilesRes, evalsRes] = await Promise.all([
     supabase
       .from("profiles")
       .select("id, full_name")
       .in("id", studentIds)
       .returns<{ id: string; full_name: string | null }[]>(),
-    ...studentIds.map((id) =>
-      supabase
-        .from("session_evaluations")
-        .select(
-          "student_id, evaluation_date, hifz_score, tajweed_score, fluency_score, attendance_score, overall_score",
-        )
-        .eq("teacher_id", teacherId)
-        .eq("student_id", id)
-        .order("evaluation_date", { ascending: false })
-        .limit(5)
-        .returns<EvalRow[]>(),
-    ),
+    supabase
+      .from("session_evaluations")
+      .select(
+        "student_id, evaluation_date, hifz_score, tajweed_score, fluency_score, attendance_score, overall_score",
+      )
+      .eq("teacher_id", teacherId)
+      .in("student_id", studentIds)
+      .order("evaluation_date", { ascending: false })
+      .returns<EvalRow[]>(),
   ]);
   if (profilesRes.error) throw profilesRes.error;
-  for (const r of evalResults) {
-    if (r.error) throw r.error;
-  }
+  if (evalsRes.error) throw evalsRes.error;
 
   const nameById = new Map<string, string>();
   if (profilesRes.data) {
@@ -781,12 +778,18 @@ export async function getTeacherRosterProgress(
       nameById.set(p.id, p.full_name ?? "—");
   }
 
+  const evalsByStudent = new Map<string, EvalRow[]>();
+  for (const id of studentIds) evalsByStudent.set(id, []);
+  for (const row of evalsRes.data ?? []) {
+    const arr = evalsByStudent.get(row.student_id);
+    if (arr && arr.length < 5) arr.push(row);
+  }
+
   const now = Date.now();
   const dayMs = 24 * 60 * 60 * 1000;
 
-  return studentIds.map((id, i) => {
-    const evals = evalResults[i].data;
-    const evalRows = evals ? evals : [];
+  return studentIds.map((id) => {
+    const evalRows = evalsByStudent.get(id) ?? [];
     const hifzAvg = avgOf(evalRows.map((e) => e.hifz_score));
     const tajweedAvg = avgOf(evalRows.map((e) => e.tajweed_score));
     const fluencyAvg = avgOf(evalRows.map((e) => e.fluency_score));
