@@ -63,13 +63,14 @@ begin
   returning id into v_progress_id;
   -- t_validate_student_progress_range fires here; an impossible range raises 23514.
 
-  -- Replace this booking's real errors (idempotent re-capture); never touch the
-  -- "no errors observed" sentinel row.
-  delete from recitation_errors
-  where progress_id = v_progress_id
-    and note is distinct from '__no_errors_observed_sentinel__';
-
-  if p_errors is not null and jsonb_typeof(p_errors) = 'array' then
+  -- Replace this booking's errors. When the teacher supplies real errors, clear
+  -- ALL prior rows for this progress — including any "no errors observed"
+  -- sentinel, which would otherwise coexist with real errors and leave a
+  -- contradictory state. When no errors are supplied (p_errors null/empty),
+  -- leave existing rows untouched (preserves a prior sentinel set via
+  -- markNoErrorsObserved).
+  if p_errors is not null and jsonb_typeof(p_errors) = 'array' and jsonb_array_length(p_errors) > 0 then
+    delete from recitation_errors where progress_id = v_progress_id;
     insert into recitation_errors (progress_id, surah_num, ayah_num, error_type, note)
     select
       v_progress_id,

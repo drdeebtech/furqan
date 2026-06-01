@@ -69,7 +69,16 @@ export async function recordProgress(
     return { ok: false, reason: "error", message: msg };
   }
 
-  return { ok: true, progressId: data as unknown as string };
+  // record_student_progress returns the new progress row id (text). Guard the
+  // runtime shape — a null/unexpected return WITHOUT an error must not become a
+  // false success carrying an invalid id. (`as never` on the rpc call mirrors
+  // the confirm_booking_with_session pattern: the custom fn isn't in the stale
+  // generated types, issue #185; its signature lives in src/types/database.ts.)
+  const progressId: unknown = data;
+  if (typeof progressId !== "string" || progressId.length === 0) {
+    return { ok: false, reason: "error", message: "record_student_progress returned no id" };
+  }
+  return { ok: true, progressId };
 }
 
 function errorsToJson(errors: RecordProgressInput["errors"]) {

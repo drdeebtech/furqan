@@ -28,8 +28,10 @@ export function validateRange(r: AyahRange): RangeViolation | null {
   if (fromCount === null) return { kind: "surah_invalid", surah: r.surahFrom };
   if (toCount === null) return { kind: "surah_invalid", surah: r.surahTo };
 
-  if (r.ayahFrom < 1) return { kind: "ayah_below_one", field: "ayahFrom" };
-  if (r.ayahTo < 1) return { kind: "ayah_below_one", field: "ayahTo" };
+  // Āyah numbers are discrete — reject decimals (e.g. 1.5) before they coerce
+  // into the DB's integer columns and silently change what was selected.
+  if (!Number.isInteger(r.ayahFrom) || r.ayahFrom < 1) return { kind: "ayah_below_one", field: "ayahFrom" };
+  if (!Number.isInteger(r.ayahTo) || r.ayahTo < 1) return { kind: "ayah_below_one", field: "ayahTo" };
 
   if (r.ayahFrom > fromCount) {
     return { kind: "ayah_exceeds_count", field: "ayahFrom", surah: r.surahFrom, ayahCount: fromCount };

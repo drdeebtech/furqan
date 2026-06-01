@@ -13,6 +13,9 @@ begin
   if not exists (select 1 from pg_constraint where conname = 'recitation_errors_surah_required') then
     alter table public.recitation_errors
       add constraint recitation_errors_surah_required
-      check (surah_num is not null or note = '__no_errors_observed_sentinel__');
+      -- `is not distinct from` (not `=`) so a NULL note evaluates to FALSE, not
+      -- UNKNOWN — otherwise a row with both surah_num NULL and note NULL passes
+      -- the CHECK (UNKNOWN is treated as satisfied), defeating the rule.
+      check (surah_num is not null or note is not distinct from '__no_errors_observed_sentinel__');
   end if;
 end $$;

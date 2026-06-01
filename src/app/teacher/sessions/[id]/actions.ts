@@ -253,8 +253,11 @@ const recordSessionProgressBase = loudAction<RecordSessionProgressInput, { messa
       booking_id: input.bookingId,
       teacher_id: actorId,
       progress_type: input.progressType,
-      surah_from: input.surahFrom,
-      surah_to: input.surahTo,
+      // Emit the normalized range that was actually persisted (null for a
+      // partial/absent range), not the raw input fragments — otherwise
+      // automation consumers can see a half-range that was never stored.
+      surah_from: range?.surahFrom ?? null,
+      surah_to: range?.surahTo ?? null,
     }).catch((err) =>
       logError("emit progress.recorded failed", err, { tag: "automation", event: "progress.recorded" }),
     );

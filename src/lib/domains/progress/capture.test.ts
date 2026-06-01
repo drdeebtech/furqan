@@ -65,4 +65,11 @@ describe("recordProgress", () => {
     expect(out.ok).toBe(false);
     if (!out.ok) expect(out.reason).toBe("not_found");
   });
+
+  it("does NOT report success when the RPC returns no id (data null, no error)", async () => {
+    const admin = rpcClient({ data: null, error: null });
+    const out = await recordProgress(admin, validInput);
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.reason).toBe("error");
+  });
 });

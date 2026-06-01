@@ -48,6 +48,10 @@ describe("validateRange", () => {
     expect(validateRange({ surahFrom: 2, ayahFrom: 0, surahTo: 2, ayahTo: 5 })?.kind).toBe("ayah_below_one");
   });
 
+  it("rejects a non-integer āyah (1.5)", () => {
+    expect(validateRange({ surahFrom: 2, ayahFrom: 1.5, surahTo: 2, ayahTo: 5 })?.kind).toBe("ayah_below_one");
+  });
+
   it("rejects reversed sūrah order", () => {
     expect(validateRange({ surahFrom: 5, ayahFrom: 1, surahTo: 2, ayahTo: 1 })).toEqual({
       kind: "order",

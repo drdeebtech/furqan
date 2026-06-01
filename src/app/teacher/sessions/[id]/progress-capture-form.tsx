@@ -95,7 +95,7 @@ export function ProgressCaptureForm({
             key={pt}
             type="button"
             onClick={() => setType(pt)}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`min-h-[44px] rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
               type === pt
                 ? "border-gold/50 bg-gold/15 text-gold"
                 : "border-[var(--surface-border)] text-muted hover:border-gold/30 hover:text-foreground"
@@ -132,16 +132,22 @@ export function ProgressCaptureForm({
           {t("التقييم (1-5)", "Quality (1-5)")}
           <input
             type="number" min={1} max={5} value={quality}
-            onChange={(e) => setQuality(e.target.value === "" ? "" : Math.max(1, Math.min(5, Number(e.target.value))))}
-            className="glass-input mt-1 w-full px-3 py-1.5 text-sm"
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setQuality(e.target.value === "" || Number.isNaN(v) ? "" : Math.max(1, Math.min(5, Math.round(v))));
+            }}
+            className="glass-input mt-1 min-h-[44px] w-full px-3 py-1.5 text-sm"
           />
         </label>
         <label className="block text-xs text-muted">
           {t("الصفحات", "Pages")}
           <input
             type="number" min={0} value={pages}
-            onChange={(e) => setPages(e.target.value === "" ? "" : Math.max(0, Number(e.target.value)))}
-            className="glass-input mt-1 w-full px-3 py-1.5 text-sm"
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setPages(e.target.value === "" || Number.isNaN(v) ? "" : Math.max(0, Math.round(v)));
+            }}
+            className="glass-input mt-1 min-h-[44px] w-full px-3 py-1.5 text-sm"
           />
         </label>
       </div>
@@ -149,7 +155,7 @@ export function ProgressCaptureForm({
       <button
         onClick={handleSave}
         disabled={saving}
-        className="glass-gold glass-pill flex items-center gap-2 px-5 py-2 text-sm font-semibold transition-colors hover:bg-primary-hover disabled:opacity-50 focus-ring"
+        className="glass-gold glass-pill flex min-h-[44px] items-center gap-2 px-5 py-2 text-sm font-semibold transition-colors hover:bg-primary-hover disabled:opacity-50 focus-ring"
       >
         {saving ? (
           <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -175,7 +181,7 @@ function RangeEnd({
       <select
         value={surah}
         onChange={(e) => onSurah(Number(e.target.value))}
-        className="glass-input w-full px-2 py-1.5 text-sm"
+        className="glass-input min-h-[44px] w-full px-2 py-1.5 text-sm"
       >
         {SURAH_OPTIONS.map((n) => (
           <option key={n} value={n}>{n}. {surahName(n, "ar")}</option>
@@ -183,8 +189,8 @@ function RangeEnd({
       </select>
       <input
         type="number" min={1} max={max} value={ayah}
-        onChange={(e) => onAyah(Math.max(1, Math.min(max, Number(e.target.value) || 1)))}
-        className="glass-input w-full px-2 py-1.5 text-sm"
+        onChange={(e) => onAyah(Math.max(1, Math.min(max, Math.round(Number(e.target.value)) || 1)))}
+        className="glass-input min-h-[44px] w-full px-2 py-1.5 text-sm"
         aria-label={`${label} ayah (1-${max})`}
       />
       <span className="text-[10px] text-muted-light">{`آية 1–${max}`}</span>
