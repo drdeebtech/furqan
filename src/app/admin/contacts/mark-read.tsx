@@ -3,12 +3,18 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { markAsRead } from "./actions";
+import { useToast } from "@/components/shared/toast";
 
 export function MarkReadButton({ submissionId }: { submissionId: string }) {
   const [done, setDone] = useState(false);
+  const toast = useToast();
 
   async function handleClick() {
-    await markAsRead(submissionId);
+    const res = await markAsRead(submissionId);
+    if (res?.error) {
+      toast.error(res.error);
+      return;
+    }
     setDone(true);
   }
 

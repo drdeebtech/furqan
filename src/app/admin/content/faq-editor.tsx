@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { upsertFaq, deleteFaq } from "./actions";
 import { ActionFeedback } from "@/components/shared/action-feedback";
+import { useToast } from "@/components/shared/toast";
 import type { LoudResult } from "@/lib/actions/loud";
 import type { SiteFaq } from "@/lib/site-content/types";
 
@@ -31,13 +32,18 @@ export function FaqEditor({ faqs }: { faqs: SiteFaq[] }) {
 function FaqRow({ faq, onDone }: { faq: SiteFaq | null; onDone?: () => void }) {
   const [state, formAction, pending] = useActionState<LoudResult | null, FormData>(upsertFaq, null);
   const [deleting, setDeleting] = useState(false);
+  const toast = useToast();
 
   async function handleDelete() {
     if (!faq) return;
     if (!confirm("حذف هذا السؤال؟ / Delete this FAQ?")) return;
     setDeleting(true);
-    await deleteFaq(faq.id);
+    const res = await deleteFaq(faq.id);
     setDeleting(false);
+    if (res && res.ok === false) {
+      toast.error(res.error ?? "فشل الحذف / Delete failed");
+      return;
+    }
     location.reload();
   }
 
