@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
+import { chunk } from "@/lib/promise-utils";
 
 /**
  * Canonical retention batch scorer — single source of truth called by both
@@ -12,13 +13,32 @@ import { logError } from "@/lib/logger";
  * Scoring model includes intervention cooldown (×0.5 within 2 days, ×0.75
  * within 7 days) so students who were recently contacted don't keep topping
  * the list until behavior actually changes.
+ *
+ * Scale (audit H9): students are fetched with `.range()` pagination (PostgREST
+ * caps a plain select at ~1000 rows, so the old single select silently scored
+ * only the first 1000) and processed in chunks of `CHUNK` — each chunk keeps
+ * every `.in()` under the argument cap and each upsert a bounded statement.
  */
+
+const CHUNK = 1000;
 
 interface StudentRow { id: string }
 interface BookingRow { student_id: string; scheduled_at: string; status: string; created_at: string }
 interface SessionRow { started_at: string | null; bookings: { student_id: string } }
 interface PackageRow { student_id: string; sessions_total: number; sessions_used: number; expires_at: string | null; status: string }
 interface HomeworkRow { student_id: string; status: string }
+
+interface RetentionUpsert {
+  student_id: string;
+  last_booking_at: string | null;
+  last_session_at: string | null;
+  last_login_at: string | null;
+  package_remaining: number | null;
+  package_expires_at: string | null;
+  engagement_score: number;
+  churn_risk_score: number;
+  computed_at: string;
+}
 
 function daysSince(iso: string | null): number {
   if (!iso) return 9999;
@@ -30,23 +50,29 @@ export interface RetentionBatchResult {
   high_risk: number;
 }
 
-export async function scoreRetentionBatch(): Promise<RetentionBatchResult> {
-  const supabase = createAdminClient();
-
-  const { data: students } = await supabase.from("profiles")
-    .select("id")
-    .eq("role", "student")
-    .eq("is_active", true)
-    .is("deleted_at", null)
-    .returns<StudentRow[]>();
-
-  if (!students || students.length === 0) {
-    return { scored: 0, high_risk: 0 };
+const byStudent = <T extends { student_id?: string; bookings?: { student_id: string } }>(rows: T[] | null) => {
+  const map = new Map<string, T[]>();
+  for (const row of rows ?? []) {
+    const sid = row.student_id ?? row.bookings?.student_id;
+    if (!sid) continue;
+    const arr = map.get(sid) ?? [];
+    arr.push(row);
+    map.set(sid, arr);
   }
+  return map;
+};
 
-  const studentIds = students.map(s => s.id);
-  const since = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
-
+/**
+ * Score one chunk of student ids: runs the five per-student queries scoped to
+ * the chunk, computes engagement/churn in JS, and returns the upsert rows.
+ * Pure read + compute — the caller owns the upsert so it can bound that too.
+ */
+async function scoreChunk(
+  supabase: ReturnType<typeof createAdminClient>,
+  studentIds: string[],
+  since: string,
+  now: string,
+): Promise<RetentionUpsert[]> {
   const { data: priorSignals } = await supabase
     .from("retention_signals")
     .select("student_id, last_intervention_at")
@@ -87,29 +113,16 @@ export async function scoreRetentionBatch(): Promise<RetentionBatchResult> {
       .returns<HomeworkRow[]>(),
   ]);
 
-  const byStudent = <T extends { student_id?: string; bookings?: { student_id: string } }>(rows: T[] | null) => {
-    const map = new Map<string, T[]>();
-    for (const row of rows ?? []) {
-      const sid = row.student_id ?? row.bookings?.student_id;
-      if (!sid) continue;
-      const arr = map.get(sid) ?? [];
-      arr.push(row);
-      map.set(sid, arr);
-    }
-    return map;
-  };
-
   const bookingsByStudent = byStudent(bookingsRes.data);
   const sessionsByStudent = byStudent(sessionsRes.data);
   const packagesByStudent = byStudent(packagesRes.data);
   const homeworkByStudent = byStudent(homeworkRes.data);
 
-  const now = new Date().toISOString();
-  const upserts = students.map(s => {
-    const bks = (bookingsByStudent.get(s.id) ?? []) as BookingRow[];
-    const sss = (sessionsByStudent.get(s.id) ?? []) as SessionRow[];
-    const pkgs = (packagesByStudent.get(s.id) ?? []) as PackageRow[];
-    const hws = (homeworkByStudent.get(s.id) ?? []) as HomeworkRow[];
+  return studentIds.map(id => {
+    const bks = (bookingsByStudent.get(id) ?? []) as BookingRow[];
+    const sss = (sessionsByStudent.get(id) ?? []) as SessionRow[];
+    const pkgs = (packagesByStudent.get(id) ?? []) as PackageRow[];
+    const hws = (homeworkByStudent.get(id) ?? []) as HomeworkRow[];
 
     const lastBooking = bks.map(b => b.created_at).sort().at(-1) ?? null;
     const lastSession = sss.filter(x => x.started_at).map(x => x.started_at!).sort().at(-1) ?? null;
@@ -137,7 +150,7 @@ export async function scoreRetentionBatch(): Promise<RetentionBatchResult> {
     if (activePkg === null) risk += 15;
     if (hwFailRate > 0.5 && hwTotal >= 2) risk += 10;
 
-    const lastIntervention = interventionByStudent.get(s.id) ?? null;
+    const lastIntervention = interventionByStudent.get(id) ?? null;
     const daysSinceIntervention = daysSince(lastIntervention);
     if (daysSinceIntervention <= 2) risk = Math.floor(risk * 0.5);
     else if (daysSinceIntervention <= 7) risk = Math.floor(risk * 0.75);
@@ -155,7 +168,7 @@ export async function scoreRetentionBatch(): Promise<RetentionBatchResult> {
     eng = Math.min(100, eng);
 
     return {
-      student_id: s.id,
+      student_id: id,
       last_booking_at: lastBooking,
       last_session_at: lastSession,
       last_login_at: null,
@@ -166,16 +179,62 @@ export async function scoreRetentionBatch(): Promise<RetentionBatchResult> {
       computed_at: now,
     };
   });
+}
 
-  const startedAt = new Date().toISOString();
+export async function scoreRetentionBatch(): Promise<RetentionBatchResult> {
+  const supabase = createAdminClient();
+
+  // Paginate the active-student fetch — a plain select is capped at ~1000 rows
+  // by PostgREST, so the old single query silently scored only 1000 (audit H9).
+  const studentIds: string[] = [];
+  for (let from = 0; ; from += CHUNK) {
+    const { data, error } = await supabase.from("profiles")
+      .select("id")
+      .eq("role", "student")
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .order("id", { ascending: true })
+      .range(from, from + CHUNK - 1)
+      .returns<StudentRow[]>();
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+    for (const s of data) studentIds.push(s.id);
+    if (data.length < CHUNK) break;
+  }
+
+  if (studentIds.length === 0) {
+    return { scored: 0, high_risk: 0 };
+  }
+
+  const since = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+  const now = new Date().toISOString();
+  const startedAt = now;
   const traceId = crypto.randomUUID();
 
-  const { error } = await supabase.from("retention_signals").upsert(upserts as never, {
-    onConflict: "student_id",
-    ignoreDuplicates: false,
-  });
+  let scored = 0;
+  let high_risk = 0;
+  let firstError: string | null = null;
 
-  const high_risk = upserts.filter(u => (u.churn_risk_score ?? 0) >= 60).length;
+  // Process in chunks: each chunk's .in() stays under the arg cap and each
+  // upsert is a bounded statement (audit H9). A failed chunk is logged and the
+  // batch continues — partial scoring beats aborting the whole nightly run.
+  for (const ids of chunk(studentIds, CHUNK)) {
+    const upserts = await scoreChunk(supabase, ids, since, now);
+    scored += upserts.length;
+    high_risk += upserts.filter(u => u.churn_risk_score >= 60).length;
+
+    const { error } = await supabase.from("retention_signals").upsert(upserts as never, {
+      onConflict: "student_id",
+      ignoreDuplicates: false,
+    });
+    if (error) {
+      if (!firstError) firstError = error.message;
+      logError("retention-scorer chunk upsert failed", error, {
+        tag: "retention-scorer", traceId, severity: "warning",
+        metadata: { chunkSize: ids.length },
+      });
+    }
+  }
 
   const { error: autoLogError } = await supabase.from("automation_logs").insert({
     workflow_name: "retention-scorer",
@@ -183,10 +242,10 @@ export async function scoreRetentionBatch(): Promise<RetentionBatchResult> {
     entity_type: "batch",
     entity_id: traceId,
     idempotency_key: `retention-scorer-${new Date().toISOString().slice(0, 10)}`,
-    status: error ? "failed" : "succeeded",
-    payload_json: { scored: upserts.length, high_risk },
-    result_json: error ? null : { scored: upserts.length, high_risk },
-    error_message: error?.message ?? null,
+    status: firstError ? "failed" : "succeeded",
+    payload_json: { scored, high_risk },
+    result_json: firstError ? null : { scored, high_risk },
+    error_message: firstError,
     started_at: startedAt,
     finished_at: new Date().toISOString(),
   });
@@ -196,13 +255,13 @@ export async function scoreRetentionBatch(): Promise<RetentionBatchResult> {
     });
   }
 
-  if (error) {
-    logError("retention-scorer upsert failed", error, {
+  if (firstError) {
+    logError("retention-scorer upsert failed", new Error(firstError), {
       tag: "retention-scorer", traceId, severity: "warning",
-      metadata: { scored: upserts.length, high_risk },
+      metadata: { scored, high_risk },
     });
-    throw new Error(error.message);
+    throw new Error(firstError);
   }
 
-  return { scored: upserts.length, high_risk };
+  return { scored, high_risk };
 }

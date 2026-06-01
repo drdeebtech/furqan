@@ -1,6 +1,18 @@
 import { logError } from "@/lib/logger";
 
 /**
+ * Split an array into fixed-size chunks. Used to keep batch jobs under
+ * PostgREST's `.in()` argument cap and to bound per-statement row counts at
+ * scale (e.g. the 50k-student retention scorer — audit H9).
+ */
+export function chunk<T>(arr: readonly T[], size: number): T[][] {
+  if (size <= 0) throw new Error("chunk size must be > 0");
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+/**
  * Race `promise` against `ms` and return `fallback` if the promise doesn't
  * settle in time — or if it rejects for any reason. Use to keep one slow /
  * hung query from holding an entire `Promise.all`-driven page render hostage.
