@@ -33,8 +33,7 @@ create table if not exists public.student_review_schedule (
   algorithm_version  smallint not null default 1,
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now(),
-  unique (student_id, progress_id),
-  unique (student_id, progress_id, batch_for_date)
+  unique (student_id, progress_id)  -- one schedule row per memorised item per student
 );
 
 create index if not exists idx_srs__student_next_review
@@ -95,11 +94,15 @@ begin
   -- Set batch_for_date on up to 15 due rows per student within the 7-day fresh
   -- window, oldest-overdue-first (FR-011: backlog beyond 7 days does NOT flood
   -- the card — it routes to the teacher reteach queue, US2).
+  -- Range predicate on the raw timestamptz column (NOT next_review_at::date,
+  -- which is non-SARGable and would force a full scan of a 10M-row table at
+  -- 50k DAU). [(p_date - 7) 00:00, (p_date + 1) 00:00) == dates p_date-7..p_date
+  -- inclusive, and uses the (student_id, next_review_at) index.
   with ranked as (
     select id, row_number() over (partition by student_id order by next_review_at asc) as rn
     from student_review_schedule
-    where next_review_at::date <= p_date
-      and next_review_at::date >= p_date - 7
+    where next_review_at >= (p_date - 7)::timestamptz
+      and next_review_at <  (p_date + 1)::timestamptz
       and (batch_for_date is null or batch_for_date <> p_date)
   )
   update student_review_schedule s
@@ -134,23 +137,29 @@ begin
   v_new_ef := greatest(1.3, least(3.5,
     v_row.easiness_factor + (0.1 - (5 - p_quality) * (0.08 + (5 - p_quality) * 0.02))));
 
-  -- SM-2 interval progression. A failed recall (q < 3) resets to 1 day.
+  -- SM-2 interval progression. A failed recall (q < 3) resets to 1 day; the
+  -- first two successful reviews step 1 → 6, then scale by the easiness factor.
   v_new_interval := case
     when p_quality < 3 then 1
-    when v_row.interval_days <= 1 then (case when v_row.lapse_count = 0 then 1 else 1 end)
+    when v_row.interval_days <= 1 then 1
     when v_row.interval_days <= 6 then 6
     else greatest(1, round(v_row.interval_days * v_new_ef))::int
   end;
 
-  update student_review_schedule
-    set easiness_factor = v_new_ef,
-        interval_days   = v_new_interval,
-        next_review_at  = now() + make_interval(days => v_new_interval),
-        last_reviewed_at = now(),
-        batch_for_date  = null
-    where id = p_schedule_id;
-
-  return query select now() + make_interval(days => v_new_interval), v_new_ef, v_new_interval;
+  -- RETURNING is the single source of truth for the computed next_review_at —
+  -- no second now()/make_interval recompute in the return clause.
+  return query
+    update student_review_schedule
+      set easiness_factor = v_new_ef,
+          interval_days   = v_new_interval,
+          next_review_at  = now() + make_interval(days => v_new_interval),
+          last_reviewed_at = now(),
+          batch_for_date  = null
+      where id = p_schedule_id
+      -- table-qualified: the RETURNS TABLE columns share these names.
+      returning student_review_schedule.next_review_at,
+                student_review_schedule.easiness_factor,
+                student_review_schedule.interval_days;
 end; $$;
 
 -- complete_review is SECURITY INVOKER: it runs as the calling student and the
