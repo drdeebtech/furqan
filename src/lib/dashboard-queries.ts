@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import type { Lang } from "@/lib/i18n/server";
 import { formatDate } from "@/lib/i18n/format-date";
@@ -1853,7 +1854,11 @@ export interface MurajaahDueItem {
 export async function getTodaysMurajaahBatch(studentId: string): Promise<MurajaahDueItem[]> {
   const supabase = await createClient();
   const today = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD (matches the compute cron)
-  const { data } = await supabase
+  // student_review_schedule is not in the generated types until its migration is
+  // live (the db-types-fresh CI gate enforces generated == prod). Query via a
+  // loosely-typed client and shape the result with .returns<>(); drop this cast
+  // and use the regenerated typed table once this migration lands on main.
+  const { data } = await (supabase as unknown as SupabaseClient)
     .from("student_review_schedule")
     .select("id, student_progress(surah_from, ayah_from, surah_to, ayah_to)")
     .eq("student_id", studentId)
