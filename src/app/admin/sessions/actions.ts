@@ -5,17 +5,16 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { createRoom, deleteRoom, updateRoomMaxParticipants, createObserverToken, DailyApiError } from "@/lib/daily";
-import { notify } from "@/lib/notifications/dispatcher";
 import { logError, logWarn } from "@/lib/logger";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
+import { endSession as endSessionOrchestrator } from "@/lib/domains/session/orchestrate";
+import { SessionNotFoundError } from "@/lib/domains/session/types";
 
 /* ── Row types for query results ──────────────────────────────────────────── */
 
 interface ProfileRole { role: string }
-interface SessionForEnd { id: string; booking_id: string; started_at: string | null; ended_at: string | null; actual_duration: number | null; teacher_joined: boolean; student_joined: boolean }
 interface SessionForRecreate { id: string; room_name: string; booking_id: string; expires_at: string | null; room_url: string }
 interface BookingSchedule { scheduled_at: string; duration_min: number }
-interface BookingParties { student_id: string; teacher_id: string }
 
 class UserError extends Error {
   readonly userError = true;
@@ -63,93 +62,22 @@ const forceEndSessionBase = loudAction<{ sessionId: string; reason: string }, { 
   },
   preflight: adminPreflight,
   handler: async ({ sessionId, reason }, { actorId }) => {
-    const supabase = await createClient();
-
-    /* Fetch session */
-    const { data: session, error: sessionErr } = await supabase
-      .from("sessions")
-      .select("id, booking_id, started_at, ended_at, actual_duration, teacher_joined, student_joined")
-      .eq("id", sessionId)
-      .single()
-      .then((r) => ({ data: r.data as SessionForEnd | null, error: r.error }));
-
-    if (sessionErr || !session) throw notFoundOrInfra(sessionErr, "الجلسة غير موجودة");
-    if (session.ended_at) throw new UserError("الجلسة منتهية بالفعل");
-    if (!session.started_at) throw new UserError("الجلسة لم تبدأ بعد");
-
-    const now = new Date().toISOString();
-    const actualDuration = Math.round(
-      (new Date(now).getTime() - new Date(session.started_at).getTime()) / 60000,
-    );
-
-    const oldData = {
-      ended_at: session.ended_at,
-      actual_duration: session.actual_duration,
-    };
-    const newData = { ended_at: now, actual_duration: actualDuration };
-
-    /* Order matters: update booking first, session last. The session.ended_at
-     * guard above makes the session update idempotent on retry, so a
-     * failed-booking-then-fresh-attempt path stays consistent. The reverse
-     * order traps a partial failure forever — booking stuck in "confirmed"
-     * with no way to retry because the session.ended_at guard would block. */
-    const { error: bookingErr } = await supabase
-      .from("bookings")
-      .update({ status: "completed" } satisfies TableUpdate<"bookings">)
-      .eq("id", session.booking_id);
-
-    if (bookingErr) throw new UserError("فشل تحديث حالة الحجز", { cause: bookingErr });
-
-    const { error: updateErr } = await supabase
-      .from("sessions")
-      .update({ ended_at: now, actual_duration: actualDuration } satisfies TableUpdate<"sessions">)
-      .eq("id", sessionId);
-
-    if (updateErr) throw new UserError("فشل إنهاء الجلسة", { cause: updateErr });
-
-    /* Diff audit row — distinct from loudAction's input-only envelope row.
-     * Carries old/new ended_at + actual_duration so reconciliation scripts
-     * can re-derive force-end events without parsing the envelope. */
-    await supabase.from("audit_log").insert({
-      changed_by: actorId,
-      table_name: "sessions",
-      record_id: sessionId,
-      action: "UPDATE",
-      old_data: oldData,
-      new_data: newData,
-      reason,
-    } satisfies TableInsert<"audit_log">).then((r) => {
-      if (r.error) logError("forceEndSession: diff audit row failed", r.error, { tag: "admin-sessions" });
-    });
-
-    /* Notify teacher + student — best-effort. */
-    const { data: booking } = await supabase
-      .from("bookings")
-      .select("student_id, teacher_id")
-      .eq("id", session.booking_id)
-      .single()
-      .then((r) => ({ data: r.data as BookingParties | null }));
-
-    if (booking) {
-      const title = "تم إنهاء الجلسة";
-      const body = reason || "تم إنهاء الجلسة بواسطة المسؤول";
-      await Promise.all(
-        [booking.student_id, booking.teacher_id].map((uid) =>
-          notify({
-            userId: uid,
-            type: "system",
-            title,
-            body,
-            entityType: "session",
-            entityId: sessionId,
-          }).catch((err) =>
-            logError("notify failed during admin endSession", err, {
-              component: "admin.sessions.endSession",
-              metadata: { uid, sessionId },
-            }),
-          ),
-        ),
-      );
+    // Atomic sessions+bookings end + best-effort notify(student/parent) +
+    // notify(teacher — the actor is an admin, not the teacher) +
+    // emitEvent("session.ended"), via the session-end orchestrator (ADR-0004).
+    // This is the path that previously SILENTLY skipped emitEvent, leaving n8n
+    // blind to admin-driven ends — now fixed by sharing the orchestrator with
+    // the teacher path. Authz is the loudAction adminPreflight above.
+    //
+    // Behaviour vs the prior inline path (intentional, all toward parity with
+    // the teacher path): an already-ended session is now an idempotent success
+    // rather than an error; a not-yet-started session is ended with its planned
+    // duration rather than rejected; the parent is now notified too.
+    try {
+      await endSessionOrchestrator({ sessionId, actorId: actorId!, reason });
+    } catch (err) {
+      if (err instanceof SessionNotFoundError) throw new UserError("الجلسة غير موجودة");
+      throw err; // SessionEndError / unexpected → loudAction captures
     }
 
     revalidatePath("/admin/sessions");

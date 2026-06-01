@@ -4741,6 +4741,13 @@ export type Database = {
         }
         Returns: string
       }
+      end_session_with_booking: {
+        Args: {
+          p_actual_duration: number
+          p_session_id: string
+        }
+        Returns: string
+      }
       deduct_package_session: {
         Args: { p_package_id: string }
         Returns: boolean
