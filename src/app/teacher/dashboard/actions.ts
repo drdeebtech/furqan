@@ -11,6 +11,7 @@ import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import { loudAction } from "@/lib/actions/loud";
 import { confirmBooking } from "@/lib/domains/booking/orchestrate";
+import { selectActivePackage, debitPackage } from "@/lib/domains/package/ledger";
 import {
   BookingAlreadyConfirmedError,
   BookingConfirmError,
@@ -769,30 +770,12 @@ export async function startInstantSession(studentId: string, durationMin: number
 
   // Enforce package balance before creating any booking (FR-009). Closes #229 / #247.
   const admin = createAdminClient();
-  const { data: activePkg, error: pkgQueryErr } = await admin
-    .from("student_packages")
-    .select("id, sessions_remaining")
-    .eq("student_id", studentId)
-    .eq("status", "active")
-    .gt("sessions_remaining", 0)
-    .order("expires_at", { ascending: true, nullsFirst: false })
-    .limit(1)
-    .maybeSingle<{ id: string; sessions_remaining: number }>();
-
-  if (pkgQueryErr) {
-    logError("startInstantSession: student_packages query failed", pkgQueryErr, {
-      tag: "bookings",
-      actionName: "teacher.startInstantSession",
-      studentId,
-      teacherId: user.id,
-    });
-    return { error: "فشل التحقق من رصيد الباقة" };
-  }
+  const activePkg = await selectActivePackage(admin, studentId);
   if (!activePkg) return { error: "لا توجد باقة نشطة للطالب — يرجى تجديد الاشتراك" };
 
-  const { data: deducted, error: deductErr } = await admin.rpc("deduct_package_session", { p_package_id: activePkg.id });
-  if (deductErr) {
-    logError("startInstantSession: deduct_package_session failed", deductErr, {
+  const debit = await debitPackage(admin, activePkg.id);
+  if (!debit.ok && debit.reason === "error") {
+    logError("startInstantSession: deduct_package_session failed", new Error(debit.message), {
       tag: "bookings",
       actionName: "teacher.startInstantSession",
       studentId,
@@ -801,7 +784,7 @@ export async function startInstantSession(studentId: string, durationMin: number
     });
     return { error: "تعذر خصم رصيد الباقة" };
   }
-  if (deducted !== true) return { error: "هذه الباقة منتهية أو مستهلكة" };
+  if (!debit.ok && debit.reason === "exhausted") return { error: "هذه الباقة منتهية أو مستهلكة" };
 
   // Create booking (already confirmed)
   const { data: booking, error: bookingError } = await supabase

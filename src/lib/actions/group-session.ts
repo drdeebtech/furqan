@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
+import { selectActivePackage, debitPackage } from "@/lib/domains/package/ledger";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import type { SessionType, BookingStatus } from "@/types/database";
 
@@ -157,25 +158,17 @@ const addStudentToSessionBase = loudAction<AddStudentInput, { message: string }>
     // not just error. Spec 005 FR-002 / T14 / deduct_package_session.md §Return.
     let creditNote = "";
     let studentPackageId: string | null = null;
-    const { data: activePkg } = await admin
-      .from("student_packages")
-      .select("id, sessions_remaining")
-      .eq("student_id", studentId)
-      .eq("status", "active")
-      .gt("sessions_remaining", 0)
-      .order("expires_at", { ascending: true, nullsFirst: false })
-      .limit(1)
-      .maybeSingle<{ id: string; sessions_remaining: number }>();
+    const activePkg = await selectActivePackage(admin, studentId);
 
     if (activePkg) {
       studentPackageId = activePkg.id;
       try {
-        const { data: deducted, error: deductErr } = await admin.rpc("deduct_package_session", { p_package_id: activePkg.id });
-        if (deductErr) {
-          creditNote = `[deduct-failed: ${deductErr.message}] `;
+        const debit = await debitPackage(admin, activePkg.id);
+        if (!debit.ok && debit.reason === "error") {
+          creditNote = `[deduct-failed: ${debit.message}] `;
           throw new UserError("تعذر خصم رصيد الباقة. حاول مرة أخرى.");
         }
-        if (deducted !== true) {
+        if (!debit.ok && debit.reason === "exhausted") {
           creditNote = "[package-expired-or-exhausted] ";
           throw new UserError("هذه الباقة منتهية أو مستهلكة ولا يمكن استخدامها لتسجيل الطالب.");
         }
