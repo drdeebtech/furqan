@@ -97,6 +97,14 @@ export async function POST(request: Request) {
       // notifications insert bypassed all of it — the "gating handled n8n-side"
       // claim was unsupported (n8n has no read access to communication_preferences).
       // notify() writes its own message_delivery_log, so no manual "sent" mirror.
+      // Validate required fields first (CodeRabbit) — a malformed payload should
+      // 400, not dispatch a notification with a missing recipient/title.
+      if (!data.user_id || !data.title) {
+        return NextResponse.json(
+          { error: "user_id and title are required" },
+          { status: 400 },
+        );
+      }
       try {
         await notify({
           userId: data.user_id,
@@ -106,6 +114,8 @@ export async function POST(request: Request) {
           entityType: data.entity_type ?? undefined,
           entityId: data.entity_id ?? undefined,
           templateName: data.template_name ?? undefined,
+          urgent: data.urgent ?? undefined,
+          data: data.data ?? undefined,
         });
       } catch (err) {
         logError("n8n webhook notify failed", err, {
