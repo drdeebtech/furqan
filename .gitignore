@@ -77,3 +77,6 @@ supabase/.temp/
 /k6-teacher-results.json
 /k6-admin-results.json
 /k6-moderator-results.json
+
+# understand-anything knowledge graph + audit tooling (local only)
+.understand-anything/
