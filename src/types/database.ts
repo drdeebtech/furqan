@@ -4748,6 +4748,22 @@ export type Database = {
         }
         Returns: string
       }
+      record_student_progress: {
+        Args: {
+          p_booking_id: string
+          p_progress_type: string
+          p_surah_from: number | null
+          p_ayah_from: number | null
+          p_surah_to: number | null
+          p_ayah_to: number | null
+          p_pages_reviewed: number | null
+          p_quality_rating: number | null
+          p_level: string | null
+          p_teacher_notes: string | null
+          p_errors: Json | null
+        }
+        Returns: string
+      }
       deduct_package_session: {
         Args: { p_package_id: string }
         Returns: boolean

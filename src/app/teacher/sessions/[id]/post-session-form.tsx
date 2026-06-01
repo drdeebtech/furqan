@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CheckCircle, Save, Users } from "lucide-react";
 import { savePostSessionNotes } from "./actions";
+import { ProgressCaptureForm } from "./progress-capture-form";
 import { EvalForm } from "@/app/teacher/students/[studentId]/eval-form";
 import { HomeworkAssignmentForm } from "@/components/shared/homework-assignment-form";
 import { ActionFeedback } from "@/components/shared/action-feedback";
@@ -173,6 +174,13 @@ export function PostSessionForm({
           </div>
         </div>
       )}
+
+      {/* Ḥifẓ progress capture (spec 010) — records the validated sūrah:āyah
+          range this session, feeding the murājaʿah scheduler. Bound to the
+          active student's booking. */}
+      <div className="border-t border-white/10 pt-6">
+        <ProgressCaptureForm key={`progress-${active.bookingId}`} sessionId={sessionId} bookingId={active.bookingId} />
+      </div>
 
       <div className="border-t border-white/10 pt-6">
         <HomeworkAssignmentForm
