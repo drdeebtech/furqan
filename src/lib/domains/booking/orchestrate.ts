@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { callRpc } from "@/lib/supabase/rpc";
 import { createRoom } from "@/lib/daily";
 import { notify } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
@@ -122,14 +123,15 @@ export async function confirmBooking(
   //    isn't in supabase.generated.ts until the migration applies +
   //    types regenerate, so we cast at the call site (per CLAUDE.md
   //    "Migration plus typed calls" guidance).
-  const { data: rpcData, error: rpcErr } = await supabase.rpc(
-    "confirm_booking_with_session" as never,
+  const { data: rpcData, error: rpcErr } = await callRpc(
+    supabase,
+    "confirm_booking_with_session",
     {
       p_booking_id: bookingId,
       p_room_url: room.url,
       p_room_name: room.name,
       p_expires_at: expiresAt.toISOString(),
-    } as never,
+    },
   );
 
   if (rpcErr) {

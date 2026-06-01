@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { callRpc } from "@/lib/supabase/rpc";
 import { notify } from "@/lib/notifications/dispatcher";
 import { notifyParentSessionComplete } from "@/lib/notifications/parent";
 import { emitEvent } from "@/lib/automation/emit";
@@ -99,10 +100,10 @@ export async function endSession(input: EndSessionInput): Promise<EndSessionResu
   // Cast `as never`: the custom function isn't in the stale generated types
   // (issue #185); its canonical signature lives in src/types/database.ts. Same
   // pattern as confirm_booking_with_session in the booking orchestrator.
-  const { error: rpcErr } = await supabase.rpc("end_session_with_booking" as never, {
+  const { error: rpcErr } = await callRpc(supabase, "end_session_with_booking", {
     p_session_id: sessionId,
     p_actual_duration: actualDuration,
-  } as never);
+  });
 
   if (rpcErr) {
     // Lost race: the session was ended between our pre-read and the RPC.
