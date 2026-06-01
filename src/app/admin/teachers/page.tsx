@@ -39,21 +39,25 @@ export default async function AdminTeachersPage({ searchParams }: PageProps) {
 
   const teacherIds = list.map(x => x.teacher_id);
   const adminCli = createAdminClient();
-  const [nameMap, avatarRes, authRes] = await Promise.all([
+  const [nameMap, avatarRes, authUsers] = await Promise.all([
     buildNameMap(supabase, teacherIds, t("معلم", "Teacher")),
     teacherIds.length > 0
       ? supabase.from("profiles").select("id, avatar_url").in("id", teacherIds).returns<{ id: string; avatar_url: string | null }[]>()
       : Promise.resolve({ data: [] as { id: string; avatar_url: string | null }[] }),
+    // Resolve each teacher's email by id (audit H6). The old
+    // listUsers({perPage:1000}) returned only the 1000 most-recently-created
+    // auth users, so at scale most teachers' emails were missing and contact
+    // links rendered blank with no error. getUserById is the codebase-standard
+    // per-id resolution.
     teacherIds.length > 0
-      ? adminCli.auth.admin.listUsers({ page: 1, perPage: 1000 })
-      : Promise.resolve({ data: { users: [] as { id: string; email?: string | null }[] } }),
+      ? Promise.all(teacherIds.map((id) => adminCli.auth.admin.getUserById(id)))
+      : Promise.resolve([]),
   ]);
   const avatarMap = Object.fromEntries((avatarRes.data ?? []).map(p => [p.id, p.avatar_url ?? null]));
-  const teacherIdSet = new Set(teacherIds);
   const emailMap: Record<string, string> = Object.fromEntries(
-    (authRes.data?.users ?? [])
-      .filter(u => teacherIdSet.has(u.id))
-      .map(u => [u.id, u.email ?? ""]),
+    authUsers
+      .map((r) => [r.data?.user?.id ?? "", r.data?.user?.email ?? ""] as const)
+      .filter(([id]) => id !== ""),
   );
 
   // Server-side filter by teacher name (resolved via nameMap) when ?q= is set.
