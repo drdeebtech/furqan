@@ -4771,7 +4771,7 @@ export type Database = {
       }
       deduct_package_session_mode: {
         Args: { p_mode: string; p_package_id: string }
-        Returns: boolean
+        Returns: { deducted: boolean; used_legacy: boolean }[]
       }
       get_teacher_overdue_eval_count: {
         Args: { p_teacher_id: string }
