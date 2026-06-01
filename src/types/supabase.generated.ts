@@ -4704,6 +4704,10 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_admin_or_mod: { Args: never; Returns: boolean }
       is_moderator: { Args: never; Returns: boolean }
+      profiles_role_counts: {
+        Args: Record<string, never>
+        Returns: { role: string; n: number }[]
+      }
       recompute_course_review_aggregates: {
         Args: { p_course_id: string }
         Returns: undefined

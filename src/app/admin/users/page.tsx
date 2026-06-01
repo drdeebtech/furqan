@@ -26,17 +26,15 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Stats via head:true count queries — never load 50k rows just to count
-  // by role (audit H8). Roles are student/teacher/admin (ADR-0003); `all` is
-  // the unfiltered total to capture any null/legacy role too.
-  const countWhere = async (role?: "student" | "teacher" | "admin") => {
-    let qy = supabase.from("profiles").select("*", { count: "exact", head: true });
-    if (role) qy = qy.eq("role", role);
-    return (await qy).count ?? 0;
-  };
-  const [allCount, students, teachers, admins] = await Promise.all([
-    countWhere(), countWhere("student"), countWhere("teacher"), countWhere("admin"),
-  ]);
+  // Stats via a single grouped RPC — one scan instead of four count queries
+  // (audit H8 removed the 50k-row load; CodeRabbit collapsed the 4 counts into
+  // one). `all` sums the groups, capturing any null/legacy role too.
+  const { data: roleCounts } = await supabase.rpc("profiles_role_counts");
+  const countByRole = new Map((roleCounts ?? []).map((r) => [r.role, Number(r.n)]));
+  const students = countByRole.get("student") ?? 0;
+  const teachers = countByRole.get("teacher") ?? 0;
+  const admins = countByRole.get("admin") ?? 0;
+  const allCount = [...countByRole.values()].reduce((s, n) => s + n, 0);
 
   // Listing: paginated (audit H8 — was an unbounded full-table load). ?q filters
   // by name; ?page selects the window.
