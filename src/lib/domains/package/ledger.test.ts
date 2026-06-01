@@ -10,11 +10,13 @@ import { describe, it, expect, vi } from "vitest";
  */
 
 vi.mock("server-only", () => ({}));
+const mockLogError = vi.fn();
+vi.mock("@/lib/logger", () => ({ logError: (...a: unknown[]) => mockLogError(...a) }));
 
 import { selectActivePackage, debitPackage } from "./ledger";
 
 // Minimal fake of the admin client's fluent query builder for selectActivePackage.
-function fakeSelectClient(result: { data: unknown }) {
+function fakeSelectClient(result: { data: unknown; error?: unknown }) {
   const chain = {
     select: () => chain,
     eq: () => chain,
@@ -39,6 +41,17 @@ describe("selectActivePackage", () => {
       id: "pkg-1",
       sessionsRemaining: 3,
     });
+  });
+
+  it("fails closed AND logs when the query errors (No Silent Failures)", async () => {
+    mockLogError.mockClear();
+    const admin = fakeSelectClient({ data: null, error: { message: "db down" } });
+    expect(await selectActivePackage(admin, "student-1")).toBeNull();
+    expect(mockLogError).toHaveBeenCalledWith(
+      "selectActivePackage query failed",
+      expect.objectContaining({ message: "db down" }),
+      expect.objectContaining({ tag: "package-ledger" }),
+    );
   });
 
   it("returns null when the student has no active package with credit", async () => {

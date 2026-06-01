@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase.generated";
+import { logError } from "@/lib/logger";
 
 /**
  * Package ledger — the single seam for session-credit DEBIT from the
@@ -42,7 +43,7 @@ export async function selectActivePackage(
   admin: AdminClient,
   studentId: string,
 ): Promise<ActivePackage | null> {
-  const { data } = await admin
+  const { data, error } = await admin
     .from("student_packages")
     .select("id, sessions_remaining")
     .eq("student_id", studentId)
@@ -51,6 +52,17 @@ export async function selectActivePackage(
     .order("expires_at", { ascending: true, nullsFirst: false })
     .limit(1)
     .maybeSingle<{ id: string; sessions_remaining: number }>();
+
+  // No Silent Failures policy: a query error must surface in Sentry, not be
+  // swallowed as "no active package". We still fail closed (return null → the
+  // caller blocks the booking) but the operator sees the real cause.
+  if (error) {
+    logError("selectActivePackage query failed", error, {
+      tag: "package-ledger",
+      metadata: { studentId },
+    });
+    return null;
+  }
 
   if (!data) return null;
   return { id: data.id, sessionsRemaining: data.sessions_remaining };
