@@ -4727,6 +4727,10 @@ export type Database = {
         Args: { p_teacher_id: string }
         Returns: number
       }
+      get_user_id_by_email: {
+        Args: { p_email: string }
+        Returns: string
+      }
       is_admin: { Args: never; Returns: boolean }
       is_admin_or_mod: { Args: never; Returns: boolean }
       is_moderator: { Args: never; Returns: boolean }
