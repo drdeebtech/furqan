@@ -9,6 +9,7 @@ import { HOMEWORK_STATUS_AR, type ReviewHorizon } from "@/lib/constants";
 import { logError } from "@/lib/logger";
 import type { HomeworkStatus, HomeworkAssignment } from "@/types/database";
 import { emitEvent } from "@/lib/automation/emit";
+import { dispatchEffects } from "@/lib/automation/effects";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
@@ -146,22 +147,15 @@ const createHomeworkBase = loudAction<CreateHomeworkInput, { message: string }>(
     } as never);
     if (error) throw new UserError("فشل إنشاء المتابعة", { cause: error });
 
-    // Best-effort student notification — must not fail the assignment.
-    try {
-      await notify({
-        userId: input.student_id,
-        type: "homework",
-        title: "متابعة جديدة",
-        body: `كلّفك معلمك بمتابعة جديدة — ${input.title}`,
-        entityType: "homework",
-        entityId: input.booking_id,
-      });
-    } catch (err) {
-      logError("notify student failed during createHomework", err, {
-        component: "homework.createHomework",
-        metadata: { student_id: input.student_id, booking_id: input.booking_id },
-      });
-    }
+    // Best-effort student notification — must not fail the assignment. The
+    // in-app fan-out is now declared in EVENT_EFFECTS["homework.assigned"]
+    // (src/lib/automation/effects.ts); dispatchEffects never throws, so the
+    // assignment is safe regardless of notification outcome.
+    await dispatchEffects("homework.assigned", {
+      studentId: input.student_id,
+      entityId: input.booking_id,
+      title: input.title,
+    });
 
     revalidateFollowUpPaths();
     await emitEvent("homework.assigned", "homework", input.booking_id, {

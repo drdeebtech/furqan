@@ -6,8 +6,8 @@ import { checkBotId } from "botid/server";
 import { createClient } from "@/lib/supabase/server";
 import type { SessionType } from "@/types/database";
 import { notifyNewBooking } from "@/lib/whatsapp";
-import { notify } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
+import { dispatchEffects } from "@/lib/automation/effects";
 import { logError } from "@/lib/logger";
 import { createBooking as createBookingDomain } from "@/lib/domains/booking/actions";
 import {
@@ -193,16 +193,14 @@ export async function createBooking(
   // The booking is already committed at this point — the user must not be
   // blocked or shown an error if a side-channel notification fails.
   await Promise.allSettled([
-    notify({
-      userId: teacherId,
-      type: "booking",
-      title: "حجز جديد",
-      body: `لديك حجز جديد بتاريخ ${scheduledAt.toLocaleDateString("ar")} — يرجى التأكيد`,
-      entityType: "booking",
+    // In-app fan-out is now declared in EVENT_EFFECTS["booking.created"]
+    // (src/lib/automation/effects.ts) — teacher notification. dispatchEffects
+    // is itself best-effort/never-throws, so no per-call catch is needed here.
+    dispatchEffects("booking.created", {
+      teacherId,
       entityId: booking.id,
-    }).catch((err) => logError("notify teacher booking.created failed", err, {
-      tag: "notify", severity: "warning", actionName: "booking.created", teacherId, bookingId: booking.id,
-    })),
+      dateLabel: scheduledAt.toLocaleDateString("ar"),
+    }),
     (async () => {
       const [{ data: studentProfile }, { data: teacherName }] = await Promise.all([
         supabase.from("profiles").select("full_name").eq("id", studentId).single<{ full_name: string | null }>(),
