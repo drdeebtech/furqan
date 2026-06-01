@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { notify } from "@/lib/notifications/dispatcher";
 import { safeCompareSecret } from "@/lib/security/secrets";
 import { logError } from "@/lib/logger";
 
@@ -91,18 +92,23 @@ export async function POST(request: Request) {
         );
       }
 
-      // Service-role insert: n8n webhooks bypass RLS by design.
-      // User preference gating (quiet hours, channel prefs) is handled n8n-side
-      // for workflow-driven notifications.
-      const { error } = await supabase.from("notifications").insert({
-        user_id: data.user_id,
-        type: data.type ?? "system",
-        title: data.title,
-        body: data.body ?? null,
-        channel: ["in_app"],
-      } as never);
-      if (error) {
-        logError("n8n webhook notify insert failed", error, {
+      // Route through the dispatcher (audit H15) so in_app_enabled / quiet-hours
+      // / important_only_mode preference gating is enforced. The previous direct
+      // notifications insert bypassed all of it — the "gating handled n8n-side"
+      // claim was unsupported (n8n has no read access to communication_preferences).
+      // notify() writes its own message_delivery_log, so no manual "sent" mirror.
+      try {
+        await notify({
+          userId: data.user_id,
+          type: data.type ?? "system",
+          title: data.title,
+          body: data.body ?? undefined,
+          entityType: data.entity_type ?? undefined,
+          entityId: data.entity_id ?? undefined,
+          templateName: data.template_name ?? undefined,
+        });
+      } catch (err) {
+        logError("n8n webhook notify failed", err, {
           tag: "n8n-webhook",
           severity: "critical",
           metadata: {
@@ -112,22 +118,6 @@ export async function POST(request: Request) {
           },
         });
         return NextResponse.json({ error: "Failed to notify" }, { status: 500 });
-      }
-
-      // Mirror to delivery log for observability parity with dispatcher path.
-      // Best-effort — never blocks the webhook response.
-      const { error: sentLogError } = await supabase.from("message_delivery_log").insert({
-        recipient_user_id: data.user_id,
-        recipient_channel: "in_app",
-        template_name: data.template_name ?? null,
-        related_entity_type: data.entity_type ?? null,
-        related_entity_id: data.entity_id ?? null,
-        status: "sent",
-      });
-      if (sentLogError) {
-        logError("delivery_log sent-insert failed", sentLogError, {
-          tag: "n8n-webhook", channel: "in_app", status: "sent",
-        });
       }
 
       return NextResponse.json({ notified: true });
