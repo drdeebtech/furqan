@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import { Building2, GraduationCap, PlayCircle, Lock, Star, Clock } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -110,11 +111,13 @@ export default async function CourseLandingPage({ params }: PageProps) {
                   className="flex items-center gap-2 hover:text-gold"
                 >
                   {teacher.avatar_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Image
                       src={teacher.avatar_url}
                       alt=""
+                      width={24}
+                      height={24}
                       className="h-6 w-6 rounded-full object-cover"
+                      unoptimized
                     />
                   ) : (
                     <GraduationCap size={14} />
