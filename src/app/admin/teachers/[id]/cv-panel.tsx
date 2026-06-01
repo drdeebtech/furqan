@@ -6,6 +6,7 @@ import { RotateCcw } from "lucide-react";
 import { CvEditForm } from "@/app/admin/teachers/cv/[teacherId]/cv-edit-form";
 import { CvReviewControls } from "@/app/admin/teachers/cv/[teacherId]/cv-review-controls";
 import { resetCvToPending } from "@/app/admin/teachers/cv/[teacherId]/actions";
+import { useToast } from "@/components/shared/toast";
 import type { TeacherLanguage } from "@/lib/site-content/types";
 
 interface CvPanelProps {
@@ -26,12 +27,17 @@ interface CvPanelProps {
 
 export function CvPanel({ teacherId, profile, picklists }: CvPanelProps) {
   const router = useRouter();
+  const toast = useToast();
   const [resetting, startReset] = useTransition();
 
   const handleReset = () => {
     if (!confirm("إعادة السيرة الذاتية إلى قيد المراجعة؟")) return;
     startReset(async () => {
-      await resetCvToPending(teacherId);
+      const res = await resetCvToPending(teacherId);
+      if (res?.error) {
+        toast.error(res.error);
+        return;
+      }
       router.refresh();
     });
   };

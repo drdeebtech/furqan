@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { upsertPicklistRow, deletePicklistRow } from "./actions";
 import { ActionFeedback } from "@/components/shared/action-feedback";
+import { useToast } from "@/components/shared/toast";
 import type { LoudResult } from "@/lib/actions/loud";
 import type { TeacherLanguage } from "@/lib/site-content/types";
 
@@ -44,13 +45,18 @@ function PicklistRow({
     null,
   );
   const [deleting, setDeleting] = useState(false);
+  const toast = useToast();
 
   async function handleDelete() {
     if (!row) return;
     if (!confirm(`حذف "${row.key}"؟ / Delete "${row.key}"?`)) return;
     setDeleting(true);
-    await deletePicklistRow(table, row.key);
+    const res = await deletePicklistRow(table, row.key);
     setDeleting(false);
+    if (res && res.ok === false) {
+      toast.error(res.error ?? "فشل الحذف / Delete failed");
+      return;
+    }
     location.reload();
   }
 

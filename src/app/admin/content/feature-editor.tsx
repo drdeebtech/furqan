@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { upsertFeature, deleteFeature } from "./actions";
 import { ActionFeedback } from "@/components/shared/action-feedback";
+import { useToast } from "@/components/shared/toast";
 import { SITE_ICON_NAMES } from "@/lib/site-content/icon-map";
 import type { LoudResult } from "@/lib/actions/loud";
 import type { SiteFeature, SubjectMeta, PackagePreviewMeta } from "@/lib/site-content/types";
@@ -38,6 +39,7 @@ export function FeatureEditor({ slotKey, slotLabel, features }: { slotKey: strin
 function FeatureRow({ feature, slotKey, onDone }: { feature: SiteFeature | null; slotKey: string; onDone?: () => void }) {
   const [state, formAction, pending] = useActionState<LoudResult | null, FormData>(upsertFeature, null);
   const [deleting, setDeleting] = useState(false);
+  const toast = useToast();
 
   const meta = (feature?.meta ?? {}) as SubjectMeta & PackagePreviewMeta;
   const showLevel = slotKey === "home_subjects";
@@ -49,8 +51,12 @@ function FeatureRow({ feature, slotKey, onDone }: { feature: SiteFeature | null;
     if (!feature) return;
     if (!confirm("حذف هذا العنصر؟ / Delete this item?")) return;
     setDeleting(true);
-    await deleteFeature(feature.id);
+    const res = await deleteFeature(feature.id);
     setDeleting(false);
+    if (res && res.ok === false) {
+      toast.error(res.error ?? "فشل الحذف / Delete failed");
+      return;
+    }
     location.reload();
   }
 

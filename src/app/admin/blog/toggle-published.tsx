@@ -2,15 +2,21 @@
 
 import { useState } from "react";
 import { togglePublished } from "./actions";
+import { useToast } from "@/components/shared/toast";
 
 export function TogglePublished({ postId, isPublished }: { postId: string; isPublished: boolean }) {
   const [published, setPublished] = useState(isPublished);
   const [loading, setLoading] = useState(false);
+  const toast = useToast();
 
   async function handle() {
     setLoading(true);
-    await togglePublished(postId, !published);
-    setPublished(!published);
+    const res = await togglePublished(postId, !published);
+    if (res?.error) {
+      toast.error(res.error);
+    } else {
+      setPublished(!published);
+    }
     setLoading(false);
   }
 

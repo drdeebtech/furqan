@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { upsertCategory, deleteCategory } from "./actions";
 import { ActionFeedback } from "@/components/shared/action-feedback";
+import { useToast } from "@/components/shared/toast";
 import type { LoudResult } from "@/lib/actions/loud";
 import type { SiteBlogCategory } from "@/lib/site-content/types";
 
@@ -31,13 +32,18 @@ export function CategoryEditor({ categories }: { categories: SiteBlogCategory[] 
 function CategoryRow({ category, onDone }: { category: SiteBlogCategory | null; onDone?: () => void }) {
   const [state, formAction, pending] = useActionState<LoudResult | null, FormData>(upsertCategory, null);
   const [deleting, setDeleting] = useState(false);
+  const toast = useToast();
 
   async function handleDelete() {
     if (!category) return;
     if (!confirm("حذف هذا التصنيف؟ / Delete this category?")) return;
     setDeleting(true);
-    await deleteCategory(category.id);
+    const res = await deleteCategory(category.id);
     setDeleting(false);
+    if (res && res.ok === false) {
+      toast.error(res.error ?? "فشل الحذف / Delete failed");
+      return;
+    }
     location.reload();
   }
 

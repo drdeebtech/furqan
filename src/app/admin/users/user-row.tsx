@@ -4,6 +4,7 @@ import Link from "next/link";
 import { toggleUserActive, setUserRoles, softDeleteUser, restoreUser } from "./actions";
 import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
 import { useLang } from "@/lib/i18n/context";
+import { useToast } from "@/components/shared/toast";
 
 type Role = "student" | "teacher" | "admin";
 const ALL_ROLES: ReadonlyArray<Role> = ["student", "teacher", "admin"];
@@ -27,6 +28,7 @@ interface Props {
 
 export function UserRow({ user, churnRisk, currentAdminId }: Props) {
   const { t, lang } = useLang();
+  const toast = useToast();
   const locale = lang === "ar" ? "ar-EG" : "en-US";
   const [active, setActive] = useState(user.is_active);
   // Initial set: prefer the new roles[] column, fall back to single role for
@@ -193,7 +195,15 @@ export function UserRow({ user, churnRisk, currentAdminId }: Props) {
       <td className="px-4 py-3 text-xs text-muted">{user.country ?? "—"}</td>
       <td className="px-4 py-3">
         <button
-          onClick={async () => { setActive(!active); await toggleUserActive(user.id, !active); }}
+          onClick={async () => {
+            const next = !active;
+            setActive(next);
+            const res = await toggleUserActive(user.id, next);
+            if (res?.error) {
+              setActive(!next);
+              toast.error(res.error);
+            }
+          }}
           className={`glass-badge ${active ? "bg-success/10 text-success border-success/30" : "bg-error/10 text-red-400 border-error/30"}`}
         >
           {active ? "نشط" : "معطل"}
