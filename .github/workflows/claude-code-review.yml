@@ -10,6 +10,12 @@ on:
     #   - "src/**/*.js"
     #   - "src/**/*.jsx"
 
+# A new push to a PR obsoletes the in-flight review of the prior commit —
+# cancel it so only the latest commit is reviewed (issue #345, CI hardening).
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   claude-review:
     # Optional: Filter by PR author

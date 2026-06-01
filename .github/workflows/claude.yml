@@ -10,6 +10,14 @@ on:
   pull_request_review:
     types: [submitted]
 
+# Serialize @claude requests on the SAME issue/PR so two near-simultaneous
+# mentions don't run in parallel — but do NOT cancel in-flight work (each
+# mention is a distinct request; killing a mid-task response would lose it).
+# Different issues/PRs still run concurrently (issue #345, CI hardening).
+concurrency:
+  group: claude-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
 jobs:
   claude:
     if: |
