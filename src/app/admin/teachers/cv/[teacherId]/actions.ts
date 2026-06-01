@@ -8,6 +8,7 @@ import { emitEvent } from "@/lib/automation/emit";
 import { sendTelegramAlert } from "@/lib/n8n/client";
 import { sendTeacherApprovalEmail } from "@/lib/email";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin, ForbiddenError, UnauthenticatedError } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
 import { loudAction } from "@/lib/actions/loud";
 
@@ -18,16 +19,21 @@ class UserError extends Error {
   constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
 }
 
-// Auth model preserved from pre-wrap: `auth.getUser()` (any logged-in
-// user passes; the `/admin/*` route middleware in src/proxy.ts enforces
-// the admin role check upstream). Other admin actions in the codebase
-// use `requireAdmin()` for defense-in-depth — worth aligning in a
-// follow-up audit. Wrap PR preserves existing behavior.
+// Auth at the boundary (ADR-0001): these CV actions gate the P0 teacher
+// onboarding review, so they MUST require the admin role here — NOT trust the
+// `/admin/*` proxy middleware, which only gates page navigations by URL.
+// Server-action POSTs dispatch against whatever page the caller is on, so a
+// logged-in teacher could otherwise call `approveCv(ownId)` and self-approve.
+// (Audit finding H1.)
 async function authPreflight(): Promise<{ actorId: string }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new UserError("غير مصرح");
-  return { actorId: user.id };
+  try {
+    const { id } = await requireAdmin();
+    return { actorId: id };
+  } catch (e) {
+    if (e instanceof UnauthenticatedError) throw new UserError("غير مسجل الدخول");
+    if (e instanceof ForbiddenError) throw new UserError("ليس لديك صلاحية");
+    throw e;
+  }
 }
 
 type SaveCvInput = {
