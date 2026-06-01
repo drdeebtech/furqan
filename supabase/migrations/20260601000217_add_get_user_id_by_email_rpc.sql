@@ -16,7 +16,13 @@ language sql
 security definer
 set search_path = ''
 as $$
-  select id from auth.users where lower(email) = lower(p_email) limit 1;
+  -- Guard null/blank input explicitly (CodeRabbit); returns NULL, which the
+  -- caller treats as "student not found".
+  select id from auth.users
+  where p_email is not null
+    and length(btrim(p_email)) > 0
+    and lower(email) = lower(p_email)
+  limit 1;
 $$;
 
 revoke execute on function public.get_user_id_by_email(text) from public, anon, authenticated;

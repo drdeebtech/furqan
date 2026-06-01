@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notify } from "@/lib/notifications/dispatcher";
+import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
 
@@ -102,6 +103,16 @@ const grantCreditBase = loudAction<z.infer<typeof grantCreditSchema>, { message:
       .update({ sessions_total: newTotal } as never)
       .eq("id", activePkg.id);
     if (updateErr) throw updateErr;
+
+    // State-change event (CLAUDE.md rule; CodeRabbit). Fire-and-forget; the
+    // automation_log record is the durable trail even before the n8n route
+    // exists.
+    emitEvent("package.credit_granted", "student_package", activePkg.id, {
+      student_id: student.id,
+      sessions_granted: sessions,
+      sessions_total: newTotal,
+      granted_by: actorId,
+    }, actorId).catch((err) => logError("grantCredit emitEvent failed", err, { tag: "admin-credits" }));
 
     await admin.from("audit_log").insert({
       changed_by: actorId,
