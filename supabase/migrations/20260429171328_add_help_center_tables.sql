@@ -49,9 +49,9 @@ create policy help_categories_public_read on public.help_categories
   for select using (true);
 
 create policy help_articles_admin_all on public.help_articles
-  for all using (public.is_admin());
+  for all using (private.is_admin());
 create policy help_categories_admin_all on public.help_categories
-  for all using (public.is_admin());
+  for all using (private.is_admin());
 
 -- Seed the starter categories so /admin/help isn't blank on first visit.
 insert into public.help_categories (slug, label_ar, label_en, sort_order) values

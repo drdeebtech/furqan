@@ -117,7 +117,7 @@ alter table public.forum_likes enable row level security;
 alter table public.forum_reports enable row level security;
 
 create policy forum_threads_public_read on public.forum_threads
-  for select using (is_hidden = false or public.is_admin_or_mod());
+  for select using (is_hidden = false or private.is_admin_or_mod());
 create policy forum_threads_owner_write on public.forum_threads
   for insert with check (auth.uid() = author_id);
 create policy forum_threads_owner_update on public.forum_threads
@@ -125,10 +125,10 @@ create policy forum_threads_owner_update on public.forum_threads
 create policy forum_threads_owner_delete on public.forum_threads
   for delete using (auth.uid() = author_id);
 create policy forum_threads_mod on public.forum_threads
-  for all using (public.is_admin_or_mod());
+  for all using (private.is_admin_or_mod());
 
 create policy forum_replies_public_read on public.forum_replies
-  for select using (is_hidden = false or public.is_admin_or_mod());
+  for select using (is_hidden = false or private.is_admin_or_mod());
 create policy forum_replies_owner_write on public.forum_replies
   for insert with check (auth.uid() = author_id);
 create policy forum_replies_owner_update on public.forum_replies
@@ -136,7 +136,7 @@ create policy forum_replies_owner_update on public.forum_replies
 create policy forum_replies_owner_delete on public.forum_replies
   for delete using (auth.uid() = author_id);
 create policy forum_replies_mod on public.forum_replies
-  for all using (public.is_admin_or_mod());
+  for all using (private.is_admin_or_mod());
 
 create policy forum_likes_owner on public.forum_likes
   for all using (auth.uid() = user_id);
@@ -146,7 +146,7 @@ create policy forum_reports_owner_write on public.forum_reports
 create policy forum_reports_owner_read on public.forum_reports
   for select using (auth.uid() = reporter_id);
 create policy forum_reports_mod on public.forum_reports
-  for all using (public.is_admin_or_mod());
+  for all using (private.is_admin_or_mod());
 
 -- Feature flag default — OFF; admin must flip it on after reviewing
 -- seeded categories and moderation policy.

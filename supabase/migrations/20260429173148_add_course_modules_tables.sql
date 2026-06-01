@@ -60,7 +60,7 @@ create policy modules_public_read on public.modules
 
 create policy modules_teacher_write on public.modules
   for all using (
-    public.is_admin_or_mod() or exists (
+    private.is_admin_or_mod() or exists (
       select 1 from public.courses c
       where c.id = course_id and c.teacher_id = auth.uid()
     )
@@ -77,7 +77,7 @@ create policy module_lessons_public_read on public.module_lessons
 
 create policy module_lessons_teacher_write on public.module_lessons
   for all using (
-    public.is_admin_or_mod() or exists (
+    private.is_admin_or_mod() or exists (
       select 1 from public.modules m
       join public.courses c on c.id = m.course_id
       where m.id = module_id and c.teacher_id = auth.uid()

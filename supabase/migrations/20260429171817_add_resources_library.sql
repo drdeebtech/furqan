@@ -41,7 +41,7 @@ create policy resources_public_read on public.resources
   for select using (is_published = true);
 
 create policy resources_admin_all on public.resources
-  for all using (public.is_admin());
+  for all using (private.is_admin());
 
 -- Storage bucket for uploaded files (PDFs, audio, etc.). Created if not
 -- already present. Public bucket so signed URLs aren't required for the
@@ -60,17 +60,17 @@ create policy "resources bucket public read"
 drop policy if exists "resources bucket admin write" on storage.objects;
 create policy "resources bucket admin write"
   on storage.objects for insert
-  with check (bucket_id = 'resources' and public.is_admin());
+  with check (bucket_id = 'resources' and private.is_admin());
 
 drop policy if exists "resources bucket admin update" on storage.objects;
 create policy "resources bucket admin update"
   on storage.objects for update
-  using (bucket_id = 'resources' and public.is_admin());
+  using (bucket_id = 'resources' and private.is_admin());
 
 drop policy if exists "resources bucket admin delete" on storage.objects;
 create policy "resources bucket admin delete"
   on storage.objects for delete
-  using (bucket_id = 'resources' and public.is_admin());
+  using (bucket_id = 'resources' and private.is_admin());
 
 -- Feature flag default
 insert into public.platform_settings (key, value, description)

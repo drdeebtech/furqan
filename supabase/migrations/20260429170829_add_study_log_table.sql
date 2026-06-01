@@ -40,7 +40,7 @@ create policy study_log_owner_delete on public.study_log
   for delete using (auth.uid() = student_id);
 
 create policy study_log_staff_all on public.study_log
-  for all using (public.is_admin_or_mod());
+  for all using (private.is_admin_or_mod());
 
 comment on table public.study_log is
   'Self-reported study time entries (Time Tracker). One row per study session, manual or stopwatch. Joined with sessions.actual_duration for the Report Analytics chart.';

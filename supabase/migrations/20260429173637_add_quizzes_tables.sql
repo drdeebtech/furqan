@@ -81,7 +81,7 @@ create policy quizzes_public_read on public.quizzes
   );
 create policy quizzes_teacher_write on public.quizzes
   for all using (
-    public.is_admin_or_mod() or exists (
+    private.is_admin_or_mod() or exists (
       select 1 from public.courses c
       where c.id = course_id and c.teacher_id = auth.uid()
     )
@@ -98,7 +98,7 @@ create policy quiz_questions_public_read on public.quiz_questions
   );
 create policy quiz_questions_teacher_write on public.quiz_questions
   for all using (
-    public.is_admin_or_mod() or exists (
+    private.is_admin_or_mod() or exists (
       select 1 from public.quizzes q
       join public.courses c on c.id = q.course_id
       where q.id = quiz_id and c.teacher_id = auth.uid()
@@ -118,7 +118,7 @@ create policy quiz_attempts_teacher_read on public.quiz_attempts
     )
   );
 create policy quiz_attempts_admin on public.quiz_attempts
-  for all using (public.is_admin_or_mod());
+  for all using (private.is_admin_or_mod());
 
 -- Feature flag default
 insert into public.platform_settings (key, value, description)
