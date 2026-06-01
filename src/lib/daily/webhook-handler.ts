@@ -1,4 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { callRpc } from "@/lib/supabase/rpc";
+import type { Json } from "@/types/database";
 
 export type DailyPayload = {
   id: string;
@@ -56,22 +58,23 @@ export async function dispatchDailyEvent(
   }
 
   const sessionId = session.id;
-  const payloadJson = JSON.parse(rawPayloadJson) as Record<string, unknown>;
+  const payloadJson = JSON.parse(rawPayloadJson) as Json;
 
   if (type === "meeting.started") {
     const startedAt = data.start_time
       ? new Date(data.start_time * 1000).toISOString()
       : new Date().toISOString();
 
-    const { data: applied, error } = await supabase.rpc(
-      "start_session_from_webhook" as never,
+    const { data: applied, error } = await callRpc(
+      supabase,
+      "start_session_from_webhook",
       {
         p_session_id:   sessionId,
         p_started_at:   startedAt,
         p_event_id:     eventId,
         p_room_name:    roomName,
         p_payload_json: payloadJson,
-      } as never,
+      },
     );
     if (error) throw error;
     return applied ? { kind: "started" } : { kind: "started-duplicate" };
@@ -92,17 +95,16 @@ export async function dispatchDailyEvent(
     is_reconcile:   boolean;
     status_outcome: string;
   };
-  const rpcResult = await supabase
-    .rpc("end_session_from_webhook" as never, {
-      p_session_id:       sessionId,
-      p_ended_at:         endedAt,
-      p_duration_min:     durationMin,
-      p_duration_seconds: durationSeconds,
-      p_event_id:         eventId,
-      p_event_type:       type,
-      p_room_name:        roomName,
-      p_payload_json:     payloadJson,
-    } as never);
+  const rpcResult = await callRpc(supabase, "end_session_from_webhook", {
+    p_session_id:       sessionId,
+    p_ended_at:         endedAt,
+    p_duration_min:     durationMin,
+    p_duration_seconds: durationSeconds,
+    p_event_id:         eventId,
+    p_event_type:       type,
+    p_room_name:        roomName,
+    p_payload_json:     payloadJson,
+  });
   const error = rpcResult.error;
   const rows = rpcResult.data as EndRow[] | null;
 

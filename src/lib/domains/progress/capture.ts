@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase.generated";
+import { callRpc } from "@/lib/supabase/rpc";
 import { surahName } from "@/lib/quran/surahs";
 import { validateRange, violationMessageAr } from "./validation";
 import type { RecordProgressInput, RecordProgressOutcome } from "./types";
@@ -45,7 +46,7 @@ export async function recordProgress(
     }
   }
 
-  const { data, error } = await admin.rpc("record_student_progress" as never, {
+  const { data, error } = await callRpc(admin, "record_student_progress", {
     p_booking_id: input.bookingId,
     p_progress_type: input.progressType,
     p_surah_from: input.range?.surahFrom ?? null,
@@ -57,7 +58,7 @@ export async function recordProgress(
     p_level: input.level ?? null,
     p_teacher_notes: input.teacherNotes ?? null,
     p_errors: input.errors ? errorsToJson(input.errors) : null,
-  } as never);
+  });
 
   if (error) {
     const msg = error.message ?? "";
