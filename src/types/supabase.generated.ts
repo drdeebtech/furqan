@@ -4704,6 +4704,10 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_admin_or_mod: { Args: never; Returns: boolean }
       is_moderator: { Args: never; Returns: boolean }
+      murajaah_due_student_ids: {
+        Args: { p_active_since: string; p_today_start: string }
+        Returns: { student_id: string }[]
+      }
       recompute_course_review_aggregates: {
         Args: { p_course_id: string }
         Returns: undefined
