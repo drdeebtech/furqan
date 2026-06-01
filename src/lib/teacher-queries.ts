@@ -460,20 +460,10 @@ export async function getTeacherRecitationRoster(
       .returns<
         { id: string; full_name: string | null; avatar_url: string | null }[]
       >(),
+    // Window-function RPC bounds to exactly 5 'new' progress rows PER student
+    // (replaces the global .limit() cap that could starve a quiet student).
     supabase
-      .from("student_progress")
-      .select(
-        "student_id, surah_from, surah_to, quality_rating, created_at",
-      )
-      .in("student_id", studentIds)
-      .eq("progress_type", "new")
-      .order("created_at", { ascending: false })
-      // Safety cap on the over-fetch (CodeRabbit). NOTE: a global cap can, in the
-      // worst case, starve a quiet student if a few prolific students fill it —
-      // the fully-correct bound is the deferred window-function RPC. Generous
-      // headroom (10× roster) makes starvation unlikely for the dashboard's
-      // last-5-per-student use.
-      .limit(Math.min(studentIds.length * 10, 500))
+      .rpc("roster_recent_progress", { p_student_ids: studentIds })
       .returns<ProgressRow[]>(),
   ]);
   if (profilesRes.error) throw profilesRes.error;
@@ -765,17 +755,10 @@ export async function getTeacherRosterProgress(
       .select("id, full_name")
       .in("id", studentIds)
       .returns<{ id: string; full_name: string | null }[]>(),
+    // Window-function RPC bounds to exactly 5 evaluations PER student for this
+    // teacher (replaces the global .limit() cap).
     supabase
-      .from("session_evaluations")
-      .select(
-        "student_id, evaluation_date, hifz_score, tajweed_score, fluency_score, attendance_score, overall_score",
-      )
-      .eq("teacher_id", teacherId)
-      .in("student_id", studentIds)
-      .order("evaluation_date", { ascending: false })
-      // Safety cap on the over-fetch (CodeRabbit); window-function RPC remains
-      // the fully-correct per-student bound (deferred).
-      .limit(Math.min(studentIds.length * 10, 500))
+      .rpc("roster_recent_evaluations", { p_teacher_id: teacherId, p_student_ids: studentIds })
       .returns<EvalRow[]>(),
   ]);
   if (profilesRes.error) throw profilesRes.error;

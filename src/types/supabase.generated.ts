@@ -4747,6 +4747,28 @@ export type Database = {
         Returns: undefined
       }
       redact_pii: { Args: { payload: Json }; Returns: Json }
+      roster_recent_evaluations: {
+        Args: { p_teacher_id: string; p_student_ids: string[] }
+        Returns: {
+          student_id: string
+          evaluation_date: string
+          hifz_score: number | null
+          tajweed_score: number | null
+          fluency_score: number | null
+          attendance_score: number | null
+          overall_score: number | null
+        }[]
+      }
+      roster_recent_progress: {
+        Args: { p_student_ids: string[] }
+        Returns: {
+          student_id: string
+          surah_from: number | null
+          surah_to: number | null
+          quality_rating: number | null
+          created_at: string
+        }[]
+      }
       user_is_session_participant: { Args: { s_id: string }; Returns: boolean }
     }
     Enums: {
