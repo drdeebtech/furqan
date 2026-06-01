@@ -156,11 +156,19 @@ export async function upsertLessonProgress(
   // coarse recency for its ordering, so gate the write on a staleness WHERE
   // clause — most ticks become a no-op match.
   const staleThreshold = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-  await supabase
+  // The timestamp must be double-quoted inside the PostgREST or() filter — the
+  // ISO `:`/`.` characters otherwise break value parsing (CodeRabbit).
+  const { error: touchErr } = await supabase
     .from("course_enrollments")
     .update({ last_accessed_at: new Date().toISOString() } satisfies TableUpdate<"course_enrollments">)
     .eq("id", enrollment.id)
-    .or(`last_accessed_at.is.null,last_accessed_at.lt.${staleThreshold}`);
+    .or(`last_accessed_at.is.null,last_accessed_at.lt."${staleThreshold}"`);
+  if (touchErr) {
+    logError("upsertLessonProgress last_accessed_at refresh failed", touchErr, {
+      tag: "course-playback",
+      lessonId,
+    });
+  }
 
   // If just completed, emit the event and revalidate the courses list — a
   // meaningful state change. Position-only ticks must NOT bust the courses
