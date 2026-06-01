@@ -3,25 +3,9 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
-import { loudAction } from "@/lib/actions/loud";
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
-}
+import { routeAction } from "@/lib/actions/route-action";
 
 type ActionResult = { error?: string; success?: boolean };
-
-async function adminPreflight(): Promise<{ actorId: string }> {
-  try {
-    const { id } = await requireAdmin();
-    return { actorId: id };
-  } catch (e) {
-    if (e instanceof ForbiddenError) throw new UserError("ليس لديك صلاحية");
-    throw e;
-  }
-}
 
 const saveServiceSchema = z.object({
   id: z.string().uuid().nullable(),
@@ -37,8 +21,9 @@ const saveServiceSchema = z.object({
   is_active: z.boolean(),
 });
 
-const saveServiceBase = loudAction<z.infer<typeof saveServiceSchema>, { message: string }>({
+const saveServiceBase = routeAction<z.infer<typeof saveServiceSchema>, { message: string }>({
   name: "admin.services.save",
+  role: "admin",
   severity: "warning",
   schema: saveServiceSchema,
   audit: {
@@ -46,7 +31,6 @@ const saveServiceBase = loudAction<z.infer<typeof saveServiceSchema>, { message:
     recordId: (i) => i.id ?? "new",
     action: "UPDATE",
   },
-  preflight: adminPreflight,
   handler: async (input) => {
     const supabase = await createClient();
     const { id, ...row } = input;
@@ -82,12 +66,12 @@ export async function saveService(_prev: { success?: boolean }, formData: FormDa
   return { success: true };
 }
 
-const deleteServiceBase = loudAction<{ serviceId: string }, { message: string }>({
+const deleteServiceBase = routeAction<{ serviceId: string }, { message: string }>({
   name: "admin.services.delete",
+  role: "admin",
   severity: "warning",
   schema: z.object({ serviceId: z.string().uuid() }),
   audit: { table: "services", recordId: (i) => i.serviceId, action: "DELETE" },
-  preflight: adminPreflight,
   handler: async ({ serviceId }) => {
     const supabase = await createClient();
     const { error } = await supabase.from("services").delete().eq("id", serviceId);
@@ -105,12 +89,12 @@ export async function deleteService(serviceId: string): Promise<ActionResult> {
   return { success: true };
 }
 
-const toggleServiceActiveBase = loudAction<{ serviceId: string; isActive: boolean }, { message: string }>({
+const toggleServiceActiveBase = routeAction<{ serviceId: string; isActive: boolean }, { message: string }>({
   name: "admin.services.toggle-active",
+  role: "admin",
   severity: "warning",
   schema: z.object({ serviceId: z.string().uuid(), isActive: z.boolean() }),
   audit: { table: "services", recordId: (i) => i.serviceId, action: "UPDATE" },
-  preflight: adminPreflight,
   handler: async ({ serviceId, isActive }) => {
     const supabase = await createClient();
     const { error } = await supabase

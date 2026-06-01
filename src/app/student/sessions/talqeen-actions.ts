@@ -6,15 +6,14 @@ import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
 import { notify } from "@/lib/notifications/dispatcher";
 import { loudAction } from "@/lib/actions/loud";
+import { UserError } from "@/lib/actions/user-error";
 
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
-}
-
+// NOTE: studentPreflight authenticates only (any signed-in user); it does not
+// role-gate, and its unauthenticated message ("غير مسجل الدخول") differs from
+// routeAction's forbidden message. Migrating to routeAction({ role: "student" })
+// would change both, so this adapter keeps its loudAction preflight and only
+// adopts the shared UserError. Follow-up: align on routeAction once the
+// role-gate + message change is intentional.
 async function studentPreflight(): Promise<{ actorId: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

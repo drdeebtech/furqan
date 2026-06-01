@@ -3,32 +3,16 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
-import { loudAction } from "@/lib/actions/loud";
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
-}
+import { routeAction } from "@/lib/actions/route-action";
 
 type ActionResult = { error?: string; success?: boolean };
 
-async function adminPreflight(): Promise<{ actorId: string }> {
-  try {
-    const { id } = await requireAdmin();
-    return { actorId: id };
-  } catch (e) {
-    if (e instanceof ForbiddenError) throw new UserError("ليس لديك صلاحية");
-    throw e;
-  }
-}
-
-const toggleReviewPublicBase = loudAction<{ reviewId: string; isPublic: boolean }, { message: string }>({
+const toggleReviewPublicBase = routeAction<{ reviewId: string; isPublic: boolean }, { message: string }>({
   name: "admin.reviews.toggle-public",
+  role: "admin",
   severity: "warning",
   schema: z.object({ reviewId: z.string().uuid(), isPublic: z.boolean() }),
   audit: { table: "reviews", recordId: (i) => i.reviewId, action: "UPDATE" },
-  preflight: adminPreflight,
   handler: async ({ reviewId, isPublic }) => {
     const supabase = await createClient();
     const { error } = await supabase
@@ -48,12 +32,12 @@ export async function toggleReviewPublic(reviewId: string, isPublic: boolean): P
   return { success: true };
 }
 
-const deleteReviewBase = loudAction<{ reviewId: string }, { message: string }>({
+const deleteReviewBase = routeAction<{ reviewId: string }, { message: string }>({
   name: "admin.reviews.delete",
+  role: "admin",
   severity: "warning",
   schema: z.object({ reviewId: z.string().uuid() }),
   audit: { table: "reviews", recordId: (i) => i.reviewId, action: "DELETE" },
-  preflight: adminPreflight,
   handler: async ({ reviewId }) => {
     const supabase = await createClient();
     const { error } = await supabase.from("reviews").delete().eq("id", reviewId);

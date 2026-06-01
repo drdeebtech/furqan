@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
 import { loudAction } from "@/lib/actions/loud";
+import { UserError } from "@/lib/actions/user-error";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 export type CvResult = {
@@ -13,11 +14,11 @@ export type CvResult = {
   success?: boolean;
 };
 
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
-}
-
+// NOTE: teacherPreflight authenticates only (any signed-in user) — it does
+// NOT role-gate. Migrating to routeAction({ role: "teacher" }) would ADD a
+// role check, which is a behavior change, so this adapter keeps its explicit
+// loudAction preflight and only adopts the shared UserError. A follow-up can
+// decide whether the teacher-role gate belongs here.
 async function teacherPreflight(): Promise<{ actorId: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

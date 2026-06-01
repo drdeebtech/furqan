@@ -3,34 +3,19 @@
 import { z } from "zod";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { isAllowedSettingKey } from "@/lib/settings";
 import { logError } from "@/lib/logger";
-import { loudAction } from "@/lib/actions/loud";
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
-}
+import { routeAction } from "@/lib/actions/route-action";
+import { UserError } from "@/lib/actions/user-error";
 
 type ActionResult = { error?: string; success?: boolean };
 
-async function adminPreflight(): Promise<{ actorId: string }> {
-  try {
-    const { id } = await requireAdmin();
-    return { actorId: id };
-  } catch (e) {
-    if (e instanceof ForbiddenError) throw new UserError("ليس لديك صلاحية");
-    throw e;
-  }
-}
-
-const updateSettingBase = loudAction<{ key: string; value: string }, { message: string }>({
+const updateSettingBase = routeAction<{ key: string; value: string }, { message: string }>({
   name: "admin.settings.update",
+  role: "admin",
   severity: "info",
   schema: z.object({ key: z.string().min(1), value: z.string() }),
   audit: { table: "platform_settings", recordId: (i) => i.key, action: "UPDATE" },
-  preflight: adminPreflight,
   handler: async ({ key, value }, { actorId }) => {
     if (!isAllowedSettingKey(key)) throw new UserError("Invalid setting key");
 
