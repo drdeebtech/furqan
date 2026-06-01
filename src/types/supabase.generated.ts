@@ -2462,9 +2462,37 @@ export type Database = {
           },
         ]
       }
-      quiz_questions: {
+      quiz_question_keys: {
         Row: {
           correct_answer: Json
+          created_at: string
+          question_id: string
+          updated_at: string
+        }
+        Insert: {
+          correct_answer: Json
+          created_at?: string
+          question_id: string
+          updated_at?: string
+        }
+        Update: {
+          correct_answer?: Json
+          created_at?: string
+          question_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_question_keys_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "quiz_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_questions: {
+        Row: {
           created_at: string
           id: string
           options: Json | null
@@ -2476,7 +2504,6 @@ export type Database = {
           sort_order: number
         }
         Insert: {
-          correct_answer: Json
           created_at?: string
           id?: string
           options?: Json | null
@@ -2488,7 +2515,6 @@ export type Database = {
           sort_order?: number
         }
         Update: {
-          correct_answer?: Json
           created_at?: string
           id?: string
           options?: Json | null
@@ -4701,9 +4727,17 @@ export type Database = {
         Args: { p_teacher_id: string }
         Returns: number
       }
+      get_user_id_by_email: {
+        Args: { p_email: string }
+        Returns: string
+      }
       is_admin: { Args: never; Returns: boolean }
       is_admin_or_mod: { Args: never; Returns: boolean }
       is_moderator: { Args: never; Returns: boolean }
+      murajaah_due_student_ids: {
+        Args: { p_active_since: string; p_today_start: string }
+        Returns: { student_id: string }[]
+      }
       profiles_role_counts: {
         Args: Record<string, never>
         Returns: { role: string; n: number }[]

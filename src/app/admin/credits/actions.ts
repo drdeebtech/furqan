@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notify } from "@/lib/notifications/dispatcher";
+import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
 
@@ -67,14 +68,18 @@ const grantCreditBase = loudAction<z.infer<typeof grantCreditSchema>, { message:
   handler: async ({ email, sessions, reason }, { actorId }) => {
     const admin = createAdminClient();
 
-    const { data: authList } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
-    const authUser = authList?.users.find((u) => u.email?.toLowerCase() === email);
-    if (!authUser) throw new UserError("لم يتم العثور على الطالب بهذا البريد");
+    // Resolve the user id directly from auth.users by email (audit H5). The old
+    // listUsers({perPage:200}) + JS .find() silently failed for any student past
+    // the first page — at 50k that's almost everyone. The RPC is service-role
+    // only, so it is not an email-enumeration oracle.
+    const { data: matchedId, error: lookupErr } = await admin.rpc("get_user_id_by_email", { p_email: email });
+    if (lookupErr) throw notFoundOrInfra(lookupErr, "تعذّر البحث عن الطالب");
+    if (!matchedId) throw new UserError("لم يتم العثور على الطالب بهذا البريد");
 
     const { data: student, error: studentErr } = await admin
       .from("profiles")
       .select("id, full_name")
-      .eq("id", authUser.id)
+      .eq("id", matchedId)
       .eq("role", "student")
       .single<StudentLookup>();
     if (studentErr || !student) throw notFoundOrInfra(studentErr, "لم يتم العثور على الطالب بهذا البريد");
@@ -98,6 +103,16 @@ const grantCreditBase = loudAction<z.infer<typeof grantCreditSchema>, { message:
       .update({ sessions_total: newTotal } as never)
       .eq("id", activePkg.id);
     if (updateErr) throw updateErr;
+
+    // State-change event (CLAUDE.md rule; CodeRabbit). Fire-and-forget; the
+    // automation_log record is the durable trail even before the n8n route
+    // exists.
+    emitEvent("package.credit_granted", "student_package", activePkg.id, {
+      student_id: student.id,
+      sessions_granted: sessions,
+      sessions_total: newTotal,
+      granted_by: actorId,
+    }, actorId).catch((err) => logError("grantCredit emitEvent failed", err, { tag: "admin-credits" }));
 
     await admin.from("audit_log").insert({
       changed_by: actorId,

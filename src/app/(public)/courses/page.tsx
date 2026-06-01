@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { Building2, GraduationCap, Inbox, Star } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -194,11 +195,13 @@ export default async function PublicCoursesPage({
               className="glass-card overflow-hidden transition hover:scale-[1.01] hover:bg-white/40 dark:hover:bg-white/5"
             >
               {c.cover_image_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={c.cover_image_url}
                   alt=""
+                  width={640}
+                  height={360}
                   className="aspect-video w-full object-cover"
+                  unoptimized
                 />
               ) : (
                 <div className="aspect-video w-full bg-gradient-to-br from-gold/30 to-gold/5" />

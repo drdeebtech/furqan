@@ -73,6 +73,10 @@ export const WEBHOOK_ROUTES = {
   "review.created": "/webhook/furqan-course-review",
   "retention.intervention_triggered": "/webhook/furqan-retention-intervention-triggered",
   "package.purchased": "/webhook/furqan-package-purchased",
+  // NOTE: the n8n workflow for this route must be created, otherwise dispatch
+  // logs a (loud, non-fatal) failed-delivery automation_log. Admin credit
+  // grants are rare, so the noise is minimal until the workflow lands.
+  "package.credit_granted": "/webhook/furqan-package-credit-granted",
 } as const satisfies Record<string, string>;
 
 /**

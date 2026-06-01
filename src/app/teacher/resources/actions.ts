@@ -152,6 +152,28 @@ export async function assignResourceToStudentAction(
     return { error: "ليس لديك صلاحية على هذا المصدر" };
   }
 
+  // Tenant check (audit H3): studentId is caller-controlled. Owning the
+  // resource does not grant the right to assign it to an ARBITRARY user and
+  // fire a notification at them. Require a prior teacher↔student booking — the
+  // same relationship gate requestFreshRecitation uses.
+  const relRes = await supabase
+    .from("bookings")
+    .select("id")
+    .eq("teacher_id", user.id)
+    .eq("student_id", studentId)
+    .limit(1)
+    .maybeSingle<{ id: string }>();
+  if (relRes.error) {
+    logError("assignResource: relationship lookup failed", relRes.error, {
+      component: "teacher.resources.assign",
+      metadata: { resourceId, studentId },
+    });
+    return { error: "فشل التحقق من العلاقة بالطالب" };
+  }
+  if (!relRes.data) {
+    return { error: "لا يوجد حجز سابق مع هذا الطالب" };
+  }
+
   // The Supabase `from(...)` overload is generated from the live schema and
   // not yet aware of `resource_assignments` (added in migration
   // 20260506134112). `supabase.generated.ts` regenerates only after merge to

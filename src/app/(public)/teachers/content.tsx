@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Award, GraduationCap, Star } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { Testimonials } from "@/components/public/testimonials";
@@ -92,12 +93,14 @@ export function TeachersContent({
                   className="glass-card p-6 scroll-mt-24 target:ring-2 target:ring-gold"
                 >
                   {teacher.avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Image
                       src={teacher.avatarUrl}
                       alt={displayName}
+                      width={80}
+                      height={80}
                       className="h-20 w-20 rounded-full border-2 border-gold/40 object-cover"
                       loading="lazy"
+                      unoptimized
                     />
                   ) : (
                     <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-gold/30 bg-gold/10 font-display text-2xl font-bold text-gold">

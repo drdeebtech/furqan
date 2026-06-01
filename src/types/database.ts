@@ -2479,9 +2479,37 @@ export type Database = {
           },
         ]
       }
-      quiz_questions: {
+      quiz_question_keys: {
         Row: {
           correct_answer: Json
+          created_at: string
+          question_id: string
+          updated_at: string
+        }
+        Insert: {
+          correct_answer: Json
+          created_at?: string
+          question_id: string
+          updated_at?: string
+        }
+        Update: {
+          correct_answer?: Json
+          created_at?: string
+          question_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_question_keys_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: true
+            referencedRelation: "quiz_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_questions: {
+        Row: {
           created_at: string
           id: string
           options: Json | null
@@ -2493,7 +2521,6 @@ export type Database = {
           sort_order: number
         }
         Insert: {
-          correct_answer: Json
           created_at?: string
           id?: string
           options?: Json | null
@@ -2505,7 +2532,6 @@ export type Database = {
           sort_order?: number
         }
         Update: {
-          correct_answer?: Json
           created_at?: string
           id?: string
           options?: Json | null

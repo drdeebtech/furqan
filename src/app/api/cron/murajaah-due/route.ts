@@ -57,63 +57,60 @@ export const GET = withCronMonitor(
     const todayStartIso = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
     const thirtyDaysAgoIso = new Date(Date.now() - 30 * 86400_000).toISOString();
 
-    // 1. Find ACTIVE students — at least one progress entry in last 30
-    //    days. This filters out brand-new accounts (don't pester them
-    //    on day 0) and dormant accounts (would be re-engagement spam).
-    const { data: activeProgress } = await admin
-      .from("student_progress")
-      .select("student_id")
-      .gte("created_at", thirtyDaysAgoIso)
-      .returns<{ student_id: string }[]>();
-
-    const activeStudentIds = [...new Set((activeProgress ?? []).map((r) => r.student_id))];
-    if (activeStudentIds.length === 0) {
-      return NextResponse.json({ ok: true, sent: 0, reason: "no active students" });
+    // 1. Compute the due set with a single set-based anti-join (audit H12):
+    //    active in the last 30 days AND no study_log row today. The old code
+    //    pulled every 30-day progress row into memory, deduped in JS, then
+    //    issued a 50k-element .in() over study_log — multi-million-row reads
+    //    and a ~1.8MB URL at scale.
+    const { data: dueRows, error: dueErr } = await admin.rpc("murajaah_due_student_ids", {
+      p_active_since: thirtyDaysAgoIso,
+      p_today_start: todayStartIso,
+    });
+    if (dueErr) {
+      logError("murajaah-due: due-set query failed", dueErr, { tag: "murajaah-due" });
+      return NextResponse.json({ error: "due-set query failed" }, { status: 500 });
     }
-
-    // 2. Of those, find who already logged study TODAY. Skip them.
-    const { data: loggedToday } = await admin
-      .from("study_log")
-      .select("student_id")
-      .gte("started_at", todayStartIso)
-      .in("student_id", activeStudentIds)
-      .returns<{ student_id: string }[]>();
-
-    const loggedTodaySet = new Set((loggedToday ?? []).map((r) => r.student_id));
-    const dueIds = activeStudentIds.filter((id) => !loggedTodaySet.has(id));
+    const dueIds = (dueRows ?? []).map((r) => r.student_id);
 
     if (dueIds.length === 0) {
-      return NextResponse.json({ ok: true, sent: 0, reason: "all active students already logged today" });
+      return NextResponse.json({ ok: true, sent: 0, reason: "no due students" });
     }
 
-    // 3. Fan out notifications. notify() is async; we await each so a
-    //    single failure doesn't silently drop the rest. Errors get
-    //    logged but the loop continues — partial success is better
-    //    than full abort.
+    // 2. Fan out notifications in bounded-concurrency batches so a large due
+    //    set stays within the cron maxDuration instead of a slow serial loop.
+    //    Each failure is logged but never aborts the batch.
+    //    (Full n8n batch offload is the scale follow-up shared with H7.)
+    const CONCURRENCY = 25;
     let sent = 0;
     let failed = 0;
-    for (const studentId of dueIds) {
-      try {
-        await notify({
-          userId: studentId,
-          type: "system",
-          title: "تذكير المراجعة اليومية",
-          body: "حافظ على سلسلتك — راجع جزءاً من القرآن أو سجّل دراستك اليوم.",
-        });
-        sent += 1;
-      } catch (err) {
-        failed += 1;
-        logError("murajaah-due: notify failed", err, {
-          tag: "murajaah-due",
-          metadata: { studentId },
-        });
-      }
+    for (let i = 0; i < dueIds.length; i += CONCURRENCY) {
+      const batch = dueIds.slice(i, i + CONCURRENCY);
+      const results = await Promise.allSettled(
+        batch.map((studentId) =>
+          notify({
+            userId: studentId,
+            type: "system",
+            title: "تذكير المراجعة اليومية",
+            body: "حافظ على سلسلتك — راجع جزءاً من القرآن أو سجّل دراستك اليوم.",
+          }),
+        ),
+      );
+      results.forEach((r, j) => {
+        if (r.status === "fulfilled") {
+          sent += 1;
+        } else {
+          failed += 1;
+          logError("murajaah-due: notify failed", r.reason, {
+            tag: "murajaah-due",
+            metadata: { studentId: batch[j] },
+          });
+        }
+      });
     }
 
     return NextResponse.json({
       ok: true,
-      activeStudents: activeStudentIds.length,
-      loggedTodayCount: loggedTodaySet.size,
+      dueStudents: dueIds.length,
       sent,
       failed,
       at: new Date().toISOString(),
