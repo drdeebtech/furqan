@@ -83,3 +83,11 @@ begin
   return v_progress_id;
 end;
 $$;
+
+-- Lock down EXECUTE: SECURITY DEFINER + only ever called server-side via the
+-- service-role admin client (the capture route adapter). Supabase default-grants
+-- EXECUTE to anon+authenticated, which on a definer fn is an authz-bypass — so
+-- revoke them and grant only service_role (same hardening as the platform-wide
+-- audit migration 20260601193137).
+revoke execute on function public.record_student_progress(uuid, text, integer, integer, integer, integer, integer, integer, text, text, jsonb) from public, anon, authenticated;
+grant  execute on function public.record_student_progress(uuid, text, integer, integer, integer, integer, integer, integer, text, text, jsonb) to service_role;
