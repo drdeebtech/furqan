@@ -137,12 +137,16 @@ begin
   v_new_ef := greatest(1.3, least(3.5,
     v_row.easiness_factor + (0.1 - (5 - p_quality) * (0.08 + (5 - p_quality) * 0.02))));
 
-  -- SM-2 interval progression. A failed recall (q < 3) resets to 1 day; the
-  -- first two successful reviews step 1 → 6, then scale by the easiness factor.
+  -- SM-2 interval progression. A failed recall (q < 3) resets to 1 day. The
+  -- seed interval is I(1)=1; the first successful review graduates it to
+  -- I(2)=6, and every later success scales by the easiness factor
+  -- (I(n)=round(I(n-1)·EF)). NOTE: the graduation MUST jump 1→6 — mapping
+  -- 1→1 (or 6→6) freezes the interval, so the item would fall due every day
+  -- forever and the scheduler would nag instead of space out (verified on
+  -- local PG before this migration shipped).
   v_new_interval := case
     when p_quality < 3 then 1
-    when v_row.interval_days <= 1 then 1
-    when v_row.interval_days <= 6 then 6
+    when v_row.interval_days <= 1 then 6
     else greatest(1, round(v_row.interval_days * v_new_ef))::int
   end;
 
