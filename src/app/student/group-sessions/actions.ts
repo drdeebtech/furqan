@@ -78,7 +78,7 @@ export async function requestJoinGroupSession(sessionId: string): Promise<Action
   // generated Insert type marks it required. Postgres fills it at runtime;
   // dropping the cast surfaces a misleading "Property 'rate_snapshot' is
   // missing" error. Same category as Phase 4d's count:"exact" retention.
-  const { error } = await supabase
+  const { data: newBooking, error } = await supabase
     .from("bookings")
     .insert({
       student_id: user.id,
@@ -89,9 +89,11 @@ export async function requestJoinGroupSession(sessionId: string): Promise<Action
       session_type: sourceBooking.session_type,
       amount_usd: 0,
       status: "pending",
-    } as never);
+    } as never)
+    .select("id")
+    .single<{ id: string }>();
 
-  if (error) {
+  if (error || !newBooking) {
     logError("requestJoinGroupSession failed", error, {
       tag: "group-sessions",
       sessionId,
@@ -100,10 +102,14 @@ export async function requestJoinGroupSession(sessionId: string): Promise<Action
     return { ok: false, error: "فشل التسجيل" };
   }
 
-  // Fire-and-forget event so n8n can notify the teacher.
-  emitEvent("booking.created", "booking", sessionId, {
+  // Fire-and-forget event so n8n can notify the teacher. entity_id MUST be the
+  // new booking id, not the session id (audit H14) — consumers resolve the
+  // booking by entity_id, and automation_logs would otherwise carry a session
+  // id tagged entity_type=booking. The session id is kept in the payload.
+  emitEvent("booking.created", "booking", newBooking.id, {
     student_id: user.id,
     teacher_id: sourceBooking.teacher_id,
+    session_id: sessionId,
     session_type: sourceBooking.session_type,
     scheduled_at: sourceBooking.scheduled_at,
     is_group_join: true,
