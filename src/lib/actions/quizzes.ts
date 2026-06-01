@@ -184,7 +184,10 @@ export async function addQuestion(quizId: string, formData: FormData): Promise<A
   if (keyErr) {
     // Roll back the orphan question so we never leave a question with no key
     // (grading would silently mark it unanswerable for every student).
-    await supabase.from("quiz_questions").delete().eq("id", data!.id);
+    const { error: rollbackErr } = await supabase.from("quiz_questions").delete().eq("id", data!.id);
+    if (rollbackErr) {
+      logError("addQuestion rollback delete failed", rollbackErr, { tag: "quizzes", quizId, questionId: data!.id });
+    }
     logError("addQuestion key insert failed", keyErr, { tag: "quizzes", quizId });
     return { ok: false, error: keyErr.message };
   }
@@ -272,7 +275,14 @@ export async function submitQuizAttempt(
     total += q.points;
     const ans = answers[q.id];
     const key = keyById.get(q.id);
-    if (!key) continue;
+    if (!key) {
+      // A question with no key row is a data-integrity issue (addQuestion writes
+      // both atomically). Award 0 but surface it instead of silently skipping.
+      logError("submitQuizAttempt: missing answer key for question", null, {
+        tag: "quizzes", attemptId, questionId: q.id, quizId: attempt.quiz_id,
+      });
+      continue;
+    }
     if (q.question_type === "mcq") {
       if (typeof ans === "string" && ans === key.mcq) earned += q.points;
     } else if (q.question_type === "fill_in") {

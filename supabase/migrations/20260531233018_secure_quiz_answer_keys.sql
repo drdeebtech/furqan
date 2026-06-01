@@ -72,6 +72,7 @@ create policy quiz_question_keys_owner_write on public.quiz_question_keys
 insert into public.quiz_question_keys (question_id, correct_answer)
   select id, correct_answer
   from public.quiz_questions
+  where correct_answer is not null  -- defensive: target column is NOT NULL
   on conflict (question_id) do nothing;
 
 alter table public.quiz_questions drop column if exists correct_answer;
