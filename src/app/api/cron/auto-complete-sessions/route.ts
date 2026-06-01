@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { withCronMonitor } from "@/lib/sentry/cron";
 import { emitEvent } from "@/lib/automation/emit";
+import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
 import { safeCompareSecret } from "@/lib/security/secrets";
-import type { TableInsert } from "@/lib/supabase/typed-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -104,24 +104,29 @@ export const GET = withCronMonitor(
           .eq("id", session.booking_id);
         if (bookingUpdateErr) throw bookingUpdateErr;
 
-        const notifs: TableInsert<"notifications">[] = [booking.student_id, booking.teacher_id].map((uid) => ({
-          user_id: uid,
-          type: "system",
-          title: "تم إنهاء الجلسة تلقائياً",
-          body: `تم إنهاء الجلسة تلقائياً بعد تجاوز الوقت المحدد — المدة: ${actualDuration} دقيقة`,
-          channel: ["in_app"],
-        }));
-        await admin
-          .from("notifications")
-          .insert(notifs)
-          .then(({ error }) => {
-            if (error) {
-              logError("auto-complete-sessions: notifications insert failed", error, {
+        // Route through the dispatcher (P3 #345) so preference / quiet-hours
+        // gating + delivery logging apply — never a direct notifications insert.
+        await Promise.allSettled(
+          [booking.student_id, booking.teacher_id].map((uid) =>
+            notify({
+              userId: uid,
+              type: "system",
+              title: "تم إنهاء الجلسة تلقائياً",
+              body: `تم إنهاء الجلسة تلقائياً بعد تجاوز الوقت المحدد — المدة: ${actualDuration} دقيقة`,
+              entityType: "session",
+              entityId: session.id,
+            }),
+          ),
+        ).then((results) => {
+          for (const r of results) {
+            if (r.status === "rejected") {
+              logError("auto-complete-sessions: notify failed", r.reason, {
                 tag: "cron-auto-complete-sessions",
                 metadata: { session_id: session.id },
               });
             }
-          });
+          }
+        });
 
         await admin
           .from("audit_log")
