@@ -33,7 +33,7 @@ All env vars declared in **`docs/agents/env-vars.md`** (variable → purpose). *
 
 ## Docs Map
 
-File tree, completed features, remaining work, full docs index all in `docs/agents/project-reference.md`. Deep references when needed: `PROJECT.md`, `ROADMAP.md`, `EVENT_CATALOG.md`, `LIFECYCLES.md`, `automation/BLUEPRINT.md`, `.specify/memory/constitution.md`, `specs/INDEX.md`, `specs/<feature>/spec.md`.
+File tree, completed features, remaining work, full docs index all in `docs/agents/project-reference.md`. Deep references when needed: `PROJECT.md`, `ROADMAP.md`, `EVENT_CATALOG.md`, `LIFECYCLES.md`, `AUTOMATION_REGISTRY.md`, `.specify/memory/constitution.md`, `specs/INDEX.md`, `specs/<feature>/spec.md`.
 
 > **Design rule:** before touching any visual surface (component, page, theme, color), open `.impeccable.md` and confirm alignment with the **Premium · Refined · Authentic** personality and the four anti-references.
 
@@ -45,9 +45,7 @@ When a commit fixes a Sentry issue, include `Fixes JAVASCRIPT-NEXTJS-E4-<N>` in 
 
 Find the short ID in the Sentry issue header (e.g. `JAVASCRIPT-NEXTJS-E4-NN`).
 
-**Auto-resolve currently broken** — see `docs/runbooks/sentry-auto-resolve-fix.md`. Until fixed, manually resolve via Sentry MCP `update_issue` on every `Fixes JAVASCRIPT-NEXTJS-…` PR.
-
-DSN one-time activation: `docs/runbooks/sentry-activation.md`.
+**Auto-resolve currently broken** — until fixed, manually resolve via Sentry MCP `update_issue` on every `Fixes JAVASCRIPT-NEXTJS-…` PR. (Root cause: the Sentry GitHub App needs installing at the `drdeebtech` org level, not the personal level.)
 
 ---
 
@@ -91,7 +89,7 @@ Long-term fix: Supabase Branching for Preview — tracked in `docs/agents/projec
 
 ## Supabase Auth — Leaked Password Protection
 
-One-time HIBP toggle: `docs/runbooks/supabase-leaked-password.md`.
+One-time HIBP toggle: enable **Leaked password protection** in Supabase → Authentication → Policies.
 
 ---
 
@@ -99,9 +97,7 @@ One-time HIBP toggle: `docs/runbooks/supabase-leaked-password.md`.
 
 `mcp__claude_ai_Supabase__*` tools authenticate to the user's **primary** account, which is NOT FURQAN's owner. FURQAN lives under `alforqan.egy@gmail.com`; MCP sees `Dr Deeb Urology Clinic` instead.
 
-**Consequences:** `list_projects`, `get_advisors`, `execute_sql`, `get_logs`, `apply_migration` silently target the wrong project. Use the browser dashboard signed in as `alforqan.egy@gmail.com`, or generate a personal access token under that account and pass via `--token` / `SUPABASE_ACCESS_TOKEN`.
-
-Full account-switch procedure: `docs/runbooks/supabase-mcp-account-switch.md`.
+**Consequences:** `list_projects`, `get_advisors`, `execute_sql`, `get_logs`, `apply_migration` silently target the wrong project. Use the browser dashboard signed in as the FURQAN-owning account, or generate a personal access token under that account and pass via `--token` / `SUPABASE_ACCESS_TOKEN`.
 
 ---
 
