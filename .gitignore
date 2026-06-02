@@ -80,3 +80,12 @@ supabase/.temp/
 
 # understand-anything knowledge graph + audit tooling (local only)
 .understand-anything/
+
+# AI tooling runtime state (local only — must not be committed/published)
+.swarm/
+.claude-flow/
+
+# Local AI-tooling skill installs (not product)
+.agents/
+.claude/skills/
+skills-lock.json
