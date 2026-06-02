@@ -128,7 +128,30 @@
 
 ### WF-30 furqan-teacher-quality-monitor
 ### WF-31 furqan-teacher-onboarding-nudges
-### WF-32 furqan-teacher-cv-approval
+
+### WF-32 furqan-cv-approval-notification
+- **owner**: ops
+- **trigger**: webhook `/webhook/furqan-cv-event`
+- **input**: `teacher.cv_submitted` | `teacher.cv_approved` | `teacher.cv_rejected` | `teacher.cv_reset` — `{ teacher_id }`
+- **output**: in-app `notify()` to admin (submitted) or teacher (approved / rejected / reset); `automation_logs` row
+- **idempotency**: `cv-notify:{teacher_id}:{event}`
+- **retry**: `continueOnFail` on Supabase notify node; failures surfaced via automation_logs
+- **alert_on**: repeated failed notify inserts
+- **kpi**: notification delivered within 30s of CV status change
+- **flag**: none
+
+### WF-35 furqan-teacher-status
+- **n8n id**: `OTaYRQyIsTZYtsWz`
+- **owner**: ops
+- **trigger**: webhook `/webhook/furqan-teacher-status`
+- **input**: `teacher.status_updated` — `{ teacher_id, is_accepting: boolean }`
+- **output**: `automation_logs` row recording the status change; audit trail for teacher availability
+- **idempotency**: `teacher-status:{teacher_id}:{timestamp_ms}` (each toggle is a distinct event)
+- **retry**: none needed (log-only; idempotency_key includes timestamp)
+- **alert_on**: none (informational log)
+- **kpi**: every teacher availability toggle produces a log row within 5s
+- **flag**: none
+
 ### WF-33 furqan-teacher-eval-compliance
 ### WF-34 furqan-teacher-welcome
 
@@ -166,6 +189,18 @@
 ### WF-51 furqan-revenue-lapsed-return
 ### WF-52 furqan-revenue-trial-to-paid
 ### WF-53 furqan-revenue-teacher-payout
+
+### WF-54 furqan-package-credit-granted
+- **n8n id**: `9ax9JqAmRdeVVJpB`
+- **owner**: ops
+- **trigger**: webhook `/webhook/furqan-package-credit-granted`
+- **input**: `package.credit_granted` — `{ student_id, sessions_granted, sessions_total, granted_by }`
+- **output**: in-app `notify()` to student confirming sessions added; `automation_logs` row
+- **idempotency**: `credit-granted:{student_id}:{timestamp_ms}` (each grant is distinct)
+- **retry**: `continueOnFail` on Supabase notify node; failures visible via automation_logs
+- **alert_on**: none (admin-triggered, rare operation)
+- **kpi**: student notification delivered within 30s of admin grant
+- **flag**: none
 
 ---
 
@@ -253,7 +288,6 @@ Stubs from `## Student Retention`, `## Teacher Management`, `## Revenue`, `## Bo
 - `WF-25 furqan-retention-inactivity` — **status**: stubbed
 - `WF-26 furqan-retention-at-risk` — **status**: stubbed
 - `WF-31 furqan-teacher-onboarding-nudges` — **status**: stubbed
-- `WF-32 furqan-teacher-cv-approval` — **status**: stubbed
 - `WF-33 furqan-teacher-eval-compliance` — **status**: stubbed
 - `WF-34 furqan-teacher-welcome` — **status**: stubbed
 - `WF-50 furqan-revenue-upsell` — **status**: stubbed
