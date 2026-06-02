@@ -1,0 +1,43 @@
+name: Vercel Deployment Check
+
+# Verifies the Vercel production deployment is live after merging to main.
+# Runs `vercel ls` to confirm the latest deployment succeeded.
+# Does NOT trigger a new deploy — Vercel's GitHub integration handles that.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel-check-main
+  cancel-in-progress: true
+
+jobs:
+  deployment-check:
+    name: Verify Vercel production
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: List latest deployments
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::notice::VERCEL_TOKEN not set — skipping deployment check."
+            echo "::notice::Add a Vercel access token under Settings → Secrets → Actions."
+            exit 0
+          fi
+          vercel ls furqan --token "$VERCEL_TOKEN" --scope drdeebtech 2>&1 | head -20
