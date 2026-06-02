@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { routeAction } from "@/lib/actions/route-action";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 type ActionResult = { error?: string; success?: boolean };
 
@@ -17,7 +18,7 @@ const togglePolicyActiveBase = routeAction<{ policyId: string; isActive: boolean
     const supabase = await createClient();
     const { error } = await supabase
       .from("refund_policies")
-      .update({ is_active: isActive } as never)
+      .update({ is_active: isActive } satisfies TableUpdate<"refund_policies">)
       .eq("id", policyId);
     if (error) throw error;
 

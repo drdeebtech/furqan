@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { routeAction } from "@/lib/actions/route-action";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 type ActionResult = { error?: string; success?: boolean };
 
@@ -17,7 +18,7 @@ const toggleReviewPublicBase = routeAction<{ reviewId: string; isPublic: boolean
     const supabase = await createClient();
     const { error } = await supabase
       .from("reviews")
-      .update({ is_public: isPublic } as never)
+      .update({ is_public: isPublic } satisfies TableUpdate<"reviews">)
       .eq("id", reviewId);
     if (error) throw error;
 

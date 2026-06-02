@@ -4,6 +4,7 @@ import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import { verifyDailySignature } from "@/lib/daily/webhook-verify";
 import { dispatchDailyEvent, type DailyPayload } from "@/lib/daily/webhook-handler";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 /**
  * Daily.co webhook receiver — session lifecycle source of truth.
@@ -233,7 +234,7 @@ async function handleParticipantEvent(payload: DailyPayload): Promise<NextRespon
     }
     const { error } = await admin
       .from("session_participants")
-      .update({ joined_at: nowIso, attendance_status: attendanceStatus } as never)
+      .update({ joined_at: nowIso, attendance_status: attendanceStatus } satisfies TableUpdate<"session_participants">)
       .eq("session_id", session.id)
       .eq("user_id", participantUserId);
     if (error) {
@@ -251,7 +252,7 @@ async function handleParticipantEvent(payload: DailyPayload): Promise<NextRespon
   }
   const { error } = await admin
     .from("session_participants")
-    .update({ left_at: nowIso } as never)
+    .update({ left_at: nowIso } satisfies TableUpdate<"session_participants">)
     .eq("session_id", session.id)
     .eq("user_id", participantUserId);
   if (error) {

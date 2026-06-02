@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
+import type { TableInsert } from "@/lib/supabase/typed-helpers";
 
 export async function createConversation(otherUserId: string, role: "student" | "teacher") {
   const supabase = await createClient();
@@ -24,7 +25,7 @@ export async function createConversation(otherUserId: string, role: "student" | 
   // Create new conversation
   const { data: conv, error } = await supabase
     .from("conversations")
-    .insert({ student_id: studentId, teacher_id: teacherId, initiated_by: user.id } as never)
+    .insert({ student_id: studentId, teacher_id: teacherId, initiated_by: user.id } satisfies TableInsert<"conversations">)
     .select("id")
     .single<{ id: string }>();
 

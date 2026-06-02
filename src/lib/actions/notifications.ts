@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
 import type { Notification } from "@/types/database";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 export async function fetchNotifications(limit = 20) {
   const supabase = await createClient();
@@ -41,7 +42,7 @@ export async function markAsRead(notificationId: string) {
 
   const { error } = await supabase
     .from("notifications")
-    .update({ is_read: true } as never)
+    .update({ is_read: true } satisfies TableUpdate<"notifications">)
     .eq("id", notificationId)
     .eq("user_id", user.id);
 
@@ -63,7 +64,7 @@ export async function markAllAsRead() {
 
   const { error } = await supabase
     .from("notifications")
-    .update({ is_read: true } as never)
+    .update({ is_read: true } satisfies TableUpdate<"notifications">)
     .eq("user_id", user.id)
     .eq("is_read", false);
 
