@@ -4737,7 +4737,7 @@ export type Database = {
         Returns: { students_processed: number; rows_scheduled: number }[]
       }
       complete_review: {
-        Args: { p_schedule_id: string; p_quality: number }
+        Args: { p_schedule_id: string; p_easiness: number; p_interval_days: number }
         Returns: { next_review_at: string; easiness_factor: number; interval_days: number }[]
       }
       confirm_booking_with_session: {
