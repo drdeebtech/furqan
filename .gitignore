@@ -94,3 +94,6 @@ skills-lock.json
 # Internal n8n automation ops (removed for public repo; keep the nightly
 # n8n-export from re-publishing workflow JSON / runbooks to this public repo)
 automation/
+
+# ECC (Everything Claude Code) — large external tooling repo, not project source
+ECC/
