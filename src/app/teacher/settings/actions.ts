@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
+import { emitEvent } from "@/lib/automation/emit";
+import { logError } from "@/lib/logger";
 
 function str(formData: FormData, key: string): string | null {
   const v = formData.get(key);
@@ -106,6 +108,10 @@ const updateTeachingStatusBase = loudAction<TeachingStatusInput, { message?: str
     revalidatePath("/teacher/dashboard");
     revalidatePath("/admin/teachers");
     revalidatePath("/teachers");
+
+    emitEvent("teacher.status_updated", "teacher_profile", input.userId, { is_accepting: input.isAccepting }, input.userId)
+      .catch((err) => logError("updateTeachingStatus emitEvent failed", err, { tag: "teacher-settings" }));
+
     return {
       message: input.isAccepting
         ? "أنت تقبل طلابًا جددًا الآن"

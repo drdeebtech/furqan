@@ -204,7 +204,7 @@ const resetCvToPendingBase = loudAction<{ teacherId: string }, { message: string
     reasonPrefix: "admin reset CV to pending review",
   },
   preflight: authPreflight,
-  handler: async ({ teacherId }) => {
+  handler: async ({ teacherId }, { actorId }) => {
     const supabase = await createClient();
     const { error } = await supabase
       .from("teacher_profiles")
@@ -221,6 +221,10 @@ const resetCvToPendingBase = loudAction<{ teacherId: string }, { message: string
     revalidatePath(`/admin/teachers/cv/${teacherId}`);
     revalidatePath(`/admin/teachers/${teacherId}`);
     revalidatePath("/teacher/cv");
+
+    emitEvent("teacher.cv_reset", "teacher_profile", teacherId, { teacher_id: teacherId }, actorId)
+      .catch((err) => logError("resetCvToPending emitEvent failed", err, { tag: "cv-review" }));
+
     return { message: "reset" };
   },
 });
@@ -275,6 +279,10 @@ const rejectCvBase = loudAction<{ teacherId: string; reason: string }, { message
 
     revalidatePath("/admin/teachers/cv");
     revalidatePath("/teacher/cv");
+
+    emitEvent("teacher.cv_rejected", "teacher_profile", teacherId, { teacher_id: teacherId, reason }, actorId)
+      .catch((err) => logError("rejectCv emitEvent failed", err, { tag: "admin-cv" }));
+
     return { message: "rejected" };
   },
 });
