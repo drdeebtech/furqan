@@ -1,5 +1,5 @@
 // Bilingual purpose descriptions for every planned n8n workflow.
-// Source of truth: automation/BLUEPRINT.md (Areas 1–12, ~52 workflows).
+// Source of truth: AUTOMATION_REGISTRY.md (n8n workflow registry).
 // Surface in: src/app/admin/n8n/components/overview-tab.tsx
 
 export type WorkflowArea =

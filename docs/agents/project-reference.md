@@ -197,11 +197,8 @@ supabase/functions/      — 4 edge functions (auto-reminder, auto-complete, no-
 | `ROADMAP.md` | Implementation roadmap — 8 sprints (404 lines) |
 | `EVENT_CATALOG.md` | Event taxonomy — 9 active + 13 planned |
 | `LIFECYCLES.md` | 7 state machine diagrams |
-| `automation/BLUEPRINT.md` | 52-workflow master plan |
-| `automation/VPS_HANDOFF.md` | n8n VPS session context |
+| `AUTOMATION_REGISTRY.md` | n8n workflow registry |
 | `docs/agents/env-vars.md` | Environment variables source of truth |
 | `docs/agents/project-reference.md` | This file — project reference snapshot |
-| `docs/runbooks/sentry-activation.md` | One-time Sentry DSN setup |
-| `docs/runbooks/supabase-leaked-password.md` | One-time HIBP toggle |
 | `.specify/memory/constitution.md` | Five-principle constitution checked by `/speckit.plan` and `/speckit.analyze` |
 | `specs/<feature>/spec.md` | Per-feature spec produced by `/speckit.specify`; one folder per net-new feature |
