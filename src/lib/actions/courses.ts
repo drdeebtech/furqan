@@ -94,7 +94,6 @@ async function uniqueSlug(
 function revalidateCoursePaths(courseId?: string, slug?: string) {
   revalidatePath("/teacher/courses");
   revalidatePath("/admin/courses");
-  revalidatePath("/moderator/courses");
   revalidatePath("/courses");
   if (courseId) revalidatePath(`/teacher/courses/${courseId}`);
   if (courseId) revalidatePath(`/admin/courses/${courseId}`);
