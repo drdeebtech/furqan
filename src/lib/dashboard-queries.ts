@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Lang } from "@/lib/i18n/server";
 import { formatDate } from "@/lib/i18n/format-date";
 import { logError } from "@/lib/logger";
+import { toMurajaahDueItems, type MurajaahDueItem, type MurajaahScheduleRow } from "@/lib/domains/murajaah/batch";
 
 interface ChartDataPoint {
   day: string;
@@ -1711,13 +1712,7 @@ export async function getTeacherRecitationStandardRoster(
  * cron flagged for today, joined to their memorised range. Ordered oldest-due
  * first. RLS gates this to the student's own rows.
  */
-export interface MurajaahDueItem {
-  scheduleId: string;
-  surahFrom: number | null;
-  ayahFrom: number | null;
-  surahTo: number | null;
-  ayahTo: number | null;
-}
+export type { MurajaahDueItem };
 
 export async function getTodaysMurajaahBatch(studentId: string): Promise<MurajaahDueItem[]> {
   const supabase = await createClient();
@@ -1732,23 +1727,9 @@ export async function getTodaysMurajaahBatch(studentId: string): Promise<Murajaa
     .eq("student_id", studentId)
     .eq("batch_for_date", today)
     .order("next_review_at", { ascending: true })
-    .returns<
-      {
-        id: string;
-        student_progress: {
-          surah_from: number | null;
-          ayah_from: number | null;
-          surah_to: number | null;
-          ayah_to: number | null;
-        } | null;
-      }[]
-    >();
+    .returns<MurajaahScheduleRow[]>();
 
-  return (data ?? []).map((r) => ({
-    scheduleId: r.id,
-    surahFrom: r.student_progress?.surah_from ?? null,
-    ayahFrom: r.student_progress?.ayah_from ?? null,
-    surahTo: r.student_progress?.surah_to ?? null,
-    ayahTo: r.student_progress?.ayah_to ?? null,
-  }));
+  // Pure shaping (incl. the missing-join fallback) lives in the murajaah domain
+  // so it's unit-tested without a Supabase client — see batch.test.ts.
+  return toMurajaahDueItems(data);
 }
