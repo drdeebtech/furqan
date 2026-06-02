@@ -1,0 +1,301 @@
+# Instincts generated from https://github.com/drdeebtech/furqan
+# Generated: 2026-06-02T20:32:31.651Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: furqan-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/drdeebtech/furqan
+---
+
+# Furqan Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: chore
+
+## Evidence
+
+- 1 commits analyzed
+- Detected conventional commit pattern
+- Examples: chore(deps): bump @types/node 20→25, lint-staged 15→17; fix eslint config for eslint-config-next 16.2.7
+
+---
+id: furqan-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/drdeebtech/furqan
+---
+
+# Furqan Commit Length
+
+## Action
+
+Write detailed commit messages (~103 characters for first line)
+
+## Evidence
+
+- Average commit message length: 103 chars
+- Based on 1 commits
+
+---
+id: furqan-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/drdeebtech/furqan
+---
+
+# Furqan Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: furqan-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/drdeebtech/furqan
+---
+
+# Furqan Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: furqan-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/drdeebtech/furqan
+---
+
+# Furqan Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: furqan-arch-type-based
+trigger: "when adding new code"
+confidence: 0.8
+domain: architecture
+source: repo-analysis
+source_repo: https://github.com/drdeebtech/furqan
+---
+
+# Furqan Arch Type Based
+
+## Action
+
+Place code in the appropriate type folder (components/, services/, utils/, etc.)
+
+## Evidence
+
+- Type-based module organization detected
+- Folders: lib
+
+---
+id: furqan-test-colocate
+trigger: "when writing tests"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/drdeebtech/furqan
+---
+
+# Furqan Test Colocate
+
+## Action
+
+Place test file next to the source file (e.g., Button.test.tsx next to Button.tsx)
+
+## Evidence
+
+- Colocated test pattern detected
+- Tests live alongside source files
+
+---
+id: furqan-instinct-file-naming
+trigger: "When creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: drdeebtech/furqan
+---
+
+# Furqan Instinct File Naming
+
+## Action
+
+Name the file using camelCase
+
+## Evidence
+
+- Pattern in namingConventions.files: camelCase
+
+---
+id: furqan-instinct-function-naming
+trigger: "When defining a new function"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: drdeebtech/furqan
+---
+
+# Furqan Instinct Function Naming
+
+## Action
+
+Use camelCase for the function name
+
+## Evidence
+
+- Pattern in namingConventions.functions: camelCase
+
+---
+id: furqan-instinct-class-naming
+trigger: "When defining a new class"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: drdeebtech/furqan
+---
+
+# Furqan Instinct Class Naming
+
+## Action
+
+Use PascalCase for the class name
+
+## Evidence
+
+- Pattern in namingConventions.classes: PascalCase
+
+---
+id: furqan-instinct-constant-naming
+trigger: "When declaring a constant"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: drdeebtech/furqan
+---
+
+# Furqan Instinct Constant Naming
+
+## Action
+
+Use SCREAMING_SNAKE_CASE for the constant name
+
+## Evidence
+
+- Pattern in namingConventions.constants: SCREAMING_SNAKE_CASE
+
+---
+id: furqan-instinct-import-style
+trigger: "When importing modules"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: drdeebtech/furqan
+---
+
+# Furqan Instinct Import Style
+
+## Action
+
+Use relative import paths
+
+## Evidence
+
+- Pattern in importStyle: relative
+
+---
+id: furqan-instinct-export-style
+trigger: "When exporting modules or symbols"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: drdeebtech/furqan
+---
+
+# Furqan Instinct Export Style
+
+## Action
+
+Use named exports
+
+## Evidence
+
+- Pattern in exportStyle: named
+
+---
+id: furqan-instinct-test-location
+trigger: "When adding tests for a module"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: drdeebtech/furqan
+---
+
+# Furqan Instinct Test Location
+
+## Action
+
+Place the test file next to the module (colocated)
+
+## Evidence
+
+- Pattern in architecture.folderStructure.testLocation: colocated
+
+---
+id: furqan-instinct-commit-format
+trigger: "When making a commit"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: drdeebtech/furqan
+---
+
+# Furqan Instinct Commit Format
+
+## Action
+
+Use the conventional commit format with a 'chore' prefix for maintenance and dependency updates
+
+## Evidence
+
+- Pattern in commits.type: conventional
+- Pattern in commits.prefixes: chore
+- Seen in commit: chore(deps): bump @types/node 20→25, lint-staged 15→17; fix eslint config for eslint-config-next 16.2.7
+
