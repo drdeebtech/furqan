@@ -317,6 +317,10 @@ export type Database = {
           amount_local: number | null
           amount_usd: number
           cancel_reason: string | null
+          cancel_reason_code:
+            | Database["public"]["Enums"]["booking_cancel_reason_code"]
+            | null
+          cancel_reason_detail: string | null
           cancelled_at: string | null
           cancelled_by: string | null
           class_offering_id: string | null
@@ -348,6 +352,10 @@ export type Database = {
           amount_local?: number | null
           amount_usd: number
           cancel_reason?: string | null
+          cancel_reason_code?:
+            | Database["public"]["Enums"]["booking_cancel_reason_code"]
+            | null
+          cancel_reason_detail?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
           class_offering_id?: string | null
@@ -379,6 +387,10 @@ export type Database = {
           amount_local?: number | null
           amount_usd?: number
           cancel_reason?: string | null
+          cancel_reason_code?:
+            | Database["public"]["Enums"]["booking_cancel_reason_code"]
+            | null
+          cancel_reason_detail?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
           class_offering_id?: string | null
@@ -476,6 +488,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "student_packages"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_student_package_id_fkey"
+            columns: ["student_package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_effective_status"
+            referencedColumns: ["student_package_id"]
           },
           {
             foreignKeyName: "bookings_student_package_id_fkey"
@@ -1112,6 +1131,48 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_webhook_events: {
+        Row: {
+          event_id: string
+          event_type: string
+          payload_json: Json
+          received_at: string
+          room_name: string | null
+          session_id: string | null
+        }
+        Insert: {
+          event_id: string
+          event_type: string
+          payload_json: Json
+          received_at?: string
+          room_name?: string | null
+          session_id?: string | null
+        }
+        Update: {
+          event_id?: string
+          event_type?: string
+          payload_json?: Json
+          received_at?: string
+          room_name?: string | null
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_webhook_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_webhook_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_sessions"
+            referencedColumns: ["session_id"]
           },
         ]
       }
@@ -1991,43 +2052,43 @@ export type Database = {
       }
       notification_broadcasts: {
         Row: {
+          body: string | null
+          created_at: string
+          cursor_after: string | null
           id: string
+          initiated_by: string | null
+          processed_at: string | null
+          recipients_failed: number
+          recipients_sent: number
+          status: string
           target: string
           title: string
-          body: string | null
-          initiated_by: string | null
-          status: string
-          cursor_after: string | null
-          recipients_sent: number
-          recipients_failed: number
-          created_at: string
-          processed_at: string | null
         }
         Insert: {
+          body?: string | null
+          created_at?: string
+          cursor_after?: string | null
           id?: string
+          initiated_by?: string | null
+          processed_at?: string | null
+          recipients_failed?: number
+          recipients_sent?: number
+          status?: string
           target: string
           title: string
-          body?: string | null
-          initiated_by?: string | null
-          status?: string
-          cursor_after?: string | null
-          recipients_sent?: number
-          recipients_failed?: number
-          created_at?: string
-          processed_at?: string | null
         }
         Update: {
+          body?: string | null
+          created_at?: string
+          cursor_after?: string | null
           id?: string
+          initiated_by?: string | null
+          processed_at?: string | null
+          recipients_failed?: number
+          recipients_sent?: number
+          status?: string
           target?: string
           title?: string
-          body?: string | null
-          initiated_by?: string | null
-          status?: string
-          cursor_after?: string | null
-          recipients_sent?: number
-          recipients_failed?: number
-          created_at?: string
-          processed_at?: string | null
         }
         Relationships: [
           {
@@ -2660,6 +2721,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      quran_surahs: {
+        Row: {
+          ayah_count: number
+          juz_start: number | null
+          surah_num: number
+        }
+        Insert: {
+          ayah_count: number
+          juz_start?: number | null
+          surah_num: number
+        }
+        Update: {
+          ayah_count?: number
+          juz_start?: number | null
+          surah_num?: number
+        }
+        Relationships: []
       }
       recitation_errors: {
         Row: {
@@ -3885,6 +3964,10 @@ export type Database = {
       }
       student_packages: {
         Row: {
+          cancel_reason_code:
+            | Database["public"]["Enums"]["booking_cancel_reason_code"]
+            | null
+          cancel_reason_detail: string | null
           created_at: string
           expires_at: string | null
           id: string
@@ -3899,6 +3982,10 @@ export type Database = {
           student_id: string
         }
         Insert: {
+          cancel_reason_code?:
+            | Database["public"]["Enums"]["booking_cancel_reason_code"]
+            | null
+          cancel_reason_detail?: string | null
           created_at?: string
           expires_at?: string | null
           id?: string
@@ -3913,6 +4000,10 @@ export type Database = {
           student_id: string
         }
         Update: {
+          cancel_reason_code?:
+            | Database["public"]["Enums"]["booking_cancel_reason_code"]
+            | null
+          cancel_reason_detail?: string | null
           created_at?: string
           expires_at?: string | null
           id?: string
@@ -4030,6 +4121,66 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_review_schedule: {
+        Row: {
+          algorithm_version: number
+          batch_for_date: string | null
+          created_at: string
+          easiness_factor: number
+          id: string
+          interval_days: number
+          lapse_count: number
+          last_reviewed_at: string | null
+          next_review_at: string
+          progress_id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          algorithm_version?: number
+          batch_for_date?: string | null
+          created_at?: string
+          easiness_factor?: number
+          id?: string
+          interval_days?: number
+          lapse_count?: number
+          last_reviewed_at?: string | null
+          next_review_at: string
+          progress_id: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          algorithm_version?: number
+          batch_for_date?: string | null
+          created_at?: string
+          easiness_factor?: number
+          id?: string
+          interval_days?: number
+          lapse_count?: number
+          last_reviewed_at?: string | null
+          next_review_at?: string
+          progress_id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_review_schedule_progress_id_fkey"
+            columns: ["progress_id"]
+            isOneToOne: false
+            referencedRelation: "student_progress"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_review_schedule_progress_id_fkey"
+            columns: ["progress_id"]
+            isOneToOne: false
+            referencedRelation: "v_progress"
+            referencedColumns: ["progress_id"]
           },
         ]
       }
@@ -4489,6 +4640,13 @@ export type Database = {
             foreignKeyName: "bookings_student_package_id_fkey"
             columns: ["student_package_id"]
             isOneToOne: false
+            referencedRelation: "v_package_effective_status"
+            referencedColumns: ["student_package_id"]
+          },
+          {
+            foreignKeyName: "bookings_student_package_id_fkey"
+            columns: ["student_package_id"]
+            isOneToOne: false
             referencedRelation: "v_student_packages"
             referencedColumns: ["student_package_id"]
           },
@@ -4600,6 +4758,70 @@ export type Database = {
           {
             foreignKeyName: "homework_assignments_teacher_id_fkey"
             columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_package_effective_status: {
+        Row: {
+          created_at: string | null
+          effective_status: string | null
+          expires_at: string | null
+          package_id: string | null
+          payment_id: string | null
+          purchased_at: string | null
+          sessions_remaining: number | null
+          sessions_total: number | null
+          sessions_used: number | null
+          student_id: string | null
+          student_package_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          effective_status?: never
+          expires_at?: string | null
+          package_id?: string | null
+          payment_id?: string | null
+          purchased_at?: string | null
+          sessions_remaining?: never
+          sessions_total?: number | null
+          sessions_used?: number | null
+          student_id?: string | null
+          student_package_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          effective_status?: never
+          expires_at?: string | null
+          package_id?: string | null
+          payment_id?: string | null
+          purchased_at?: string | null
+          sessions_remaining?: never
+          sessions_total?: number | null
+          sessions_used?: number | null
+          student_id?: string | null
+          student_package_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_packages_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_packages_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_packages_student_id_fkey"
+            columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -4765,76 +4987,193 @@ export type Database = {
       }
     }
     Functions: {
+      complete_review: {
+        Args: {
+          p_easiness: number
+          p_interval_days: number
+          p_schedule_id: string
+        }
+        Returns: {
+          easiness_factor: number
+          interval_days: number
+          next_review_at: string
+        }[]
+      }
+      compute_murajaah_batch_for_date: {
+        Args: { p_date: string }
+        Returns: {
+          rows_scheduled: number
+          students_processed: number
+        }[]
+      }
+      confirm_booking_with_session: {
+        Args: {
+          p_booking_id: string
+          p_expires_at: string
+          p_room_name: string
+          p_room_url: string
+        }
+        Returns: string
+      }
       deduct_package_session: {
         Args: { p_package_id: string }
         Returns: boolean
       }
       deduct_package_session_mode: {
         Args: { p_mode: string; p_package_id: string }
-        Returns: { deducted: boolean; used_legacy: boolean }[]
+        Returns: {
+          deducted: boolean
+          used_legacy: boolean
+        }[]
+      }
+      end_session_from_webhook: {
+        Args: {
+          p_duration_min: number
+          p_duration_seconds: number
+          p_ended_at: string
+          p_event_id: string
+          p_event_type: string
+          p_payload_json: Json
+          p_room_name: string
+          p_session_id: string
+        }
+        Returns: {
+          booking_id: string
+          is_duplicate: boolean
+          is_reconcile: boolean
+          status_outcome: string
+          student_id: string
+          teacher_id: string
+        }[]
+      }
+      end_session_with_booking: {
+        Args: { p_actual_duration: number; p_session_id: string }
+        Returns: string
       }
       get_teacher_overdue_eval_count: {
         Args: { p_teacher_id: string }
         Returns: number
       }
-      get_user_id_by_email: {
-        Args: { p_email: string }
-        Returns: string
-      }
+      get_user_id_by_email: { Args: { p_email: string }; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       is_admin_or_mod: { Args: never; Returns: boolean }
       is_moderator: { Args: never; Returns: boolean }
       murajaah_due_student_ids: {
         Args: { p_active_since: string; p_today_start: string }
-        Returns: { student_id: string }[]
+        Returns: {
+          student_id: string
+        }[]
       }
       profiles_role_counts: {
-        Args: Record<string, never>
-        Returns: { role: string; n: number }[]
+        Args: never
+        Returns: {
+          n: number
+          role: string
+        }[]
       }
       recompute_course_review_aggregates: {
         Args: { p_course_id: string }
         Returns: undefined
       }
+      record_student_progress: {
+        Args: {
+          p_ayah_from: number
+          p_ayah_to: number
+          p_booking_id: string
+          p_errors: Json
+          p_level: string
+          p_pages_reviewed: number
+          p_progress_type: string
+          p_quality_rating: number
+          p_surah_from: number
+          p_surah_to: number
+          p_teacher_notes: string
+        }
+        Returns: string
+      }
       redact_pii: { Args: { payload: Json }; Returns: Json }
+      refund_package_session: {
+        Args: { p_package_id: string }
+        Returns: boolean
+      }
       roster_recent_evaluations: {
-        Args: { p_teacher_id: string; p_student_ids: string[] }
+        Args: { p_student_ids: string[]; p_teacher_id: string }
         Returns: {
-          student_id: string
-          evaluation_date: string
-          hifz_score: number | null
-          tajweed_score: number | null
-          fluency_score: number | null
+          areas_for_improvement: string | null
           attendance_score: number | null
+          created_at: string
+          evaluation_date: string
+          evaluation_type: Database["public"]["Enums"]["evaluation_type"]
+          fluency_score: number | null
+          hifz_score: number | null
+          id: string
+          next_goals: string | null
           overall_score: number | null
+          strengths: string | null
+          student_id: string
+          tajweed_score: number | null
+          teacher_comments: string | null
+          teacher_id: string
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "session_evaluations"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       roster_recent_progress: {
         Args: { p_student_ids: string[] }
         Returns: {
+          ayah_from: number | null
+          ayah_to: number | null
+          booking_id: string
+          created_at: string
+          id: string
+          level: Database["public"]["Enums"]["student_level"]
+          pages_reviewed: number | null
+          progress_type: string
+          quality_rating: number | null
+          recitation_standard: string | null
           student_id: string
           surah_from: number | null
           surah_to: number | null
-          quality_rating: number | null
-          created_at: string
+          teacher_id: string
+          teacher_notes: string | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "student_progress"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       search_teachers: {
-        Args: { p_needle: string; p_limit: number; p_offset: number }
+        Args: { p_limit: number; p_needle: string; p_offset: number }
         Returns: {
-          teacher_id: string
-          full_name: string | null
-          email: string | null
-          avatar_url: string | null
-          specialties: string[]
+          avatar_url: string
+          cv_status: string
+          email: string
+          full_name: string
           hourly_rate: number
-          rating_avg: number
-          total_sessions: number
           is_accepting: boolean
           is_archived: boolean
-          cv_status: string | null
+          rating_avg: number
+          specialties: string[]
+          teacher_id: string
           total_count: number
+          total_sessions: number
         }[]
+      }
+      start_session_from_webhook: {
+        Args: {
+          p_event_id: string
+          p_payload_json: Json
+          p_room_name: string
+          p_session_id: string
+          p_started_at: string
+        }
+        Returns: boolean
       }
       user_is_session_participant: { Args: { s_id: string }; Returns: boolean }
     }
@@ -4845,6 +5184,14 @@ export type Database = {
         | "absent"
         | "late"
         | "left_early"
+      booking_cancel_reason_code:
+        | "teacher_unavailable"
+        | "student_request"
+        | "schedule_conflict"
+        | "technical_issue"
+        | "admin_override"
+        | "package_exhausted"
+        | "other"
       booking_status:
         | "pending"
         | "confirmed"
@@ -5033,6 +5380,15 @@ export const Constants = {
         "absent",
         "late",
         "left_early",
+      ],
+      booking_cancel_reason_code: [
+        "teacher_unavailable",
+        "student_request",
+        "schedule_conflict",
+        "technical_issue",
+        "admin_override",
+        "package_exhausted",
+        "other",
       ],
       booking_status: [
         "pending",
