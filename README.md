@@ -37,3 +37,9 @@ npm run dev
 ## Deployment
 
 Deployed on Vercel. See `.env.local` for required variables.
+
+## License
+
+This repository is **source-available for transparency** — **all rights reserved**.
+The code is proprietary to FURQAN Academy and is **not** licensed for reuse,
+modification, or redistribution. See [LICENSE](LICENSE).
