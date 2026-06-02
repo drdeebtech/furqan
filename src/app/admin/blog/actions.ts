@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { loudAction } from "@/lib/actions/loud";
-import type { TableInsert } from "@/lib/supabase/typed-helpers";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
 class UserError extends Error {
   readonly userError = true;
@@ -115,7 +115,7 @@ const savePostBase = loudAction<
       if (upErr) throw new Error("فشل رفع صورة الغلاف");
       const { error: pathErr } = await supabase
         .from("blog_posts")
-        .update({ cover_image_path: path } as never)
+        .update({ cover_image_path: path } satisfies TableUpdate<"blog_posts">)
         .eq("id", postId);
       if (pathErr) {
         // Soft-fail: image uploaded but path update failed. Log and continue —

@@ -212,7 +212,7 @@ export async function enrollInOffering(
   if ((enrolledCount ?? 0) >= offering.capacity) {
     // Race: someone filled the seat between the page render and this call.
     // Flip the offering to 'full' so the next reader sees it correctly.
-    await admin.from("class_offerings").update({ status: "full" } as never).eq("id", offeringId);
+    await admin.from("class_offerings").update({ status: "full" } satisfies TableUpdate<"class_offerings">).eq("id", offeringId);
     return { error: "وصلت الجلسة للحد الأقصى — حاول التسجيل في جلسة أخرى" };
   }
 
@@ -279,7 +279,7 @@ export async function enrollInOffering(
 
   // After this insert, transition to 'full' if we just took the last seat.
   if ((enrolledCount ?? 0) + 1 >= offering.capacity) {
-    await admin.from("class_offerings").update({ status: "full" } as never).eq("id", offeringId);
+    await admin.from("class_offerings").update({ status: "full" } satisfies TableUpdate<"class_offerings">).eq("id", offeringId);
   }
 
   await admin.from("audit_log").insert({

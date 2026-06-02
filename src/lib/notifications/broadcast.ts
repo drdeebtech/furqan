@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 /**
  * Off-request-path broadcast delivery (audit H7).
@@ -58,7 +59,7 @@ export async function processBroadcast(
   }
 
   await admin.from("notification_broadcasts")
-    .update({ status: "processing" } as never)
+    .update({ status: "processing" } satisfies TableUpdate<"notification_broadcasts">)
     .eq("id", broadcastId);
 
   let cursor = b.cursor_after;
@@ -91,7 +92,7 @@ export async function processBroadcast(
 
     cursor = users[users.length - 1].id;
     await admin.from("notification_broadcasts")
-      .update({ cursor_after: cursor, recipients_sent: sent, recipients_failed: failed } as never)
+      .update({ cursor_after: cursor, recipients_sent: sent, recipients_failed: failed } satisfies TableUpdate<"notification_broadcasts">)
       .eq("id", broadcastId);
 
     if (users.length < PAGE) { done = true; break; }
@@ -99,7 +100,7 @@ export async function processBroadcast(
 
   if (done) {
     await admin.from("notification_broadcasts")
-      .update({ status: "sent", recipients_sent: sent, recipients_failed: failed, processed_at: new Date().toISOString() } as never)
+      .update({ status: "sent", recipients_sent: sent, recipients_failed: failed, processed_at: new Date().toISOString() } satisfies TableUpdate<"notification_broadcasts">)
       .eq("id", broadcastId);
   }
 

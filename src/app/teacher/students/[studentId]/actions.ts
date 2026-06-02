@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction } from "@/lib/actions/loud";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 class UserError extends Error {
   readonly userError = true;
@@ -40,7 +41,7 @@ const resolveRecitationErrorBase = loudAction<{ errorId: string }, { message: st
     // CodeRabbit on PR #271.
     const { data, error } = await supabase
       .from("recitation_errors")
-      .update({ resolved: true, resolved_at: new Date().toISOString() } as never)
+      .update({ resolved: true, resolved_at: new Date().toISOString() } satisfies TableUpdate<"recitation_errors">)
       .eq("id", errorId)
       .select("id");
     if (error) throw new UserError("فشل تحديث الخطأ — يرجى المحاولة مرة أخرى", { cause: error });
@@ -80,7 +81,7 @@ const updateSessionNotesBase = loudAction<UpdateSessionNotesInput, { message: st
     // RLS-denial silent-no-op pattern. (CodeRabbit PR #271.)
     const { data, error } = await supabase
       .from("sessions")
-      .update({ post_session_notes: notes || null } as never)
+      .update({ post_session_notes: notes || null } satisfies TableUpdate<"sessions">)
       .eq("id", sessionId)
       .select("id");
     if (error) throw new UserError("فشل تحديث الملاحظات — يرجى المحاولة مرة أخرى", { cause: error });

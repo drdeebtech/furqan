@@ -25,6 +25,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
 const HANDOFF_TTL_MS = 5 * 60 * 1000;
 const TARGET_PATH_MAX_LEN = 200;
@@ -186,7 +187,7 @@ export async function requestHandoff(input: RequestHandoffInput): Promise<Reques
     target_path: validated.path,
     supabase_token_hash: tokenHash,
     expires_at: expiresAt,
-  } as never);
+  } satisfies TableInsert<"remote_handoff_tokens">);
   if (insertErr) {
     logError("remote-handoff: insert failed", insertErr, { tag: "remote-handoff" });
     return { ok: false, error: "تعذّر تخزين الرمز." };
@@ -223,7 +224,7 @@ export async function revokeMyHandoffs(): Promise<{ ok: boolean; revoked: number
   }
   const admin = createAdminClient();
   const { count, error } = await admin.from("remote_handoff_tokens")
-    .update({ used_at: new Date().toISOString(), used_ua: "self-revoke" } as never, { count: "exact" })
+    .update({ used_at: new Date().toISOString(), used_ua: "self-revoke" } satisfies TableUpdate<"remote_handoff_tokens">, { count: "exact" })
     .eq("admin_user_id", adminId)
     .is("used_at", null)
     .gt("expires_at", new Date().toISOString());
@@ -254,7 +255,7 @@ export async function consumeHandoff(rawCode: string, ip: string | null, ua: str
       used_at: new Date().toISOString(),
       used_ip: ip,
       used_ua: ua,
-    } as never)
+    } satisfies TableUpdate<"remote_handoff_tokens">)
     .eq("code_hash", codeHash)
     .is("used_at", null)
     .gt("expires_at", new Date().toISOString())

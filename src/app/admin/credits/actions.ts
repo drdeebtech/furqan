@@ -8,6 +8,7 @@ import { notify } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 export interface GrantResult {
   success?: string;
@@ -100,7 +101,7 @@ const grantCreditBase = loudAction<z.infer<typeof grantCreditSchema>, { message:
     const newTotal = activePkg.sessions_total + sessions;
     const { error: updateErr } = await admin
       .from("student_packages")
-      .update({ sessions_total: newTotal } as never)
+      .update({ sessions_total: newTotal } satisfies TableUpdate<"student_packages">)
       .eq("id", activePkg.id);
     if (updateErr) throw updateErr;
 
