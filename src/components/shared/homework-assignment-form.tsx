@@ -105,6 +105,7 @@ export function HomeworkAssignmentForm({
           </h3>
           {!showHwForm && (
             <button
+              type="button"
               onClick={() => setShowHwForm(true)}
               className="glass-pill flex items-center gap-1 bg-gold/10 px-3 py-1.5 text-sm text-gold transition-colors hover:bg-gold/20"
             >
@@ -287,6 +288,7 @@ export function HomeworkAssignmentForm({
 
           <div className="flex gap-2">
             <button
+              type="submit"
               onClick={handleCreateHomework}
               disabled={hwSaving}
               className="glass-gold glass-pill flex items-center gap-2 px-5 py-2 text-sm font-semibold transition-colors hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed focus-ring"
@@ -300,6 +302,7 @@ export function HomeworkAssignmentForm({
             </button>
             {!defaultOpen && (
               <button
+                type="button"
                 onClick={() => { setShowHwForm(false); setHwError(null); }}
                 className="glass-pill px-4 py-2 text-sm text-muted transition-colors hover:text-foreground"
               >

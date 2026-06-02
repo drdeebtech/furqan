@@ -77,11 +77,17 @@ export async function confirmBooking(
 
   // 1. Pre-read. Service-role client bypasses RLS — auth has already
   //    been performed by the calling route adapter (`requireRole(...)`).
-  const { data: booking } = await supabase
+  const { data: booking, error: bookingReadErr } = await supabase
     .from("bookings")
     .select("status, student_id, teacher_id, scheduled_at, duration_min")
     .eq("id", bookingId)
     .single<BookingPreRead>();
+
+  if (bookingReadErr && bookingReadErr.code !== "PGRST116") {
+    const err = new BookingConfirmError(bookingReadErr.message);
+    err.cause = bookingReadErr;
+    throw err;
+  }
 
   if (!booking) {
     throw new BookingNotFoundError(bookingId);

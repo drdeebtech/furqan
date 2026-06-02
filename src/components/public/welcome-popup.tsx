@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, startTransition } from "react";
 import Link from "next/link";
 import { X, UserPlus, BookOpen } from "lucide-react";
 import { GlassButton } from "@/components/ui/GlassButton";
@@ -18,7 +18,7 @@ export function WelcomePopup() {
   useEffect(() => {
     const seen = localStorage.getItem("furqan-welcome-seen");
     if (!seen) {
-      const timer = setTimeout(() => setShow(true), 2000);
+      const timer = setTimeout(() => startTransition(() => setShow(true)), 2000);
       return () => clearTimeout(timer);
     }
   }, []);

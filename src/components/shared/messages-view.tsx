@@ -186,6 +186,7 @@ export function MessagesView({
           {t("الرسائل", "Messages")}
         </h1>
         <button
+          type="button"
           onClick={openNewConvoDialog}
           className="flex items-center gap-2 glass-gold glass-pill px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gold-hover"
         >
@@ -203,7 +204,7 @@ export function MessagesView({
                 ? t("اختر طالباً لبدء محادثة", "Choose a student to start a conversation")
                 : t("اختر معلماً لبدء محادثة", "Choose a teacher to start a conversation")}
             </p>
-            <button onClick={() => setShowNewConvo(false)} className="text-xs text-muted hover:text-foreground">{t("إغلاق", "Close")}</button>
+            <button type="button" onClick={() => setShowNewConvo(false)} className="text-xs text-muted hover:text-foreground">{t("إغلاق", "Close")}</button>
           </div>
           {loadingContacts ? (
             <p className="text-sm text-muted">{t("جاري التحميل...", "Loading...")}</p>
@@ -218,6 +219,7 @@ export function MessagesView({
               {contacts.map(c => (
                 <button
                   key={c.id}
+                  type="button"
                   onClick={() => startConversation(c)}
                   className="rounded-lg glass px-3 py-2 text-sm transition-colors hover:border-gold/40 hover:text-gold"
                 >

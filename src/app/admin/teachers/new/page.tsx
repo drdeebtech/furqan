@@ -35,8 +35,11 @@ export default async function NewTeacherPage() {
   if (!user) redirect("/login");
 
   const [{ data: profiles }, languages] = await Promise.all([
+    // Limit to 100 to prevent payload explosion at scale — this select feeds
+    // an HTML <select> that cannot handle 50k rows anyway. Long-term this
+    // needs a search-as-you-type API so the page stays usable.
     supabase.from("profiles").select("id, full_name, role")
-      .neq("role", "teacher").order("full_name").returns<{ id: string; full_name: string | null; role: string }[]>(),
+      .neq("role", "teacher").order("full_name").limit(100).returns<{ id: string; full_name: string | null; role: string }[]>(),
     getActiveTeacherLanguages(),
   ]);
 

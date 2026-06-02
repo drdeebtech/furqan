@@ -172,9 +172,9 @@ export function AnalyticsChart({
               allowDecimals={unit !== "#"}
             />
             <Bar dataKey="value" maxBarSize={48} radius={[8, 8, 0, 0]}>
-              {visibleData.map((entry, index) => (
+              {visibleData.map((entry) => (
                 <Cell
-                  key={index}
+                  key={entry.day}
                   fill={entry.isActive ? "url(#activeGrad)" : "url(#hatch)"}
                   fillOpacity={1}
                   stroke={entry.isActive ? "rgba(255,255,255,0.25)" : "transparent"}

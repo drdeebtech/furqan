@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
 import { loudAction } from "@/lib/actions/loud";
 import { UserError } from "@/lib/actions/user-error";
+import { emitEvent } from "@/lib/automation/emit";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 export type CvResult = {
@@ -101,18 +102,34 @@ export async function submitCvForReview(): Promise<CvResult> {
   } = await supabase.auth.getUser();
   if (!user) return { error: "غير مصرح" };
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("teacher_profiles")
     .update({
       cv_status: "pending_review",
       cv_submitted_at: new Date().toISOString(),
     })
-    .eq("teacher_id", user.id);
+    .eq("teacher_id", user.id)
+    .select("teacher_id")
+    .maybeSingle();
 
   if (error) {
     logError("teacher submitCvForReview failed", error, { tag: "teacher-cv", severity: "warning", metadata: { teacherId: user.id } });
     return { error: "فشل إرسال السيرة الذاتية — يرجى المحاولة مرة أخرى" };
   }
+  if (!updated) {
+    logError("teacher submitCvForReview: update matched 0 rows (RLS or missing profile)", new Error("no-rows-updated"), { tag: "teacher-cv", severity: "warning", metadata: { teacherId: user.id } });
+    return { error: "فشل إرسال السيرة الذاتية — يرجى المحاولة مرة أخرى" };
+  }
+
+  await emitEvent("teacher.cv_submitted", "teacher_profiles", user.id, {
+    submitted_by: user.id,
+  }).catch((err) =>
+    logError("submitCvForReview: emitEvent teacher.cv_submitted failed", err, {
+      tag: "teacher-cv",
+      metadata: { teacherId: user.id },
+    })
+  );
+
   revalidatePath("/teacher/cv");
   return { success: true };
 }

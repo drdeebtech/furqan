@@ -318,12 +318,14 @@ export async function gradeFollowUp(
         review_horizon: (hw as unknown as { review_horizon: string | null }).review_horizon,
         parent_assignment_id: followUpId,
       } as never);
-      if (regenErr)
+      if (regenErr) {
         logError("homework auto-regen failed", regenErr, {
           tag: "homework",
           severity: "warning",
           metadata: { followUpId, studentId: hw.student_id, grade },
         });
+        throw regenErr;
+      }
 
       // Notify student about re-assignment.
       await notify({

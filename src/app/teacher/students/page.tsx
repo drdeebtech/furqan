@@ -28,10 +28,14 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
 
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
 
+  // TODO: replace with an RPC aggregate at scale — at 50k DAU a teacher with
+  // 500+ completed bookings will hit this cap. The RPC should return
+  // per-student { total, thisMonth, lastSession } without fetching every row.
   const { data: bookingData } = await supabase.from("bookings")
     .select("student_id, scheduled_at, status")
     .eq("teacher_id", user.id).in("status", ["confirmed", "completed"])
     .order("scheduled_at", { ascending: false })
+    .limit(500)
     .returns<{ student_id: string; scheduled_at: string; status: string }[]>();
 
   const list = bookingData ?? [];

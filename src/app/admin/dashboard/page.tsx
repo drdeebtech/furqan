@@ -70,9 +70,14 @@ export default async function AdminDashboardPage() {
     revenueTrend,
   ] = await Promise.all([
     withTimeout(supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "student"), DASHBOARD_QUERY_TIMEOUT_MS, { count: 0 } as never, "studentsRes"),
-    withTimeout(supabase.from("teacher_profiles").select("teacher_id, hourly_rate, rating_avg, total_sessions, is_accepting, is_archived").order("is_archived", { ascending: true }).order("total_sessions", { ascending: false }).returns<TeacherRow[]>(), DASHBOARD_QUERY_TIMEOUT_MS, { data: [] } as never, "teachersRes"),
+    // Capped at 50: the dashboard teacher list is a summary widget, not a full
+    // directory. Full teacher management is at /admin/teachers.
+    withTimeout(supabase.from("teacher_profiles").select("teacher_id, hourly_rate, rating_avg, total_sessions, is_accepting, is_archived").order("is_archived", { ascending: true }).order("total_sessions", { ascending: false }).limit(50).returns<TeacherRow[]>(), DASHBOARD_QUERY_TIMEOUT_MS, { data: [] } as never, "teachersRes"),
     withTimeout(supabase.from("bookings").select("id", { count: "exact", head: true }).gte("created_at", startOfMonth), DASHBOARD_QUERY_TIMEOUT_MS, { count: 0 } as never, "bookingsMonthRes"),
-    withTimeout(supabase.from("bookings").select("amount_usd").eq("status", "completed").gte("created_at", startOfMonth).returns<RevenueRow[]>(), DASHBOARD_QUERY_TIMEOUT_MS, { data: [] } as never, "revenueMonthRes"),
+    // TODO: replace with a SQL SUM RPC (e.g. get_monthly_revenue_usd) — at
+    // 50k DAU this JS-side reduce touches up to 10k+ rows/month. For now
+    // capped at 10000 to prevent PostgREST silent truncation at 1000.
+    withTimeout(supabase.from("bookings").select("amount_usd").eq("status", "completed").gte("created_at", startOfMonth).limit(10000).returns<RevenueRow[]>(), DASHBOARD_QUERY_TIMEOUT_MS, { data: [] } as never, "revenueMonthRes"),
     withTimeout(supabase.from("bookings").select("id", { count: "exact", head: true }).eq("status", "pending"), DASHBOARD_QUERY_TIMEOUT_MS, { count: 0 } as never, "pendingCountRes"),
     withTimeout(supabase.from("bookings").select("id, student_id, teacher_id, scheduled_at, session_type, created_at").eq("status", "pending").order("created_at", { ascending: false }).limit(5).returns<PendingBookingRow[]>(), DASHBOARD_QUERY_TIMEOUT_MS, { data: [] } as never, "pendingListRes"),
     withTimeout(supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "student").gte("created_at", sevenDaysAgo.toISOString()), DASHBOARD_QUERY_TIMEOUT_MS, { count: 0 } as never, "newStudentsRes"),

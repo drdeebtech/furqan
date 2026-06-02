@@ -9,7 +9,24 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
-Deno.serve(async () => {
+Deno.serve(async (req: Request) => {
+  const cronSecret = Deno.env.get("CRON_SECRET");
+  const authHeader = req.headers.get("authorization");
+  const expected = cronSecret ? `Bearer ${cronSecret}` : null;
+
+  const authorized =
+    !!expected &&
+    !!authHeader &&
+    authHeader.length === expected.length &&
+    authHeader === expected;
+
+  if (!authorized) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const now = new Date();
 
   // 24h window: sessions between 23.5h and 24.5h from now
@@ -52,6 +69,9 @@ Deno.serve(async () => {
   }
 
   return new Response(JSON.stringify({ ok: true, sent }), {
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+    },
   });
 });

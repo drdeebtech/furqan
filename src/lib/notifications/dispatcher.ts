@@ -95,6 +95,10 @@ export async function notify(opts: NotifyOptions): Promise<void> {
       channel: ["in_app"],
     } as never);
 
+    if (error) {
+      logError("notify: notifications insert failed", error, { tag: "dispatcher" });
+    }
+
     after(() =>
       logDelivery(supabase, {
         recipientUserId: opts.userId,
