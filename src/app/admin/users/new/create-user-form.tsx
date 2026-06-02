@@ -5,6 +5,7 @@ import Link from "next/link";
 import { UserPlus, ArrowRight, CheckCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { createUserFromScratch } from "../actions";
+import { ActionFeedback } from "@/components/shared/action-feedback";
 
 const inputClass =
   "w-full rounded-xl glass-input px-4 py-2.5 text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus";
@@ -57,11 +58,7 @@ export function CreateUserForm() {
         <h1 className="mb-1 text-xl font-bold text-gold">{t("إنشاء مستخدم جديد", "Create New User")}</h1>
         <p className="mb-6 text-sm text-muted">{t("إضافة حساب جديد للأكاديمية", "Add a new account to the academy")}</p>
 
-        {state.error && (
-          <div role="alert" className="mb-4 rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">
-            {state.error}
-          </div>
-        )}
+        <ActionFeedback state={state} />
 
         <form action={formAction} className="space-y-4">
           {/* Full Name */}

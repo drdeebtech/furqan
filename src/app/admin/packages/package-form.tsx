@@ -5,6 +5,7 @@ import { Save, CheckCircle } from "lucide-react";
 import { savePackage } from "./actions";
 import { useLang } from "@/lib/i18n/context";
 import type { Package } from "@/types/database";
+import { ActionFeedback } from "@/components/shared/action-feedback";
 
 const PACKAGE_TYPES = [
   { value: "single_session", label: "جلسة واحدة" },
@@ -39,9 +40,7 @@ export function PackageForm({ pkg }: { pkg?: Package }) {
     <form action={formAction} className="glass-card space-y-5 p-6">
       {pkg && <input type="hidden" name="id" value={pkg.id} />}
 
-      {state?.error && (
-        <div role="alert" className="rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{state.error}</div>
-      )}
+      <ActionFeedback state={state} />
 
       {/* Package type */}
       <div>

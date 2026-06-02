@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { CheckCircle, AlertCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
+import { ActionFeedback } from "@/components/shared/action-feedback";
 import type { SiteAnnouncement } from "@/types/database";
 import {
   createAnnouncement,
@@ -177,17 +177,8 @@ export function AnnouncementForm({
         >
           {pending ? "…" : mode === "edit" ? t("حفظ", "Save") : t("إنشاء", "Create")}
         </button>
-        {state.success && (
-          <span className="flex items-center gap-1 text-sm text-success">
-            <CheckCircle size={14} /> {state.success}
-          </span>
-        )}
-        {state.error && (
-          <span role="alert" className="flex items-center gap-1 text-sm text-red-400">
-            <AlertCircle size={14} aria-hidden="true" /> {state.error}
-          </span>
-        )}
       </div>
+      <ActionFeedback state={state} />
     </form>
   );
 }

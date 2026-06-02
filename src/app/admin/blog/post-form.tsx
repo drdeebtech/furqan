@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { useLang } from "@/lib/i18n/context";
 import type { BlogPost } from "@/types/blog";
 import { savePost } from "./actions";
+import { ActionFeedback } from "@/components/shared/action-feedback";
 
 type State = { error?: string } | null;
 
@@ -44,11 +45,7 @@ export function PostForm({ post }: { post?: BlogPost }) {
     <form action={formAction} className="space-y-5" dir={dir} encType="multipart/form-data">
       {post && <input type="hidden" name="id" value={post.id} />}
 
-      {state?.error && (
-        <div role="alert" className="rounded-lg border border-error/30 bg-error/10 px-4 py-3 text-sm text-red-400">
-          {state.error}
-        </div>
-      )}
+      <ActionFeedback state={state} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <div>

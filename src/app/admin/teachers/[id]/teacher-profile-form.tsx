@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { Save } from "lucide-react";
 import { updateTeacherProfile, type ActionResult } from "./actions";
+import { ActionFeedback } from "@/components/shared/action-feedback";
 
 const input =
   "w-full rounded-xl glass-input px-4 py-2.5 text-sm text-foreground focus:border-gold focus:outline-none";
@@ -29,16 +30,7 @@ export function TeacherProfileForm({ teacherId, profile }: TeacherProfileFormPro
         <span className="me-2 text-sm font-normal text-muted">Teacher profile</span>
       </h2>
 
-      {state.error && (
-        <div role="alert" className="mb-4 rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">
-          {state.error}
-        </div>
-      )}
-      {state.success && (
-        <div className="mb-4 rounded-xl border border-success/30 bg-success/10 p-3 text-sm text-success">
-          تم الحفظ بنجاح
-        </div>
-      )}
+      <ActionFeedback state={state} />
 
       <form action={formAction} className="grid gap-4 md:grid-cols-2">
         <div>
