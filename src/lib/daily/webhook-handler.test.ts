@@ -39,7 +39,7 @@ function makeEndedPayload(overrides?: Partial<DailyPayload["data"]>): DailyPaylo
   };
 }
 
-function makeStartedPayload(): DailyPayload {
+function _makeStartedPayload(): DailyPayload {
   return {
     id: "evt_started_001",
     type: "meeting.started",
@@ -58,7 +58,7 @@ function sessionNotFound() {
   mockSingle.mockResolvedValue({ data: null, error: null });
 }
 
-function rpcEndApplied(statusOutcome = "completed") {
+function _rpcEndApplied(statusOutcome = "completed") {
   mockRpc.mockResolvedValue({
     data: [{
       booking_id:     BOOKING_ID,
@@ -72,7 +72,7 @@ function rpcEndApplied(statusOutcome = "completed") {
   });
 }
 
-function rpcEndDuplicate() {
+function _rpcEndDuplicate() {
   mockRpc.mockResolvedValue({
     data: [{
       booking_id:     BOOKING_ID,

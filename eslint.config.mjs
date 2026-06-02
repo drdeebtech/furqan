@@ -35,6 +35,8 @@ const eslintConfig = defineConfig([
     // and must not be linted by the Next.js TS config (issue #325).
     ".claude/**",
     "k6/**",
+    // External tooling directory (claude-flow / ECC scaffolding) — CJS scripts,
+    // not app source.
     "ECC/**",
   ]),
 ]);
