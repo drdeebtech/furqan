@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { Camera, Save, Mail } from "lucide-react";
+import { ActionFeedback } from "@/components/shared/action-feedback";
 import {
   updateAccount,
   updateEmail,
@@ -70,16 +71,7 @@ export function AccountForm({ teacherId, currentEmail, profile }: AccountFormPro
           <span className="me-2 text-sm font-normal text-muted">Profile Photo</span>
         </h2>
 
-        {photoState.error && (
-          <div className="mb-4 rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">
-            {photoState.error}
-          </div>
-        )}
-        {photoState.success && (
-          <div className="mb-4 rounded-xl border border-success/30 bg-success/10 p-3 text-sm text-success">
-            تم تحديث الصورة بنجاح
-          </div>
-        )}
+        <ActionFeedback state={photoState} />
 
         <form action={photoFormAction} className="flex flex-wrap items-center gap-4">
           <Avatar src={previewUrl ?? profile.avatar_url} name={profile.full_name} size={80} />
@@ -130,16 +122,7 @@ export function AccountForm({ teacherId, currentEmail, profile }: AccountFormPro
           <span className="me-2 text-sm font-normal text-muted">Email</span>
         </h2>
 
-        {emailState.error && (
-          <div className="mb-4 rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">
-            {emailState.error}
-          </div>
-        )}
-        {emailState.success && (
-          <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
-            {emailState.notice ?? "تم الحفظ"}
-          </div>
-        )}
+        <ActionFeedback state={emailState} />
 
         <form action={emailFormAction} className="flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[240px]">
@@ -175,16 +158,7 @@ export function AccountForm({ teacherId, currentEmail, profile }: AccountFormPro
           <span className="me-2 text-sm font-normal text-muted">Profile</span>
         </h2>
 
-        {accountState.error && (
-          <div className="mb-4 rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">
-            {accountState.error}
-          </div>
-        )}
-        {accountState.success && (
-          <div className="mb-4 rounded-xl border border-success/30 bg-success/10 p-3 text-sm text-success">
-            تم حفظ البيانات بنجاح
-          </div>
-        )}
+        <ActionFeedback state={accountState} />
 
         <form action={accountFormAction} className="grid gap-4 md:grid-cols-2">
           <Field label="الاسم الكامل" hint="Full name (English)" name="full_name" defaultValue={profile.full_name ?? ""} />

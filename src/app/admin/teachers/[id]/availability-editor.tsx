@@ -3,6 +3,7 @@
 import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Save, X, Pencil, CalendarX } from "lucide-react";
+import { ActionFeedback } from "@/components/shared/action-feedback";
 import {
   upsertAvailability,
   deleteAvailability,
@@ -298,11 +299,7 @@ function SlotForm({
     <form action={formAction} onSubmit={handleSubmit} className="glass-card p-4 space-y-3">
       {initial && <input type="hidden" name="id" value={initial.id} />}
 
-      {state.error && (
-        <div role="alert" className="rounded-xl border border-error/30 bg-error/10 p-2 text-xs text-error">
-          {state.error}
-        </div>
-      )}
+      <ActionFeedback state={state} />
       {overlapWarn && (
         <div className="rounded-xl border border-warning/30 bg-warning/10 p-2 text-xs text-warning">
           {overlapWarn}
@@ -458,11 +455,7 @@ function ExceptionForm({
 
   return (
     <form action={formAction} className="glass-card p-4 space-y-3">
-      {state.error && (
-        <div role="alert" className="rounded-xl border border-error/30 bg-error/10 p-2 text-xs text-error">
-          {state.error}
-        </div>
-      )}
+      <ActionFeedback state={state} />
 
       <div className="grid gap-3 md:grid-cols-3">
         <div>

@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { createEvaluation } from "@/lib/actions/evaluations";
+import { ActionFeedback } from "@/components/shared/action-feedback";
 
 type State = { error?: string; success?: boolean } | null;
 
@@ -52,11 +53,7 @@ export function EvaluationForm({ students, teachers }: Props) {
 
   return (
     <form action={formAction} className="space-y-5">
-      {state?.error && (
-        <div role="alert" className="rounded-lg border border-error/30 bg-error/10 px-4 py-3 text-sm text-red-400">
-          {state.error}
-        </div>
-      )}
+      <ActionFeedback state={state} />
 
       {/* Student & Teacher */}
       <div className="grid gap-4 md:grid-cols-2">
