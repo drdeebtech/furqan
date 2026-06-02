@@ -69,6 +69,8 @@ export const WEBHOOK_ROUTES = {
   "teacher.cv_submitted": "/webhook/furqan-cv-event",
   "teacher.cv_approved": "/webhook/furqan-cv-event",
   "teacher.cv_rejected": "/webhook/furqan-cv-event",
+  "teacher.cv_reset": "/webhook/furqan-cv-event",
+  "teacher.status_updated": "/webhook/furqan-teacher-status",
   "course.submitted": "/webhook/furqan-course-event",
   "course.approved": "/webhook/furqan-course-event",
   "course.rejected": "/webhook/furqan-course-event",
