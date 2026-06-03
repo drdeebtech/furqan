@@ -54,12 +54,14 @@ const MAX_BOOKINGS_PER_HOUR = 10;
 async function checkRateLimit(userId: string): Promise<boolean> {
   const admin = createAdminClient();
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const { count } = await admin
+  const { count, error: countError } = await admin
     .from("automation_logs")
     .select("id", { count: "exact", head: true })
     .eq("workflow_name", "booking-attempt")
     .eq("entity_id", userId)
     .gte("started_at", oneHourAgo);
+
+  if (countError) throw countError;
 
   if ((count ?? 0) >= MAX_BOOKINGS_PER_HOUR) return false;
 
