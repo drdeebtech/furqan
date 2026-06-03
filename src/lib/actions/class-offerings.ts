@@ -349,9 +349,10 @@ export const cancelOffering = loudAction<{ id: string; reason?: string }, void>(
     if (error) throw new UserError("فشل إلغاء الجلسة", { cause: error });
 
     if (reason) {
-      const { error: descErr } = await supabase.from("class_offerings").update({
-        description: `[CANCELLED] ${reason}`,
-      } as never).eq("id", id);
+      const { error: descErr } = await supabase
+        .from("class_offerings")
+        .update({ description: `[CANCELLED] ${reason}` } satisfies TableUpdate<"class_offerings">)
+        .eq("id", id);
       if (descErr) {
         logError("class-offerings cancel description update failed", descErr, { tag: "class-offerings" });
       }

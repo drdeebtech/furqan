@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
-import type { TableUpdate } from "@/lib/supabase/typed-helpers";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { loudAction } from "@/lib/actions/loud";
 
 class UserError extends Error {
@@ -71,7 +71,7 @@ export const writeReview = loudAction<FormData, void>({
           stars,
           comment,
           status: "published",
-        } as never,
+        } satisfies TableInsert<"course_reviews">,
         { onConflict: "student_id,course_id" },
       );
 

@@ -17,20 +17,20 @@ export default function SentryMetricsTest() {
     Sentry.metrics.count("client_button_click", 1, {
       attributes: { button: "test_metrics" },
     });
-    alert("Client metric sent! Check Sentry → Explore → Metrics");
+    alert("تم إرسال المقياس! تحقق من Sentry → Explore → Metrics");
   };
 
   return (
     <div className="glass-card p-5 m-5 max-w-sm">
-      <h3 className="text-white font-bold mb-2">Sentry Metrics Test</h3>
+      <h3 className="text-white font-bold mb-2">اختبار مقاييس Sentry</h3>
       <p className="text-white/60 text-sm mb-4">
-        Client-side metric fired on page load.
+        مقياس من جهة العميل يُرسَل عند تحميل الصفحة.
       </p>
       <button
         onClick={handleTestClick}
         className="glass glass-gold px-4 py-2 text-sm rounded"
       >
-        Send Client Metric
+        إرسال مقياس العميل
       </button>
     </div>
   );

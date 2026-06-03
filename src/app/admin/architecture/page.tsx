@@ -30,9 +30,9 @@ export default function ArchitecturePage() {
     <div className="space-y-8 p-6">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">بنية قاعدة الكود</h1>
-        <p className="text-sm text-white/60 mt-0.5">Codebase Architecture</p>
-        <p className="text-xs text-white/40 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">بنية قاعدة الكود</h1>
+        <p className="text-sm text-foreground/60 mt-0.5">Codebase Architecture</p>
+        <p className="text-xs text-foreground/40 mt-1">
           ٢٬٠٤٨ رمز · ٣٬٩٤٣ علاقة · ١٠ طبقات
           <span className="mx-2 opacity-50">·</span>
           2,048 symbols · 3,943 relationships · 10 layers
@@ -44,8 +44,8 @@ export default function ArchitecturePage() {
         {STATS.map((s) => (
           <div key={s.labelEn} className="glass-card p-4 text-center">
             <p className="text-2xl font-bold text-amber-400">{s.value}</p>
-            <p className="text-sm text-white font-medium mt-0.5">{s.labelAr}</p>
-            <p className="text-xs text-white/50">{s.labelEn}</p>
+            <p className="text-sm text-foreground font-medium mt-0.5">{s.labelAr}</p>
+            <p className="text-xs text-foreground/50">{s.labelEn}</p>
           </div>
         ))}
       </div>
@@ -62,16 +62,16 @@ export default function ArchitecturePage() {
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-semibold text-white leading-tight">
+                  <p className="font-semibold text-foreground leading-tight">
                     {layer.nameAr}
                   </p>
-                  <p className="text-xs text-white/50 mt-0.5">{layer.name}</p>
+                  <p className="text-xs text-foreground/50 mt-0.5">{layer.name}</p>
                 </div>
-                <span className="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/70 whitespace-nowrap">
+                <span className="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-xs text-foreground/70 whitespace-nowrap">
                   {layer.totalNodes} رمز
                 </span>
               </div>
-              <p className="text-sm text-white/70 mt-2 leading-relaxed">
+              <p className="text-sm text-foreground/70 mt-2 leading-relaxed">
                 {layer.description}
               </p>
               <div className="w-full bg-white/10 rounded-full h-2 mt-3">

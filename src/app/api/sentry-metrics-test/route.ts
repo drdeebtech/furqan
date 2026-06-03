@@ -3,9 +3,11 @@ import { NextResponse } from "next/server";
 
 // Smoke-test endpoint: fires one of each Sentry custom metric type so you
 // can verify metrics are flowing to manaracode.sentry.io/explore/metrics/.
-// Not auth-gated intentionally — it emits zero sensitive data and is the
-// only route we need to hit unauthenticated to verify the pipeline.
+// Restricted to non-production to prevent Sentry quota spam at 50k DAU.
 export async function GET() {
+  if (process.env.NODE_ENV === "production") {
+    return Response.json({ error: "not available in production" }, { status: 404 });
+  }
   Sentry.metrics.count("test_metric_count", 1, {
     attributes: { environment: process.env.NODE_ENV ?? "development" },
   });

@@ -8,6 +8,14 @@ on:
       - ".understand-anything/knowledge-graph.json"
 
 jobs:
+  # Skip job runs when the paths filter doesn't match so this check never
+  # blocks PRs that don't touch TS files (required-check safety valve).
+  skip-check:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' && !contains(toJSON(github.event.pull_request.changed_files), 'src/') }}
+    steps:
+      - run: echo "No TS files changed — skipping cycle detection"
+
   detect-cycles:
     runs-on: ubuntu-latest
     steps:
