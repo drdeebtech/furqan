@@ -1,0 +1,19 @@
+name: Import Cycle Detection
+
+on:
+  pull_request:
+    paths:
+      - "src/**/*.ts"
+      - "src/**/*.tsx"
+      - ".understand-anything/knowledge-graph.json"
+
+jobs:
+  detect-cycles:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Detect import cycles
+        run: node scripts/detect-cycles.js

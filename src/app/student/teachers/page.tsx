@@ -3,26 +3,12 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
-import type { GenderType } from "@/types/database";
 import { Skeleton } from "@/components/shared/skeleton";
 import { getActiveTeacherSpecialties } from "@/lib/site-content/queries";
 import { TeacherList } from "./teacher-list";
+import type { TeacherData } from "./types";
 
 export const metadata: Metadata = { title: "المعلمون" };
-
-export interface TeacherData {
-  teacher_id: string;
-  name: string;
-  nameAr: string | null;
-  bio: string | null;
-  bio_en: string | null;
-  specialties: string[];
-  recitation_standards: string[];
-  hourly_rate: number;
-  rating_avg: number;
-  total_sessions: number;
-  gender: GenderType | null;
-}
 
 export default async function TeachersPage() {
   const { t, dir } = await getT();
