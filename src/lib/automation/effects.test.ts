@@ -94,7 +94,7 @@ describe("EVENT_EFFECTS / dispatchEffects", () => {
 
   it("only declares the migrated events (scope guard for this PR)", () => {
     expect(Object.keys(EVENT_EFFECTS).sort()).toEqual(
-      ["booking.created", "homework.assigned"].sort(),
+      ["booking.created", "homework.assigned", "session.no_show"].sort(),
     );
   });
 });
