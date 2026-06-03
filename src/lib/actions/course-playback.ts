@@ -213,6 +213,18 @@ export async function markLessonComplete(lessonId: string) {
     .single<{ id: string }>();
   if (!enrollment) return { ok: false as const, error: "غير ملتحق بالدورة" };
 
+  // Guard against double-emit: read existing completion state before upserting.
+  // upsertLessonProgress already fires lesson.completed when the watch ratio
+  // crosses 90% — re-calling this on an already-completed lesson must not
+  // re-trigger n8n automations.
+  const { data: existing } = await supabase
+    .from("course_lesson_progress")
+    .select("completed_at")
+    .eq("enrollment_id", enrollment.id)
+    .eq("lesson_id", lessonId)
+    .maybeSingle<{ completed_at: string | null }>();
+  const alreadyCompleted = !!existing?.completed_at;
+
   const now = new Date().toISOString();
   const { error } = await supabase
     .from("course_lesson_progress")
@@ -226,13 +238,15 @@ export async function markLessonComplete(lessonId: string) {
     return { ok: false as const, error: error.message };
   }
 
-  await emitEvent("lesson.completed", "course_lesson", lessonId, {
-    enrollment_id: enrollment.id,
-    student_id: user.id,
-    via: "manual",
-  }, user.id).catch((err) =>
-    logError("emit lesson.completed failed", err, { tag: "course-playback" }),
-  );
+  if (!alreadyCompleted) {
+    await emitEvent("lesson.completed", "course_lesson", lessonId, {
+      enrollment_id: enrollment.id,
+      student_id: user.id,
+      via: "manual",
+    }, user.id).catch((err) =>
+      logError("emit lesson.completed failed", err, { tag: "course-playback" }),
+    );
+  }
 
   revalidatePath("/student/dashboard");
   revalidatePath("/student/courses");

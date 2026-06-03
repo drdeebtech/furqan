@@ -47,3 +47,34 @@ export class SessionEndError extends Error {
     this.name = "SessionEndError";
   }
 }
+
+/** Structured input for `startInstantSession`. The route adapter authorizes
+ *  (teacher is active) and resolves the teacher's hourly_rate before calling. */
+export interface StartInstantSessionInput {
+  teacherId: string;
+  studentId: string;
+  durationMin: 30 | 45 | 60;
+  /** Pre-fetched from teacher_profiles so the orchestrator stays auth-free. */
+  hourlyRate: number;
+}
+
+export interface StartInstantSessionResult {
+  sessionId: string;
+  bookingId: string;
+  roomUrl: string;
+}
+
+/** Any orchestration failure during instant-session creation. */
+export class StartInstantSessionError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "StartInstantSessionError";
+  }
+}
+
+/** Structured input for `recordNoShow`. The route adapter authorizes
+ *  (teacher owns the booking) before calling. */
+export interface RecordNoShowInput {
+  bookingId: string;
+  actorId: string;
+}

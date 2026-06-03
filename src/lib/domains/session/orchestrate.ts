@@ -4,13 +4,29 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { callRpc } from "@/lib/supabase/rpc";
 import { notify } from "@/lib/notifications/dispatcher";
-import { notifyParentSessionComplete } from "@/lib/notifications/parent";
+import {
+  notifyParentSessionComplete,
+  notifyParentNoShow,
+} from "@/lib/notifications/parent";
 import { emitEvent } from "@/lib/automation/emit";
+import { dispatchEffects } from "@/lib/automation/effects";
 import { logError } from "@/lib/logger";
-import type { TableInsert } from "@/lib/supabase/typed-helpers";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import type { Database } from "@/types/supabase.generated";
-import { SessionEndError, SessionNotFoundError } from "./types";
-import type { EndSessionInput, EndSessionResult } from "./types";
+import { selectActivePackage, debitPackage } from "@/lib/domains/package/ledger";
+import { createRoom } from "@/lib/daily";
+import {
+  SessionEndError,
+  SessionNotFoundError,
+  StartInstantSessionError,
+} from "./types";
+import type {
+  EndSessionInput,
+  EndSessionResult,
+  StartInstantSessionInput,
+  StartInstantSessionResult,
+  RecordNoShowInput,
+} from "./types";
 
 /**
  * Session domain — use-case orchestrator (ADR-0004).
@@ -240,4 +256,244 @@ async function writeDiffAudit(
     .then((r: { error: unknown }) => {
       if (r.error) logError("endSession: diff audit insert failed", r.error, { tag: "session" });
     });
+}
+
+/**
+ * Instant-session orchestrator (ADR-0004).
+ *
+ * Consolidates the business logic that lived in `teacher/dashboard/actions.ts`
+ * `startInstantSession`. The route adapter now:
+ *   1. Authenticates the teacher (gets user.id).
+ *   2. Validates durationMin (30 | 45 | 60).
+ *   3. Fetches teacher_profiles.hourly_rate.
+ *   4. Calls this orchestrator.
+ *   5. Maps the result / error to a UI-facing response shape.
+ *   6. Calls revalidatePath.
+ *
+ * This orchestrator adds the previously missing `emitEvent("session.instant_started")`,
+ * which was the root cause of instant sessions being invisible to n8n automation.
+ *
+ * Sequence:
+ *   1. Check + debit active student package (FR-009). Fails fast with a typed error
+ *      so no booking is created when the student has no balance.
+ *   2. Insert confirmed booking (status="confirmed", teacher_confirmed=true).
+ *   3. Create Daily.co room (2 h TTL).
+ *   4. Insert sessions row.
+ *   5. Best-effort: notify student in-app; emitEvent("session.instant_started").
+ */
+export async function startInstantSession(
+  input: StartInstantSessionInput,
+): Promise<StartInstantSessionResult> {
+  const { teacherId, studentId, durationMin, hourlyRate } = input;
+  const admin = createAdminClient();
+  const scheduledAt = new Date();
+  const amountUsd = Number((hourlyRate * (durationMin / 60)).toFixed(2));
+
+  // Package balance check before any booking write (FR-009).
+  const activePkg = await selectActivePackage(admin, studentId);
+  if (!activePkg) {
+    throw new StartInstantSessionError(
+      "لا توجد باقة نشطة للطالب — يرجى تجديد الاشتراك",
+    );
+  }
+
+  const debit = await debitPackage(admin, activePkg.id);
+  if (!debit.ok) {
+    const msg =
+      debit.reason === "exhausted"
+        ? "هذه الباقة منتهية أو مستهلكة"
+        : "تعذر خصم رصيد الباقة";
+    throw new StartInstantSessionError(msg);
+  }
+
+  // Insert booking (already confirmed — teacher is creating it directly).
+  const { data: booking, error: bookingErr } = await admin
+    .from("bookings")
+    .insert({
+      student_id: studentId,
+      teacher_id: teacherId,
+      session_type: "hifz",
+      duration_min: durationMin,
+      rate_snapshot: hourlyRate,
+      amount_usd: amountUsd,
+      scheduled_at: scheduledAt.toISOString(),
+      status: "confirmed",
+      teacher_confirmed: true,
+      teacher_confirmed_at: scheduledAt.toISOString(),
+    } satisfies TableInsert<"bookings">)
+    .select("id")
+    .single<{ id: string }>();
+
+  if (bookingErr || !booking) {
+    throw new StartInstantSessionError("حدث خطأ في إنشاء الحجز", {
+      cause: bookingErr,
+    });
+  }
+
+  // Create Daily.co room (2 h TTL).
+  const expiresAt = new Date(scheduledAt.getTime() + 2 * 60 * 60 * 1000);
+  const roomName = `furqan-${booking.id.replace(/-/g, "")}`;
+  let room: { name: string; url: string };
+  try {
+    room = await createRoom(roomName, expiresAt);
+  } catch (err) {
+    throw new StartInstantSessionError(
+      "تم إنشاء الحجز لكن فشل إنشاء غرفة الفيديو",
+      { cause: err },
+    );
+  }
+
+  // Insert session record.
+  const { data: sess, error: sessErr } = await admin
+    .from("sessions")
+    .insert({
+      booking_id: booking.id,
+      room_name: room.name,
+      room_url: room.url,
+      expires_at: expiresAt.toISOString(),
+      created_via: "manual",
+    } satisfies TableInsert<"sessions">)
+    .select("id")
+    .single<{ id: string }>();
+
+  if (sessErr || !sess) {
+    throw new StartInstantSessionError(
+      "تم إنشاء الحجز لكن فشل تسجيل الجلسة",
+      { cause: sessErr },
+    );
+  }
+
+  // ── Best-effort post-commit — failures logged, never thrown ───────────────
+  try {
+    await notify({
+      userId: studentId,
+      type: "booking",
+      title: "جلسة فورية",
+      body: "المعلم بدأ جلسة فورية — انضم الآن!",
+      entityType: "booking",
+      entityId: booking.id,
+    });
+  } catch (err) {
+    logError("startInstantSession: notify student failed", err, {
+      component: "session.orchestrate.startInstantSession",
+      metadata: { studentId, bookingId: booking.id },
+    });
+  }
+
+  await emitEvent(
+    "session.instant_started",
+    "session",
+    sess.id,
+    {
+      booking_id: booking.id,
+      teacher_id: teacherId,
+      student_id: studentId,
+      duration_min: durationMin,
+      room_url: room.url,
+    },
+    teacherId,
+  ).catch((err) =>
+    logError("emit session.instant_started failed", err, {
+      tag: "automation",
+      event: "session.instant_started",
+    }),
+  );
+
+  return { sessionId: sess.id, bookingId: booking.id, roomUrl: room.url };
+}
+
+/**
+ * No-show orchestrator (ADR-0004).
+ *
+ * Moves the cross-domain fan-out that lived in `teacher/dashboard/actions.ts`
+ * `markNoShow` (handler section). The route adapter now:
+ *   1. Authenticates the teacher (gets actorId).
+ *   2. Verifies the booking belongs to the teacher (SELECT scoped to teacher_id).
+ *   3. Calls this orchestrator.
+ *   4. Maps the result to `{ message }` for the loudAction response.
+ *   5. Calls revalidatePath.
+ *
+ * Sequence:
+ *   1. Read booking parties (needed for notifications).
+ *   2. UPDATE bookings.status = 'no_show' (atomic).
+ *   3. UPDATE sessions.ended_at (best-effort — session row may not exist).
+ *   4. dispatchEffects("session.no_show") → student in-app notify via EVENT_EFFECTS.
+ *   5. notifyParentNoShow — complex parent lookup + report insert; cannot be
+ *      an EffectResolver because it does its own DB reads and is not pure.
+ *   6. emitEvent("session.no_show") → n8n / parent automation.
+ */
+export async function recordNoShow(input: RecordNoShowInput): Promise<void> {
+  const { bookingId, actorId } = input;
+  const admin = createAdminClient();
+
+  // Pre-read booking parties for notification fan-out.
+  const { data: booking, error: bookReadErr } = await admin
+    .from("bookings")
+    .select("student_id, teacher_id")
+    .eq("id", bookingId)
+    .maybeSingle<{ student_id: string; teacher_id: string }>();
+
+  if (bookReadErr) {
+    throw new Error("recordNoShow: booking read failed");
+  }
+  if (!booking) {
+    throw new Error("الحجز غير موجود");
+  }
+
+  // Atomic status update.
+  const { error } = await admin
+    .from("bookings")
+    .update({ status: "no_show" } satisfies TableUpdate<"bookings">)
+    .eq("id", bookingId);
+
+  if (error) throw error;
+
+  // Mark session ended — non-blocking (no-show may occur before session starts).
+  await admin
+    .from("sessions")
+    .update({ ended_at: new Date().toISOString() } satisfies TableUpdate<"sessions">)
+    .eq("booking_id", bookingId)
+    .then((r: { error: unknown }) => {
+      if (r.error) {
+        logError("recordNoShow: sessions ended_at update failed", r.error, {
+          tag: "session",
+          metadata: { bookingId },
+        });
+      }
+    });
+
+  // ── Best-effort post-commit — failures logged, never thrown ───────────────
+  // In-app student notification via the declarative effects map.
+  await dispatchEffects("session.no_show", {
+    studentId: booking.student_id,
+    entityType: "booking",
+    entityId: bookingId,
+  });
+
+  try {
+    await notifyParentNoShow(
+      booking.student_id,
+      actorId,
+      new Date().toISOString(),
+      actorId,
+    );
+  } catch (err) {
+    logError("recordNoShow: notifyParentNoShow failed", err, {
+      component: "session.orchestrate.recordNoShow",
+      metadata: { bookingId, student_id: booking.student_id },
+    });
+  }
+
+  await emitEvent(
+    "session.no_show",
+    "booking",
+    bookingId,
+    { student_id: booking.student_id, teacher_id: booking.teacher_id },
+    actorId,
+  ).catch((err) =>
+    logError("emit session.no_show failed", err, {
+      tag: "automation",
+      event: "session.no_show",
+    }),
+  );
 }

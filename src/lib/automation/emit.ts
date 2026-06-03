@@ -51,6 +51,7 @@ export const WEBHOOK_ROUTES = {
   "booking.cancelled": "/webhook/furqan-booking-cancelled",
   "booking.status_changed": "/webhook/furqan-booking-status-changed",
   "session.ended": "/webhook/furqan-session-ended",
+  "session.instant_started": "/webhook/furqan-session-instant-started",
   "session.notes_saved": "/webhook/furqan-session-notes-saved",
   "session.no_show": "/webhook/furqan-no-show-parent",
   "session.auto_completed": "/webhook/furqan-session-auto-completed",
