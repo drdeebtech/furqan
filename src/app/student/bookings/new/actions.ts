@@ -4,6 +4,7 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 import { checkBotId } from "botid/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { SessionType } from "@/types/database";
 import { notifyNewBooking } from "@/lib/whatsapp";
 import { emitEvent } from "@/lib/automation/emit";
@@ -46,18 +47,21 @@ const MAX_BOOKINGS_PER_HOUR = 10;
  * DB-backed rate limiter. Writes each attempt to automation_logs and counts
  * entries for this user in the last hour. Works across Fluid Compute instances
  * (no per-instance state) and survives cold starts. Cost: one DB query per call.
+ *
+ * Uses admin client because automation_logs has RLS enabled — the student
+ * role has no SELECT/INSERT grants on that table (Sentry FURQAN-2R).
  */
-async function checkRateLimit(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-): Promise<boolean> {
+async function checkRateLimit(userId: string): Promise<boolean> {
+  const admin = createAdminClient();
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const { count } = await supabase
+  const { count, error: countError } = await admin
     .from("automation_logs")
     .select("id", { count: "exact", head: true })
     .eq("workflow_name", "booking-attempt")
     .eq("entity_id", userId)
     .gte("started_at", oneHourAgo);
+
+  if (countError) throw countError;
 
   if ((count ?? 0) >= MAX_BOOKINGS_PER_HOUR) return false;
 
@@ -66,7 +70,7 @@ async function checkRateLimit(
   // insert failure makes the limiter unenforceable — every attempt looks
   // like the first. Fail open (still return true so the user can book) but
   // log loudly so the broken limiter is visible.
-  const { error: autoLogError } = await supabase.from("automation_logs").insert({
+  const { error: autoLogError } = await admin.from("automation_logs").insert({
     workflow_name: "booking-attempt",
     event_name: "booking.attempt",
     entity_type: "user",
@@ -147,7 +151,7 @@ export async function createBooking(
   // Durable rate limiting — DB-backed so it works across Fluid Compute instances.
   // Stays at the route adapter (writes to automation_logs, not bookings).
   try {
-    if (!(await checkRateLimit(supabase, studentId))) {
+    if (!(await checkRateLimit(studentId))) {
       return { error: "لقد تجاوزت الحد المسموح — حاول لاحقاً" };
     }
   } catch (err) {

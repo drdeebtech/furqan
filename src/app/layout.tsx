@@ -132,7 +132,10 @@ export default async function RootLayout({
       className={`${inter.variable} ${rakkas.variable} ${body.variable} h-full antialiased`}
     >
       <head>
-        <script src="/sw-register.js" defer nonce={nonce} />
+        {/* suppressHydrationWarning: browsers strip the nonce attr from the
+            DOM after CSP validation, so React hydration sees a mismatch.
+            This suppresses the false-positive Sentry error (FURQAN-2H). */}
+        <script src="/sw-register.js" defer nonce={nonce} suppressHydrationWarning />
       </head>
       <body className="min-h-full flex flex-col">
         <a
