@@ -307,6 +307,8 @@ export async function startInstantSession(
   }
 
   // Insert booking (already confirmed — teacher is creating it directly).
+  // student_package_id is stamped so restore_student_package() can credit back
+  // on cancellation (trigger checks IS NOT NULL).
   const { data: booking, error: bookingErr } = await admin
     .from("bookings")
     .insert({
@@ -320,6 +322,7 @@ export async function startInstantSession(
       status: "confirmed",
       teacher_confirmed: true,
       teacher_confirmed_at: scheduledAt.toISOString(),
+      student_package_id: activePkg.id,
     } satisfies TableInsert<"bookings">)
     .select("id")
     .single<{ id: string }>();
@@ -330,6 +333,23 @@ export async function startInstantSession(
     });
   }
 
+  // Compensating cancel helper — restores the debited credit if a later step
+  // fails. Cancelling the confirmed booking fires restore_student_package().
+  const cancelBooking = async () => {
+    await admin
+      .from("bookings")
+      .update({ status: "cancelled" } satisfies TableUpdate<"bookings">)
+      .eq("id", booking.id)
+      .then((r: { error: unknown }) => {
+        if (r.error) {
+          logError("startInstantSession: compensating cancel failed", r.error, {
+            component: "session.orchestrate.startInstantSession",
+            metadata: { bookingId: booking.id },
+          });
+        }
+      });
+  };
+
   // Create Daily.co room (2 h TTL).
   const expiresAt = new Date(scheduledAt.getTime() + 2 * 60 * 60 * 1000);
   const roomName = `furqan-${booking.id.replace(/-/g, "")}`;
@@ -337,6 +357,7 @@ export async function startInstantSession(
   try {
     room = await createRoom(roomName, expiresAt);
   } catch (err) {
+    await cancelBooking();
     throw new StartInstantSessionError(
       "تم إنشاء الحجز لكن فشل إنشاء غرفة الفيديو",
       { cause: err },
@@ -357,6 +378,7 @@ export async function startInstantSession(
     .single<{ id: string }>();
 
   if (sessErr || !sess) {
+    await cancelBooking();
     throw new StartInstantSessionError(
       "تم إنشاء الحجز لكن فشل تسجيل الجلسة",
       { cause: sessErr },
