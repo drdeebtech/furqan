@@ -78,16 +78,16 @@ export async function saveArticle(
     .insert(insert)
     .select("id")
     .single<{ id: string }>();
-  if (error) {
-    logError("help.saveArticle insert failed", error, { tag: "help" });
-    if (error.message.includes("duplicate")) {
+  if (error || !data) {
+    if (error?.message.includes("duplicate")) {
       return { error: "هذا الـ slug مستخدم بالفعل" };
     }
-    return { error: error.message };
+    if (error) logError("help.saveArticle insert failed", error, { tag: "help" });
+    return { error: error?.message ?? "لم يتم إنشاء السجل" };
   }
   revalidatePath("/admin/help");
   revalidatePath("/help");
-  return { ok: true, id: data!.id, slug };
+  return { ok: true, id: data.id, slug };
 }
 
 // ─── deleteArticle ──────────────────────────────────────────────────────────

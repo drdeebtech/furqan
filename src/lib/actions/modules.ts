@@ -65,15 +65,15 @@ export async function createModule(
     .insert(insert)
     .select("id")
     .single<{ id: string }>();
-  if (error) {
-    logError("createModule failed", error, { tag: "modules", courseId });
-    return { ok: false, error: error.message };
+  if (error || !data) {
+    if (error) logError("createModule failed", error, { tag: "modules", courseId });
+    return { ok: false, error: error?.message ?? "لم يتم إنشاء السجل" };
   }
 
   revalidatePath(`/teacher/courses/${courseId}`);
   revalidatePath(`/teacher/courses/${courseId}/modules`);
   revalidatePath(`/student/courses/${courseId}`);
-  return { ok: true, id: data!.id };
+  return { ok: true, id: data.id };
 }
 
 // ─── updateModule ───────────────────────────────────────────────────────────

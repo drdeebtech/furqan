@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { notify } from "@/lib/notifications/dispatcher";
 import { requireAdmin as requireAdminStrict, ForbiddenError } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
+import { emitEvent } from "@/lib/automation/emit";
 
 export interface ModerationResult {
   success?: string;
@@ -83,6 +84,8 @@ export async function hideMessage(
 
   if (updateErr) return { error: "فشل إخفاء الرسالة" };
 
+  void emitEvent("message.hidden", "message", messageId, { hidden: true, hidden_by: auth.userId }, auth.userId);
+
   await admin.from("audit_log").insert({
     changed_by: auth.userId,
     table_name: "messages",
@@ -128,6 +131,8 @@ export async function clearMessageFlag(messageId: string): Promise<ModerationRes
     .eq("id", messageId);
 
   if (updateErr) return { error: "فشل إزالة العلامة" };
+
+  void emitEvent("message.flag_cleared", "message", messageId, { flag_cleared_by: auth.userId }, auth.userId);
 
   await admin.from("audit_log").insert({
     changed_by: auth.userId,
