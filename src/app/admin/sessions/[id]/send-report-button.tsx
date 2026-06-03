@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { Mail } from "lucide-react";
 import { sendSessionNarrative } from "@/lib/reports/send-narrative";
+import { ActionFeedback } from "@/components/shared/action-feedback";
 
 interface Props {
   sessionId: string;
@@ -16,7 +17,7 @@ export function SendReportButton({ sessionId, actorId }: Props) {
   );
 
   return (
-    <form action={formAction} className="inline-flex">
+    <form action={formAction} className="inline-flex flex-col gap-2">
       <button
         type="submit"
         disabled={pending || state?.ok === true}
@@ -25,7 +26,6 @@ export function SendReportButton({ sessionId, actorId }: Props) {
             ? "border-success/30 bg-success/10 text-success"
             : "border-gold/30 bg-gold/10 text-gold hover:bg-gold/20"
         }`}
-        title={state?.error}
       >
         <Mail size={16} />
         {pending
@@ -36,6 +36,7 @@ export function SendReportButton({ sessionId, actorId }: Props) {
               ? "✓ أُرسل لولي الأمر"
               : "إرسال تقرير للوالد"}
       </button>
+      <ActionFeedback state={state} />
     </form>
   );
 }

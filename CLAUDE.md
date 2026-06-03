@@ -1,7 +1,7 @@
 @AGENTS.md
 
 # currentDate
-Today's date is 2026-05-12.
+Today's date is 2026-06-02.
 
 # Git Identity Rule
 Before ANY commit:
@@ -35,7 +35,7 @@ FURQAN is built for **50,000 users**. Every plan, design, and implementation cho
 
 **Conflict / drift policy:** if a plan, PR, ADR, slash command, or agent recommendation conflicts with the 50k target — **stop and notify the operator.** State the conflict, name the 50k-fitting alternative, ask before continuing.
 
-**Cross-references:** `.specify/memory/constitution.md` Additional Constraints mirrors this; memory file `~/.claude/projects/-Users-drdeeb-furqan/memory/project_furqan_scale.md` carries it forward; supersedes any older sizing assumption in `.impeccable.md`, `ROADMAP.md`, or pre-50k docs.
+**Cross-references:** `.specify/memory/constitution.md` Additional Constraints mirrors this; memory file `~/.claude/projects/-home-drdeeb-furqan/memory/project_furqan_scale.md` carries it forward; supersedes any older sizing assumption in `.impeccable.md`, `ROADMAP.md`, or pre-50k docs.
 
 # Branch Hygiene Rule (NON-NEGOTIABLE)
 
@@ -60,7 +60,7 @@ The fourth check is the one that catches *retired* work — code on main, then d
 
 **Conflict / drift policy:** if you're about to commit on the wrong branch, make a `v2`, push WIP without same-day PR, or fix something without the four checks — **stop and notify the operator.** State conflict, suggest alternative, ask before continuing.
 
-**Cross-references:** `.specify/memory/constitution.md` mirrors this; memory file `~/.claude/projects/-Users-drdeeb-furqan/memory/feedback_branch_hygiene.md` carries it forward.
+**Cross-references:** `.specify/memory/constitution.md` mirrors this; memory file `~/.claude/projects/-home-drdeeb-furqan/memory/feedback_branch_hygiene.md` carries it forward.
 
 # Project Reference
 
@@ -119,3 +119,5 @@ Edit, commit, push to `main`. CI runs `supabase db push --linked` — that is th
 ---
 
 > Reference material (key architecture, env vars, Sentry convention, Supabase MCP gotcha, preview isolation, verification checklist, agent skills): `docs/agents/CLAUDE-reference.md`
+
+

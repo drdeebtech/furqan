@@ -26,6 +26,10 @@ export function SessionTimer({
   const [elapsed, setElapsed] = useState(0);
   const halfwayFiredRef = useRef(false);
   const finishedFiredRef = useRef(false);
+  const onHalfwayRef = useRef(onHalfway);
+  const onFinishedRef = useRef(onFinished);
+  useEffect(() => { onHalfwayRef.current = onHalfway; }, [onHalfway]);
+  useEffect(() => { onFinishedRef.current = onFinished; }, [onFinished]);
 
   useEffect(() => {
     const startMs = new Date(startedAt).getTime();
@@ -44,15 +48,15 @@ export function SessionTimer({
   useEffect(() => {
     if (!halfwayFiredRef.current && elapsed >= scheduled / 2 && elapsed < scheduled) {
       halfwayFiredRef.current = true;
-      onHalfway?.();
+      onHalfwayRef.current?.();
     }
     if (!finishedFiredRef.current && elapsed >= scheduled) {
       finishedFiredRef.current = true;
       // If we cross the finish line, the halfway event is no longer useful.
       halfwayFiredRef.current = true;
-      onFinished?.();
+      onFinishedRef.current?.();
     }
-  }, [elapsed, scheduled, onHalfway, onFinished]);
+  }, [elapsed, scheduled]);
 
   return (
     <div

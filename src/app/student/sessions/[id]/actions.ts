@@ -1,11 +1,13 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createMeetingToken } from "@/lib/daily";
 import { logError } from "@/lib/logger";
+import { emitEvent } from "@/lib/automation/emit";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
-import type { TableUpdate } from "@/lib/supabase/typed-helpers";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
 class UserError extends Error {
   readonly userError = true;
@@ -185,13 +187,13 @@ const submitReviewBase = loudAction<SubmitReviewInput, { message: string }>({
     if (bookingErr || !booking) throw notFoundOrInfra(bookingErr, "الحجز غير موجود");
     if (booking.student_id !== actorId) throw new UserError("ليس لديك صلاحية لتقييم هذه الجلسة");
 
-    const { error } = await supabase.from("reviews").insert({
+    const { data: newReview, error } = await supabase.from("reviews").insert({
       booking_id: session.booking_id,
       student_id: actorId!,
       teacher_id: booking.teacher_id,
       rating,
       comment,
-    } as never);
+    } satisfies TableInsert<"reviews">).select("id").maybeSingle<{ id: string }>();
     if (error) {
       if (error.code === "23505") {
         // Duplicate review — pure user-input mistake, silent passthrough.
@@ -199,6 +201,24 @@ const submitReviewBase = loudAction<SubmitReviewInput, { message: string }>({
       }
       throw new UserError("حدث خطأ أثناء حفظ التقييم", { cause: error });
     }
+
+    await emitEvent("review.created", "reviews", newReview?.id ?? session.booking_id, {
+      session_id: sessionId,
+      booking_id: session.booking_id,
+      student_id: actorId!,
+      teacher_id: booking.teacher_id,
+      rating,
+    }).catch((err) =>
+      logError("submitReview: emitEvent review.created failed", err, {
+        tag: "student.session",
+        metadata: { sessionId, bookingId: session.booking_id },
+      })
+    );
+
+    revalidatePath(`/student/sessions/${sessionId}`);
+    revalidatePath("/student/sessions");
+    revalidatePath(`/teacher/sessions/${sessionId}`);
+
     return { message: "submitted" };
   },
 });

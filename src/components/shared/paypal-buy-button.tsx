@@ -80,10 +80,8 @@ export function PayPalBuyButton({ packageId, currency }: Props) {
             router.push("/student/packages?welcome=1");
             router.refresh();
           }}
-          onError={(err) => {
-            const msg = err instanceof Error ? err.message : String(err);
+          onError={() => {
             setError(t("فشل الدفع. حاول مرة أخرى.", "Payment failed. Please try again."));
-            console.error("[paypal] onError", msg);
           }}
         />
       </PayPalScriptProvider>

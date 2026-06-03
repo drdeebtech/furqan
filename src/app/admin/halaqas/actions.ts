@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createSessionRoom } from "@/lib/sessions/room-creation";
 import { logError } from "@/lib/logger";
+import type { TableInsert } from "@/lib/supabase/typed-helpers";
 
 export interface CreateHalaqaState {
   ok?: boolean;
@@ -48,8 +49,12 @@ export async function createHalaqa(
   _prev: CreateHalaqaState,
   formData: FormData,
 ): Promise<CreateHalaqaState> {
+  let adminId: string;
   try {
     await requireAdmin();
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    adminId = user!.id;
   } catch (err) {
     return { error: err instanceof Error ? err.message : "غير مصرح" };
   }
@@ -147,7 +152,7 @@ export async function createHalaqa(
       user_id: teacherId,
       role: "teacher",
       attendance_status: "registered",
-    } as never);
+    } satisfies TableInsert<"session_participants">);
 
   if (partErr) {
     logError("createHalaqa: teacher participant insert failed", partErr, {
@@ -162,6 +167,18 @@ export async function createHalaqa(
       id: session.id,
     };
   }
+
+  await admin.from("audit_log").insert({
+    changed_by: adminId,
+    table_name: "sessions",
+    record_id: session.id,
+    action: "INSERT",
+    old_data: null,
+    new_data: { session_mode: "halaqa", teacher_id: teacherId },
+    reason: `Admin created halaqa session`,
+  } satisfies TableInsert<"audit_log">).then(({ error }) => {
+    if (error) logError("createHalaqa: audit row failed", error, { tag: "halaqa.create" });
+  });
 
   revalidatePath("/admin/sessions");
   revalidatePath("/admin/halaqas");

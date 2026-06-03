@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { logIntervention, type InterventionType } from "./actions";
+import { ActionFeedback } from "@/components/shared/action-feedback";
 
 interface Props {
   studentId: string;
@@ -27,7 +28,7 @@ export function InterventionButton({ studentId, interventionType, label, lastInt
   const recent = days !== null && days < 7;
 
   return (
-    <form action={formAction}>
+    <form action={formAction} className="space-y-2">
       <input type="hidden" name="student_id" value={studentId} />
       <input type="hidden" name="intervention_type" value={interventionType} />
       <button
@@ -40,10 +41,11 @@ export function InterventionButton({ studentId, interventionType, label, lastInt
               ? "bg-warning/10 text-warning hover:bg-warning/20"
               : "glass-gold hover:bg-gold/20"
         }`}
-        title={recent ? `آخر تدخل قبل ${days} يوم` : state?.error ?? label}
+        title={recent ? `آخر تدخل قبل ${days} يوم` : label}
       >
         {pending ? "..." : state?.ok ? "✓ تم" : label}
       </button>
+      <ActionFeedback state={state} />
     </form>
   );
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
 import { selectActivePackage, debitPackage } from "@/lib/domains/package/ledger";
+import { emitEvent } from "@/lib/automation/emit";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import type { SessionType } from "@/types/database";
 
@@ -293,6 +294,17 @@ export async function enrollInOffering(
   } satisfies TableInsert<"audit_log">).then(({ error }) => {
     if (error) logError("class-offerings.enroll: audit row failed", error, { tag: "class-offerings" });
   });
+
+  await emitEvent("booking.confirmed", "bookings", newBooking.id, {
+    student_id: user.id,
+    teacher_id: offering.teacher_id,
+    class_offering_id: offeringId,
+  }).catch((err) =>
+    logError("enrollInOffering: emitEvent booking.confirmed failed", err, {
+      tag: "class-offerings",
+      metadata: { bookingId: newBooking.id, studentId: user.id },
+    })
+  );
 
   revalidatePath("/student/classes");
   revalidatePath("/student/dashboard");

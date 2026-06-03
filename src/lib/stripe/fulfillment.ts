@@ -93,7 +93,7 @@ export async function fulfillPackagePurchase(input: FulfillmentInput): Promise<F
     .eq("id", input.userId)
     .single<{ full_name: string | null }>();
 
-  const { data: invoice } = await supabase
+  const { data: invoice, error: invoiceErr } = await supabase
     .from("invoices")
     .insert({
       payment_id: payment.id,
@@ -107,6 +107,15 @@ export async function fulfillPackagePurchase(input: FulfillmentInput): Promise<F
     } as never)
     .select("id")
     .single<{ id: string }>();
+
+  if (invoiceErr) {
+    logError("stripe.fulfillment: invoice insert failed", invoiceErr, {
+      tag: "stripe",
+      severity: "critical",
+      metadata: { paymentId: payment.id, userId: input.userId, invoiceNumber },
+    });
+    return { ok: false, error: invoiceErr.message };
+  }
 
   return {
     ok: true,
