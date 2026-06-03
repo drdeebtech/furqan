@@ -425,6 +425,7 @@ export async function startInstantSession(
 export async function recordNoShow(input: RecordNoShowInput): Promise<void> {
   const { bookingId, actorId } = input;
   const admin = createAdminClient();
+  const noShowAt = new Date().toISOString();
 
   // Pre-read booking parties for notification fan-out.
   const { data: booking, error: bookReadErr } = await admin
@@ -451,7 +452,7 @@ export async function recordNoShow(input: RecordNoShowInput): Promise<void> {
   // Mark session ended — non-blocking (no-show may occur before session starts).
   await admin
     .from("sessions")
-    .update({ ended_at: new Date().toISOString() } satisfies TableUpdate<"sessions">)
+    .update({ ended_at: noShowAt } satisfies TableUpdate<"sessions">)
     .eq("booking_id", bookingId)
     .then((r: { error: unknown }) => {
       if (r.error) {
@@ -474,7 +475,7 @@ export async function recordNoShow(input: RecordNoShowInput): Promise<void> {
     await notifyParentNoShow(
       booking.student_id,
       actorId,
-      new Date().toISOString(),
+      noShowAt,
       actorId,
     );
   } catch (err) {

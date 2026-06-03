@@ -16,7 +16,7 @@ const COLOR_BORDER: Record<string, string> = {
   indigo: "border-indigo-400",
 };
 
-const MAX_NODES = 328;
+const MAX_NODES = Math.max(...CODEBASE_LAYERS.map((l) => l.totalNodes));
 
 const STATS = [
   { labelAr: "رمز", labelEn: "Nodes",      value: "2,048" },
