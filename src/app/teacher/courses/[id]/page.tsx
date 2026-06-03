@@ -104,7 +104,7 @@ export default async function EditCoursePage({ params }: PageProps) {
         <form
           action={async (fd) => {
             "use server";
-            await updateCourse(id, fd);
+            await updateCourse({ courseId: id, formData: fd });
           }}
           className="space-y-4"
         >
@@ -259,7 +259,7 @@ export default async function EditCoursePage({ params }: PageProps) {
                       <form
                         action={async () => {
                           "use server";
-                          await togglePreview(l.id, !l.is_preview);
+                          await togglePreview({ lessonId: l.id, isPreview: !l.is_preview });
                         }}
                       >
                         <button

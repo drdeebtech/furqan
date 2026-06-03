@@ -7,22 +7,22 @@
 
 ---
 
-## Verdict: NO-GO (conditional)
+## Verdict: GO WITH CONDITIONS *(updated 2026-06-02)*
 
-The platform is architecturally sound and the core infrastructure is production-grade. However, **4 confirmed bugs** in the financial/data-integrity domain must be resolved before launch. Payments are also a stub requiring a binary decision.
+The 4 critical bugs from the original NO-GO verdict (#246, #245, #229, #247) have all been fixed and closed. The platform is ready to launch once the Stripe decision is made. Two warnings remain outstanding (see below).
 
-Once the 4 critical items below are closed, the verdict flips to **GO WITH CONDITIONS** (2 warnings still outstanding).
+*Original audit date: 2026-05-15 @ `bb273c2`.*
 
 ---
 
-## Critical Blockers (must fix before launch)
+## ~~Critical Blockers~~ — All Closed ✅
 
-| # | Issue | Phase | Finding |
-|---|-------|-------|---------|
-| 1 | `SECURITY DEFINER` missing from `deduct_package_session` | P3/P12 | Issue #246 — package deduction RPC may not run with correct privileges; financial correctness is broken |
-| 2 | `startInstantSession` bypasses package-balance check | P12 | Issue #229 — students can start sessions without a valid package (FR-009 violation); direct revenue loss |
-| 3 | `deduct_package_session` return value ignored by TS callers | P12 | Issue #247 — silent session expiry/exhaustion with no error surfaced |
-| 4 | **Stripe integration is a stub** | P11 | No checkout, no webhook sig verification, no env vars — payment flow is non-functional. **Blocker only if launch requires payments.** If billing is manual at launch, downgrade to Warning. |
+| # | Issue | Status |
+|---|-------|--------|
+| 1 | `SECURITY DEFINER` missing from `deduct_package_session` (#246) | ✅ Fixed |
+| 2 | `startInstantSession` bypasses package-balance check (#229) | ✅ Fixed |
+| 3 | `deduct_package_session` return value ignored by TS callers (#247) | ✅ Fixed |
+| 4 | **Stripe integration is a stub** | ⏳ Pending Stripe keys decision |
 
 ---
 
@@ -30,7 +30,7 @@ Once the 4 critical items below are closed, the verdict flips to **GO WITH CONDI
 
 | # | Issue | Phase | Finding |
 |---|-------|-------|---------|
-| W1 | Homework grade + auto-regen not atomic | P3/P12 | Issue #245 — race window between grade write and auto-regen trigger; data inconsistency possible under concurrent writes |
+| W1 | ~~Homework grade + auto-regen not atomic~~ | P3/P12 | Issue #245 — ✅ Fixed |
 | W2 | CALLMEBOT_KEY_KW absent | P0/P6 | Kuwait operator receives zero WhatsApp alerts — operational blind spot |
 | W3 | 3 API routes use local `timingSafeEqual` instead of `safeCompareSecret` | P2 | `retention/score`, `reports/session/[id]`, `reports/session/[id]/send` — not a security gap today, but diverges from canonical implementation |
 | W4 | 13 action files lack `loudAction` wrapping | P4 | Courses, community, quizzes, resources domain — failures are invisible in logs |
@@ -38,7 +38,7 @@ Once the 4 critical items below are closed, the verdict flips to **GO WITH CONDI
 | W6 | `SortIcon` component defined inside render | P1 | `src/app/teacher/progress/roster-heatmap.tsx:97` — creates new component type on every render; subtle state bug |
 | W7 | `setState` synchronously inside `useEffect` | P1 | `src/components/admin/remote-handoff-button.tsx:55` — cascading renders |
 | W8 | `@vitest/coverage-v8` not installed | P7 | CI has no coverage % gate; 80% threshold unenforced |
-| W9 | `db-types-fresh` CI stale (8 days) | P0 | TypeScript types may drift from deployed schema |
+| W9 | `db-types-fresh` CI | P0 | Issue #185 closed — types regenerated against correct account |
 | W10 | No UNIQUE constraint on `bookings(teacher_id, scheduled_at)` | P3/P12 | Issue #244 — slot race window exists at DB level |
 | W11 | 1 unbounded `select("*")` in `n8n/admin-actions` | P5 | Low-traffic admin endpoint but needs `.limit()` |
 | W12 | `supabase-lint` CI last had failure (9 days ago, not re-run) | P0 | Unknown if current migrations pass lint |
@@ -72,17 +72,17 @@ Once the 4 critical items below are closed, the verdict flips to **GO WITH CONDI
 ## Pre-Launch Checklist
 
 ```
-□ Fix issue #246 — add SECURITY DEFINER to deduct_package_session migration
-□ Fix issue #229 — enforce package balance in startInstantSession
-□ Fix issue #247 — surface deduct_package_session return value to callers
-□ DECISION: Ship without payments (stub stays) or complete Sprint 1 (Stripe keys)
+☑ Fix issue #246 — SECURITY DEFINER for deduct_package_session ✅ closed
+☑ Fix issue #229 — enforce package balance in startInstantSession ✅ closed
+☑ Fix issue #247 — surface deduct_package_session return value ✅ closed
+☑ Fix issue #245 — make grade + auto-regen atomic ✅ closed
+☑ Re-run db-types-fresh workflow against correct Supabase account (#185) ✅ closed
 
-□ Fix issue #245 — make grade + auto-regen atomic (or formally accept risk)
+□ DECISION: Ship without payments (stub stays) or complete Sprint 1 (Stripe keys)
 □ Add CALLMEBOT_KEY_KW to Vercel production
 □ Add .claude/** to .eslintignore
 □ Move SortIcon outside render function (roster-heatmap.tsx:97)
 □ Install @vitest/coverage-v8 + add CI coverage gate
-□ Re-run db-types-fresh workflow against correct Supabase account (#185)
 □ Re-run supabase-lint to confirm current migrations are clean
 ```
 

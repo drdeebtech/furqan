@@ -6,6 +6,15 @@ import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import { getSignedPlaybackUrl, isBunnyConfigured } from "@/lib/bunny/client";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
+import { loudAction } from "@/lib/actions/loud";
+
+class UserError extends Error {
+  readonly userError = true;
+  constructor(msg: string, options?: { cause?: unknown }) {
+    super(msg, options);
+    this.name = "UserError";
+  }
+}
 
 // ─── getLessonPlaybackUrl ───────────────────────────────────────────────────
 // Mints a 5-minute signed Bunny CDN URL for the given lesson, after
@@ -13,6 +22,7 @@ import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 // which case anyone can watch).
 //
 // Returns { ok: true, url } or { ok: false, error }.
+// Returns extra field `url` — cannot use loudAction without losing it.
 
 export async function getLessonPlaybackUrl(lessonId: string): Promise<
   | { ok: true; url: string }
@@ -98,6 +108,7 @@ export async function getLessonPlaybackUrl(lessonId: string): Promise<
 // ─── upsertLessonProgress ───────────────────────────────────────────────────
 // Save the student's playback position for a lesson (called every ~15s by
 // the player). Auto-marks complete when watchedRatio ≥ 0.9.
+// Returns extra field `completed` — cannot use loudAction without losing it.
 
 export async function upsertLessonProgress(
   lessonId: string,
@@ -193,102 +204,103 @@ export async function upsertLessonProgress(
 // far they actually watched. Idempotent — re-calling on a completed lesson
 // is a no-op.
 
-export async function markLessonComplete(lessonId: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { ok: false as const, error: "غير مسجل الدخول" };
+export const markLessonComplete = loudAction<string, void>({
+  name: "course-playback.markLessonComplete",
+  handler: async (lessonId) => {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new UserError("غير مسجل الدخول");
 
-  const { data: lesson } = await supabase
-    .from("course_lessons")
-    .select("course_id")
-    .eq("id", lessonId)
-    .single<{ course_id: string }>();
-  if (!lesson) return { ok: false as const, error: "الدرس غير موجود" };
+    const { data: lesson } = await supabase
+      .from("course_lessons")
+      .select("course_id")
+      .eq("id", lessonId)
+      .single<{ course_id: string }>();
+    if (!lesson) throw new UserError("الدرس غير موجود");
 
-  const { data: enrollment } = await supabase
-    .from("course_enrollments")
-    .select("id")
-    .eq("course_id", lesson.course_id)
-    .eq("student_id", user.id)
-    .single<{ id: string }>();
-  if (!enrollment) return { ok: false as const, error: "غير ملتحق بالدورة" };
+    const { data: enrollment } = await supabase
+      .from("course_enrollments")
+      .select("id")
+      .eq("course_id", lesson.course_id)
+      .eq("student_id", user.id)
+      .single<{ id: string }>();
+    if (!enrollment) throw new UserError("غير ملتحق بالدورة");
 
-  // Guard against double-emit: read existing completion state before upserting.
-  // upsertLessonProgress already fires lesson.completed when the watch ratio
-  // crosses 90% — re-calling this on an already-completed lesson must not
-  // re-trigger n8n automations.
-  const { data: existing } = await supabase
-    .from("course_lesson_progress")
-    .select("completed_at")
-    .eq("enrollment_id", enrollment.id)
-    .eq("lesson_id", lessonId)
-    .maybeSingle<{ completed_at: string | null }>();
-  const alreadyCompleted = !!existing?.completed_at;
+    // Guard against double-emit: read existing completion state before upserting.
+    // upsertLessonProgress already fires lesson.completed when the watch ratio
+    // crosses 90% — re-calling this on an already-completed lesson must not
+    // re-trigger n8n automations.
+    const { data: existing } = await supabase
+      .from("course_lesson_progress")
+      .select("completed_at")
+      .eq("enrollment_id", enrollment.id)
+      .eq("lesson_id", lessonId)
+      .maybeSingle<{ completed_at: string | null }>();
+    const alreadyCompleted = !!existing?.completed_at;
 
-  const now = new Date().toISOString();
-  const { error } = await supabase
-    .from("course_lesson_progress")
-    .upsert(
-      { enrollment_id: enrollment.id, lesson_id: lessonId, completed_at: now } satisfies TableInsert<"course_lesson_progress">,
-      { onConflict: "enrollment_id,lesson_id", ignoreDuplicates: false },
-    );
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from("course_lesson_progress")
+      .upsert(
+        { enrollment_id: enrollment.id, lesson_id: lessonId, completed_at: now } satisfies TableInsert<"course_lesson_progress">,
+        { onConflict: "enrollment_id,lesson_id", ignoreDuplicates: false },
+      );
 
-  if (error) {
-    logError("markLessonComplete failed", error, { tag: "course-playback", lessonId });
-    return { ok: false as const, error: error.message };
-  }
+    if (error) throw new UserError("فشل تعليم الدرس مكتملاً", { cause: error });
 
-  if (!alreadyCompleted) {
-    await emitEvent("lesson.completed", "course_lesson", lessonId, {
-      enrollment_id: enrollment.id,
-      student_id: user.id,
-      via: "manual",
-    }, user.id).catch((err) =>
-      logError("emit lesson.completed failed", err, { tag: "course-playback" }),
-    );
-  }
+    if (!alreadyCompleted) {
+      await emitEvent("lesson.completed", "course_lesson", lessonId, {
+        enrollment_id: enrollment.id,
+        student_id: user.id,
+        via: "manual",
+      }, user.id).catch((err) =>
+        logError("emit lesson.completed failed", err, { tag: "course-playback" }),
+      );
+    }
 
-  revalidatePath("/student/dashboard");
-  revalidatePath("/student/courses");
-  return { ok: true as const };
-}
+    revalidatePath("/student/dashboard");
+    revalidatePath("/student/courses");
+  },
+});
 
 // ─── setLessonHidden ────────────────────────────────────────────────────────
 // Toggle `hidden_from_dashboard` for a student's progress row, so the lesson
 // disappears from the Continue Watching widget. Lesson stays accessible from
 // the course page; this only affects dashboard visibility.
 
-export async function setLessonHidden(lessonId: string, hidden: boolean) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { ok: false as const, error: "غير مسجل الدخول" };
+export const setLessonHidden = loudAction<
+  { lessonId: string; hidden: boolean },
+  void
+>({
+  name: "course-playback.setLessonHidden",
+  handler: async ({ lessonId, hidden }) => {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new UserError("غير مسجل الدخول");
 
-  const { data: lesson } = await supabase
-    .from("course_lessons")
-    .select("course_id")
-    .eq("id", lessonId)
-    .single<{ course_id: string }>();
-  if (!lesson) return { ok: false as const, error: "الدرس غير موجود" };
+    const { data: lesson } = await supabase
+      .from("course_lessons")
+      .select("course_id")
+      .eq("id", lessonId)
+      .single<{ course_id: string }>();
+    if (!lesson) throw new UserError("الدرس غير موجود");
 
-  const { data: enrollment } = await supabase
-    .from("course_enrollments")
-    .select("id")
-    .eq("course_id", lesson.course_id)
-    .eq("student_id", user.id)
-    .single<{ id: string }>();
-  if (!enrollment) return { ok: false as const, error: "غير ملتحق بالدورة" };
+    const { data: enrollment } = await supabase
+      .from("course_enrollments")
+      .select("id")
+      .eq("course_id", lesson.course_id)
+      .eq("student_id", user.id)
+      .single<{ id: string }>();
+    if (!enrollment) throw new UserError("غير ملتحق بالدورة");
 
-  const { error } = await supabase
-    .from("course_lesson_progress")
-    .update({ hidden_from_dashboard: hidden } satisfies TableUpdate<"course_lesson_progress">)
-    .eq("enrollment_id", enrollment.id)
-    .eq("lesson_id", lessonId);
+    const { error } = await supabase
+      .from("course_lesson_progress")
+      .update({ hidden_from_dashboard: hidden } satisfies TableUpdate<"course_lesson_progress">)
+      .eq("enrollment_id", enrollment.id)
+      .eq("lesson_id", lessonId);
 
-  if (error) {
-    logError("setLessonHidden failed", error, { tag: "course-playback", lessonId });
-    return { ok: false as const, error: error.message };
-  }
+    if (error) throw new UserError("فشل تحديث حالة الإخفاء", { cause: error });
 
-  revalidatePath("/student/dashboard");
-  return { ok: true as const };
-}
+    revalidatePath("/student/dashboard");
+  },
+});

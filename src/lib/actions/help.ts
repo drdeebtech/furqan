@@ -5,12 +5,21 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
+import { loudAction } from "@/lib/actions/loud";
 
 export interface HelpFormState {
   ok?: boolean;
   error?: string;
   id?: string;
   slug?: string;
+}
+
+class UserError extends Error {
+  readonly userError = true;
+  constructor(msg: string, options?: { cause?: unknown }) {
+    super(msg, options);
+    this.name = "UserError";
+  }
 }
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;
@@ -24,7 +33,9 @@ async function guardAdmin(): Promise<{ id: string } | { error: string }> {
   }
 }
 
-// ─── createArticle / updateArticle (single upsert handler) ──────────────────
+// ─── saveArticle ─────────────────────────────────────────────────────────────
+// Returns { ok?, id?, slug?, error? } — id and slug must be preserved for
+// callers; keep manual pattern per rule 6.
 
 export async function saveArticle(
   _prev: HelpFormState,
@@ -92,37 +103,52 @@ export async function saveArticle(
 
 // ─── deleteArticle ──────────────────────────────────────────────────────────
 
-export async function deleteArticle(id: string): Promise<{ ok: boolean; error?: string }> {
-  const auth = await guardAdmin();
-  if ("error" in auth) return { ok: false, error: auth.error };
+const deleteArticleBase = loudAction<{ id: string }, void>({
+  name: "help.deleteArticle",
+  severity: "warning",
+  handler: async ({ id }) => {
+    try {
+      await requireAdmin();
+    } catch (e) {
+      if (e instanceof ForbiddenError) throw new UserError("ليس لديك صلاحية");
+      throw e;
+    }
+    const supabase = await createClient();
+    const { error } = await supabase.from("help_articles").delete().eq("id", id);
+    if (error) throw new UserError("فشل حذف المقال", { cause: error });
 
-  const supabase = await createClient();
-  const { error } = await supabase.from("help_articles").delete().eq("id", id);
-  if (error) {
-    logError("help.deleteArticle failed", error, { tag: "help", id });
-    return { ok: false, error: error.message };
-  }
-  revalidatePath("/admin/help");
-  revalidatePath("/help");
-  return { ok: true };
+    revalidatePath("/admin/help");
+    revalidatePath("/help");
+  },
+});
+
+export async function deleteArticle(id: string) {
+  return deleteArticleBase({ id });
 }
 
 // ─── togglePublished ────────────────────────────────────────────────────────
 
-export async function togglePublished(id: string, next: boolean): Promise<{ ok: boolean; error?: string }> {
-  const auth = await guardAdmin();
-  if ("error" in auth) return { ok: false, error: auth.error };
+const togglePublishedBase = loudAction<{ id: string; next: boolean }, void>({
+  name: "help.togglePublished",
+  handler: async ({ id, next }) => {
+    try {
+      await requireAdmin();
+    } catch (e) {
+      if (e instanceof ForbiddenError) throw new UserError("ليس لديك صلاحية");
+      throw e;
+    }
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("help_articles")
+      .update({ is_published: next } satisfies TableUpdate<"help_articles">)
+      .eq("id", id);
+    if (error) throw new UserError("فشل تحديث حالة النشر", { cause: error });
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("help_articles")
-    .update({ is_published: next } satisfies TableUpdate<"help_articles">)
-    .eq("id", id);
-  if (error) {
-    logError("help.togglePublished failed", error, { tag: "help", id });
-    return { ok: false, error: error.message };
-  }
-  revalidatePath("/admin/help");
-  revalidatePath("/help");
-  return { ok: true };
+    revalidatePath("/admin/help");
+    revalidatePath("/help");
+  },
+});
+
+export async function togglePublished(id: string, next: boolean) {
+  return togglePublishedBase({ id, next });
 }

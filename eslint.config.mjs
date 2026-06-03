@@ -38,7 +38,10 @@ const eslintConfig = defineConfig([
     // hooks, the k6 VM) where `require()` is correct — they are not app source
     // and must not be linted by the Next.js TS config (issue #325).
     ".claude/**",
+    ".specify/**",
+    "automation/**",
     "k6/**",
+    "scripts/**",
     // External tooling directory (claude-flow / ECC scaffolding) — CJS scripts,
     // not app source.
     "ECC/**",

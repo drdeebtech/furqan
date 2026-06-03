@@ -3,15 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
+import { loudAction } from "@/lib/actions/loud";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
-interface ModuleResult {
-  ok: boolean;
-  error?: string;
-  id?: string;
+class UserError extends Error {
+  readonly userError = true;
+  constructor(msg: string, options?: { cause?: unknown }) {
+    super(msg, options);
+    this.name = "UserError";
+  }
 }
 
-// Verify the caller is the course owner OR admin/moderator.
+// Verify the caller is the course owner OR admin.
 async function authorizeCourseOwner(courseId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -35,11 +38,12 @@ async function authorizeCourseOwner(courseId: string): Promise<{ ok: true } | { 
 }
 
 // ─── createModule ───────────────────────────────────────────────────────────
+// Returns extra `id` field — kept as manual pattern with logError.
 
 export async function createModule(
   courseId: string,
   formData: FormData,
-): Promise<ModuleResult> {
+): Promise<{ ok: boolean; error?: string; id?: string }> {
   const auth = await authorizeCourseOwner(courseId);
   if (!auth.ok) return auth;
 
@@ -77,11 +81,12 @@ export async function createModule(
 }
 
 // ─── updateModule ───────────────────────────────────────────────────────────
+// Returns extra `id` field — kept as manual pattern with logError.
 
 export async function updateModule(
   moduleId: string,
   formData: FormData,
-): Promise<ModuleResult> {
+): Promise<{ ok: boolean; error?: string; id?: string }> {
   const supabase = await createClient();
   const { data: row } = await supabase
     .from("modules")
@@ -117,94 +122,77 @@ export async function updateModule(
 
 // ─── deleteModule ───────────────────────────────────────────────────────────
 
-export async function deleteModule(moduleId: string): Promise<ModuleResult> {
-  const supabase = await createClient();
-  const { data: row } = await supabase
-    .from("modules")
-    .select("course_id")
-    .eq("id", moduleId)
-    .single<{ course_id: string }>();
-  if (!row) return { ok: false, error: "الوحدة غير موجودة" };
-
-  const auth = await authorizeCourseOwner(row.course_id);
-  if (!auth.ok) return auth;
-
-  const { error } = await supabase.from("modules").delete().eq("id", moduleId);
-  if (error) {
-    logError("deleteModule failed", error, { tag: "modules", moduleId });
-    return { ok: false, error: error.message };
-  }
-  revalidatePath(`/teacher/courses/${row.course_id}/modules`);
-  revalidatePath(`/student/courses/${row.course_id}`);
-  return { ok: true };
-}
+export const deleteModule = loudAction<string, void>({
+  name: "modules.deleteModule",
+  handler: async (moduleId) => {
+    const supabase = await createClient();
+    const { data: row } = await supabase
+      .from("modules")
+      .select("course_id")
+      .eq("id", moduleId)
+      .single<{ course_id: string }>();
+    if (!row) throw new UserError("الوحدة غير موجودة");
+    const auth = await authorizeCourseOwner(row.course_id);
+    if (!auth.ok) throw new UserError(auth.error);
+    const { error } = await supabase.from("modules").delete().eq("id", moduleId);
+    if (error) throw new UserError("فشل حذف الوحدة", { cause: error });
+    revalidatePath(`/teacher/courses/${row.course_id}/modules`);
+    revalidatePath(`/student/courses/${row.course_id}`);
+  },
+});
 
 // ─── assignLesson ───────────────────────────────────────────────────────────
 // Move a lesson into a module. Removes it from any other module first
 // (lesson_id is unique in module_lessons).
 
-export async function assignLesson(
-  moduleId: string,
-  lessonId: string,
-  sort_order = 0,
-): Promise<ModuleResult> {
-  const supabase = await createClient();
-  const { data: m } = await supabase
-    .from("modules")
-    .select("course_id")
-    .eq("id", moduleId)
-    .single<{ course_id: string }>();
-  if (!m) return { ok: false, error: "الوحدة غير موجودة" };
+export const assignLesson = loudAction<{ moduleId: string; lessonId: string; sort_order?: number }, void>({
+  name: "modules.assignLesson",
+  handler: async ({ moduleId, lessonId, sort_order = 0 }) => {
+    const supabase = await createClient();
+    const { data: m } = await supabase
+      .from("modules")
+      .select("course_id")
+      .eq("id", moduleId)
+      .single<{ course_id: string }>();
+    if (!m) throw new UserError("الوحدة غير موجودة");
+    const auth = await authorizeCourseOwner(m.course_id);
+    if (!auth.ok) throw new UserError(auth.error);
 
-  const auth = await authorizeCourseOwner(m.course_id);
-  if (!auth.ok) return auth;
+    // Remove any prior assignment first. A silent failure here masks into a
+    // confusing unique-constraint error on the subsequent insert; log so the
+    // real cause (RLS denial, FK violation, etc.) is visible.
+    const { error: deleteError } = await supabase.from("module_lessons").delete().eq("lesson_id", lessonId);
+    if (deleteError) throw new UserError("فشل إزالة التعيين السابق", { cause: deleteError });
 
-  // Remove any prior assignment first. A silent failure here masks into a
-  // confusing unique-constraint error on the subsequent insert; log so the
-  // real cause (RLS denial, FK violation, etc.) is visible.
-  const { error: deleteError } = await supabase.from("module_lessons").delete().eq("lesson_id", lessonId);
-  if (deleteError) {
-    logError("assignLesson: prior-assignment delete failed", deleteError, {
-      tag: "modules", lessonId,
-    });
-    return { ok: false, error: deleteError.message };
-  }
-
-  const { error } = await supabase
-    .from("module_lessons")
-    .insert({ module_id: moduleId, lesson_id: lessonId, sort_order } satisfies TableInsert<"module_lessons">);
-  if (error) {
-    logError("assignLesson failed", error, { tag: "modules", moduleId, lessonId });
-    return { ok: false, error: error.message };
-  }
-  revalidatePath(`/teacher/courses/${m.course_id}/modules`);
-  revalidatePath(`/student/courses/${m.course_id}`);
-  return { ok: true };
-}
+    const { error } = await supabase
+      .from("module_lessons")
+      .insert({ module_id: moduleId, lesson_id: lessonId, sort_order } satisfies TableInsert<"module_lessons">);
+    if (error) throw new UserError("فشل تعيين الدرس للوحدة", { cause: error });
+    revalidatePath(`/teacher/courses/${m.course_id}/modules`);
+    revalidatePath(`/student/courses/${m.course_id}`);
+  },
+});
 
 // ─── unassignLesson ─────────────────────────────────────────────────────────
 
-export async function unassignLesson(lessonId: string): Promise<ModuleResult> {
-  const supabase = await createClient();
-  const { data: lesson } = await supabase
-    .from("course_lessons")
-    .select("course_id")
-    .eq("id", lessonId)
-    .single<{ course_id: string }>();
-  if (!lesson) return { ok: false, error: "الدرس غير موجود" };
-
-  const auth = await authorizeCourseOwner(lesson.course_id);
-  if (!auth.ok) return auth;
-
-  const { error } = await supabase.from("module_lessons").delete().eq("lesson_id", lessonId);
-  if (error) {
-    logError("unassignLesson failed", error, { tag: "modules", lessonId });
-    return { ok: false, error: error.message };
-  }
-  revalidatePath(`/teacher/courses/${lesson.course_id}/modules`);
-  revalidatePath(`/student/courses/${lesson.course_id}`);
-  return { ok: true };
-}
+export const unassignLesson = loudAction<string, void>({
+  name: "modules.unassignLesson",
+  handler: async (lessonId) => {
+    const supabase = await createClient();
+    const { data: lesson } = await supabase
+      .from("course_lessons")
+      .select("course_id")
+      .eq("id", lessonId)
+      .single<{ course_id: string }>();
+    if (!lesson) throw new UserError("الدرس غير موجود");
+    const auth = await authorizeCourseOwner(lesson.course_id);
+    if (!auth.ok) throw new UserError(auth.error);
+    const { error } = await supabase.from("module_lessons").delete().eq("lesson_id", lessonId);
+    if (error) throw new UserError("فشل إلغاء تعيين الدرس", { cause: error });
+    revalidatePath(`/teacher/courses/${lesson.course_id}/modules`);
+    revalidatePath(`/student/courses/${lesson.course_id}`);
+  },
+});
 
 // ─── isLessonUnlocked ───────────────────────────────────────────────────────
 // Server-side gate for linear modules. Returns true if:

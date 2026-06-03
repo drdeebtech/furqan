@@ -18,7 +18,7 @@ FURQAN Academy — Online Quran teaching platform (V13/V17).
 - **TailwindCSS 4** · **next-intl** (i18n, Arabic/English)
 - **n8n** (n8n.drdeeb.tech — 44+ active automation workflows)
 - **Telegram** (@furqantoday_bot — admin alerts + notifications)
-- **Deployed on Vercel** (Hobby plan, furqan.today)
+- **Deployed on Vercel** (Pro plan, furqan.today)
 
 ## Roles (3)
 Per ADR-0003 (2026-05-08), the moderator role was dropped. CV review, audit log, session observation, and user management — all formerly moderator surfaces — are now admin-owned.
@@ -163,7 +163,7 @@ supabase/functions/      — 4 edge functions (auto-reminder, auto-complete, no-
 - **Audit fixes** — 28 issues resolved (accessibility, performance, theming, responsive)
 - **n8n control panel** — `/admin/n8n` with workflow view/toggle/search/filter/auto-restart + Telegram alerts
 
-### n8n Automation (VPS)
+### n8n Automation (Mac mini)
 - **44+ active workflows** on n8n.drdeeb.tech across session lifecycle, parent communication, retention, teacher management, admin operations, revenue, booking, messaging, platform health
 - **Credentials configured**: Supabase, Daily.co, Resend, Telegram (@furqantoday_bot)
 - **Self-healing**: auto-restart failed workflows with Telegram notification

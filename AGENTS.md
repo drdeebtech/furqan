@@ -4,6 +4,37 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+# Knowledge Graph — Codebase Intelligence
+
+The codebase is indexed as a knowledge graph at `.understand-anything/knowledge-graph.json`.
+
+- **2,048 nodes** (807 files · 774 functions · 209 tables · 189 docs · 34 configs · 20 classes · 14 pipelines)
+- **3,943 edges** (1,953 imports · 809 contains · 610 exports · 177 calls · 71 migrates · 65 depends_on)
+- **10 architectural layers** — Admin Dashboard, Teacher Dashboard, Student Dashboard, Public & Auth UI, API Routes, Service & Domain Layer, Data Layer, Tests, Infrastructure & CI/CD, Project Support & Tooling
+- **15-step guided tour** — starts at README, ends at CI/CD pipeline
+
+## Always Do (Knowledge Graph)
+
+- **Before editing any file:** find its layer in the graph to understand blast radius
+- **Architecture questions:** consult `/admin/architecture` or `.understand-anything/knowledge-graph.json`
+- **Codebase tour for onboarding:** `/admin/tour` or read the tour steps in `src/data/codebase-tour.ts`
+- **Regenerate after large refactors:** run `/understand --full` to rebuild the graph
+
+## Layer Quick Reference
+
+| Layer | Nodes | Description |
+|-------|-------|-------------|
+| Admin Dashboard | 174 | src/app/admin/** |
+| Service & Domain | 197 | src/lib/actions/**, src/lib/domains/** |
+| Data Layer | 220 | supabase/migrations/**, src/types/database.ts |
+| Project Support | 328 | .claude/**, specs/**, docs/** |
+| Teacher Dashboard | 87 | src/app/teacher/** |
+| Student Dashboard | 69 | src/app/student/** |
+| Public & Auth UI | 88 | src/app/(public)/**, src/app/(auth)/** |
+| API Routes | 40 | src/app/api/** |
+| Tests | 25 | **/*.test.ts, e2e/** |
+| Infrastructure | 26 | .github/workflows/**, scripts/** |
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 

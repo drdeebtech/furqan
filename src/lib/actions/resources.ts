@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
+import { loudAction } from "@/lib/actions/loud";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
 export interface ResourceFormState {
@@ -15,6 +16,14 @@ export interface ResourceFormState {
 
 const VALID_TYPES = ["pdf", "audio", "link", "video", "image"] as const;
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50 MB cap on uploads
+
+class UserError extends Error {
+  readonly userError = true;
+  constructor(msg: string, options?: { cause?: unknown }) {
+    super(msg, options);
+    this.name = "UserError";
+  }
+}
 
 async function guardAdmin(): Promise<{ id: string } | { error: string }> {
   try {
@@ -30,6 +39,7 @@ async function guardAdmin(): Promise<{ id: string } | { error: string }> {
 // storage bucket and `file_url` is set to the public URL. `external_url` is
 // always optional. At least one of file/external_url must be present (DB
 // CHECK constraint enforces this too).
+// Returns extra `id` field — kept as manual pattern with logError.
 
 export async function saveResource(
   _prev: ResourceFormState,
@@ -131,40 +141,33 @@ export async function saveResource(
 
 // ─── deleteResource ─────────────────────────────────────────────────────────
 
-export async function deleteResource(id: string): Promise<{ ok: boolean; error?: string }> {
-  const auth = await guardAdmin();
-  if ("error" in auth) return { ok: false, error: auth.error };
-
-  const supabase = await createClient();
-  const { error } = await supabase.from("resources").delete().eq("id", id);
-  if (error) {
-    logError("resources.deleteResource failed", error, { tag: "resources", id });
-    return { ok: false, error: error.message };
-  }
-  revalidatePath("/admin/resources");
-  revalidatePath("/student/resources");
-  return { ok: true };
-}
+export const deleteResource = loudAction<string, void>({
+  name: "resources.deleteResource",
+  handler: async (id) => {
+    const auth = await guardAdmin();
+    if ("error" in auth) throw new UserError(auth.error);
+    const supabase = await createClient();
+    const { error } = await supabase.from("resources").delete().eq("id", id);
+    if (error) throw new UserError("فشل حذف المورد", { cause: error });
+    revalidatePath("/admin/resources");
+    revalidatePath("/student/resources");
+  },
+});
 
 // ─── toggleResourcePublished ────────────────────────────────────────────────
 
-export async function toggleResourcePublished(
-  id: string,
-  next: boolean,
-): Promise<{ ok: boolean; error?: string }> {
-  const auth = await guardAdmin();
-  if ("error" in auth) return { ok: false, error: auth.error };
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("resources")
-    .update({ is_published: next } satisfies TableUpdate<"resources">)
-    .eq("id", id);
-  if (error) {
-    logError("resources.toggleResourcePublished failed", error, { tag: "resources", id });
-    return { ok: false, error: error.message };
-  }
-  revalidatePath("/admin/resources");
-  revalidatePath("/student/resources");
-  return { ok: true };
-}
+export const toggleResourcePublished = loudAction<{ id: string; next: boolean }, void>({
+  name: "resources.toggleResourcePublished",
+  handler: async ({ id, next }) => {
+    const auth = await guardAdmin();
+    if ("error" in auth) throw new UserError(auth.error);
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("resources")
+      .update({ is_published: next } satisfies TableUpdate<"resources">)
+      .eq("id", id);
+    if (error) throw new UserError("فشل تغيير حالة النشر", { cause: error });
+    revalidatePath("/admin/resources");
+    revalidatePath("/student/resources");
+  },
+});

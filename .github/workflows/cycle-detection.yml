@@ -1,0 +1,27 @@
+name: Import Cycle Detection
+
+on:
+  pull_request:
+    paths:
+      - "src/**/*.ts"
+      - "src/**/*.tsx"
+      - ".understand-anything/knowledge-graph.json"
+
+jobs:
+  # Skip job runs when the paths filter doesn't match so this check never
+  # blocks PRs that don't touch TS files (required-check safety valve).
+  skip-check:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' && !contains(toJSON(github.event.pull_request.changed_files), 'src/') }}
+    steps:
+      - run: echo "No TS files changed — skipping cycle detection"
+
+  detect-cycles:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Detect import cycles
+        run: node scripts/detect-cycles.js

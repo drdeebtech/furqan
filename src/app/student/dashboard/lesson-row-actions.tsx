@@ -49,7 +49,7 @@ export function LessonRowActions({ lessonId, href }: LessonRowActionsProps) {
 
   const onHide = () => {
     startTransition(async () => {
-      const res = await setLessonHidden(lessonId, true);
+      const res = await setLessonHidden({ lessonId, hidden: true });
       if (res.ok) {
         toast.success(t("تم الإخفاء من القائمة", "Hidden from list"));
         setOpen(false);

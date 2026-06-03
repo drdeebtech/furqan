@@ -8,7 +8,7 @@ import { useLang } from "@/lib/i18n/context";
 import { SESSION_TYPE_AR, RIWAYA_AR } from "@/lib/constants";
 import type { SessionType, RecitationStandard } from "@/types/database";
 import type { TeacherLanguage } from "@/lib/site-content/types";
-import type { TeacherData } from "./page";
+import type { TeacherData } from "./types";
 import { BookingSteps } from "@/components/shared/booking-steps";
 
 const SESSION_TYPE_EN: Record<SessionType, string> = {

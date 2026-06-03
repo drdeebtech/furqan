@@ -1,8 +1,8 @@
 # B3 — Component Consolidation Audit
 
 **Date:** 2026-05-06
-**Auditor:** Claude (static analysis across `src/app/admin|teacher|student|moderator/**` + `src/components/shared/`)
-**Scope:** Identify duplicated UI patterns across the 4 dashboards and propose consolidation order
+**Auditor:** Claude (static analysis across `src/app/admin|teacher|student/**` + `src/components/shared/`)
+**Scope:** Identify duplicated UI patterns across the 3 dashboards and propose consolidation order (note: `src/app/moderator/**` was deleted per ADR-0003 on 2026-05-08)
 **Reference:** Phase B3 brief in `FURQAN_SESSION_MODES_MIGRATION_PLAN.md`
 
 ---
@@ -60,7 +60,7 @@ Follow-up PRs should land in this order to minimize merge conflicts and reviewer
 
 ### B3.1 — `<PageHeader>` extraction (highest leverage)
 - Create `src/components/shared/page-header.tsx` matching the most-polished current implementation
-- Migrate ~74 call sites in batches by role (admin first, then teacher, student, moderator)
+- Migrate ~74 call sites in batches by role (admin first, then teacher, student)
 - Pure refactor, visual output identical
 
 ### B3.2 — `<FormField>` extraction
