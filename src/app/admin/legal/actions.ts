@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { emitEvent } from "@/lib/automation/emit";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = any;
@@ -82,6 +83,8 @@ const updateLegalBase = loudAction<z.infer<typeof updateLegalSchema>, { message?
         { onConflict: "kind" },
       );
     if (error) throw error;
+
+    void emitEvent("legal_document.updated", "legal_document", input.kind, { document_type: input.kind }, ctx.actorId);
 
     // Public consumers + admin self.
     revalidatePath(input.kind === "terms" ? "/terms" : "/privacy");

@@ -15,7 +15,7 @@ import type {
   CourseCurrency,
   CourseOwnership,
 } from "@/types/database";
-import type { TableUpdate } from "@/lib/supabase/typed-helpers";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
 // ─── Auth helpers ───────────────────────────────────────────────────────────
 
@@ -194,7 +194,7 @@ export async function createCourse(formData: FormData): Promise<CreateCourseResu
       price_cents: pricing_type === "free" ? 0 : price_cents,
       currency,
       status: "draft",
-    } as never)
+    } satisfies TableInsert<"courses">)
     .select("id")
     .single<{ id: string }>();
 
@@ -220,7 +220,7 @@ export async function createCourse(formData: FormData): Promise<CreateCourseResu
         pricing_type,
         price_cents: pricing_type === "free" ? 0 : price_cents,
       },
-    } as never)
+    } as TableInsert<"audit_log">)
     .then(({ error: auditErr }) => {
       if (auditErr) {
         logError("audit insert failed", auditErr, {
@@ -484,7 +484,7 @@ export async function approveCourse(courseId: string) {
       reviewed_at: new Date().toISOString(),
       published_at: new Date().toISOString(),
       rejection_reason: null,
-    } as never)
+    } satisfies TableUpdate<"courses">)
     .eq("id", courseId);
 
   if (error) {
@@ -549,7 +549,7 @@ export async function rejectCourse(courseId: string, reason: string) {
       reviewed_by: admin.id,
       reviewed_at: new Date().toISOString(),
       rejection_reason: reason.trim(),
-    } as never)
+    } satisfies TableUpdate<"courses">)
     .eq("id", courseId);
 
   if (error) {

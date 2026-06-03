@@ -120,13 +120,13 @@ export async function saveResource(
     .insert(insert)
     .select("id")
     .single<{ id: string }>();
-  if (error) {
-    logError("resources.saveResource insert failed", error, { tag: "resources" });
-    return { error: error.message };
+  if (error || !data) {
+    if (error) logError("resources.saveResource insert failed", error, { tag: "resources" });
+    return { error: error?.message ?? "لم يتم إنشاء السجل" };
   }
   revalidatePath("/admin/resources");
   revalidatePath("/student/resources");
-  return { ok: true, id: data!.id };
+  return { ok: true, id: data.id };
 }
 
 // ─── deleteResource ─────────────────────────────────────────────────────────

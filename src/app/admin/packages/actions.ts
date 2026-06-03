@@ -7,6 +7,7 @@ import { requireAdmin as requireAdminStrict, ForbiddenError } from "@/lib/auth/r
 import { logError } from "@/lib/logger";
 import { loudAction } from "@/lib/actions/loud";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
+import { emitEvent } from "@/lib/automation/emit";
 
 type ActionResult = { success?: boolean; error?: string };
 
@@ -74,6 +75,7 @@ const savePackageBase = loudAction<SavePackageInput, { message: string }>({
       }).then((r) => {
         if (r.error) logError("savePackage(update): diff audit row failed", r.error, { tag: "admin-packages" });
       });
+      void emitEvent("package.updated", "package", id, { name: data.name, price_usd: data.price_usd }, actorId);
       revalidatePackageSurfaces();
       return { message: "تم تحديث الباقة" };
     }
@@ -96,6 +98,7 @@ const savePackageBase = loudAction<SavePackageInput, { message: string }>({
       }).then((r) => {
         if (r.error) logError("savePackage(insert): diff audit row failed", r.error, { tag: "admin-packages" });
       });
+      void emitEvent("package.created", "package", inserted.id, { name: data.name, price_usd: data.price_usd }, actorId);
     }
     revalidatePackageSurfaces();
     return { message: "تم إنشاء الباقة" };
@@ -171,6 +174,7 @@ const deletePackageBase = loudAction<{ packageId: string }, { message: string }>
     }).then((r) => {
       if (r.error) logError("deletePackage: diff audit row failed", r.error, { tag: "admin-packages" });
     });
+    void emitEvent("package.deleted", "package", packageId, {}, actorId);
 
     revalidatePackageSurfaces();
     return { message: "تم حذف الباقة" };

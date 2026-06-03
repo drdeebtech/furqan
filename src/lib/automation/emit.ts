@@ -89,6 +89,13 @@ export const WEBHOOK_ROUTES = {
   "user.roles_changed": "/webhook/furqan-user-roles",
   "profile.updated": "/webhook/furqan-profile-updated",
   "refund_policy.updated": "/webhook/furqan-refund-policy",
+  "halaqa.created": "/webhook/furqan-halaqa-created",
+  "message.hidden": "/webhook/furqan-message-moderated",
+  "message.flag_cleared": "/webhook/furqan-message-moderated",
+  "legal_document.updated": "/webhook/furqan-legal-updated",
+  "package.created": "/webhook/furqan-package-admin",
+  "package.updated": "/webhook/furqan-package-admin",
+  "package.deleted": "/webhook/furqan-package-admin",
 } as const satisfies Record<string, string>;
 
 /**

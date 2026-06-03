@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createSessionRoom } from "@/lib/sessions/room-creation";
 import { logError } from "@/lib/logger";
 import type { TableInsert } from "@/lib/supabase/typed-helpers";
+import { emitEvent } from "@/lib/automation/emit";
 
 export interface CreateHalaqaState {
   ok?: boolean;
@@ -179,6 +180,12 @@ export async function createHalaqa(
   } satisfies TableInsert<"audit_log">).then(({ error }) => {
     if (error) logError("createHalaqa: audit row failed", error, { tag: "halaqa.create" });
   });
+
+  void emitEvent("halaqa.created", "session", session.id, {
+    halaqa_name: titleAr,
+    teacher_id: teacherId,
+    capacity,
+  }, adminId);
 
   revalidatePath("/admin/sessions");
   revalidatePath("/admin/halaqas");
