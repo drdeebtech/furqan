@@ -7,7 +7,7 @@ import { emitEvent } from "@/lib/automation/emit";
 import { notify } from "@/lib/notifications/dispatcher";
 import { isFeatureEnabled } from "@/lib/settings";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
-import type { TableUpdate } from "@/lib/supabase/typed-helpers";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
 class UserError extends Error {
   readonly userError = true;
@@ -56,7 +56,7 @@ const enrollFreeBase = loudAction<{ courseId: string }, { message: string }>({
         course_id: courseId,
         source: "free",
         currency: "USD",
-      } as never);
+      } satisfies TableInsert<"course_enrollments">);
 
     if (error) {
       // 23505 = already enrolled — treat as idempotent success WITHOUT

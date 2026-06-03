@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
+import { emitEvent } from "@/lib/automation/emit";
 
 /**
  * toggleArchiveTeacher returns `{ success, cvStatus, isAccepting }` — a
@@ -73,6 +74,14 @@ export async function toggleArchiveTeacher(
   revalidatePath("/admin/teachers");
   revalidatePath(`/admin/teachers/${teacherId}`);
   revalidatePath("/teachers");
+
+  void emitEvent(
+    "teacher.archived",
+    "teacher_profile",
+    teacherId,
+    { archived: archive, archived_at: archive ? new Date().toISOString() : null },
+    actorId,
+  );
 
   // Return the gate-state so the UI can warn admins when a teacher was
   // unarchived but still won't appear publicly because cv_status isn't

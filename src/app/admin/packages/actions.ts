@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdmin as requireAdminStrict, ForbiddenError } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
 import { loudAction } from "@/lib/actions/loud";
-import type { TableInsert } from "@/lib/supabase/typed-helpers";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
 type ActionResult = { success?: boolean; error?: string };
 
@@ -196,7 +196,7 @@ const togglePackageActiveBase = loudAction<{ packageId: string; isActive: boolea
   preflight: adminPreflight,
   handler: async ({ packageId, isActive }, { actorId }) => {
     const supabase = await createClient();
-    const { error } = await supabase.from("packages").update({ is_active: isActive } as never).eq("id", packageId);
+    const { error } = await supabase.from("packages").update({ is_active: isActive } satisfies TableUpdate<"packages">).eq("id", packageId);
     if (error) throw error;
 
     await supabase.from("audit_log").insert({
