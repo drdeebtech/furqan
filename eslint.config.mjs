@@ -41,6 +41,7 @@ const eslintConfig = defineConfig([
     ".specify/**",
     "automation/**",
     "k6/**",
+    "scripts/**",
     // External tooling directory (claude-flow / ECC scaffolding) — CJS scripts,
     // not app source.
     "ECC/**",

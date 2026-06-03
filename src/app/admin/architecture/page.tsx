@@ -27,7 +27,7 @@ const STATS = [
 
 export default function ArchitecturePage() {
   return (
-    <div className="space-y-8 p-6">
+    <div dir="rtl" className="space-y-8 p-6">
       {/* Page header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">بنية قاعدة الكود</h1>
