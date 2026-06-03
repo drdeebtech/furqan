@@ -8,6 +8,8 @@ import { useLang } from "@/lib/i18n/context";
 import { SESSION_TYPE_AR, RIWAYA_AR } from "@/lib/constants";
 import type { SessionType, RecitationStandard } from "@/types/database";
 import type { TeacherLanguage } from "@/lib/site-content/types";
+import type { TeacherData } from "./page";
+import { BookingSteps } from "@/components/shared/booking-steps";
 
 const SESSION_TYPE_EN: Record<SessionType, string> = {
   hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
@@ -17,8 +19,6 @@ const SESSION_TYPE_EN: Record<SessionType, string> = {
 const RIWAYA_EN: Record<RecitationStandard, string> = {
   hafs: "Hafs", warsh: "Warsh", qalon: "Qalun", al_duri: "Al-Duri", shu_ba: "Shu'ba",
 };
-import type { TeacherData } from "./page";
-import { BookingSteps } from "@/components/shared/booking-steps";
 
 const SPECIALTIES: { key: string; ar: string; en: string }[] = [
   { key: "all", ar: "الكل", en: "All" },
