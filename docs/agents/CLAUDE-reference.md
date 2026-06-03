@@ -45,7 +45,7 @@ When a commit fixes a Sentry issue, include `Fixes JAVASCRIPT-NEXTJS-E4-<N>` in 
 
 Find the short ID in the Sentry issue header (e.g. `JAVASCRIPT-NEXTJS-E4-NN`).
 
-**Auto-resolve currently broken** — until fixed, manually resolve via Sentry MCP `update_issue` on every `Fixes JAVASCRIPT-NEXTJS-…` PR. (Root cause: the Sentry GitHub App needs installing at the `drdeebtech` org level, not the personal level.)
+**Auto-resolve status unknown** — if the Sentry GitHub App has not been installed at the `drdeebtech` org level, manually resolve via Sentry MCP `update_issue` on every `Fixes JAVASCRIPT-NEXTJS-…` PR. Verify by checking the GitHub Apps settings for the org.
 
 ---
 

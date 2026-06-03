@@ -65,7 +65,7 @@ Webhook verification in `src/app/api/webhooks/bunny/route.ts` uses `crypto.timin
 
 ## Daily.co
 
-`DAILY_API_KEY` and `DAILY_HMAC_SECRET` — assumed present (not re-checked; Daily webhook live per spec 007 shipped 2026-05-12). Webhook verification in `src/lib/daily/webhook-verify.ts` ✅
+`DAILY_API_KEY` and `DAILY_WEBHOOK_SECRET` — assumed present (not re-checked; Daily webhook live per spec 007 shipped 2026-05-12). Webhook verification in `src/lib/daily/webhook-verify.ts` ✅
 
 ---
 

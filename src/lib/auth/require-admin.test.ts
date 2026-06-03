@@ -1,6 +1,41 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ForbiddenError, UnauthenticatedError } from "./errors";
 import { assertRole } from "./role-check";
+
+// ---------------------------------------------------------------------------
+// requireAdmin() mocks — hoisted before any import of require-admin
+// ---------------------------------------------------------------------------
+
+// server-only is a runtime guard — no-op in test environment
+vi.mock("server-only", () => ({}));
+// next/server is only needed by requireAdminForApi; stub enough for import
+vi.mock("next/server", () => ({
+  NextResponse: {
+    json: vi.fn((body: unknown, init: unknown) => ({ body, init })),
+  },
+}));
+
+const mockGetUser = vi.fn();
+const mockSingle = vi.fn();
+
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: vi.fn(async () => ({
+    auth: { getUser: mockGetUser },
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          single: mockSingle,
+        }),
+      }),
+    }),
+  })),
+}));
+
+// withTimeout: pass through the first argument (the promise) so tests
+// control results entirely through mockGetUser / mockSingle.
+vi.mock("@/lib/promise-utils", () => ({
+  withTimeout: (p: Promise<unknown>) => p,
+}));
 
 describe("assertRole", () => {
   it("returns nothing when actual role is in the allowed list", () => {
@@ -42,5 +77,60 @@ describe("UnauthenticatedError", () => {
 
   it("defaults to 'not authenticated' message", () => {
     expect(new UnauthenticatedError().message).toBe("not authenticated");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// requireAdmin() — integration of getAuthedRole + assertRole
+//
+// Mocks: @/lib/supabase/server, @/lib/promise-utils (withTimeout passthrough)
+// ---------------------------------------------------------------------------
+
+// Static import — vi.mock calls above are hoisted by Vitest so mocks are
+// in place before this module is evaluated.
+import { requireAdmin } from "./require-admin";
+
+beforeEach(() => {
+  mockGetUser.mockReset();
+  mockSingle.mockReset();
+});
+
+describe("requireAdmin", () => {
+  it("throws UnauthenticatedError (a ForbiddenError) when getUser returns no user", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+
+    await expect(requireAdmin()).rejects.toThrow(UnauthenticatedError);
+    await expect(requireAdmin()).rejects.toThrow(ForbiddenError);
+  });
+
+  it("throws ForbiddenError when the profile role is 'student' (non-admin)", async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "user-42" } },
+      error: null,
+    });
+    mockSingle.mockResolvedValue({ data: { role: "student" }, error: null });
+
+    await expect(requireAdmin()).rejects.toThrow(ForbiddenError);
+  });
+
+  it("throws ForbiddenError when the profile role is 'teacher' (non-admin)", async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "user-43" } },
+      error: null,
+    });
+    mockSingle.mockResolvedValue({ data: { role: "teacher" }, error: null });
+
+    await expect(requireAdmin()).rejects.toThrow(ForbiddenError);
+  });
+
+  it("resolves with { id } when the profile role is 'admin'", async () => {
+    const USER_ID = "admin-user-1";
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: USER_ID } },
+      error: null,
+    });
+    mockSingle.mockResolvedValue({ data: { role: "admin" }, error: null });
+
+    await expect(requireAdmin()).resolves.toEqual({ id: USER_ID });
   });
 });

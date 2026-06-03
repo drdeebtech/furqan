@@ -4,6 +4,15 @@ import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
 import type { Notification } from "@/types/database";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
+import { loudAction } from "@/lib/actions/loud";
+
+class UserError extends Error {
+  readonly userError = true;
+  constructor(msg: string, options?: { cause?: unknown }) {
+    super(msg, options);
+    this.name = "UserError";
+  }
+}
 
 export async function fetchNotifications(limit = 20) {
   const supabase = await createClient();
@@ -35,68 +44,65 @@ export async function getUnreadCount() {
   return count ?? 0;
 }
 
+const markAsReadBase = loudAction<{ notificationId: string }, void>({
+  name: "notifications.markAsRead",
+  handler: async ({ notificationId }) => {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new UserError("غير مصرح");
+
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true } satisfies TableUpdate<"notifications">)
+      .eq("id", notificationId)
+      .eq("user_id", user.id);
+
+    if (error) throw new UserError("فشل تحديث الإشعار — يرجى المحاولة مرة أخرى", { cause: error });
+  },
+});
+
 export async function markAsRead(notificationId: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "غير مصرح" };
-
-  const { error } = await supabase
-    .from("notifications")
-    .update({ is_read: true } satisfies TableUpdate<"notifications">)
-    .eq("id", notificationId)
-    .eq("user_id", user.id);
-
-  if (error) {
-    logError("notifications markAsRead failed", error, {
-      tag: "notifications",
-      severity: "warning",
-      metadata: { notificationId, userId: user.id },
-    });
-    return { error: "فشل تحديث الإشعار — يرجى المحاولة مرة أخرى" };
-  }
-  return { success: true };
+  return markAsReadBase({ notificationId });
 }
+
+const markAllAsReadBase = loudAction<void, void>({
+  name: "notifications.markAllAsRead",
+  handler: async () => {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new UserError("غير مصرح");
+
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true } satisfies TableUpdate<"notifications">)
+      .eq("user_id", user.id)
+      .eq("is_read", false);
+
+    if (error) throw new UserError("فشل تحديث الإشعارات — يرجى المحاولة مرة أخرى", { cause: error });
+  },
+});
 
 export async function markAllAsRead() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "غير مصرح" };
-
-  const { error } = await supabase
-    .from("notifications")
-    .update({ is_read: true } satisfies TableUpdate<"notifications">)
-    .eq("user_id", user.id)
-    .eq("is_read", false);
-
-  if (error) {
-    logError("notifications markAllAsRead failed", error, {
-      tag: "notifications",
-      severity: "warning",
-      metadata: { userId: user.id },
-    });
-    return { error: "فشل تحديث الإشعارات — يرجى المحاولة مرة أخرى" };
-  }
-  return { success: true };
+  return markAllAsReadBase();
 }
 
+const deleteNotificationBase = loudAction<{ notificationId: string }, void>({
+  name: "notifications.deleteNotification",
+  handler: async ({ notificationId }) => {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new UserError("غير مصرح");
+
+    const { error } = await supabase
+      .from("notifications")
+      .delete()
+      .eq("id", notificationId)
+      .eq("user_id", user.id);
+
+    if (error) throw new UserError("فشل حذف الإشعار — يرجى المحاولة مرة أخرى", { cause: error });
+  },
+});
+
 export async function deleteNotification(notificationId: string) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "غير مصرح" };
-
-  const { error } = await supabase
-    .from("notifications")
-    .delete()
-    .eq("id", notificationId)
-    .eq("user_id", user.id);
-
-  if (error) {
-    logError("notifications deleteNotification failed", error, {
-      tag: "notifications",
-      severity: "warning",
-      metadata: { notificationId, userId: user.id },
-    });
-    return { error: "فشل حذف الإشعار — يرجى المحاولة مرة أخرى" };
-  }
-  return { success: true };
+  return deleteNotificationBase({ notificationId });
 }

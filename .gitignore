@@ -97,3 +97,4 @@ automation/
 
 # ECC (Everything Claude Code) — large external tooling repo, not project source
 ECC/
+.gstack/

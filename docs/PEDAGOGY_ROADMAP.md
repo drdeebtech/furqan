@@ -81,7 +81,7 @@
   create policy advice_student_read on public.student_curriculum_advice
     for select using (student_id = auth.uid());
   create policy advice_admin_full on public.student_curriculum_advice
-    for all using (public.is_admin_or_mod());
+    for all using (public.is_admin());
   ```
 - **Dashboard surface.** New card on `/student/dashboard` rendered above the Murajaah card when a fresh advice row exists for this week and `read_at IS NULL`.
 - **Fallback.** When the AI call fails, write a structured-summary advice row using a deterministic template (matches BLUEPRINT.md "AI fails → fall back to structured non-AI summary").
@@ -163,7 +163,7 @@
     unique (student_progress_id, requirement_id)
   );
   ```
-- **RLS.** Students read their own enrolment + requirement progress. Teachers read enrolments where they are `issuing_teacher_id` OR have ever taught the student. Admin/mod full access. Pathways + requirements are publicly readable (so prospective students can see what's offered).
+- **RLS.** Students read their own enrolment + requirement progress. Teachers read enrolments where they are `issuing_teacher_id` OR have ever taught the student. Admin full access. Pathways + requirements are publicly readable (so prospective students can see what's offered).
 - **UI.** New page `/student/ijazah` — landing for enrolled students, otherwise shows available pathways. Each enrolled pathway shows the requirements list with met/unmet markers and a current-completion percentage.
 - **Teacher endorsement flow.** A "Mark requirement met" button on the teacher's view of the student. Writes to `student_ijazah_requirement_progress` with the verifying teacher's ID — the chain-of-transmission begins here.
 - **Final certification.** When all requirements are met, an admin (and the issuing teacher) get a "ready to issue" notification. Issuance writes `student_ijazah_progress.completed_at` + `issuing_teacher_id` + uploads a PDF certificate (the chain to existing `teacher_ijaza` for the teacher's own ijazah optionally appears on the certificate as the chain).

@@ -9,6 +9,7 @@ import {
   MessageSquare, Clock, Users, ClipboardCheck, BookOpen, StickyNote, Mic, Award,
   Star, DollarSign, Briefcase, FileText, Mail, Bell, Settings, ScrollText, Video,
   ChevronsUpDown, HelpCircle, ChevronRight, ChevronDown, CalendarDays, LogOut,
+  Network, Map, Activity,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { LogoutButton } from "./logout-button";
@@ -104,6 +105,9 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/admin/automation", ar: "سجل الأتمتة", en: "Automation Logs", icon: ScrollText },
     { href: "/admin/automation/replay", ar: "إعادة تشغيل", en: "Webhook Replay", icon: ScrollText },
     { href: "/admin/audit", ar: "سجل التدقيق", en: "Audit Log", icon: ScrollText },
+    { href: "/admin/architecture", ar: "بنية قاعدة الكود", en: "Codebase Architecture", icon: Network },
+    { href: "/admin/health", ar: "صحة الكود", en: "Code Health", icon: Activity },
+    { href: "/admin/tour", ar: "جولة في الكود", en: "Codebase Tour", icon: Map },
     { href: "/admin/account", ar: "حسابي", en: "My Account", icon: Settings },
     { href: "/admin/settings", ar: "الإعدادات", en: "Settings", icon: Settings },
   ],

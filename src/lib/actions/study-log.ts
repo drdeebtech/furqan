@@ -4,6 +4,15 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
+import { loudAction } from "@/lib/actions/loud";
+
+class UserError extends Error {
+  readonly userError = true;
+  constructor(msg: string, options?: { cause?: unknown }) {
+    super(msg, options);
+    this.name = "UserError";
+  }
+}
 
 const VALID_KINDS = ["solo", "review", "dhikr", "manual"] as const;
 type Kind = (typeof VALID_KINDS)[number];
@@ -24,6 +33,7 @@ interface ActionResult {
 // `endStudySession(id)` to close it. If the user never ends it, the row
 // stays "open" (ended_at IS NULL) and the dashboard query treats it as 0
 // minutes contributed (we only count rows with non-null duration_seconds).
+// Returns { ok, id? } — id must be preserved for callers; keep manual pattern.
 
 export async function startStudySession(kind: string, notes?: string): Promise<ActionResult> {
   if (!isKind(kind)) return { ok: false, error: "نوع غير صالح" };
@@ -58,6 +68,7 @@ export async function startStudySession(kind: string, notes?: string): Promise<A
 // Closes an open entry. Computes duration_seconds from the row's started_at,
 // not from a client-provided number, so the server is the source of truth
 // (prevents client-side spoofing of giant durations).
+// Returns { ok, id? } — id must be preserved for callers; keep manual pattern.
 
 export async function endStudySession(id: string): Promise<ActionResult> {
   const supabase = await createClient();
@@ -101,6 +112,7 @@ export async function endStudySession(id: string): Promise<ActionResult> {
 // ─── addManualEntry ─────────────────────────────────────────────────────────
 // Retroactively log a study session. Used when the student forgot to start
 // the stopwatch but wants the time on record.
+// Returns { ok, id? } — id must be preserved for callers; keep manual pattern.
 
 export async function addManualEntry(
   durationMinutes: number,
@@ -146,23 +158,26 @@ export async function addManualEntry(
 
 // ─── deleteStudyEntry ───────────────────────────────────────────────────────
 
-export async function deleteStudyEntry(id: string): Promise<ActionResult> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "غير مسجل الدخول" };
+const deleteStudyEntryBase = loudAction<{ id: string }, void>({
+  name: "study-log.deleteStudyEntry",
+  handler: async ({ id }) => {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new UserError("غير مسجل الدخول");
 
-  const { error } = await supabase
-    .from("study_log")
-    .delete()
-    .eq("id", id)
-    .eq("student_id", user.id); // RLS double-check
+    const { error } = await supabase
+      .from("study_log")
+      .delete()
+      .eq("id", id)
+      .eq("student_id", user.id); // RLS double-check
 
-  if (error) {
-    logError("deleteStudyEntry failed", error, { tag: "study-log", id });
-    return { ok: false, error: error.message };
-  }
+    if (error) throw new UserError("فشل حذف السجل", { cause: error });
 
-  revalidatePath("/student/time-tracker");
-  revalidatePath("/student/dashboard");
-  return { ok: true };
+    revalidatePath("/student/time-tracker");
+    revalidatePath("/student/dashboard");
+  },
+});
+
+export async function deleteStudyEntry(id: string) {
+  return deleteStudyEntryBase({ id });
 }

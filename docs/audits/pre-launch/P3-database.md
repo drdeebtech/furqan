@@ -12,7 +12,7 @@
 | Total migration files in `supabase/migrations/` | 63 |
 | Most recent migration | `20260512123700_add_daily_webhook_events_table.sql` (2026-05-12) |
 | Migration drift CI | ✅ Passed 2026-05-12 |
-| supabase-lint CI | ⚠️ Last run had failure on 2026-05-06 (9 days ago, not re-run) |
+| supabase-lint CI | ⚠️ Last run had failure on 2026-05-06 — status unknown, verify before next release |
 
 ---
 
@@ -20,11 +20,11 @@
 
 | Count | Status |
 |-------|--------|
-| 107 occurrences in `src/` | ⚠️ ADR-0002 Phase 4 migration (typed helpers) is ongoing |
+| 83 occurrences in `src/` (was 107 at audit; PRs #403 + #404 reduced count) | ⚠️ ADR-0002 Phase 4 migration (typed helpers) is ongoing |
 
 Sample locations: student settings, group-session, halaqas, retention, contacts, control-tower actions.
 
-**Finding:** 107 `as never` casts remain. Per ADR-0002, these should progressively migrate to `TableInsert<"X">` / `TableUpdate<"X">` from `src/lib/supabase/typed-helpers`. Not a runtime bug but means TypeScript doesn't catch insert/update shape mismatches.
+**Finding:** 83 `as never` casts remain. Per ADR-0002, these should progressively migrate to `TableInsert<"X">` / `TableUpdate<"X">` from `src/lib/supabase/typed-helpers`. Not a runtime bug but means TypeScript doesn't catch insert/update shape mismatches.
 
 ---
 
@@ -49,8 +49,8 @@ Sample locations: student settings, group-session, halaqas, retention, contacts,
 
 | Issue | Severity | Description |
 |-------|----------|-------------|
-| #246 🔴 | Bug | `SECURITY DEFINER` missing from `deduct_package_session` in 2026-04-28 migration |
-| #245 🔴 | Bug | Homework grade + auto-regen are NOT atomic (separate Supabase calls at lines 257 and 294) |
+| #246 ✅ | Bug (closed) | `SECURITY DEFINER` missing from `deduct_package_session` in 2026-04-28 migration — fixed |
+| #245 ✅ | Bug (closed) | Homework grade + auto-regen are NOT atomic (separate Supabase calls at lines 257 and 294) — fixed |
 | #244 | Enhancement | No `UNIQUE` constraint on `bookings(teacher_id, scheduled_at)` — slot race possible |
 | #236 | Enhancement | No explicit `ON DELETE` policy on `homework_assignments.parent_assignment_id` FK |
 | #234 | Enhancement | No DB-level guard against UPDATEs to completed_* homework rows |
@@ -65,13 +65,13 @@ Sample locations: student settings, group-session, halaqas, retention, contacts,
 | Migration files up to date | ✅ 63 files, most recent May 12 |
 | Drift CI | ✅ Passed |
 | supabase-lint CI | ⚠️ Last failure unresolved (9 days ago) |
-| `as never` casts | ⚠️ 107 remaining (ADR-0002 in progress) |
+| `as never` casts | ⚠️ 83 remaining (ADR-0002 in progress; was 107 at audit) |
 | SECURITY DEFINER | ✅ All intentional + documented |
-| Issue #246 (missing SECURITY DEFINER) | 🔴 Confirmed bug |
-| Issue #245 (non-atomic grade+regen) | 🔴 Confirmed bug |
+| Issue #246 (missing SECURITY DEFINER) | ✅ Fixed (closed) |
+| Issue #245 (non-atomic grade+regen) | ✅ Fixed (closed) |
 | Slot race (#244) | ⚠️ No UNIQUE constraint yet |
 
-**Blocker:** Yes (partial). Issue #246 is a security/correctness bug. Issue #245 is a data integrity bug. Both must be fixed before launch.
+**Blocker:** No. Issues #246 and #245 were fixed and closed post-audit.
 
 ---
 

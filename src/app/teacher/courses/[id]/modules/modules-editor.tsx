@@ -97,7 +97,7 @@ export function ModulesEditor({ courseId, modules, lessons, assignments }: Props
 
   const handleAssign = (moduleId: string, lessonId: string) => {
     startTransition(async () => {
-      const res = await assignLesson(moduleId, lessonId);
+      const res = await assignLesson({ moduleId, lessonId });
       if (res.ok) toast.success(t("تم التعيين", "Assigned"));
       else toast.error(res.error ?? t("فشل", "Failed"));
     });

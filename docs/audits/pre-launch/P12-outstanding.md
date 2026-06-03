@@ -11,10 +11,10 @@
 
 | Issue | Title | Impact |
 |-------|-------|--------|
-| #246 | `SECURITY DEFINER` missing from `deduct_package_session` in 2026-04-28 migration | Package deduction may not run with correct privileges — financial correctness bug |
-| #245 | Homework grade + auto-regen are NOT atomic | Race condition: grade written, then auto-regen fails silently — data inconsistency |
-| #229 | `startInstantSession` bypasses package-balance check | Students can start sessions without valid package (FR-009 violation) |
-| #247 | TS callers of `deduct_package_session` ignore return value | Silent expiry/exhaustion — no error surfaced when deduction fails |
+| #246 ✅ | `SECURITY DEFINER` missing from `deduct_package_session` | Fixed and closed |
+| #245 ✅ | Homework grade + auto-regen are NOT atomic | Fixed and closed |
+| #229 ✅ | `startInstantSession` bypasses package-balance check | Fixed and closed |
+| #247 ✅ | TS callers of `deduct_package_session` ignore return value | Fixed and closed |
 
 ### ⚠️ Open Enhancement / Technical Debt
 
@@ -55,20 +55,9 @@
 
 ---
 
-## Jules Sessions In-Flight
-
-As of audit date, several Jules CLI sessions were launched for:
-- `whatsapp.ts` test generation (session `14070982927457323656`)
-- Bookings UNIQUE migration (session `12541988811278448708`)
-- `homework_assignments` ON DELETE migration
-
-Status unknown at audit time — check `jules remote list --session` before merging.
-
----
-
 ## db-types-fresh CI
 
-Last successful run: 2026-05-07 (8 days ago). This workflow regenerates Supabase TypeScript types. If it has been failing silently, `src/types/database.ts` may be stale relative to the deployed schema. Issue #185 (regenerate types against correct account) is the action item.
+Issue #185 (regenerate types against correct account) was closed post-audit. `src/types/database.ts` should be current. Verify with `npx supabase gen types typescript --linked` if in doubt.
 
 ---
 
@@ -76,17 +65,13 @@ Last successful run: 2026-05-07 (8 days ago). This workflow regenerates Supabase
 
 | Category | Count | Status |
 |----------|-------|--------|
-| Critical bugs | 4 | #246, #245, #229, #247 |
+| Critical bugs | 4 | ✅ All closed (#246, #245, #229, #247) |
 | Stripe integration | 1 | Blocked on keys |
 | Technical debt | 11 | Enhancement/loudAction/DB guards |
 | Documentation | 2 | Minor |
 
-**Blockers before launch:**
-1. Fix #246 (SECURITY DEFINER missing)
-2. Fix #229 (package balance bypass)
-3. Fix #245 (non-atomic grade + regen) or document as acceptable risk
-4. Fix #247 (ignored deduct_package_session return value) or wrap callers
-5. Decide Stripe scope: ship stub or complete Sprint 1
+**Remaining before launch:**
+1. Decide Stripe scope: ship stub or complete Sprint 1
 
 ---
 

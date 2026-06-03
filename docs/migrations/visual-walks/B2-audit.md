@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-05
 **Auditor:** Claude (static analysis, dark-mode dashboards as primary surface)
-**Scope:** Dashboard glass treatment across `src/app/admin/*`, `src/app/teacher/*`, `src/app/student/*`, `src/app/moderator/*`, plus the canonical `src/styles/glass.css`
+**Scope:** Dashboard glass treatment across `src/app/admin/*`, `src/app/teacher/*`, `src/app/student/*` (note: `src/app/moderator/*` was deleted per ADR-0003 on 2026-05-08), plus the canonical `src/styles/glass.css`
 **Reference:** `.impeccable.md` ("gold-on-black Liquid Glass identity") + the migration plan's Phase B2 brief
 
 ---

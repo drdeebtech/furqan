@@ -179,7 +179,7 @@ export default async function AdminCourseReviewPage({ params }: PageProps) {
               action={async (fd) => {
                 "use server";
                 const reason = String(fd.get("reason") ?? "").trim();
-                if (reason) await rejectCourse(id, reason);
+                if (reason) await rejectCourse({ courseId: id, reason });
               }}
               className="flex flex-col gap-2"
             >

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
+import { loudAction } from "@/lib/actions/loud";
 import { selectActivePackage, debitPackage } from "@/lib/domains/package/ledger";
 import { emitEvent } from "@/lib/automation/emit";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
@@ -11,6 +12,14 @@ import type { SessionType } from "@/types/database";
 const VALID_TYPES: ReadonlySet<SessionType> = new Set([
   "hifz", "muraja", "tajweed", "tilawa", "qiraat", "tafsir", "combined", "other",
 ]);
+
+class UserError extends Error {
+  readonly userError = true;
+  constructor(msg: string, options?: { cause?: unknown }) {
+    super(msg, options);
+    this.name = "UserError";
+  }
+}
 
 interface CreateInput {
   title: string;
@@ -26,6 +35,7 @@ interface CreateInput {
  * Teacher publishes a group-class offering. Students browse + self-enroll
  * in Phase 3. RLS already restricts access to the publishing teacher; we
  * still validate inputs here so bad data never lands in the table.
+ * Returns extra `id` field — kept as manual pattern with logError.
  */
 export async function createOffering(input: CreateInput) {
   const supabase = await createClient();
@@ -77,68 +87,69 @@ interface UpdateInput extends Partial<CreateInput> {
   status?: "open" | "full" | "confirmed" | "cancelled" | "completed";
 }
 
-export async function updateOffering(id: string, patch: UpdateInput) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "غير مصرح" };
+export const updateOffering = loudAction<{ id: string; patch: UpdateInput }, void>({
+  name: "class-offerings.updateOffering",
+  handler: async ({ id, patch }) => {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new UserError("غير مصرح");
 
-  const { data: existing } = await supabase
-    .from("class_offerings")
-    .select("id, teacher_id, status")
-    .eq("id", id)
-    .single<{ id: string; teacher_id: string; status: string }>();
-  if (!existing) return { error: "الجلسة الجماعية غير موجودة" };
-  if (existing.teacher_id !== user.id) return { error: "ليست جلستك" };
-  if (existing.status === "completed" || existing.status === "cancelled") {
-    return { error: "لا يمكن تعديل جلسة منتهية أو ملغاة" };
-  }
-
-  // Build a tight update payload — only fields actually provided.
-  const update: TableUpdate<"class_offerings"> = {};
-  if (patch.title !== undefined) {
-    const t = patch.title.trim();
-    if (t.length < 1 || t.length > 200) return { error: "العنوان مطلوب" };
-    update.title = t;
-  }
-  if (patch.description !== undefined) update.description = patch.description?.trim() || null;
-  if (patch.scheduled_at !== undefined) {
-    const ms = Date.parse(patch.scheduled_at);
-    if (Number.isNaN(ms)) return { error: "تاريخ غير صالح" };
-    update.scheduled_at = patch.scheduled_at;
-  }
-  if (patch.duration_min !== undefined) {
-    if (!Number.isInteger(patch.duration_min) || patch.duration_min < 15 || patch.duration_min > 240) {
-      return { error: "المدة 15..240 دقيقة" };
+    const { data: existing } = await supabase
+      .from("class_offerings")
+      .select("id, teacher_id, status")
+      .eq("id", id)
+      .single<{ id: string; teacher_id: string; status: string }>();
+    if (!existing) throw new UserError("الجلسة الجماعية غير موجودة");
+    if (existing.teacher_id !== user.id) throw new UserError("ليست جلستك");
+    if (existing.status === "completed" || existing.status === "cancelled") {
+      throw new UserError("لا يمكن تعديل جلسة منتهية أو ملغاة");
     }
-    update.duration_min = patch.duration_min;
-  }
-  if (patch.session_type !== undefined) {
-    if (!VALID_TYPES.has(patch.session_type as SessionType)) return { error: "نوع غير صالح" };
-    update.session_type = patch.session_type as SessionType;
-  }
-  if (patch.capacity !== undefined) {
-    if (!Number.isInteger(patch.capacity) || patch.capacity < 2 || patch.capacity > 20) {
-      return { error: "السعة 2..20" };
+
+    // Build a tight update payload — only fields actually provided.
+    const update: TableUpdate<"class_offerings"> = {};
+    if (patch.title !== undefined) {
+      const t = patch.title.trim();
+      if (t.length < 1 || t.length > 200) throw new UserError("العنوان مطلوب");
+      update.title = t;
     }
-    update.capacity = patch.capacity;
-  }
-  if (patch.price_usd !== undefined) {
-    if (typeof patch.price_usd !== "number" || patch.price_usd < 0) return { error: "السعر غير صالح" };
-    update.price_usd = patch.price_usd;
-  }
-  if (patch.status !== undefined) update.status = patch.status;
+    if (patch.description !== undefined) update.description = patch.description?.trim() || null;
+    if (patch.scheduled_at !== undefined) {
+      const ms = Date.parse(patch.scheduled_at);
+      if (Number.isNaN(ms)) throw new UserError("تاريخ غير صالح");
+      update.scheduled_at = patch.scheduled_at;
+    }
+    if (patch.duration_min !== undefined) {
+      if (!Number.isInteger(patch.duration_min) || patch.duration_min < 15 || patch.duration_min > 240) {
+        throw new UserError("المدة 15..240 دقيقة");
+      }
+      update.duration_min = patch.duration_min;
+    }
+    if (patch.session_type !== undefined) {
+      if (!VALID_TYPES.has(patch.session_type as SessionType)) throw new UserError("نوع غير صالح");
+      update.session_type = patch.session_type as SessionType;
+    }
+    if (patch.capacity !== undefined) {
+      if (!Number.isInteger(patch.capacity) || patch.capacity < 2 || patch.capacity > 20) {
+        throw new UserError("السعة 2..20");
+      }
+      update.capacity = patch.capacity;
+    }
+    if (patch.price_usd !== undefined) {
+      if (typeof patch.price_usd !== "number" || patch.price_usd < 0) throw new UserError("السعر غير صالح");
+      update.price_usd = patch.price_usd;
+    }
+    if (patch.status !== undefined) update.status = patch.status;
 
-  const { error } = await supabase
-    .from("class_offerings")
-    .update(update)
-    .eq("id", id);
+    const { error } = await supabase
+      .from("class_offerings")
+      .update(update)
+      .eq("id", id);
+    if (error) throw new UserError("فشل التعديل", { cause: error });
 
-  if (error) return { error: "فشل التعديل — " + error.message };
-
-  revalidatePath("/teacher/classes");
-  revalidatePath(`/teacher/classes/${id}`);
-  return { success: true as const };
-}
+    revalidatePath("/teacher/classes");
+    revalidatePath(`/teacher/classes/${id}`);
+  },
+});
 
 /**
  * Student self-enrolls in an open class offering.
@@ -159,6 +170,7 @@ export async function updateOffering(id: string, patch: UpdateInput) {
  *    auto-confirmed because the teacher already published the slot —
  *    enrollment IS confirmation. session_id stays NULL until the booking
  *    workflow creates the actual sessions row at start time.
+ * Returns extra `bookingId` field — kept as manual pattern with logError.
  */
 export async function enrollInOffering(
   offeringId: string,
@@ -312,17 +324,40 @@ export async function enrollInOffering(
   return { success: true as const, bookingId: newBooking.id };
 }
 
-export async function cancelOffering(id: string, reason?: string) {
-  const res = await updateOffering(id, { status: "cancelled" });
-  if (!res || "error" in res) return res;
-  if (reason) {
+export const cancelOffering = loudAction<{ id: string; reason?: string }, void>({
+  name: "class-offerings.cancelOffering",
+  handler: async ({ id, reason }) => {
     const supabase = await createClient();
-    const { error } = await supabase.from("class_offerings").update({
-      description: `[CANCELLED] ${reason}`,
-    } as never).eq("id", id);
-    if (error) {
-      logError("class-offerings cancel description update failed", error, { tag: "class-offerings" });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new UserError("غير مصرح");
+
+    const { data: existing } = await supabase
+      .from("class_offerings")
+      .select("id, teacher_id, status")
+      .eq("id", id)
+      .single<{ id: string; teacher_id: string; status: string }>();
+    if (!existing) throw new UserError("الجلسة الجماعية غير موجودة");
+    if (existing.teacher_id !== user.id) throw new UserError("ليست جلستك");
+    if (existing.status === "completed" || existing.status === "cancelled") {
+      throw new UserError("لا يمكن تعديل جلسة منتهية أو ملغاة");
     }
-  }
-  return res;
-}
+
+    const { error } = await supabase
+      .from("class_offerings")
+      .update({ status: "cancelled" } satisfies TableUpdate<"class_offerings">)
+      .eq("id", id);
+    if (error) throw new UserError("فشل إلغاء الجلسة", { cause: error });
+
+    if (reason) {
+      const { error: descErr } = await supabase.from("class_offerings").update({
+        description: `[CANCELLED] ${reason}`,
+      } as never).eq("id", id);
+      if (descErr) {
+        logError("class-offerings cancel description update failed", descErr, { tag: "class-offerings" });
+      }
+    }
+
+    revalidatePath("/teacher/classes");
+    revalidatePath(`/teacher/classes/${id}`);
+  },
+});

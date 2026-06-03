@@ -4,9 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
+import { loudAction } from "@/lib/actions/loud";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
-
-interface ActionResult { ok: boolean; error?: string; id?: string }
 
 export type QuestionType = "mcq" | "fill_in" | "true_false";
 
@@ -14,6 +13,14 @@ interface MCQOption {
   id: string;
   text_ar: string;
   text_en?: string;
+}
+
+class UserError extends Error {
+  readonly userError = true;
+  constructor(msg: string, options?: { cause?: unknown }) {
+    super(msg, options);
+    this.name = "UserError";
+  }
 }
 
 // Auth helpers ----------------------------------------------------------------
@@ -47,8 +54,11 @@ async function authQuizOwner(quizId: string): Promise<{ ok: true; userId: string
 }
 
 // Quiz CRUD ------------------------------------------------------------------
+// createQuiz / updateQuiz / addQuestion / startQuizAttempt / submitQuizAttempt
+// return extra fields (id, score_pct, passed) — kept as manual pattern with
+// logError for loud failure visibility.
 
-export async function createQuiz(courseId: string, formData: FormData): Promise<ActionResult> {
+export async function createQuiz(courseId: string, formData: FormData): Promise<{ ok: boolean; error?: string; id?: string }> {
   const auth = await authCourseOwner(courseId);
   if (!auth.ok) return auth;
 
@@ -81,7 +91,7 @@ export async function createQuiz(courseId: string, formData: FormData): Promise<
   return { ok: true, id: data.id };
 }
 
-export async function updateQuiz(quizId: string, formData: FormData): Promise<ActionResult> {
+export async function updateQuiz(quizId: string, formData: FormData): Promise<{ ok: boolean; error?: string; id?: string }> {
   const auth = await authQuizOwner(quizId);
   if (!auth.ok) return auth;
 
@@ -111,19 +121,21 @@ export async function updateQuiz(quizId: string, formData: FormData): Promise<Ac
   return { ok: true, id: quizId };
 }
 
-export async function deleteQuiz(quizId: string): Promise<ActionResult> {
-  const auth = await authQuizOwner(quizId);
-  if (!auth.ok) return auth;
-  const supabase = await createClient();
-  const { error } = await supabase.from("quizzes").delete().eq("id", quizId);
-  if (error) return { ok: false, error: error.message };
-  revalidatePath(`/teacher/courses/${auth.courseId}/quizzes`);
-  return { ok: true };
-}
+export const deleteQuiz = loudAction<string, void>({
+  name: "quizzes.deleteQuiz",
+  handler: async (quizId) => {
+    const auth = await authQuizOwner(quizId);
+    if (!auth.ok) throw new UserError(auth.error);
+    const supabase = await createClient();
+    const { error } = await supabase.from("quizzes").delete().eq("id", quizId);
+    if (error) throw new UserError("فشل حذف الاختبار", { cause: error });
+    revalidatePath(`/teacher/courses/${auth.courseId}/quizzes`);
+  },
+});
 
 // Question CRUD --------------------------------------------------------------
 
-export async function addQuestion(quizId: string, formData: FormData): Promise<ActionResult> {
+export async function addQuestion(quizId: string, formData: FormData): Promise<{ ok: boolean; error?: string; id?: string }> {
   const auth = await authQuizOwner(quizId);
   if (!auth.ok) return auth;
 
@@ -196,23 +208,24 @@ export async function addQuestion(quizId: string, formData: FormData): Promise<A
   return { ok: true, id: data.id };
 }
 
-export async function deleteQuestion(questionId: string): Promise<ActionResult> {
-  const supabase = await createClient();
-  const { data: q } = await supabase.from("quiz_questions").select("quiz_id").eq("id", questionId)
-    .single<{ quiz_id: string }>();
-  if (!q) return { ok: false, error: "السؤال غير موجود" };
-  const auth = await authQuizOwner(q.quiz_id);
-  if (!auth.ok) return auth;
-
-  const { error } = await supabase.from("quiz_questions").delete().eq("id", questionId);
-  if (error) return { ok: false, error: error.message };
-  revalidatePath(`/teacher/courses/${auth.courseId}/quizzes/${q.quiz_id}/edit`);
-  return { ok: true };
-}
+export const deleteQuestion = loudAction<string, void>({
+  name: "quizzes.deleteQuestion",
+  handler: async (questionId) => {
+    const supabase = await createClient();
+    const { data: q } = await supabase.from("quiz_questions").select("quiz_id").eq("id", questionId)
+      .single<{ quiz_id: string }>();
+    if (!q) throw new UserError("السؤال غير موجود");
+    const auth = await authQuizOwner(q.quiz_id);
+    if (!auth.ok) throw new UserError(auth.error);
+    const { error } = await supabase.from("quiz_questions").delete().eq("id", questionId);
+    if (error) throw new UserError("فشل حذف السؤال", { cause: error });
+    revalidatePath(`/teacher/courses/${auth.courseId}/quizzes/${q.quiz_id}/edit`);
+  },
+});
 
 // Attempts -------------------------------------------------------------------
 
-export async function startQuizAttempt(quizId: string): Promise<ActionResult> {
+export async function startQuizAttempt(quizId: string): Promise<{ ok: boolean; error?: string; id?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "غير مسجل الدخول" };
@@ -226,14 +239,17 @@ export async function startQuizAttempt(quizId: string): Promise<ActionResult> {
   const { data, error } = await supabase.from("quiz_attempts")
     .insert({ quiz_id: quizId, student_id: user.id } satisfies TableInsert<"quiz_attempts">)
     .select("id").single<{ id: string }>();
-  if (error || !data) return { ok: false, error: error?.message ?? "لم يتم العثور على السجل" };
+  if (error || !data) {
+    logError("startQuizAttempt failed", error, { tag: "quizzes", quizId });
+    return { ok: false, error: error?.message ?? "لم يتم العثور على السجل" };
+  }
   return { ok: true, id: data.id };
 }
 
 export async function submitQuizAttempt(
   attemptId: string,
   answers: Record<string, unknown>,
-): Promise<ActionResult & { score_pct?: number; passed?: boolean }> {
+): Promise<{ ok: boolean; error?: string; id?: string; score_pct?: number; passed?: boolean }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "غير مسجل الدخول" };
@@ -317,7 +333,10 @@ export async function submitQuizAttempt(
     passed,
     duration_seconds,
   } satisfies TableUpdate<"quiz_attempts">).eq("id", attemptId);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    logError("submitQuizAttempt update failed", error, { tag: "quizzes", attemptId });
+    return { ok: false, error: error.message };
+  }
 
   revalidatePath("/student/quizzes");
   if (quizRow) revalidatePath(`/teacher/courses/${quizRow.course_id}/quizzes`);

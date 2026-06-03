@@ -13,6 +13,15 @@ import {
   isBunnyConfigured,
 } from "@/lib/bunny/client";
 import type { CourseLesson } from "@/types/database";
+import { loudAction } from "@/lib/actions/loud";
+
+class UserError extends Error {
+  readonly userError = true;
+  constructor(msg: string, options?: { cause?: unknown }) {
+    super(msg, options);
+    this.name = "UserError";
+  }
+}
 
 async function requireTeacherOrAbove(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -20,7 +29,7 @@ async function requireTeacherOrAbove(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) throw new Error("غير مسجل الدخول");
+  if (!user) throw new UserError("غير مسجل الدخول");
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
@@ -30,7 +39,7 @@ async function requireTeacherOrAbove(
     !profile ||
     !["admin", "teacher"].includes(profile.role)
   ) {
-    throw new Error("غير مصرح");
+    throw new UserError("غير مصرح");
   }
   return { user, role: profile.role };
 }
@@ -44,6 +53,7 @@ function revalidateCoursePaths(courseId?: string) {
 // Provisions a Bunny video record and creates the local lesson row in
 // 'uploading' state. Returns the TUS upload credentials so the browser can
 // upload directly to Bunny without ever seeing the API key.
+// Returns extra fields (lesson, upload) — cannot use loudAction without losing them.
 
 export interface CreateLessonResult {
   ok: boolean;
@@ -154,122 +164,112 @@ export async function createLesson(
 
 // ─── 2. updateLesson ────────────────────────────────────────────────────────
 
-export async function updateLesson(
-  lessonId: string,
-  formData: FormData,
-) {
-  const supabase = await createClient();
-  try {
+export const updateLesson = loudAction<
+  { lessonId: string; formData: FormData },
+  void
+>({
+  name: "course-lessons.updateLesson",
+  handler: async ({ lessonId, formData }) => {
+    const supabase = await createClient();
     await requireTeacherOrAbove(supabase);
-  } catch (e) {
-    return { ok: false as const, error: (e as Error).message };
-  }
 
-  const updates: Partial<CourseLesson> = {};
-  const fields: (keyof CourseLesson)[] = [
-    "title_ar",
-    "title_en",
-    "description_ar",
-    "description_en",
-    "is_preview",
-  ];
-  for (const f of fields) {
-    const v = formData.get(f as string);
-    if (v !== null) {
-      if (f === "is_preview") {
-        (updates as Record<string, unknown>)[f] = v === "on" || v === "true";
-      } else {
-        (updates as Record<string, unknown>)[f] = v === "" ? null : v;
+    const updates: Partial<CourseLesson> = {};
+    const fields: (keyof CourseLesson)[] = [
+      "title_ar",
+      "title_en",
+      "description_ar",
+      "description_en",
+      "is_preview",
+    ];
+    for (const f of fields) {
+      const v = formData.get(f as string);
+      if (v !== null) {
+        if (f === "is_preview") {
+          (updates as Record<string, unknown>)[f] = v === "on" || v === "true";
+        } else {
+          (updates as Record<string, unknown>)[f] = v === "" ? null : v;
+        }
       }
     }
-  }
 
-  const { data, error } = await supabase
-    .from("course_lessons")
-    .update(updates as TableUpdate<"course_lessons">)
-    .eq("id", lessonId)
-    .select("course_id")
-    .single<{ course_id: string }>();
+    const { data, error } = await supabase
+      .from("course_lessons")
+      .update(updates as TableUpdate<"course_lessons">)
+      .eq("id", lessonId)
+      .select("course_id")
+      .single<{ course_id: string }>();
 
-  if (error) {
-    logError("updateLesson failed", error, { tag: "course-lessons", lessonId });
-    return { ok: false as const, error: error.message };
-  }
+    if (error) throw new UserError("فشل تحديث الدرس", { cause: error });
 
-  revalidateCoursePaths(data?.course_id);
-  return { ok: true as const };
-}
+    revalidateCoursePaths(data?.course_id);
+  },
+});
 
 // ─── 3. deleteLesson ────────────────────────────────────────────────────────
 
-export async function deleteLesson(lessonId: string) {
-  const supabase = await createClient();
-  try {
+export const deleteLesson = loudAction<string, void>({
+  name: "course-lessons.deleteLesson",
+  severity: "warning",
+  handler: async (lessonId) => {
+    const supabase = await createClient();
     await requireTeacherOrAbove(supabase);
-  } catch (e) {
-    return { ok: false as const, error: (e as Error).message };
-  }
 
-  const { data: lesson } = await supabase
-    .from("course_lessons")
-    .select("bunny_video_id, course_id")
-    .eq("id", lessonId)
-    .single<{ bunny_video_id: string | null; course_id: string }>();
+    const { data: lesson } = await supabase
+      .from("course_lessons")
+      .select("bunny_video_id, course_id")
+      .eq("id", lessonId)
+      .single<{ bunny_video_id: string | null; course_id: string }>();
 
-  const { error } = await supabase
-    .from("course_lessons")
-    .delete()
-    .eq("id", lessonId);
+    const { error } = await supabase
+      .from("course_lessons")
+      .delete()
+      .eq("id", lessonId);
 
-  if (error) {
-    logError("deleteLesson failed", error, { tag: "course-lessons", lessonId });
-    return { ok: false as const, error: error.message };
-  }
+    if (error) throw new UserError("فشل حذف الدرس", { cause: error });
 
-  if (lesson?.bunny_video_id) {
-    deleteBunnyVideo(lesson.bunny_video_id).catch((err) =>
-      logError("Bunny deleteVideo cleanup failed (non-fatal)", err, {
-        tag: "course-lessons",
-        bunnyGuid: lesson.bunny_video_id,
-      }),
-    );
-  }
+    if (lesson?.bunny_video_id) {
+      deleteBunnyVideo(lesson.bunny_video_id).catch((err) =>
+        logError("Bunny deleteVideo cleanup failed (non-fatal)", err, {
+          tag: "course-lessons",
+          bunnyGuid: lesson.bunny_video_id,
+        }),
+      );
+    }
 
-  revalidateCoursePaths(lesson?.course_id);
-  return { ok: true as const };
-}
+    revalidateCoursePaths(lesson?.course_id);
+  },
+});
 
 // ─── 4. togglePreview ───────────────────────────────────────────────────────
 
-export async function togglePreview(lessonId: string, isPreview: boolean) {
-  const supabase = await createClient();
-  try {
+export const togglePreview = loudAction<
+  { lessonId: string; isPreview: boolean },
+  void
+>({
+  name: "course-lessons.togglePreview",
+  handler: async ({ lessonId, isPreview }) => {
+    const supabase = await createClient();
     await requireTeacherOrAbove(supabase);
-  } catch (e) {
-    return { ok: false as const, error: (e as Error).message };
-  }
 
-  const { data, error } = await supabase
-    .from("course_lessons")
-    .update({ is_preview: isPreview } satisfies TableUpdate<"course_lessons">)
-    .eq("id", lessonId)
-    .select("course_id")
-    .single<{ course_id: string }>();
+    const { data, error } = await supabase
+      .from("course_lessons")
+      .update({ is_preview: isPreview } satisfies TableUpdate<"course_lessons">)
+      .eq("id", lessonId)
+      .select("course_id")
+      .single<{ course_id: string }>();
 
-  if (error) {
-    logError("togglePreview failed", error, { tag: "course-lessons", lessonId });
-    return { ok: false as const, error: error.message };
-  }
+    if (error) throw new UserError("فشل تغيير حالة العرض المجاني", { cause: error });
 
-  revalidateCoursePaths(data?.course_id);
-  return { ok: true as const };
-}
+    revalidateCoursePaths(data?.course_id);
+  },
+});
 
 // ─── 5. syncLessonStatusFromBunny ───────────────────────────────────────────
 // Webhook-less fallback: re-queries Bunny's API for the current video status
 // and updates the lesson row. Useful when the webhook isn't configured (e.g.
 // BUNNY_WEBHOOK_SECRET missing) or when the webhook hasn't arrived yet.
 // Idempotent — calling it on a 'ready' lesson is a no-op.
+// Returns extra fields (videoStatus, changed) — cannot use loudAction without losing them.
 
 export async function syncLessonStatusFromBunny(lessonId: string) {
   const supabase = await createClient();
@@ -383,47 +383,33 @@ export async function syncLessonStatusFromBunny(lessonId: string) {
 // Two-pass strategy avoids unique(course_id, order_index) collisions:
 // pass 1 sets all rows to negative temp values, pass 2 sets the final values.
 
-export async function reorderLessons(
-  courseId: string,
-  orderedLessonIds: string[],
-) {
-  const supabase = await createClient();
-  try {
+export const reorderLessons = loudAction<
+  { courseId: string; orderedLessonIds: string[] },
+  void
+>({
+  name: "course-lessons.reorderLessons",
+  handler: async ({ courseId, orderedLessonIds }) => {
+    const supabase = await createClient();
     await requireTeacherOrAbove(supabase);
-  } catch (e) {
-    return { ok: false as const, error: (e as Error).message };
-  }
 
-  for (let i = 0; i < orderedLessonIds.length; i++) {
-    const { error } = await supabase
-      .from("course_lessons")
-      .update({ order_index: -(i + 1000) } satisfies TableUpdate<"course_lessons">)
-      .eq("id", orderedLessonIds[i])
-      .eq("course_id", courseId);
-    if (error) {
-      logError("reorderLessons pass1 failed", error, {
-        tag: "course-lessons",
-        courseId,
-      });
-      return { ok: false as const, error: error.message };
+    for (let i = 0; i < orderedLessonIds.length; i++) {
+      const { error } = await supabase
+        .from("course_lessons")
+        .update({ order_index: -(i + 1000) } satisfies TableUpdate<"course_lessons">)
+        .eq("id", orderedLessonIds[i])
+        .eq("course_id", courseId);
+      if (error) throw new UserError("فشل إعادة ترتيب الدروس", { cause: error });
     }
-  }
 
-  for (let i = 0; i < orderedLessonIds.length; i++) {
-    const { error } = await supabase
-      .from("course_lessons")
-      .update({ order_index: i + 1 } satisfies TableUpdate<"course_lessons">)
-      .eq("id", orderedLessonIds[i])
-      .eq("course_id", courseId);
-    if (error) {
-      logError("reorderLessons pass2 failed", error, {
-        tag: "course-lessons",
-        courseId,
-      });
-      return { ok: false as const, error: error.message };
+    for (let i = 0; i < orderedLessonIds.length; i++) {
+      const { error } = await supabase
+        .from("course_lessons")
+        .update({ order_index: i + 1 } satisfies TableUpdate<"course_lessons">)
+        .eq("id", orderedLessonIds[i])
+        .eq("course_id", courseId);
+      if (error) throw new UserError("فشل إعادة ترتيب الدروس", { cause: error });
     }
-  }
 
-  revalidateCoursePaths(courseId);
-  return { ok: true as const };
-}
+    revalidateCoursePaths(courseId);
+  },
+});
