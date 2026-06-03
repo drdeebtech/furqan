@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { routeAction } from "@/lib/actions/route-action";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
+import { emitEvent } from "@/lib/automation/emit";
 
 type ActionResult = { error?: string; success?: boolean };
 
@@ -22,6 +23,7 @@ const togglePolicyActiveBase = routeAction<{ policyId: string; isActive: boolean
       .eq("id", policyId);
     if (error) throw error;
 
+    void emitEvent("refund_policy.updated", "refund_policy", policyId, { is_active: isActive });
     revalidatePath("/admin/refund-policies");
     return { message: isActive ? "تم تفعيل السياسة" : "تم تعطيل السياسة" };
   },

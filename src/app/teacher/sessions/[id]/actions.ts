@@ -8,6 +8,7 @@ import { logError } from "@/lib/logger";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
 import { recordProgress } from "@/lib/domains/progress/capture";
 import type { ProgressType, StudentLevel } from "@/lib/domains/progress/types";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
 class UserError extends Error {
   readonly userError = true;
@@ -53,7 +54,7 @@ const savePostSessionNotesBase = loudAction<SavePostSessionNotesInput, { message
       .update({
         post_session_notes: notes || null,
         homework: homework || null,
-      } as never)
+      } satisfies TableUpdate<"sessions">)
       .eq("id", sessionId)
       .select("id");
     if (error) {
@@ -133,7 +134,7 @@ const markNoErrorsObservedBase = loudAction<
         booking_id: bookingId,
         progress_type: "muraja",
         teacher_notes: "no errors observed (sentinel)",
-      } as never, { onConflict: "student_id,booking_id" })
+      } satisfies TableInsert<"student_progress">, { onConflict: "student_id,booking_id" })
       .select("id")
       .single<{ id: string }>();
     if (progErr || !progress) {
@@ -161,7 +162,7 @@ const markNoErrorsObservedBase = loudAction<
         note: NO_ERRORS_SENTINEL,
         resolved: true,
         resolved_at: new Date().toISOString(),
-      } as never);
+      } satisfies TableInsert<"recitation_errors">);
     if (insErr) throw new UserError("تعذر تسجيل الحالة — يرجى المحاولة مرة أخرى", { cause: insErr });
 
     revalidatePath(`/teacher/sessions/${sessionId}`);

@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
+import { emitEvent } from "@/lib/automation/emit";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 function str(formData: FormData, key: string): string | null {
   const v = formData.get(key);
@@ -49,10 +51,11 @@ const updatePersonalInfoBase = loudAction<PersonalInfoInput, { message?: string 
         parent_name: input.parentName,
         parent_phone: input.parentPhone,
         parent_email: input.parentEmail,
-      } as never)
+      } as TableUpdate<"profiles">)
       .eq("id", input.userId);
     if (error) throw error;
 
+    void emitEvent("profile.updated", "profile", input.userId, { updated_fields: Object.keys(input).filter((k) => k !== "userId") }, input.userId);
     revalidatePath("/student/settings");
     revalidatePath("/student/dashboard");
     return { message: "تم حفظ البيانات بنجاح" };

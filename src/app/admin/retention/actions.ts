@@ -6,6 +6,7 @@ import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { notify } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 export type InterventionType =
   | "re_engagement"
@@ -76,7 +77,7 @@ export async function logIntervention(formData: FormData): Promise<{ ok: boolean
     .update({
       last_intervention_at: new Date().toISOString(),
       intervention_type: type,
-    } as never)
+    } satisfies TableUpdate<"retention_signals">)
     .eq("student_id", studentId);
 
   if (stampError) {

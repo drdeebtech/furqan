@@ -8,6 +8,7 @@ import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { invalidateRoleCache } from "@/lib/auth/role-cache";
 import { logError } from "@/lib/logger";
 import { loudAction } from "@/lib/actions/loud";
+import { emitEvent } from "@/lib/automation/emit";
 
 // Tagged error for "user-mistake-not-infra-fault" throws (not-admin,
 // self-deletion, missing user, missing required input). loudAction
@@ -80,6 +81,8 @@ const toggleUserActiveBase = loudAction<z.infer<typeof toggleUserActiveSchema>, 
     });
 
     revalidatePath("/admin/users");
+
+    void emitEvent("user.status_changed", "profile", userId, { is_active: isActive }, actorId);
 
     return { message: isActive ? "تم تفعيل المستخدم" : "تم تعطيل المستخدم" };
   },
@@ -208,6 +211,8 @@ const setUserRolesBase = loudAction<z.infer<typeof setUserRolesSchema>, { messag
     revalidatePath("/admin/users");
     revalidatePath(`/admin/users/${userId}`);
     revalidatePath("/admin/teachers");
+
+    void emitEvent("user.roles_changed", "profile", userId, { roles: dedup, role: newActive }, actorId);
 
     return { message: "تم تحديث الأدوار" };
   },

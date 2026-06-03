@@ -72,13 +72,13 @@ export async function createQuiz(courseId: string, formData: FormData): Promise<
 
   const supabase = await createClient();
   const { data, error } = await supabase.from("quizzes").insert(insert).select("id").single<{ id: string }>();
-  if (error) {
+  if (error || !data) {
     logError("createQuiz failed", error, { tag: "quizzes", courseId });
-    return { ok: false, error: error.message };
+    return { ok: false, error: error?.message ?? "لم يتم العثور على السجل" };
   }
   revalidatePath(`/teacher/courses/${courseId}/quizzes`);
   revalidatePath("/student/quizzes");
-  return { ok: true, id: data!.id };
+  return { ok: true, id: data.id };
 }
 
 export async function updateQuiz(quizId: string, formData: FormData): Promise<ActionResult> {
@@ -172,28 +172,28 @@ export async function addQuestion(quizId: string, formData: FormData): Promise<A
 
   const supabase = await createClient();
   const { data, error } = await supabase.from("quiz_questions").insert(insert).select("id").single<{ id: string }>();
-  if (error) {
+  if (error || !data) {
     logError("addQuestion failed", error, { tag: "quizzes", quizId });
-    return { ok: false, error: error.message };
+    return { ok: false, error: error?.message ?? "لم يتم العثور على السجل" };
   }
 
   // Answer key lives in a separate table students cannot read (audit C1).
   const { error: keyErr } = await supabase
     .from("quiz_question_keys")
-    .insert({ question_id: data!.id, correct_answer: correct_answer as never } satisfies TableInsert<"quiz_question_keys">);
+    .insert({ question_id: data.id, correct_answer: correct_answer as never } satisfies TableInsert<"quiz_question_keys">);
   if (keyErr) {
     // Roll back the orphan question so we never leave a question with no key
     // (grading would silently mark it unanswerable for every student).
-    const { error: rollbackErr } = await supabase.from("quiz_questions").delete().eq("id", data!.id);
+    const { error: rollbackErr } = await supabase.from("quiz_questions").delete().eq("id", data.id);
     if (rollbackErr) {
-      logError("addQuestion rollback delete failed", rollbackErr, { tag: "quizzes", quizId, questionId: data!.id });
+      logError("addQuestion rollback delete failed", rollbackErr, { tag: "quizzes", quizId, questionId: data.id });
     }
     logError("addQuestion key insert failed", keyErr, { tag: "quizzes", quizId });
     return { ok: false, error: keyErr.message };
   }
 
   revalidatePath(`/teacher/courses/${auth.courseId}/quizzes/${quizId}/edit`);
-  return { ok: true, id: data!.id };
+  return { ok: true, id: data.id };
 }
 
 export async function deleteQuestion(questionId: string): Promise<ActionResult> {
@@ -226,8 +226,8 @@ export async function startQuizAttempt(quizId: string): Promise<ActionResult> {
   const { data, error } = await supabase.from("quiz_attempts")
     .insert({ quiz_id: quizId, student_id: user.id } satisfies TableInsert<"quiz_attempts">)
     .select("id").single<{ id: string }>();
-  if (error) return { ok: false, error: error.message };
-  return { ok: true, id: data!.id };
+  if (error || !data) return { ok: false, error: error?.message ?? "لم يتم العثور على السجل" };
+  return { ok: true, id: data.id };
 }
 
 export async function submitQuizAttempt(

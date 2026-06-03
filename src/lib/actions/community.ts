@@ -33,12 +33,12 @@ export async function createThread(formData: FormData): Promise<ActionResult> {
 
   const { data, error } = await supabase.from("forum_threads")
     .insert(insert).select("id").single<{ id: string }>();
-  if (error) {
+  if (error || !data) {
     logError("community.createThread failed", error, { tag: "community" });
-    return { ok: false, error: error.message };
+    return { ok: false, error: error?.message ?? "لم يتم العثور على السجل" };
   }
   revalidatePath("/community");
-  return { ok: true, id: data!.id };
+  return { ok: true, id: data.id };
 }
 
 // ─── createReply ────────────────────────────────────────────────────────────
@@ -69,9 +69,9 @@ export async function createReply(threadId: string, formData: FormData): Promise
 
   const { data, error } = await supabase.from("forum_replies")
     .insert(insert).select("id").single<{ id: string }>();
-  if (error) {
+  if (error || !data) {
     logError("community.createReply failed", error, { tag: "community" });
-    return { ok: false, error: error.message };
+    return { ok: false, error: error?.message ?? "لم يتم العثور على السجل" };
   }
 
   // Notify the thread author (skip if they're replying to themselves).
@@ -93,7 +93,7 @@ export async function createReply(threadId: string, formData: FormData): Promise
 
   revalidatePath(`/community/${threadId}`);
   revalidatePath("/community");
-  return { ok: true, id: data!.id };
+  return { ok: true, id: data.id };
 }
 
 // ─── toggleLike ─────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { callRpc } from "@/lib/supabase/rpc";
 import { notify } from "@/lib/notifications/dispatcher";
@@ -7,6 +8,7 @@ import { notifyParentSessionComplete } from "@/lib/notifications/parent";
 import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
 import type { TableInsert } from "@/lib/supabase/typed-helpers";
+import type { Database } from "@/types/supabase.generated";
 import { SessionEndError, SessionNotFoundError } from "./types";
 import type { EndSessionInput, EndSessionResult } from "./types";
 
@@ -198,8 +200,7 @@ export async function endSession(input: EndSessionInput): Promise<EndSessionResu
 // Best-effort: a session ended via the Daily webhook before the manual call.
 // Records the noop attempt so the audit trail explains the no-state-change.
 async function writeNoopAudit(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
+  supabase: SupabaseClient<Database>,
   sessionId: string,
   actorId: string,
 ): Promise<void> {
@@ -220,8 +221,7 @@ async function writeNoopAudit(
 // Best-effort diff audit row, written for BOTH the teacher and admin paths
 // (the teacher inline path previously wrote no diff row).
 async function writeDiffAudit(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
+  supabase: SupabaseClient<Database>,
   sessionId: string,
   actorId: string,
   actualDuration: number,

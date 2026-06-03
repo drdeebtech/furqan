@@ -84,6 +84,11 @@ export const WEBHOOK_ROUTES = {
   // logs a (loud, non-fatal) failed-delivery automation_log. Admin credit
   // grants are rare, so the noise is minimal until the workflow lands.
   "package.credit_granted": "/webhook/furqan-package-credit-granted",
+  "teacher.archived": "/webhook/furqan-teacher-archived",
+  "user.status_changed": "/webhook/furqan-user-status",
+  "user.roles_changed": "/webhook/furqan-user-roles",
+  "profile.updated": "/webhook/furqan-profile-updated",
+  "refund_policy.updated": "/webhook/furqan-refund-policy",
 } as const satisfies Record<string, string>;
 
 /**

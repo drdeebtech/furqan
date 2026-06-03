@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
+import type { TableInsert } from "@/lib/supabase/typed-helpers";
 
 interface ActionResult {
   ok: boolean;
@@ -89,7 +90,7 @@ export async function requestJoinGroupSession(sessionId: string): Promise<Action
       session_type: sourceBooking.session_type,
       amount_usd: 0,
       status: "pending",
-    } as never)
+    } as TableInsert<"bookings">)
     .select("id")
     .single<{ id: string }>();
 
