@@ -1,10 +1,14 @@
 import { defineConfig, globalIgnores } from "eslint/config";
+import { fixupConfigRules } from "@eslint/compat";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 
 const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
+  // fixupConfigRules patches eslint-plugin-react (bundled in eslint-config-next)
+  // to work with ESLint 10, which removed context.getFilename() in favour of
+  // context.filename / context.getPhysicalFilename().
+  ...fixupConfigRules(nextVitals),
+  ...fixupConfigRules(nextTs),
   {
     rules: {
       "@typescript-eslint/no-unused-vars": [
@@ -35,6 +39,8 @@ const eslintConfig = defineConfig([
     // and must not be linted by the Next.js TS config (issue #325).
     ".claude/**",
     "k6/**",
+    // External tooling directory (claude-flow / ECC scaffolding) — CJS scripts,
+    // not app source.
     "ECC/**",
   ]),
 ]);
