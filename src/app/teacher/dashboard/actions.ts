@@ -5,15 +5,20 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { createRoom, updateRoomExpiry } from "@/lib/daily";
-import { notifyParentNoShow } from "@/lib/notifications/parent";
 import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import { loudAction } from "@/lib/actions/loud";
 import { confirmBooking } from "@/lib/domains/booking/orchestrate";
-import { selectActivePackage, debitPackage } from "@/lib/domains/package/ledger";
-import { endSession as endSessionOrchestrator } from "@/lib/domains/session/orchestrate";
-import { SessionNotFoundError } from "@/lib/domains/session/types";
+import {
+  endSession as endSessionOrchestrator,
+  startInstantSession as startInstantSessionOrchestrator,
+  recordNoShow,
+} from "@/lib/domains/session/orchestrate";
+import {
+  SessionNotFoundError,
+  StartInstantSessionError,
+} from "@/lib/domains/session/types";
 import {
   BookingAlreadyConfirmedError,
   BookingConfirmError,
@@ -331,55 +336,20 @@ export const markNoShow = loudAction<{ bookingId: string }, { message: string }>
   handler: async ({ bookingId }, { actorId }) => {
     const supabase = await createClient();
 
+    // Auth: verify teacher owns this booking before delegating.
     const { data: booking } = await supabase
       .from("bookings")
-      .select("student_id, teacher_id")
+      .select("id")
       .eq("id", bookingId)
       .eq("teacher_id", actorId!)
-      .single<{ student_id: string; teacher_id: string }>();
+      .maybeSingle<{ id: string }>();
 
     if (!booking) throw new Error("الحجز غير موجود أو ليس لديك صلاحية");
 
-    const { error } = await supabase
-      .from("bookings")
-      .update({ status: "no_show" } satisfies TableUpdate<"bookings">)
-      .eq("id", bookingId)
-      .eq("teacher_id", actorId!);
-
-    if (error) throw error;
-
-    // Mark session as ended — non-blocking (no-show is not gated on session row existing).
-    const { error: sessErr } = await supabase
-      .from("sessions")
-      .update({ ended_at: new Date().toISOString() } satisfies TableUpdate<"sessions">)
-      .eq("booking_id", bookingId);
-    if (sessErr) logError("markNoShow: sessions ended_at update failed", sessErr, { tag: "teacher-bookings", severity: "warning" });
-
-    // Notify student (best-effort)
-    try {
-      await notify({
-        userId: booking.student_id,
-        type: "booking",
-        title: "تم تسجيل غيابك",
-        body: "سجّل المعلم غيابك عن الجلسة — تواصل مع المعلم لإعادة الجدولة",
-        entityType: "booking",
-        entityId: bookingId,
-      });
-    } catch (err) {
-      logError("markNoShow: notify student failed", err, { tag: "teacher-bookings" });
-    }
-
-    // V9: Notify parent of no-show (best-effort)
-    try {
-      await notifyParentNoShow(booking.student_id, actorId!, new Date().toISOString(), actorId!);
-    } catch (err) {
-      logError("markNoShow: notifyParentNoShow failed", err, { tag: "teacher-bookings" });
-    }
+    await recordNoShow({ bookingId, actorId: actorId! });
 
     revalidatePath("/teacher/dashboard");
     revalidatePath("/teacher/sessions");
-    await emitEvent("session.no_show", "booking", bookingId, { student_id: booking.student_id, teacher_id: actorId! })
-      .catch((err) => logError("emit session.no_show failed", err, { tag: "automation", event: "session.no_show" }));
 
     return { message: "تم تسجيل الغياب" };
   },
@@ -675,29 +645,16 @@ export const saveQuickNotes = loudAction<
 // `router.push(/teacher/sessions/${sessionId})` redirect — without it
 // the teacher clicks "ابدأ الآن" and stays on the dashboard. Same
 // precedent as Phase 8.4 (recreateRoom) and Phase 8.5
-// (updateBookingStatus).
-//
-// Inline hardening covers all silent-fail paths:
-// - bookingError now logged before returning user-facing error (was
-//   discarded — booking insert failures invisible to ops)
-// - bare `catch {}` on createRoom + sessions insert replaced with
-//   logError(severity:'critical') — both Daily.co API failures AND
-//   sessions DB write failures now surface to Sentry + Telegram
-//   (instant sessions are a high-touch UX path; failures need
-//   immediate operator visibility)
-// - existing notify catch upgraded with actionName tag for filterable
-//   Sentry queries
-// - sessions insert error inside the try-block was previously silently
-//   yielding null sessionId; now explicitly checked + logged + returned
+// (updateBookingStatus). Business logic delegated to startInstantSession
+// orchestrator (src/lib/domains/session/orchestrate.ts).
 export async function startInstantSession(studentId: string, durationMin: number = 30) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "غير مصرح" };
 
-  // Validate duration
   if (![30, 45, 60].includes(durationMin)) return { error: "مدة غير صالحة" };
 
-  // Get teacher's hourly rate
+  // Route adapter: pre-fetch hourly_rate so the orchestrator stays auth-free.
   const { data: tp } = await supabase
     .from("teacher_profiles")
     .select("hourly_rate")
@@ -705,118 +662,27 @@ export async function startInstantSession(studentId: string, durationMin: number
     .single<{ hourly_rate: number }>();
   if (!tp) return { error: "ملف المعلم غير موجود" };
 
-  const rate = Number(tp.hourly_rate);
-  const amountUsd = Number((rate * (durationMin / 60)).toFixed(2));
-  const scheduledAt = new Date();
-
-  // Enforce package balance before creating any booking (FR-009). Closes #229 / #247.
-  const admin = createAdminClient();
-  const activePkg = await selectActivePackage(admin, studentId);
-  if (!activePkg) return { error: "لا توجد باقة نشطة للطالب — يرجى تجديد الاشتراك" };
-
-  const debit = await debitPackage(admin, activePkg.id);
-  if (!debit.ok && debit.reason === "error") {
-    logError("startInstantSession: deduct_package_session failed", new Error(debit.message), {
-      tag: "bookings",
-      actionName: "teacher.startInstantSession",
-      studentId,
-      teacherId: user.id,
-      packageId: activePkg.id,
-    });
-    return { error: "تعذر خصم رصيد الباقة" };
-  }
-  if (!debit.ok && debit.reason === "exhausted") return { error: "هذه الباقة منتهية أو مستهلكة" };
-
-  // Create booking (already confirmed)
-  const { data: booking, error: bookingError } = await supabase
-    .from("bookings")
-    .insert({
-      student_id: studentId,
-      teacher_id: user.id,
-      session_type: "hifz",
-      duration_min: durationMin,
-      rate_snapshot: rate,
-      amount_usd: amountUsd,
-      scheduled_at: scheduledAt.toISOString(),
-      status: "confirmed",
-      teacher_confirmed: true,
-      teacher_confirmed_at: scheduledAt.toISOString(),
-    } satisfies TableInsert<"bookings">)
-    .select("id")
-    .single<{ id: string }>();
-
-  if (bookingError || !booking) {
-    logError("startInstantSession: bookings insert failed", bookingError, {
-      tag: "bookings",
-      actionName: "teacher.startInstantSession",
-      severity: "critical",
-      studentId,
-      teacherId: user.id,
-    });
-    return { error: "حدث خطأ في إنشاء الحجز" };
-  }
-
-  // Create Daily.co room
-  let sessionId: string | null = null;
   try {
-    const expiresAt = new Date(scheduledAt.getTime() + 2 * 60 * 60 * 1000);
-    const roomName = `furqan-${booking.id.replace(/-/g, "")}`;
-    const room = await createRoom(roomName, expiresAt);
+    const result = await startInstantSessionOrchestrator({
+      teacherId: user.id,
+      studentId,
+      durationMin: durationMin as 30 | 45 | 60,
+      hourlyRate: Number(tp.hourly_rate),
+    });
 
-    const { data: sess, error: sessErr } = await supabase.from("sessions").insert({
-      booking_id: booking.id,
-      room_name: room.name,
-      room_url: room.url,
-      expires_at: expiresAt.toISOString(),
-      created_via: "manual",
-    } satisfies TableInsert<"sessions">).select("id").single<{ id: string }>();
-
-    if (sessErr) {
-      // Booking insert succeeded but session insert failed — partial state.
-      // The teacher's UI state will be incoherent without sessionId.
-      logError("startInstantSession: sessions insert failed (booking already created)", sessErr, {
+    revalidatePath("/teacher/dashboard");
+    revalidatePath("/teacher/sessions");
+    return { success: true, sessionId: result.sessionId };
+  } catch (err) {
+    if (err instanceof StartInstantSessionError) {
+      logError("startInstantSession: orchestrator failed", err, {
         tag: "bookings",
         actionName: "teacher.startInstantSession",
-        severity: "critical",
-        bookingId: booking.id,
         studentId,
+        teacherId: user.id,
       });
-      return { error: "تم إنشاء الحجز لكن فشل تسجيل الجلسة" };
+      return { error: err.message };
     }
-
-    sessionId = sess?.id ?? null;
-  } catch (err) {
-    logError("startInstantSession: createRoom or sessions insert threw", err, {
-      tag: "bookings",
-      actionName: "teacher.startInstantSession",
-      severity: "critical",
-      bookingId: booking.id,
-      studentId,
-    });
-    return { error: "تم إنشاء الحجز لكن فشل إنشاء غرفة الفيديو" };
+    throw err;
   }
-
-  // Notify student (best-effort)
-  try {
-    await notify({
-      userId: studentId,
-      type: "booking",
-      title: "جلسة فورية",
-      body: "المعلم بدأ جلسة فورية — انضم الآن!",
-      entityType: "booking",
-      entityId: booking.id,
-    });
-  } catch (err) {
-    logError("startInstantSession: notify student failed", err, {
-      tag: "bookings",
-      actionName: "teacher.startInstantSession",
-      component: "teacher.dashboard.startInstantSession",
-      studentId,
-      bookingId: booking.id,
-    });
-  }
-
-  revalidatePath("/teacher/dashboard");
-  revalidatePath("/teacher/sessions");
-  return { success: true, sessionId };
 }

@@ -117,6 +117,25 @@ export const EVENT_EFFECTS: Partial<Record<FurqanEvent, EffectResolver[]>> = {
       };
     },
   ],
+
+  // Teacher recorded no-show → notify the student in-app.
+  // (Migrated from src/app/teacher/dashboard/actions.ts markNoShow handler.
+  // notifyParentNoShow is NOT here — it does its own DB reads and cannot be
+  // a pure EffectResolver; it lives as a direct call in recordNoShow orchestrator.)
+  "session.no_show": [
+    (ctx) => {
+      const studentId = asId(ctx.studentId);
+      if (!studentId) return null;
+      return {
+        userId: studentId,
+        type: "booking",
+        title: "تم تسجيل غيابك",
+        body: "سجّل المعلم غيابك عن الجلسة — تواصل مع المعلم لإعادة الجدولة",
+        entityType: "booking",
+        entityId: asId(ctx.entityId) ?? undefined,
+      };
+    },
+  ],
 };
 
 /**
