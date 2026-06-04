@@ -38,6 +38,7 @@ export function NotificationsList({
   const locale = lang === "ar" ? "ar-EG" : "en-US";
   const [notifications, setNotifications] = useState(initial);
   const [loading, setLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
@@ -65,22 +66,26 @@ export function NotificationsList({
 
   async function handleMarkRead(id: string) {
     const snapshot = notifications;
+    setActionError(null);
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
     try {
       await markAsRead(id);
     } catch {
       setNotifications(snapshot);
+      setActionError(t("تعذّر تحديث الإشعار — حاول مجدداً", "Failed to update notification — please try again"));
     }
   }
 
   async function handleMarkAllRead() {
     const snapshot = notifications;
+    setActionError(null);
     setLoading(true);
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     try {
       await markAllAsRead();
     } catch {
       setNotifications(snapshot);
+      setActionError(t("تعذّر تحديث الإشعارات — حاول مجدداً", "Failed to update notifications — please try again"));
     } finally {
       setLoading(false);
     }
@@ -88,11 +93,13 @@ export function NotificationsList({
 
   async function handleDelete(id: string) {
     const snapshot = notifications;
+    setActionError(null);
     setNotifications(prev => prev.filter(n => n.id !== id));
     try {
       await deleteNotification(id);
     } catch {
       setNotifications(snapshot);
+      setActionError(t("تعذّر حذف الإشعار — حاول مجدداً", "Failed to delete notification — please try again"));
     }
   }
 
@@ -141,6 +148,12 @@ export function NotificationsList({
             );
           })}
         </div>
+      )}
+
+      {actionError && (
+        <p className="mb-3 rounded-lg border border-error/30 bg-error/10 px-3 py-2 text-xs text-error">
+          {actionError}
+        </p>
       )}
 
       {/* Notifications */}

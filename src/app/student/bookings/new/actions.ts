@@ -36,7 +36,7 @@ const BookingSchema = z.object({
   // Client-computed ISO-8601 UTC string (preferred). When present this is
   // used directly so the server honours the student's local timezone rather
   // than treating date+time as a server-UTC pair.
-  scheduled_at: z.string().optional(),
+  scheduled_at: z.string().datetime().optional(),
   notes: z
     .string()
     .max(1000)

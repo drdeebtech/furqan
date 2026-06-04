@@ -84,7 +84,7 @@ export default async function StudentProgressPage() {
   const homeworkRaw = hwLoad.data;
 
   // Get total study hours from student's completed sessions
-  const completedBookingIds = totalHoursLoad.data.slice(0, 500).map(b => b.id);
+  const completedBookingIds = totalHoursLoad.data.map(b => b.id);
   let totalMinutes = 0;
   if (completedBookingIds.length > 0) {
     const { data: sessionsData } = await supabase.from("sessions")

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { RotateCcw, Check, CheckCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { surahName } from "@/lib/quran/surahs";
@@ -22,8 +22,6 @@ export function MurajaahCard({ items }: { items: MurajaahDueItem[] }) {
   const [done, setDone] = useState<Set<string>>(new Set());
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
-
   if (items.length === 0) return null;
 
   const remaining = items.filter((i) => !done.has(i.scheduleId));
@@ -43,15 +41,13 @@ export function MurajaahCard({ items }: { items: MurajaahDueItem[] }) {
     );
   }
 
-  function complete(scheduleId: string, quality: number) {
+  async function complete(scheduleId: string, quality: number) {
     setError(null);
     setPendingIds((prev) => new Set(prev).add(scheduleId));
-    startTransition(async () => {
-      const res = await markReviewComplete(scheduleId, quality);
-      if (res.error) setError(res.error);
-      else setDone((prev) => new Set(prev).add(scheduleId));
-      setPendingIds((prev) => { const s = new Set(prev); s.delete(scheduleId); return s; });
-    });
+    const res = await markReviewComplete(scheduleId, quality);
+    if (res.error) setError(res.error);
+    else setDone((prev) => new Set(prev).add(scheduleId));
+    setPendingIds((prev) => { const s = new Set(prev); s.delete(scheduleId); return s; });
   }
 
   return (

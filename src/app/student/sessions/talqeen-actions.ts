@@ -147,15 +147,31 @@ export async function createTalqeenHomework(
  * Called when the student cancels before recording so orphaned rows
  * don't accumulate in homework_assignments.
  */
+const cancelTalqeenHomeworkBase = loudAction<{ homeworkId: string }, void>({
+  name: "homework.cancel-talqeen",
+  severity: "info",
+  schema: z.object({ homeworkId: z.string().uuid() }),
+  audit: {
+    table: "homework_assignments",
+    recordId: (i) => i.homeworkId,
+    action: "DELETE",
+    reasonPrefix: "student cancel talqeen",
+  },
+  preflight: studentPreflight,
+  handler: async ({ homeworkId }, { actorId }) => {
+    if (!actorId) return; // narrowed: studentPreflight always throws before this
+    const supabase = await createClient();
+    await supabase
+      .from("homework_assignments")
+      .delete()
+      .eq("id", homeworkId)
+      .eq("student_id", actorId)
+      .eq("status", "assigned"); // guard: never delete a row already graded
+    revalidatePath("/student/sessions");
+  },
+});
+
 export async function cancelTalqeenHomework(homeworkId: string): Promise<void> {
   if (!homeworkId) return;
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-  await supabase
-    .from("homework_assignments")
-    .delete()
-    .eq("id", homeworkId)
-    .eq("student_id", user.id)
-    .eq("status", "assigned"); // guard: never delete a row already graded
+  await cancelTalqeenHomeworkBase({ homeworkId }).catch(() => {});
 }
