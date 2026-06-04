@@ -1,53 +1,74 @@
 import requests
+import hmac
+import hashlib
+import time
 import json
 
-def test_post_api_stripe_webhook_valid_signature():
-    base_url = "https://www.furqan.today"
-    url = f"{base_url}/api/stripe/webhook"
-    timeout = 30
+BASE_URL = "https://www.furqan.today"
+WEBHOOK_ENDPOINT = "/api/stripe/webhook"
+TIMEOUT = 30
 
-    # Example Stripe event payload (simplified minimal valid event)
+def test_post_api_stripe_webhook_valid_signature():
+    # Example Stripe event payload to simulate a checkout.session.completed event
     payload = {
-        "id": "evt_1Example1234567890",
+        "id": "evt_test_webhook",
         "object": "event",
-        "api_version": "2022-11-15",
-        "created": 1672531200,
+        "api_version": "2020-08-27",
+        "created": int(time.time()),
         "data": {
             "object": {
-                "id": "cs_test_123",
+                "id": "cs_test_session",
                 "object": "checkout.session",
+                "amount_total": 2000,
+                "currency": "usd",
                 "payment_status": "paid",
-                "client_reference_id": "test_123"
+                "customer_email": "customer@example.com",
+                "metadata": {},
+                # Add other relevant fields as necessary
             }
         },
-        "livemode": True,
+        "livemode": False,
         "pending_webhooks": 1,
-        "request": {
-            "id": "req_1234567890",
-            "idempotency_key": None
-        },
         "type": "checkout.session.completed"
     }
-    
-    # The Stripe-Signature header is required to verify signature.
-    # Since this is a perimeter test on live production, and the service expects a valid signature,
-    # but we cannot generate a real signature here, any signature will be invalid.
-    # According to the instructions for TC007, the webhook is hard-disabled by design and should return 501.
-    # We provide a plausible but fake signature header.
-    
+
+    payload_json = json.dumps(payload, separators=(',', ':'))
+
+    # Secret for signing the webhook payload - in real scenario, this would be the Stripe webhook secret
+    # Here we simulate a valid signing secret as we must test the valid signature scenario
+    secret = "whsec_testsecret"
+
+    # Construct the Stripe-Signature header as Stripe sends it
+    timestamp = int(time.time())
+    signed_payload = f"{timestamp}.{payload_json}"
+    signature = hmac.new(
+        key=secret.encode(),
+        msg=signed_payload.encode(),
+        digestmod=hashlib.sha256
+    ).hexdigest()
+    stripe_signature_header = f"t={timestamp},v1={signature}"
+
     headers = {
         "Content-Type": "application/json",
-        "Stripe-Signature": "t=12345,v1=fakesignature"
+        "Stripe-Signature": stripe_signature_header
     }
 
     try:
-        response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=timeout)
+        response = requests.post(
+            f"{BASE_URL}{WEBHOOK_ENDPOINT}",
+            data=payload_json,
+            headers=headers,
+            timeout=TIMEOUT
+        )
     except requests.RequestException as e:
-        assert False, f"Request to {url} failed with exception: {e}"
+        assert False, f"Request to Stripe webhook failed: {e}"
 
-    # According to the test instructions / expected results for TC007:
-    # POST /api/stripe/webhook returns HTTP 501 (webhook hard-disabled by design)
-    # Treat 501 as pass.
-    assert response.status_code == 501, f"Expected status code 501 but got {response.status_code}. Response text: {response.text}"
+    # Assert HTTP 200 OK indicating the webhook is acknowledged and processed
+    assert response.status_code == 200, f"Expected status code 200, got {response.status_code}"
+
+    # Assert response body contains "Acknowledged" (case-insensitive) or is empty as per typical webhook handling
+    # The PRD states 200 "Acknowledged"
+    content = response.text.lower()
+    assert "acknowledged" in content or content == "", f"Unexpected response body: {response.text}"
 
 test_post_api_stripe_webhook_valid_signature()
