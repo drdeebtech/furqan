@@ -191,7 +191,9 @@ export async function login(
       tag: "auth-bot-bypass",
       metadata: { email },
     });
-  } else {
+  } else if (process.env.VERCEL) {
+    // checkBotId() calls mutateResponseHeadersBeforeFlush, a Vercel-only API.
+    // Skip in non-Vercel environments (local dev, VPS) to avoid runtime throws.
     const verification = await checkBotId();
     if (verification.isBot) {
       logError("BotID flagged login as bot", new Error("login.bot_blocked"), {
@@ -319,7 +321,9 @@ export async function register(
       tag: "auth-bot-bypass",
       metadata: { email },
     });
-  } else {
+  } else if (process.env.VERCEL) {
+    // checkBotId() calls mutateResponseHeadersBeforeFlush, a Vercel-only API.
+    // Skip in non-Vercel environments (local dev, VPS) to avoid runtime throws.
     const verification = await checkBotId();
     if (verification.isBot) {
       logError("BotID flagged register as bot", new Error("register.bot_blocked"), {
