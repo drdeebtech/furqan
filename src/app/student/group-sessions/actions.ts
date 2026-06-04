@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
@@ -24,6 +25,8 @@ interface ActionResult {
  * docs/PEDAGOGY_ROADMAP.md as a follow-up.
  */
 export async function requestJoinGroupSession(sessionId: string): Promise<ActionResult> {
+  if (!z.string().uuid().safeParse(sessionId).success) return { ok: false, error: "معرف غير صالح" };
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "غير مسجل الدخول" };
@@ -133,7 +136,7 @@ export async function requestJoinGroupSession(sessionId: string): Promise<Action
         tag: "group-sessions",
         sessionId,
       });
-      return { ok: false, error: `فشل تحديث العداد: ${updErr.message}` };
+      return { ok: false, error: "فشل تحديث العداد" };
     }
     return { ok: false, error: "لا توجد مقاعد متاحة" };
   }

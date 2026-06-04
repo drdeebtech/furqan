@@ -57,16 +57,16 @@ export function HomeworkList({
   for (const a of assignments) groups[bucketFor(a)].push(a);
 
   const sortActive = (arr: HomeworkAssignment[]) =>
-    arr.sort((x, y) => {
+    [...arr].sort((x, y) => {
       const xPri = x.status === "assigned" ? 0 : 1;
       const yPri = y.status === "assigned" ? 0 : 1;
       if (xPri !== yPri) return xPri - yPri;
       return new Date(y.assigned_at).getTime() - new Date(x.assigned_at).getTime();
     });
-  sortActive(groups.near);
-  sortActive(groups.far);
-  sortActive(groups.new);
-  groups.history.sort((x, y) => {
+  groups.near = sortActive(groups.near);
+  groups.far = sortActive(groups.far);
+  groups.new = sortActive(groups.new);
+  groups.history = [...groups.history].sort((x, y) => {
     const xt = x.completed_at ? new Date(x.completed_at).getTime() : 0;
     const yt = y.completed_at ? new Date(y.completed_at).getTime() : 0;
     return yt - xt;

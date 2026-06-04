@@ -58,6 +58,7 @@ export default async function StudentSessionsPage() {
     .eq("student_id", user.id)
     .in("status", ["confirmed", "completed"])
     .order("scheduled_at", { ascending: false })
+    .limit(100)
     .returns<BookingRow[]>();
 
   const list = bookings ?? [];
@@ -65,7 +66,7 @@ export default async function StudentSessionsPage() {
   // Fetch sessions for these bookings
   let sessionMap: Record<string, SessionRow> = {};
   if (list.length > 0) {
-    const bookingIds = list.map((b) => b.id);
+    const bookingIds = list.slice(0, 100).map((b) => b.id);
     const { data: sessions } = await supabase
       .from("sessions")
       .select("id, booking_id, room_url, session_mode, started_at, ended_at, actual_duration, post_session_notes, homework")

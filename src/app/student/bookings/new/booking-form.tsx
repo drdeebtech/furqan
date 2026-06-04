@@ -127,7 +127,7 @@ export function BookingForm({
     for (let i = 0; i < dateRangeDays; i++) {
       const d = new Date();
       d.setDate(d.getDate() + i);
-      const val = d.toISOString().split("T")[0];
+      const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       const available = isDateAvailable(val);
       dateOptions.push({
         value: val,
@@ -192,6 +192,16 @@ export function BookingForm({
             <input type="hidden" name="session_type" value={selectedType} />
             <input type="hidden" name="date" value={selectedDate} />
             <input type="hidden" name="time" value={selectedTime} />
+            {/* Client-computed ISO-8601 so the server uses the student's local timezone */}
+            <input
+              type="hidden"
+              name="scheduled_at"
+              value={
+                selectedDate && selectedTime
+                  ? new Date(`${selectedDate}T${selectedTime}:00`).toISOString()
+                  : ""
+              }
+            />
             <input type="hidden" name="notes" value={notes} />
             <button
               type="submit"

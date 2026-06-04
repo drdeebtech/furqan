@@ -34,9 +34,7 @@ export function NotificationsList({
     ? "/teacher"
     : pathname.startsWith("/admin")
       ? "/admin"
-      : pathname.startsWith("/moderator")
-        ? "/moderator"
-        : rolePrefix;
+      : rolePrefix;
   const locale = lang === "ar" ? "ar-EG" : "en-US";
   const [notifications, setNotifications] = useState(initial);
   const [loading, setLoading] = useState(false);
@@ -66,20 +64,36 @@ export function NotificationsList({
     : notifications.filter(n => n.type === activeFilter);
 
   async function handleMarkRead(id: string) {
+    const snapshot = notifications;
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-    await markAsRead(id);
+    try {
+      await markAsRead(id);
+    } catch {
+      setNotifications(snapshot);
+    }
   }
 
   async function handleMarkAllRead() {
+    const snapshot = notifications;
     setLoading(true);
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-    await markAllAsRead();
-    setLoading(false);
+    try {
+      await markAllAsRead();
+    } catch {
+      setNotifications(snapshot);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleDelete(id: string) {
+    const snapshot = notifications;
     setNotifications(prev => prev.filter(n => n.id !== id));
-    await deleteNotification(id);
+    try {
+      await deleteNotification(id);
+    } catch {
+      setNotifications(snapshot);
+    }
   }
 
   return (

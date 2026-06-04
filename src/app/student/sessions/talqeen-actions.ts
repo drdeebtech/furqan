@@ -138,5 +138,24 @@ export async function createTalqeenHomework(
   if (!result.ok) return { ok: false, error: result.error };
   // result.message is the homeworkId — guaranteed defined when ok=true
   // because the handler always returns { message: hw.id }.
-  return { ok: true, homeworkId: result.message ?? "" };
+  if (!result.message) return { ok: false, error: "خطأ غير متوقع" };
+  return { ok: true, homeworkId: result.message };
+}
+
+/**
+ * Delete an unsubmitted talqeen slot (status='assigned', no audio yet).
+ * Called when the student cancels before recording so orphaned rows
+ * don't accumulate in homework_assignments.
+ */
+export async function cancelTalqeenHomework(homeworkId: string): Promise<void> {
+  if (!homeworkId) return;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase
+    .from("homework_assignments")
+    .delete()
+    .eq("id", homeworkId)
+    .eq("student_id", user.id)
+    .eq("status", "assigned"); // guard: never delete a row already graded
 }

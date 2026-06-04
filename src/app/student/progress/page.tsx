@@ -66,6 +66,8 @@ export default async function StudentProgressPage() {
     supabase.from("bookings")
       .select("id, scheduled_at")
       .eq("student_id", user.id).eq("status", "completed")
+      .order("scheduled_at", { ascending: false })
+      .limit(500)
       .returns<{ id: string; scheduled_at: string }[]>(),
   ]);
 
@@ -82,7 +84,7 @@ export default async function StudentProgressPage() {
   const homeworkRaw = hwLoad.data;
 
   // Get total study hours from student's completed sessions
-  const completedBookingIds = totalHoursLoad.data.map(b => b.id);
+  const completedBookingIds = totalHoursLoad.data.slice(0, 500).map(b => b.id);
   let totalMinutes = 0;
   if (completedBookingIds.length > 0) {
     const { data: sessionsData } = await supabase.from("sessions")

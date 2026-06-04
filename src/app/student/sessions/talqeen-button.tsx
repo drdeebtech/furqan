@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Mic, X, CheckCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { AudioRecorder } from "@/app/student/follow-up/audio-recorder";
-import { createTalqeenHomework } from "./talqeen-actions";
+import { createTalqeenHomework, cancelTalqeenHomework } from "./talqeen-actions";
 
 /**
  * Sprint 2.3 — Talqeen primitive (2026-05-05).
@@ -51,9 +51,15 @@ export function TalqeenButton({ bookingId, studentId }: { bookingId: string; stu
   }
 
   function dismiss() {
+    const hId = homeworkId;
     setStage("idle");
     setHomeworkId(null);
     setError(null);
+    // Best-effort cleanup: delete the unsubmitted slot so 'assigned' rows
+    // don't accumulate when students back out before recording.
+    if (hId) {
+      cancelTalqeenHomework(hId).catch(() => {});
+    }
   }
 
   if (stage === "done") {

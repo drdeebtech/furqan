@@ -20,8 +20,9 @@ import type { MurajaahDueItem } from "@/lib/dashboard-queries";
 export function MurajaahCard({ items }: { items: MurajaahDueItem[] }) {
   const { t, lang } = useLang();
   const [done, setDone] = useState<Set<string>>(new Set());
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   if (items.length === 0) return null;
 
@@ -44,10 +45,12 @@ export function MurajaahCard({ items }: { items: MurajaahDueItem[] }) {
 
   function complete(scheduleId: string, quality: number) {
     setError(null);
+    setPendingIds((prev) => new Set(prev).add(scheduleId));
     startTransition(async () => {
       const res = await markReviewComplete(scheduleId, quality);
       if (res.error) setError(res.error);
       else setDone((prev) => new Set(prev).add(scheduleId));
+      setPendingIds((prev) => { const s = new Set(prev); s.delete(scheduleId); return s; });
     });
   }
 
@@ -79,7 +82,7 @@ export function MurajaahCard({ items }: { items: MurajaahDueItem[] }) {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                disabled={pending}
+                disabled={pendingIds.has(item.scheduleId)}
                 onClick={() => complete(item.scheduleId, 4)}
                 className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-medium text-emerald-400 hover:bg-emerald-500/15 disabled:opacity-50 focus-ring"
               >
@@ -88,7 +91,7 @@ export function MurajaahCard({ items }: { items: MurajaahDueItem[] }) {
               </button>
               <button
                 type="button"
-                disabled={pending}
+                disabled={pendingIds.has(item.scheduleId)}
                 onClick={() => complete(item.scheduleId, 2)}
                 className="inline-flex min-h-[44px] items-center rounded-full border border-card-border px-3 py-1.5 text-sm font-medium text-muted hover:text-foreground disabled:opacity-50 focus-ring"
               >

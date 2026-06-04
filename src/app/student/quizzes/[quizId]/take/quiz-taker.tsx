@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition as schedule, useEffect, useState, useTransition } from "react";
+import { startTransition as schedule, useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/components/shared/toast";
@@ -41,7 +41,7 @@ export function QuizTaker({ attemptId, quiz, questions }: Props) {
     quiz.time_limit_minutes ? quiz.time_limit_minutes * 60 : null,
   );
 
-  const handleSubmit = () => {
+  const handleSubmit = useCallback(() => {
     if (submitted) return;
     setSubmitted(true);
     startTransition(async () => {
@@ -58,7 +58,7 @@ export function QuizTaker({ attemptId, quiz, questions }: Props) {
         setSubmitted(false);
       }
     });
-  };
+  }, [submitted, answers, attemptId, startTransition, toast, t, router]);
 
   // Timer countdown — schedule auto-submit and the per-second decrement
   // through startTransition so the React compiler doesn't flag setState-in-
@@ -74,8 +74,7 @@ export function QuizTaker({ attemptId, quiz, questions }: Props) {
       1000,
     );
     return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [secondsLeft]);
+  }, [secondsLeft, handleSubmit]);
 
   const setAns = (qid: string, value: unknown) => {
     setAnswers((prev) => ({ ...prev, [qid]: value }));
