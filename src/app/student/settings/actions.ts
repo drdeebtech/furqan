@@ -14,7 +14,6 @@ function str(formData: FormData, key: string): string | null {
 }
 
 interface PersonalInfoInput {
-  userId: string;
   fullName: string | null;
   fullNameAr: string | null;
   phone: string | null;
@@ -32,11 +31,19 @@ const updatePersonalInfoBase = loudAction<PersonalInfoInput, { message?: string 
   severity: "info",
   audit: {
     table: "profiles",
-    recordId: (i) => i.userId,
+    // actorId is the authenticated student's ID; also the profile's PK.
+    recordId: (_i, actorId) => actorId ?? "",
     action: "UPDATE",
     reasonPrefix: "student self-update (personal + parent info)",
   },
-  handler: async (input) => {
+  preflight: async () => {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("غير مصرح");
+    return { actorId: user.id };
+  },
+  handler: async (input, { actorId }) => {
+    if (!actorId) throw new Error("غير مصرح");
     const supabase = await createClient();
     const { error } = await supabase
       .from("profiles")
@@ -52,10 +59,10 @@ const updatePersonalInfoBase = loudAction<PersonalInfoInput, { message?: string 
         parent_phone: input.parentPhone,
         parent_email: input.parentEmail,
       } as TableUpdate<"profiles">)
-      .eq("id", input.userId);
+      .eq("id", actorId);
     if (error) throw error;
 
-    void emitEvent("profile.updated", "profile", input.userId, { updated_fields: Object.keys(input).filter((k) => k !== "userId") }, input.userId);
+    void emitEvent("profile.updated", "profile", actorId, { updated_fields: Object.keys(input) }, actorId);
     revalidatePath("/student/settings");
     revalidatePath("/student/dashboard");
     return { message: "تم حفظ البيانات بنجاح" };
@@ -66,14 +73,7 @@ export async function updatePersonalInfo(
   _prev: LoudResult | null,
   formData: FormData,
 ): Promise<LoudResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "غير مصرح" };
-
   return updatePersonalInfoBase({
-    userId: user.id,
     fullName: str(formData, "full_name"),
     fullNameAr: str(formData, "full_name_ar"),
     phone: str(formData, "phone"),

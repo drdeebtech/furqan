@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Star } from "lucide-react";
 import { submitReview } from "./actions";
 
@@ -14,31 +14,28 @@ export function RateTeacherForm({
   const [rating, setRating] = useState(0);
   const [hovered, setHovered] = useState(0);
   const [comment, setComment] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit() {
+  function handleSubmit() {
     if (rating === 0) {
       setError("يرجى اختيار تقييم");
       return;
     }
-    setLoading(true);
     setError(null);
-
-    const result = await submitReview(
-      sessionId,
-      rating,
-      comment.trim() || null,
-    );
-
-    setLoading(false);
-
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setSuccess(true);
-    }
+    startTransition(async () => {
+      const result = await submitReview(
+        sessionId,
+        rating,
+        comment.trim() || null,
+      );
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setSuccess(true);
+      }
+    });
   }
 
   if (success) {
@@ -63,7 +60,13 @@ export function RateTeacherForm({
   }
 
   return (
-    <div className="glass-card p-5">
+    <form
+      className="glass-card p-5"
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleSubmit();
+      }}
+    >
       <h2 className="mb-1 font-display text-sm font-semibold text-gold">
         قيّم جلستك مع {teacherName}
       </h2>
@@ -108,12 +111,12 @@ export function RateTeacherForm({
       )}
 
       <button
-        onClick={handleSubmit}
-        disabled={loading || rating === 0}
+        type="submit"
+        disabled={isPending || rating === 0}
         className="inline-flex items-center gap-2 glass-gold glass-pill px-6 py-2.5 text-sm font-semibold text-white transition-colors focus-ring disabled:opacity-50"
       >
-        {loading ? "جاري الإرسال..." : "إرسال التقييم"}
+        {isPending ? "جاري الإرسال..." : "إرسال التقييم"}
       </button>
-    </div>
+    </form>
   );
 }

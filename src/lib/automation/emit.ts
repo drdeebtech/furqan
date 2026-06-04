@@ -91,6 +91,15 @@ export const WEBHOOK_ROUTES = {
   "profile.updated": "/webhook/furqan-profile-updated",
   "refund_policy.updated": "/webhook/furqan-refund-policy",
   "halaqa.created": "/webhook/furqan-halaqa-created",
+  // NOTE: n8n workflows for these routes must be created when halaqa
+  // notification flows are built. Until then, dispatch logs a non-fatal
+  // failed-delivery automation_log.
+  "halaqa.enrolled": "/webhook/furqan-halaqa-enrolled",
+  // Intentionally shares the enrolled webhook — the n8n workflow branches on
+  // event_type to handle enrol vs cancel with a single trigger node.
+  "halaqa.enrollment_cancelled": "/webhook/furqan-halaqa-enrolled",
+  "halaqa.waitlist_joined": "/webhook/furqan-halaqa-waitlist",
+  "halaqa.waitlist_left": "/webhook/furqan-halaqa-waitlist",
   "message.hidden": "/webhook/furqan-message-moderated",
   "message.flag_cleared": "/webhook/furqan-message-moderated",
   "legal_document.updated": "/webhook/furqan-legal-updated",
