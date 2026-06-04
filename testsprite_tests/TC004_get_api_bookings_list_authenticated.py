@@ -6,9 +6,11 @@ LOGIN_URL = f"{BASE_URL}/login"
 BOOKINGS_URL = f"{BASE_URL}/api/bookings"
 TIMEOUT = 30
 
-EMAIL = os.getenv("TEST_STUDENT_EMAIL", "test-student@furqan.test")
+EMAIL = os.getenv("TEST_STUDENT_EMAIL")
 PASSWORD = os.getenv("TEST_STUDENT_PASSWORD")
+
 def test_get_api_bookings_list_authenticated():
+    assert EMAIL, "TEST_STUDENT_EMAIL environment variable must be set"
     assert PASSWORD, "TEST_STUDENT_PASSWORD environment variable must be set"
     session = requests.Session()
 

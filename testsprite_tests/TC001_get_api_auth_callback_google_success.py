@@ -3,7 +3,6 @@ import requests
 
 BASE_URL = "https://www.furqan.today"
 LOGIN_URL = f"{BASE_URL}/login"
-DASHBOARD_URL_STUDENT = f"{BASE_URL}/student/dashboard"
 TIMEOUT = 30
 
 EMAIL = os.getenv("TEST_STUDENT_EMAIL", "test-student@furqan.test")
