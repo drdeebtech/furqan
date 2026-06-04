@@ -11,6 +11,7 @@ EMAIL = os.getenv("TEST_STUDENT_EMAIL")
 PASSWORD = os.getenv("TEST_STUDENT_PASSWORD")
 
 def test_get_api_auth_callback_google_success():
+    """Login with email/password, assert redirect to /student/dashboard, verify Arabic RTL HTML."""
     assert EMAIL, "TEST_STUDENT_EMAIL environment variable must be set"
     assert PASSWORD, "TEST_STUDENT_PASSWORD environment variable must be set"
     with requests.Session() as session:

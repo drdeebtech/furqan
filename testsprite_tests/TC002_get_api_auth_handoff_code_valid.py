@@ -8,6 +8,7 @@ TIMEOUT = 30
 INVALID_HANDOFF_CODE = "invalidcode123"
 
 def test_get_api_auth_handoff_code_invalid():
+    """Invalid/expired handoff code must return HTTP 410 Gone."""
     with requests.Session() as session:
         try:
             # Attempt to GET /api/auth/handoff/[invalid_code] expecting 410 Gone

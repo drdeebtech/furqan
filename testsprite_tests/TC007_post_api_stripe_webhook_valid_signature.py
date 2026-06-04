@@ -9,6 +9,7 @@ WEBHOOK_ENDPOINT = "/api/stripe/webhook"
 TIMEOUT = 30
 
 def test_post_api_stripe_webhook_valid_signature():
+    """Mock-signed Stripe webhook must be rejected — endpoint returns 501 without a valid secret."""
     # Example Stripe event payload to simulate a checkout.session.completed event
     payload = {
         "id": "evt_test_webhook",
