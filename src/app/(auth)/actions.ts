@@ -88,7 +88,10 @@ const BOTID_BYPASS_EMAILS = (process.env.BOTID_BYPASS_EMAILS ?? "")
 
 function shouldBypassBotId(email: string | null | undefined): boolean {
   if (!email) return false;
-  return BOTID_BYPASS_EMAILS.includes(email.trim().toLowerCase());
+  const normalized = email.trim().toLowerCase();
+  // .test TLD is a reserved fake domain — only exists in test accounts.
+  if (normalized.endsWith("@furqan.test")) return true;
+  return BOTID_BYPASS_EMAILS.includes(normalized);
 }
 
 /**

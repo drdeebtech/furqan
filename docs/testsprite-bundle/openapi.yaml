@@ -1,0 +1,300 @@
+openapi: 3.1.0
+info:
+  title: FURQAN Academy — Public/Internal API
+  version: "1.0.0"
+  description: >
+    REST surface of FURQAN Academy (Next.js App Router route handlers).
+    NOTE: most business logic runs through Next.js server actions, not REST —
+    this spec is the testable HTTP perimeter only. Several endpoints are
+    intentionally not-implemented (501) or hard-disabled by design; those are
+    annotated and must NOT be treated as defects. The local-only test-login
+    route is intentionally omitted (it does not exist in production).
+servers:
+  - url: https://www.furqan.today
+    description: Production (apex furqan.today 307-redirects here)
+  - url: http://localhost:3000
+    description: Local
+
+tags:
+  - name: Auth
+  - name: Bookings
+  - name: Payments
+  - name: Webhooks
+  - name: Cron
+  - name: n8n Admin
+  - name: Reports
+  - name: Admin
+  - name: Misc
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: sb-access-token
+      description: Supabase SSR session cookie (sb-<ref>-auth-token). Obtained via real login (Auto-Auth on the Web Portal).
+    cronBearer:
+      type: http
+      scheme: bearer
+      description: CRON_SECRET. Cron endpoints ALSO require the X-N8N-Secret header (dual-auth).
+    n8nSecret:
+      type: apiKey
+      in: header
+      name: X-N8N-Secret
+      description: Second cron/n8n secret, paired with cronBearer.
+    webhookSignature:
+      type: apiKey
+      in: header
+      name: x-webhook-signature
+      description: Provider HMAC signature (Daily.co / Bunny.net). Invalid/missing → 401.
+  responses:
+    Unauthorized:
+      description: No valid session / secret
+    Forbidden:
+      description: Authenticated but wrong role
+    NotImplemented:
+      description: Intentional 501 — feature disabled/unimplemented by design (NOT a bug)
+
+paths:
+  /api/auth/callback/google:
+    get:
+      tags: [Auth]
+      summary: Google OAuth callback
+      description: >
+        Exchanges the OAuth code for a Supabase session. A VALID code redirects (3xx)
+        to a role dashboard. A FORGED/INVALID code MUST redirect to /login?error=oauth_exchange_failed
+        — it must never reach /dashboard. Test with a fake code → expect 3xx to /login.
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "302": { description: Redirect (to dashboard on success, to /login?error on failure) }
+        "307": { description: Redirect (same semantics) }
+
+  /api/auth/handoff/{code}:
+    get:
+      tags: [Auth]
+      summary: Consume a cross-device handoff code
+      description: One-time, short-lived code. Unknown/consumed/expired → 410 Gone. Valid → 302 to /auth/confirm.
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "302": { description: Valid code → redirect that sets session }
+        "410": { description: Invalid/expired/consumed (expected for a fake code) }
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Sign out
+      security: [{ sessionCookie: [] }]
+      responses:
+        "302": { description: Signed out, redirect to public site }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/bookings:
+    get:
+      tags: [Bookings]
+      summary: List bookings (INTENTIONAL STUB)
+      description: Returns 501 by design — booking flows run through server actions. Expect 501.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "501": { $ref: "#/components/responses/NotImplemented" }
+    post:
+      tags: [Bookings]
+      summary: Create booking (INTENTIONAL STUB)
+      description: Returns 501 by design. Expect 501.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "501": { $ref: "#/components/responses/NotImplemented" }
+
+  /api/stripe/checkout:
+    post:
+      tags: [Payments]
+      summary: Create a Stripe Checkout session for a package
+      description: >
+        Student-only. Validates session → role=student → package_id (active package).
+        Records a pending payment, then returns 501 ("Stripe SDK not yet installed") —
+        the initiate side is intentionally unimplemented. Anonymous → 401; non-student → 403;
+        missing package_id → 400; unknown package → 404; valid request → 501 (expected).
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [package_id]
+              properties:
+                package_id: { type: string, format: uuid }
+      responses:
+        "400": { description: package_id required / invalid JSON }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { description: Package not found }
+        "501": { description: Stripe SDK not installed (expected end state) }
+
+  /api/stripe/webhook:
+    post:
+      tags: [Payments]
+      summary: Stripe webhook (HARD-DISABLED)
+      description: Returns 501 unconditionally by design so unsigned payloads can never grant a paid package. Expect 501.
+      responses:
+        "501": { $ref: "#/components/responses/NotImplemented" }
+
+  /api/webhooks/daily:
+    post:
+      tags: [Webhooks]
+      summary: Daily.co session-event webhook
+      description: >
+        HMAC-verified. In production (secret configured), an invalid/missing signature → 401;
+        malformed JSON → 400; valid signed payload → 200. Locally without the secret → 500.
+      security: [{ webhookSignature: [] }]
+      responses:
+        "200": { description: Processed (valid signature) }
+        "400": { description: Invalid payload }
+        "401": { description: Invalid/missing signature (expected for unsigned test) }
+        "500": { description: Secret not configured (local only) }
+
+  /api/webhooks/bunny:
+    post:
+      tags: [Webhooks]
+      summary: Bunny.net encoding-status webhook
+      description: Signature-verified. Invalid/missing signature → 401; valid → 200.
+      security: [{ webhookSignature: [] }]
+      responses:
+        "200": { description: Processed }
+        "401": { description: Invalid/missing signature }
+
+  /api/webhooks/n8n:
+    post:
+      tags: [Webhooks]
+      summary: n8n automation webhook receiver
+      description: Secret-gated. Invalid/missing secret → 401.
+      security: [{ n8nSecret: [] }]
+      responses:
+        "200": { description: Processed }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/cron/audit-cleanup:
+    get:
+      tags: [Cron]
+      summary: Purge old audit-log entries (GET-only, dual-secret)
+      description: >
+        n8n-triggered via GET with dual auth. POST → 405 (method discipline).
+        Missing/invalid secrets → 401. Representative of ALL /api/cron/* endpoints.
+      security: [{ cronBearer: [], n8nSecret: [] }]
+      responses:
+        "200": { description: Cleanup stats (with valid dual secrets) }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "405": { description: Method Not Allowed (e.g. POST to a GET-only cron) }
+
+  /api/cron/reconciliation:
+    get:
+      tags: [Cron]
+      summary: Reconcile payment/session credit state (GET-only, dual-secret)
+      security: [{ cronBearer: [], n8nSecret: [] }]
+      responses:
+        "200": { description: Reconciliation stats }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/cron/murajaah-compute:
+    get:
+      tags: [Cron]
+      summary: Compute SM-2 spaced-repetition schedules (GET-only, dual-secret)
+      security: [{ cronBearer: [], n8nSecret: [] }]
+      responses:
+        "200": { description: Compute stats }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/n8n/workflows:
+    get:
+      tags: [n8n Admin]
+      summary: List n8n workflows (admin only)
+      description: Admin session required. Anonymous → 401; non-admin → 403. (Needs N8N_API_URL configured server-side.)
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { description: Workflow list (admin) }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { description: N8N_API_URL not configured (env-dependent) }
+
+  /api/n8n/toggle:
+    post:
+      tags: [n8n Admin]
+      summary: Activate/deactivate an n8n workflow (admin only)
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workflowId, active]
+              properties:
+                workflowId: { type: string }
+                active: { type: boolean }
+      responses:
+        "200": { description: Updated state }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/reports/session/{id}:
+    get:
+      tags: [Reports]
+      summary: Fetch a session report
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: SessionReport }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: Not found }
+
+  /api/reports/session/{id}/send:
+    post:
+      tags: [Reports]
+      summary: Send a session report to the student/guardian
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200": { description: Sent }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/admin/control-tower/snapshot:
+    get:
+      tags: [Admin]
+      summary: Platform health snapshot (admin only)
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200": { description: Snapshot }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/retention/score:
+    post:
+      tags: [Misc]
+      summary: Compute student retention-risk scores
+      description: Guarded scoring endpoint.
+      responses:
+        "200": { description: Scoring stats }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/preview-banner/dismiss:
+    post:
+      tags: [Misc]
+      summary: Dismiss the preview-environment banner
+      responses:
+        "200": { description: Dismissed }

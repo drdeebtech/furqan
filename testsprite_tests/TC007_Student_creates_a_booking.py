@@ -34,127 +34,162 @@ async def run_test():
 
         # Interact with the page elements to simulate user flow
         # -> navigate
-        await page.goto("https://www.furqan.today/")
+        await page.goto("http://localhost:3000/student/dashboard")
         try:
             await page.wait_for_load_state("domcontentloaded", timeout=5000)
         except Exception:
             pass
         
-        # -> Click the 'تسجيل الدخول' (Login) link (interactive element index 43) to navigate to the login page.
-        # link "تسجيل الدخول"
-        elem = page.locator("xpath=/html/body/div[2]/nav/div/div[2]/a").nth(0)
-        await elem.wait_for(state="visible", timeout=10000)
-        await elem.click()
-        
-        # -> input
+        # -> Fill the email and password fields with the student credentials and submit the login form to sign in.
         # email input name="email"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div/input").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.fill("test-student@furqan.test")
         
-        # -> input
+        # -> Fill the email and password fields with the student credentials and submit the login form to sign in.
         # password input name="password"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/input").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
-        await elem.fill("Ts!WrLDsj5BFsPnO6hG")
+        await elem.fill("password123")
         
-        # -> click
+        # -> Fill the email and password fields with the student credentials and submit the login form to sign in.
         # button "دخول"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/button").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.click()
         
-        # -> Input the student password into the password field (index 1015) and then click the submit button (index 1026) to sign in.
-        # password input name="password"
-        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/input").nth(0)
-        await elem.wait_for(state="visible", timeout=10000)
-        await elem.fill("Ts!WrLDsj5BFsPnO6hG")
-        
-        # -> Input the student password into the password field (index 1015) and then click the submit button (index 1026) to sign in.
-        # button
-        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/button").nth(0)
+        # -> Click the 'Try again' button (element [318]) to reload the page and attempt the login flow again.
+        # button "حاول مرة أخرى · Try again"
+        elem = page.locator("xpath=/html/body/div[2]/div/div[2]/button").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.click()
         
-        # -> Input the student password into password field index 1015, then click the submit button index 1026 to sign in.
+        # -> Fill the password field (index 403) with 'password123' and click the submit button (index 414) to attempt signing in.
         # password input name="password"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/input").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
-        await elem.fill("Ts!WrLDsj5BFsPnO6hG")
+        await elem.fill("password123")
         
-        # -> click
-        # password input name="password"
-        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/input").nth(0)
-        await elem.wait_for(state="visible", timeout=10000)
-        await elem.click()
-        
-        # -> input
-        # password input name="password"
-        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/input").nth(0)
-        await elem.wait_for(state="visible", timeout=10000)
-        await elem.fill("Ts!WrLDsj5BFsPnO6hG")
-        
-        # -> click
+        # -> Fill the password field (index 403) with 'password123' and click the submit button (index 414) to attempt signing in.
         # button "دخول"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/button").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.click()
         
-        # -> Reload the /login page to try to clear the verification error, then (after the page settles) attempt to fill the password (index 1015) and submit (index 1026).
-        await page.goto("https://www.furqan.today/login")
-        try:
-            await page.wait_for_load_state("domcontentloaded", timeout=5000)
-        except Exception:
-            pass
-        
-        # -> Enter the student password into password input index 1157 and click the submit button index 1164 to attempt sign-in.
-        # password input name="password"
-        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/input").nth(0)
-        await elem.wait_for(state="visible", timeout=10000)
-        await elem.fill("Ts!WrLDsj5BFsPnO6hG")
-        
-        # -> Enter the student password into password input index 1157 and click the submit button index 1164 to attempt sign-in.
-        # button "دخول"
-        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/button").nth(0)
-        await elem.wait_for(state="visible", timeout=10000)
-        await elem.click()
-        
-        # -> Fill the email field (index 1156) and password field (index 1157) with the student credentials, then click the submit button (index 1164) to attempt sign-in.
+        # -> Fill the email field with test-student@furqan.test, fill the password with password123, then submit the form by clicking element [414].
         # email input name="email"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div/input").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.fill("test-student@furqan.test")
         
-        # -> Fill the email field (index 1156) and password field (index 1157) with the student credentials, then click the submit button (index 1164) to attempt sign-in.
+        # -> Fill the email field with test-student@furqan.test, fill the password with password123, then submit the form by clicking element [414].
         # password input name="password"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/input").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
-        await elem.fill("Ts!WrLDsj5BFsPnO6hG")
+        await elem.fill("password123")
         
-        # -> Fill the email field (index 1156) and password field (index 1157) with the student credentials, then click the submit button (index 1164) to attempt sign-in.
+        # -> Fill the email field with test-student@furqan.test, fill the password with password123, then submit the form by clicking element [414].
         # button "دخول"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/button").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.click()
         
-        # -> Fill the password into the password input (index 1157) and click the submit button (index 1164) to attempt sign-in; after the action, verify whether navigation to an authenticated area occurred or an error persists.
+        # -> Click the 'Try again' button (element [535]) to reload the login page and attempt the login flow again.
+        # button "حاول مرة أخرى · Try again"
+        elem = page.locator("xpath=/html/body/div[2]/div/div[2]/button").nth(0)
+        await elem.wait_for(state="visible", timeout=10000)
+        await elem.click()
+        
+        # -> Fill email into [610], focus password [620], enter password into [620], click show-password [621] to verify the value, then click submit [631] to attempt sign-in.
+        # email input name="email"
+        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div/input").nth(0)
+        await elem.wait_for(state="visible", timeout=10000)
+        await elem.fill("test-student@furqan.test")
+        
+        # -> Fill email into [610], focus password [620], enter password into [620], click show-password [621] to verify the value, then click submit [631] to attempt sign-in.
         # password input name="password"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/input").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
-        await elem.fill("Ts!WrLDsj5BFsPnO6hG")
+        await elem.click()
         
-        # -> Fill the password into the password input (index 1157) and click the submit button (index 1164) to attempt sign-in; after the action, verify whether navigation to an authenticated area occurred or an error persists.
-        # button
+        # -> Fill email into [610], focus password [620], enter password into [620], click show-password [621] to verify the value, then click submit [631] to attempt sign-in.
+        # password input name="password"
+        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/input").nth(0)
+        await elem.wait_for(state="visible", timeout=10000)
+        await elem.fill("password123")
+        
+        # -> Fill email into [610], focus password [620], enter password into [620], click show-password [621] to verify the value, then click submit [631] to attempt sign-in.
+        # button aria-label="إظهار كلمة المرور"
+        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/button").nth(0)
+        await elem.wait_for(state="visible", timeout=10000)
+        await elem.click()
+        
+        # -> Fill email into [610], focus password [620], enter password into [620], click show-password [621] to verify the value, then click submit [631] to attempt sign-in.
+        # button "دخول"
+        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/button").nth(0)
+        await elem.wait_for(state="visible", timeout=10000)
+        await elem.click()
+        
+        # -> Click the 'Try again' button (element [752]) to reload the login form and return to the login page.
+        # button "حاول مرة أخرى · Try again"
+        elem = page.locator("xpath=/html/body/div[2]/div/div[2]/button").nth(0)
+        await elem.wait_for(state="visible", timeout=10000)
+        await elem.click()
+        
+        # -> Fill the email into element 827, fill the password into element 837, then click the submit button at element 848 to attempt signing in.
+        # email input name="email"
+        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div/input").nth(0)
+        await elem.wait_for(state="visible", timeout=10000)
+        await elem.fill("test-student@furqan.test")
+        
+        # -> Fill the email into element 827, fill the password into element 837, then click the submit button at element 848 to attempt signing in.
+        # password input name="password"
+        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/input").nth(0)
+        await elem.wait_for(state="visible", timeout=10000)
+        await elem.fill("password123")
+        
+        # -> Fill the email into element 827, fill the password into element 837, then click the submit button at element 848 to attempt signing in.
+        # button "دخول"
+        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/button").nth(0)
+        await elem.wait_for(state="visible", timeout=10000)
+        await elem.click()
+        
+        # -> Click the 'Try again' button (element [954]) to reload the login page and attempt one final sign-in attempt.
+        # button "حاول مرة أخرى · Try again"
+        elem = page.locator("xpath=/html/body/div[2]/div/div[2]/button").nth(0)
+        await elem.wait_for(state="visible", timeout=10000)
+        await elem.click()
+        
+        # -> Final retry: enter email into element 1029, enter password into element 1039, toggle show-password (1040) to verify, then click submit (1050).
+        # email input name="email"
+        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div/input").nth(0)
+        await elem.wait_for(state="visible", timeout=10000)
+        await elem.fill("test-student@furqan.test")
+        
+        # -> Final retry: enter email into element 1029, enter password into element 1039, toggle show-password (1040) to verify, then click submit (1050).
+        # password input name="password"
+        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/input").nth(0)
+        await elem.wait_for(state="visible", timeout=10000)
+        await elem.fill("password123")
+        
+        # -> Final retry: enter email into element 1029, enter password into element 1039, toggle show-password (1040) to verify, then click submit (1050).
+        # button aria-label="إظهار كلمة المرور"
+        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/button").nth(0)
+        await elem.wait_for(state="visible", timeout=10000)
+        await elem.click()
+        
+        # -> Final retry: enter email into element 1029, enter password into element 1039, toggle show-password (1040) to verify, then click submit (1050).
+        # button "دخول"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/button").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.click()
         
         # --> Assertions to verify final state
-        assert await page.locator("xpath=//*[contains(., 'الحجوزات')]").nth(0).is_visible(), "The booking list should show the الحجوزات header after creating a new booking"
+        assert await page.locator("xpath=//*[contains(., 'test-student@furqan.test')]").nth(0).is_visible(), "The booking list should include the student's email after creating a booking"
         
         # --> Test blocked by environment/access constraints during agent run
-        # Reason: TEST BLOCKED The test could not be run — the login flow is blocked by a server-side verification failure that prevents signing in. Observations: - A verification error banner is shown on the login page stating verification failed and suggesting to refresh or try a different network. - The login submit button is disabled and password input does not persist, preventing authentication. - Multiple ...
-        raise AssertionError("Test blocked during agent run: " + "TEST BLOCKED The test could not be run \u2014 the login flow is blocked by a server-side verification failure that prevents signing in. Observations: - A verification error banner is shown on the login page stating verification failed and suggesting to refresh or try a different network. - The login submit button is disabled and password input does not persist, preventing authentication. - Multiple ..." + " — the exported script cannot reproduce a PASS in this environment.")
+        # Reason: TEST BLOCKED The test could not be run — the login form cannot be submitted, preventing the booking creation flow from being tested. Observations: - The login page displays the email and password fields populated (email=test-student@furqan.test, password appears filled) but the submit button is disabled. - Multiple automated attempts (8) to enter credentials and submit were performed; attempts ...
+        raise AssertionError("Test blocked during agent run: " + "TEST BLOCKED The test could not be run \u2014 the login form cannot be submitted, preventing the booking creation flow from being tested. Observations: - The login page displays the email and password fields populated (email=test-student@furqan.test, password appears filled) but the submit button is disabled. - Multiple automated attempts (8) to enter credentials and submit were performed; attempts ..." + " — the exported script cannot reproduce a PASS in this environment.")
         await asyncio.sleep(5)
 
     finally:
