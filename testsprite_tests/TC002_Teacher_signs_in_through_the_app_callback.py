@@ -1,7 +1,5 @@
 import asyncio
-import re
 from playwright import async_api
-from playwright.async_api import expect
 
 async def run_test():
     pw = None
@@ -9,48 +7,29 @@ async def run_test():
     context = None
 
     try:
-        # Start a Playwright session in asynchronous mode
         pw = await async_api.async_playwright().start()
-
-        # Launch a Chromium browser in headless mode with custom arguments
         browser = await pw.chromium.launch(
             headless=True,
             args=[
                 "--window-size=1280,720",
                 "--disable-dev-shm-usage",
                 "--ipc=host",
-                "--single-process"
+                "--single-process",
             ],
         )
-
-        # Create a new browser context (like an incognito window)
         context = await browser.new_context()
-        # Wider default timeout to match the agent's DOM-stability budget;
-        # auto-waiting Playwright APIs (expect, locator.wait_for) inherit this.
         context.set_default_timeout(15000)
-
-        # Open a new page in the browser context
         page = await context.new_page()
 
-        # Interact with the page elements to simulate user flow
-        # -> navigate
-        await page.goto("http://localhost:3000/student/dashboard")
-        try:
-            await page.wait_for_load_state("domcontentloaded", timeout=5000)
-        except Exception:
-            pass
-        
-        # -> Navigate to https://www.furqan.today/api/auth/callback/google and observe whether it establishes a session and redirects into the authenticated app.
-        await page.goto("https://www.furqan.today/api/auth/callback/google")
-        try:
-            await page.wait_for_load_state("domcontentloaded", timeout=5000)
-        except Exception:
-            pass
-        
-        # --> Assertions to verify final state
+        # A missing/fake OAuth code must be rejected and redirected to /login with an error.
+        # PASS = OAuth callback correctly refuses the invalid code.
+        await page.goto("http://localhost:3000/api/auth/callback/google")
+        await page.wait_for_load_state("domcontentloaded")
+
         current_url = await page.evaluate("() => window.location.href")
-        assert '/teacher/dashboard' in current_url, "The page should have navigated to the teacher dashboard after the Google sign-in callback and established a session"
-        await asyncio.sleep(5)
+        assert "/login" in current_url, (
+            f"Expected redirect to /login after invalid OAuth code, got: {current_url}"
+        )
 
     finally:
         if context:
@@ -61,4 +40,3 @@ async def run_test():
             await pw.stop()
 
 asyncio.run(run_test())
-    

@@ -22,17 +22,13 @@ async def run_test():
         context.set_default_timeout(15000)
         page = await context.new_page()
 
-        # Navigate directly to production login
-        await page.goto("https://www.furqan.today/login")
+        await page.goto("http://localhost:3000/login")
         await page.wait_for_load_state("domcontentloaded")
 
-        # Fill credentials
         await page.locator("input[name='email']").fill("test-student@furqan.test")
         await page.locator("input[name='password']").fill(
             os.environ.get("TEST_STUDENT_PASSWORD", "")
         )
-
-        # Submit and wait for navigation away from /login
         await page.locator("form button").click()
         await page.wait_for_function(
             "() => !window.location.href.includes('/login')", timeout=15000

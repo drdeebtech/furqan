@@ -23,7 +23,7 @@ async def run_test():
         page = await context.new_page()
 
         # Step 1: Log in as student
-        await page.goto("https://www.furqan.today/login")
+        await page.goto("http://localhost:3000/login")
         await page.wait_for_load_state("domcontentloaded")
 
         await page.locator("input[name='email']").fill("test-student@furqan.test")
@@ -35,9 +35,8 @@ async def run_test():
             "() => !window.location.href.includes('/login')", timeout=15000
         )
 
-        # Step 2: Log out via the nav logout form (POST /api/auth/logout)
+        # Step 2: Log out — the logout form POSTs to /api/auth/logout and redirects to /login
         await page.locator("form[action='/api/auth/logout'] button").click()
-        # Logout redirects to /login
         await page.wait_for_function(
             "() => window.location.href.includes('/login')", timeout=15000
         )

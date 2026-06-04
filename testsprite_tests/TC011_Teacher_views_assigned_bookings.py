@@ -23,7 +23,7 @@ async def run_test():
         page = await context.new_page()
 
         # Step 1: Log in as teacher
-        await page.goto("https://www.furqan.today/login")
+        await page.goto("http://localhost:3000/login")
         await page.wait_for_load_state("domcontentloaded")
 
         await page.locator("input[name='email']").fill("test-teacher@furqan.test")
@@ -35,19 +35,18 @@ async def run_test():
             "() => window.location.href.includes('/teacher')", timeout=15000
         )
 
-        # Step 2: Verify teacher dashboard is visible (read-only)
+        # Step 2: Verify teacher dashboard renders with bookings section
         await page.wait_for_load_state("domcontentloaded")
         current_url = await page.evaluate("() => window.location.href")
         assert "/teacher" in current_url, (
             f"Expected teacher area URL, got: {current_url}"
         )
 
-        # The teacher dashboard renders — الحجوزات (bookings) section exists in the nav/page
         bookings_visible = await page.locator(
             "xpath=//*[contains(., 'الحجوزات')]"
         ).first.is_visible()
         assert bookings_visible, (
-            "Expected teacher dashboard to display the bookings (الحجوزات) section"
+            "Expected teacher dashboard to display the bookings section (الحجوزات)"
         )
 
     finally:
