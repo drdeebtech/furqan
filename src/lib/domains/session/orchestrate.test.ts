@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { SessionNotFoundError, StartInstantSessionError } from "./types";
+import { SessionNotFoundError, StartInstantSessionError, StartInstantSessionInput } from "./types";
 
 /**
  * Tests for session domain orchestrators (ADR-0004):
@@ -196,7 +196,7 @@ describe("endSession", () => {
 // ─── startInstantSession ─────────────────────────────────────────────────────
 
 describe("startInstantSession", () => {
-  const input = { teacherId: TEACHER, studentId: STUDENT, durationMin: 30, hourlyRate: 40 };
+  const input: StartInstantSessionInput = { teacherId: TEACHER, studentId: STUDENT, durationMin: 30, hourlyRate: 40 };
 
   it("happy path: returns sessionId, bookingId, and roomUrl", async () => {
     const result = await startInstantSession(input);

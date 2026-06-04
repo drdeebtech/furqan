@@ -5,6 +5,7 @@ import * as Sentry from "@sentry/nextjs";
 
 export default function SentryMetricsTest() {
   useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
     Sentry.metrics.count("client_page_view", 1, {
       attributes: {
         page: "metrics_test",
@@ -14,6 +15,7 @@ export default function SentryMetricsTest() {
   }, []);
 
   const handleTestClick = () => {
+    if (process.env.NODE_ENV === "production") return;
     Sentry.metrics.count("client_button_click", 1, {
       attributes: { button: "test_metrics" },
     });
