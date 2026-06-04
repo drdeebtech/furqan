@@ -423,16 +423,19 @@ export async function getTeacherRecitationRoster(
 ): Promise<TeacherRecitationRosterRow[]> {
   const supabase = await createClient();
 
-  // Step 1: distinct student IDs from teacher's bookings (any status).
-  const bookingsRes = await supabase
-    .from("bookings")
-    .select("student_id")
-    .eq("teacher_id", teacherId)
-    .returns<{ student_id: string }[]>();
-  if (bookingsRes.error) throw bookingsRes.error;
-  const bookings = bookingsRes.data;
-  if (!bookings || bookings.length === 0) return [];
-  const studentIds = [...new Set(bookings.map((b) => b.student_id))];
+  // Step 1: distinct student IDs via indexed RPC (S1 scale fix). Cast until
+  // db:types regenerates post-migration (same pattern as other new RPCs).
+  const distinctRes = await (
+    supabase
+      .rpc("teacher_distinct_students" as never, { p_teacher_id: teacherId } as never)
+      .returns<{ student_id: string }[]>() as unknown as Promise<{
+        data: { student_id: string }[] | null;
+        error: { message: string } | null;
+      }>
+  );
+  if (distinctRes.error) throw new Error(distinctRes.error.message);
+  const studentIds = (distinctRes.data ?? []).map((r) => r.student_id);
+  if (studentIds.length === 0) return [];
 
   // Step 2: parallel fetches.
   // Per-student `.limit(5)` instead of one global `.limit(N)`: a single
@@ -734,16 +737,19 @@ export async function getTeacherRosterProgress(
 ): Promise<TeacherRosterProgressRow[]> {
   const supabase = await createClient();
 
-  // Step 1: distinct students from teacher's booking history.
-  const bookingsRes = await supabase
-    .from("bookings")
-    .select("student_id")
-    .eq("teacher_id", teacherId)
-    .returns<{ student_id: string }[]>();
-  if (bookingsRes.error) throw bookingsRes.error;
-  const bookings = bookingsRes.data;
-  if (!bookings || bookings.length === 0) return [];
-  const studentIds = [...new Set(bookings.map((b) => b.student_id))];
+  // Step 1: distinct students via indexed RPC (S1 scale fix). Cast until
+  // db:types regenerates post-migration.
+  const distinctRes = await (
+    supabase
+      .rpc("teacher_distinct_students" as never, { p_teacher_id: teacherId } as never)
+      .returns<{ student_id: string }[]>() as unknown as Promise<{
+        data: { student_id: string }[] | null;
+        error: { message: string } | null;
+      }>
+  );
+  if (distinctRes.error) throw new Error(distinctRes.error.message);
+  const studentIds = (distinctRes.data ?? []).map((r) => r.student_id);
+  if (studentIds.length === 0) return [];
 
   // Step 2: profiles + last-5 evaluations per student in a single IN-query
   // instead of one query per student (audit H11). Rows arrive globally

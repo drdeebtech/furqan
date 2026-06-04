@@ -26,31 +26,31 @@ function daysAgo(iso: string | null, lang: Lang): string {
 }
 
 /**
- * Teacher-scoped retention widget. Shows this teacher's own students
- * (from last 90 days of bookings) who have a churn_risk_score >= 60.
- * Read-only — intervention actions remain admin/moderator.
+ * Teacher-scoped retention widget. Shows this teacher's own students who have
+ * a churn_risk_score >= 60, ordered by risk descending.
+ *
+ * Uses the teacher_at_risk_students RPC (S5 scale fix) which pushes the
+ * bookings→retention_signals→profiles join + ORDER BY + LIMIT into a single
+ * indexed Postgres query, replacing the previous three-step JS aggregation.
  */
 export async function TeacherAtRiskStudents({ teacherId }: Props) {
   const supabase = await createClient();
   const { t, lang } = await getT();
 
-  // eslint-disable-next-line react-hooks/purity -- server component, deterministic per-request
-  const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: bookings } = await supabase
-    .from("bookings")
-    .select("student_id")
-    .eq("teacher_id", teacherId)
-    .gte("created_at", since)
-    .returns<{ student_id: string }[]>();
+  // Cast until db:types regenerates post-migration. Same pattern as other
+  // new-RPC calls (e.g. get_teacher_overdue_eval_count in dashboard/page.tsx).
+  const { data: atRisk, error } = await (
+    supabase
+      .rpc("teacher_at_risk_students" as never, { p_teacher_id: teacherId, p_limit: 5 } as never)
+      .returns<AtRiskRow[]>() as unknown as Promise<{
+        data: AtRiskRow[] | null;
+        error: { message: string; code?: string } | null;
+      }>
+  );
 
-  const studentIds = Array.from(new Set((bookings ?? []).map(b => b.student_id)));
-  if (studentIds.length === 0) {
-    // Pre-data state — teacher hasn't received any bookings in 90d. Quiet
-    // onboarding hint rather than `return null` so the dashboard's grid
-    // rhythm stays stable + the new teacher gets a "this is where the data
-    // will land" cue. (mentorship-card and recitation-standard-roster
-    // intentionally still return null — those are admin-paired/signal-driven
-    // rather than onboarding-stage.)
+  // A missing RPC (pre-migration env) or student-with-no-bookings case both
+  // land here. Surface the EmptyCard so the dashboard grid stays stable.
+  if (error || !atRisk) {
     return (
       <EmptyCard
         variant="quiet"
@@ -63,16 +63,7 @@ export async function TeacherAtRiskStudents({ teacherId }: Props) {
     );
   }
 
-  const { data: signals } = await supabase
-    .from("retention_signals")
-    .select("student_id, churn_risk_score, last_session_at, package_remaining")
-    .in("student_id", studentIds)
-    .gte("churn_risk_score", 60)
-    .order("churn_risk_score", { ascending: false })
-    .limit(5)
-    .returns<Omit<AtRiskRow, "full_name">[]>();
-
-  if (!signals || signals.length === 0) {
+  if (atRisk.length === 0) {
     return (
       <EmptyCard
         variant="celebration"
@@ -85,24 +76,15 @@ export async function TeacherAtRiskStudents({ teacherId }: Props) {
     );
   }
 
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, full_name")
-    .in("id", signals.map(s => s.student_id))
-    .returns<{ id: string; full_name: string | null }[]>();
-
-  const unnamed = t("بدون اسم", "Unnamed");
-  const nameById = new Map((profiles ?? []).map(p => [p.id, p.full_name ?? unnamed]));
-
   return (
     <div className="glass-card mt-4 rounded-xl p-4">
       <div className="mb-3 flex items-center gap-2">
         <TrendingDown size={16} className="text-warning" />
         <h3 className="text-sm font-bold">{t("طلاب يحتاجون انتباهاً", "Students who need attention")}</h3>
-        <span className="rounded-full bg-warning/10 px-2 py-0.5 text-xs text-warning">{signals.length}</span>
+        <span className="rounded-full bg-warning/10 px-2 py-0.5 text-xs text-warning">{atRisk.length}</span>
       </div>
       <div className="space-y-2">
-        {signals.map(s => {
+        {atRisk.map(s => {
           const score = s.churn_risk_score ?? 0;
           return (
             <Link
@@ -114,7 +96,7 @@ export async function TeacherAtRiskStudents({ teacherId }: Props) {
                 <span className={`glass-badge ${riskBadgeClass(score)}`} title={`${score.toFixed(0)} / 100`}>
                   {riskLabel(score)}
                 </span>
-                <span className="text-sm font-medium">{nameById.get(s.student_id) ?? "—"}</span>
+                <span className="text-sm font-medium">{s.full_name || t("بدون اسم", "Unnamed")}</span>
               </div>
               <div className="flex items-center gap-3 text-xs text-muted">
                 <span>{t("آخر جلسة:", "Last session:")} {daysAgo(s.last_session_at, lang)}</span>
