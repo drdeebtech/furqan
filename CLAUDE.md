@@ -140,3 +140,7 @@ Key routing rules:
 - Save progress → invoke /context-save
 - Resume context → invoke /context-restore
 - Author a backlog-ready spec/issue → invoke /spec
+
+## PR Babysitting Rule (NON-NEGOTIABLE)
+
+After creating or pushing ANY PR (via /ship, /land-and-deploy, `gh pr create`, or `git push`), always offer to start `/loop` to babysit it until it merges. The loop should monitor: CI status, review comments, merge conflicts, and required approvals. Offer with a one-liner like: "Want me to `/loop` to babysit this PR until it merges?"

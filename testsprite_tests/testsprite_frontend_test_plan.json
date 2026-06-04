@@ -1,34 +1,58 @@
 [
   {
     "id": "TC001",
-    "title": "Student completes sign-in through the app callback",
-    "description": "This test verifies that a successful Google sign-in callback establishes a session and returns the student to the authenticated app.",
+    "title": "Student completes sign-in through email/password",
+    "description": "Verifies that a student can sign in using email and password and reaches the authenticated student dashboard. Uses email/password login — NOT Google OAuth (automated tests cannot obtain a real Google authorization code).",
     "category": "Authentication",
     "steps": [
       {
         "type": "action",
-        "description": "Navigate to /api/auth/callback/google"
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with test-student@furqan.test"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with FurqTest2026!"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
       },
       {
         "type": "assertion",
-        "description": "Verify the user is redirected into the authenticated app with a session established"
+        "description": "Verify the URL is no longer /login and the authenticated student area is displayed"
       }
     ],
     "priority": "High"
   },
   {
     "id": "TC002",
-    "title": "Teacher signs in through the app callback",
-    "description": "This test verifies that a successful Google sign-in callback establishes a session for a teacher account and returns the user to the authenticated app.",
+    "title": "Teacher signs in through email/password",
+    "description": "Verifies that a teacher can sign in using email and password and reaches the authenticated teacher dashboard. Uses email/password login — NOT Google OAuth (automated tests cannot obtain a real Google authorization code).",
     "category": "Authentication",
     "steps": [
       {
         "type": "action",
-        "description": "Navigate to /api/auth/callback/google"
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the email field with test-teacher@furqan.test"
+      },
+      {
+        "type": "action",
+        "description": "Fill in the password field with FurqTeach2026!"
+      },
+      {
+        "type": "action",
+        "description": "Submit the login form"
       },
       {
         "type": "assertion",
-        "description": "Verify the user is redirected into the authenticated app with a session established"
+        "description": "Verify the URL is no longer /login and the authenticated teacher area is displayed"
       }
     ],
     "priority": "High"
@@ -62,11 +86,11 @@
       },
       {
         "type": "action",
-        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+        "description": "Fill in the login credentials with test-student@furqan.test"
       },
       {
         "type": "action",
-        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+        "description": "Fill in the password field with FurqTest2026!"
       },
       {
         "type": "action",
@@ -116,11 +140,11 @@
       },
       {
         "type": "action",
-        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+        "description": "Fill in the login credentials with test-student@furqan.test"
       },
       {
         "type": "action",
-        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+        "description": "Fill in the password field with FurqTest2026!"
       },
       {
         "type": "action",
@@ -157,11 +181,11 @@
       },
       {
         "type": "action",
-        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+        "description": "Fill in the login credentials with test-student@furqan.test"
       },
       {
         "type": "action",
-        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+        "description": "Fill in the password field with FurqTest2026!"
       },
       {
         "type": "action",
@@ -219,11 +243,11 @@
       },
       {
         "type": "action",
-        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+        "description": "Fill in the login credentials with test-student@furqan.test"
       },
       {
         "type": "action",
-        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+        "description": "Fill in the password field with FurqTest2026!"
       },
       {
         "type": "action",
@@ -281,11 +305,11 @@
       },
       {
         "type": "action",
-        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+        "description": "Fill in the login credentials with test-teacher@furqan.test"
       },
       {
         "type": "action",
-        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+        "description": "Fill in the password field with FurqTeach2026!"
       },
       {
         "type": "action",
@@ -684,11 +708,11 @@
       },
       {
         "type": "action",
-        "description": "Fill in the login credentials with {{LOGIN_USER}}"
+        "description": "Fill in the login credentials with test-student@furqan.test"
       },
       {
         "type": "action",
-        "description": "Fill in the password field with {{LOGIN_PASSWORD}}"
+        "description": "Fill in the password field with FurqTest2026!"
       },
       {
         "type": "action",
