@@ -151,7 +151,7 @@ export function NotificationsList({
       )}
 
       {actionError && (
-        <p className="mb-3 rounded-lg border border-error/30 bg-error/10 px-3 py-2 text-xs text-error">
+        <p role="alert" className="mb-3 rounded-lg border border-error/30 bg-error/10 px-3 py-2 text-xs text-error">
           {actionError}
         </p>
       )}
