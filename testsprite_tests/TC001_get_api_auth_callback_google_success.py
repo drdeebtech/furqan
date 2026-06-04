@@ -3,7 +3,7 @@ import re
 import requests
 from urllib.parse import urljoin
 
-BASE_URL = "https://www.furqan.today"
+BASE_URL = os.getenv("TEST_BASE_URL", "https://www.furqan.today")
 LOGIN_URL = f"{BASE_URL}/login"
 TIMEOUT = 30
 

@@ -1,7 +1,8 @@
+import os
 import requests
 from urllib.parse import urljoin
 
-BASE_URL = "https://www.furqan.today"
+BASE_URL = os.getenv("TEST_BASE_URL", "https://www.furqan.today")
 HANDOFF_PATH = "/api/auth/handoff/"
 TIMEOUT = 30
 

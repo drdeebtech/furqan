@@ -1,10 +1,11 @@
+import os
 import requests
 import hmac
 import hashlib
 import time
 import json
 
-BASE_URL = "https://www.furqan.today"
+BASE_URL = os.getenv("TEST_BASE_URL", "https://www.furqan.today")
 WEBHOOK_ENDPOINT = "/api/stripe/webhook"
 TIMEOUT = 30
 
@@ -35,8 +36,8 @@ def test_post_api_stripe_webhook_valid_signature():
 
     payload_json = json.dumps(payload, separators=(',', ':'))
 
-    # Secret for signing the webhook payload - in real scenario, this would be the Stripe webhook secret
-    # Here we simulate a valid signing secret as we must test the valid signature scenario
+    # Intentionally incorrect test secret (does not match production webhook secret).
+    # Used to verify that the endpoint rejects webhooks signed with unknown secrets.
     secret = "whsec_testsecret"
 
     # Construct the Stripe-Signature header as Stripe sends it
