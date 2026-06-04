@@ -52,12 +52,15 @@ export function TalqeenButton({ bookingId, studentId }: { bookingId: string; stu
 
   function dismiss() {
     const hId = homeworkId;
+    const currentStage = stage;
     setStage("idle");
     setHomeworkId(null);
     setError(null);
-    // Best-effort cleanup: delete the unsubmitted slot so 'assigned' rows
-    // don't accumulate when students back out before recording.
-    if (hId) {
+    // Best-effort cleanup: only cancel when the student backed out before
+    // submitting. If stage is "done" the row is already student_ready —
+    // the status guard on the server would block deletion anyway, but
+    // skipping the round-trip avoids a spurious logError.
+    if (hId && currentStage === "recording") {
       cancelTalqeenHomework(hId).catch(() => {});
     }
   }

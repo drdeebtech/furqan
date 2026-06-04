@@ -170,7 +170,7 @@ const cancelTalqeenHomeworkBase = loudAction<{ homeworkId: string }, void>({
       .returns<{ id: string }[]>();
     if (!deleted?.length) {
       logError("cancelTalqeenHomework: no row deleted — stale or already graded", null, {
-        tag: "talqeen", metadata: { homeworkId, studentId: actorId },
+        tag: "talqeen", metadata: { homeworkId, student_id: actorId },
       });
     }
     revalidatePath("/student/sessions");

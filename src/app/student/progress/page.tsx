@@ -68,8 +68,8 @@ export default async function StudentProgressPage() {
       .select("actual_duration, bookings!inner(student_id, status, scheduled_at)")
       .eq("bookings.student_id", user.id)
       .eq("bookings.status", "completed")
-      .not("actual_duration", "is", null)
-      .returns<{ actual_duration: number; bookings: { scheduled_at: string } }[]>(),
+      .order("id", { ascending: false })
+      .returns<{ actual_duration: number | null; bookings: { scheduled_at: string } }[]>(),
   ]);
 
   const completedLoad = countOrFail(completedRes, { route: "student-progress", widget: "completed-count" });
