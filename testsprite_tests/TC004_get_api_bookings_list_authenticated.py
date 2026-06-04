@@ -8,9 +8,8 @@ TIMEOUT = 30
 
 EMAIL = os.getenv("TEST_STUDENT_EMAIL", "test-student@furqan.test")
 PASSWORD = os.getenv("TEST_STUDENT_PASSWORD")
-assert PASSWORD, "TEST_STUDENT_PASSWORD environment variable must be set"
-
 def test_get_api_bookings_list_authenticated():
+    assert PASSWORD, "TEST_STUDENT_PASSWORD environment variable must be set"
     session = requests.Session()
 
     try:

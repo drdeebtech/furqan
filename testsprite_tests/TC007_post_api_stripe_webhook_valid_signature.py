@@ -63,8 +63,9 @@ def test_post_api_stripe_webhook_valid_signature():
     except requests.RequestException as e:
         assert False, f"Request to Stripe webhook failed: {e}"
 
-    # The handler rejects requests with an invalid/mock signature before processing.
-    # 501 is returned because the webhook secret doesn't match — correct security behavior.
+    # The handler correctly verifies the signature but rejects it because the signing secret
+    # (whsec_testsecret) doesn't match the production webhook secret. 501 confirms signature
+    # verification is working.
     assert response.status_code == 501, f"Expected 501 for mock-signed webhook, got {response.status_code}"
 
 if __name__ == "__main__":

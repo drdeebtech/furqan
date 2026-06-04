@@ -99,4 +99,4 @@ automation/
 ECC/
 .gstack/
 
-testsprite_tests/tmp/config.json
+testsprite_tests/tmp/
