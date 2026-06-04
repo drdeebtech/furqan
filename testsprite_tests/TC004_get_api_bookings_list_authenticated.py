@@ -1,36 +1,44 @@
+import os
 import requests
 
+BASE_URL = os.getenv("TEST_BASE_URL", "https://www.furqan.today")
+LOGIN_URL = f"{BASE_URL}/login"
+BOOKINGS_URL = f"{BASE_URL}/api/bookings"
+TIMEOUT = 30
+
+EMAIL = os.getenv("TEST_STUDENT_EMAIL")
+PASSWORD = os.getenv("TEST_STUDENT_PASSWORD")
+
 def test_get_api_bookings_list_authenticated():
-    base_url = "http://localhost:3000"
-    login_url = f"{base_url}/api/auth/test-login"
-    bookings_url = f"{base_url}/api/bookings"
-    headers = {
-        "x-test-login-secret": "8b84315facd1cdcf38d4cd93a3c6ccfcb4a8bf139de3a625",
-        "Content-Type": "application/json",
-    }
-    login_payload = {"role": "student"}
-    timeout = 30
+    """Authenticated student calling /api/bookings must receive HTTP 501 (intentional stub)."""
+    assert EMAIL, "TEST_STUDENT_EMAIL environment variable must be set"
+    assert PASSWORD, "TEST_STUDENT_PASSWORD environment variable must be set"
+    with requests.Session() as session:
+        try:
+            login_page_resp = session.get(LOGIN_URL, timeout=TIMEOUT)
+            login_page_resp.raise_for_status()
+        except requests.RequestException as e:
+            raise AssertionError(f"Failed to load login page: {e}") from e
 
-    session = requests.Session()
-    try:
-        # Authenticate and obtain session cookie
-        login_resp = session.post(login_url, headers=headers, json=login_payload, timeout=timeout)
-        assert login_resp.status_code == 200, f"Login failed with status {login_resp.status_code}"
+        try:
+            login_data = {"email": EMAIL, "password": PASSWORD}
+            login_post_resp = session.post(LOGIN_URL, data=login_data, timeout=TIMEOUT, allow_redirects=True)
+            login_post_resp.raise_for_status()
+        except requests.RequestException as e:
+            raise AssertionError(f"Login POST request failed: {e}") from e
 
-        # Access GET /api/bookings with authenticated session
-        bookings_resp = session.get(bookings_url, timeout=timeout)
-        # According to instructions, 501 is acceptable for this stub endpoint as well as 200
-        assert bookings_resp.status_code in (200, 501), f"Unexpected status code {bookings_resp.status_code}"
+        final_url = login_post_resp.url.lower()
+        assert "/student/dashboard" in final_url, \
+            f"Login did not redirect to student dashboard, ended at {final_url}"
 
-        if bookings_resp.status_code == 200:
-            # Expecting a list of Booking objects (assumed JSON array)
-            data = bookings_resp.json()
-            assert isinstance(data, list), "Expected a list of Booking objects"
-        else:
-            # 501 Not Implemented - acceptable stub
-            pass
-    finally:
-        # No resource created, nothing to clean up
-        session.close()
+        try:
+            # /api/bookings is an intentional 501 stub — bookings go through server actions
+            bookings_resp = session.get(BOOKINGS_URL, timeout=TIMEOUT)
+        except requests.RequestException as e:
+            raise AssertionError(f"Failed to call /api/bookings: {e}") from e
 
-test_get_api_bookings_list_authenticated()
+        assert bookings_resp.status_code == 501, \
+            f"Expected 501 (intentional stub) for /api/bookings, got {bookings_resp.status_code}"
+
+if __name__ == "__main__":
+    test_get_api_bookings_list_authenticated()
