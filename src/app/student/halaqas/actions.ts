@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
+import { emitEvent } from "@/lib/automation/emit";
+import type { TableInsert } from "@/lib/supabase/typed-helpers";
 
 export interface EnrollState {
   ok?: boolean;
@@ -21,6 +23,7 @@ interface SessionRow {
   id: string;
   session_mode: string;
   scheduled_at: string | null;
+  ended_at: string | null;
   capacity: number;
   current_enrollment: number;
 }
@@ -59,7 +62,7 @@ export async function enrollInHalaqa(
   // below.
   const { data: session, error: sessErr } = await admin
     .from("sessions")
-    .select("id, session_mode, scheduled_at, capacity, current_enrollment")
+    .select("id, session_mode, scheduled_at, ended_at, capacity, current_enrollment")
     .eq("id", sessionId)
     .maybeSingle<SessionRow>();
   if (sessErr || !session) {
@@ -70,6 +73,8 @@ export async function enrollInHalaqa(
     return { error: "الحلقة غير موجودة" };
   }
   if (session.session_mode !== "halaqa") return { error: "هذه ليست حلقة" };
+  // Eligibility: reject ended sessions and sessions that have already started.
+  if (session.ended_at) return { error: "الحلقة منتهية" };
   if (session.scheduled_at && new Date(session.scheduled_at).getTime() < Date.now()) {
     return { error: "الحلقة بدأت بالفعل" };
   }
@@ -85,7 +90,7 @@ export async function enrollInHalaqa(
       user_id: user.id,
       role: "student",
       attendance_status: "registered",
-    } as never);
+    } as TableInsert<"session_participants">);
   if (insErr) {
     if (insErr.code === "23505") return { error: "أنت مسجل في هذه الحلقة بالفعل" };
     logError("enrollInHalaqa: participant insert failed", insErr, {
@@ -124,6 +129,13 @@ export async function enrollInHalaqa(
     }
     return { error: "الحلقة ممتلئة" };
   }
+
+  emitEvent("halaqa.enrolled", "session", sessionId, {
+    student_id: user.id,
+    session_id: sessionId,
+  }, user.id).catch((err) =>
+    logError("emit halaqa.enrolled failed", err, { tag: "halaqa.enroll" }),
+  );
 
   revalidatePath("/student/halaqas");
   revalidatePath(`/student/halaqas/${sessionId}`);
@@ -176,29 +188,43 @@ export async function cancelHalaqaEnrollment(
     return { error: "لست مسجلاً في هذه الحلقة" };
   }
 
-  // Snapshot read + decrement. Clamp at 0 in case the counter is
-  // already 0 due to a prior manual fix.
+  // Read snapshot, then UPDATE only if counter still matches (optimistic
+  // lock) and is > 0. Prevents underflow on concurrent admin mutations.
   const { data: session } = await admin
     .from("sessions")
     .select("current_enrollment")
     .eq("id", sessionId)
     .maybeSingle<{ current_enrollment: number }>();
 
-  const next = Math.max(0, (session?.current_enrollment ?? 0) - 1);
-
-  const { error: updErr } = await admin
+  const snapshot = session?.current_enrollment ?? 0;
+  const { data: updatedDecrement, error: updErr } = await admin
     .from("sessions")
-    .update({ current_enrollment: next })
-    .eq("id", sessionId);
+    .update({ current_enrollment: Math.max(0, snapshot - 1) })
+    .eq("id", sessionId)
+    .eq("current_enrollment", snapshot)
+    .gt("current_enrollment", 0)
+    .select("id")
+    .maybeSingle();
 
-  if (updErr) {
+  if (updErr || !updatedDecrement) {
     // Soft-fail: counter mismatch is operationally fixable; we already
     // removed the participant, which is the user-visible action.
-    logError("cancelHalaqaEnrollment: counter decrement failed", updErr, {
-      tag: "halaqa.cancel",
-      metadata: { session_id: sessionId },
-    });
+    logError(
+      "cancelHalaqaEnrollment: counter decrement failed or optimistic lock lost",
+      updErr ?? new Error("optimistic lock failed"),
+      {
+        tag: "halaqa.cancel",
+        metadata: { session_id: sessionId, snapshot },
+      },
+    );
   }
+
+  emitEvent("halaqa.enrollment_cancelled", "session", sessionId, {
+    student_id: user.id,
+    session_id: sessionId,
+  }, user.id).catch((err) =>
+    logError("emit halaqa.enrollment_cancelled failed", err, { tag: "halaqa.cancel" }),
+  );
 
   revalidatePath("/student/halaqas");
   revalidatePath(`/student/halaqas/${sessionId}`);
@@ -257,7 +283,7 @@ export async function joinHalaqaWaitingList(
       session_id: sessionId,
       student_id: user.id,
       position: nextPosition,
-    } as never);
+    } as TableInsert<"halaqa_waiting_list">);
 
   if (insErr) {
     if (insErr.code === "23505") return { error: "أنت في قائمة الانتظار بالفعل" };
@@ -268,6 +294,15 @@ export async function joinHalaqaWaitingList(
     return { error: `فشل الانضمام إلى قائمة الانتظار: ${insErr.message}` };
   }
 
+  emitEvent("halaqa.waitlist_joined", "session", sessionId, {
+    student_id: user.id,
+    session_id: sessionId,
+    position: nextPosition,
+  }, user.id).catch((err) =>
+    logError("emit halaqa.waitlist_joined failed", err, { tag: "halaqa.waitlist" }),
+  );
+
+  revalidatePath("/student/halaqas");
   revalidatePath(`/student/halaqas/${sessionId}`);
   return { ok: true, position: nextPosition };
 }
@@ -312,6 +347,14 @@ export async function leaveHalaqaWaitingList(
     return { error: "لست في قائمة الانتظار" };
   }
 
+  emitEvent("halaqa.waitlist_left", "session", sessionId, {
+    student_id: user.id,
+    session_id: sessionId,
+  }, user.id).catch((err) =>
+    logError("emit halaqa.waitlist_left failed", err, { tag: "halaqa.waitlist" }),
+  );
+
+  revalidatePath("/student/halaqas");
   revalidatePath(`/student/halaqas/${sessionId}`);
   return { ok: true };
 }

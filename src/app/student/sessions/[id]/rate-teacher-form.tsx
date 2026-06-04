@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useActionState } from "react";
 import { Star } from "lucide-react";
 import { submitReview } from "./actions";
 
@@ -14,34 +14,16 @@ export function RateTeacherForm({
   const [rating, setRating] = useState(0);
   const [hovered, setHovered] = useState(0);
   const [comment, setComment] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit() {
-    if (rating === 0) {
-      setError("يرجى اختيار تقييم");
-      return;
-    }
-    setLoading(true);
-    setError(null);
+  const [state, formAction, isPending] = useActionState(
+    async (_prev: { success?: true; error?: string } | null, _formData: FormData) => {
+      if (rating === 0) return { error: "يرجى اختيار تقييم" };
+      return submitReview(sessionId, rating, comment.trim() || null);
+    },
+    null,
+  );
 
-    const result = await submitReview(
-      sessionId,
-      rating,
-      comment.trim() || null,
-    );
-
-    setLoading(false);
-
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setSuccess(true);
-    }
-  }
-
-  if (success) {
+  if (state?.success) {
     return (
       <div className="glass-card p-8 text-center">
         <div className="mb-2 flex justify-center gap-1">
@@ -63,7 +45,7 @@ export function RateTeacherForm({
   }
 
   return (
-    <div className="glass-card p-5">
+    <form action={formAction} className="glass-card p-5">
       <h2 className="mb-1 font-display text-sm font-semibold text-gold">
         قيّم جلستك مع {teacherName}
       </h2>
@@ -103,17 +85,19 @@ export function RateTeacherForm({
         className="mb-4 w-full resize-none rounded-xl glass-input px-4 py-3 text-sm placeholder:text-muted/60 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
       />
 
-      {error && (
-        <p role="alert" aria-atomic="true" className="mb-3 text-sm text-error">{error}</p>
+      {state?.error && (
+        <p role="alert" aria-atomic="true" className="mb-3 text-sm text-error">
+          {state.error}
+        </p>
       )}
 
       <button
-        onClick={handleSubmit}
-        disabled={loading || rating === 0}
+        type="submit"
+        disabled={isPending || rating === 0}
         className="inline-flex items-center gap-2 glass-gold glass-pill px-6 py-2.5 text-sm font-semibold text-white transition-colors focus-ring disabled:opacity-50"
       >
-        {loading ? "جاري الإرسال..." : "إرسال التقييم"}
+        {isPending ? "جاري الإرسال..." : "إرسال التقييم"}
       </button>
-    </div>
+    </form>
   );
 }

@@ -21,6 +21,7 @@ export default async function StudentFollowUpPage() {
     .select("*")
     .eq("student_id", user.id)
     .order("assigned_at", { ascending: false })
+    .limit(200)
     .returns<HomeworkAssignment[]>();
 
   // Build name map for teachers
@@ -30,7 +31,7 @@ export default async function StudentFollowUpPage() {
     const { data: profiles } = await supabase
       .from("profiles")
       .select("id, full_name")
-      .in("id", teacherIds)
+      .in("id", teacherIds.slice(0, 200))
       .returns<{ id: string; full_name: string | null }[]>();
     for (const p of profiles ?? []) {
       nameMap[p.id] = p.full_name ?? t("معلم", "Teacher");
@@ -57,7 +58,7 @@ export default async function StudentFollowUpPage() {
     const { data: parents } = await supabase
       .from("homework_assignments")
       .select("id, status, teacher_notes, completed_at, title")
-      .in("id", parentIds)
+      .in("id", parentIds.slice(0, 200))
       .returns<{ id: string; status: string; teacher_notes: string | null; completed_at: string | null; title: string }[]>();
     for (const p of parents ?? []) {
       parentMap[p.id] = p;
