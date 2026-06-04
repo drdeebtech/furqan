@@ -12,33 +12,26 @@ PASSWORD = os.getenv("TEST_STUDENT_PASSWORD")
 def test_get_api_bookings_list_authenticated():
     assert EMAIL, "TEST_STUDENT_EMAIL environment variable must be set"
     assert PASSWORD, "TEST_STUDENT_PASSWORD environment variable must be set"
-    session = requests.Session()
+    with requests.Session() as session:
+        try:
+            login_page_resp = session.get(LOGIN_URL, timeout=TIMEOUT)
+            login_page_resp.raise_for_status()
 
-    try:
-        # Step 1: Load login page to get any cookies or hidden tokens (if needed)
-        login_page_resp = session.get(LOGIN_URL, timeout=TIMEOUT)
-        login_page_resp.raise_for_status()
+            login_data = {"email": EMAIL, "password": PASSWORD}
+            login_post_resp = session.post(LOGIN_URL, data=login_data, timeout=TIMEOUT, allow_redirects=True)
+            login_post_resp.raise_for_status()
 
-        # Step 2: Submit login form with credentials
-        login_data = {"email": EMAIL, "password": PASSWORD}
-        login_post_resp = session.post(LOGIN_URL, data=login_data, timeout=TIMEOUT, allow_redirects=True)
-        login_post_resp.raise_for_status()
+            final_url = login_post_resp.url.lower()
+            assert "/student/dashboard" in final_url, \
+                f"Login did not redirect to student dashboard, ended at {final_url}"
 
-        # Verify login redirected to student dashboard
-        final_url = login_post_resp.url.lower()
-        assert "/student/dashboard" in final_url, \
-            f"Login did not redirect to student dashboard, ended at {final_url}"
+            # /api/bookings is an intentional 501 stub — bookings go through server actions
+            bookings_resp = session.get(BOOKINGS_URL, timeout=TIMEOUT)
+            assert bookings_resp.status_code == 501, \
+                f"Expected 501 (intentional stub) for /api/bookings, got {bookings_resp.status_code}"
 
-        # Step 3: Access bookings endpoint — /api/bookings is an intentional 501 stub
-        # (bookings go through server actions, not a REST API); 501 is the expected PASS outcome
-        bookings_resp = session.get(BOOKINGS_URL, timeout=TIMEOUT)
-        assert bookings_resp.status_code == 501, \
-            f"Expected 501 (intentional stub) for /api/bookings, got {bookings_resp.status_code}"
-
-    except requests.RequestException as e:
-        raise AssertionError(f"Request failed: {e}") from e
-    finally:
-        session.close()
+        except requests.RequestException as e:
+            raise AssertionError(f"Request failed: {e}") from e
 
 if __name__ == "__main__":
     test_get_api_bookings_list_authenticated()
