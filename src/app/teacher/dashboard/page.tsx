@@ -76,11 +76,12 @@ export default async function TeacherDashboardPage() {
       .gte("scheduled_at", todayStart.toISOString()).lte("scheduled_at", todayEnd.toISOString())
       .order("scheduled_at", { ascending: true }).returns<PendingBooking[]>(),
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("teacher_id", user.id).eq("status", "completed").gte("created_at", monthStart),
-    // F6: align with /teacher/students — a student with confirmed (not yet
-    // completed) bookings is still the teacher's student. The narrower
-    // status='completed' filter caused the dashboard to under-count by one
-    // for any newly-confirmed but unfinished booking relationship.
-    supabase.from("bookings").select("student_id").eq("teacher_id", user.id).in("status", ["confirmed", "completed"]).returns<{ student_id: string }[]>(),
+    // S1 scale fix: teacher_distinct_students RPC does a single indexed DISTINCT
+    // scan server-side. Covers all booking statuses (confirmed + completed +
+    // any future states), equivalent to or broader than the previous
+    // "confirmed|completed" filter — intentional per F6 rationale.
+    // Cast until db:types regenerates post-migration.
+    supabase.rpc("teacher_distinct_students" as never, { p_teacher_id: user.id } as never).returns<{ student_id: string }[]>(),
     supabase.from("teacher_availability").select("id", { count: "exact", head: true }).eq("teacher_id", user.id).eq("is_active", true),
     supabase.from("homework_assignments").select("id", { count: "exact", head: true }).eq("teacher_id", user.id).eq("status", "student_ready"),
     supabase.from("conversations").select("id").eq("teacher_id", user.id).returns<{id:string}[]>(),
