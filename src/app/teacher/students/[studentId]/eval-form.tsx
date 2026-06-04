@@ -52,28 +52,32 @@ export function EvalForm({
 
     const evaluationDate = new Date().toISOString().split("T")[0];
 
-    const result = await createTeacherEvaluation(
-      studentId,
-      evalType,
-      evaluationDate,
-      {
-        hifz: scores.hifz_score,
-        tajweed: scores.tajweed_score,
-        fluency: scores.fluency_score,
-        attendance: scores.attendance_score,
-        overall: scores.overall_score,
-      },
-      {
-        strengths: strengths || null,
-        areas_for_improvement: areasForImprovement || null,
-        next_goals: nextGoals || null,
-      },
-    );
-
-    setLoading(false);
-    setActionState(result);
-    if (result.success === true) {
-      setDone(true);
+    try {
+      const result = await createTeacherEvaluation(
+        studentId,
+        evalType,
+        evaluationDate,
+        {
+          hifz: scores.hifz_score,
+          tajweed: scores.tajweed_score,
+          fluency: scores.fluency_score,
+          attendance: scores.attendance_score,
+          overall: scores.overall_score,
+        },
+        {
+          strengths: strengths || null,
+          areas_for_improvement: areasForImprovement || null,
+          next_goals: nextGoals || null,
+        },
+      );
+      setActionState(result);
+      if (result.success === true) {
+        setDone(true);
+      }
+    } catch {
+      setActionState({ error: "حدث خطأ غير متوقع أثناء حفظ التقييم." });
+    } finally {
+      setLoading(false);
     }
   }
 

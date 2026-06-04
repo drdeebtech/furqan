@@ -163,11 +163,18 @@ export async function saveProfilePhoto(
 
   // Defense-in-depth role gate — server actions are reachable without
   // middleware, so verify the caller is a teacher/admin at the action layer.
-  const { data: profile } = await supabase
+  const { data: profile, error: profileErr } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", user.id)
     .single<{ role: string }>();
+  if (profileErr) {
+    logError("saveProfilePhoto: profile lookup failed", profileErr, {
+      component: "teacher.cv.saveProfilePhoto",
+      metadata: { userId: user.id },
+    });
+    return { error: "تعذر التحقق من الصلاحية. حاول مجدداً." };
+  }
   if (!profile || !["teacher", "admin"].includes(profile.role)) {
     return { error: "ليس لديك صلاحية" };
   }
