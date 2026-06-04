@@ -1,3 +1,4 @@
+import os
 import requests
 
 BASE_URL = "https://www.furqan.today"
@@ -5,8 +6,9 @@ LOGIN_URL = f"{BASE_URL}/login"
 DASHBOARD_URL_STUDENT = f"{BASE_URL}/student/dashboard"
 TIMEOUT = 30
 
-EMAIL = "test-student@furqan.test"
-PASSWORD = "Ts!WrLDsj5BFsPnO6hG"
+EMAIL = os.getenv("TEST_STUDENT_EMAIL", "test-student@furqan.test")
+PASSWORD = os.getenv("TEST_STUDENT_PASSWORD")
+assert PASSWORD, "TEST_STUDENT_PASSWORD environment variable must be set"
 
 def test_get_api_auth_callback_google_success():
     session = requests.Session()
@@ -45,7 +47,7 @@ def test_get_api_auth_callback_google_success():
     assert post_login.status_code in (302, 303), f"Expected redirect after login, got {post_login.status_code}"
     location = post_login.headers.get("Location", "")
     assert location, "Redirect location header missing after login"
-    assert "/dashboard" in location or location.startswith(DASHBOARD_URL_STUDENT), f"Unexpected redirect location after login: {location}"
+    assert "/student/dashboard" in location or location.startswith(DASHBOARD_URL_STUDENT), f"Unexpected redirect location after login: {location}"
 
     # Step 3: Follow redirect to dashboard
     try:
@@ -63,4 +65,5 @@ def test_get_api_auth_callback_google_success():
     body_text = dashboard_resp.text
     assert EMAIL.split('@')[0] in body_text or "مستخدم" in body_text or "اللوحة" in body_text, "Dashboard does not appear to show authenticated student content"
 
-test_get_api_auth_callback_google_success()
+if __name__ == "__main__":
+    test_get_api_auth_callback_google_success()
