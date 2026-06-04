@@ -15,9 +15,9 @@ export function DeleteSlotButton({ slotId }: { slotId: string }) {
     setLoading(true);
     setError(null);
     const result = await deleteSlot(slotId);
-    if (result.success) {
+    if (result.ok) {
       setDeleted(true);
-    } else if (result.error) {
+    } else {
       setError(result.error);
     }
     setLoading(false);

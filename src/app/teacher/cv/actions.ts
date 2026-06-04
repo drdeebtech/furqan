@@ -15,15 +15,23 @@ export type CvResult = {
   success?: boolean;
 };
 
-// NOTE: teacherPreflight authenticates only (any signed-in user) — it does
-// NOT role-gate. Migrating to routeAction({ role: "teacher" }) would ADD a
-// role check, which is a behavior change, so this adapter keeps its explicit
-// loudAction preflight and only adopts the shared UserError. A follow-up can
-// decide whether the teacher-role gate belongs here.
+// teacherPreflight verifies the caller is authenticated AND holds the
+// teacher (or admin) role at the action layer — defense-in-depth on top of
+// the edge middleware in proxy.ts. Any authenticated non-teacher (e.g. a
+// student) would have been blocked by the middleware, but server actions are
+// reachable without it in tests / direct POST, so the check belongs here too.
 async function teacherPreflight(): Promise<{ actorId: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new UserError("غير مصرح");
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single<{ role: string }>();
+  if (!profile || !["teacher", "admin"].includes(profile.role)) {
+    throw new UserError("ليس لديك صلاحية");
+  }
   return { actorId: user.id };
 }
 
@@ -95,42 +103,51 @@ export async function saveCvDraft(
   return { success: true };
 }
 
+const submitCvForReviewBase = loudAction<Record<string, never>, { message: string }>({
+  name: "teacher.cv.submit-for-review",
+  severity: "warning",
+  schema: z.object({}),
+  audit: {
+    table: "teacher_profiles",
+    recordId: (_i, actorId) => actorId ?? "unknown",
+    action: "UPDATE",
+    reasonPrefix: "teacher submit CV for review",
+  },
+  preflight: teacherPreflight,
+  handler: async (_input, { actorId }) => {
+    const supabase = await createClient();
+    const { data: updated, error } = await supabase
+      .from("teacher_profiles")
+      .update({
+        cv_status: "pending_review",
+        cv_submitted_at: new Date().toISOString(),
+      })
+      .eq("teacher_id", actorId as string)
+      .select("teacher_id")
+      .maybeSingle();
+
+    if (error) throw new UserError("فشل إرسال السيرة الذاتية — يرجى المحاولة مرة أخرى", { cause: error });
+    if (!updated) throw new UserError("فشل إرسال السيرة الذاتية — يرجى المحاولة مرة أخرى", {
+      cause: new Error("no-rows-updated — RLS or missing teacher_profiles row"),
+    });
+
+    await emitEvent("teacher.cv_submitted", "teacher_profiles", actorId as string, {
+      submitted_by: actorId,
+    }).catch((err) =>
+      logError("submitCvForReview: emitEvent teacher.cv_submitted failed", err, {
+        tag: "teacher-cv",
+        metadata: { teacherId: actorId },
+      })
+    );
+
+    revalidatePath("/teacher/cv");
+    return { message: "تم إرسال السيرة الذاتية للمراجعة" };
+  },
+});
+
 export async function submitCvForReview(): Promise<CvResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "غير مصرح" };
-
-  const { data: updated, error } = await supabase
-    .from("teacher_profiles")
-    .update({
-      cv_status: "pending_review",
-      cv_submitted_at: new Date().toISOString(),
-    })
-    .eq("teacher_id", user.id)
-    .select("teacher_id")
-    .maybeSingle();
-
-  if (error) {
-    logError("teacher submitCvForReview failed", error, { tag: "teacher-cv", severity: "warning", metadata: { teacherId: user.id } });
-    return { error: "فشل إرسال السيرة الذاتية — يرجى المحاولة مرة أخرى" };
-  }
-  if (!updated) {
-    logError("teacher submitCvForReview: update matched 0 rows (RLS or missing profile)", new Error("no-rows-updated"), { tag: "teacher-cv", severity: "warning", metadata: { teacherId: user.id } });
-    return { error: "فشل إرسال السيرة الذاتية — يرجى المحاولة مرة أخرى" };
-  }
-
-  await emitEvent("teacher.cv_submitted", "teacher_profiles", user.id, {
-    submitted_by: user.id,
-  }).catch((err) =>
-    logError("submitCvForReview: emitEvent teacher.cv_submitted failed", err, {
-      tag: "teacher-cv",
-      metadata: { teacherId: user.id },
-    })
-  );
-
-  revalidatePath("/teacher/cv");
+  const result = await submitCvForReviewBase({});
+  if (!result.ok) return { error: result.error };
   return { success: true };
 }
 
@@ -143,6 +160,24 @@ export async function saveProfilePhoto(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "غير مصرح" };
+
+  // Defense-in-depth role gate — server actions are reachable without
+  // middleware, so verify the caller is a teacher/admin at the action layer.
+  const { data: profile, error: profileErr } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single<{ role: string }>();
+  if (profileErr) {
+    logError("saveProfilePhoto: profile lookup failed", profileErr, {
+      component: "teacher.cv.saveProfilePhoto",
+      metadata: { userId: user.id },
+    });
+    return { error: "تعذر التحقق من الصلاحية. حاول مجدداً." };
+  }
+  if (!profile || !["teacher", "admin"].includes(profile.role)) {
+    return { error: "ليس لديك صلاحية" };
+  }
 
   const photoFile = formData.get("photo");
   if (!(photoFile instanceof File) || photoFile.size === 0) {

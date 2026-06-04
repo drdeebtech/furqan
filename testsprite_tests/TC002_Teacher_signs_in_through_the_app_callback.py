@@ -34,13 +34,13 @@ async def run_test():
 
         # Interact with the page elements to simulate user flow
         # -> navigate
-        await page.goto("https://www.furqan.today/")
+        await page.goto("http://localhost:3000/student/dashboard")
         try:
             await page.wait_for_load_state("domcontentloaded", timeout=5000)
         except Exception:
             pass
         
-        # -> Navigate to https://www.furqan.today/api/auth/callback/google and observe the redirect and resulting page to determine whether a teacher session is established and the app redirects into an authenticated area.
+        # -> Navigate to https://www.furqan.today/api/auth/callback/google and observe whether it establishes a session and redirects into the authenticated app.
         await page.goto("https://www.furqan.today/api/auth/callback/google")
         try:
             await page.wait_for_load_state("domcontentloaded", timeout=5000)
@@ -49,11 +49,7 @@ async def run_test():
         
         # --> Assertions to verify final state
         current_url = await page.evaluate("() => window.location.href")
-        assert '/dashboard' in current_url, "The page should have navigated to the authenticated dashboard after the Google sign-in callback for the teacher account"
-        
-        # --> Test blocked by environment/access constraints during agent run
-        # Reason: TEST BLOCKED The test could not be run — the UI provides no way to simulate a successful Google OAuth callback by direct navigation to the callback endpoint without a valid authorization code. Observations: - Navigating to /api/auth/callback/google redirected to /login?error=oauth_missing_code. - The login page displayed an alert: "تعذر إكمال تسجيل الدخول بحساب جوجل (كود الإذن غير موجود). حاول ...
-        raise AssertionError("Test blocked during agent run: " + "TEST BLOCKED The test could not be run \u2014 the UI provides no way to simulate a successful Google OAuth callback by direct navigation to the callback endpoint without a valid authorization code. Observations: - Navigating to /api/auth/callback/google redirected to /login?error=oauth_missing_code. - The login page displayed an alert: \"\u062a\u0639\u0630\u0631 \u0625\u0643\u0645\u0627\u0644 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644 \u0628\u062d\u0633\u0627\u0628 \u062c\u0648\u062c\u0644 (\u0643\u0648\u062f \u0627\u0644\u0625\u0630\u0646 \u063a\u064a\u0631 \u0645\u0648\u062c\u0648\u062f). \u062d\u0627\u0648\u0644 ..." + " — the exported script cannot reproduce a PASS in this environment.")
+        assert '/teacher/dashboard' in current_url, "The page should have navigated to the teacher dashboard after the Google sign-in callback and established a session"
         await asyncio.sleep(5)
 
     finally:

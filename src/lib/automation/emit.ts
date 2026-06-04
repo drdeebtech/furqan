@@ -106,6 +106,12 @@ export const WEBHOOK_ROUTES = {
   "package.created": "/webhook/furqan-package-admin",
   "package.updated": "/webhook/furqan-package-admin",
   "package.deleted": "/webhook/furqan-package-admin",
+  // NOTE: n8n workflows for these routes must be created when teacher-
+  // availability automation is built (e.g. calendar sync, student
+  // notification of new slots). Until then dispatch logs a non-fatal
+  // failed-delivery automation_log entry.
+  "teacher.availability_slot_added": "/webhook/furqan-teacher-availability",
+  "teacher.availability_slot_deleted": "/webhook/furqan-teacher-availability",
 } as const satisfies Record<string, string>;
 
 /**

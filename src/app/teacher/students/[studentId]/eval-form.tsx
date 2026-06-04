@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Star, CheckCircle } from "lucide-react";
 import { createTeacherEvaluation } from "@/lib/actions/evaluations";
+import { ActionFeedback } from "@/components/shared/action-feedback";
 
 const SCORES = [
   { key: "hifz_score", ar: "الحفظ", en: "Hifz" },
@@ -31,7 +32,10 @@ export function EvalForm({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // actionState drives <ActionFeedback> so errors are always surfaced.
+  // We no longer set done on the mere absence of an error — success must
+  // be explicit (result.success === true) per the no-silent-failures policy.
+  const [actionState, setActionState] = useState<{ success?: boolean; error?: string } | null>(null);
   const [scores, setScores] = useState<Record<string, number>>({});
   const [evalType, setEvalType] = useState("weekly");
   const [strengths, setStrengths] = useState("");
@@ -40,37 +44,40 @@ export function EvalForm({
 
   async function handleSubmit() {
     if (!scores.overall_score) {
-      setError("يجب إدخال الدرجة الكلية على الأقل");
+      setActionState({ error: "يجب إدخال الدرجة الكلية على الأقل" });
       return;
     }
     setLoading(true);
-    setError(null);
+    setActionState(null);
 
     const evaluationDate = new Date().toISOString().split("T")[0];
 
-    const result = await createTeacherEvaluation(
-      studentId,
-      evalType,
-      evaluationDate,
-      {
-        hifz: scores.hifz_score,
-        tajweed: scores.tajweed_score,
-        fluency: scores.fluency_score,
-        attendance: scores.attendance_score,
-        overall: scores.overall_score,
-      },
-      {
-        strengths: strengths || null,
-        areas_for_improvement: areasForImprovement || null,
-        next_goals: nextGoals || null,
-      },
-    );
-
-    setLoading(false);
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setDone(true);
+    try {
+      const result = await createTeacherEvaluation(
+        studentId,
+        evalType,
+        evaluationDate,
+        {
+          hifz: scores.hifz_score,
+          tajweed: scores.tajweed_score,
+          fluency: scores.fluency_score,
+          attendance: scores.attendance_score,
+          overall: scores.overall_score,
+        },
+        {
+          strengths: strengths || null,
+          areas_for_improvement: areasForImprovement || null,
+          next_goals: nextGoals || null,
+        },
+      );
+      setActionState(result);
+      if (result.success === true) {
+        setDone(true);
+      }
+    } catch {
+      setActionState({ error: "حدث خطأ غير متوقع أثناء حفظ التقييم." });
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -104,9 +111,7 @@ export function EvalForm({
         تقييم {studentName}
       </h3>
 
-      {error && (
-        <div className="mb-3 rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</div>
-      )}
+      <ActionFeedback state={actionState} />
 
       {/* Eval type */}
       <div className="mb-4">

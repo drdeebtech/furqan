@@ -34,14 +34,14 @@ async def run_test():
 
         # Interact with the page elements to simulate user flow
         # -> navigate
-        await page.goto("https://www.furqan.today/")
+        await page.goto("http://localhost:3000/student/dashboard")
         try:
             await page.wait_for_load_state("domcontentloaded", timeout=5000)
         except Exception:
             pass
         
-        # -> Navigate to https://www.furqan.today/api/auth/callback/google to trigger the Google sign-in callback and observe whether a session is established and a redirect into the authenticated app occurs.
-        await page.goto("https://www.furqan.today/api/auth/callback/google")
+        # -> Navigate to http://localhost:3000/api/auth/callback/google to trigger the Google OAuth callback and observe whether the user is redirected into the authenticated app with a session.
+        await page.goto("http://localhost:3000/api/auth/callback/google")
         try:
             await page.wait_for_load_state("domcontentloaded", timeout=5000)
         except Exception:
@@ -49,11 +49,11 @@ async def run_test():
         
         # --> Assertions to verify final state
         current_url = await page.evaluate("() => window.location.href")
-        assert '/dashboard' in current_url, "The page should have navigated to the authenticated dashboard after the Google sign-in callback."
+        assert '/student/dashboard' in current_url, "The page should have navigated to the student dashboard after completing the Google sign-in callback"
         
         # --> Test blocked by environment/access constraints during agent run
-        # Reason: TEST BLOCKED The app did not establish a session or redirect into an authenticated area when the callback endpoint was visited directly because the OAuth authorization code was missing. Observations: - Navigated to https://www.furqan.today/api/auth/callback/google and the site redirected to /login?error=oauth_missing_code. - A visible alert on the login page states (Arabic): "تعذر إكمال تسجيل ا...
-        raise AssertionError("Test blocked during agent run: " + "TEST BLOCKED The app did not establish a session or redirect into an authenticated area when the callback endpoint was visited directly because the OAuth authorization code was missing. Observations: - Navigated to https://www.furqan.today/api/auth/callback/google and the site redirected to /login?error=oauth_missing_code. - A visible alert on the login page states (Arabic): \"\u062a\u0639\u0630\u0631 \u0625\u0643\u0645\u0627\u0644 \u062a\u0633\u062c\u064a\u0644 \u0627..." + " — the exported script cannot reproduce a PASS in this environment.")
+        # Reason: TEST BLOCKED The test could not be run — the OAuth callback endpoint was invoked without an authorization code, so a session could not be established and the app returned to the login page. Observations: - Navigating to /api/auth/callback/google redirected to /login?error=oauth_missing_code. - The login page displays an alert stating the Google authorization code is missing (message shown on th...
+        raise AssertionError("Test blocked during agent run: " + "TEST BLOCKED The test could not be run \u2014 the OAuth callback endpoint was invoked without an authorization code, so a session could not be established and the app returned to the login page. Observations: - Navigating to /api/auth/callback/google redirected to /login?error=oauth_missing_code. - The login page displays an alert stating the Google authorization code is missing (message shown on th..." + " — the exported script cannot reproduce a PASS in this environment.")
         await asyncio.sleep(5)
 
     finally:
