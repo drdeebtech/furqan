@@ -69,7 +69,11 @@ export function NotificationsList({
     setActionError(null);
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
     try {
-      await markAsRead(id);
+      const result = await markAsRead(id);
+      if (!result.ok) {
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: prevRead } : n));
+        setActionError(t("تعذّر تحديث الإشعار — حاول مجدداً", "Failed to update notification — please try again"));
+      }
     } catch {
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: prevRead } : n));
       setActionError(t("تعذّر تحديث الإشعار — حاول مجدداً", "Failed to update notification — please try again"));
@@ -82,7 +86,11 @@ export function NotificationsList({
     setLoading(true);
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     try {
-      await markAllAsRead();
+      const result = await markAllAsRead();
+      if (!result.ok) {
+        setNotifications(prev => prev.map(n => unreadIds.has(n.id) ? { ...n, is_read: false } : n));
+        setActionError(t("تعذّر تحديث الإشعارات — حاول مجدداً", "Failed to update notifications — please try again"));
+      }
     } catch {
       setNotifications(prev => prev.map(n => unreadIds.has(n.id) ? { ...n, is_read: false } : n));
       setActionError(t("تعذّر تحديث الإشعارات — حاول مجدداً", "Failed to update notifications — please try again"));
@@ -92,13 +100,32 @@ export function NotificationsList({
   }
 
   async function handleDelete(id: string) {
-    const deletedItem = notifications.find(n => n.id === id);
+    const deletedIndex = notifications.findIndex(n => n.id === id);
+    const deletedItem = deletedIndex >= 0 ? notifications[deletedIndex] : undefined;
     setActionError(null);
     setNotifications(prev => prev.filter(n => n.id !== id));
     try {
-      await deleteNotification(id);
+      const result = await deleteNotification(id);
+      if (!result.ok) {
+        if (deletedItem && deletedIndex >= 0) {
+          setNotifications(prev => {
+            if (prev.some(n => n.id === id)) return prev;
+            const restored = [...prev];
+            restored.splice(deletedIndex, 0, deletedItem);
+            return restored;
+          });
+        }
+        setActionError(t("تعذّر حذف الإشعار — حاول مجدداً", "Failed to delete notification — please try again"));
+      }
     } catch {
-      if (deletedItem) setNotifications(prev => prev.some(n => n.id === id) ? prev : [deletedItem, ...prev]);
+      if (deletedItem && deletedIndex >= 0) {
+        setNotifications(prev => {
+          if (prev.some(n => n.id === id)) return prev;
+          const restored = [...prev];
+          restored.splice(deletedIndex, 0, deletedItem);
+          return restored;
+        });
+      }
       setActionError(t("تعذّر حذف الإشعار — حاول مجدداً", "Failed to delete notification — please try again"));
     }
   }
@@ -151,7 +178,7 @@ export function NotificationsList({
       )}
 
       {actionError && (
-        <p role="alert" className="mb-3 rounded-lg border border-error/30 bg-error/10 px-3 py-2 text-xs text-error">
+        <p role="alert" className="mb-3 rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
           {actionError}
         </p>
       )}

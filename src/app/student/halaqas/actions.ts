@@ -8,6 +8,8 @@ import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import type { TableInsert } from "@/lib/supabase/typed-helpers";
 
+const uuidSchema = z.string().uuid();
+
 export interface EnrollState {
   ok?: boolean;
   error?: string;
@@ -50,7 +52,7 @@ export async function enrollInHalaqa(
 ): Promise<EnrollState> {
   const sessionId = String(formData.get("session_id") ?? "").trim();
   if (!sessionId) return { error: "session_id missing" };
-  if (!z.string().uuid().safeParse(sessionId).success) return { error: "معرف غير صالح" };
+  if (!uuidSchema.safeParse(sessionId).success) return { error: "معرف غير صالح" };
 
   const supabase = await createClient();
   const {
@@ -159,7 +161,7 @@ export async function cancelHalaqaEnrollment(
 ): Promise<EnrollState> {
   const sessionId = String(formData.get("session_id") ?? "").trim();
   if (!sessionId) return { error: "session_id missing" };
-  if (!z.string().uuid().safeParse(sessionId).success) return { error: "معرف غير صالح" };
+  if (!uuidSchema.safeParse(sessionId).success) return { error: "معرف غير صالح" };
 
   const supabase = await createClient();
   const {
@@ -249,7 +251,7 @@ export async function joinHalaqaWaitingList(
 ): Promise<WaitlistState> {
   const sessionId = String(formData.get("session_id") ?? "").trim();
   if (!sessionId) return { error: "session_id missing" };
-  if (!z.string().uuid().safeParse(sessionId).success) return { error: "معرف غير صالح" };
+  if (!uuidSchema.safeParse(sessionId).success) return { error: "معرف غير صالح" };
 
   const supabase = await createClient();
   const {
@@ -322,7 +324,7 @@ export async function leaveHalaqaWaitingList(
 ): Promise<WaitlistState> {
   const sessionId = String(formData.get("session_id") ?? "").trim();
   if (!sessionId) return { error: "session_id missing" };
-  if (!z.string().uuid().safeParse(sessionId).success) return { error: "معرف غير صالح" };
+  if (!uuidSchema.safeParse(sessionId).success) return { error: "معرف غير صالح" };
 
   const supabase = await createClient();
   const {

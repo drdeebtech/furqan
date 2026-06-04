@@ -159,14 +159,20 @@ const cancelTalqeenHomeworkBase = loudAction<{ homeworkId: string }, void>({
   },
   preflight: studentPreflight,
   handler: async ({ homeworkId }, { actorId }) => {
-    if (!actorId) return; // narrowed: studentPreflight always throws before this
     const supabase = await createClient();
-    await supabase
+    const { data: deleted } = await supabase
       .from("homework_assignments")
       .delete()
       .eq("id", homeworkId)
-      .eq("student_id", actorId)
-      .eq("status", "assigned"); // guard: never delete a row already graded
+      .eq("student_id", actorId!)
+      .eq("status", "assigned") // guard: never delete a row already graded
+      .select("id")
+      .returns<{ id: string }[]>();
+    if (!deleted?.length) {
+      logError("cancelTalqeenHomework: no row deleted — stale or already graded", null, {
+        tag: "talqeen", metadata: { homeworkId, studentId: actorId },
+      });
+    }
     revalidatePath("/student/sessions");
   },
 });

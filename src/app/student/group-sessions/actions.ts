@@ -8,6 +8,8 @@ import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import type { TableInsert } from "@/lib/supabase/typed-helpers";
 
+const uuidSchema = z.string().uuid();
+
 interface ActionResult {
   ok: boolean;
   error?: string;
@@ -25,7 +27,7 @@ interface ActionResult {
  * docs/PEDAGOGY_ROADMAP.md as a follow-up.
  */
 export async function requestJoinGroupSession(sessionId: string): Promise<ActionResult> {
-  if (!z.string().uuid().safeParse(sessionId).success) return { ok: false, error: "معرف غير صالح" };
+  if (!uuidSchema.safeParse(sessionId).success) return { ok: false, error: "معرف غير صالح" };
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

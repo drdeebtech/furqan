@@ -19,12 +19,10 @@ import {
   type AvailabilitySlot,
   type AvailabilityException,
   computeAmountUsd,
-  dateToYYYYMMDD,
   findSlotContaining,
   fitsAnySlot,
   isBlockedByException,
   isMoreThanWindowInPast,
-  timeToHHMM,
 } from "./validation";
 
 const THIRTY_MINUTES_MS = 30 * 60 * 1000;
@@ -118,7 +116,6 @@ export async function createBooking(
   // time string directly (stored in teacher_availability as local HH:MM).
   const [ly, lm, ld] = localDate.split("-").map(Number);
   const dayOfWeek = new Date(ly, lm - 1, ld).getDay();
-  const timeStr = localTime;
   const { data: slots } = await supabase
     .from("teacher_availability")
     .select("start_time, end_time, slot_duration")
@@ -128,13 +125,13 @@ export async function createBooking(
     .returns<AvailabilitySlot[]>();
 
   if (slots && slots.length > 0) {
-    if (!fitsAnySlot(timeStr, slots)) {
+    if (!fitsAnySlot(localTime, slots)) {
       throw new BookingValidationError(
         "scheduled_at",
         "الوقت المختار خارج أوقات المعلم المتاحة",
       );
     }
-    const matchingSlot = findSlotContaining(timeStr, slots);
+    const matchingSlot = findSlotContaining(localTime, slots);
     if (matchingSlot && durationMin > matchingSlot.slot_duration) {
       throw new BookingValidationError(
         "duration_min",
@@ -152,7 +149,7 @@ export async function createBooking(
     .eq("date", localDate)
     .returns<AvailabilityException[]>();
 
-  if (exceptions && isBlockedByException(timeStr, exceptions)) {
+  if (exceptions && isBlockedByException(localTime, exceptions)) {
     throw new BookingValidationError(
       "scheduled_at",
       "المعلم غير متاح في هذا التاريخ — اختر تاريخاً آخر",
