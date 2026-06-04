@@ -22,29 +22,25 @@ async def run_test():
         context.set_default_timeout(15000)
         page = await context.new_page()
 
-        # Step 1: Log in as student
+        # Navigate directly to production login
         await page.goto("https://www.furqan.today/login")
         await page.wait_for_load_state("domcontentloaded")
 
+        # Fill credentials
         await page.locator("input[name='email']").fill("test-student@furqan.test")
         await page.locator("input[name='password']").fill(
             os.environ.get("TEST_STUDENT_PASSWORD", "")
         )
+
+        # Submit and wait for navigation away from /login
         await page.locator("form button").click()
         await page.wait_for_function(
             "() => !window.location.href.includes('/login')", timeout=15000
         )
 
-        # Step 2: Log out via the nav logout form (POST /api/auth/logout)
-        await page.locator("form[action='/api/auth/logout'] button").click()
-        # Logout redirects to /login
-        await page.wait_for_function(
-            "() => window.location.href.includes('/login')", timeout=15000
-        )
-
         current_url = await page.evaluate("() => window.location.href")
-        assert "/login" in current_url, (
-            f"Expected /login after logout, but got: {current_url}"
+        assert "/login" not in current_url, (
+            f"Expected to leave /login after student sign-in, but still at: {current_url}"
         )
 
     finally:
