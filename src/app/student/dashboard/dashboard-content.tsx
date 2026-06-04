@@ -73,13 +73,16 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
   } = data;
 
   // Booking-success toast on ?booked=1 — replace the URL afterwards so a
-  // refresh doesn't re-toast.
+  // refresh doesn't re-toast. Intentional mount-only effect: the flag is
+  // read exactly once at page load. Including `searchParams` in deps would
+  // re-fire on subsequent navigations and show duplicate toasts.
   useEffect(() => {
     if (searchParams.get("booked") === "1") {
       toast.success(t("تم الحجز بنجاح! سيتم تأكيده من المعلم", "Booking submitted! Teacher will confirm soon."));
       window.history.replaceState(null, "", "/student/dashboard");
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Live ticker — every 60s. Seeded from server render time so SSR HTML
   // matches first client render; useNowTicker preserves the seed across

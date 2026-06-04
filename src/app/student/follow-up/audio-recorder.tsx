@@ -49,16 +49,19 @@ export function AudioRecorder({ homeworkId, studentId, onSubmitted, onSkipAudio 
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const tickRef = useRef<number | null>(null);
+  // Tracks the latest blob URL so the unmount cleanup can revoke it even
+  // though the effect only runs once. State captures the value at mount
+  // (always null); the ref always holds the current value.
+  const audioUrlRef = useRef<string | null>(null);
 
-  // Clean up the object URL when the component unmounts or a new blob is
-  // created — otherwise the browser leaks blob: references.
+  // Clean up the object URL when the component unmounts — otherwise the
+  // browser leaks blob: references.
   useEffect(() => {
     return () => {
-      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
       stopStream();
       stopTick();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function stopStream() {
@@ -103,6 +106,7 @@ export function AudioRecorder({ homeworkId, studentId, onSubmitted, onSkipAudio 
       const blob = new Blob(chunksRef.current, { type: mime || "audio/webm" });
       setAudioBlob(blob);
       const url = URL.createObjectURL(blob);
+      audioUrlRef.current = url;
       setAudioUrl(url);
       setStage("previewing");
       stopStream();
@@ -118,7 +122,7 @@ export function AudioRecorder({ homeworkId, studentId, onSubmitted, onSkipAudio 
       const seconds = Math.floor((Date.now() - startedAt) / 1000);
       setElapsed(seconds);
       if (seconds >= MAX_DURATION_SECONDS) {
-        recorder.state === "recording" && recorder.stop();
+        if (recorder.state === "recording") recorder.stop();
       }
     }, 250);
   }
@@ -130,7 +134,8 @@ export function AudioRecorder({ homeworkId, studentId, onSubmitted, onSkipAudio 
   }
 
   function handleDiscard() {
-    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+    audioUrlRef.current = null;
     setAudioBlob(null);
     setAudioUrl(null);
     setStage("idle");

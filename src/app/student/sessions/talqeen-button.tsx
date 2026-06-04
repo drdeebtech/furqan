@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Mic, X, CheckCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { AudioRecorder } from "@/app/student/follow-up/audio-recorder";
-import { createTalqeenHomework } from "./talqeen-actions";
+import { createTalqeenHomework, cancelTalqeenHomework } from "./talqeen-actions";
 
 /**
  * Sprint 2.3 — Talqeen primitive (2026-05-05).
@@ -51,9 +51,18 @@ export function TalqeenButton({ bookingId, studentId }: { bookingId: string; stu
   }
 
   function dismiss() {
+    const hId = homeworkId;
+    const currentStage = stage;
     setStage("idle");
     setHomeworkId(null);
     setError(null);
+    // Best-effort cleanup: only cancel when the student backed out before
+    // submitting. If stage is "done" the row is already student_ready —
+    // the status guard on the server would block deletion anyway, but
+    // skipping the round-trip avoids a spurious logError.
+    if (hId && currentStage === "recording") {
+      cancelTalqeenHomework(hId).catch(() => {});
+    }
   }
 
   if (stage === "done") {

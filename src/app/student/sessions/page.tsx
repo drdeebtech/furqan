@@ -58,6 +58,7 @@ export default async function StudentSessionsPage() {
     .eq("student_id", user.id)
     .in("status", ["confirmed", "completed"])
     .order("scheduled_at", { ascending: false })
+    .limit(100)
     .returns<BookingRow[]>();
 
   const list = bookings ?? [];
@@ -292,6 +293,11 @@ export default async function StudentSessionsPage() {
 
         return (
           <div className="space-y-8">
+            {list.length >= 100 && (
+              <p className="rounded-xl border border-card-border bg-card/40 px-4 py-2.5 text-center text-xs text-muted">
+                {t("يُعرض آخر 100 جلسة", "Showing your 100 most recent sessions")}
+              </p>
+            )}
             <Section icon={Video} titleAr="جلسات مباشرة الآن" titleEn="Live now" items={live} emphasis="live" />
             <Section icon={Calendar} titleAr="جلسات قادمة" titleEn="Upcoming" items={upcoming} />
             {needsAttention.length > 0 && (

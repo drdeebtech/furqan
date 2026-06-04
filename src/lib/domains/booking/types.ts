@@ -24,6 +24,10 @@ export interface CreateBookingInput {
   sessionType: SessionType;
   durationMin: number;
   scheduledAt: Date;
+  /** Student's local calendar date "YYYY-MM-DD" — used for availability/exception matching. */
+  localDate: string;
+  /** Student's local clock time "HH:MM" — used for availability/exception matching. */
+  localTime: string;
   notes: string | null;
 }
 

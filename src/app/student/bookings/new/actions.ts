@@ -33,6 +33,10 @@ const BookingSchema = z.object({
   duration_min: z.coerce.number().int().refine((n) => [30, 45, 60].includes(n), { message: "مدة غير صالحة" }),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time: z.string().regex(/^\d{2}:\d{2}$/),
+  // Client-computed ISO-8601 UTC string (preferred). When present this is
+  // used directly so the server honours the student's local timezone rather
+  // than treating date+time as a server-UTC pair.
+  scheduled_at: z.string().datetime().optional(),
   notes: z
     .string()
     .max(1000)
@@ -121,7 +125,7 @@ export async function createBooking(
     const field = firstIssue?.path[0]?.toString() ?? "";
     return { error: msgMap[field] ?? firstIssue?.message ?? "جميع الحقول مطلوبة" };
   }
-  const { teacher_id: teacherId, session_type: sessionType, duration_min: durationMin, date, time, notes } = parsed.data;
+  const { teacher_id: teacherId, session_type: sessionType, duration_min: durationMin, date, time, notes, scheduled_at: scheduledAtIso } = parsed.data;
 
   // Auth: ADR-0002 §3 (and the route-adapter shape in CONTEXT.md).
   // requireRole("student") enforces both authentication AND the student
@@ -159,10 +163,11 @@ export async function createBooking(
     // Fail-open so a transient DB blip doesn't block legitimate bookings.
   }
 
-  // Combine date + time into a Date before handing to the domain.
-  // The domain function expects a parsed Date; isNaN-check stays at the
-  // adapter because it's tied to FormData parsing.
-  const scheduledAt = new Date(`${date}T${time}:00`);
+  // Prefer the client-computed ISO-8601 timestamp (honours the student's
+  // local timezone). Fall back to date+time treated as UTC when absent.
+  const scheduledAt = scheduledAtIso
+    ? new Date(scheduledAtIso)
+    : new Date(`${date}T${time}:00Z`);
   if (isNaN(scheduledAt.getTime())) {
     return { error: "تاريخ أو وقت غير صالح" };
   }
@@ -176,6 +181,8 @@ export async function createBooking(
       sessionType: sessionType as SessionType,
       durationMin,
       scheduledAt,
+      localDate: date,
+      localTime: time,
       notes,
     });
   } catch (err) {

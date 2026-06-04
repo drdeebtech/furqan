@@ -1,11 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import type { TableInsert } from "@/lib/supabase/typed-helpers";
+
+const uuidSchema = z.string().uuid();
 
 export interface EnrollState {
   ok?: boolean;
@@ -49,6 +52,7 @@ export async function enrollInHalaqa(
 ): Promise<EnrollState> {
   const sessionId = String(formData.get("session_id") ?? "").trim();
   if (!sessionId) return { error: "session_id missing" };
+  if (!uuidSchema.safeParse(sessionId).success) return { error: "معرف غير صالح" };
 
   const supabase = await createClient();
   const {
@@ -97,7 +101,7 @@ export async function enrollInHalaqa(
       tag: "halaqa.enroll",
       metadata: { session_id: sessionId, user_id: user.id },
     });
-    return { error: `فشل التسجيل: ${insErr.message}` };
+    return { error: "فشل التسجيل" };
   }
 
   // Race-safe capacity check via WHERE clause. RETURNING empty = lost
@@ -125,7 +129,7 @@ export async function enrollInHalaqa(
         tag: "halaqa.enroll",
         metadata: { session_id: sessionId },
       });
-      return { error: `فشل تحديث العداد: ${updErr.message}` };
+      return { error: "فشل تحديث العداد" };
     }
     return { error: "الحلقة ممتلئة" };
   }
@@ -157,6 +161,7 @@ export async function cancelHalaqaEnrollment(
 ): Promise<EnrollState> {
   const sessionId = String(formData.get("session_id") ?? "").trim();
   if (!sessionId) return { error: "session_id missing" };
+  if (!uuidSchema.safeParse(sessionId).success) return { error: "معرف غير صالح" };
 
   const supabase = await createClient();
   const {
@@ -181,7 +186,7 @@ export async function cancelHalaqaEnrollment(
       tag: "halaqa.cancel",
       metadata: { session_id: sessionId, user_id: user.id },
     });
-    return { error: `فشل الإلغاء: ${delErr.message}` };
+    return { error: "فشل الإلغاء" };
   }
 
   if (!deletedRows || deletedRows.length === 0) {
@@ -246,6 +251,7 @@ export async function joinHalaqaWaitingList(
 ): Promise<WaitlistState> {
   const sessionId = String(formData.get("session_id") ?? "").trim();
   if (!sessionId) return { error: "session_id missing" };
+  if (!uuidSchema.safeParse(sessionId).success) return { error: "معرف غير صالح" };
 
   const supabase = await createClient();
   const {
@@ -291,7 +297,7 @@ export async function joinHalaqaWaitingList(
       tag: "halaqa.waitlist",
       metadata: { session_id: sessionId, user_id: user.id },
     });
-    return { error: `فشل الانضمام إلى قائمة الانتظار: ${insErr.message}` };
+    return { error: "فشل الانضمام إلى قائمة الانتظار" };
   }
 
   emitEvent("halaqa.waitlist_joined", "session", sessionId, {
@@ -318,6 +324,7 @@ export async function leaveHalaqaWaitingList(
 ): Promise<WaitlistState> {
   const sessionId = String(formData.get("session_id") ?? "").trim();
   if (!sessionId) return { error: "session_id missing" };
+  if (!uuidSchema.safeParse(sessionId).success) return { error: "معرف غير صالح" };
 
   const supabase = await createClient();
   const {
@@ -340,7 +347,7 @@ export async function leaveHalaqaWaitingList(
       tag: "halaqa.waitlist",
       metadata: { session_id: sessionId, user_id: user.id },
     });
-    return { error: `فشل المغادرة: ${delErr.message}` };
+    return { error: "فشل المغادرة" };
   }
 
   if (!deleted || deleted.length === 0) {

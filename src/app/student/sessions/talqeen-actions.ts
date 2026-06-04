@@ -136,7 +136,46 @@ export async function createTalqeenHomework(
 ): Promise<{ ok: true; homeworkId: string } | { ok: false; error: string }> {
   const result = await createTalqeenHomeworkBase({ bookingId });
   if (!result.ok) return { ok: false, error: result.error };
-  // result.message is the homeworkId — guaranteed defined when ok=true
-  // because the handler always returns { message: hw.id }.
-  return { ok: true, homeworkId: result.message ?? "" };
+  if (!result.message) return { ok: false, error: "خطأ غير متوقع" };
+  return { ok: true, homeworkId: result.message };
+}
+
+/**
+ * Delete an unsubmitted talqeen slot (status='assigned', no audio yet).
+ * Called when the student cancels before recording so orphaned rows
+ * don't accumulate in homework_assignments.
+ */
+const cancelTalqeenHomeworkBase = loudAction<{ homeworkId: string }, void>({
+  name: "homework.cancel-talqeen",
+  severity: "info",
+  schema: z.object({ homeworkId: z.string().uuid() }),
+  audit: {
+    table: "homework_assignments",
+    recordId: (i) => i.homeworkId,
+    action: "DELETE",
+    reasonPrefix: "student cancel talqeen",
+  },
+  preflight: studentPreflight,
+  handler: async ({ homeworkId }, { actorId }) => {
+    const supabase = await createClient();
+    const { data: deleted } = await supabase
+      .from("homework_assignments")
+      .delete()
+      .eq("id", homeworkId)
+      .eq("student_id", actorId!)
+      .eq("status", "assigned") // guard: never delete a row already graded
+      .select("id")
+      .returns<{ id: string }[]>();
+    if (!deleted?.length) {
+      logError("cancelTalqeenHomework: no row deleted — stale or already graded", null, {
+        tag: "talqeen", metadata: { homeworkId, student_id: actorId },
+      });
+    }
+    revalidatePath("/student/sessions");
+  },
+});
+
+export async function cancelTalqeenHomework(homeworkId: string): Promise<void> {
+  if (!homeworkId) return;
+  await cancelTalqeenHomeworkBase({ homeworkId }).catch(() => {});
 }

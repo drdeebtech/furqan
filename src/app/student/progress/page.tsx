@@ -62,11 +62,14 @@ export default async function StudentProgressPage() {
       .select("status")
       .eq("student_id", user.id)
       .returns<{ status: string }[]>(),
-    // Total study hours — filtered by student's bookings only
-    supabase.from("bookings")
-      .select("id, scheduled_at")
-      .eq("student_id", user.id).eq("status", "completed")
-      .returns<{ id: string; scheduled_at: string }[]>(),
+    // Total study hours — direct sessions join, no row-count cap so all
+    // completed sessions are counted regardless of session volume.
+    supabase.from("sessions")
+      .select("actual_duration, bookings!inner(student_id, status, scheduled_at)")
+      .eq("bookings.student_id", user.id)
+      .eq("bookings.status", "completed")
+      .order("id", { ascending: false })
+      .returns<{ actual_duration: number | null; bookings: { scheduled_at: string } }[]>(),
   ]);
 
   const completedLoad = countOrFail(completedRes, { route: "student-progress", widget: "completed-count" });
@@ -81,16 +84,7 @@ export default async function StudentProgressPage() {
   const evaluations = evalsLoad.data;
   const homeworkRaw = hwLoad.data;
 
-  // Get total study hours from student's completed sessions
-  const completedBookingIds = totalHoursLoad.data.map(b => b.id);
-  let totalMinutes = 0;
-  if (completedBookingIds.length > 0) {
-    const { data: sessionsData } = await supabase.from("sessions")
-      .select("actual_duration").in("booking_id", completedBookingIds)
-      .not("actual_duration", "is", null)
-      .returns<{ actual_duration: number | null }[]>();
-    totalMinutes = (sessionsData ?? []).reduce((sum, s) => sum + (s.actual_duration ?? 0), 0);
-  }
+  const totalMinutes = totalHoursLoad.data.reduce((sum, s) => sum + (s.actual_duration ?? 0), 0);
 
   // Compute juz touched from progress records
   const juzTouched = new Set<number>();
@@ -191,7 +185,7 @@ export default async function StudentProgressPage() {
   // inactive — in that case the projection card hides itself entirely.
   const twentyEightDaysAgoIso = new Date(Date.now() - 28 * 86400_000).toISOString();
   const sessionsLast28d = totalHoursLoad.data.filter(
-    b => b.scheduled_at >= twentyEightDaysAgoIso,
+    s => s.bookings.scheduled_at >= twentyEightDaysAgoIso,
   ).length;
   const sessionsPerWeek = sessionsLast28d / 4;
 
