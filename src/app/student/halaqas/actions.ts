@@ -197,20 +197,26 @@ export async function cancelHalaqaEnrollment(
     .maybeSingle<{ current_enrollment: number }>();
 
   const snapshot = session?.current_enrollment ?? 0;
-  const { error: updErr } = await admin
+  const { data: updatedDecrement, error: updErr } = await admin
     .from("sessions")
     .update({ current_enrollment: Math.max(0, snapshot - 1) })
     .eq("id", sessionId)
     .eq("current_enrollment", snapshot)
-    .gt("current_enrollment", 0);
+    .gt("current_enrollment", 0)
+    .select("id")
+    .maybeSingle();
 
-  if (updErr) {
+  if (updErr || !updatedDecrement) {
     // Soft-fail: counter mismatch is operationally fixable; we already
     // removed the participant, which is the user-visible action.
-    logError("cancelHalaqaEnrollment: counter decrement failed", updErr, {
-      tag: "halaqa.cancel",
-      metadata: { session_id: sessionId },
-    });
+    logError(
+      "cancelHalaqaEnrollment: counter decrement failed or optimistic lock lost",
+      updErr ?? new Error("optimistic lock failed"),
+      {
+        tag: "halaqa.cancel",
+        metadata: { session_id: sessionId, snapshot },
+      },
+    );
   }
 
   emitEvent("halaqa.enrollment_cancelled", "session", sessionId, {

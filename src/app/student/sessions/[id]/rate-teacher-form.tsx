@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useActionState } from "react";
 import { Star } from "lucide-react";
 import { submitReview } from "./actions";
 
@@ -14,31 +14,16 @@ export function RateTeacherForm({
   const [rating, setRating] = useState(0);
   const [hovered, setHovered] = useState(0);
   const [comment, setComment] = useState("");
-  const [isPending, startTransition] = useTransition();
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit() {
-    if (rating === 0) {
-      setError("يرجى اختيار تقييم");
-      return;
-    }
-    setError(null);
-    startTransition(async () => {
-      const result = await submitReview(
-        sessionId,
-        rating,
-        comment.trim() || null,
-      );
-      if (result.error) {
-        setError(result.error);
-      } else {
-        setSuccess(true);
-      }
-    });
-  }
+  const [state, formAction, isPending] = useActionState(
+    async (_prev: { success?: true; error?: string } | null, _formData: FormData) => {
+      if (rating === 0) return { error: "يرجى اختيار تقييم" };
+      return submitReview(sessionId, rating, comment.trim() || null);
+    },
+    null,
+  );
 
-  if (success) {
+  if (state?.success) {
     return (
       <div className="glass-card p-8 text-center">
         <div className="mb-2 flex justify-center gap-1">
@@ -60,13 +45,7 @@ export function RateTeacherForm({
   }
 
   return (
-    <form
-      className="glass-card p-5"
-      onSubmit={(e) => {
-        e.preventDefault();
-        handleSubmit();
-      }}
-    >
+    <form action={formAction} className="glass-card p-5">
       <h2 className="mb-1 font-display text-sm font-semibold text-gold">
         قيّم جلستك مع {teacherName}
       </h2>
@@ -106,8 +85,10 @@ export function RateTeacherForm({
         className="mb-4 w-full resize-none rounded-xl glass-input px-4 py-3 text-sm placeholder:text-muted/60 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold"
       />
 
-      {error && (
-        <p role="alert" aria-atomic="true" className="mb-3 text-sm text-error">{error}</p>
+      {state?.error && (
+        <p role="alert" aria-atomic="true" className="mb-3 text-sm text-error">
+          {state.error}
+        </p>
       )}
 
       <button

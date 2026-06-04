@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
 import { emitEvent } from "@/lib/automation/emit";
+import { logError } from "@/lib/logger";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 function str(formData: FormData, key: string): string | null {
@@ -62,7 +63,8 @@ const updatePersonalInfoBase = loudAction<PersonalInfoInput, { message?: string 
       .eq("id", actorId);
     if (error) throw error;
 
-    void emitEvent("profile.updated", "profile", actorId, { updated_fields: Object.keys(input) }, actorId);
+    emitEvent("profile.updated", "profile", actorId, { updated_fields: Object.keys(input) }, actorId)
+      .catch((err) => logError("emit profile.updated failed", err, { tag: "settings", actorId }));
     revalidatePath("/student/settings");
     revalidatePath("/student/dashboard");
     return { message: "تم حفظ البيانات بنجاح" };

@@ -111,15 +111,22 @@ export async function requestJoinGroupSession(sessionId: string): Promise<Action
     .from("sessions")
     .update({ current_enrollment: session.current_enrollment + 1 })
     .eq("id", sessionId)
+    .eq("current_enrollment", session.current_enrollment)
     .lt("current_enrollment", session.capacity)
     .select("id")
     .maybeSingle<{ id: string }>();
 
   if (updErr || !updatedSession) {
-    await admin
+    const { error: rollbackErr } = await admin
       .from("bookings")
       .delete()
       .eq("id", newBooking.id);
+    if (rollbackErr) {
+      logError("requestJoinGroupSession: rollback delete failed", rollbackErr, {
+        tag: "group-sessions",
+        metadata: { booking_id: newBooking.id, session_id: sessionId },
+      });
+    }
 
     if (updErr) {
       logError("requestJoinGroupSession: enrollment counter update failed", updErr, {
