@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
+import type { TableInsert } from "@/lib/supabase/typed-helpers";
 
 const VALID_TYPES = ["pdf", "audio", "link", "video", "image"] as const;
 type ResourceType = (typeof VALID_TYPES)[number];
@@ -35,6 +36,17 @@ export async function uploadTeacherResourceAction(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "غير مسجل الدخول" };
+
+  // Defense-in-depth role gate — server actions are reachable without the
+  // edge middleware. Verify the caller holds the teacher/admin role here too.
+  const { data: callerProfile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single<{ role: string }>();
+  if (!callerProfile || !["teacher", "admin"].includes(callerProfile.role)) {
+    return { error: "ليس لديك صلاحية" };
+  }
 
   const title_ar = String(formData.get("title_ar") ?? "").trim();
   const description_ar =
@@ -98,7 +110,7 @@ export async function uploadTeacherResourceAction(
       external_url: external_url_raw,
       uploaded_by: user.id,
       created_by_teacher_id: user.id,
-    } as never)
+    } satisfies TableInsert<"resources">)
     .select("id")
     .single<{ id: string }>();
   if (insertRes.error) {
@@ -174,27 +186,16 @@ export async function assignResourceToStudentAction(
     return { error: "لا يوجد حجز سابق مع هذا الطالب" };
   }
 
-  // The Supabase `from(...)` overload is generated from the live schema and
-  // not yet aware of `resource_assignments` (added in migration
-  // 20260506134112). `supabase.generated.ts` regenerates only after merge to
-  // main when supabase-migrate finishes; until then cast the client so this
-  // compiles. Same intent as the existing `as never` insert pattern.
-  const insertRes = await (
-    supabase as unknown as {
-      from: (table: string) => {
-        insert: (row: Record<string, unknown>) => Promise<{
-          error: { code?: string; message: string } | null;
-        }>;
-      };
-    }
-  )
+  // resource_assignments is now in the generated types (merged via
+  // migration 20260506134112) — the runtime client cast is no longer needed.
+  const insertRes = await supabase
     .from("resource_assignments")
     .insert({
       resource_id: resourceId,
       student_id: studentId,
       halaqa_id: null,
       assigned_by: user.id,
-    });
+    } satisfies TableInsert<"resource_assignments">);
   if (insertRes.error) {
     // Unique-index violation when re-assigning to the same student is
     // handled gracefully — the teacher's intent ("share with this student")
@@ -244,14 +245,13 @@ export async function deleteTeacherResourceAction(
   } = await supabase.auth.getUser();
   if (!user) return { error: "غير مسجل الدخول" };
 
-  // `created_by_teacher_id` was added in migration 20260506134112; the
-  // generated `.eq()` types don't yet include it. Cast for now — the
-  // post-merge types regen drops this need.
-  const { error } = await (
-    supabase.from("resources").delete().eq("id", resourceId) as unknown as {
-      eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>;
-    }
-  ).eq("created_by_teacher_id", user.id);
+  // created_by_teacher_id is now in the generated types (migration
+  // 20260506134112 merged) — the runtime cast is no longer needed.
+  const { error } = await supabase
+    .from("resources")
+    .delete()
+    .eq("id", resourceId)
+    .eq("created_by_teacher_id", user.id);
   if (error) {
     logError("deleteResource: failed", error, {
       component: "teacher.resources.delete",

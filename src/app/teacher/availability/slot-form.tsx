@@ -2,7 +2,9 @@
 
 import { useActionState } from "react";
 import { Plus } from "lucide-react";
-import { addSlot, type AvailabilityResult } from "./actions";
+import { addSlot } from "./actions";
+import { ActionFeedback } from "@/components/shared/action-feedback";
+import type { LoudResult } from "@/lib/actions/loud";
 
 const DAYS = [
   { value: 0, label: "الأحد", en: "Sun" },
@@ -22,9 +24,9 @@ const DURATIONS = [
 
 export function SlotForm() {
   const [state, formAction, pending] = useActionState<
-    AvailabilityResult,
+    LoudResult | null,
     FormData
-  >(addSlot, {});
+  >(addSlot, null);
 
   return (
     <div className="glass-card p-5">
@@ -33,11 +35,7 @@ export function SlotForm() {
         <span className="me-2 text-sm font-normal text-muted">Add slot</span>
       </h2>
 
-      {state.error && (
-        <div className="mb-4 rounded-xl border border-error/30 bg-error/10 p-3 text-sm text-error">
-          {state.error}
-        </div>
-      )}
+      <ActionFeedback state={state} />
 
       <form action={formAction} className="space-y-4">
         {/* Day */}

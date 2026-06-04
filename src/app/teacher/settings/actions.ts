@@ -3,8 +3,28 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
+import { UserError } from "@/lib/actions/user-error";
 import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
+
+// Role-gated preflight for teacher self-service actions. Returns the
+// actorId so loudAction stamps changed_by in the audit_log — without this
+// preflight, actorId is null and the audit trail loses the actor identity.
+async function requireTeacherActor(): Promise<{ actorId: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new UserError("غير مصرح");
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single<{ role: string }>();
+  if (!profile || !["teacher", "admin"].includes(profile.role)) {
+    throw new UserError("ليس لديك صلاحية");
+  }
+  return { actorId: user.id };
+}
 
 function str(formData: FormData, key: string): string | null {
   const v = formData.get(key);
@@ -18,7 +38,6 @@ function bool(formData: FormData, key: string): boolean {
 }
 
 interface PersonalInfoInput {
-  userId: string;
   fullName: string | null;
   fullNameAr: string | null;
   phone: string | null;
@@ -33,11 +52,14 @@ const updatePersonalInfoBase = loudAction<PersonalInfoInput, { message?: string 
   severity: "info",
   audit: {
     table: "profiles",
-    recordId: (i) => i.userId,
+    // actorId is set by preflight — the teacher is always updating their own row.
+    recordId: (_i, actorId) => actorId ?? "unknown",
     action: "UPDATE",
     reasonPrefix: "teacher self-update (personal info)",
   },
-  handler: async (input) => {
+  // preflight stamps actorId in the audit_log changed_by column.
+  preflight: requireTeacherActor,
+  handler: async (input, { actorId }) => {
     const supabase = await createClient();
     const { error } = await supabase
       .from("profiles")
@@ -46,11 +68,14 @@ const updatePersonalInfoBase = loudAction<PersonalInfoInput, { message?: string 
         full_name_ar: input.fullNameAr,
         phone: input.phone,
         country: input.country,
-        timezone: input.timezone,
-        lang: input.lang,
+        // timezone and lang are non-nullable in the DB schema (string, not
+        // string | null). Convert null → undefined so the field is omitted
+        // from the UPDATE rather than attempting an illegal null assignment.
+        timezone: input.timezone ?? undefined,
+        lang: input.lang ?? undefined,
         date_of_birth: input.dateOfBirth,
-      } as never)
-      .eq("id", input.userId);
+      } satisfies TableUpdate<"profiles">)
+      .eq("id", actorId as string);
     if (error) throw error;
 
     revalidatePath("/teacher/settings");
@@ -64,14 +89,7 @@ export async function updatePersonalInfo(
   _prev: LoudResult | null,
   formData: FormData,
 ): Promise<LoudResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "غير مصرح" };
-
   return updatePersonalInfoBase({
-    userId: user.id,
     fullName: str(formData, "full_name"),
     fullNameAr: str(formData, "full_name_ar"),
     phone: str(formData, "phone"),
@@ -83,7 +101,6 @@ export async function updatePersonalInfo(
 }
 
 interface TeachingStatusInput {
-  userId: string;
   isAccepting: boolean;
 }
 
@@ -92,16 +109,17 @@ const updateTeachingStatusBase = loudAction<TeachingStatusInput, { message?: str
   severity: "info",
   audit: {
     table: "teacher_profiles",
-    recordId: (i) => i.userId,
+    recordId: (_i, actorId) => actorId ?? "unknown",
     action: "UPDATE",
     reasonPrefix: "teacher self-update (teaching status)",
   },
-  handler: async (input) => {
+  preflight: requireTeacherActor,
+  handler: async (input, { actorId }) => {
     const supabase = await createClient();
     const { error } = await supabase
       .from("teacher_profiles")
       .update({ is_accepting: input.isAccepting })
-      .eq("teacher_id", input.userId);
+      .eq("teacher_id", actorId as string);
     if (error) throw error;
 
     revalidatePath("/teacher/settings");
@@ -109,7 +127,7 @@ const updateTeachingStatusBase = loudAction<TeachingStatusInput, { message?: str
     revalidatePath("/admin/teachers");
     revalidatePath("/teachers");
 
-    emitEvent("teacher.status_updated", "teacher_profile", input.userId, { is_accepting: input.isAccepting }, input.userId)
+    emitEvent("teacher.status_updated", "teacher_profile", actorId as string, { is_accepting: input.isAccepting }, actorId as string)
       .catch((err) => logError("updateTeachingStatus emitEvent failed", err, { tag: "teacher-settings" }));
 
     return {
@@ -124,14 +142,7 @@ export async function updateTeachingStatus(
   _prev: LoudResult | null,
   formData: FormData,
 ): Promise<LoudResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "غير مصرح" };
-
   return updateTeachingStatusBase({
-    userId: user.id,
     isAccepting: bool(formData, "is_accepting"),
   });
 }
