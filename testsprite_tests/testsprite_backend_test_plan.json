@@ -1,0 +1,52 @@
+[
+  {
+    "id": "TC001",
+    "title": "get api auth callback google success",
+    "description": "Test the GET /api/auth/callback/google endpoint to verify it correctly handles a successful Google OAuth callback by exchanging the code for a Supabase session and returning a 302 redirect to the dashboard."
+  },
+  {
+    "id": "TC002",
+    "title": "get api auth handoff code valid",
+    "description": "Test the GET /api/auth/handoff/[code] endpoint with a valid one-time handoff code to ensure it returns a 302 redirect with the transferred session on the target device."
+  },
+  {
+    "id": "TC003",
+    "title": "post api auth logout authenticated",
+    "description": "Test the POST /api/auth/logout endpoint with an authenticated session to verify it signs out the current user, clears session cookies, and returns a 302 redirect to the home page."
+  },
+  {
+    "id": "TC004",
+    "title": "get api bookings list authenticated",
+    "description": "Test the GET /api/bookings endpoint with a valid authenticated user session to confirm it returns a 200 response with a list of Booking objects for the user."
+  },
+  {
+    "id": "TC005",
+    "title": "post api bookings create authenticated",
+    "description": "Test the POST /api/bookings endpoint with valid booking data and an authenticated session to verify it creates a new booking and returns a 200 response with the created Booking record."
+  },
+  {
+    "id": "TC006",
+    "title": "post api stripe checkout valid package",
+    "description": "Test the POST /api/stripe/checkout endpoint with an authenticated session and a valid packageId to ensure it returns a 200 response with a Stripe checkout session URL."
+  },
+  {
+    "id": "TC007",
+    "title": "post api stripe webhook valid signature",
+    "description": "Test the POST /api/stripe/webhook endpoint with a verified Stripe event payload and valid signature to confirm it returns a 200 acknowledged response and processes payment fulfillment."
+  },
+  {
+    "id": "TC008",
+    "title": "post api webhooks daily valid signature",
+    "description": "Test the POST /api/webhooks/daily endpoint with a valid HMAC-signed Daily.co event payload to verify it returns a 200 response and applies session lifecycle updates."
+  },
+  {
+    "id": "TC009",
+    "title": "post api cron audit cleanup valid secrets",
+    "description": "Test the POST /api/cron/audit-cleanup endpoint with valid CRON_SECRET and X-N8N-Secret headers to confirm it returns a 200 response with cleanup statistics."
+  },
+  {
+    "id": "TC010",
+    "title": "get api n8n workflows admin authenticated",
+    "description": "Test the GET /api/n8n/workflows endpoint with an authenticated admin session to verify it returns a 200 response with a list of n8n workflows."
+  }
+]
