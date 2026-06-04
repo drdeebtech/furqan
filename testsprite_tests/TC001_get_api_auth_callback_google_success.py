@@ -1,14 +1,16 @@
 import os
+import re
 import requests
 
 BASE_URL = "https://www.furqan.today"
 LOGIN_URL = f"{BASE_URL}/login"
 TIMEOUT = 30
 
-EMAIL = os.getenv("TEST_STUDENT_EMAIL", "test-student@furqan.test")
+EMAIL = os.getenv("TEST_STUDENT_EMAIL")
 PASSWORD = os.getenv("TEST_STUDENT_PASSWORD")
 
 def test_get_api_auth_callback_google_success():
+    assert EMAIL, "TEST_STUDENT_EMAIL environment variable must be set"
     assert PASSWORD, "TEST_STUDENT_PASSWORD environment variable must be set"
     session = requests.Session()
     session.headers.update({"Accept-Language": "ar"})  # Arabic RTL UI
@@ -45,9 +47,9 @@ def test_get_api_auth_callback_google_success():
 
     # Validate dashboard content: page is in Arabic RTL
     html_lower = dashboard_resp.text.lower()
-    assert ('lang="ar"' in html_lower or "lang='ar'" in html_lower or 'lang=ar' in html_lower), \
+    assert re.search(r'\blang\s*=\s*["\']?ar["\']?', html_lower), \
         "Dashboard page lang attribute is not Arabic"
-    assert ('dir="rtl"' in html_lower or "dir='rtl'" in html_lower or 'dir=rtl' in html_lower), \
+    assert re.search(r'\bdir\s*=\s*["\']?rtl["\']?', html_lower), \
         "Dashboard page dir attribute is not rtl"
 
     # Check for authenticated student content
