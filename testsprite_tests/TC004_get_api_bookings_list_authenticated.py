@@ -36,7 +36,7 @@ def test_get_api_bookings_list_authenticated():
             f"Expected 501 (intentional stub) for /api/bookings, got {bookings_resp.status_code}"
 
     except requests.RequestException as e:
-        assert False, f"Request failed: {e}"
+        raise AssertionError(f"Request failed: {e}") from e
     finally:
         session.close()
 

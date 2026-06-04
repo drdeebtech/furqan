@@ -61,7 +61,7 @@ def test_post_api_stripe_webhook_valid_signature():
             timeout=TIMEOUT
         )
     except requests.RequestException as e:
-        assert False, f"Request to Stripe webhook failed: {e}"
+        raise AssertionError(f"Request to Stripe webhook failed: {e}") from e
 
     # The endpoint returns 501 for this mock-signed request — either the stub is intentionally
     # disabled or the signature is rejected before processing. Either way, 501 confirms no

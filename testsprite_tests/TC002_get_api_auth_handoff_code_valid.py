@@ -15,7 +15,7 @@ def test_get_api_auth_handoff_code_invalid():
             handoff_url = urljoin(BASE_URL, HANDOFF_PATH + INVALID_HANDOFF_CODE)
             response = session.get(handoff_url, timeout=TIMEOUT)
         except requests.RequestException as e:
-            assert False, f"Failed to reach handoff endpoint: {e}"
+            raise AssertionError(f"Failed to reach handoff endpoint: {e}") from e
         assert response.status_code == 410, f"Expected 410 for invalid/expired handoff code, got {response.status_code}"
 
 
