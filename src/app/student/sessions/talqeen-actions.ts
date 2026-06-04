@@ -136,8 +136,6 @@ export async function createTalqeenHomework(
 ): Promise<{ ok: true; homeworkId: string } | { ok: false; error: string }> {
   const result = await createTalqeenHomeworkBase({ bookingId });
   if (!result.ok) return { ok: false, error: result.error };
-  // result.message is the homeworkId — guaranteed defined when ok=true
-  // because the handler always returns { message: hw.id }.
   if (!result.message) return { ok: false, error: "خطأ غير متوقع" };
   return { ok: true, homeworkId: result.message };
 }
