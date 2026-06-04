@@ -76,6 +76,15 @@ export function BookingForm({
   }
 
   const locale = lang === "ar" ? "ar-EG" : "en-US";
+
+  // Parses a "YYYY-MM-DD" date string using the local Date constructor so that
+  // .getDay() returns the local weekday (not UTC). `new Date("YYYY-MM-DD")`
+  // parses as UTC midnight, which shifts the weekday by one for clients in
+  // negative UTC offsets (e.g. UTC-5 sees Sunday as Saturday).
+  function parseLocalDate(dateStr: string): Date {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
   const maxSlotDuration = availability.length > 0 ? Math.max(...availability.map((s) => s.slotDuration)) : 60;
   const durations = ALL_DURATIONS.filter((d) => d.value <= maxSlotDuration);
   const defaultDuration = durations.length > 0 ? durations[durations.length - 1].value : 30;
@@ -111,11 +120,11 @@ export function BookingForm({
   // Filter: only allow dates on available days
   function isDateAvailable(dateStr: string): boolean {
     if (availability.length === 0) return true; // no schedule = any day
-    const day = new Date(dateStr).getDay();
+    const day = parseLocalDate(dateStr).getDay();
     return availableDays.has(day);
   }
 
-  const selectedDayOfWeek = selectedDate ? new Date(selectedDate).getDay() : null;
+  const selectedDayOfWeek = selectedDate ? parseLocalDate(selectedDate).getDay() : null;
   const daySlots = selectedDayOfWeek !== null ? availability.filter((s) => s.dayOfWeek === selectedDayOfWeek) : [];
 
   // Date range — starts at 14 days, expandable in 14-day chunks via "load
@@ -179,7 +188,7 @@ export function BookingForm({
             <div className="mt-3 space-y-1 text-sm">
               <p>{labelForSpecialty(selectedType)} · {duration} {lang === "ar" ? "دقيقة" : "min"}</p>
               <p className="text-muted">
-                {new Date(selectedDate).toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" })}
+                {parseLocalDate(selectedDate).toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" })}
                 {" · "}
                 {selectedTime}
               </p>

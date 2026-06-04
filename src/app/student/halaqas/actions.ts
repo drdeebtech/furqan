@@ -127,7 +127,7 @@ export async function enrollInHalaqa(
         tag: "halaqa.enroll",
         metadata: { session_id: sessionId },
       });
-      return { error: `فشل تحديث العداد: ${updErr.message}` };
+      return { error: "فشل تحديث العداد" };
     }
     return { error: "الحلقة ممتلئة" };
   }

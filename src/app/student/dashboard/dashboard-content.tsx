@@ -76,12 +76,12 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
   // refresh doesn't re-toast. Intentional mount-only effect: the flag is
   // read exactly once at page load. Including `searchParams` in deps would
   // re-fire on subsequent navigations and show duplicate toasts.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (searchParams.get("booked") === "1") {
       toast.success(t("تم الحجز بنجاح! سيتم تأكيده من المعلم", "Booking submitted! Teacher will confirm soon."));
       window.history.replaceState(null, "", "/student/dashboard");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Live ticker — every 60s. Seeded from server render time so SSR HTML

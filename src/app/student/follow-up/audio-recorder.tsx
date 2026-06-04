@@ -122,7 +122,7 @@ export function AudioRecorder({ homeworkId, studentId, onSubmitted, onSkipAudio 
       const seconds = Math.floor((Date.now() - startedAt) / 1000);
       setElapsed(seconds);
       if (seconds >= MAX_DURATION_SECONDS) {
-        recorder.state === "recording" && recorder.stop();
+        if (recorder.state === "recording") recorder.stop();
       }
     }, 250);
   }

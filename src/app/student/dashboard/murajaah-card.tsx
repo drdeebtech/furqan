@@ -44,10 +44,15 @@ export function MurajaahCard({ items }: { items: MurajaahDueItem[] }) {
   async function complete(scheduleId: string, quality: number) {
     setError(null);
     setPendingIds((prev) => new Set(prev).add(scheduleId));
-    const res = await markReviewComplete(scheduleId, quality);
-    if (res.error) setError(res.error);
-    else setDone((prev) => new Set(prev).add(scheduleId));
-    setPendingIds((prev) => { const s = new Set(prev); s.delete(scheduleId); return s; });
+    try {
+      const res = await markReviewComplete(scheduleId, quality);
+      if (res.error) setError(res.error);
+      else setDone((prev) => new Set(prev).add(scheduleId));
+    } catch {
+      setError(t("تعذّر تحديث المراجعة", "Couldn't update review"));
+    } finally {
+      setPendingIds((prev) => { const s = new Set(prev); s.delete(scheduleId); return s; });
+    }
   }
 
   return (

@@ -61,7 +61,7 @@ const THIRTY_MINUTES_MS = 30 * 60 * 1000;
 export async function createBooking(
   input: CreateBookingInput,
 ): Promise<CreateBookingResult> {
-  const { studentId, teacherId, sessionType, durationMin, scheduledAt, notes } =
+  const { studentId, teacherId, sessionType, durationMin, scheduledAt, localDate, localTime, notes } =
     input;
 
   // Use admin client: domain functions run after auth (route adapter has
@@ -111,11 +111,14 @@ export async function createBooking(
   }
 
   // 4. Validate against teacher_availability.
-  // dayOfWeek matches Postgres EXTRACT(dow): 0=Sunday..6=Saturday,
-  // which `Date.getDay()` already produces. timeStr is "HH:MM" for
-  // string-comparison against the time-typed slot bounds.
-  const dayOfWeek = scheduledAt.getDay();
-  const timeStr = timeToHHMM(scheduledAt);
+  // dayOfWeek matches Postgres EXTRACT(dow): 0=Sunday..6=Saturday.
+  // Use the student's local date string to derive the weekday — parsing
+  // "YYYY-MM-DD" as a local Date avoids UTC midnight shifting the weekday
+  // for students in negative UTC offsets. timeStr comes from the local
+  // time string directly (stored in teacher_availability as local HH:MM).
+  const [ly, lm, ld] = localDate.split("-").map(Number);
+  const dayOfWeek = new Date(ly, lm - 1, ld).getDay();
+  const timeStr = localTime;
   const { data: slots } = await supabase
     .from("teacher_availability")
     .select("start_time, end_time, slot_duration")
@@ -146,7 +149,7 @@ export async function createBooking(
     .from("availability_exceptions")
     .select("is_blocked, start_time, end_time")
     .eq("teacher_id", teacherId)
-    .eq("date", dateToYYYYMMDD(scheduledAt))
+    .eq("date", localDate)
     .returns<AvailabilityException[]>();
 
   if (exceptions && isBlockedByException(timeStr, exceptions)) {

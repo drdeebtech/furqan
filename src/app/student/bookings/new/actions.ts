@@ -181,6 +181,8 @@ export async function createBooking(
       sessionType: sessionType as SessionType,
       durationMin,
       scheduledAt,
+      localDate: date,
+      localTime: time,
       notes,
     });
   } catch (err) {

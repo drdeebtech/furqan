@@ -65,26 +65,26 @@ export function NotificationsList({
     : notifications.filter(n => n.type === activeFilter);
 
   async function handleMarkRead(id: string) {
-    const snapshot = notifications;
+    const prevRead = notifications.find(n => n.id === id)?.is_read ?? false;
     setActionError(null);
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
     try {
       await markAsRead(id);
     } catch {
-      setNotifications(snapshot);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: prevRead } : n));
       setActionError(t("تعذّر تحديث الإشعار — حاول مجدداً", "Failed to update notification — please try again"));
     }
   }
 
   async function handleMarkAllRead() {
-    const snapshot = notifications;
+    const unreadIds = new Set(notifications.filter(n => !n.is_read).map(n => n.id));
     setActionError(null);
     setLoading(true);
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     try {
       await markAllAsRead();
     } catch {
-      setNotifications(snapshot);
+      setNotifications(prev => prev.map(n => unreadIds.has(n.id) ? { ...n, is_read: false } : n));
       setActionError(t("تعذّر تحديث الإشعارات — حاول مجدداً", "Failed to update notifications — please try again"));
     } finally {
       setLoading(false);
@@ -92,13 +92,13 @@ export function NotificationsList({
   }
 
   async function handleDelete(id: string) {
-    const snapshot = notifications;
+    const deletedItem = notifications.find(n => n.id === id);
     setActionError(null);
     setNotifications(prev => prev.filter(n => n.id !== id));
     try {
       await deleteNotification(id);
     } catch {
-      setNotifications(snapshot);
+      if (deletedItem) setNotifications(prev => prev.some(n => n.id === id) ? prev : [deletedItem, ...prev]);
       setActionError(t("تعذّر حذف الإشعار — حاول مجدداً", "Failed to delete notification — please try again"));
     }
   }
