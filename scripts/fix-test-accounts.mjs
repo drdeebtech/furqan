@@ -65,9 +65,9 @@ async function main() {
     });
     if (error) console.error('Student create failed:', error.message);
     else {
-      console.log('✓ Student account created');
       const { error: profileErr } = await admin.from('profiles').insert({ id: data.user.id, role: 'student', full_name: 'Test Student', is_active: true });
-      if (profileErr) console.error('Student profile insert failed:', profileErr.message);
+      if (profileErr) { console.error('Student profile insert failed:', profileErr.message); process.exit(1); }
+      else console.log('✓ Student account created');
     }
   }
 
@@ -86,9 +86,9 @@ async function main() {
     });
     if (error) console.error('Teacher create failed:', error.message);
     else {
-      console.log('✓ Teacher account created');
       const { error: profileErr } = await admin.from('profiles').insert({ id: data.user.id, role: 'teacher', full_name: 'Test Teacher', is_active: true });
-      if (profileErr) console.error('Teacher profile insert failed:', profileErr.message);
+      if (profileErr) { console.error('Teacher profile insert failed:', profileErr.message); process.exit(1); }
+      else console.log('✓ Teacher account created');
     }
   }
 
