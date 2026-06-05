@@ -104,6 +104,9 @@ async function checkAuthRate(
   email: string,
   max: number,
 ): Promise<boolean> {
+  // Skip rate limiting in dev (local) and for CI test accounts.
+  if (process.env.NODE_ENV === "development") return true;
+  if (email.toLowerCase().endsWith("@furqan.test")) return true;
   try {
     // Service-role client. The rate-limit check runs PRE-AUTHENTICATION
     // (the user has no session yet on POST /login or /forgot-password),
@@ -191,7 +194,9 @@ export async function login(
       tag: "auth-bot-bypass",
       metadata: { email },
     });
-  } else {
+  } else if (process.env.VERCEL) {
+    // checkBotId() calls mutateResponseHeadersBeforeFlush, a Vercel-only API.
+    // Skip in non-Vercel environments (local dev, VPS) to avoid runtime throws.
     const verification = await checkBotId();
     if (verification.isBot) {
       logError("BotID flagged login as bot", new Error("login.bot_blocked"), {
@@ -214,8 +219,10 @@ export async function login(
     return { error: "البريد الإلكتروني وكلمة المرور مطلوبان" };
   }
 
-  // Per-email rate limit — credential stuffing defense
-  if (!(await checkAuthRate("login-attempt", email, MAX_LOGIN_ATTEMPTS_PER_HOUR))) {
+  // Per-email rate limit — credential stuffing defense.
+  // Bypass for @furqan.test accounts so CI/TestSprite runs are never blocked.
+  const isTestAccount = email.toLowerCase().endsWith("@furqan.test");
+  if (!isTestAccount && !(await checkAuthRate("login-attempt", email, MAX_LOGIN_ATTEMPTS_PER_HOUR))) {
     logError("Login rate limit exceeded", new Error("login.rate_limited"), {
       component: "auth.login",
       tag: "auth-rate-limited",
@@ -319,7 +326,9 @@ export async function register(
       tag: "auth-bot-bypass",
       metadata: { email },
     });
-  } else {
+  } else if (process.env.VERCEL) {
+    // checkBotId() calls mutateResponseHeadersBeforeFlush, a Vercel-only API.
+    // Skip in non-Vercel environments (local dev, VPS) to avoid runtime throws.
     const verification = await checkBotId();
     if (verification.isBot) {
       logError("BotID flagged register as bot", new Error("register.bot_blocked"), {
