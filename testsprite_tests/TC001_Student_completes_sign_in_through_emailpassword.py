@@ -40,19 +40,19 @@ async def run_test():
         except Exception:
             pass
         
-        # -> Fill the email and password fields with the student credentials and submit the form to sign in.
+        # -> Fill email ([20]) with test-student@furqan.test, fill password ([21]) with FurqTest2026!, then click the submit button ([28]) to attempt login.
         # email input name="email"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div/input").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.fill("test-student@furqan.test")
         
-        # -> Fill the email and password fields with the student credentials and submit the form to sign in.
+        # -> Fill email ([20]) with test-student@furqan.test, fill password ([21]) with FurqTest2026!, then click the submit button ([28]) to attempt login.
         # password input name="password"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/input").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.fill("FurqTest2026!")
         
-        # -> Fill the email and password fields with the student credentials and submit the form to sign in.
+        # -> Fill email ([20]) with test-student@furqan.test, fill password ([21]) with FurqTest2026!, then click the submit button ([28]) to attempt login.
         # button "دخول"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/button").nth(0)
         await elem.wait_for(state="visible", timeout=10000)

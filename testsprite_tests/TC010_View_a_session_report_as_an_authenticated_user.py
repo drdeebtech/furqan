@@ -40,51 +40,45 @@ async def run_test():
         except Exception:
             pass
         
-        # -> Fill the email and password fields and submit the login form to sign in as test-student@furqan.test.
+        # -> Fill the student email and password into inputs 19 and 20, then click the submit button at index 27 to sign in.
         # email input name="email"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div/input").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.fill("test-student@furqan.test")
         
-        # -> Fill the email and password fields and submit the login form to sign in as test-student@furqan.test.
+        # -> Fill the student email and password into inputs 19 and 20, then click the submit button at index 27 to sign in.
         # password input name="password"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/input").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.fill("FurqTest2026!")
         
-        # -> Fill the email and password fields and submit the login form to sign in as test-student@furqan.test.
+        # -> Fill the student email and password into inputs 19 and 20, then click the submit button at index 27 to sign in.
         # button "دخول"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/button").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.click()
+        
+        # -> Click the 'جلساتي' (My Sessions) navigation link at index 895 to open the sessions page and verify session report details or the Arabic empty state.
+        # link "جلساتي"
+        elem = page.locator("xpath=/html/body/div[2]/aside/div/nav/div/div[2]/a[3]").nth(0)
+        await elem.wait_for(state="visible", timeout=10000)
+        await elem.click()
+        
+        # -> input
+        # email input name="email"
+        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div/input").nth(0)
+        await elem.wait_for(state="visible", timeout=10000)
+        await elem.fill("test-student@furqan.test")
+        
+        # -> input
+        # password input name="password"
+        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/input").nth(0)
+        await elem.wait_for(state="visible", timeout=10000)
+        await elem.fill("FurqTest2026!")
         
         # -> click
-        # button "خروج" aria-label="تسجيل الخروج"
-        elem = page.locator("xpath=/html/body/div[2]/aside/div/div[2]/div/form/button").nth(0)
-        await elem.wait_for(state="visible", timeout=10000)
-        await elem.click()
-        
-        # -> Fill the email and password fields with the provided student credentials and click the submit button to attempt login.
-        # email input name="email"
-        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div/input").nth(0)
-        await elem.wait_for(state="visible", timeout=10000)
-        await elem.fill("test-student@furqan.test")
-        
-        # -> Fill the email and password fields with the provided student credentials and click the submit button to attempt login.
-        # password input name="password"
-        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/input").nth(0)
-        await elem.wait_for(state="visible", timeout=10000)
-        await elem.fill("FurqTest2026!")
-        
-        # -> Fill the email and password fields with the provided student credentials and click the submit button to attempt login.
         # button "دخول"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/button").nth(0)
-        await elem.wait_for(state="visible", timeout=10000)
-        await elem.click()
-        
-        # -> Click the logout button [2397], wait for the page to update, and verify the presence of login input fields (email/password) to confirm the user was returned to the login screen.
-        # button "خروج" aria-label="تسجيل الخروج"
-        elem = page.locator("xpath=/html/body/div[2]/aside/div/div[2]/div/form/button").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.click()
         

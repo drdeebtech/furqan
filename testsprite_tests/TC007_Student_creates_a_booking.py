@@ -40,96 +40,66 @@ async def run_test():
         except Exception:
             pass
         
-        # -> Fill email and password and submit the login form to authenticate as test-student@furqan.test.
+        # -> input
         # email input name="email"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div/input").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.fill("test-student@furqan.test")
         
-        # -> Fill email and password and submit the login form to authenticate as test-student@furqan.test.
+        # -> input
         # password input name="password"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/input").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.fill("FurqTest2026!")
         
-        # -> Fill email and password and submit the login form to authenticate as test-student@furqan.test.
+        # -> click
         # button "دخول"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/button").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.click()
         
-        # -> Open the booking creation flow by clicking the first 'احجز جلسة' button (element index 1372) to reveal the booking form/modal, but do not submit the booking.
+        # -> Click the first teacher's 'احجز جلسة' button (interactive element index 1372) to open the booking creation flow.
         # link "احجز جلسة"
         elem = page.locator("xpath=/html/body/div[2]/main/div[2]/div/div[5]/div/a").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.click()
         
-        # -> Fill the login form with test-student@furqan.test / FurqTest2026! and submit to reach the student area.
+        # -> Fill the login form with test-student@furqan.test / FurqTest2026! and click 'دخول' (submit) to sign in and trigger redirect to /student/dashboard.
         # email input name="email"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div/input").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.fill("test-student@furqan.test")
         
-        # -> Fill the login form with test-student@furqan.test / FurqTest2026! and submit to reach the student area.
+        # -> Fill the login form with test-student@furqan.test / FurqTest2026! and click 'دخول' (submit) to sign in and trigger redirect to /student/dashboard.
         # password input name="password"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/input").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.fill("FurqTest2026!")
         
-        # -> Fill the login form with test-student@furqan.test / FurqTest2026! and submit to reach the student area.
+        # -> Fill the login form with test-student@furqan.test / FurqTest2026! and click 'دخول' (submit) to sign in and trigger redirect to /student/dashboard.
         # button "دخول"
         elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/button").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.click()
         
-        # -> Click the first 'احجز جلسة' button (interactive element index 2916) to open the booking modal, then inspect modal fields without submitting.
-        # link "احجز جلسة"
-        elem = page.locator("xpath=/html/body/div[2]/main/div[2]/div/div[3]/div/a").nth(0)
+        # -> Input the student password into element 1834 and click the submit button (element 1841) to attempt sign-in and trigger redirect to /student/dashboard.
+        # password input name="password"
+        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/div[2]/div[2]/input").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
-        await elem.click()
+        await elem.fill("FurqTest2026!")
         
-        # -> Select an available date option to inspect whether the booking flow advances (click element index 3406) and observe any UI changes (Next button enabling or other fields appearing).
-        # button "الجمعة 5/6" aria-label="تاريخ الجمعة 5/6 - متاح"
-        elem = page.locator("xpath=/html/body/div[2]/main/div[2]/div/div[3]/div[3]/div/button[2]").nth(0)
-        await elem.wait_for(state="visible", timeout=10000)
-        await elem.click()
-        
-        # -> Click the available time button (element 3869) to observe whether the Next button (3421) becomes enabled, without submitting the booking.
-        # button "14:00" aria-label="الوقت 14:00"
-        elem = page.locator("xpath=/html/body/div[2]/main/div[2]/div/div[3]/div[4]/div/button").nth(0)
-        await elem.wait_for(state="visible", timeout=10000)
-        await elem.click()
-        
-        # -> Try to enable the Next button by selecting session type (3403), duration (3405), opening notes (3420), and then clicking Next (3421) to observe whether the UI allows proceeding (do not submit the booking).
-        # button "التفسير"
-        elem = page.locator("xpath=/html/body/div[2]/main/div[2]/div/div[3]/div/div/button").nth(0)
-        await elem.wait_for(state="visible", timeout=10000)
-        await elem.click()
-        
-        # -> Try to enable the Next button by selecting session type (3403), duration (3405), opening notes (3420), and then clicking Next (3421) to observe whether the UI allows proceeding (do not submit the booking).
-        # button "٣٠ دقيقة"
-        elem = page.locator("xpath=/html/body/div[2]/main/div[2]/div/div[3]/div[2]/div/button").nth(0)
-        await elem.wait_for(state="visible", timeout=10000)
-        await elem.click()
-        
-        # -> Try to enable the Next button by selecting session type (3403), duration (3405), opening notes (3420), and then clicking Next (3421) to observe whether the UI allows proceeding (do not submit the booking).
-        # button "إضافة ملاحظات (اختياري)"
-        elem = page.locator("xpath=/html/body/div[2]/main/div[2]/div/div[3]/div[5]/button").nth(0)
-        await elem.wait_for(state="visible", timeout=10000)
-        await elem.click()
-        
-        # -> Try to enable the Next button by selecting session type (3403), duration (3405), opening notes (3420), and then clicking Next (3421) to observe whether the UI allows proceeding (do not submit the booking).
-        # button "التالي — مراجعة الحجز"
-        elem = page.locator("xpath=/html/body/div[2]/main/div[2]/div/div[3]/button").nth(0)
+        # -> Input the student password into element 1834 and click the submit button (element 1841) to attempt sign-in and trigger redirect to /student/dashboard.
+        # button
+        elem = page.locator("xpath=/html/body/div[2]/main/div/div[2]/form/button").nth(0)
         await elem.wait_for(state="visible", timeout=10000)
         await elem.click()
         
         # --> Assertions to verify final state
-        assert await page.locator("xpath=//*[contains(., 'التفسير')]").nth(0).is_visible(), "The booking list should show the session type التفسير after creating a new booking"
+        assert await page.locator("xpath=//*[contains(., 'حجوزات')]").nth(0).is_visible(), "The booking list should show the newly created booking after submitting the booking form"
         
         # --> Test blocked by environment/access constraints during agent run
-        # Reason: TEST BLOCKED The test could not be completed because creating a real booking is not allowed in this test environment (state-mutating actions are read-only) and the bookings API is an intentional 501 stub. Observations: - The booking confirmation page was reached and shows the booking summary and a confirm button labeled 'تأكيد الحجز'. - Visible booking summary (exact strings observed on page): ...
-        raise AssertionError("Test blocked during agent run: " + "TEST BLOCKED The test could not be completed because creating a real booking is not allowed in this test environment (state-mutating actions are read-only) and the bookings API is an intentional 501 stub. Observations: - The booking confirmation page was reached and shows the booking summary and a confirm button labeled '\u062a\u0623\u0643\u064a\u062f \u0627\u0644\u062d\u062c\u0632'. - Visible booking summary (exact strings observed on page): ..." + " — the exported script cannot reproduce a PASS in this environment.")
+        # Reason: TEST BLOCKED The test could not be run — the UI prevents signing in due to a login rate-limit message, so the booking creation flow cannot be reached. Observations: - The login form shows the error message: "تم تجاوز المحاولات المسموحة — حاول خلال ساعة" (allowed attempts exceeded — try in an hour). - The submit (دخول) button is disabled and login cannot be submitted. - Without successful authen...
+        raise AssertionError("Test blocked during agent run: " + "TEST BLOCKED The test could not be run \u2014 the UI prevents signing in due to a login rate-limit message, so the booking creation flow cannot be reached. Observations: - The login form shows the error message: \"\u062a\u0645 \u062a\u062c\u0627\u0648\u0632 \u0627\u0644\u0645\u062d\u0627\u0648\u0644\u0627\u062a \u0627\u0644\u0645\u0633\u0645\u0648\u062d\u0629 \u2014 \u062d\u0627\u0648\u0644 \u062e\u0644\u0627\u0644 \u0633\u0627\u0639\u0629\" (allowed attempts exceeded \u2014 try in an hour). - The submit (\u062f\u062e\u0648\u0644) button is disabled and login cannot be submitted. - Without successful authen..." + " — the exported script cannot reproduce a PASS in this environment.")
         await asyncio.sleep(5)
 
     finally:
