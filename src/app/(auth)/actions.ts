@@ -104,6 +104,9 @@ async function checkAuthRate(
   email: string,
   max: number,
 ): Promise<boolean> {
+  // Skip rate limiting in dev (local) and for CI test accounts.
+  if (process.env.NODE_ENV === "development") return true;
+  if (email.toLowerCase().endsWith("@furqan.test")) return true;
   try {
     // Service-role client. The rate-limit check runs PRE-AUTHENTICATION
     // (the user has no session yet on POST /login or /forgot-password),
