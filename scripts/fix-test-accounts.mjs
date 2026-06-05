@@ -1,4 +1,4 @@
-// One-shot: fix TestSprite test accounts in production
+// One-shot: ensure TestSprite test accounts exist with correct passwords/roles
 // Usage: node scripts/fix-test-accounts.mjs
 import { readFileSync } from 'fs';
 import { createClient } from '@supabase/supabase-js';
