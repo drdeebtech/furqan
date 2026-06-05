@@ -41,6 +41,10 @@ export async function POST(request: Request) {
   if (!body.package_id) {
     return NextResponse.json({ error: "package_id required" }, { status: 400 });
   }
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (typeof body.package_id !== "string" || !UUID_RE.test(body.package_id)) {
+    return NextResponse.json({ error: "invalid package_id" }, { status: 400 });
+  }
 
   const admin = createAdminClient();
   const { data: pkg } = await admin

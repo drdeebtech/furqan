@@ -2,6 +2,13 @@
 
 All notable changes to FURQAN Academy are documented here.
 
+## 2026-06-05 — Fix: Stripe checkout UUID validation (issue #408)
+
+`POST /api/stripe/checkout` now validates that `package_id` is a well-formed UUID before touching the database. Previously, a non-UUID string such as `"test-valid-package-id"` reached the Postgres `.eq("id", …)` call and caused a `22P02` unhandled exception, returning 500 instead of 400. Includes a `typeof` guard to block array-typed inputs that would otherwise coerce through the regex.
+
+- **Route:** `src/app/api/stripe/checkout/route.ts` — 2-line UUID regex + typeof guard added after the `package_id` presence check.
+- **Tests:** `src/app/api/stripe/checkout/route.test.ts` — 7 new unit tests covering 401, 403, 400 (missing/invalid/array), and 501 (valid UUID, Stripe SDK not installed).
+
 ## 2026-05-08 — Moderator role retired (ADR-0003)
 
 The `moderator` role was removed from FURQAN's role taxonomy. Every moderator-owned feature already had an admin equivalent (`/admin/teachers/cv` mirrored `/moderator/cv-review`, `/admin/audit` mirrored `/moderator/audit`, etc.) — the role added vocabulary, route surface, ENUM value, RLS branches, and 14 auth-helper call sites without unique capability.
