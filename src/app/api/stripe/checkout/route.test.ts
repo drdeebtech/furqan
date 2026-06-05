@@ -90,14 +90,14 @@ describe("POST /api/stripe/checkout — input validation", () => {
   it("returns 400 with invalid UUID string (issue #408 repro)", async () => {
     const res = await POST(makeReq({ package_id: "test-valid-package-id" }));
     expect(await status(res)).toBe(400);
-    expect((await json(res) as { error: string }).error).toBe("invalid package_id");
+    expect((await json(res) as { error: string }).error).toBe("معرّف الحزمة غير صالح — invalid package_id");
   });
 
   it("returns 400 for other non-UUID strings", async () => {
     for (const bad of ["abc", "123", "not-a-uuid-at-all", "00000000-0000-0000"]) {
       const res = await POST(makeReq({ package_id: bad }));
       expect(await status(res)).toBe(400);
-      expect((await json(res) as { error: string }).error).toBe("invalid package_id");
+      expect((await json(res) as { error: string }).error).toBe("معرّف الحزمة غير صالح — invalid package_id");
     }
   });
 
@@ -105,14 +105,24 @@ describe("POST /api/stripe/checkout — input validation", () => {
     // RegExp.test() coerces arrays to strings; the typeof guard must block this
     const res = await POST(makeReq({ package_id: ["00000000-0000-0000-0000-000000000001"] }));
     expect(await status(res)).toBe(400);
-    expect((await json(res) as { error: string }).error).toBe("invalid package_id");
+    expect((await json(res) as { error: string }).error).toBe("معرّف الحزمة غير صالح — invalid package_id");
   });
 
   it("passes UUID validation and queries the DB for a well-formed UUID", async () => {
     mockAdminQuery.mockResolvedValue({ data: { id: "00000000-0000-0000-0000-000000000001", price_usd: 50, name: "Test" } });
     const res = await POST(makeReq({ package_id: "00000000-0000-0000-0000-000000000001" }));
-    // The route reaches the Stripe-not-installed 501 (or 404 if package missing)
-    // Either way it proves UUID validation did NOT block it
+    expect(await status(res)).toBe(501);
+  });
+
+  it("accepts uppercase UUIDs (regex flag /i)", async () => {
+    mockAdminQuery.mockResolvedValue({ data: { id: "00000000-0000-0000-0000-000000000001", price_usd: 50, name: "Test" } });
+    const res = await POST(makeReq({ package_id: "00000000-0000-0000-0000-000000000001".toUpperCase() }));
     expect(await status(res)).not.toBe(400);
+  });
+
+  it("returns 404 when package is not found", async () => {
+    mockAdminQuery.mockResolvedValue({ data: null });
+    const res = await POST(makeReq({ package_id: "00000000-0000-0000-0000-000000000001" }));
+    expect(await status(res)).toBe(404);
   });
 });

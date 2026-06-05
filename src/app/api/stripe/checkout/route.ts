@@ -32,25 +32,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Only students may initiate checkout" }, { status: 403 });
   }
 
-  let body: { package_id?: string };
+  let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
-  if (!body.package_id) {
+  if (!body || typeof body !== "object" || !("package_id" in body)) {
+    return NextResponse.json({ error: "package_id required" }, { status: 400 });
+  }
+  const { package_id } = body as { package_id?: unknown };
+  if (!package_id) {
     return NextResponse.json({ error: "package_id required" }, { status: 400 });
   }
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (typeof body.package_id !== "string" || !UUID_RE.test(body.package_id)) {
-    return NextResponse.json({ error: "invalid package_id" }, { status: 400 });
+  if (typeof package_id !== "string" || !UUID_RE.test(package_id)) {
+    return NextResponse.json({ error: "معرّف الحزمة غير صالح — invalid package_id" }, { status: 400 });
   }
 
   const admin = createAdminClient();
   const { data: pkg } = await admin
     .from("packages")
     .select("id, price_usd, name")
-    .eq("id", body.package_id)
+    .eq("id", package_id)
     .eq("is_active", true)
     .single<{ id: string; price_usd: number; name: string }>();
   if (!pkg) return NextResponse.json({ error: "Package not found" }, { status: 404 });
