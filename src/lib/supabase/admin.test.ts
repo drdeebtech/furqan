@@ -170,8 +170,20 @@ describe("createAdminClient — prod-URL guard", () => {
     expect(() => createAdminClient()).not.toThrow();
   });
 
+  it("does NOT throw when URL is ::1 (IPv6 local stack)", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://[::1]:54321";
+    expect(() => createAdminClient()).not.toThrow();
+  });
+
   it("does NOT throw when SUPABASE_ALLOW_PROD_IN_TESTS=true bypasses the guard", () => {
     process.env.SUPABASE_ALLOW_PROD_IN_TESTS = "true";
     expect(() => createAdminClient()).not.toThrow();
+  });
+
+  it('still throws when SUPABASE_ALLOW_PROD_IN_TESTS="false" (only "true" bypasses)', () => {
+    process.env.SUPABASE_ALLOW_PROD_IN_TESTS = "false";
+    expect(() => createAdminClient()).toThrow(
+      "[furqan] createAdminClient() blocked: remote Supabase URL in test mode.",
+    );
   });
 });

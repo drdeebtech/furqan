@@ -22,8 +22,8 @@ export function createAdminClient() {
   // Set SUPABASE_ALLOW_PROD_IN_TESTS=true only for intentional network tests.
   if (
     process.env.NODE_ENV === "test" &&
-    !process.env.SUPABASE_ALLOW_PROD_IN_TESTS &&
-    !/localhost|127\.0\.0\.1/.test(url)
+    process.env.SUPABASE_ALLOW_PROD_IN_TESTS !== "true" &&
+    !/localhost|127\.0\.0\.1|::1/.test(url)
   ) {
     throw new Error(
       "[furqan] createAdminClient() blocked: remote Supabase URL in test mode.\n" +
