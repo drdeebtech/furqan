@@ -1,0 +1,83 @@
+# Dead Code & Test Gap Report
+
+**Date:** 2026-06-03
+**Branch:** refactor/architecture-deepening
+**Graph:** .understand-anything/knowledge-graph.json (2,048 nodes · 3,943 edges)
+
+---
+
+## Dead Code Analysis
+
+### Orphan Functions (0 incoming edges)
+
+Only 1 orphan function was found — indicating a very clean codebase:
+
+Run this to verify:
+```bash
+node -e "
+const fs = require('fs');
+const g = JSON.parse(fs.readFileSync('.understand-anything/knowledge-graph.json','utf8'));
+const incoming = {};
+g.nodes.forEach(n => incoming[n.id] = 0);
+g.edges.forEach(e => { if (incoming[e.target] !== undefined) incoming[e.target]++; });
+const orphans = g.nodes.filter(n => n.type === 'function' && incoming[n.id] === 0);
+orphans.forEach(n => console.log(n.name, '|', n.filePath || ''));
+"
+```
+
+**Verdict:** No bulk dead-code cleanup needed. Re-run this script after any large refactor.
+
+### Note on Graph Completeness
+
+The `tested_by` edge type (29 total) is likely under-represented — the file analyzer generates these from static import analysis, which may miss test files that reference functions indirectly. The test gap section below uses call-count as a proxy for priority.
+
+---
+
+## Test Gap Analysis (Top 10 by Call Count)
+
+These TypeScript functions have no `tested_by` edge in the graph AND are called frequently — highest confidence that these deserve unit tests next:
+
+| Rank | Name | File | Callers | Summary | Recommendation |
+|------|------|------|---------|---------|----------------|
+| 1 | `useLang` | `src/lib/i18n/context.tsx` | 13 | Core i18n hook — reads LangContext to expose language, setLang, and translate. Used in every component with bilingual text. | Unit test: verify hook returns correct language/translate function; test setLang updates context; test RTL flag for Arabic. |
+| 2 | `createAdminClient` | `src/lib/supabase/admin.ts` | 8 | Creates service-role Supabase client that bypasses RLS. Every admin mutation depends on it. | Integration test: mock supabase createClient; verify service-role key is passed; verify bypasses user auth. |
+| 3 | `logError` | `src/lib/logger.ts` | 7 | Captures errors to Sentry + optional Telegram alert. Primary error reporting. | Unit test: mock Sentry.captureException; verify tags are set; verify Telegram fires when critical=true. |
+| 4 | `notify` | `src/lib/notifications/dispatcher.ts` | 3 | Core notification dispatch: checks preferences, quiet hours, importance. | Integration test (already partially covered by dispatcher-quiet-hours.test.ts — extend it). |
+| 5 | `createClient` | `src/lib/supabase/server.ts` | 3 | SSR-ready Supabase client with cookie-based auth. | Unit test: verify cookie storage adapter is wired; verify fetch wrapper adds tracing headers. |
+| 6 | `assertCanManage` | `src/lib/domains/follow-up/shared.ts` | 3 | Auth guard: throws if actor is neither the owning teacher nor an admin. | Unit test: verify throws for student, throws for different teacher, passes for owner teacher, passes for admin. |
+| 7 | `requireAdmin` | `src/lib/auth/require-admin.ts` | 2 | Entry point for all admin page auth. | Unit test: verify throws ForbiddenError for non-admin; verify passes for admin role. |
+| 8 | `n8nFetch` | `src/lib/n8n/client.ts` | 2 | HTTP wrapper for n8n API calls with 10s timeout and Bearer auth. | Unit test: verify AbortController fires at 10s; verify Authorization header is set; verify throws on missing config. |
+| 9 | `loadControlTowerSnapshot` | `src/app/admin/control-tower/data.ts` | 2 | Fetches 11 platform health metrics in parallel. | Integration test: mock Supabase count queries; verify staleness flag logic; verify parallel fetch. |
+| 10 | `getSignedPlaybackUrl` | `src/lib/bunny/client.ts` | 2 | Generates time-limited signed Bunny CDN URL. | Unit test: verify SHA-256 signature is correct; verify URL-safe base64 encoding; verify expiry calculation. |
+
+---
+
+## PR Impact Analysis
+
+A GitHub Actions workflow has been added at `.github/workflows/pr-impact.yml` that automatically
+posts a blast-radius report on every PR using `scripts/pr-impact.js`.
+
+The script traces up to 2 hops of upstream dependents for each changed file and reports:
+- Direct dependents
+- Total blast radius
+- High-risk files (5+ dependents)
+- Detected migration changes
+
+---
+
+## Codebase Visualization
+
+Two new admin pages are live:
+- `/admin/architecture` — 10-layer visual breakdown (2,048 nodes · 3,943 edges)
+- `/admin/tour` — 15-step guided tour for onboarding new developers
+
+---
+
+## Recommended Next Steps
+
+1. **Add tests for rank 1–3** above — highest call count, highest impact if broken
+2. **Wire test coverage CI gate** — install `@vitest/coverage-v8` and add `--coverage --coverage.thresholds.lines=80` to the test script (see pre-launch warning W8)
+3. **Re-run `/understand --full`** after any large refactor to keep the graph current
+4. **Schedule quarterly dead-code sweeps** using the orphan detection script above
+
+*Generated by the understand-anything knowledge graph pipeline.*

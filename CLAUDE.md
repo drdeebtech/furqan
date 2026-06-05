@@ -105,6 +105,40 @@ await supabase.from("audit_log").insert({...} as never)
   .catch(err => logError("audit insert failed", err, { tag: "audit" }));
 ```
 
+## Test Writing Rule (NON-NEGOTIABLE)
+
+**BEFORE writing ANY test, verify these 5 points.** Violations cause false failures and test debt. Learned from TestSprite failures (2026-06-04): 4/4 failures were wrong test assertions, not app defects.
+
+1. **Read the source code first**
+   - Know which endpoints/functions are stubs vs. real implementations
+   - Understand the security boundary (what should reject, how, with which status code)
+   - Check the actual response codes/behaviors in the route handler or function
+
+2. **Don't assume happy-path status codes**
+   - Verify the expected status code by reading the implementation
+   - A 501 stub is CORRECT — don't assert it should be 200
+   - A 401/403 rejection is CORRECT for unauthorized requests — don't assert 200
+   - Document WHY you expect the status code you're testing for
+
+3. **For OAuth / session-dependent flows**
+   - Don't try to forge OAuth codes; use `@furqan.test` test accounts with test-login instead
+   - For production perimeter tests, only test unauthenticated rejection paths (no sessions)
+   - Understand that OAuth flows require a live external service; many can't be unit tested
+
+4. **For webhook / HMAC-signed requests**
+   - Use real HMAC secrets if available (don't mock signatures)
+   - If testing invalid signature rejection, EXPECT 401/403, not 200
+   - Mock signatures always fail HMAC verification — this is security working as designed
+   - Never test happy-path with a mock signature; it's unreachable
+
+5. **Document the test's purpose**
+   - What property is being tested? (security? business logic? edge case?)
+   - What's the expected response and WHY?
+   - What would a failure mean? (real bug or test harness limitation?)
+   - If skipping or marking xfail, document the reason clearly
+
+**How to apply:** Before writing any test file, run through this checklist. If you skip any, stop and verify it before coding.
+
 ## Database Migrations Policy
 
 **New migrations:**
