@@ -18,6 +18,21 @@ if (!supabaseUrl || !serviceKey) {
   process.exit(1);
 }
 
+// Warn clearly about which project is targeted so accidental prod runs are obvious.
+console.warn(`⚠️  Targeting Supabase project: ${supabaseUrl}`);
+console.warn('   This script only touches @furqan.test accounts. Pass --yes to skip this prompt.');
+if (!process.argv.includes('--yes')) {
+  const { createInterface } = await import('readline');
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  await new Promise((resolve, reject) =>
+    rl.question('Continue? [y/N] ', ans => {
+      rl.close();
+      if (ans.toLowerCase() !== 'y') { console.error('Aborted.'); process.exit(0); }
+      resolve();
+    })
+  );
+}
+
 const admin = createClient(supabaseUrl, serviceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
@@ -51,8 +66,8 @@ async function main() {
     if (error) console.error('Student create failed:', error.message);
     else {
       console.log('✓ Student account created');
-      // Create profile
-      await admin.from('profiles').insert({ id: data.user.id, role: 'student', full_name: 'Test Student', is_active: true });
+      const { error: profileErr } = await admin.from('profiles').insert({ id: data.user.id, role: 'student', full_name: 'Test Student', is_active: true });
+      if (profileErr) console.error('Student profile insert failed:', profileErr.message);
     }
   }
 
@@ -72,8 +87,8 @@ async function main() {
     if (error) console.error('Teacher create failed:', error.message);
     else {
       console.log('✓ Teacher account created');
-      // Create profile
-      await admin.from('profiles').insert({ id: data.user.id, role: 'teacher', full_name: 'Test Teacher', is_active: true });
+      const { error: profileErr } = await admin.from('profiles').insert({ id: data.user.id, role: 'teacher', full_name: 'Test Teacher', is_active: true });
+      if (profileErr) console.error('Teacher profile insert failed:', profileErr.message);
     }
   }
 
