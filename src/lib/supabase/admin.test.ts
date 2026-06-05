@@ -26,9 +26,12 @@ let originalEnv: Record<string, string | undefined>;
 beforeEach(() => {
   originalEnv = { ...process.env };
   vi.clearAllMocks();
-  // Default: both env vars present
+  // Default: both env vars present; bypass the prod-URL guard so happy-path
+  // and missing-env tests can use a real-looking remote URL without triggering
+  // the "no writes to remote in test mode" protection.
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://project.supabase.co";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-secret";
+  process.env.SUPABASE_ALLOW_PROD_IN_TESTS = "true";
 });
 
 afterEach(() => {
@@ -136,5 +139,58 @@ describe("createAdminClient — happy path", () => {
       { global?: { fetch?: unknown } },
     ];
     expect(typeof options.global?.fetch).toBe("function");
+  });
+});
+
+describe("createAdminClient — prod-URL guard", () => {
+  beforeEach(() => {
+    // Use a remote-looking URL; override the bypass set in global beforeEach
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://abcdefghijklmnop.supabase.co";
+    delete process.env.SUPABASE_ALLOW_PROD_IN_TESTS;
+    mockCreateSupabaseClient.mockReturnValue({ from: vi.fn() });
+  });
+
+  it("throws when NODE_ENV=test and URL is remote", () => {
+    expect(() => createAdminClient()).toThrow(
+      "[furqan] createAdminClient() blocked: remote Supabase URL in test mode.",
+    );
+  });
+
+  it("error message names all three fix options", () => {
+    expect(() => createAdminClient()).toThrow("Fix options (pick one):");
+  });
+
+  it("does NOT throw when URL is localhost (local stack)", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
+    expect(() => createAdminClient()).not.toThrow();
+  });
+
+  it("does NOT throw when URL is 127.0.0.1 (local stack alternate)", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
+    expect(() => createAdminClient()).not.toThrow();
+  });
+
+  it("does NOT throw when URL is ::1 (IPv6 local stack)", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://[::1]:54321";
+    expect(() => createAdminClient()).not.toThrow();
+  });
+
+  it("does NOT throw when SUPABASE_ALLOW_PROD_IN_TESTS=true bypasses the guard", () => {
+    process.env.SUPABASE_ALLOW_PROD_IN_TESTS = "true";
+    expect(() => createAdminClient()).not.toThrow();
+  });
+
+  it('still throws when SUPABASE_ALLOW_PROD_IN_TESTS="false" (only "true" bypasses)', () => {
+    process.env.SUPABASE_ALLOW_PROD_IN_TESTS = "false";
+    expect(() => createAdminClient()).toThrow(
+      "[furqan] createAdminClient() blocked: remote Supabase URL in test mode.",
+    );
+  });
+
+  it("throws for localhost.evil.com (hostname check prevents substring bypass)", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://localhost.evil.com";
+    expect(() => createAdminClient()).toThrow(
+      "[furqan] createAdminClient() blocked: remote Supabase URL in test mode.",
+    );
   });
 });
