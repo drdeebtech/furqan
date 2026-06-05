@@ -18,12 +18,21 @@ export function createAdminClient() {
   // Block service-role writes against a remote database in the test runner.
   // The service-role key bypasses RLS, so an accidental call from a test
   // would mutate the real shared database — including production.
-  // Local Supabase stack (localhost / 127.0.0.1) is always safe.
+  // Local Supabase stack (localhost / 127.0.0.1 / ::1) is always safe.
   // Set SUPABASE_ALLOW_PROD_IN_TESTS=true only for intentional network tests.
+  // Parse the hostname to prevent substring bypasses (e.g. localhost.evil.com).
+  const isLocalUrl = (() => {
+    try {
+      const { hostname } = new URL(url);
+      return /^(localhost|127\.0\.0\.1|\[::1\])$/.test(hostname);
+    } catch {
+      return false;
+    }
+  })();
   if (
     process.env.NODE_ENV === "test" &&
     process.env.SUPABASE_ALLOW_PROD_IN_TESTS !== "true" &&
-    !/localhost|127\.0\.0\.1|::1/.test(url)
+    !isLocalUrl
   ) {
     throw new Error(
       "[furqan] createAdminClient() blocked: remote Supabase URL in test mode.\n" +

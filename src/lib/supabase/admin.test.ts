@@ -186,4 +186,11 @@ describe("createAdminClient — prod-URL guard", () => {
       "[furqan] createAdminClient() blocked: remote Supabase URL in test mode.",
     );
   });
+
+  it("throws for localhost.evil.com (hostname check prevents substring bypass)", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://localhost.evil.com";
+    expect(() => createAdminClient()).toThrow(
+      "[furqan] createAdminClient() blocked: remote Supabase URL in test mode.",
+    );
+  });
 });
