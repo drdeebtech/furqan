@@ -1,0 +1,76 @@
+name: PR Impact Analysis
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  impact:
+    name: Blast-radius report
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Get changed files
+        run: |
+          git diff --name-only origin/main...HEAD > /tmp/changed_files.txt
+          echo "Changed files:"
+          cat /tmp/changed_files.txt
+
+      - name: Run impact analysis
+        run: |
+          CHANGED_FILES=$(cat /tmp/changed_files.txt) node scripts/pr-impact.js > /tmp/impact-report.md 2>&1 || true
+          echo "Impact report:"
+          cat /tmp/impact-report.md
+
+      - name: Post PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const MARKER = '<!-- pr-impact-bot -->';
+
+            let report;
+            try {
+              report = fs.readFileSync('/tmp/impact-report.md', 'utf8');
+            } catch (err) {
+              report = `## PR Impact Analysis\n\n> Warning: could not read impact report — ${err.message}`;
+            }
+
+            const body = `${MARKER}\n${report}`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c => c.body && c.body.includes(MARKER));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
