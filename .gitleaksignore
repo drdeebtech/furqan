@@ -1,0 +1,38 @@
+dab0f2dd049ccbb1beb211fdcdf7f8c2c0b74c57:testsprite_tests/TC006_post_api_stripe_checkout_valid_package.py:generic-api-key:9
+dab0f2dd049ccbb1beb211fdcdf7f8c2c0b74c57:testsprite_tests/TC004_get_api_bookings_list_authenticated.py:generic-api-key:8
+dab0f2dd049ccbb1beb211fdcdf7f8c2c0b74c57:testsprite_tests/TC003_post_api_auth_logout_authenticated.py:generic-api-key:7
+dab0f2dd049ccbb1beb211fdcdf7f8c2c0b74c57:testsprite_tests/TC009_post_api_cron_audit_cleanup_valid_secrets.py:generic-api-key:8
+dab0f2dd049ccbb1beb211fdcdf7f8c2c0b74c57:testsprite_tests/TC005_post_api_bookings_create_authenticated.py:generic-api-key:7
+dab0f2dd049ccbb1beb211fdcdf7f8c2c0b74c57:testsprite_tests/TC010_get_api_n8n_workflows_admin_authenticated.py:generic-api-key:8
+dc5749e77f47cc9c3eacb7b8625b4abf014b058c:supabase/migrations/20260601202447_murajaah_scheduler_sm2_foundation.sql:generic-api-key:82
+dc5749e77f47cc9c3eacb7b8625b4abf014b058c:supabase/migrations/20260601202447_murajaah_scheduler_sm2_foundation.sql:generic-api-key:83
+b84dadaa2b7869196c958eff6739746ab546c26e:.claude/agents/payments/agentic-payments.md:generic-api-key:35
+d4ef1b588a78de5d6e428f4444af484e431b75ab:src/lib/daily/webhook-verify.test.ts:generic-api-key:72
+9ef641bab7aa6e03c15331285a9eca995f98ec67:src/lib/daily/webhook-verify.test.ts:generic-api-key:5
+9ef641bab7aa6e03c15331285a9eca995f98ec67:src/app/api/webhooks/daily/idempotency.test.ts:generic-api-key:37
+9ef641bab7aa6e03c15331285a9eca995f98ec67:src/app/api/webhooks/daily/route.test.ts:generic-api-key:40
+10c120104396d83e48759120bdb118705ef101cd:src/lib/csp.ts:generic-api-key:22
+79f10899339ea9ea0cb748c364cbfa8990518984:specs/001-murajaah-scheduler/data-model.md:generic-api-key:143
+79f10899339ea9ea0cb748c364cbfa8990518984:specs/001-murajaah-scheduler/data-model.md:generic-api-key:145
+5a247cf421282fa0c83bdd4874aa72af5a306b0a:vercel.json:generic-api-key:18
+276d121819109cf86bcaa7ef85ad14de8599e9dd:vercel.json:generic-api-key:18
+ba63b958f506a32f217538bbf6590898f34a4797:vercel.json:generic-api-key:18
+b9638be7f67d2efc4fbbf6bf012181565abf131b:vercel.json:generic-api-key:14
+691d03fa184d47fb99836dace8e935c0b1b5e972:vercel.json:generic-api-key:28
+c80a226ec83aec24075f3f38ae6fd99bd282c3d7:vercel.json:generic-api-key:28
+50dad323662d7e1c9bcf1e98083083c9ed4378fe:vercel.json:generic-api-key:28
+4a1ca0613fb02574abf4b63e25b2fdf9376f892f:vercel.json:generic-api-key:29
+7e53bd617c426e1400aee5e01fed5814fb29218f:vercel.json:generic-api-key:29
+e7f45f409ffcb6217ec5553dfdfc2077f0887d50:src/lib/n8n/audit.test.ts:jwt:46
+
+# ─── Baseline rationale (triaged 2026-06-07) ──────────────────────────────────
+# All fingerprints above are historical-commit findings, triaged as:
+# - Sentry DSN public keys in csp.ts / vercel.json CSP report-uri (public by design)
+# - SM-2 algorithm column names in migration + data-model.md (identifiers, not secrets)
+# - Test dummy values in webhook/idempotency/audit tests (literal "test-secret…" / fake JWT)
+# - Daily.co probe fixture @ d4ef1b5 — real at capture time; scrubbed in 9ef641b and
+#   DAILY_WEBHOOK_SECRET rotated the same day (2026-05-12)
+# - TEST_LOGIN_SECRET in deleted testsprite files @ dab0f2d — route is hard-gated off
+#   on NODE_ENV=production AND any VERCEL deploy; secret never existed in Vercel envs.
+#   Local-only; rotate in .env.local.
+# New findings (not listed above) still fail the deploy security-scan.
