@@ -1,0 +1,132 @@
+name: Deploy
+
+# Vercel-adapted port of the manaracode deploy pipeline:
+#   security-scan (gitleaks) → await-vercel (deployment for this SHA is READY)
+#   → health-gate (production actually serves) — with a workflow_dispatch
+#   rollback path that promotes a previous Vercel deployment.
+#
+# Vercel's GitHub integration owns the BUILD (no docker build here). This
+# workflow is the verification + rollback layer on top of it.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deployment_url:
+        description: "Existing Vercel deployment URL to roll back to (e.g. furqan-abc123-drdeebtech.vercel.app). Leave empty to verify the current main deploy."
+        required: false
+        default: ""
+
+# Serialize deploy verification: never let two pushes to main race.
+# Do not cancel in-progress — a half-verified deploy is worse than a queued one.
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Runs only when verifying a build (push, or dispatch with no deployment_url).
+  # A rollback (dispatch with deployment_url) skips straight to rollback+health.
+  security-scan:
+    name: Security Scan
+    if: ${{ github.event_name == 'push' || github.event.inputs.deployment_url == '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0        # full history so gitleaks can scan all commits
+      - name: Install gitleaks
+        run: |
+          GITLEAKS_VERSION=8.30.1
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | sudo tar xz -C /usr/local/bin gitleaks
+          gitleaks version
+      - name: Run gitleaks
+        run: gitleaks detect --source . --redact
+
+  await-vercel:
+    name: Await Vercel deployment
+    if: ${{ github.event_name == 'push' || github.event.inputs.deployment_url == '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: security-scan
+    steps:
+      - name: Wait for the deployment of this commit to be READY
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::VERCEL_TOKEN not set — cannot verify deployment."
+            exit 1
+          fi
+          echo "Looking for Vercel deployment of commit $SHA ..."
+          for i in $(seq 1 60); do
+            RESP=$(curl -fsS "https://api.vercel.com/v6/deployments?app=furqan&target=production&limit=10" \
+              -H "Authorization: Bearer $VERCEL_TOKEN")
+            STATE=$(echo "$RESP" | jq -r --arg sha "$SHA" \
+              '[.deployments[] | select(.meta.githubCommitSha == $sha)][0].state // "PENDING"')
+            echo "[$i/60] deployment state: $STATE"
+            case "$STATE" in
+              READY)
+                echo "Deployment READY."
+                exit 0 ;;
+              ERROR|CANCELED)
+                echo "::error::Vercel deployment for $SHA ended in state $STATE"
+                exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "::error::Timed out waiting for Vercel deployment of $SHA (10 min)"
+          exit 1
+
+  rollback:
+    name: Roll back (promote previous deployment)
+    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.deployment_url != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Promote previous deployment to production
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPLOYMENT_URL: ${{ github.event.inputs.deployment_url }}
+        run: |
+          set -euo pipefail
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::VERCEL_TOKEN not set — cannot roll back."
+            exit 1
+          fi
+          npm install --global vercel@latest
+          echo "Promoting $DEPLOYMENT_URL to production..."
+          vercel promote "$DEPLOYMENT_URL" --token "$VERCEL_TOKEN" --scope drdeebtech --yes
+
+  # Post-deploy health gate: fail the run (instead of reporting a false
+  # success) if production isn't actually serving. Runs after a normal
+  # verify AND after a rollback.
+  health-gate:
+    name: Production health gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [await-vercel, rollback]
+    if: >-
+      ${{ always() &&
+          (needs.await-vercel.result == 'success' || needs.rollback.result == 'success') }}
+    steps:
+      - name: Verify furqan.today is serving
+        run: |
+          set -euo pipefail
+          echo "Verifying production is serving..."
+          for i in $(seq 1 20); do
+            if curl -fsS -o /dev/null --max-time 10 https://www.furqan.today/; then
+              echo "Production healthy."
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::Health gate FAILED: https://www.furqan.today/ not serving after 60s"
+          exit 1
