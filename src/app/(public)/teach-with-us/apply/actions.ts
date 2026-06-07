@@ -2,6 +2,7 @@
 
 import { randomBytes } from "node:crypto";
 import { headers } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { checkBotId } from "botid/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -13,7 +14,7 @@ import { notifyNewTeacherApplication } from "@/lib/whatsapp";
 import { logError } from "@/lib/logger";
 import { loudAction } from "@/lib/actions/loud";
 import type { CvStatus } from "@/types/database";
-import type { TableUpdate } from "@/lib/supabase/typed-helpers";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
 const MAX_APPLICATIONS_PER_HOUR = 3;
 const VALID_LANGUAGES = new Set(["ar", "en", "ur", "fr", "tr", "id", "ms"]);
@@ -263,7 +264,7 @@ const submitTeacherApplicationBase = loudAction<ApplyInput, { message: string }>
         // The trigger stub sets is_accepting=true; an unreviewed applicant must
         // not be bookable until an admin approves the CV.
         is_accepting: false,
-      },
+      } satisfies TableInsert<"teacher_profiles">,
       { onConflict: "teacher_id" },
     );
     if (tpError) {
@@ -271,6 +272,11 @@ const submitTeacherApplicationBase = loudAction<ApplyInput, { message: string }>
         cause: tpError,
       });
     }
+
+    // The new pending application must show up in the admin review queue
+    // without waiting for cache expiry (coding guideline: revalidate after
+    // every mutation).
+    revalidatePath("/admin/teachers");
 
     let magicLink: string | null = null;
     try {
