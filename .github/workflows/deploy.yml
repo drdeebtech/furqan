@@ -39,6 +39,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0        # full history so gitleaks can scan all commits
+          persist-credentials: false  # gitleaks only reads; no token in .git/config
       - name: Install gitleaks
         run: |
           GITLEAKS_VERSION=8.30.1
@@ -67,10 +68,12 @@ jobs:
           fi
           echo "Looking for Vercel deployment of commit $SHA ..."
           for i in $(seq 1 60); do
-            RESP=$(curl -fsS "https://api.vercel.com/v6/deployments?app=furqan&target=production&limit=10" \
+            # Server-side filter by commit SHA (meta-* query params) — paging a
+            # limit=10 window and matching client-side can miss the deployment
+            # entirely when pushes land close together.
+            RESP=$(curl -fsS "https://api.vercel.com/v6/deployments?app=furqan&target=production&meta-githubCommitSha=${SHA}&limit=1" \
               -H "Authorization: Bearer $VERCEL_TOKEN")
-            STATE=$(echo "$RESP" | jq -r --arg sha "$SHA" \
-              '[.deployments[] | select(.meta.githubCommitSha == $sha)][0].state // "PENDING"')
+            STATE=$(echo "$RESP" | jq -r '.deployments[0].state // "PENDING"')
             echo "[$i/60] deployment state: $STATE"
             case "$STATE" in
               READY)
@@ -101,7 +104,24 @@ jobs:
             echo "::error::VERCEL_TOKEN not set — cannot roll back."
             exit 1
           fi
-          npm install --global vercel@latest
+          # Pinned CLI: rollback behavior must be deterministic during incidents.
+          npm install --global vercel@54.9.1
+
+          # Preflight: only promote a deployment that is (a) this project and
+          # (b) a production deployment. Promoting a *preview* URL triggers a
+          # full rebuild — a new deploy, not a rollback.
+          HOST="${DEPLOYMENT_URL#https://}"; HOST="${HOST%%/*}"
+          INFO=$(curl -fsS "https://api.vercel.com/v13/deployments/${HOST}" \
+            -H "Authorization: Bearer $VERCEL_TOKEN")
+          NAME=$(echo "$INFO" | jq -r '.name // empty')
+          TARGET=$(echo "$INFO" | jq -r '.target // empty')
+          STATE=$(echo "$INFO" | jq -r '.readyState // .state // empty')
+          echo "Candidate: name=$NAME target=$TARGET state=$STATE"
+          if [ "$NAME" != "furqan" ] || [ "$TARGET" != "production" ] || [ "$STATE" != "READY" ]; then
+            echo "::error::$DEPLOYMENT_URL is not a READY production deployment of furqan (name=$NAME target=$TARGET state=$STATE) — refusing to promote."
+            exit 1
+          fi
+
           echo "Promoting $DEPLOYMENT_URL to production..."
           vercel promote "$DEPLOYMENT_URL" --token "$VERCEL_TOKEN" --scope drdeebtech --yes
 
