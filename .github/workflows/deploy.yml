@@ -71,7 +71,9 @@ jobs:
             # Server-side filter by commit SHA (meta-* query params) — paging a
             # limit=10 window and matching client-side can miss the deployment
             # entirely when pushes land close together.
-            RESP=$(curl -fsS "https://api.vercel.com/v6/deployments?app=furqan&target=production&meta-githubCommitSha=${SHA}&limit=1" \
+            # slug= scopes the query to the team — without it the API lists the
+            # token's personal scope and never finds team-project deployments.
+            RESP=$(curl -fsS "https://api.vercel.com/v6/deployments?app=furqan&target=production&meta-githubCommitSha=${SHA}&limit=1&slug=drdeebtechs-projects" \
               -H "Authorization: Bearer $VERCEL_TOKEN")
             STATE=$(echo "$RESP" | jq -r '.deployments[0].state // "PENDING"')
             echo "[$i/60] deployment state: $STATE"
@@ -111,7 +113,7 @@ jobs:
           # (b) a production deployment. Promoting a *preview* URL triggers a
           # full rebuild — a new deploy, not a rollback.
           HOST="${DEPLOYMENT_URL#https://}"; HOST="${HOST%%/*}"
-          INFO=$(curl -fsS "https://api.vercel.com/v13/deployments/${HOST}" \
+          INFO=$(curl -fsS "https://api.vercel.com/v13/deployments/${HOST}?slug=drdeebtechs-projects" \
             -H "Authorization: Bearer $VERCEL_TOKEN")
           NAME=$(echo "$INFO" | jq -r '.name // empty')
           TARGET=$(echo "$INFO" | jq -r '.target // empty')
