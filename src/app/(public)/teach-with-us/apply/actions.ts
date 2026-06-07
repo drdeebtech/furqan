@@ -2,6 +2,7 @@
 
 import { randomBytes } from "node:crypto";
 import { headers } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { checkBotId } from "botid/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -13,7 +14,7 @@ import { notifyNewTeacherApplication } from "@/lib/whatsapp";
 import { logError } from "@/lib/logger";
 import { loudAction } from "@/lib/actions/loud";
 import type { CvStatus } from "@/types/database";
-import type { TableUpdate } from "@/lib/supabase/typed-helpers";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
 const MAX_APPLICATIONS_PER_HOUR = 3;
 const VALID_LANGUAGES = new Set(["ar", "en", "ur", "fr", "tr", "id", "ms"]);
@@ -238,23 +239,44 @@ const submitTeacherApplicationBase = loudAction<ApplyInput, { message: string }>
     const cv_status: CvStatus = "pending_review";
     // bio_en exists in TS types but not in the live Postgres schema — sending it
     // makes the insert fail. Single bio field; admin can localise later if needed.
-    const { error: tpError } = await adminClient.from("teacher_profiles").insert({
-      teacher_id: teacherId,
-      bio: input.bio,
-      specialties: input.specialties,
-      recitation_standards: input.recitation_standards,
-      languages: input.languages,
-      hourly_rate: 20,
-      gender: (input.gender || null) as "male" | "female" | null,
-      intro_video_url: input.intro_video_url || null,
-      cv_status,
-      cv_submitted_at: new Date().toISOString(),
-    });
+    //
+    // UPSERT, not INSERT: the `t_ensure_teacher_profile` trigger (migration
+    // 20260428095637) fires on the `profiles.role = 'teacher'` update above and
+    // auto-creates a stub row (bio NULL, cv_status='approved', is_accepting=true)
+    // before this write runs. A plain insert then dies on duplicate-key, the
+    // applicant sees "فشل حفظ بيانات المعلم", their bio/specialties are lost —
+    // AND they're left auto-approved with an empty profile. The upsert overwrites
+    // the stub with the real application data and resets the review state.
+    // (Found by E2E 2026-06-07; the trigger is correct for admin-created
+    // teachers, so it stays — this writer adapts.)
+    const { error: tpError } = await adminClient.from("teacher_profiles").upsert(
+      {
+        teacher_id: teacherId,
+        bio: input.bio,
+        specialties: input.specialties,
+        recitation_standards: input.recitation_standards,
+        languages: input.languages,
+        hourly_rate: 20,
+        gender: (input.gender || null) as "male" | "female" | null,
+        intro_video_url: input.intro_video_url || null,
+        cv_status,
+        cv_submitted_at: new Date().toISOString(),
+        // The trigger stub sets is_accepting=true; an unreviewed applicant must
+        // not be bookable until an admin approves the CV.
+        is_accepting: false,
+      } satisfies TableInsert<"teacher_profiles">,
+      { onConflict: "teacher_id" },
+    );
     if (tpError) {
       throw new UserError("تم إنشاء الحساب لكن فشل حفظ بيانات المعلم — راسل الدعم", {
         cause: tpError,
       });
     }
+
+    // The new pending application must show up in the admin review queue
+    // without waiting for cache expiry (coding guideline: revalidate after
+    // every mutation).
+    revalidatePath("/admin/teachers");
 
     let magicLink: string | null = null;
     try {

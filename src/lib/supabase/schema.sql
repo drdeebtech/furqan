@@ -99,7 +99,7 @@ CREATE TABLE teacher_profiles (
   bio                   text,
   specialties           text[]        NOT NULL DEFAULT '{}',
   recitation_standards  text[]        NOT NULL DEFAULT '{hafs}'
-                                      CHECK (recitation_standards <@ ARRAY['hafs','warsh','qalon','al_duri','shu_ba']),
+                                      CHECK (recitation_standards <@ ARRAY['hafs','shu_ba','warsh','qalon','al_duri','al_duri_basri','al_susi','hisham','ibn_dhakwan','al_bazzi','qunbul','khalaf_hamzah','khallad']),
   languages             text[]        NOT NULL DEFAULT '{ar}',
   hourly_rate           numeric(10,2) NOT NULL CHECK (hourly_rate BETWEEN 1 AND 500),
   gender                gender_type,
