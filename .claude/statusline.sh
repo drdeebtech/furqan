@@ -1,5 +1,5 @@
 #!/bin/bash
-# Status line for Claude Code — model, git branch, token usage
+# Status line for Claude Code — model, git branch, token usage, ruflo
 
 set -o pipefail
 
@@ -64,11 +64,60 @@ LINE1=""
 LINE1="${LINE1}${DISPLAY_DIR} · ctx: ${TOKEN_DISPLAY}"
 [ -n "$MODEL_NAME" ] || LINE1="ctx: ${TOKEN_DISPLAY}"
 
-# Line 2: branch + deebgrind context
+# Ruflo status (fast — reads state file directly, no subprocess)
+RUFLO_DISPLAY=""
+RUFLO_STATE="${GIT_ROOT}/.claude-flow/daemon-state.json"
+if [ -f "$RUFLO_STATE" ] && command -v python3 >/dev/null 2>&1; then
+    RUFLO_DISPLAY=$(python3 - "$RUFLO_STATE" 2>/dev/null <<'PYEOF'
+import json, sys, time
+try:
+    with open(sys.argv[1]) as f:
+        d = json.load(f)
+    running = d.get('running', False)
+    workers = d.get('workers', {})
+    active_names = [n for n, w in workers.items() if w.get('isRunning')]
+    total_runs = sum(w.get('runCount', 0) for w in workers.values())
+    dot = '\033[32m●\033[0m' if running else '\033[31m○\033[0m'
+    # Last completed worker + elapsed
+    last_run_ago = ''
+    last_ts = 0
+    last_name = ''
+    for n, w in workers.items():
+        ts_str = w.get('lastRun', '')
+        if ts_str:
+            try:
+                ts = time.mktime(time.strptime(ts_str[:19], '%Y-%m-%dT%H:%M:%S'))
+                if ts > last_ts:
+                    last_ts = ts
+                    last_name = n
+            except Exception:
+                pass
+    if last_ts:
+        ago = int(time.time() - last_ts)
+        if ago < 60:
+            last_run_ago = f'{ago}s'
+        else:
+            last_run_ago = f'{ago//60}m'
+    parts = [f'ruflo {dot}']
+    if active_names:
+        parts.append('\033[33m' + '+'.join(active_names) + '\033[0m')
+    else:
+        parts.append(f'{total_runs}r')
+    if last_name and last_run_ago:
+        parts.append(f'\033[36m{last_name} {last_run_ago} ago\033[0m')
+    print(' '.join(parts))
+except Exception:
+    pass
+PYEOF
+)
+fi
+
+# Line 2: branch + deebgrind context + ruflo
 LINE2=""
 if [ -n "$BRANCH" ]; then
     LINE2="${GREEN}${BRANCH}${DIRTY}${RESET}${REQ_CONTEXT}"
 fi
+[ -n "$RUFLO_DISPLAY" ] && LINE2="${LINE2:+${LINE2} · }${RUFLO_DISPLAY}"
 
 echo -e "$LINE1"
 [ -n "$LINE2" ] && echo -e "$LINE2"

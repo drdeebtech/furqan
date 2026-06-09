@@ -93,6 +93,27 @@ supabase/.temp/
 .claude/skills/
 skills-lock.json
 
+# ruflo / claude-flow init artifacts (machine-local tooling, not project code)
+.claude/agents/
+.claude/commands/agents/
+.claude/commands/analysis/
+.claude/commands/coordination/
+.claude/commands/github/
+.claude/commands/hive-mind/
+.claude/commands/hooks/
+.claude/commands/memory/
+.claude/commands/monitoring/
+.claude/commands/optimization/
+.claude/commands/pair/
+.claude/commands/sparc/
+.claude/commands/stream-chain/
+.claude/commands/swarm/
+.claude/commands/training/
+.claude/commands/truth/
+.claude/commands/verify/
+.claude/commands/workflows/
+.claude/commands/claude-flow-*.md
+
 # Internal n8n automation ops (removed for public repo; keep the nightly
 # n8n-export from re-publishing workflow JSON / runbooks to this public repo)
 automation/
