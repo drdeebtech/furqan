@@ -100,6 +100,9 @@ export default async function AdminDashboardPage() {
   ]);
 
   const teacherList = teachersRes.data ?? [];
+  // Safe lower bound: if teacherCountRes times out (withTimeout → { count: 0 }),
+  // don't show "0 teachers" while the table still renders rows.
+  const teacherCount = Math.max(teacherCountRes.count ?? 0, teacherList.length);
   const pendingBookings = pendingListRes.data ?? [];
   const todayBookings = todayBookingsRes.data ?? [];
 
@@ -122,7 +125,7 @@ export default async function AdminDashboardPage() {
     <AdminDashboardContent
       data={{
         studentCount: studentsRes.count ?? 0,
-        teacherCount: teacherCountRes.count ?? 0,
+        teacherCount,
         teacherList,
         bookingsMonth: bookingsMonthRes.count ?? 0,
         revenueMonth: (revenueMonthRes.data ?? []).reduce((sum, b) => sum + Number(b.amount_usd), 0),
