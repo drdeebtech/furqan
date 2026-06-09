@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import type {
   BookingStatus,
@@ -95,7 +96,13 @@ interface PaymentRow {
 }
 
 export default async function UserTimelinePage({ params }: Props) {
-  const { id } = await params;
+  const { id: rawId } = await params;
+  // The id is interpolated into PostgREST `.or()` filter strings below, where
+  // it is parsed as filter *syntax* (not a bound literal). Constrain it to a
+  // UUID at the boundary so no control characters can reach the filter parser.
+  const idParse = z.string().uuid().safeParse(rawId);
+  if (!idParse.success) redirect("/admin/users");
+  const id = idParse.data;
   const supabase = await createClient();
 
 

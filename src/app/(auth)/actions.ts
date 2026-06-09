@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
 import { withTimeout } from "@/lib/promise-utils";
+import { isSafeRelativePath } from "@/lib/security/safe-url";
 
 /**
  * Deterministically hash an email to a UUID-shaped key so it fits the
@@ -300,9 +301,10 @@ export async function login(
   // Audit the sign-in. Fire-and-forget; never blocks the redirect.
   await recordLogin(data.user.id, email, role);
 
-  // If caller provided an explicit redirect (e.g. from ?redirect=/student/bookings), use it
-  // Validate: must be a relative path (starts with /) and not protocol-relative (//)
-  if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
+  // If caller provided an explicit redirect (e.g. from ?redirect=/student/bookings), use it.
+  // Validate via the shared guard: same-origin relative path only, rejecting
+  // protocol-relative, backslash-bypass, CRLF, and traversal payloads.
+  if (isSafeRelativePath(redirectTo)) {
     redirect(redirectTo);
   }
 
@@ -379,12 +381,20 @@ export async function register(
 
     // Email already in auth.users. Supabase has changed both the code
     // and the message string over time, so accept either form.
+    //
+    // SECURITY: do NOT reveal that the email exists — a distinct "already
+    // registered" message is a user-enumeration oracle (harvest valid emails
+    // for credential stuffing / phishing). Mirror the success path byte-for-
+    // byte. Supabase still emails the existing user a security notice, so the
+    // legitimate-owner UX is preserved while the response is indistinguishable
+    // from a fresh signup. (Matches the already-safe login/forgot-password
+    // flows.)
     if (
       signupErr.code === "user_already_exists" ||
       signupErr.code === "email_exists" ||
       signupErr.message?.includes("already registered")
     ) {
-      return { error: "هذا البريد الإلكتروني مسجل بالفعل" };
+      redirect("/login?registered=true");
     }
 
     if (signupErr.code === "signup_disabled") {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Plus, Trash2, CheckCircle, Clock, ExternalLink, Save } from "lucide-react";
 import { upsertMyIjaza, deleteMyIjaza } from "./ijaza-actions";
 import { ActionFeedback } from "@/components/shared/action-feedback";
+import { safeHref } from "@/lib/security/safe-url";
 import type { LoudResult } from "@/lib/actions/loud";
 
 const input = "w-full rounded-xl glass-input px-3 py-2 text-sm focus:border-gold focus:outline-none";
@@ -96,7 +97,7 @@ function IjazaRow({ ijaza, onDone }: { ijaza: Ijaza | null; onDone?: () => void 
           </div>
           <p className="mt-2 text-xs text-muted whitespace-pre-line">{ijaza.chain_text}</p>
           {ijaza.document_url && (
-            <Link href={ijaza.document_url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs text-gold hover:text-gold-light">
+            <Link href={safeHref(ijaza.document_url)} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs text-gold hover:text-gold-light">
               <ExternalLink size={12} aria-hidden="true" /> مستند الإجازة
             </Link>
           )}

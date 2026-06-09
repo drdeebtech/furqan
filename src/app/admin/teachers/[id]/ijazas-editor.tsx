@@ -11,6 +11,7 @@ import {
   type ActionResult,
 } from "./actions";
 import { useLang } from "@/lib/i18n/context";
+import { safeHref } from "@/lib/security/safe-url";
 
 const input =
   "w-full rounded-xl glass-input px-4 py-2.5 text-sm text-foreground focus:border-gold focus:outline-none";
@@ -164,7 +165,7 @@ function IjazaRow({
           )}
           {ijaza.document_url && (
             <a
-              href={ijaza.document_url}
+              href={safeHref(ijaza.document_url)}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-1 inline-block text-xs text-gold hover:text-gold-light"

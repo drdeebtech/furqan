@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -54,13 +55,26 @@ export async function uploadTeacherResourceAction(
   const resource_type = String(formData.get("resource_type") ?? "");
   const category =
     String(formData.get("category") ?? "general").trim() || "general";
-  const external_url_raw =
+  const external_url_input =
     String(formData.get("external_url") ?? "").trim() || null;
   const fileEntry = formData.get("file");
 
   if (!title_ar) return { error: "العنوان مطلوب" };
   if (!(VALID_TYPES as readonly string[]).includes(resource_type)) {
     return { error: "نوع غير صالح" };
+  }
+
+  // Validate the external URL scheme at the write boundary. `external_url` is
+  // later rendered into an anchor `href` shown to every student, so a
+  // `javascript:`/`data:` URI stored here would be stored XSS. Allow http(s)
+  // only.
+  let external_url_raw: string | null = null;
+  if (external_url_input) {
+    const parsed = z.string().url().safeParse(external_url_input);
+    if (!parsed.success || !/^https?:\/\//i.test(parsed.data)) {
+      return { error: "رابط خارجي غير صالح — يجب أن يبدأ بـ http(s)://" };
+    }
+    external_url_raw = parsed.data;
   }
 
   let file_url: string | null = null;
