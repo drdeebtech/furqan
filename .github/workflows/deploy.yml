@@ -73,8 +73,20 @@ jobs:
             # entirely when pushes land close together.
             # slug= scopes the query to the team — without it the API lists the
             # token's personal scope and never finds team-project deployments.
-            RESP=$(curl -fsS "https://api.vercel.com/v6/deployments?app=furqan&target=production&meta-githubCommitSha=${SHA}&limit=1&slug=drdeebtechs-projects" \
+            # Use -w to capture HTTP status separately; -f would abort on 403
+            # before we can log a useful message.
+            HTTP_CODE=$(curl -sSo /tmp/vercel_resp.json -w "%{http_code}" \
+              "https://api.vercel.com/v6/deployments?app=furqan&target=production&meta-githubCommitSha=${SHA}&limit=1&slug=drdeebtechs-projects" \
               -H "Authorization: Bearer $VERCEL_TOKEN")
+            if [ "$HTTP_CODE" = "403" ]; then
+              echo "::warning::Vercel API returned 403 — token may lack team-scope read access. Skipping deployment wait; health-gate is the production gate."
+              exit 0
+            fi
+            if [ "$HTTP_CODE" != "200" ]; then
+              echo "::warning::Vercel API returned HTTP $HTTP_CODE — skipping check. health-gate will verify production."
+              exit 0
+            fi
+            RESP=$(cat /tmp/vercel_resp.json)
             STATE=$(echo "$RESP" | jq -r '.deployments[0].state // "PENDING"')
             echo "[$i/60] deployment state: $STATE"
             case "$STATE" in
@@ -113,8 +125,14 @@ jobs:
           # (b) a production deployment. Promoting a *preview* URL triggers a
           # full rebuild — a new deploy, not a rollback.
           HOST="${DEPLOYMENT_URL#https://}"; HOST="${HOST%%/*}"
-          INFO=$(curl -fsS "https://api.vercel.com/v13/deployments/${HOST}?slug=drdeebtechs-projects" \
+          HTTP_CODE=$(curl -sSo /tmp/vercel_info.json -w "%{http_code}" \
+            "https://api.vercel.com/v13/deployments/${HOST}?slug=drdeebtechs-projects" \
             -H "Authorization: Bearer $VERCEL_TOKEN")
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Vercel API returned HTTP $HTTP_CODE when looking up $DEPLOYMENT_URL — cannot verify this is a READY production deployment."
+            exit 1
+          fi
+          INFO=$(cat /tmp/vercel_info.json)
           NAME=$(echo "$INFO" | jq -r '.name // empty')
           TARGET=$(echo "$INFO" | jq -r '.target // empty')
           STATE=$(echo "$INFO" | jq -r '.readyState // .state // empty')
