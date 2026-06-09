@@ -20,6 +20,8 @@ export async function toggleArchiveTeacher(
   teacherId: string,
   archive: boolean,
 ) {
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!UUID_REGEX.test(teacherId)) return { error: "بيانات غير صالحة" };
   let actorId: string;
   try {
     ({ id: actorId } = await requireAdmin());

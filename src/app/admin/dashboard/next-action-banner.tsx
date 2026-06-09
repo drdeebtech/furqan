@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSyncExternalStore, useEffect, useState } from "react";
+import { useSyncExternalStore, useState } from "react";
 import {
   ArrowLeft, ArrowRight, AlertTriangle, ClipboardCheck, Radio, Users, X, XCircle,
 } from "lucide-react";
@@ -15,6 +15,7 @@ interface AdminNextActionData {
 }
 
 const DISMISS_KEY = "furqan-admin-banner-dismissed-key";
+const PENDING_BACKLOG_THRESHOLD = 5;
 
 /**
  * Admin operator banner. Priority cascade is signal-driven (not narrative).
@@ -34,18 +35,11 @@ export function AdminNextActionBanner({ data }: { data: AdminNextActionData }) {
   const [localDismissal, setLocalDismissal] = useState<string | null>(null);
   const dismissedKey = localDismissal ?? storedDismissal;
 
-  // Tick to keep the imminent-flag fresh.
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const id = window.setInterval(() => setTick(t => t + 1), 60_000);
-    return () => window.clearInterval(id);
-  }, []);
-
   const state = ((): AdminBannerState => {
     if (data.activeSessionCount > 0) {
       return { kind: "active-sessions", key: `live:${data.activeSessionCount}`, count: data.activeSessionCount };
     }
-    if (data.pendingCount >= 5) {
+    if (data.pendingCount >= PENDING_BACKLOG_THRESHOLD) {
       return { kind: "pending-backlog", key: `pending:${data.pendingCount}`, count: data.pendingCount };
     }
     if (data.pendingCount > 0) {

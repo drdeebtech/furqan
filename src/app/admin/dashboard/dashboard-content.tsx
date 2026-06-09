@@ -24,10 +24,7 @@ import { StatusPill } from "@/components/shared/status-pill";
 import { ArchiveToggle } from "./archive-toggle";
 import { AdminWelcomeHeader } from "./welcome-header";
 import { AdminNextActionBanner } from "./next-action-banner";
-
-interface TeacherRow { teacher_id: string; hourly_rate: number; rating_avg: number; total_sessions: number; is_accepting: boolean; is_archived: boolean }
-interface PendingBookingRow { id: string; student_id: string; teacher_id: string; scheduled_at: string; session_type: string; created_at: string }
-interface TodayBookingRow { id: string; student_id: string; teacher_id: string; scheduled_at: string; session_type: string; status: string; duration_min: number }
+import type { TeacherRow, PendingBookingRow, TodayBookingRow } from "./types";
 
 interface AdminDashboardData {
   studentCount: number;
@@ -67,8 +64,8 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
   const weekday = now.toLocaleDateString(locale, { weekday: "long" });
   const router = useRouter();
 
-  const alertCount = (pendingCount > 0 ? 1 : 0) + (newStudentCount > 0 ? 1 : 0);
-  const pendingPreview = useMemo(() => pendingBookings.slice(0, 3).map(b => ({
+  const alertCount = (activeSessionCount > 0 ? 1 : 0) + (pendingCount > 0 ? 1 : 0) + (newStudentCount > 0 ? 1 : 0);
+  const pendingPreview = useMemo(() => pendingBookings.slice(0, 2).map(b => ({
     id: b.id,
     studentName: nameMap[b.student_id] ?? null,
     teacherName: nameMap[b.teacher_id] ?? null,
@@ -108,7 +105,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
   useKeyboardShortcuts(shortcuts, true);
 
   const lastRefreshLabel = new Date(renderedAtMs).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
-  const refresh = () => window.location.reload();
+  const refresh = () => router.refresh();
 
   return (
     <>
@@ -303,7 +300,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
                       {teacherList.map(teacher => (
                         <tr key={teacher.teacher_id} className={teacher.is_archived ? "opacity-60" : ""}>
                           <td className="py-3">
-                            <Link href={`/admin/users/${teacher.teacher_id}`} className="font-medium hover:text-gold focus-ring">
+                            <Link href={`/admin/teachers/${teacher.teacher_id}`} className="font-medium hover:text-gold focus-ring">
                               {nameMap[teacher.teacher_id] ?? t("معلم", "Teacher")}
                             </Link>
                           </td>
