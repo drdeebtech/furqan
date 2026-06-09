@@ -150,7 +150,7 @@ export async function studentDashboardView(
     supabase.from("bookings")
       .select("id, teacher_id, scheduled_at, duration_min, session_type, status")
       .eq("student_id", studentId).eq("status", "confirmed")
-      .gt("scheduled_at", new Date().toISOString())
+      .gt("scheduled_at", opts.now.toISOString())
       .order("scheduled_at", { ascending: true }).limit(1)
       .returns<{ id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: SessionType }[]>(),
     totalQScoped,
@@ -164,16 +164,16 @@ export async function studentDashboardView(
   // surfaces even when only one of the loads broke.
   const profileLoad = loadOrFail(profileRes, { full_name: null }, { route: ROUTE, widget: "profile" });
   const nextBookingLoad = loadOrFail(nextBookingRes, [], { route: ROUTE, widget: "next-booking" });
-  const totalLoad = loadOrFail(totalRes, null, { route: ROUTE, widget: "total-sessions" });
-  const monthLoad = loadOrFail(monthRes, null, { route: ROUTE, widget: "month-sessions" });
-  const pendingLoad = loadOrFail(pendingRes, null, { route: ROUTE, widget: "pending-bookings" });
+  const totalLoad = countOrFail(totalRes, { route: ROUTE, widget: "total-sessions" });
+  const monthLoad = countOrFail(monthRes, { route: ROUTE, widget: "month-sessions" });
+  const pendingLoad = countOrFail(pendingRes, { route: ROUTE, widget: "pending-bookings" });
   let anyFailed = profileLoad.failed || nextBookingLoad.failed || totalLoad.failed || monthLoad.failed || pendingLoad.failed;
 
   const fullName = profileLoad.data?.full_name ?? null;
   const nextBooking = nextBookingLoad.data[0] ?? null;
-  const totalSessions = totalRes.count ?? 0;
-  const monthSessions = monthRes.count ?? 0;
-  const pendingBookings = pendingRes.count ?? 0;
+  const totalSessions = totalLoad.count;
+  const monthSessions = monthLoad.count;
+  const pendingBookings = pendingLoad.count;
 
   // New students with no activity → page guides them to the teachers screen.
   const isNewStudent = !anyFailed && totalSessions === 0 && pendingBookings === 0 && !nextBooking;

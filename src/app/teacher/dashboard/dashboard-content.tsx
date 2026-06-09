@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Calendar, Clock, Hourglass, Keyboard, RefreshCw, Star, Users, type LucideIcon } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/components/shared/toast";
@@ -23,9 +24,8 @@ import { TeacherActionQueue } from "./action-queue";
 import { TeacherWelcomeHeader } from "./welcome-header";
 import { TeacherNextActionBanner } from "./next-action-banner";
 
-interface SessionData { id: string; room_url: string; expires_at: string | null; started_at: string | null; ended_at: string | null }
 import type { SessionType } from "@/types/database";
-interface PendingBooking { id: string; scheduled_at: string; duration_min: number; session_type: SessionType; amount_usd: number; student_id: string }
+import type { PendingBooking, SessionData } from "./types";
 
 interface TeacherDashboardData {
   fullName: string | null;
@@ -139,9 +139,10 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
   ], [imminentSession, pending.length, toast, t, setHelpOpen]);
   useKeyboardShortcuts(shortcuts, true);
 
+  const router = useRouter();
   const [lastRefreshAt] = useState(() => new Date());
   const lastRefreshLabel = lastRefreshAt.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
-  const refresh = () => window.location.reload();
+  const refresh = () => router.refresh();
 
   const st = (type: string) => {
     const s = SESSION_TYPE_BILINGUAL[type as SessionType];

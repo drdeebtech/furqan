@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Suspense, useEffect, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Calendar, CheckCircle, Clock, Briefcase, Eye, Keyboard, RefreshCw, Sparkles } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/components/shared/toast";
@@ -69,6 +69,7 @@ export function StudentDashboardContent({ data }: { data: DashboardData }) {
 }
 
 function StudentDashboardContentInner({ data }: { data: DashboardData }) {
+  const router = useRouter();
   const { t, dir, lang } = useLang();
   const toast = useToast();
   const searchParams = useSearchParams();
@@ -97,7 +98,7 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
   // first start, then snaps fresh on visibility-resume.
   const now = useNowTicker(60_000, renderedAtMs).getTime();
 
-  const refresh = () => window.location.reload();
+  const refresh = () => router.refresh();
 
   // Countdown to next session (used by KPI 4).
   const minsUntilNext = nextBooking
