@@ -177,4 +177,4 @@ Key routing rules:
 
 ## PR Babysitting Rule (NON-NEGOTIABLE)
 
-After creating or pushing ANY PR (via /ship, /land-and-deploy, `gh pr create`, or `git push`), always offer to start `/loop` to babysit it until it merges. The loop should monitor: CI status, review comments, merge conflicts, and required approvals. Offer with a one-liner like: "Want me to `/loop` to babysit this PR until it merges?"
+After creating or pushing ANY PR (via /ship, /land-and-deploy, `gh pr create`, or `git push`), **immediately and automatically** start `/loop` to babysit it until it merges — do NOT ask first. The loop must monitor: CI status, review comments, merge conflicts, and required approvals. Report any issue that needs attention.
