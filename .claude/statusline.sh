@@ -64,7 +64,7 @@ LINE1=""
 LINE1="${LINE1}${DISPLAY_DIR} · ctx: ${TOKEN_DISPLAY}"
 [ -n "$MODEL_NAME" ] || LINE1="ctx: ${TOKEN_DISPLAY}"
 
-# Ruflo status (fast — reads state file directly, no subprocess)
+# Ruflo status (fast — reads state file directly, no daemon query)
 RUFLO_DISPLAY=""
 RUFLO_STATE="${GIT_ROOT}/.claude-flow/daemon-state.json"
 if [ -f "$RUFLO_STATE" ] && command -v python3 >/dev/null 2>&1; then
@@ -96,8 +96,12 @@ try:
         ago = int(time.time() - last_ts)
         if ago < 60:
             last_run_ago = f'{ago}s'
-        else:
+        elif ago < 3600:
             last_run_ago = f'{ago//60}m'
+        elif ago < 86400:
+            last_run_ago = f'{ago//3600}h'
+        else:
+            last_run_ago = f'{ago//86400}d'
     parts = [f'ruflo {dot}']
     if active_names:
         parts.append('\033[33m' + '+'.join(active_names) + '\033[0m')
