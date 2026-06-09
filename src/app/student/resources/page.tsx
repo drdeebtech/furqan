@@ -4,6 +4,7 @@ import { FileText, Headphones, Link2, Video, Image as ImageIcon, ExternalLink, D
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { isFeatureEnabled } from "@/lib/settings";
+import { safeHref } from "@/lib/security/safe-url";
 
 export const metadata: Metadata = { title: "المصادر" };
 
@@ -117,7 +118,10 @@ export default async function StudentResourcesPage({ searchParams }: PageProps) 
             const Icon = TYPE_ICON[r.resource_type] ?? FileText;
             const title = lang === "ar" ? r.title_ar : (r.title_en ?? r.title_ar);
             const desc = lang === "ar" ? r.description_ar : (r.description_en ?? r.description_ar);
-            const href = r.external_url || r.file_url || "#";
+            // Render-time backstop against javascript:/data: URIs in stored
+            // links (defense-in-depth on top of boundary validation). `||`
+            // preserves the legacy fallback for empty-string external_url rows.
+            const href = safeHref(r.external_url || r.file_url || null);
             const isExternal = Boolean(r.external_url);
             return (
               <a

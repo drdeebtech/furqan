@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
@@ -85,6 +86,21 @@ export async function upsertMyIjaza(
   if (!riwaya) return { ok: false, error: "الرواية مطلوبة" };
   if (!chain_text) return { ok: false, error: "سند الإجازة مطلوب" };
 
+  // document_url is later rendered into an anchor href on the teacher CV and
+  // the admin review page — validate the scheme at the boundary so a
+  // `javascript:`/`data:` URI can't be stored as XSS that fires in an admin's
+  // session when they review the application.
+  const document_url = str(formData, "document_url");
+  if (document_url) {
+    const parsed = z.string().url().safeParse(document_url);
+    if (!parsed.success || !/^https?:\/\//i.test(parsed.data)) {
+      return {
+        ok: false,
+        error: "رابط المستند غير صالح — يجب أن يبدأ بـ http(s)://",
+      };
+    }
+  }
+
   return upsertMyIjazaBase({
     teacherId: user.id,
     id: str(formData, "id"),
@@ -92,7 +108,7 @@ export async function upsertMyIjaza(
     chain_text,
     granted_by: str(formData, "granted_by"),
     granted_at: str(formData, "granted_at"),
-    document_url: str(formData, "document_url"),
+    document_url,
   });
 }
 

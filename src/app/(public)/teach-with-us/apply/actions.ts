@@ -13,6 +13,7 @@ import { notify } from "@/lib/notifications/dispatcher";
 import { notifyNewTeacherApplication } from "@/lib/whatsapp";
 import { logError } from "@/lib/logger";
 import { loudAction } from "@/lib/actions/loud";
+import { escapeHtml } from "@/lib/security/sanitize";
 import type { CvStatus } from "@/types/database";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
@@ -340,7 +341,7 @@ const submitTeacherApplicationBase = loudAction<ApplyInput, { message: string }>
           );
           sendTelegramAlert(
             `⚠️ <b>Teacher application received but NO admin recipients found</b>\n\n` +
-              `<b>Applicant:</b> ${input.full_name}\n<b>Email:</b> ${input.email}\n` +
+              `<b>Applicant:</b> ${escapeHtml(input.full_name)}\n<b>Email:</b> ${escapeHtml(input.email)}\n` +
               `Investigate: <code>profiles WHERE 'admin' = ANY(roles)</code> returned 0 rows.`,
           ).catch((err) =>
             logError("teach-apply zero-admin telegram fallback failed", err, { tag: "teach-apply" }),
@@ -378,11 +379,11 @@ const submitTeacherApplicationBase = loudAction<ApplyInput, { message: string }>
       // 3. Telegram alert
       sendTelegramAlert(
         `🆕 <b>New teacher application</b>\n\n` +
-          `<b>Name:</b> ${input.full_name}\n` +
-          `<b>Country:</b> ${input.country}\n` +
-          `<b>Email:</b> ${input.email}\n` +
-          `<b>Phone:</b> ${input.phone}\n` +
-          `<b>Specialties:</b> ${input.specialties.join(", ")}\n\n` +
+          `<b>Name:</b> ${escapeHtml(input.full_name)}\n` +
+          `<b>Country:</b> ${escapeHtml(input.country)}\n` +
+          `<b>Email:</b> ${escapeHtml(input.email)}\n` +
+          `<b>Phone:</b> ${escapeHtml(input.phone)}\n` +
+          `<b>Specialties:</b> ${escapeHtml(input.specialties.join(", "))}\n\n` +
           `<a href="https://www.furqan.today/admin/teachers/cv/${teacherId}">Review →</a>`,
       ).catch((err) => logError("teach-apply telegram failed", err, { tag: "teach-apply" })),
 

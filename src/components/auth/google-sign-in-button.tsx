@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useLang } from "@/lib/i18n/context";
+import { isSafeRelativePath } from "@/lib/security/safe-url";
 
 type Props = {
   next?: string;
@@ -19,10 +20,9 @@ export function GoogleSignInButton({ next }: Props) {
     setError(null);
 
     const callback = `${window.location.origin}/api/auth/callback/google`;
-    const redirectTo =
-      next && next.startsWith("/") && !next.startsWith("//")
-        ? `${callback}?next=${encodeURIComponent(next)}`
-        : callback;
+    const redirectTo = isSafeRelativePath(next)
+      ? `${callback}?next=${encodeURIComponent(next)}`
+      : callback;
 
     const supabase = createClient();
     const { error: oauthError } = await supabase.auth.signInWithOAuth({

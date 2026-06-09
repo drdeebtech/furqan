@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
+import { isSafeRelativePath } from "@/lib/security/safe-url";
 
 /**
  * Google OAuth callback handler.
@@ -52,8 +53,9 @@ export async function GET(request: NextRequest) {
     }
 
     // If the initiating page requested a specific redirect, honour it —
-    // but only for safe relative paths (guards against open-redirect attacks).
-    if (next && next.startsWith("/") && !next.startsWith("//")) {
+    // but only for safe relative paths (guards against open-redirect attacks,
+    // including the `/\evil.com` backslash bypass).
+    if (isSafeRelativePath(next)) {
       return NextResponse.redirect(`${origin}${next}`);
     }
 

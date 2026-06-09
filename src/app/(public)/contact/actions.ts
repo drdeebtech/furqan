@@ -1,10 +1,31 @@
 "use server";
 
+import { z } from "zod";
 import { checkBotId } from "botid/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendContactNotification } from "@/lib/email";
 import { notifyNewContact } from "@/lib/whatsapp";
 import { logError } from "@/lib/logger";
+
+// Boundary schema for the public, unauthenticated contact form. Length caps
+// prevent multi-MB `message` blobs being stored at scale (write-amplification
+// / storage DoS), and the email check keeps malformed addresses out of the
+// reply pipeline. Optional fields accept "" so empty inputs normalize to null.
+const optionalText = (max: number) =>
+  z.string().trim().max(max).optional().or(z.literal(""));
+
+const contactSchema = z.object({
+  full_name: z.string().trim().min(2, "الاسم مطلوب").max(120),
+  email: z.string().trim().toLowerCase().email("بريد إلكتروني غير صالح").max(254),
+  whatsapp: optionalText(40),
+  country: optionalText(80),
+  student_age: optionalText(20),
+  package: optionalText(80),
+  message: optionalText(4000),
+});
+
+const nullify = (v: string | undefined): string | null =>
+  v && v.length > 0 ? v : null;
 
 export async function submitContactForm(
   _prev: { success?: boolean; error?: string },
@@ -17,17 +38,18 @@ export async function submitContactForm(
     return { error: "تعذر التحقق من الطلب — حاول مرة أخرى" };
   }
 
-  const fullName = formData.get("full_name") as string;
-  const email = formData.get("email") as string;
-  const whatsapp = formData.get("whatsapp") as string || null;
-  const country = formData.get("country") as string || null;
-  const studentAge = formData.get("student_age") as string || null;
-  const packageInterest = formData.get("package") as string || null;
-  const message = formData.get("message") as string || null;
-
-  if (!fullName || !email) {
-    return { error: "الاسم والبريد الإلكتروني مطلوبان" };
+  const parsed = contactSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return { error: "البيانات المُدخلة غير صالحة — تحقق من الاسم والبريد" };
   }
+
+  const fullName = parsed.data.full_name;
+  const email = parsed.data.email;
+  const whatsapp = nullify(parsed.data.whatsapp);
+  const country = nullify(parsed.data.country);
+  const studentAge = nullify(parsed.data.student_age);
+  const packageInterest = nullify(parsed.data.package);
+  const message = nullify(parsed.data.message);
 
   try {
     const supabase = createAdminClient();

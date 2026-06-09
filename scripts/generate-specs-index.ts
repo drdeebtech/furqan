@@ -13,7 +13,7 @@
 
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 // ---------------------------------------------------------------------------
 // Types — mirror specs/002-specs-index-generator/data-model.md exactly.
@@ -116,8 +116,17 @@ export type GHPullRequest = {
 
 function ghLookupRaw(branch: string): GHPullRequest | null {
   try {
-    const out = execSync(
-      `gh pr list --head ${JSON.stringify(branch)} --state all --json state,url,number,closedAt --limit 1`,
+    // execFile with array args (no shell) — `branch` can never be interpreted
+    // as a shell command, even if it contains metacharacters.
+    const out = execFileSync(
+      "gh",
+      [
+        "pr", "list",
+        "--head", branch,
+        "--state", "all",
+        "--json", "state,url,number,closedAt",
+        "--limit", "1",
+      ],
       { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" },
     );
     const arr = JSON.parse(out) as GHPullRequest[];

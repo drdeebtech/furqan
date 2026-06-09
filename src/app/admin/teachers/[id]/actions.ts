@@ -300,7 +300,18 @@ const upsertIjazaBase = loudAction<UpsertIjazaInput, { message: string }>({
     chain_text: z.string().min(1, "سند الإجازة مطلوب"),
     granted_by: z.string().nullable(),
     granted_at: z.string().nullable(),
-    document_url: z.string().nullable(),
+    // Rendered into an anchor href — restrict to http(s) so a
+    // javascript:/data: URI can't be stored as XSS. Preprocess normalizes
+    // undefined / "" / whitespace → null so the field is robust to however the
+    // caller supplies it.
+    document_url: z.preprocess(
+      (v) => (typeof v === "string" && v.trim() !== "" ? v.trim() : null),
+      z
+        .string()
+        .url()
+        .refine((u) => /^https?:\/\//i.test(u), "رابط غير صالح")
+        .nullable(),
+    ),
   }),
   audit: {
     table: "teacher_ijaza",

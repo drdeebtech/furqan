@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { logError, logWarn } from "@/lib/logger";
+import { sanitizeHeaderValue } from "@/lib/security/sanitize";
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "drdeebtech@gmail.com";
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
@@ -51,7 +52,7 @@ export async function sendAdminTeacherApplicationAlert(data: {
     await resend.emails.send({
       from: `FURQAN Academy <${FROM_EMAIL}>`,
       to: ADMIN_EMAIL,
-      subject: `🆕 طلب تدريس جديد — ${data.fullName}`,
+      subject: `🆕 طلب تدريس جديد — ${sanitizeHeaderValue(data.fullName)}`,
       html: `
         <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 640px;">
           <h2 style="color: #C8A652;">طلب تدريس جديد</h2>
@@ -197,7 +198,7 @@ export async function sendContactNotification(data: {
     await resend.emails.send({
       from: `FURQAN Academy <${FROM_EMAIL}>`,
       to: ADMIN_EMAIL,
-      subject: `📩 رسالة جديدة من ${data.fullName}`,
+      subject: `📩 رسالة جديدة من ${sanitizeHeaderValue(data.fullName)}`,
       html: `
         <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px;">
           <h2 style="color: #C8A652;">رسالة جديدة من موقع فُرقان</h2>

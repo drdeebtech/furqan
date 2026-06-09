@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
+import { isSafeRelativePath } from "@/lib/security/safe-url";
 
 export const dynamic = "force-dynamic";
 
@@ -62,9 +63,8 @@ export async function GET(request: NextRequest) {
 }
 
 function isSafeNext(path: string): boolean {
-  if (!path.startsWith("/")) return false;
-  if (path.startsWith("//")) return false;
-  if (/[\r\n\x00\\]/.test(path)) return false;
-  if (path.split("/").includes("..")) return false;
+  // Shared base guard (same-origin relative, no //, no backslash/CRLF/NUL,
+  // no `..`) plus this endpoint's stricter allowlist of permitted prefixes.
+  if (!isSafeRelativePath(path)) return false;
   return /^\/(admin|student|teacher|moderator)?(\/|$|\?)/.test(path);
 }
