@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { Suspense, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, BookOpen, Clock } from "lucide-react";
@@ -53,6 +53,20 @@ function surahLabel(
 }
 
 export function TalqeenQueue({
+  rows,
+  activeFilter,
+}: {
+  rows: TalqeenQueueRow[];
+  activeFilter: TalqeenFilter;
+}) {
+  return (
+    <Suspense fallback={null}>
+      <TalqeenQueueInner rows={rows} activeFilter={activeFilter} />
+    </Suspense>
+  );
+}
+
+function TalqeenQueueInner({
   rows,
   activeFilter,
 }: {

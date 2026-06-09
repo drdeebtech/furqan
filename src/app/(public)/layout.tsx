@@ -1,4 +1,3 @@
-import { LangProvider } from "@/lib/i18n/context";
 import { PublicNav } from "@/components/public/public-nav";
 import { PublicFooter } from "@/components/public/public-footer";
 import { WhatsAppButton } from "@/components/public/whatsapp-button";
@@ -43,20 +42,18 @@ export default async function PublicLayout({
   }
 
   return (
-    <LangProvider>
-      <FeatureFlagsProvider flags={flags}>
-        <OrganizationSchema />
-        <FAQSchema />
-        <PublicDirWrapper>
-          <SiteAnnouncementBanner />
-          <PublicNav dashboardHref={dashboardHref} />
-          <main id="main-content" className="pb-20 lg:pb-0">{children}</main>
-          <PublicFooter />
-          <WhatsAppButton />
-          {!dashboardHref && <MobileRegisterBar />}
-          {!dashboardHref && <LazyWelcomePopup />}
-        </PublicDirWrapper>
-      </FeatureFlagsProvider>
-    </LangProvider>
+    <FeatureFlagsProvider flags={flags}>
+      <OrganizationSchema />
+      <FAQSchema />
+      <PublicDirWrapper>
+        <SiteAnnouncementBanner />
+        <PublicNav dashboardHref={dashboardHref} />
+        <main id="main-content" className="pb-20 lg:pb-0">{children}</main>
+        <PublicFooter />
+        <WhatsAppButton />
+        {!dashboardHref && <MobileRegisterBar />}
+        {!dashboardHref && <LazyWelcomePopup />}
+      </PublicDirWrapper>
+    </FeatureFlagsProvider>
   );
 }

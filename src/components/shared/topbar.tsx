@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { Suspense, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CalendarDays, ChevronDown, MoreHorizontal, Settings, LogOut, Bug, UserCog } from "lucide-react";
@@ -35,6 +35,14 @@ const ROLE_LABEL_EN: Record<Role, string> = {
 };
 
 export function Topbar({ role, roles }: { role?: Role; roles?: Role[] } = {}) {
+  return (
+    <Suspense fallback={null}>
+      <TopbarInner role={role} roles={roles} />
+    </Suspense>
+  );
+}
+
+function TopbarInner({ role, roles }: { role?: Role; roles?: Role[] } = {}) {
   const { t, lang } = useLang();
   const labelFor = (r: Role) => (lang === "ar" ? ROLE_LABEL_AR[r] : ROLE_LABEL_EN[r]);
   const router = useRouter();

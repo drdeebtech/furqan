@@ -4,6 +4,7 @@ import { Inter, Rakkas, IBM_Plex_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme/context";
 import { ToastProvider } from "@/components/shared/toast";
+import { LangProvider } from "@/lib/i18n/context";
 import { PwaInstallPrompt } from "@/components/shared/pwa-install-prompt";
 import { PreviewDeploymentBanner } from "@/components/shared/preview-deployment-banner";
 import { HydrationBeacon } from "@/components/shared/hydration-beacon";
@@ -145,12 +146,14 @@ export default async function RootLayout({
           {lang === "ar" ? "تخطي إلى المحتوى" : "Skip to main content"}
         </a>
         <PreviewDeploymentBanner />
-        <ThemeProvider>
-          <ToastProvider>
-            {children}
-            <PwaInstallPrompt />
-          </ToastProvider>
-        </ThemeProvider>
+        <LangProvider>
+          <ThemeProvider>
+            <ToastProvider>
+              {children}
+              <PwaInstallPrompt />
+            </ToastProvider>
+          </ThemeProvider>
+        </LangProvider>
         <HydrationBeacon />
         <Analytics />
         <SpeedInsights />

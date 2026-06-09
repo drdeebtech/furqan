@@ -26,10 +26,12 @@ const DISMISS_KEY = "furqan-admin-banner-dismissed-key";
 export function AdminNextActionBanner({ data }: { data: AdminNextActionData }) {
   const { t, dir } = useLang();
   const Arrow = dir === "rtl" ? ArrowLeft : ArrowRight;
-  const [dismissedKey, setDismissedKey] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    try { return window.localStorage.getItem(DISMISS_KEY); } catch { return null; }
-  });
+  const [mounted, setMounted] = useState(false);
+  const [dismissedKey, setDismissedKey] = useState<string | null>(null);
+  useEffect(() => {
+    setMounted(true);
+    try { setDismissedKey(window.localStorage.getItem(DISMISS_KEY)); } catch {}
+  }, []);
 
   // Tick to keep the imminent-flag fresh.
   const [, setTick] = useState(0);
@@ -54,7 +56,7 @@ export function AdminNextActionBanner({ data }: { data: AdminNextActionData }) {
     return { kind: "fallback", key: "fallback" };
   })();
 
-  if (dismissedKey === state.key) return null;
+  if (mounted && dismissedKey === state.key) return null;
 
   const dismiss = () => {
     localStorage.setItem(DISMISS_KEY, state.key);

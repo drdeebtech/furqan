@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useLang } from "@/lib/i18n/context";
 
@@ -27,6 +28,14 @@ const CONTACTED_OPTIONS = [
 ];
 
 export function RetentionFilters() {
+  return (
+    <Suspense fallback={null}>
+      <RetentionFiltersInner />
+    </Suspense>
+  );
+}
+
+function RetentionFiltersInner() {
   const { t, lang } = useLang();
   const label = (o: { ar: string; en: string }) => (lang === "ar" ? o.ar : o.en);
   const router = useRouter();

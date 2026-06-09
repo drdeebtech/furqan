@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useLang } from "@/lib/i18n/context";
@@ -11,6 +12,14 @@ interface TabBarProps {
 }
 
 export function TabBar({ teacherId }: TabBarProps) {
+  return (
+    <Suspense fallback={null}>
+      <TabBarInner teacherId={teacherId} />
+    </Suspense>
+  );
+}
+
+function TabBarInner({ teacherId }: TabBarProps) {
   const { t } = useLang();
   const sp = useSearchParams();
   const active = (sp.get("tab") as TabKey | null) ?? "overview";
