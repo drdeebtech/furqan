@@ -58,12 +58,12 @@ export function TimeTrackerView({ openSession, history, weekSeconds }: Props) {
   const [manualKind, setManualKind] = useState("manual");
   const [manualNotes, setManualNotes] = useState("");
 
-  // Seed now on mount and tick every 1s while a session is open.
+  // Seed now via timer callbacks (not synchronously) to satisfy react-hooks/set-state-in-effect.
   useEffect(() => {
-    setNow(Date.now());
-    if (!openSession) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
+    const initId = setTimeout(() => setNow(Date.now()), 0);
+    if (!openSession) return () => clearTimeout(initId);
+    const tickId = setInterval(() => setNow(Date.now()), 1000);
+    return () => { clearTimeout(initId); clearInterval(tickId); };
   }, [openSession]);
 
   const elapsedSeconds = openSession && now !== null

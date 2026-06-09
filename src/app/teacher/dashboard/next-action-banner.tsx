@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore, useState } from "react";
 import {
   ArrowLeft, ArrowRight, BookOpen, Calendar, ClipboardCheck, FileWarning, MessageSquare, Play, Video, X,
 } from "lucide-react";
@@ -36,12 +36,13 @@ export function TeacherNextActionBanner({ data }: { data: TeacherNextActionData 
   const Arrow = dir === "rtl" ? ArrowLeft : ArrowRight;
   const locale = lang === "ar" ? "ar-EG" : "en-US";
   const now = useNowTicker().getTime();
-  const [mounted, setMounted] = useState(false);
-  const [dismissedKey, setDismissedKey] = useState<string | null>(null);
-  useEffect(() => {
-    setMounted(true);
-    try { setDismissedKey(window.localStorage.getItem(DISMISS_KEY)); } catch {}
-  }, []);
+  const storedDismissal = useSyncExternalStore(
+    () => () => {},
+    () => { try { return window.localStorage.getItem(DISMISS_KEY); } catch { return null; } },
+    () => null,
+  );
+  const [localDismissal, setLocalDismissal] = useState<string | null>(null);
+  const dismissedKey = localDismissal ?? storedDismissal;
 
   const imminent = data.imminentSession;
   const minsUntilNext = imminent ? Math.floor((new Date(imminent.scheduledAt).getTime() - now) / 60_000) : null;
@@ -72,11 +73,11 @@ export function TeacherNextActionBanner({ data }: { data: TeacherNextActionData 
     return { kind: "fallback", key: "fallback" };
   })();
 
-  if (mounted && dismissedKey === state.key) return null;
+  if (dismissedKey === state.key) return null;
 
   const dismiss = () => {
     localStorage.setItem(DISMISS_KEY, state.key);
-    setDismissedKey(state.key);
+    setLocalDismissal(state.key);
   };
 
   switch (state.kind) {
