@@ -20,10 +20,7 @@ const DASHBOARD_QUERY_TIMEOUT_MS = 5000;
 
 export const metadata: Metadata = { title: "لوحة الإدارة" };
 
-interface TeacherRow { teacher_id: string; hourly_rate: number; rating_avg: number; total_sessions: number; is_accepting: boolean; is_archived: boolean }
-interface PendingBookingRow { id: string; student_id: string; teacher_id: string; scheduled_at: string; session_type: string; created_at: string }
-interface TodayBookingRow { id: string; student_id: string; teacher_id: string; scheduled_at: string; session_type: string; status: string; duration_min: number }
-interface RevenueRow { amount_usd: number }
+import type { TeacherRow, PendingBookingRow, TodayBookingRow, RevenueRow } from "./types";
 
 
 export default async function AdminDashboardPage() {
@@ -121,7 +118,7 @@ export default async function AdminDashboardPage() {
         pendingBookings,
         newStudentCount: newStudentsRes.count ?? 0,
         todayBookings,
-        activeSessionCount: activeSessionsRes.count ?? 0,
+        activeSessionCount: platformLiveSessions.length,
         renderedAtMs: now.getTime(),
         nameMap,
         dailyRevenue,
