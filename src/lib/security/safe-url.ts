@@ -36,6 +36,7 @@ export function isSafeRelativePath(
   } catch {
     return false; // malformed % sequence
   }
+  if (decoded.startsWith("//")) return false; // e.g. /%2f%2fevil.com
   if (/[\r\n\x00\\]/.test(decoded)) return false;
   if (decoded.split("/").includes("..")) return false;
   return true;

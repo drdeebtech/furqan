@@ -43,6 +43,11 @@ describe("isSafeRelativePath", () => {
     expect(isSafeRelativePath("/foo%5cevil.com")).toBe(false);
   });
 
+  it("rejects percent-encoded protocol-relative bypass (/%2f%2fevil.com → //evil.com)", () => {
+    expect(isSafeRelativePath("/%2f%2fevil.com")).toBe(false);
+    expect(isSafeRelativePath("/%2F%2Fevil.com")).toBe(false);
+  });
+
   it("rejects malformed percent-sequences", () => {
     expect(isSafeRelativePath("/foo%")).toBe(false);
   });
