@@ -16,7 +16,7 @@
  *     .ilike("full_name", `%${q}%`);
  *   return <SearchInput placeholder="..." paramName="q" />;
  */
-import { useEffect, useState, startTransition, useRef } from "react";
+import { Suspense, useEffect, useState, startTransition, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
@@ -29,7 +29,15 @@ interface Props {
   debounceMs?: number;
 }
 
-export function SearchInput({
+export function SearchInput(props: Props) {
+  return (
+    <Suspense fallback={null}>
+      <SearchInputInner {...props} />
+    </Suspense>
+  );
+}
+
+function SearchInputInner({
   placeholder,
   paramName = "q",
   ariaLabel,

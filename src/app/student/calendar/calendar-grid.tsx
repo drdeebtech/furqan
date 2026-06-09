@@ -9,7 +9,6 @@ import {
   eachDayOfInterval,
   format,
   isSameMonth,
-  isSameDay,
   addMonths,
   subMonths,
 } from "date-fns";
@@ -20,13 +19,13 @@ import type { CalendarEvent } from "@/lib/dashboard-queries";
 
 interface Props {
   monthIso: string;
+  todayIso: string;
   events: CalendarEvent[];
 }
 
-export function CalendarGrid({ monthIso, events }: Props) {
+export function CalendarGrid({ monthIso, todayIso, events }: Props) {
   const { t, dir, lang } = useLang();
   const month = new Date(monthIso);
-  const today = new Date();
 
   // Build the full weeks-grid (always 6 rows × 7 cols for stability).
   const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 1 }); // Mon
@@ -106,7 +105,7 @@ export function CalendarGrid({ monthIso, events }: Props) {
             const iso = format(d, "yyyy-MM-dd");
             const dayEvents = eventsByDate[iso] ?? [];
             const inMonth = isSameMonth(d, month);
-            const isToday = isSameDay(d, today);
+            const isToday = iso === todayIso;
 
             return (
               <div

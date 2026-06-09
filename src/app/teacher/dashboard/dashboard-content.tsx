@@ -411,7 +411,7 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
 
         {/* Footer — last refresh + shortcuts trigger + refresh button. */}
         <footer className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--surface-divider,var(--surface-border))] pt-5 text-xs text-muted">
-          <p>{t(`آخر تحديث ${lastRefreshLabel}`, `Last refreshed at ${lastRefreshLabel}`)}</p>
+          <p suppressHydrationWarning>{t(`آخر تحديث ${lastRefreshLabel}`, `Last refreshed at ${lastRefreshLabel}`)}</p>
           <div className="flex items-center gap-3">
             <button
               type="button"

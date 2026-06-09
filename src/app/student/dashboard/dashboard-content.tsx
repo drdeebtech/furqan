@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo } from "react";
+import { Suspense, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { Calendar, CheckCircle, Clock, Briefcase, Eye, Keyboard, RefreshCw, Sparkles } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
@@ -61,6 +61,14 @@ interface DashboardData {
 }
 
 export function StudentDashboardContent({ data }: { data: DashboardData }) {
+  return (
+    <Suspense fallback={null}>
+      <StudentDashboardContentInner data={data} />
+    </Suspense>
+  );
+}
+
+function StudentDashboardContentInner({ data }: { data: DashboardData }) {
   const { t, dir, lang } = useLang();
   const toast = useToast();
   const searchParams = useSearchParams();

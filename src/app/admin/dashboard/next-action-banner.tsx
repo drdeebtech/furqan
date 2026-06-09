@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore, useEffect, useState } from "react";
 import {
   ArrowLeft, ArrowRight, AlertTriangle, ClipboardCheck, Radio, Users, X, XCircle,
 } from "lucide-react";
@@ -26,10 +26,13 @@ const DISMISS_KEY = "furqan-admin-banner-dismissed-key";
 export function AdminNextActionBanner({ data }: { data: AdminNextActionData }) {
   const { t, dir } = useLang();
   const Arrow = dir === "rtl" ? ArrowLeft : ArrowRight;
-  const [dismissedKey, setDismissedKey] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    try { return window.localStorage.getItem(DISMISS_KEY); } catch { return null; }
-  });
+  const storedDismissal = useSyncExternalStore(
+    () => () => {},
+    () => { try { return window.localStorage.getItem(DISMISS_KEY); } catch { return null; } },
+    () => null,
+  );
+  const [localDismissal, setLocalDismissal] = useState<string | null>(null);
+  const dismissedKey = localDismissal ?? storedDismissal;
 
   // Tick to keep the imminent-flag fresh.
   const [, setTick] = useState(0);
@@ -58,7 +61,7 @@ export function AdminNextActionBanner({ data }: { data: AdminNextActionData }) {
 
   const dismiss = () => {
     localStorage.setItem(DISMISS_KEY, state.key);
-    setDismissedKey(state.key);
+    setLocalDismissal(state.key);
   };
 
   switch (state.kind) {

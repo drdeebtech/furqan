@@ -36,7 +36,7 @@ function prefersReducedMotion(): boolean {
  */
 export function useCountUp(target: number, options: UseCountUpOptions = {}): number {
   const { durationMs = 600, disabled = false } = options;
-  const [value, setValue] = useState<number>(() => (disabled || prefersReducedMotion() ? target : 0));
+  const [value, setValue] = useState<number>(() => (disabled ? target : 0));
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number | null>(null);
   const fromRef = useRef<number>(0);

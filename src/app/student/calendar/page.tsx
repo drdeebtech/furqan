@@ -30,9 +30,12 @@ export default async function StudentCalendarPage({ searchParams }: PageProps) {
 
   const events = await getStudentCalendarEvents(user.id, monthStart, monthEnd);
 
+  const todayIso = now.toISOString().slice(0, 10);
+
   return (
     <CalendarGrid
       monthIso={viewMonth.toISOString()}
+      todayIso={todayIso}
       events={events}
     />
   );

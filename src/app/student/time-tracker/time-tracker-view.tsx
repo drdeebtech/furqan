@@ -52,20 +52,21 @@ export function TimeTrackerView({ openSession, history, weekSeconds }: Props) {
   const { t, dir, lang } = useLang();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState<number | null>(null);
   const [selectedKind, setSelectedKind] = useState<string>(openSession?.kind ?? "solo");
   const [manualMinutes, setManualMinutes] = useState("");
   const [manualKind, setManualKind] = useState("manual");
   const [manualNotes, setManualNotes] = useState("");
 
-  // Live tick the stopwatch readout every 1s while a session is open.
+  // Seed now via timer callbacks (not synchronously) to satisfy react-hooks/set-state-in-effect.
   useEffect(() => {
-    if (!openSession) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
+    const initId = setTimeout(() => setNow(Date.now()), 0);
+    if (!openSession) return () => clearTimeout(initId);
+    const tickId = setInterval(() => setNow(Date.now()), 1000);
+    return () => { clearTimeout(initId); clearInterval(tickId); };
   }, [openSession]);
 
-  const elapsedSeconds = openSession
+  const elapsedSeconds = openSession && now !== null
     ? Math.max(0, Math.floor((now - new Date(openSession.started_at).getTime()) / 1000))
     : 0;
 

@@ -1,6 +1,5 @@
 import { Nav } from "@/components/shared/nav";
 import { Topbar } from "@/components/shared/topbar";
-import { LangProvider } from "@/lib/i18n/context";
 import { createClient } from "@/lib/supabase/server";
 
 type Role = "student" | "teacher" | "admin";
@@ -38,18 +37,16 @@ export async function DashboardLayout({
   }
 
   return (
-    <LangProvider>
-      <div className="dashboard-chrome min-h-screen">
-        <Nav role={role} userName={userName} />
-        <main id="main-content" className="min-h-screen pt-14 md:pt-0 md:ms-64">
-          <div className="hidden md:block md:px-6 md:pt-5 md:pb-4">
-            <Topbar role={role} roles={roles} />
-          </div>
-          <div className="dashboard-content-shell">
-            {children}
-          </div>
-        </main>
-      </div>
-    </LangProvider>
+    <div className="dashboard-chrome min-h-screen">
+      <Nav role={role} userName={userName} />
+      <main id="main-content" className="min-h-screen pt-14 md:pt-0 md:ms-64">
+        <div className="hidden md:block md:px-6 md:pt-5 md:pb-4">
+          <Topbar role={role} roles={roles} />
+        </div>
+        <div className="dashboard-content-shell">
+          {children}
+        </div>
+      </main>
+    </div>
   );
 }
