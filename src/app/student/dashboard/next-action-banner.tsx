@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useEffect, useState } from "react";
+import { useSyncExternalStore, useState } from "react";
 import {
   ArrowLeft, ArrowRight, BookOpen, CalendarPlus, ClipboardCheck, Play, Video, X,
 } from "lucide-react";
@@ -42,18 +42,13 @@ export function NextActionBanner({ data, renderedAtMs }: { data: NextActionData;
   const Arrow = dir === "rtl" ? ArrowLeft : ArrowRight;
   const locale = lang === "ar" ? "ar-EG" : "en-US";
   const now = useNowTicker(60_000, renderedAtMs).getTime();
-  const [dismissedKey, setDismissedKey] = useState<string | null>(null);
-
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(DISMISS_KEY);
-      if (stored !== null) {
-        startTransition(() => setDismissedKey(stored));
-      }
-    } catch {
-      startTransition(() => setDismissedKey(null));
-    }
-  }, []);
+  const storedDismissal = useSyncExternalStore(
+    () => () => {},
+    () => { try { return window.localStorage.getItem(DISMISS_KEY); } catch { return null; } },
+    () => null,
+  );
+  const [localDismissal, setLocalDismissal] = useState<string | null>(null);
+  const dismissedKey = localDismissal ?? storedDismissal;
 
   const next = data.nextBooking;
   const minsUntilNext = next ? Math.floor((new Date(next.scheduledAt).getTime() - now) / 60_000) : null;
@@ -95,7 +90,7 @@ export function NextActionBanner({ data, renderedAtMs }: { data: NextActionData;
 
   const dismiss = () => {
     localStorage.setItem(DISMISS_KEY, state.key);
-    setDismissedKey(state.key);
+    setLocalDismissal(state.key);
   };
 
   // Build the rendered shell from state.
