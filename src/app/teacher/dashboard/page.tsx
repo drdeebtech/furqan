@@ -6,8 +6,8 @@ import { fetchNameMap } from "@/lib/supabase/helpers";
 import { loadOrFail, countOrFail, helperOrFail } from "@/lib/supabase/load-or-fail";
 import { logError } from "@/lib/logger";
 import { Skeleton } from "@/components/shared/skeleton";
-import type { SessionType } from "@/types/database";
 import { TeacherDashboardContent } from "./dashboard-content";
+import type { PendingBooking, SessionData } from "./types";
 import { TeacherAtRiskStudents } from "./at-risk-students";
 import { MentorshipCard, MentorshipCardSkeleton } from "./mentorship-card";
 import { DataLoadBanner } from "@/components/shared/data-load-banner";
@@ -24,8 +24,6 @@ import { ParentReportDigestCard, ParentReportDigestCardSkeleton } from "./parent
 import { RecitationStandardRoster, RecitationStandardRosterSkeleton } from "./recitation-standard-roster";
 
 export const metadata: Metadata = { title: "لوحة المعلم" };
-
-interface PendingBooking { id: string; scheduled_at: string; duration_min: number; session_type: SessionType; amount_usd: number; student_id: string; }
 
 export default async function TeacherDashboardPage() {
   const supabase = await createClient();
@@ -196,7 +194,7 @@ export default async function TeacherDashboardPage() {
   const monthSessions = monthLoad.count;
   const uniqueStudents = new Set(allStudentsLoad.data.map(s => s.student_id)).size;
 
-  const sessionDataMap: Record<string, Omit<SessionRow, "booking_id">> = sessionsLoad.data.length > 0
+  const sessionDataMap: Record<string, SessionData> = sessionsLoad.data.length > 0
     ? Object.fromEntries(sessionsLoad.data.map(({ booking_id, ...rest }) => [booking_id, rest]))
     : {};
 
