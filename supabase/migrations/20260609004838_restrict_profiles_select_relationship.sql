@@ -96,6 +96,6 @@ create or replace view public.public_profiles as
   from public.profiles;
 
 comment on view public.public_profiles is
-  'Non-PII identity projection of profiles (id, full_name, avatar_url, role) for displaying names/avatars of users the caller is not a teacher<->student counterparty of. Carries no phone/parent/dob/whatsapp/country. See audit HIGH-1.';
+  'Non-PII identity projection of profiles (id, full_name, full_name_ar, avatar_url, role) for displaying names/avatars of users the caller is not a teacher<->student counterparty of. Carries no phone/parent/dob/whatsapp/country. See audit HIGH-1.';
 
 grant select on public.public_profiles to authenticated, service_role;

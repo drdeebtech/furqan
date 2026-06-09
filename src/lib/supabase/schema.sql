@@ -48,6 +48,46 @@ RETURNS BOOLEAN AS $$
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- 2.5. PRIVATE SCHEMA HELPERS  (audit HIGH-1)
+-- ─────────────────────────────────────────────────────────────────────────────
+
+CREATE SCHEMA IF NOT EXISTS private;
+GRANT USAGE ON SCHEMA private TO anon, authenticated, service_role;
+
+-- Thin wrapper callable from SECURITY DEFINER functions whose search_path
+-- excludes public. Delegates to the public.is_admin() defined above.
+CREATE OR REPLACE FUNCTION private.is_admin()
+RETURNS BOOLEAN LANGUAGE SQL STABLE SECURITY DEFINER
+SET search_path = public, pg_temp AS $$
+  SELECT is_admin();
+$$;
+REVOKE EXECUTE ON FUNCTION private.is_admin() FROM public;
+GRANT  EXECUTE ON FUNCTION private.is_admin() TO anon, authenticated, service_role;
+
+-- Per-request visibility check for profiles SELECT. SECURITY DEFINER so it
+-- reads bookings/courses/course_enrollments without applying their RLS.
+CREATE OR REPLACE FUNCTION private.profile_is_visible(p_target uuid)
+RETURNS BOOLEAN LANGUAGE SQL STABLE SECURITY DEFINER
+SET search_path = public, pg_temp AS $$
+  SELECT
+    p_target = (SELECT auth.uid())
+    OR (SELECT private.is_admin())
+    OR EXISTS (
+      SELECT 1 FROM public.bookings b
+      WHERE (b.teacher_id = (SELECT auth.uid()) AND b.student_id = p_target)
+         OR (b.student_id = (SELECT auth.uid()) AND b.teacher_id = p_target)
+    )
+    OR EXISTS (
+      SELECT 1 FROM public.course_enrollments ce
+      JOIN public.courses c ON c.id = ce.course_id
+      WHERE (c.teacher_id = (SELECT auth.uid()) AND ce.student_id = p_target)
+         OR (ce.student_id = (SELECT auth.uid()) AND c.teacher_id = p_target)
+    );
+$$;
+REVOKE EXECUTE ON FUNCTION private.profile_is_visible(uuid) FROM public;
+GRANT  EXECUTE ON FUNCTION private.profile_is_visible(uuid) TO anon, authenticated, service_role;
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- 3. TABLE 1 — profiles
 -- ─────────────────────────────────────────────────────────────────────────────
 
@@ -1008,6 +1048,20 @@ CREATE POLICY migrations_select ON schema_migrations FOR SELECT USING (is_admin(
 -- ═════════════════════════════════════════════════════════════════════════════
 -- REALTIME SUBSCRIPTIONS
 -- ═════════════════════════════════════════════════════════════════════════════
+-- VIEWS
+-- ═════════════════════════════════════════════════════════════════════════════
+
+-- Non-PII identity projection (audit HIGH-1). Exposes only
+-- id/full_name/full_name_ar/avatar_url/role — never phone/dob/guardian PII.
+-- For pages that display a teacher/student name without being a
+-- teacher<->student counterparty (e.g. course review author names).
+CREATE OR REPLACE VIEW public.public_profiles AS
+  SELECT id, full_name, full_name_ar, avatar_url, role
+  FROM public.profiles;
+
+GRANT SELECT ON public.public_profiles TO authenticated, service_role;
+
+-- ═════════════════════════════════════════════════════════════════════════════
 
 ALTER PUBLICATION supabase_realtime ADD TABLE messages;
 ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
@@ -1028,5 +1082,5 @@ INSERT INTO schema_migrations (version, applied_at, description, applied_by) VAL
   ('v8.0.0', NOW(), 'Domain Expert — Quran + Schema + Accounting',    'system');
 
 -- ═════════════════════════════════════════════════════════════════════════════
--- DONE — 20 tables, 16 triggers, 22 RLS policies, 2 seed inserts
+-- DONE — 20 tables, 16 triggers, 22 RLS policies, 2 seed inserts, 1 view
 -- ═════════════════════════════════════════════════════════════════════════════

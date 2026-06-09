@@ -18,7 +18,7 @@ export async function fetchNameMap(
   // counterparty of the caller, so the relationship-scoped `profiles` RLS would
   // null out legitimate name lookups. The view exposes id/full_name only.
   const { data } = await supabase
-    .from("public_profiles")
+    .from("public_profiles" as "profiles")
     .select("id, full_name")
     .in("id", unique);
   if (!data) return {};

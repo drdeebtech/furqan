@@ -1532,7 +1532,7 @@ export async function getTeacherTalqeenInbox(
 
   const studentIds = [...new Set(rows.map(r => r.student_id))];
   const profilesRes = await supabase
-    .from("public_profiles")
+    .from("public_profiles" as "profiles")
     .select("id, full_name")
     .in("id", studentIds)
     .returns<{ id: string; full_name: string | null }[]>();
@@ -1630,7 +1630,7 @@ export async function getTeacherParentReportDigest(
   // Resolve student names for the recent rows.
   const studentIds = [...new Set(rows.map(r => r.student_id))];
   const profilesRes = await supabase
-    .from("public_profiles")
+    .from("public_profiles" as "profiles")
     .select("id, full_name")
     .in("id", studentIds)
     .returns<{ id: string; full_name: string | null }[]>();
