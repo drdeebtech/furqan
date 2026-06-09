@@ -102,7 +102,7 @@ export default async function StudentGroupSessionsPage() {
   const nameMap: Record<string, string> = {};
   if (teacherIds.length > 0) {
     const { data: profiles } = await supabase
-      .from("profiles")
+      .from("public_profiles" as "profiles")
       .select("id, full_name")
       .in("id", teacherIds)
       .returns<{ id: string; full_name: string | null }[]>();

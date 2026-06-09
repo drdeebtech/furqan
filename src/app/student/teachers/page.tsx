@@ -47,7 +47,7 @@ export default async function TeachersPage() {
   if (list.length > 0) {
     const ids = list.map((t) => t.teacher_id);
     const { data: profiles } = await supabase
-      .from("profiles").select("id, full_name, full_name_ar").in("id", ids)
+      .from("public_profiles" as "profiles").select("id, full_name, full_name_ar").in("id", ids)
       .returns<{ id: string; full_name: string | null; full_name_ar: string | null }[]>();
     if (profiles) {
       nameMap = Object.fromEntries(

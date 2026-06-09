@@ -37,7 +37,7 @@ export default async function StudentOfferingDetailPage({ params }: Props) {
   if (!offering) redirect("/student/classes");
 
   const { data: teacher } = await supabase
-    .from("profiles").select("id, full_name").eq("id", offering.teacher_id)
+    .from("public_profiles" as "profiles").select("id, full_name").eq("id", offering.teacher_id)
     .single<{ id: string; full_name: string | null }>();
 
   const { data: alreadyEnrolled } = await supabase

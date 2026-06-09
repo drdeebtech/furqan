@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { logError, logWarn } from "@/lib/logger";
 
 interface ParentInfo {
@@ -13,7 +13,15 @@ interface ParentInfo {
  * Fetch parent contact info for a student.
  */
 async function getParentInfo(studentId: string): Promise<ParentInfo | null> {
-  const supabase = await createClient();
+  // Backend notification machinery: use the service-role client, not the
+  // requester's RLS client. Guardian PII (parent_*) is now relationship-gated
+  // on `profiles`, and this helper runs in fire-and-forget notification paths
+  // (no-show detector, grading) where the acting context isn't always a
+  // booking-counterparty of the student — a silent null here would suppress a
+  // parent report. Service role reads it reliably; exposure is unchanged
+  // because this value only ever flows into a parent_reports row, never back to
+  // a user.
+  const supabase = createAdminClient();
   const { data } = await supabase
     .from("profiles")
     .select("parent_name, parent_email, parent_phone")
@@ -53,7 +61,7 @@ async function createParentReport(opts: {
     return;
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("parent_reports").insert({
     student_id: opts.studentId,
     teacher_id: opts.teacherId,

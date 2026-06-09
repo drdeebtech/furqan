@@ -122,7 +122,7 @@ export async function getTalqeenQueueForTeacher(
 
   const studentIds = [...new Set(rows.map((r) => r.student_id))];
   const profilesRes = await supabase
-    .from("profiles")
+    .from("public_profiles" as "profiles")
     .select("id, full_name")
     .in("id", studentIds)
     .returns<{ id: string; full_name: string | null }[]>();

@@ -53,7 +53,7 @@ export async function MentorshipCard({ teacherId }: { teacherId: string }) {
     ...myMentees.map(m => m.mentee_id),
   ];
   const { data: profiles } = await supabase
-    .from("profiles")
+    .from("public_profiles" as "profiles")
     .select("id, full_name")
     .in("id", ids)
     .returns<{ id: string; full_name: string | null }[]>();

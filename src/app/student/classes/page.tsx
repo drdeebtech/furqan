@@ -52,7 +52,7 @@ export default async function StudentClassesBrowsePage() {
   const offeringIds = (offerings ?? []).map(o => o.id);
   const [teachersRes, alreadyRes] = await Promise.all([
     teacherIds.length > 0
-      ? supabase.from("profiles").select("id, full_name").in("id", teacherIds)
+      ? supabase.from("public_profiles" as "profiles").select("id, full_name").in("id", teacherIds)
           .returns<{ id: string; full_name: string | null }[]>()
       : Promise.resolve({ data: [] }),
     offeringIds.length > 0
