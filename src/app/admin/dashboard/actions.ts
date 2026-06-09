@@ -21,7 +21,14 @@ export async function toggleArchiveTeacher(
   archive: boolean,
 ) {
   const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!UUID_REGEX.test(teacherId)) return { error: "بيانات غير صالحة" };
+  if (!UUID_REGEX.test(teacherId)) {
+    logError("toggleArchiveTeacher: invalid UUID format", new Error("Invalid teacher ID format"), {
+      tag: "admin-teachers",
+      severity: "warning",
+      metadata: { teacherId, archive },
+    });
+    return { error: "بيانات غير صالحة" };
+  }
   let actorId: string;
   try {
     ({ id: actorId } = await requireAdmin());
