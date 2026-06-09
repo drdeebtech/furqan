@@ -36,8 +36,18 @@ export default async function AdminDashboardPage() {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString();
+  // Anchor "today" to Asia/Kuwait (operator timezone). Without this, todayStart/todayEnd
+  // are UTC midnight bounds — Kuwaiti bookings after 9pm UTC appear in "tomorrow."
+  // Kuwait has no DST, so the static +03:00 offset is safe.
+  const TZ_OFFSET = "+03:00";
+  const dateParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kuwait",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+  const todayStart = new Date(`${dateParts}T00:00:00${TZ_OFFSET}`).toISOString();
+  const todayEnd = new Date(`${dateParts}T23:59:59.999${TZ_OFFSET}`).toISOString();
 
   // Single fan-out: all 14 independent queries race from t=0. Previously the
   // 5 helper queries (dailyRevenue, liveSessions, breakdown, recent, trend)
@@ -53,13 +63,13 @@ export default async function AdminDashboardPage() {
   const [
     studentsRes,
     teachersRes,
+    teacherCountRes,
     bookingsMonthRes,
     revenueMonthRes,
     pendingCountRes,
     pendingListRes,
     newStudentsRes,
     todayBookingsRes,
-    activeSessionsRes,
     dailyRevenue,
     platformLiveSessions,
     bookingBreakdown,
@@ -70,6 +80,9 @@ export default async function AdminDashboardPage() {
     // Capped at 50: the dashboard teacher list is a summary widget, not a full
     // directory. Full teacher management is at /admin/teachers.
     withTimeout(supabase.from("teacher_profiles").select("teacher_id, hourly_rate, rating_avg, total_sessions, is_accepting, is_archived").order("is_archived", { ascending: true }).order("total_sessions", { ascending: false }).limit(50).returns<TeacherRow[]>(), DASHBOARD_QUERY_TIMEOUT_MS, { data: [] } as never, "teachersRes"),
+    // Separate count (no limit) so the stat card shows the real teacher total
+    // even when teacherList is capped at 50 rows for the management table.
+    withTimeout(supabase.from("teacher_profiles").select("teacher_id", { count: "exact", head: true }), DASHBOARD_QUERY_TIMEOUT_MS, { count: 0 } as never, "teacherCountRes"),
     withTimeout(supabase.from("bookings").select("id", { count: "exact", head: true }).gte("created_at", startOfMonth), DASHBOARD_QUERY_TIMEOUT_MS, { count: 0 } as never, "bookingsMonthRes"),
     // TODO: replace with a SQL SUM RPC (e.g. get_monthly_revenue_usd) — at
     // 50k DAU this JS-side reduce touches up to 10k+ rows/month. For now
@@ -79,7 +92,6 @@ export default async function AdminDashboardPage() {
     withTimeout(supabase.from("bookings").select("id, student_id, teacher_id, scheduled_at, session_type, created_at").eq("status", "pending").order("created_at", { ascending: false }).limit(5).returns<PendingBookingRow[]>(), DASHBOARD_QUERY_TIMEOUT_MS, { data: [] } as never, "pendingListRes"),
     withTimeout(supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "student").gte("created_at", sevenDaysAgo.toISOString()), DASHBOARD_QUERY_TIMEOUT_MS, { count: 0 } as never, "newStudentsRes"),
     withTimeout(supabase.from("bookings").select("id, student_id, teacher_id, scheduled_at, session_type, status, duration_min").gte("scheduled_at", todayStart).lte("scheduled_at", todayEnd).order("scheduled_at", { ascending: true }).returns<TodayBookingRow[]>(), DASHBOARD_QUERY_TIMEOUT_MS, { data: [] } as never, "todayBookingsRes"),
-    withTimeout(supabase.from("sessions").select("id", { count: "exact", head: true }).not("started_at", "is", null).is("ended_at", null), DASHBOARD_QUERY_TIMEOUT_MS, { count: 0 } as never, "activeSessionsRes"),
     withTimeout(getAdminDailyRevenue(), DASHBOARD_QUERY_TIMEOUT_MS, [], "dailyRevenue"),
     withTimeout(getPlatformLiveSessions(), DASHBOARD_QUERY_TIMEOUT_MS, [], "platformLiveSessions"),
     withTimeout(getAdminBookingStatusBreakdown(lang), DASHBOARD_QUERY_TIMEOUT_MS, [], "bookingBreakdown"),
@@ -88,6 +100,9 @@ export default async function AdminDashboardPage() {
   ]);
 
   const teacherList = teachersRes.data ?? [];
+  // Safe lower bound: if teacherCountRes times out (withTimeout → { count: 0 }),
+  // don't show "0 teachers" while the table still renders rows.
+  const teacherCount = Math.max(teacherCountRes.count ?? 0, teacherList.length);
   const pendingBookings = pendingListRes.data ?? [];
   const todayBookings = todayBookingsRes.data ?? [];
 
@@ -110,6 +125,7 @@ export default async function AdminDashboardPage() {
     <AdminDashboardContent
       data={{
         studentCount: studentsRes.count ?? 0,
+        teacherCount,
         teacherList,
         bookingsMonth: bookingsMonthRes.count ?? 0,
         revenueMonth: (revenueMonthRes.data ?? []).reduce((sum, b) => sum + Number(b.amount_usd), 0),

@@ -28,6 +28,7 @@ import type { TeacherRow, PendingBookingRow, TodayBookingRow } from "./types";
 
 interface AdminDashboardData {
   studentCount: number;
+  teacherCount: number;
   teacherList: TeacherRow[];
   bookingsMonth: number;
   revenueMonth: number;
@@ -50,7 +51,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
   const toast = useToast();
   const locale = lang === "ar" ? "ar-EG" : "en-US";
   const {
-    studentCount, teacherList, bookingsMonth, revenueMonth, revenueTrend,
+    studentCount, teacherCount, teacherList, bookingsMonth, revenueMonth, revenueTrend,
     pendingCount, pendingBookings, newStudentCount, todayBookings, activeSessionCount,
     nameMap, dailyRevenue, platformLiveSessions, bookingBreakdown, recentBookings, renderedAtMs,
   } = data;
@@ -139,7 +140,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
         <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل المؤشرات", "Couldn't load metrics")}>
           <section aria-label={t("مؤشرات سريعة", "Key metrics")} className="grid grid-cols-2 gap-4 md:grid-cols-4 stagger-children motion-reduce:[&>*]:animate-none">
             <StatCard icon={Users} label={t("الطلاب", "Students")} value={studentCount} href="/admin/users" actionLabel={t("عرض", "View")} />
-            <StatCard icon={GraduationCap} label={t("المعلمون", "Teachers")} value={teacherList.length} href="/admin/teachers" actionLabel={t("عرض", "View")} />
+            <StatCard icon={GraduationCap} label={t("المعلمون", "Teachers")} value={teacherCount} href="/admin/teachers" actionLabel={t("عرض", "View")} />
             <StatCard icon={BookOpen} label={t("حجوزات الشهر", "Monthly Bookings")} value={bookingsMonth} href="/admin/bookings" actionLabel={t("عرض", "View")} />
             <StatCard
               icon={DollarSign}
@@ -275,7 +276,7 @@ export function AdminDashboardContent({ data }: { data: AdminDashboardData }) {
         <section aria-labelledby="teacher-management-heading" className="mt-6">
           <h2 id="teacher-management-heading" className="sr-only">{t("إدارة المعلمين", "Teacher Management")}</h2>
           <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل قائمة المعلمين", "Couldn't load teacher list")}>
-            <WidgetCard title={t("إدارة المعلمين", "Teacher Management")} subtitle={`${teacherList.length} ${t("معلم", "teachers")}`}>
+            <WidgetCard title={t("إدارة المعلمين", "Teacher Management")} subtitle={`${teacherCount} ${t("معلم", "teachers")}`}>
               {teacherList.length === 0 ? (
                 <div className="flex min-h-[120px] items-center justify-center text-center">
                   <div>
