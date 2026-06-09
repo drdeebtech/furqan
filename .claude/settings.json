@@ -6,7 +6,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": ".claude/hooks/dg-pre-task-create-naming.sh"
+						"command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/dg-pre-task-create-naming.sh"
 					}
 				]
 			}
@@ -16,7 +16,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": ".claude/hooks/dg-check-stale-sentinel.sh"
+						"command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/dg-check-stale-sentinel.sh"
 					}
 				]
 			}
@@ -26,7 +26,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": ".claude/hooks/dg-verify-acceptance-criteria.sh"
+						"command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/dg-verify-acceptance-criteria.sh"
 					}
 				]
 			}
@@ -36,7 +36,7 @@
 				"hooks": [
 					{
 						"type": "command",
-						"command": ".claude/hooks/dg-task-completed-validate.sh"
+						"command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/dg-task-completed-validate.sh"
 					}
 				]
 			}
