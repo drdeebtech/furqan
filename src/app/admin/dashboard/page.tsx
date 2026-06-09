@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
-import { fetchNameMap } from "@/lib/supabase/helpers";
+import { buildNameMap } from "@/lib/admin/name-map";
 import { withTimeout } from "@/lib/promise-utils";
 import { AdminDashboardContent } from "./dashboard-content";
 import {
@@ -51,7 +51,7 @@ export default async function AdminDashboardPage() {
 
   // Single fan-out: all 14 independent queries race from t=0. Previously the
   // 5 helper queries (dailyRevenue, liveSessions, breakdown, recent, trend)
-  // waited for the first batch + fetchNameMap to finish — none of them
+  // waited for the first batch + buildNameMap to finish — none of them
   // actually depended on that data. Merging shaves the slowest-of-9 +
   // slowest-of-5 cost down to slowest-of-14.
   //
@@ -115,9 +115,9 @@ export default async function AdminDashboardPage() {
   // in withTimeout for the same reason as the fan-out: a hung name lookup
   // shouldn't block the page.
   const nameMap = await withTimeout(
-    fetchNameMap(supabase, Array.from(allIds)),
+    buildNameMap(supabase, Array.from(allIds)),
     DASHBOARD_QUERY_TIMEOUT_MS,
-    {} as Awaited<ReturnType<typeof fetchNameMap>>,
+    {} as Awaited<ReturnType<typeof buildNameMap>>,
     "nameMap",
   );
 

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { fetchNameMap } from "@/lib/supabase/helpers";
+import { buildNameMap } from "@/lib/admin/name-map";
 import { loadOrFail, countOrFail, helperOrFail } from "@/lib/supabase/load-or-fail";
 import { logError } from "@/lib/logger";
 import { Skeleton } from "@/components/shared/skeleton";
@@ -199,7 +199,7 @@ export default async function TeacherDashboardPage() {
     : {};
 
   const allStudentIds = [...new Set([...pending.map(b => b.student_id), ...todaySessions.map(b => b.student_id)])];
-  const nameMap = await fetchNameMap(supabase, allStudentIds);
+  const nameMap = await buildNameMap(supabase, allStudentIds);
 
   return (
     <main>
