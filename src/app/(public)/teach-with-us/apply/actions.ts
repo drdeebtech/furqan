@@ -4,7 +4,6 @@ import { randomBytes } from "node:crypto";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { checkBotId } from "botid/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/automation/emit";
 import { sendTeacherWelcome, sendAdminTeacherApplicationAlert } from "@/lib/email";
@@ -81,7 +80,7 @@ const SUCCESS_TEXT = {
 
 async function checkApplyRate(ipKey: string): Promise<boolean> {
   try {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     // `automation_logs.entity_id` is a UUID column. Storing the raw IP
     // string there caused Postgres 22P02 (`invalid input syntax for type
@@ -148,16 +147,10 @@ const submitTeacherApplicationBase = loudAction<ApplyInput, { message: string }>
   // explicit Telegram still fires inside the handler for the new-applicant
   // alert.
   severity: "warning",
-  audit: {
-    table: "teacher_profiles",
-    // recordId resolved post-create; the audit envelope row written by the
-    // framework records the IP-based pseudo-id pre-create. The diff
-    // `audit_log.insert` at the end of the handler carries the real
-    // teacherId once auth.admin.createUser returns it.
-    recordId: (i) => `pending:${i.email}`,
-    action: "INSERT",
-    reasonPrefix: "teacher self-applied",
-  },
+  // No framework audit here — audit_log.record_id is a UUID column; the
+  // pre-create placeholder "pending:<email>" is not a valid UUID (22P02).
+  // The handler writes its own diff audit row with the real teacherId after
+  // auth.admin.createUser resolves (see audit_log insert below the upsert).
   // No preflight — apply is anonymous (no auth). actorId stays null.
   handler: async (input) => {
     if (!(await checkApplyRate(input.ipKey))) {
