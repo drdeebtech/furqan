@@ -103,7 +103,12 @@ export default async function AdminSessionsPage({
       if (bookings) {
         bookingMap = Object.fromEntries(bookings.map((b) => [b.id, b]));
         const profileIds = bookings.flatMap((b) => [b.student_id, b.teacher_id]);
-        nameMap = await buildNameMap(supabase, profileIds);
+        nameMap = await withTimeout(
+          buildNameMap(supabase, profileIds),
+          SESSIONS_QUERY_TIMEOUT_MS,
+          {},
+          "nameMapRes",
+        );
       }
     }
   }
