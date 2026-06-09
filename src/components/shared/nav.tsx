@@ -341,8 +341,8 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
 
   return (
     <>
-      {/* Mobile top bar */}
-      <div dir={dir} className="fixed inset-x-0 top-0 z-40 flex items-center justify-between border-b border-[var(--surface-border)] glass-card px-4 py-2 md:hidden" style={{ borderRadius: 0 }}>
+      {/* Mobile top bar — z-50 so it stays above the z-40 backdrop when menu is open */}
+      <div dir={dir} className="fixed inset-x-0 top-0 z-50 flex items-center justify-between border-b border-[var(--surface-border)] glass-card px-4 py-2 md:hidden" style={{ borderRadius: 0 }}>
         <Link href={`/${role}/dashboard`} className="flex items-center gap-2">
           <Image src="/logo-192.png" alt="فرقان" width={28} height={28} sizes="28px" className="rounded-full" />
           <span className="text-lg font-bold text-gold">فُرقان</span>
@@ -359,10 +359,12 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
         </button>
       </div>
 
-      {/* Mobile backdrop */}
+      {/* Mobile backdrop — button ensures iOS Safari fires tap events */}
       {menuOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+        <button
+          type="button"
+          aria-label={t("إغلاق القائمة", "Close menu")}
+          className="fixed inset-0 z-40 w-full cursor-default bg-black/50 md:hidden"
           onClick={() => setMenuOpen(false)}
         />
       )}
