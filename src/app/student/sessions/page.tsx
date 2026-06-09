@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Video, Inbox, Calendar, CheckCircle, AlertTriangle, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { fetchNameMap } from "@/lib/supabase/helpers";
+import { buildNameMap } from "@/lib/admin/name-map";
 import { SESSION_TYPE_AR, STATUS_STYLE } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
 import type { BookingStatus, SessionType, SessionMode } from "@/types/database";
@@ -78,7 +78,7 @@ export default async function StudentSessionsPage() {
   }
 
   // Fetch teacher names
-  const nameMap = await fetchNameMap(
+  const nameMap = await buildNameMap(
     supabase,
     list.map((b) => b.teacher_id),
     t("معلم", "Teacher"),

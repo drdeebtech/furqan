@@ -4,10 +4,14 @@ import Link from "next/link";
 import { Video, Inbox, Radio, BarChart3, Users, TrendingUp } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
+import { withTimeout } from "@/lib/promise-utils";
+import { buildNameMap } from "@/lib/admin/name-map";
 import { SessionStatus } from "@/components/shared/session-status";
 import { SessionModeBadge, type SessionMode } from "@/components/sessions/SessionModeBadge";
 import { StatTile } from "@/components/shared/stat-tile";
 import { SessionRowActions } from "./session-row-actions";
+
+const SESSIONS_QUERY_TIMEOUT_MS = 5000;
 
 export const metadata: Metadata = { title: "إدارة الجلسات" };
 
@@ -34,8 +38,6 @@ interface BookingInfo {
   teacher_id: string;
   scheduled_at: string;
   duration_min: number;
-  student: { id: string; full_name: string | null } | null;
-  teacher: { id: string; full_name: string | null } | null;
 }
 
 export default async function AdminSessionsPage({
@@ -64,40 +66,50 @@ export default async function AdminSessionsPage({
   if (activeMode) sessionsQuery = sessionsQuery.eq("session_mode", activeMode);
 
   const [sessionsRes, activeCountRes] = await Promise.all([
-    sessionsQuery.returns<SessionRow[]>(),
-    supabase
-      .from("sessions")
-      .select("id", { count: "exact", head: true })
-      .not("started_at", "is", null)
-      .is("ended_at", null),
+    withTimeout(sessionsQuery.returns<SessionRow[]>(), SESSIONS_QUERY_TIMEOUT_MS, { data: [] } as never, "sessionsRes"),
+    withTimeout(
+      supabase
+        .from("sessions")
+        .select("id", { count: "exact", head: true })
+        .not("started_at", "is", null)
+        .is("ended_at", null),
+      SESSIONS_QUERY_TIMEOUT_MS,
+      { count: 0 } as never,
+      "activeCountRes",
+    ),
   ]);
 
   const list = sessionsRes.data ?? [];
   const activeCount = activeCountRes.count ?? 0;
 
-  /* ── Booking + embedded profile names (single round-trip) ──────── */
+  /* ── Bookings + name resolution (two sequential round-trips, data-dependent) */
+  // Halaqa rows have NULL booking_id — filter before the IN() to avoid passing null.
   let bookingMap: Record<string, BookingInfo> = {};
-  const nameMap: Record<string, string> = {};
+  let nameMap: Record<string, string> = {};
 
   if (list.length > 0) {
-    // Halaqa rows have NULL booking_id — filter them out before the IN()
-    // lookup so we don't pass `null` into the query.
     const bIds = list.map((s) => s.booking_id).filter((id): id is string => id !== null);
     if (bIds.length > 0) {
-    const { data: bookings } = await supabase
-      .from("bookings")
-      .select(
-        "id, student_id, teacher_id, scheduled_at, duration_min, student:profiles!student_id(id, full_name), teacher:profiles!teacher_id(id, full_name)",
-      )
-      .in("id", bIds)
-      .returns<BookingInfo[]>();
-    if (bookings) {
-      bookingMap = Object.fromEntries(bookings.map((b) => [b.id, b]));
-      for (const b of bookings) {
-        if (b.student) nameMap[b.student.id] = b.student.full_name ?? "—";
-        if (b.teacher) nameMap[b.teacher.id] = b.teacher.full_name ?? "—";
+      const { data: bookings } = await withTimeout(
+        supabase
+          .from("bookings")
+          .select("id, student_id, teacher_id, scheduled_at, duration_min")
+          .in("id", bIds)
+          .returns<BookingInfo[]>(),
+        SESSIONS_QUERY_TIMEOUT_MS,
+        { data: [] } as never,
+        "bookingsRes",
+      );
+      if (bookings) {
+        bookingMap = Object.fromEntries(bookings.map((b) => [b.id, b]));
+        const profileIds = bookings.flatMap((b) => [b.student_id, b.teacher_id]);
+        nameMap = await withTimeout(
+          buildNameMap(supabase, profileIds),
+          SESSIONS_QUERY_TIMEOUT_MS,
+          {},
+          "nameMapRes",
+        );
       }
-    }
     }
   }
 
