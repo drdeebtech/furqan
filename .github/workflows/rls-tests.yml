@@ -2,15 +2,7 @@ name: Unit Tests (RLS + Silent-Fail Guard + Type-Check + ...)
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - "src/**"
-      - "package.json"
-      - "package-lock.json"
-      - "vitest.config.ts"
-      - "tsconfig.json"
-      - "eslint.config.mjs"
-      - ".github/workflows/rls-tests.yml"
+  pull_request:  # No paths filter — job skips internally when no relevant files changed
   push:
     branches: [main]
     paths:
@@ -35,25 +27,39 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Check if relevant files changed
+        if: github.event_name == 'pull_request'
+        id: changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          COUNT=$(gh pr view ${{ github.event.pull_request.number }} \
+            --repo "${{ github.repository }}" \
+            --json files \
+            --jq '[.files[].path | select(test("^src/|^package(-lock)?\\.json$|^vitest\\.config\\.ts$|^tsconfig\\.json$|^eslint\\.config\\.mjs$|\\.github/workflows/rls-tests\\.yml"))] | length')
+          echo "relevant=$([ "$COUNT" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - if: github.event_name == 'pull_request' && steps.changes.outputs.relevant != 'true'
+        run: echo "No relevant files changed — vitest run skipped."
       - name: Checkout
+        if: github.event_name != 'pull_request' || steps.changes.outputs.relevant == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
       - name: Setup Node
+        if: github.event_name != 'pull_request' || steps.changes.outputs.relevant == 'true'
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version-file: ".nvmrc"
           cache: "npm"
-
       - name: Install dependencies
+        if: github.event_name != 'pull_request' || steps.changes.outputs.relevant == 'true'
         run: npm ci
-
       - name: Type-check (tsc --noEmit) — catches drift that vitest can't see
+        if: github.event_name != 'pull_request' || steps.changes.outputs.relevant == 'true'
         run: npx tsc --noEmit
-
       - name: Lint (eslint) — parity with CircleCI lint job (issue #325)
+        if: github.event_name != 'pull_request' || steps.changes.outputs.relevant == 'true'
         run: npm run lint
-
       - name: Run vitest (RLS regression + silent-fail guard + helpers)
+        if: github.event_name != 'pull_request' || steps.changes.outputs.relevant == 'true'
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}

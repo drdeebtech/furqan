@@ -15,12 +15,7 @@ name: Silent-fail check
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - "src/**"
-      - "scripts/check-silent-fail.sh"
-      - "scripts/.silent-fail-baseline.txt"
-      - ".github/workflows/silent-fail-check.yml"
+  pull_request:  # No paths filter — job skips internally when no relevant files changed
   push:
     branches: [main]
     paths:
@@ -42,8 +37,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Check if relevant files changed
+        if: github.event_name == 'pull_request'
+        id: changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          COUNT=$(gh pr view ${{ github.event.pull_request.number }} \
+            --repo "${{ github.repository }}" \
+            --json files \
+            --jq '[.files[].path | select(test("^src/|check-silent-fail\\.sh|silent-fail-baseline\\.txt|\\.github/workflows/silent-fail-check\\.yml"))] | length')
+          echo "relevant=$([ "$COUNT" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - if: github.event_name == 'pull_request' && steps.changes.outputs.relevant != 'true'
+        run: echo "No relevant files changed — silent-fail check skipped."
       - name: Checkout
+        if: github.event_name != 'pull_request' || steps.changes.outputs.relevant == 'true'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
       - name: Run silent-fail check
+        if: github.event_name != 'pull_request' || steps.changes.outputs.relevant == 'true'
         run: scripts/check-silent-fail.sh
