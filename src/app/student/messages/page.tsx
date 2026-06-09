@@ -24,7 +24,7 @@ export default async function StudentMessagesPage() {
   let nameMap: Record<string, string> = {};
   if (convos.length > 0) {
     const ids = convos.map((c) => c.teacher_id);
-    const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", ids)
+    const { data: profiles } = await supabase.from("public_profiles").select("id, full_name").in("id", ids)
       .returns<{ id: string; full_name: string | null }[]>();
     if (profiles) nameMap = Object.fromEntries(profiles.map((p) => [p.id, p.full_name ?? t("معلم", "Teacher")]));
   }

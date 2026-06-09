@@ -848,7 +848,12 @@ ALTER TABLE schema_migrations     ENABLE ROW LEVEL SECURITY;
 
 -- ── profiles ─────────────────────────────────────────────────────────────────
 
-CREATE POLICY profiles_select ON profiles FOR SELECT USING (true);
+-- Relationship-scoped SELECT (audit HIGH-1, migration
+-- 20260609004838_restrict_profiles_select_relationship): own row OR admin OR a
+-- teacher<->student counterparty (bookings/course_enrollments). Non-PII name/
+-- avatar for non-counterparties is served by the public_profiles view.
+CREATE POLICY profiles_select ON profiles FOR SELECT
+  USING ( private.profile_is_visible(id) );
 CREATE POLICY profiles_update ON profiles FOR UPDATE USING (auth.uid() = id);
 
 -- ── teacher_profiles ─────────────────────────────────────────────────────────

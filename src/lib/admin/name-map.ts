@@ -15,11 +15,17 @@ export async function buildNameMap(
   fallback = "—",
 ): Promise<Record<string, string>> {
   if (ids.length === 0) return {};
+  // Read from the non-PII `public_profiles` view, not `profiles`: callers pass
+  // various clients and id sets that aren't always a teacher<->student
+  // counterparty of the caller, so the relationship-scoped `profiles` RLS would
+  // null out legitimate name lookups. The view exposes id/full_name only.
   const { data } = await supabase
-    .from("profiles")
+    .from("public_profiles")
     .select("id, full_name")
     .in("id", ids as string[])
     .returns<{ id: string; full_name: string | null }[]>();
   if (!data) return {};
-  return Object.fromEntries(data.map((p) => [p.id, p.full_name ?? fallback]));
+  return Object.fromEntries(
+    data.map((p) => [p.id, p.full_name ?? fallback]),
+  );
 }

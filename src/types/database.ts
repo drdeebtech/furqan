@@ -4422,6 +4422,16 @@ export type Database = {
       }
     }
     Views: {
+      public_profiles: {
+        Row: {
+          avatar_url: string | null
+          full_name: string | null
+          full_name_ar: string | null
+          id: string | null
+          role: Database["public"]["Enums"]["user_role"] | null
+        }
+        Relationships: []
+      }
       v_bookings: {
         Row: {
           booking_id: string | null
