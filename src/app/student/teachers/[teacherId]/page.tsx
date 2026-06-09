@@ -34,9 +34,12 @@ export default async function TeacherDetailPage({ params }: PageProps) {
 
   // Pull profile + teacher_profiles + availability + specialty picklist in parallel.
   const [{ data: profile }, { data: tp }, { data: availability }, specialtyLabels] = await Promise.all([
-    supabase.from("public_profiles" as "profiles").select("full_name, full_name_ar, avatar_url").eq("id", teacherId).single<{
-      full_name: string | null; full_name_ar: string | null; avatar_url: string | null;
-    }>(),
+    supabase
+      .from("public_profiles" as "profiles")
+      .select("full_name, full_name_ar, avatar_url")
+      .eq("id", teacherId)
+      .returns<{ full_name: string | null; full_name_ar: string | null; avatar_url: string | null }[]>()
+      .single(),
     supabase
       .from("teacher_profiles")
       .select("teacher_id, bio, bio_en, specialties, recitation_standards, hourly_rate, rating_avg, total_sessions, gender, is_archived, is_accepting, cv_status")

@@ -74,8 +74,11 @@ SET search_path = public, pg_temp AS $$
     OR (SELECT private.is_admin())
     OR EXISTS (
       SELECT 1 FROM public.bookings b
-      WHERE (b.teacher_id = (SELECT auth.uid()) AND b.student_id = p_target)
-         OR (b.student_id = (SELECT auth.uid()) AND b.teacher_id = p_target)
+      WHERE b.deleted_at IS NULL
+        AND (
+          (b.teacher_id = (SELECT auth.uid()) AND b.student_id = p_target)
+          OR (b.student_id = (SELECT auth.uid()) AND b.teacher_id = p_target)
+        )
     )
     OR EXISTS (
       SELECT 1 FROM public.course_enrollments ce

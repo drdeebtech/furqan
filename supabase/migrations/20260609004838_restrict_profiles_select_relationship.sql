@@ -29,9 +29,11 @@
 --    and student->teacher.
 -- ---------------------------------------------------------------------------
 create index if not exists idx_bookings_teacher_student
-  on public.bookings (teacher_id, student_id);
+  on public.bookings (teacher_id, student_id)
+  where deleted_at is null;
 create index if not exists idx_bookings_student_teacher
-  on public.bookings (student_id, teacher_id);
+  on public.bookings (student_id, teacher_id)
+  where deleted_at is null;
 
 -- ---------------------------------------------------------------------------
 -- 2. SECURITY DEFINER visibility helper.
@@ -52,12 +54,15 @@ as $$
     p_target = (select auth.uid())
     -- admin sees everyone
     or (select private.is_admin())
-    -- teacher <-> student via a booking (either direction)
+    -- teacher <-> student via a non-deleted booking (either direction)
     or exists (
       select 1
       from public.bookings b
-      where (b.teacher_id = (select auth.uid()) and b.student_id = p_target)
-         or (b.student_id = (select auth.uid()) and b.teacher_id = p_target)
+      where b.deleted_at is null
+        and (
+          (b.teacher_id = (select auth.uid()) and b.student_id = p_target)
+          or (b.student_id = (select auth.uid()) and b.teacher_id = p_target)
+        )
     )
     -- teacher <-> student via a course enrollment (either direction)
     or exists (
