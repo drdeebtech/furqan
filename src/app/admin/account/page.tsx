@@ -29,7 +29,7 @@ export default async function AdminAccountPage() {
   const { data: { user } } = await withTimeout(
     supabase.auth.getUser(),
     4000,
-    { data: { user: null }, error: null } as never,
+    { data: { user: null }, error: null } as unknown as Awaited<ReturnType<typeof supabase.auth.getUser>>,
     "adminAccount.getUser",
   );
   const { data: profile } = await supabase

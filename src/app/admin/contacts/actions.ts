@@ -51,7 +51,7 @@ const markAsReadBase = loudAction<{ submissionId: string }, void>({
 });
 
 export async function markAsRead(submissionId: string) {
-  const parsed = z.string().uuid().safeParse(submissionId);
+  const parsed = z.uuid().safeParse(submissionId);
   if (!parsed.success) return { ok: false as const, error: "معرف غير صالح" };
   return markAsReadBase({ submissionId: parsed.data });
 }
