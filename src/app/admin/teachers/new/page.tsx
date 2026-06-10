@@ -59,7 +59,7 @@ export default async function NewTeacherPage() {
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">{t("السيرة الذاتية (إنجليزي)", "Bio (English)")}</label>
-            <textarea name="bio_en" rows={3} dir="ltr" className={`${input} resize-none text-left`} placeholder="English bio for students browsing in English" />
+            <textarea name="bio_en" rows={3} dir="ltr" className={`${input} resize-none text-start`} placeholder="English bio for students browsing in English" />
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">

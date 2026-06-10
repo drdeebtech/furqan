@@ -72,7 +72,7 @@ export function PostForm({ post }: { post?: BlogPost }) {
 
       <div>
         <label htmlFor="slug" className="mb-1 block text-sm font-medium">الرابط (Slug) *</label>
-        <input id="slug" name="slug" required dir="ltr" defaultValue={post?.slug} className={`${input} text-left`} placeholder="article-url-slug" />
+        <input id="slug" name="slug" required dir="ltr" defaultValue={post?.slug} className={`${input} text-start`} placeholder="article-url-slug" />
         <p className="mt-1 text-xs text-muted">يُستخدم في رابط المقال — أحرف إنجليزية وأرقام وشرطات فقط</p>
       </div>
 
@@ -111,7 +111,7 @@ export function PostForm({ post }: { post?: BlogPost }) {
               name="cover_alt_en"
               dir="ltr"
               defaultValue={post?.cover_alt_en ?? ""}
-              className={`${input} text-left`}
+              className={`${input} text-start`}
               placeholder="Describe the image in English (for screen readers)"
             />
           </div>
@@ -135,7 +135,7 @@ export function PostForm({ post }: { post?: BlogPost }) {
         </div>
         <div>
           <label htmlFor="read_time_en" className="mb-1 block text-sm font-medium">Read Time (English)</label>
-          <input id="read_time_en" name="read_time_en" dir="ltr" defaultValue={post?.read_time_en ?? "5 min"} className={`${input} text-left`} placeholder="5 min" />
+          <input id="read_time_en" name="read_time_en" dir="ltr" defaultValue={post?.read_time_en ?? "5 min"} className={`${input} text-start`} placeholder="5 min" />
         </div>
       </div>
 
@@ -146,7 +146,7 @@ export function PostForm({ post }: { post?: BlogPost }) {
 
       <div>
         <label htmlFor="excerpt_en" className="mb-1 block text-sm font-medium">Excerpt in English *</label>
-        <textarea id="excerpt_en" name="excerpt_en" required dir="ltr" rows={3} defaultValue={post?.excerpt_en} className={`${input} resize-none text-left`} placeholder="Short summary in English..." />
+        <textarea id="excerpt_en" name="excerpt_en" required dir="ltr" rows={3} defaultValue={post?.excerpt_en} className={`${input} resize-none text-start`} placeholder="Short summary in English..." />
       </div>
 
       <div>
@@ -156,7 +156,7 @@ export function PostForm({ post }: { post?: BlogPost }) {
 
       <div>
         <label htmlFor="body_en" className="mb-1 block text-sm font-medium">Full Content in English *</label>
-        <textarea id="body_en" name="body_en" required dir="ltr" rows={10} defaultValue={post?.body_en} className={`${input} resize-y text-left`} placeholder="Write the full article content here..." />
+        <textarea id="body_en" name="body_en" required dir="ltr" rows={10} defaultValue={post?.body_en} className={`${input} resize-y text-start`} placeholder="Write the full article content here..." />
       </div>
 
       <div className="flex items-center gap-3 glass-card rounded-xl p-4">

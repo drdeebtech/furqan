@@ -134,7 +134,7 @@ export function AccountForm({ teacherId, currentEmail, profile }: AccountFormPro
               type="email"
               dir="ltr"
               defaultValue={currentEmail}
-              className={`${input} text-left`}
+              className={`${input} text-start`}
             />
           </div>
           <button
@@ -227,7 +227,7 @@ function Field({
         dir={ltr ? "ltr" : undefined}
         defaultValue={defaultValue}
         placeholder={placeholder}
-        className={`${input} ${ltr ? "text-left" : ""}`}
+        className={`${input} ${ltr ? "text-start" : ""}`}
       />
     </div>
   );

@@ -73,7 +73,7 @@ export function CvEditForm({
             rows={5}
             dir="ltr"
             defaultValue={bioEn}
-            className="glass-input w-full px-4 py-2.5 text-left text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+            className="glass-input w-full px-4 py-2.5 text-start text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
           />
         </div>
 
@@ -110,7 +110,7 @@ export function CvEditForm({
             dir="ltr"
             defaultValue={introVideoUrl}
             placeholder="https://youtube.com/watch?v=..."
-            className="glass-input w-full px-4 py-2.5 text-left text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+            className="glass-input w-full px-4 py-2.5 text-start text-foreground focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
           />
         </div>
 

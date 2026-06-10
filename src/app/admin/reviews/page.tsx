@@ -58,7 +58,7 @@ export default async function AdminReviewsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <ReviewToggle reviewId={r.id} isPublic={r.is_public} />
-                  <DeleteReviewButton reviewId={r.id} />
+                  <DeleteReviewButton reviewId={r.id} studentName={nameMap[r.student_id] ?? "—"} teacherName={nameMap[r.teacher_id] ?? "—"} />
                 </div>
               </div>
             </div>

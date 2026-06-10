@@ -87,7 +87,7 @@ function Field({
         dir={ltr ? "ltr" : undefined}
         defaultValue={defaultValue}
         placeholder={placeholder}
-        className={`${input} ${ltr ? "text-left" : ""}`}
+        className={`${input} ${ltr ? "text-start" : ""}`}
       />
     </div>
   );

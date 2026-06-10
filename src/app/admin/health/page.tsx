@@ -84,7 +84,7 @@ export default function CodeHealthPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="glass-thead">
-                <th className="px-5 py-3 text-right font-medium text-white/70">الملف · File</th>
+                <th className="px-5 py-3 text-start font-medium text-white/70">الملف · File</th>
                 <th className="px-5 py-3 text-center font-medium text-white/70">المستوردون · Importers</th>
                 <th className="px-5 py-3 text-center font-medium text-white/70">مُختبَر · Tested</th>
               </tr>
@@ -156,7 +156,7 @@ export default function CodeHealthPage() {
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <span className="shrink-0 text-xs text-white/60 tabular-nums w-9 text-left">
+                  <span dir="ltr" className="shrink-0 text-xs text-white/60 tabular-nums w-9 text-start">
                     {pct}%
                   </span>
                 </div>

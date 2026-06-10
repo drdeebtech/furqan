@@ -328,7 +328,7 @@ function SlotForm({
             type="time"
             required
             defaultValue={initial?.start_time?.slice(0, 5) ?? "09:00"}
-            className={`${input} text-left`}
+            className={`${input} text-start`}
             dir="ltr"
           />
         </div>
@@ -339,7 +339,7 @@ function SlotForm({
             type="time"
             required
             defaultValue={initial?.end_time?.slice(0, 5) ?? "17:00"}
-            className={`${input} text-left`}
+            className={`${input} text-start`}
             dir="ltr"
           />
         </div>
@@ -464,17 +464,17 @@ function ExceptionForm({
             name="date"
             type="date"
             required
-            className={`${input} text-left`}
+            className={`${input} text-start`}
             dir="ltr"
           />
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium">من (اختياري)</label>
-          <input name="start_time" type="time" className={`${input} text-left`} dir="ltr" />
+          <input name="start_time" type="time" className={`${input} text-start`} dir="ltr" />
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium">إلى (اختياري)</label>
-          <input name="end_time" type="time" className={`${input} text-left`} dir="ltr" />
+          <input name="end_time" type="time" className={`${input} text-start`} dir="ltr" />
         </div>
       </div>
 
