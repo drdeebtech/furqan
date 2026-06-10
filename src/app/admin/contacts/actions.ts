@@ -33,7 +33,7 @@ export async function markAsRead(submissionId: string) {
     return { success: false, error: error.message };
   }
 
-  // Only write an audit row when the state actually changed.
+  // Only write an audit row and emit the event when the state actually changed.
   if (current?.is_read !== true) {
     await supabase.from("audit_log").insert({
       changed_by: actorId,
@@ -46,9 +46,9 @@ export async function markAsRead(submissionId: string) {
     } satisfies TableInsert<"audit_log">).then(({ error: auditErr }) => {
       if (auditErr) logError("markAsRead: audit row failed", auditErr, { tag: "admin-contacts" });
     });
-  }
 
-  void emitEvent("contact_submission.read", "contact_submission", submissionId, {}, actorId);
+    void emitEvent("contact_submission.read", "contact_submission", submissionId, {}, actorId);
+  }
 
   revalidatePath("/admin/contacts");
   return { success: true };
