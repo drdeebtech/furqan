@@ -110,7 +110,7 @@ export function OverviewTab() {
           setLoading(false);
         });
       });
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadData();
