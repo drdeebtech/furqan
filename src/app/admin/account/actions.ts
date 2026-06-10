@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
+import { requireAdmin } from "@/lib/auth/require-admin";
 
 function str(formData: FormData, key: string): string | null {
   const v = formData.get(key);
@@ -64,14 +65,15 @@ export async function updatePersonalInfo(
   _prev: LoudResult | null,
   formData: FormData,
 ): Promise<LoudResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "غير مصرح" };
+  let userId: string;
+  try {
+    ({ id: userId } = await requireAdmin());
+  } catch {
+    return { ok: false, error: "غير مصرح" };
+  }
 
   return updatePersonalInfoBase({
-    userId: user.id,
+    userId,
     fullName: str(formData, "full_name"),
     fullNameAr: str(formData, "full_name_ar"),
     phone: str(formData, "phone"),
