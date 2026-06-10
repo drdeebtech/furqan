@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
+import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
@@ -46,6 +47,8 @@ export async function markAsRead(submissionId: string) {
       if (auditErr) logError("markAsRead: audit row failed", auditErr, { tag: "admin-contacts" });
     });
   }
+
+  void emitEvent("contact_submission.read", "contact_submission", submissionId, {}, actorId);
 
   revalidatePath("/admin/contacts");
   return { success: true };
