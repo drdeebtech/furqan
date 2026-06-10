@@ -151,7 +151,6 @@ export function RemoteHandoffButton({ targetPath = "/admin/control-tower" }: { t
 
                 <div
                   className="mx-auto mb-4 w-fit rounded-xl bg-white p-3"
-                  // eslint-disable-next-line react/no-danger -- our own server-rendered SVG
                   dangerouslySetInnerHTML={{ __html: displayState.kind === "ready" ? displayState.qrSvg : "" }}
                   aria-label={t("رمز الاستجابة السريعة", "QR code")}
                 />

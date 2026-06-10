@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
-  ScrollText, Video, ClipboardCheck, BookOpen, Mail, BookMarked,
+  ScrollText, Video, BookOpen, Mail, BookMarked,
   Sparkles, RotateCcw, AlertCircle, ChevronRight,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { surahName } from "@/lib/quran/surahs";
-import { HOMEWORK_TYPE_AR, SESSION_TYPE_AR } from "@/lib/constants";
+import { SESSION_TYPE_AR } from "@/lib/constants";
 import { EmptyState } from "@/components/shared/empty-state";
 
 export const metadata: Metadata = { title: "خط زمني" };

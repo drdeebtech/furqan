@@ -21,7 +21,7 @@ const inputClass =
   "glass-input w-full rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold";
 
 export function HalaqaForm({ teachers }: Props) {
-  const { t, dir, lang } = useLang();
+  const { t, lang } = useLang();
   const router = useRouter();
   const toast = useToast();
   const [state, action, pending] = useActionState(createHalaqa, initialState);

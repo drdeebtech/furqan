@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { PostForm } from "../post-form";
 
@@ -7,7 +6,6 @@ export const metadata: Metadata = { title: "مقال جديد" };
 
 export default async function NewPostPage() {
   const { t, dir } = await getT();
-  const supabase = await createClient();
 
   return (
     <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">
