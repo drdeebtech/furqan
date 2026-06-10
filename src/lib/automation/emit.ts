@@ -112,6 +112,10 @@ export const WEBHOOK_ROUTES = {
   // failed-delivery automation_log entry.
   "teacher.availability_slot_added": "/webhook/furqan-teacher-availability",
   "teacher.availability_slot_deleted": "/webhook/furqan-teacher-availability",
+  // NOTE: n8n workflow must be created to consume this event (e.g. CRM sync,
+  // auto-reply triggers). Until then dispatch logs a non-fatal failed-delivery
+  // automation_log entry.
+  "contact_submission.read": "/webhook/furqan-contact-submission-read",
 } as const satisfies Record<string, string>;
 
 /**

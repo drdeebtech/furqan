@@ -6,7 +6,7 @@ import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { notify } from "@/lib/notifications/dispatcher";
 import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
-import type { TableUpdate } from "@/lib/supabase/typed-helpers";
+import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
 export type InterventionType =
   | "re_engagement"
@@ -72,10 +72,12 @@ export async function logIntervention(formData: FormData): Promise<{ ok: boolean
     return { ok: false, error: e instanceof Error ? e.message : "فشل الإرسال" };
   }
 
+  const now = new Date().toISOString();
+
   const { error: stampError } = await supabase
     .from("retention_signals")
     .update({
-      last_intervention_at: new Date().toISOString(),
+      last_intervention_at: now,
       intervention_type: type,
     } satisfies TableUpdate<"retention_signals">)
     .eq("student_id", studentId);
@@ -89,10 +91,22 @@ export async function logIntervention(formData: FormData): Promise<{ ok: boolean
     return { ok: false, error: stampError.message };
   }
 
+  // Audit row — who triggered which intervention on which student.
+  await supabase.from("audit_log").insert({
+    changed_by: actor.id,
+    table_name: "retention_signals",
+    record_id: studentId,
+    action: "UPDATE",
+    old_data: null,
+    new_data: { intervention_type: type, last_intervention_at: now },
+    reason: `admin retention intervention: ${type}`,
+  } satisfies TableInsert<"audit_log">).then(({ error: auditErr }) => {
+    if (auditErr) logError("logIntervention: audit row failed", auditErr, { tag: "admin-retention" });
+  });
+
   // Write to automation_logs for per-student intervention history.
   // Best-effort: don't block the user on a log failure, but pipe the
   // failure through logError so it's visible in Sentry.
-  const now = new Date().toISOString();
   await supabase.from("automation_logs").insert({
     workflow_name: "retention-intervention",
     event_name: "retention.intervention_triggered",
@@ -107,7 +121,7 @@ export async function logIntervention(formData: FormData): Promise<{ ok: boolean
     },
     started_at: now,
     finished_at: now,
-  }).then(({ error }) => {
+  } satisfies TableInsert<"automation_logs">).then(({ error }) => {
     if (error) {
       logError("admin retention automation_logs insert failed", error, {
         tag: "admin-retention",
