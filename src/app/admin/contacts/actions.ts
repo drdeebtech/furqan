@@ -15,11 +15,12 @@ const markAsReadBase = loudAction<{ submissionId: string }, void>({
     const { id: actorId } = await requireAdmin();
     const supabase = await createClient();
 
-    const { data: current } = await supabase
+    const { data: current, error: selectErr } = await supabase
       .from("contact_submissions")
       .select("is_read")
       .eq("id", submissionId)
       .single<{ is_read: boolean }>();
+    if (selectErr || !current) throw new Error(selectErr?.message ?? "Submission not found");
 
     const { error } = await supabase
       .from("contact_submissions")
