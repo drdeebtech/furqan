@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 function str(formData: FormData, key: string): string | null {
   const v = formData.get(key);
@@ -54,10 +55,10 @@ const updatePersonalInfoBase = loudAction<z.infer<typeof personalInfoSchema>, { 
         full_name_ar: input.fullNameAr,
         phone: input.phone,
         country: input.country,
-        timezone: input.timezone,
-        lang: input.lang,
+        timezone: input.timezone ?? undefined,
+        lang: input.lang ?? undefined,
         date_of_birth: input.dateOfBirth,
-      } as never)
+      } satisfies TableUpdate<"profiles">)
       .eq("id", actorId);
     if (error) throw error;
 

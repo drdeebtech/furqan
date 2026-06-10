@@ -11,6 +11,8 @@ import {
 import { signWebhookPayload } from "@/lib/security/secrets";
 import { requireAdmin as requireAdminStrict, ForbiddenError, UnauthenticatedError } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
+import type { Json } from "@/types/database";
+import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL;
 const N8N_WEBHOOK_SECRET = process.env.N8N_WEBHOOK_SECRET;
@@ -47,7 +49,7 @@ interface FailedLogRow {
   entity_type: string | null;
   entity_id: string | null;
   idempotency_key: string | null;
-  payload_json: Record<string, unknown> | null;
+  payload_json: Json | null;
 }
 
 interface DeadLetterRow {
@@ -57,7 +59,7 @@ interface DeadLetterRow {
   entity_type: string | null;
   entity_id: string | null;
   idempotency_key: string | null;
-  payload_json: Record<string, unknown> | null;
+  payload_json: Json | null;
 }
 
 type ReplaySource = "log" | "dead_letter";
@@ -116,7 +118,7 @@ export async function replayAutomation({
     entity_id: row.entity_id,
     idempotency_key: replayKey,
     status: "started",
-    payload_json: row.payload_json as never,
+    payload_json: row.payload_json,
     error_message: null,
   }).then((r) => {
     if (r.error) logError("replayAutomation: pre-dispatch log failed", r.error, { tag: "admin-automation" });
@@ -157,7 +159,7 @@ export async function replayAutomation({
         entity_id: row.entity_id,
         idempotency_key: `${replayKey}:result`,
         status: "failed",
-        payload_json: row.payload_json as never,
+        payload_json: row.payload_json,
         error_message: `replay HTTP ${res.status}`,
         finished_at: new Date().toISOString(),
       }).then((r) => {
@@ -189,7 +191,7 @@ export async function replayAutomation({
       entity_id: row.entity_id,
       idempotency_key: `${replayKey}:result`,
       status: "failed",
-      payload_json: row.payload_json as never,
+      payload_json: row.payload_json,
       error_message: `replay error: ${message}`,
       finished_at: new Date().toISOString(),
     }).then((r) => {
@@ -219,7 +221,7 @@ export async function markDeadLetterResolved({
       resolved_at: new Date().toISOString(),
       resolved_by: auth.userId,
       resolution_notes: notes.trim() || null,
-    } as never)
+    } satisfies TableUpdate<"automation_dead_letter">)
     .eq("id", id);
 
   if (error) {
