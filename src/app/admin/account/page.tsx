@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Settings, User, KeyRound, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { getT } from "@/lib/i18n/server";
 import { AccountForm } from "./account-form";
 import { PasswordChangeForm } from "@/components/shared/password-change-form";
@@ -23,13 +24,12 @@ interface ProfileRow {
 export default async function AdminAccountPage() {
   const { t, dir } = await getT();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { id: adminId } = await requireAdmin();
+  const { data: { user } } = await supabase.auth.getUser();
   const { data: profile } = await supabase
     .from("profiles")
     .select("full_name, full_name_ar, phone, country, timezone, lang, date_of_birth")
-    .eq("id", user!.id)
+    .eq("id", adminId)
     .single<ProfileRow>();
   if (!profile) redirect("/admin/dashboard");
 
