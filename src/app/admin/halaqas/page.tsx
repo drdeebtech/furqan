@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Users, Plus, Inbox, Clock } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getT } from "@/lib/i18n/server";
 import { PageHeader } from "@/components/shared/page-header";
@@ -30,8 +29,6 @@ interface TeacherRow {
 export default async function AdminHalaqasPage() {
   const { t, dir, lang } = await getT();
   const locale = lang === "ar" ? "ar-EG" : "en-US";
-
-  const supabase = await createClient();
 
   const admin = createAdminClient();
 
@@ -68,7 +65,6 @@ export default async function AdminHalaqasPage() {
   }
 
   const upcoming = list.filter((h) => !h.ended_at);
-  const ended = list.filter((h) => h.ended_at);
 
   return (
     <main dir={dir} className="mx-auto max-w-5xl px-4 py-8 sm:px-6">

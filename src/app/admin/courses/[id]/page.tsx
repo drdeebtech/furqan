@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight, Check, X, Archive, PlayCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";

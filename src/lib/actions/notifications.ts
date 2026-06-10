@@ -1,7 +1,6 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { logError } from "@/lib/logger";
 import type { Notification } from "@/types/database";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 import { loudAction } from "@/lib/actions/loud";

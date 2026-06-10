@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loadOrFail } from "@/lib/supabase/load-or-fail";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
-import type { SessionType, StudentLevel, HomeworkAssignment } from "@/types/database";
+import type { SessionType, StudentLevel } from "@/types/database";
 import { HomeworkAudioPlayer } from "@/components/shared/homework-audio-player";
 import { DataLoadBanner } from "@/components/shared/data-load-banner";
 import { EvalForm } from "./eval-form";

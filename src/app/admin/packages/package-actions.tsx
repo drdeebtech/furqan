@@ -28,7 +28,7 @@ export function PackageActions({ packageId, isActive }: { packageId: string; isA
       <Link
         href={`/admin/packages/${packageId}/edit`}
         className="glass-pill p-2 text-muted transition-colors hover:text-gold"
-        title={t("تعديل", "Edit")}
+        aria-label={t("تعديل الباقة", "Edit package")}
       >
         <Pencil size={14} />
       </Link>
@@ -36,7 +36,7 @@ export function PackageActions({ packageId, isActive }: { packageId: string; isA
         onClick={handleToggle}
         disabled={loading}
         className="glass-pill p-2 text-muted transition-colors hover:text-gold disabled:opacity-50"
-        title={isActive ? t("إخفاء", "Hide") : t("إظهار", "Show")}
+        aria-label={isActive ? t("إخفاء الباقة", "Hide package") : t("إظهار الباقة", "Show package")}
       >
         {isActive ? <EyeOff size={14} /> : <Eye size={14} />}
       </button>
@@ -44,7 +44,7 @@ export function PackageActions({ packageId, isActive }: { packageId: string; isA
         onClick={handleDelete}
         disabled={loading}
         className="glass-pill p-2 text-muted transition-colors hover:text-error disabled:opacity-50"
-        title={t("حذف", "Delete")}
+        aria-label={t("حذف الباقة", "Delete package")}
       >
         <Trash2 size={14} />
       </button>

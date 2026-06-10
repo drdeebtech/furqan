@@ -7,7 +7,7 @@ import { startTransition, useEffect, useRef, useState, useMemo } from "react";
 import {
   Menu, X, LayoutDashboard, GraduationCap, Calendar, TrendingUp, TrendingDown,
   MessageSquare, Clock, Users, ClipboardCheck, BookOpen, StickyNote, Mic, Award,
-  Star, DollarSign, Briefcase, FileText, Mail, Bell, Settings, ScrollText, Video,
+  Star, DollarSign, Briefcase, FileText, Mail, Bell, Settings, ScrollText,
   ChevronsUpDown, HelpCircle, ChevronRight, ChevronDown, CalendarDays, LogOut,
   Network, Map, Activity,
 } from "lucide-react";
