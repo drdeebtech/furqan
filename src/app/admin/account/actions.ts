@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
+import { requireAdmin } from "@/lib/auth/require-admin";
 
 function str(formData: FormData, key: string): string | null {
   const v = formData.get(key);
@@ -16,7 +17,6 @@ function str(formData: FormData, key: string): string | null {
 // (e.g. no phone-format regex, no country-code restriction). The goal is
 // defense in depth against malformed FormData, not user-experience policy.
 const personalInfoSchema = z.object({
-  userId: z.string().uuid(),
   fullName: z.string().min(1).max(200).nullable(),
   fullNameAr: z.string().min(1).max(200).nullable(),
   phone: z.string().min(3).max(30).nullable(),
@@ -32,13 +32,20 @@ const updatePersonalInfoBase = loudAction<z.infer<typeof personalInfoSchema>, { 
   name: "admin.account.update-personal-info",
   severity: "info",
   schema: personalInfoSchema,
+  // Auth gate inside loudAction so timeouts/outages are logged by the
+  // framework rather than silently converted to "غير مصرح".
+  preflight: async () => {
+    const { id } = await requireAdmin();
+    return { actorId: id };
+  },
   audit: {
     table: "profiles",
-    recordId: (i) => i.userId,
+    recordId: (_, actorId) => actorId ?? "",
     action: "UPDATE",
     reasonPrefix: "admin self-update (personal info)",
   },
-  handler: async (input) => {
+  handler: async (input, { actorId }) => {
+    if (!actorId) throw new Error("preflight must supply actorId");
     const supabase = await createClient();
     const { error } = await supabase
       .from("profiles")
@@ -51,7 +58,7 @@ const updatePersonalInfoBase = loudAction<z.infer<typeof personalInfoSchema>, { 
         lang: input.lang,
         date_of_birth: input.dateOfBirth,
       } as never)
-      .eq("id", input.userId);
+      .eq("id", actorId);
     if (error) throw error;
 
     revalidatePath("/admin/account");
@@ -64,14 +71,7 @@ export async function updatePersonalInfo(
   _prev: LoudResult | null,
   formData: FormData,
 ): Promise<LoudResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "غير مصرح" };
-
   return updatePersonalInfoBase({
-    userId: user.id,
     fullName: str(formData, "full_name"),
     fullNameAr: str(formData, "full_name_ar"),
     phone: str(formData, "phone"),

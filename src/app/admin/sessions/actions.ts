@@ -9,10 +9,10 @@ import { logError, logWarn } from "@/lib/logger";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
 import { endSession as endSessionOrchestrator } from "@/lib/domains/session/orchestrate";
 import { SessionNotFoundError } from "@/lib/domains/session/types";
+import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 
 /* ── Row types for query results ──────────────────────────────────────────── */
 
-interface ProfileRole { role: string }
 interface SessionForRecreate { id: string; room_name: string; booking_id: string; expires_at: string | null; room_url: string }
 interface BookingSchedule { scheduled_at: string; duration_min: number }
 
@@ -21,29 +21,9 @@ class UserError extends Error {
   constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
 }
 
-/* ── helper: verify caller is admin (preserved from pre-wrap) ─────────────── */
-/* Local helper — uses the passed-in supabase client to save a connection.   */
-/* Behavior parity with @/lib/auth/require-admin's role check.                */
-
-async function requireAdmin(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new UserError("غير مسجل الدخول");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single()
-    .then((r) => ({ data: r.data as ProfileRole | null }));
-
-  if (!profile || !["admin"].includes(profile.role)) throw new UserError("غير مصرح");
-  return user;
-}
-
 async function adminPreflight(): Promise<{ actorId: string }> {
-  const supabase = await createClient();
-  const user = await requireAdmin(supabase);
-  return { actorId: user.id };
+  const { id } = await requireAdmin();
+  return { actorId: id };
 }
 
 /* ── forceEndSession ──────────────────────────────────────────────────────── */
@@ -220,11 +200,11 @@ interface SessionForObserve { id: string; booking_id: string; room_name: string;
 
 export async function joinAsObserver(sessionId: string) {
   const supabase = await createClient();
-  let user;
+  let actorId: string;
   try {
-    user = await requireAdmin(supabase);
+    ({ id: actorId } = await requireAdmin());
   } catch (err) {
-    if (err instanceof UserError) return { error: err.message };
+    if (err instanceof ForbiddenError) return { error: "غير مصرح" };
     logError("joinAsObserver: auth failed unexpectedly", err, { tag: "admin-sessions" });
     return { error: "غير مصرح" };
   }
@@ -257,7 +237,7 @@ export async function joinAsObserver(sessionId: string) {
   }
 
   const { error: obsSessionErr } = await supabase.from("sessions").update({
-    admin_observer_id: user.id,
+    admin_observer_id: actorId,
     observer_joined_at: new Date().toISOString(),
   } satisfies TableUpdate<"sessions">).eq("id", sessionId);
 
@@ -268,7 +248,7 @@ export async function joinAsObserver(sessionId: string) {
 
   const { error: obsInsertErr } = await supabase.from("session_observers").insert({
     session_id: sessionId,
-    observer_id: user.id,
+    observer_id: actorId,
     joined_at: new Date().toISOString(),
   } satisfies TableInsert<"session_observers">);
 
@@ -281,12 +261,12 @@ export async function joinAsObserver(sessionId: string) {
    * audit trail; this fills the gap pending a framework-level fix to
    * loudAction's Output constraint (see comment above the function). */
   await supabase.from("audit_log").insert({
-    changed_by: user.id,
+    changed_by: actorId,
     table_name: "session_observers",
     record_id: sessionId,
     action: "INSERT",
     old_data: null,
-    new_data: { session_id: sessionId, observer_id: user.id },
+    new_data: { session_id: sessionId, observer_id: actorId },
     reason: "admin joined session as observer",
   } satisfies TableInsert<"audit_log">).then((r) => {
     if (r.error) logError("joinAsObserver: audit row failed", r.error, { tag: "admin-sessions" });

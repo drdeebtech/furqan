@@ -175,6 +175,18 @@ Key routing rules:
 - Resume context → invoke /context-restore
 - Author a backlog-ready spec/issue → invoke /spec
 
+## Pre-Push Code Review Rule (NON-NEGOTIABLE)
+
+Before pushing ANY branch and creating a PR, **always run the `code-reviewer` agent** on the changed files. This catches issues locally before CodeRabbit/CI see them — avoiding fix-commits that could have been caught first.
+
+**Steps (in order):**
+1. `npx tsc --noEmit` — type check clean
+2. Launch `code-reviewer` agent on the diff (`git diff main...HEAD`)
+3. Fix any CRITICAL or HIGH findings before pushing
+4. Then push + open PR
+
+Do NOT skip this step even for "small" or "mechanical" changes. PR #445 had a missed `withTimeout` that CodeRabbit caught in CI — that's the class of issue this prevents.
+
 ## PR Babysitting Rule (NON-NEGOTIABLE)
 
 After creating or pushing ANY PR (via /ship, /land-and-deploy, `gh pr create`, or `git push`), **immediately and automatically** start `/loop` to babysit it until it merges — do NOT ask first. The loop must monitor: CI status, review comments, merge conflicts, and required approvals. Report any issue that needs attention.

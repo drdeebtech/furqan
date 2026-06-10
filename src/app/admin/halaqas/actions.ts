@@ -1,39 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createSessionRoom } from "@/lib/sessions/room-creation";
 import { logError } from "@/lib/logger";
 import type { TableInsert } from "@/lib/supabase/typed-helpers";
 import { emitEvent } from "@/lib/automation/emit";
+import { requireAdmin } from "@/lib/auth/require-admin";
 
 export interface CreateHalaqaState {
   ok?: boolean;
   error?: string;
   id?: string;
-}
-
-interface ProfileRole {
-  role: string;
-}
-
-/**
- * Verify the caller is admin. Throws on failure.
- */
-async function requireAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("غير مسجل الدخول");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single<ProfileRole>();
-  if (profile?.role !== "admin") throw new Error("صلاحية المسؤول مطلوبة");
 }
 
 /**
@@ -52,10 +30,8 @@ export async function createHalaqa(
 ): Promise<CreateHalaqaState> {
   let adminId: string;
   try {
-    await requireAdmin();
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    adminId = user!.id;
+    const { id } = await requireAdmin();
+    adminId = id;
   } catch (err) {
     return { error: err instanceof Error ? err.message : "غير مصرح" };
   }
