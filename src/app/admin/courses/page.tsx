@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Building2, GraduationCap, Inbox, Plus, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
@@ -36,19 +35,6 @@ export default async function AdminCoursesPage({
   const { status, ownership } = await searchParams;
   const { t, dir } = await getT();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single<{ role: string }>();
-  if (!profile || !["admin"].includes(profile.role)) {
-    redirect("/login");
-  }
 
   let q = supabase
     .from("courses")

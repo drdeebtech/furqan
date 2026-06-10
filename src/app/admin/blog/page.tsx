@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Plus, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -15,8 +14,6 @@ export const metadata: Metadata = { title: "إدارة المدونة" };
 export default async function AdminBlogPage() {
   const { t, dir, lang } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   const { data: posts } = await supabase
     .from("blog_posts")

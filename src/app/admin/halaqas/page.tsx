@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Users, Plus, Inbox, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -33,10 +32,6 @@ export default async function AdminHalaqasPage() {
   const locale = lang === "ar" ? "ar-EG" : "en-US";
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   const admin = createAdminClient();
 

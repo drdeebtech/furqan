@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Star, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -14,8 +13,6 @@ interface ReviewRow { id: string; student_id: string; teacher_id: string; rating
 export default async function AdminReviewsPage() {
   const { t, dir, lang } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   const { data } = await supabase.from("reviews").select("id, student_id, teacher_id, rating, comment, teacher_reply, is_public, created_at")
     .order("created_at", { ascending: false }).returns<ReviewRow[]>();

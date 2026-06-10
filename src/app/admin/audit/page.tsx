@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Shield, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -35,8 +34,6 @@ export default async function AdminAuditPage({
   const offset = (page - 1) * PAGE_SIZE;
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   let query = supabase.from("audit_log")
     .select("id, changed_by, table_name, record_id, action, reason, ip_address, created_at")

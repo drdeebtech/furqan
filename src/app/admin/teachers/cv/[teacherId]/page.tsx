@@ -31,10 +31,6 @@ export default async function AdminCvReviewPage({
   const { t, dir, lang } = await getT();
   const locale = lang === "ar" ? "ar-EG" : "en-US";
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   const [profileRes, nameRowRes, picklists] = await Promise.all([
     supabase

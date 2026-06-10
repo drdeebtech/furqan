@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Calendar, Star, FileText, BookOpen, MessageSquare, TrendingDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
 import { riskTone, riskLabel } from "@/lib/retention/ui";
@@ -23,8 +24,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
   const { t, dir, lang } = await getT();
   const locale = lang === "ar" ? "ar-EG" : "en-US";
   const supabase = await createClient();
-  const { data: { user: admin } } = await supabase.auth.getUser();
-  if (!admin) redirect("/login");
+  const { id: adminId } = await requireAdmin();
 
   // Profile
   const { data: profile } = await supabase
@@ -199,7 +199,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
               userId={profile.id}
               userName={profile.full_name ?? profile.id.slice(0, 6)}
               isDeleted={!!profile.deleted_at}
-              isSelf={admin.id === profile.id}
+              isSelf={adminId === profile.id}
             />
           </div>
         </div>

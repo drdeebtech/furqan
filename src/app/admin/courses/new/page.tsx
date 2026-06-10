@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -12,19 +11,6 @@ export const metadata: Metadata = { title: "دورة مسجلة جديدة" };
 export default async function AdminNewCoursePage() {
   const { t, dir } = await getT();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single<{ role: string }>();
-  if (!profile || !["admin"].includes(profile.role)) {
-    redirect("/login");
-  }
 
   // Pull the active teacher list so the staff member can assign the course
   // to its owning teacher. Sort by full_name for predictability.

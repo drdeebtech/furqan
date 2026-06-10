@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { FileText, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -17,10 +16,6 @@ export default async function AdminCvQueuePage() {
   const { t, dir, lang } = await getT();
   const locale = lang === "ar" ? "ar-EG" : "en-US";
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   const { data: pending } = await supabase
     .from("teacher_profiles")

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { Tags, Globe, Award, BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
@@ -12,8 +11,6 @@ export const metadata: Metadata = { title: "قوائم المعلمين" };
 export default async function AdminPicklistsPage() {
   const { t, dir } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   const [langsRes, specsRes, recsRes] = await Promise.all([
     supabase.from("teacher_languages").select("*").order("sort_order"),

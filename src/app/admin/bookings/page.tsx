@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
 import { getT } from "@/lib/i18n/server";
 import { buildNameMap } from "@/lib/admin/name-map";
@@ -21,15 +21,14 @@ export default async function AdminBookingsPage({ searchParams }: PageProps) {
   const { t, dir } = await getT();
   const { q = "" } = await searchParams;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { id: adminId } = await requireAdmin();
 
   const { data, error: bookingsError } = await supabase.from("bookings")
     .select("id, student_id, teacher_id, scheduled_at, duration_min, status, session_type, amount_usd, created_at")
     .order("created_at", { ascending: false }).limit(100).returns<Row[]>();
   if (bookingsError) {
     logError("admin bookings page: bookings query failed", bookingsError, {
-      tag: "admin-bookings", route: "/admin/bookings", userId: user.id,
+      tag: "admin-bookings", route: "/admin/bookings", userId: adminId,
     });
   }
   const allBookings = data ?? [];

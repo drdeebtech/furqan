@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Video, Inbox, Radio, BarChart3, Users, TrendingUp } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -47,8 +46,6 @@ export default async function AdminSessionsPage({
 }) {
   const { t, dir, lang } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   // Mode filter from URL. Defaults to "all" (no filter).
   const sp = await searchParams;

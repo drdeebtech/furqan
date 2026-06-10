@@ -26,12 +26,10 @@ export default async function AdminAccountPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
   const { data: profile } = await supabase
     .from("profiles")
     .select("full_name, full_name_ar, phone, country, timezone, lang, date_of_birth")
-    .eq("id", user.id)
+    .eq("id", user!.id)
     .single<ProfileRow>();
   if (!profile) redirect("/admin/dashboard");
 
@@ -65,7 +63,7 @@ export default async function AdminAccountPage() {
           <Mail size={18} className="text-gold" aria-hidden="true" />
           {t("البريد الإلكتروني", "Email")}
         </h2>
-        <EmailChangeForm currentEmail={user.email ?? ""} />
+        <EmailChangeForm currentEmail={user?.email ?? ""} />
       </section>
 
       <section className="glass-card p-6">

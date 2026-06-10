@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { Bell, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
@@ -19,8 +18,6 @@ export const metadata: Metadata = { title: "الإشعارات" };
 export default async function AdminNotificationsPage() {
   const { t, dir, lang } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   // Tag-cached read; invalidated by sendNotification via revalidateTag.
   const recent = await getRecentBroadcasts(20);

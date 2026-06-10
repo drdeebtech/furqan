@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Video, User, GraduationCap, Clock, FileText, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { buildNameMap } from "@/lib/admin/name-map";
 import { SessionStatus } from "@/components/shared/session-status";
 import { getT } from "@/lib/i18n/server";
@@ -62,8 +63,7 @@ export default async function SessionDetailPage({
   const { t, dir, lang } = await getT();
   const locale = lang === "ar" ? "ar-EG" : "en-US";
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { id: adminId } = await requireAdmin();
 
   /* Fetch session */
   const { data: session } = await supabase
@@ -170,7 +170,7 @@ export default async function SessionDetailPage({
           isActive={isActive}
           isExpired={!!isExpired}
         />
-        {session.ended_at && user && <SendReportButton sessionId={session.id} actorId={user.id} />}
+        {session.ended_at && <SendReportButton sessionId={session.id} actorId={adminId} />}
       </div>
 
       {/* Session info card */}

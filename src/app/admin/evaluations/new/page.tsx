@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ClipboardCheck, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -17,8 +16,6 @@ interface ProfileOption {
 export default async function NewEvaluationPage() {
   const { t, dir } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   // Fetch students and teachers in parallel
   const [studentsRes, teachersRes] = await Promise.all([

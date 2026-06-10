@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Settings, CheckCircle, XCircle, AlertTriangle, Database, ToggleRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -26,8 +25,6 @@ async function probeWithTimeout<T>(fn: (signal: AbortSignal) => Promise<T>, ms: 
 export default async function AdminSettingsPage() {
   const { t, dir, lang } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   const [settingsRes, migrationsRes, userCountRes, teacherCountRes, bookingCountRes] = await Promise.all([
     supabase
