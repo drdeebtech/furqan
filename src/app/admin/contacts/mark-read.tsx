@@ -11,7 +11,7 @@ export function MarkReadButton({ submissionId }: { submissionId: string }) {
 
   async function handleClick() {
     const res = await markAsRead(submissionId);
-    if (res?.error) {
+    if (!res.ok) {
       toast.error(res.error);
       return;
     }

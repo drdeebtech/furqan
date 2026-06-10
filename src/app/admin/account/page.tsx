@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Settings, User, KeyRound, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { withTimeout } from "@/lib/promise-utils";
 import { getT } from "@/lib/i18n/server";
 import { AccountForm } from "./account-form";
 import { PasswordChangeForm } from "@/components/shared/password-change-form";
@@ -25,7 +26,12 @@ export default async function AdminAccountPage() {
   const { t, dir } = await getT();
   const supabase = await createClient();
   const { id: adminId } = await requireAdmin();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await withTimeout(
+    supabase.auth.getUser(),
+    4000,
+    { data: { user: null }, error: null } as never,
+    "adminAccount.getUser",
+  );
   const { data: profile } = await supabase
     .from("profiles")
     .select("full_name, full_name_ar, phone, country, timezone, lang, date_of_birth")
