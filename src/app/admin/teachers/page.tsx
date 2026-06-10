@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { GraduationCap, Plus, Star, Inbox, FileText, Archive, CheckCircle2, Clock, XCircle, Pause } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -36,8 +35,6 @@ export default async function AdminTeachersPage({ searchParams }: PageProps) {
   const { t, dir } = await getT();
   const { q = "", page: pageParam } = await searchParams;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   // Escape LIKE wildcards so a term like "50%" matches literally (backslash
   // first). Search + pagination + email resolution all happen server-side via

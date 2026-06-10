@@ -24,10 +24,6 @@ export default async function TeacherDetailPage({ params, searchParams }: Props)
 
   const { t, dir } = await getT();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   // Fetch everything in parallel
   const [

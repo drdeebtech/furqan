@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { Shield, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
@@ -14,8 +13,6 @@ interface PolicyRow { id: string; hours_before_min: number; hours_before_max: nu
 export default async function AdminRefundPoliciesPage() {
   const { t, dir } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   const { data } = await supabase.from("refund_policies").select("id, hours_before_min, hours_before_max, refund_percentage, description, is_active, sort_order")
     .order("sort_order", { ascending: true }).returns<PolicyRow[]>();

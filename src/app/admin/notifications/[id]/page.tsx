@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, BookOpen, Calendar, MessageSquare, Megaphone, CreditCard, Bell, GraduationCap } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { getT } from "@/lib/i18n/server";
 import { markAsRead } from "@/lib/actions/notifications";
 import { notificationHref } from "@/lib/notifications/href";
@@ -29,14 +30,13 @@ export default async function AdminNotificationDetailPage({
   const { t, dir, lang } = await getT();
   const locale = lang === "ar" ? "ar-EG" : "en-US";
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { id: adminId } = await requireAdmin();
 
   const { data: notification } = await supabase
     .from("notifications")
     .select("*")
     .eq("id", id)
-    .eq("user_id", user.id)
+    .eq("user_id", adminId)
     .single<Notification>();
 
   if (!notification) notFound();

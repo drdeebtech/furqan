@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { Mail, Inbox, CheckCircle, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
@@ -13,9 +12,6 @@ export const metadata: Metadata = { title: "رسائل التواصل" };
 export default async function AdminContactsPage() {
   const { t, dir, lang } = await getT();
   const supabase = await createClient();
-  const { data: authData } = await supabase.auth.getUser();
-  if (!authData?.user) redirect("/login");
-
   const { data, error } = await supabase
     .from("contact_submissions")
     .select("id, full_name, email, whatsapp, country, student_age, package_interest, message, is_read, is_replied, created_at")

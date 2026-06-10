@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Radio, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -28,8 +27,6 @@ interface BookingRow {
 export default async function LiveSessionsPage() {
   const { t, dir } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   /* Fetch active sessions: started but not ended within the last 4h.
      The clamp prevents stranded rows (started but never explicitly ended)

@@ -22,19 +22,6 @@ export default async function AdminCourseReviewPage({ params }: PageProps) {
   const { id } = await params;
   const { t, dir, lang } = await getT();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single<{ role: string }>();
-  if (!profile || !["admin"].includes(profile.role)) {
-    redirect("/login");
-  }
 
   const { data: course } = await supabase
     .from("courses")
@@ -65,7 +52,7 @@ export default async function AdminCourseReviewPage({ params }: PageProps) {
     .returns<CourseLesson[]>();
 
   const reviewable = course.status === "pending_review";
-  const archivable = course.status === "published" && profile.role === "admin";
+  const archivable = course.status === "published";
 
   return (
     <div dir={dir} className="mx-auto max-w-4xl px-4 py-8">

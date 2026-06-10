@@ -12,8 +12,6 @@ export default async function EditPostPage({ params }: Props) {
   const { id } = await params;
   const { t, dir } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   const { data: post } = await supabase
     .from("blog_posts")

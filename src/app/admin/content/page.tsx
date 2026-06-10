@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { FileText, Layers, Tags } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
@@ -22,8 +21,6 @@ const SLOTS = [
 export default async function AdminContentPage() {
   const { t, dir } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   // Service-role would let us see inactive rows, but the regular client is
   // fine because is_admin() RLS allows admins to read everything anyway.

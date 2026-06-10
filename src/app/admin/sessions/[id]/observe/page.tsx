@@ -12,8 +12,6 @@ export default async function ObserveSessionPage({ params }: { params: Promise<{
   const { id } = await params;
   const { t, dir } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   // Fetch session
   const { data: session } = await supabase

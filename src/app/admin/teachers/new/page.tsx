@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { createTeacher } from "../actions";
@@ -31,8 +30,6 @@ const RIWAYAT = [
 export default async function NewTeacherPage() {
   const { t, dir, lang } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   const [{ data: profiles }, languages] = await Promise.all([
     // Limit to 100 to prevent payload explosion at scale — this select feeds

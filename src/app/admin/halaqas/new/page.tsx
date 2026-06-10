@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
@@ -16,10 +15,6 @@ interface TeacherOption {
 export default async function NewHalaqaPage() {
   const { t, dir } = await getT();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   // Approved + accepting + non-archived teachers (matches the public
   // listing eligibility rules from v15_003 RLS).

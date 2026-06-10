@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Users, Inbox, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { getT } from "@/lib/i18n/server";
 import { SearchInput } from "@/components/shared/search-input";
 import { UserRow } from "./user-row";
@@ -23,8 +23,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
   const { t, dir } = await getT();
   const { q = "", page: pageParam } = await searchParams;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { id: adminId } = await requireAdmin();
 
   // Stats via a single grouped RPC — one scan instead of four count queries
   // (audit H8 removed the 50k-row load; CodeRabbit collapsed the 4 counts into
@@ -107,7 +106,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps) {
               <th scope="col" className="px-4 py-3 text-start font-medium text-muted">{t("التسجيل", "Joined")}</th>
               <th scope="col" className="px-4 py-3 text-end font-medium text-muted">{t("إجراءات", "Actions")}</th>
             </tr></thead>
-            <tbody>{users.map(u => <UserRow key={u.id} user={u} currentAdminId={user.id} churnRisk={u.role === "student" ? riskByStudent.get(u.id) ?? null : undefined} />)}</tbody>
+            <tbody>{users.map(u => <UserRow key={u.id} user={u} currentAdminId={adminId} churnRisk={u.role === "student" ? riskByStudent.get(u.id) ?? null : undefined} />)}</tbody>
           </table>
         </div>
       )}

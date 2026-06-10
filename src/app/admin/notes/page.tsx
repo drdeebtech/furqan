@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { FileText, BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -38,8 +37,6 @@ interface Booking {
 export default async function AdminNotesPage() {
   const { t, dir, lang } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   // Fetch sessions with notes or follow-up
   const { data: sessions } = await supabase

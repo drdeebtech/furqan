@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ClipboardCheck, Inbox, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -51,8 +50,6 @@ interface EvaluationRow {
 export default async function AdminEvaluationsPage() {
   const { t, dir, lang } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   const { data: evaluations } = await supabase
     .from("session_evaluations")

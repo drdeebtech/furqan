@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { DollarSign, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
 import { buildNameMap } from "@/lib/admin/name-map";
 import { getT } from "@/lib/i18n/server";
@@ -15,8 +15,7 @@ interface InvoiceRow { id: string; invoice_number: string; student_name_snapshot
 export default async function AdminPaymentsPage() {
   const { t, dir, lang } = await getT();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { id: adminId } = await requireAdmin();
 
   const [paymentsRes, invoicesRes] = await Promise.all([
     supabase.from("payments").select("id, student_id, amount_usd, status, stripe_payment_intent, paid_at, created_at")
@@ -31,7 +30,7 @@ export default async function AdminPaymentsPage() {
   ] as const) {
     if (res.error) {
       logError(`admin payments page: ${name} query failed`, res.error, {
-        tag: "admin-payments", route: "/admin/payments", userId: user.id,
+        tag: "admin-payments", route: "/admin/payments", userId: adminId,
       });
     }
   }
