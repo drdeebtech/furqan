@@ -179,7 +179,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
               </div>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-2 text-left text-xs text-muted">
+          <div className="flex flex-col items-end gap-2 text-start text-xs text-muted">
             <span>{t("انضم", "Joined")}: {new Date(profile.created_at).toLocaleDateString(locale)}</span>
             <div className="flex flex-wrap items-center gap-2">
               <Link
@@ -340,7 +340,7 @@ export default async function AdminUserDetailPage({ params }: Props) {
                         {note?.actual_duration ? ` · ${t("فعلي", "actual")}: ${note.actual_duration} ${t("د", "min")}` : ""}
                       </p>
                     </div>
-                    <div className="text-left">
+                    <div className="text-start">
                       <span className={`glass-badge ${statusColors[b.status] ?? "text-muted"}`}>
                         {b.status}
                       </span>

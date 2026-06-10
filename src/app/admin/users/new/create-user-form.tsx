@@ -87,7 +87,7 @@ export function CreateUserForm() {
               type="email"
               required
               dir="ltr"
-              className={`${inputClass} text-left`}
+              className={`${inputClass} text-start`}
               placeholder="user@example.com"
             />
           </div>
@@ -104,7 +104,7 @@ export function CreateUserForm() {
               required
               minLength={8}
               dir="ltr"
-              className={`${inputClass} text-left`}
+              className={`${inputClass} text-start`}
               placeholder="********"
             />
           </div>
@@ -137,7 +137,7 @@ export function CreateUserForm() {
               name="phone"
               type="tel"
               dir="ltr"
-              className={`${inputClass} text-left`}
+              className={`${inputClass} text-start`}
               placeholder="+966..."
             />
           </div>
@@ -185,7 +185,7 @@ export function CreateUserForm() {
                   name="parent_phone"
                   type="tel"
                   dir="ltr"
-                  className={`${inputClass} text-left`}
+                  className={`${inputClass} text-start`}
                   placeholder="+966..."
                 />
               </div>
@@ -199,7 +199,7 @@ export function CreateUserForm() {
                   name="parent_email"
                   type="email"
                   dir="ltr"
-                  className={`${inputClass} text-left`}
+                  className={`${inputClass} text-start`}
                   placeholder="parent@example.com"
                 />
               </div>
@@ -213,7 +213,7 @@ export function CreateUserForm() {
                   name="date_of_birth"
                   type="date"
                   dir="ltr"
-                  className={`${inputClass} text-left`}
+                  className={`${inputClass} text-start`}
                 />
               </div>
             </div>

@@ -276,7 +276,7 @@ function IjazaForm({
             name="granted_at"
             type="date"
             defaultValue={initial?.granted_at ?? ""}
-            className={`${input} text-left`}
+            className={`${input} text-start`}
             dir="ltr"
           />
         </div>
@@ -287,7 +287,7 @@ function IjazaForm({
             type="url"
             defaultValue={initial?.document_url ?? ""}
             placeholder="https://..."
-            className={`${input} text-left`}
+            className={`${input} text-start`}
             dir="ltr"
           />
         </div>

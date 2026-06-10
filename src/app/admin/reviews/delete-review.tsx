@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { deleteReview } from "./actions";
 
-export function DeleteReviewButton({ reviewId }: { reviewId: string }) {
+export function DeleteReviewButton({ reviewId, studentName, teacherName }: { reviewId: string; studentName: string; teacherName: string }) {
   const [confirming, setConfirming] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -39,7 +39,7 @@ export function DeleteReviewButton({ reviewId }: { reviewId: string }) {
     <button
       onClick={() => setConfirming(true)}
       className="rounded p-1 text-muted transition-colors hover:text-error"
-      title="حذف المراجعة"
+      aria-label={`حذف مراجعة ${studentName} على ${teacherName}`}
     >
       <Trash2 size={14} />
     </button>

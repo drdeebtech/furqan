@@ -144,7 +144,7 @@ export default async function AdminHalaqasPage() {
                     {date ? (
                       <p
                         dir="ltr"
-                        className="mt-2 flex items-center gap-1.5 text-left text-xs text-muted"
+                        className="mt-2 flex items-center gap-1.5 text-start text-xs text-muted"
                       >
                         <Clock size={12} aria-hidden="true" />
                         {date.toLocaleDateString(locale, {

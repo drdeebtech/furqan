@@ -125,7 +125,7 @@ export default async function AdminNotesPage() {
                       {s.actual_duration ? ` · ${t("المدة الفعلية", "Actual")}: ${s.actual_duration} ${lang === "ar" ? "د" : "m"}` : ""}
                     </p>
                   </div>
-                  <p dir="ltr" className="text-left text-xs text-muted">
+                  <p dir="ltr" className="text-start text-xs text-muted">
                     {new Date(b.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" })}
                   </p>
                 </div>
