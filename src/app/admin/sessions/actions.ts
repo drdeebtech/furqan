@@ -9,7 +9,7 @@ import { logError, logWarn } from "@/lib/logger";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
 import { endSession as endSessionOrchestrator } from "@/lib/domains/session/orchestrate";
 import { SessionNotFoundError } from "@/lib/domains/session/types";
-import { requireAdmin } from "@/lib/auth/require-admin";
+import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 
 /* ── Row types for query results ──────────────────────────────────────────── */
 
@@ -204,7 +204,7 @@ export async function joinAsObserver(sessionId: string) {
   try {
     ({ id: actorId } = await requireAdmin());
   } catch (err) {
-    if (err instanceof UserError) return { error: (err as Error).message };
+    if (err instanceof ForbiddenError) return { error: "غير مصرح" };
     logError("joinAsObserver: auth failed unexpectedly", err, { tag: "admin-sessions" });
     return { error: "غير مصرح" };
   }
