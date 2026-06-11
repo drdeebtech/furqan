@@ -52,10 +52,15 @@ supabase/.temp/
 .mcp.json
 .idx/
 
-# claude runtime artifacts (keep skills tracked, ignore transient state)
+# claude runtime artifacts (machine-specific config and transient state ignored;
+# local skill installs are tracked separately under .claude/skills/ below)
+.claude/settings.json
 .claude/scheduled_tasks.lock
 .claude/plans/
 .claude/worktrees/
+
+# local tooling symlinks (ruflo ADR detection — not project source)
+docs/adrs
 
 # Jules AI agent tracking files (machine-generated, not source)
 .Jules/
