@@ -88,7 +88,8 @@ describe("UnauthenticatedError", () => {
 
 // Static import — vi.mock calls above are hoisted by Vitest so mocks are
 // in place before this module is evaluated.
-import { requireAdmin } from "./require-admin";
+import { requireAdmin, requireAdminForApi, requireRole } from "./require-admin";
+import { createClient } from "@/lib/supabase/server";
 
 beforeEach(() => {
   mockGetUser.mockReset();
@@ -132,5 +133,76 @@ describe("requireAdmin", () => {
     mockSingle.mockResolvedValue({ data: { role: "admin" }, error: null });
 
     await expect(requireAdmin()).resolves.toEqual({ id: USER_ID });
+  });
+
+  it("throws UnauthenticatedError when getUser throws (defensive catch)", async () => {
+    mockGetUser.mockRejectedValue(new Error("session decode failure"));
+
+    await expect(requireAdmin()).rejects.toThrow(UnauthenticatedError);
+  });
+
+  it("throws ForbiddenError when profile lookup throws (null role propagates to assertRole)", async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "user-99" } },
+      error: null,
+    });
+    mockSingle.mockRejectedValue(new Error("network blip"));
+
+    await expect(requireAdmin()).rejects.toThrow(ForbiddenError);
+  });
+});
+
+describe("requireRole — multi-role array overload", () => {
+  it("returns { id, role } when user has a role from the allowed set", async () => {
+    const USER_ID = "teacher-1";
+    mockGetUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null });
+    mockSingle.mockResolvedValue({ data: { role: "teacher" }, error: null });
+
+    const result = await requireRole(["admin", "teacher"] as const);
+    expect(result).toEqual({ id: USER_ID, role: "teacher" });
+  });
+
+  it("throws ForbiddenError when user role is not in the multi-role allowed set", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "student-1" } }, error: null });
+    mockSingle.mockResolvedValue({ data: { role: "student" }, error: null });
+
+    await expect(requireRole(["admin", "teacher"] as const)).rejects.toThrow(ForbiddenError);
+  });
+});
+
+describe("requireAdminForApi", () => {
+  it("returns { id } when the user is an admin", async () => {
+    const USER_ID = "admin-api-1";
+    mockGetUser.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null });
+    mockSingle.mockResolvedValue({ data: { role: "admin" }, error: null });
+
+    const result = await requireAdminForApi();
+    expect(result).toEqual({ id: USER_ID });
+  });
+
+  it("returns NextResponse 401 when user is unauthenticated", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+
+    const result = await requireAdminForApi();
+    // NextResponse.json is mocked to return { body, init }
+    expect((result as { body: unknown; init: unknown }).body).toEqual({ error: "Unauthorized" });
+    expect((result as { body: unknown; init: { status: number } }).init.status).toBe(401);
+  });
+
+  it("returns NextResponse 403 when session is valid but role is not admin", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: { id: "teacher-2" } }, error: null });
+    mockSingle.mockResolvedValue({ data: { role: "teacher" }, error: null });
+
+    const result = await requireAdminForApi();
+    expect((result as { body: unknown; init: unknown }).body).toEqual({ error: "Forbidden" });
+    expect((result as { body: unknown; init: { status: number } }).init.status).toBe(403);
+  });
+
+  it("re-throws unexpected errors (not auth-related)", async () => {
+    // createClient() is called before any try/catch in getAuthedRole, so a
+    // throw here escapes all auth catch blocks and hits the rethrow in requireAdminForApi.
+    vi.mocked(createClient).mockRejectedValueOnce(new TypeError("db pool exhausted"));
+
+    await expect(requireAdminForApi()).rejects.toThrow(TypeError);
   });
 });
