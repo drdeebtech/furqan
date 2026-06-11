@@ -53,9 +53,13 @@ supabase/.temp/
 .idx/
 
 # claude runtime artifacts (keep skills tracked, ignore transient state)
+.claude/settings.json
 .claude/scheduled_tasks.lock
 .claude/plans/
 .claude/worktrees/
+
+# local tooling symlinks (ruflo ADR detection — not project source)
+docs/adrs
 
 # Jules AI agent tracking files (machine-generated, not source)
 .Jules/
