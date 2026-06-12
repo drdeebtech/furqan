@@ -2,6 +2,18 @@
 
 All notable changes to FURQAN Academy are documented here.
 
+## 2026-06-12 — Test: Coverage improvements for promise-utils, logger, and require-admin
+
+Raised test coverage for three critical infrastructure modules:
+
+- **`src/lib/promise-utils.ts`** (33% → 100%) — added `withTimeout` tests covering: successful resolution, timeout fallback (fake timers), rejection fallback, and correct log message tags (`query timeout` vs `query error`); and `chunk` tests covering split, single-chunk, empty input, exact multiples, large input, and invalid-size throws.
+- **`src/lib/logger.ts`** (55.9% → 94.7%) — added `logError` tests (Sentry capture, DSN-only capture, console fallback, Telegram critical-alert path), `logWarn` tests (structured logger path, `captureMessage` fallback, console fallback), and `logInfo` tests (breadcrumb always fires, structured logger path, console fallback in non-production, production suppression).
+- **`src/lib/auth/require-admin.ts`** (65.4% → 100%) — added coverage for `getUser` throw (defensive catch), profile lookup throw (null role → `ForbiddenError`), `requireRole` multi-role array overload, and all four `requireAdminForApi` branches (200 admin, 401 unauthenticated, 403 forbidden, rethrow).
+
+### For contributors
+
+Pre-landing fixes: merged split import statements in `promise-utils.test.ts`, fixed TypeScript double-assertion patterns in `require-admin.test.ts`, replaced invalid `process.env.NODE_ENV` direct assignment with a type cast in `logger.test.ts`.
+
 ## 2026-06-05 — Fix: Stripe checkout UUID validation (issue #408)
 
 `POST /api/stripe/checkout` now validates that `package_id` is a well-formed UUID before touching the database. Previously, a non-UUID string such as `"test-valid-package-id"` reached the Postgres `.eq("id", …)` call and caused a `22P02` unhandled exception, returning 500 instead of 400. Includes a `typeof` guard to block array-typed inputs that would otherwise coerce through the regex.
