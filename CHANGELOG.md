@@ -6,9 +6,9 @@ All notable changes to FURQAN Academy are documented here.
 
 Raised test coverage for three critical infrastructure modules:
 
-- **`src/lib/promise-utils.ts`** (33% → 100%) — added `withTimeout` tests covering: successful resolution, timeout fallback (fake timers), rejection fallback, and correct log message tags (`query timeout` vs `query error`).
-- **`src/lib/logger.ts`** (55.9% → 94.7%) — added `logWarn` tests (structured logger path, `captureMessage` fallback, console fallback) and `logInfo` tests (breadcrumb always fires, structured logger path, console fallback in non-production).
-- **`src/lib/auth/require-admin.ts`** (65.4% → 100%) — added coverage for `getUser` throw (defensive catch), profile lookup throw (null role → `ForbiddenError`), `requireRole` multi-role array overload, and all three `requireAdminForApi` branches (200/401/403/rethrow).
+- **`src/lib/promise-utils.ts`** (33% → 100%) — added `withTimeout` tests covering: successful resolution, timeout fallback (fake timers), rejection fallback, and correct log message tags (`query timeout` vs `query error`); and `chunk` tests covering split, single-chunk, empty input, exact multiples, large input, and invalid-size throws.
+- **`src/lib/logger.ts`** (55.9% → 94.7%) — added `logError` tests (Sentry capture, DSN-only capture, console fallback, Telegram critical-alert path), `logWarn` tests (structured logger path, `captureMessage` fallback, console fallback), and `logInfo` tests (breadcrumb always fires, structured logger path, console fallback in non-production, production suppression).
+- **`src/lib/auth/require-admin.ts`** (65.4% → 100%) — added coverage for `getUser` throw (defensive catch), profile lookup throw (null role → `ForbiddenError`), `requireRole` multi-role array overload, and all four `requireAdminForApi` branches (200 admin, 401 unauthenticated, 403 forbidden, rethrow).
 
 ### For contributors
 
