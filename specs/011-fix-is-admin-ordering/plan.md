@@ -4,6 +4,14 @@
 **Date:** 2026-06-12
 **Lenses:** 🛠 engineer (migration correctness) · 🔒 security (authorization function integrity)
 
+> **⚠️ REVISION 2 (2026-06-12) — scope corrected after OpenCode's first local run.**
+> The `is_admin()` failure is the **first symptom of a larger gap**: the entire pre-v9
+> baseline schema (`profiles`, all enums, all foundational tables/triggers/functions) is
+> never applied by `supabase start`. The §6 "create three helpers" fix is **superseded** by
+> §9 below. Read §9 as the authoritative plan; §1–§5 remain valid as the diagnosis of the
+> first error in the chain. **The decision OpenCode asked for ("what's the call?") is Option 2,
+> specified in §9.**
+
 ---
 
 ## 1. Symptom
@@ -209,3 +217,117 @@ npm run sb:advisors          # security lens: no new RLS/secdef regressions
 - [ ] Prod HEAD unchanged: `public.is_admin()` remains the `private.is_admin()` wrapper.
 - [ ] `npm run sb:advisors` clean; `is_admin()` enforcement unchanged at every call site
       (RLS policies + `20260515131637/131638` triggers).
+
+---
+
+## 9. REVISION 2 — Authoritative plan (supersedes §6)
+
+### 9.1 Corrected diagnosis (evidence)
+
+`supabase start` applies **only** `supabase/migrations/*.sql`. The schema actually has **three
+historical layers**, and the first two are never applied locally:
+
+| Layer | Location | Role | Applied by `supabase start`? |
+|---|---|---|---|
+| 1 — pre-v9 baseline | `src/lib/supabase/schema.sql` (1089 lines; 20 tables, 8 enums, 20 functions incl. `profiles`, `user_role`, `is_admin()`) | Foundation | **No** |
+| 2 — legacy deltas | `src/lib/supabase/migrations/v9_001 … v16_002` (25 files) | Builds on layer 1 (e.g. `ALTER TYPE user_role ADD VALUE 'moderator'`) | **No** |
+| 3 — timestamped | `supabase/migrations/2026*.sql` | Builds on layers 1+2 | **Yes** |
+
+Grep proof:
+- `create table … profiles` exists **only** at `src/lib/supabase/schema.sql:97` — **zero** hits in
+  `supabase/migrations/` and **zero** in the legacy `v*` dir.
+- No `2026*` migration does `CREATE TABLE` for any core baseline table
+  (`profiles/bookings/sessions/teacher_profiles/payments/messages/notifications`) → **no
+  collision** when the baseline is front-loaded.
+- `is_admin()`'s body is `LANGUAGE sql` → Postgres validates `SELECT … FROM profiles` at
+  `CREATE FUNCTION` time, so the helper cannot exist before `profiles`. Real error on the
+  attempted §6 fix: `ERROR: relation "profiles" does not exist (42P01)`.
+
+**Conclusion:** the fix is not "create three functions"; it is "make the layer-1+2 baseline part
+of what `supabase start` applies, exactly once, at the front."
+
+### 9.2 The call — **Option 2: front-load the legacy baseline as one squashed migration**
+
+Reject the other two:
+- **Option 1 (hand-expand the migration with profiles + enums piece by piece)** ✗ builds a partial,
+  drift-prone mirror of `schema.sql`; every `supabase db reset` reveals the next missing object.
+- **Option 3 (`LANGUAGE plpgsql` to defer body validation for the 3 helpers)** ✗ only walks the
+  failure to the next missing table; not a complete fix. (May be used as a throwaway probe, not shipped.)
+
+### 9.3 Implementation steps (for OpenCode)
+
+**Generate the baseline deterministically — do NOT hand-write it.**
+
+1. **Build the baseline SQL from the canonical legacy sources** (apply to a throwaway Postgres,
+   then dump — this guarantees fidelity, no hand-mirroring):
+   ```bash
+   # scratch DB
+   createdb furqan_baseline_tmp
+   psql furqan_baseline_tmp -v ON_ERROR_STOP=1 -f src/lib/supabase/schema.sql
+   for f in $(ls src/lib/supabase/migrations/v*.sql | sort -V); do
+     psql furqan_baseline_tmp -v ON_ERROR_STOP=1 -f "$f"
+   done
+   pg_dump furqan_baseline_tmp --schema-only --no-owner --no-privileges \
+     --schema=public --schema=private > /tmp/baseline.sql
+   dropdb furqan_baseline_tmp
+   ```
+   *(If any `v*` file is intentionally non-idempotent / out-of-transaction — e.g. the v9
+   `ALTER TYPE … ADD VALUE` — run those statements standalone as their headers instruct.)*
+
+2. **Place it as the earliest migration** so it sorts before `20260428000001`:
+   `supabase/migrations/20260428000000_baseline_legacy_schema.sql` = contents of
+   `/tmp/baseline.sql`, wrapped to be safe (`create table if not exists` / guarded `do $$` blocks
+   where the dump isn't already idempotent). Add a header comment pointing back to this spec and to
+   `schema.sql` + `v9_001…v16_002` as the source of truth.
+
+3. **Reconcile remote history (REQUIRED — prevents prod clobber):**
+   ```bash
+   supabase migration repair --status applied 20260428000000
+   ```
+   Prod already has every baseline object (and is past HEAD). Marking the baseline *applied without
+   running* stops the CLI from executing a full-schema script against prod (which would
+   `create or replace` the auth functions and overwrite prod's `private`-delegating wrappers).
+
+4. **Verify (the hard gate):**
+   ```bash
+   supabase db reset                 # baseline + ALL 2026* must apply green, end-to-end
+   ```
+   If a later `2026*` migration fails on a still-missing object, that object was an out-of-band
+   pre-cutover change — add it to the baseline and repeat until `db reset` is clean.
+   ```bash
+   # Prove zero drift from prod (no schema divergence):
+   supabase db diff --linked         # expect: no differences
+   npm run sb:advisors               # security lens: no new RLS/secdef regressions
+   npm run test:unit
+   ```
+
+### 9.4 Security lens (unchanged, now broader)
+
+The baseline is **dumped from `schema.sql`**, the canonical source for the auth functions, so
+`is_admin()` / `is_admin_or_mod()` / `is_moderator()` carry their exact bodies
+(`role = 'admin'`, `deleted_at IS NULL`, `is_active = true`), `SECURITY DEFINER`, `STABLE`, and
+grants. The downstream `2026*` migrations then replay the move-to-`private` + public-wrapper exactly
+as on prod. **`supabase db diff --linked` returning empty is the proof that no auth boundary,
+search_path, or grant drifted.** Do not substitute a hand-written function body for the dump.
+
+### 9.5 Revised acceptance criteria (supersede §8)
+
+- [ ] `supabase db reset` applies **baseline + all 2026\*** from scratch with no error.
+- [ ] Baseline migration is **generated from `schema.sql` + `v9…v16`** (committed procedure in §9.3),
+      not hand-authored.
+- [ ] `supabase migration repair --status applied 20260428000000` run on the linked remote;
+      `supabase migration list --linked` shows it applied on both sides, no checksum mismatch,
+      no pending run against prod.
+- [ ] `supabase db diff --linked` reports **no differences** (prod schema unchanged; auth functions
+      byte-identical).
+- [ ] `npm run sb:advisors` clean; `npm run test:unit` green.
+
+### 9.6 Open question for the human (one decision)
+
+The baseline reconstruction assumes `schema.sql + v9…v16` equals prod's schema at the 2026-04-28
+cutover. If you'd rather eliminate reconstruction risk entirely, the alternative is to **dump the
+baseline straight from the linked remote at HEAD and `supabase migration squash` the whole history
+into one baseline** — cleaner fidelity, but it rewrites local migration history (all `2026*` folded
+in) and needs a full `migration repair` reconcile. Default recommendation: the §9.3 reconstruct-and-
+verify path, because `db diff --linked` catches any drift and it keeps the existing `2026*` files
+intact. Flag if you want the squash route instead.
