@@ -19,6 +19,7 @@
 | [009-n8n-cron-all-routes](./009-n8n-cron-all-routes/spec.md) | Shipped | `009-n8n-cron-all-routes` | [#300](https://github.com/drdeebtech/furqan/pull/300) |
 | [010-hifz-progress-capture](./010-hifz-progress-capture/spec.md) | Shipped | `010-hifz-progress-capture` | [#367](https://github.com/drdeebtech/furqan/pull/367) |
 | [011-fix-is-admin-ordering](./011-fix-is-admin-ordering/spec.md) | Malformed | _(unknown)_ | _(pending)_ |
+| [012-prod-rls-hardening](./012-prod-rls-hardening/spec.md) | Malformed | _(unknown)_ | _(pending)_ |
 
 ## Abandoned (last 90 days)
 
