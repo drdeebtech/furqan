@@ -36,23 +36,56 @@ current live state.
 **Exploit:** any authenticated user → `PATCH /rest/v1/profiles?id=eq.<own-uid>` body `{"role":"admin"}`
 → becomes admin (and `t_ensure_teacher_profile` even provisions a teacher_profile). **Live now.**
 
-**Fix (defense in depth — both layers):**
-- **Trigger (hard guard, schema-change-proof):** `BEFORE UPDATE ON public.profiles` — if
-  `NEW.role IS DISTINCT FROM OLD.role OR NEW.roles IS DISTINCT FROM OLD.roles` and
-  `NOT private.is_admin()` → `raise exception … errcode 42501`. (RLS `WITH CHECK` cannot compare
-  OLD vs NEW, so a trigger is required.)
-- **Column privilege (fail-closed at the privilege layer):**
-  `REVOKE UPDATE ON public.profiles FROM authenticated, anon;` then
-  `GRANT UPDATE (<every non-role/roles column>) ON public.profiles TO authenticated;`
-  Enumerate columns from the dump; add a comment that new columns need re-granting.
-- Keep `anon` with **no** UPDATE.
+**⚠️ CORRECTION (post-implementation review of OpenCode commit `7df92e2`):** the first cut guarded
+`role OR roles` and had no service-role bypass — it **broke 5 of 7 legitimate role-write paths**.
+Corrected design below.
 
-**Local verification (required before push):**
-1. `supabase db reset`; seed a non-admin user.
-2. As that user's JWT, attempt `update profiles set role='admin' where id=<self>` → must be rejected
-   (trigger raise *and* column-privilege denial).
-3. Confirm a legitimate self-update (e.g. `full_name`) still succeeds.
-4. Confirm an admin can still change roles.
+**Role-write path inventory (the test matrix every fix must satisfy):**
+
+| Path | File | Client | Changes | Must |
+|---|---|---|---|---|
+| setUserRoles / createUserFromScratch | `admin/users/actions.ts` | **service-role** | `roles[]`+`role` | allow |
+| createTeacher | `admin/teachers/actions.ts` | RLS, `requireAdmin` | `roles[]`+`role` | allow |
+| submitTeacherApplication | `(public)/teach-with-us/apply/actions.ts` | **service-role** | `roles[]`+`role` | allow |
+| test-login (dev only) | `api/auth/test-login/route.ts` | **service-role** | `roles[]`+`role` | allow |
+| **switchActiveRole** | `lib/actions/active-role.ts:90` | RLS, **non-admin** | **`role` scalar only** | allow |
+| (exploit) self-escalate | PostgREST direct | authenticated | `roles[]` | **block** |
+
+**Key insight:** the privilege is **`roles[]`** (what you hold). The scalar `role` is only the *active*
+selection and is already CHECK-bounded by `profiles_active_role_in_set` (`role = ANY(roles)`), so a
+non-admin can never set `role` outside their held set. Therefore **guard `roles[]` only** — guarding
+`role` needlessly breaks `switchActiveRole` and adds no security.
+
+**Corrected fix — single trigger, `roles[]`-only, with trusted-caller bypass:**
+```sql
+create or replace function private.guard_profiles_roles_change()
+returns trigger language plpgsql security definer set search_path to 'public' as $$
+declare v_jwt_role text := current_setting('request.jwt.claims', true)::jsonb ->> 'role';
+begin
+  if new.roles is distinct from old.roles          -- only the privilege array
+     and v_jwt_role is not null                     -- NULL ⇒ direct DB / migration (trusted)
+     and v_jwt_role <> 'service_role'               -- trusted server actions (admin/users, apply, test-login)
+     and not private.is_admin()                     -- admin via their own session
+  then raise exception 'only an admin may change roles' using errcode = '42501';
+  end if;
+  return new;
+end $$;
+-- BEFORE UPDATE OF roles ON public.profiles ...
+```
+- **Verify the GUC locally first:** under a service-role connection, print
+  `current_setting('request.jwt.claims', true)` to confirm `role` is `service_role` there and
+  `authenticated` for a user JWT (PostgREST/Supabase version differences — do not assume).
+- No column-grant changes (the earlier "REVOKE UPDATE" idea is dropped — it would break
+  `switchActiveRole`'s `role` write and needs fragile per-column re-granting).
+
+**Local verification (required before push) — all 6 cases on a fresh `supabase db reset`:**
+1. authenticated non-admin `set roles='{admin}'` (the exploit) → **REJECTED 42501**.
+2. authenticated non-admin `set role` within held `roles[]` (switchActiveRole) → **ALLOWED** (`roles` unchanged).
+3. service-role `set roles+role` (apply / admin-users / test-login) → **ALLOWED**.
+4. admin-via-session `set roles+role` → **ALLOWED**.
+5. authenticated non-admin self-update `full_name` → **ALLOWED**.
+6. exploit variant `set role='admin'` alone (roles unchanged) → **REJECTED by existing CHECK**
+   `profiles_active_role_in_set` (role ∉ roles), not the trigger — confirm it still fails.
 
 ---
 
