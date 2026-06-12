@@ -412,3 +412,123 @@ short note in CHANGELOG / a follow-up issue.
 ### 10.6 Remaining (separate tracks, not this fix)
 - `npm run test:unit` green — implementation gate for OpenCode (not part of the migration reconcile).
 - The **MEDIUM audit items** from `specs/audit-progress-actions.md` are an independent backlog.
+
+---
+
+## 11. REVISION 4 — Pivot to a remote-dump baseline (DECISION: dump + archive)
+
+### 11.1 Why the reconstruction is abandoned
+The §9.3 gate (`db diff --linked`) returned **~1600 lines** of drift. Categories OpenCode found:
+- **Structural:** `bookings` +16 dashboard cols (+ type changes, defaults, 7 constraints, 7 indexes);
+  `session_evaluations`, `parent_reports`, `sessions`, `platform_settings`, `blog_posts` all differ.
+- **Placement:** `ensure_teacher_profile()`, `handle_new_user()`, `sync_teacher_archive_with_profile()`
+  live in `private` on remote (moved out-of-band) but `public` in the reconstruction.
+- **Policies:** ~27 baseline policies replaced/renamed by the 2026 consolidation migrations.
+- **Missing entirely:** ~40 indexes, 7 views (`v_bookings`…), 8+ functions, ~6 triggers,
+  `private.rls_auto_enable()` event trigger, `private.is_admin()` full body.
+
+**Root cause:** `schema.sql + v9…v16` ≠ remote's actual pre-2026 state. Remote accumulated
+dashboard edits + objects added/moved outside any tracked migration. Crucially, **even a perfect
+pre-cutover baseline could not make local faithful** — the out-of-band objects were never in any of
+the 102 migrations, so replaying them can never reproduce that drift. The only faithful source is a
+live dump of remote.
+
+### 11.2 ⛔ RETRACTED
+The §10.2 command `migration repair --status applied 20260428000000 20260428203551` is **void** —
+those reconstructed files do **not** match remote and must be **deleted**, not repair-applied.
+Repairing them would have asserted a false "remote == baseline" and permanently desynced history.
+
+### 11.3 Chosen end-state (human decision, 2026-06-12): **dump baseline + archive history**
+```
+supabase/migrations/
+  20260428000000_remote_baseline.sql      ← supabase db dump --linked --schema-only (= prod HEAD)
+  20260612004838_homework_assignments_ayah_range_guard.sql   ← forward (NOT yet on prod)
+supabase/migrations_archive/              ← sibling dir, NOT scanned by `supabase start`
+  20260428000001_…  …  20260609004838_…   ← the 102 files already applied on prod (history kept)
+```
+
+### 11.4 Procedure (authoritative — for OpenCode)
+
+**A. Capture which migrations are NOT yet on prod (decides what stays active vs. archived).**
+```bash
+supabase migration list --linked      # any LOCAL version absent from the remote "applied" column
+                                      # is a forward migration → keep it ACTIVE after the baseline.
+```
+Expected forward(s): `20260612004838` (ayah guard, never pushed). Confirm there are no others among
+recently-committed files on this branch — do not assume.
+
+**B. Discard the failed reconstruction.**
+```bash
+rm supabase/migrations/20260428000000_baseline_legacy_schema.sql
+rm supabase/migrations/20260428203551_create_public_role_helper_wrappers.sql
+```
+
+**C. Generate the authoritative baseline from remote (captures all drift).**
+```bash
+supabase db dump --linked --schema-only -f supabase/migrations/20260428000000_remote_baseline.sql
+```
+- `--schema-only` → **no data** (avoids PII/secrets in the repo).
+- Verify it includes the `private` schema (e.g. `private.is_admin()` full body, `rls_auto_enable()`).
+- Make it apply on a fresh DB: ensure `create extension/schema … if not exists`, no `OWNER TO`
+  roles that don't exist locally, no references to managed schemas the local stack lacks.
+- **Security scan before commit:** grep the dump for embedded secrets in function bodies
+  (`grep -iE "secret|key|token|password|sk_|service_role|eyJ" supabase/migrations/20260428000000_remote_baseline.sql`)
+  — schema-only should have none, but confirm.
+
+**D. Archive the 102 already-applied migrations (preserve git history with `git mv`).**
+```bash
+mkdir -p supabase/migrations_archive
+# every committed 2026* file EXCEPT the forwards from step A:
+git mv supabase/migrations/20260428000001_*.sql … supabase/migrations_archive/
+# keep active: the new baseline + 20260612004838 (and any other step-A forward)
+```
+`supabase/migrations_archive/` is a **sibling** of `supabase/migrations/` — the CLI only scans
+`supabase/migrations/*.sql`, so archived files are ignored by `supabase start`.
+
+**E. Local verify — faithful replica.**
+```bash
+supabase db reset                     # baseline + forwards must apply GREEN end-to-end
+supabase db diff --linked --schema public,private
+#   Expect: the ONLY differences are the not-yet-deployed forward objects (the ayah-guard
+#   trigger/constraints/fn). NOTHING else. If anything else appears, the dump missed it — fix D/C.
+```
+(To prove the baseline alone == prod: temporarily reset with only the baseline active and confirm
+`db diff --linked` is **empty**, then re-add the forwards.)
+
+**F. Reconcile remote history (incremental, not a blind mass-edit).**
+```bash
+supabase migration repair --status applied 20260428000000     # record the baseline; do NOT run it on prod
+supabase migration list --linked                              # inspect
+```
+- The 102 archived versions remain "applied on remote / absent locally" — **cosmetic**, and
+  `db push` (local-ahead only) still works. **Leave them as-is.**
+- ONLY if `migration list`/`db push` actually errors on a history mismatch, then selectively
+  `supabase migration repair --status reverted <version…>` for the folded versions. **Report the
+  CLI output first; do not pre-emptively revert 102 entries.**
+- **Never `db push` the baseline** — it equals prod HEAD; pushing would re-run the whole schema.
+
+**G. Forward migration stays separate.** `20260612004838` goes to prod later via `supabase db push`,
+after its own existing-row CHECK-safety check (Round-2 review). Not part of this reconcile.
+
+### 11.5 Commit
+```
+git add supabase/migrations/20260428000000_remote_baseline.sql
+git add -A supabase/migrations_archive/ supabase/migrations/        # record the moves + deletions
+git commit -m "fix(db): replace reconstructed baseline with remote dump; archive applied history (spec 011)"
+```
+
+### 11.6 Revised acceptance criteria (supersede §9.5/§10)
+- [ ] `supabase db reset` applies **baseline + forwards** from scratch, green.
+- [ ] `supabase db diff --linked` shows **only** the not-yet-deployed forward objects (baseline-only
+      diff is empty) — proves local == prod HEAD.
+- [ ] Baseline is a **`db dump --linked`**, schema-only, secret-scanned; reconstructed files deleted.
+- [ ] 102 applied migrations archived (sibling dir, not scanned); git history preserved via `git mv`.
+- [ ] `migration repair --status applied 20260428000000` done; `migration list --linked` clean
+      (no history-mismatch error); 102 left as-is unless the CLI demands otherwise (then reported).
+- [ ] `npm run sb:advisors` clean; `select public.is_admin()` returns true under an admin role
+      (runtime resolution intact); `npm run test:unit` green.
+
+### 11.7 Governance (unchanged, reinforced)
+The drift catalogued in §11.1 is the **audit** of CLAUDE.md §5 violations already in prod (schema
+edited via dashboard). Capturing it in the dump baseline brings it under version control. Follow-up:
+stop dashboard schema edits; all changes via migrations going forward. Add a CHANGELOG note.
