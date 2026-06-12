@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("server-only", () => ({}));
 const logErrorMock = vi.fn();
 vi.mock("@/lib/logger", () => ({ logError: (...a: unknown[]) => logErrorMock(...a) }));
+vi.mock("@/lib/quran/surahs", () => ({ surahName: () => "الفاتحة" }));
 
 import { editFollowUp, deleteFollowUp } from "./manage";
 import { FollowUpUserError, type FollowUpActor } from "./types";
@@ -85,7 +86,7 @@ describe("editFollowUp", () => {
     const { client, calls } = makeClient({
       homework_assignments: {
         select: {
-          data: { teacher_id: "teacher-1", student_id: "student-1", assigned_at: "2026-01-01", status: "assigned" },
+          data: { teacher_id: "teacher-1", student_id: "student-1", assigned_at: "2026-01-01", status: "assigned", surah_number: null, ayah_start: null, ayah_end: null },
           error: null,
         },
         update: { data: null, error: null },
@@ -109,6 +110,9 @@ describe("editFollowUp", () => {
             student_id: "student-1",
             assigned_at: "2026-01-01",
             status: "completed_good",
+            surah_number: null,
+            ayah_start: null,
+            ayah_end: null,
           },
           error: null,
         },
@@ -124,7 +128,7 @@ describe("editFollowUp", () => {
     const { client } = makeClient({
       homework_assignments: {
         select: {
-          data: { teacher_id: "teacher-1", student_id: "student-1", assigned_at: "2026-01-01", status: "assigned" },
+          data: { teacher_id: "teacher-1", student_id: "student-1", assigned_at: "2026-01-01", status: "assigned", surah_number: null, ayah_start: null, ayah_end: null },
           error: null,
         },
       },
@@ -134,6 +138,62 @@ describe("editFollowUp", () => {
     await expect(
       editFollowUp(client, TEACHER, { followUpId: "hw-1", updates: { title: "x" } }),
     ).rejects.toBeInstanceOf(FollowUpUserError);
+  });
+
+  it("rejects a partial ayah_end edit that exceeds the stored surah count (regression: HIGH-1 partial-edit bypass)", async () => {
+    const { client, calls } = makeClient({
+      homework_assignments: {
+        select: {
+          data: {
+            teacher_id: "teacher-1",
+            student_id: "student-1",
+            assigned_at: "2026-01-01",
+            status: "assigned",
+            surah_number: 1,
+            ayah_start: 1,
+            ayah_end: 7,
+          },
+          error: null,
+        },
+        update: { data: null, error: null },
+      },
+      bookings: { select: { data: null, error: { code: "PGRST116" } } },
+    });
+    await expect(
+      editFollowUp(client, TEACHER, {
+        followUpId: "hw-1",
+        updates: { ayah_end: 999 },
+      }),
+    ).rejects.toBeInstanceOf(FollowUpUserError);
+    expect(calls.update).toHaveLength(0);
+  });
+
+  it("rejects a partial null-clear edit (ayah_start null, ayah_end 999) with Arabic message (regression: partial null-clear UX)", async () => {
+    const { client, calls } = makeClient({
+      homework_assignments: {
+        select: {
+          data: {
+            teacher_id: "teacher-1",
+            student_id: "student-1",
+            assigned_at: "2026-01-01",
+            status: "assigned",
+            surah_number: 1,
+            ayah_start: 1,
+            ayah_end: 7,
+          },
+          error: null,
+        },
+        update: { data: null, error: null },
+      },
+      bookings: { select: { data: null, error: { code: "PGRST116" } } },
+    });
+    await expect(
+      editFollowUp(client, TEACHER, {
+        followUpId: "hw-1",
+        updates: { ayah_start: null, ayah_end: 999 },
+      }),
+    ).rejects.toBeInstanceOf(FollowUpUserError);
+    expect(calls.update).toHaveLength(0);
   });
 });
 

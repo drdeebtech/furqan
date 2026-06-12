@@ -16,6 +16,7 @@ import {
 } from "@/lib/domains/follow-up/actions";
 import { editFollowUp as editFollowUpDomain, deleteFollowUp as deleteFollowUpDomain } from "@/lib/domains/follow-up/manage";
 import type { FollowUpActor } from "@/lib/domains/follow-up/types";
+import { validateHomeworkRange } from "@/lib/domains/progress/validation";
 
 /**
  * Follow-up write surface — route adapters.
@@ -133,6 +134,8 @@ const createFollowUpBase = loudAction<CreateFollowUpInput, { message: string }>(
   },
   preflight: async () => ({ actorId: await requireUserId() }),
   handler: async (input) => {
+    const rangeError = validateHomeworkRange(input.surah_number, input.ayah_start, input.ayah_end);
+    if (rangeError) throw new UserError(rangeError);
     const actor = await teacherOrAboveActor();
     await createFollowUpDomain(createAdminClient(), actor, {
       bookingId: input.booking_id,

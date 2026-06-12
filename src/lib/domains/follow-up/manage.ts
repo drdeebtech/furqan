@@ -13,6 +13,8 @@ import {
   type DeleteFollowUpInput,
   type DeleteFollowUpResult,
 } from "./types";
+import { validateRange, violationMessageAr } from "@/lib/domains/progress/validation";
+import { surahName } from "@/lib/quran/surahs";
 
 /**
  * Follow-up domain — manage writes (edit + delete).
@@ -46,15 +48,35 @@ export async function editFollowUp(
 
   const { data: hw, error: hwErr } = await admin
     .from("homework_assignments")
-    .select("teacher_id, student_id, assigned_at, status")
+    .select("teacher_id, student_id, assigned_at, status, surah_number, ayah_start, ayah_end")
     .eq("id", followUpId)
-    .returns<{ teacher_id: string; student_id: string; assigned_at: string; status: HomeworkStatus }[]>()
+    .returns<{
+      teacher_id: string; student_id: string; assigned_at: string;
+      status: HomeworkStatus; surah_number: number | null; ayah_start: number | null; ayah_end: number | null;
+    }[]>()
     .single();
 
   if (hwErr || !hw) {
     throw new FollowUpNotFoundError("المتابعة غير موجودة", { cause: hwErr ?? undefined });
   }
   assertCanManage(actor, hw.teacher_id, "غير مصرح");
+
+  if ("surah_number" in updates || "ayah_start" in updates || "ayah_end" in updates) {
+    const sn = ("surah_number" in updates ? updates.surah_number : hw.surah_number) as number | null;
+    const as = ("ayah_start" in updates ? updates.ayah_start : hw.ayah_start) as number | null;
+    const ae = ("ayah_end" in updates ? updates.ayah_end : hw.ayah_end) as number | null;
+    if (sn != null && (as == null || ae == null)) {
+      throw new FollowUpUserError(
+        "يجب تحديد آية البداية والنهاية مع السورة — لا يمكن ترك إحداهما فارغة.",
+      );
+    }
+    if (sn != null && as != null && ae != null) {
+      const violation = validateRange({ surahFrom: sn, ayahFrom: as, surahTo: sn, ayahTo: ae });
+      if (violation) {
+        throw new FollowUpUserError(violationMessageAr(violation, (n) => surahName(n, "ar")));
+      }
+    }
+  }
 
   // Graded follow-ups are immutable. Editing post-grade would silently
   // change what the student was graded against. To re-grade, use the

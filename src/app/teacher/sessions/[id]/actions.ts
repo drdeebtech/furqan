@@ -7,7 +7,7 @@ import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
 import { recordProgress } from "@/lib/domains/progress/capture";
-import type { ProgressType, StudentLevel } from "@/lib/domains/progress/types";
+import type { ProgressType, StudentLevel, CapturedError } from "@/lib/domains/progress/types";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
 class UserError extends Error {
@@ -199,6 +199,7 @@ export interface RecordSessionProgressInput {
   qualityRating?: number | null;
   level?: StudentLevel;
   teacherNotes?: string | null;
+  errors?: CapturedError[];
 }
 
 const recordSessionProgressBase = loudAction<RecordSessionProgressInput, { message: string }>({
@@ -239,6 +240,7 @@ const recordSessionProgressBase = loudAction<RecordSessionProgressInput, { messa
       qualityRating: input.qualityRating ?? null,
       level: input.level,
       teacherNotes: input.teacherNotes ?? null,
+      errors: input.errors,
     });
 
     if (!outcome.ok) {

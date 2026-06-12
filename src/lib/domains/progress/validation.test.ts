@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { validateRange, violationMessageAr } from "./validation";
+import { validateRange, violationMessageAr, validateHomeworkRange } from "./validation";
 import { ayahCount, AYAH_COUNTS } from "@/lib/quran/ayah-counts";
+import { surahName } from "@/lib/quran/surahs";
 
 describe("ayah-counts (canonical Ḥafṣ)", () => {
   it("has the well-known counts and totals 6236", () => {
@@ -77,5 +78,53 @@ describe("violationMessageAr", () => {
     const msg = violationMessageAr(v, () => "الفاتحة");
     expect(msg).toContain("7");
     expect(msg).toContain("الفاتحة");
+  });
+});
+
+describe("validateHomeworkRange (regression: HIGH-1 surah/ayah guard for homework)", () => {
+  it("accepts a valid same-surah range (Al-Fatiha 1-7)", () => {
+    expect(validateHomeworkRange(1, 1, 7)).toBeNull();
+  });
+
+  it("returns null when any field is null (no range to validate)", () => {
+    expect(validateHomeworkRange(null, 1, 7)).toBeNull();
+    expect(validateHomeworkRange(1, null, 7)).toBeNull();
+    expect(validateHomeworkRange(1, 1, null)).toBeNull();
+    expect(validateHomeworkRange(null, null, null)).toBeNull();
+  });
+
+  it("rejects ayah_end exceeding surah count (Al-Fatiha has 7 ayat)", () => {
+    const msg = validateHomeworkRange(1, 1, 300);
+    expect(msg).not.toBeNull();
+    expect(msg).toContain("7");
+  });
+
+  it("rejects ayah_start exceeding surah count", () => {
+    const msg = validateHomeworkRange(2, 999, 999);
+    expect(msg).not.toBeNull();
+    expect(msg).toContain("286");
+  });
+
+  it("rejects reversed ayah order within same surah", () => {
+    const msg = validateHomeworkRange(2, 10, 5);
+    expect(msg).not.toBeNull();
+    expect(msg).toContain("آية النهاية");
+  });
+
+  it("rejects an invalid surah number (0)", () => {
+    expect(validateHomeworkRange(0, 1, 1)).not.toBeNull();
+  });
+
+  it("rejects an invalid surah number (115)", () => {
+    expect(validateHomeworkRange(115, 1, 1)).not.toBeNull();
+  });
+
+  it("rejects ayah below 1", () => {
+    expect(validateHomeworkRange(2, 0, 5)).not.toBeNull();
+    expect(validateHomeworkRange(2, 1, 0)).not.toBeNull();
+  });
+
+  it("accepts An-Nas 1-6 (surah 114, 6 ayat)", () => {
+    expect(validateHomeworkRange(114, 1, 6)).toBeNull();
   });
 });

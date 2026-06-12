@@ -1,4 +1,5 @@
 import { ayahCount } from "@/lib/quran/ayah-counts";
+import { surahName } from "@/lib/quran/surahs";
 
 /**
  * Pure ḥifẓ-range validation (Progress domain). Table-free — uses the canonical
@@ -63,4 +64,20 @@ export function violationMessageAr(v: RangeViolation, surahName: (n: number) => 
         ? "سورة النهاية يجب أن تكون بعد سورة البداية أو نفسها."
         : "آية النهاية يجب أن تكون بعد آية البداية أو نفسها داخل نفس السورة.";
   }
+}
+
+export function validateHomeworkRange(
+  surahNumber: number | null,
+  ayahStart: number | null,
+  ayahEnd: number | null,
+): string | null {
+  if (surahNumber == null || ayahStart == null || ayahEnd == null) return null;
+  const violation = validateRange({
+    surahFrom: surahNumber,
+    ayahFrom: ayahStart,
+    surahTo: surahNumber,
+    ayahTo: ayahEnd,
+  });
+  if (!violation) return null;
+  return violationMessageAr(violation, (n) => surahName(n, "ar"));
 }
