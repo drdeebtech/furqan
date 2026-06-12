@@ -2,6 +2,15 @@
 
 All notable changes to FURQAN Academy are documented here.
 
+## 2026-06-12 — Refactor: Rename lib/actions/homework → follow-up, align exports with domain naming
+
+`src/lib/actions/homework.ts` was a route adapter using legacy "Homework" terminology while the domain layer (`src/lib/domains/follow-up/`) already used the correct "follow-up" / "متابعة" naming per CONTEXT.md. This refactor closes the naming split:
+
+- **File renamed:** `src/lib/actions/homework.ts` → `src/lib/actions/follow-up.ts`
+- **Exports renamed:** `createHomework` → `createFollowUp`, `gradeHomework` → `gradeFollowUp`, `getHomeworkAudioUrl` → `getFollowUpAudioUrl` (domain-internal type aliases updated to match)
+- **All call sites updated:** `homework-assignment-form.tsx`, `homework-audio-player.tsx`, `grade-form.tsx`, `audio-recorder.tsx`, `homework-list.tsx`
+- **No logic changed** — the file was already a correct thin `loudAction`-wrapped adapter delegating entirely to `src/lib/domains/follow-up/`; only naming aligned
+
 ## 2026-06-12 — Test: Coverage improvements for promise-utils, logger, and require-admin
 
 Raised test coverage for three critical infrastructure modules:
