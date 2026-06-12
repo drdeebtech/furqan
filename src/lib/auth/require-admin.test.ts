@@ -185,8 +185,8 @@ describe("requireAdminForApi", () => {
 
     const result = await requireAdminForApi();
     // NextResponse.json is mocked to return { body, init }
-    expect((result as { body: unknown; init: unknown }).body).toEqual({ error: "Unauthorized" });
-    expect((result as { body: unknown; init: { status: number } }).init.status).toBe(401);
+    expect((result as unknown as { body: unknown; init: unknown }).body).toEqual({ error: "Unauthorized" });
+    expect((result as unknown as { body: unknown; init: { status: number } }).init.status).toBe(401);
   });
 
   it("returns NextResponse 403 when session is valid but role is not admin", async () => {
@@ -194,8 +194,8 @@ describe("requireAdminForApi", () => {
     mockSingle.mockResolvedValue({ data: { role: "teacher" }, error: null });
 
     const result = await requireAdminForApi();
-    expect((result as { body: unknown; init: unknown }).body).toEqual({ error: "Forbidden" });
-    expect((result as { body: unknown; init: { status: number } }).init.status).toBe(403);
+    expect((result as unknown as { body: unknown; init: unknown }).body).toEqual({ error: "Forbidden" });
+    expect((result as unknown as { body: unknown; init: { status: number } }).init.status).toBe(403);
   });
 
   it("re-throws unexpected errors (not auth-related)", async () => {

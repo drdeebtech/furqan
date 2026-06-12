@@ -382,20 +382,21 @@ describe("logInfo — Sentry structured logger path", () => {
 
 describe("logInfo — console fallback outside production", () => {
   const origNodeEnv = process.env.NODE_ENV;
+  const env = process.env as Record<string, string | undefined>;
 
   afterEach(() => {
-    process.env.NODE_ENV = origNodeEnv;
+    env.NODE_ENV = origNodeEnv;
   });
 
   it("calls console.info in non-production when no structured logger", () => {
-    process.env.NODE_ENV = "test";
+    env.NODE_ENV = "test";
     logInfo("dev info", { tag: "debug" });
 
     expect(console.info).toHaveBeenCalledWith("dev info", { tag: "debug" });
   });
 
   it("does NOT call console.info in production", () => {
-    process.env.NODE_ENV = "production";
+    env.NODE_ENV = "production";
     logInfo("prod info", { tag: "cron" });
 
     expect(console.info).not.toHaveBeenCalled();

@@ -1,12 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { chunk } from "./promise-utils";
 
 // ─── withTimeout tests ────────────────────────────────────────────────────────
 
 const mockLogError = vi.fn();
 vi.mock("@/lib/logger", () => ({ logError: (...args: unknown[]) => mockLogError(...args) }));
 
-import { withTimeout } from "./promise-utils";
+import { withTimeout, chunk } from "./promise-utils";
 
 beforeEach(() => vi.clearAllMocks());
 afterEach(() => vi.useRealTimers());
