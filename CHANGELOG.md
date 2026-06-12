@@ -10,7 +10,9 @@ Raised test coverage for three critical infrastructure modules:
 - **`src/lib/logger.ts`** (55.9% → 94.7%) — added `logWarn` tests (structured logger path, `captureMessage` fallback, console fallback) and `logInfo` tests (breadcrumb always fires, structured logger path, console fallback in non-production).
 - **`src/lib/auth/require-admin.ts`** (65.4% → 100%) — added coverage for `getUser` throw (defensive catch), profile lookup throw (null role → `ForbiddenError`), `requireRole` multi-role array overload, and all three `requireAdminForApi` branches (200/401/403/rethrow).
 
-Also fixed pre-landing review findings: merged split import statements in `promise-utils.test.ts`, fixed TypeScript double-assertion patterns in `require-admin.test.ts`, and replaced invalid `process.env.NODE_ENV` direct assignment with a type cast in `logger.test.ts`.
+### For contributors
+
+Pre-landing fixes: merged split import statements in `promise-utils.test.ts`, fixed TypeScript double-assertion patterns in `require-admin.test.ts`, replaced invalid `process.env.NODE_ENV` direct assignment with a type cast in `logger.test.ts`.
 
 ## 2026-06-05 — Fix: Stripe checkout UUID validation (issue #408)
 
