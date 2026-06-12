@@ -65,6 +65,11 @@ export async function editFollowUp(
     const sn = ("surah_number" in updates ? updates.surah_number : hw.surah_number) as number | null;
     const as = ("ayah_start" in updates ? updates.ayah_start : hw.ayah_start) as number | null;
     const ae = ("ayah_end" in updates ? updates.ayah_end : hw.ayah_end) as number | null;
+    for (const v of [sn, as, ae] as unknown[]) {
+      if (v != null && (typeof v !== "number" || !Number.isFinite(v))) {
+        throw new FollowUpUserError("قيم السورة والآيات يجب أن تكون أرقاماً");
+      }
+    }
     if (sn != null && (as == null || ae == null)) {
       throw new FollowUpUserError(
         "يجب تحديد آية البداية والنهاية مع السورة — لا يمكن ترك إحداهما فارغة.",

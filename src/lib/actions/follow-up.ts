@@ -316,11 +316,11 @@ const editFollowUpBase = loudAction<EditFollowUpInput, { message: string }>({
 export async function editFollowUp(homeworkId: string, formData: FormData) {
   const updates: TableUpdate<"homework_assignments"> = {};
   const title = formData.get("title") as string;
-  if (title) updates.title = title;
+  if (title !== null) updates.title = title || undefined;
   const description = formData.get("description") as string;
   if (description !== null) updates.description = description || null;
   const homework_type = formData.get("homework_type") as string;
-  if (homework_type) updates.homework_type = homework_type as TableUpdate<"homework_assignments">["homework_type"];
+  if (homework_type !== null) updates.homework_type = (homework_type || undefined) as TableUpdate<"homework_assignments">["homework_type"];
   const surah_number = formData.get("surah_number");
   if (surah_number !== null) updates.surah_number = surah_number ? Number(surah_number) : null;
   const ayah_start = formData.get("ayah_start");
