@@ -201,8 +201,8 @@ function asId(value: unknown): string | null {
 // single-recipient ones come next; the harder ones (multi-recipient,
 // recipient looked up mid-action, conditional copy) need their lookups hoisted
 // into context first. Non-exhaustive backlog of obvious candidates:
-//   - homework.student_ready → teacher   (src/lib/actions/homework.ts)
-//   - homework.graded        → student   (src/lib/actions/homework.ts)
+//   - homework.student_ready → teacher   (src/lib/actions/follow-up.ts)
+//   - homework.graded        → student   (src/lib/actions/follow-up.ts)
 //   - booking.confirmed      → student   (src/lib/domains/booking/orchestrate.ts)
 //   - session.ended          → student   (src/lib/domains/session/orchestrate.ts)
 // Migrate one event at a time: move its inline notify(...) here, then replace

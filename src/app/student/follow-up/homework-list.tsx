@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BookOpen, CheckCircle, RefreshCw, Mic, Sparkles, Repeat, Archive } from "lucide-react";
-import { markStudentReady } from "@/lib/actions/homework";
+import { markStudentReady } from "@/lib/actions/follow-up";
 import { HOMEWORK_TYPE_AR, HOMEWORK_STATUS_STYLE } from "@/lib/constants";
 import { useLang } from "@/lib/i18n/context";
 import type { HomeworkAssignment } from "@/types/database";

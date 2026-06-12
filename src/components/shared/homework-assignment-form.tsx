@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Plus, BookOpen, CheckCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
-import { createHomework } from "@/lib/actions/homework";
+import { createFollowUp } from "@/lib/actions/follow-up";
 import {
   HOMEWORK_TYPE_AR,
   HOMEWORK_STATUS_STYLE,
@@ -73,7 +73,7 @@ export function HomeworkAssignmentForm({
     if (pagesCount) fd.set("pages_count", pagesCount);
     if (dueDate) fd.set("due_date", dueDate);
 
-    const result = await createHomework(fd);
+    const result = await createFollowUp(fd);
     if ("error" in result && result.error) {
       setHwError(result.error);
     } else {
