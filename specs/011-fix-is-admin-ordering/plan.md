@@ -331,3 +331,84 @@ into one baseline** — cleaner fidelity, but it rewrites local migration histor
 in) and needs a full `migration repair` reconcile. Default recommendation: the §9.3 reconstruct-and-
 verify path, because `db diff --linked` catches any drift and it keeps the existing `2026*` files
 intact. Flag if you want the squash route instead.
+
+---
+
+## 10. REVISION 3 — Reconciliation after local convergence (2026-06-12)
+
+`supabase start` now applies the full chain locally. What OpenCode added to make the baseline
+converge, and how each is reconciled to remote:
+
+| # | Object | Origin | How it got into the baseline | Reconcile to remote |
+|---|---|---|---|---|
+| 1 | Legacy schema (`profiles`, enums, fns) | `schema.sql` + `v9…v16` | pg_dump, idempotent-ified → `20260428000000` | `repair --status applied` |
+| 2 | Early `public.is_admin()` wrapper bridge | needed so V17 migrations resolve `public.is_admin()` before the 0430 restore | new file `20260428203551` | `repair --status applied` |
+| 3 | `bookings` +16 cols, `session_evaluations` +5 cols | **created via Supabase dashboard, never in a repo migration** | folded into baseline | covered by baseline repair — **but see gate** |
+| 4 | `blog_posts`, `contact_submissions`, `site_announcements` (+RLS) | **out-of-band (dashboard)** | folded into baseline | covered by baseline repair — **but see gate** |
+| 5 | Policies schema-qualify `public.is_admin()` | pg_dump sets `search_path=''` | baseline | n/a (semantics-preserving) |
+
+### 10.1 ⛔ MANDATORY GATE — run BEFORE `migration repair`
+
+Items 3 & 4 mean prod carries schema that no migration ever recorded. Folding them into the
+baseline is correct **only if the baseline reproduces them byte-for-byte**. The proof is a clean
+diff against the live remote. **Do not run `migration repair` until this is empty:**
+
+```bash
+supabase db diff --linked --schema public,private        # MUST report: No schema changes found
+```
+
+- **Empty** → the reconstructed baseline (incl. dashboard cols + out-of-band tables) matches prod
+  exactly → repair is provably safe.
+- **Non-empty** → each diff is either drift to fold into `20260428000000`, or a column
+  default/type mismatch to fix. Resolve, re-`db reset`, re-diff until empty. **Repairing with a
+  non-empty diff permanently desyncs local truth from remote** (the history table will claim
+  applied state that doesn't match the schema).
+
+### 10.2 The `migration repair` command (for the human, AFTER the gate is green)
+
+Only the two **baseline/bridge** migrations are repair-applied (their effects already exist on
+remote; they must be recorded-but-not-run):
+
+```bash
+supabase migration repair --status applied 20260428000000 20260428203551
+supabase migration list --linked          # verify: both versions applied on BOTH sides, no checksum mismatch
+```
+
+> **Why repair, not push:** `migration repair` only writes the remote `schema_migrations` tracking
+> table — it runs **no DDL**, so it cannot alter or damage the prod schema. `supabase db push`
+> would *execute* the 130 KB baseline against prod, re-running `create or replace function
+> is_admin()` and clobbering prod's `private`-delegating wrapper. Never push the baseline/bridge.
+
+### 10.3 ⚠️ Do NOT repair the unrelated forward migration
+
+`20260612004838_homework_assignments_ayah_range_guard.sql` (untracked, from the earlier Round-2
+work) is a **real new migration not yet on remote**. It goes out via `supabase db push` (a normal
+forward apply), **not** repair — and only after its own legacy-row safety check (the existing-row
+CHECK-constraint risk flagged in the Round-2 review). Keep it out of the repair set above.
+
+### 10.4 Security-lens verification (auth function still resolves at runtime)
+
+`db diff --linked` proves the function *definitions* match, but the baseline dump sets
+`search_path=''`. Confirm `is_admin()` still resolves `profiles` **at runtime** (a SECURITY
+DEFINER fn with empty search_path and an unqualified `FROM profiles` would fail when *called*, not
+when created):
+
+```bash
+# proconfig must show search_path set (public / public,pg_temp) for all three helpers, local == remote
+psql "$LOCAL_DB_URL"  -c "select proname, proconfig from pg_proc where proname in ('is_admin','is_admin_or_mod','is_moderator');"
+psql "$REMOTE_DB_URL" -c "select proname, proconfig from pg_proc where proname in ('is_admin','is_admin_or_mod','is_moderator');"
+# and an end-to-end call as a seeded admin must return true:
+#   select public.is_admin();   -- under an admin JWT/role
+```
+
+### 10.5 Governance flag (raise to the human)
+
+Items 3 & 4 are a **CLAUDE.md §5 violation already in prod** — schema was changed via the dashboard,
+not migrations ("never hand-edit the DB outside migrations"). This baseline now brings that drift
+under version control (good), but the team should: (a) confirm no *other* out-of-band objects exist
+(the §10.1 diff is the audit), and (b) stop making dashboard schema edits going forward. Worth a
+short note in CHANGELOG / a follow-up issue.
+
+### 10.6 Remaining (separate tracks, not this fix)
+- `npm run test:unit` green — implementation gate for OpenCode (not part of the migration reconcile).
+- The **MEDIUM audit items** from `specs/audit-progress-actions.md` are an independent backlog.
