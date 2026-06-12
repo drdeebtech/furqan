@@ -139,12 +139,20 @@ All P1/P2 findings **CONFIRMED REAL**:
 - **Now (unambiguous, low-risk → OpenCode):** 2.2 (`revoke execute on refund_package_session from anon,
   authenticated`), 3.1 (recreate `resources_student_via_assignment` with `ra.resource_id = resources.id`),
   3.2 (broaden `audit_log_action_check` to allow `'session.webhook.started'`/`'session.webhook.ended'`).
-- **Deferred (need writer-path/app verification first):**
-  - **2.1** confirm-actor guard — must first verify how bookings are confirmed (teacher session vs
-    service-role) and add the same service_role/admin bypass pattern as P0.
-  - **2.3** `correct_answer` exposure — only the teacher quiz-editor reads it client-side; hiding it
-    from students requires an app-coordinated view/RPC (students who can see a quiz row currently see
-    all columns). Not a one-line migration.
+- **2.1** confirm-actor guard — **VERIFIED & SCOPED (2026-06-12).** Every confirm path routes through
+  `confirmBooking` → `createAdminClient()` (service-role); `validate_booking_status()` checks the
+  transition state-machine but not the actor, and RLS `bookings_update` lets a student update their own
+  booking → student can self-confirm. **Fix:** new forward migration `create or replace
+  public.validate_booking_status()` (preserve existing attrs) adding, after the `is_admin()` bypass:
+  a `→confirmed` guard requiring `request.jwt.claims.role = 'service_role'` OR `auth.uid() =
+  new.teacher_id`, else raise 42501. Student cancel (`pending→cancelled`) and the state-machine stay
+  intact. → dispatched to OpenCode.
+- **2.3** `correct_answer` exposure — **FALSE POSITIVE / already fixed (2026-06-12), no action.**
+  `quiz_questions.correct_answer` no longer exists (column absent in live schema); answers live in
+  `quiz_question_keys` (the "audit C1" refactor — `quizzes.ts` writes/reads it via `createAdminClient`).
+  That table has RLS enabled with `quiz_question_keys_owner_select` = `is_admin() OR course-teacher`;
+  a student empirically sees **0** rows. (Optional cosmetic: the table-level `GRANT…TO anon` is
+  unnecessary but not exploitable behind RLS.)
 
 ## 4. Out of scope / skip (with reason)
 
