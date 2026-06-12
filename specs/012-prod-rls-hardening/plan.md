@@ -112,6 +112,40 @@ Each needs the §0.3 verification against the live dump before authoring a migra
 | 3.2 | `audit_log_action_check` CHECK rejects `session.webhook.*` actions written by webhook RPCs (SQLSTATE 23514) | Functional: webhook RPCs fail. Broaden the CHECK. |
 | 3.3 | `sp_*` / `halaqa_waiting_list` / `session_participants` policies exclude **booking-less halaqa** sessions (only join via bookings) | Teachers of halaqa sessions locked out. |
 
+### Verification results (2026-06-12, queried against the live local replica)
+
+All P1/P2 findings **CONFIRMED REAL**:
+- **2.1** `validate_booking_status()` validates the transition state-machine but performs **no actor
+  check** (`pending→confirmed` allowed for anyone); RLS `bookings_update` lets the student update
+  their own row → **student can self-confirm**. Fix: gate `*→confirmed` on `teacher_id = auth.uid()
+  OR is_admin()` inside the trigger.
+- **2.2** `refund_package_session` has `EXECUTE` granted to **`authenticated` AND `anon`** (plus
+  service_role/postgres). Fix: `REVOKE EXECUTE … FROM anon, authenticated` (service_role only) —
+  matches [[reference_supabase_secdef_execute_lockdown]]. Also confirm/insert an internal owner check.
+- **2.3** `quiz_questions` grants `SELECT` to `authenticated`+`anon`; `correct_answer` is a plain
+  column with no exclusion → readable by anyone who can see the row. Fix: student-facing view/RPC
+  omitting `correct_answer`, or column-privilege split.
+- **3.1** `resources_student_via_assignment` qual is `((ra.resource_id = ra.id) AND (ra.student_id =
+  auth.uid()))` — the self-comparison never links to `resources.id`. Fix: `ra.resource_id = resources.id`.
+- **3.2** `audit_log_action_check` = `CHECK (action = ANY('INSERT','UPDATE','DELETE','LOGIN','LOGOUT'))`
+  → rejects `session.webhook.*` written by webhook RPCs (23514). Fix: broaden the CHECK (allow the
+  `session.webhook.%` actions) — verify the exact action strings the RPCs emit first.
+
+**P0 independently verified GREEN** (2026-06-12, local replica): exploit `roles='{admin}'` REJECTED
+42501; switchActiveRole / service-role / admin-session / unrelated-column updates all ALLOWED. Migration
+`728f283` is push-ready; push gated on the password rotation completing (new credential).
+
+**Implementation batching (2026-06-12):**
+- **Now (unambiguous, low-risk → OpenCode):** 2.2 (`revoke execute on refund_package_session from anon,
+  authenticated`), 3.1 (recreate `resources_student_via_assignment` with `ra.resource_id = resources.id`),
+  3.2 (broaden `audit_log_action_check` to allow `'session.webhook.started'`/`'session.webhook.ended'`).
+- **Deferred (need writer-path/app verification first):**
+  - **2.1** confirm-actor guard — must first verify how bookings are confirmed (teacher session vs
+    service-role) and add the same service_role/admin bypass pattern as P0.
+  - **2.3** `correct_answer` exposure — only the teacher quiz-editor reads it client-side; hiding it
+    from students requires an app-coordinated view/RPC (students who can see a quiz row currently see
+    all columns). Not a one-line migration.
+
 ## 4. Out of scope / skip (with reason)
 
 - All "use ENUM instead of text+CHECK", "add tsvector index", "ON CONFLICT target", idempotency
