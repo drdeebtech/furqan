@@ -1,5 +1,6 @@
 # 015 — PR #458 review remediation (CodeRabbit + Cursor bots)
 
+**Feature Branch**: `refactor/follow-up-collapse`
 **Type:** review-finding remediation. **Date:** 2026-06-13. **Branch:** refactor/follow-up-collapse (PR #458).
 **Lenses:** 📖 Quran integrity (ayah-range correctness) · 🛠 engineer (error handling, migration robustness, test fidelity).
 

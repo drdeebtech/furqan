@@ -95,18 +95,19 @@ GRANT  EXECUTE ON FUNCTION private.profile_is_visible(uuid) TO anon, authenticat
 -- ─────────────────────────────────────────────────────────────────────────────
 
 CREATE TABLE profiles (
-  id         uuid        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  role       user_role   NOT NULL DEFAULT 'student',
-  full_name  text,
-  avatar_url text,
-  phone      text        CHECK (phone ~ '^\+?[0-9]{7,15}$'),
-  country    text,
-  timezone   text        NOT NULL DEFAULT 'UTC',
-  lang       text        NOT NULL DEFAULT 'ar',
-  is_active  boolean     NOT NULL DEFAULT true,
-  deleted_at timestamptz,
-  created_at timestamptz NOT NULL DEFAULT NOW(),
-  updated_at timestamptz NOT NULL DEFAULT NOW()
+  id            uuid        PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  role          user_role   NOT NULL DEFAULT 'student',
+  full_name     text,
+  full_name_ar  text,
+  avatar_url    text,
+  phone         text        CHECK (phone ~ '^\+?[0-9]{7,15}$'),
+  country       text,
+  timezone      text        NOT NULL DEFAULT 'UTC',
+  lang          text        NOT NULL DEFAULT 'ar',
+  is_active     boolean     NOT NULL DEFAULT true,
+  deleted_at    timestamptz,
+  created_at    timestamptz NOT NULL DEFAULT NOW(),
+  updated_at    timestamptz NOT NULL DEFAULT NOW()
 );
 
 -- Trigger: auto-create profile on auth.users INSERT
