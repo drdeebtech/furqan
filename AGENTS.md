@@ -146,7 +146,7 @@ started/applied manually per session and is **not** in the update script.
 - Docker, the `supabase` CLI, and `psql` are installed in the VM image (not via
   npm). Docker has no systemd here — start the daemon manually if it is not
   running: `sudo bash -c 'nohup dockerd >/var/log/dockerd.log 2>&1 &'` then
-  `sudo chmod 666 /var/run/docker.sock` (daemon uses the `fuse-overlayfs`
+  `sudo chown "$USER" /var/run/docker.sock` (daemon uses the `fuse-overlayfs`
   storage driver with the containerd snapshotter disabled — see
   `/etc/docker/daemon.json`).
 

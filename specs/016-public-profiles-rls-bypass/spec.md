@@ -1,5 +1,6 @@
 # 016 — `public_profiles` RLS-bypass lockdown (LIVE CRITICAL)
 
+**Feature Branch**: `refactor/follow-up-collapse`
 **Type:** prod security fix. **Date:** 2026-06-13. **Branch:** refactor/follow-up-collapse (PR #458).
 **Lenses:** 🔒 security (primary) · 🛠 engineer (RLS / grants) · 🎓 (profile-data integrity).
 **Origin:** Cursor bot HIGH on PR #458 baseline diff; **independently verified live 2026-06-13**.

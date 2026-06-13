@@ -1,5 +1,6 @@
 # 017 — PR #458 cursor[bot] authz/integrity findings (verified)
 
+**Feature Branch**: `refactor/follow-up-collapse`
 **Type:** security/integrity remediation. **Date:** 2026-06-13. **Branch:** refactor/follow-up-collapse (#458).
 **Lenses:** 🔒 security (T1/T2) · 📖 Quran integrity (T3/T4) · 🛠 engineer.
 **Origin:** 4 unresolved cursor[bot] review threads blocking merge (conversation-resolution required).

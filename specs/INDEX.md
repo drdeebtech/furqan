@@ -22,9 +22,9 @@
 | [012-prod-rls-hardening](./012-prod-rls-hardening/spec.md) | Malformed | _(unknown)_ | _(pending)_ |
 | [013-progress-action-hardening](./013-progress-action-hardening/spec.md) | Tasks-ready | _(unknown)_ | _(pending)_ |
 | [014-session-participant-secdef](./014-session-participant-secdef/spec.md) | Tasks-ready | _(unknown)_ | _(pending)_ |
-| [015-pr458-review-remediation](./015-pr458-review-remediation/spec.md) | Tasks-ready | _(unknown)_ | _(pending)_ |
-| [016-public-profiles-rls-bypass](./016-public-profiles-rls-bypass/spec.md) | Tasks-ready | _(unknown)_ | _(pending)_ |
-| [017-pr458-cursor-authz-findings](./017-pr458-cursor-authz-findings/spec.md) | Tasks-ready | _(unknown)_ | _(pending)_ |
+| [015-pr458-review-remediation](./015-pr458-review-remediation/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
+| [016-public-profiles-rls-bypass](./016-public-profiles-rls-bypass/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
+| [017-pr458-cursor-authz-findings](./017-pr458-cursor-authz-findings/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
 
 ## Abandoned (last 90 days)
 

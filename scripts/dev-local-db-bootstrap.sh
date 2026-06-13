@@ -79,6 +79,8 @@ echo "==> Layer 1: V8 baseline (src/lib/supabase/schema.sql, patched copy)"
 PATCHED="$(mktemp /tmp/furqan_schema.XXXXXX.sql)"
 cp src/lib/supabase/schema.sql "$PATCHED"
 sed -i "s/scheduled_at + (duration_min \* INTERVAL '1 minute')/furqan_local_booking_end(scheduled_at, duration_min)/g" "$PATCHED"
+grep -q "furqan_local_booking_end(scheduled_at, duration_min)" "$PATCHED" \
+  || { echo "FAILED: shim sed did not match schema.sql (DDL text changed?)"; exit 1; }
 psql "$DB_URL" -v ON_ERROR_STOP=1 -f "$PATCHED" > /tmp/furqan_layer1.log 2>&1 \
   || { echo "FAILED: Layer 1 (schema.sql)"; tail -30 /tmp/furqan_layer1.log; exit 1; }
 rm -f "$PATCHED"
