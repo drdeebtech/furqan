@@ -29,7 +29,7 @@ Keep the body byte-identical to the live definition except for adding `security 
 
 ## T2 — local verify (no db push)
 - `supabase db reset` → applies cleanly in order.
-- `psql … -c "select prosecdef, provolatile, prolang::regtype is not null from pg_proc where proname='user_is_session_participant';"` → `prosecdef = t`, `provolatile = s`.
+- `psql … -c "select p.prosecdef, p.provolatile, l.lanname from pg_proc p join pg_language l on p.prolang = l.oid where p.oid = 'public.user_is_session_participant(uuid)'::regprocedure;"` → `prosecdef = t`, `provolatile = s`, `lanname = sql`.
 - Confirm `SELECT * FROM sessions` as an authenticated participant raises **no** 42P17.
 - `npx tsc --noEmit` clean (sanity; no TS touched).
 

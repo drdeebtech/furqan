@@ -75,6 +75,11 @@ export async function editFollowUp(
         "يجب تحديد آية البداية والنهاية مع السورة — لا يمكن ترك إحداهما فارغة.",
       );
     }
+    if (sn == null && (as != null || ae != null)) {
+      throw new FollowUpUserError(
+        "لا يمكن تحديد الآيات بدون تحديد السورة.",
+      );
+    }
     if (sn != null && as != null && ae != null) {
       const violation = validateRange({ surahFrom: sn, ayahFrom: as, surahTo: sn, ayahTo: ae });
       if (violation) {

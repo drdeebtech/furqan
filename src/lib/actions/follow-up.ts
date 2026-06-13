@@ -10,6 +10,10 @@ import type { HomeworkStatus } from "@/types/database";
 import { loudAction } from "@/lib/actions/loud";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 import {
+  gradeFollowUpSchema,
+  editFollowUpUpdatesSchema,
+} from "@/lib/actions/follow-up-schemas";
+import {
   createFollowUp as createFollowUpDomain,
   markStudentReady as markStudentReadyDomain,
   gradeFollowUp as gradeFollowUpDomain,
@@ -252,12 +256,7 @@ type GradeFollowUpInput = {
 const gradeFollowUpBase = loudAction<GradeFollowUpInput, { message: string }>({
   name: "homework.grade",
   severity: "warning",
-  schema: z.object({
-    homeworkId: z.string().uuid(),
-    // Mirror VALID_GRADES in domains/follow-up/actions.ts — keep in sync
-    grade: z.enum(["completed_excellent", "completed_good", "completed_needs_work", "completed_not_done"]),
-    teacher_notes: z.string().nullable(),
-  }) as unknown as z.ZodType<GradeFollowUpInput>,
+  schema: gradeFollowUpSchema as unknown as z.ZodType<GradeFollowUpInput>,
   audit: {
     table: "homework_assignments",
     recordId: (i) => i.homeworkId,
@@ -297,17 +296,7 @@ const editFollowUpBase = loudAction<EditFollowUpInput, { message: string }>({
   severity: "info",
   schema: z.object({
     homeworkId: z.string().uuid(),
-    updates: z.object({
-      title: z.string().optional(),
-      description: z.string().nullable().optional(),
-      homework_type: z.string().optional(),
-      surah_number: z.number().nullable().optional(),
-      ayah_start: z.number().nullable().optional(),
-      ayah_end: z.number().nullable().optional(),
-      pages_count: z.number().nullable().optional(),
-      due_date: z.string().nullable().optional(),
-      teacher_notes: z.string().nullable().optional(),
-    }).strip(),
+    updates: editFollowUpUpdatesSchema,
   }) as unknown as z.ZodType<EditFollowUpInput>,
   audit: {
     table: "homework_assignments",
@@ -364,11 +353,18 @@ export async function getFollowUpAudioUrl(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "غير مسجل الدخول" };
 
-  const { data: hw } = await supabase
+  const { data: hw, error: hwErr } = await supabase
     .from("homework_assignments")
     .select("audio_url, student_id, teacher_id")
     .eq("id", followUpId)
     .single<{ audio_url: string | null; student_id: string; teacher_id: string }>();
+
+  if (hwErr && hwErr.code !== "PGRST116") {
+    logError("failed to read follow-up for audio URL", hwErr, {
+      tag: "follow-up", followUpId,
+    });
+    return { error: "تعذّر تحميل المتابعة" };
+  }
 
   if (!hw) return { error: "المتابعة غير موجودة" };
   if (!hw.audio_url) return { error: "لا يوجد تسجيل صوتي" };

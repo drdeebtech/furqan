@@ -22,6 +22,7 @@ Plus one branch-introduced **LOW**: unused `surahName` import warning in
 `src/lib/domains/progress/validation.test.ts:4` — fold into this work.
 
 ## Goals
+
 - Validate every external input at the action boundary with Zod (M1, M2, M3) — defense in depth,
   not replacing the domain/DB guards.
 - Make follow-up writes **field-whitelisted** so privileged columns can't be injected (M3).
@@ -29,10 +30,12 @@ Plus one branch-introduced **LOW**: unused `surahName` import warning in
 - Admin UI reflects follow-up mutations immediately (M5).
 
 ## Non-goals
+
 - No schema/migration changes (these are app-layer; the DB guards already exist).
 - No behavior change to valid happy-path flows — only reject/​strip invalid input and add admin revalidation.
 
 ## Acceptance
+
 - `recordSessionProgress` rejects malformed input (bad `progressType`, non-integer ayah, out-of-range
   `qualityRating`) at the Zod layer before the domain runs.
 - `gradeFollowUp` rejects any grade outside the 4 valid statuses at the Zod layer.

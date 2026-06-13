@@ -324,6 +324,10 @@ export async function gradeFollowUp(
           regenAyahStart = null;
           regenAyahEnd = null;
         }
+      } else {
+        regenSurah = null;
+        regenAyahStart = null;
+        regenAyahEnd = null;
       }
 
       const { error: regenErr } = await admin.from("homework_assignments").insert({

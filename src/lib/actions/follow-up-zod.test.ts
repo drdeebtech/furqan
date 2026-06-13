@@ -1,23 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { z } from "zod";
-
-const gradeFollowUpSchema = z.object({
-  homeworkId: z.string().uuid(),
-  grade: z.enum(["completed_excellent", "completed_good", "completed_needs_work", "completed_not_done"]),
-  teacher_notes: z.string().nullable(),
-});
-
-const editFollowUpUpdatesSchema = z.object({
-  title: z.string().optional(),
-  description: z.string().nullable().optional(),
-  homework_type: z.string().optional(),
-  surah_number: z.number().nullable().optional(),
-  ayah_start: z.number().nullable().optional(),
-  ayah_end: z.number().nullable().optional(),
-  pages_count: z.number().nullable().optional(),
-  due_date: z.string().nullable().optional(),
-  teacher_notes: z.string().nullable().optional(),
-}).strip();
+import {
+  gradeFollowUpSchema,
+  editFollowUpUpdatesSchema,
+} from "@/lib/actions/follow-up-schemas";
+import { recordSessionProgressSchema } from "@/lib/actions/progress-schemas";
 
 describe("gradeFollowUp Zod schema (M2)", () => {
   it("accepts a valid grade", () => {
@@ -88,25 +74,7 @@ describe("editFollowUp updates Zod schema (M3 strip)", () => {
   });
 });
 
-const progressSchema = z.object({
-  sessionId: z.string().uuid(),
-  bookingId: z.string().uuid(),
-  progressType: z.enum(["new", "muraja", "correction"]),
-  surahFrom: z.number().int().nullable(),
-  ayahFrom: z.number().int().nullable(),
-  surahTo: z.number().int().nullable(),
-  ayahTo: z.number().int().nullable(),
-  pagesReviewed: z.number().int().nonnegative().nullable().optional(),
-  qualityRating: z.number().int().min(1).max(5).nullable().optional(),
-  level: z.enum(["beginner", "intermediate", "advanced"]).optional(),
-  teacherNotes: z.string().nullable().optional(),
-  errors: z.array(z.object({
-    surahNum: z.number().int(),
-    ayahNum: z.number().int(),
-    errorType: z.enum(["makharij", "sifat", "madd", "waqf", "ghunna", "other"]),
-    note: z.string().nullable().optional(),
-  })).optional(),
-});
+const progressSchema = recordSessionProgressSchema;
 
 describe("recordSessionProgress Zod schema (M1 boundary)", () => {
   it("rejects a non-integer ayahFrom", () => {

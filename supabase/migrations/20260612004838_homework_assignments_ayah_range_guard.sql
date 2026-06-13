@@ -17,17 +17,17 @@
 
 do $$
 begin
-  if not exists (select 1 from pg_constraint where conname = 'homework_ayah_start_positive') then
+  if not exists (select 1 from pg_constraint where conname = 'homework_ayah_start_positive' and conrelid = 'public.homework_assignments'::regclass) then
     alter table public.homework_assignments
       add constraint homework_ayah_start_positive
         check (ayah_start is null or ayah_start >= 1);
   end if;
-  if not exists (select 1 from pg_constraint where conname = 'homework_ayah_end_positive') then
+  if not exists (select 1 from pg_constraint where conname = 'homework_ayah_end_positive' and conrelid = 'public.homework_assignments'::regclass) then
     alter table public.homework_assignments
       add constraint homework_ayah_end_positive
         check (ayah_end is null or ayah_end >= 1);
   end if;
-  if not exists (select 1 from pg_constraint where conname = 'homework_ayah_order') then
+  if not exists (select 1 from pg_constraint where conname = 'homework_ayah_order' and conrelid = 'public.homework_assignments'::regclass) then
     alter table public.homework_assignments
       add constraint homework_ayah_order
         check (
