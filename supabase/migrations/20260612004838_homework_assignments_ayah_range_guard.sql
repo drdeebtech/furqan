@@ -42,6 +42,14 @@ begin
       add constraint homework_ayah_requires_surah
         check (surah_number is not null or (ayah_start is null and ayah_end is null));
   end if;
+  -- T4 (spec 017): reject a partial āyah range — one bound set, the other
+  -- null. Pairs with homework_ayah_requires_surah so the only legal states
+  -- are (surah, start, end) all-null or surah-set + both bounds set.
+  if not exists (select 1 from pg_constraint where conname = 'homework_ayah_both_or_neither' and conrelid = 'public.homework_assignments'::regclass) then
+    alter table public.homework_assignments
+      add constraint homework_ayah_both_or_neither
+        check ((ayah_start is null) = (ayah_end is null));
+  end if;
 end $$;
 
 create or replace function public.validate_homework_ayah_range()

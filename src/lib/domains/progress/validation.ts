@@ -71,7 +71,16 @@ export function validateHomeworkRange(
   ayahStart: number | null,
   ayahEnd: number | null,
 ): string | null {
-  if (surahNumber == null || ayahStart == null || ayahEnd == null) return null;
+  // No surah → no range to validate (the all-null "no homework range" case).
+  // The DB `homework_ayah_requires_surah` CHECK enforces that ayah_start/end
+  // are also null when surah is null; we don't duplicate that here.
+  if (surahNumber == null) return null;
+  // T4 (spec 017): when a surah is set, both āyah bounds must be present —
+  // reject a partial range (one bound missing). Mirrors editFollowUp's guard
+  // and the DB `homework_ayah_both_or_neither` CHECK.
+  if (ayahStart == null || ayahEnd == null) {
+    return "يجب تحديد آية البداية والنهاية مع السورة — لا يمكن ترك إحداهما فارغة.";
+  }
   const violation = validateRange({
     surahFrom: surahNumber,
     ayahFrom: ayahStart,

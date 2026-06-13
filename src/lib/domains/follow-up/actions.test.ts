@@ -137,7 +137,7 @@ const createInput = {
 describe("createFollowUp", () => {
   it("inserts, notifies the student, and emits homework.assigned when the teacher owns the booking", async () => {
     const { client, calls } = makeClient({
-      bookings: { select: { data: { teacher_id: "teacher-1" }, error: null } },
+      bookings: { select: { data: { teacher_id: "teacher-1", student_id: "student-1" }, error: null } },
       homework_assignments: { insert: { data: null, error: null } },
     });
     const out = await createFollowUp(client, TEACHER, createInput);
@@ -154,7 +154,7 @@ describe("createFollowUp", () => {
 
   it("lets an admin create on a booking they don't own (admin bypass)", async () => {
     const { client, calls } = makeClient({
-      bookings: { select: { data: { teacher_id: "someone-else" }, error: null } },
+      bookings: { select: { data: { teacher_id: "someone-else", student_id: "student-1" }, error: null } },
       homework_assignments: { insert: { data: null, error: null } },
     });
     await createFollowUp(client, ADMIN, createInput);
@@ -163,7 +163,7 @@ describe("createFollowUp", () => {
 
   it("rejects a non-owning, non-admin teacher", async () => {
     const { client, calls } = makeClient({
-      bookings: { select: { data: { teacher_id: "someone-else" }, error: null } },
+      bookings: { select: { data: { teacher_id: "someone-else", student_id: "student-1" }, error: null } },
     });
     await expect(createFollowUp(client, TEACHER, createInput)).rejects.toBeInstanceOf(
       FollowUpUserError,
@@ -182,13 +182,49 @@ describe("createFollowUp", () => {
 
   it("throws (cause-wrapped) when the insert fails", async () => {
     const { client } = makeClient({
-      bookings: { select: { data: { teacher_id: "teacher-1" }, error: null } },
+      bookings: { select: { data: { teacher_id: "teacher-1", student_id: "student-1" }, error: null } },
       homework_assignments: { insert: { data: null, error: { message: "boom" } } },
     });
     await expect(createFollowUp(client, TEACHER, createInput)).rejects.toBeInstanceOf(
       FollowUpUserError,
     );
     expect(emitEventMock).not.toHaveBeenCalled();
+  });
+
+  // T1 (spec 017): the booking's student_id is authoritative — a mismatched
+  // client studentId must be rejected (no forge path for an unrelated student).
+  it("rejects a client studentId that does not match the booking's student (T1)", async () => {
+    const { client, calls } = makeClient({
+      bookings: { select: { data: { teacher_id: "teacher-1", student_id: "real-student" }, error: null } },
+    });
+    await expect(createFollowUp(client, TEACHER, createInput)).rejects.toBeInstanceOf(
+      FollowUpUserError,
+    );
+    expect(calls.insert).toHaveLength(0);
+    expect(notifyMock).not.toHaveBeenCalled();
+    expect(emitEventMock).not.toHaveBeenCalled();
+  });
+
+  // T1 (spec 017): a supplied session_id must belong to the booking.
+  it("rejects a sessionId that belongs to a different booking (T1)", async () => {
+    const { client, calls } = makeClient({
+      bookings: { select: { data: { teacher_id: "teacher-1", student_id: "student-1" }, error: null } },
+      sessions: { select: { data: { booking_id: "other-booking" }, error: null } },
+    });
+    await expect(
+      createFollowUp(client, TEACHER, { ...createInput, sessionId: "sess-1" }),
+    ).rejects.toBeInstanceOf(FollowUpUserError);
+    expect(calls.insert).toHaveLength(0);
+  });
+
+  it("accepts a sessionId that belongs to the same booking (T1)", async () => {
+    const { client, calls } = makeClient({
+      bookings: { select: { data: { teacher_id: "teacher-1", student_id: "student-1" }, error: null } },
+      sessions: { select: { data: { booking_id: "bk-1" }, error: null } },
+      homework_assignments: { insert: { data: null, error: null } },
+    });
+    await createFollowUp(client, TEACHER, { ...createInput, sessionId: "sess-1" });
+    expect(calls.insert).toHaveLength(1);
   });
 });
 

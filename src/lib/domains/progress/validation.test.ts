@@ -85,11 +85,16 @@ describe("validateHomeworkRange (regression: HIGH-1 surah/ayah guard for homewor
     expect(validateHomeworkRange(1, 1, 7)).toBeNull();
   });
 
-  it("returns null when any field is null (no range to validate)", () => {
-    expect(validateHomeworkRange(null, 1, 7)).toBeNull();
-    expect(validateHomeworkRange(1, null, 7)).toBeNull();
-    expect(validateHomeworkRange(1, 1, null)).toBeNull();
+  it("returns null when there is no range (all-null) or no surah", () => {
     expect(validateHomeworkRange(null, null, null)).toBeNull();
+    expect(validateHomeworkRange(null, 1, 7)).toBeNull();
+  });
+
+  it("rejects a partial range — surah set but one āyah bound missing (T4)", () => {
+    expect(validateHomeworkRange(1, null, 5)).not.toBeNull();
+    expect(validateHomeworkRange(1, 1, null)).not.toBeNull();
+    expect(validateHomeworkRange(2, null, 5)).not.toBeNull();
+    expect(validateHomeworkRange(114, 1, null)).not.toBeNull();
   });
 
   it("rejects ayah_end exceeding surah count (Al-Fatiha has 7 ayat)", () => {

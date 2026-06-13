@@ -68,24 +68,56 @@ export async function createFollowUp(
   actor: FollowUpActor,
   input: CreateFollowUpInput,
 ): Promise<CreateFollowUpResult> {
-  // Verify teacher owns the booking; admins bypass ownership.
+  // Verify teacher owns the booking; admins bypass ownership. Select
+  // student_id too — it is the authoritative party (T1, spec 017): the
+  // client-supplied studentId must match the booking's student, never the
+  // other way around, so a teacher can't forge a follow-up + notification
+  // for an unrelated student.
   const { data: booking, error: bookingErr } = await admin
     .from("bookings")
-    .select("teacher_id")
+    .select("teacher_id, student_id")
     .eq("id", input.bookingId)
-    .single<{ teacher_id: string }>();
+    .single<{ teacher_id: string; student_id: string }>();
   if (bookingErr && bookingErr.code !== "PGRST116") {
     throw new FollowUpUserError("ليس لديك صلاحية على هذا الحجز", { cause: bookingErr });
   }
-  if (!booking || booking.teacher_id !== actor.id) {
-    if (!actor.isAdmin) {
-      throw new FollowUpUserError("ليس لديك صلاحية على هذا الحجز");
+  if (!booking) {
+    throw new FollowUpUserError("ليس لديك صلاحية على هذا الحجز");
+  }
+  if (booking.teacher_id !== actor.id && !actor.isAdmin) {
+    throw new FollowUpUserError("ليس لديك صلاحية على هذا الحجز");
+  }
+
+  // T1 (spec 017): the booking's student_id is authoritative — reject a
+  // client-supplied studentId that doesn't match (forgery or stale form
+  // data). We never trust input.studentId for the insert or the
+  // notification fan-out; booking.student_id is used throughout.
+  if (input.studentId !== booking.student_id) {
+    throw new FollowUpUserError("الطالب المحدد لا ينتمي إلى هذا الحجز");
+  }
+
+  // T1 (spec 017): if a session_id is supplied it must belong to this
+  // booking, so a teacher can't attach an unrelated session. Null is the
+  // "no session" case (booking-scope homework) and stays valid.
+  if (input.sessionId != null) {
+    const { data: session, error: sessionErr } = await admin
+      .from("sessions")
+      .select("booking_id")
+      .eq("id", input.sessionId)
+      .single<{ booking_id: string | null }>();
+    if (sessionErr && sessionErr.code !== "PGRST116") {
+      throw new FollowUpUserError("الجلسة المحددة غير صالحة", { cause: sessionErr });
+    }
+    if (!session || session.booking_id !== input.bookingId) {
+      throw new FollowUpUserError("الجلسة المحددة لا تنتمي إلى هذا الحجز");
     }
   }
 
+  const studentId = booking.student_id;
+
   const insertPayload: TableInsert<"homework_assignments"> = {
     booking_id: input.bookingId,
-    student_id: input.studentId,
+    student_id: studentId,
     session_id: input.sessionId,
     teacher_id: actor.id,
     // homework_type is a free-form string at the route boundary (legacy
@@ -109,13 +141,13 @@ export async function createFollowUp(
   // (src/lib/automation/effects.ts) per ADR's notify-locality refactor;
   // dispatchEffects fans out through notify() and never throws.
   await dispatchEffects("homework.assigned", {
-    studentId: input.studentId,
+    studentId,
     entityId: input.bookingId,
     title: input.title,
   });
 
   await emitEvent("homework.assigned", "homework", input.bookingId, {
-    student_id: input.studentId,
+    student_id: studentId,
     teacher_id: actor.id,
     homework_type: input.homeworkType,
     title: input.title,
@@ -123,7 +155,7 @@ export async function createFollowUp(
     logError("emit homework.assigned failed", err, { tag: "automation", event: "homework.assigned" }),
   );
 
-  return { studentId: input.studentId, bookingId: input.bookingId };
+  return { studentId, bookingId: input.bookingId };
 }
 
 // ─── 2. Mark Student Ready ──────────────────────────────────────────────────

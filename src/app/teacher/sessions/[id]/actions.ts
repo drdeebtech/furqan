@@ -9,6 +9,7 @@ import { logError } from "@/lib/logger";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
 import { recordSessionProgressSchema } from "@/lib/actions/progress-schemas";
 import { recordProgress } from "@/lib/domains/progress/capture";
+import { ayahCount } from "@/lib/quran/ayah-counts";
 import type { ProgressType, StudentLevel, CapturedError } from "@/lib/domains/progress/types";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
@@ -228,6 +229,30 @@ const recordSessionProgressBase = loudAction<RecordSessionProgressInput, { messa
       .single<{ teacher_id: string }>();
     if (bookErr || !booking) throw notFoundOrInfra(bookErr, "تعذر العثور على الحجز");
     if (booking.teacher_id !== actorId) throw new UserError("ليس لديك صلاحية على هذه الجلسة");
+
+    // T3 (spec 017, 📖 Quran integrity): bound each recitation-error location
+    // to the canonical āyah count for its sūrah before it reaches the
+    // service-role `record_student_progress` RPC. Rejects impossible āyah
+    // numbers (e.g. 9999, -1) and invalid sūrah numbers at the action
+    // boundary; the DB trigger remains the hard backstop.
+    if (input.errors && input.errors.length > 0) {
+      for (const e of input.errors) {
+        const count = ayahCount(e.surahNum);
+        if (count === null) {
+          throw new UserError(
+            `رقم السورة في الأخطاء غير صالح (${e.surahNum}). يجب أن يكون بين 1 و 114.`,
+          );
+        }
+        if (e.ayahNum < 1) {
+          throw new UserError("رقم الآية في الأخطاء يجب أن يكون 1 أو أكثر.");
+        }
+        if (e.ayahNum > count) {
+          throw new UserError(
+            `رقم الآية في الأخطاء (${e.ayahNum}) يتجاوز عدد آيات السورة ${e.surahNum} (${count}).`,
+          );
+        }
+      }
+    }
 
     const range =
       input.surahFrom != null && input.ayahFrom != null && input.surahTo != null && input.ayahTo != null
