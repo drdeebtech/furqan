@@ -5,7 +5,7 @@ import { Mic, Square, Trash2, Upload, AlertCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { createClient } from "@/lib/supabase/client";
 import { logWarn } from "@/lib/logger";
-import { markStudentReady } from "@/lib/actions/homework";
+import { markStudentReady } from "@/lib/actions/follow-up";
 
 const MAX_DURATION_SECONDS = 90;
 const PREFERRED_MIME_TYPES = [

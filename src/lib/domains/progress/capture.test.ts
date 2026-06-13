@@ -72,4 +72,42 @@ describe("recordProgress", () => {
     expect(out.ok).toBe(false);
     if (!out.ok) expect(out.reason).toBe("error");
   });
+
+  it("passes tajweed error annotations through to the RPC (regression: HIGH-2)", async () => {
+    const admin = rpcClient({ data: "prog-err-1" });
+    const errors = [
+      { surahNum: 2, ayahNum: 3, errorType: "madd" as const, note: "elongation short" },
+      { surahNum: 2, ayahNum: 5, errorType: "ghunna" as const, note: null },
+    ];
+    const out = await recordProgress(admin, { ...validInput, errors });
+    expect(out).toEqual({ ok: true, progressId: "prog-err-1" });
+    expect(admin.rpc).toHaveBeenCalledWith(
+      "record_student_progress",
+      expect.objectContaining({
+        p_errors: [
+          { surah_num: 2, ayah_num: 3, error_type: "madd", note: "elongation short" },
+          { surah_num: 2, ayah_num: 5, error_type: "ghunna", note: null },
+        ],
+      }),
+    );
+  });
+
+  it("passes null errors when the field is omitted (regression: HIGH-2)", async () => {
+    const admin = rpcClient({ data: "prog-ok" });
+    await recordProgress(admin, validInput);
+    expect(admin.rpc).toHaveBeenCalledWith(
+      "record_student_progress",
+      expect.objectContaining({ p_errors: null }),
+    );
+  });
+
+  it("returns { ok: false } when the RPC errors with non-null p_errors (regression: HIGH-2 test gap)", async () => {
+    const admin = rpcClient({ error: { message: "booking_not_found" } });
+    const errors = [
+      { surahNum: 2, ayahNum: 3, errorType: "madd" as const, note: null },
+    ];
+    const out = await recordProgress(admin, { ...validInput, errors });
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.reason).toBe("not_found");
+  });
 });

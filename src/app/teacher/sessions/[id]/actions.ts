@@ -1,13 +1,16 @@
 "use server";
 
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
+import { recordSessionProgressSchema } from "@/lib/actions/progress-schemas";
 import { recordProgress } from "@/lib/domains/progress/capture";
-import type { ProgressType, StudentLevel } from "@/lib/domains/progress/types";
+import { ayahCount } from "@/lib/quran/ayah-counts";
+import type { ProgressType, StudentLevel, CapturedError } from "@/lib/domains/progress/types";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 
 class UserError extends Error {
@@ -199,6 +202,7 @@ export interface RecordSessionProgressInput {
   qualityRating?: number | null;
   level?: StudentLevel;
   teacherNotes?: string | null;
+  errors?: CapturedError[];
 }
 
 const recordSessionProgressBase = loudAction<RecordSessionProgressInput, { message: string }>({
@@ -206,6 +210,7 @@ const recordSessionProgressBase = loudAction<RecordSessionProgressInput, { messa
   // Academic record write — info severity (not a live-session disruption like
   // endSession). Audit envelope captures who recorded what.
   severity: "info",
+  schema: recordSessionProgressSchema as unknown as z.ZodType<RecordSessionProgressInput>,
   audit: {
     table: "student_progress",
     recordId: (i) => i.bookingId,
@@ -225,6 +230,30 @@ const recordSessionProgressBase = loudAction<RecordSessionProgressInput, { messa
     if (bookErr || !booking) throw notFoundOrInfra(bookErr, "تعذر العثور على الحجز");
     if (booking.teacher_id !== actorId) throw new UserError("ليس لديك صلاحية على هذه الجلسة");
 
+    // T3 (spec 017, 📖 Quran integrity): bound each recitation-error location
+    // to the canonical āyah count for its sūrah before it reaches the
+    // service-role `record_student_progress` RPC. Rejects impossible āyah
+    // numbers (e.g. 9999, -1) and invalid sūrah numbers at the action
+    // boundary; the DB trigger remains the hard backstop.
+    if (input.errors && input.errors.length > 0) {
+      for (const e of input.errors) {
+        const count = ayahCount(e.surahNum);
+        if (count === null) {
+          throw new UserError(
+            `رقم السورة في الأخطاء غير صالح (${e.surahNum}). يجب أن يكون بين 1 و 114.`,
+          );
+        }
+        if (e.ayahNum < 1) {
+          throw new UserError("رقم الآية في الأخطاء يجب أن يكون 1 أو أكثر.");
+        }
+        if (e.ayahNum > count) {
+          throw new UserError(
+            `رقم الآية في الأخطاء (${e.ayahNum}) يتجاوز عدد آيات السورة ${e.surahNum} (${count}).`,
+          );
+        }
+      }
+    }
+
     const range =
       input.surahFrom != null && input.ayahFrom != null && input.surahTo != null && input.ayahTo != null
         ? { surahFrom: input.surahFrom, ayahFrom: input.ayahFrom, surahTo: input.surahTo, ayahTo: input.ayahTo }
@@ -239,6 +268,7 @@ const recordSessionProgressBase = loudAction<RecordSessionProgressInput, { messa
       qualityRating: input.qualityRating ?? null,
       level: input.level,
       teacherNotes: input.teacherNotes ?? null,
+      errors: input.errors,
     });
 
     if (!outcome.ok) {

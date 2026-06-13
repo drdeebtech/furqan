@@ -10,15 +10,20 @@ import type { HomeworkStatus } from "@/types/database";
 import { loudAction } from "@/lib/actions/loud";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 import {
-  createFollowUp,
+  gradeFollowUpSchema,
+  editFollowUpUpdatesSchema,
+} from "@/lib/actions/follow-up-schemas";
+import {
+  createFollowUp as createFollowUpDomain,
   markStudentReady as markStudentReadyDomain,
-  gradeFollowUp,
+  gradeFollowUp as gradeFollowUpDomain,
 } from "@/lib/domains/follow-up/actions";
-import { editFollowUp, deleteFollowUp } from "@/lib/domains/follow-up/manage";
+import { editFollowUp as editFollowUpDomain, deleteFollowUp as deleteFollowUpDomain } from "@/lib/domains/follow-up/manage";
 import type { FollowUpActor } from "@/lib/domains/follow-up/types";
+import { validateHomeworkRange } from "@/lib/domains/progress/validation";
 
 /**
- * Follow-up (homework) write surface — route adapters.
+ * Follow-up write surface — route adapters.
  *
  * Per ADR-0002, these are thin `loudAction`-wrapped boundaries:
  *   1. authenticate + resolve the role into a `FollowUpActor`,
@@ -32,7 +37,7 @@ import type { FollowUpActor } from "@/lib/domains/follow-up/types";
  * unchanged at the boundary.
  *
  * Domain language note: user-facing copy says "follow-up" / "متابعة";
- * the `homework_assignments` table + this file's legacy name are internal.
+ * the `homework_assignments` table name is internal.
  */
 
 class UserError extends Error {
@@ -45,10 +50,6 @@ class UserError extends Error {
 
 // ─── Auth helpers (route boundary — resolve the actor) ───────────────────────
 
-/**
- * Resolve a teacher-or-admin actor. Throws `UserError` on no-session /
- * wrong-role (preflight failure: surfaced to the user, no Sentry).
- */
 async function teacherOrAboveActor(): Promise<FollowUpActor> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -62,11 +63,6 @@ async function teacherOrAboveActor(): Promise<FollowUpActor> {
   return { id: user.id, isAdmin: profile.role === "admin" };
 }
 
-/**
- * Resolve a student actor — any authenticated user (the domain enforces
- * the student-owns-the-row check). Students are never admins for this
- * surface.
- */
 async function studentActor(): Promise<FollowUpActor> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -74,11 +70,6 @@ async function studentActor(): Promise<FollowUpActor> {
   return { id: user.id, isAdmin: false };
 }
 
-/**
- * Resolve any authenticated actor + their admin flag (for delete, whose
- * legacy preflight let any signed-in user through and did the
- * teacher-or-admin check inline).
- */
 async function anyAuthedActor(): Promise<FollowUpActor> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -89,13 +80,6 @@ async function anyAuthedActor(): Promise<FollowUpActor> {
   return { id: user.id, isAdmin: profile?.role === "admin" };
 }
 
-/**
- * Lightweight authentication for the `loudAction` preflight — resolves
- * only the user id for the audit `changed_by` field. The handler then
- * resolves the full `FollowUpActor` (with role) once. Splitting it this
- * way keeps the audit envelope populated without doing the role read in
- * both preflight and handler.
- */
 async function requireUserId(): Promise<string> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -110,11 +94,14 @@ function revalidateFollowUpPaths() {
   revalidatePath("/student/follow-up");
   revalidatePath("/student/dashboard");
   revalidatePath("/student/sessions");
+  revalidatePath("/admin/follow-up");
+  revalidatePath("/admin/follow-up/grade");
+  revalidatePath("/admin/dashboard");
 }
 
 // ─── 1. Create Follow-up ─────────────────────────────────────────────────────
 
-type CreateHomeworkInput = {
+type CreateFollowUpInput = {
   booking_id: string;
   student_id: string;
   session_id: string | null;
@@ -129,9 +116,8 @@ type CreateHomeworkInput = {
   review_horizon: ReviewHorizon;
 };
 
-const createHomeworkBase = loudAction<CreateHomeworkInput, { message: string }>({
+const createFollowUpBase = loudAction<CreateFollowUpInput, { message: string }>({
   name: "homework.create",
-  // P1 lifecycle entry. severity=info — routine assignment creation.
   severity: "info",
   schema: z.object({
     booking_id: z.string(),
@@ -146,7 +132,7 @@ const createHomeworkBase = loudAction<CreateHomeworkInput, { message: string }>(
     pages_count: z.number().nullable(),
     due_date: z.string().nullable(),
     review_horizon: z.enum(["near", "far", "none"]),
-  }) as unknown as z.ZodType<CreateHomeworkInput>,
+  }) as unknown as z.ZodType<CreateFollowUpInput>,
   audit: {
     table: "homework_assignments",
     recordId: (i) => `${i.booking_id}:${i.student_id}`,
@@ -155,8 +141,10 @@ const createHomeworkBase = loudAction<CreateHomeworkInput, { message: string }>(
   },
   preflight: async () => ({ actorId: await requireUserId() }),
   handler: async (input) => {
+    const rangeError = validateHomeworkRange(input.surah_number, input.ayah_start, input.ayah_end);
+    if (rangeError) throw new UserError(rangeError);
     const actor = await teacherOrAboveActor();
-    await createFollowUp(createAdminClient(), actor, {
+    await createFollowUpDomain(createAdminClient(), actor, {
       bookingId: input.booking_id,
       studentId: input.student_id,
       sessionId: input.session_id,
@@ -175,7 +163,7 @@ const createHomeworkBase = loudAction<CreateHomeworkInput, { message: string }>(
   },
 });
 
-export async function createHomework(formData: FormData) {
+export async function createFollowUp(formData: FormData) {
   const booking_id = formData.get("booking_id") as string;
   const student_id = formData.get("student_id") as string;
   const session_id = (formData.get("session_id") as string) || null;
@@ -188,8 +176,6 @@ export async function createHomework(formData: FormData) {
   const pages_count = formData.get("pages_count") ? Number(formData.get("pages_count")) : null;
   const due_date = (formData.get("due_date") as string) || null;
 
-  // Pedagogical intent at creation time. Defaults to 'none' so an older
-  // form that doesn't post review_horizon still works.
   const horizonRaw = formData.get("review_horizon") as string | null;
   const review_horizon: ReviewHorizon =
     horizonRaw === "near" || horizonRaw === "far" || horizonRaw === "none"
@@ -200,7 +186,7 @@ export async function createHomework(formData: FormData) {
     return { error: "جميع الحقول المطلوبة يجب ملؤها" };
   }
 
-  const result = await createHomeworkBase({
+  const result = await createFollowUpBase({
     booking_id,
     student_id,
     session_id,
@@ -220,12 +206,12 @@ export async function createHomework(formData: FormData) {
 
 // ─── 2. Mark Student Ready ──────────────────────────────────────────────────
 
-type MarkReadyInput = {
+type MarkStudentReadyInput = {
   homeworkId: string;
   audio: { path: string; durationSeconds: number } | null;
 };
 
-const markStudentReadyBase = loudAction<MarkReadyInput, { message: string }>({
+const markStudentReadyBase = loudAction<MarkStudentReadyInput, { message: string }>({
   name: "homework.mark-student-ready",
   severity: "info",
   schema: z.object({
@@ -261,23 +247,16 @@ export async function markStudentReady(
 
 // ─── 3. Grade Follow-up ──────────────────────────────────────────────────────
 
-type GradeHomeworkInput = {
+type GradeFollowUpInput = {
   homeworkId: string;
   grade: HomeworkStatus;
   teacher_notes: string | null;
 };
 
-const gradeHomeworkBase = loudAction<GradeHomeworkInput, { message: string }>({
+const gradeFollowUpBase = loudAction<GradeFollowUpInput, { message: string }>({
   name: "homework.grade",
-  // P0 highest blast radius — auto-regenerates next assignment on
-  // needs_work / not_done, fires student + parent notifications, fan-out
-  // through n8n. severity=warning.
   severity: "warning",
-  schema: z.object({
-    homeworkId: z.string().uuid(),
-    grade: z.string() as unknown as z.ZodType<HomeworkStatus>,
-    teacher_notes: z.string().nullable(),
-  }),
+  schema: gradeFollowUpSchema as unknown as z.ZodType<GradeFollowUpInput>,
   audit: {
     table: "homework_assignments",
     recordId: (i) => i.homeworkId,
@@ -287,7 +266,7 @@ const gradeHomeworkBase = loudAction<GradeHomeworkInput, { message: string }>({
   preflight: async () => ({ actorId: await requireUserId() }),
   handler: async ({ homeworkId, grade, teacher_notes }) => {
     const actor = await teacherOrAboveActor();
-    await gradeFollowUp(createAdminClient(), actor, {
+    await gradeFollowUpDomain(createAdminClient(), actor, {
       followUpId: homeworkId,
       grade,
       teacherNotes: teacher_notes,
@@ -297,28 +276,28 @@ const gradeHomeworkBase = loudAction<GradeHomeworkInput, { message: string }>({
   },
 });
 
-export async function gradeHomework(homeworkId: string, formData: FormData) {
+export async function gradeFollowUp(homeworkId: string, formData: FormData) {
   const grade = formData.get("grade") as HomeworkStatus;
   const teacher_notes = (formData.get("teacher_notes") as string) || null;
-  const result = await gradeHomeworkBase({ homeworkId, grade, teacher_notes });
+  const result = await gradeFollowUpBase({ homeworkId, grade, teacher_notes });
   if (!result.ok) return { error: result.error };
   return { success: true };
 }
 
 // ─── 4. Edit Follow-up ───────────────────────────────────────────────────────
 
-type EditHomeworkInput = {
+type EditFollowUpInput = {
   homeworkId: string;
   updates: TableUpdate<"homework_assignments">;
 };
 
-const editHomeworkBase = loudAction<EditHomeworkInput, { message: string }>({
+const editFollowUpBase = loudAction<EditFollowUpInput, { message: string }>({
   name: "homework.edit",
   severity: "info",
   schema: z.object({
     homeworkId: z.string().uuid(),
-    updates: z.record(z.string(), z.unknown()),
-  }) as unknown as z.ZodType<EditHomeworkInput>,
+    updates: editFollowUpUpdatesSchema,
+  }) as unknown as z.ZodType<EditFollowUpInput>,
   audit: {
     table: "homework_assignments",
     recordId: (i) => i.homeworkId,
@@ -328,7 +307,7 @@ const editHomeworkBase = loudAction<EditHomeworkInput, { message: string }>({
   preflight: async () => ({ actorId: await requireUserId() }),
   handler: async ({ homeworkId, updates }) => {
     const actor = await teacherOrAboveActor();
-    await editFollowUp(createAdminClient(), actor, {
+    await editFollowUpDomain(createAdminClient(), actor, {
       followUpId: homeworkId,
       updates,
     });
@@ -337,15 +316,14 @@ const editHomeworkBase = loudAction<EditHomeworkInput, { message: string }>({
   },
 });
 
-export async function editHomework(homeworkId: string, formData: FormData) {
-  // Build update object — same shape as pre-wrap, just hoisted to the wrapper.
+export async function editFollowUp(homeworkId: string, formData: FormData) {
   const updates: TableUpdate<"homework_assignments"> = {};
   const title = formData.get("title") as string;
-  if (title) updates.title = title;
+  if (title !== null) updates.title = title || undefined;
   const description = formData.get("description") as string;
   if (description !== null) updates.description = description || null;
   const homework_type = formData.get("homework_type") as string;
-  if (homework_type) updates.homework_type = homework_type as TableUpdate<"homework_assignments">["homework_type"];
+  if (homework_type !== null) updates.homework_type = (homework_type || undefined) as TableUpdate<"homework_assignments">["homework_type"];
   const surah_number = formData.get("surah_number");
   if (surah_number !== null) updates.surah_number = surah_number ? Number(surah_number) : null;
   const ayah_start = formData.get("ayah_start");
@@ -359,49 +337,46 @@ export async function editHomework(homeworkId: string, formData: FormData) {
   const teacher_notes = formData.get("teacher_notes") as string;
   if (teacher_notes !== null) updates.teacher_notes = teacher_notes || null;
 
-  const result = await editHomeworkBase({ homeworkId, updates });
+  const result = await editFollowUpBase({ homeworkId, updates });
   if (!result.ok) return { error: result.error };
   return { success: true };
 }
 
 // ─── 5. Get Follow-up Audio Signed URL ───────────────────────────────────────
-// The homework-audio bucket is private; playback requires a short-lived
-// signed URL. Storage RLS gates which paths the caller can sign — student
-// can sign their own, teacher can sign for any homework_assignments row
-// they own, admin can sign all. The action just bridges from the
-// authenticated server-side client to the browser's <audio> element.
-//
-// NOT wrapped in loudAction — read-only, returns a URL payload that doesn't
-// fit Output: { message?: string }, no audit row warranted. Stays a route
-// boundary read (out of the writes-only domain scope per ADR-0002 §1).
+// Read-only — not wrapped in loudAction (no DB write, no audit row warranted).
+// Per ADR-0002 §1, reads stay at the route boundary.
 
-export async function getHomeworkAudioUrl(
-  homeworkId: string,
+export async function getFollowUpAudioUrl(
+  followUpId: string,
 ): Promise<{ url: string } | { error: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "غير مسجل الدخول" };
 
-  const { data: hw } = await supabase
+  const { data: hw, error: hwErr } = await supabase
     .from("homework_assignments")
     .select("audio_url, student_id, teacher_id")
-    .eq("id", homeworkId)
+    .eq("id", followUpId)
     .single<{ audio_url: string | null; student_id: string; teacher_id: string }>();
+
+  if (hwErr && hwErr.code !== "PGRST116") {
+    logError("failed to read follow-up for audio URL", hwErr, {
+      tag: "follow-up", followUpId,
+    });
+    return { error: "تعذّر تحميل المتابعة" };
+  }
 
   if (!hw) return { error: "المتابعة غير موجودة" };
   if (!hw.audio_url) return { error: "لا يوجد تسجيل صوتي" };
 
-  // Sign for 1 hour. The HTML5 <audio> element will cache the URL for the
-  // lifetime of the page; if the page sits open longer than that, the user
-  // refreshes to get a new URL.
   const { data, error } = await supabase
     .storage
     .from("homework-audio")
     .createSignedUrl(hw.audio_url, 3600);
 
   if (error || !data) {
-    logError("createSignedUrl failed for homework audio", error, {
-      tag: "homework", homeworkId,
+    logError("createSignedUrl failed for follow-up audio", error, {
+      tag: "follow-up", followUpId,
     });
     return { error: "تعذّر تحميل التسجيل" };
   }
@@ -411,9 +386,8 @@ export async function getHomeworkAudioUrl(
 
 // ─── 6. Delete Follow-up ─────────────────────────────────────────────────────
 
-const deleteHomeworkBase = loudAction<{ homeworkId: string }, { message: string }>({
+const deleteFollowUpBase = loudAction<{ homeworkId: string }, { message: string }>({
   name: "homework.delete",
-  // P0 destructive — cascades to child assignments. severity=warning.
   severity: "warning",
   schema: z.object({ homeworkId: z.string().uuid() }),
   audit: {
@@ -422,21 +396,17 @@ const deleteHomeworkBase = loudAction<{ homeworkId: string }, { message: string 
     action: "DELETE",
     reasonPrefix: "teacher delete follow-up",
   },
-  // Custom preflight: any authenticated user passes; the domain does the
-  // teacher-owns-or-admin check (a student hitting this gets the Arabic
-  // "no permission" message after the ownership check, not a generic auth
-  // denial — matches pre-wrap behavior).
   preflight: async () => ({ actorId: await requireUserId() }),
   handler: async ({ homeworkId }) => {
     const actor = await anyAuthedActor();
-    await deleteFollowUp(createAdminClient(), actor, { followUpId: homeworkId });
+    await deleteFollowUpDomain(createAdminClient(), actor, { followUpId: homeworkId });
     revalidateFollowUpPaths();
     return { message: "deleted" };
   },
 });
 
-export async function deleteHomework(homeworkId: string) {
-  const result = await deleteHomeworkBase({ homeworkId });
+export async function deleteFollowUp(homeworkId: string) {
+  const result = await deleteFollowUpBase({ homeworkId });
   if (!result.ok) return { error: result.error };
   return { success: true };
 }

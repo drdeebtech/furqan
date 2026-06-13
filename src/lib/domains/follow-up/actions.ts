@@ -6,6 +6,7 @@ import { emitEvent } from "@/lib/automation/emit";
 import { dispatchEffects } from "@/lib/automation/effects";
 import { HOMEWORK_STATUS_AR } from "@/lib/constants";
 import { logError } from "@/lib/logger";
+import { validateRange } from "@/lib/domains/progress/validation";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import type { HomeworkStatus, HomeworkAssignment } from "@/types/database";
 import { assertCanManage, type AdminClient } from "./shared";
@@ -67,24 +68,56 @@ export async function createFollowUp(
   actor: FollowUpActor,
   input: CreateFollowUpInput,
 ): Promise<CreateFollowUpResult> {
-  // Verify teacher owns the booking; admins bypass ownership.
+  // Verify teacher owns the booking; admins bypass ownership. Select
+  // student_id too — it is the authoritative party (T1, spec 017): the
+  // client-supplied studentId must match the booking's student, never the
+  // other way around, so a teacher can't forge a follow-up + notification
+  // for an unrelated student.
   const { data: booking, error: bookingErr } = await admin
     .from("bookings")
-    .select("teacher_id")
+    .select("teacher_id, student_id")
     .eq("id", input.bookingId)
-    .single<{ teacher_id: string }>();
+    .single<{ teacher_id: string; student_id: string }>();
   if (bookingErr && bookingErr.code !== "PGRST116") {
     throw new FollowUpUserError("ليس لديك صلاحية على هذا الحجز", { cause: bookingErr });
   }
-  if (!booking || booking.teacher_id !== actor.id) {
-    if (!actor.isAdmin) {
-      throw new FollowUpUserError("ليس لديك صلاحية على هذا الحجز");
+  if (!booking) {
+    throw new FollowUpUserError("ليس لديك صلاحية على هذا الحجز");
+  }
+  if (booking.teacher_id !== actor.id && !actor.isAdmin) {
+    throw new FollowUpUserError("ليس لديك صلاحية على هذا الحجز");
+  }
+
+  // T1 (spec 017): the booking's student_id is authoritative — reject a
+  // client-supplied studentId that doesn't match (forgery or stale form
+  // data). We never trust input.studentId for the insert or the
+  // notification fan-out; booking.student_id is used throughout.
+  if (input.studentId !== booking.student_id) {
+    throw new FollowUpUserError("الطالب المحدد لا ينتمي إلى هذا الحجز");
+  }
+
+  // T1 (spec 017): if a session_id is supplied it must belong to this
+  // booking, so a teacher can't attach an unrelated session. Null is the
+  // "no session" case (booking-scope homework) and stays valid.
+  if (input.sessionId != null) {
+    const { data: session, error: sessionErr } = await admin
+      .from("sessions")
+      .select("booking_id")
+      .eq("id", input.sessionId)
+      .single<{ booking_id: string | null }>();
+    if (sessionErr && sessionErr.code !== "PGRST116") {
+      throw new FollowUpUserError("الجلسة المحددة غير صالحة", { cause: sessionErr });
+    }
+    if (!session || session.booking_id !== input.bookingId) {
+      throw new FollowUpUserError("الجلسة المحددة لا تنتمي إلى هذا الحجز");
     }
   }
 
+  const studentId = booking.student_id;
+
   const insertPayload: TableInsert<"homework_assignments"> = {
     booking_id: input.bookingId,
-    student_id: input.studentId,
+    student_id: studentId,
     session_id: input.sessionId,
     teacher_id: actor.id,
     // homework_type is a free-form string at the route boundary (legacy
@@ -108,13 +141,13 @@ export async function createFollowUp(
   // (src/lib/automation/effects.ts) per ADR's notify-locality refactor;
   // dispatchEffects fans out through notify() and never throws.
   await dispatchEffects("homework.assigned", {
-    studentId: input.studentId,
+    studentId,
     entityId: input.bookingId,
     title: input.title,
   });
 
   await emitEvent("homework.assigned", "homework", input.bookingId, {
-    student_id: input.studentId,
+    student_id: studentId,
     teacher_id: actor.id,
     homework_type: input.homeworkType,
     title: input.title,
@@ -122,7 +155,7 @@ export async function createFollowUp(
     logError("emit homework.assigned failed", err, { tag: "automation", event: "homework.assigned" }),
   );
 
-  return { studentId: input.studentId, bookingId: input.bookingId };
+  return { studentId, bookingId: input.bookingId };
 }
 
 // ─── 2. Mark Student Ready ──────────────────────────────────────────────────
@@ -302,8 +335,33 @@ export async function gradeFollowUp(
   // already succeeded.
   if (grade === "completed_needs_work" || grade === "completed_not_done") {
     try {
-      // Child inherits parent.review_horizon so a re-assigned "near"
-      // follow-up stays in the student's "From last session" bucket.
+      let regenSurah: number | null = hw.surah_number;
+      let regenAyahStart: number | null = hw.ayah_start;
+      let regenAyahEnd: number | null = hw.ayah_end;
+
+      if (regenSurah != null && regenAyahStart != null && regenAyahEnd != null) {
+        const violation = validateRange({
+          surahFrom: regenSurah,
+          ayahFrom: regenAyahStart,
+          surahTo: regenSurah,
+          ayahTo: regenAyahEnd,
+        });
+        if (violation) {
+          logError("auto-regen dropped invalid inherited range", violation, {
+            tag: "homework",
+            severity: "warning",
+            metadata: { followUpId, surah: regenSurah, ayahStart: regenAyahStart, ayahEnd: regenAyahEnd },
+          });
+          regenSurah = null;
+          regenAyahStart = null;
+          regenAyahEnd = null;
+        }
+      } else {
+        regenSurah = null;
+        regenAyahStart = null;
+        regenAyahEnd = null;
+      }
+
       const { error: regenErr } = await admin.from("homework_assignments").insert({
         booking_id: hw.booking_id,
         student_id: hw.student_id,
@@ -311,9 +369,9 @@ export async function gradeFollowUp(
         homework_type: hw.homework_type,
         title: hw.title,
         description: hw.description,
-        surah_number: hw.surah_number,
-        ayah_start: hw.ayah_start,
-        ayah_end: hw.ayah_end,
+        surah_number: regenSurah,
+        ayah_start: regenAyahStart,
+        ayah_end: regenAyahEnd,
         pages_count: hw.pages_count,
         review_horizon: (hw as unknown as { review_horizon: string | null }).review_horizon,
         parent_assignment_id: followUpId,

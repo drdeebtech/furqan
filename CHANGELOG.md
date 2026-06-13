@@ -2,6 +2,39 @@
 
 All notable changes to FURQAN Academy are documented here.
 
+## 2026-06-12 — Fix(db): Remote-dump baseline replaces failed reconstruction (spec 011)
+
+`supabase start` previously failed because the entire pre-v9 baseline schema was missing from
+`supabase/migrations/`. The initial fix attempted to reconstruct the baseline from `schema.sql +
+v9–v16`, but that source was not a faithful image of remote — years of dashboard edits (bookings
++16 cols, session_evaluations +5 cols, blog_posts/contact_submissions/site_announcements +RLS,
+functions moved from public→private) were never in any migration.
+
+**What changed:**
+- `supabase/migrations/20260428000000_remote_baseline.sql` — authoritative pg_dump of the linked
+  remote (9388 lines). Captures every table, function, policy, trigger, view, and index as they
+  exist in prod, including all dashboard drift.
+- 101 previously-applied migrations archived to `supabase/migrations_archive/` (not scanned by
+  `supabase start`).
+- `supabase migration repair --status applied 20260428000000` recorded the baseline on remote
+  without executing it (prod schema unchanged).
+- `20260612004838_homework_assignments_ayah_range_guard.sql` remains as a forward migration
+  (ships later via `db push`).
+
+**Governance flag:** This baseline brings **all** out-of-band dashboard schema changes under
+version control for the first time. Going forward: **no schema edits via the Supabase dashboard.**
+Every DDL change must go through a migration file. The `db diff --linked` gate in this task IS
+the audit of every untracked change that existed in prod.
+
+## 2026-06-12 — Refactor: Rename lib/actions/homework → follow-up, align exports with domain naming
+
+`src/lib/actions/homework.ts` was a route adapter using legacy "Homework" terminology while the domain layer (`src/lib/domains/follow-up/`) already used the correct "follow-up" / "متابعة" naming per CONTEXT.md. This refactor closes the naming split:
+
+- **File renamed:** `src/lib/actions/homework.ts` → `src/lib/actions/follow-up.ts`
+- **Exports renamed:** `createHomework` → `createFollowUp`, `gradeHomework` → `gradeFollowUp`, `getHomeworkAudioUrl` → `getFollowUpAudioUrl` (domain-internal type aliases updated to match)
+- **All call sites updated:** `homework-assignment-form.tsx`, `homework-audio-player.tsx`, `grade-form.tsx`, `audio-recorder.tsx`, `homework-list.tsx`
+- **No logic changed** — the file was already a correct thin `loudAction`-wrapped adapter delegating entirely to `src/lib/domains/follow-up/`; only naming aligned
+
 ## 2026-06-12 — Test: Coverage improvements for promise-utils, logger, and require-admin
 
 Raised test coverage for three critical infrastructure modules:

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Headphones, Loader2, AlertCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
-import { getHomeworkAudioUrl } from "@/lib/actions/homework";
+import { getFollowUpAudioUrl } from "@/lib/actions/follow-up";
 
 interface HomeworkAudioPlayerProps {
   homeworkId: string;
@@ -38,7 +38,7 @@ export function HomeworkAudioPlayer({ homeworkId, durationSeconds, label }: Home
     if (url || loading) return;
     setLoading(true);
     setError(null);
-    const result = await getHomeworkAudioUrl(homeworkId);
+    const result = await getFollowUpAudioUrl(homeworkId);
     if ("error" in result) {
       setError(result.error);
     } else {
