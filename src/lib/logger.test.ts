@@ -4,11 +4,19 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const mockCaptureException = vi.fn();
 
+const mockCaptureMessage = vi.fn();
+const mockAddBreadcrumb = vi.fn();
+const mockSentryLoggerWarn = vi.fn();
+const mockSentryLoggerInfo = vi.fn();
+
+// Mutable logger object so tests can patch .warn/.info without re-mocking.
+const sentryLoggerObj: { warn?: unknown; info?: unknown } = {};
+
 vi.mock("@sentry/nextjs", () => ({
   captureException: (...args: unknown[]) => mockCaptureException(...args),
-  logger: {},
-  captureMessage: vi.fn(),
-  addBreadcrumb: vi.fn(),
+  get logger() { return sentryLoggerObj; },
+  captureMessage: (...args: unknown[]) => mockCaptureMessage(...args),
+  addBreadcrumb: (...args: unknown[]) => mockAddBreadcrumb(...args),
 }));
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -21,6 +29,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  vi.spyOn(console, "info").mockImplementation(() => undefined);
 });
 
 afterEach(() => {
@@ -44,7 +53,7 @@ afterEach(() => {
 
 // Dynamic import so each test module load picks up the mocked modules.
 // We import once at module level; the mock shapes are shared via the vi.fn() refs above.
-import { logError } from "./logger";
+import { logError, logWarn, logInfo } from "./logger";
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -281,5 +290,115 @@ describe("logError — Telegram critical alert", () => {
     await new Promise((r) => setTimeout(r, 0));
 
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+});
+
+// ─── logWarn ──────────────────────────────────────────────────────────────────
+
+describe("logWarn — Sentry structured logger path", () => {
+  afterEach(() => { delete sentryLoggerObj.warn; });
+
+  it("calls sentryLogger.warn when available", () => {
+    sentryLoggerObj.warn = mockSentryLoggerWarn;
+    process.env.SENTRY_DSN = "https://abc@sentry.io/1";
+
+    logWarn("structured warn", { domain: "sessions" });
+
+    expect(mockSentryLoggerWarn).toHaveBeenCalledWith("structured warn", { domain: "sessions" });
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+});
+
+describe("logWarn — Sentry captureMessage fallback (no structured logger)", () => {
+  beforeEach(() => {
+    process.env.SENTRY_DSN = "https://abc@sentry.io/1";
+    delete process.env.NEXT_PUBLIC_SENTRY_DSN;
+  });
+
+  it("calls Sentry.captureMessage at warning level when DSN is set but logger.warn missing", () => {
+    logWarn("fallback warn", { tag: "cron" });
+
+    expect(mockCaptureMessage).toHaveBeenCalledTimes(1);
+    const [msg, opts] = mockCaptureMessage.mock.calls[0] as [string, { level: string; extra?: unknown }];
+    expect(msg).toBe("fallback warn");
+    expect(opts.level).toBe("warning");
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  it("passes context as extra to captureMessage", () => {
+    logWarn("with ctx", { domain: "booking" });
+
+    const [, opts] = mockCaptureMessage.mock.calls[0] as [string, { extra?: Record<string, unknown> }];
+    expect(opts.extra).toEqual({ domain: "booking" });
+  });
+});
+
+describe("logWarn — console fallback (no DSN)", () => {
+  beforeEach(() => {
+    delete process.env.SENTRY_DSN;
+    delete process.env.NEXT_PUBLIC_SENTRY_DSN;
+  });
+
+  it("calls console.warn when no DSN is configured", () => {
+    logWarn("no dsn warn", { tag: "test" });
+
+    expect(console.warn).toHaveBeenCalledWith("no dsn warn", { tag: "test" });
+    expect(mockCaptureMessage).not.toHaveBeenCalled();
+  });
+});
+
+// ─── logInfo ─────────────────────────────────────────────────────────────────
+
+describe("logInfo — always adds Sentry breadcrumb", () => {
+  it("adds a breadcrumb with category=log, level=info regardless of env", () => {
+    logInfo("something happened", { domain: "sessions" });
+
+    expect(mockAddBreadcrumb).toHaveBeenCalledTimes(1);
+    const crumb = mockAddBreadcrumb.mock.calls[0]![0] as {
+      category: string;
+      level: string;
+      message: string;
+      data?: unknown;
+    };
+    expect(crumb.category).toBe("log");
+    expect(crumb.level).toBe("info");
+    expect(crumb.message).toBe("something happened");
+    expect(crumb.data).toEqual({ domain: "sessions" });
+  });
+});
+
+describe("logInfo — Sentry structured logger path", () => {
+  afterEach(() => { delete sentryLoggerObj.info; });
+
+  it("calls sentryLogger.info when available", () => {
+    sentryLoggerObj.info = mockSentryLoggerInfo;
+
+    logInfo("structured info", { tag: "cron" });
+
+    expect(mockSentryLoggerInfo).toHaveBeenCalledWith("structured info", { tag: "cron" });
+    expect(console.info).not.toHaveBeenCalled();
+  });
+});
+
+describe("logInfo — console fallback outside production", () => {
+  const origNodeEnv = process.env.NODE_ENV;
+  const env = process.env as Record<string, string | undefined>;
+
+  afterEach(() => {
+    env.NODE_ENV = origNodeEnv;
+  });
+
+  it("calls console.info in non-production when no structured logger", () => {
+    env.NODE_ENV = "test";
+    logInfo("dev info", { tag: "debug" });
+
+    expect(console.info).toHaveBeenCalledWith("dev info", { tag: "debug" });
+  });
+
+  it("does NOT call console.info in production", () => {
+    env.NODE_ENV = "production";
+    logInfo("prod info", { tag: "cron" });
+
+    expect(console.info).not.toHaveBeenCalled();
   });
 });
