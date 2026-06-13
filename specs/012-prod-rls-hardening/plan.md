@@ -188,3 +188,22 @@ Separate from the prod-security track; these are our own new code:
 - [ ] Each P1/P2 fix verified against the live definition before its migration is written.
 - [ ] Money fixes (2.2, 2.4) reproduced + fixed locally with iterative SQL before push.
 - [ ] `npm run sb:advisors`, `tsc`, `lint`, `test:unit` green; prod push gated on human review.
+
+---
+
+## 12. Adversarial review (codex gpt-5.5, 2026-06-13) — hardening pass
+
+Independent adversarial review of the 7 forward migrations + whitelist. No live holes (empirical
+re-verification held), but 3 defense-in-depth items confirmed real → harden the **undeployed**
+migrations in place:
+
+- **H1 (booking confirm, `…120004`):** guard compares `auth.uid() = NEW.teacher_id` — a mutable field.
+  Bypass (student sets `teacher_id=self`) is currently blocked only by the pre-existing
+  `no_self_booking` CHECK. Harden: compare `auth.uid() = OLD.teacher_id` so the guard is self-contained.
+- **H2 (jsonb cast, `…120000` + `…120004`):** `current_setting('request.jwt.claims', true)::jsonb`
+  throws if the GUC is an empty string. Use `nullif(current_setting('request.jwt.claims', true), '')::jsonb`.
+- **H3 (audit CHECK, `…120003`):** `drop constraint audit_log_action_check` → `drop constraint if exists`
+  for idempotency.
+
+Confirmed correct (no change): refund revoke (authenticated/anon EXECUTE = false, verified), profiles
+roles[] guard, editFollowUp whitelist, ayah-range guard, resources policy fix.
