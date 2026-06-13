@@ -123,8 +123,24 @@ export async function editFollowUp(
     }
   }
 
+  const EDITABLE_FIELDS = [
+    "title",
+    "description",
+    "homework_type",
+    "surah_number",
+    "ayah_start",
+    "ayah_end",
+    "pages_count",
+    "due_date",
+    "teacher_notes",
+  ] as const;
+
   const finalUpdates: TableUpdate<"homework_assignments"> = {
-    ...updates,
+    ...Object.fromEntries(
+      EDITABLE_FIELDS.flatMap((key) =>
+        key in updates ? [[key, updates[key as keyof typeof updates]]] : []
+      ),
+    ),
     updated_at: new Date().toISOString(),
   };
 

@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -207,6 +208,25 @@ const recordSessionProgressBase = loudAction<RecordSessionProgressInput, { messa
   // Academic record write — info severity (not a live-session disruption like
   // endSession). Audit envelope captures who recorded what.
   severity: "info",
+  schema: z.object({
+    sessionId: z.string().uuid(),
+    bookingId: z.string().uuid(),
+    progressType: z.enum(["new", "muraja", "correction"]),
+    surahFrom: z.number().int().nullable(),
+    ayahFrom: z.number().int().nullable(),
+    surahTo: z.number().int().nullable(),
+    ayahTo: z.number().int().nullable(),
+    pagesReviewed: z.number().int().nonnegative().nullable().optional(),
+    qualityRating: z.number().int().min(1).max(5).nullable().optional(),
+    level: z.enum(["beginner", "intermediate", "advanced"]).optional(),
+    teacherNotes: z.string().nullable().optional(),
+    errors: z.array(z.object({
+      surahNum: z.number().int(),
+      ayahNum: z.number().int(),
+      errorType: z.enum(["makharij", "sifat", "madd", "waqf", "ghunna", "other"]),
+      note: z.string().nullable().optional(),
+    })).optional(),
+  }) as unknown as z.ZodType<RecordSessionProgressInput>,
   audit: {
     table: "student_progress",
     recordId: (i) => i.bookingId,

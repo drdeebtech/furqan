@@ -16,6 +16,23 @@ vi.mock("@/lib/notifications/parent", () => ({
 }));
 vi.mock("@/lib/automation/emit", () => ({ emitEvent: (...a: unknown[]) => emitEventMock(...a) }));
 vi.mock("@/lib/logger", () => ({ logError: (...a: unknown[]) => logErrorMock(...a) }));
+vi.mock("@/lib/domains/progress/validation", () => {
+  const surahCounts: Record<number, number> = { 1: 7, 2: 286, 114: 6 };
+  function validateRange(r: { surahFrom: number; ayahFrom: number; surahTo: number; ayahTo: number }) {
+    const fromCount = surahCounts[r.surahFrom] ?? null;
+    const toCount = surahCounts[r.surahTo] ?? null;
+    if (fromCount === null) return { kind: "surah_invalid" as const, surah: r.surahFrom };
+    if (toCount === null) return { kind: "surah_invalid" as const, surah: r.surahTo };
+    if (!Number.isInteger(r.ayahFrom) || r.ayahFrom < 1) return { kind: "ayah_below_one" as const, field: "ayahFrom" as const };
+    if (!Number.isInteger(r.ayahTo) || r.ayahTo < 1) return { kind: "ayah_below_one" as const, field: "ayahTo" as const };
+    if (r.ayahFrom > fromCount) return { kind: "ayah_exceeds_count" as const, field: "ayahFrom" as const, surah: r.surahFrom, ayahCount: fromCount };
+    if (r.ayahTo > toCount) return { kind: "ayah_exceeds_count" as const, field: "ayahTo" as const, surah: r.surahTo, ayahCount: toCount };
+    if (r.surahTo < r.surahFrom) return { kind: "order" as const, detail: "surah" as const };
+    if (r.surahTo === r.surahFrom && r.ayahTo < r.ayahFrom) return { kind: "order" as const, detail: "ayah" as const };
+    return null;
+  }
+  return { validateRange, violationMessageAr: vi.fn(), validateHomeworkRange: vi.fn() };
+});
 
 import { createFollowUp, markStudentReady, gradeFollowUp } from "./actions";
 import { FollowUpUserError, FollowUpNotFoundError, type FollowUpActor } from "./types";
@@ -389,5 +406,50 @@ describe("gradeFollowUp", () => {
       teacherNotes: null,
     });
     expect(calls.update).toHaveLength(1);
+  });
+
+  it("auto-regen drops invalid inherited range (out-of-range surah) and logs (M4)", async () => {
+    const { client, calls } = makeClient({
+      homework_assignments: {
+        select: { data: gradeRow({ surah_number: 200, ayah_start: 1, ayah_end: 5 }), error: null },
+        update: { data: null, error: null },
+        insert: { data: null, error: null },
+      },
+    });
+    await gradeFollowUp(client, TEACHER, {
+      followUpId: "hw-1",
+      grade: "completed_not_done",
+      teacherNotes: null,
+    });
+    expect(calls.insert).toHaveLength(1);
+    const insertPayload = (calls.insert as unknown[])[0] as { payload: Record<string, unknown> };
+    expect(insertPayload.payload.surah_number).toBeNull();
+    expect(insertPayload.payload.ayah_start).toBeNull();
+    expect(insertPayload.payload.ayah_end).toBeNull();
+    expect(logErrorMock).toHaveBeenCalledWith(
+      expect.stringContaining("auto-regen dropped invalid inherited range"),
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it("auto-regen preserves valid inherited range (M4)", async () => {
+    const { client, calls } = makeClient({
+      homework_assignments: {
+        select: { data: gradeRow({ surah_number: 1, ayah_start: 1, ayah_end: 7 }), error: null },
+        update: { data: null, error: null },
+        insert: { data: null, error: null },
+      },
+    });
+    await gradeFollowUp(client, TEACHER, {
+      followUpId: "hw-1",
+      grade: "completed_needs_work",
+      teacherNotes: null,
+    });
+    expect(calls.insert).toHaveLength(1);
+    const insertPayload = (calls.insert as unknown[])[0] as { payload: Record<string, unknown> };
+    expect(insertPayload.payload.surah_number).toBe(1);
+    expect(insertPayload.payload.ayah_start).toBe(1);
+    expect(insertPayload.payload.ayah_end).toBe(7);
   });
 });

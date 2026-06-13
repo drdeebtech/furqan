@@ -6,6 +6,7 @@ import { emitEvent } from "@/lib/automation/emit";
 import { dispatchEffects } from "@/lib/automation/effects";
 import { HOMEWORK_STATUS_AR } from "@/lib/constants";
 import { logError } from "@/lib/logger";
+import { validateRange } from "@/lib/domains/progress/validation";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import type { HomeworkStatus, HomeworkAssignment } from "@/types/database";
 import { assertCanManage, type AdminClient } from "./shared";
@@ -302,8 +303,29 @@ export async function gradeFollowUp(
   // already succeeded.
   if (grade === "completed_needs_work" || grade === "completed_not_done") {
     try {
-      // Child inherits parent.review_horizon so a re-assigned "near"
-      // follow-up stays in the student's "From last session" bucket.
+      let regenSurah: number | null = hw.surah_number;
+      let regenAyahStart: number | null = hw.ayah_start;
+      let regenAyahEnd: number | null = hw.ayah_end;
+
+      if (regenSurah != null && regenAyahStart != null && regenAyahEnd != null) {
+        const violation = validateRange({
+          surahFrom: regenSurah,
+          ayahFrom: regenAyahStart,
+          surahTo: regenSurah,
+          ayahTo: regenAyahEnd,
+        });
+        if (violation) {
+          logError("auto-regen dropped invalid inherited range", violation, {
+            tag: "homework",
+            severity: "warning",
+            metadata: { followUpId, surah: regenSurah, ayahStart: regenAyahStart, ayahEnd: regenAyahEnd },
+          });
+          regenSurah = null;
+          regenAyahStart = null;
+          regenAyahEnd = null;
+        }
+      }
+
       const { error: regenErr } = await admin.from("homework_assignments").insert({
         booking_id: hw.booking_id,
         student_id: hw.student_id,
@@ -311,9 +333,9 @@ export async function gradeFollowUp(
         homework_type: hw.homework_type,
         title: hw.title,
         description: hw.description,
-        surah_number: hw.surah_number,
-        ayah_start: hw.ayah_start,
-        ayah_end: hw.ayah_end,
+        surah_number: regenSurah,
+        ayah_start: regenAyahStart,
+        ayah_end: regenAyahEnd,
         pages_count: hw.pages_count,
         review_horizon: (hw as unknown as { review_horizon: string | null }).review_horizon,
         parent_assignment_id: followUpId,

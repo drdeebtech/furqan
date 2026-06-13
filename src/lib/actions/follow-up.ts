@@ -90,6 +90,9 @@ function revalidateFollowUpPaths() {
   revalidatePath("/student/follow-up");
   revalidatePath("/student/dashboard");
   revalidatePath("/student/sessions");
+  revalidatePath("/admin/follow-up");
+  revalidatePath("/admin/follow-up/grade");
+  revalidatePath("/admin/dashboard");
 }
 
 // ─── 1. Create Follow-up ─────────────────────────────────────────────────────
@@ -251,9 +254,10 @@ const gradeFollowUpBase = loudAction<GradeFollowUpInput, { message: string }>({
   severity: "warning",
   schema: z.object({
     homeworkId: z.string().uuid(),
-    grade: z.string() as unknown as z.ZodType<HomeworkStatus>,
+    // Mirror VALID_GRADES in domains/follow-up/actions.ts — keep in sync
+    grade: z.enum(["completed_excellent", "completed_good", "completed_needs_work", "completed_not_done"]),
     teacher_notes: z.string().nullable(),
-  }),
+  }) as unknown as z.ZodType<GradeFollowUpInput>,
   audit: {
     table: "homework_assignments",
     recordId: (i) => i.homeworkId,
@@ -293,7 +297,17 @@ const editFollowUpBase = loudAction<EditFollowUpInput, { message: string }>({
   severity: "info",
   schema: z.object({
     homeworkId: z.string().uuid(),
-    updates: z.record(z.string(), z.unknown()),
+    updates: z.object({
+      title: z.string().optional(),
+      description: z.string().nullable().optional(),
+      homework_type: z.string().optional(),
+      surah_number: z.number().nullable().optional(),
+      ayah_start: z.number().nullable().optional(),
+      ayah_end: z.number().nullable().optional(),
+      pages_count: z.number().nullable().optional(),
+      due_date: z.string().nullable().optional(),
+      teacher_notes: z.string().nullable().optional(),
+    }).strip(),
   }) as unknown as z.ZodType<EditFollowUpInput>,
   audit: {
     table: "homework_assignments",

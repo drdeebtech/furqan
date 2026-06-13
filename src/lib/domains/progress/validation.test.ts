@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { validateRange, violationMessageAr, validateHomeworkRange } from "./validation";
 import { ayahCount, AYAH_COUNTS } from "@/lib/quran/ayah-counts";
-import { surahName } from "@/lib/quran/surahs";
 
 describe("ayah-counts (canonical Ḥafṣ)", () => {
   it("has the well-known counts and totals 6236", () => {
