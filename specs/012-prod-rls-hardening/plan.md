@@ -152,7 +152,25 @@ All P1/P2 findings **CONFIRMED REAL**:
   `quiz_question_keys` (the "audit C1" refactor — `quizzes.ts` writes/reads it via `createAdminClient`).
   That table has RLS enabled with `quiz_question_keys_owner_select` = `is_admin() OR course-teacher`;
   a student empirically sees **0** rows. (Optional cosmetic: the table-level `GRANT…TO anon` is
-  unnecessary but not exploitable behind RLS.)
+  unnecessary but not exploitable behind RLS.) [cosmetic anon revoke shipped `20260612140000`.]
+- **2.4** `route_package_debit` lost-UPDATE — **NON-ISSUE / does not exist (verified 2026-06-13).**
+  No `route_package_debit` in the live schema (`pg_proc` count 0); it was an archived-migration
+  artifact superseded before prod. The live money path is `deduct_student_package` /
+  `restore_student_package`, both **AFTER UPDATE OF status** triggers that persist the package stamp
+  via an **explicit `UPDATE bookings SET student_package_id=… WHERE id=new.id`** (not a discarded
+  BEFORE-trigger NEW), already hardened for #346/#363/H17 (single-kernel `deduct_package_session`,
+  `FOR UPDATE SKIP LOCKED`, restore credits the same stamped package clamped ≥0). No fix needed.
+- **2.5** `user_is_session_participant` missing `SECURITY DEFINER` — **DOWNGRADED to hardening;
+  shipped via spec 014 (verified 2026-06-13).** `prosecdef` was `f`; used by
+  `sessions.sessions_select_via_participants_v2`. A two-direction local test (INVOKER vs DEFINER,
+  same authenticated `SELECT … FROM sessions`) raised **no 42P17** on this PG version and returned
+  **identical results** — the predicted recursion is **not reproducible**, because
+  `sp_select_self_or_teacher_or_admin`'s first clause (`user_id = auth.uid()`) already lets the
+  caller read their own participant row, so INVOKER returns the correct membership boolean. The fix
+  (`CREATE OR REPLACE … SECURITY DEFINER`, `STABLE`, `search_path = pg_catalog, public`) is therefore
+  **defense-in-depth + consistency with `private.is_admin` + perf**, with zero behavioral change —
+  not the P1 the static review predicted. Migration `20260613120000`, independently verified
+  (`prosecdef=t`, scope clean, db reset + tsc green). Closes the last open spec-012 P1/P2 item.
 
 ## 4. Out of scope / skip (with reason)
 
