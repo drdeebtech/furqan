@@ -37,6 +37,11 @@ begin
           or ayah_start <= ayah_end
         );
   end if;
+  if not exists (select 1 from pg_constraint where conname = 'homework_ayah_requires_surah' and conrelid = 'public.homework_assignments'::regclass) then
+    alter table public.homework_assignments
+      add constraint homework_ayah_requires_surah
+        check (surah_number is not null or (ayah_start is null and ayah_end is null));
+  end if;
 end $$;
 
 create or replace function public.validate_homework_ayah_range()

@@ -10,6 +10,7 @@ already fixed).
 ## Substantive (must fix before merge)
 
 ### S1 — `src/lib/domains/follow-up/manage.ts` — reject ayah values when `surah_number` is null  (📖 Major)
+
 The range-validation block only validates when `sn != null`. If `surah_number` is null but
 `ayah_start`/`ayah_end` are provided, the values pass unvalidated → an orphan ayah range with no surah.
 **Fix:** add a guard — if `sn == null && (as != null || ae != null)`, throw `FollowUpUserError`
@@ -18,6 +19,7 @@ existing `sn != null && (as == null || ae == null)` guard. Net rule: surah and b
 or all-null; no partial combination.
 
 ### S2 — `src/lib/domains/follow-up/actions.ts` (auto-regen ~L308) — normalize partial inherited ranges  (📖 Major)
+
 Auto-regen only normalizes-to-null when **all three** of surah/start/end are non-null. A *partial*
 inherited range (one field null) is inserted as-is and is rejected by the `homework_ayah_range_guard`
 CHECK → regen insert fails. **Fix:** before the insert, if the three are not *all* non-null, set all
@@ -25,6 +27,7 @@ three (`regenSurah/regenAyahStart/regenAyahEnd`) to null (a partial range carrie
 target). Preserve the existing best-effort try/catch and the `validateRange`-on-complete-range path.
 
 ### S3 — `src/lib/actions/follow-up.ts:~373` — don't collapse read failures into "not found"  (🛠 silent-failure)
+
 `const { data: hw } = await supabase…single()` discards `error`; `if (!hw) return { error: "المتابعة غير
 موجودة" }` reports infra/RLS failures as *not found*. **Fix:** capture `error`; on a real error (not
 PGRST116/no-row) `logError(...)` and return a distinct infra message (e.g. "تعذّر تحميل المتابعة");
@@ -32,6 +35,7 @@ return the not-found message only when `error` is absent (or PGRST116) and `hw` 
 error-handling pattern already used by `createSignedUrl` a few lines below.
 
 ### S4 — `supabase/migrations/20260612004838_homework_assignments_ayah_range_guard.sql` — scope constraint checks  (🛠 Major)
+
 The three `if not exists (select 1 from pg_constraint where conname = '…')` checks are not scoped to the
 table. `conname` is unique per-schema, not globally — a same-named constraint on another relation
 false-negatives and **silently skips** adding the guard. **Fix:** add
@@ -40,6 +44,7 @@ is NOT needed — this migration is un-applied on prod (PR not merged), so edit 
 idempotency; keep `public.` qualification.
 
 ### S5 — `src/lib/actions/follow-up-zod.test.ts` — test the real schemas, not local copies  (test fidelity)
+
 The test re-declares local `gradeFollowUpSchema` / `editFollowUpUpdatesSchema` instead of importing the
 production schemas, so the suite stays green even if prod validation regresses. **Fix:** import the
 actual schemas from their production module (`src/lib/actions/follow-up.ts` or wherever they are
@@ -57,6 +62,7 @@ subject-under-test changes to the production object.
   l.lanname` (prove language). Doc-only.
 
 ## Out of scope (verified, do NOT touch)
+
 - `supabase/migrations/20260428000000_remote_baseline.sql` cursor[bot] "anon grant / public_profiles"
   findings (L9048-9049): the baseline is the immutable prod dump (spec 011). Any real fix ships as a
   **separate forward migration** under a future spec — not by editing the baseline. Log as a follow-up,

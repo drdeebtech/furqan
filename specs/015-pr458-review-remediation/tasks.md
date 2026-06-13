@@ -5,6 +5,7 @@
 > Verify each fix; run typecheck + unit tests at the end.
 
 ## Code / migration fixes
+
 - **T1 (S1)** `src/lib/domains/follow-up/manage.ts`: after the existing
   `if (sn != null && (as == null || ae == null))` guard, add the inverse guard —
   `if (sn == null && (as != null || ae != null)) throw new FollowUpUserError(<Arabic: ayah values
@@ -25,12 +26,14 @@
   Keep the existing assertions/cases.
 
 ## Cosmetic
+
 - **T6 (C1/C2)** Fix markdownlint MD022/MD031 blank-line issues in
   `specs/013-progress-action-hardening/plan.md` and `…/spec.md`.
 - **T7 (C3)** `specs/014-session-participant-secdef/tasks.md`: update the verification SQL to the exact
   `regprocedure` OID lookup joining `pg_language` (select `prosecdef, provolatile, lanname`).
 
 ## Verify (must pass before reporting done)
+
 - `npx tsc --noEmit` — clean.
 - `npm run test:unit` — clean (T5's retargeted tests included).
 - `supabase db reset` if a local stack is available to confirm T4 still applies; otherwise note skipped.
