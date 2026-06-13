@@ -21,8 +21,8 @@ begin
 
   if new.status = 'confirmed' and old.status is distinct from 'confirmed' then
     if not (
-      coalesce(current_setting('request.jwt.claims', true)::jsonb ->> 'role', '') = 'service_role'
-      or (select auth.uid()) = new.teacher_id
+      coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') = 'service_role'
+      or (select auth.uid()) = old.teacher_id
     ) then
       raise exception 'only the teacher may confirm a booking' using errcode = '42501';
     end if;

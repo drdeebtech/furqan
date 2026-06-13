@@ -19,7 +19,7 @@ security definer
 set search_path TO 'public'
 as $$
 declare
-  v_jwt_role text := current_setting('request.jwt.claims', true)::jsonb ->> 'role';
+  v_jwt_role text := nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role';
 begin
   if new.roles is distinct from old.roles
      and v_jwt_role is not null            -- NULL => direct DB / migration, trusted

@@ -9,7 +9,7 @@
 -- Action strings extracted from pg_get_functiondef on 2026-06-12.
 
 alter table public.audit_log
-  drop constraint audit_log_action_check;
+  drop constraint if exists audit_log_action_check;
 
 alter table public.audit_log
   add constraint audit_log_action_check
