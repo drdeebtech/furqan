@@ -1,85 +1,133 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+# AGENTS.md — furqan.today
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+Quran-memorization platform. This file is the contract for every AI agent (Claude Code, opencode/GLM)
+in this repo. Read it before any change. `CLAUDE.md` symlinks here, so both tools share one source of truth.
 
-# Knowledge Graph — Codebase Intelligence
+**Stack:** Next.js App Router · TypeScript (strict) · Tailwind · Supabase (Postgres/Auth/RLS/Storage) ·
+Stripe · Daily.co · Bunny CDN · Pusher · Sentry · n8n · PWA · full RTL/Arabic · Vercel.
 
-The codebase is indexed as a knowledge graph at `.understand-anything/knowledge-graph.json`.
+**Heads-up:** this repo runs a modified/canary Next.js — APIs may differ from your training data.
+Check `node_modules/next/dist/docs/` before using an unfamiliar Next API.
 
-- **2,048 nodes** (807 files · 774 functions · 209 tables · 189 docs · 34 configs · 20 classes · 14 pipelines)
-- **3,943 edges** (1,953 imports · 809 contains · 610 exports · 177 calls · 71 migrates · 65 depends_on)
-- **10 architectural layers** — Admin Dashboard, Teacher Dashboard, Student Dashboard, Public & Auth UI, API Routes, Service & Domain Layer, Data Layer, Tests, Infrastructure & CI/CD, Project Support & Tooling
-- **15-step guided tour** — starts at README, ends at CI/CD pipeline
+---
 
-## Always Do (Knowledge Graph)
+## 1 · The Golden Rule (non-negotiable)
 
-- **Before editing any file:** find its layer in the graph to understand blast radius
-- **Architecture questions:** consult `/admin/architecture` or `.understand-anything/knowledge-graph.json`
-- **Codebase tour for onboarding:** `/admin/tour` or read the tour steps in `src/data/codebase-tour.ts`
-- **Regenerate after large refactors:** run `/understand --full` to rebuild the graph
+Judge every plan, edit, and review **through three lenses at once**. Fail one → not done.
 
-## Layer Quick Reference
+| Lens | Owns |
+|------|------|
+| 🛠 Full-stack engineer | Next.js/TS/Supabase correctness, security, performance, tests |
+| 📖 Quran teacher | text integrity, exact `surah:ayah`, tajweed, pedagogy |
+| 🎓 Teaching-platform expert | learner UX, RTL/Arabic, motivation, accessibility |
 
-| Layer | Nodes | Description |
-|-------|-------|-------------|
-| Admin Dashboard | 174 | src/app/admin/** |
-| Service & Domain | 197 | src/lib/actions/**, src/lib/domains/** |
-| Data Layer | 220 | supabase/migrations/**, src/types/database.ts |
-| Project Support | 328 | .claude/**, specs/**, docs/** |
-| Teacher Dashboard | 87 | src/app/teacher/** |
-| Student Dashboard | 69 | src/app/student/** |
-| Public & Auth UI | 88 | src/app/(public)/**, src/app/(auth)/** |
-| API Routes | 40 | src/app/api/** |
-| Tests | 25 | **/*.test.ts, e2e/** |
-| Infrastructure | 26 | .github/workflows/**, scripts/** |
+Name the lens behind each non-trivial decision in plans and PRs.
 
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
+## 2 · Quran integrity — highest priority
 
-This project is indexed by GitNexus as **furqan** (10496 symbols, 16677 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+- Quran text and surah/ayah facts are **never generated, edited, or "corrected"** by a model. The canonical structural reference is `src/lib/quran/` (`surahs.ts`, `ayah-counts.ts`), mirrored to the `quran_surahs_reference` table — read from there; never hardcode counts elsewhere. Any rendered ayah text must come only from a verified source, never a model.
+- `surah:ayah` must be exact; validate ranges against `src/lib/quran/ayah-counts.ts` — already enforced by the `student_progress_ayah_range_guard` migration. Never bypass that guard.
+- Preserve tashkeel, tajweed marks, and waqf signs byte-for-byte.
+- Speech→text checks compare *against* canonical text; ASR output is never stored as a Quran source.
+- Unsure on a fiqh/tajweed point → flag for human review, don't guess.
 
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
+## 3 · Security — hard lines
 
-## Always Do
+- RLS on every table; never disable it; new tables ship their policies in the same migration.
+- Service-role key is **server-only**. Never in a client component, `NEXT_PUBLIC_*`, or logs.
+- `userId` comes from the authenticated session, **never** from request input.
+- Validate every external input with zod at route handlers, server actions, and webhooks.
+- n8n webhooks handle non-2xx, timeouts, and retries explicitly.
+- Keep CSP tight; never leak the internal vendor map in headers. No secrets in git (`.env*` untracked).
 
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
+```ts
+// ✗ trusts the client, bypasses RLS
+const { userId } = input
+// ✓ authoritative identity, RLS enforced
+const { data: { user } } = await supabase.auth.getUser()
+```
 
-## Never Do
+## 4 · Code conventions
 
-- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
-- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
+- TypeScript strict; no `any`; no `@ts-ignore` without a one-line reason.
+- Prefer Server Components; reach for Client Components only when interactivity needs it.
+- **Typed event names only** — one shared enum, no string literals:
 
-## Resources
+```ts
+// ✗ pusher.trigger(ch, 'progress-updated', payload)
+// ✓ pusher.trigger(ch, Events.ProgressUpdated, payload)
+```
 
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/furqan/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/furqan/clusters` | All functional areas |
-| `gitnexus://repo/furqan/processes` | All execution flows |
-| `gitnexus://repo/furqan/process/{name}` | Step-by-step execution trace |
+- Progress is **merged, never overwritten** — never silently lose, reset, or overstate memorization.
+  Write tests for the scheduler.
+- Every component must render correctly in Arabic RTL — test it, don't assume.
 
-## CLI
+## 5 · Commands
 
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
+Confirm exact names against `package.json` first.
 
-<!-- gitnexus:end -->
+```bash
+npm install
+npm run dev               # next dev
+npx tsc --noEmit          # typecheck — MUST pass before "done" (no script)
+npm run lint              # eslint — MUST pass
+npm run build             # next build
+npm run test:unit         # vitest — fast; run per task
+npm test                  # playwright e2e — slower; before merge
+npm run db:types          # regenerate Supabase types after a migration
+npm run sb:advisors       # Supabase security/perf advisors (security lens)
 
-<!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan: [specs/007-daily-webhooks/plan.md](specs/007-daily-webhooks/plan.md)
-<!-- SPECKIT END -->
+supabase start
+supabase db diff -f <name>   # never hand-edit the DB outside migrations
+supabase migration up
+```
+
+## 6 · Project map
+
+```
+src/app/admin/**                 Admin dashboard
+src/app/teacher/**               Teacher dashboard
+src/app/student/**               Student dashboard
+src/app/(public)/**, (auth)/**   Public & auth UI
+src/app/api/**                   API routes
+src/lib/actions/**, domains/**   Service & domain layer
+supabase/migrations/**           Data layer  (+ src/types/database.ts)
+specs/**                         speckit specs / plans / tasks
+.claude/skills/**                agent skills
+e2e/, **/*.test.ts               tests
+.github/workflows/**, scripts/   CI / infra
+```
+
+## 7 · Code intelligence (GitNexus)
+
+GitNexus is the canonical navigation layer (MCP tools). **Required:**
+
+- Before editing a symbol → `gitnexus_impact({target, direction:"upstream"})`; report blast radius;
+  **stop and warn** on HIGH/CRITICAL risk.
+- Explore with `gitnexus_query` instead of grep; full symbol context via `gitnexus_context`.
+- Rename only with `gitnexus_rename` (never find-and-replace).
+- Before commit → `gitnexus_detect_changes()`. If the index is stale → `npx gitnexus analyze`.
+- Deep guides live in `.claude/skills/gitnexus/`.
+
+## 8 · Dual-agent workflow (speckit)
+
+Handoff lives in `specs/<NNN>-<feature>/` (`spec.md` → `plan.md` → `tasks.md`).
+
+1. **Architect (Claude):** write/refine spec → plan → tasks through the three lenses. No code.
+2. **Builder (opencode/GLM):** execute `tasks.md` in order; `gitnexus_impact` before edits; run
+   typecheck + lint + tests per task; don't expand scope — stop and list any deviation.
+3. **Reviewer (Claude):** diff vs `tasks.md` + the three lenses → return a fix checklist. No edits.
+
+Commit the plan first; commit between handoffs; one agent edits at a time.
+
+## 9 · Never
+
+Modify Quran text · disable or bypass RLS · expose the service-role key client-side · trust `userId`
+from input · commit secrets or `.env*` · edit a symbol without `gitnexus_impact` · mark work "done"
+with a failing typecheck, lint, or test.
+
+---
+<!-- Tool-managed blocks regenerate below this line — keep everything above intact. -->
+<!-- BEGIN:nextjs-agent-rules --><!-- END:nextjs-agent-rules -->
+<!-- gitnexus:start --><!-- gitnexus:end -->
+<!-- SPECKIT START --><!-- SPECKIT END -->

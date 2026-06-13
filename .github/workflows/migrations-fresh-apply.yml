@@ -39,13 +39,17 @@ jobs:
 
       - name: Check baseline exists
         run: |
-          if [ ! -f supabase/migrations/00000000000000_baseline.sql ]; then
-            echo "::error::supabase/migrations/00000000000000_baseline.sql is missing."
-            echo "::error::Generate it: SUPABASE_ACCESS_TOKEN=<pat> supabase db dump --linked -f supabase/migrations/00000000000000_baseline.sql"
-            echo "::error::Then commit and push. See issue #353."
+          # spec 011 landed a self-contained remote-dump baseline
+          # (supabase/migrations/<ts>_remote_baseline.sql = prod HEAD). Detect it
+          # by glob so a future re-dump with a new timestamp doesn't break this guard.
+          baseline=$(ls supabase/migrations/*_remote_baseline.sql 2>/dev/null | head -1)
+          if [ -z "$baseline" ]; then
+            echo "::error::No supabase/migrations/*_remote_baseline.sql found (the spec 011 baseline)."
+            echo "::error::Generate it: SUPABASE_ACCESS_TOKEN=<pat> supabase db dump --linked -f supabase/migrations/<UTC-ts>_remote_baseline.sql"
+            echo "::error::Then commit and push. See issue #353 / specs/011-fix-is-admin-ordering."
             exit 1
           fi
-          echo "Baseline found ($(wc -l < supabase/migrations/00000000000000_baseline.sql) lines)"
+          echo "Baseline found: $baseline ($(wc -l < "$baseline") lines)"
 
       - name: Install Supabase CLI
         uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1

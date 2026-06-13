@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CheckCircle } from "lucide-react";
-import { gradeHomework } from "@/lib/actions/homework";
+import { gradeFollowUp } from "@/lib/actions/follow-up";
 import { useLang } from "@/lib/i18n/context";
 import type { HomeworkStatus } from "@/types/database";
 
@@ -41,7 +41,7 @@ export function GradeForm({
     fd.set("grade", selectedGrade);
     if (teacherNotes.trim()) fd.set("teacher_notes", teacherNotes.trim());
 
-    const result = await gradeHomework(homeworkId, fd);
+    const result = await gradeFollowUp(homeworkId, fd);
     if ("error" in result && result.error) {
       setError(result.error);
     } else {

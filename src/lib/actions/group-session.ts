@@ -47,7 +47,7 @@ const addStudentToSessionBase = loudAction<AddStudentInput, { message: string }>
   name: "group-session.add-student",
   // P1 multi-side-effect: bookings row, package credit, session bump, Daily
   // resize, and audit row. info severity matches other multi-write wraps in
-  // homework.ts (e.g. gradeHomework's auto-regen branch).
+  // follow-up.ts (e.g. gradeFollowUp's auto-regen branch).
   severity: "info",
   audit: {
     table: "bookings",

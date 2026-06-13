@@ -314,7 +314,7 @@ export default async function StudentDetailPage({ params }: Props) {
 
       {/* Recent audio submissions — lets the teacher hear the student's
           most-recent recordings without leaving the student detail page.
-          Lazy-loaded signed URLs via getHomeworkAudioUrl. */}
+          Lazy-loaded signed URLs via getFollowUpAudioUrl. */}
       {audioSubmissions.length > 0 && (
         <div className="glass-card mb-6 p-6">
           <h2 className="mb-3 flex items-center gap-2 text-lg font-bold">
