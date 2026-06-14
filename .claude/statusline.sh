@@ -69,7 +69,11 @@ RUFLO_DISPLAY=""
 RUFLO_STATE="${GIT_ROOT}/.claude-flow/daemon-state.json"
 if [ -f "$RUFLO_STATE" ] && command -v python3 >/dev/null 2>&1; then
     RUFLO_DISPLAY=$(python3 - "$RUFLO_STATE" 2>/dev/null <<'PYEOF'
-import json, sys, time
+import json, sys, time, calendar
+# lastRun values are UTC ('...Z'). Time-since-daemon-idle past this many
+# seconds is treated as "stale": the running flag may be set but no worker
+# has fired, so the live dot is dimmed to amber rather than green.
+STALE_SECS = 3600
 try:
     with open(sys.argv[1]) as f:
         d = json.load(f)
@@ -77,8 +81,7 @@ try:
     workers = d.get('workers', {})
     active_names = [n for n, w in workers.items() if w.get('isRunning')]
     total_runs = sum(w.get('runCount', 0) for w in workers.values())
-    dot = '\033[32m●\033[0m' if running else '\033[31m○\033[0m'
-    # Last completed worker + elapsed
+    # Last completed worker + elapsed (parse as UTC, compare to UTC epoch)
     last_run_ago = ''
     last_ts = 0
     last_name = ''
@@ -86,14 +89,26 @@ try:
         ts_str = w.get('lastRun', '')
         if ts_str:
             try:
-                ts = time.mktime(time.strptime(ts_str[:19], '%Y-%m-%dT%H:%M:%S'))
+                ts = calendar.timegm(time.strptime(ts_str[:19], '%Y-%m-%dT%H:%M:%S'))
                 if ts > last_ts:
                     last_ts = ts
                     last_name = n
             except Exception:
                 pass
+    now = time.time()
+    # Liveness: the running flag is persisted, not a heartbeat. Green when a
+    # worker is active right now, or the last run is recent, or nothing has run
+    # yet (freshly started daemon — trust the flag). Amber only when we KNOW
+    # activity has gone stale: running claimed, nothing currently active, and
+    # the last worker fired over STALE_SECS ago — a likely dead/wedged daemon.
+    if not running:
+        dot = '\033[31m○\033[0m'
+    elif not active_names and last_ts and now - last_ts > STALE_SECS:
+        dot = '\033[33m●\033[0m'
+    else:
+        dot = '\033[32m●\033[0m'
     if last_ts:
-        ago = int(time.time() - last_ts)
+        ago = int(now - last_ts)
         if ago < 60:
             last_run_ago = f'{ago}s'
         elif ago < 3600:
