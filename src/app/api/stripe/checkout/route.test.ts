@@ -8,6 +8,7 @@ vi.mock("@/lib/logger", () => ({ logError: vi.fn() }));
 const mockGetUser = vi.fn();
 const mockProfileQuery = vi.fn();
 const mockAdminQuery = vi.fn();
+const mockInsert = vi.fn().mockResolvedValue({ error: null });
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(() => ({
@@ -24,7 +25,7 @@ vi.mock("@/lib/supabase/admin", () => ({
       select: () => ({
         eq: () => ({ eq: () => ({ single: mockAdminQuery }) }),
       }),
-      insert: vi.fn().mockResolvedValue({ error: null }),
+      insert: mockInsert,
     }),
   })),
 }));
@@ -124,5 +125,21 @@ describe("POST /api/stripe/checkout — input validation", () => {
     mockAdminQuery.mockResolvedValue({ data: null });
     const res = await POST(makeReq({ package_id: "00000000-0000-0000-0000-000000000001" }));
     expect(await status(res)).toBe(404);
+  });
+
+  // Regression guard for the public-repo security fix: until Stripe is wired the
+  // route must NOT write a `payments` row, or any authenticated student could
+  // loop it to flood the table with orphaned `pending` rows.
+  it("does NOT insert a payments row while Stripe is unwired", async () => {
+    mockAdminQuery.mockResolvedValue({ data: { id: "00000000-0000-0000-0000-000000000001", price_usd: 50, name: "Test" } });
+    const res = await POST(makeReq({ package_id: "00000000-0000-0000-0000-000000000001" }));
+    expect(await status(res)).toBe(501);
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+
+  it("does not leak a placeholder payment id in the 501 response", async () => {
+    mockAdminQuery.mockResolvedValue({ data: { id: "00000000-0000-0000-0000-000000000001", price_usd: 50, name: "Test" } });
+    const res = await POST(makeReq({ package_id: "00000000-0000-0000-0000-000000000001" }));
+    expect(await json(res)).not.toHaveProperty("pending_payment_id");
   });
 });

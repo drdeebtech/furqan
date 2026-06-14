@@ -1,19 +1,18 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { logError } from "@/lib/logger";
 
 export const maxDuration = 60;
 
 /**
  * Create a Stripe Checkout session for a package purchase.
  *
- * STATUS: Stripe SDK is NOT installed. This route inserts a `pending` payment
- * row and returns a mock redirect URL so the full purchase flow can be tested
- * end-to-end once the UI is wired. When Stripe keys arrive (Sprint 1):
+ * STATUS: Stripe SDK is NOT installed. This route validates the request and
+ * returns 501 WITHOUT writing to the database. When Stripe keys arrive (Sprint 1):
  *   1. Install: npm i stripe
- *   2. Replace the mock section below with stripe.checkout.sessions.create({...})
- *   3. Use the returned session.url instead of the mock
+ *   2. Replace the 501 section below with stripe.checkout.sessions.create({...})
+ *   3. Create the `pending` payment row there, keyed by the real PaymentIntent id
+ *   4. Use the returned session.url
  *
  * The fulfillment path (webhook → fulfillPackagePurchase → DB rows) is already
  * wired in Phase 15. Only this initiate-side needs the SDK.
@@ -59,26 +58,15 @@ export async function POST(request: Request) {
     .single<{ id: string; price_usd: number; name: string }>();
   if (!pkg) return NextResponse.json({ error: "Package not found" }, { status: 404 });
 
-  // Insert pending payment so we have a pre-checkout audit trail
-  // (stripe_payment_intent is blank until the webhook lands — `pending_${userId}_${pkgId}_${ts}`
-  // is a placeholder the webhook will overwrite with the real PI ID)
-  const placeholderIntent = `pending_${user.id.slice(0, 8)}_${pkg.id.slice(0, 8)}_${Date.now()}`;
-  const { error: payErr } = await admin.from("payments").insert({
-    student_id: user.id,
-    stripe_payment_intent: placeholderIntent,
-    amount_usd: pkg.price_usd,
-    amount_before_tax: pkg.price_usd,
-    tax_rate: 0,
-    tax_amount: 0,
-    revenue_recognized: 0,
-    status: "pending",
-  });
-  if (payErr) {
-    logError("stripe.checkout: pending payment insert failed", payErr, { tag: "stripe", severity: "critical" });
-    return NextResponse.json({ error: "Failed to record pending payment" }, { status: 500 });
-  }
+  // SECURITY: do NOT create a `payments` row here. The endpoint returns 501
+  // until the Stripe SDK is wired, so a pre-checkout insert would let any
+  // authenticated student flood the payments table with orphaned `pending`
+  // rows — the Date.now()-suffixed placeholder intent defeats the UNIQUE
+  // constraint and there is no rate limit. The pending row must instead be
+  // created atomically with the real Stripe session below, keyed by the
+  // actual PaymentIntent id.
 
-  // TODO(Sprint 1): Create real Stripe Checkout session
+  // TODO(Sprint 1): Create real Stripe Checkout session + the pending payment row
   // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
   // const session = await stripe.checkout.sessions.create({
   //   mode: "payment",
@@ -95,11 +83,16 @@ export async function POST(request: Request) {
   //   success_url: `${process.env.NEXT_PUBLIC_APP_URL}/student/packages?purchase=success`,
   //   cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/student/packages?purchase=cancelled`,
   // });
+  // await admin.from("payments").insert({
+  //   student_id: user.id,
+  //   stripe_payment_intent: session.payment_intent as string,
+  //   amount_usd: pkg.price_usd, amount_before_tax: pkg.price_usd,
+  //   tax_rate: 0, tax_amount: 0, revenue_recognized: 0, status: "pending",
+  // });
   // return NextResponse.json({ url: session.url });
 
   return NextResponse.json({
     error: "Stripe SDK not yet installed",
-    pending_payment_id: placeholderIntent,
     next_step: "Install stripe package and wire checkout creation",
   }, { status: 501 });
 }
