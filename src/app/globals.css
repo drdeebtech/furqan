@@ -7,6 +7,10 @@
   --gold: #C8A652;
   --gold-hover: #B8963E;
   --gold-light: #D4B76A;
+  /* Accessible gold for use as TEXT. Dark mode: full brand gold (8.2:1 on
+     near-black already passes). Light mode overrides this to a darker gold
+     because brand gold on white is only 2.9:1 (fails WCAG AA). */
+  --gold-ink: var(--gold);
   --gold-dim: rgba(200,166,82,0.15);
   --surface: #1A1A1A;
   --surface-border: #2A2A2A;
@@ -24,7 +28,7 @@
   --chart-stripe: #2A2A28;
   --accent-purple: #7C5CFF;
   --accent-green: #22C55E;
-  --muted-light: #7A7A72;
+  --muted-light: #8E8E86; /* was #7A7A72 (4.0:1, large-only); now 5.3:1 (AA) */
 
   /* ── Liquid Glass Design System v2 ── */
   --glass-radius-pill: 9999px;
@@ -41,6 +45,7 @@
   --color-gold: var(--gold);
   --color-gold-hover: var(--gold-hover);
   --color-gold-light: var(--gold-light);
+  --color-gold-ink: var(--gold-ink);
   --color-gold-dim: var(--gold-dim);
   --color-gold-muted: #A08840;
   --color-primary: var(--gold);
@@ -74,6 +79,9 @@ html.light {
   --gold-hover: #a07e25;
   --gold-light: #d4b76a;
   --gold-dim: rgba(184,146,45,0.10);
+  /* Darker gold reserved for gold-as-text on light surfaces: 4.9:1 on white
+     (AA). Brand gold (--gold) stays for backgrounds/borders/large accents. */
+  --gold-ink: #8A6D1A;
   --surface: #FFFFFF;
   --surface-border: #EEEDE8;
   --surface-light: #F5F5F2;
@@ -83,10 +91,10 @@ html.light {
   --input-border: #EEEDE8;
   --focus-ring: #7C5CFF;
   --muted: #6B7280;
-  --muted-light: #9CA3AF;
+  --muted-light: #6B7280; /* was #9CA3AF (2.5:1, fail); now 4.6:1 on bg (AA) */
   --error: #dc2626;
   --warning: #d97706;
-  --success: #16a34a;
+  --success: #15803d; /* was #16a34a (3.3:1); now 5.0:1 on white (AA) */
   --accent-purple: #7C5CFF;
   --accent-purple-light: rgba(124, 92, 255, 0.1);
   --accent-green: #22C55E;
@@ -97,6 +105,16 @@ html.light {
 
 html.light body {
   background: #FAFAF7;
+}
+
+/* ── WCAG AA: gold-as-text on light surfaces ──
+ * Brand gold (#B8922D) as text on the light background is only ~2.9:1 (fails
+ * AA). Re-point the `text-gold` utility to the darker `--gold-ink` (≈4.9:1 on
+ * white) in light mode only. Scoped to the utility class so `bg-gold`, borders,
+ * and all of dark mode keep full brand gold. Plain CSS (outside @layer) wins
+ * over Tailwind's layered utility without needing !important. */
+html.light .text-gold {
+  color: var(--gold-ink);
 }
 
 /* ── Global dashboard chrome (light mode) ──
@@ -161,6 +179,10 @@ html.light .student-dashboard-skin {
   --gold-hover: #2563EB;
   --gold-light: #60A5FA;
   --gold-dim: rgba(59, 130, 246, 0.10);
+  /* Accessible blue for blue-as-text on this skin's white cards: brand blue
+     #3B82F6 is only 3.7:1 (fails AA). #2563EB = 5.2:1. Keeps the `text-gold`
+     utility (re-pointed to --gold-ink in light mode) on-brand-blue here. */
+  --gold-ink: #2563EB;
   --color-gold: #3B82F6;
   --color-gold-hover: #2563EB;
   --color-gold-light: #60A5FA;
@@ -169,7 +191,7 @@ html.light .student-dashboard-skin {
   --color-primary-muted: rgba(59, 130, 246, 0.15);
   --foreground: #111827;
   --muted: #6B7280;
-  --muted-light: #9CA3AF;
+  --muted-light: #6B7280; /* was #9CA3AF (2.5:1, fail); now 4.8:1 on white (AA) */
   --surface-border: #E5E7EB;
   --surface-divider: #E5E7EB;
   --data-progress: #3B82F6;
