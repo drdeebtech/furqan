@@ -96,14 +96,14 @@ try:
             except Exception:
                 pass
     now = time.time()
-    # Liveness: the running flag is persisted, not a heartbeat. Green when
-    # stopped=False and either a worker is active, or the last run is recent,
-    # or nothing has run yet (freshly started daemon — trust the flag). Amber
-    # only when we KNOW activity has gone stale (running claimed, but the last
-    # worker fired over STALE_SECS ago) — a likely dead/wedged daemon.
+    # Liveness: the running flag is persisted, not a heartbeat. Green when a
+    # worker is active right now, or the last run is recent, or nothing has run
+    # yet (freshly started daemon — trust the flag). Amber only when we KNOW
+    # activity has gone stale: running claimed, nothing currently active, and
+    # the last worker fired over STALE_SECS ago — a likely dead/wedged daemon.
     if not running:
         dot = '\033[31m○\033[0m'
-    elif last_ts and now - last_ts > STALE_SECS:
+    elif not active_names and last_ts and now - last_ts > STALE_SECS:
         dot = '\033[33m●\033[0m'
     else:
         dot = '\033[32m●\033[0m'
