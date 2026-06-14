@@ -117,10 +117,12 @@ paths:
       tags: [Payments]
       summary: Create a Stripe Checkout session for a package
       description: >
-        Student-only. Validates session → role=student → package_id (active package).
-        Records a pending payment, then returns 501 ("Stripe SDK not yet installed") —
-        the initiate side is intentionally unimplemented. Anonymous → 401; non-student → 403;
-        missing package_id → 400; unknown package → 404; valid request → 501 (expected).
+        Student-only. Validates session → role=student → package_id (active package),
+        then returns 501 ("Stripe SDK not yet installed") with NO database write —
+        the initiate side is intentionally unimplemented (the pending payment row is
+        created atomically with the real Stripe session once the SDK is wired).
+        Anonymous → 401; non-student → 403; missing package_id → 400; unknown package
+        → 404; valid request → 501 (expected).
       security: [{ sessionCookie: [] }]
       requestBody:
         required: true

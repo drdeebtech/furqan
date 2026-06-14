@@ -140,6 +140,7 @@ describe("POST /api/stripe/checkout — input validation", () => {
   it("does not leak a placeholder payment id in the 501 response", async () => {
     mockAdminQuery.mockResolvedValue({ data: { id: "00000000-0000-0000-0000-000000000001", price_usd: 50, name: "Test" } });
     const res = await POST(makeReq({ package_id: "00000000-0000-0000-0000-000000000001" }));
+    expect(await status(res)).toBe(501);
     expect(await json(res)).not.toHaveProperty("pending_payment_id");
   });
 });
