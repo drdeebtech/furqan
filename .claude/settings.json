@@ -42,11 +42,6 @@
 			}
 		]
 	},
-	"statusLine": {
-		"type": "command",
-		"command": ".claude/statusline.sh",
-		"padding": 0
-	},
 	"permissions": {
 		"deny": [
 			"Read(./.env)",
