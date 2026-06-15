@@ -141,6 +141,22 @@ export async function confirmBooking(
   );
 
   if (rpcErr) {
+    // Fail-closed money guard: the SQL function raises `no_package_credit`
+    // (errcode P0001) when a paid 1:1 confirmed with no package charged
+    // (the deduct_student_package trigger no-op'd). The whole RPC rolled
+    // back, so the booking stays `pending` and no session row exists. This
+    // is NOT "already confirmed" — surface it as a distinct confirm error
+    // so the route adapter tells the student to buy/activate a package.
+    // Checked BEFORE the generic P0001 branch because both share errcode.
+    if (rpcErr.message.includes("no_package_credit")) {
+      logError("confirmBooking: refused — no package credit", rpcErr, {
+        tag: "booking-orchestrate",
+        severity: "warning",
+        metadata: { bookingId, actorId },
+      });
+      throw new BookingConfirmError("لا يوجد رصيد باقة لتأكيد هذا الحجز");
+    }
+
     // Race lost: someone transitioned the booking between our pre-read
     // and the UPDATE. The SQL function raises `booking_not_pending`
     // (errcode P0001) — translate to the same error class as the
