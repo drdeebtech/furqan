@@ -61,7 +61,7 @@ jobs:
 
       - name: Apply all migrations from zero
         run: |
-          supabase db reset --no-verify-jwt 2>&1
+          supabase db reset 2>&1
           echo "Migration count: $(supabase migration list | grep -c '●')"
 
       - name: Spot-check critical tables exist
