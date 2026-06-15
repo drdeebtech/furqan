@@ -10,6 +10,7 @@ import type { BookingStatus } from "@/types/database";
 import {
   BookingAlreadyConfirmedError,
   BookingConfirmError,
+  BookingNoPackageError,
   BookingNotFoundError,
   BookingRoomCreationError,
 } from "./types";
@@ -154,7 +155,7 @@ export async function confirmBooking(
         severity: "warning",
         metadata: { bookingId, actorId },
       });
-      throw new BookingConfirmError("لا يوجد رصيد باقة لتأكيد هذا الحجز");
+      throw new BookingNoPackageError();
     }
 
     // Race lost: someone transitioned the booking between our pre-read

@@ -22,6 +22,7 @@ import {
 import {
   BookingAlreadyConfirmedError,
   BookingConfirmError,
+  BookingNoPackageError,
   BookingNotFoundError,
   BookingRoomCreationError,
 } from "@/lib/domains/booking/types";
@@ -151,6 +152,19 @@ export async function updateBookingStatus(
           bookingId,
         });
         return { error: "تعذر إنشاء غرفة الفيديو — يرجى المحاولة مرة أخرى" };
+      }
+      // Specific (subclass) BEFORE the generic BookingConfirmError: the
+      // fail-closed money guard refused because the student has no package
+      // credit — surface the actionable "activate a package" guidance, not a
+      // generic error.
+      if (err instanceof BookingNoPackageError) {
+        logError("updateBookingStatus: confirm refused — no package credit", err, {
+          tag: "bookings",
+          actionName: "teacher.updateBookingStatus",
+          severity: "warning",
+          bookingId,
+        });
+        return { error: err.message };
       }
       if (err instanceof BookingConfirmError) {
         logError("updateBookingStatus: orchestrator confirm failed", err, {
