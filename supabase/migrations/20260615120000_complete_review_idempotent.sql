@@ -36,9 +36,30 @@ create or replace function "public"."complete_review"(
   "interval_days" integer
 )
     language "plpgsql"
+    -- Explicit SECURITY INVOKER (PG's default, but stated for clarity + to be
+    -- immune to any future default change): the UPDATE below must run under the
+    -- CALLER's RLS context so the student_review_schedule policy
+    -- (student_id = auth.uid()) gates it to the student's own rows. NEVER make
+    -- this SECURITY DEFINER — that would bypass the ownership check.
+    security invoker
     set "search_path" to 'public'
     as $$
 begin
+  -- Defense-in-depth input bounds (CodeRabbit). p_easiness/p_interval_days come
+  -- from the tested TS SM-2 module (easiness in [1.3,3.5], interval >= 1), but
+  -- this RPC is granted to `authenticated`, so a direct caller could otherwise
+  -- pass out-of-range values. The table CHECKs catch most, but interval 0 slips
+  -- the (interval_days >= 0) CHECK and would stamp next_review_at = now() (an
+  -- item stuck perpetually due). Reject at the boundary with clear messages.
+  if p_easiness is null or p_easiness < 1.3 then
+    raise exception 'invalid easiness_factor: must be >= 1.3 (got %)', p_easiness
+      using errcode = '22023';
+  end if;
+  if p_interval_days is null or p_interval_days < 1 then
+    raise exception 'invalid interval_days: must be >= 1 (got %)', p_interval_days
+      using errcode = '22023';
+  end if;
+
   -- SECURITY INVOKER + the student RLS update policy (student_id = auth.uid())
   -- gate this: a row the caller doesn't own updates 0 rows.
   -- next_review_at is stamped off the DB clock (now()), never passed in, to keep
