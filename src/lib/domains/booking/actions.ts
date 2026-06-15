@@ -24,6 +24,7 @@ import {
   isBlockedByException,
   isMoreThanWindowInPast,
 } from "./validation";
+import { selectActivePackage } from "@/lib/domains/package/ledger";
 
 const THIRTY_MINUTES_MS = 30 * 60 * 1000;
 
@@ -67,6 +68,22 @@ export async function createBooking(
   // re-prove identity. Matches what the route was using implicitly via
   // `await createClient()` after `auth.getUser()`.
   const supabase = createAdminClient();
+
+  // 0. Fail-closed package precondition (FR-009). A 1:1 booking is debited from
+  // an active package at confirm time (the deduct_student_package trigger). If
+  // the student has no active package, reject the booking at creation rather
+  // than letting them accumulate pending bookings that can never confirm — and,
+  // critically, so we never reach a confirm that would otherwise grant a free
+  // session. This is the create-time half of the guard; the authoritative,
+  // race-free closure belongs inside confirm_booking_with_session (deferred —
+  // see audit Fix 3). Best-practice: deny by default.
+  const activePackage = await selectActivePackage(supabase, studentId);
+  if (!activePackage) {
+    throw new BookingValidationError(
+      "student_package",
+      "لا توجد باقة نشطة — يرجى شراء أو تجديد باقة قبل الحجز",
+    );
+  }
 
   // 1. Fetch teacher rate + verify teacher is accepting bookings.
   // Server-trusted rate (never trust client-provided rate). Filters out
