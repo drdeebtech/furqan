@@ -13,7 +13,6 @@ import { dispatchEffects } from "@/lib/automation/effects";
 import { logError } from "@/lib/logger";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import type { Database } from "@/types/supabase.generated";
-import { selectActivePackage, debitPackage } from "@/lib/domains/package/ledger";
 import { createRoom } from "@/lib/daily";
 import {
   SessionEndError,
@@ -289,49 +288,38 @@ export async function startInstantSession(
   const scheduledAt = new Date();
   const amountUsd = Number((hourlyRate * (durationMin / 60)).toFixed(2));
 
-  // Package balance check before any booking write (FR-009).
-  const activePkg = await selectActivePackage(admin, studentId);
-  if (!activePkg) {
-    throw new StartInstantSessionError(
-      "لا توجد باقة نشطة للطالب — يرجى تجديد الاشتراك",
-    );
-  }
+  // Atomic debit + booking insert (audit Fix 2). One SECURITY DEFINER RPC does
+  // the soonest-expiry package debit AND the confirmed-booking insert in a single
+  // transaction, so if the insert fails the debit rolls back with it — a retry
+  // can never double-charge (the prior code debited then inserted as two separate
+  // statements, so a retry-after-insert-failure could charge a second package).
+  // The RPC stamps student_package_id so the compensating cancel below restores
+  // the SAME package via restore_student_package(). Cast at the call site: the fn
+  // isn't in supabase.generated.ts until types regenerate (CLAUDE.md "Migration
+  // plus typed calls").
+  const { data: newBookingId, error: rpcErr } = await admin.rpc(
+    "start_instant_session_booking" as never,
+    {
+      p_student_id: studentId,
+      p_teacher_id: teacherId,
+      p_session_type: "hifz",
+      p_duration_min: durationMin,
+      p_rate_snapshot: hourlyRate,
+      p_amount_usd: amountUsd,
+      p_scheduled_at: scheduledAt.toISOString(),
+    } as never,
+  );
 
-  const debit = await debitPackage(admin, activePkg.id);
-  if (!debit.ok) {
-    const msg =
-      debit.reason === "exhausted"
-        ? "هذه الباقة منتهية أو مستهلكة"
-        : "تعذر خصم رصيد الباقة";
-    throw new StartInstantSessionError(msg);
+  if (rpcErr || !newBookingId) {
+    const m = rpcErr?.message ?? "";
+    const msg = m.includes("no_active_package")
+      ? "لا توجد باقة نشطة للطالب — يرجى تجديد الاشتراك"
+      : m.includes("package_debit_failed")
+        ? "تعذر خصم رصيد الباقة"
+        : "حدث خطأ في إنشاء الحجز";
+    throw new StartInstantSessionError(msg, { cause: rpcErr });
   }
-
-  // Insert booking (already confirmed — teacher is creating it directly).
-  // student_package_id is stamped so restore_student_package() can credit back
-  // on cancellation (trigger checks IS NOT NULL).
-  const { data: booking, error: bookingErr } = await admin
-    .from("bookings")
-    .insert({
-      student_id: studentId,
-      teacher_id: teacherId,
-      session_type: "hifz",
-      duration_min: durationMin,
-      rate_snapshot: hourlyRate,
-      amount_usd: amountUsd,
-      scheduled_at: scheduledAt.toISOString(),
-      status: "confirmed",
-      teacher_confirmed: true,
-      teacher_confirmed_at: scheduledAt.toISOString(),
-      student_package_id: activePkg.id,
-    } satisfies TableInsert<"bookings">)
-    .select("id")
-    .single<{ id: string }>();
-
-  if (bookingErr || !booking) {
-    throw new StartInstantSessionError("حدث خطأ في إنشاء الحجز", {
-      cause: bookingErr,
-    });
-  }
+  const booking = { id: newBookingId as unknown as string };
 
   // Compensating cancel helper — restores the debited credit if a later step
   // fails. Cancelling the confirmed booking fires restore_student_package().
