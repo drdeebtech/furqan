@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   BookingAlreadyConfirmedError,
   BookingConfirmError,
+  BookingNoPackageError,
   BookingNotFoundError,
   BookingRoomCreationError,
 } from "./types";
@@ -213,6 +214,18 @@ describe("confirmBooking", () => {
     await expect(
       confirmBooking({ bookingId: BOOKING_ID, actorId: ACTOR_ID }),
     ).rejects.toBeInstanceOf(BookingAlreadyConfirmedError);
+  });
+
+  it("translates RPC 'no_package_credit' to BookingNoPackageError (fail-closed money guard)", async () => {
+    mockSupabaseRpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: "no_package_credit: detail", code: "P0001" },
+    });
+
+    await expect(
+      confirmBooking({ bookingId: BOOKING_ID, actorId: ACTOR_ID }),
+    ).rejects.toBeInstanceOf(BookingNoPackageError);
+    expect(mockLogError).toHaveBeenCalled();
   });
 
   it("throws BookingConfirmError for unexpected RPC errors (not the race case)", async () => {

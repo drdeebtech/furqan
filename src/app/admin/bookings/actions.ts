@@ -9,6 +9,7 @@ import { confirmBooking } from "@/lib/domains/booking/orchestrate";
 import {
   BookingAlreadyConfirmedError,
   BookingConfirmError,
+  BookingNoPackageError,
   BookingNotFoundError,
   BookingRoomCreationError,
   BookingStatusUpdateError,
@@ -69,6 +70,17 @@ export async function adminUpdateBookingStatus(bookingId: string, status: string
           metadata: { bookingId, actorId },
         });
         return { error: "تعذر إنشاء غرفة الفيديو — يرجى المحاولة مرة أخرى" };
+      }
+      // Specific (subclass) BEFORE the generic BookingConfirmError: the
+      // fail-closed money guard refused because the student has no package
+      // credit — surface the actionable guidance instead of a generic error.
+      if (err instanceof BookingNoPackageError) {
+        logError("admin confirmBooking: refused — no package credit", err, {
+          tag: "admin-bookings",
+          severity: "warning",
+          metadata: { bookingId, actorId },
+        });
+        return { error: err.message };
       }
       if (err instanceof BookingConfirmError) {
         logError("admin confirmBooking: orchestrator failed", err, {
