@@ -90,6 +90,7 @@ export async function POST(request: Request) {
       line_items: [{ price: plan.stripePriceId, quantity: 1 }],
       client_reference_id: userId,
       metadata: { student_id: userId, plan_code: plan.planCode },
+      subscription_data: { metadata: { student_id: userId, plan_code: plan.planCode } },
       success_url: `${appUrl}/student/dashboard?subscription=success`,
       cancel_url: `${appUrl}/student/dashboard?subscription=cancelled`,
     });

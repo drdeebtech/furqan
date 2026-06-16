@@ -110,15 +110,17 @@ export async function upsertMirror(
         .from("subscriptions")
         .update(patch)
         .eq("id", existing.id)
+        .lte("last_event_at", new Date(eventCreatedMs).toISOString())
         .select(rowShape)
-        .single();
-      if (updErr || !updated) {
-        logError("billing.upsertMirror update failed", updErr ?? new Error("no row"), {
+        .maybeSingle();
+      if (updErr) {
+        logError("billing.upsertMirror update failed", updErr, {
           tag: "billing", subscription_id: existing.id,
         });
         return null;
       }
-      return toDomain(updated);
+      // updated is null when WHERE predicate filtered (stale event lost atomic race).
+      return updated ? toDomain(updated) : null;
     }
 
     // No existing row — insert. last_event_at seeds the recency baseline.

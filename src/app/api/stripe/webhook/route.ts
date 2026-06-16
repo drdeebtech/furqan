@@ -81,8 +81,34 @@ export async function POST(request: Request) {
 
   if (insErr) {
     if (insErr.code === "23505") {
-      // Already processed (FR-004/FR-020). Ack so Stripe stops retrying.
-      return NextResponse.json({ received: true, duplicate: true });
+      // Check terminal status before treating as a no-op (idempotency gap fix).
+      // A prior failed delivery writes a non-terminal row; a retry must re-attempt.
+      const { data: dupRow } = await admin
+        .from("billing_events")
+        .select("id, status")
+        .eq("stripe_event_id", event.id)
+        .maybeSingle<{ id: string; status: string }>();
+      if (!dupRow || dupRow.status === "processed" || dupRow.status === "ignored") {
+        return NextResponse.json({ received: true, duplicate: true });
+      }
+      const retryCtx: EventContext = { admin, stripe, event, billingEventId: dupRow.id };
+      try {
+        switch (event.type) {
+          case "invoice.paid":            await handleInvoicePaid(retryCtx); break;
+          case "invoice.payment_failed":  await handlePaymentFailed(retryCtx); break;
+          case "customer.subscription.created":
+          case "customer.subscription.updated": await handleSubscriptionLifecycle(retryCtx); break;
+          case "customer.subscription.deleted": await handleSubscriptionDeleted(retryCtx); break;
+          default: await markEvent(retryCtx, "ignored"); break;
+        }
+      } catch (err) {
+        logError("stripe-webhook: retry dispatch crashed", err, {
+          tag: "stripe-webhook", event_id: event.id, event_type: event.type,
+        });
+        await markEvent(retryCtx, "failed", err instanceof Error ? err.message : "retry dispatch crashed");
+        return NextResponse.json({ error: "Retry dispatch failed" }, { status: 500 });
+      }
+      return NextResponse.json({ received: true });
     }
     logError("stripe-webhook: billing_events insert failed", insErr, {
       tag: "stripe-webhook", event_id: event.id, event_type: event.type,
@@ -372,7 +398,11 @@ async function handlePaymentFailed(ctx: EventContext): Promise<void> {
 async function handleSubscriptionLifecycle(ctx: EventContext): Promise<void> {
   const sub = ctx.event.data.object as Stripe.Subscription;
   const snap = await snapshotFromSubscription(ctx, sub);
-  await upsertMirror(ctx.admin, snap);
+  const mirror = await upsertMirror(ctx.admin, snap);
+  if (mirror === null) {
+    await markEvent(ctx, "failed", "upsertMirror returned null");
+    return;
+  }
   await markEvent(ctx, "processed");
 }
 
@@ -380,7 +410,11 @@ async function handleSubscriptionLifecycle(ctx: EventContext): Promise<void> {
 async function handleSubscriptionDeleted(ctx: EventContext): Promise<void> {
   const sub = ctx.event.data.object as Stripe.Subscription;
   const snap = await snapshotFromSubscription(ctx, sub, { forceCanceled: true });
-  await upsertMirror(ctx.admin, snap);
+  const mirror = await upsertMirror(ctx.admin, snap);
+  if (mirror === null) {
+    await markEvent(ctx, "failed", "upsertMirror returned null");
+    return;
+  }
   await markEvent(ctx, "processed");
   emitEvent(
     BillingEvents.Canceled,
