@@ -22,7 +22,7 @@
 - [ ] T003 Create `supabase/migrations/20260617000000_catalog_credit_redesign.sql`:
   - ALTER `subscription_plans`: add `is_hifz_product boolean NOT NULL DEFAULT false`, `sessions_per_month integer`, `session_duration_min integer`
   - ALTER `subscriptions`: add `is_hifz boolean NOT NULL DEFAULT false`, `pending_tier_change_id uuid` (FK to `pending_tier_changes`, deferred)
-  - ALTER `packages`: add `subscription_plan_id uuid FK`, `is_hifz_product boolean NOT NULL DEFAULT false`, `product_category text CHECK('hifz_group','hifz_individual','tajweed_mutoon','other')`; widen `package_type` CHECK to include ONE new value `tajweed_course`
+  - ALTER `packages`: add `subscription_plan_id uuid FK`, `is_hifz_product boolean NOT NULL DEFAULT false`, `product_category text CHECK(product_category IN ('hifz_group','hifz_individual','tajweed_mutoon','other'))`; widen `package_type` CHECK to include ONE new value `tajweed_course`
   - ALTER `student_packages`: add `subscription_id uuid FK`, `billing_cycle_key text`; add `UNIQUE INDEX uix_student_packages_cycle_grant (subscription_id, billing_cycle_key) WHERE billing_cycle_key IS NOT NULL`
   - CREATE TABLE `guardian_children (guardian_id uuid, child_id uuid, PRIMARY KEY(guardian_id,child_id), CHECK(guardian_id<>child_id))` + index on `child_id`
   - CREATE TABLE `subscription_discount_records (id uuid PK, subscription_id uuid FK, discount_type text CHECK('second_individual','sibling_group'), discount_pct numeric(5,2), setting_key text, applied_at timestamptz)` + index on `subscription_id` + BEFORE UPDATE immutability trigger

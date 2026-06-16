@@ -74,7 +74,7 @@ SELECT sessions_remaining FROM student_packages WHERE student_id = :student_id;
 
 POST /api/stripe/checkout/single-session
 { "productType": "assessment", "specialty": "hifz" }
-# → 422 { success: false, error: "Assessment limit reached for this specialty" }
+# → 409 { success: false, error: "Assessment limit reached for this specialty" }
 # → No Stripe session created, no charge
 
 # But different specialty is allowed:
