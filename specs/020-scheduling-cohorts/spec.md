@@ -236,5 +236,5 @@ An admin can view and manage fixed teacher assignments, cohort rosters and their
 
 ### Open Clarifications
 
-- **[NEEDS CLARIFICATION]**: When an admin-approved mid-month teacher change occurs, should already-scheduled future bookings be **auto-re-pointed** to the new teacher or **cancelled for the student to rebook** from the new teacher's availability? (FR-006 allows either; pick one for planning.)
-- **[NEEDS CLARIFICATION]**: For group-hifz overflow (#34), when a sibling not-full halaqa already exists, should the system **prefer filling the existing sibling** before opening a brand-new one, or always open new at capacity? (Affects FR-015 cohort-storm avoidance.)
+- **Teacher change booking behavior** *(resolved)*: On admin-approved mid-month teacher change (initiated by student/guardian request with stated reason), future bookings are **cancelled**; the student rebooks from the new teacher's published availability. Rationale: the new teacher's schedule may differ; cancel-and-rebook avoids phantom bookings on mismatched slots.
+- **Halaqa overflow sibling preference** *(resolved)*: When a not-full sibling halaqa of the same juz/level exists, **prefer filling it** before opening a new one. A new halaqa opens only when no suitable not-full sibling exists. Rationale: prevents halaqa proliferation and keeps group sizes healthy.

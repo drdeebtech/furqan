@@ -227,6 +227,6 @@ Guardians receive timely, idempotent notifications for events emitted by other p
 
 ## Clarifications Needed
 
-- **[NEEDS CLARIFICATION]**: Certificate output format — is a downloadable/printable **PDF** required, or is an in-app/shareable rendered card sufficient for this light phase?
-- **[NEEDS CLARIFICATION]**: WhatsApp provider/template specifics — which provider does the existing n8n flow use, and are pre-approved message templates required (affecting allowed dynamic fields)?
-- **[NEEDS CLARIFICATION]**: Honor-board opt-out — is recognition **opt-in** or **opt-out by default**, and is opt-out per-student or guardian-controlled for minors?
+- **Certificate format** *(resolved)*: in-app shareable card — no PDF in this phase. PDF deferred.
+- **WhatsApp provider/template specifics** — [NEEDS CLARIFICATION]: which provider does the existing n8n flow use, and are pre-approved message templates required? Resolve before `/speckit-plan 023`.
+- **Honor-board opt-out** *(resolved)*: **opt-out by default** — students visible on the board unless they (or guardian for minors) explicitly opt out. Opt-out is per-student, guardian-controlled for minors.
