@@ -198,28 +198,29 @@ describe("endSession", () => {
 describe("startInstantSession", () => {
   const input: StartInstantSessionInput = { teacherId: TEACHER, studentId: STUDENT, durationMin: 30, hourlyRate: 40 };
 
+  beforeEach(() => {
+    // Debit + booking insert is now ONE atomic RPC (start_instant_session_booking)
+    // returning the new booking id (audit Fix 2). Default it to success here.
+    mockRpc.mockResolvedValue({ data: BOOKING, error: null });
+  });
+
   it("happy path: returns sessionId, bookingId, and roomUrl", async () => {
     const result = await startInstantSession(input);
     expect(result).toEqual({ sessionId: SESSION, bookingId: BOOKING, roomUrl: ROOM_URL });
   });
 
-  it("throws StartInstantSessionError when no active package exists", async () => {
-    mockSelectActivePackage.mockResolvedValue(null);
-    await expect(startInstantSession(input)).rejects.toBeInstanceOf(StartInstantSessionError);
+  it("throws no-active-package message when the RPC raises no_active_package", async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: "no_active_package: detail" } });
+    await expect(startInstantSession(input)).rejects.toThrow("لا توجد باقة نشطة للطالب");
   });
 
-  it("throws with exhausted message when debit reason is 'exhausted'", async () => {
-    mockDebitPackage.mockResolvedValue({ ok: false, reason: "exhausted" });
-    await expect(startInstantSession(input)).rejects.toThrow("هذه الباقة منتهية أو مستهلكة");
-  });
-
-  it("throws with generic debit message for any other debit failure", async () => {
-    mockDebitPackage.mockResolvedValue({ ok: false, reason: "unknown" });
+  it("throws generic debit message when the RPC raises package_debit_failed", async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: "package_debit_failed: detail" } });
     await expect(startInstantSession(input)).rejects.toThrow("تعذر خصم رصيد الباقة");
   });
 
-  it("throws StartInstantSessionError when booking insert fails", async () => {
-    mockBookingInsertSingle.mockResolvedValue({ data: null, error: { message: "constraint violation" } });
+  it("throws StartInstantSessionError when the atomic booking RPC fails", async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: "constraint violation" } });
     await expect(startInstantSession(input)).rejects.toBeInstanceOf(StartInstantSessionError);
   });
 
