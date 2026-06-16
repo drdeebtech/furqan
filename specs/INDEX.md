@@ -27,9 +27,9 @@
 | [017-pr458-cursor-authz-findings](./017-pr458-cursor-authz-findings/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
 | [019-catalog-credit-redesign](./019-catalog-credit-redesign/spec.md) | Tasks-ready | `019-catalog-credit-redesign` | _(pending)_ |
 | [020-scheduling-cohorts](./020-scheduling-cohorts/spec.md) | Tasks-ready | `020-scheduling-cohorts` | _(pending)_ |
-| [021-attendance-payroll](./021-attendance-payroll/spec.md) | Draft | `021-attendance-payroll` | _(pending)_ |
-| [022-onboarding-single-sessions](./022-onboarding-single-sessions/spec.md) | Draft | `022-onboarding-single-sessions` | _(pending)_ |
-| [023-reports-gamification-notifications](./023-reports-gamification-notifications/spec.md) | Draft | `023-reports-gamification-notifications` | _(pending)_ |
+| [021-attendance-payroll](./021-attendance-payroll/spec.md) | Tasks-ready | `021-attendance-payroll` | _(pending)_ |
+| [022-onboarding-single-sessions](./022-onboarding-single-sessions/spec.md) | Tasks-ready | `022-onboarding-single-sessions` | _(pending)_ |
+| [023-reports-gamification-notifications](./023-reports-gamification-notifications/spec.md) | Planned | `023-reports-gamification-notifications` | _(pending)_ |
 | [024-migration-cutover](./024-migration-cutover/spec.md) | Draft | `024-migration-cutover` | _(pending)_ |
 
 ## Abandoned (last 90 days)
