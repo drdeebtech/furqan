@@ -130,7 +130,7 @@ Each delivered session accrues teaching hours (sessions actually delivered × th
 1. **Given** a teacher who delivered sessions in a month, **When** payroll for that month runs, **Then** exactly one payout is produced equal to the sum of delivered hours × that teacher's hourly rate.
 2. **Given** sessions that were **not** delivered (student no-show debited, cancelled, excused-carried-not-yet-redelivered), **When** payroll runs, **Then** those non-delivered sessions do **not** accrue payable hours.
 3. **Given** a payroll run for a month, **When** the same month's run is executed again, **Then** no duplicate payout is created (idempotent per teacher per month).
-4. **Given** a teacher with a per-teacher hourly rate, **When** the rate changes after a month closes, **Then** the closed month's payout reflects the rate effective during that month, not a later change. [NEEDS CLARIFICATION: rate effective-dating — does payroll use the rate at time of each session, or the rate at month close?]
+4. **Given** a teacher with a per-teacher hourly rate, **When** the rate changes after a month closes, **Then** the closed month's payout reflects the rate **at the time each session was delivered** (rate snapshotted per session row), not the rate at month close. This is the simpler, audit-friendly model: each `session_deliveries` row captures the rate in effect at delivery time.
 5. **Given** a produced payout, **When** an unauthorized actor attempts to alter its amount or mark it paid, **Then** the change is rejected (financial-column guard + admin/service-role only).
 
 ---
@@ -143,7 +143,7 @@ Each delivered session accrues teaching hours (sessions actually delivered × th
 - **Double outcome / retry**: the same session must not be both debited and restored; outcome finalization is idempotent and single-valued per session.
 - **Restore for a session whose credit was already restored** (e.g., teacher-absent then later also excused): restore is idempotent; a session's credit is restored **at most once**.
 - **Teacher absent AND student absent**: classified as teacher-absent (student is held harmless); not a student absence.
-- **Session spanning a month boundary / payroll cutoff**: a session's hours accrue to the month in which it was **delivered**; the run aggregates only sessions whose delivery falls in the closed month. [NEEDS CLARIFICATION: timezone/boundary basis for "delivered in month" — platform timezone vs. teacher local time.]
+- **Session spanning a month boundary / payroll cutoff**: a session's hours accrue to the month in which it was **delivered**; the run aggregates only sessions whose `started_at` (UTC) falls in the closed calendar month (UTC). Teacher local time is not used — UTC is the platform boundary. The payroll run date setting is in UTC.
 - **Substitute delivers a session**: payable hours follow the **actual deliverer**, never the originally-assigned teacher.
 - **Zero delivered hours for a teacher in a month**: no payout row (or a zero-value row) is produced — must be unambiguous and not error.
 - **Carry-over extension at period end of a canceling subscription**: if `cancel_at_period_end = true`, an extension row still accumulates in `subscription_extensions`. Effective end = `current_period_end + SUM(extension_seconds)` is honored regardless of cancel state — the student is owed the time they paid for. The platform surfaces this as "extended until [effective end]" to the student.
