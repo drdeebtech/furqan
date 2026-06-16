@@ -39,13 +39,14 @@ All four primitives live in `src/lib/auth/require-admin.ts` (the file name is a 
 
 ## Domains
 
-The seven owner-domains (from CLAUDE.md's Domain Ownership Model):
+The eight owner-domains (from CLAUDE.md's Domain Ownership Model; see ADR-0005 for the Billing domain):
 
 - **Booking** — `bookings`, `teacher_availability`, `availability_exceptions`. Owns: createBooking, updateBookingStatus, cancelBooking.
 - **Session** — `sessions`, `session_observers`. Owns: endSession, markNoShow, savePostSessionNotes.
 - **Follow-up** — `homework_assignments`. Owns: createHomework, markStudentReady, gradeHomework. (Note: user-facing language is "follow-up" / "متابعة"; never "homework" / "واجب" — the DB column name is internal.)
 - **Progress** — `student_progress`, `recitation_errors`, `session_evaluations`. Owns: createEvaluation, createTeacherEvaluation.
-- **Package** — `packages`, `student_packages`, `payments`, `invoices`. Owns: `deduct_package_session()` SQL function, Stripe webhook fulfillment.
+- **Package** — `packages`, `student_packages`, `payments`, `invoices`. Owns: `deduct_package_session()` SQL function, the session-credit debit kernel. (Subscription-driven grants land here via the Billing domain's `grant_subscription_cycle()`; Package owns the debit, Billing owns the recurring lifecycle — see ADR-0005.)
+- **Billing** — `subscription_plans`, `stripe_customers`, `subscriptions`, `billing_events`. Owns: the recurring-subscription lifecycle, the plan catalog mirror, the 1:1 Stripe customer mapping, the idempotent Stripe-event ledger, and `grant_subscription_cycle()` (atomic payment + monthly credit grant, service-role-only). Emits `subscription.activated` / `renewed` / `past_due` / `canceled`. Grants into Package (`student_packages`) but does not own the debit kernel.
 - **Communication** — `notifications`, `parent_reports`, `messages`, `conversations`, `message_delivery_log`, `communication_preferences`. Owns: `notify(opts)` (in-app dispatcher).
 - **Automation** — `automation_logs`, `automation_dead_letter`, `platform_settings`, `retention_signals`. Owns: `emitEvent(eventName: FurqanEvent, ...)`, n8n webhook callback.
 

@@ -116,6 +116,14 @@ export const WEBHOOK_ROUTES = {
   // auto-reply triggers). Until then dispatch logs a non-fatal failed-delivery
   // automation_log entry.
   "contact_submission.read": "/webhook/furqan-contact-submission-read",
+  // Billing domain (spec 018): subscription lifecycle events emitted from the
+  // webhook handler post-commit (Principle III). n8n workflows must be created
+  // to consume these (e.g. seat provisioning, dunning emails); until then
+  // dispatch logs a non-fatal failed-delivery automation_log.
+  "subscription.activated": "/webhook/furqan-subscription-activated",
+  "subscription.renewed": "/webhook/furqan-subscription-renewed",
+  "subscription.past_due": "/webhook/furqan-subscription-past-due",
+  "subscription.canceled": "/webhook/furqan-subscription-canceled",
 } as const satisfies Record<string, string>;
 
 /**
