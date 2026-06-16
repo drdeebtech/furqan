@@ -27,6 +27,7 @@ CREATE TYPE specialized_purpose AS ENUM (
 
 ALTER TABLE bookings
   ADD COLUMN booking_product_type text
+    -- NULL permitted by design = legacy credit-funded rows (pre-existing bookings); new rows set one of the 4 values
     CHECK (booking_product_type IN ('assessment','instant','specialized','subscription')),
   ADD COLUMN specialty text,
   ADD COLUMN purpose specialized_purpose,

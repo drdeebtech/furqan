@@ -67,7 +67,7 @@ The procedure is the safety net. Steps execute in this exact order; each gates t
 |---|------|------------------|
 | 1 | **Freeze** financial/booking writes | short, pre-announced; migration runs on a stable snapshot (FR-013) |
 | 2 | **Restore-verified backup** of production | restorability confirmed **before** any destructive step (FR-014) |
-| 3 | **Reconcile schema history** (`migration repair --status reverted` ×~103, then post-baseline apply) | clean deploy; baseline never `db push`ed; **halt → abort** on failure (FR-015) |
+| 3 | **Reconcile schema history** (`migration repair --status reverted` for each pre-baseline version derived from prod `schema_migrations` at run time, then post-baseline apply) | clean deploy; baseline never `db push`ed; **halt → abort** on failure (FR-015) |
 | 4 | **Run migration** (`run_migration(dry_run=false)`) | idempotent + atomic-or-resumable; ayah-range guard active; RLS intact (FR-003/004/009/010) |
 | 5 | **Verification gates** (3 reconciliation reports) | all PASS required; any FAIL ⇒ rollback, Stripe stays test (FR-011, FR-018) |
 | 6 | **Flip Stripe test→live** (keys/config only) | no code change; **only after** step 5 passes (FR-018/019) |

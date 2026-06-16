@@ -111,7 +111,9 @@
 
 - [ ] T020 [US3] Unit test: invalid surah → 422 before Stripe call; valid specialized → booking created; `student_packages` untouched
 
-**Checkpoint**: Invalid Quran range rejected before charge; valid specialized booking created with purpose + target_scope.
+- [ ] T020a [US3] Create `src/app/api/single-sessions/my-bookings/route.ts` (contracts §4): GET, auth required, returns the caller's own single-session bookings (RLS-enforced, `userId` from session never input), zod-validated query params, paginated. Closes the orphaned `my-bookings` contract.
+
+**Checkpoint**: Invalid Quran range rejected before charge; valid specialized booking created with purpose + target_scope. `GET /api/single-sessions/my-bookings` returns only the caller's bookings.
 
 ---
 

@@ -34,7 +34,7 @@
   - BEFORE UPDATE trigger `sta_identity_guard` on (student_id, subscription_id, product_type, lock_month) — blocked
   - ADD INDEX `idx_class_offerings_sibling ON class_offerings(teacher_id, program_level, status)` for sibling lookup (requires `program_level` from T002a)
 
-- [ ] T003a Create `supabase/migrations/20260618000002_availability_instances.sql` — dated slot-instance materialization (Clarifications §2026-06-16; data-model §2a-bis):
+- [ ] T003a Create `supabase/migrations/20260617990001_availability_instances.sql` — dated slot-instance materialization (Clarifications §2026-06-16; data-model §2a-bis). Timestamp sorts right after T002a and before T003/T004 (independent table; depends only on baseline `teacher_availability`):
   - CREATE TABLE `teacher_availability_instances` (id uuid PK, template_id uuid FK `teacher_availability`, teacher_id uuid FK profiles, slot_date date, start_time time, end_time time, is_booked boolean DEFAULT false, created_at)
   - UNIQUE `(template_id, slot_date)` — idempotent materialization, no duplicate dated instances
   - Index on `(teacher_id, slot_date) WHERE is_booked = false` for open-slot lookup
