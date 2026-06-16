@@ -8,10 +8,10 @@
 
 ## Requirement Completeness
 
-- [ ] CHK001 Is there a requirement defining WHO applies a pending tier change and re-grants at renewal, and is it traceable to a functional requirement (not only the Clarifications note)? [Gap, Spec §FR-019]
+- [ ] CHK001 Verify the requirement defining WHO applies a pending tier change and re-grants at renewal is traceable to a functional requirement and a planned task — resolved: the `invoice.paid` webhook branch owns it (Spec §Clarifications, plan §Key Decision 6, task T014a). [Consistency, Spec §FR-019]
 - [ ] CHK002 Does FR-019 specify the lifecycle of a `pending_tier_changes` record (pending → applied/cancelled) as a requirement, including who performs each transition? [Completeness, Spec §FR-019]
 - [ ] CHK003 Is the single-active-hifz invariant specified as a *data-layer* requirement with a named enforcement mechanism, not merely a UI expectation? [Completeness, Spec §FR-009]
-- [ ] CHK004 Is the single-pending-tier-change-per-subscription invariant stated as a requirement, and is its enforcement (partial UNIQUE index) specified at the data layer? [Gap, Spec §Clarifications]
+- [ ] CHK004 Verify the single-pending-tier-change-per-subscription invariant is enforced at the data layer — resolved: partial UNIQUE index on `pending_tier_changes(subscription_id) WHERE status='pending'` (data-model §2c, tasks T003). [Consistency, Spec §Clarifications]
 - [ ] CHK005 Are the exact second-individual and sibling-group discount percentages specified, or explicitly designated as admin-entered settings with a defined default? [Ambiguity, Spec §FR-014]
 - [ ] CHK006 Is there a requirement covering whether a discounted second/sibling subscription re-rates at renewal when the qualifying first subscription has lapsed? [Gap, Spec §Edge Cases / Open clarifications]
 - [ ] CHK007 Is the discount-immutability rule (a recorded discount cannot be silently altered after application) stated as a requirement, including who may never mutate it? [Completeness, Spec §FR-015/FR-016]
@@ -23,7 +23,7 @@
 ## Requirement Clarity
 
 - [ ] CHK012 Is the Stripe `proration_behavior` value stated as a single, unambiguous, VALID enum (`always_invoice`) everywhere it appears? [Clarity, Spec §Clarifications]
-- [ ] CHK013 Does any artifact still reference the INVALID enum `create_prorated_invoice` or the divergent `create_prorations`, leaving the proration behavior ambiguous? [Conflict, plan.md §Key Decisions / contracts §2]
+- [ ] CHK013 Verify no artifact still uses an invalid or divergent proration enum value — resolved: every `proration_behavior` occurrence in plan.md, research.md, contracts §2, and tasks T022 now reads `always_invoice` (Spec §Clarifications). [Consistency, plan.md §Key Decisions / contracts §2]
 - [ ] CHK014 Is "additively merged" (FR-011) defined precisely enough to be unambiguous — i.e. does it state that a new `student_packages` row is added and prior rows are never mutated? [Clarity, Spec §FR-011]
 - [ ] CHK015 Is "same teacher" defined clearly enough to evaluate an upgrade, given the teacher field is owned by spec 020 and may be absent this phase? [Ambiguity, Spec §FR-017 / contracts §2 step 5]
 - [ ] CHK016 Is "tier terms captured at grant time" (FR-012) clear about exactly which fields are frozen (sessions, duration, price basis) so a later catalog edit cannot retroactively change a granted cycle? [Clarity, Spec §FR-012]
@@ -35,7 +35,7 @@
 ## Requirement Consistency
 
 - [ ] CHK021 Is the proration behavior specified once and identically across spec Clarifications, plan.md, and contracts/api.md (no conflicting enum values)? [Conflict, plan §4 / contracts §2 / Spec §Clarifications]
-- [ ] CHK022 Is the `add-child` request field consistent across spec, contracts/api.md (`child_user_id`), and the Clarifications resolution (`childEmail`)? [Conflict, contracts §5 / Spec §Clarifications]
+- [ ] CHK022 Verify the `add-child` request field is consistent across spec, contracts/api.md, and the Clarifications resolution — resolved: contracts §5 now takes `{ childEmail }` (server resolves to `child_id`); no raw-uuid form remains. [Consistency, contracts §5 / Spec §Clarifications]
 - [ ] CHK023 Is the count and identity of new `package_type` members consistent between data-model.md (lists 7 added values incl. 6 hifz + tajweed) and the Clarifications note ("ONE new value tajweed_course, total 12")? [Conflict, data-model §1c / Spec §Clarifications]
 - [ ] CHK024 Are the price-tier values consistent between FR-003 (group 4/6/8 = $12/$15/$20; individual $10/hr) and the seeded `platform_settings` keys in data-model §3? [Consistency, Spec §FR-003 / data-model §3]
 - [ ] CHK025 Is the discount default consistent — spec leaves percentages `[NEEDS CLARIFICATION]` while data-model seeds `10`; is the seed a placeholder or a committed value? [Conflict, Spec §Open clarifications / data-model §3]
@@ -77,7 +77,7 @@
 ## Ambiguities & Conflicts (consolidated)
 
 - [ ] CHK048 Are all three Clarifications-resolved items (proration enum, add-child input, package_type count) reflected back into the body of spec/contracts/data-model, or do stale conflicting statements remain? [Conflict, Spec §Clarifications]
-- [ ] CHK049 Is FR-019's renewal-application owner now backed by a functional requirement and a planned task, closing the "write-only, no owner" gap? [Gap, Spec §FR-019 / Clarifications]
+- [ ] CHK049 Verify FR-019's renewal-application owner is backed by a planned task closing the "write-only, no owner" gap — resolved: task T014a wires the `invoice.paid` branch to apply pending changes and re-grant (plan §Key Decision 6). [Consistency, Spec §FR-019 / Clarifications]
 - [ ] CHK050 Is the discount-percentage `[NEEDS CLARIFICATION]` either resolved to committed values or unambiguously deferred to admin settings with a stated default, so no implementer hardcodes a guess? [Ambiguity, Spec §Open clarifications]
 
 ## Notes

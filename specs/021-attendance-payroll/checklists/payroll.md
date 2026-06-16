@@ -26,7 +26,7 @@
 - [ ] CHK013 Is the carry-over extension's idempotency expressed as a concrete, checkable invariant (e.g., a unique constraint keyed on the anchor) rather than only "MUST be idempotent"? [Measurability, Spec FR-012]
 - [ ] CHK014 Is "equivalent extension" quantified (which duration value, in seconds, maps to `extension_seconds`) so two implementers would compute the same number? [Clarity, Spec FR-011]
 - [ ] CHK015 Is the payout amount formula stated unambiguously, including rounding rule and units (USD, 2dp), so the expected value is computable from inputs? [Measurability, Spec FR-020 / FR-022]
-- [ ] CHK016 Is the month-attribution boundary specified as UTC and tied to a named timestamp (`started_at` vs `delivered_at`), with both spec and data-model agreeing on which? [Clarity, Conflict — Spec Edge Cases use `started_at`; data-model.md uses `delivered_at`]
+- [x] CHK016 Is the month-attribution boundary specified as UTC and tied to a named timestamp, with both spec and data-model agreeing on which? [Clarity, RESOLVED 2026-06-16 — spec Edge Cases now use `delivered_at` (canonical), `payroll_period_month = date_trunc('month', delivered_at)`, matching data-model.md; the prior `started_at` reference is gone. Verify: no `started_at` remains as the attribution timestamp.]
 - [ ] CHK017 Is the excuse eligibility boundary stated as an inclusive, computable comparison (`submitted_at <= session_start - threshold`) with the threshold sourced from settings? [Measurability, Spec FR-007 / Edge Cases]
 - [ ] CHK018 Is the rate-at-delivery snapshot rule measurable — i.e., the requirement names where the snapshot is taken and that a later rate change MUST NOT alter a closed month? [Measurability, Spec US5 scenario 4 / FR-019]
 - [ ] CHK019 Is "the student is made whole" for teacher-absence defined in measurable terms (credit restored if debited, 0 student-absence counts, 0 debits) rather than as a goal statement? [Measurability, Spec FR-016 / SC-005]
@@ -34,9 +34,9 @@
 
 ## Consistency
 
-- [ ] CHK021 Do spec, contracts/api.md, plan, and data-model agree on the duplicate-attendance-record response — 200 idempotent no-op (per Clarifications and plan decision #2) vs the 409 still in contracts/api.md §1? [Consistency, Conflict — Clarifications vs contracts/api.md "409 outcome already finalized"]
-- [ ] CHK022 Is the owner of the `subscription_extensions` INSERT consistent across artifacts — the `finalize_attendance` SECURITY DEFINER function ONLY, never the route layer (contracts/api.md §3 implies the route inserts)? [Consistency, Conflict — Clarifications vs contracts/api.md "inserts subscription_extensions for the subscription"]
-- [ ] CHK023 Is the list of `BEFORE UPDATE OF` guarded columns identical across plan.md (Constitution table), tasks.md (T004–T005), and data-model.md (e.g., does `delivered_at` appear in all three for `session_deliveries`)? [Consistency, Spec FR-023 — plan vs tasks vs data-model differ]
+- [x] CHK021 Do spec, contracts/api.md, plan, and data-model agree on the duplicate-attendance-record response? [Consistency, RESOLVED 2026-06-16 — contracts/api.md §1 now documents a 200 idempotent no-op (returning the existing `attendanceRecordId`) per Clarifications + plan decision #2; the `409 outcome already finalized` response was removed. Verify: no `409` finalize response remains.]
+- [x] CHK022 Is the owner of the `subscription_extensions` INSERT consistent across artifacts — the `finalize_attendance` SECURITY DEFINER function ONLY, never the route layer? [Consistency, RESOLVED 2026-06-16 — contracts/api.md §3 now states the extension is inserted inside `finalize_attendance` only (route never inserts), avoiding a double-insert; matches Clarifications + tasks T006. Verify: no route-layer `subscription_extensions` insert remains.]
+- [x] CHK023 Is the list of `BEFORE UPDATE OF` guarded columns identical across plan.md, tasks.md (T004–T005), and data-model.md (e.g., does `delivered_at` appear for `session_deliveries`)? [Consistency, RESOLVED 2026-06-16 — tasks.md T005 `session_deliveries` guard now includes `delivered_at`, matching data-model.md. Verify: `delivered_at` present in the T005 guard column list.]
 - [ ] CHK024 Do the requirements use one consistent term for the rate column (`hourly_rate_usd`) across spec, plan, tasks, and data-model, with no competing names? [Consistency, Spec FR-018]
 - [ ] CHK025 Is the `excuse_status` enum consistent between data-model (`pending/accepted/rejected/ineligible`) and the API success payloads (`pending/ineligible/accepted/rejected`) and FR-009's "undecided" notion? [Consistency, Spec FR-007/FR-009 vs data-model.md vs contracts/api.md]
 - [ ] CHK026 Is the credit outcome of an unexcused absence consistently described as "debited (lost)" with NO restore call, in every place it appears (FR-002, US1, Assumptions)? [Consistency, Spec FR-002 / SC-001]
@@ -73,7 +73,7 @@
 
 ## Ambiguities & Conflicts
 
-- [ ] CHK045 Is the dangling "NFR-028" reference (research R-003) corrected to the intended FR number, with no remaining pointer to a non-existent requirement? [Ambiguity, Conflict — Clarifications 2026-06-16; spec defines no NFR-028]
+- [x] CHK045 Is the dangling "NFR-028" reference (research R-003) corrected to the intended FR number, with no remaining pointer to a non-existent requirement? [Ambiguity, RESOLVED 2026-06-16 — research.md R-003 now reads `FR-028` (the no-hardcoded-policy-values requirement the spec actually defines); no `NFR-028` remains. Verify: grep for `NFR-028` is clean.]
 - [ ] CHK046 Is the `MAX(hourly_rate_usd)` aggregation in `run_monthly_payroll` reconciled with the snapshot model — i.e., is it stated/guaranteed that all rows for a teacher/month share one rate, so MAX cannot silently mask a mid-month rate change? [Ambiguity, data-model.md `run_monthly_payroll` vs FR-018 "adjustable per teacher"]
 - [ ] CHK047 Is it unambiguous whether `attendance_records.session_id` (nullable) or `booking_id` (UNIQUE, NOT NULL) is the idempotency/identity anchor for finalization, given `session_id` is nullable? [Ambiguity, Spec FR-004 vs data-model.md]
 

@@ -85,7 +85,7 @@ supabase/migrations/
 
 ## Key Implementation Decisions
 
-1. **Idempotency**: All artifact issuance (certificates, monthly reports, notifications) gated via `automation_logs.idempotency_key UNIQUE`. Key format: `cert:{student_id}:{type}:{milestone_key}` / `report:{student_id}:{year}:{month}` / `notif:{recipient_id}:{trigger}:{subject_id}`. ON CONFLICT → `status='skipped'`, no duplicate created.
+1. **Idempotency**: All artifact issuance (certificates, monthly reports, notifications) gated via `automation_logs.idempotency_key UNIQUE`. Key format: `cert:{student_id}:{type}:{milestone_key}` / `report:{student_id}:{year}:{month}` / `notif:{recipientId}:{trigger}:{subjectKey}` (recipient-first, per FR-014). ON CONFLICT → `status='skipped'`, no duplicate created.
 
 2. **WhatsApp channel**: Extend `notifications.channel` CHECK constraint (drop + re-add); existing rows unaffected. WhatsApp dispatch via existing n8n intake — no new endpoint, no new Stripe-style secret registration.
 

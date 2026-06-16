@@ -7,6 +7,18 @@ This spec **adds one new table** (`subscription_teacher_assignments`) and **reus
 
 ---
 
+## 0. Catalog Code → `product_type` Enum Mapping (authoritative)
+
+The catalog (spec 019) uses product **codes**; this spec's `product_type` enum uses descriptive values. The builder MUST map codes to enum values using this table when constructing an assignment row — do not invent other values. (Source: spec Clarifications §2026-06-16.)
+
+| Catalog code (spec 019) | `product_type` enum value | Scheduling model |
+|-------------------------|---------------------------|------------------|
+| `a-individual`          | `hifz_individual`         | Student-chosen fixed teacher; books from teacher availability |
+| `b`                     | `hifz_group`              | Self-selected halaqa; fixed cohort schedule |
+| `c`                     | `course`                  | Assigned specialist; fixed schedule + optional entry conditions |
+
+---
+
 ## 1. New Table: `subscription_teacher_assignments`
 
 Binds a student to a teacher for an in-scope hifz subscription month.
@@ -118,22 +130,41 @@ CREATE TRIGGER sta_identity_guard
 
 These tables are consumed as-is. This spec adds server-side constraints and a new domain function — not schema modifications.
 
-### 2a. `teacher_availability`
+### 2a. `teacher_availability` (recurring weekly **template**)
 
-Recurring weekly slots published by a teacher.
+Recurring weekly slot templates published by a teacher. A row here describes a slot that recurs **every week** on `day_of_week` — it is NOT a single bookable occurrence and therefore **cannot carry a global `is_booked` flag** (the same weekday slot recurs indefinitely). Booking happens against a **dated instance** of this template (see §2a-bis).
 
 | Column | Type | Notes |
 |--------|------|-------|
-| `id` | `uuid PK` | |
+| `id` | `uuid PK` | Template id |
 | `teacher_id` | `uuid FK profiles` | |
 | `day_of_week` | `int` | 0=Sunday..6=Saturday |
 | `start_time` | `time` | Slot start |
 | `end_time` | `time` | Slot end |
 | `slot_duration_min` | `int` | Duration in minutes |
-| `is_active` | `boolean` | Whether the slot is published |
-| `is_booked` | `boolean DEFAULT false` | Set to true when a booking is created for this slot |
+| `is_active` | `boolean` | Whether the template is published |
 
-**This spec adds**: the `FOR UPDATE` lock pattern on `is_booked` before booking (R-004); no DDL change.
+> **Design change 2026-06-16** (Clarifications §2026-06-16): the legacy `is_booked` column on the recurring template is **deprecated for booking decisions** — a weekly template recurs and cannot be globally "booked." `is_booked` now lives on the dated **slot instance** (§2a-bis). If the physical column still exists on `teacher_availability`, it is ignored by the constrained-booking path.
+
+### 2a-bis. `teacher_availability_instances` (dated bookable instance) — slot-instance concept
+
+To make recurring templates bookable, each template is **materialized into dated instances** — one row per concrete date the template occurs on (within a rolling booking horizon, e.g. the current subscription month). `is_booked` is **per dated instance**; locking and booking target an instance, never the template.
+
+**Generation rule** (design-level; no app code here): for each active `teacher_availability` template, generate one `teacher_availability_instances` row for every calendar date matching `day_of_week` within the bookable horizon. Generation is idempotent (unique on `(template_id, slot_date)`); a booking marks exactly that instance `is_booked = true`. Equivalent alternative: a documented on-the-fly derivation that resolves `(template_id, slot_date)` to a lockable instance row at book time. Either way the lock/booking unit is the dated instance.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | `uuid PK` | Dated instance id (the `lockSlot` target) |
+| `template_id` | `uuid FK teacher_availability` | The recurring template this instance derives from |
+| `teacher_id` | `uuid FK profiles` | Denormalized from template for lookup |
+| `slot_date` | `date` | The concrete date of this occurrence |
+| `start_time` | `time` | From template |
+| `end_time` | `time` | From template |
+| `is_booked` | `boolean DEFAULT false` | Per-instance; set true when a booking is created for THIS dated slot |
+
+Unique: `(template_id, slot_date)` — idempotent materialization, prevents duplicate instances.
+
+**This spec adds**: the `FOR UPDATE` lock pattern on the dated instance's `is_booked` before booking (R-004); booking/availability read against instances, not templates.
 
 ### 2b. `bookings`
 
@@ -169,6 +200,8 @@ Group/halaqa/course definitions with fixed schedules.
 | `start_date` | `date` | |
 
 **This spec adds**: `open_overflow_halaqa()` SECURITY DEFINER fn that may INSERT new rows (R-003).
+
+> **NULL `program_level` guard** (Clarifications §2026-06-16): sibling matching keys on `program_level` (and the `open_overflow_halaqa` SELECT filters `program_level = v_source.program_level`). A NULL `program_level` never equals another NULL in SQL, so a NULL-level offering can **never match or become a sibling** — it would silently strand overflow joiners. Therefore `program_level` MUST be **required at offering creation** for any group/course offering that participates in overflow (guard at creation time, e.g. `NOT NULL` enforced by the create path / a `CHECK` once legacy NULL rows are backfilled — not merely filtered out at match time). T002a leaves the column nullable for the ALTER on legacy rows; the **creation guard** is the durable fix.
 
 ### 2d. `sessions`
 

@@ -51,7 +51,7 @@
   - CREATE TABLE `teacher_payouts (id uuid PK, teacher_id uuid FK profiles, payroll_period_month date NOT NULL, total_hours numeric(10,2) CHECK(>=0), hourly_rate_usd numeric(10,2) CHECK(>=0), total_amount_usd numeric(10,2) CHECK(>=0), status payout_status DEFAULT 'pending', run_at timestamptz DEFAULT now(), created_at)` + UNIQUE (teacher_id, payroll_period_month) + index
   - RLS for `session_deliveries`: teacher SELECT own; admin all; service_role INSERT; no UPDATE/DELETE
   - RLS for `teacher_payouts`: teacher SELECT own; admin all; service_role INSERT; admin/service_role UPDATE status only
-  - BEFORE UPDATE OF (`session_id`, `teacher_id`, `duration_minutes`, `hourly_rate_usd`) on session_deliveries (fully immutable)
+  - BEFORE UPDATE OF (`session_id`, `teacher_id`, `duration_minutes`, `hourly_rate_usd`, `delivered_at`) on session_deliveries (fully immutable — matches data-model.md)
   - BEFORE UPDATE OF (`teacher_id`, `payroll_period_month`, `total_hours`, `total_amount_usd`) on teacher_payouts
 
 - [ ] T006 Create `supabase/migrations/20260619000004_attendance_payroll_fns.sql`:

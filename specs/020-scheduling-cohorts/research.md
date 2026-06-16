@@ -99,6 +99,7 @@ BEGIN
     AND status = 'open'
     AND current_enrollment < capacity
     AND id <> p_source_offering_id
+  ORDER BY current_enrollment DESC  -- fill least-empty sibling first (deterministic; matches data-model §3)
   LIMIT 1;
 
   IF v_sibling_id IS NOT NULL THEN
@@ -133,14 +134,17 @@ GRANT EXECUTE ON FUNCTION open_overflow_halaqa(uuid) TO service_role;
 
 ## R-004 — Slot Double-Book Race Prevention
 
-**Decision**: Lock the `teacher_availability` row with `SELECT ... FOR UPDATE` when checking availability before creating the booking. This serializes concurrent attempts on the same slot. The query pattern:
+> **SUPERSEDED 2026-06-16** (Clarifications §2026-06-16): a recurring `teacher_availability` row is a weekly *template* and cannot carry a global `is_booked` flag — the same weekday slot recurs every week. The lock target below is therefore a **dated slot instance** (one materialized occurrence of the template on a specific date), not the recurring template row. `is_booked` semantics are **per dated instance** (see data-model §2a / §2a-bis). The `FOR UPDATE` serialization pattern is unchanged; only the locked row changes from the template to its dated instance.
+
+**Decision**: Lock the dated **slot instance** row (a materialized occurrence of the recurring `teacher_availability` template on a specific date) with `SELECT ... FOR UPDATE` when checking availability before creating the booking. This serializes concurrent attempts on the same dated slot. The query pattern (target = the dated instance, not the recurring template):
 
 ```sql
-SELECT id, is_booked FROM teacher_availability
-WHERE id = p_slot_id AND is_booked = false
+-- p_slot_instance_id identifies ONE dated occurrence, not the weekly template
+SELECT id, is_booked FROM teacher_availability_instances
+WHERE id = p_slot_instance_id AND is_booked = false
 FOR UPDATE;
 -- if row found: proceed with booking INSERT + mark is_booked = true
--- if no row: slot already taken, reject
+-- if no row: dated slot already taken, reject
 ```
 
 This is implemented in the booking domain function called by `POST /api/scheduling/book-slot`. The existing `confirm_booking_with_session` kernel handles the credit debit race independently (it already uses `FOR UPDATE` on `student_packages`).

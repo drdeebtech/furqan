@@ -175,6 +175,7 @@ Sessions already booked (or instant sessions in progress) at the cutover instant
 - **NFR-003**: Any migration with money/grant/progress logic MUST be verified locally in Postgres against a production copy before production execution, simulating the full sequence (map + convert + merge progress + idempotent re-run); `sb:advisors` MUST be clean.
 - **NFR-004**: Production data MUST never be copied to insecure or shared locations; the production copy used for rehearsal MUST be handled per the project's data-handling rules and credentials never inlined into commands.
 - **NFR-005**: The full check suite MUST pass: `tsc --noEmit`, `lint`, `test:unit`; migration logic (mapping, merge, conversion, idempotency, rollback) covered by tests including the partial-migration and re-run paths.
+- **NFR-006**: The migration runtime and the cutover write-freeze window MUST be bounded and evaluated at a production scale of **50,000 students** (the constitution NON-NEGOTIABLE scale-evaluation gate). The production-copy rehearsal MUST measure end-to-end migration runtime at this scale, and the freeze window declared in the runbook MUST be sized from that measured runtime — "short" is not a sufficient bound on its own.
 
 ### Key Entities *(data involved)*
 
@@ -211,9 +212,10 @@ Sessions already booked (or instant sessions in progress) at the cutover instant
 - **Hifz data lives in `student_progress` + murajaah/SM-2 scheduler state**, guarded by `student_progress_ayah_range_guard`; the canonical structural reference (`src/lib/quran/`) is unchanged and authoritative for `surah:ayah` validity.
 - **Legacy balances live in `student_packages` / `student_credits`**, and legacy arrangements in `profiles` / `bookings` / `packages`.
 - **Migration topology**: new migrations are timestamped to sort after `20260428000000_remote_baseline.sql` (the remote pg_dump = prod HEAD); the baseline is **never** `db push`ed; old applied migrations live in `supabase/migrations_archive/`.
-- **The prod `schema_migrations` reconciliation (~103 pre-baseline versions → `migration repair --status reverted` then `db push`) is the real deploy blocker** and is owned by this cutover, not by application code.
+- **The prod `schema_migrations` reconciliation (~103 pre-baseline versions → `migration repair --status reverted` then apply post-baseline migrations (never `db push` the baseline)) is the real deploy blocker** and is owned by this cutover, not by application code.
 - **Balance-conversion math and any adjustable financial values** are data/policy, not hardcoded; the policy is documented and reconcilable.
 - **The production copy** for rehearsal is a faithful, recent snapshot handled per data-handling rules; credentials are never inlined into commands.
+- **Production scale is ~50,000 students** for sizing purposes: migration runtime and the cutover freeze window are bounded and rehearsal-measured at this scale (NFR-006), so the freeze duration declared in the runbook is derived from a measured 50k-scale run rather than left unsized.
 - **[NEEDS CLARIFICATION: the fixed cutover DATE/TIME is not yet set — it must be chosen, expressed as an unambiguous absolute timestamp, and pre-announced before scheduling the freeze.]**
 - **[NEEDS CLARIFICATION: the exact legacy-balance→new-entitlement conversion policy (how remaining package credits/`student_credits` map to grants/credits, and how mid-cycle remainders are valued) is not yet finalized — a deterministic, reconcilable rule is required.]**
 - **[NEEDS CLARIFICATION: the rollback decision authority (which named role is authorized to invoke rollback, and the go/no-go sign-off owner for the verification gates) is not yet assigned.]**

@@ -18,7 +18,7 @@
 ## Service-Role Guard Idiom (consistency — known defect)
 
 - [ ] CHK007 Does the spec require the single-session identity guard's service-role detection to use the VERIFIED canonical idiom `nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'role'='service_role'`, treating a NULL/empty JWT as a trusted direct-DB/migration write? [Consistency, Spec §Clarifications 2026-06-16]
-- [ ] CHK008 Does data-model.md's guard function definition CONFLICT with the resolved clarification — it specifies `current_setting('role') = 'service_role'`, the idiom the clarification explicitly forbids as reading the wrong GUC? [Conflict, data-model.md §2 vs Spec §Clarifications]
+- [x] CHK008 RESOLVED (2026-06-16): data-model.md §2 now uses the canonical `nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'role'='service_role'` idiom (NULL/empty JWT = trusted direct-DB/migration write). The forbidden `current_setting('role')` form is gone from all spec-022 artifacts. Verify it stays consistent across data-model, tasks (T004), and plan. [Conflict resolved, data-model.md §2 vs Spec §Clarifications]
 - [ ] CHK009 Is the requirement explicit that, with the wrong GUC, the service-role exemption would *never match* — so every service-role/migration write would be blocked by its own guard (fail-closed-to-broken)? [Clarity, Spec §Clarifications]
 - [ ] CHK010 Is "match the idiom used by existing guard migrations" stated as a binding consistency requirement (not just a note), so the guard does not diverge from the platform-wide convention? [Consistency, Spec §FR-018]
 - [ ] CHK011 Does the requirement specify the admin-exemption mechanism (`private.is_admin()`) and migration-exemption precisely enough that the guard cannot be silently bypassed via a mutable column the guard does not read? [Completeness, Spec §FR-018]
@@ -32,10 +32,10 @@
 
 ## Atomic Booking+Session Creation & Recovery (exception coverage)
 
-- [ ] CHK016 Does the spec require an atomic SECURITY DEFINER creator (booking + session in one transaction) for assessment and specialized bookings — explicitly forbidding a bare INSERT in the webhook handler? [Completeness, Spec §Clarifications]
-- [ ] CHK017 Does this atomic-creator requirement CONFLICT with contracts/api.md and tasks.md, which still describe webhook-side `INSERT into bookings + sessions` (T013/T019, contract §3) rather than calling an atomic creator? [Conflict, contracts/api.md §3 / tasks.md T013,T019 vs Spec §Clarifications]
-- [ ] CHK018 Is the "payment confirmed but session creation fails" path defined as a requirement with a concrete recovery outcome (idempotent retry completes, OR a recorded reconcilable/refundable failure) rather than left to "must not silently vanish" prose? [Scenario/Edge Coverage, Spec §Edge Cases]
-- [ ] CHK019 Is the charge-but-no-specialist outcome (FR-013) specified with a decision rule on ordering — fail-before-charge (no charge taken) vs charge-then-refund/reconcile — rather than offering both as undifferentiated alternatives? [Ambiguity, Spec §FR-013 / Edge Cases]
+- [x] CHK016 RESOLVED (2026-06-16): the atomic SECURITY DEFINER creator `create_single_session_booking` (booking + session in one transaction) is now specified in data-model.md §3 and tasks T007b; webhook bare INSERT is explicitly forbidden. [Completeness, Spec §Clarifications]
+- [x] CHK017 RESOLVED (2026-06-16): conflict closed — contracts/api.md §3 and tasks T013/T019 now CALL `create_single_session_booking` instead of webhook-side `INSERT into bookings + sessions`. [Conflict resolved, contracts/api.md §3 / tasks.md T013,T019 vs Spec §Clarifications]
+- [x] CHK018 RESOLVED (2026-06-16): "payment confirmed but session creation fails" recovery is now defined (data-model.md §3 + contracts/api.md §3 Recovery): atomic creator prevents partial state; `billing_events` lock makes retry idempotent; an unmaterializable charge stays in `payments` with `booking_id` NULL for reconciliation/refund. [Scenario/Edge Coverage, Spec §Edge Cases]
+- [ ] CHK019 Is the charge-but-no-specialist outcome (FR-013) specified with a decision rule on ordering — fail-before-charge (no charge taken) vs charge-then-refund/reconcile — rather than offering both as undifferentiated alternatives? [Ambiguity, Spec §FR-013 / Edge Cases] — NOTE: research R-004 fixes ordering as fail-before-charge (match specialist → then Stripe); the residual reconcile path is now the NULL-`booking_id` recovery above.
 - [ ] CHK020 Is a refund/reconciliation requirement actually defined anywhere (who initiates it, against what ledger, in what time bound), or is FR-013's "reconcilable/refundable per 018" an unbacked reference with no owning requirement? [Gap, Spec §FR-013]
 - [ ] CHK021 Is idempotency specified as a measurable requirement — "at most one session and one payment per intent" keyed on a named idempotency key (`pi_{id}` in `billing_events`) — for ALL three products, not just instant? [Acceptance Criteria, Spec §FR-010/SC-005]
 
@@ -62,7 +62,7 @@
 ## Identity, RLS & SECURITY DEFINER Lockdown
 
 - [ ] CHK033 Is "student identity comes from the authenticated session, never request input" stated for all three products AND for the webhook path (where `student_id` originates from PI metadata set server-side at checkout)? [Completeness, Spec §FR-005 / contracts/api.md §3]
-- [ ] CHK034 Is the EXECUTE-lockdown requirement (revoke from public/anon/authenticated; grant service_role only) stated to bind BOTH any new atomic creator AND the adapted `start_instant_session_booking`, with atomicity preserved? [Completeness, Spec §NFR-002/FR-009]
+- [x] CHK034 RESOLVED (2026-06-16): EXECUTE lockdown (REVOKE public/anon/authenticated; GRANT service_role only) is now stated for BOTH the new atomic `create_single_session_booking` (data-model.md §3) AND the adapted `start_instant_session_booking`, atomicity preserved. [Completeness, Spec §NFR-002/FR-009]
 - [ ] CHK035 Is the requirement that financial/identity columns are immutable-after-creation specified by column (product type, price/payment linkage, assigned teacher, specialty, purpose, target_scope) rather than as a general "guard the row" statement? [Clarity, Spec §FR-018 / data-model.md §2]
 
 ## Dependencies & Assumptions
@@ -73,7 +73,7 @@
 
 ## Notes
 
-- CHK008, CHK014, CHK017, CHK030 are flagged **conflicts** between resolved clarifications/spec intent and the as-written data-model/contracts/tasks — fix the artifacts before implementation.
-- CHK020 is a **gap**: FR-013 references refund/reconcile but no owning requirement defines it.
+- CHK008, CHK017 conflicts are now RESOLVED in the artifacts (2026-06-16 propagation): guard idiom corrected and webhook now calls the atomic `create_single_session_booking`. CHK014, CHK030 remain open conflicts to fix before implementation.
+- CHK020 (**gap**): FR-013 references refund/reconcile; a concrete recovery is now defined (NULL-`booking_id` rows left for reconciliation — data-model.md §3 / contracts §3), but the *owning* requirement (who initiates, ledger, time bound) is still not formalized in spec.md — keep open.
 - CHK023/CHK026/CHK027 track the three NEEDS-CLARIFICATION items; 2 & 3 should read as RESOLVED, 1 remains open.
 - Check items off as `[x]` and record findings inline.

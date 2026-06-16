@@ -10,6 +10,7 @@
 
 ## Phase 1: Setup
 
+- [ ] T001a Open a **draft PR** for branch `024-migration-cutover` and link a tracking issue (`Closes #N`) **before** the second implementation task (constitution branch-hygiene rule) — establishes VCS visibility early rather than committing only at the end (T039).
 - [ ] T001 Verify branch cut after 018–023 merged; confirm migration targets exist: `SELECT to_regclass('public.subscriptions'), to_regclass('public.subscription_plans'), to_regclass('public.subscription_teacher_assignments'), to_regclass('public.student_progress'), to_regclass('public.student_credits'), to_regclass('public.student_packages')`
 - [ ] T002 Confirm `student_progress_ayah_range_guard` is present and enabled: `SELECT tgname, tgenabled FROM pg_trigger WHERE tgname LIKE '%ayah_range_guard%'`
 - [ ] T003 Prepare the **rehearsal environment**: provision a production-copy DB per data-handling rules (NFR-004 — never insecure locations, credentials never inlined; use `op run`/env). Confirm `migration repair` / `migration up` tooling available against the copy.
@@ -89,7 +90,7 @@
 
 **Independent Test**: Quickstart Scenario 5 (injected-failure rollback) on the rehearsal copy.
 
-- [ ] T021 [US4] Create `scripts/migration/reconcile-schema-history.ts`: for each of the ~103 pre-baseline versions run `migration repair --status reverted <version>`, then apply post-baseline migrations; **NEVER** `db push` the baseline; on failure halt → abort (FR-015)
+- [ ] T021 [US4] Create `scripts/migration/reconcile-schema-history.ts`: derive the pre-baseline version set from prod `schema_migrations` at run time (the documented "~103" is an approximation — query the actual versions, do not hardcode the count); for each pre-baseline version run `migration repair --status reverted <version>`, then apply post-baseline migrations; **NEVER** `db push` the baseline; on failure halt → abort (FR-015)
 - [ ] T022 [US4] Create `scripts/migration/run-migration.ts`: `run_migration(dry_run, resume_from_run_id?)` orchestrator — invokes progress-merge → user-to-tier → balance conversion → bookings resolution → reconciliation; idempotent + atomic-or-resumable via ledger; service-role/operator-only
 - [ ] T023 [US4] Create `docs/runbooks/024-cutover-runbook.md`: ordered steps (freeze → restore-verified backup → reconcile schema history → migrate → verify gates → flip Stripe keys-only → retire legacy paths → unfreeze) + rollback plan (restore-from-verified-backup) + explicit trigger criteria + captured-live-payments handling if rollback after live flip (FR-020/021). Reference the 3 open items (cutover timestamp, balance policy, rollback authority)
 - [ ] T024 [P] [US4] Create `src/app/api/admin/migration/reconciliation/route.ts`: GET, admin auth, returns 3 reports

@@ -159,9 +159,11 @@ z.object({ success: z.literal(true) })
 |------------|--------|
 | `monthly_report_ready` | Generate `monthly_reports` row + INSERT `notifications`; idempotency key `report:{studentId}:{year}:{month}` |
 | `certificate_earned` | INSERT `certificates` + INSERT `notifications`; idempotency key `cert:{studentId}:{type}:{milestoneKey}` |
-| `payment_failed` | INSERT `notifications` (dunning/pre-suspension alert); idempotency key `notif:payment_failed:{subscriptionId}:{attempt}` |
-| `subscription_expiring` | INSERT `notifications` ("continue?" prompt); idempotency key `notif:expiring:{subscriptionId}:{periodEnd}` |
-| `absence_outcome` | INSERT `notifications` (excuse/make-up result); idempotency key `notif:absence:{bookingId}:{outcome}` |
+| `payment_failed` | INSERT `notifications` (dunning/pre-suspension alert); idempotency key `notif:{recipientId}:payment_failed:{subscriptionId}-{attempt}` |
+| `subscription_expiring` | INSERT `notifications` ("continue?" prompt); idempotency key `notif:{recipientId}:subscription_expiring:{subscriptionId}-{periodEnd}` |
+| `absence_outcome` | INSERT `notifications` (excuse/make-up result); idempotency key `notif:{recipientId}:absence_outcome:{bookingId}-{outcome}` |
+
+All `notif:` keys follow the canonical recipient-first schema `notif:{recipientId}:{trigger}:{subjectKey}` (FR-014: recipient, trigger, subject), where `{subjectKey}` is the per-trigger subject identifier shown above.
 
 **Idempotency contract**: All branches check `automation_logs.idempotency_key` UNIQUE before acting. Conflict → `status='skipped'`, no side effect, return 200. Success → `status='succeeded'`. n8n failure → `status='failed'`, surface to Sentry.
 

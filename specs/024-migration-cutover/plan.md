@@ -32,7 +32,7 @@ explicit trigger criteria. Stripe flips test→live **by keys/config only, after
 **Testing**: Vitest (unit — mapping/merge/conversion/idempotency/rollback), local Postgres rehearsal on a production copy, Playwright for admin endpoints
 **Target Platform**: Vercel serverless; migration run server-only / operator-invoked
 **Constraints**: RLS preserved on every touched table; ayah-range guard never bypassed; exact `surah:ayah` byte-for-byte; progress merged-never-overwritten; baseline never `db push`ed; idempotent + atomic-or-resumable; Stripe test→live keys/config-only after verification; production data never copied to insecure locations; credentials never inlined; restore-verified backup before any destructive step; rollback authority named; cutover instant an unambiguous absolute timestamp
-**Scale/Scope**: full production user base in one window; ~103 pre-baseline schema versions to reconcile; one freeze window
+**Scale/Scope**: full production user base — bounded at **~50,000 students** for runtime/freeze sizing (constitution scale-evaluation gate, NFR-006); migration runtime and the cutover freeze window are rehearsal-measured at this scale, with the runbook freeze duration derived from that measured run; ~103 pre-baseline schema versions to reconcile; one freeze window
 
 ---
 

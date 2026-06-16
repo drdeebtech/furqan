@@ -29,7 +29,7 @@
 
 - [ ] T003 Create `supabase/migrations/20260620000000_notifications_whatsapp_channel.sql`:
   - `ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_channel_check;`
-  - `ALTER TABLE notifications ADD CONSTRAINT notifications_channel_check CHECK (channel = ANY(ARRAY['in_app','email','push','whatsapp']));`
+  - `ALTER TABLE notifications ADD CONSTRAINT notifications_channel_check CHECK (channel <@ ARRAY['in_app','email','push','whatsapp']);`
   - No data migration — existing rows already satisfy the widened set.
 
 - [ ] T004 Create `supabase/migrations/20260620000001_reports_certificates.sql`:

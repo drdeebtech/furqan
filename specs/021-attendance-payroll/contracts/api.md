@@ -27,8 +27,9 @@ const RecordAttendanceInput = z.object({
 **Errors**:
 - `401` — not admin/service_role
 - `404` — booking not found
-- `409` — outcome already finalized for this booking
 - `422` — `excused_carried` requested but no accepted excuse exists for this booking
+
+> **Duplicate finalize is an idempotent no-op, not a `409`.** Re-finalizing an already-finalized booking returns `200` with the existing `attendanceRecordId` (per Clarifications 2026-06-16 + plan decision #2). The `BEFORE UPDATE OF` guard and `credit_action` sentinel ensure no double-accounting; the route does not error.
 
 **Implementation notes**:
 - Calls `finalize_attendance(bookingId, outcome, actualTeacherId)` via service-role client.
@@ -109,7 +110,7 @@ const DecideExcuseInput = z.object({
 - `422` — excuse is `ineligible` (cannot be accepted)
 
 **Implementation notes**:
-- On `accepted`: calls `finalize_attendance(bookingId, 'excused_carried')` via service-role; inserts `subscription_extensions` for the subscription linked to this booking.
+- On `accepted`: calls `finalize_attendance(bookingId, 'excused_carried')` via service-role. The `subscription_extensions` row is inserted **inside the `finalize_attendance` SECURITY DEFINER function only** — the route never inserts it directly. This single insertion point (with `ON CONFLICT (subscription_id, booking_id) DO NOTHING`) avoids a double-insert.
 - `decided_by` = `auth.getUser().id`; `decided_at` = now().
 - Emits domain event for spec 023 notification routing.
 

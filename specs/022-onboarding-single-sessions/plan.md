@@ -29,10 +29,10 @@ Build the payment-mode Stripe Checkout infrastructure (Phase 0 — this spec own
 | Service-role key server-only | ✅ PASS | |
 | `userId` from auth session, never request input | ✅ PASS | `student_id` set server-side at checkout creation |
 | Zod validation at every route handler | ✅ PASS | |
-| BEFORE UPDATE OF guards on new columns | ✅ PASS | booking_product_type, specialty, purpose, target_scope |
-| SECURITY DEFINER lockdown | ✅ PASS | start_instant_session_booking EXECUTE grant preserved |
+| BEFORE UPDATE OF guards on new columns | ✅ PASS | booking_product_type, specialty, purpose, target_scope; service-role bypass uses canonical `nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'role'='service_role'` (NULL/empty JWT = trusted direct-DB/migration) — never `current_setting('role')` |
+| SECURITY DEFINER lockdown | ✅ PASS | start_instant_session_booking + create_single_session_booking EXECUTE granted to service_role only |
 | Never debit student_packages | ✅ PASS | p_payment_id path sets student_package_id = NULL |
-| Fail-closed — no session before payment | ✅ PASS | Booking created only in payment_intent.succeeded handler |
+| Fail-closed — no session before payment | ✅ PASS | Booking created only in payment_intent.succeeded handler, via the atomic `create_single_session_booking` creator (assessment/specialized) — never a bare INSERT |
 | Quran integrity | ✅ PASS | target_scope validated against src/lib/quran/ayah-counts.ts |
 | No hardcoded prices | ✅ PASS | All from platform_settings |
 | `npm run db:types` + tsc + lint pass | ✅ GATE | Required before PR |
@@ -64,7 +64,9 @@ src/
 supabase/migrations/
 ├── 20260619000000_payments_booking_id.sql     ← ALTER payments ADD booking_id
 └── 20260619000001_single_session_columns.sql  ← specialized_purpose enum, bookings columns,
-                                                  BEFORE UPDATE guard trigger, seed prices
+                                                  BEFORE UPDATE guard trigger (request.jwt.claims
+                                                  service-role idiom), create_single_session_booking
+                                                  atomic creator, seed prices
 ```
 
 ---
@@ -73,7 +75,7 @@ supabase/migrations/
 
 1. **Fail-before-charge ordering**: For assessments, specialist matching happens before Stripe Checkout creation. A 422 (no specialist / limit reached / invalid range) prevents any charge from being initiated.
 
-2. **payment_intent.succeeded webhook branch**: Added to existing `/api/stripe/webhook/route.ts` alongside spec 018's `invoice.paid` and subscription event handlers. Same webhook secret, same signature verification. Idempotency via spec 018's `billing_events` unique key `pi_{paymentIntentId}`.
+2. **payment_intent.succeeded webhook branch**: Added to existing `/api/stripe/webhook/route.ts` alongside spec 018's `invoice.paid` and subscription event handlers. Same webhook secret, same signature verification. Idempotency via spec 018's `billing_events` unique key `pi_{paymentIntentId}`. For assessment/specialized bookings the handler calls the atomic `create_single_session_booking` SECURITY DEFINER creator (booking + session + payment link in one transaction) rather than a bare `INSERT bookings + sessions` — so a partial booking-without-session can never persist. Recovery: a charge that cannot materialize after retries stays in `payments` with `booking_id` NULL for reconciliation/refund.
 
 3. **payments.booking_id one-to-one**: UNIQUE nullable FK on `payments`. Subscription-funded payments (spec 018) leave it NULL. Single-session payments set it at booking creation in the webhook handler.
 

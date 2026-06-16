@@ -28,9 +28,11 @@ Flow: INSERT into `automation_logs` with `status='started'`; if UNIQUE constrain
 ```sql
 ALTER TABLE notifications DROP CONSTRAINT notifications_channel_check;
 ALTER TABLE notifications ADD CONSTRAINT notifications_channel_check
-  CHECK (channel = ANY(ARRAY['in_app','email','push','whatsapp']));
+  CHECK (channel <@ ARRAY['in_app','email','push','whatsapp']);
 ```
 WhatsApp dispatch routes through the existing n8n webhook (`src/app/api/webhooks/n8n/route.ts`) — no new endpoint. n8n holds the provider credentials and pre-approved templates.
+
+> **Note (2026-06-16):** `channel` is `text[]`, so the constraint MUST use the array subset operator `<@` (per-element membership), NOT scalar `= ANY(...)`. The verified production constraint is `CHECK (channel <@ ARRAY['in_app','email','push'])`; this migration widens it to add `'whatsapp'` in the same `<@` form.
 
 **Rationale**: DROP + re-ADD CHECK is the standard Postgres pattern for widening a constraint without touching existing rows. Old rows satisfy the new constraint because their channel values are still in the array. No data migration needed.
 

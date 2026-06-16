@@ -17,7 +17,7 @@ This spec **extends** `notifications` (channel constraint) and **adds**: `teache
 -- Extend channel constraint to include WhatsApp without touching existing rows
 ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_channel_check;
 ALTER TABLE notifications ADD CONSTRAINT notifications_channel_check
-  CHECK (channel = ANY(ARRAY['in_app','email','push','whatsapp']));
+  CHECK (channel <@ ARRAY['in_app','email','push','whatsapp']);
 ```
 
 No data migration needed — existing rows satisfy the extended constraint.

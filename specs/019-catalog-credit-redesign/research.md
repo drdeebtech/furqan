@@ -35,11 +35,11 @@ CREATE UNIQUE INDEX uix_subscriptions_one_active_hifz
 
 ## R-002 — Stripe Proration for Mid-Month Individual Tier Upgrades
 
-**Decision**: Use `proration_behavior: 'create_prorated_invoice'` on `stripe.subscriptions.update()`. Stripe computes and charges the proration automatically. The `invoice.paid` webhook for the prorated invoice fires, and we grant additional credits = `tier_B.sessions_per_month - tier_A.sessions_per_month`.
+**Decision**: Use `proration_behavior: 'always_invoice'` on `stripe.subscriptions.update()` (force an immediate prorated invoice). *(Updated 2026-06-16 per Clarifications: an earlier draft used an enum value that is not valid in the Stripe API; `always_invoice` is the correct value that forces the immediate prorated invoice we rely on.)* Stripe computes and charges the proration automatically. The `invoice.paid` webhook for the prorated invoice fires, and we grant additional credits = `tier_B.sessions_per_month - tier_A.sessions_per_month`.
 
 **Mechanics**:
 1. Student requests upgrade from tier A (e.g. 4 hrs/month) to tier B (e.g. 6 hrs/month), same type + same teacher.
-2. Server calls `stripe.subscriptions.update(subId, { items: [{ id: itemId, price: tierB.stripe_price_id }], proration_behavior: 'create_prorated_invoice' })`.
+2. Server calls `stripe.subscriptions.update(subId, { items: [{ id: itemId, price: tierB.stripe_price_id }], proration_behavior: 'always_invoice' })`.
 3. Stripe immediately creates a prorated invoice for `(price_B - price_A) × (days_remaining / days_in_cycle)`.
 4. That invoice is paid immediately (if payment method on file) → `invoice.paid` webhook fires.
 5. We grant `sessions_additional = tier_B.sessions_per_month - tier_A.sessions_per_month` into a new `student_packages` row for the remainder of the cycle. The grant is tied to the invoice event_id for idempotency.

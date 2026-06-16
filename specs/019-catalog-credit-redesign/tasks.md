@@ -22,11 +22,11 @@
 - [ ] T003 Create `supabase/migrations/20260617000000_catalog_credit_redesign.sql`:
   - ALTER `subscription_plans`: add `is_hifz_product boolean NOT NULL DEFAULT false`, `sessions_per_month integer`, `session_duration_min integer`
   - ALTER `subscriptions`: add `is_hifz boolean NOT NULL DEFAULT false`, `pending_tier_change_id uuid` (FK to `pending_tier_changes`, deferred)
-  - ALTER `packages`: add `subscription_plan_id uuid FK`, `is_hifz_product boolean NOT NULL DEFAULT false`, `product_category text CHECK('hifz_group','hifz_individual','tajweed_mutoon','other')`; widen `package_type` CHECK to include 7 new values
+  - ALTER `packages`: add `subscription_plan_id uuid FK`, `is_hifz_product boolean NOT NULL DEFAULT false`, `product_category text CHECK('hifz_group','hifz_individual','tajweed_mutoon','other')`; widen `package_type` CHECK to include ONE new value `tajweed_course`
   - ALTER `student_packages`: add `subscription_id uuid FK`, `billing_cycle_key text`; add `UNIQUE INDEX uix_student_packages_cycle_grant (subscription_id, billing_cycle_key) WHERE billing_cycle_key IS NOT NULL`
   - CREATE TABLE `guardian_children (guardian_id uuid, child_id uuid, PRIMARY KEY(guardian_id,child_id), CHECK(guardian_id<>child_id))` + index on `child_id`
   - CREATE TABLE `subscription_discount_records (id uuid PK, subscription_id uuid FK, discount_type text CHECK('second_individual','sibling_group'), discount_pct numeric(5,2), setting_key text, applied_at timestamptz)` + index on `subscription_id` + BEFORE UPDATE immutability trigger
-  - CREATE TABLE `pending_tier_changes (id uuid PK, subscription_id uuid FK, student_id uuid FK, from_package_id uuid FK, to_package_id uuid FK, change_reason text CHECK(...), requested_at timestamptz, applies_at_period_end boolean DEFAULT true, status text DEFAULT 'pending' CHECK('pending','applied','cancelled'), applied_at timestamptz, created_at timestamptz)` + partial index WHERE `status='pending'`
+  - CREATE TABLE `pending_tier_changes (id uuid PK, subscription_id uuid FK, student_id uuid FK, from_package_id uuid FK, to_package_id uuid FK, change_reason text CHECK(...), requested_at timestamptz, applies_at_period_end boolean DEFAULT true, status text DEFAULT 'pending' CHECK('pending','applied','cancelled'), applied_at timestamptz, created_at timestamptz)` + partial UNIQUE index WHERE `status='pending'`
   - CREATE UNIQUE INDEX `uix_subscriptions_one_active_hifz ON subscriptions(student_id) WHERE is_hifz=true AND status NOT IN ('canceled','incomplete_expired')`
   - RLS on all 3 new tables: `(select auth.uid())` initplan; student reads own; guardian reads own children's; service_role/admin write
   - BEFORE UPDATE guards on `subscriptions.is_hifz`, identity cols of `pending_tier_changes`
@@ -81,7 +81,8 @@
 
 - [ ] T013 [US3] Create `src/lib/domains/catalog/credit-grant.ts`: `grantHifzCycleCredits(subscriptionId, planId, billingCycleKey)` — calls DB fn via service-role; handles unique-constraint idempotency
 - [ ] T014 [US3] Wire into `src/app/api/stripe/webhook/route.ts` `invoice.paid` branch: if `is_hifz_product=true`, call `grantHifzCycleCredits(subscription_id, plan_id, invoice.id)`
-- [ ] T015 [US3] Unit test `src/lib/domains/catalog/credit-grant.test.ts`: idempotency, correct `sessions_total`, prior rows untouched
+- [ ] T014a [US3] Apply pending tier changes at renewal (FR-019): in the `src/app/api/stripe/webhook/route.ts` `invoice.paid` branch, after the cycle grant, look up the subscription's pending `pending_tier_changes` row (the partial UNIQUE index guarantees at most one), transition it `pending → applied` (set `applied_at = now()`), switch the subscription to the new tier (`to_package_id` / new plan), and re-grant credits at the NEW tier's `sessions_per_month` for the new cycle. Service-role only; idempotent per `billing_cycle_key`.
+- [ ] T015 [US3] Unit test `src/lib/domains/catalog/credit-grant.test.ts`: idempotency, correct `sessions_total`, prior rows untouched; plus pending-change application at renewal (T014a) — pending row transitions to `applied` with `applied_at` set and re-grant uses the new tier's count
 
 **Checkpoint**: Two simulated cycles → two `student_packages` rows; first row `sessions_remaining` unchanged if unused.
 
@@ -110,7 +111,7 @@
 **Independent Test**: Individual 4h → upgrade individual 6h same teacher → Stripe proration + delta 2-session grant. Type-change request → `scheduled_for_renewal`, no immediate change.
 
 - [ ] T021 [P] [US5] Create `src/lib/domains/catalog/tier-changes.ts`: `canUpgradeImmediately(current, newPlan)` checks same `product_category` + `teacher_id` + sessions increasing; `scheduleRenewalChange(...)` inserts `pending_tier_changes`
-- [ ] T022 [US5] Create `src/app/api/subscriptions/upgrade-tier/route.ts`: POST, auth, zod; if allowed → `stripe.subscriptions.update` with `proration_behavior:'create_prorated_invoice'` + `grantHifzCycleCredits` with delta sessions + `'upgrade_'+invoice.id` key; if not → `scheduleRenewalChange`
+- [ ] T022 [US5] Create `src/app/api/subscriptions/upgrade-tier/route.ts`: POST, auth, zod; if allowed → `stripe.subscriptions.update` with `proration_behavior:'always_invoice'` + `grantHifzCycleCredits` with delta sessions + `'upgrade_'+invoice.id` key; if not → `scheduleRenewalChange`
 - [ ] T023 [US5] Create `src/app/api/subscriptions/schedule-tier-change/route.ts`: POST, auth, zod `{subscriptionId, toPackageId, changeReason}`; inserts `pending_tier_changes`
 - [ ] T024 [US5] Unit test `src/lib/domains/catalog/tier-changes.test.ts`
 
@@ -134,6 +135,7 @@
 - **Phase 2** → **Phases 3–7** (types must be regenerated first)
 - **US1/US2/US3** parallel after Phase 2
 - **US4/US5** parallel after Phase 2; US5 needs T013 (`grantHifzCycleCredits`) from US3
+- **T014a** (renewal application of pending changes, FR-019) needs T013/T014 (grant + webhook branch) and the `pending_tier_changes` table (T003); it consumes the pending rows written by US5 (T021/T023), so verify against US5 once both land
 - **Phase 8** → all stories complete
 
 ## MVP Scope (P1 only)

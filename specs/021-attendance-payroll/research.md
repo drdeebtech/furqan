@@ -62,7 +62,7 @@ const isEligible = excuseSubmittedAt <= deadline  // inclusive
 
 **Alternatives considered**:
 - Exclusive boundary (`<` instead of `<=`) → rejects submission at exactly the threshold, which contradicts "at least 2 hours."
-- Hardcoded 2 hours → violates NFR-028 (no hardcoded policy values).
+- Hardcoded 2 hours → violates FR-028 (no hardcoded policy values).
 
 ---
 

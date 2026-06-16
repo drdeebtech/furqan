@@ -82,11 +82,13 @@ supabase/migrations/
 
 3. **Additive credit merge**: Each paid cycle inserts a NEW `student_packages` row via `grant_hifz_cycle_credits`. Never mutates prior rows. `sessions_remaining` (GENERATED) sums correctly per row.
 
-4. **Stripe mid-month proration**: `stripe.subscriptions.update` with `proration_behavior: 'create_prorations'`. Delta credits = `new_sessions_per_month - old_sessions_per_month` prorated by remaining seconds in cycle. Granted immediately for UX; idempotent on webhook retry via `billing_events` unique constraint (spec 018).
+4. **Stripe mid-month proration**: `stripe.subscriptions.update` with `proration_behavior: 'always_invoice'`. Delta credits = `new_sessions_per_month - old_sessions_per_month` prorated by remaining seconds in cycle. Granted immediately for UX; idempotent on webhook retry via `billing_events` unique constraint (spec 018).
 
 5. **Guardian discount**: At child B checkout, check `guardian_children` for guardian's existing active individual subscriptions. If ≥1 exists, apply `platform_settings.hifz_second_subscription_discount_pct`. Record in `subscription_discount_records`.
 
-6. **platform_settings keys seeded**: `hifz_individual_hourly_rate_usd=10.00`, group tier prices, discount pcts start at 0 (admin sets real values).
+6. **Pending-change application at renewal (FR-019)**: the Stripe `invoice.paid` webhook branch is the owner — after the normal cycle grant it transitions the subscription's single pending `pending_tier_changes` row `pending → applied` (sets `applied_at`), switches the subscription to the new tier, and re-grants credits at the new tier's `sessions_per_month`. The single-pending invariant is enforced by a partial UNIQUE index on `pending_tier_changes(subscription_id) WHERE status='pending'`. (Task T014a — no longer deferred.)
+
+7. **platform_settings keys seeded**: `hifz_individual_hourly_rate_usd=10.00`, group tier prices, discount pcts start at 0 (admin sets real values).
 
 ---
 

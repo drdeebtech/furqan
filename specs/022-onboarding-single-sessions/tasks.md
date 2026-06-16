@@ -25,7 +25,7 @@
 - [ ] T004 Create `supabase/migrations/20260619000001_single_session_columns.sql`:
   - `CREATE TYPE specialized_purpose AS ENUM ('review','consolidate_surah','memorize_mutoon','test_juz_mutashabihat')`
   - `ALTER TABLE bookings ADD COLUMN booking_product_type text CHECK(...)`, `specialty text`, `purpose specialized_purpose`, `target_scope jsonb`
-  - BEFORE UPDATE OF trigger `bookings_single_session_identity_guard` on new columns (service_role and admin exempt)
+  - BEFORE UPDATE OF trigger `bookings_single_session_identity_guard` on new columns (service_role and admin exempt). Service-role bypass MUST use the canonical verified idiom `nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role' = 'service_role'` (NULL/empty JWT = trusted direct-DB/migration write → bypass). Do NOT use `current_setting('role')` — it reads the wrong GUC and the exemption never matches.
   - `INSERT INTO platform_settings` for 6 new price keys with `'0.00'` seed values `ON CONFLICT DO NOTHING`
 
 - [ ] T005 `supabase migration up` → `npm run db:types` → commit regenerated `src/types/database.ts`
@@ -36,6 +36,8 @@
   - Verify `booking_id` nullable (existing payments unaffected)
 
 - [ ] T007 Adapt `start_instant_session_booking` DB function: add optional `p_payment_id uuid DEFAULT NULL` param; when set → `student_package_id = NULL` + `UPDATE payments SET booking_id = new_booking_id`; EXECUTE lockdown unchanged; verify both code paths work locally
+
+- [ ] T007b Create atomic SECURITY DEFINER creator `create_single_session_booking(p_student_id, p_teacher_id, p_payment_id, p_booking_product_type, p_specialty, p_purpose, p_target_scope)` in `supabase/migrations/20260619000001_single_session_columns.sql` (see data-model.md §3): creates booking + session in **one transaction**, sets `student_package_id = NULL`, links `payments.booking_id`. EXECUTE lockdown: REVOKE from public/anon/authenticated; GRANT to service_role only. The assessment/specialized webhook branches (T013/T019) MUST call this fn — never a bare `INSERT bookings + sessions`. Verify locally: partial booking-without-session can never persist; retried call is idempotent.
 
 **Checkpoint**: `npm run sb:advisors` clean; `npx tsc --noEmit` passes.
 
@@ -69,7 +71,7 @@
 
 - [ ] T013 [US1] Extend `src/app/api/stripe/webhook/route.ts` with `payment_intent.succeeded` branch:
   - Extract metadata from PI; check `billing_events` idempotency key `pi_{id}`; insert billing_events lock
-  - For `booking_type = 'assessment'`: INSERT booking + session via service-role; UPDATE `payments SET booking_id`
+  - For `booking_type = 'assessment'`: call `create_single_session_booking(student_id, teacher_id, payment_id, 'assessment', specialty)` via service-role (atomic booking+session+payment link). Do NOT `INSERT bookings + sessions` directly. On creator failure after retries, leave the `payments` row with `booking_id` NULL for reconciliation/refund (recovery path per FR-013)
 
 - [ ] T014 [US1] Unit test `src/lib/domains/single-sessions/specialist-matching.test.ts` + `pricing.test.ts` + `quran-validation.test.ts`
 
@@ -105,7 +107,7 @@
   - `productType = 'specialized'`: require `purpose` and `targetScope`; call `validateTargetScope` (422 on fail); look up price by purpose; create Stripe Checkout with metadata `{booking_type:'specialized', purpose, target_scope, student_id, teacher_id}`
 
 - [ ] T019 [US3] Extend `payment_intent.succeeded` webhook branch for `booking_type = 'specialized'`:
-  - INSERT booking with `booking_product_type='specialized'`, `purpose`, `target_scope`; UPDATE `payments SET booking_id`
+  - call `create_single_session_booking(student_id, teacher_id, payment_id, 'specialized', NULL, purpose, target_scope)` via service-role (atomic booking+session+payment link). Do NOT `INSERT bookings + sessions` directly. On creator failure after retries, leave the `payments` row with `booking_id` NULL for reconciliation/refund
 
 - [ ] T020 [US3] Unit test: invalid surah → 422 before Stripe call; valid specialized → booking created; `student_packages` untouched
 
@@ -145,6 +147,7 @@
 
 - **Phase 2** → **Phases 3–6** (db:types must regenerate first)
 - **T007** (start_instant_session_booking adaptation) → **T016** (instant webhook branch)
+- **T007b** (create_single_session_booking atomic creator) → **T013** (assessment webhook branch) + **T019** (specialized webhook branch)
 - **T010** (quran-validation) → **T018** (specialized path)
 - **T008 + T009** can run parallel with **T010 + T011** (different files)
 - **US3 + US4** are independent of each other after Phase 2

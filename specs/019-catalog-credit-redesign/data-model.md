@@ -153,7 +153,7 @@ CREATE TABLE pending_tier_changes (
   applied_at           timestamptz,
   created_at           timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_pending_changes_subscription ON pending_tier_changes (subscription_id) WHERE status = 'pending';
+CREATE UNIQUE INDEX idx_pending_changes_subscription ON pending_tier_changes (subscription_id) WHERE status = 'pending';
 ```
 
 **RLS**:

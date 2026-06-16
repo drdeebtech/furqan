@@ -81,7 +81,7 @@ const UpgradeTierRequest = z.object({
 6. Verify `new_package.sessions_per_month > current_package.sessions_per_month`
    (upgrades only; downgrades must use `schedule-tier-change`).
    - If not → `409 Conflict` with `{ error: 'not_an_upgrade' }`.
-7. Call `stripe.subscriptions.update(stripe_subscription_id, { items: [...], proration_behavior: 'create_prorations' })`.
+7. Call `stripe.subscriptions.update(stripe_subscription_id, { items: [...], proration_behavior: 'always_invoice' })`.
 8. Compute `delta_sessions = new_package.sessions_per_month - current_package.sessions_per_month`.
    Insert a new `student_packages` row with `sessions_total = delta_sessions`, linked to
    `subscription_id` and `billing_cycle_key = 'upgrade_' + stripe_invoice_id` for idempotency.
@@ -217,17 +217,21 @@ const GuardianChildrenResponse = z.object({
 
 ```ts
 const AddChildRequest = z.object({
-  child_user_id: z.string().uuid(),
+  childEmail: z.string().email(),
 })
 ```
 
+The client supplies only the child's **email** — never a raw `child_id` uuid. The server
+resolves the email to the child's profile id, so a caller cannot link an arbitrary id it guessed.
+
 **Server-side validation sequence**:
 1. Resolve `guardian_id` from `auth.getUser()`. Verify `profiles.role = 'guardian'` → else `403`.
-2. Verify `child_user_id != guardian_id` → else `422 { error: 'self_link_not_allowed' }`.
-3. Fetch `profiles` row for `child_user_id`. Must exist and have `role = 'student'`.
+2. Look up the child profile by `childEmail` (server-side email → id resolution). Must exist.
    - Not found → `404 { error: 'child_not_found' }`.
+3. Derive `child_id` from the resolved profile. Verify `child_id != guardian_id` → else `422 { error: 'self_link_not_allowed' }`.
+4. Verify the resolved profile has `role = 'student'`.
    - Wrong role → `422 { error: 'target_is_not_a_student' }`.
-4. Insert `guardian_children (guardian_id, child_user_id)`.
+5. Insert `guardian_children (guardian_id, child_id)` using the server-resolved `child_id`.
    - Duplicate (already linked) → `409 { error: 'already_linked' }` (caught from UNIQUE violation).
 
 **Response (201)**:

@@ -88,8 +88,11 @@ const AssessmentSpecialistsQuery = z.object({
    - Insert `billing_events` row (idempotent lock)
    - Based on `booking_type`:
      - `'instant'` → call `start_instant_session_booking(student_id, teacher_id, payment_id)` via service-role
-     - `'assessment'` or `'specialized'` → INSERT into `bookings` + `sessions` via service-role; UPDATE `payments SET booking_id = new_booking_id`
+     - `'assessment'` or `'specialized'` → call the atomic SECURITY DEFINER creator `create_single_session_booking(student_id, teacher_id, payment_id, booking_type, specialty, purpose, target_scope)` via service-role — this creates the `bookings` row **and** its `sessions` row **and** links `payments.booking_id` in **one transaction**. Do **NOT** `INSERT into bookings + sessions` directly in the handler.
    - All via service-role client; `student_id` from PI metadata (set server-side at checkout creation)
+
+### Recovery — "payment confirmed but session creation fails"
+Because the creator is atomic, a partial booking-without-session can never persist. The `billing_events` idempotency lock (`pi_{id}`) wraps the call, so a retried `payment_intent.succeeded` re-invokes the creator at most once and completes the booking idempotently. If creation cannot succeed after retries, the `payments` row is left with `booking_id` NULL — recorded, reconcilable, and refundable per FR-013 / spec 018 rails; the charge never silently vanishes.
 
 ### Idempotency
 Reuses spec 018's `billing_events (idempotency_key UNIQUE)` — duplicate PI event → no-op.
