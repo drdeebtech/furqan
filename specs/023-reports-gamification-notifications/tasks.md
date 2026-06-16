@@ -1,0 +1,159 @@
+# Tasks: Reports, Gamification & Notifications (Spec 023)
+
+**Input**: `specs/023-reports-gamification-notifications/` (spec.md, plan.md, research.md, data-model.md, contracts/api.md, quickstart.md)
+**Branch**: `023-reports-gamification-notifications`
+**Phase**: م٦ of the Subscription + Courses Pivot
+
+**Prerequisites**:
+- spec 018 merged — emits `PaymentFailed`, `SubscriptionExpiring` lifecycle events.
+- spec 021 merged — emits `AbsenceOutcome` events.
+- spec 019 merged — defines courses/products referenced by `course_completion` certificates + next-product suggestion.
+- Existing infrastructure: `notifications`, `automation_logs` (`idempotency_key` UNIQUE), `profiles`, `platform_settings`, `guardian_children`, `quran_surahs_reference`, `src/lib/automation/emit.ts`, `src/app/api/webhooks/n8n/route.ts` (`safeCompareSecret`), `src/lib/quran/ayah-counts.ts`.
+
+**Conventions**: `[P]` = parallelizable (distinct files, no ordering dep). `[USn]` = user story it serves. All paths absolute from repo root. `userId` always from `auth.getUser()`. Typed `FurqanEvent` names only — never string literals. n8n delivery failures → `automation_logs.status='failed'`, never `'succeeded'`.
+
+---
+
+## Phase 1: Setup
+
+- [ ] T001 Add 3 typed event members to the shared `FurqanEvent` surface (`src/lib/automation/events.ts` / `emit.ts` `WEBHOOK_ROUTES`): `MonthlyReportReady = 'monthly_report_ready'`, `CertificateEarned = 'certificate_earned'`, `HonorBoardUpdated = 'honor_board_updated'`. Confirm `PaymentFailed`, `SubscriptionExpiring`, `AbsenceOutcome` already exist (emitted by 018/021); if absent, stop and flag — this spec consumes, never defines, those.
+- [ ] T002 [P] Add 2 keys to `ALLOWED_SETTING_KEYS` in `src/lib/settings.ts`: `honor_board_refresh_cadence_days`, `notifications_whatsapp_enabled`.
+
+**Checkpoint**: `npx tsc --noEmit` + `npm run lint` pass; event names resolve as typed members (a typo fails to compile).
+
+---
+
+## Phase 2: Foundational — DB Migrations
+
+**⚠️ CRITICAL**: All user-story work is blocked until T006 (`npm run db:types`) completes.
+
+- [ ] T003 Create `supabase/migrations/20260620000000_notifications_whatsapp_channel.sql`:
+  - `ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_channel_check;`
+  - `ALTER TABLE notifications ADD CONSTRAINT notifications_channel_check CHECK (channel = ANY(ARRAY['in_app','email','push','whatsapp']));`
+  - No data migration — existing rows already satisfy the widened set.
+
+- [ ] T004 Create `supabase/migrations/20260620000001_reports_certificates.sql`:
+  - **Verify first**: confirm no existing teacher-notes/session-notes table already serves this purpose; only create `teacher_notes` if absent (Key Entities note).
+  - `CREATE TABLE teacher_notes (id uuid PK, student_id uuid FK→profiles, teacher_id uuid FK→profiles, content text, created_at, updated_at)` + index on `student_id`, `teacher_id` + `set_updated_at` trigger.
+  - `CREATE TABLE monthly_reports (id uuid PK, student_id uuid FK→profiles, subscription_id uuid FK→subscriptions, period_year integer, period_month integer CHECK BETWEEN 1 AND 12, level_assessment_summary text, generated_at timestamptz)` + `UNIQUE(student_id, period_year, period_month)`.
+  - `CREATE TYPE certificate_type AS ENUM ('appreciation_juz','appreciation_level','course_completion');`
+  - `CREATE TABLE certificates (id uuid PK, student_id uuid FK→profiles, certificate_type certificate_type, milestone_key text, cited_range_start text, cited_range_end text, issued_at timestamptz)` + `UNIQUE(student_id, certificate_type, milestone_key)`.
+  - `CREATE TABLE honor_board_entries (id uuid PK, student_id uuid FK→profiles, display_name text, avatar_url text, achievement_metric numeric, rank_period date, is_opted_out boolean NOT NULL DEFAULT false, computed_at timestamptz)` + partial index `WHERE is_opted_out = false` + `UNIQUE(student_id, rank_period)`.
+  - **RLS all 4 tables, policies in same migration, `(select auth.uid())` initplan**, `private.is_admin()` for admin reads:
+    - `teacher_notes`: teacher INSERT/UPDATE own (`teacher_id`); student + linked guardian (via `guardian_children`) SELECT own student's; admin all.
+    - `monthly_reports`: student + linked guardian SELECT own; service_role INSERT; BEFORE UPDATE OF `student_id`, `period_year`, `period_month` guard (service_role/migrations exempt).
+    - `certificates`: student + linked guardian SELECT own; service_role INSERT; BEFORE UPDATE OF `student_id`, `certificate_type`, `milestone_key` immutable guard (no client UPDATE path).
+    - `honor_board_entries`: authenticated SELECT `WHERE is_opted_out = false`; student UPDATE `is_opted_out` on own row only (BEFORE UPDATE OF `student_id`, `achievement_metric`, `rank_period`, `display_name` guard); service_role INSERT/compute.
+  - Seed `platform_settings`: `honor_board_refresh_cadence_days='7'`, `notifications_whatsapp_enabled='true'`.
+
+- [ ] T005 `supabase migration up` (or `bash scripts/dev-local-db-bootstrap.sh` locally) — apply both migrations.
+- [ ] T006 `npm run db:types` → commit regenerated `src/types/database.ts`.
+- [ ] T007 Local verification (NFR-002): duplicate-insert blocked by each UNIQUE index; `certificates`/`monthly_reports` UPDATE of identity cols blocked by BEFORE UPDATE guard; non-linked guardian SELECT denied by RLS.
+
+**Checkpoint**: `npm run sb:advisors` clean for the 4 new tables; `npx tsc --noEmit` passes.
+
+---
+
+## Phase 3: User Story 1 — Guardian reports (teacher notes + monthly assessment) (P1) 🎯 MVP
+
+**Goal**: Teacher records per-student notes; guardian reads only their child's notes + one monthly assessment per closed month.
+
+**Independent Test**: Link guardian→student, teacher saves notes, close billing month → guardian (only) reads notes + single monthly report, rendered RTL.
+
+- [ ] T008 [P] [US1] Create `src/lib/domains/reports/notes.ts`: `getNotesForStudent(studentId)` (RLS-scoped read), `createNote(studentId, content)` — teacher-assignment check server-side; strip CR/LF from any value later placed in a notification header.
+- [ ] T009 [P] [US1] Create `src/lib/domains/reports/monthly-report.ts`: `generateMonthlyReport(studentId, year, month)` — idempotent via `automation_logs` key `report:{studentId}:{year}:{month}` (ON CONFLICT → skipped, no second row); any cited surah/juz from `src/lib/quran/ayah-counts.ts`, never hardcoded; append-only (never overwrites a newer assessment).
+- [ ] T010 [US1] Create `src/app/api/reports/[studentId]/notes/route.ts`: GET (student/guardian/teacher/admin, RLS) + POST (teacher only, zod `{content: string min1 max5000}`, 403 if not assigned, 422 validation).
+- [ ] T011 [US1] Create `src/app/api/reports/[studentId]/monthly/[year]/[month]/route.ts`: GET (student/guardian/admin), zod path params (`month` 1–12), returns nullable report.
+- [ ] T012 [US1] Wire `MonthlyReportReady` consumption into `src/app/api/webhooks/n8n/route.ts`: on `monthly_report_ready` → `generateMonthlyReport` + INSERT report-ready `notifications` row, single idempotency key.
+- [ ] T013 [P] [US1] Unit tests: `notes.test.ts` (RLS scoping, teacher-assignment gate), `monthly-report.test.ts` (idempotent replay → skipped, no duplicate; out-of-order event does not overwrite newer report).
+
+**Checkpoint**: Guardian reads only own student's notes + one monthly report; replay produces no second report.
+
+---
+
+## Phase 4: User Story 2 — Appreciation certificate per juz / level (P1)
+
+**Goal**: Completing a juz / level milestone issues exactly one appreciation certificate citing the canonical range; student + guardian notified once.
+
+**Independent Test**: Mark juz complete → one certificate, cited range == `src/lib/quran/ayah-counts.ts` for that juz; replay → no second certificate.
+
+- [ ] T014 [P] [US2] Create `src/lib/domains/certificates/quran-ranges.ts`: `getJuzBoundaries(juzNumber)` / `getLevelBoundaries(...)` — reads only from `src/lib/quran/ayah-counts.ts` + `surahs.ts`; throws loudly on an unvalidatable range (never returns an approximation); never bypasses `student_progress_ayah_range_guard`.
+- [ ] T015 [US2] Create `src/lib/domains/certificates/issue.ts`: `issueCertificate(studentId, type, milestoneKey)` — idempotent via `automation_logs` key `cert:{studentId}:{type}:{milestoneKey}` (ON CONFLICT → skipped); populates `cited_range_start/end` from T014; service-role INSERT.
+- [ ] T016 [US2] Extend `src/app/api/webhooks/n8n/route.ts`: on `certificate_earned` (`appreciation_juz`/`appreciation_level`) → `issueCertificate` + INSERT `notifications` for student AND linked guardian, single idempotency key each recipient.
+- [ ] T017 [US2] Create `src/app/api/certificates/[studentId]/route.ts`: GET (student/guardian/admin, optional `?type=` filter), display-safe certificate fields.
+- [ ] T018 [P] [US2] Unit tests: `quran-ranges.test.ts` (cited range == canonical for sampled juz; invalid juz throws), `issue.test.ts` (idempotent replay → skipped, exactly one certificate).
+
+**Checkpoint**: One certificate per juz milestone; cited range matches canonical; student + guardian each notified once.
+
+---
+
+## Phase 5: User Story 3 — Course completion certificate + next-product suggestion (P2)
+
+**Goal**: Completing a defined course issues one completion certificate + surfaces a next-product/surah suggestion; degrades gracefully when none applies.
+
+**Independent Test**: Mark course (spec 019) complete → one `course_completion` certificate, range cited from canonical; next-product suggestion shown or neutral "well done".
+
+- [ ] T019 [P] [US3] Extend `src/lib/domains/certificates/issue.ts`: handle `course_completion` type — milestone_key = course id; cited range from the course's covered surahs via `src/lib/quran/`; idempotent key `cert:{studentId}:course_completion:{courseId}`.
+- [ ] T020 [P] [US3] Create `src/lib/domains/certificates/next-product.ts`: `suggestNextProduct(studentId, completedCourseId)` — references spec-019 catalog; returns `null` (neutral state) when no further product applies; never fabricates a product or surah / broken link.
+- [ ] T021 [US3] Extend the `certificate_earned` n8n branch to handle `course_completion` and attach the next-product suggestion to the certificate-earned notification payload.
+- [ ] T022 [P] [US3] Unit tests: course-completion idempotency; next-product graceful-degrade (null → neutral, never fabricated).
+
+**Checkpoint**: One course-completion certificate; suggestion present or neutral; no fabricated product.
+
+---
+
+## Phase 6: User Story 4 — Honor board compute + opt-out (P2)
+
+**Goal**: Honor board ranks diligent students, exposes only display-safe fields, excludes opted-out students; opt-out by default-visible.
+
+**Independent Test**: Several students with progress → board lists by metric, display-safe only; opt-out excludes; guardian re-opts-in minor.
+
+- [ ] T023 [P] [US4] Create `src/lib/domains/honor-board/compute.ts`: `computeHonorBoard(rankPeriod)` — service-role INSERT of display-safe snapshot rows (`display_name`, `avatar_url`, `achievement_metric`, `rank_period`); cadence from `honor_board_refresh_cadence_days`; `getHonorBoard(period, limit)` query `WHERE is_opted_out = false`.
+- [ ] T024 [P] [US4] Create `src/lib/domains/honor-board/opt-out.ts`: `setOptOut(studentId, optedOut, callerUid)` — student sets own; guardian sets for linked child (validated via `guardian_children`); writes only `is_opted_out`.
+- [ ] T025 [US4] Create `src/app/api/honor-board/route.ts`: GET (auth optional, public), zod `{period?, limit default 20 max 100}`, returns display-safe fields only (no email/phone/contact).
+- [ ] T026 [US4] Create `src/app/api/honor-board/opt-out/route.ts`: PATCH (student/guardian), zod `{studentId?, optedOut: boolean}`, 403 if not authorized for that student.
+- [ ] T027 [P] [US4] Unit tests: ranking order; opted-out excluded; guardian-for-minor opt-out authorized via `guardian_children`; SELECT exposes zero contact columns (SC-008).
+
+**Checkpoint**: Board excludes opted-out; only display-safe fields returned; guardian opt-out for minor works.
+
+---
+
+## Phase 7: User Story 5 — Lifecycle notification routing (P1)
+
+**Goal**: Consume `PaymentFailed` / `SubscriptionExpiring` / `AbsenceOutcome` (emitted by 018/021) into idempotent, multi-channel notifications; expiry prompt sent before period end; n8n failures recorded `failed`.
+
+**Independent Test**: Emit each owned trigger → single notification per (recipient, trigger, subject); replay → skipped; WhatsApp/n8n failure → `failed`, Sentry-surfaced.
+
+- [ ] T028 [US5] Create `src/lib/domains/notifications/routing.ts`: per-trigger Arabic-first (RTL) content builders for dunning/pre-suspension, expiry "continue?" (sent before period end), payment-retry, absence/excuse outcome, report-ready, certificate-earned; idempotent INSERT via `automation_logs` key `notif:{recipientId}:{trigger}:{subjectKey}`; strip CR/LF from any user/teacher-authored value placed in subject/header (FR-016).
+- [ ] T029 [US5] Extend `src/app/api/webhooks/n8n/route.ts` branches for `payment_failed`, `subscription_expiring`, `absence_outcome` — `safeCompareSecret` fail-closed before any side effect; consume only (never emit/mutate billing/attendance state).
+- [ ] T030 [US5] Fail-closed delivery accounting: n8n unreachable / non-2xx → `automation_logs.status='failed'` (never `'succeeded'`), surfaced via `logError`/Sentry; retry-safe under the idempotency key (a `failed` row may retry; a `succeeded`/`skipped` one is a no-op).
+- [ ] T031 [P] [US5] Unit tests: per-trigger single notification; replay → `skipped` no-op (NFR-002); n8n 500 → `failed` not `succeeded` (SC-006); CR/LF stripped from header fields.
+
+**Checkpoint**: Each owned trigger delivers once per recipient on configured channels; replay no-op; failures recorded `failed`.
+
+---
+
+## Phase 8: Polish
+
+- [ ] T032 [P] `npx tsc --noEmit` — fix all type errors.
+- [ ] T033 [P] `npm run lint` — fix all lint issues.
+- [ ] T034 `npm run test:unit` — all existing + new tests pass.
+- [ ] T035 `npm run sb:advisors` — zero new advisories for the 4 new tables.
+- [ ] T036 [P] Quran-range unit test (NFR-003 / SC-003): assert every cited certificate range equals `src/lib/quran/ayah-counts.ts` values AND a scan proves **no hardcoded** ayah/juz boundary literal in `src/lib/domains/certificates/` — `grep -rn '[0-9]\{1,3\}:[0-9]\{1,3\}' src/lib/domains/certificates/` → zero non-canonical literals.
+- [ ] T037 [P] RTL verification: certificates, monthly reports, honor board, and all 6 notification templates render correctly in Arabic RTL with tashkeel/waqf preserved (SC-007).
+- [ ] T038 Commit all spec 023 artifacts + tasks.md; push.
+
+---
+
+## Dependencies
+
+- **Phase 1** → **Phase 2** (event members + setting keys before migrations reference them).
+- **Phase 2** → **Phases 3–7** (types regenerated at T006 before any domain/route code).
+- **US1, US2, US5** parallel after Phase 2 (all P1).
+- **US3** depends on T015 (`issue.ts` from US2) + spec-019 catalog.
+- **US4** parallel after Phase 2.
+- **Phase 8** → all stories complete.
+
+## MVP Scope (P1 only)
+
+Phases 1 → 2 → 3 (US1) → 4 (US2) → 7 (US5) → 8 partial. Delivers guardian reports, juz/level appreciation certificates, and lifecycle notifications — the encouragement + visibility core. US3 (course-completion) and US4 (honor board) are P2 follow-ons.
