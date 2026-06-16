@@ -2,7 +2,7 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning.
 **Created**: 2026-06-16
-**Feature**: `/home/drdeeb/furqan/specs/021-attendance-payroll/spec.md`
+**Feature**: `../spec.md`
 
 ## Content Quality
 

@@ -4,7 +4,7 @@
 **Created**: 2026-06-16
 **Status**: Draft
 **Phase**: م٧ (data migration + cutover) of the Subscription + Courses Pivot
-**Plan**: `/home/drdeeb/.claude/plans/you-are-acting-as-shimmering-cray.md`
+**Plan**: `plan.md`
 **Input**: Migrate all existing users, balances, and especially hifz (memorization) progress from the legacy per-session-booking + one-time-package system into the new subscription/courses model, then execute a single fixed-date big-bang cutover that stops the old system and starts the new one for everyone at once — with a short freeze, a verified backup, a migration script tested on a production copy, a documented rollback plan, and the production schema-history reconciliation that a clean deploy requires.
 
 ---

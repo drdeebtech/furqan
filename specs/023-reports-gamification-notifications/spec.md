@@ -4,7 +4,7 @@
 **Created**: 2026-06-16
 **Status**: Draft
 **Phase**: م٦ (reports, encouragement, notification content/channels) of the Subscription + Courses Pivot
-**Plan**: `/home/drdeeb/.claude/plans/you-are-acting-as-shimmering-cray.md`
+**Plan**: `plan.md`
 **Input**: Build guardian-facing reports (teacher notes + monthly level assessment), course-completion certificates with a next-product suggestion, lightweight gamification (per-juz / per-level appreciation certificates + an honor board), and the notification **content + delivery channels** (in-app, email, WhatsApp via the existing n8n automation layer) for triggers emitted by earlier phases (dunning/pre-suspension, expiry "continue?" prompt, payment-retry, absence/excuse outcomes) plus this spec's own triggers (monthly report ready, certificate earned). Reuse `automation_logs`, `emitEvent`, the n8n webhook intake, and the existing `notifications` surface.
 
 ---

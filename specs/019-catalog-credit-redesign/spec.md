@@ -4,7 +4,7 @@
 **Created**: 2026-06-16
 **Status**: Draft
 **Phase**: م٢ (product catalog + credit/package redesign) of the Subscription + Courses Pivot
-**Plan**: `/home/drdeeb/.claude/plans/you-are-acting-as-shimmering-cray.md`
+**Plan**: `plan.md`
 **Input**: Define the product catalog (open-ended memorization packages, defined memorization courses, one-time tajweed/mutoon courses), the six price tiers with captured pricing, the single-active-hifz rule, how monthly credit grants tie into the subscription from spec 018, family/guardian accounts with sibling/second-subscription discounts, and same-type/same-teacher mid-month tier changes with proration — all driven by the existing `packages`/`student_packages`/`platform_settings` infrastructure, with every adjustable financial value stored as admin-editable data, never hardcoded.
 
 ---

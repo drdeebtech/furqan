@@ -4,7 +4,7 @@
 **Created**: 2026-06-16
 **Status**: Draft
 **Phase**: م٣ (Scheduling, fixed-teacher assignment, and group cohorts) of the Subscription + Courses Pivot
-**Plan**: `/home/drdeeb/.claude/plans/you-are-acting-as-shimmering-cray.md`
+**Plan**: `plan.md`
 **Input**: Define how subscribers are scheduled under the new subscription model — fixed-teacher assignment for individual hifz, student-chosen sessions from the assigned teacher's published availability, fixed pre-set schedules for group halaqas and courses, automatic new-cohort opening on overflow, and product-specific level/program handling — reusing the existing booking, availability, and cohort tables rather than rebuilding them.
 
 ---

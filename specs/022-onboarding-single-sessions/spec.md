@@ -4,7 +4,7 @@
 **Created**: 2026-06-16
 **Status**: Draft
 **Phase**: م٥ (Onboarding + single sessions) of the Subscription + Courses Pivot
-**Plan**: `/home/drdeeb/.claude/plans/you-are-acting-as-shimmering-cray.md`
+**Plan**: `plan.md`
 **Input**: Add an optional, nominally-paid **assessment/level session** that a student may take before subscribing (conducted by a specialist teacher matched to the requested specialty), and make **single one-off sessions** — the existing **instant session** plus new **specialized on-demand sessions** (review/مراجعة, consolidating a surah, memorizing specific mutoon, testing on certain juz/mutashabihat) — available as standalone products **paid per session via a Stripe one-time charge**, never debited from a subscription's monthly credits.
 
 ---

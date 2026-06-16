@@ -2,7 +2,7 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning.
 **Created**: 2026-06-16
-**Feature**: `/home/drdeeb/furqan/specs/019-catalog-credit-redesign/spec.md`
+**Feature**: `../spec.md`
 
 ## Content Quality
 

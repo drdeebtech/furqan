@@ -4,7 +4,7 @@
 **Created**: 2026-06-16
 **Status**: Draft
 **Phase**: م٤ (Attendance, excuses, and teacher payroll) of the Subscription + Courses Pivot
-**Plan**: `/home/drdeeb/.claude/plans/you-are-acting-as-shimmering-cray.md`
+**Plan**: `plan.md`
 **Input**: Track per-session attendance and absences; let students request excuses and teachers accept/reject them; debit unexcused absences from the balance while carrying over excused ones (compensated by extending the subscription period); handle teacher absence via substitute-or-apology without penalizing the student; and compute teacher payroll from actual teaching hours, aggregated monthly and paid on a fixed date — reusing the platform's existing session, package, and credit-debit infrastructure.
 
 ---
