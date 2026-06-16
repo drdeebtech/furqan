@@ -168,9 +168,15 @@ const RunPayrollInput = z.object({
   data: {
     payoutsCreated: number,   // 0 if already ran (idempotent)
     month: string,
+    exceptions: Array<{        // FR-029/FR-030: teacher/months skipped, surfaced for ops
+      teacherId: string,
+      reason: 'missing_or_zero_rate' | 'non_uniform_rate',
+    }>,                        // [] when all delivered teacher/months are well-formed
   }
 }
 ```
+
+> **A teacher/month with a `NULL`/`0` snapshotted rate (FR-030) or non-uniform snapshotted rates (FR-029) is NOT paid** — it is skipped (no `$0` payout, no silent `MAX`-picked payout) and surfaced in `exceptions` for ops follow-up. The legitimate zero-delivered-hours case (FR-020) is not an exception.
 
 **Errors**:
 - `401` — not admin/service_role

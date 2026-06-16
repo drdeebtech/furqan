@@ -63,7 +63,7 @@ supabase/migrations/
 ├── 20260617000000_catalog_credit_redesign.sql
 │   — extends subscription_plans (is_hifz_product, sessions_per_month, session_duration_min)
 │   — extends subscriptions (is_hifz boolean for partial unique index)
-│   — partial unique index: subscriptions(student_id) WHERE is_hifz AND status IN (active,past_due,incomplete)
+│   — partial unique index: subscriptions(student_id) WHERE is_hifz = true AND status NOT IN ('canceled','incomplete_expired')
 │   — guardian_children, subscription_discount_records, pending_tier_changes + RLS
 │   — seeds 6 tiers into subscription_plans; seeds platform_settings keys
 │   — BEFORE UPDATE OF guards on financial columns
@@ -76,7 +76,7 @@ supabase/migrations/
 
 ## Key Implementation Decisions
 
-1. **Single-active-hifz**: Partial unique index on `subscriptions(student_id)` WHERE `is_hifz = true AND status IN ('active','past_due','incomplete')`. `is_hifz` denormalized from `subscription_plans.is_hifz_product` at create time.
+1. **Single-active-hifz**: Partial unique index on `subscriptions(student_id)` WHERE `is_hifz = true AND status NOT IN ('canceled','incomplete_expired')`. `is_hifz` denormalized from `subscription_plans.is_hifz_product` at create time.
 
 2. **Catalog model**: Extend `subscription_plans` (spec 018) with `is_hifz_product`, `sessions_per_month`, `session_duration_min`. Each of the 6 tiers = one `subscription_plans` row. Existing `packages` table unchanged (remains for one-time products and legacy).
 
@@ -84,7 +84,7 @@ supabase/migrations/
 
 4. **Stripe mid-month proration**: `stripe.subscriptions.update` with `proration_behavior: 'always_invoice'`. Delta credits = `new_sessions_per_month - old_sessions_per_month` prorated by remaining seconds in cycle. Granted immediately for UX; idempotent on webhook retry via `billing_events` unique constraint (spec 018).
 
-5. **Guardian discount**: At child B checkout, check `guardian_children` for guardian's existing active individual subscriptions. If ≥1 exists, apply `platform_settings.hifz_second_subscription_discount_pct`. Record in `subscription_discount_records`.
+5. **Guardian discount**: At child B checkout, check `guardian_children` for guardian's existing active individual subscriptions. If ≥1 exists, apply `platform_settings.hifz_second_individual_discount_pct`. Record in `subscription_discount_records`.
 
 6. **Pending-change application at renewal (FR-019)**: the Stripe `invoice.paid` webhook branch is the owner — after the normal cycle grant it transitions the subscription's single pending `pending_tier_changes` row `pending → applied` (sets `applied_at`), switches the subscription to the new tier, and re-grants credits at the new tier's `sessions_per_month`. The single-pending invariant is enforced by a partial UNIQUE index on `pending_tier_changes(subscription_id) WHERE status='pending'`. (Task T014a — no longer deferred.)
 

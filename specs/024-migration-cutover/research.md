@@ -103,8 +103,10 @@ the gate evidence for SC-003.
 **restore-verified backup** → **reconcile prod schema history** (R-001) → **migrate** (R-002/003/004) →
 **verification gates** (progress / tier / balance reconciliation reports all pass) → **flip Stripe
 test→live by KEYS/CONFIG ONLY** (no code change, only after verification passes) → **retire legacy
-booking/package paths** → **unfreeze**. A failed verification **leaves Stripe in test mode** and
-triggers the rollback path (restore-from-verified-backup).
+booking/package paths** → **unfreeze** → **post-cutover reconciliation/verification** (re-run the 3
+reports against the live system + a legacy-paths-retired smoke check; FR-023). A failed verification
+**leaves Stripe in test mode** and triggers the rollback path (restore-from-verified-backup).
+"Restore-verified" backup means restore-exercised with row-count + checksum parity vs source (FR-014).
 
 **Rationale**: Ordering encodes the safety: backup before any destructive step; schema reconcile
 before data migration (halt-before-migrate on failure); Stripe live only after data is proven, so
@@ -116,7 +118,7 @@ Keys-only flip means the test→live transition needs 0 code changes (SC-007).
 - *Code-change toggle for live mode* — rejected: introduces a deploy in the cutover window; keys/config-only is the contract.
 - *Skip the freeze for a "live" migration* — rejected: migration must run against a stable snapshot; no incremental net exists.
 
-**Scale check**: Single bounded freeze window; one backup; one migration run; three reconciliation reports gate the flip. Rollback-after-live-charges handling is a documented policy item (FR-021), and the cutover instant is an unambiguous absolute timestamp (FR-022) — both partly [NEEDS CLARIFICATION] in the spec.
+**Scale check**: Single bounded freeze window; one backup; one migration run; three reconciliation reports gate the flip. Rollback-after-live-charges handling is a documented policy item (FR-021) whose held-vs-refunded rule is an explicit [NEEDS CLARIFICATION] (Open Item #4, fail-closed until supplied), and the cutover instant is an unambiguous absolute timestamp (FR-022) — both [NEEDS CLARIFICATION] in the spec.
 
 ---
 

@@ -162,4 +162,32 @@ WHERE teacher_id = '<teacher_id>' AND payroll_period_month = '2026-06-01';
 -- 1  (no duplicate row)
 ```
 
+**Pass condition**: exactly one payout per teacher = SUM(hours) × rate; re-run creates 0 duplicates.
+
+---
+
+## Scenario 6 — Missing/Zero Rate Fails Loud (FR-030 / FR-029)
+
+**Setup**: Teacher B has 1 × 60-minute delivered session in the month, but `session_deliveries.hourly_rate_usd` is `NULL` or `0` (rate not configured at delivery time). Separately, Teacher C has two delivered sessions whose snapshotted rates differ (non-uniform).
+
+```bash
+# 1. Run payroll for the month
+POST /api/payroll/run { "month": "2026-06-01" }
+
+# 2. Verify NO silent $0 payout for Teacher B
+SELECT COUNT(*) FROM teacher_payouts
+WHERE teacher_id = '<teacher_B_id>' AND payroll_period_month = '2026-06-01';
+-- 0  (FR-030: NULL/0 rate is a config error — skipped, not paid $0)
+
+# 3. Verify NO silent MAX-picked payout for Teacher C (non-uniform rates)
+SELECT COUNT(*) FROM teacher_payouts
+WHERE teacher_id = '<teacher_C_id>' AND payroll_period_month = '2026-06-01';
+-- 0  (FR-029: non-uniform snapshotted rate is detected/flagged, not aggregated)
+
+# 4. Confirm both surfaced as exceptions (RAISE WARNING in the run output,
+#    or returned in the run's exceptions set for ops follow-up).
+```
+
+**Pass condition**: a teacher/month with a NULL/0 or non-uniform snapshotted rate yields **0** payout rows and is surfaced as a payroll exception — never a silent `$0` (FR-030) or silent `MAX`-picked (FR-029) payout.
+
 **Pass condition**: Exactly one payout row created; re-run returns `payoutsCreated: 0`; total_hours = 3.00, total_amount_usd = 60.00.

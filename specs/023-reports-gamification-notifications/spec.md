@@ -154,11 +154,25 @@ Guardians receive timely, idempotent notifications for events emitted by other p
 - **FR-008**: All certificates MUST be **simple appreciation artifacts**, NOT formal ijazah/sanad; the system MUST NOT represent them as ijazah and MUST NOT implement isnād/sanad chains (deferred per plan #39).
 - **FR-009**: Every certificate and report MUST render correctly in **Arabic RTL**, preserving tashkeel/waqf marks byte-for-byte for any rendered Quran text.
 - **FR-010**: System MUST compute an **honor board** ranking top/diligent students by a defined achievement/diligence metric, exposing only display-safe fields (no private contact data) and excluding students who have opted out of public recognition.
+  > ⛔ **[NEEDS CLARIFICATION] — honor-board achievement metric formula (P2/US4 only):** the ranking formula is **undefined** and is a genuine product decision (e.g. juz completed × consistency factor, or weighted recency). It MUST NOT be invented by an implementer or a model. The `honor_board_entries.achievement_metric` column (data-model §2d) and task **T023** that computes it are **blocked** until the product owner defines this formula. **This gap is confined to P2/US4 — it does NOT affect any P1 story** (reports, certificates, lifecycle notifications). SC-008 (privacy + opt-out) is testable today; **SC-008's ordering claim is NOT testable until the metric is defined.**
 
 ### Functional Requirements — Notifications (content & channels)
 
 - **FR-011**: System MUST support delivery on **three channels** — in-app, email, and **WhatsApp** — extending the existing `notifications.channel` set to include WhatsApp (migration), without breaking existing rows; email and WhatsApp dispatch route through the existing **n8n** automation layer.
-- **FR-012**: System MUST own the **content** (Arabic-first, RTL) for each notification trigger it serves: dunning/pre-suspension alert, expiry "continue?" prompt, payment-retry/dunning escalation, absence/excuse outcome, monthly-report-ready, and certificate-earned.
+- **FR-012**: System MUST own the **content** (Arabic-first, RTL) for each notification trigger it serves: dunning/pre-suspension alert, expiry "continue?" prompt, payment-retry/dunning escalation, absence/excuse outcome, monthly-report-ready, and certificate-earned. Each trigger MUST resolve to a **defined default channel set** (the `channel text[]` written on the `notifications` row), per the matrix below. These defaults are **admin-configurable** and live in `platform_settings` under key `notification_channel_matrix` (a JSON map of `trigger → channel[]`, validated against the widened channel set {in_app, email, push, whatsapp}); when no override is present the trigger falls back to its default below. They are NOT hardcoded in handler code.
+
+  **Trigger → default channel matrix** (subset of {in_app, email, whatsapp}; `push` reserved, off by default):
+
+  | Trigger | Default channels | Rationale |
+  |---------|------------------|-----------|
+  | `payment_failed` (dunning / pre-suspension) | `in_app`, `email`, `whatsapp` | money/continuity-critical — highest-reach |
+  | `subscription_expiring` (expiry "continue?") | `in_app`, `email`, `whatsapp` | renewal prompt, sent before period end — highest-reach |
+  | `payment_retry` / dunning escalation | `in_app`, `email`, `whatsapp` | escalation of an unresolved failure |
+  | `absence_outcome` (excuse / make-up) | `in_app`, `email` | informational outcome — no WhatsApp by default |
+  | `monthly_report_ready` | `in_app`, `email` | recurring digest — no WhatsApp by default |
+  | `certificate_earned` | `in_app` | in-app delight moment; email optional via override |
+
+  WhatsApp on any trigger additionally requires `notifications_whatsapp_enabled = 'true'` (data-model §3); when WhatsApp is globally disabled it is dropped from the resolved set without failing the other channels.
 - **FR-013**: For each owned trigger, the system MUST consume the **event emitted by the owning spec** (018 for billing/dunning/expiry/retry; 021 for absence/excuse) and MUST NOT itself emit or mutate billing/attendance state. The expiry "continue?" prompt MUST be sent **before** the period end.
 - **FR-014**: Notification delivery MUST be **idempotent** per (recipient, trigger, subject) via the existing `automation_logs` unique idempotency key, with status one of `started/succeeded/failed/skipped`; a duplicate/replayed trigger MUST resolve to `skipped`.
 - **FR-015**: A delivery attempt that cannot reach n8n (or that n8n reports failed) MUST be recorded `failed` and surfaced through the existing error pipeline — never silently swallowed and never marked succeeded; it MUST be retry-safe under the idempotency key.
@@ -198,7 +212,7 @@ Guardians receive timely, idempotent notifications for events emitted by other p
 - **SC-002**: After a billing month closes, exactly **one** monthly report and exactly **one** "report ready" notification exist per student+month, even after event re-delivery.
 - **SC-003**: Every appreciation/course certificate cites a juz/surah:ayah range that **exactly** matches `src/lib/quran/ayah-counts.ts` — **0** fabricated or hardcoded counts, asserted by an automated test.
 - **SC-004**: Replaying any issuance or notification trigger produces **0** duplicate certificates, reports, or messages across **100%** of retries (idempotency-ledger `skipped`).
-- **SC-005**: Each owned notification trigger (dunning, expiry "continue?", payment-retry, absence/excuse, report-ready, certificate-earned) delivers on its configured channels (in-app/email/WhatsApp) for **100%** of recipients, with the expiry prompt sent **before** period end.
+- **SC-005**: Each owned notification trigger delivers on **exactly the channel set defined by the FR-012 matrix** (or its `platform_settings` override) for **100%** of recipients — verified by asserting the `notifications.channel[]` array equals the matrix default for each trigger (e.g. `payment_failed` → {in_app, email, whatsapp}; `absence_outcome` → {in_app, email}; `certificate_earned` → {in_app}), with WhatsApp dropped when `notifications_whatsapp_enabled='false'`. The expiry "continue?" prompt MUST be sent **before** period end.
 - **SC-006**: An n8n/WhatsApp delivery failure is recorded `failed` and surfaced in **100%** of failure cases — **0** silently-succeeded false positives.
 - **SC-007**: Every certificate, report, and notification renders correctly in Arabic RTL with preserved tashkeel/waqf — verified manually on the critical flows.
 - **SC-008**: The honor board exposes **0** private contact fields and excludes **100%** of opted-out students.
@@ -239,5 +253,5 @@ Guardians receive timely, idempotent notifications for events emitted by other p
 - Q: `notifications.channel` widening — array or scalar CHECK? → A: column is ALREADY `text[]` with a correct `CHECK (channel <@ ARRAY['in_app','email','push'])` (VERIFIED 2026-06-16). The widening migration MUST follow the `<@` subset form to add `'whatsapp'`; do NOT use scalar `= ANY`. New allowed set: in_app / email / push / whatsapp.
 - Q: Canonical idempotency-key schema? → A: `notif:{recipientId}:{trigger}:{subjectKey}` per FR-014 (recipient, trigger, subject). Fix contracts/api.md §7 to match.
 - Q: Month-close trigger emitter (FR-002)? → A: requires an upstream month-close event from spec 018; no emitter is currently defined. Recorded as a dependency to verify/add before US covering FR-002 is built.
-- Q: Honor-board achievement metric (FR-010)? → A: formula undefined; recorded as OPEN pending product input (e.g. juz completed × consistency).
+- Q: Honor-board achievement metric (FR-010)? → A: formula undefined; recorded as **[NEEDS CLARIFICATION] on FR-010** pending product input (e.g. juz completed × consistency). Blocks task T023 and SC-008's ordering claim. P2/US4 only — does not affect any P1 story.
 - Q: WhatsApp provider [NEEDS CLARIFICATION]? → A: provider-agnostic via n8n; concrete template deferred to the n8n owner.

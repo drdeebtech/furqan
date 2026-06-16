@@ -190,21 +190,36 @@ Atomic outcome finalization:
 
 ### `run_monthly_payroll(p_month date) RETURNS int`
 
-Idempotent monthly aggregation:
+Idempotent monthly aggregation. Two correctness guards are part of the contract:
+
+- **FR-029 (constant rate per teacher/month):** `MAX(hourly_rate_usd)` is the effective rate **only** if every row for the teacher/month shares one snapshotted rate. The run MUST detect non-uniform rates (`MIN(hourly_rate_usd) <> MAX(hourly_rate_usd)`) rather than silently pick `MAX` — those teacher/months are surfaced as exceptions, not paid.
+- **FR-030 (fail loud on missing/zero rate):** a teacher/month whose effective rate is `NULL` or `0` MUST NOT yield a silent `$0` payout — it is skipped and surfaced.
+
 ```sql
+-- Only well-formed teacher/months become payouts: uniform, positive rate.
+WITH agg AS (
+  SELECT
+    teacher_id,
+    ROUND(SUM(duration_minutes) / 60.0, 2)                         AS total_hours,
+    MAX(hourly_rate_usd)                                           AS rate_max,
+    MIN(hourly_rate_usd)                                           AS rate_min,
+    ROUND(SUM(duration_minutes / 60.0 * hourly_rate_usd), 2)       AS total_amount_usd
+  FROM session_deliveries
+  WHERE payroll_period_month = p_month
+  GROUP BY teacher_id
+)
 INSERT INTO teacher_payouts (teacher_id, payroll_period_month, total_hours, hourly_rate_usd, total_amount_usd)
-SELECT
-  teacher_id,
-  p_month,
-  ROUND(SUM(duration_minutes) / 60.0, 2),
-  MAX(hourly_rate_usd),  -- all rows for same teacher/month have same rate (snapshotted)
-  ROUND(SUM(duration_minutes / 60.0 * hourly_rate_usd), 2)
-FROM session_deliveries
-WHERE payroll_period_month = p_month
-GROUP BY teacher_id
+SELECT teacher_id, p_month, total_hours, rate_max, total_amount_usd
+FROM agg
+WHERE rate_max IS NOT NULL AND rate_max > 0   -- FR-030: skip NULL/zero rate (surfaced separately)
+  AND rate_min = rate_max                     -- FR-029: skip non-uniform rate (surfaced separately)
 ON CONFLICT (teacher_id, payroll_period_month) DO NOTHING;
+
+-- Exceptions surfaced for ops (RAISE WARNING per offending teacher/month, or return alongside the count):
+--   rate_max IS NULL OR rate_max = 0  → missing/zero-rate exception (FR-030)
+--   rate_min <> rate_max              → non-uniform-rate exception (FR-029)
 ```
-Returns count of rows inserted. SET search_path = public; SECURITY DEFINER; same EXECUTE lockdown.
+Returns count of payout rows inserted. The well-formed teacher/months are paid; any `NULL`/`0`-rate or non-uniform-rate teacher/month is **skipped and surfaced**, never silently paid `$0`. Surfacing mechanism: the fn `RAISE WARNING`s per offending teacher/month (visible in run logs); the TS wrapper (`runMonthlyPayroll`, T022) additionally re-derives the structured `exceptions[]` (`{ teacherId, reason }`) returned by the API (contracts §5) by querying the same `agg` predicates, so ops get an actionable list rather than only a log line. SET search_path = public; SECURITY DEFINER; same EXECUTE lockdown.
 
 ---
 

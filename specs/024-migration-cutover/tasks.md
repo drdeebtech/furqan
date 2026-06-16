@@ -4,7 +4,7 @@
 **Branch**: `024-migration-cutover` (cut after specs 018–023 merged & live)
 **Prerequisites**: specs 018 (billing rails/grants), 019 (catalog/tiers), 020 (teacher assignment), 021 (attendance/payroll), 022 (single-sessions), 023 (reports/notifications) all **shipped and live**. Migration targets their structures.
 
-> ⚠️ **Open items** (do NOT invent): cutover DATE/TIME, exact balance-conversion policy, rollback authority — see plan.md "Open Items". Tasks reference them but require human-supplied values before the real cutover.
+> ⚠️ **Open items** (do NOT invent): cutover DATE/TIME, exact balance-conversion policy, rollback authority, and the captured-live-payments held-vs-refunded policy for a post-Stripe-flip rollback — see plan.md "Open Items" (#4 is a sub-decision of the rollback authority #3). Tasks reference them but require human-supplied values before the real cutover; the related seams (T008 balance, T026 post-live rollback) are fail-closed until supplied.
 
 ---
 
@@ -94,14 +94,14 @@
 
 - [ ] T021 [US4] Create `scripts/migration/reconcile-schema-history.ts`: derive the pre-baseline version set from prod `schema_migrations` at run time (the documented "~103" is an approximation — query the actual versions, do not hardcode the count); for each pre-baseline version run `migration repair --status reverted <version>`, then apply post-baseline migrations; **NEVER** `db push` the baseline; on failure halt → abort (FR-015)
 - [ ] T022 [US4] Create `scripts/migration/run-migration.ts`: `run_migration(dry_run, resume_from_run_id?)` orchestrator — invokes progress-merge → user-to-tier → balance conversion → bookings resolution → reconciliation; idempotent + atomic-or-resumable via ledger; service-role/operator-only
-- [ ] T023 [US4] Create `docs/runbooks/024-cutover-runbook.md`: ordered steps (freeze → restore-verified backup → reconcile schema history → migrate → verify gates → flip Stripe keys-only → retire legacy paths → unfreeze) + rollback plan (restore-from-verified-backup) + explicit trigger criteria + captured-live-payments handling if rollback after live flip (FR-020/021). Reference the 3 open items (cutover timestamp, balance policy, rollback authority)
+- [ ] T023 [US4] Create `docs/runbooks/024-cutover-runbook.md`: ordered steps (freeze → restore-verified backup → reconcile schema history → migrate → verify gates → flip Stripe keys-only → retire legacy paths → unfreeze → **post-cutover reconciliation/verification**) + rollback plan (restore-from-verified-backup) + explicit trigger criteria + captured-live-payments handling if rollback after live flip (FR-020/021). Define **restore-verified** as a concrete pass/fail check (FR-014): restore the backup onto a scratch target and assert **row-count parity on every touched table AND content-checksum parity** (per-table ordered-row hash or `pg_dump` digest) vs the source snapshot; any mismatch ⇒ FAIL ⇒ abort before the destructive step. Add a final **post-unfreeze verification** step (FR-023/SC-010): re-run the 3 reconciliation reports against the live post-cutover system + a legacy-paths-retired smoke check; any FAIL ⇒ escalate to the rollback authority. Reference the **4 open items** (cutover timestamp, balance policy, rollback authority, captured-live-payments held/refunded policy — #4 fail-closed until supplied)
 - [ ] T024 [P] [US4] Create `src/app/api/admin/migration/reconciliation/route.ts`: GET, admin auth, returns 3 reports
 - [ ] T025 [P] [US4] Create `src/app/api/admin/migration/manual-review/route.ts`: GET, admin auth, paginated `manual_review_bucket`
-- [ ] T026 [US4] Create `src/app/api/admin/migration/rollback/route.ts`: POST, **restricted rollback role** ([NEEDS CLARIFICATION] authority), zod `{run_id, reason, confirm}`, triggers restore procedure, sets `migration_runs.status='rolled_back'`, idempotent
+- [ ] T026 [US4] Create `src/app/api/admin/migration/rollback/route.ts`: POST, **restricted rollback role** ([NEEDS CLARIFICATION] authority), zod `{run_id, reason, confirm}`, triggers restore procedure, sets `migration_runs.status='rolled_back'`, idempotent. **Fail-closed on the captured-live-payments policy ([NEEDS CLARIFICATION] #4)**: if the run is past the Stripe live flip, the handler MUST NOT complete a post-live rollback with an invented held/refunded rule — it surfaces the undecided policy (e.g. 409/blocked with the policy gap) until a human-supplied held-vs-refunded rule is configured (FR-021). Data-only rollbacks before the flip are unaffected.
 - [ ] T027 [US4] Document Stripe flip as keys/config-only, **after** all 3 reports PASS; FAIL ⇒ leave Stripe in test mode (FR-018); 0 code changes (SC-007)
 - [ ] T028 [US4] Unit test `scripts/migration/run-migration.test.ts`: dry_run emits reports without finalizing; verification FAIL blocks Stripe flip + triggers rollback path; rollback restores ledger status
 
-**Checkpoint**: schema reconcile produces clean deploy (0 baseline force-pushes); runbook + rollback documented with criteria; verification gates wired before the flip.
+**Checkpoint**: schema reconcile produces clean deploy (0 baseline force-pushes); runbook + rollback documented with criteria; verification gates wired before the flip; restore-verified defined as row-count+checksum parity; post-unfreeze verification step present; post-live-flip rollback fail-closed on the captured-payments policy.
 
 ---
 
@@ -127,8 +127,9 @@
 - [ ] T035 Idempotent re-run test: run migration twice on the rehearsal copy → 0 double-grants / 0 duplicated progress / 0 double-converted balances (SC-004)
 - [ ] T036 Partial-migration / rollback test: inject a mid-run failure → assert atomic-or-resumable (safe resume OR restore-from-backup, never half-migrated); rollback restores exact pre-cutover state (SC-005/008)
 - [ ] T037 RLS audit: confirm RLS enabled + policies intact on **every** touched table during & after migration (NFR-002) — `migration_runs`, `manual_review_bucket`, and all migration targets
-- [ ] T038 **Production-copy rehearsal**: run the full runbook end-to-end on the production copy including a deliberately injected failure that correctly triggers rollback (FR-012, SC-008); credentials never inlined, copy handled per data rules
-- [ ] T039 Commit all spec artifacts to `docs/pivot-specs-019-024`; push
+- [ ] T038 **Production-copy rehearsal**: run the full runbook end-to-end on the production copy including a deliberately injected failure that correctly triggers rollback (FR-012, SC-008); exercise the **restore-verified** check for real (row-count + checksum parity vs source; mismatch ⇒ abort) (FR-014/SC-005) and the **post-unfreeze verification** pass (FR-023/SC-010); credentials never inlined, copy handled per data rules
+- [ ] T040 Post-cutover verification test (FR-023/SC-010): after a rehearsal unfreeze, run the post-unfreeze reconciliation pass (3 reports against the live post-cutover state + legacy-paths-retired smoke check); assert all PASS, and assert that an injected post-unfreeze FAIL escalates to the rollback authority rather than silently passing. Distinct from the pre-flip gate test (T028).
+- [ ] T039 Commit all spec artifacts on the **`024-migration-cutover`** branch (the same working/PR branch opened in T001a) and push to update that PR. (Note: an earlier draft targeted a `docs/pivot-specs-019-024` path; the canonical target is the `024-migration-cutover` branch from T001a — keep T001a and T039 on the same branch.)
 
 ---
 
@@ -156,5 +157,6 @@ real event. US5 (P2, in-flight bookings) is required for a clean cutover but is 
 population. Deliver in order: Phase 1 → 2 → 3 (US1) → 4 (US2) → 5 (US3) → 6 (US4) → 7 (US5) → 8.
 
 **The real cutover does NOT proceed** until: all 5 quickstart scenarios pass on the production copy;
-`tsc`/`lint`/`test:unit` green; `sb:advisors` clean; and the 3 open items (cutover timestamp,
-balance-conversion policy, rollback authority) are supplied by a human.
+`tsc`/`lint`/`test:unit` green; `sb:advisors` clean; and the 4 open items (cutover timestamp,
+balance-conversion policy, rollback authority, and the captured-live-payments held/refunded policy —
+#4 a sub-decision of the rollback authority) are supplied by a human.

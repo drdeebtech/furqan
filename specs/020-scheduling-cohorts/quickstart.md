@@ -16,23 +16,25 @@ POST /api/scheduling/assign-teacher
 # Expect: 201 { assignmentId }
 
 # 2. Teacher publishes availability (existing teacher availability UI)
-# teacher_availability row: teacher_id=<teacher-uuid>, day_of_week=1 (Mon), start_time="16:00", is_booked=false
+# teacher_availability TEMPLATE row: teacher_id=<teacher-uuid>, day_of_week=1 (Mon), start_time="16:00"
+# Materialize dated instances for the horizon (T003a fn): one
+# teacher_availability_instances row per Monday in range, is_booked=false
 
 # 3. Student checks available slots
 GET /api/scheduling/available-slots
-# Expect: 200, array includes the Monday 16:00 slot
+# Expect: 200, array includes the dated Monday 16:00 instance (id = instance uuid, slot_date set)
 
-# 4. Student books the slot
+# 4. Student books the dated slot instance
 POST /api/scheduling/book-slot
-{ "teacherAvailabilityId": "<slot-uuid>", "scheduledAt": "2026-07-07T16:00:00Z" }
+{ "slotInstanceId": "<slot-instance-uuid>", "scheduledAt": "2026-07-07T16:00:00Z" }
 # Expect: 201 { bookingId }
 
 # 5. Verify
 SELECT teacher_id FROM bookings WHERE id = '<bookingId>';
 -- Must equal <teacher-uuid> (the assigned teacher)
 
-SELECT is_booked FROM teacher_availability WHERE id = '<slot-uuid>';
--- Must be true
+SELECT is_booked FROM teacher_availability_instances WHERE id = '<slot-instance-uuid>';
+-- Must be true (per-instance flag; the recurring template is unaffected)
 ```
 
 ---
@@ -46,7 +48,7 @@ SELECT is_booked FROM teacher_availability WHERE id = '<slot-uuid>';
 # Teacher-B publishes a slot
 
 POST /api/scheduling/book-slot
-{ "teacherAvailabilityId": "<teacher-B-slot-uuid>", "scheduledAt": "2026-07-07T17:00:00Z" }
+{ "slotInstanceId": "<teacher-B-slot-instance-uuid>", "scheduledAt": "2026-07-07T17:00:00Z" }
 # Expect: 403 { success: false, error: "Booking must be with your assigned teacher." }
 
 # Verify: no booking row created for this student at 17:00

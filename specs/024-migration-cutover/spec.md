@@ -160,15 +160,16 @@ Sessions already booked (or instant sessions in progress) at the cutover instant
 
 - **FR-012**: The migration script MUST be executed and verified on a **copy of production data** before any production run; passing the production-copy rehearsal (including reconciliation reports) is a precondition for the real cutover.
 - **FR-013**: A **short, pre-announced write-freeze** MUST be applied over financial/booking writes for the cutover window so the migration operates on a stable snapshot.
-- **FR-014**: A full, **restore-verified backup** of production MUST be taken (and its restorability confirmed) **before** any destructive migration step.
+- **FR-014**: A full, **restore-verified backup** of production MUST be taken **before** any destructive migration step. "Restore-verified" is a pass/fail check, not merely "a backup exists": the backup MUST be actually restored onto a scratch target and confirmed to match the source snapshot by an explicit parity condition — **row-count parity** for every migration-touched table AND a **content checksum parity** (e.g., per-table hash of ordered rows, or `pg_dump` digest) between source and restored copy. Any mismatch ⇒ the check FAILS ⇒ the cutover MUST abort before the destructive step (no unverified backup may gate a destructive migration).
 - **FR-015**: The cutover MUST reconcile the production `schema_migrations` history (the documented ~103 pre-baseline versions) by marking pre-baseline versions reverted and then applying post-baseline timestamped migrations, producing a clean deploy; the remote baseline MUST NEVER be `db push`ed and the baseline-after ordering MUST be preserved.
 - **FR-016**: All new migrations MUST be timestamped to sort **after** `20260428000000_remote_baseline.sql`; RLS MUST remain enabled with policies intact on every table the migration touches; `sb:advisors` MUST be clean for the changes.
 - **FR-017**: The legacy one-time-package and per-session-booking write paths (left running by spec 018 during the build) MUST be retired at cutover so the new subscription/courses system is the sole active system for everyone.
 - **FR-018**: Stripe MUST be switched from test mode to live by **configuration/keys only, with no code change**, and **only after** data-migration verification passes; a failed verification MUST leave Stripe in test mode.
 - **FR-019**: Payment methods at go-live MUST be **Stripe only, USD only** (per plan decision #17); no other gateway or currency is enabled at cutover.
 - **FR-020**: A **documented rollback plan** MUST exist with **explicit trigger criteria** (e.g., a reconciliation gate fails, data corruption detected, migration aborts), a restore-from-verified-backup procedure, and a defined owner who is authorized to invoke it.
-- **FR-021**: If rollback is invoked, the system MUST be returned to the verified pre-cutover state and the legacy system MUST resume; the plan MUST also define handling of any **live payments already captured** if rollback occurs after the Stripe live flip (held/refunded).
+- **FR-021**: If rollback is invoked, the system MUST be returned to the verified pre-cutover state and the legacy system MUST resume; the plan MUST also define handling of any **live payments already captured** if rollback occurs after the Stripe live flip (held/refunded). That held-vs-refunded policy is an **undecided owner decision** ([NEEDS CLARIFICATION] #4) tied to rollback authority; until it is supplied the rollback path MUST **fail-closed** for a post-live-flip rollback — it MUST NOT silently complete with an invented money-handling rule, and MUST surface the undecided policy to the operator.
 - **FR-022**: The cutover instant MUST be expressed as an **unambiguous absolute timestamp** so future-dated booking classification is deterministic across timezones.
+- **FR-023**: After the freeze is lifted (post-unfreeze), the system MUST run a **post-cutover reconciliation/verification** pass — distinct from the pre-flip verification gates of FR-011 — that re-confirms progress integrity, tier placement, and balance conversion against the live post-cutover system, plus a smoke check that legacy write paths are retired and the new system is serving every learner. A post-cutover reconciliation failure MUST be raised to the rollback authority (FR-020) as a candidate rollback trigger, since by this point the freeze is released and new writes have resumed. The pre-flip gates (FR-011) prove the migrated data **before** the flip; FR-023 proves the **running** system **after** unfreeze.
 
 ### Non-Functional / Security Requirements
 
@@ -199,11 +200,12 @@ Sessions already booked (or instant sessions in progress) at the cutover instant
 - **SC-002**: **100%** of active users are placed on an equivalent tier/product or are in the explicit manual-review bucket; **0** silent drops.
 - **SC-003**: Total converted entitlement reconciles to total legacy outstanding balance within the documented policy, with **0** unexplained forfeitures — verified by the balance ledger.
 - **SC-004**: Re-running the migration script produces **0** duplicate entitlements, **0** duplicated progress rows, and **0** double-converted balances (idempotency proven).
-- **SC-005**: A restore-verified backup exists before the destructive migration step, and a rehearsal rollback returns the production copy to its exact pre-cutover state — **100%** restorable.
+- **SC-005**: A restore-verified backup exists before the destructive migration step — verified by **row-count parity on every touched table AND content-checksum parity** between source and restored copy (any mismatch FAILS the gate) — and a rehearsal rollback returns the production copy to its exact pre-cutover state — **100%** restorable.
 - **SC-006**: The production schema-history reconciliation yields a clean deploy with the baseline never `db push`ed and `sb:advisors` clean — **0** baseline force-pushes.
 - **SC-007**: Stripe goes live **only after** verification passes and **only via key/config change** — **0** code changes required for the test→live transition.
 - **SC-008**: The end-to-end runbook (freeze → backup → reconcile → migrate → verify → flip → retire → unfreeze) completes on the production copy, including a deliberately injected failure that correctly triggers rollback.
 - **SC-009**: The write-freeze window is bounded and pre-communicated; **0** learners lose access to their account, progress, or honored balance the morning after cutover.
+- **SC-010**: After unfreeze, the post-cutover reconciliation/verification pass (FR-023) re-confirms progress integrity, tier placement, and balance conversion against the **live** system and a legacy-paths-retired smoke check — all PASS, with any FAIL escalated to the rollback authority — proving the running system, not just the migrated data.
 
 ---
 
@@ -221,6 +223,7 @@ Sessions already booked (or instant sessions in progress) at the cutover instant
 - **[NEEDS CLARIFICATION: the fixed cutover DATE/TIME is not yet set — it must be chosen, expressed as an unambiguous absolute timestamp, and pre-announced before scheduling the freeze.]**
 - **[NEEDS CLARIFICATION: the exact legacy-balance→new-entitlement conversion policy (how remaining package credits/`student_credits` map to grants/credits, and how mid-cycle remainders are valued) is not yet finalized — a deterministic, reconcilable rule is required.]**
 - **[NEEDS CLARIFICATION: the rollback decision authority (which named role is authorized to invoke rollback, and the go/no-go sign-off owner for the verification gates) is not yet assigned.]**
+- **[NEEDS CLARIFICATION: the captured-live-payments policy for a rollback that occurs AFTER the Stripe live flip (FR-021) — i.e., whether already-captured live charges are HELD or REFUNDED, and the criteria distinguishing the two — is not yet decided. This is an owner decision tied to rollback authority and money movement; a model must not invent it. The rollback path MUST fail-closed (block the post-live rollback from completing, surfacing the undecided policy) until it is supplied.]**
 
 ## Dependencies
 
@@ -236,6 +239,13 @@ Sessions already booked (or instant sessions in progress) at the cutover instant
 ### Session 2026-06-16 (analyze remediation)
 
 - Q: The 3 [NEEDS CLARIFICATION] markers (cutover date/time, balance-conversion policy, rollback authority)? → A: INTENTIONALLY left open — owner/operator decisions, correctly fail-closed in tasks. Not defects.
+
+### Session 2026-06-16 (residual remediation)
+
+- Q: §Scope lists "post-cutover reconciliation/verification" but FR-011 only gates BEFORE the flip — where is the post-unfreeze verification requirement? → A: added **FR-023** (post-unfreeze reconciliation/verification, distinct from FR-011's pre-flip gates; failure escalates to the rollback authority). Wired into the runbook (T023) and a new test task (T040).
+- Q: FR-021 names held-vs-refunded for captured live payments but the rule is undefined — invent it? → A: NO. Added a **4th [NEEDS CLARIFICATION]** (captured-live-payments held/refunded policy) as an owner decision; FR-021 + the rollback task (T026) fail-closed for a post-live-flip rollback until it is supplied.
+- Q: "restore-verified" (FR-014/SC-005) — what is the explicit pass/fail condition? → A: defined as a restore actually exercised onto a scratch target with **row-count + checksum parity** vs the source snapshot (any mismatch ⇒ FAIL ⇒ abort before the destructive step); encoded in the runbook task (T023) and the rehearsal (T038).
+- Q: T039 vs T001a target mismatch (T039 commits to `docs/pivot-specs-019-024`; T001a opens a PR for branch `024-migration-cutover`)? → A: clarified — `024-migration-cutover` is the working/PR branch; the final spec-artifact commit lands on that same branch (the `docs/pivot-specs-019-024` path was a stale earlier target). T039 reworded to commit on the PR branch.
 - Q: 50k-scale freeze window? → A: add an explicit scale note bounding migration runtime + freeze duration at 50,000 students (constitution NON-NEGOTIABLE requires scale evaluation).
 - Q: Branch hygiene? → A: add an early "open draft PR + link tracking issue (Closes #N)" task; current tasks.md commits VCS only at the end.
 - Q: spec wording "...then db push" (reconciliation)? → A: reword to "then apply post-baseline migrations (never `db push` the baseline)" to remove the apparent contradiction with FR-015.

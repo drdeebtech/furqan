@@ -115,7 +115,9 @@ CREATE INDEX idx_certificates_student ON certificates(student_id);
 **RLS**:
 - `SELECT`: student reads own; linked guardian reads via `guardian_children`; admin reads all.
 - `INSERT`: service_role only.
-- `UPDATE/DELETE`: none (fully immutable — no guard trigger needed; no UPDATE path exists).
+- `UPDATE/DELETE`: no client UPDATE/DELETE policy is granted (fully immutable after issuance).
+
+**BEFORE UPDATE guard**: on `student_id`, `certificate_type`, `milestone_key` (and the cited-range columns) — present as **defense-in-depth** per FR-020 and task T004, even though no client UPDATE policy exists. The guard (service-role and migrations exempt) ensures a student can never forge or alter an earned certificate should a future write path or a misconfigured grant ever be introduced. This is consistent with `monthly_reports` §2b and the platform-wide "guard columns, not just transitions" rule — do NOT omit the guard on the grounds that "no UPDATE path exists today."
 
 **Integrity note**: `cited_range_start`/`cited_range_end` must be populated from `src/lib/quran/ayah-counts.ts` at generation time — never from a model or hardcoded value. Unit test asserts correctness.
 
@@ -161,8 +163,24 @@ Seeded in `20260620000001_reports_certificates.sql`:
 |-----|-----------|-------------|
 | `honor_board_refresh_cadence_days` | `'7'` | Days between honor board recomputes |
 | `notifications_whatsapp_enabled` | `'true'` | Feature flag for WhatsApp channel |
+| `notification_channel_matrix` | see below | Admin-configurable JSON map `trigger → channel[]` (FR-012); overrides per-trigger default channels |
 
-Add these to `ALLOWED_SETTING_KEYS` in `src/lib/settings.ts`.
+Default seed for `notification_channel_matrix` (matches the FR-012 matrix; `push` reserved/off):
+
+```json
+{
+  "payment_failed":        ["in_app","email","whatsapp"],
+  "subscription_expiring": ["in_app","email","whatsapp"],
+  "payment_retry":         ["in_app","email","whatsapp"],
+  "absence_outcome":       ["in_app","email"],
+  "monthly_report_ready":  ["in_app","email"],
+  "certificate_earned":    ["in_app"]
+}
+```
+
+WhatsApp entries are dropped at resolve time when `notifications_whatsapp_enabled='false'`; remaining channels still send. Each resolved array MUST be a subset of {in_app, email, push, whatsapp} (the widened `notifications.channel` CHECK).
+
+Add all three keys (`honor_board_refresh_cadence_days`, `notifications_whatsapp_enabled`, `notification_channel_matrix`) to `ALLOWED_SETTING_KEYS` in `src/lib/settings.ts`.
 
 ---
 

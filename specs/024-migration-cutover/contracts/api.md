@@ -39,7 +39,7 @@ Idempotent, atomic-or-resumable (R-003). Service-role / operator only; never cal
 ### `POST /api/admin/migration/rollback`
 - **Auth**: admin **with a restricted rollback role** (the named rollback authority — see Open Items / [NEEDS CLARIFICATION]).
 - **Body** (zod): `{ run_id, reason, confirm: true }`.
-- **Effect**: triggers the restore-from-verified-backup procedure (FR-020/021); records `migration_runs.status = 'rolled_back'`. If invoked **after** the Stripe live flip, the response includes the captured-live-payments handling policy (held/refunded) the operator must execute.
+- **Effect**: triggers the restore-from-verified-backup procedure (FR-020/021); records `migration_runs.status = 'rolled_back'`. If invoked **after** the Stripe live flip, the captured-live-payments held/refunded policy is required: until that policy is supplied ([NEEDS CLARIFICATION] #4), a post-live rollback is **fail-closed** — the endpoint MUST NOT complete with an invented money-handling rule; it returns a blocked response (e.g. 409) surfacing the undecided policy. Once supplied, the response includes the held/refunded handling the operator must execute.
 - **Idempotent**: a second call for an already-rolled-back run is a no-op.
 
 > All endpoints validate input with zod at the route handler; `userId`/role come from the authenticated session, never request input; service-role key stays server-only.
@@ -54,6 +54,7 @@ Rollback is invoked by the named authority when **any** of the following trips:
 2. Data corruption detected (e.g. a student's memorized-ayat total changed; ayah-range guard reported a bypass attempt).
 3. The migration aborts and a safe **resume** is not possible (must restore-from-backup instead).
 4. Schema-history reconciliation (`migration repair` / post-baseline apply) fails ⇒ **halt before any data migration**, never `db push` the baseline.
+5. The **post-cutover (post-unfreeze) verification** pass (runbook step 9 / FR-023) returns FAIL ⇒ escalate to the rollback authority as a candidate trigger (freeze already released; new writes have resumed, so this is a graver decision than a pre-flip FAIL).
 
 A failed verification **leaves Stripe in test mode** (FR-018). Rollback after the live flip additionally requires the captured-live-payments handling step.
 
@@ -66,12 +67,13 @@ The procedure is the safety net. Steps execute in this exact order; each gates t
 | # | Step | Gate / invariant |
 |---|------|------------------|
 | 1 | **Freeze** financial/booking writes | short, pre-announced; migration runs on a stable snapshot (FR-013) |
-| 2 | **Restore-verified backup** of production | restorability confirmed **before** any destructive step (FR-014) |
+| 2 | **Restore-verified backup** of production | restore actually exercised onto a scratch target; **row-count parity on every touched table AND content-checksum parity** vs source; any mismatch ⇒ abort **before** any destructive step (FR-014) |
 | 3 | **Reconcile schema history** (`migration repair --status reverted` for each pre-baseline version derived from prod `schema_migrations` at run time, then post-baseline apply) | clean deploy; baseline never `db push`ed; **halt → abort** on failure (FR-015) |
 | 4 | **Run migration** (`run_migration(dry_run=false)`) | idempotent + atomic-or-resumable; ayah-range guard active; RLS intact (FR-003/004/009/010) |
 | 5 | **Verification gates** (3 reconciliation reports) | all PASS required; any FAIL ⇒ rollback, Stripe stays test (FR-011, FR-018) |
 | 6 | **Flip Stripe test→live** (keys/config only) | no code change; **only after** step 5 passes (FR-018/019) |
 | 7 | **Retire legacy** one-time-package + per-session-booking write paths | new system is sole active system (FR-017) |
 | 8 | **Unfreeze** | freeze window bounded and communicated; 0 learners lose access/progress/balance (SC-009) |
+| 9 | **Post-cutover reconciliation/verification** | after unfreeze, re-run the 3 reconciliation reports against the **live** system + a legacy-paths-retired smoke check; all PASS; any FAIL ⇒ escalate to the rollback authority as a candidate trigger (FR-023/SC-010) — distinct from step 5's pre-flip gates |
 
 Rollback (restore-from-verified-backup) is available at any step per the criteria in §3.

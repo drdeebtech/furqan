@@ -60,6 +60,9 @@ The cutover-success gate (FR-011, SC-001/002/003). Generated per run, per domain
 - **Balance conversion**: per-student before/after ledger; `SUM(legacy outstanding) = SUM(converted entitlement)` within the documented policy, every adjustment itemized. PASS ⇒ 0 unexplained forfeitures.
 
 All three reports must PASS before the cutover is declared successful and before the Stripe live flip.
+The same three generators are re-run **after unfreeze** against the live post-cutover system (plus a
+legacy-paths-retired smoke check) as the **post-cutover verification** pass (FR-023/SC-010); a
+post-unfreeze FAIL escalates to the rollback authority rather than blocking the (already-completed) flip.
 
 ---
 
@@ -85,4 +88,4 @@ RLS remains enabled with policies intact on **every** table above during and aft
 - **user → tier**: deterministic rule matching legacy arrangement (individual vs group, session count/duration) to the closest catalog tier (spec 019); existing teacher linkage preserved into `subscription_teacher_assignments`; no clean equivalent ⇒ `manual_review_bucket`.
 - **balance → entitlement**: deterministic conversion of remaining `student_packages` / `student_credits` value into a spec-018 grant/credit; zero balance ⇒ no entitlement; mid-cycle remainders itemized in the ledger.
 
-> ⚠️ The **exact** balance-conversion policy and the fixed cutover timestamp are **[NEEDS CLARIFICATION]** in the spec — see plan.md Open Items. They are data/policy, never invented by a model.
+> ⚠️ The **exact** balance-conversion policy, the fixed cutover timestamp, the rollback authority, and the **captured-live-payments held/refunded policy** (for a post-Stripe-flip rollback) are **[NEEDS CLARIFICATION]** in the spec — see plan.md Open Items (#4 captured-payments is a sub-decision of #3 rollback authority). They are data/policy/operational, never invented by a model; the related seams are fail-closed until supplied.

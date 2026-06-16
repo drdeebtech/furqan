@@ -57,8 +57,9 @@ src/
     ├── domains/single-sessions/
     │   ├── specialist-matching.ts             ← findSpecialist(specialty)
     │   ├── quran-validation.ts                ← validateTargetScope(targetScope)
-    │   ├── pricing.ts                         ← getSingleSessionPrice(productType, purpose)
-    │   └── booking.ts                         ← createSingleSessionBooking(...)
+    │   └── pricing.ts                         ← getSingleSessionPrice(productType, purpose)
+    │   (no booking.ts: booking creation logic lives in the SECURITY DEFINER fn
+    │    `create_single_session_booking` (DB) + the webhook/route callers — no TS module)
     └── settings.ts                            ← add 6 new ALLOWED_SETTING_KEYS
 
 supabase/migrations/

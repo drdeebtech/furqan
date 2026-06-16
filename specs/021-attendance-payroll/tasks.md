@@ -56,7 +56,7 @@
 
 - [ ] T006 Create `supabase/migrations/20260619000004_attendance_payroll_fns.sql`:
   - `finalize_attendance(p_booking_id uuid, p_outcome attendance_outcome, p_actual_teacher_id uuid DEFAULT NULL) RETURNS void` — upsert attendance_records; if excused_carried: check credit_action != 'restored' then call `restore_student_package(p_booking_id)`, set credit_action='restored', insert subscription_extensions with `booking_id = p_booking_id` (ON CONFLICT (subscription_id, booking_id) DO NOTHING); if teacher_absent: restore credit, no session_deliveries for absent teacher; if present or teacher_absent with substitute: insert session_deliveries with hourly_rate_usd snapshot; SECURITY DEFINER; REVOKE from public/anon/authenticated; GRANT to service_role
-  - `run_monthly_payroll(p_month date) RETURNS int` — INSERT INTO teacher_payouts SELECT teacher_id, p_month, ROUND(SUM(duration_minutes)/60.0,2), MAX(hourly_rate_usd), ROUND(SUM(duration_minutes/60.0*hourly_rate_usd),2) FROM session_deliveries WHERE payroll_period_month=p_month GROUP BY teacher_id ON CONFLICT DO NOTHING; RETURN count; same EXECUTE lockdown
+  - `run_monthly_payroll(p_month date) RETURNS int` — aggregate `session_deliveries` per teacher for `p_month`; **only insert payouts for well-formed teacher/months** (FR-030: `MAX(hourly_rate_usd)` IS NOT NULL AND > 0; FR-029: `MIN(hourly_rate_usd) = MAX(hourly_rate_usd)` — uniform snapshotted rate); use `MAX(hourly_rate_usd)` as the payout rate, `ROUND(SUM(duration_minutes)/60.0,2)` hours, `ROUND(SUM(duration_minutes/60.0*hourly_rate_usd),2)` amount; `ON CONFLICT (teacher_id, payroll_period_month) DO NOTHING`; **surface skipped teacher/months as exceptions** (RAISE WARNING per offending teacher/month and/or return them) — NEVER silently pay `$0` for a NULL/0 rate, NEVER silently `MAX`-pick a non-uniform rate; RETURN count of payouts inserted; same EXECUTE lockdown. See data-model.md `run_monthly_payroll`.
 
 - [ ] T007 `supabase migration up` → `npm run db:types` → commit regenerated `src/types/database.ts`
 
@@ -64,6 +64,8 @@
   - Double-finalize same booking → second call no-ops (idempotent)
   - Excused carry-over called twice → `credit_action = 'restored'` exactly once; `subscription_extensions` 1 row
   - `run_monthly_payroll` called twice same month → 0 duplicate payouts
+  - `run_monthly_payroll` for a teacher with NULL/0 `hourly_rate_usd` → 0 payout, surfaced exception (FR-030)
+  - `run_monthly_payroll` for a teacher/month with non-uniform snapshotted rates → detected/flagged (FR-029)
   - BEFORE UPDATE on `teacher_payouts.total_amount_usd` → blocked
 
 **Checkpoint**: `npm run sb:advisors` clean for new tables; `npx tsc --noEmit` passes.
@@ -133,11 +135,11 @@
 
 **Independent Test**: 3 × 60-min sessions at $20/hr → run_monthly_payroll → total_hours=3, total_amount_usd=60; re-run → payoutsCreated=0.
 
-- [ ] T022 [P] [US5] Create `src/lib/domains/attendance/payroll.ts`: `runMonthlyPayroll(month)` — calls `run_monthly_payroll(month)` via service-role; `getPayouts(teacherId?, month?, status?)` — queries teacher_payouts with RLS
-- [ ] T023 [P] [US5] Create `src/app/api/payroll/run/route.ts`: POST, admin/service_role only, zod `{month: YYYY-MM-01}`, validates month not in future, calls `runMonthlyPayroll`
+- [ ] T022 [P] [US5] Create `src/lib/domains/attendance/payroll.ts`: `runMonthlyPayroll(month)` — calls `run_monthly_payroll(month)` via service-role; returns `{ payoutsCreated, exceptions }` where `exceptions` lists teacher/months skipped for missing/zero rate (FR-030) or non-uniform rate (FR-029) so the route/ops can surface them (NEVER a silent `$0` or `MAX`-picked payout); `getPayouts(teacherId?, month?, status?)` — queries teacher_payouts with RLS
+- [ ] T023 [P] [US5] Create `src/app/api/payroll/run/route.ts`: POST, admin/service_role only, zod `{month: YYYY-MM-01}`, validates month not in future, calls `runMonthlyPayroll`; returns `{ payoutsCreated, month, exceptions }` (surfaces FR-029/FR-030 skipped teacher/months for ops)
 - [ ] T024 [US5] Create `src/app/api/payroll/payouts/route.ts`: GET, auth, RLS enforced, paginated
 - [ ] T025 [US5] Verify the `profiles.hourly_rate_usd` column (added in T002a) is captured as a snapshot in the `finalize_attendance` fn → `session_deliveries.hourly_rate_usd` (column existence is no longer conditional — see T002a)
-- [ ] T026 [US5] Unit test `src/lib/domains/attendance/payroll.test.ts`: aggregation math; idempotency; zero-delivery teacher produces no payout; rate-at-delivery correctness
+- [ ] T026 [US5] Unit test `src/lib/domains/attendance/payroll.test.ts`: aggregation math; idempotency; zero-delivery teacher produces no payout; rate-at-delivery correctness; **FR-030** teacher/month with NULL or 0 `hourly_rate_usd` → 0 payout rows + 1 surfaced exception (no silent `$0` payout); **FR-029** teacher/month with non-uniform snapshotted rates → detected/flagged, not silently aggregated via `MAX`
 
 **Checkpoint**: run_monthly_payroll idempotent; total_amount_usd = SUM(duration_minutes/60 × hourly_rate_usd); rate change after delivery does not affect closed month.
 

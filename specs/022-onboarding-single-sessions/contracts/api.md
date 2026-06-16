@@ -26,11 +26,11 @@ const SingleSessionCheckoutSchema = z.object({
 ### Logic
 1. Validate input with zod
 2. Derive `studentId` from `auth.getUser()` — never from input
-3. If `productType = 'assessment'`: validate specialty provided; check assessment limit vs `hifz_assessment_limit_per_specialty`; find matching specialist (fail 422 if none)
+3. If `productType = 'assessment'`: validate specialty provided; check assessment limit vs `hifz_assessment_limit_per_specialty` (fail **409** if reached); find matching specialist (fail **422** if none)
 4. If `productType = 'specialized'`: validate `targetScope` against `src/lib/quran/ayah-counts.ts` for any Quran-structural field
-5. Look up price from `platform_settings`; if zero → skip Stripe, create booking directly
+5. Look up price from `platform_settings`; if zero → skip Stripe and call the atomic `create_single_session_booking(student_id, teacher_id, payment_id := NULL, booking_type, specialty, purpose, target_scope)` via the **service-role** client (same single creation path as the webhook; **no** bare route-layer `INSERT bookings + sessions`). `payment_id` is NULL because no charge occurred.
 6. If non-zero → create Stripe Checkout session (`mode: 'payment'`) with metadata `{booking_type, student_id, purpose, target_scope, teacher_id}`
-7. Return checkout URL
+7. Return checkout URL (paid path) or `{ bookingId }` (zero-price path)
 
 ### Success Response
 ```ts
@@ -43,8 +43,11 @@ const SingleSessionCheckoutSchema = z.object({
 | Code | Meaning |
 |------|---------|
 | 400 | Invalid input / zod validation failure |
-| 422 | No specialist available / assessment limit reached / invalid Quran range |
 | 401 | Not authenticated |
+| 409 | Assessment limit reached for this specialty (FR-014) — per-specialty count ≥ `hifz_assessment_limit_per_specialty`; a conflicting prior assessment already exists |
+| 422 | No specialist available / invalid Quran range / unsupported currency (non-USD rejected, spec §Currency / FR — USD-only this phase) |
+
+**Code rationale**: the per-specialty assessment limit is a state conflict (a prior assessment exists) → **409 Conflict**, distinct from the 422 "cannot process this request" cases (no specialist, invalid Quran range, non-USD currency). Both classes are checked **before any Stripe Checkout creation** (fail-before-charge, R-004).
 
 ---
 
@@ -91,6 +94,8 @@ const AssessmentSpecialistsQuery = z.object({
      - `'assessment'` or `'specialized'` → call the atomic SECURITY DEFINER creator `create_single_session_booking(student_id, teacher_id, payment_id, booking_type, specialty, purpose, target_scope)` via service-role — this creates the `bookings` row **and** its `sessions` row **and** links `payments.booking_id` in **one transaction**. Do **NOT** `INSERT into bookings + sessions` directly in the handler.
    - All via service-role client; `student_id` from PI metadata (set server-side at checkout creation)
 
+> **Single creation path**: `create_single_session_booking` is the *only* place assessment/specialized bookings + sessions are materialized. Both the paid webhook branch (here, `payment_id = pi_*`) and the zero-price checkout branch (§1 step 5, `payment_id = NULL`) call it via service-role. There is no bare route-layer or webhook-layer `INSERT bookings + sessions` anywhere.
+
 ### Recovery — "payment confirmed but session creation fails"
 Because the creator is atomic, a partial booking-without-session can never persist. The `billing_events` idempotency lock (`pi_{id}`) wraps the call, so a retried `payment_intent.succeeded` re-invokes the creator at most once and completes the booking idempotently. If creation cannot succeed after retries, the `payments` row is left with `booking_id` NULL — recorded, reconcilable, and refundable per FR-013 / spec 018 rails; the charge never silently vanishes.
 
@@ -124,7 +129,7 @@ const MyBookingsQuery = z.object({
     purpose?: string
     targetScope?: object
     teacherId: string
-    scheduledAt: string
+    scheduledAt: string | null   // NULL = booking created but slot not yet chosen (data-model §3: sessions created unscheduled)
     status: string
     paymentId?: string
   }>,

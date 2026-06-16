@@ -31,7 +31,7 @@
 ## Scenario 3 — Dunning Notification (Idempotent Delivery)
 
 1. Emit `FurqanEvent.PaymentFailed` with `{subscriptionId, attempt: 1}`.
-2. Assert: one `notifications` row for the guardian with type matching dunning/pre-suspension alert, channels include `in_app` and `email`.
+2. Assert: one `notifications` row for the guardian with type matching dunning/pre-suspension alert, and `channel[]` equals the FR-012 matrix default for `payment_failed` — `{in_app, email, whatsapp}` (or `{in_app, email}` when `notifications_whatsapp_enabled='false'`).
 3. Assert: `automation_logs` entry with key `notif:{recipientId}:payment_failed:{subscriptionId}-1` (canonical `notif:{recipientId}:{trigger}:{subjectKey}`) and `status='succeeded'`.
 4. **Replay** same event (simulate n8n retry).
 5. Assert: no duplicate notification; `automation_logs` key has `status='skipped'`.

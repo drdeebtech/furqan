@@ -96,6 +96,15 @@ Per the 2026-06-16 clarification, the `payment_intent.succeeded` webhook MUST NO
 SECURITY DEFINER creator that materializes the booking **and** its session in one
 transaction and links the payment — mirroring `start_instant_session_booking`.
 
+This is the **single creation path** for assessment/specialized bookings. The
+zero-price ("free assessment") checkout route (contracts §1 step 5) calls this
+SAME creator with `p_payment_id := NULL` via the service-role client — it does NOT
+bare-`INSERT bookings + sessions` at the route layer. With `p_payment_id = NULL`,
+the `UPDATE payments SET booking_id` step is a no-op (no charge to link), and the
+fail-before-charge ordering guarantees the booking is created only after the
+specialist match + limit checks pass (R-004). Zero-price is the intended
+exception to "no session before confirmed payment" (NFR-001), not a violation.
+
 ```sql
 CREATE OR REPLACE FUNCTION create_single_session_booking(
   p_student_id          uuid,

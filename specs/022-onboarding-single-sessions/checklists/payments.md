@@ -8,9 +8,9 @@
 
 ## Fail-Closed & No-Debit Invariants (highest risk)
 
-- [ ] CHK001 Is "no session may be materialized before the one-time payment is confirmed" stated as a single, testable invariant that names *every* code path it binds (zero-price direct-create, instant atomic fn, assessment/specialized webhook INSERT)? [Completeness, Spec §NFR-001/FR-008]
+- [x] CHK001 RESOLVED (2026-06-16): the fail-closed invariant now names every binding path, and the zero-price path is no longer a separate "direct-create" — it calls the SAME atomic `create_single_session_booking` creator with `p_payment_id := NULL` (contracts §1 step 5 / §3 "Single creation path" / data-model §3 / tasks T012). Paths: zero-price route→creator, instant→`start_instant_session_booking`, assessment/specialized webhook→creator. No bare INSERT anywhere. [Completeness, Spec §NFR-001/FR-008]
 - [ ] CHK002 Is the fail-closed requirement measurable — does it define the observable success condition (0 sessions created for an unconfirmed/abandoned/failed payment) rather than a behavioral assertion? [Acceptance Criteria, Spec §SC-004]
-- [ ] CHK003 Does the zero-price ("free assessment") path have its own explicitly-stated requirement reconciling it with fail-closed — i.e. that creating a session with *no* confirmed payment is the intended exception, not a violation of NFR-001? [Clarity, Spec §FR-003/NFR-001]
+- [x] CHK003 RESOLVED (2026-06-16): data-model §3 now states zero-price is the *intended exception* to NFR-001 (not a violation), proceeds through the SAME atomic creator (`p_payment_id := NULL`), and is gated by the fail-before-charge specialist-match + limit checks (R-004). FR-003 ("yet still proceed through the same booking path") is now honored by contracts/tasks. [Clarity, Spec §FR-003/NFR-001]
 - [ ] CHK004 Is the no-debit invariant ("MUST NOT debit `student_packages` / consume subscription credit") stated as a requirement that binds all three products on all paths, including the adapted `start_instant_session_booking`? [Completeness, Spec §FR-007/NFR-001]
 - [ ] CHK005 Is the no-debit invariant given a measurable acceptance criterion (e.g. "zero `student_packages` debits" / "credit balance unchanged in 100%") rather than only prose? [Acceptance Criteria, Spec §SC-001/SC-002]
 - [ ] CHK006 Is the requirement that a subscriber with available credits is *still* charged the one-time price (never silently credit-funded) explicitly stated as a non-negotiable, not merely an edge case? [Completeness, Spec §FR-007 / Edge Cases]
@@ -43,7 +43,7 @@
 
 - [ ] CHK022 Is "prices are configuration data, never hardcoded" stated as a verifiable requirement (e.g. read at booking time from `platform_settings`, with a definable check) rather than an aspiration? [Clarity, Spec §FR-002]
 - [ ] CHK023 Is the risk of the `'0.00'` seed default acknowledged as a requirement — i.e. is "ships free-by-default until an admin sets a price" an intended, documented launch state, and is [NEEDS CLARIFICATION 1] (default assessment price) flagged as still-open? [Ambiguity, Spec §NEEDS CLARIFICATION 1 / data-model.md §2]
-- [ ] CHK024 Does the spec require that a free-by-default price cannot be exploited to farm specialist sessions — i.e. is the assessment frequency limit binding even while the price is `0.00`? [Scenario/Edge Coverage, Spec §FR-014 / Edge Cases]
+- [x] CHK024 RESOLVED (2026-06-16): the per-specialty assessment limit (`hifz_assessment_limit_per_specialty`, FR-014) is now bound at the route BEFORE pricing/Stripe (tasks T012), so it applies even at `0.00`; over-limit → **409** (contracts §1). Limit is independent of price. [Scenario/Edge Coverage, Spec §FR-014 / Edge Cases]
 - [ ] CHK025 Is the admin price-write authorization requirement (service-role/`is_admin()` only; non-admin rejected) stated with the expected rejection outcome, and the value format constrained (non-negative decimal)? [Acceptance Criteria, Spec §FR-002 / contracts/api.md §5]
 - [ ] CHK026 Is the assessment frequency limit fully resolved — does the spec reflect [NEEDS CLARIFICATION 2] as RESOLVED to per-specialty via `hifz_assessment_limit_per_specialty`, with no residual ambiguity about lifetime vs per-specialty vs per-N-days? [Ambiguity, Spec §Clarifications / FR-014]
 
@@ -55,7 +55,7 @@
 
 ## Read Path & Contract Completeness
 
-- [ ] CHK030 Is the `GET /api/single-sessions/my-bookings` read requirement complete — it appears in contracts/api.md §4 but has NO corresponding task in tasks.md; is the read product a real requirement or an orphaned contract? [Conflict, contracts/api.md §4 vs tasks.md]
+- [x] CHK030 RESOLVED: `GET /api/single-sessions/my-bookings` now has a corresponding task — **T020a** (auth-required, RLS-enforced, paginated). Contract §4 is no longer orphaned. `scheduledAt` typed `string | null` (unscheduled bookings, data-model §3). [Conflict resolved, contracts/api.md §4 vs tasks.md]
 - [ ] CHK031 Does the my-bookings read requirement state its authorization boundary (student reads ONLY own rows via RLS) and its pagination envelope, so it cannot leak other students' bookings/payments? [Completeness, contracts/api.md §4 / Spec §FR-017]
 - [ ] CHK032 Is the `payments.booking_id UNIQUE nullable` one-to-one linkage stated as a requirement that prevents two payments claiming one booking AND leaves subscription-funded payments (NULL) unaffected? [Consistency, Spec §FR-011 / data-model.md §1]
 
@@ -68,12 +68,12 @@
 ## Dependencies & Assumptions
 
 - [ ] CHK036 Is the assumption that this spec OWNS payment-mode Checkout + `payment_intent.succeeded` (not reused from spec 018) stated unambiguously, with spec 018's reused surface (signature verification, `billing_events` idempotency) scoped precisely? [Dependencies & Assumptions, Spec §Assumptions]
-- [ ] CHK037 Is the USD-only constraint stated as a requirement with a defined rejection behavior for non-USD, rather than only an inherited assumption? [Completeness, Spec §Edge Cases / Assumptions]
+- [x] CHK037 RESOLVED (2026-06-16): non-USD now has a defined rejection behavior — **422** at the checkout route, before any Stripe call (contracts §1 Error Codes + rationale; tasks T012). No longer only an inherited assumption. [Completeness, Spec §Edge Cases / Assumptions]
 - [ ] CHK038 Is the dependency on spec 020 for specialist availability/matching bounded so that "no available specialist" has a defined, fail-loud requirement here even if 020's mechanics change? [Dependencies & Assumptions, Spec §FR-012/FR-013]
 
 ## Notes
 
-- CHK008, CHK017 conflicts are now RESOLVED in the artifacts (2026-06-16 propagation): guard idiom corrected and webhook now calls the atomic `create_single_session_booking`. CHK014, CHK030 remain open conflicts to fix before implementation.
+- CHK008, CHK017 conflicts are now RESOLVED in the artifacts (2026-06-16 propagation): guard idiom corrected and webhook now calls the atomic `create_single_session_booking`. CHK030 is now RESOLVED (T020a added; zero-price path routed through the same atomic creator). CHK014 remains the one open conflict to fix before implementation (NULL `booking_product_type` vs the CHECK constraint / reporting reconciliation).
 - CHK020 (**gap**): FR-013 references refund/reconcile; a concrete recovery is now defined (NULL-`booking_id` rows left for reconciliation — data-model.md §3 / contracts §3), but the *owning* requirement (who initiates, ledger, time bound) is still not formalized in spec.md — keep open.
 - CHK023/CHK026/CHK027 track the three NEEDS-CLARIFICATION items; 2 & 3 should read as RESOLVED, 1 remains open.
 - Check items off as `[x]` and record findings inline.

@@ -108,6 +108,7 @@ docs/runbooks/
 | 1 | **Fixed cutover DATE/TIME** — must be chosen, expressed as an unambiguous absolute timestamp, and pre-announced before scheduling the freeze (FR-022). | Scheduling the freeze window; future-dated booking classification |
 | 2 | **Exact legacy-balance→new-entitlement conversion policy** — how remaining package credits / `student_credits` map to grants/credits, and how mid-cycle remainders are valued; a deterministic, reconcilable rule is required (FR-006). | Balance conversion (US3) + ledger reconciliation |
 | 3 | **Rollback decision authority** — which named role is authorized to invoke rollback, and the go/no-go sign-off owner for the verification gates (FR-020). | Rollback endpoint role + cutover sign-off |
+| 4 | **Captured-live-payments policy for a post-Stripe-flip rollback** — whether already-captured live charges are HELD or REFUNDED, and the criteria distinguishing the two (FR-021). Owner decision tied to rollback authority and money movement. | The post-live-flip rollback path (T026) — fail-closed until supplied |
 
 These are **data/policy/operational** decisions for a human; a model must not invent values for them.
 

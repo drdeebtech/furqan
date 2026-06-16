@@ -17,7 +17,7 @@
 ## Phase 1: Setup
 
 - [ ] T001 Add 3 typed event members to the shared `FurqanEvent` surface (`src/lib/automation/events.ts` / `emit.ts` `WEBHOOK_ROUTES`): `MonthlyReportReady = 'monthly_report_ready'`, `CertificateEarned = 'certificate_earned'`, `HonorBoardUpdated = 'honor_board_updated'`. Confirm `PaymentFailed`, `SubscriptionExpiring`, `AbsenceOutcome` already exist (emitted by 018/021); if absent, stop and flag — this spec consumes, never defines, those.
-- [ ] T002 [P] Add 2 keys to `ALLOWED_SETTING_KEYS` in `src/lib/settings.ts`: `honor_board_refresh_cadence_days`, `notifications_whatsapp_enabled`.
+- [ ] T002 [P] Add 3 keys to `ALLOWED_SETTING_KEYS` in `src/lib/settings.ts`: `honor_board_refresh_cadence_days`, `notifications_whatsapp_enabled`, `notification_channel_matrix` (JSON `trigger → channel[]`, FR-012 matrix).
 
 **Checkpoint**: `npx tsc --noEmit` + `npm run lint` pass; event names resolve as typed members (a typo fails to compile).
 
@@ -42,9 +42,9 @@
   - **RLS all 4 tables, policies in same migration, `(select auth.uid())` initplan**, `private.is_admin()` for admin reads:
     - `teacher_notes`: teacher INSERT/UPDATE own (`teacher_id`); student + linked guardian (via `guardian_children`) SELECT own student's; admin all.
     - `monthly_reports`: student + linked guardian SELECT own; service_role INSERT; BEFORE UPDATE OF `student_id`, `period_year`, `period_month` guard (service_role/migrations exempt).
-    - `certificates`: student + linked guardian SELECT own; service_role INSERT; BEFORE UPDATE OF `student_id`, `certificate_type`, `milestone_key` immutable guard (no client UPDATE path).
+    - `certificates`: student + linked guardian SELECT own; service_role INSERT; BEFORE UPDATE OF `student_id`, `certificate_type`, `milestone_key` immutable guard as **defense-in-depth** per FR-020 (service_role/migrations exempt) — ship the guard even though no client UPDATE policy is granted.
     - `honor_board_entries`: authenticated SELECT `WHERE is_opted_out = false`; student UPDATE `is_opted_out` on own row only (BEFORE UPDATE OF `student_id`, `achievement_metric`, `rank_period`, `display_name` guard); service_role INSERT/compute.
-  - Seed `platform_settings`: `honor_board_refresh_cadence_days='7'`, `notifications_whatsapp_enabled='true'`.
+  - Seed `platform_settings`: `honor_board_refresh_cadence_days='7'`, `notifications_whatsapp_enabled='true'`, `notification_channel_matrix` (FR-012 default JSON map — see data-model §3).
 
 - [ ] T005 `supabase migration up` (or `bash scripts/dev-local-db-bootstrap.sh` locally) — apply both migrations.
 - [ ] T006 `npm run db:types` → commit regenerated `src/types/database.ts`.
@@ -109,7 +109,7 @@
 
 **Independent Test**: Several students with progress → board lists by metric, display-safe only; opt-out excludes; guardian re-opts-in minor.
 
-- [ ] T023 [P] [US4] Create `src/lib/domains/honor-board/compute.ts`: `computeHonorBoard(rankPeriod)` — service-role INSERT of display-safe snapshot rows (`display_name`, `avatar_url`, `achievement_metric`, `rank_period`); cadence from `honor_board_refresh_cadence_days`; `getHonorBoard(period, limit)` query `WHERE is_opted_out = false`.
+- [ ] ⛔ T023 [P] [US4] **BLOCKED — honor-board achievement metric formula undefined (see FR-010 [NEEDS CLARIFICATION]).** Do NOT invent a ranking formula. `computeHonorBoard` cannot populate `achievement_metric` until the product owner defines the metric. Stop and resolve FR-010 before implementing. Once defined: Create `src/lib/domains/honor-board/compute.ts`: `computeHonorBoard(rankPeriod)` — service-role INSERT of display-safe snapshot rows (`display_name`, `avatar_url`, `achievement_metric`, `rank_period`); cadence from `honor_board_refresh_cadence_days`; `getHonorBoard(period, limit)` query `WHERE is_opted_out = false`. (P2/US4 only — does not block any P1 task.)
 - [ ] T024 [P] [US4] Create `src/lib/domains/honor-board/opt-out.ts`: `setOptOut(studentId, optedOut, callerUid)` — student sets own; guardian sets for linked child (validated via `guardian_children`); writes only `is_opted_out`.
 - [ ] T025 [US4] Create `src/app/api/honor-board/route.ts`: GET (auth optional, public), zod `{period?, limit default 20 max 100}`, returns display-safe fields only (no email/phone/contact).
 - [ ] T026 [US4] Create `src/app/api/honor-board/opt-out/route.ts`: PATCH (student/guardian), zod `{studentId?, optedOut: boolean}`, 403 if not authorized for that student.
@@ -125,7 +125,7 @@
 
 **Independent Test**: Emit each owned trigger → single notification per (recipient, trigger, subject); replay → skipped; WhatsApp/n8n failure → `failed`, Sentry-surfaced.
 
-- [ ] T028 [US5] Create `src/lib/domains/notifications/routing.ts`: per-trigger Arabic-first (RTL) content builders for dunning/pre-suspension, expiry "continue?" (sent before period end), payment-retry, absence/excuse outcome, report-ready, certificate-earned; idempotent INSERT via `automation_logs` key `notif:{recipientId}:{trigger}:{subjectKey}`; strip CR/LF from any user/teacher-authored value placed in subject/header (FR-016).
+- [ ] T028 [US5] Create `src/lib/domains/notifications/routing.ts`: per-trigger Arabic-first (RTL) content builders for dunning/pre-suspension, expiry "continue?" (sent before period end), payment-retry, absence/excuse outcome, report-ready, certificate-earned; resolve the `notifications.channel[]` array per the **FR-012 channel matrix** from `platform_settings.notification_channel_matrix` (dropping `whatsapp` when `notifications_whatsapp_enabled='false'`) — never hardcode the channel set in handler code; idempotent INSERT via `automation_logs` key `notif:{recipientId}:{trigger}:{subjectKey}`; strip CR/LF from any user/teacher-authored value placed in subject/header (FR-016).
 - [ ] T029 [US5] Extend `src/app/api/webhooks/n8n/route.ts` branches for `payment_failed`, `subscription_expiring`, `absence_outcome` — `safeCompareSecret` fail-closed before any side effect; consume only (never emit/mutate billing/attendance state).
 - [ ] T030 [US5] Fail-closed delivery accounting: n8n unreachable / non-2xx → `automation_logs.status='failed'` (never `'succeeded'`), surfaced via `logError`/Sentry; retry-safe under the idempotency key (a `failed` row may retry; a `succeeded`/`skipped` one is a no-op).
 - [ ] T031 [P] [US5] Unit tests: per-trigger single notification; replay → `skipped` no-op (NFR-002); n8n 500 → `failed` not `succeeded` (SC-006); CR/LF stripped from header fields.

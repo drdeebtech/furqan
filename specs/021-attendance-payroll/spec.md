@@ -145,9 +145,10 @@ Each delivered session accrues teaching hours (sessions actually delivered × th
 - **Teacher absent AND student absent**: classified as teacher-absent (student is held harmless); not a student absence.
 - **Session spanning a month boundary / payroll cutoff**: a session's hours accrue to the month in which it was **delivered**; the run aggregates only sessions whose `delivered_at` (UTC) falls in the closed calendar month (UTC) — `payroll_period_month` is derived as `date_trunc('month', delivered_at)`, matching data-model.md (canonical timestamp: `delivered_at`). Teacher local time is not used — UTC is the platform boundary. The payroll run date setting is in UTC.
 - **Substitute delivers a session**: payable hours follow the **actual deliverer**, never the originally-assigned teacher.
-- **Zero delivered hours for a teacher in a month**: no payout row (or a zero-value row) is produced — must be unambiguous and not error.
+- **Zero delivered hours for a teacher in a month**: **no payout row** is produced (the aggregation groups over `session_deliveries`, so a teacher with no delivered sessions yields no row); this is not an error and is distinct from the missing/zero-rate exception in FR-030 (which concerns a teacher who *did* deliver but has no valid rate).
 - **Carry-over extension at period end of a canceling subscription**: if `cancel_at_period_end = true`, an extension row still accumulates in `subscription_extensions`. Effective end = `current_period_end + SUM(extension_seconds)` is honored regardless of cancel state — the student is owed the time they paid for. The platform surfaces this as "extended until [effective end]" to the student.
-- **Rate missing/zero for a teacher**: payroll must fail loudly or treat as configuration error, never silently pay $0 without flagging.
+- **Rate missing/zero for a teacher**: payroll must fail loudly or treat as configuration error, never silently pay $0 without flagging (FR-030: `run_monthly_payroll` skips the teacher/month and surfaces it as a payroll exception for ops; no `$0` payout row is silently produced).
+- **Rate changes mid-month for a teacher**: the constant-rate-per-payroll-month invariant (FR-029) requires every `session_deliveries` row for that teacher/month to carry the same snapshotted rate; if differing rates are present, the run must detect/flag rather than silently aggregate via `MAX(hourly_rate_usd)`.
 
 ---
 
@@ -198,6 +199,8 @@ Each delivered session accrues teaching hours (sessions actually delivered × th
 - **FR-026**: All monetary amounts MUST be USD and validated; rate and payout inputs MUST reject non-USD and negative values.
 - **FR-027**: Regenerated database types MUST be produced for the new tables (`npm run db:types`) and the build/typecheck MUST pass.
 - **FR-028**: Adjustable values (notice threshold, payroll run date, and any policy constants) MUST be stored as settings (`platform_settings` or equivalent), never hardcoded in application logic.
+- **FR-029** (constant-rate-per-payroll-month invariant): For a given teacher within a single payroll month, the snapshotted `session_deliveries.hourly_rate_usd` MUST be identical across all that teacher's delivered-session rows for that month. The monthly aggregation's per-payout `hourly_rate_usd` (`MAX(hourly_rate_usd)` in `run_monthly_payroll`) is therefore the single effective rate; it is correct **only** under this invariant. The invariant MUST be testable: a payroll run over a teacher/month whose `session_deliveries` rows carry differing `hourly_rate_usd` values MUST be detectable (e.g., the run raises/flags rather than silently selecting `MAX`), so a mid-month rate change cannot be silently masked. (A rate change after a month closes is unaffected — closed months keep their snapshotted rate per US5 scenario 4.)
+- **FR-030** (fail-loud on missing/zero rate): A delivered session MUST NOT be paid at a `$0` rate by accident. `run_monthly_payroll` MUST treat a teacher/month whose effective `hourly_rate_usd` is `NULL` or `0` as a **configuration error**: it MUST NOT silently produce a `$0` payout. Instead it MUST skip that teacher's payout and surface the teacher/month for ops (e.g., raise, or record the teacher/month in a payroll-exceptions list returned/logged by the run), so a missing or zero rate is visible rather than paid as zero. This is testable: a teacher with one delivered session and a `NULL`/`0` rate produces **0** normal payout rows and **1** surfaced exception for that teacher/month. (Distinct from the legitimate zero-delivered-hours case in FR-020, which produces no payout and is **not** an error.)
 
 ### Non-Functional / Security Requirements
 
@@ -230,6 +233,8 @@ Each delivered session accrues teaching hours (sessions actually delivered × th
 - **SC-006**: Each monthly payroll run produces **exactly one** payout per teacher for the closed month equal to (delivered hours × rate), with **0** duplicate payouts on re-run and **0** payable hours from non-delivered sessions.
 - **SC-007**: Delivered hours for any reassigned session accrue to the actual deliverer in **100%** of cases (never the absent teacher).
 - **SC-008**: No learner or teacher can alter their own balance, excuse outcome, or payout via direct table writes — verified by an automated authorization/guard test (**0** successful unauthorized mutations).
+- **SC-009**: For any teacher/month whose effective hourly rate is `NULL` or `0`, the payroll run produces **0** normal payout rows for that teacher and **1** surfaced exception — **0** silent `$0` payouts (FR-030).
+- **SC-010**: For **100%** of payroll runs, every payout's `hourly_rate_usd` equals the single snapshotted rate shared by all that teacher/month's `session_deliveries` rows; a teacher/month with non-uniform snapshotted rates is detected, never silently aggregated (FR-029).
 
 ---
 

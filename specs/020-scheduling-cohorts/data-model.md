@@ -99,8 +99,19 @@ CREATE POLICY "sta_service_update" ON subscription_teacher_assignments
 
 CREATE POLICY "sta_admin_update" ON subscription_teacher_assignments
   FOR UPDATE TO authenticated
-  USING (private.is_admin());
+  USING (private.is_admin())
+  WITH CHECK (private.is_admin());
 ```
+
+#### `sta_admin_update` — is `WITH CHECK` needed? (decision, 2026-06-16)
+
+**Identity immutability is fully covered without `WITH CHECK`.** The `sta_identity_guard` BEFORE UPDATE trigger (below) fires for **every** role — admin session, service_role, and migrations alike — and rejects any change to `student_id` / `subscription_id` / `product_type` / `lock_month` (FR-019). RLS `WITH CHECK` evaluates the *post-update* row against a predicate; it cannot express per-column immutability, so it is **not** the mechanism that protects identity columns — the trigger is.
+
+**`WITH CHECK (private.is_admin())` is added as defense-in-depth**, not because identity needs it. Rationale:
+- A `FOR UPDATE` policy with only `USING` checks the *old* row but leaves the *new* row unchecked. An admin could otherwise UPDATE a row in a way that, post-write, no longer satisfies the admin predicate's intent. Adding the symmetric `WITH CHECK (private.is_admin())` makes the policy reject the write unless the actor is still an admin at check time — closing the asymmetric-policy gap that Supabase advisors flag.
+- It does **not** guard `teacher_id`/`approved_by`/`is_active` content (those are legitimately admin-mutable via reassignment); the partial unique index `uix_sta_student_active` independently prevents a second active row.
+
+**Net:** identity protection = BEFORE UPDATE trigger (load-bearing); `WITH CHECK` = belt-and-suspenders on the actor predicate.
 
 ### BEFORE UPDATE Identity Guard
 

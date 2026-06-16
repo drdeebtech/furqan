@@ -37,7 +37,7 @@
 
 - [ ] T007 Adapt `start_instant_session_booking` DB function: add optional `p_payment_id uuid DEFAULT NULL` param; when set → `student_package_id = NULL` + `UPDATE payments SET booking_id = new_booking_id`; EXECUTE lockdown unchanged; verify both code paths work locally
 
-- [ ] T007b Create atomic SECURITY DEFINER creator `create_single_session_booking(p_student_id, p_teacher_id, p_payment_id, p_booking_product_type, p_specialty, p_purpose, p_target_scope)` in `supabase/migrations/20260619000001_single_session_columns.sql` (see data-model.md §3): creates booking + session in **one transaction**, sets `student_package_id = NULL`, links `payments.booking_id`. EXECUTE lockdown: REVOKE from public/anon/authenticated; GRANT to service_role only. The assessment/specialized webhook branches (T013/T019) MUST call this fn — never a bare `INSERT bookings + sessions`. Verify locally: partial booking-without-session can never persist; retried call is idempotent.
+- [ ] T007b Create atomic SECURITY DEFINER creator `create_single_session_booking(p_student_id, p_teacher_id, p_payment_id, p_booking_product_type, p_specialty, p_purpose, p_target_scope)` in `supabase/migrations/20260619000001_single_session_columns.sql` (see data-model.md §3): creates booking + session in **one transaction**, sets `student_package_id = NULL`, links `payments.booking_id`. EXECUTE lockdown: REVOKE from public/anon/authenticated; GRANT to service_role only. The assessment/specialized webhook branches (T013/T019) AND the zero-price assessment route path (T012, called with `p_payment_id := NULL`) MUST call this fn — never a bare `INSERT bookings + sessions`. This is the single creation path for assessment/specialized bookings. Verify locally: partial booking-without-session can never persist; retried call is idempotent.
 
 **Checkpoint**: `npm run sb:advisors` clean; `npx tsc --noEmit` passes.
 
@@ -65,8 +65,8 @@
 - [ ] T012 [US1] Create `src/app/api/stripe/checkout/single-session/route.ts` (assessment path):
   - POST, auth, zod input schema
   - Derives `studentId` from `auth.getUser()` — never from body
-  - Assessment flow: validate specialty → check assessment limit → `findAvailableSpecialist` (422 if none) → `getSingleSessionPrice`
-  - If price = 0: create booking directly (no Stripe), return `{bookingId}`
+  - Assessment flow: validate specialty → check assessment limit (**409** if reached, per-specialty vs `hifz_assessment_limit_per_specialty`) → reject non-USD currency (**422**) → `findAvailableSpecialist` (**422** if none) → `getSingleSessionPrice`. All checks run **before** any Stripe call (fail-before-charge).
+  - If price = 0: call `create_single_session_booking(student_id, teacher_id, p_payment_id := NULL, 'assessment', specialty, NULL, NULL)` via the **service-role** client — the SAME atomic creator the webhook uses (T007b/T013). Do NOT bare-`INSERT bookings + sessions` at the route. Return `{bookingId}`.
   - If price > 0: create Stripe Checkout `mode: 'payment'` with metadata `{booking_type:'assessment', student_id, teacher_id, specialty}`; return `{checkoutUrl}`
 
 - [ ] T013 [US1] Extend `src/app/api/stripe/webhook/route.ts` with `payment_intent.succeeded` branch:
@@ -150,7 +150,7 @@
 
 - **Phase 2** → **Phases 3–6** (db:types must regenerate first)
 - **T007** (start_instant_session_booking adaptation) → **T016** (instant webhook branch)
-- **T007b** (create_single_session_booking atomic creator) → **T013** (assessment webhook branch) + **T019** (specialized webhook branch)
+- **T007b** (create_single_session_booking atomic creator) → **T012** (zero-price assessment route path, `p_payment_id := NULL`) + **T013** (assessment webhook branch) + **T019** (specialized webhook branch)
 - **T010** (quran-validation) → **T018** (specialized path)
 - **T008 + T009** can run parallel with **T010 + T011** (different files)
 - **US3 + US4** are independent of each other after Phase 2

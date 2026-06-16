@@ -119,18 +119,20 @@ const AvailableSlotsQuerySchema = z.object({
 })
 ```
 
-**Logic**: If `teacherId` omitted, resolves from active `subscription_teacher_assignments` for caller. Returns `teacher_availability` rows WHERE `is_booked = false AND is_active = true` for the given month.
+**Logic**: If `teacherId` omitted, resolves from active `subscription_teacher_assignments` for caller. Returns **dated** `teacher_availability_instances` rows (one per concrete occurrence date) WHERE `is_booked = false` for the given month, joined to the active recurring `teacher_availability` template for `start_time`/`end_time`/`slot_duration_min`. Instances must be materialized for the horizon first (T003a generation fn). The recurring template's legacy `is_booked` is **not** read here — bookability is per dated instance (data-model §2a-bis).
 
 **Response (200)**:
 ```typescript
 {
   success: true,
   data: Array<{
-    id:              string   // teacher_availability uuid
+    id:              string   // teacher_availability_instances uuid (the dated, lockable/bookable slot)
+    templateId:      string   // teacher_availability uuid (the recurring template this instance derives from)
     teacherId:       string
-    dayOfWeek:       number   // 0=Sun..6=Sat
-    startTime:       string   // 'HH:MM'
-    endTime:         string   // 'HH:MM'
+    slotDate:        string   // 'YYYY-MM-DD' — the concrete date of this occurrence
+    dayOfWeek:       number   // 0=Sun..6=Sat (derived from slotDate / template)
+    startTime:       string   // 'HH:MM' (from template)
+    endTime:         string   // 'HH:MM' (from template)
     slotDurationMin: number
   }>
 }
@@ -144,7 +146,7 @@ const AvailableSlotsQuerySchema = z.object({
 
 ## 5. POST /api/scheduling/book-slot
 
-Books an individual session from the assigned teacher's published slot. Validates teacher constraint before creating booking.
+Books an individual session from a **dated instance** of the assigned teacher's published slot template. Validates teacher constraint before creating booking. The booking targets `teacher_availability_instances` (a dated occurrence), never the recurring `teacher_availability` template (data-model §2a-bis).
 
 **Auth**: Required (authenticated student)
 **Method**: POST
@@ -152,18 +154,19 @@ Books an individual session from the assigned teacher's published slot. Validate
 **Zod input schema**:
 ```typescript
 const BookSlotSchema = z.object({
-  teacherAvailabilityId: z.string().uuid(),
-  scheduledAt:           z.string().datetime(),  // ISO 8601
+  slotInstanceId: z.string().uuid(),             // teacher_availability_instances.id (dated occurrence)
+  scheduledAt:    z.string().datetime(),         // ISO 8601 (must equal the instance's slot_date + start_time)
 })
 ```
 
 **Server-side enforcement**:
 1. Resolve caller's active assignment: `teacher_id` from `subscription_teacher_assignments WHERE student_id = auth.uid() AND is_active = true`.
-2. Resolve slot's `teacher_id` from `teacher_availability WHERE id = teacherAvailabilityId`.
+2. Resolve the dated instance's `teacher_id` from `teacher_availability_instances WHERE id = slotInstanceId` (denormalized from its template).
 3. If mismatch → 403.
-4. `SELECT ... FOR UPDATE` on the availability row; if `is_booked = true` → 409.
-5. INSERT `bookings (student_id, teacher_id, scheduled_at, status='pending')`; UPDATE `teacher_availability SET is_booked = true`.
+4. `SELECT ... FOR UPDATE` on the **dated instance** row (`teacher_availability_instances WHERE id = slotInstanceId AND is_booked = false`); if already booked / no row → 409. The recurring template is never the lock target.
+5. INSERT `bookings (student_id, teacher_id, scheduled_at, status='pending')`; UPDATE `teacher_availability_instances SET is_booked = true` for THAT dated instance only.
 6. Credit debit flows through existing kernel at confirmation — not here.
+7. Emit `booking_created` event (FR-021) via the spec-023 typed event enum after the booking row commits.
 
 **Response (201)**:
 ```typescript
@@ -174,8 +177,8 @@ const BookSlotSchema = z.object({
 - `400` — validation error
 - `401` — not authenticated
 - `403` — teacher does not match assigned teacher
-- `404` — slot not found
-- `409` — slot already booked (race condition)
+- `404` — slot instance not found (no `teacher_availability_instances` row for `slotInstanceId`)
+- `409` — slot instance already booked (race condition)
 
 ---
 
@@ -200,7 +203,7 @@ const JoinHalaqaSchema = z.object({
 2. Fetch `class_offerings WHERE id = classOfferingId`.
 3. If `status = 'open'` and `current_enrollment < capacity`: INSERT `session_participants`, increment `current_enrollment`.
 4. If at capacity: call `open_overflow_halaqa(classOfferingId)` → get target_id; INSERT `session_participants` into target_id.
-5. If course (`product_type = 'course'`): validate `entryConfirmation` against specialist-set condition in `platform_settings` or `class_offerings.entry_conditions_json`.
+5. If course (`product_type = 'course'`): validate `entryConfirmation` against the specialist-set condition in `class_offerings.entry_conditions_json` (the single authoritative source — data-model §2c / T018). Condition text is specialist-authored and read from the DB, never model-generated.
 
 **Response (201)**:
 ```typescript

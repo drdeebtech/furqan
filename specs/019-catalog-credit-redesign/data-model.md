@@ -32,6 +32,20 @@ ALTER TABLE subscriptions
   ADD COLUMN pending_tier_change_id uuid REFERENCES pending_tier_changes(id);
 ```
 
+**Circular FK handling**: `subscriptions.pending_tier_change_id → pending_tier_changes(id)` and
+`pending_tier_changes.subscription_id → subscriptions(id)` form a cycle. This is resolved by
+**creation order + nullable insert**: `pending_tier_changes` is created first (its
+`subscription_id` FK targets the already-existing `subscriptions` table), then the
+`subscriptions.pending_tier_change_id` column/FK is added afterward. At runtime, a
+`pending_tier_changes` row is always inserted first; `subscriptions.pending_tier_change_id`
+(nullable) is back-filled in a second statement — so no DEFERRABLE constraint is required.
+
+**BEFORE UPDATE guard on `subscriptions.is_hifz`** (client-immutable financial/identity column):
+the guard exempts `service_role` (and admin/migrations) so the renewal flow can legitimately
+re-key the tier. The T014a renewal application (apply pending tier change + re-grant) runs
+**service-role only** inside the `invoice.paid` webhook branch, so it bypasses this guard by design;
+authenticated clients can never flip `is_hifz`.
+
 **Partial unique index** (enforces single-active-hifz at DB layer):
 ```sql
 CREATE UNIQUE INDEX uix_subscriptions_one_active_hifz
@@ -42,17 +56,17 @@ CREATE UNIQUE INDEX uix_subscriptions_one_active_hifz
 
 ### 1c. `packages` — widen `package_type` CHECK + add `subscription_plan_id`
 
-New allowed `package_type` values (added to the CHECK constraint):
+**Exactly ONE new `package_type` CHECK member is added** (`tajweed_course`), per Spec §Clarifications.
+The current baseline CHECK has 5 members (`single_session`, `pack_4`, `pack_8`, `pack_12`,
+`full_course` — see `20260428000000_remote_baseline.sql`), so the result is 6 members total:
 
 | Value | Description |
 |-------|-------------|
-| `hifz_group_4` | Group hifz 4 sessions/month (60 min) |
-| `hifz_group_6` | Group hifz 6 sessions/month (60 min) |
-| `hifz_group_8` | Group hifz 8 sessions/month (60 min) |
-| `hifz_individual_4h` | Individual hifz 4 hrs/month |
-| `hifz_individual_6h` | Individual hifz 6 hrs/month |
-| `hifz_individual_8h` | Individual hifz 8 hrs/month |
 | `tajweed_course` | One-time tajweed/mutoon course |
+
+The six recurring hifz tiers are **not** new `package_type` members — each is a
+`subscription_plans` row (plan §Key Decision 2), distinguished on `packages` via the new
+`product_category` column (`hifz_group` / `hifz_individual`), not via `package_type`.
 
 ```sql
 ALTER TABLE packages
@@ -60,18 +74,17 @@ ALTER TABLE packages
   ADD COLUMN is_hifz_product boolean NOT NULL DEFAULT false,
   ADD COLUMN product_category text CHECK (product_category IN ('hifz_group','hifz_individual','tajweed_mutoon','other'));
 
--- Update CHECK on package_type to include new values (DROP + ADD):
+-- Update CHECK on package_type to add the ONE new value (DROP + ADD):
 ALTER TABLE packages DROP CONSTRAINT packages_package_type_check;
 ALTER TABLE packages ADD CONSTRAINT packages_package_type_check
   CHECK (package_type = ANY (ARRAY[
     'single_session','pack_4','pack_8','pack_12','full_course',
-    'hifz_group_4','hifz_group_6','hifz_group_8',
-    'hifz_individual_4h','hifz_individual_6h','hifz_individual_8h',
     'tajweed_course'
   ]));
 ```
 
-**Note**: `packages_package_type_key` UNIQUE constraint already exists — each tier = one row. Retained.
+**Note**: the existing 5 baseline members are retained; only `tajweed_course` is added → 6 total.
+`packages_package_type_key` UNIQUE constraint already exists — each tier = one row. Retained.
 
 ### 1d. `student_packages` — add `subscription_id`
 

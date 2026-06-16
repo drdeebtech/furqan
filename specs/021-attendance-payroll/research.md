@@ -12,20 +12,24 @@
 CREATE TABLE subscription_extensions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   subscription_id uuid NOT NULL REFERENCES subscriptions(id),
-  session_id uuid REFERENCES sessions(id),       -- idempotency anchor per carried session
+  booking_id uuid NOT NULL REFERENCES bookings(id),  -- idempotency anchor (always present)
+  session_id uuid REFERENCES sessions(id),           -- informational audit link; nullable
   granted_by_user_id uuid NOT NULL REFERENCES profiles(id),
   reason text NOT NULL,
   extension_seconds bigint NOT NULL CHECK (extension_seconds > 0),
   granted_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX uix_subscription_extensions_session
-  ON subscription_extensions(subscription_id, session_id)
-  WHERE session_id IS NOT NULL;
+-- Idempotency anchored on booking_id: session_id is nullable on bookings (verified 2026-06-16),
+-- so a session_id-based partial index cannot guarantee one-grant-per-event for individual sessions.
+CREATE UNIQUE INDEX uix_subscription_extensions_booking
+  ON subscription_extensions(subscription_id, booking_id);
+CREATE INDEX idx_subscription_extensions_sub
+  ON subscription_extensions(subscription_id);
 ```
 
 > **⚠️ SUPERSEDED 2026-06-16 (Clarifications):** the idempotency anchor was changed to `booking_id`. `session_id` is nullable on `bookings` (verified against local schema), so a `session_id`-based partial unique index cannot guarantee one-grant-per-event for individual sessions. The canonical schema (`data-model.md`, tasks T003/T006/T017) now uses `booking_id NOT NULL` with `UNIQUE (subscription_id, booking_id)`; `session_id` is retained only as a nullable audit link. The rationale below still applies to the additive-table approach.
 
-**Rationale**: Spec 018's `current_period_end` is a Stripe-mirror column protected by a BEFORE UPDATE identity guard — mutating it would corrupt the Stripe reconciliation. The additive table preserves a full per-session audit trail, is idempotent via the unique index (same `session_id` → conflict → no duplicate), and allows future revocation or inspection without touching the mirror.
+**Rationale**: Spec 018's `current_period_end` is a Stripe-mirror column protected by a BEFORE UPDATE identity guard — mutating it would corrupt the Stripe reconciliation. The additive table preserves a full per-session audit trail, is idempotent via the unique index (same `booking_id` → conflict → no duplicate), and allows future revocation or inspection without touching the mirror.
 
 **Alternatives considered**:
 - Mutate `subscriptions.current_period_end` → rejected: breaks Stripe mirror, violates spec 018 guard.

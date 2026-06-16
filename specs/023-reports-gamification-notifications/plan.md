@@ -78,7 +78,8 @@ supabase/migrations/
       certificates (UNIQUE student+type+milestone_key, immutable),
       honor_board_entries (is_opted_out, display-safe cols)
     — RLS all 4 tables; BEFORE UPDATE guards; set_updated_at triggers
-    — INSERT platform_settings: honor_board_refresh_cadence_days='7'
+    — INSERT platform_settings: honor_board_refresh_cadence_days='7',
+      notifications_whatsapp_enabled='true', notification_channel_matrix (FR-012)
 ```
 
 ---
@@ -89,9 +90,11 @@ supabase/migrations/
 
 2. **WhatsApp channel**: Extend `notifications.channel` CHECK constraint (drop + re-add); existing rows unaffected. WhatsApp dispatch via existing n8n intake — no new endpoint, no new Stripe-style secret registration.
 
+2b. **Per-trigger channel routing**: each trigger resolves its `notifications.channel[]` from `platform_settings.notification_channel_matrix` (FR-012 matrix; default seed in data-model §3), never hardcoded; `whatsapp` is dropped from the resolved set when `notifications_whatsapp_enabled='false'`. Makes SC-005 testable (assert resolved `channel[]` == matrix per trigger).
+
 3. **Quran ranges**: `src/lib/quran/ayah-counts.ts` is the only source for any `surah:ayah` or juz boundary on a certificate. `getJuzBoundaries(juzNumber)` throws on invalid juz — propagated as 422. Unit test asserts zero hardcoded counts in certificate domain code.
 
-4. **Honor board privacy**: `is_opted_out boolean DEFAULT false`. SELECT query filters `WHERE is_opted_out = false`. Only display-safe columns in SELECT (`display_name`, `avatar_url`, `achievement_metric`, `rank_period`). Guardian opt-out for minors validated via `guardian_children` join.
+4. **Honor board privacy**: `is_opted_out boolean DEFAULT false`. SELECT query filters `WHERE is_opted_out = false`. Only display-safe columns in SELECT (`display_name`, `avatar_url`, `achievement_metric`, `rank_period`). Guardian opt-out for minors validated via `guardian_children` join. ⛔ **`achievement_metric` ranking formula is [NEEDS CLARIFICATION] (FR-010) and blocks T023 — P2/US4 only; privacy/opt-out (SC-008) is unaffected.**
 
 5. **n8n event routing**: New `FurqanEvent` enum entries: `MonthlyReportReady`, `CertificateEarned`, `HonorBoardUpdated`. Consumed events: `PaymentFailed`, `SubscriptionExpiring`, `AbsenceOutcome`. All routed via existing `emitEvent()`. Delivery failures → `automation_logs.status = 'failed'`, Sentry-surfaced, never `'succeeded'`.
 
