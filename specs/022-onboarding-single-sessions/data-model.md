@@ -121,8 +121,11 @@ BEGIN
             p_booking_product_type, p_specialty, p_purpose, p_target_scope)
     RETURNING id INTO v_booking_id;
 
-  INSERT INTO sessions (booking_id, student_id, teacher_id)
-    VALUES (v_booking_id, p_student_id, p_teacher_id)
+  -- session created UNSCHEDULED: scheduled_at is left NULL = pending scheduling.
+  -- Booking + payment link are atomic here; choosing the slot is a separate follow-up
+  -- step (surfaced as "unscheduled" in GET /my-bookings, contracts §4 scheduledAt nullable).
+  INSERT INTO sessions (booking_id, student_id, teacher_id, scheduled_at)
+    VALUES (v_booking_id, p_student_id, p_teacher_id, NULL)
     RETURNING id INTO v_session_id;
 
   UPDATE bookings SET session_id = v_session_id WHERE id = v_booking_id;

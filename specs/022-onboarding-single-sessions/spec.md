@@ -201,9 +201,9 @@ An admin sets and adjusts the prices for the assessment session, the instant ses
 
 ### [NEEDS CLARIFICATION]
 
-- **[NEEDS CLARIFICATION 1]**: The **default assessment price** at launch — a specific nominal amount, or **free (zero)** — and whether it ships configured to a placeholder until pricing is finalized. (Decision #23 says optional/nominal; the value is "set later".)
-- **[NEEDS CLARIFICATION 2]**: The exact **assessment frequency limit per student** (FR-014) to prevent free/cheap assessment farming — e.g. one assessment per student lifetime, one per specialty, or one per N days.
-- **[NEEDS CLARIFICATION 3]**: Whether the **specialized purposes** and the **specialty taxonomy** for assessments are a **new enumerated set/table** introduced here, or are reused from existing `session_type` / teacher `specialties` values already in the baseline.
+- **[NEEDS CLARIFICATION 1]** (OPEN): The **default assessment price** at launch — a specific nominal amount, or **free (zero)** — and whether it ships configured to a placeholder until pricing is finalized. (Decision #23 says optional/nominal; the value is "set later".)
+- ~~**[NEEDS CLARIFICATION 2]**~~ → **RESOLVED 2026-06-16** (Clarifications): assessment frequency limit is per-specialty via `hifz_assessment_limit_per_specialty` (FR-014).
+- ~~**[NEEDS CLARIFICATION 3]**~~ → **RESOLVED 2026-06-16** (Clarifications): specialized purposes are a **new enum** `specialized_purpose` (created in T004).
 
 ## Dependencies
 

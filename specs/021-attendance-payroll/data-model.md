@@ -184,7 +184,7 @@ CREATE INDEX idx_teacher_payouts_teacher ON teacher_payouts(teacher_id);
 Atomic outcome finalization:
 1. Upsert `attendance_records` with outcome (conflicts on `booking_id` → idempotent).
 2. If `excused_carried`: check `credit_action != 'restored'`, then call `restore_student_package(p_booking_id)`, update `credit_action = 'restored'`, insert `subscription_extensions` row (conflict on unique index → skip if already extended).
-3. If `teacher_absent`: call `restore_student_package(p_booking_id)`, set `credit_action = 'restored'`; teacher in `attendance_records` = actual deliverer (substitute) or NULL.
+3. If `teacher_absent`: call `restore_student_package(p_booking_id)`, set `credit_action = 'restored'`. `attendance_records.teacher_id` = the originally-assigned (absent) teacher from the booking — **never NULL** (the column is `NOT NULL`). Any substitute deliverer is recorded on `session_deliveries.teacher_id` (step 4), not here.
 4. If outcome is `present` or `teacher_absent` with deliverer: insert `session_deliveries` row (hourly_rate_usd snapshot from teacher profile; conflict on unique index → skip).
 5. SET search_path = public; SECURITY DEFINER; REVOKE EXECUTE FROM public, anon, authenticated; GRANT EXECUTE TO service_role.
 
