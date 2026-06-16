@@ -447,6 +447,9 @@ async function snapshotFromSubscription(
       .maybeSingle<{ student_id: string }>();
     studentId = mirror?.student_id ?? "";
   }
+  if (!studentId) {
+    throw new Error(`student_id not found for subscription ${sub.id} — metadata and mirror both empty`);
+  }
 
   let planId: string | null = null;
   if (priceId) {

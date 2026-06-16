@@ -177,6 +177,11 @@ alter table public.student_packages
 
 -- Per-cycle grant-once guarantee (FR-005 / R3). Partial unique index so legacy
 -- a-la-carte grants (billing_cycle_key NULL) remain unrestricted.
+-- CONCURRENTLY intentionally omitted: billing_cycle_key is a NEW column added
+-- above (all existing rows = NULL), so the partial index WHERE billing_cycle_key
+-- IS NOT NULL scans zero existing rows — the locking window is trivial. Using
+-- CONCURRENTLY inside a migration transaction would cause an error (Postgres
+-- forbids CONCURRENTLY within a transaction block).
 create unique index if not exists student_packages_billing_cycle_key_key
   on public.student_packages (billing_cycle_key)
   where billing_cycle_key is not null;
