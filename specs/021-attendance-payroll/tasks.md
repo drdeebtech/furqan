@@ -19,22 +19,23 @@
 
 **⚠️ CRITICAL**: All user story work blocked until T007 (`npm run db:types`) completes.
 
-- [ ] T002a Create `supabase/migrations/20260617999000_profiles_hourly_rate.sql` — **applies BEFORE T006** (earlier timestamp; sorts first in this spec's set):
+- [ ] T002a Create `supabase/migrations/20260619000000_profiles_hourly_rate.sql` — **applies first in this spec's set**:
   - **VERIFIED 2026-06-16 against local schema**: `profiles.hourly_rate_usd` does NOT exist; T006 `finalize_attendance` snapshots it into `session_deliveries`, so it must exist first.
   - `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS hourly_rate_usd numeric(10,2) CHECK (hourly_rate_usd >= 0)`
   - Precondition for T006 (rate snapshot) and T007 (`db:types`). See spec Clarifications §2026-06-16.
-  - **NOTE (cross-spec):** the pre-existing 020↔021 migration-timestamp collision (both start at `20260618000000`) is tracked separately; final re-sequencing happens at merge. This task's `20260617999000` only guarantees it sorts before 021's own migrations.
+  - **Cross-spec ordering (resolved):** all 021 migrations are timestamped `20260619xxxxxx` so they sort strictly AFTER spec 020's `20260618xxxxxx` set — removes the prior `20260618000000` collision between 020 and 021.
 
-- [ ] T003 Create `supabase/migrations/20260618000000_subscription_extensions.sql`:
-  - CREATE TABLE `subscription_extensions (id uuid PK, subscription_id uuid FK subscriptions, session_id uuid FK sessions nullable, granted_by_user_id uuid FK profiles, reason text NOT NULL, extension_seconds bigint CHECK(>0), granted_at timestamptz DEFAULT now())`
-  - CREATE UNIQUE INDEX `uix_subscription_extensions_session ON subscription_extensions(subscription_id, session_id) WHERE session_id IS NOT NULL`
-  - **FOLLOW-UP (Clarifications §2026-06-16):** `session_id` is nullable on `bookings`, so it cannot anchor idempotency for individual sessions. Add `booking_id uuid FK bookings NOT NULL` and switch the idempotency anchor to `(subscription_id, booking_id)` (also update the `ON CONFLICT` target in T006/T017). Tracked as a correctness follow-up; not a column-existence gap.
+- [ ] T003 Create `supabase/migrations/20260619000001_subscription_extensions.sql`:
+  - CREATE TABLE `subscription_extensions (id uuid PK, subscription_id uuid FK subscriptions, booking_id uuid NOT NULL FK bookings, session_id uuid FK sessions nullable, granted_by_user_id uuid FK profiles, reason text NOT NULL, extension_seconds bigint CHECK(>0), granted_at timestamptz DEFAULT now())`
+  - **Idempotency anchor = `booking_id`** (Clarifications §2026-06-16): `session_id` is nullable on `bookings`, so it cannot anchor idempotency for individual sessions. `booking_id` is always present.
+  - CREATE UNIQUE INDEX `uix_subscription_extensions_booking ON subscription_extensions(subscription_id, booking_id)` — the idempotency guard
+  - `session_id` retained as nullable informational FK (audit link to the delivered session when one exists)
   - CREATE INDEX `idx_subscription_extensions_sub ON subscription_extensions(subscription_id)`
   - RLS: student reads own (via subscription → student_id); admin reads all; service_role writes only
-  - BEFORE UPDATE OF (`extension_seconds`, `subscription_id`, `session_id`) guard
+  - BEFORE UPDATE OF (`extension_seconds`, `subscription_id`, `booking_id`, `session_id`) guard
   - Seed `platform_settings`: `excuse_notice_threshold_seconds='7200'`, `payroll_run_day_of_month='1'`
 
-- [ ] T004 Create `supabase/migrations/20260618000001_attendance_excuses.sql`:
+- [ ] T004 Create `supabase/migrations/20260619000002_attendance_excuses.sql`:
   - CREATE TYPE `attendance_outcome AS ENUM ('present','student_absent','teacher_absent','excused_carried')`
   - CREATE TYPE `credit_action AS ENUM ('none','debited','restored')`
   - CREATE TYPE `excuse_status AS ENUM ('pending','accepted','rejected','ineligible')`
@@ -44,7 +45,7 @@
   - RLS for `excuse_requests`: student INSERT own upcoming; student/teacher SELECT own; teacher UPDATE status (own rows, status='pending'); admin all
   - BEFORE UPDATE OF (`booking_id`, `student_id`) on attendance_records; BEFORE UPDATE OF (`booking_id`, `student_id`, `teacher_id`, `is_eligible`) on excuse_requests
 
-- [ ] T005 Create `supabase/migrations/20260618000002_payroll_tables.sql`:
+- [ ] T005 Create `supabase/migrations/20260619000003_payroll_tables.sql`:
   - CREATE TYPE `payout_status AS ENUM ('pending','paid','failed')`
   - CREATE TABLE `session_deliveries (id uuid PK, session_id uuid UNIQUE FK sessions, teacher_id uuid FK profiles, duration_minutes integer CHECK(>0), hourly_rate_usd numeric(10,2) CHECK(>=0), delivered_at timestamptz NOT NULL, payroll_period_month date NOT NULL, created_at)` + composite index (teacher_id, payroll_period_month)
   - CREATE TABLE `teacher_payouts (id uuid PK, teacher_id uuid FK profiles, payroll_period_month date NOT NULL, total_hours numeric(10,2) CHECK(>=0), hourly_rate_usd numeric(10,2) CHECK(>=0), total_amount_usd numeric(10,2) CHECK(>=0), status payout_status DEFAULT 'pending', run_at timestamptz DEFAULT now(), created_at)` + UNIQUE (teacher_id, payroll_period_month) + index
@@ -53,8 +54,8 @@
   - BEFORE UPDATE OF (`session_id`, `teacher_id`, `duration_minutes`, `hourly_rate_usd`) on session_deliveries (fully immutable)
   - BEFORE UPDATE OF (`teacher_id`, `payroll_period_month`, `total_hours`, `total_amount_usd`) on teacher_payouts
 
-- [ ] T006 Create `supabase/migrations/20260618000003_attendance_payroll_fns.sql`:
-  - `finalize_attendance(p_booking_id uuid, p_outcome attendance_outcome, p_actual_teacher_id uuid DEFAULT NULL) RETURNS void` — upsert attendance_records; if excused_carried: check credit_action != 'restored' then call `restore_student_package(p_booking_id)`, set credit_action='restored', insert subscription_extensions (ON CONFLICT DO NOTHING); if teacher_absent: restore credit, no session_deliveries for absent teacher; if present or teacher_absent with substitute: insert session_deliveries with hourly_rate_usd snapshot; SECURITY DEFINER; REVOKE from public/anon/authenticated; GRANT to service_role
+- [ ] T006 Create `supabase/migrations/20260619000004_attendance_payroll_fns.sql`:
+  - `finalize_attendance(p_booking_id uuid, p_outcome attendance_outcome, p_actual_teacher_id uuid DEFAULT NULL) RETURNS void` — upsert attendance_records; if excused_carried: check credit_action != 'restored' then call `restore_student_package(p_booking_id)`, set credit_action='restored', insert subscription_extensions with `booking_id = p_booking_id` (ON CONFLICT (subscription_id, booking_id) DO NOTHING); if teacher_absent: restore credit, no session_deliveries for absent teacher; if present or teacher_absent with substitute: insert session_deliveries with hourly_rate_usd snapshot; SECURITY DEFINER; REVOKE from public/anon/authenticated; GRANT to service_role
   - `run_monthly_payroll(p_month date) RETURNS int` — INSERT INTO teacher_payouts SELECT teacher_id, p_month, ROUND(SUM(duration_minutes)/60.0,2), MAX(hourly_rate_usd), ROUND(SUM(duration_minutes/60.0*hourly_rate_usd),2) FROM session_deliveries WHERE payroll_period_month=p_month GROUP BY teacher_id ON CONFLICT DO NOTHING; RETURN count; same EXECUTE lockdown
 
 - [ ] T007 `supabase migration up` → `npm run db:types` → commit regenerated `src/types/database.ts`
@@ -105,7 +106,7 @@
 
 **Independent Test**: Accept excuse for 60-min session → subscription_extensions row with extension_seconds=3600; re-accept → no second row.
 
-- [ ] T017 [US3] Wire `subscription_extensions` insert inside `finalize_attendance` fn (already in T006 migration fn): ensure `ON CONFLICT (subscription_id, session_id) DO NOTHING` is present
+- [ ] T017 [US3] Wire `subscription_extensions` insert inside `finalize_attendance` fn (already in T006 migration fn): ensure `ON CONFLICT (subscription_id, booking_id) DO NOTHING` is present (anchor is `booking_id`, not the nullable `session_id`)
 - [ ] T018 [US3] Add `computeEffectiveEndDate(subscriptionId)` to `src/lib/domains/attendance/finalize.ts`: queries SUM(extension_seconds) from subscription_extensions; adds to current_period_end
 - [ ] T019 [US3] Unit test: excused carry-over → exactly 1 subscription_extensions row; idempotent retry → still 1 row; unexcused absence → 0 rows
 

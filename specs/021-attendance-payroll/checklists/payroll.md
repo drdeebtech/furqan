@@ -21,7 +21,7 @@
 
 ## Clarity & Measurability
 
-- [ ] CHK011 Is the `subscription_extensions` idempotency anchor unambiguously specified as `booking_id` (always present), instead of the nullable `session_id` the spec/data-model still use? [Clarity, Conflict — Clarifications 2026-06-16 vs data-model.md unique index on `(subscription_id, session_id)`]
+- [ ] CHK011 Is the `subscription_extensions` idempotency anchor specified as `booking_id` (always present) consistently across spec, data-model, plan, and tasks T003/T006/T017? [Clarity, Spec §FR-011 — resolved 2026-06-16; `session_id` retained only as nullable audit link]
 - [ ] CHK012 Is "restored exactly once / at most once" defined as a measurable post-condition (e.g., `credit_action = 'restored'` set once; restore fn not re-invoked) rather than a prose adjective? [Measurability, Spec FR-003 / SC-002]
 - [ ] CHK013 Is the carry-over extension's idempotency expressed as a concrete, checkable invariant (e.g., a unique constraint keyed on the anchor) rather than only "MUST be idempotent"? [Measurability, Spec FR-012]
 - [ ] CHK014 Is "equivalent extension" quantified (which duration value, in seconds, maps to `extension_seconds`) so two implementers would compute the same number? [Clarity, Spec FR-011]

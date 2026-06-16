@@ -62,23 +62,26 @@ src/
     └── payroll.ts                 ← payroll run + payout query logic
 
 supabase/migrations/
-├── 20260618000000_subscription_extensions.sql
-│   — subscription_extensions table + RLS + BEFORE UPDATE guard + platform_settings seeds
-├── 20260618000001_attendance_excuses.sql
+├── 20260619000000_profiles_hourly_rate.sql
+│   — ALTER profiles ADD hourly_rate_usd numeric(10,2) (verified absent 2026-06-16; precondition for rate snapshot)
+├── 20260619000001_subscription_extensions.sql
+│   — subscription_extensions table (booking_id idempotency anchor) + RLS + BEFORE UPDATE guard + platform_settings seeds
+├── 20260619000002_attendance_excuses.sql
 │   — attendance_outcome / credit_action / excuse_status enums
 │   — attendance_records + excuse_requests + RLS + guards
-├── 20260618000002_payroll_tables.sql
+├── 20260619000003_payroll_tables.sql
 │   — payout_status enum + session_deliveries + teacher_payouts + RLS + guards
-└── 20260618000003_attendance_payroll_fns.sql
+└── 20260619000004_attendance_payroll_fns.sql
     — finalize_attendance() + run_monthly_payroll() SECURITY DEFINER
     — REVOKE from public/anon/authenticated; GRANT to service_role
+# Timestamps 20260619xxxxxx sort after spec 020's 20260618xxxxxx (resolves 020↔021 collision)
 ```
 
 ---
 
 ## Key Implementation Decisions
 
-1. **subscription_extensions (never mutate Stripe mirror)**: Carry-over grants accumulate in a separate table. Effective access end is computed as `current_period_end + SUM(extension_seconds)`. Unique index on `(subscription_id, session_id)` makes carry-over idempotent per carried session.
+1. **subscription_extensions (never mutate Stripe mirror)**: Carry-over grants accumulate in a separate table. Effective access end is computed as `current_period_end + SUM(extension_seconds)`. Unique index on `(subscription_id, booking_id)` makes carry-over idempotent per carried booking (`booking_id` is always present; `session_id` is nullable on bookings, verified 2026-06-16, so it cannot anchor idempotency).
 
 2. **Attendance outcome enum**: `attendance_outcome` Postgres enum with four states; UNIQUE on `booking_id` enforces one final outcome per session. `finalize_attendance` is idempotent — second call for same booking returns without error.
 

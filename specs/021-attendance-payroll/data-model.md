@@ -16,15 +16,17 @@ Accumulates carry-over extension grants without mutating `subscriptions.current_
 CREATE TABLE subscription_extensions (
   id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   subscription_id     uuid NOT NULL REFERENCES subscriptions(id),
-  session_id          uuid REFERENCES sessions(id),  -- idempotency anchor; NULL = manual admin grant
+  booking_id          uuid NOT NULL REFERENCES bookings(id),  -- idempotency anchor (always present)
+  session_id          uuid REFERENCES sessions(id),  -- informational audit link; nullable
   granted_by_user_id  uuid NOT NULL REFERENCES profiles(id),
   reason              text NOT NULL,
   extension_seconds   bigint NOT NULL CHECK (extension_seconds > 0),
   granted_at          timestamptz NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX uix_subscription_extensions_session
-  ON subscription_extensions(subscription_id, session_id)
-  WHERE session_id IS NOT NULL;
+-- Idempotency anchored on booking_id: session_id is nullable on bookings (verified 2026-06-16),
+-- so it cannot guarantee one-grant-per-event for individual sessions.
+CREATE UNIQUE INDEX uix_subscription_extensions_booking
+  ON subscription_extensions(subscription_id, booking_id);
 CREATE INDEX idx_subscription_extensions_sub ON subscription_extensions(subscription_id);
 ```
 
@@ -32,7 +34,7 @@ CREATE INDEX idx_subscription_extensions_sub ON subscription_extensions(subscrip
 - SELECT: student reads own (`subscription_id IN (SELECT id FROM subscriptions WHERE student_id = (select auth.uid()))`); admin reads all.
 - INSERT/UPDATE/DELETE: service_role only.
 
-**BEFORE UPDATE OF** (`extension_seconds`, `subscription_id`, `session_id`) — immutable after insert.
+**BEFORE UPDATE OF** (`extension_seconds`, `subscription_id`, `booking_id`, `session_id`) — immutable after insert.
 
 **Effective period end** (computed on read):
 ```sql
@@ -219,10 +221,13 @@ Returns count of rows inserted. SET search_path = public; SECURITY DEFINER; same
 
 | File | Contents |
 |------|----------|
-| `20260618000000_subscription_extensions.sql` | `subscription_extensions` table + RLS + guard + seed platform_settings keys |
-| `20260618000001_attendance_excuses.sql` | `attendance_outcome`/`credit_action`/`excuse_status` enums + `attendance_records` + `excuse_requests` + RLS + guards |
-| `20260618000002_payroll_tables.sql` | `payout_status` enum + `session_deliveries` + `teacher_payouts` + RLS + guards |
-| `20260618000003_attendance_payroll_fns.sql` | `finalize_attendance` + `run_monthly_payroll` SECURITY DEFINER fns |
+| `20260619000000_profiles_hourly_rate.sql` | ALTER `profiles` ADD `hourly_rate_usd numeric(10,2)` (verified absent 2026-06-16; precondition for the rate snapshot) |
+| `20260619000001_subscription_extensions.sql` | `subscription_extensions` table (booking_id anchor) + RLS + guard + seed platform_settings keys |
+| `20260619000002_attendance_excuses.sql` | `attendance_outcome`/`credit_action`/`excuse_status` enums + `attendance_records` + `excuse_requests` + RLS + guards |
+| `20260619000003_payroll_tables.sql` | `payout_status` enum + `session_deliveries` + `teacher_payouts` + RLS + guards |
+| `20260619000004_attendance_payroll_fns.sql` | `finalize_attendance` + `run_monthly_payroll` SECURITY DEFINER fns |
+
+> Timestamps are `20260619xxxxxx` so this spec's migrations sort strictly after spec 020's `20260618xxxxxx` set (resolves the prior 020↔021 collision).
 
 ---
 
@@ -246,7 +251,7 @@ profiles(teacher) ──< session_deliveries
 
 | Table | Estimated rows | Index strategy |
 |-------|---------------|----------------|
-| `subscription_extensions` | ~30k/year | Partial unique on (subscription_id, session_id) |
+| `subscription_extensions` | ~30k/year | Unique on (subscription_id, booking_id) |
 | `attendance_records` | ~600k/year | Unique on booking_id; idx on student_id, teacher_id |
 | `excuse_requests` | ~30k/year | Unique on booking_id; idx on student_id, teacher_id |
 | `session_deliveries` | ~600k/year | Unique on session_id; composite idx on (teacher_id, month) |

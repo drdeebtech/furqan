@@ -23,6 +23,8 @@ CREATE UNIQUE INDEX uix_subscription_extensions_session
   WHERE session_id IS NOT NULL;
 ```
 
+> **⚠️ SUPERSEDED 2026-06-16 (Clarifications):** the idempotency anchor was changed to `booking_id`. `session_id` is nullable on `bookings` (verified against local schema), so a `session_id`-based partial unique index cannot guarantee one-grant-per-event for individual sessions. The canonical schema (`data-model.md`, tasks T003/T006/T017) now uses `booking_id NOT NULL` with `UNIQUE (subscription_id, booking_id)`; `session_id` is retained only as a nullable audit link. The rationale below still applies to the additive-table approach.
+
 **Rationale**: Spec 018's `current_period_end` is a Stripe-mirror column protected by a BEFORE UPDATE identity guard — mutating it would corrupt the Stripe reconciliation. The additive table preserves a full per-session audit trail, is idempotent via the unique index (same `session_id` → conflict → no duplicate), and allows future revocation or inspection without touching the mirror.
 
 **Alternatives considered**:
