@@ -226,3 +226,12 @@ Sessions already booked (or instant sessions in progress) at the cutover instant
 - **Stripe**: a live-mode account and keys ready to swap in (test→live by configuration only); USD-only, Stripe-only at go-live.
 - **Operational**: a verified production backup/restore capability, a production-copy environment for rehearsal, the `migration repair` / `db push` tooling, and a chosen, pre-announced cutover window.
 - **Verification**: local Postgres rehearsal of the migration on a production copy; `sb:advisors` clean; `tsc --noEmit` + `lint` + `test:unit` green; reconciliation reports passing before the cutover is declared successful.
+
+## Clarifications
+
+### Session 2026-06-16 (analyze remediation)
+
+- Q: The 3 [NEEDS CLARIFICATION] markers (cutover date/time, balance-conversion policy, rollback authority)? → A: INTENTIONALLY left open — owner/operator decisions, correctly fail-closed in tasks. Not defects.
+- Q: 50k-scale freeze window? → A: add an explicit scale note bounding migration runtime + freeze duration at 50,000 students (constitution NON-NEGOTIABLE requires scale evaluation).
+- Q: Branch hygiene? → A: add an early "open draft PR + link tracking issue (Closes #N)" task; current tasks.md commits VCS only at the end.
+- Q: spec wording "...then db push" (reconciliation)? → A: reword to "then apply post-baseline migrations (never `db push` the baseline)" to remove the apparent contradiction with FR-015.

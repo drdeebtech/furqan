@@ -212,3 +212,13 @@ An admin sets and adjusts the prices for the assessment session, the instant ses
 - Existing functions: `start_instant_session_booking(...)` (atomic, service-role EXECUTE only).
 - Existing references: `src/lib/quran/` (`ayah-counts.ts`), the `student_progress_ayah_range_guard` migration lineage.
 - **Blocks**: nothing downstream depends on this phase except final cutover/migration accounting (spec 024) treating one-time-paid sessions distinctly from credit-funded ones.
+
+## Clarifications
+
+### Session 2026-06-16 (analyze remediation)
+
+- Q: Service-role bypass idiom in the single-session identity guard? → A: use `nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role' = 'service_role'` (NULL/empty JWT = trusted direct-DB/migration write). VERIFIED as the canonical idiom across existing guard migrations on 2026-06-16. Do NOT use `current_setting('role')` — it reads the wrong GUC and the exemption would never match.
+- Q: Legacy `bookings` rows with NULL `booking_product_type`? → A: column is VERIFIED absent today and added by this spec; existing rows will be NULL. Define NULL = legacy credit-funded; reporting/RLS must treat NULL as legacy.
+- Q: [NEEDS CLARIFICATION 2] assessment frequency limit? → RESOLVED: per-specialty via `hifz_assessment_limit_per_specialty` (already implemented in research R-003 / tasks T012).
+- Q: [NEEDS CLARIFICATION 3] specialized purposes — new enum or reused? → RESOLVED: new enum `specialized_purpose` (created in T004).
+- Q: Atomic creation for assessment/specialized bookings? → A: define an atomic SECURITY DEFINER creator (booking + session in one txn), mirroring `start_instant_session_booking`; do NOT INSERT directly in the webhook handler.

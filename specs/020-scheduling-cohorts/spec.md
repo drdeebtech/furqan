@@ -238,3 +238,12 @@ An admin can view and manage fixed teacher assignments, cohort rosters and their
 
 - **Teacher change booking behavior** *(resolved)*: On admin-approved mid-month teacher change (initiated by student/guardian request with stated reason), future bookings are **cancelled**; the student rebooks from the new teacher's published availability. Rationale: the new teacher's schedule may differ; cancel-and-rebook avoids phantom bookings on mismatched slots.
 - **Halaqa overflow sibling preference** *(resolved)*: When a not-full sibling halaqa of the same juz/level exists, **prefer filling it** before opening a new one. A new halaqa opens only when no suitable not-full sibling exists. Rationale: prevents halaqa proliferation and keeps group sizes healthy.
+
+## Clarifications
+
+### Session 2026-06-16 (analyze remediation)
+
+- Q: Do `class_offerings` have program_level / schedule_json / session_duration_min / start_date / entry_conditions_json? → A: VERIFIED ABSENT in local DB on 2026-06-16 (only `capacity` and `status` exist). This spec's migration MUST ALTER `class_offerings` to add these 5 columns before any logic references them. (Requires a tasks-regen pass to add the ALTER task.)
+- Q: Catalog product codes vs `product_type` enum? → A: map explicitly in data-model — a-individual→hifz_individual, b→hifz_group, c→course.
+- Q: Recurring availability slot locking? → A: materialize recurring `teacher_availability` templates into dated bookable instances; `is_booked` applies per instance, not to the recurring template.
+- Q: Sibling-fill ordering? → A: `ORDER BY current_enrollment DESC` (least-empty-first); align research R-003 which lacked an ORDER BY.

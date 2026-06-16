@@ -230,3 +230,13 @@ Guardians receive timely, idempotent notifications for events emitted by other p
 - **Certificate format** *(resolved)*: in-app shareable card — no PDF in this phase. PDF deferred.
 - **WhatsApp provider/template specifics** — [NEEDS CLARIFICATION]: which provider does the existing n8n flow use, and are pre-approved message templates required? Resolve before `/speckit-plan 023`.
 - **Honor-board opt-out** *(resolved)*: **opt-out by default** — students visible on the board unless they (or guardian for minors) explicitly opt out. Opt-out is per-student, guardian-controlled for minors.
+
+## Clarifications
+
+### Session 2026-06-16 (analyze remediation)
+
+- Q: `notifications.channel` widening — array or scalar CHECK? → A: column is ALREADY `text[]` with a correct `CHECK (channel <@ ARRAY['in_app','email','push'])` (VERIFIED 2026-06-16). The widening migration MUST follow the `<@` subset form to add `'whatsapp'`; do NOT use scalar `= ANY`. New allowed set: in_app / email / push / whatsapp.
+- Q: Canonical idempotency-key schema? → A: `notif:{recipientId}:{trigger}:{subjectKey}` per FR-014 (recipient, trigger, subject). Fix contracts/api.md §7 to match.
+- Q: Month-close trigger emitter (FR-002)? → A: requires an upstream month-close event from spec 018; no emitter is currently defined. Recorded as a dependency to verify/add before US covering FR-002 is built.
+- Q: Honor-board achievement metric (FR-010)? → A: formula undefined; recorded as OPEN pending product input (e.g. juz completed × consistency).
+- Q: WhatsApp provider [NEEDS CLARIFICATION]? → A: provider-agnostic via n8n; concrete template deferred to the n8n owner.

@@ -254,3 +254,13 @@ Each delivered session accrues teaching hours (sessions actually delivered × th
 - Existing tables: `sessions`, `bookings`, `student_packages`, `packages`, `profiles`, `platform_settings`, `payments`.
 - Existing functions (referenced, not redefined): `restore_student_package`, `refund_package_session`, `deduct_package_session`, `confirm_booking_with_session`, `private.is_admin()`, `public.set_updated_at()`.
 - **Blocks**: downstream notification content (spec 023) consumes the absence/excuse/payroll domain events emitted here; spec 024 migration converts legacy attendance/payout state.
+
+## Clarifications
+
+### Session 2026-06-16 (analyze remediation)
+
+- Q: Does `profiles.hourly_rate_usd` exist? → A: VERIFIED ABSENT on 2026-06-16. Must be added in an EARLY migration before the `finalize_attendance` function snapshots it (not deferred to Phase 7). (Requires a tasks-regen pass.)
+- Q: `subscription_extensions` idempotency anchor? → A: `booking_id` (always present). NOT `session_id` — VERIFIED nullable on `bookings`, so it cannot anchor idempotency for individual sessions.
+- Q: `POST /api/attendance/record` duplicate response — 200 or 409? → A: idempotent no-op returns 200 (matches plan decision #2). Remove the conflicting 409 from contracts/api.md.
+- Q: Who inserts the `subscription_extensions` row? → A: the `finalize_attendance` SECURITY DEFINER function ONLY; the route layer does not insert (prevents double-insert).
+- Q: research R-003 "NFR-028" reference? → A: dangling/typo; correct it to the intended FR number.

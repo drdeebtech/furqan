@@ -231,3 +231,13 @@ A student on an individual hifz tier wants more hours/sessions this month. If th
 - Existing tables: `packages`, `student_packages`, `student_credits` (legacy, not extended), `profiles`, `platform_settings`, plus spec 018's subscription/plan/billing-event tables.
 - Existing conventions/functions: `( select auth.uid() )` initplan RLS, `private.is_admin()`, `public.set_updated_at()`, the `BEFORE UPDATE OF` financial-column guard, the SECURITY DEFINER EXECUTE lockdown.
 - **Blocks**: spec 020 (scheduling/teacher-assignment/cohorts schedules against these tiers and grant durations), spec 021 (attendance/payroll references granted sessions), spec 022 (single sessions reference pricing settings), spec 023 (notifications reference renewal/discount entitlements), spec 024 (migration maps existing users into these tiers).
+
+## Clarifications
+
+### Session 2026-06-16 (analyze remediation)
+
+- Q: Stripe `proration_behavior` value for mid-month upgrade? → A: `always_invoice` (force immediate prorated invoice). NOTE: `create_prorated_invoice` used in research/contracts is an INVALID Stripe enum — must be replaced everywhere.
+- Q: `add-child` request input contract? → A: `{childEmail}` (zod-validated); server resolves to `child_id` via email lookup. The `child_user_id` uuid form in contracts/api.md is superseded.
+- Q: How many new `package_type` CHECK members? → A: ONE new value `tajweed_course` (total 12), per data-model.md. The tasks.md "7 new values" wording is an error.
+- Q: Who applies `pending_tier_changes` at renewal (FR-019)? → A: the `invoice.paid` webhook branch transitions pending→applied and re-grants at the new tier. (Implementation task to be added in a later tasks-regen pass.)
+- Q: Enforce single pending change per subscription? → A: make `idx_pending_changes_subscription` a partial UNIQUE index (WHERE status='pending').
