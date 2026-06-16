@@ -142,9 +142,7 @@ with a failing typecheck, lint, or test.
 <!-- Tool-managed blocks regenerate below this line — keep everything above intact. -->
 <!-- BEGIN:nextjs-agent-rules --><!-- END:nextjs-agent-rules -->
 <!-- gitnexus:start --><!-- gitnexus:end -->
-<!-- SPECKIT START -->
-**Active plan:** `specs/018-subscription-billing-foundation/plan.md` (Subscription Billing Foundation — Stripe Subscriptions + monthly credit grants).
-<!-- SPECKIT END -->
+<!-- SPECKIT START -->Current plan: specs/019-catalog-credit-redesign/plan.md<!-- SPECKIT END -->
 
 ## Cursor Cloud specific instructions
 
