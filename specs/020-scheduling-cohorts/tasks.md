@@ -19,6 +19,12 @@
 
 **⚠️ CRITICAL**: All user story work blocked until T005 (`npm run db:types`) completes.
 
+- [ ] T002a Create `supabase/migrations/20260617990000_class_offerings_extend.sql` — **applies BEFORE T003** (earlier timestamp):
+  - **VERIFIED 2026-06-16 against local schema**: `class_offerings` currently has only `capacity` + `status`; the 5 columns below are ABSENT and assumed by T003/T004/T018.
+  - `ALTER TABLE class_offerings ADD COLUMN IF NOT EXISTS program_level text, ADD COLUMN IF NOT EXISTS schedule_json jsonb, ADD COLUMN IF NOT EXISTS session_duration_min integer, ADD COLUMN IF NOT EXISTS start_date date, ADD COLUMN IF NOT EXISTS entry_conditions_json jsonb`
+  - Existing rows get NULL (no legacy local course offerings); a NULL `program_level` is excluded from sibling matching (document in fn).
+  - Preconditions enabled: T003 `idx_class_offerings_sibling` (needs `program_level`), T004 `open_overflow_halaqa` (sibling match on `program_level`), T018 `entry_conditions_json`, session scheduling (`schedule_json`/`session_duration_min`/`start_date`). See spec Clarifications §2026-06-16.
+
 - [ ] T003 Create `supabase/migrations/20260618000000_scheduling_teacher_assignment.sql`:
   - CREATE TABLE `subscription_teacher_assignments` (all columns per data-model.md: id, student_id FK, teacher_id FK, subscription_id FK, product_type CHECK, lock_month date, is_active boolean DEFAULT true, approved_by FK nullable, cancelled_future_bookings_at timestamptz, created_at, updated_at)
   - CREATE TRIGGER `set_updated_at_sta` BEFORE UPDATE using existing `public.set_updated_at()`
@@ -26,7 +32,7 @@
   - CREATE INDEX `idx_sta_student` WHERE is_active; CREATE INDEX `idx_sta_teacher` WHERE is_active
   - RLS ENABLE; 4 policies: student SELECT own `(select auth.uid())`, teacher SELECT own, admin/mod SELECT all, service_role INSERT, service_role+admin UPDATE
   - BEFORE UPDATE trigger `sta_identity_guard` on (student_id, subscription_id, product_type, lock_month) — blocked
-  - ADD INDEX `idx_class_offerings_sibling ON class_offerings(teacher_id, program_level, status)` for sibling lookup
+  - ADD INDEX `idx_class_offerings_sibling ON class_offerings(teacher_id, program_level, status)` for sibling lookup (requires `program_level` from T002a)
 
 - [ ] T004 Create `supabase/migrations/20260618000001_overflow_halaqa_fn.sql`:
   - CREATE OR REPLACE FUNCTION `open_overflow_halaqa(p_source_offering_id uuid) RETURNS uuid` — SECURITY DEFINER SET search_path = public; FOR SHARE on source; prefer not-full sibling (same teacher_id + program_level + status='open' + current_enrollment < capacity); else INSERT new class_offerings row cloning source
@@ -167,6 +173,7 @@
 
 ## Dependencies
 
+- **T002a** (class_offerings columns) → applies before **T003** (sibling index) and all logic referencing `program_level` / `entry_conditions_json` / `schedule_json`
 - **Phase 2** → **Phases 3–7** (db:types must regenerate first)
 - **US1 + US2** parallel after Phase 2 (T007–T017 share no file conflicts)
 - **US3** extends `cohorts.ts` from US2 — complete T015 before T018

@@ -19,9 +19,16 @@
 
 **⚠️ CRITICAL**: All user story work blocked until T007 (`npm run db:types`) completes.
 
+- [ ] T002a Create `supabase/migrations/20260617999000_profiles_hourly_rate.sql` — **applies BEFORE T006** (earlier timestamp; sorts first in this spec's set):
+  - **VERIFIED 2026-06-16 against local schema**: `profiles.hourly_rate_usd` does NOT exist; T006 `finalize_attendance` snapshots it into `session_deliveries`, so it must exist first.
+  - `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS hourly_rate_usd numeric(10,2) CHECK (hourly_rate_usd >= 0)`
+  - Precondition for T006 (rate snapshot) and T007 (`db:types`). See spec Clarifications §2026-06-16.
+  - **NOTE (cross-spec):** the pre-existing 020↔021 migration-timestamp collision (both start at `20260618000000`) is tracked separately; final re-sequencing happens at merge. This task's `20260617999000` only guarantees it sorts before 021's own migrations.
+
 - [ ] T003 Create `supabase/migrations/20260618000000_subscription_extensions.sql`:
   - CREATE TABLE `subscription_extensions (id uuid PK, subscription_id uuid FK subscriptions, session_id uuid FK sessions nullable, granted_by_user_id uuid FK profiles, reason text NOT NULL, extension_seconds bigint CHECK(>0), granted_at timestamptz DEFAULT now())`
   - CREATE UNIQUE INDEX `uix_subscription_extensions_session ON subscription_extensions(subscription_id, session_id) WHERE session_id IS NOT NULL`
+  - **FOLLOW-UP (Clarifications §2026-06-16):** `session_id` is nullable on `bookings`, so it cannot anchor idempotency for individual sessions. Add `booking_id uuid FK bookings NOT NULL` and switch the idempotency anchor to `(subscription_id, booking_id)` (also update the `ON CONFLICT` target in T006/T017). Tracked as a correctness follow-up; not a column-existence gap.
   - CREATE INDEX `idx_subscription_extensions_sub ON subscription_extensions(subscription_id)`
   - RLS: student reads own (via subscription → student_id); admin reads all; service_role writes only
   - BEFORE UPDATE OF (`extension_seconds`, `subscription_id`, `session_id`) guard
@@ -128,7 +135,7 @@
 - [ ] T022 [P] [US5] Create `src/lib/domains/attendance/payroll.ts`: `runMonthlyPayroll(month)` — calls `run_monthly_payroll(month)` via service-role; `getPayouts(teacherId?, month?, status?)` — queries teacher_payouts with RLS
 - [ ] T023 [P] [US5] Create `src/app/api/payroll/run/route.ts`: POST, admin/service_role only, zod `{month: YYYY-MM-01}`, validates month not in future, calls `runMonthlyPayroll`
 - [ ] T024 [US5] Create `src/app/api/payroll/payouts/route.ts`: GET, auth, RLS enforced, paginated
-- [ ] T025 [US5] Ensure teacher profile has `hourly_rate_usd numeric(10,2)` field (verify in profiles table or add migration if missing); snapshot captured in `finalize_attendance` fn
+- [ ] T025 [US5] Verify the `profiles.hourly_rate_usd` column (added in T002a) is captured as a snapshot in the `finalize_attendance` fn → `session_deliveries.hourly_rate_usd` (column existence is no longer conditional — see T002a)
 - [ ] T026 [US5] Unit test `src/lib/domains/attendance/payroll.test.ts`: aggregation math; idempotency; zero-delivery teacher produces no payout; rate-at-delivery correctness
 
 **Checkpoint**: run_monthly_payroll idempotent; total_amount_usd = SUM(duration_minutes/60 × hourly_rate_usd); rate change after delivery does not affect closed month.
@@ -149,6 +156,7 @@
 
 ## Dependencies
 
+- **T002a** (`profiles.hourly_rate_usd`) → applies before **T006** (`finalize_attendance` rate snapshot) and **T007** (db:types)
 - **Phase 2** (migrations) → blocks all user stories
 - **US1** (T009-T012): no dependency on other stories; prerequisite for US2/US4
 - **US2** (T013-T016): depends on US1 (`finalizeAttendance` fn)
