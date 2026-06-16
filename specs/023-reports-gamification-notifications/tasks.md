@@ -64,6 +64,7 @@
 - [ ] T009 [P] [US1] Create `src/lib/domains/reports/monthly-report.ts`: `generateMonthlyReport(studentId, year, month)` — idempotent via `automation_logs` key `report:{studentId}:{year}:{month}` (ON CONFLICT → skipped, no second row); any cited surah/juz from `src/lib/quran/ayah-counts.ts`, never hardcoded; append-only (never overwrites a newer assessment).
 - [ ] T010 [US1] Create `src/app/api/reports/[studentId]/notes/route.ts`: GET (student/guardian/teacher/admin, RLS) + POST (teacher only, zod `{content: string min1 max5000}`, 403 if not assigned, 422 validation).
 - [ ] T011 [US1] Create `src/app/api/reports/[studentId]/monthly/[year]/[month]/route.ts`: GET (student/guardian/admin), zod path params (`month` 1–12), returns nullable report.
+- [ ] ⛔ T011a [US1] **BLOCKER (verify before T012):** confirm spec 018 emits a month-close event that triggers `monthly_report_ready`. This spec only consumes it — if no upstream emitter exists, FR-002's report never fires. Stop and resolve in spec 018 (add the emitter) before T012; do not mark FR-002 done with no emitter wired.
 - [ ] T012 [US1] Wire `MonthlyReportReady` consumption into `src/app/api/webhooks/n8n/route.ts`: on `monthly_report_ready` → `generateMonthlyReport` + INSERT report-ready `notifications` row, single idempotency key.
 - [ ] T013 [P] [US1] Unit tests: `notes.test.ts` (RLS scoping, teacher-assignment gate), `monthly-report.test.ts` (idempotent replay → skipped, no duplicate; out-of-order event does not overwrite newer report).
 

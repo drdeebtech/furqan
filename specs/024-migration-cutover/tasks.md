@@ -76,6 +76,8 @@
 
 **Independent Test**: Quickstart Scenario 3 on the rehearsal copy.
 
+> ⛔ **BLOCKER — do NOT implement T018–T020 until the balance-conversion policy is supplied by a human owner.** This is an engineering gap, not an operational sign-off: the legacy-balance → new-entitlement rule is a deterministic mapping the migration code must encode (money-correctness, irreversible at cutover). The T008 seam is fail-closed and `balance-to-entitlement.ts` MUST throw until the policy is defined. Resolving the [NEEDS CLARIFICATION] in plan.md "Open Items" is a hard precondition for this phase.
+
 - [ ] T018 [US3] Wire `balance-to-entitlement.ts` (T008) into the run; per-student before/after ledger; zero-balance ⇒ no entitlement; mark processed
 - [ ] T019 [US3] Wire `balanceReport()`; assert `SUM(legacy outstanding) = SUM(converted)` within policy, itemized (SC-003)
 - [ ] T020 [US3] Unit test `scripts/migration/mapping/balance-to-entitlement.test.ts`: non-zero converts per policy; zero ⇒ no entitlement; reconciliation sum holds; mid-cycle remainder itemized; **policy-unset ⇒ fail-closed**

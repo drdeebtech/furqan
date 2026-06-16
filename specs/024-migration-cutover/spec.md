@@ -79,6 +79,8 @@ A student carrying legacy package credits / `student_credits` at cutover has tha
 
 **Why this priority**: Silently voiding paid-for, unused balance is both a financial-integrity failure and a trust/churn disaster on day one. P1 because it touches money and fairness simultaneously.
 
+> ⛔ **BLOCKING DEPENDENCY:** the exact balance→entitlement conversion policy is undefined ([NEEDS CLARIFICATION]). This is not an operational owner sign-off — it is a deterministic rule the migration code must encode, and is irreversible at cutover. This user story CANNOT be implemented until the policy is supplied. The conversion seam is fail-closed until then.
+
 **Independent Test**: On a production copy, sum every student's outstanding legacy balance before migration; run the migration; assert each student's converted entitlement equals their pre-migration balance under the documented conversion policy, with a per-student before/after ledger and zero unexplained loss.
 
 **Acceptance Scenarios**:

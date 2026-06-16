@@ -139,6 +139,7 @@ An admin sets and adjusts the prices for the assessment session, the instant ses
 
 - **FR-012**: An assessment booking MUST be assigned to a teacher whose **specialties** include the requested specialty (reusing the existing `profiles`/teacher-profile `specialties` and the existing session-type↔specialty validation lineage), referencing spec 020's assignment/availability for *how* a matching teacher is selected.
 - **FR-013**: If **no** specialist matching the requested specialty is available, the assessment MUST fail loudly **without** assigning a non-matching teacher, and MUST NOT leave the student charged-but-unserved (no charge taken, or a charge that is reconcilable/refundable per 018).
+  > ⛔ **BLOCKING BEFORE GO-LIVE:** the reconcile/refund path for a charged-but-unserved payment (atomic-creator failure leaves a `payments` row with `booking_id` NULL) has NO owning requirement — refund owner, ledger, and SLA are undefined. The happy path may be built, but processing live payments without this defined is an unhandled money liability. Define the refund-ownership requirement before flipping Stripe to live.
 - **FR-014**: Assessment availability MUST be constrained per student to prevent free/cheap assessment farming, per a configured policy. *(See clarification on the exact limit.)*
 
 ### Functional Requirements — Quran integrity & validation

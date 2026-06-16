@@ -134,6 +134,7 @@
 
 ## Phase 7: Polish
 
+- [ ] ⛔ T022b **BLOCKER (before go-live, not before build):** define the refund/reconcile ownership for charged-but-unserved payments (`payments` row with `booking_id` NULL after atomic-creator failure) — owner, ledger entry, and SLA (FR-013). Do NOT flip Stripe to live until this requirement exists and a reconciliation/refund path is implemented or explicitly accepted.
 - [ ] T023 [P] `npx tsc --noEmit` — fix all type errors
 - [ ] T024 [P] `npm run lint` — fix all ESLint issues
 - [ ] T025 `npm run test:unit` — all existing + new tests pass

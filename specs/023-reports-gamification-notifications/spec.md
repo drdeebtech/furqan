@@ -142,6 +142,7 @@ Guardians receive timely, idempotent notifications for events emitted by other p
 
 - **FR-001**: System MUST let a teacher record per-student notes and MUST make those notes readable by the **linked guardian** of that student (and the student) — and by no other family — enforced by RLS.
 - **FR-002**: System MUST generate **one** monthly level-assessment report per student per closed subscription month, triggered by the month-close event emitted by spec 018. Re-delivery of that event MUST NOT create a second report for the same student+month.
+  > ⛔ **BLOCKING DEPENDENCY:** no month-close emitter is currently defined in spec 018 — this spec only *consumes* the event. Without an upstream emitter, the monthly report never fires (dead feature). Confirm or add the month-close event in spec 018 BEFORE implementing FR-002 (tasks T012). This is a hard cross-spec dependency, not an open question.
 - **FR-003**: A monthly report MUST summarize the student's progress for that month and MUST reference any surah/juz/ayah using values read from canonical structure (`src/lib/quran/`) — never generated or hardcoded counts.
 - **FR-004**: On generation of a monthly report, the system MUST deliver a single "report ready" notification to the guardian via the routing in FR-013/FR-014.
 
