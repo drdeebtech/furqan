@@ -25,7 +25,6 @@
 | [015-pr458-review-remediation](./015-pr458-review-remediation/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
 | [016-public-profiles-rls-bypass](./016-public-profiles-rls-bypass/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
 | [017-pr458-cursor-authz-findings](./017-pr458-cursor-authz-findings/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
-| [018-subscription-billing-foundation](./018-subscription-billing-foundation/spec.md) | Tasks-ready | `018-subscription-billing-foundation` | _(pending)_ |
 | [019-catalog-credit-redesign](./019-catalog-credit-redesign/spec.md) | Draft | `019-catalog-credit-redesign` | _(pending)_ |
 | [020-scheduling-cohorts](./020-scheduling-cohorts/spec.md) | Draft | `020-scheduling-cohorts` | _(pending)_ |
 | [021-attendance-payroll](./021-attendance-payroll/spec.md) | Draft | `021-attendance-payroll` | _(pending)_ |
