@@ -68,7 +68,7 @@
 
 ## Dependencies & Assumptions
 
-- [ ] CHK043 Is the assumption that each session carries/derives a usable duration (for both hour accrual and extension sizing) flagged as a dependency that must be confirmed, not silently assumed? [Assumptions, Spec Assumptions — "Session duration is known (default 60 min, pending confirmation)"]
+- [ ] CHK043 Is the assumption that each session carries/derives a usable duration (for both hour accrual and extension sizing) resolved to a concrete source column — e.g., `bookings.duration_minutes` or a constant from spec 018/020 — confirmed non-null, so payroll can compute hours without a silent default? [Assumptions, Spec Assumptions — blocked on specs 018/020 confirming the duration column and its nullability guarantee]
 - [ ] CHK044 Is the dependency on spec 018's `subscriptions.current_period_end` being read-only (never mutated) stated as a hard constraint the extension mechanism must satisfy? [Dependencies, Spec FR-013 / Dependencies]
 
 ## Ambiguities & Conflicts
