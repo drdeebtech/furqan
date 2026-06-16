@@ -29,7 +29,7 @@ const SingleSessionCheckoutSchema = z.object({
 3. If `productType = 'assessment'`: validate specialty provided; check assessment limit vs `hifz_assessment_limit_per_specialty` (fail **409** if reached); find matching specialist (fail **422** if none)
 4. If `productType = 'specialized'`: validate `targetScope` against `src/lib/quran/ayah-counts.ts` for any Quran-structural field
 5. Look up price from `platform_settings`; if zero → skip Stripe and call the atomic `create_single_session_booking(student_id, teacher_id, payment_id := NULL, booking_type, specialty, purpose, target_scope)` via the **service-role** client (same single creation path as the webhook; **no** bare route-layer `INSERT bookings + sessions`). `payment_id` is NULL because no charge occurred.
-6. If non-zero → create Stripe Checkout session (`mode: 'payment'`) with metadata `{booking_type, student_id, purpose, target_scope, teacher_id}`
+6. If non-zero → create Stripe Checkout session (`mode: 'payment'`) with metadata `{booking_type, student_id, specialty, purpose, target_scope, teacher_id}`
 7. Return checkout URL (paid path) or `{ bookingId }` (zero-price path)
 
 ### Success Response
@@ -86,7 +86,7 @@ const AssessmentSpecialistsQuery = z.object({
 ### Handler Logic
 1. Verify signature (existing)
 2. If `event.type === 'payment_intent.succeeded'`:
-   - Extract metadata: `{booking_type, student_id, purpose, target_scope, teacher_id}`
+   - Extract metadata: `{booking_type, student_id, specialty, purpose, target_scope, teacher_id}`
    - Check `billing_events` for idempotency key `pi_${paymentIntent.id}` — if exists → `skipped`
    - Insert `billing_events` row (idempotent lock)
    - Based on `booking_type`:

@@ -63,7 +63,7 @@ SELECT extension_seconds FROM subscription_extensions WHERE session_id = '<sessi
 
 # 6. Retry finalize_attendance for same booking
 POST /api/attendance/record { bookingId: "...", outcome: "excused_carried" }
-# Expected: 409 (already finalized) OR idempotent 200 with same record — no second restore
+# Expected: 200 (idempotent no-op, returns existing attendanceRecordId) — no second restore
 
 SELECT sessions_remaining FROM student_packages ...;
 -- same value — no double-restore

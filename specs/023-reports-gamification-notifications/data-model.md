@@ -178,6 +178,8 @@ Default seed for `notification_channel_matrix` (matches the FR-012 matrix; `push
 }
 ```
 
+`honor_board_updated` (FurqanEvent.HonorBoardUpdated) is intentionally **absent** from this seed: honor-board notification routing is gated on the open FR-010 honor-board clarification (T023 blocked) — add it here only once that decision is supplied; until then the event is defined but unrouted.
+
 WhatsApp entries are dropped at resolve time when `notifications_whatsapp_enabled='false'`; remaining channels still send. Each resolved array MUST be a subset of {in_app, email, push, whatsapp} (the widened `notifications.channel` CHECK).
 
 Add all three keys (`honor_board_refresh_cadence_days`, `notifications_whatsapp_enabled`, `notification_channel_matrix`) to `ALLOWED_SETTING_KEYS` in `src/lib/settings.ts`.

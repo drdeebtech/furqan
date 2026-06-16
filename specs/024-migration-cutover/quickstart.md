@@ -42,8 +42,8 @@ Each scenario maps to a P1/P2 user story and its measurable success criterion.
 
 1. Sum every student's outstanding legacy `student_packages` / `student_credits` balance before migration.
 2. `run_migration(dry_run=true)`.
-3. Assert: each non-zero-balance student has a converted entitlement per the documented policy; each zero-balance student has **no** spurious entitlement.
-4. Assert: `SUM(legacy outstanding) = SUM(converted entitlement)` within the policy; every adjustment itemized in the per-student ledger.
+3. Assert: the balance-conversion policy is **[NEEDS CLARIFICATION #2]** (owner decision, not yet supplied) — the conversion seam is **fail-closed**: `run_migration` MUST refuse balance conversion until the policy is defined, so this scenario CANNOT pass until then. Once supplied: each non-zero-balance student has a converted entitlement per that policy; each zero-balance student has **no** spurious entitlement.
+4. Assert (once the policy is supplied): `SUM(legacy outstanding) = SUM(converted entitlement)` per that policy; every adjustment itemized in the per-student ledger.
 
 **PASS**: balance ledger reconciles with 0 unexplained forfeitures.
 
