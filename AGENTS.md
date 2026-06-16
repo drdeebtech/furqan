@@ -47,6 +47,18 @@ const { userId } = input
 const { data: { user } } = await supabase.auth.getUser()
 ```
 
+### 3.1 · Server-only secrets (env-var table)
+
+Every secret has a paired env var and is **never** `NEXT_PUBLIC_*` or logged. Secrets live in `.env.local` (gitignored) for local dev and in the Vercel project env for deploy.
+
+| Env var | Scope | Notes |
+|---|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | server-only | bypasses RLS — never in a client component |
+| `STRIPE_SECRET_KEY` | server-only | Stripe SDK key (`sk_test_…` / `sk_live_…`). Read by `src/lib/stripe/client.ts`. Mode is purely env-driven (FR-019) — no `if (test)` branch. |
+| `STRIPE_WEBHOOK_SECRET` | server-only | `whsec_…` signing secret; used by `src/app/api/stripe/webhook/route.ts` to verify the **raw** body before any DB read/write (fail-closed 400). Get it from `stripe listen --forward-to localhost:3000/api/stripe/webhook` locally. |
+| `NEXT_PUBLIC_SUPABASE_URL` | public | Supabase project URL |
+| `NEXT_PUBLIC_APP_URL` | public | app origin (checkout/portal return URLs) |
+
 ## 4 · Code conventions
 
 - TypeScript strict; no `any`; no `@ts-ignore` without a one-line reason.
@@ -130,7 +142,9 @@ with a failing typecheck, lint, or test.
 <!-- Tool-managed blocks regenerate below this line — keep everything above intact. -->
 <!-- BEGIN:nextjs-agent-rules --><!-- END:nextjs-agent-rules -->
 <!-- gitnexus:start --><!-- gitnexus:end -->
-<!-- SPECKIT START --><!-- SPECKIT END -->
+<!-- SPECKIT START -->
+**Active plan:** `specs/018-subscription-billing-foundation/plan.md` (Subscription Billing Foundation — Stripe Subscriptions + monthly credit grants).
+<!-- SPECKIT END -->
 
 ## Cursor Cloud specific instructions
 

@@ -1,98 +1,164 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getStripe } from "@/lib/stripe/client";
+import { getActivePlanByCode } from "@/lib/domains/billing";
+import { requireRole } from "@/lib/auth/require-admin";
+import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
+import { logError } from "@/lib/logger";
 
 export const maxDuration = 60;
 
+const Body = z.object({
+  planCode: z.string().min(1).max(120),
+});
+
 /**
- * Create a Stripe Checkout session for a package purchase.
+ * POST /api/stripe/checkout — subscription-mode Checkout (spec 018 US1).
  *
- * STATUS: Stripe SDK is NOT installed. This route validates the request and
- * returns 501 WITHOUT writing to the database. When Stripe keys arrive (Sprint 1):
- *   1. Install: npm i stripe
- *   2. Replace the 501 section below with stripe.checkout.sessions.create({...})
- *   3. Create the `pending` payment row there, keyed by the real PaymentIntent id
- *   4. Use the returned session.url
- *
- * The fulfillment path (webhook → fulfillPackagePurchase → DB rows) is already
- * wired in Phase 15. Only this initiate-side needs the SDK.
+ * Identity from the session only (FR-010); price/credit come from the catalog,
+ * never the client. No grant happens here — the grant is webhook-driven (the
+ * webhook may even precede the redirect). See contracts/checkout.contract.md.
  */
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single<{ role: string }>();
-  if (!profile || profile.role !== "student") {
-    return NextResponse.json({ error: "Only students may initiate checkout" }, { status: 403 });
-  }
-
-  let body: unknown;
+  // ── Auth gate (Principle IV) ──────────────────────────────────────────────
+  let userId: string;
   try {
-    body = await request.json();
+    ({ id: userId } = await requireRole("student"));
+  } catch (e) {
+    if (e instanceof UnauthenticatedError) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (e instanceof ForbiddenError) {
+      return NextResponse.json({ error: "Only students may initiate checkout" }, { status: 403 });
+    }
+    throw e;
+  }
+
+  // ── Validate body ─────────────────────────────────────────────────────────
+  let parsed: z.infer<typeof Body>;
+  try {
+    parsed = Body.parse(await request.json());
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
-  if (!body || typeof body !== "object" || !("package_id" in body)) {
-    return NextResponse.json({ error: "package_id required" }, { status: 400 });
-  }
-  const { package_id } = body as { package_id?: unknown };
-  if (!package_id) {
-    return NextResponse.json({ error: "package_id required" }, { status: 400 });
-  }
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (typeof package_id !== "string" || !UUID_RE.test(package_id)) {
-    return NextResponse.json({ error: "معرّف الحزمة غير صالح — invalid package_id" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid body: { planCode: string } required" }, { status: 400 });
   }
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (!appUrl) {
+    logError("checkout: NEXT_PUBLIC_APP_URL not configured", new Error("config-missing"), {
+      tag: "billing",
+    });
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
+
+  const userClient = await createClient();
+
+  // ── Resolve plan from catalog (price/credits server-side) ─────────────────
+  const plan = await getActivePlanByCode(userClient, parsed.planCode);
+  if (!plan) {
+    return NextResponse.json({ error: "Unknown or inactive plan" }, { status: 400 });
+  }
+  if (plan.currency !== "usd") {
+    // FR-008: USD only. The catalog CHECK enforces this, but defend in depth.
+    return NextResponse.json({ error: "Non-USD plan" }, { status: 400 });
+  }
+
+  const stripe = getStripe();
   const admin = createAdminClient();
-  const { data: pkg } = await admin
-    .from("packages")
-    .select("id, price_usd, name")
-    .eq("id", package_id)
-    .eq("is_active", true)
-    .single<{ id: string; price_usd: number; name: string }>();
-  if (!pkg) return NextResponse.json({ error: "Package not found" }, { status: 404 });
 
-  // SECURITY: do NOT create a `payments` row here. The endpoint returns 501
-  // until the Stripe SDK is wired, so a pre-checkout insert would let any
-  // authenticated student flood the payments table with orphaned `pending`
-  // rows — the Date.now()-suffixed placeholder intent defeats the UNIQUE
-  // constraint and there is no rate limit. The pending row must instead be
-  // created atomically with the real Stripe session below, keyed by the
-  // actual PaymentIntent id.
+  // ── Email for the Stripe customer record (best-effort) ────────────────────
+  let email: string | undefined;
+  try {
+    const { data } = await userClient.auth.getUser();
+    email = data.user?.email ?? undefined;
+  } catch {
+    email = undefined;
+  }
 
-  // TODO(Sprint 1): Create real Stripe Checkout session + the pending payment row
-  // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-  // const session = await stripe.checkout.sessions.create({
-  //   mode: "payment",
-  //   payment_method_types: ["card"],
-  //   line_items: [{
-  //     price_data: {
-  //       currency: "usd",
-  //       product_data: { name: pkg.name },
-  //       unit_amount: Math.round(pkg.price_usd * 100),
-  //     },
-  //     quantity: 1,
-  //   }],
-  //   metadata: { user_id: user.id, package_id: pkg.id },
-  //   success_url: `${process.env.NEXT_PUBLIC_APP_URL}/student/packages?purchase=success`,
-  //   cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/student/packages?purchase=cancelled`,
-  // });
-  // await admin.from("payments").insert({
-  //   student_id: user.id,
-  //   stripe_payment_intent: session.payment_intent as string,
-  //   amount_usd: pkg.price_usd, amount_before_tax: pkg.price_usd,
-  //   tax_rate: 0, tax_amount: 0, revenue_recognized: 0, status: "pending",
-  // });
-  // return NextResponse.json({ url: session.url });
+  // ── Resolve/create stripe_customers mapping (race-safe, R6) ───────────────
+  const stripeCustomerId = await ensureStripeCustomer(admin, stripe, userId, email);
+  if (!stripeCustomerId.ok) {
+    return NextResponse.json({ error: "Failed to resolve customer" }, { status: 500 });
+  }
 
-  return NextResponse.json({
-    error: "Stripe SDK not yet installed",
-    next_step: "Install stripe package and wire checkout creation",
-  }, { status: 501 });
+  // ── Create subscription-mode Checkout Session ────────────────────────────
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer: stripeCustomerId.value,
+      line_items: [{ price: plan.stripePriceId, quantity: 1 }],
+      client_reference_id: userId,
+      metadata: { student_id: userId, plan_code: plan.planCode },
+      subscription_data: { metadata: { student_id: userId, plan_code: plan.planCode } },
+      success_url: `${appUrl}/student/dashboard?subscription=success`,
+      cancel_url: `${appUrl}/student/dashboard?subscription=cancelled`,
+    });
+
+    if (!session.url) {
+      logError("checkout: Stripe returned no url", new Error("no url"), {
+        tag: "billing", user_id: userId, plan_code: plan.planCode,
+      });
+      return NextResponse.json({ error: "Checkout session has no url" }, { status: 502 });
+    }
+    return NextResponse.json({ url: session.url });
+  } catch (err) {
+    logError("checkout: stripe.checkout.sessions.create failed", err, {
+      tag: "billing", user_id: userId, plan_code: plan.planCode,
+    });
+    return NextResponse.json({ error: "Checkout creation failed" }, { status: 500 });
+  }
+}
+
+/**
+ * Get-or-create the stripe_customers mapping for a user. Race-safe: the dual
+ * UNIQUE (user_id, stripe_customer_id) is the concurrency backstop (R6). On a
+ * concurrent-insert conflict we re-read the winner rather than surfacing an
+ * error to the user.
+ */
+async function ensureStripeCustomer(
+  admin: ReturnType<typeof createAdminClient>,
+  stripe: ReturnType<typeof getStripe>,
+  userId: string,
+  email: string | undefined,
+): Promise<{ ok: true; value: string } | { ok: false }> {
+  // Fast path: existing mapping.
+  const { data: existing } = await admin
+    .from("stripe_customers")
+    .select("stripe_customer_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (existing?.stripe_customer_id) {
+    return { ok: true, value: existing.stripe_customer_id };
+  }
+
+  // Create the Stripe customer.
+  const customer = await stripe.customers.create({
+    metadata: { user_id: userId },
+    ...(email ? { email } : {}),
+  });
+
+  // Insert mapping; ON CONFLICT handles the concurrent-create race (R6).
+  const { data: inserted, error } = await admin
+    .from("stripe_customers")
+    .insert({ user_id: userId, stripe_customer_id: customer.id })
+    .select("stripe_customer_id")
+    .maybeSingle();
+
+  if (!error) {
+    return { ok: true, value: inserted?.stripe_customer_id ?? customer.id };
+  }
+  if (error.code === "23505") {
+    // Lost the race — re-read the winner.
+    const { data: winner } = await admin
+      .from("stripe_customers")
+      .select("stripe_customer_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (winner?.stripe_customer_id) {
+      return { ok: true, value: winner.stripe_customer_id };
+    }
+  }
+  logError("ensureStripeCustomer insert failed", error, { tag: "billing", user_id: userId });
+  return { ok: false };
 }
