@@ -216,3 +216,23 @@ export class BookingConfirmError extends Error {
     this.name = "BookingConfirmError";
   }
 }
+
+/**
+ * Thrown by `confirmBooking` when the atomic confirm was refused because the
+ * student has no package credit to charge — the fail-closed money guard in
+ * `confirm_booking_with_session` raised `no_package_credit` and the whole RPC
+ * rolled back (booking stays `pending`, no session created).
+ *
+ * Subclass of `BookingConfirmError` so existing `instanceof BookingConfirmError`
+ * handlers still catch it (backward-compatible); route adapters that want the
+ * specific "activate a package" guidance check `instanceof BookingNoPackageError`
+ * FIRST. The default message is user-facing Arabic guidance.
+ */
+export class BookingNoPackageError extends BookingConfirmError {
+  constructor(
+    message = "لا يوجد رصيد باقة لتأكيد هذا الحجز — يلزم تفعيل باقة أولاً",
+  ) {
+    super(message);
+    this.name = "BookingNoPackageError";
+  }
+}
