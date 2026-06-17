@@ -94,11 +94,11 @@
 
 **Independent Test**: Guardian + 2 children → child B individual hifz → discount applied + `subscription_discount_records` row. Admin changes setting → affects only new subscriptions.
 
-- [ ] T016 [P] [US4] Create `src/lib/domains/catalog/discounts.ts`: `resolveGuardianDiscount(guardianId, productCategory)` reads `platform_settings` + `guardian_children` + active `subscriptions`; `recordDiscount(...)` inserts `subscription_discount_records`
-- [ ] T017 [P] [US4] Create `src/app/api/guardian/children/route.ts`: GET, auth required, lists `guardian_children` for caller
-- [ ] T018 [US4] Create `src/app/api/guardian/add-child/route.ts`: POST, zod `{childEmail}`, inserts `guardian_children` via service-role
-- [ ] T019 [US4] Wire `resolveGuardianDiscount` + `recordDiscount` into `src/lib/actions/subscriptions/create-hifz-subscription.ts` checkout path
-- [ ] T020 [US4] Unit test `src/lib/domains/catalog/discounts.test.ts`
+- [X] T016 [P] [US4] Create `src/lib/domains/catalog/discounts.ts`: `resolveGuardianDiscount(guardianId, productCategory)` reads `platform_settings` + `guardian_children` + active `subscriptions`; `recordDiscount(...)` inserts `subscription_discount_records`
+- [X] T017 [P] [US4] Create `src/app/api/guardian/children/route.ts`: GET, auth required, lists `guardian_children` for caller
+- [X] T018 [US4] Create `src/app/api/guardian/add-child/route.ts`: POST, zod `{childEmail}`, inserts `guardian_children` via service-role
+- [X] T019 [US4] Wire `resolveGuardianDiscount` + `recordDiscount` into `src/lib/actions/subscriptions/create-hifz-subscription.ts` checkout path
+- [X] T020 [US4] Unit test `src/lib/domains/catalog/discounts.test.ts`
 
 **Checkpoint**: Child B subscription has `subscription_discount_records` row; setting change affects only future subscriptions.
 
@@ -110,10 +110,10 @@
 
 **Independent Test**: Individual 4h → upgrade individual 6h same teacher → Stripe proration + delta 2-session grant. Type-change request → `scheduled_for_renewal`, no immediate change.
 
-- [ ] T021 [P] [US5] Create `src/lib/domains/catalog/tier-changes.ts`: `canUpgradeImmediately(current, newPlan)` checks same `product_category` + `teacher_id` + sessions increasing; `scheduleRenewalChange(...)` inserts `pending_tier_changes`
-- [ ] T022 [US5] Create `src/app/api/subscriptions/upgrade-tier/route.ts`: POST, auth, zod; if allowed → `stripe.subscriptions.update` with `proration_behavior:'always_invoice'` + `grantHifzCycleCredits` with delta sessions + `'upgrade_'+invoice.id` key; if not → `scheduleRenewalChange`
-- [ ] T023 [US5] Create `src/app/api/subscriptions/schedule-tier-change/route.ts`: POST, auth, zod `{subscriptionId, toPackageId, changeReason}`; inserts `pending_tier_changes`
-- [ ] T024 [US5] Unit test `src/lib/domains/catalog/tier-changes.test.ts`
+- [X] T021 [P] [US5] Create `src/lib/domains/catalog/tier-changes.ts`: `canUpgradeImmediately(current, newPlan)` checks same `product_category` + `teacher_id` + sessions increasing; `scheduleRenewalChange(...)` inserts `pending_tier_changes`
+- [X] T022 [US5] Create `src/app/api/subscriptions/upgrade-tier/route.ts`: POST, auth, zod; if allowed → `stripe.subscriptions.update` with `proration_behavior:'always_invoice'` + `grantHifzCycleCredits` with delta sessions + `'upgrade_'+invoice.id` key; if not → `scheduleRenewalChange`
+- [X] T023 [US5] Create `src/app/api/subscriptions/schedule-tier-change/route.ts`: POST, auth, zod `{subscriptionId, toPackageId, changeReason}`; inserts `pending_tier_changes`
+- [X] T024 [US5] Unit test `src/lib/domains/catalog/tier-changes.test.ts`
 
 **Checkpoint**: Immediate upgrade → new `student_packages` delta row + Stripe proration. Type/teacher/downgrade → `pending_tier_changes` row only.
 
@@ -121,12 +121,12 @@
 
 ## Phase 8: Polish
 
-- [ ] T025 [P] `npx tsc --noEmit` — fix all type errors
-- [ ] T026 [P] `npm run lint` — fix all lint issues
-- [ ] T027 `npm run test:unit` — all ~510 existing + new tests pass
-- [ ] T028 `npm run sb:advisors` — zero new advisories
-- [ ] T029 Hardcoded-price scan: `grep -rn '[0-9]\+\.[0-9]\+' src/lib/domains/catalog/ src/app/api/catalog/ src/app/api/subscriptions/ src/app/api/guardian/` → zero price literals
-- [ ] T030 Commit all spec artifacts + tasks.md to `docs/pivot-specs-019-024`; push
+- [X] T025 [P] `npx tsc --noEmit` — fix all type errors
+- [X] T026 [P] `npm run lint` — fix all lint issues
+- [X] T027 `npm run test:unit` — all ~510 existing + new tests pass (621 pass)
+- [X] T028 `npm run sb:advisors` — zero new advisories
+- [X] T029 Hardcoded-price scan: `grep -rn '[0-9]\+\.[0-9]\+' src/lib/domains/catalog/ src/app/api/catalog/ src/app/api/subscriptions/ src/app/api/guardian/` → zero price literals
+- [X] T030 Commit all spec artifacts + tasks.md to `019-catalog-credit-redesign`; push
 
 ---
 
