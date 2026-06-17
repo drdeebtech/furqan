@@ -49,6 +49,11 @@ export type UpgradeEligibility = UpgradeAllowed | UpgradeDeferred;
  * Immediate upgrade requires:
  * 1. Same `product_category` (both group or both individual).
  * 2. New plan has MORE sessions/month than current (upgrade, not downgrade/lateral).
+ *
+ * NOTE: FR-017 also requires the same teacher for an immediate upgrade
+ * (`teacher_mismatch` reason). This check is not yet implemented because
+ * `subscriptions` has no `teacher_id` column — a schema migration is needed
+ * to track the assigned teacher per subscription before this can be enforced.
  */
 export function canUpgradeImmediately(
   current: CurrentTierInfo,
