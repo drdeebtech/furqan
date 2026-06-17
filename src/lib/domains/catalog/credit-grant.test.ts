@@ -48,8 +48,13 @@ function mockAdmin(opts: {
     eq: vi.fn(() => ({ eq: pendingUpdateEq })),
   }));
 
-  const subUpdateEq = vi.fn(async () => ({
-    error: opts.subUpdateError ?? null,
+  const subUpdateEq = vi.fn(() => ({
+    select: vi.fn(() => ({
+      maybeSingle: vi.fn(async () => ({
+        data: opts.subUpdateError ? null : { id: "sub-1" },
+        error: opts.subUpdateError ?? null,
+      })),
+    })),
   }));
   const subUpdate = vi.fn(() => ({ eq: subUpdateEq }));
 
