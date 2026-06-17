@@ -42,6 +42,12 @@ function mapTier(row: CatalogTierRow): CatalogTier | null {
   if (!row.plan_sessions_per_month || row.plan_sessions_per_month <= 0) return null;
   if (!row.plan_session_duration_min || row.plan_session_duration_min <= 0) return null;
 
+  if (
+    row.product_category !== "hifz_group" &&
+    row.product_category !== "hifz_individual"
+  )
+    return null;
+
   const tierType: "group" | "individual" =
     row.product_category === "hifz_individual" ? "individual" : "group";
 
