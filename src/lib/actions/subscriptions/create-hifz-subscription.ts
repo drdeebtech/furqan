@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase.generated";
+import { logError } from "@/lib/logger";
 import {
   resolveGuardianDiscount,
   recordDiscount,
@@ -49,13 +50,14 @@ export async function hasActiveHifzSubscription(
   admin: SupabaseClient<Database>,
   studentId: string,
 ): Promise<boolean> {
-  const { count } = await admin
+  const { count, error } = await admin
     .from("subscriptions")
     .select("id", { count: "exact", head: true })
     .eq("student_id", studentId)
     .eq("is_hifz", true)
     .not("status", "in", '("canceled","incomplete_expired")');
 
+  if (error) throw error;
   return (count ?? 0) > 0;
 }
 
@@ -83,12 +85,13 @@ export async function isPlanHifzProduct(
   admin: SupabaseClient<Database>,
   planId: string,
 ): Promise<boolean> {
-  const { data } = await admin
+  const { data, error } = await admin
     .from("subscription_plans")
     .select("is_hifz_product")
     .eq("id", planId)
     .maybeSingle<{ is_hifz_product: boolean }>();
 
+  if (error) throw error;
   return data?.is_hifz_product ?? false;
 }
 
@@ -106,10 +109,18 @@ export async function resolveStudentFamilyDiscount(
   studentId: string,
   productCategory: string,
 ): Promise<DiscountResolution> {
-  const { data: guardianLinks } = await admin
+  const { data: guardianLinks, error: linksErr } = await admin
     .from("guardian_children")
     .select("guardian_id")
     .eq("child_id", studentId);
+
+  if (linksErr) {
+    logError("resolveStudentFamilyDiscount: guardian_children lookup failed", linksErr, {
+      tag: "billing",
+      student_id: studentId,
+    });
+    return { applies: false };
+  }
 
   if (!guardianLinks || guardianLinks.length === 0) {
     return { applies: false };

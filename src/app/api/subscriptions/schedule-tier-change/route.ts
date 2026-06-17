@@ -62,22 +62,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Subscription not found" }, { status: 404 });
   }
 
-  // Verify target package exists.
+  // Verify target package exists and is a hifz product.
   const { data: targetPkg } = await admin
     .from("packages")
     .select("id")
     .eq("id", parsed.toPackageId)
+    .eq("is_hifz_product", true)
     .maybeSingle();
 
   if (!targetPkg) {
     return NextResponse.json({ error: "Target package not found" }, { status: 404 });
   }
 
-  // Resolve current package for the from_package_id.
+  // Resolve current package for the from_package_id (hifz only).
   const { data: currentPkg } = await admin
     .from("packages")
     .select("id")
     .eq("subscription_plan_id", sub.plan_id)
+    .eq("is_hifz_product", true)
     .maybeSingle();
 
   // 422 rather than substituting sub.id (a subscriptions UUID ≠ packages UUID);

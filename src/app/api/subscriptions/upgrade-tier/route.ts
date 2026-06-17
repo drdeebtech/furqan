@@ -184,10 +184,22 @@ export async function POST(request: Request) {
   // The webhook will also update this via upsertMirror, but the local row would
   // show the old plan_id until delivery (seconds–minutes), allowing a second
   // "upgrade" from an already-upgraded tier in that window (HIGH fix).
-  await admin
+  const { error: syncErr } = await admin
     .from("subscriptions")
     .update({ plan_id: newPlan.id })
     .eq("id", sub.id);
+
+  if (syncErr) {
+    logError("upgrade-tier: local plan sync failed after Stripe update", syncErr, {
+      tag: "billing",
+      subscription_id: sub.id,
+      new_plan_id: newPlan.id,
+    });
+    return NextResponse.json(
+      { error: "Upgrade applied in Stripe but local sync failed — contact support" },
+      { status: 500 },
+    );
+  }
 
   // ── Grant delta credits for the remainder of this cycle ────────────────────
   const billingCycleKey = `upgrade_${invoiceId}`;

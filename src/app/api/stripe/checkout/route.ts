@@ -87,12 +87,19 @@ export async function POST(request: Request) {
   // ── Guardian family discount (spec 019 US4) ──────────────────────────────
   let stripeCouponId: string | undefined;
   {
-    const { data: pkg } = await admin
+    const { data: pkg, error: pkgErr } = await admin
       .from("packages")
       .select("product_category")
       .eq("subscription_plan_id", plan.id)
       .eq("is_hifz_product", true)
       .maybeSingle();
+    if (pkgErr) {
+      logError("checkout: package category lookup failed", pkgErr, {
+        tag: "billing",
+        user_id: userId,
+        plan_id: plan.id,
+      });
+    }
     const productCategory = pkg?.product_category ?? null;
 
     if (productCategory) {

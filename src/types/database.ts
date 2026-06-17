@@ -5074,7 +5074,7 @@ export const Constants = {
         "other",
       ],
       student_level: ["beginner", "intermediate", "advanced"],
-      user_role: ["student", "teacher", "admin", "moderator"],
+      user_role: ["student", "teacher", "admin", "guardian", "moderator"],
     },
   },
 } as const

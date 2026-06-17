@@ -166,29 +166,44 @@ export async function applyPendingTierChangeAtRenewal(
 
   const newPlanId = pkg.subscription_plan_id;
 
-  // 3. Transition pending → applied (WHERE status = 'pending' = replay-safe).
-  const { error: updateErr } = await admin
+  // 3. Switch the subscription to the new plan.
+  const { error: subErr } = await admin
+    .from("subscriptions")
+    .update({ plan_id: newPlanId })
+    .eq("id", subscriptionId);
+
+  if (subErr) {
+    logError("applyPendingTierChange: subscription plan switch failed", subErr, {
+      tag: "billing", subscription_id: subscriptionId, new_plan_id: newPlanId,
+    });
+    return { ok: false, reason: "update_failed", error: subErr.message };
+  }
+
+  // 4. Re-grant at the new tier's sessions_per_month.
+  const regrantKey = `${invoiceId}:tier-applied`;
+  const regrant = await grantHifzCycleCredits(admin, subscriptionId, newPlanId, regrantKey);
+
+  if (!regrant.ok) {
+    logError("applyPendingTierChange: credit regrant failed", new Error(regrant.error), {
+      tag: "billing", subscription_id: subscriptionId, new_plan_id: newPlanId,
+    });
+    return { ok: false, reason: "update_failed", error: regrant.error };
+  }
+
+  // 5. Transition pending → applied only after sub switch + regrant both succeed
+  //    (WHERE status = 'pending' = replay-safe).
+  const { error: statusErr } = await admin
     .from("pending_tier_changes")
     .update({ status: "applied", applied_at: new Date().toISOString() })
     .eq("id", pending.id)
     .eq("status", "pending");
 
-  if (updateErr) {
-    logError("applyPendingTierChange: status transition failed", updateErr, {
+  if (statusErr) {
+    logError("applyPendingTierChange: status transition failed", statusErr, {
       tag: "billing", subscription_id: subscriptionId, pending_id: pending.id,
     });
-    return { ok: false, reason: "update_failed", error: updateErr.message };
+    return { ok: false, reason: "update_failed", error: statusErr.message };
   }
-
-  // 4. Switch the subscription to the new plan.
-  await admin
-    .from("subscriptions")
-    .update({ plan_id: newPlanId })
-    .eq("id", subscriptionId);
-
-  // 5. Re-grant at the new tier's sessions_per_month.
-  const regrantKey = `${invoiceId}:tier-applied`;
-  const regrant = await grantHifzCycleCredits(admin, subscriptionId, newPlanId, regrantKey);
 
   return {
     ok: true,

@@ -71,11 +71,20 @@ export async function POST(request: Request) {
   }
 
   // Verify the resolved account is a student (prevents linking teacher/admin accounts).
-  const { data: childProfile } = await admin
+  const { data: childProfile, error: childProfileErr } = await admin
     .from("profiles")
     .select("role")
     .eq("id", childId as string)
     .maybeSingle();
+
+  if (childProfileErr) {
+    logError("add-child: child profile lookup failed", childProfileErr, {
+      tag: "guardian",
+      guardian_id: userId,
+      child_id: childId,
+    });
+    return NextResponse.json({ error: "Failed to verify child account" }, { status: 500 });
+  }
 
   if (childProfile?.role !== "student") {
     return NextResponse.json({ error: "Invalid child account" }, { status: 422 });

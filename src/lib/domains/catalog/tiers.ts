@@ -93,7 +93,10 @@ export const getActiveCatalogTiers = unstable_cache(
       .eq("is_active", true)
       .order("display_order", { ascending: true });
 
-    if (error || !data) {
+    if (error) {
+      throw new Error(`Failed to fetch active hifz catalog tiers: ${error.message}`);
+    }
+    if (!data) {
       return [];
     }
 

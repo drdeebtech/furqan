@@ -274,11 +274,16 @@ async function handleInvoicePaid(ctx: EventContext): Promise<void> {
   // If this is a hifz product and there's a pending tier change, apply it now:
   // transition pending→applied, switch subscription to new plan, re-grant credits.
   // The WHERE status='pending' guard makes this replay-safe.
-  const { data: planHifzFlag } = await ctx.admin
+  const { data: planHifzFlag, error: planHifzErr } = await ctx.admin
     .from("subscription_plans")
     .select("is_hifz_product")
     .eq("id", plan.id)
     .maybeSingle<{ is_hifz_product: boolean }>();
+
+  if (planHifzErr) {
+    await markEvent(ctx, "failed", `plan hifz flag lookup failed: ${planHifzErr.message}`);
+    return;
+  }
 
   if (planHifzFlag?.is_hifz_product) {
     const tierResult = await applyPendingTierChangeAtRenewal(ctx.admin, mirrorId, invoice.id);
@@ -295,6 +300,8 @@ async function handleInvoicePaid(ctx: EventContext): Promise<void> {
         subscription_id: mirrorId,
         error: tierResult.error,
       });
+      await markEvent(ctx, "failed", `pending tier change failed: ${tierResult.reason}`);
+      return;
     }
   }
 

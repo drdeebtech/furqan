@@ -72,6 +72,10 @@ comment on column public.packages.product_category is
 --    (subscription_id + billing_cycle_key columns already exist from spec 018)
 -- ─────────────────────────────────────────────────────────────────────────────
 
+-- Allow subscription-based grants to insert without a package_id (grant_hifz_cycle_credits
+-- passes NULL when crediting via subscription rather than a specific package purchase).
+alter table public.student_packages alter column package_id drop not null;
+
 -- The spec-018 single-column unique index (student_packages_billing_cycle_key_key)
 -- is retained for grant_subscription_cycle. This composite index supports the
 -- spec-019 grant_hifz_cycle_credits function's ON CONFLICT target.
@@ -378,10 +382,23 @@ insert into public.packages (
 select
   'full_course',
   sp.name,
-  case when sp.sessions_per_month = 4 then 'حفظ جماعي ٤ حصص'
-       when sp.sessions_per_month = 6 then 'حفظ جماعي ٦ حصص'
-       when sp.sessions_per_month = 8 then 'حفظ جماعي ٨ حصص'
-       else sp.name end,
+  case
+    when sp.plan_code like 'hifz_group_%' then
+      case sp.sessions_per_month
+        when 4 then 'حفظ جماعي ٤ حصص'
+        when 6 then 'حفظ جماعي ٦ حصص'
+        when 8 then 'حفظ جماعي ٨ حصص'
+        else sp.name
+      end
+    when sp.plan_code like 'hifz_individual_%' then
+      case sp.sessions_per_month
+        when 4 then 'حفظ فردي ٤ ساعات'
+        when 6 then 'حفظ فردي ٦ ساعات'
+        when 8 then 'حفظ فردي ٨ ساعات'
+        else sp.name
+      end
+    else sp.name
+  end,
   sp.sessions_per_month,
   sp.session_duration_min,
   sp.price_cents / 100.0,

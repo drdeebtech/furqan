@@ -85,7 +85,7 @@ export async function resolveGuardianDiscount(
   // activeSubs alone cannot distinguish individual vs group plans since
   // both have is_hifz_product=true).
   if (productCategory === "hifz_individual") {
-    const { data: matchingPkgs } = await admin
+    const { data: matchingPkgs, error: pkgsErr } = await admin
       .from("packages")
       .select("id")
       .in("subscription_plan_id", planIds)
@@ -93,10 +93,18 @@ export async function resolveGuardianDiscount(
       .eq("is_hifz_product", true)
       .limit(1);
 
+    if (pkgsErr) {
+      logError("resolveGuardianDiscount: individual packages lookup failed", pkgsErr, {
+        tag: "billing",
+        guardian_id: guardianId,
+      });
+      throw pkgsErr;
+    }
+
     if ((matchingPkgs?.length ?? 0) > 0) {
       const pctStr = await getSetting("hifz_second_individual_discount_pct");
-      const discountPct = pctStr ? parseFloat(pctStr) : 0;
-      if (discountPct > 0) {
+      const discountPct = pctStr ? Number(pctStr) : 0;
+      if (Number.isFinite(discountPct) && discountPct > 0 && discountPct <= 100) {
         return {
           applies: true,
           discountType: "second_individual",
@@ -108,7 +116,7 @@ export async function resolveGuardianDiscount(
   }
 
   if (productCategory === "hifz_group") {
-    const { data: matchingPkgs } = await admin
+    const { data: matchingPkgs, error: pkgsErr } = await admin
       .from("packages")
       .select("id")
       .in("subscription_plan_id", planIds)
@@ -116,10 +124,18 @@ export async function resolveGuardianDiscount(
       .eq("is_hifz_product", true)
       .limit(1);
 
+    if (pkgsErr) {
+      logError("resolveGuardianDiscount: group packages lookup failed", pkgsErr, {
+        tag: "billing",
+        guardian_id: guardianId,
+      });
+      throw pkgsErr;
+    }
+
     if ((matchingPkgs?.length ?? 0) > 0) {
       const pctStr = await getSetting("hifz_sibling_group_discount_pct");
-      const discountPct = pctStr ? parseFloat(pctStr) : 0;
-      if (discountPct > 0) {
+      const discountPct = pctStr ? Number(pctStr) : 0;
+      if (Number.isFinite(discountPct) && discountPct > 0 && discountPct <= 100) {
         return {
           applies: true,
           discountType: "sibling_group",

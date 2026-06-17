@@ -122,12 +122,25 @@ export async function scheduleRenewalChange(
     if (error.code === "23505") {
       const { data: existing } = await admin
         .from("pending_tier_changes")
-        .select("id")
+        .select("id, to_package_id, change_reason")
         .eq("subscription_id", opts.subscriptionId)
         .eq("status", "pending")
         .maybeSingle();
 
-      if (existing) return { id: existing.id };
+      if (
+        existing &&
+        existing.to_package_id === opts.toPackageId &&
+        existing.change_reason === opts.changeReason
+      ) {
+        return { id: existing.id };
+      }
+      if (existing) {
+        logError("scheduleRenewalChange: race winner differs from requested change", error, {
+          tag: "billing",
+          subscription_id: opts.subscriptionId,
+        });
+        return null;
+      }
     }
 
     logError("scheduleRenewalChange: insert failed", error, {
