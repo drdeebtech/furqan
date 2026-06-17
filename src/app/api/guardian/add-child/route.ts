@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireRole } from "@/lib/auth/require-admin";
+import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { logError } from "@/lib/logger";
 
 /**
@@ -19,14 +20,21 @@ const Body = z.object({
 });
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authErr,
-  } = await supabase.auth.getUser();
-
-  if (authErr || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // TODO(H-1): add per-IP rate limiting on this endpoint — the email lookup
+  // is a potential enumeration/abuse vector. No rate-limiting utility exists
+  // in this repo yet; wire up Upstash or middleware-level limiting in a
+  // follow-up PR.
+  let userId: string;
+  try {
+    ({ id: userId } = await requireRole("guardian"));
+  } catch (e) {
+    if (e instanceof UnauthenticatedError) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (e instanceof ForbiddenError) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    throw e;
   }
 
   let parsed: z.infer<typeof Body>;
@@ -48,7 +56,7 @@ export async function POST(request: Request) {
   if (lookupErr) {
     logError("add-child: get_user_id_by_email failed", lookupErr, {
       tag: "guardian",
-      guardian_id: user.id,
+      guardian_id: userId,
     });
     return NextResponse.json({ error: "Failed to resolve child email" }, { status: 500 });
   }
@@ -58,7 +66,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid child account" }, { status: 422 });
   }
 
-  if (childId === user.id) {
+  if (childId === userId) {
     return NextResponse.json({ error: "Cannot add yourself as a child" }, { status: 422 });
   }
 
@@ -74,7 +82,7 @@ export async function POST(request: Request) {
   }
 
   const { error: insertErr } = await admin.from("guardian_children").insert({
-    guardian_id: user.id,
+    guardian_id: userId,
     child_id: childId as string,
   });
 
@@ -84,7 +92,7 @@ export async function POST(request: Request) {
     }
     logError("add-child: insert failed", insertErr, {
       tag: "guardian",
-      guardian_id: user.id,
+      guardian_id: userId,
       child_id: childId,
     });
     return NextResponse.json({ error: "Failed to add child" }, { status: 500 });

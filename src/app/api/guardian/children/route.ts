@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireRole } from "@/lib/auth/require-admin";
+import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 
 /**
  * GET /api/guardian/children — Spec 019 US4 T017.
@@ -9,14 +10,17 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Service-role client for the join — RLS would block cross-profile reads.
  */
 export async function GET() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authErr,
-  } = await supabase.auth.getUser();
-
-  if (authErr || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let userId: string;
+  try {
+    ({ id: userId } = await requireRole("guardian"));
+  } catch (e) {
+    if (e instanceof UnauthenticatedError) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (e instanceof ForbiddenError) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    throw e;
   }
 
   const admin = createAdminClient();
@@ -34,7 +38,7 @@ export async function GET() {
       )
     `,
     )
-    .eq("guardian_id", user.id);
+    .eq("guardian_id", userId);
 
   if (error) {
     return NextResponse.json({ error: "Failed to fetch children" }, { status: 500 });
