@@ -18,19 +18,19 @@
 | [008-ops-debt-cleanup](./008-ops-debt-cleanup/spec.md) | Shipped | `008-ops-debt-cleanup` | [#298](https://github.com/drdeebtech/furqan/pull/298) |
 | [009-n8n-cron-all-routes](./009-n8n-cron-all-routes/spec.md) | Shipped | `009-n8n-cron-all-routes` | [#300](https://github.com/drdeebtech/furqan/pull/300) |
 | [010-hifz-progress-capture](./010-hifz-progress-capture/spec.md) | Shipped | `010-hifz-progress-capture` | [#367](https://github.com/drdeebtech/furqan/pull/367) |
-| [011-fix-is-admin-ordering](./011-fix-is-admin-ordering/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
-| [012-prod-rls-hardening](./012-prod-rls-hardening/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
-| [013-progress-action-hardening](./013-progress-action-hardening/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
+| [011-fix-is-admin-ordering](./011-fix-is-admin-ordering/spec.md) | Malformed | _(unknown)_ | _(pending)_ |
+| [012-prod-rls-hardening](./012-prod-rls-hardening/spec.md) | Malformed | _(unknown)_ | _(pending)_ |
+| [013-progress-action-hardening](./013-progress-action-hardening/spec.md) | Tasks-ready | _(unknown)_ | _(pending)_ |
 | [014-session-participant-secdef](./014-session-participant-secdef/spec.md) | Tasks-ready | _(unknown)_ | _(pending)_ |
 | [015-pr458-review-remediation](./015-pr458-review-remediation/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
 | [016-public-profiles-rls-bypass](./016-public-profiles-rls-bypass/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
 | [017-pr458-cursor-authz-findings](./017-pr458-cursor-authz-findings/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
 | [018-subscription-billing-foundation](./018-subscription-billing-foundation/spec.md) | Shipped | `018-subscription-billing-foundation` | [#474](https://github.com/drdeebtech/furqan/pull/474) |
 | [019-catalog-credit-redesign](./019-catalog-credit-redesign/spec.md) | Shipped | `019-catalog-credit-redesign` | [#477](https://github.com/drdeebtech/furqan/pull/477) |
-| [020-scheduling-cohorts](./020-scheduling-cohorts/spec.md) | Shipped | `020-scheduling-cohorts` | [#479](https://github.com/drdeebtech/furqan/pull/479) |
-| [021-attendance-payroll](./021-attendance-payroll/spec.md) | Shipped | `021-attendance-payroll` | [#482](https://github.com/drdeebtech/furqan/pull/482) |
-| [022-onboarding-single-sessions](./022-onboarding-single-sessions/spec.md) | Implementing | `022-onboarding-single-sessions` | [#485](https://github.com/drdeebtech/furqan/pull/485) |
-| [023-reports-gamification-notifications](./023-reports-gamification-notifications/spec.md) | Implementing | `023-reports-gamification-notifications` | [#490](https://github.com/drdeebtech/furqan/pull/490) |
+| [020-scheduling-cohorts](./020-scheduling-cohorts/spec.md) | Implementing | `020-scheduling-cohorts` | [#479](https://github.com/drdeebtech/furqan/pull/479) |
+| [021-attendance-payroll](./021-attendance-payroll/spec.md) | Tasks-ready | `021-attendance-payroll` | _(pending)_ |
+| [022-onboarding-single-sessions](./022-onboarding-single-sessions/spec.md) | Tasks-ready | `022-onboarding-single-sessions` | _(pending)_ |
+| [023-reports-gamification-notifications](./023-reports-gamification-notifications/spec.md) | Tasks-ready | `023-reports-gamification-notifications` | _(pending)_ |
 | [024-migration-cutover](./024-migration-cutover/spec.md) | Tasks-ready | `024-migration-cutover` | _(pending)_ |
 
 ## Abandoned (last 90 days)
