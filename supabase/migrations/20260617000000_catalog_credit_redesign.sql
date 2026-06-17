@@ -34,17 +34,26 @@ alter table public.subscription_plans
   add column if not exists session_duration_min integer;      -- minutes per session; 60 for all current tiers
 
 -- Hifz plans must have both session columns; non-hifz plans must have neither.
-alter table public.subscription_plans
-  add constraint if not exists chk_subscription_plans_hifz_fields
-  check (
-    (not is_hifz_product)
-    or (
-      sessions_per_month is not null
-      and sessions_per_month > 0
-      and session_duration_min is not null
-      and session_duration_min > 0
-    )
-  );
+-- ADD CONSTRAINT IF NOT EXISTS is not valid PostgreSQL syntax; guard via DO block.
+do $$ begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.subscription_plans'::regclass
+      and conname = 'chk_subscription_plans_hifz_fields'
+  ) then
+    alter table public.subscription_plans
+      add constraint chk_subscription_plans_hifz_fields
+      check (
+        (not is_hifz_product)
+        or (
+          sessions_per_month is not null
+          and sessions_per_month > 0
+          and session_duration_min is not null
+          and session_duration_min > 0
+        )
+      );
+  end if;
+end $$;
 
 comment on column public.subscription_plans.is_hifz_product is
   'True for the six hifz tiers; drives the single-active-hifz partial unique index on subscriptions (spec 019).';
