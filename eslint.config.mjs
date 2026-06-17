@@ -34,6 +34,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "coverage/**",
+    "playwright-report/**",
+    "test-results/**",
     // Tooling + load-test scripts run under non-Next runtimes (Node CommonJS
     // hooks, the k6 VM) where `require()` is correct — they are not app source
     // and must not be linted by the Next.js TS config (issue #325).
