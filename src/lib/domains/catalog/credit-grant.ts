@@ -118,8 +118,8 @@ export interface AppliedTierChangeFailure {
  *    guaranteed by partial unique index).
  * 2. Resolve the new plan from `to_package_id → packages.subscription_plan_id`.
  * 3. Re-grant credits at the NEW tier's `sessions_per_month` using a distinct
- *    billing_cycle_key (`{invoiceId}:tier-applied`) so it doesn't conflict with
- *    the cycle-grant unique index.
+ *    billing_cycle_key (`{subscriptionId}:tier-change-{pendingId}`) so it is
+ *    stable across monthly renewals and idempotent across webhook retries.
  * 4. Switch the subscription to the new plan.
  * 5. Transition `pending → applied` (WHERE status = 'pending' guard
  *    makes this replay-safe).
@@ -142,7 +142,7 @@ export async function applyPendingTierChangeAtRenewal(
 
   if (lookupErr) {
     logError("applyPendingTierChange: lookup failed", lookupErr, {
-      tag: "billing", subscription_id: subscriptionId,
+      tag: "billing", subscription_id: subscriptionId, invoice_id: invoiceId,
     });
     return { ok: false, reason: "lookup_failed", error: lookupErr.message };
   }
@@ -173,7 +173,11 @@ export async function applyPendingTierChangeAtRenewal(
   //    Partial-failure note: if regrant succeeds but step 4 (plan_id update) fails, credits are
   //    at the new tier while subscription.plan_id still points to the old plan. On the next
   //    renewal the webhook retries; the regrant key prevents duplication across retries.
-  const regrantKey = `${invoiceId}:tier-applied`;
+  // Subscription-scoped key: stable across monthly renewals and webhook retries.
+  // An invoice-scoped key (invoiceId:tier-applied) would create duplicate grants
+  // if regrant succeeds but plan switch fails → pending stays 'pending' → next
+  // month produces a new invoiceId and a second grant for the same tier change.
+  const regrantKey = `${subscriptionId}:tier-change-${pending.id}`;
   const regrant = await grantHifzCycleCredits(admin, subscriptionId, newPlanId, regrantKey);
 
   if (!regrant.ok) {

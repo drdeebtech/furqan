@@ -81,10 +81,6 @@ export async function POST(request: Request) {
   if (!targetPkg) {
     return NextResponse.json({ error: "Target package not found" }, { status: 404 });
   }
-  if (targetPkg.subscription_plan_id === sub.plan_id) {
-    return NextResponse.json({ error: "Already on this tier" }, { status: 422 });
-  }
-
   // Resolve current package for the from_package_id (hifz only).
   const { data: currentPkg, error: currentPkgErr } = await admin
     .from("packages")
@@ -108,6 +104,10 @@ export async function POST(request: Request) {
       { error: "Current subscription has no associated package" },
       { status: 422 },
     );
+  }
+
+  if (targetPkg.id === currentPkg.id) {
+    return NextResponse.json({ error: "Already on this tier" }, { status: 422 });
   }
 
   const scheduled = await scheduleRenewalChange(admin, {

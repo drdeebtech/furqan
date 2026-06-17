@@ -98,7 +98,7 @@ export async function resolveGuardianDiscount(
         tag: "billing",
         guardian_id: guardianId,
       });
-      throw pkgsErr;
+      return { applies: false };
     }
 
     if ((matchingPkgs?.length ?? 0) > 0) {
@@ -129,7 +129,7 @@ export async function resolveGuardianDiscount(
         tag: "billing",
         guardian_id: guardianId,
       });
-      throw pkgsErr;
+      return { applies: false };
     }
 
     if ((matchingPkgs?.length ?? 0) > 0) {

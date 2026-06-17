@@ -66,6 +66,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Subscription not found" }, { status: 404 });
   }
 
+  if (!sub.stripe_subscription_id) {
+    return NextResponse.json({ error: "Subscription has no Stripe link" }, { status: 422 });
+  }
+
   // ── Resolve current package + plan ─────────────────────────────────────────
   const [currentPkgRes, currentPlanRes] = await Promise.all([
     admin
@@ -129,6 +133,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Target plan missing required tier data" }, { status: 422 });
   }
 
+  if (!sub.current_period_end) {
+    return NextResponse.json({ error: "Current subscription missing period end date" }, { status: 422 });
+  }
+
   const eligibility = canUpgradeImmediately(
     {
       subscriptionId: sub.id,
@@ -137,7 +145,7 @@ export async function POST(request: Request) {
       packageId: currentPkg.id,
       productCategory: currentPkg.product_category,
       sessionsPerMonth: currentPlan.sessions_per_month,
-      currentPeriodEnd: sub.current_period_end ?? "",
+      currentPeriodEnd: sub.current_period_end,
     },
     {
       packageId: parsed.toPackageId,

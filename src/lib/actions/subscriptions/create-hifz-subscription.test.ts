@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/domains/catalog/discounts", () => ({
+  resolveGuardianDiscount: vi.fn(),
+  recordDiscount: vi.fn(),
+}));
 
 import {
   HifzAlreadyActiveError,
@@ -8,7 +12,9 @@ import {
   hasActiveHifzSubscription,
   assertNoActiveHifz,
   isPlanHifzProduct,
+  resolveStudentFamilyDiscount,
 } from "./create-hifz-subscription";
+import { resolveGuardianDiscount } from "@/lib/domains/catalog/discounts";
 
 // ─── Mock builders ──────────────────────────────────────────────────────────
 
@@ -106,6 +112,58 @@ describe("assertNoActiveHifz", () => {
   it("does NOT throw when no active hifz exists", async () => {
     const admin = makeCountAdmin(0);
     await expect(assertNoActiveHifz(admin, "stu-1")).resolves.toBeUndefined();
+  });
+});
+
+// ─── resolveStudentFamilyDiscount ───────────────────────────────────────────
+
+function makeGuardianAdmin(
+  guardians: Array<{ guardian_id: string }> | null,
+  error: { message: string } | null = null,
+) {
+  const result = Promise.resolve({ data: guardians, error });
+  const eq = vi.fn(() => result);
+  const select = vi.fn(() => ({ eq }));
+  return { from: vi.fn(() => ({ select })) } as never;
+}
+
+describe("resolveStudentFamilyDiscount", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("returns { applies: false } when student has no guardians", async () => {
+    const admin = makeGuardianAdmin([]);
+    const result = await resolveStudentFamilyDiscount(admin, "stu-1", "hifz_group");
+    expect(result.applies).toBe(false);
+    expect(resolveGuardianDiscount).not.toHaveBeenCalled();
+  });
+
+  it("fails open when guardian_children query errors", async () => {
+    const admin = makeGuardianAdmin(null, { message: "db error" });
+    const result = await resolveStudentFamilyDiscount(admin, "stu-1", "hifz_group");
+    expect(result.applies).toBe(false);
+    expect(resolveGuardianDiscount).not.toHaveBeenCalled();
+  });
+
+  it("returns the highest discount when multiple guardians have discounts", async () => {
+    const admin = makeGuardianAdmin([{ guardian_id: "g-1" }, { guardian_id: "g-2" }]);
+    vi.mocked(resolveGuardianDiscount)
+      .mockResolvedValueOnce({ applies: true, discountPct: 10, discountType: "sibling_group", settingKey: "k1" })
+      .mockResolvedValueOnce({ applies: true, discountPct: 15, discountType: "second_individual", settingKey: "k2" });
+
+    const result = await resolveStudentFamilyDiscount(admin, "stu-1", "hifz_group");
+    expect(result.applies).toBe(true);
+    if (result.applies) expect(result.discountPct).toBe(15);
+  });
+
+  it("returns successful guardian discount when one guardian throws", async () => {
+    const admin = makeGuardianAdmin([{ guardian_id: "g-1" }, { guardian_id: "g-2" }]);
+    vi.mocked(resolveGuardianDiscount)
+      .mockRejectedValueOnce(new Error("lookup failed"))
+      .mockResolvedValueOnce({ applies: true, discountPct: 10, discountType: "sibling_group", settingKey: "k1" });
+
+    const result = await resolveStudentFamilyDiscount(admin, "stu-1", "hifz_group");
+    expect(result.applies).toBe(true);
+    if (result.applies) expect(result.discountPct).toBe(10);
   });
 });
 

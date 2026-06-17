@@ -293,7 +293,7 @@ async function handleInvoicePaid(ctx: EventContext): Promise<void> {
         error: tierResult.error,
       });
       await markEvent(ctx, "failed", `pending tier change failed: ${tierResult.reason}`);
-      return;
+      throw new Error(`pending tier change failed: ${tierResult.reason}`);
     }
   }
 
