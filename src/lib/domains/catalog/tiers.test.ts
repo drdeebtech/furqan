@@ -149,14 +149,15 @@ describe("getActiveCatalogTiers", () => {
     expect(tiers[0].id).toBe("pkg-good");
   });
 
-  it("returns empty array on DB error", async () => {
+  it("throws on DB error", async () => {
     mockOrder.mockReturnValueOnce({
       data: null,
       error: { message: "connection refused" },
     });
 
-    const tiers = await getActiveCatalogTiers();
-    expect(tiers).toEqual([]);
+    await expect(getActiveCatalogTiers()).rejects.toThrow(
+      "Failed to fetch active hifz catalog tiers: connection refused",
+    );
   });
 
   it("formats price_usd as 2-decimal string", async () => {
