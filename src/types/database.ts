@@ -6364,6 +6364,19 @@ export type Database = {
           p_session_type: Database["public"]["Enums"]["session_type"]
           p_student_id: string
           p_teacher_id: string
+          p_payment_id?: string
+        }
+        Returns: string
+      }
+      create_single_session_booking: {
+        Args: {
+          p_student_id: string
+          p_teacher_id: string
+          p_booking_product_type: string
+          p_payment_id?: string
+          p_specialty?: string
+          p_purpose?: Database["public"]["Enums"]["specialized_purpose"]
+          p_target_scope?: Json
         }
         Returns: string
       }
@@ -6453,6 +6466,11 @@ export type Database = {
         | "missed_session"
         | "schedule_change"
       session_mode: "private" | "halaqa" | "lecture"
+      specialized_purpose:
+        | "review"
+        | "consolidate_surah"
+        | "memorize_mutoon"
+        | "test_juz_mutashabihat"
       session_type:
         | "hifz"
         | "muraja"

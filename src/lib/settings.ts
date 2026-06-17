@@ -35,6 +35,15 @@ export const ALLOWED_SETTING_KEYS = [
   "notifications_whatsapp_enabled",       // default 'true'; global WhatsApp feature flag (per-trigger matrix still applies)
   "notification_channel_matrix",          // JSON map trigger → channel[]; overrides FR-012 defaults
   "subscription_expiring_lead_days",      // default 7; days before period end the "continue?" prompt fires (CHK015)
+  // ── Spec 022 (م٥): one-time-paid single-session products ───────────────
+  // Prices are stored as decimal USD strings ('0.00' seed = free-by-default
+  // until an admin sets a real price). Assessment zero = free booking.
+  "single_session_instant_price_usd",
+  "single_session_assessment_price_usd",
+  "single_session_review_price_usd",
+  "single_session_consolidate_surah_price_usd",
+  "single_session_memorize_mutoon_price_usd",
+  "single_session_test_juz_price_usd",
 ] as const;
 
 export type AllowedSettingKey = (typeof ALLOWED_SETTING_KEYS)[number];
