@@ -275,9 +275,11 @@ async function handleInvoicePaid(ctx: EventContext): Promise<void> {
   // If this is a hifz product and there's a pending tier change, apply it now:
   // transition pending→applied, switch subscription to new plan, re-grant credits.
   // The WHERE status='pending' guard makes this replay-safe.
+  let activePlanId = plan.id;
   if (plan.is_hifz_product) {
     const tierResult = await applyPendingTierChangeAtRenewal(ctx.admin, mirrorId, invoice.id);
     if (tierResult.ok) {
+      activePlanId = tierResult.newPlanId;
       logInfo("stripe-webhook: pending tier change applied", {
         tag: "billing",
         subscription_id: mirrorId,
@@ -303,7 +305,7 @@ async function handleInvoicePaid(ctx: EventContext): Promise<void> {
     result.created ? BillingEvents.Activated : BillingEvents.Renewed,
     "subscription",
     mirrorId,
-    { student_id: studentId, plan_id: plan.id, cycle_key: cycleKey, grant_id: result.grantId },
+    { student_id: studentId, plan_id: activePlanId, cycle_key: cycleKey, grant_id: result.grantId },
   ).catch((err) => logError("emit subscription.activated/renewed failed", err, { tag: "billing" }));
 }
 
