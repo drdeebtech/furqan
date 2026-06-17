@@ -317,6 +317,9 @@ create trigger t_guard_pending_tier_change_identity
   execute function private.guard_pending_tier_change_identity();
 
 -- 9c. subscription_discount_records — fully immutable (write-once ledger).
+-- Blocks all JWT-authenticated mutations (including service_role REST calls).
+-- Direct Postgres connections (migrations, maintenance scripts) have no JWT claims
+-- and are the only authorised path for administrative corrections.
 create or replace function private.guard_discount_record_immutable()
 returns trigger
 language plpgsql
@@ -326,12 +329,12 @@ as $$
 declare
   v_jwt_role text := nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role';
 begin
-  if v_jwt_role is not null
-     and v_jwt_role <> 'service_role'
-     and not private.is_admin()
-  then
+  if v_jwt_role is not null then
     raise exception 'subscription_discount_records are immutable'
       using errcode = '42501';
+  end if;
+  if tg_op = 'DELETE' then
+    return old;
   end if;
   return new;
 end;
@@ -342,6 +345,12 @@ alter function private.guard_discount_record_immutable() owner to postgres;
 drop trigger if exists t_guard_discount_record_immutable on public.subscription_discount_records;
 create trigger t_guard_discount_record_immutable
   before update on public.subscription_discount_records
+  for each row
+  execute function private.guard_discount_record_immutable();
+
+drop trigger if exists t_guard_discount_record_immutable_delete on public.subscription_discount_records;
+create trigger t_guard_discount_record_immutable_delete
+  before delete on public.subscription_discount_records
   for each row
   execute function private.guard_discount_record_immutable();
 

@@ -170,6 +170,9 @@ export async function applyPendingTierChangeAtRenewal(
 
   // 3. Re-grant at the new tier's sessions_per_month FIRST (idempotent via billing_cycle_key).
   //    Grant before mutating the subscription so that any grant failure leaves no state change.
+  //    Partial-failure note: if regrant succeeds but step 4 (plan_id update) fails, credits are
+  //    at the new tier while subscription.plan_id still points to the old plan. On the next
+  //    renewal the webhook retries; the regrant key prevents duplication across retries.
   const regrantKey = `${invoiceId}:tier-applied`;
   const regrant = await grantHifzCycleCredits(admin, subscriptionId, newPlanId, regrantKey);
 

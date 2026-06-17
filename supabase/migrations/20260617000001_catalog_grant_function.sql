@@ -40,14 +40,17 @@ begin
       using errcode = '22023';
   end if;
 
-  -- Resolve student_id + period_end from the subscription.
-  select student_id, current_period_end
-    into v_student_id, v_period_end
-    from public.subscriptions
-    where id = p_subscription_id;
+  -- Resolve student_id, period_end, and sessions_per_month atomically, asserting that
+  -- p_plan_id matches the subscription's current plan_id (prevents cross-plan grants).
+  select s.student_id, s.current_period_end, sp.sessions_per_month
+    into v_student_id, v_period_end, v_sessions_per_mon
+    from public.subscriptions s
+    join public.subscription_plans sp on sp.id = s.plan_id
+   where s.id = p_subscription_id
+     and s.plan_id = p_plan_id;
 
   if v_student_id is null then
-    raise exception 'grant_hifz_cycle_credits: subscription % not found', p_subscription_id
+    raise exception 'grant_hifz_cycle_credits: subscription % not found or plan mismatch with %', p_subscription_id, p_plan_id
       using errcode = '22023';
   end if;
 
@@ -55,12 +58,6 @@ begin
     raise exception 'grant_hifz_cycle_credits: subscription % has null current_period_end', p_subscription_id
       using errcode = '22023';
   end if;
-
-  -- Resolve sessions_per_month from the plan.
-  select sessions_per_month
-    into v_sessions_per_mon
-    from public.subscription_plans
-    where id = p_plan_id;
 
   if v_sessions_per_mon is null then
     raise exception 'grant_hifz_cycle_credits: plan % has no sessions_per_month (not a hifz plan?)', p_plan_id

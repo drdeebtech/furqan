@@ -12,12 +12,14 @@ import {
 
 // ─── Mock builders ──────────────────────────────────────────────────────────
 
+type QueryError = { message: string; code?: string } | null;
+
 /**
  * Build a mock admin client whose query chain ends with a result object.
  * `hasActiveHifzSubscription` chain: from → select → eq → eq → not → await {count}
  * `isPlanHifzProduct` chain: from → select → eq → maybeSingle → await {data}
  */
-function makeCountAdmin(count: number | null, error: any = null) {
+function makeCountAdmin(count: number | null, error: QueryError = null) {
   const terminal = Promise.resolve({ count, error });
   const not = vi.fn(() => terminal);
   const eq2 = vi.fn(() => ({ not }));
@@ -26,11 +28,11 @@ function makeCountAdmin(count: number | null, error: any = null) {
   return { from: vi.fn(() => ({ select })) } as never;
 }
 
-function maybeSingleFn(data: unknown, error: any = null) {
+function maybeSingleFn(data: unknown, error: QueryError = null) {
   return Promise.resolve({ data, error });
 }
 
-function makeDataAdmin(data: unknown, error: any = null) {
+function makeDataAdmin(data: unknown, error: QueryError = null) {
   const maybeSingle = vi.fn(() => maybeSingleFn(data, error));
   const eq = vi.fn(() => ({ maybeSingle }));
   const select = vi.fn(() => ({ eq }));

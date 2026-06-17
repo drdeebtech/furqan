@@ -196,7 +196,7 @@ export async function POST(request: Request) {
     invoiceId =
       latestInvoice && typeof latestInvoice === "object" && "id" in latestInvoice
         ? (latestInvoice as { id: string }).id
-        : `upgrade-${sub.id}-${newPlan.id}`;
+        : `${sub.id}-${newPlan.id}`;
   } catch (err) {
     logError("upgrade-tier: Stripe update failed", err, {
       tag: "billing",

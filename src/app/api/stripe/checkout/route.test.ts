@@ -207,7 +207,7 @@ describe("POST /api/stripe/checkout — subscription mode (spec 018)", () => {
       discountType: "sibling_group",
       discountPct: 10,
       settingKey: "hifz_sibling_group_discount_pct",
-    } as any);
+    });
 
     // Provide a mocked package product_category via mockMaybeSingle so discount check proceeds
     mockMaybeSingle.mockResolvedValueOnce({ data: { product_category: "hifz_group" }, error: null }) // package lookup
