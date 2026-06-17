@@ -38,12 +38,12 @@ CREATE INDEX idx_subscription_extensions_sub ON subscription_extensions(subscrip
 
 **Effective period end** (computed on read):
 ```sql
-SELECT current_period_end + make_interval(secs => SUM(extension_seconds))
+SELECT current_period_end + make_interval(secs => COALESCE(SUM(extension_seconds), 0))
 FROM subscriptions s
 LEFT JOIN subscription_extensions e ON e.subscription_id = s.id
-WHERE s.id = :sub_id
-GROUP BY s.current_period_end;
+WHERE s.id = :sub_id;
 ```
+`COALESCE(..., 0)` is required: `SUM` over an empty join returns NULL, and `timestamptz + make_interval(secs => NULL)` is NULL — a subscription with no extensions would silently lose its period end.
 
 ---
 

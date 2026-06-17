@@ -77,9 +77,11 @@ if (!assignment || assignment.teacher_id !== resolvedTeacherId) {
 
 The route calls this function only when the target halaqa is at capacity; normal joins bypass it.
 
+**Precondition**: migration T002a MUST add the 5 missing `class_offerings` columns (`program_level`, `schedule_json`, `session_duration_min`, `start_date`, `entry_conditions_json`) before this function is created (T005). The task order in plan.md (T002a → T003a → T004 → T005) guarantees this.
+
 ```sql
 CREATE OR REPLACE FUNCTION open_overflow_halaqa(p_source_offering_id uuid)
-RETURNS uuid
+RETURNS TABLE(halaqa_id uuid, was_created boolean)
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
@@ -103,7 +105,8 @@ BEGIN
   LIMIT 1;
 
   IF v_sibling_id IS NOT NULL THEN
-    RETURN v_sibling_id;
+    RETURN QUERY SELECT v_sibling_id, false;
+    RETURN;
   END IF;
 
   -- open a new halaqa cloning the source schedule
@@ -113,7 +116,7 @@ BEGIN
   WHERE id = p_source_offering_id
   RETURNING id INTO v_new_id;
 
-  RETURN v_new_id;
+  RETURN QUERY SELECT v_new_id, true;
 END;
 $$;
 
