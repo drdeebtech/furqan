@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth/require-admin";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
+import { logError } from "@/lib/logger";
 
 /**
  * GET /api/guardian/children — Spec 019 US4 T017.
@@ -41,6 +42,7 @@ export async function GET() {
     .eq("guardian_id", userId);
 
   if (error) {
+    logError("guardian/children: fetch failed", error, { tag: "guardian", user_id: userId });
     return NextResponse.json({ error: "Failed to fetch children" }, { status: 500 });
   }
 

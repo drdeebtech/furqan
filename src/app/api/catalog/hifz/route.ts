@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveCatalogTiers } from "@/lib/domains/catalog/tiers";
+import { logError } from "@/lib/logger";
 
 /**
  * GET /api/catalog/hifz — return all active hifz catalog tiers.
@@ -22,7 +23,8 @@ export async function GET() {
   try {
     const tiers = await getActiveCatalogTiers();
     return NextResponse.json({ tiers });
-  } catch {
+  } catch (err) {
+    logError("catalog/hifz: getActiveCatalogTiers failed", err, { tag: "catalog" });
     return NextResponse.json({ error: "Failed to load catalog tiers" }, { status: 500 });
   }
 }

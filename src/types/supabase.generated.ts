@@ -6086,6 +6086,7 @@ export type Database = {
           p_billing_cycle_key: string
           p_plan_id: string
           p_subscription_id: string
+          p_session_count?: number | null
         }
         Returns: string
       }

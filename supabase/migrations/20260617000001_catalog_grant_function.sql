@@ -20,7 +20,8 @@
 create or replace function public.grant_hifz_cycle_credits(
   p_subscription_id    uuid,
   p_plan_id            uuid,
-  p_billing_cycle_key  text
+  p_billing_cycle_key  text,
+  p_session_count      integer default null  -- optional: override for delta grants (mid-cycle upgrades)
 ) returns uuid
 language plpgsql
 security definer
@@ -66,6 +67,9 @@ begin
       using errcode = '22023';
   end if;
 
+  -- Apply override: mid-cycle upgrades pass deltaSessions; renewals pass null → full count.
+  v_sessions_per_mon := coalesce(p_session_count, v_sessions_per_mon);
+
   -- Idempotency short-circuit: same (subscription_id, billing_cycle_key) already granted.
   select id into v_existing_id
     from public.student_packages
@@ -101,8 +105,8 @@ begin
 end;
 $$;
 
-alter function public.grant_hifz_cycle_credits(uuid, uuid, text) owner to postgres;
+alter function public.grant_hifz_cycle_credits(uuid, uuid, text, integer) owner to postgres;
 
 -- Lockdown (NFR-002): only service_role may invoke.
-revoke all on function public.grant_hifz_cycle_credits(uuid, uuid, text) from public, anon, authenticated;
-grant execute on function public.grant_hifz_cycle_credits(uuid, uuid, text) to service_role;
+revoke all on function public.grant_hifz_cycle_credits(uuid, uuid, text, integer) from public, anon, authenticated;
+grant execute on function public.grant_hifz_cycle_credits(uuid, uuid, text, integer) to service_role;

@@ -83,12 +83,20 @@ export async function POST(request: Request) {
   }
 
   // Resolve current package for the from_package_id (hifz only).
-  const { data: currentPkg } = await admin
+  const { data: currentPkg, error: currentPkgErr } = await admin
     .from("packages")
     .select("id")
     .eq("subscription_plan_id", sub.plan_id)
     .eq("is_hifz_product", true)
     .maybeSingle();
+
+  if (currentPkgErr) {
+    logError("schedule-tier-change: current package lookup failed", currentPkgErr, {
+      tag: "billing",
+      subscription_id: parsed.subscriptionId,
+    });
+    return NextResponse.json({ error: "Failed to resolve current package" }, { status: 500 });
+  }
 
   // 422 rather than substituting sub.id (a subscriptions UUID ≠ packages UUID);
   // that would either corrupt the FK or trigger a 23503 violation silently (M-2).

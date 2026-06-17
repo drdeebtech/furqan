@@ -118,21 +118,28 @@ export async function POST(request: Request) {
   }
 
   // ── Eligibility check ──────────────────────────────────────────────────────
+  if (!currentPkg.product_category || currentPlan.sessions_per_month == null) {
+    return NextResponse.json({ error: "Current plan missing required tier data" }, { status: 422 });
+  }
+  if (!newPkg.product_category || newPlan.sessions_per_month == null) {
+    return NextResponse.json({ error: "Target plan missing required tier data" }, { status: 422 });
+  }
+
   const eligibility = canUpgradeImmediately(
     {
       subscriptionId: sub.id,
       stripeSubscriptionId: sub.stripe_subscription_id,
       planId: sub.plan_id,
       packageId: currentPkg.id,
-      productCategory: currentPkg.product_category ?? "",
-      sessionsPerMonth: currentPlan.sessions_per_month ?? 0,
+      productCategory: currentPkg.product_category,
+      sessionsPerMonth: currentPlan.sessions_per_month,
       currentPeriodEnd: sub.current_period_end ?? "",
     },
     {
       packageId: parsed.toPackageId,
       planId: newPlan.id,
-      productCategory: newPkg.product_category ?? "",
-      sessionsPerMonth: newPlan.sessions_per_month ?? 0,
+      productCategory: newPkg.product_category,
+      sessionsPerMonth: newPlan.sessions_per_month,
     },
   );
 
@@ -217,7 +224,7 @@ export async function POST(request: Request) {
 
   // ── Grant delta credits for the remainder of this cycle ────────────────────
   const billingCycleKey = `upgrade_${invoiceId}`;
-  const grantResult = await grantHifzCycleCredits(admin, sub.id, newPlan.id, billingCycleKey);
+  const grantResult = await grantHifzCycleCredits(admin, sub.id, newPlan.id, billingCycleKey, eligibility.deltaSessions);
 
   if (!grantResult.ok) {
     logError("upgrade-tier: delta credit grant failed", new Error(grantResult.error), {

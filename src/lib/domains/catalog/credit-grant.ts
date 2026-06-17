@@ -39,6 +39,7 @@ export async function grantHifzCycleCredits(
   subscriptionId: string,
   planId: string,
   billingCycleKey: string,
+  sessionCount?: number,
 ): Promise<GrantHifzResult | GrantHifzFailure> {
   try {
     const { data: prior } = await admin
@@ -53,6 +54,7 @@ export async function grantHifzCycleCredits(
       p_subscription_id: subscriptionId,
       p_plan_id: planId,
       p_billing_cycle_key: billingCycleKey,
+      ...(sessionCount !== undefined ? { p_session_count: sessionCount } : {}),
     });
 
     if (error) {
@@ -114,13 +116,13 @@ export interface AppliedTierChangeFailure {
  * Steps (service-role only):
  * 1. Look up the subscription's pending `pending_tier_changes` row (at most one,
  *    guaranteed by partial unique index).
- * 2. If found, transition `pending → applied` (WHERE status = 'pending' guard
- *    makes this a no-op on replay).
- * 3. Resolve the new plan from `to_package_id → packages.subscription_plan_id`.
- * 4. Switch the subscription to the new plan.
- * 5. Re-grant credits at the NEW tier's `sessions_per_month` using a distinct
+ * 2. Resolve the new plan from `to_package_id → packages.subscription_plan_id`.
+ * 3. Re-grant credits at the NEW tier's `sessions_per_month` using a distinct
  *    billing_cycle_key (`{invoiceId}:tier-applied`) so it doesn't conflict with
  *    the cycle-grant unique index.
+ * 4. Switch the subscription to the new plan.
+ * 5. Transition `pending → applied` (WHERE status = 'pending' guard
+ *    makes this replay-safe).
  *
  * Returns `{ ok: false, reason: 'no_pending' }` when there's nothing to apply
  * (the common case — most renewals have no pending change).
@@ -179,16 +181,18 @@ export async function applyPendingTierChangeAtRenewal(
   }
 
   // 4. Switch the subscription to the new plan (grant already committed above).
-  const { error: subErr } = await admin
+  const { data: updatedSub, error: subErr } = await admin
     .from("subscriptions")
     .update({ plan_id: newPlanId })
-    .eq("id", subscriptionId);
+    .eq("id", subscriptionId)
+    .select("id")
+    .maybeSingle<{ id: string }>();
 
-  if (subErr) {
+  if (subErr || !updatedSub) {
     logError("applyPendingTierChange: subscription plan switch failed", subErr, {
       tag: "billing", subscription_id: subscriptionId, new_plan_id: newPlanId,
     });
-    return { ok: false, reason: "update_failed", error: subErr.message };
+    return { ok: false, reason: "update_failed", error: subErr?.message ?? "subscription update matched no rows" };
   }
 
   // 5. Transition pending → applied only after regrant + sub switch both succeed
