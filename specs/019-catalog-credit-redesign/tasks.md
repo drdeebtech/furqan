@@ -8,8 +8,8 @@
 
 ## Phase 1: Setup
 
-- [ ] T001 Verify branch cut from `018-subscription-billing-foundation`; confirm spec-018 tables exist locally
-- [ ] T002 Add 8 new keys to `ALLOWED_SETTING_KEYS` in `src/lib/settings.ts`: `hifz_individual_hourly_rate_usd`, `hifz_group_4_price_usd`, `hifz_group_6_price_usd`, `hifz_group_8_price_usd`, `hifz_second_individual_discount_pct`, `hifz_sibling_group_discount_pct`, `hifz_assessment_price_usd`, `hifz_assessment_limit_per_specialty`
+- [x] T001 Verify branch cut from `018-subscription-billing-foundation`; confirm spec-018 tables exist locally
+- [x] T002 Add 8 new keys to `ALLOWED_SETTING_KEYS` in `src/lib/settings.ts`: `hifz_individual_hourly_rate_usd`, `hifz_group_4_price_usd`, `hifz_group_6_price_usd`, `hifz_group_8_price_usd`, `hifz_second_individual_discount_pct`, `hifz_sibling_group_discount_pct`, `hifz_assessment_price_usd`, `hifz_assessment_limit_per_specialty`
 
 **Checkpoint**: `npx tsc --noEmit` + `npm run lint` pass.
 
@@ -19,7 +19,7 @@
 
 **⚠️ CRITICAL**: All user story work blocked until T005 (`npm run db:types`) completes.
 
-- [ ] T003 Create `supabase/migrations/20260617000000_catalog_credit_redesign.sql`:
+- [x] T003 Create `supabase/migrations/20260617000000_catalog_credit_redesign.sql`:
   - ALTER `subscription_plans`: add `is_hifz_product boolean NOT NULL DEFAULT false`, `sessions_per_month integer`, `session_duration_min integer`
   - ALTER `subscriptions`: add `is_hifz boolean NOT NULL DEFAULT false`, `pending_tier_change_id uuid` (FK to `pending_tier_changes`, deferred)
   - ALTER `packages`: add `subscription_plan_id uuid FK`, `is_hifz_product boolean NOT NULL DEFAULT false`, `product_category text CHECK(product_category IN ('hifz_group','hifz_individual','tajweed_mutoon','other'))`; widen `package_type` CHECK to include ONE new value `tajweed_course`
@@ -33,13 +33,13 @@
   - Seed 6 tiers into `subscription_plans` + `packages` (`hifz_group_4/6/8`, `hifz_individual_4h/6h/8h`, `is_hifz_product=true`, `sessions_per_month=4/6/8`, `session_duration_min=60`)
   - Seed `platform_settings`: `hifz_individual_hourly_rate_usd='10.00'`, group prices `12/15/20`, discounts `10`, assessment `0.00`/`1`
 
-- [ ] T004 Create `supabase/migrations/20260617000001_catalog_grant_function.sql`:
+- [x] T004 Create `supabase/migrations/20260617000001_catalog_grant_function.sql`:
   - `grant_hifz_cycle_credits(p_subscription_id uuid, p_plan_id uuid, p_billing_cycle_key text) RETURNS uuid` — inserts `student_packages` with `sessions_total = plan.sessions_per_month`, `billing_cycle_key` for idempotency
   - SECURITY DEFINER; REVOKE EXECUTE FROM public/anon/authenticated; GRANT TO service_role
 
-- [ ] T005 `supabase migration up` → `npm run db:types` → commit regenerated `src/types/database.ts`
+- [x] T005 `supabase migration up` → `npm run db:types` → commit regenerated `src/types/database.ts`
 
-- [ ] T006 Local verification (NFR-004): concurrent double-hifz insert blocked by unique index; `grant_hifz_cycle_credits` idempotent on same `billing_cycle_key`; `subscription_discount_records` UPDATE blocked
+- [x] T006 Local verification (NFR-004): concurrent double-hifz insert blocked by unique index; `grant_hifz_cycle_credits` idempotent on same `billing_cycle_key`; `subscription_discount_records` UPDATE blocked
 
 **Checkpoint**: `npm run sb:advisors` clean for new tables; `npx tsc --noEmit` passes.
 
@@ -51,9 +51,9 @@
 
 **Independent Test**: `GET /api/catalog/hifz` → 6 tiers; edit price in `platform_settings` → reflected immediately.
 
-- [ ] T007 [P] [US1] Create `src/lib/domains/catalog/tiers.ts`: `getActiveCatalogTiers()` — queries `packages` JOIN `subscription_plans` WHERE `is_hifz_product=true`; returns typed `CatalogTier[]`
-- [ ] T008 [P] [US1] Create `src/app/api/catalog/hifz/route.ts`: GET, public, zod-validated, `unstable_cache` tag `'hifz-catalog'` TTL 3600s
-- [ ] T009 [US1] Unit test `src/lib/domains/catalog/tiers.test.ts`: mock supabase; verify filters, mapping, archived tiers excluded
+- [x] T007 [P] [US1] Create `src/lib/domains/catalog/tiers.ts`: `getActiveCatalogTiers()` — queries `packages` JOIN `subscription_plans` WHERE `is_hifz_product=true`; returns typed `CatalogTier[]`
+- [x] T008 [P] [US1] Create `src/app/api/catalog/hifz/route.ts`: GET, public, zod-validated, `unstable_cache` tag `'hifz-catalog'` TTL 3600s
+- [x] T009 [US1] Unit test `src/lib/domains/catalog/tiers.test.ts`: mock supabase; verify filters, mapping, archived tiers excluded
 
 **Checkpoint**: 6 tiers returned; `grep -r 'price.*[0-9]\+\.[0-9]' src/lib/domains/catalog/` → zero matches.
 
@@ -65,9 +65,9 @@
 
 **Independent Test**: Active hifz → attempt second hifz → 409 with clear message; tajweed attempt → 200.
 
-- [ ] T010 [US2] Create `src/lib/actions/subscriptions/create-hifz-subscription.ts`: check active hifz before Stripe call; set `is_hifz=true` from `subscription_plans.is_hifz_product`; unique index is DB-layer backstop
-- [ ] T011 [US2] Map `HifzAlreadyActiveError` → HTTP 409 with user-facing message in calling route
-- [ ] T012 [US2] Unit test `src/lib/actions/subscriptions/create-hifz-subscription.test.ts`
+- [x] T010 [US2] Create `src/lib/actions/subscriptions/create-hifz-subscription.ts`: check active hifz before Stripe call; set `is_hifz=true` from `subscription_plans.is_hifz_product`; unique index is DB-layer backstop
+- [x] T011 [US2] Map `HifzAlreadyActiveError` → HTTP 409 with user-facing message in calling route
+- [x] T012 [US2] Unit test `src/lib/actions/subscriptions/create-hifz-subscription.test.ts`
 
 **Checkpoint**: DB unique index blocks concurrent duplicates; app layer surfaces clear error.
 
@@ -79,10 +79,10 @@
 
 **Independent Test**: Simulate `invoice.paid` for 8-session plan → one `student_packages` row `sessions_total=8`; replay → no second row; prior row untouched.
 
-- [ ] T013 [US3] Create `src/lib/domains/catalog/credit-grant.ts`: `grantHifzCycleCredits(subscriptionId, planId, billingCycleKey)` — calls DB fn via service-role; handles unique-constraint idempotency
-- [ ] T014 [US3] Wire into `src/app/api/stripe/webhook/route.ts` `invoice.paid` branch: if `is_hifz_product=true`, call `grantHifzCycleCredits(subscription_id, plan_id, invoice.id)`
-- [ ] T014a [US3] Apply pending tier changes at renewal (FR-019): in the `src/app/api/stripe/webhook/route.ts` `invoice.paid` branch, after the cycle grant, look up the subscription's pending `pending_tier_changes` row (the partial UNIQUE index guarantees at most one), transition it `pending → applied` (set `applied_at = now()`), switch the subscription to the new tier (`to_package_id` / new plan), and re-grant credits at the NEW tier's `sessions_per_month` for the new cycle. Re-grant MUST use billing_cycle_key `invoice.id + ':tier-applied'` (distinct from T014's `invoice.id` key) so it doesn't conflict with the cycle-grant unique index on `(subscription_id, billing_cycle_key)`; the `WHERE status = 'pending'` guard makes the re-grant itself a no-op on replay if already applied. Service-role only.
-- [ ] T015 [US3] Unit test `src/lib/domains/catalog/credit-grant.test.ts`: idempotency, correct `sessions_total`, prior rows untouched; plus pending-change application at renewal (T014a) — pending row transitions to `applied` with `applied_at` set and re-grant uses the new tier's count
+- [x] T013 [US3] Create `src/lib/domains/catalog/credit-grant.ts`: `grantHifzCycleCredits(subscriptionId, planId, billingCycleKey)` — calls DB fn via service-role; handles unique-constraint idempotency
+- [x] T014 [US3] Wire into `src/app/api/stripe/webhook/route.ts` `invoice.paid` branch: if `is_hifz_product=true`, call `grantHifzCycleCredits(subscription_id, plan_id, invoice.id)`
+- [x] T014a [US3] Apply pending tier changes at renewal (FR-019): in the `src/app/api/stripe/webhook/route.ts` `invoice.paid` branch, after the cycle grant, look up the subscription's pending `pending_tier_changes` row (the partial UNIQUE index guarantees at most one), transition it `pending → applied` (set `applied_at = now()`), switch the subscription to the new tier (`to_package_id` / new plan), and re-grant credits at the NEW tier's `sessions_per_month` for the new cycle. Re-grant MUST use billing_cycle_key `invoice.id + ':tier-applied'` (distinct from T014's `invoice.id` key) so it doesn't conflict with the cycle-grant unique index on `(subscription_id, billing_cycle_key)`; the `WHERE status = 'pending'` guard makes the re-grant itself a no-op on replay if already applied. Service-role only.
+- [x] T015 [US3] Unit test `src/lib/domains/catalog/credit-grant.test.ts`: idempotency, correct `sessions_total`, prior rows untouched; plus pending-change application at renewal (T014a) — pending row transitions to `applied` with `applied_at` set and re-grant uses the new tier's count
 
 **Checkpoint**: Two simulated cycles → two `student_packages` rows; first row `sessions_remaining` unchanged if unused.
 
