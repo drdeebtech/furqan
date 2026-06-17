@@ -57,10 +57,13 @@ comment on column public.bookings.target_scope  is 'Spec 022: specialized-sessio
 -- ────────────────────────────────────────────────────────────────────────────
 -- 3. BEFORE UPDATE OF identity guard (canonical service-role bypass idiom)
 -- ────────────────────────────────────────────────────────────────────────────
--- Mirrors private.guard_booking_identity_change() (20260613140000). A student
--- cannot rewrite product_type / specialty / purpose / target_scope on an
--- existing booking. service_role + admin + direct-DB (NULL JWT) are exempt.
-create or replace function public.bookings_single_session_identity_guard()
+-- Lives in `private` (not exposed via REST RPC) like the existing
+-- private.guard_booking_identity_change(). Mirrors its canonical
+-- nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role'
+-- bypass idiom: NULL/empty JWT = trusted direct-DB / migration write; service_role
+-- and admin are exempt. A student cannot rewrite product_type / specialty /
+-- purpose / target_scope on an existing booking.
+create or replace function private.bookings_single_session_identity_guard()
 returns trigger
 language plpgsql
 security definer
@@ -97,13 +100,13 @@ begin
 end;
 $$;
 
-alter function public.bookings_single_session_identity_guard() owner to postgres;
+alter function private.bookings_single_session_identity_guard() owner to postgres;
 
 drop trigger if exists bookings_single_session_identity_guard_trigger on public.bookings;
 create trigger bookings_single_session_identity_guard_trigger
   before update of booking_product_type, specialty, purpose, target_scope on public.bookings
   for each row
-  execute function public.bookings_single_session_identity_guard();
+  execute function private.bookings_single_session_identity_guard();
 
 -- ────────────────────────────────────────────────────────────────────────────
 -- 4. Atomic creator: create_single_session_booking
