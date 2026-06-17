@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 import StripeSdk from "stripe";
 import type { Json } from "@/types/supabase.generated";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { logError } from "@/lib/logger";
+import { logError, logInfo } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import {
   upsertMirror,
@@ -12,6 +12,7 @@ import {
   BillingEvents,
   type StripeSubscriptionSnapshot,
 } from "@/lib/domains/billing";
+import { applyPendingTierChangeAtRenewal } from "@/lib/domains/catalog/credit-grant";
 
 export const maxDuration = 60;
 
@@ -268,6 +269,35 @@ async function handleInvoicePaid(ctx: EventContext): Promise<void> {
   }
 
   await ctx.admin.from("billing_events").update({ subscription_id: mirrorId }).eq("id", ctx.billingEventId!);
+
+  // ── T014a: Apply pending tier change at renewal (FR-019) ────────────────
+  // If this is a hifz product and there's a pending tier change, apply it now:
+  // transition pending→applied, switch subscription to new plan, re-grant credits.
+  // The WHERE status='pending' guard makes this replay-safe.
+  const { data: planHifzFlag } = await ctx.admin
+    .from("subscription_plans")
+    .select("is_hifz_product")
+    .eq("id", plan.id)
+    .maybeSingle<{ is_hifz_product: boolean }>();
+
+  if (planHifzFlag?.is_hifz_product) {
+    const tierResult = await applyPendingTierChangeAtRenewal(ctx.admin, mirrorId, invoice.id);
+    if (tierResult.ok) {
+      logInfo("stripe-webhook: pending tier change applied", {
+        tag: "billing",
+        subscription_id: mirrorId,
+        pending_id: tierResult.pendingId,
+        new_plan_id: tierResult.newPlanId,
+      });
+    } else if (tierResult.reason !== "no_pending") {
+      logError("stripe-webhook: pending tier change failed", new Error(tierResult.reason), {
+        tag: "billing",
+        subscription_id: mirrorId,
+        error: tierResult.error,
+      });
+    }
+  }
+
   await markEvent(ctx, "processed");
 
   // Post-commit, non-blocking lifecycle emit (Principle III). First paid cycle
