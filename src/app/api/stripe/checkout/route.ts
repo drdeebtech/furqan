@@ -6,6 +6,7 @@ import { getStripe } from "@/lib/stripe/client";
 import { getActivePlanByCode } from "@/lib/domains/billing";
 import { requireRole } from "@/lib/auth/require-admin";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
+import { assertNoActiveHifz, HifzAlreadyActiveError, isPlanHifzProduct } from "@/lib/actions/subscriptions/create-hifz-subscription";
 import { logError } from "@/lib/logger";
 
 export const maxDuration = 60;
@@ -66,6 +67,22 @@ export async function POST(request: Request) {
 
   const stripe = getStripe();
   const admin = createAdminClient();
+
+  // ── Single-active-hifz guard (spec 019 US2 / FR-007) ──────────────────────
+  // A student may hold at most one active hifz subscription. Check BEFORE the
+  // Stripe call so we don't waste a checkout session the user can't complete.
+  // The DB partial unique index is the concurrency backstop (FR-009).
+  try {
+    const hifzProduct = await isPlanHifzProduct(admin, plan.id);
+    if (hifzProduct) {
+      await assertNoActiveHifz(admin, userId);
+    }
+  } catch (e) {
+    if (e instanceof HifzAlreadyActiveError) {
+      return NextResponse.json({ error: e.message }, { status: 409 });
+    }
+    throw e;
+  }
 
   // ── Email for the Stripe customer record (best-effort) ────────────────────
   let email: string | undefined;

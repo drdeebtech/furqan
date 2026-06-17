@@ -13,12 +13,16 @@ const {
   mockAdminFrom,
   mockSessionsCreate,
   mockGetPlan,
+  mockIsPlanHifz,
+  mockAssertNoActive,
 } = vi.hoisted(() => ({
   mockRequireRole: vi.fn(),
   mockGetUser: vi.fn(),
   mockAdminFrom: vi.fn(),
   mockSessionsCreate: vi.fn(),
   mockGetPlan: vi.fn(),
+  mockIsPlanHifz: vi.fn(),
+  mockAssertNoActive: vi.fn(),
 }));
 
 // Real error classes so the route's `instanceof` checks work.
@@ -42,6 +46,14 @@ vi.mock("@/lib/stripe/client", () => ({
 }));
 
 vi.mock("@/lib/domains/billing", () => ({ getActivePlanByCode: mockGetPlan }));
+
+vi.mock("@/lib/actions/subscriptions/create-hifz-subscription", () => ({
+  isPlanHifzProduct: mockIsPlanHifz,
+  assertNoActiveHifz: mockAssertNoActive,
+  HifzAlreadyActiveError: class HifzAlreadyActiveError extends Error {
+    constructor(message = "hifz active") { super(message); this.name = "HifzAlreadyActiveError"; }
+  },
+}));
 
 // Non-hoisted: only used at runtime (in beforeEach), not inside a mock factory.
 const mockMaybeSingle = vi.fn();
@@ -77,6 +89,8 @@ beforeEach(() => {
   mockRequireRole.mockResolvedValue({ id: STUDENT_ID });
   mockGetUser.mockResolvedValue({ data: { user: { email: "s@test.local" } } });
   mockGetPlan.mockResolvedValue(PLAN);
+  mockIsPlanHifz.mockResolvedValue(false);
+  mockAssertNoActive.mockResolvedValue(undefined);
   // stripe_customers fast path: existing mapping
   mockAdminFrom.mockReturnValue({
     select: () => ({ eq: () => ({ maybeSingle: mockMaybeSingle }) }),
@@ -132,6 +146,14 @@ describe("POST /api/stripe/checkout — subscription mode (spec 018)", () => {
     mockGetPlan.mockResolvedValue({ ...PLAN, currency: "eur" });
     const res = await POST(makeReq({ planCode: "MONTHLY" }));
     expect(res.status).toBe(400);
+  });
+
+  it("returns 409 when student already has active hifz (FR-007)", async () => {
+    const { HifzAlreadyActiveError } = await import("@/lib/actions/subscriptions/create-hifz-subscription");
+    mockIsPlanHifz.mockResolvedValue(true);
+    mockAssertNoActive.mockRejectedValue(new HifzAlreadyActiveError());
+    const res = await POST(makeReq({ planCode: "HIFZ_GROUP_4" }));
+    expect(res.status).toBe(409);
   });
 
   it("creates a subscription-mode Checkout and returns {url}", async () => {
