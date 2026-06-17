@@ -30,8 +30,7 @@ export async function GET() {
         id,
         full_name,
         full_name_ar,
-        avatar_url,
-        role
+        avatar_url
       )
     `,
     )
@@ -48,7 +47,6 @@ export async function GET() {
       full_name: profile?.full_name ?? null,
       full_name_ar: profile?.full_name_ar ?? null,
       avatar_url: profile?.avatar_url ?? null,
-      role: profile?.role ?? null,
     };
   });
 

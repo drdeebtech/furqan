@@ -80,10 +80,19 @@ export async function POST(request: Request) {
     .eq("subscription_plan_id", sub.plan_id)
     .maybeSingle();
 
+  // 422 rather than substituting sub.id (a subscriptions UUID ≠ packages UUID);
+  // that would either corrupt the FK or trigger a 23503 violation silently (M-2).
+  if (!currentPkg) {
+    return NextResponse.json(
+      { error: "Current subscription has no associated package" },
+      { status: 422 },
+    );
+  }
+
   const scheduled = await scheduleRenewalChange(admin, {
     subscriptionId: sub.id,
     studentId: userId,
-    fromPackageId: currentPkg?.id ?? sub.id,
+    fromPackageId: currentPkg.id,
     toPackageId: parsed.toPackageId,
     changeReason: parsed.changeReason,
   });

@@ -111,6 +111,20 @@ export async function scheduleRenewalChange(
     .single();
 
   if (error) {
+    // 23505: concurrent request won the race on the partial UNIQUE index
+    // (subscription_id WHERE status='pending'). Re-read the winner so the caller
+    // gets a success response instead of a spurious 500 (M-1 fix).
+    if (error.code === "23505") {
+      const { data: existing } = await admin
+        .from("pending_tier_changes")
+        .select("id")
+        .eq("subscription_id", opts.subscriptionId)
+        .eq("status", "pending")
+        .maybeSingle();
+
+      if (existing) return { id: existing.id };
+    }
+
     logError("scheduleRenewalChange: insert failed", error, {
       tag: "billing",
       subscription_id: opts.subscriptionId,

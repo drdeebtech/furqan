@@ -54,11 +54,23 @@ export async function POST(request: Request) {
   }
 
   if (!childId) {
-    return NextResponse.json({ error: "No account found for that email" }, { status: 404 });
+    // 422 not 404 — uniform response prevents email-existence enumeration (H-1).
+    return NextResponse.json({ error: "Invalid child account" }, { status: 422 });
   }
 
   if (childId === user.id) {
     return NextResponse.json({ error: "Cannot add yourself as a child" }, { status: 422 });
+  }
+
+  // Verify the resolved account is a student (prevents linking teacher/admin accounts).
+  const { data: childProfile } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", childId as string)
+    .maybeSingle();
+
+  if (childProfile?.role !== "student") {
+    return NextResponse.json({ error: "Invalid child account" }, { status: 422 });
   }
 
   const { error: insertErr } = await admin.from("guardian_children").insert({

@@ -16,31 +16,44 @@ const mockGetSetting = vi.mocked(getSetting);
 function makeAdmin(overrides: {
   guardian_children?: { data: unknown; error: unknown };
   subscriptions?: { data: unknown; error: unknown };
+  packages?: { data: unknown; error: unknown };
   "subscription_discount_records:insert"?: { error: unknown };
 }): SupabaseClient<Database> {
   const gc = overrides.guardian_children ?? { data: [], error: null };
   const subs = overrides.subscriptions ?? { data: [], error: null };
+  // Default: one matching package (discount check passes) — tests that need no
+  // discount set packages to { data: [], error: null } explicitly.
+  const pkgs = overrides.packages ?? { data: [{ id: "pkg-001" }], error: null };
   const insertResult = overrides["subscription_discount_records:insert"] ?? { error: null };
+
+  // Generic chainable builder for multi-.eq() + limit/not queries.
+  function chain(result: unknown) {
+    const c: Record<string, unknown> = {
+      eq: () => c,
+      in: () => c,
+      not: () => c,
+      limit: () => Promise.resolve(result),
+      then: undefined,
+    };
+    // Allow awaiting the chain directly (without .limit()).
+    Object.defineProperty(c, "then", {
+      get() {
+        return (resolve: (v: unknown) => void) => resolve(result);
+      },
+    });
+    return c;
+  }
 
   return {
     from: vi.fn((table: string) => {
       if (table === "guardian_children") {
-        return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => Promise.resolve(gc)),
-          })),
-        };
+        return { select: vi.fn(() => chain(gc)) };
       }
       if (table === "subscriptions") {
-        return {
-          select: vi.fn(() => ({
-            in: vi.fn(() => ({
-              eq: vi.fn(() => ({
-                not: vi.fn(() => Promise.resolve(subs)),
-              })),
-            })),
-          })),
-        };
+        return { select: vi.fn(() => chain(subs)) };
+      }
+      if (table === "packages") {
+        return { select: vi.fn(() => chain(pkgs)) };
       }
       if (table === "subscription_discount_records") {
         return { insert: vi.fn(() => Promise.resolve(insertResult)) };
@@ -59,7 +72,6 @@ const activeIndividualSub = {
   id: SUB_ID,
   student_id: CHILD_ID_1,
   plan_id: "plan-001",
-  subscription_plans: { is_hifz_product: true, sessions_per_month: 4 },
 };
 
 beforeEach(() => {

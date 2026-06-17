@@ -152,22 +152,26 @@ export async function POST(request: Request) {
 
   let invoiceId: string;
   try {
+    // Expand items in retrieve; expand latest_invoice in update so we read the
+    // proration invoice that was just created (the separate list endpoint is
+    // eventually consistent and can return the pre-upgrade invoice).
     const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id, {
       expand: ["items"],
     });
     const itemId = stripeSub.items.data[0]?.id;
     if (!itemId) throw new Error("subscription has no items");
 
-    await stripe.subscriptions.update(sub.stripe_subscription_id, {
+    const updatedSub = await stripe.subscriptions.update(sub.stripe_subscription_id, {
       items: [{ id: itemId, price: newPlan.stripe_price_id }],
       proration_behavior: "always_invoice",
+      expand: ["latest_invoice"],
     });
 
-    const invoices = await stripe.invoices.list({
-      subscription: sub.stripe_subscription_id,
-      limit: 1,
-    });
-    invoiceId = invoices.data[0]?.id ?? `upgrade-${sub.id}`;
+    const latestInvoice = updatedSub.latest_invoice;
+    invoiceId =
+      latestInvoice && typeof latestInvoice === "object" && "id" in latestInvoice
+        ? (latestInvoice as { id: string }).id
+        : `upgrade-${sub.id}-${newPlan.id}`;
   } catch (err) {
     logError("upgrade-tier: Stripe update failed", err, {
       tag: "billing",
@@ -175,6 +179,15 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ error: "Stripe upgrade failed" }, { status: 502 });
   }
+
+  // ── Sync local plan_id immediately (don't wait for webhook) ──────────────────
+  // The webhook will also update this via upsertMirror, but the local row would
+  // show the old plan_id until delivery (seconds–minutes), allowing a second
+  // "upgrade" from an already-upgraded tier in that window (HIGH fix).
+  await admin
+    .from("subscriptions")
+    .update({ plan_id: newPlan.id })
+    .eq("id", sub.id);
 
   // ── Grant delta credits for the remainder of this cycle ────────────────────
   const billingCycleKey = `upgrade_${invoiceId}`;

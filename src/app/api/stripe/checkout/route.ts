@@ -101,7 +101,7 @@ export async function POST(request: Request) {
         try {
           const coupon = await stripe.coupons.create({
             percent_off: discountRes.discountPct,
-            duration: "forever",
+            duration: "once",
             metadata: {
               discount_type: discountRes.discountType,
               setting_key: discountRes.settingKey,

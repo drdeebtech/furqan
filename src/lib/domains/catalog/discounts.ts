@@ -60,9 +60,10 @@ export async function resolveGuardianDiscount(
 
   const childIds = links.map((l) => l.child_id);
 
+  // Fetch active hifz subscription plan_ids for the guardian's children.
   const { data: activeSubs, error: subsErr } = await admin
     .from("subscriptions")
-    .select("id, student_id, plan_id, subscription_plans!inner(is_hifz_product, sessions_per_month)")
+    .select("id, student_id, plan_id")
     .in("student_id", childIds)
     .eq("is_hifz", true)
     .not("status", "in", '("canceled","incomplete_expired")');
@@ -77,15 +78,22 @@ export async function resolveGuardianDiscount(
 
   if (!activeSubs || activeSubs.length === 0) return { applies: false };
 
-  if (productCategory === "hifz_individual") {
-    const hasIndividual = activeSubs.some((s) => {
-      const plan = Array.isArray(s.subscription_plans)
-        ? s.subscription_plans[0]
-        : s.subscription_plans;
-      return plan?.is_hifz_product === true;
-    });
+  const planIds = [...new Set(activeSubs.map((s) => s.plan_id).filter(Boolean))];
+  if (planIds.length === 0) return { applies: false };
 
-    if (hasIndividual) {
+  // Verify the *specific* product_category against packages (H-3 fix:
+  // activeSubs alone cannot distinguish individual vs group plans since
+  // both have is_hifz_product=true).
+  if (productCategory === "hifz_individual") {
+    const { data: matchingPkgs } = await admin
+      .from("packages")
+      .select("id")
+      .in("subscription_plan_id", planIds)
+      .eq("product_category", "hifz_individual")
+      .eq("is_hifz_product", true)
+      .limit(1);
+
+    if ((matchingPkgs?.length ?? 0) > 0) {
       const pctStr = await getSetting("hifz_second_individual_discount_pct");
       const discountPct = pctStr ? parseFloat(pctStr) : 0;
       if (discountPct > 0) {
@@ -100,7 +108,15 @@ export async function resolveGuardianDiscount(
   }
 
   if (productCategory === "hifz_group") {
-    if (activeSubs.length > 0) {
+    const { data: matchingPkgs } = await admin
+      .from("packages")
+      .select("id")
+      .in("subscription_plan_id", planIds)
+      .eq("product_category", "hifz_group")
+      .eq("is_hifz_product", true)
+      .limit(1);
+
+    if ((matchingPkgs?.length ?? 0) > 0) {
       const pctStr = await getSetting("hifz_sibling_group_discount_pct");
       const discountPct = pctStr ? parseFloat(pctStr) : 0;
       if (discountPct > 0) {
