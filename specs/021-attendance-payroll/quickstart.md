@@ -189,5 +189,3 @@ WHERE teacher_id = '<teacher_C_id>' AND payroll_period_month = '2026-06-01';
 ```
 
 **Pass condition**: a teacher/month with a NULL/0 or non-uniform snapshotted rate yields **0** payout rows and is surfaced as a payroll exception — never a silent `$0` (FR-030) or silent `MAX`-picked (FR-029) payout.
-
-**Pass condition**: Exactly one payout row created; re-run returns `payoutsCreated: 0`; total_hours = 3.00, total_amount_usd = 60.00.

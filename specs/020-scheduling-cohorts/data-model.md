@@ -233,9 +233,11 @@ Cohort membership. Gated by `session_participant_secdef` (migration `20260613120
 
 ## 3. SECURITY DEFINER Function: `open_overflow_halaqa`
 
+-- Returns (halaqa_id, was_created): was_created=false on sibling reuse, true on new open.
+-- Caller (T015 joinHalaqa) emits cohort_opened ONLY when was_created = true (FR-021).
 ```sql
 CREATE OR REPLACE FUNCTION open_overflow_halaqa(p_source_offering_id uuid)
-RETURNS uuid
+RETURNS TABLE(halaqa_id uuid, was_created boolean)
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
@@ -262,7 +264,8 @@ BEGIN
   LIMIT 1;
 
   IF v_sibling_id IS NOT NULL THEN
-    RETURN v_sibling_id;
+    RETURN QUERY SELECT v_sibling_id, false;
+    RETURN;
   END IF;
 
   -- open a new halaqa cloning the source
@@ -274,7 +277,7 @@ BEGIN
   WHERE id = p_source_offering_id
   RETURNING id INTO v_new_id;
 
-  RETURN v_new_id;
+  RETURN QUERY SELECT v_new_id, true;
 END;
 $$;
 
