@@ -19,6 +19,14 @@ export const ALLOWED_SETTING_KEYS = [
   "courses_enabled",
   "paid_courses_enabled",
   "paypal_purchase_enabled",
+  "hifz_individual_hourly_rate_usd",
+  "hifz_group_4_price_usd",
+  "hifz_group_6_price_usd",
+  "hifz_group_8_price_usd",
+  "hifz_second_individual_discount_pct",
+  "hifz_sibling_group_discount_pct",
+  "hifz_assessment_price_usd",
+  "hifz_assessment_limit_per_specialty",
 ] as const;
 
 export type AllowedSettingKey = (typeof ALLOWED_SETTING_KEYS)[number];
