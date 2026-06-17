@@ -109,7 +109,7 @@ exception to "no session before confirmed payment" (NFR-001), not a violation.
 CREATE OR REPLACE FUNCTION create_single_session_booking(
   p_student_id          uuid,
   p_teacher_id          uuid,
-  p_payment_id          uuid,
+  p_payment_id          uuid DEFAULT NULL,  -- NULL for zero-price assessment path (see contracts §1 step 5)
   p_booking_product_type text,           -- 'assessment' | 'specialized'
   p_specialty           text DEFAULT NULL,
   p_purpose             specialized_purpose DEFAULT NULL,

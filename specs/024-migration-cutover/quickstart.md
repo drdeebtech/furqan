@@ -79,4 +79,4 @@ Each scenario maps to a P1/P2 user story and its measurable success criterion.
 
 All five scenarios PASS on the production copy **and** `npx tsc --noEmit` + `npm run lint` +
 `npm run test:unit` green **and** `npm run sb:advisors` clean — before the fixed-date cutover is
-scheduled. Stripe goes live only after Scenarios 1–4 pass on the real run (keys/config only).
+scheduled. Stripe goes live only after Scenarios 1–3 pass on the real run (keys/config only); Scenarios 4–5 pass on the production-copy rehearsal as final assurance gates (idempotency + rollback).
