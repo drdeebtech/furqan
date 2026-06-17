@@ -1559,6 +1559,53 @@ export type Database = {
           },
         ]
       }
+      guardian_children: {
+        Row: {
+          child_id: string
+          created_at: string
+          guardian_id: string
+        }
+        Insert: {
+          child_id: string
+          created_at?: string
+          guardian_id: string
+        }
+        Update: {
+          child_id?: string
+          created_at?: string
+          guardian_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guardian_children_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardian_children_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardian_children_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardian_children_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       halaqa_waiting_list: {
         Row: {
           created_at: string
@@ -2433,6 +2480,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           is_featured: boolean | null
+          is_hifz_product: boolean
           name: string
           name_ar: string | null
           package_type: string
@@ -2440,8 +2488,10 @@ export type Database = {
           price_gbp: number | null
           price_sar: number | null
           price_usd: number
+          product_category: string | null
           session_count: number
           session_mode_allowances: Json
+          subscription_plan_id: string | null
           supports_session_modes: string[]
           updated_at: string
         }
@@ -2457,6 +2507,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_featured?: boolean | null
+          is_hifz_product?: boolean
           name: string
           name_ar?: string | null
           package_type: string
@@ -2464,8 +2515,10 @@ export type Database = {
           price_gbp?: number | null
           price_sar?: number | null
           price_usd: number
+          product_category?: string | null
           session_count: number
           session_mode_allowances?: Json
+          subscription_plan_id?: string | null
           supports_session_modes?: string[]
           updated_at?: string
         }
@@ -2481,6 +2534,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_featured?: boolean | null
+          is_hifz_product?: boolean
           name?: string
           name_ar?: string | null
           package_type?: string
@@ -2488,12 +2542,22 @@ export type Database = {
           price_gbp?: number | null
           price_sar?: number | null
           price_usd?: number
+          product_category?: string | null
           session_count?: number
           session_mode_allowances?: Json
+          subscription_plan_id?: string | null
           supports_session_modes?: string[]
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "packages_subscription_plan_id_fkey"
+            columns: ["subscription_plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       parent_reports: {
         Row: {
@@ -2711,6 +2775,84 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pending_tier_changes: {
+        Row: {
+          applied_at: string | null
+          applies_at_period_end: boolean
+          change_reason: string
+          created_at: string
+          from_package_id: string
+          id: string
+          requested_at: string
+          status: string
+          student_id: string
+          subscription_id: string
+          to_package_id: string
+        }
+        Insert: {
+          applied_at?: string | null
+          applies_at_period_end?: boolean
+          change_reason: string
+          created_at?: string
+          from_package_id: string
+          id?: string
+          requested_at?: string
+          status?: string
+          student_id: string
+          subscription_id: string
+          to_package_id: string
+        }
+        Update: {
+          applied_at?: string | null
+          applies_at_period_end?: boolean
+          change_reason?: string
+          created_at?: string
+          from_package_id?: string
+          id?: string
+          requested_at?: string
+          status?: string
+          student_id?: string
+          subscription_id?: string
+          to_package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_tier_changes_from_package_id_fkey"
+            columns: ["from_package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_tier_changes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_tier_changes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_tier_changes_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_tier_changes_to_package_id_fkey"
+            columns: ["to_package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
             referencedColumns: ["id"]
           },
         ]
@@ -4763,18 +4905,56 @@ export type Database = {
           },
         ]
       }
+      subscription_discount_records: {
+        Row: {
+          applied_at: string
+          discount_pct: number
+          discount_type: string
+          id: string
+          setting_key: string
+          subscription_id: string
+        }
+        Insert: {
+          applied_at?: string
+          discount_pct: number
+          discount_type: string
+          id?: string
+          setting_key: string
+          subscription_id: string
+        }
+        Update: {
+          applied_at?: string
+          discount_pct?: number
+          discount_type?: string
+          id?: string
+          setting_key?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_discount_records_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_plans: {
         Row: {
           created_at: string
           currency: string
           id: string
           is_active: boolean
+          is_hifz_product: boolean
           monthly_credit_count: number
           name: string
           plan_code: string
           plan_type: Database["public"]["Enums"]["billing_plan_type"]
           price_cents: number
+          session_duration_min: number | null
           session_metadata: Json
+          sessions_per_month: number | null
           stripe_price_id: string
           stripe_product_id: string
           updated_at: string
@@ -4784,12 +4964,15 @@ export type Database = {
           currency?: string
           id?: string
           is_active?: boolean
+          is_hifz_product?: boolean
           monthly_credit_count: number
           name: string
           plan_code: string
           plan_type: Database["public"]["Enums"]["billing_plan_type"]
           price_cents: number
+          session_duration_min?: number | null
           session_metadata?: Json
+          sessions_per_month?: number | null
           stripe_price_id: string
           stripe_product_id: string
           updated_at?: string
@@ -4799,12 +4982,15 @@ export type Database = {
           currency?: string
           id?: string
           is_active?: boolean
+          is_hifz_product?: boolean
           monthly_credit_count?: number
           name?: string
           plan_code?: string
           plan_type?: Database["public"]["Enums"]["billing_plan_type"]
           price_cents?: number
+          session_duration_min?: number | null
           session_metadata?: Json
+          sessions_per_month?: number | null
           stripe_price_id?: string
           stripe_product_id?: string
           updated_at?: string
@@ -4819,8 +5005,10 @@ export type Database = {
           current_period_end: string | null
           current_period_start: string | null
           id: string
+          is_hifz: boolean
           last_event_at: string
           payer_user_id: string | null
+          pending_tier_change_id: string | null
           plan_id: string
           status: Database["public"]["Enums"]["subscription_status"]
           stripe_customer_id: string
@@ -4835,8 +5023,10 @@ export type Database = {
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          is_hifz?: boolean
           last_event_at?: string
           payer_user_id?: string | null
+          pending_tier_change_id?: string | null
           plan_id: string
           status: Database["public"]["Enums"]["subscription_status"]
           stripe_customer_id: string
@@ -4851,8 +5041,10 @@ export type Database = {
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          is_hifz?: boolean
           last_event_at?: string
           payer_user_id?: string | null
+          pending_tier_change_id?: string | null
           plan_id?: string
           status?: Database["public"]["Enums"]["subscription_status"]
           stripe_customer_id?: string
@@ -4873,6 +5065,13 @@ export type Database = {
             columns: ["payer_user_id"]
             isOneToOne: false
             referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_pending_tier_change_id_fkey"
+            columns: ["pending_tier_change_id"]
+            isOneToOne: false
+            referencedRelation: "pending_tier_changes"
             referencedColumns: ["id"]
           },
           {
@@ -5882,6 +6081,14 @@ export type Database = {
         Returns: number
       }
       get_user_id_by_email: { Args: { p_email: string }; Returns: string }
+      grant_hifz_cycle_credits: {
+        Args: {
+          p_billing_cycle_key: string
+          p_plan_id: string
+          p_subscription_id: string
+        }
+        Returns: string
+      }
       grant_subscription_cycle: {
         Args: {
           p_amount_cents: number
@@ -6121,7 +6328,7 @@ export type Database = {
         | "canceled"
         | "incomplete_expired"
         | "unpaid"
-      user_role: "student" | "teacher" | "admin" | "moderator"
+      user_role: "student" | "teacher" | "admin" | "guardian" | "moderator"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -6335,7 +6542,7 @@ export const Constants = {
         "incomplete_expired",
         "unpaid",
       ],
-      user_role: ["student", "teacher", "admin", "moderator"],
+      user_role: ["student", "teacher", "admin", "guardian", "moderator"],
     },
   },
 } as const

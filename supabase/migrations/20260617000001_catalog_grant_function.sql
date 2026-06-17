@@ -1,0 +1,97 @@
+-- 20260617000001_catalog_grant_function.sql
+--
+-- Spec 019 — grant_hifz_cycle_credits function (T004).
+--
+-- Inserts a student_packages grant whose sessions_total equals the plan's
+-- sessions_per_month. Idempotent on (subscription_id, billing_cycle_key) via
+-- the composite unique index uix_student_packages_cycle_grant.
+--
+-- This function does NOT record a payment — that is handled by the existing
+-- grant_subscription_cycle (spec 018) in the normal invoice.paid webhook flow.
+-- This function is used for:
+--   - T014a: re-grant at renewal when applying a pending tier change
+--   - T022: delta session grant on mid-month upgrade
+-- The normal monthly cycle grant flows through grant_subscription_cycle (spec 018),
+-- which already records payment + grant atomically and uses monthly_credit_count
+-- (= sessions_per_month for hifz plans) as the credit count.
+--
+-- SECURITY DEFINER; REVOKE from public/anon/authenticated; GRANT to service_role only.
+
+create or replace function public.grant_hifz_cycle_credits(
+  p_subscription_id    uuid,
+  p_plan_id            uuid,
+  p_billing_cycle_key  text
+) returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_student_id       uuid;
+  v_sessions_per_mon integer;
+  v_period_end       timestamptz;
+  v_existing_id      uuid;
+  v_grant_id         uuid;
+begin
+  -- Resolve student_id + period_end from the subscription.
+  select student_id, current_period_end
+    into v_student_id, v_period_end
+    from public.subscriptions
+    where id = p_subscription_id;
+
+  if v_student_id is null then
+    raise exception 'grant_hifz_cycle_credits: subscription % not found', p_subscription_id
+      using errcode = '22023';
+  end if;
+
+  -- Resolve sessions_per_month from the plan.
+  select sessions_per_month
+    into v_sessions_per_mon
+    from public.subscription_plans
+    where id = p_plan_id;
+
+  if v_sessions_per_mon is null then
+    raise exception 'grant_hifz_cycle_credits: plan % has no sessions_per_month (not a hifz plan?)', p_plan_id
+      using errcode = '22023';
+  end if;
+
+  -- Idempotency short-circuit: same (subscription_id, billing_cycle_key) already granted.
+  select id into v_existing_id
+    from public.student_packages
+    where subscription_id = p_subscription_id
+      and billing_cycle_key = p_billing_cycle_key;
+
+  if v_existing_id is not null then
+    return v_existing_id;
+  end if;
+
+  -- Grant. package_id is NULL (subscription grants carry subscription_id, not a packages row).
+  -- session_mode_used is OMITTED so the column DEFAULT applies (spec 018 H1 fix pattern).
+  insert into public.student_packages (
+    student_id, package_id, sessions_total, status,
+    expires_at, subscription_id, billing_cycle_key
+  )
+  values (
+    v_student_id, null, v_sessions_per_mon, 'active',
+    v_period_end, p_subscription_id, p_billing_cycle_key
+  )
+  on conflict (subscription_id, billing_cycle_key) where billing_cycle_key is not null do nothing
+  returning id into v_grant_id;
+
+  if v_grant_id is null then
+    -- Lost the race; return the winner's id.
+    select id into v_grant_id
+      from public.student_packages
+      where subscription_id = p_subscription_id
+        and billing_cycle_key = p_billing_cycle_key;
+  end if;
+
+  return v_grant_id;
+end;
+$$;
+
+alter function public.grant_hifz_cycle_credits(uuid, uuid, text) owner to postgres;
+
+-- Lockdown (NFR-002): only service_role may invoke.
+revoke all on function public.grant_hifz_cycle_credits(uuid, uuid, text) from public, anon, authenticated;
+grant execute on function public.grant_hifz_cycle_credits(uuid, uuid, text) to service_role;
