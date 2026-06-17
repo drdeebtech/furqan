@@ -19,13 +19,13 @@
 
 **⚠️ CRITICAL**: All user story work blocked until T005 (`npm run db:types`) completes.
 
-- [ ] T002a Create `supabase/migrations/20260617990000_class_offerings_extend.sql` — **applies BEFORE T003** (earlier timestamp):
+- [x] T002a Create `supabase/migrations/20260617990000_class_offerings_extend.sql` — **applies BEFORE T003** (earlier timestamp):
   - **VERIFIED 2026-06-16 against local schema**: `class_offerings` currently has only `capacity` + `status`; the 5 columns below are ABSENT and assumed by T003/T004/T018.
   - `ALTER TABLE class_offerings ADD COLUMN IF NOT EXISTS program_level text, ADD COLUMN IF NOT EXISTS schedule_json jsonb, ADD COLUMN IF NOT EXISTS session_duration_min integer, ADD COLUMN IF NOT EXISTS start_date date, ADD COLUMN IF NOT EXISTS entry_conditions_json jsonb`
   - Existing rows get NULL (no legacy local course offerings); a NULL `program_level` is excluded from sibling matching (document in fn). **Guard at creation** (data-model §2c): because a NULL `program_level` can never match/become a sibling (SQL NULL semantics) and would strand overflow joiners, `program_level` MUST be required when creating any overflow-eligible group/course offering — enforce in the offering-create path now and add a `CHECK`/`NOT NULL` once legacy NULL rows are backfilled.
   - Preconditions enabled: T003 `idx_class_offerings_sibling` (needs `program_level`), T004 `open_overflow_halaqa` (sibling match on `program_level`), T018 `entry_conditions_json`, session scheduling (`schedule_json`/`session_duration_min`/`start_date`). See spec Clarifications §2026-06-16.
 
-- [ ] T003 Create `supabase/migrations/20260618000000_scheduling_teacher_assignment.sql`:
+- [x] T003 Create `supabase/migrations/20260618000000_scheduling_teacher_assignment.sql`:
   - CREATE TABLE `subscription_teacher_assignments` (all columns per data-model.md: id, student_id FK, teacher_id FK, subscription_id FK, product_type CHECK, lock_month date, is_active boolean DEFAULT true, approved_by FK nullable, cancelled_future_bookings_at timestamptz, created_at, updated_at)
   - CREATE TRIGGER `set_updated_at_sta` BEFORE UPDATE using existing `public.set_updated_at()`
   - CREATE UNIQUE INDEX `uix_sta_student_active ON subscription_teacher_assignments(student_id) WHERE is_active = true`
@@ -34,7 +34,7 @@
   - BEFORE UPDATE trigger `sta_identity_guard` on (student_id, subscription_id, product_type, lock_month) — blocked
   - ADD INDEX `idx_class_offerings_sibling ON class_offerings(teacher_id, program_level, status)` for sibling lookup (requires `program_level` from T002a)
 
-- [ ] T003a Create `supabase/migrations/20260617990001_availability_instances.sql` — dated slot-instance materialization (Clarifications §2026-06-16; data-model §2a-bis). Timestamp sorts right after T002a and before T003/T004 (independent table; depends only on baseline `teacher_availability`):
+- [x] T003a Create `supabase/migrations/20260617990001_availability_instances.sql` — dated slot-instance materialization (Clarifications §2026-06-16; data-model §2a-bis). Timestamp sorts right after T002a and before T003/T004 (independent table; depends only on baseline `teacher_availability`):
   - CREATE TABLE `teacher_availability_instances` (id uuid PK, template_id uuid FK `teacher_availability`, teacher_id uuid FK profiles, slot_date date, start_time time, end_time time, is_booked boolean DEFAULT false, created_at)
   - UNIQUE `(template_id, slot_date)` — idempotent materialization, no duplicate dated instances
   - Index on `(teacher_id, slot_date) WHERE is_booked = false` for open-slot lookup
@@ -42,13 +42,13 @@
   - Provide the **generation rule** as a SECURITY DEFINER fn `materialize_availability_instances(p_horizon_end date)` that, for each active `teacher_availability` template, INSERTs one instance per matching `day_of_week` date up to the horizon, `ON CONFLICT (template_id, slot_date) DO NOTHING`; REVOKE EXECUTE FROM public/anon/authenticated, GRANT service_role (NFR-002)
   - Note: the recurring template's legacy `is_booked` is deprecated for booking decisions; the dated instance's `is_booked` is authoritative
 
-- [ ] T004 Create `supabase/migrations/20260618000001_overflow_halaqa_fn.sql`:
+- [x] T004 Create `supabase/migrations/20260618000001_overflow_halaqa_fn.sql`:
   - CREATE OR REPLACE FUNCTION `open_overflow_halaqa(p_source_offering_id uuid) RETURNS uuid` — SECURITY DEFINER SET search_path = public; FOR SHARE on source; prefer not-full sibling (same teacher_id + program_level + status='open' + current_enrollment < capacity) `ORDER BY current_enrollment DESC LIMIT 1` (least-empty first; deterministic — matches data-model §3 / research R-003); else INSERT new class_offerings row cloning source
   - Sibling SELECT keys on `program_level = v_source.program_level`; a NULL `program_level` never matches (SQL NULL semantics) — see data-model §2c NULL-guard; offering creation MUST require `program_level` for overflow-eligible offerings
   - So the caller can emit `cohort_opened` only on an actual open (FR-021 / T015): return enough to distinguish new-clone vs reused-sibling (e.g. a `(halaqa_id, was_created boolean)` record, or expose a companion that reports it) — do not fire `cohort_opened` on sibling reuse
   - REVOKE EXECUTE FROM public, anon, authenticated; GRANT TO service_role
 
-- [ ] T005 `supabase migration up` → `npm run db:types` → commit regenerated `src/types/database.ts`
+- [x] T005 `supabase migration up` → `npm run db:types` → commit regenerated `src/types/database.ts`
 
 - [ ] T006 Local concurrency verification (NFR-003):
   - Concurrent double-assignment insert: two transactions both try `INSERT INTO subscription_teacher_assignments (student_id=X, is_active=true, ...)` → unique index blocks second
@@ -65,27 +65,27 @@
 
 **Independent Test**: Create assignment → teacher publishes slot → student books → `booking.teacher_id = assignment.teacher_id`. Then attempt booking from different teacher's slot → 403.
 
-- [ ] T007 [P] [US1] Create `src/lib/domains/scheduling/assignments.ts`:
+- [x] T007 [P] [US1] Create `src/lib/domains/scheduling/assignments.ts`:
   - `getMyAssignment(userId: string): Promise<Assignment | null>` — queries `subscription_teacher_assignments WHERE student_id = userId AND is_active = true`; joins `profiles` for teacher name/name_ar
   - `createAssignment(input: AssignTeacherInput): Promise<string>` — service-role client INSERT
 
-- [ ] T008 [P] [US1] Create `src/lib/domains/scheduling/availability.ts` (operates on **dated instances**, not recurring templates — Clarifications §2026-06-16 / data-model §2a-bis):
+- [x] T008 [P] [US1] Create `src/lib/domains/scheduling/availability.ts` (operates on **dated instances**, not recurring templates — Clarifications §2026-06-16 / data-model §2a-bis):
   - `getOpenSlots(teacherId: string, month?: string): Promise<AvailabilitySlot[]>` — queries `teacher_availability_instances WHERE teacher_id = teacherId AND is_booked = false` joined to the active template, for the given month/horizon (ensure instances are materialized for the horizon first, via T003a's generation fn)
   - `lockSlot(slotInstanceId: string): Promise<boolean>` — locks **one dated instance**: `SELECT ... FROM teacher_availability_instances WHERE id = slotInstanceId AND is_booked = false FOR UPDATE`; UPDATE that instance `is_booked = true`; returns false if already booked. (Locks the dated instance, NOT the weekly template.)
 
-- [ ] T009 [P] [US1] Create `src/lib/domains/scheduling/bookings.ts`:
+- [x] T009 [P] [US1] Create `src/lib/domains/scheduling/bookings.ts`:
   - `createConstrainedBooking(userId: string, slotInstanceId: string, scheduledAt: string): Promise<string>` — gets assignment; gets dated slot-instance teacher; validates match; calls `lockSlot(slotInstanceId)` (dated instance); INSERTs `bookings` row with `status='pending'`; returns bookingId
   - **Emit `booking_created` event** (FR-021) after the booking row is committed — enqueue for spec 023 consumers using the typed event enum (spec 023); do not send any notification here
 
-- [ ] T010 [US1] Create `src/app/api/scheduling/my-assignment/route.ts` — GET, auth required, zod response, calls `getMyAssignment`
+- [x] T010 [US1] Create `src/app/api/scheduling/my-assignment/route.ts` — GET, auth required, zod response, calls `getMyAssignment`
 
-- [ ] T011 [US1] Create `src/app/api/scheduling/available-slots/route.ts` — GET, auth required, zod query params, resolves assigned teacher if teacherId omitted, calls `getOpenSlots`
+- [x] T011 [US1] Create `src/app/api/scheduling/available-slots/route.ts` — GET, auth required, zod query params, resolves assigned teacher if teacherId omitted, calls `getOpenSlots`
 
-- [ ] T012 [US1] Create `src/app/api/scheduling/book-slot/route.ts` — POST, auth required, zod input, calls `createConstrainedBooking`; maps errors to 403/409/404
+- [x] T012 [US1] Create `src/app/api/scheduling/book-slot/route.ts` — POST, auth required, zod input, calls `createConstrainedBooking`; maps errors to 403/409/404
 
-- [ ] T013 [US1] Create `src/app/api/scheduling/assign-teacher/route.ts` — POST, admin/service-role only, zod input, calls `createAssignment`; 409 on unique index violation
+- [x] T013 [US1] Create `src/app/api/scheduling/assign-teacher/route.ts` — POST, admin/service-role only, zod input, calls `createAssignment`; 409 on unique index violation
 
-- [ ] T014 [US1] Unit test `src/lib/domains/scheduling/bookings.test.ts`:
+- [x] T014 [US1] Unit test `src/lib/domains/scheduling/bookings.test.ts`:
   - Verify booking succeeds when teacher matches assignment
   - Verify 403 when teacher doesn't match (forged `teacher_id` in input rejected)
   - Verify 409 when slot already booked (race simulation)
@@ -100,16 +100,16 @@
 
 **Independent Test**: Fill halaqa to capacity → 5th joiner → lands in sibling/new halaqa, not waiting list. Below-target halaqa starts on schedule.
 
-- [ ] T015 [P] [US2] Create `src/lib/domains/scheduling/cohorts.ts`:
+- [x] T015 [P] [US2] Create `src/lib/domains/scheduling/cohorts.ts`:
   - `joinHalaqa(userId: string, classOfferingId: string, entryConfirmation?: string): Promise<JoinResult>` — fetch offering; if at capacity call `openOverflowHalaqa(classOfferingId)` to get targetId; INSERT `session_participants` into targetId; increment `current_enrollment`
   - `openOverflowHalaqa(sourceId: string): Promise<string>` — calls `open_overflow_halaqa(sourceId)` via service-role RPC
   - **Emit events** (FR-021), using the typed event enum (spec 023), no notifications sent here:
     - `cohort_opened` — when `openOverflowHalaqa` returns a **newly created** halaqa id (distinguish new-clone vs reused-sibling so this fires only on actual open)
     - `member_joined` — after the `session_participants` insert succeeds, for the target halaqa
 
-- [ ] T016 [US2] Create `src/app/api/scheduling/join-halaqa/route.ts` — POST, auth required, zod input `{classOfferingId, entryConfirmation?}`, calls `joinHalaqa`; returns `{membershipId, classOfferingId, overflowRedirected}`
+- [x] T016 [US2] Create `src/app/api/scheduling/join-halaqa/route.ts` — POST, auth required, zod input `{classOfferingId, entryConfirmation?}`, calls `joinHalaqa`; returns `{membershipId, classOfferingId, overflowRedirected}`
 
-- [ ] T017 [US2] Unit test `src/lib/domains/scheduling/cohorts.test.ts`:
+- [x] T017 [US2] Unit test `src/lib/domains/scheduling/cohorts.test.ts`:
   - Verify normal join inserts into original halaqa (`overflowRedirected: false`)
   - Verify at-capacity join calls `openOverflowHalaqa` and inserts into returned id (`overflowRedirected: true`)
   - Verify no `halaqa_waiting_list` INSERT ever occurs in this flow
@@ -124,14 +124,14 @@
 
 **Independent Test**: Course with entry condition → non-qualifying student → 422 with `unmetCondition`; qualifying student → 201.
 
-- [ ] T018 [US3] Extend `joinHalaqa` in `src/lib/domains/scheduling/cohorts.ts` to handle `product_type = 'course'`:
+- [x] T018 [US3] Extend `joinHalaqa` in `src/lib/domains/scheduling/cohorts.ts` to handle `product_type = 'course'`:
   - Fetch `class_offerings.entry_conditions_json` if present
   - Validate `entryConfirmation` against conditions; if unmet throw `EntryConditionError` with reason string
   - Specialist-authored condition text sourced from `class_offerings.entry_conditions_json`, never model-generated
 
-- [ ] T019 [US3] Map `EntryConditionError` → HTTP 422 `{success: false, unmetCondition: string}` in `src/app/api/scheduling/join-halaqa/route.ts`
+- [x] T019 [US3] Map `EntryConditionError` → HTTP 422 `{success: false, unmetCondition: string}` in `src/app/api/scheduling/join-halaqa/route.ts`
 
-- [ ] T020 [US3] Unit test: qualifying entry → 201; non-qualifying entry → 422; missing `entryConfirmation` on required course → 422
+- [x] T020 [US3] Unit test: qualifying entry → 201; non-qualifying entry → 422; missing `entryConfirmation` on required course → 422
 
 **Checkpoint**: Course join flow branches correctly; condition text preserved from DB without model modification.
 
@@ -143,13 +143,13 @@
 
 **Independent Test**: Student calls admin route → 403; admin calls route → 200, `approved_by` set, future bookings cancelled.
 
-- [ ] T021 [P] [US4] Extend `src/lib/domains/scheduling/assignments.ts`:
+- [x] T021 [P] [US4] Extend `src/lib/domains/scheduling/assignments.ts`:
   - `reassignTeacher(assignmentId: string, newTeacherId: string, reason: string, adminId: string): Promise<ReassignResult>` — UPDATE `subscription_teacher_assignments` (teacher_id, approved_by, cancelled_future_bookings_at); bulk UPDATE `bookings` to cancelled; return cancellation count
   - `emitAssignmentChangedEvent(studentId: string, newTeacherId: string, reason: string): Promise<void>` — inserts into event/notification queue for spec 023, using the typed event enum (spec 023). This is the **assignment created/changed** event of FR-021; together with `cohort_opened` + `member_joined` (T015) and `booking_created` (T009) it covers all FOUR FR-021 events. Also call this (or an equivalent create-variant) on initial assignment creation in T007 `createAssignment` so "assignment created" is emitted, not only "changed".
 
-- [ ] T022 [US4] Create `src/app/api/scheduling/admin/reassign-teacher/route.ts` — POST, `private.is_admin()` gate, zod input, calls `reassignTeacher` + `emitAssignmentChangedEvent`
+- [x] T022 [US4] Create `src/app/api/scheduling/admin/reassign-teacher/route.ts` — POST, `private.is_admin()` gate, zod input, calls `reassignTeacher` + `emitAssignmentChangedEvent`
 
-- [ ] T023 [US4] Unit test `src/lib/domains/scheduling/assignments.test.ts`:
+- [x] T023 [US4] Unit test `src/lib/domains/scheduling/assignments.test.ts`:
   - Non-admin call → 403
   - Admin call → UPDATE applied with `approved_by = adminId`
   - Future `bookings` (status pending/confirmed, scheduled_at > now) cancelled; past bookings untouched
@@ -162,13 +162,13 @@
 
 **Goal**: Admin can inspect any student's assignment history and any halaqa's roster/capacity/overflow state.
 
-- [ ] T024 [US5] Add admin query fns to `src/lib/domains/scheduling/assignments.ts`:
+- [x] T024 [US5] Add admin query fns to `src/lib/domains/scheduling/assignments.ts`:
   - `getStudentAssignmentHistory(studentId: string): Promise<Assignment[]>` — all rows for student (active + inactive), ordered by created_at desc
   - `getHalaqaRoster(classOfferingId: string): Promise<{members: Profile[], capacity: number, current_enrollment: number, sibling_halaqas: ClassOffering[]}>` — join session_participants + profiles + class_offerings siblings
 
-- [ ] T025 [US5] Create `src/app/api/scheduling/admin/assignment-history/route.ts` — GET, admin only, query `?studentId=`, calls `getStudentAssignmentHistory`
+- [x] T025 [US5] Create `src/app/api/scheduling/admin/assignment-history/route.ts` — GET, admin only, query `?studentId=`, calls `getStudentAssignmentHistory`
 
-- [ ] T026 [US5] Create `src/app/api/scheduling/admin/halaqa-roster/route.ts` — GET, admin only, query `?classOfferingId=`, calls `getHalaqaRoster`
+- [x] T026 [US5] Create `src/app/api/scheduling/admin/halaqa-roster/route.ts` — GET, admin only, query `?classOfferingId=`, calls `getHalaqaRoster`
 
 **Checkpoint**: Non-admin call → 403; admin call returns full history/roster with sibling halaqa list.
 
@@ -176,12 +176,12 @@
 
 ## Phase 8: Polish
 
-- [ ] T027 [P] `npx tsc --noEmit` — fix all type errors from new domain files + new DB types
-- [ ] T028 [P] `npm run lint` — fix ESLint issues
-- [ ] T029 `npm run test:unit` — all existing + new tests pass
-- [ ] T030 `npm run sb:advisors` — zero new advisories on `subscription_teacher_assignments`
-- [ ] T031 RTL: verify `my-assignment` response includes `teacherNameAr` field from `profiles.full_name_ar` for Arabic RTL display
-- [ ] T032 Commit all spec artifacts to `docs/pivot-specs-019-024`; push
+- [x] T027 [P] `npx tsc --noEmit` — fix all type errors from new domain files + new DB types
+- [x] T028 [P] `npm run lint` — fix ESLint issues
+- [x] T029 `npm run test:unit` — all existing + new tests pass
+- [x] T030 `npm run sb:advisors` — zero new advisories on `subscription_teacher_assignments`
+- [x] T031 RTL: verify `my-assignment` response includes `teacherNameAr` field from `profiles.full_name_ar` for Arabic RTL display
+- [x] T032 Commit all spec artifacts to `docs/pivot-specs-019-024`; push
 
 ---
 

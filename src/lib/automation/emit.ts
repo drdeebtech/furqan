@@ -124,6 +124,10 @@ export const WEBHOOK_ROUTES = {
   "subscription.renewed": "/webhook/furqan-subscription-renewed",
   "subscription.past_due": "/webhook/furqan-subscription-past-due",
   "subscription.canceled": "/webhook/furqan-subscription-canceled",
+  "assignment.created": "/webhook/furqan-assignment-created",
+  "assignment.changed": "/webhook/furqan-assignment-changed",
+  "cohort.opened": "/webhook/furqan-cohort-opened",
+  "member.joined": "/webhook/furqan-member-joined",
 } as const satisfies Record<string, string>;
 
 /**

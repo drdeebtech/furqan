@@ -1,0 +1,85 @@
+import "server-only";
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/supabase.generated";
+
+/**
+ * Spec 020 — Scheduling (US1 / T008).
+ *
+ * Domain layer for teacher availability (dated instances).
+ */
+
+export interface AvailabilitySlot {
+  id: string;
+  teacher_id: string;
+  slot_date: string;
+  start_time: string;
+  end_time: string;
+  is_booked: boolean;
+}
+
+/**
+ * Fetch open slots for a teacher within a horizon.
+ * Operates on dated instances (teacher_availability_instances), not templates.
+ */
+export async function getOpenSlots(
+  supabase: SupabaseClient<Database>,
+  teacherId: string,
+  month?: string, // YYYY-MM
+): Promise<AvailabilitySlot[]> {
+  let query = supabase
+    .from("teacher_availability_instances")
+    .select("*")
+    .eq("teacher_id", teacherId)
+    .eq("is_booked", false);
+
+  if (month) {
+    const start = `${month}-01`;
+    const end = `${month}-31`; // Approx, Postgres date comparison handles it
+    query = query.gte("slot_date", start).lte("slot_date", end);
+  } else {
+    // Default to today onwards
+    query = query.gte("slot_date", new Date().toISOString().split("T")[0]);
+  }
+
+  const { data, error } = await query.order("slot_date").order("start_time");
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+/**
+ * Lock one dated slot instance for booking race prevention.
+ * Uses SELECT FOR UPDATE on the dated instance row.
+ * Returns true if lock acquired and slot was not already booked.
+ */
+export async function lockSlot(
+  admin: SupabaseClient<Database>,
+  slotInstanceId: string,
+): Promise<boolean> {
+  // Use a transaction (RPC) if possible, but for a single-row lock-then-update,
+  // we can use a direct SELECT FOR UPDATE + UPDATE.
+  // Note: Supabase JS doesn't support SELECT FOR UPDATE directly; 
+  // this usually needs an RPC.
+  
+  const { data, error } = await admin.rpc("lock_slot_instance", {
+    p_slot_id: slotInstanceId
+  });
+
+  if (error) throw error;
+  return data as boolean;
+}
+
+/**
+ * Helper to ensure availability instances are materialized for a teacher up to a date.
+ * Calls the SECURITY DEFINER materialization fn.
+ */
+export async function ensureInstancesMaterialized(
+  admin: SupabaseClient<Database>,
+  horizonEnd: string,
+): Promise<void> {
+  const { error } = await admin.rpc("materialize_availability_instances", {
+    p_horizon_end: horizonEnd
+  });
+  if (error) throw error;
+}
