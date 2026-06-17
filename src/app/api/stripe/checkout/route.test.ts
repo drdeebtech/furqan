@@ -50,6 +50,7 @@ vi.mock("@/lib/domains/billing", () => ({ getActivePlanByCode: mockGetPlan }));
 vi.mock("@/lib/actions/subscriptions/create-hifz-subscription", () => ({
   isPlanHifzProduct: mockIsPlanHifz,
   assertNoActiveHifz: mockAssertNoActive,
+  resolveStudentFamilyDiscount: vi.fn().mockResolvedValue({ applies: false }),
   HifzAlreadyActiveError: class HifzAlreadyActiveError extends Error {
     constructor(message = "hifz active") { super(message); this.name = "HifzAlreadyActiveError"; }
   },
@@ -91,9 +92,16 @@ beforeEach(() => {
   mockGetPlan.mockResolvedValue(PLAN);
   mockIsPlanHifz.mockResolvedValue(false);
   mockAssertNoActive.mockResolvedValue(undefined);
-  // stripe_customers fast path: existing mapping
+  // stripe_customers fast path: existing mapping.
+  // eqChain supports any depth of .eq() chaining (T019 adds a 2-deep chain
+  // for the packages query: .eq(subscription_plan_id).eq(is_hifz_product).maybeSingle()).
+  const eqChain: Record<string, unknown> = {
+    maybeSingle: mockMaybeSingle,
+  };
+  eqChain.eq = () => eqChain;
+  eqChain.not = () => eqChain;
   mockAdminFrom.mockReturnValue({
-    select: () => ({ eq: () => ({ maybeSingle: mockMaybeSingle }) }),
+    select: () => eqChain,
   });
   mockMaybeSingle.mockResolvedValue({ data: { stripe_customer_id: "cus_existing" }, error: null });
   mockSessionsCreate.mockResolvedValue({ url: "https://checkout.stripe.com/c/session" });

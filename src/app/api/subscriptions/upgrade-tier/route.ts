@@ -1,0 +1,207 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { requireRole } from "@/lib/auth/require-admin";
+import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getStripe } from "@/lib/stripe/client";
+import { canUpgradeImmediately, scheduleRenewalChange } from "@/lib/domains/catalog/tier-changes";
+import { grantHifzCycleCredits } from "@/lib/domains/catalog/credit-grant";
+import { logError, logInfo } from "@/lib/logger";
+
+export const maxDuration = 60;
+
+const Body = z.object({
+  subscriptionId: z.uuid(),
+  toPackageId: z.uuid(),
+});
+
+/**
+ * POST /api/subscriptions/upgrade-tier — Spec 019 US5 T022.
+ *
+ * Immediate upgrade (same product_category, sessions increasing):
+ *   - stripe.subscriptions.update with proration_behavior:'always_invoice'
+ *   - grantHifzCycleCredits for delta sessions with 'upgrade_'+invoice.id key
+ *
+ * Deferred (type mismatch or not an upgrade):
+ *   - scheduleRenewalChange inserts pending_tier_changes
+ *
+ * Auth: student role only. Subscription ownership verified by student_id = userId.
+ */
+export async function POST(request: Request) {
+  let userId: string;
+  try {
+    ({ id: userId } = await requireRole("student"));
+  } catch (e) {
+    if (e instanceof UnauthenticatedError) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (e instanceof ForbiddenError) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    throw e;
+  }
+
+  let parsed: z.infer<typeof Body>;
+  try {
+    parsed = Body.parse(await request.json());
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid body: { subscriptionId, toPackageId } required" },
+      { status: 400 },
+    );
+  }
+
+  const admin = createAdminClient();
+
+  // ── Resolve current subscription (ownership check) ─────────────────────────
+  const { data: sub, error: subErr } = await admin
+    .from("subscriptions")
+    .select("id, stripe_subscription_id, plan_id, student_id, current_period_end")
+    .eq("id", parsed.subscriptionId)
+    .eq("student_id", userId)
+    .not("status", "in", '("canceled","incomplete_expired")')
+    .maybeSingle();
+
+  if (subErr || !sub) {
+    return NextResponse.json({ error: "Subscription not found" }, { status: 404 });
+  }
+
+  // ── Resolve current package + plan ─────────────────────────────────────────
+  const [{ data: currentPkg }, { data: currentPlan }] = await Promise.all([
+    admin
+      .from("packages")
+      .select("id, product_category")
+      .eq("subscription_plan_id", sub.plan_id)
+      .eq("is_hifz_product", true)
+      .maybeSingle(),
+    admin
+      .from("subscription_plans")
+      .select("id, sessions_per_month, stripe_price_id")
+      .eq("id", sub.plan_id)
+      .maybeSingle(),
+  ]);
+
+  if (!currentPkg || !currentPlan) {
+    return NextResponse.json({ error: "Current plan not found" }, { status: 422 });
+  }
+
+  // ── Resolve new package + plan ─────────────────────────────────────────────
+  const { data: newPkg, error: newPkgErr } = await admin
+    .from("packages")
+    .select("id, product_category, subscription_plan_id")
+    .eq("id", parsed.toPackageId)
+    .eq("is_hifz_product", true)
+    .maybeSingle();
+
+  if (newPkgErr || !newPkg?.subscription_plan_id) {
+    return NextResponse.json({ error: "Target package not found" }, { status: 404 });
+  }
+
+  const { data: newPlan, error: newPlanErr } = await admin
+    .from("subscription_plans")
+    .select("id, sessions_per_month, stripe_price_id")
+    .eq("id", newPkg.subscription_plan_id)
+    .maybeSingle();
+
+  if (newPlanErr || !newPlan) {
+    return NextResponse.json({ error: "Target plan not found" }, { status: 404 });
+  }
+
+  // ── Eligibility check ──────────────────────────────────────────────────────
+  const eligibility = canUpgradeImmediately(
+    {
+      subscriptionId: sub.id,
+      stripeSubscriptionId: sub.stripe_subscription_id,
+      planId: sub.plan_id,
+      packageId: currentPkg.id,
+      productCategory: currentPkg.product_category ?? "",
+      sessionsPerMonth: currentPlan.sessions_per_month ?? 0,
+      currentPeriodEnd: sub.current_period_end ?? "",
+    },
+    {
+      packageId: parsed.toPackageId,
+      planId: newPlan.id,
+      productCategory: newPkg.product_category ?? "",
+      sessionsPerMonth: newPlan.sessions_per_month ?? 0,
+    },
+  );
+
+  if (!eligibility.allowed) {
+    const changeReason =
+      eligibility.reason === "type_mismatch"
+        ? ("type_change" as const)
+        : ("downgrade" as const);
+
+    const scheduled = await scheduleRenewalChange(admin, {
+      subscriptionId: sub.id,
+      studentId: userId,
+      fromPackageId: currentPkg.id,
+      toPackageId: parsed.toPackageId,
+      changeReason,
+    });
+
+    if (!scheduled) {
+      return NextResponse.json({ error: "Failed to schedule tier change" }, { status: 500 });
+    }
+
+    return NextResponse.json({ result: "scheduled", pendingId: scheduled.id });
+  }
+
+  // ── Immediate upgrade via Stripe proration ─────────────────────────────────
+  const stripe = getStripe();
+
+  let invoiceId: string;
+  try {
+    const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id, {
+      expand: ["items"],
+    });
+    const itemId = stripeSub.items.data[0]?.id;
+    if (!itemId) throw new Error("subscription has no items");
+
+    await stripe.subscriptions.update(sub.stripe_subscription_id, {
+      items: [{ id: itemId, price: newPlan.stripe_price_id }],
+      proration_behavior: "always_invoice",
+    });
+
+    const invoices = await stripe.invoices.list({
+      subscription: sub.stripe_subscription_id,
+      limit: 1,
+    });
+    invoiceId = invoices.data[0]?.id ?? `upgrade-${sub.id}`;
+  } catch (err) {
+    logError("upgrade-tier: Stripe update failed", err, {
+      tag: "billing",
+      subscription_id: sub.id,
+    });
+    return NextResponse.json({ error: "Stripe upgrade failed" }, { status: 502 });
+  }
+
+  // ── Grant delta credits for the remainder of this cycle ────────────────────
+  const billingCycleKey = `upgrade_${invoiceId}`;
+  const grantResult = await grantHifzCycleCredits(admin, sub.id, newPlan.id, billingCycleKey);
+
+  if (!grantResult.ok) {
+    logError("upgrade-tier: delta credit grant failed", new Error(grantResult.error), {
+      tag: "billing",
+      subscription_id: sub.id,
+      invoice_id: invoiceId,
+    });
+    return NextResponse.json(
+      { error: "Upgrade applied in Stripe but credit grant failed — contact support" },
+      { status: 500 },
+    );
+  }
+
+  logInfo("upgrade-tier: immediate upgrade applied", {
+    tag: "billing",
+    subscription_id: sub.id,
+    new_plan_id: newPlan.id,
+    delta_sessions: eligibility.deltaSessions,
+  });
+
+  return NextResponse.json({
+    result: "upgraded",
+    newPlanId: newPlan.id,
+    deltaSessions: eligibility.deltaSessions,
+  });
+}

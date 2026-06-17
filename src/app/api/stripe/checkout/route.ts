@@ -6,7 +6,7 @@ import { getStripe } from "@/lib/stripe/client";
 import { getActivePlanByCode } from "@/lib/domains/billing";
 import { requireRole } from "@/lib/auth/require-admin";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
-import { assertNoActiveHifz, HifzAlreadyActiveError, isPlanHifzProduct } from "@/lib/actions/subscriptions/create-hifz-subscription";
+import { assertNoActiveHifz, HifzAlreadyActiveError, isPlanHifzProduct, resolveStudentFamilyDiscount } from "@/lib/actions/subscriptions/create-hifz-subscription";
 import { logError } from "@/lib/logger";
 
 export const maxDuration = 60;
@@ -84,6 +84,41 @@ export async function POST(request: Request) {
     throw e;
   }
 
+  // ── Guardian family discount (spec 019 US4) ──────────────────────────────
+  let stripeCouponId: string | undefined;
+  {
+    const { data: pkg } = await admin
+      .from("packages")
+      .select("product_category")
+      .eq("subscription_plan_id", plan.id)
+      .eq("is_hifz_product", true)
+      .maybeSingle();
+    const productCategory = pkg?.product_category ?? null;
+
+    if (productCategory) {
+      const discountRes = await resolveStudentFamilyDiscount(admin, userId, productCategory);
+      if (discountRes.applies) {
+        try {
+          const coupon = await stripe.coupons.create({
+            percent_off: discountRes.discountPct,
+            duration: "forever",
+            metadata: {
+              discount_type: discountRes.discountType,
+              setting_key: discountRes.settingKey,
+            },
+          });
+          stripeCouponId = coupon.id;
+        } catch (err) {
+          logError("checkout: guardian discount coupon creation failed", err, {
+            tag: "billing",
+            user_id: userId,
+          });
+          // Non-fatal: proceed without discount rather than blocking checkout
+        }
+      }
+    }
+  }
+
   // ── Email for the Stripe customer record (best-effort) ────────────────────
   let email: string | undefined;
   try {
@@ -105,6 +140,7 @@ export async function POST(request: Request) {
       mode: "subscription",
       customer: stripeCustomerId.value,
       line_items: [{ price: plan.stripePriceId, quantity: 1 }],
+      ...(stripeCouponId ? { discounts: [{ coupon: stripeCouponId }] } : {}),
       client_reference_id: userId,
       metadata: { student_id: userId, plan_code: plan.planCode },
       subscription_data: { metadata: { student_id: userId, plan_code: plan.planCode } },

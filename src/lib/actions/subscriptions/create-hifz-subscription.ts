@@ -2,6 +2,12 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase.generated";
+import {
+  resolveGuardianDiscount,
+  recordDiscount,
+  type DiscountResolution,
+  type ResolvedDiscount,
+} from "@/lib/domains/catalog/discounts";
 
 /**
  * Spec 019 — Single Active Hifz Guard (US2 / T010).
@@ -85,3 +91,56 @@ export async function isPlanHifzProduct(
 
   return data?.is_hifz_product ?? false;
 }
+
+/**
+ * Resolve family discount for a student (child) at checkout.
+ *
+ * Looks up any guardians linked to this student via `guardian_children`, then
+ * delegates to `resolveGuardianDiscount` for each guardian. Returns the best
+ * (highest-percentage) discount found, or `{ applies: false }` if none.
+ *
+ * Call this BEFORE creating the Stripe checkout session (T019 / spec 019 US4).
+ */
+export async function resolveStudentFamilyDiscount(
+  admin: SupabaseClient<Database>,
+  studentId: string,
+  productCategory: string,
+): Promise<DiscountResolution> {
+  const { data: guardianLinks } = await admin
+    .from("guardian_children")
+    .select("guardian_id")
+    .eq("child_id", studentId);
+
+  if (!guardianLinks || guardianLinks.length === 0) {
+    return { applies: false };
+  }
+
+  let best: DiscountResolution = { applies: false };
+
+  for (const link of guardianLinks) {
+    const result = await resolveGuardianDiscount(admin, link.guardian_id, productCategory);
+    if (result.applies) {
+      if (!best.applies || result.discountPct > best.discountPct) {
+        best = result;
+      }
+    }
+  }
+
+  return best;
+}
+
+/**
+ * Record an applied family discount once the Supabase subscriptionId is known.
+ * Call this from the `customer.subscription.created` / `invoice.paid` webhook
+ * after the subscription row has been mirrored into the local `subscriptions` table.
+ */
+export async function recordSubscriptionDiscount(
+  admin: SupabaseClient<Database>,
+  subscriptionId: string,
+  discount: ResolvedDiscount,
+): Promise<void> {
+  return recordDiscount(admin, subscriptionId, discount);
+}
+
+// Re-export discount types for use in the checkout route and webhook.
+export type { DiscountResolution, ResolvedDiscount };
