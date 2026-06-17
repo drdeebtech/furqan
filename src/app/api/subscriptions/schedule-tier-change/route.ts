@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth/require-admin";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { scheduleRenewalChange } from "@/lib/domains/catalog/tier-changes";
+import { logError } from "@/lib/logger";
 
 /**
  * POST /api/subscriptions/schedule-tier-change — Spec 019 US5 T023.
@@ -63,13 +64,20 @@ export async function POST(request: Request) {
   }
 
   // Verify target package exists and is a hifz product.
-  const { data: targetPkg } = await admin
+  const { data: targetPkg, error: targetErr } = await admin
     .from("packages")
     .select("id")
     .eq("id", parsed.toPackageId)
     .eq("is_hifz_product", true)
     .maybeSingle();
 
+  if (targetErr) {
+    logError("schedule-tier-change: target package lookup failed", targetErr, {
+      tag: "billing",
+      subscription_id: parsed.subscriptionId,
+    });
+    return NextResponse.json({ error: "Failed to verify target package" }, { status: 500 });
+  }
   if (!targetPkg) {
     return NextResponse.json({ error: "Target package not found" }, { status: 404 });
   }
@@ -100,6 +108,10 @@ export async function POST(request: Request) {
   });
 
   if (!scheduled) {
+    logError("schedule-tier-change: scheduleRenewalChange returned null", new Error("scheduleRenewalChange null"), {
+      tag: "billing",
+      subscription_id: sub.id,
+    });
     return NextResponse.json({ error: "Failed to schedule tier change" }, { status: 500 });
   }
 

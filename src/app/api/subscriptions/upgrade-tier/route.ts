@@ -67,7 +67,7 @@ export async function POST(request: Request) {
   }
 
   // ── Resolve current package + plan ─────────────────────────────────────────
-  const [{ data: currentPkg }, { data: currentPlan }] = await Promise.all([
+  const [currentPkgRes, currentPlanRes] = await Promise.all([
     admin
       .from("packages")
       .select("id, product_category")
@@ -80,6 +80,16 @@ export async function POST(request: Request) {
       .eq("id", sub.plan_id)
       .maybeSingle(),
   ]);
+
+  if (currentPkgRes.error || currentPlanRes.error) {
+    logError("upgrade-tier: current plan lookup failed", currentPkgRes.error ?? currentPlanRes.error, {
+      tag: "billing",
+      subscription_id: parsed.subscriptionId,
+    });
+    return NextResponse.json({ error: "Failed to load current plan" }, { status: 500 });
+  }
+  const currentPkg = currentPkgRes.data;
+  const currentPlan = currentPlanRes.data;
 
   if (!currentPkg || !currentPlan) {
     return NextResponse.json({ error: "Current plan not found" }, { status: 422 });
@@ -148,6 +158,10 @@ export async function POST(request: Request) {
   }
 
   // ── Immediate upgrade via Stripe proration ─────────────────────────────────
+  if (!newPlan.stripe_price_id) {
+    return NextResponse.json({ error: "Target plan has no Stripe price" }, { status: 422 });
+  }
+
   const stripe = getStripe();
 
   let invoiceId: string;

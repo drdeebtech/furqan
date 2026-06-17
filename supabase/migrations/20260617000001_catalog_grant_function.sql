@@ -33,6 +33,12 @@ declare
   v_existing_id      uuid;
   v_grant_id         uuid;
 begin
+  -- Reject null or blank billing_cycle_key — a null key bypasses the idempotency index.
+  if p_billing_cycle_key is null or trim(p_billing_cycle_key) = '' then
+    raise exception 'grant_hifz_cycle_credits: billing_cycle_key must not be null or blank'
+      using errcode = '22023';
+  end if;
+
   -- Resolve student_id + period_end from the subscription.
   select student_id, current_period_end
     into v_student_id, v_period_end
@@ -41,6 +47,11 @@ begin
 
   if v_student_id is null then
     raise exception 'grant_hifz_cycle_credits: subscription % not found', p_subscription_id
+      using errcode = '22023';
+  end if;
+
+  if v_period_end is null then
+    raise exception 'grant_hifz_cycle_credits: subscription % has null current_period_end', p_subscription_id
       using errcode = '22023';
   end if;
 

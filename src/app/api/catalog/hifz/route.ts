@@ -19,7 +19,10 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const tiers = await getActiveCatalogTiers();
-
-  return NextResponse.json({ tiers });
+  try {
+    const tiers = await getActiveCatalogTiers();
+    return NextResponse.json({ tiers });
+  } catch {
+    return NextResponse.json({ error: "Failed to load catalog tiers" }, { status: 500 });
+  }
 }

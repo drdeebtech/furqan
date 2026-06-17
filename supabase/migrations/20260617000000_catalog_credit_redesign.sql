@@ -120,12 +120,25 @@ create unique index if not exists idx_pending_changes_subscription
   on public.pending_tier_changes (subscription_id)
   where status = 'pending';
 
+-- Composite unique index enables the ownership-enforcing FK below.
+-- id is already the PK (unique), so (id, subscription_id) is trivially unique.
+create unique index if not exists uix_pending_tier_changes_id_subscription
+  on public.pending_tier_changes (id, subscription_id);
+
 -- ─────────────────────────────────────────────────────────────────────────────
--- 5a. Add reverse FK: subscriptions.pending_tier_change_id → pending_tier_changes(id)
+-- 5a. Add reverse FK: subscriptions.pending_tier_change_id → pending_tier_changes(id, subscription_id)
+--     The composite FK enforces that the referenced row belongs to THIS subscription
+--     (subscriptions.id must equal pending_tier_changes.subscription_id).
 -- ─────────────────────────────────────────────────────────────────────────────
 
 alter table public.subscriptions
-  add column if not exists pending_tier_change_id uuid references public.pending_tier_changes(id);
+  add column if not exists pending_tier_change_id uuid;
+
+alter table public.subscriptions
+  add constraint fk_subscriptions_pending_tier_change
+  foreign key (pending_tier_change_id, id)
+  references public.pending_tier_changes (id, subscription_id)
+  not valid;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 5b. Partial unique index — single active hifz per student (R-001)

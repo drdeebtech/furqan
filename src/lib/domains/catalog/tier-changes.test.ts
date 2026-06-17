@@ -89,9 +89,11 @@ describe("canUpgradeImmediately", () => {
 function makeAdmin(overrides: {
   cancel?: { error: unknown };
   insert?: { data: unknown; error: unknown };
+  reread?: { data: unknown; error: unknown };
 }): SupabaseClient<Database> {
   const cancelRes = overrides.cancel ?? { error: null };
   const insertRes = overrides.insert ?? { data: { id: "ptc-001" }, error: null };
+  const rereadRes = overrides.reread ?? { data: null, error: null };
 
   return {
     from: vi.fn((table: string) => {
@@ -105,6 +107,13 @@ function makeAdmin(overrides: {
           insert: vi.fn(() => ({
             select: vi.fn(() => ({
               single: vi.fn(() => Promise.resolve(insertRes)),
+            })),
+          })),
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn(() => Promise.resolve(rereadRes)),
+              })),
             })),
           })),
         };
@@ -144,5 +153,40 @@ describe("scheduleRenewalChange", () => {
     });
     const result = await scheduleRenewalChange(admin, opts);
     expect(result).toEqual({ id: "ptc-002" });
+  });
+
+  // ── 23505 concurrent-insert race path ─────────────────────────────────────
+
+  it("23505 race: matching winner → returns winner id as idempotent success", async () => {
+    const admin = makeAdmin({
+      insert: { data: null, error: { message: "duplicate key", code: "23505" } },
+      reread: {
+        data: { id: "ptc-winner", to_package_id: "pkg-002", change_reason: "downgrade" },
+        error: null,
+      },
+    });
+    const result = await scheduleRenewalChange(admin, opts);
+    expect(result).toEqual({ id: "ptc-winner" });
+  });
+
+  it("23505 race: non-matching winner (different package) → returns null", async () => {
+    const admin = makeAdmin({
+      insert: { data: null, error: { message: "duplicate key", code: "23505" } },
+      reread: {
+        data: { id: "ptc-winner", to_package_id: "pkg-DIFFERENT", change_reason: "downgrade" },
+        error: null,
+      },
+    });
+    const result = await scheduleRenewalChange(admin, opts);
+    expect(result).toBeNull();
+  });
+
+  it("23505 race: winner deleted before re-read → returns null", async () => {
+    const admin = makeAdmin({
+      insert: { data: null, error: { message: "duplicate key", code: "23505" } },
+      reread: { data: null, error: null },
+    });
+    const result = await scheduleRenewalChange(admin, opts);
+    expect(result).toBeNull();
   });
 });

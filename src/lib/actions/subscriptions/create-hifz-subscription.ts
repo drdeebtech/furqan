@@ -129,11 +129,18 @@ export async function resolveStudentFamilyDiscount(
   let best: DiscountResolution = { applies: false };
 
   for (const link of guardianLinks) {
-    const result = await resolveGuardianDiscount(admin, link.guardian_id, productCategory);
-    if (result.applies) {
-      if (!best.applies || result.discountPct > best.discountPct) {
-        best = result;
+    try {
+      const result = await resolveGuardianDiscount(admin, link.guardian_id, productCategory);
+      if (result.applies) {
+        if (!best.applies || result.discountPct > best.discountPct) {
+          best = result;
+        }
       }
+    } catch (err) {
+      logError("resolveStudentFamilyDiscount: guardian lookup failed", err, {
+        tag: "billing",
+        guardian_id: link.guardian_id,
+      });
     }
   }
 
