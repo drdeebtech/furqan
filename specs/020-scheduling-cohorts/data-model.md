@@ -209,6 +209,7 @@ Group/halaqa/course definitions with fixed schedules.
 | `schedule_json` | `jsonb` | Fixed weekly schedule (days + times) |
 | `session_duration_min` | `int` | |
 | `start_date` | `date` | |
+| `entry_conditions_json` | `jsonb NULL` | Specialist-authored course entry conditions (read-only after creation; never model-generated); validated at join time |
 
 **This spec adds**: `open_overflow_halaqa()` SECURITY DEFINER fn that may INSERT new rows (R-003).
 

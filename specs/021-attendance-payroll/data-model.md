@@ -61,7 +61,7 @@ CREATE TABLE attendance_records (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   booking_id   uuid NOT NULL UNIQUE REFERENCES bookings(id),
   student_id   uuid NOT NULL REFERENCES profiles(id),
-  teacher_id   uuid NOT NULL REFERENCES profiles(id),  -- actual deliverer
+  teacher_id   uuid NOT NULL REFERENCES profiles(id),  -- originally assigned teacher (the absent teacher if teacher_absent; actual deliverer recorded in session_deliveries)
   session_id   uuid REFERENCES sessions(id),
   outcome      attendance_outcome NOT NULL,
   credit_action credit_action NOT NULL DEFAULT 'none',

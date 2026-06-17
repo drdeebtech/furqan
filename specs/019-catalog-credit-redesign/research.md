@@ -90,16 +90,7 @@ sessions_remaining integer GENERATED ALWAYS AS (sessions_total - sessions_used) 
 -- Constraint: sessions_used <= sessions_total (cannot go negative)
 ```
 
-**Verification**: `deduct_package_session(uuid)` selects:
-```sql
-SELECT id FROM student_packages
-WHERE student_id = p_student_id AND status = 'active'
-  AND sessions_remaining > 0
-ORDER BY purchased_at ASC  -- oldest first (FIFO)
-LIMIT 1
-FOR UPDATE;
-```
-This FIFO order naturally "merges" old unused sessions with new grants — the student uses old ones first.
+**Verification**: The FIFO package selection is performed by `start_instant_session_booking` (migration `20260615140000`), which selects with `ORDER BY expires_at ASC NULLS LAST, purchased_at ASC` — expiring-soonest first, then oldest-purchased. `deduct_package_session(p_package_id uuid)` is called on the already-selected package and increments `sessions_used` on that specific row; it does **not** perform the student-level FIFO SELECT itself (it takes a package id, not a student id). This FIFO order naturally "merges" old unused sessions with new grants — the student consumes expiring credits first.
 
 **For spec 019**: Grant landing = `INSERT INTO student_packages (student_id, package_id, payment_id, sessions_total, sessions_used, status, expires_at)` with `sessions_total = tier.sessions_per_month`. Old rows are untouched. No reset.
 

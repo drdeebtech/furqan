@@ -110,7 +110,7 @@ For an individual hifz package, the **student** chose the teacher; that choice i
 1. **Given** an individual-hifz subscriber whose teacher is assigned for the current month, **When** they request a teacher change mid-month via self-service, **Then** the request is rejected (assignment locked for the month).
 2. **Given** the month has ended (renewal), **When** the student selects a different teacher, **Then** the new assignment takes effect for the new month.
 3. **Given** a mid-month incompatibility, **When** an **admin** approves a teacher change, **Then** the assignment is reassigned mid-month, recorded with the approving actor, and future bookings bind to the new teacher (per #38).
-4. **Given** any teacher reassignment, **When** it occurs, **Then** already-scheduled future sessions are handled deterministically (re-pointed to the new teacher or cancelled for rebooking) and the change is auditable.
+4. **Given** any teacher reassignment, **When** it occurs, **Then** already-scheduled future sessions are cancelled (the student rebooks from the new teacher's published availability — re-pointing is rejected per research.md R-005: the new teacher's schedule may differ) and the change is auditable.
 
 ---
 

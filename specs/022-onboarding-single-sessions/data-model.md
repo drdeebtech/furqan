@@ -71,7 +71,8 @@ INSERT INTO platform_settings (key, value) VALUES
   ('single_session_review_price_usd',              '0.00'),
   ('single_session_consolidate_surah_price_usd',   '0.00'),
   ('single_session_memorize_mutoon_price_usd',     '0.00'),
-  ('single_session_test_juz_price_usd',            '0.00')
+  ('single_session_test_juz_price_usd',            '0.00'),
+  ('hifz_assessment_limit_per_specialty',          '1')    -- max per-student assessments per specialty type (admin adjustable)
 ON CONFLICT (key) DO NOTHING;
 ```
 
@@ -177,6 +178,7 @@ Added to `ALLOWED_SETTING_KEYS` in `src/lib/settings.ts`:
 | `single_session_consolidate_surah_price_usd` | `'0.00'` | Consolidate-surah session price |
 | `single_session_memorize_mutoon_price_usd` | `'0.00'` | Memorize-mutoon session price |
 | `single_session_test_juz_price_usd` | `'0.00'` | Test juz/mutashabihat session price |
+| `hifz_assessment_limit_per_specialty` | `'1'` | Max per-student assessment sessions per specialty type (admin adjustable) |
 
 ---
 
