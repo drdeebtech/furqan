@@ -187,7 +187,7 @@ describe("applyPendingTierChangeAtRenewal", () => {
       expect(result.pendingId).toBe("ptc-1");
       expect(result.newPlanId).toBe("plan-new-tier");
       expect(result.regrant.ok).toBe(true);
-      // Re-grant uses distinct billing_cycle_key with :tier-applied suffix
+      // Re-grant uses distinct billing_cycle_key: {subscriptionId}:tier-change-{pendingId}
       expect(result.regrant).toHaveProperty("grantId", "regrant-id");
     }
   });

@@ -168,26 +168,13 @@ export async function applyPendingTierChangeAtRenewal(
 
   const newPlanId = pkg.subscription_plan_id;
 
-  // 3. Re-grant at the new tier's sessions_per_month FIRST (idempotent via billing_cycle_key).
-  //    Grant before mutating the subscription so that any grant failure leaves no state change.
-  //    Partial-failure note: if regrant succeeds but step 4 (plan_id update) fails, credits are
-  //    at the new tier while subscription.plan_id still points to the old plan. On the next
-  //    renewal the webhook retries; the regrant key prevents duplication across retries.
-  // Subscription-scoped key: stable across monthly renewals and webhook retries.
-  // An invoice-scoped key (invoiceId:tier-applied) would create duplicate grants
-  // if regrant succeeds but plan switch fails → pending stays 'pending' → next
-  // month produces a new invoiceId and a second grant for the same tier change.
-  const regrantKey = `${subscriptionId}:tier-change-${pending.id}`;
-  const regrant = await grantHifzCycleCredits(admin, subscriptionId, newPlanId, regrantKey);
-
-  if (!regrant.ok) {
-    logError("applyPendingTierChange: credit regrant failed", new Error(regrant.error), {
-      tag: "billing", subscription_id: subscriptionId, new_plan_id: newPlanId,
-    });
-    return { ok: false, reason: "update_failed", error: regrant.error };
-  }
-
-  // 4. Switch the subscription to the new plan (grant already committed above).
+  // 3. Switch subscription.plan_id FIRST so the grant SQL validation passes.
+  //    The grant function asserts s.plan_id = p_plan_id; subscription must already
+  //    reflect the new plan before we call it.
+  //    Partial-failure: if grant (step 4) fails after this update, subscription.plan_id
+  //    is already newPlanId but credits haven't been issued. The webhook marks the event
+  //    failed and Stripe retries; on retry applyPendingTierChangeAtRenewal runs again —
+  //    pending is still 'pending', plan switch is a no-op, grant key is idempotent.
   const { data: updatedSub, error: subErr } = await admin
     .from("subscriptions")
     .update({ plan_id: newPlanId })
@@ -200,6 +187,21 @@ export async function applyPendingTierChangeAtRenewal(
       tag: "billing", subscription_id: subscriptionId, new_plan_id: newPlanId,
     });
     return { ok: false, reason: "update_failed", error: subErr?.message ?? "subscription update matched no rows" };
+  }
+
+  // 4. Re-grant at the new tier's sessions_per_month (idempotent via billing_cycle_key).
+  //    Subscription-scoped key: stable across monthly renewals and webhook retries.
+  //    An invoice-scoped key (invoiceId:tier-applied) would create duplicate grants
+  //    if plan switch succeeds but grant fails → pending stays 'pending' → next
+  //    month produces a new invoiceId and a second grant for the same tier change.
+  const regrantKey = `${subscriptionId}:tier-change-${pending.id}`;
+  const regrant = await grantHifzCycleCredits(admin, subscriptionId, newPlanId, regrantKey);
+
+  if (!regrant.ok) {
+    logError("applyPendingTierChange: credit regrant failed", new Error(regrant.error), {
+      tag: "billing", subscription_id: subscriptionId, new_plan_id: newPlanId,
+    });
+    return { ok: false, reason: "update_failed", error: regrant.error };
   }
 
   // 5. Transition pending → applied only after regrant + sub switch both succeed

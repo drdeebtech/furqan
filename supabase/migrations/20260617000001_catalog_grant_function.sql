@@ -70,6 +70,13 @@ begin
       using errcode = '22023';
   end if;
 
+  -- Reject over-grant: delta cannot exceed the plan's full monthly allowance.
+  if p_session_count is not null and p_session_count > v_sessions_per_mon then
+    raise exception 'grant_hifz_cycle_credits: p_session_count (%) exceeds plan sessions_per_month (%)',
+      p_session_count, v_sessions_per_mon
+      using errcode = '22023';
+  end if;
+
   -- Apply override: mid-cycle upgrades pass deltaSessions; renewals pass null → full count.
   v_sessions_per_mon := coalesce(p_session_count, v_sessions_per_mon);
 

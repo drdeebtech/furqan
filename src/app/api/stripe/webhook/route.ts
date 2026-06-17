@@ -292,7 +292,6 @@ async function handleInvoicePaid(ctx: EventContext): Promise<void> {
         subscription_id: mirrorId,
         error: tierResult.error,
       });
-      await markEvent(ctx, "failed", `pending tier change failed: ${tierResult.reason}`);
       throw new Error(`pending tier change failed: ${tierResult.reason}`);
     }
   }
