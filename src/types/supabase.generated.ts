@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -379,9 +384,15 @@ export type Database = {
         Row: {
           amount_local: number | null
           amount_usd: number
+          booking_product_type: string | null
           cancel_reason: string | null
+          cancel_reason_code:
+            | Database["public"]["Enums"]["booking_cancel_reason_code"]
+            | null
+          cancel_reason_detail: string | null
           cancelled_at: string | null
           cancelled_by: string | null
+          class_offering_id: string | null
           created_at: string
           created_by: string | null
           decline_reason: string | null
@@ -391,26 +402,36 @@ export type Database = {
           id: string
           local_currency: string | null
           notes: string | null
+          purpose: Database["public"]["Enums"]["specialized_purpose"] | null
           rate_snapshot: number
           refund_policy_id: string | null
           rescheduled_from: string | null
           scheduled_at: string
+          session_id: string | null
           session_type: Database["public"]["Enums"]["session_type"]
+          specialty: string | null
           status: Database["public"]["Enums"]["booking_status"]
           student_id: string
           student_package_id: string | null
+          target_scope: Json | null
           tax_amount: number
           tax_rate: number
-          teacher_confirmed: boolean | null
+          teacher_confirmed: boolean
           teacher_confirmed_at: string | null
           teacher_id: string
         }
         Insert: {
           amount_local?: number | null
           amount_usd: number
+          booking_product_type?: string | null
           cancel_reason?: string | null
+          cancel_reason_code?:
+            | Database["public"]["Enums"]["booking_cancel_reason_code"]
+            | null
+          cancel_reason_detail?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
+          class_offering_id?: string | null
           created_at?: string
           created_by?: string | null
           decline_reason?: string | null
@@ -420,26 +441,36 @@ export type Database = {
           id?: string
           local_currency?: string | null
           notes?: string | null
+          purpose?: Database["public"]["Enums"]["specialized_purpose"] | null
           rate_snapshot: number
           refund_policy_id?: string | null
           rescheduled_from?: string | null
           scheduled_at: string
+          session_id?: string | null
           session_type?: Database["public"]["Enums"]["session_type"]
+          specialty?: string | null
           status?: Database["public"]["Enums"]["booking_status"]
           student_id: string
           student_package_id?: string | null
+          target_scope?: Json | null
           tax_amount?: number
           tax_rate?: number
-          teacher_confirmed?: boolean | null
+          teacher_confirmed?: boolean
           teacher_confirmed_at?: string | null
           teacher_id: string
         }
         Update: {
           amount_local?: number | null
           amount_usd?: number
+          booking_product_type?: string | null
           cancel_reason?: string | null
+          cancel_reason_code?:
+            | Database["public"]["Enums"]["booking_cancel_reason_code"]
+            | null
+          cancel_reason_detail?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
+          class_offering_id?: string | null
           created_at?: string
           created_by?: string | null
           decline_reason?: string | null
@@ -449,17 +480,21 @@ export type Database = {
           id?: string
           local_currency?: string | null
           notes?: string | null
+          purpose?: Database["public"]["Enums"]["specialized_purpose"] | null
           rate_snapshot?: number
           refund_policy_id?: string | null
           rescheduled_from?: string | null
           scheduled_at?: string
+          session_id?: string | null
           session_type?: Database["public"]["Enums"]["session_type"]
+          specialty?: string | null
           status?: Database["public"]["Enums"]["booking_status"]
           student_id?: string
           student_package_id?: string | null
+          target_scope?: Json | null
           tax_amount?: number
           tax_rate?: number
-          teacher_confirmed?: boolean | null
+          teacher_confirmed?: boolean
           teacher_confirmed_at?: string | null
           teacher_id?: string
         }
@@ -476,6 +511,13 @@ export type Database = {
             columns: ["cancelled_by"]
             isOneToOne: false
             referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_class_offering_id_fkey"
+            columns: ["class_offering_id"]
+            isOneToOne: false
+            referencedRelation: "class_offerings"
             referencedColumns: ["id"]
           },
           {
@@ -512,6 +554,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_bookings"
             referencedColumns: ["booking_id"]
+          },
+          {
+            foreignKeyName: "bookings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_sessions"
+            referencedColumns: ["session_id"]
           },
           {
             foreignKeyName: "bookings_student_id_fkey"
@@ -1735,6 +1791,8 @@ export type Database = {
       homework_assignments: {
         Row: {
           assigned_at: string
+          audio_duration_seconds: number | null
+          audio_url: string | null
           ayah_end: number | null
           ayah_start: number | null
           booking_id: string
@@ -1747,6 +1805,7 @@ export type Database = {
           pages_count: number | null
           parent_assignment_id: string | null
           ready_at: string | null
+          review_horizon: string
           session_id: string | null
           status: Database["public"]["Enums"]["homework_status"]
           student_id: string
@@ -1758,6 +1817,8 @@ export type Database = {
         }
         Insert: {
           assigned_at?: string
+          audio_duration_seconds?: number | null
+          audio_url?: string | null
           ayah_end?: number | null
           ayah_start?: number | null
           booking_id: string
@@ -1770,6 +1831,7 @@ export type Database = {
           pages_count?: number | null
           parent_assignment_id?: string | null
           ready_at?: string | null
+          review_horizon?: string
           session_id?: string | null
           status?: Database["public"]["Enums"]["homework_status"]
           student_id: string
@@ -1781,6 +1843,8 @@ export type Database = {
         }
         Update: {
           assigned_at?: string
+          audio_duration_seconds?: number | null
+          audio_url?: string | null
           ayah_end?: number | null
           ayah_start?: number | null
           booking_id?: string
@@ -1793,6 +1857,7 @@ export type Database = {
           pages_count?: number | null
           parent_assignment_id?: string | null
           ready_at?: string | null
+          review_horizon?: string
           session_id?: string | null
           status?: Database["public"]["Enums"]["homework_status"]
           student_id?: string
@@ -2446,6 +2511,7 @@ export type Database = {
           duration_min: number
           features: string[] | null
           features_ar: string[] | null
+          halaqa_pricing_tiers: Json | null
           id: string
           is_active: boolean | null
           is_featured: boolean | null
@@ -2459,7 +2525,9 @@ export type Database = {
           price_usd: number
           product_category: string | null
           session_count: number
+          session_mode_allowances: Json
           subscription_plan_id: string | null
+          supports_session_modes: string[]
           updated_at: string
         }
         Insert: {
@@ -2470,6 +2538,7 @@ export type Database = {
           duration_min?: number
           features?: string[] | null
           features_ar?: string[] | null
+          halaqa_pricing_tiers?: Json | null
           id?: string
           is_active?: boolean | null
           is_featured?: boolean | null
@@ -2483,7 +2552,9 @@ export type Database = {
           price_usd: number
           product_category?: string | null
           session_count: number
+          session_mode_allowances?: Json
           subscription_plan_id?: string | null
+          supports_session_modes?: string[]
           updated_at?: string
         }
         Update: {
@@ -2494,6 +2565,7 @@ export type Database = {
           duration_min?: number
           features?: string[] | null
           features_ar?: string[] | null
+          halaqa_pricing_tiers?: Json | null
           id?: string
           is_active?: boolean | null
           is_featured?: boolean | null
@@ -2507,7 +2579,9 @@ export type Database = {
           price_usd?: number
           product_category?: string | null
           session_count?: number
+          session_mode_allowances?: Json
           subscription_plan_id?: string | null
+          supports_session_modes?: string[]
           updated_at?: string
         }
         Relationships: [
@@ -2522,59 +2596,48 @@ export type Database = {
       }
       parent_reports: {
         Row: {
-          body: string
-          created_at: string | null
-          created_by: string
+          content: string
+          created_at: string
           id: string
+          parent_email: string | null
+          parent_phone: string | null
+          read_at: string | null
           report_type: Database["public"]["Enums"]["report_type"]
           sent_at: string | null
-          sent_to_email: string | null
-          sent_to_phone: string | null
+          sent_via: string[] | null
           student_id: string
-          teacher_id: string | null
-          title: string
+          teacher_id: string
+          title: string | null
         }
         Insert: {
-          body: string
-          created_at?: string | null
-          created_by: string
+          content: string
+          created_at?: string
           id?: string
+          parent_email?: string | null
+          parent_phone?: string | null
+          read_at?: string | null
           report_type: Database["public"]["Enums"]["report_type"]
           sent_at?: string | null
-          sent_to_email?: string | null
-          sent_to_phone?: string | null
+          sent_via?: string[] | null
           student_id: string
-          teacher_id?: string | null
-          title: string
+          teacher_id: string
+          title?: string | null
         }
         Update: {
-          body?: string
-          created_at?: string | null
-          created_by?: string
+          content?: string
+          created_at?: string
           id?: string
+          parent_email?: string | null
+          parent_phone?: string | null
+          read_at?: string | null
           report_type?: Database["public"]["Enums"]["report_type"]
           sent_at?: string | null
-          sent_to_email?: string | null
-          sent_to_phone?: string | null
+          sent_via?: string[] | null
           student_id?: string
-          teacher_id?: string | null
-          title?: string
+          teacher_id?: string
+          title?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "parent_reports_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "parent_reports_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "public_profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "parent_reports_student_id_fkey"
             columns: ["student_id"]
@@ -2649,14 +2712,20 @@ export type Database = {
           amount_local: number | null
           amount_usd: number
           booking_id: string | null
+          captured_at: string | null
           created_at: string
           exchange_rate_snapshot: number | null
           id: string
           local_currency: string | null
+          package_id: string | null
           paid_at: string | null
+          payer_email: string | null
+          paypal_capture_id: string | null
+          paypal_order_id: string | null
+          provider: string
           revenue_recognized: number
           status: Database["public"]["Enums"]["payment_status"]
-          stripe_payment_intent: string
+          stripe_payment_intent: string | null
           student_id: string
           tax_amount: number
           tax_rate: number
@@ -2666,14 +2735,20 @@ export type Database = {
           amount_local?: number | null
           amount_usd: number
           booking_id?: string | null
+          captured_at?: string | null
           created_at?: string
           exchange_rate_snapshot?: number | null
           id?: string
           local_currency?: string | null
+          package_id?: string | null
           paid_at?: string | null
+          payer_email?: string | null
+          paypal_capture_id?: string | null
+          paypal_order_id?: string | null
+          provider?: string
           revenue_recognized?: number
           status?: Database["public"]["Enums"]["payment_status"]
-          stripe_payment_intent: string
+          stripe_payment_intent?: string | null
           student_id: string
           tax_amount?: number
           tax_rate?: number
@@ -2683,14 +2758,20 @@ export type Database = {
           amount_local?: number | null
           amount_usd?: number
           booking_id?: string | null
+          captured_at?: string | null
           created_at?: string
           exchange_rate_snapshot?: number | null
           id?: string
           local_currency?: string | null
+          package_id?: string | null
           paid_at?: string | null
+          payer_email?: string | null
+          paypal_capture_id?: string | null
+          paypal_order_id?: string | null
+          provider?: string
           revenue_recognized?: number
           status?: Database["public"]["Enums"]["payment_status"]
-          stripe_payment_intent?: string
+          stripe_payment_intent?: string | null
           student_id?: string
           tax_amount?: number
           tax_rate?: number
@@ -2709,6 +2790,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "v_bookings"
             referencedColumns: ["booking_id"]
+          },
+          {
+            foreignKeyName: "payments_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "payments_student_id_fkey"
@@ -2807,22 +2895,25 @@ export type Database = {
       platform_settings: {
         Row: {
           description: string | null
+          id: string
           key: string
-          updated_at: string | null
+          updated_at: string
           updated_by: string | null
           value: string
         }
         Insert: {
           description?: string | null
+          id?: string
           key: string
-          updated_at?: string | null
+          updated_at?: string
           updated_by?: string | null
-          value?: string
+          value: string
         }
         Update: {
           description?: string | null
+          id?: string
           key?: string
-          updated_at?: string | null
+          updated_at?: string
           updated_by?: string | null
           value?: string
         }
@@ -2860,6 +2951,7 @@ export type Database = {
           parent_phone: string | null
           phone: string | null
           role: Database["public"]["Enums"]["user_role"]
+          roles: Database["public"]["Enums"]["user_role"][]
           timezone: string
           updated_at: string
         }
@@ -2879,6 +2971,7 @@ export type Database = {
           parent_phone?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          roles?: Database["public"]["Enums"]["user_role"][]
           timezone?: string
           updated_at?: string
         }
@@ -2898,6 +2991,7 @@ export type Database = {
           parent_phone?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
+          roles?: Database["public"]["Enums"]["user_role"][]
           timezone?: string
           updated_at?: string
         }
@@ -3634,80 +3728,57 @@ export type Database = {
       }
       session_evaluations: {
         Row: {
-          akhlaq_score: number | null
+          areas_for_improvement: string | null
           attendance_score: number | null
-          created_at: string | null
+          created_at: string
+          evaluation_date: string
           evaluation_type: Database["public"]["Enums"]["evaluation_type"]
-          evaluator_id: string
+          fluency_score: number | null
           hifz_score: number | null
           id: string
-          notes: string | null
+          next_goals: string | null
           overall_score: number | null
-          period_end: string
-          period_start: string
-          recommendations: string | null
           strengths: string | null
           student_id: string
           tajweed_score: number | null
+          teacher_comments: string | null
           teacher_id: string
-          updated_at: string | null
-          weaknesses: string | null
         }
         Insert: {
-          akhlaq_score?: number | null
+          areas_for_improvement?: string | null
           attendance_score?: number | null
-          created_at?: string | null
-          evaluation_type: Database["public"]["Enums"]["evaluation_type"]
-          evaluator_id: string
+          created_at?: string
+          evaluation_date?: string
+          evaluation_type?: Database["public"]["Enums"]["evaluation_type"]
+          fluency_score?: number | null
           hifz_score?: number | null
           id?: string
-          notes?: string | null
+          next_goals?: string | null
           overall_score?: number | null
-          period_end: string
-          period_start: string
-          recommendations?: string | null
           strengths?: string | null
           student_id: string
           tajweed_score?: number | null
+          teacher_comments?: string | null
           teacher_id: string
-          updated_at?: string | null
-          weaknesses?: string | null
         }
         Update: {
-          akhlaq_score?: number | null
+          areas_for_improvement?: string | null
           attendance_score?: number | null
-          created_at?: string | null
+          created_at?: string
+          evaluation_date?: string
           evaluation_type?: Database["public"]["Enums"]["evaluation_type"]
-          evaluator_id?: string
+          fluency_score?: number | null
           hifz_score?: number | null
           id?: string
-          notes?: string | null
+          next_goals?: string | null
           overall_score?: number | null
-          period_end?: string
-          period_start?: string
-          recommendations?: string | null
           strengths?: string | null
           student_id?: string
           tajweed_score?: number | null
+          teacher_comments?: string | null
           teacher_id?: string
-          updated_at?: string | null
-          weaknesses?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "session_evaluations_evaluator_id_fkey"
-            columns: ["evaluator_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "session_evaluations_evaluator_id_fkey"
-            columns: ["evaluator_id"]
-            isOneToOne: false
-            referencedRelation: "public_profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "session_evaluations_student_id_fkey"
             columns: ["student_id"]
@@ -4001,64 +4072,103 @@ export type Database = {
         Row: {
           actual_duration: number | null
           admin_observer_id: string | null
-          booking_id: string
+          allow_recording: boolean
+          ayah_range: string | null
+          booking_id: string | null
+          capacity: number
           created_at: string
           created_via: string
+          current_enrollment: number
+          daily_room_mode: string
           ended_at: string | null
           expires_at: string | null
+          external_lecture_url: string | null
           homework: string | null
           id: string
-          is_observable: boolean | null
+          is_group: boolean
+          is_observable: boolean
+          lesson_plan: Json | null
+          min_participants: number
           observer_joined_at: string | null
-          observer_notes: string | null
           post_session_notes: string | null
           recording_url: string | null
           room_name: string
           room_url: string
+          scheduled_at: string | null
+          session_mode: Database["public"]["Enums"]["session_mode"]
+          session_topic_ar: string | null
+          session_topic_en: string | null
           started_at: string | null
           student_joined: boolean
+          surah_reference: string | null
           teacher_joined: boolean
         }
         Insert: {
           actual_duration?: number | null
           admin_observer_id?: string | null
-          booking_id: string
+          allow_recording?: boolean
+          ayah_range?: string | null
+          booking_id?: string | null
+          capacity?: number
           created_at?: string
           created_via?: string
+          current_enrollment?: number
+          daily_room_mode?: string
           ended_at?: string | null
           expires_at?: string | null
+          external_lecture_url?: string | null
           homework?: string | null
           id?: string
-          is_observable?: boolean | null
+          is_group?: boolean
+          is_observable?: boolean
+          lesson_plan?: Json | null
+          min_participants?: number
           observer_joined_at?: string | null
-          observer_notes?: string | null
           post_session_notes?: string | null
           recording_url?: string | null
           room_name?: string
           room_url: string
+          scheduled_at?: string | null
+          session_mode?: Database["public"]["Enums"]["session_mode"]
+          session_topic_ar?: string | null
+          session_topic_en?: string | null
           started_at?: string | null
           student_joined?: boolean
+          surah_reference?: string | null
           teacher_joined?: boolean
         }
         Update: {
           actual_duration?: number | null
           admin_observer_id?: string | null
-          booking_id?: string
+          allow_recording?: boolean
+          ayah_range?: string | null
+          booking_id?: string | null
+          capacity?: number
           created_at?: string
           created_via?: string
+          current_enrollment?: number
+          daily_room_mode?: string
           ended_at?: string | null
           expires_at?: string | null
+          external_lecture_url?: string | null
           homework?: string | null
           id?: string
-          is_observable?: boolean | null
+          is_group?: boolean
+          is_observable?: boolean
+          lesson_plan?: Json | null
+          min_participants?: number
           observer_joined_at?: string | null
-          observer_notes?: string | null
           post_session_notes?: string | null
           recording_url?: string | null
           room_name?: string
           room_url?: string
+          scheduled_at?: string | null
+          session_mode?: Database["public"]["Enums"]["session_mode"]
+          session_topic_ar?: string | null
+          session_topic_en?: string | null
           started_at?: string | null
           student_joined?: boolean
+          surah_reference?: string | null
           teacher_joined?: boolean
         }
         Relationships: [
@@ -4526,12 +4636,17 @@ export type Database = {
       student_packages: {
         Row: {
           billing_cycle_key: string | null
+          cancel_reason_code:
+            | Database["public"]["Enums"]["booking_cancel_reason_code"]
+            | null
+          cancel_reason_detail: string | null
           created_at: string
           expires_at: string | null
           id: string
           package_id: string | null
           payment_id: string | null
           purchased_at: string
+          session_mode_used: Json
           sessions_remaining: number | null
           sessions_total: number
           sessions_used: number
@@ -4541,12 +4656,17 @@ export type Database = {
         }
         Insert: {
           billing_cycle_key?: string | null
+          cancel_reason_code?:
+            | Database["public"]["Enums"]["booking_cancel_reason_code"]
+            | null
+          cancel_reason_detail?: string | null
           created_at?: string
           expires_at?: string | null
           id?: string
           package_id?: string | null
           payment_id?: string | null
           purchased_at?: string
+          session_mode_used?: Json
           sessions_remaining?: number | null
           sessions_total: number
           sessions_used?: number
@@ -4556,12 +4676,17 @@ export type Database = {
         }
         Update: {
           billing_cycle_key?: string | null
+          cancel_reason_code?:
+            | Database["public"]["Enums"]["booking_cancel_reason_code"]
+            | null
+          cancel_reason_detail?: string | null
           created_at?: string
           expires_at?: string | null
           id?: string
           package_id?: string | null
           payment_id?: string | null
           purchased_at?: string
+          session_mode_used?: Json
           sessions_remaining?: number | null
           sessions_total?: number
           sessions_used?: number
@@ -4618,6 +4743,7 @@ export type Database = {
           pages_reviewed: number | null
           progress_type: string
           quality_rating: number | null
+          recitation_standard: string | null
           student_id: string
           surah_from: number | null
           surah_to: number | null
@@ -4634,6 +4760,7 @@ export type Database = {
           pages_reviewed?: number | null
           progress_type?: string
           quality_rating?: number | null
+          recitation_standard?: string | null
           student_id: string
           surah_from?: number | null
           surah_to?: number | null
@@ -4650,6 +4777,7 @@ export type Database = {
           pages_reviewed?: number | null
           progress_type?: string
           quality_rating?: number | null
+          recitation_standard?: string | null
           student_id?: string
           surah_from?: number | null
           surah_to?: number | null
@@ -5431,7 +5559,7 @@ export type Database = {
           cv_rejection_reason: string | null
           cv_reviewed_at: string | null
           cv_reviewed_by: string | null
-          cv_status: Database["public"]["Enums"]["cv_status"] | null
+          cv_status: Database["public"]["Enums"]["cv_status"]
           cv_submitted_at: string | null
           gender: Database["public"]["Enums"]["gender_type"] | null
           hourly_rate: number
@@ -5456,7 +5584,7 @@ export type Database = {
           cv_rejection_reason?: string | null
           cv_reviewed_at?: string | null
           cv_reviewed_by?: string | null
-          cv_status?: Database["public"]["Enums"]["cv_status"] | null
+          cv_status?: Database["public"]["Enums"]["cv_status"]
           cv_submitted_at?: string | null
           gender?: Database["public"]["Enums"]["gender_type"] | null
           hourly_rate: number
@@ -5481,7 +5609,7 @@ export type Database = {
           cv_rejection_reason?: string | null
           cv_reviewed_at?: string | null
           cv_reviewed_by?: string | null
-          cv_status?: Database["public"]["Enums"]["cv_status"] | null
+          cv_status?: Database["public"]["Enums"]["cv_status"]
           cv_submitted_at?: string | null
           gender?: Database["public"]["Enums"]["gender_type"] | null
           hourly_rate?: number
@@ -5669,6 +5797,57 @@ export type Database = {
           },
           {
             foreignKeyName: "bookings_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_evaluations: {
+        Row: {
+          areas_for_improvement: string | null
+          attendance_score: number | null
+          created_at: string | null
+          evaluation_date: string | null
+          evaluation_id: string | null
+          evaluation_type: Database["public"]["Enums"]["evaluation_type"] | null
+          fluency_score: number | null
+          hifz_score: number | null
+          next_goals: string | null
+          overall_score: number | null
+          strengths: string | null
+          student_id: string | null
+          student_name: string | null
+          tajweed_score: number | null
+          teacher_comments: string | null
+          teacher_id: string | null
+          teacher_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_evaluations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_evaluations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_evaluations_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_evaluations_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "public_profiles"
@@ -6044,6 +6223,18 @@ export type Database = {
         }
         Returns: string
       }
+      create_single_session_booking: {
+        Args: {
+          p_booking_product_type: string
+          p_payment_id?: string
+          p_purpose?: Database["public"]["Enums"]["specialized_purpose"]
+          p_specialty?: string
+          p_student_id: string
+          p_target_scope?: Json
+          p_teacher_id: string
+        }
+        Returns: string
+      }
       deduct_package_session: {
         Args: { p_package_id: string }
         Returns: boolean
@@ -6077,10 +6268,6 @@ export type Database = {
       }
       end_session_with_booking: {
         Args: { p_actual_duration: number; p_session_id: string }
-        Returns: string
-      }
-      furqan_local_booking_end: {
-        Args: { mins: number; ts: string }
         Returns: string
       }
       get_teacher_overdue_eval_count: {
@@ -6171,24 +6358,21 @@ export type Database = {
       roster_recent_evaluations: {
         Args: { p_student_ids: string[]; p_teacher_id: string }
         Returns: {
-          akhlaq_score: number | null
+          areas_for_improvement: string | null
           attendance_score: number | null
-          created_at: string | null
+          created_at: string
+          evaluation_date: string
           evaluation_type: Database["public"]["Enums"]["evaluation_type"]
-          evaluator_id: string
+          fluency_score: number | null
           hifz_score: number | null
           id: string
-          notes: string | null
+          next_goals: string | null
           overall_score: number | null
-          period_end: string
-          period_start: string
-          recommendations: string | null
           strengths: string | null
           student_id: string
           tajweed_score: number | null
+          teacher_comments: string | null
           teacher_id: string
-          updated_at: string | null
-          weaknesses: string | null
         }[]
         SetofOptions: {
           from: "*"
@@ -6209,6 +6393,7 @@ export type Database = {
           pages_reviewed: number | null
           progress_type: string
           quality_rating: number | null
+          recitation_standard: string | null
           student_id: string
           surah_from: number | null
           surah_to: number | null
@@ -6239,18 +6424,32 @@ export type Database = {
           total_sessions: number
         }[]
       }
-      start_instant_session_booking: {
-        Args: {
-          p_amount_usd: number
-          p_duration_min: number
-          p_rate_snapshot: number
-          p_scheduled_at: string
-          p_session_type: Database["public"]["Enums"]["session_type"]
-          p_student_id: string
-          p_teacher_id: string
-        }
-        Returns: string
-      }
+      start_instant_session_booking:
+        | {
+            Args: {
+              p_amount_usd: number
+              p_duration_min: number
+              p_rate_snapshot: number
+              p_scheduled_at: string
+              p_session_type: Database["public"]["Enums"]["session_type"]
+              p_student_id: string
+              p_teacher_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_amount_usd: number
+              p_duration_min: number
+              p_payment_id?: string
+              p_rate_snapshot: number
+              p_scheduled_at: string
+              p_session_type: Database["public"]["Enums"]["session_type"]
+              p_student_id: string
+              p_teacher_id: string
+            }
+            Returns: string
+          }
       start_session_from_webhook: {
         Args: {
           p_event_id: string
@@ -6327,6 +6526,7 @@ export type Database = {
         | "reminder"
         | "system"
         | "homework"
+        | "course"
       participant_role: "teacher" | "student"
       payment_status: "pending" | "succeeded" | "failed" | "refunded"
       report_type:
@@ -6345,6 +6545,11 @@ export type Database = {
         | "tafsir"
         | "combined"
         | "other"
+      specialized_purpose:
+        | "review"
+        | "consolidate_surah"
+        | "memorize_mutoon"
+        | "test_juz_mutashabihat"
       student_level: "beginner" | "intermediate" | "advanced"
       subscription_status:
         | "incomplete"
@@ -6536,6 +6741,7 @@ export const Constants = {
         "reminder",
         "system",
         "homework",
+        "course",
       ],
       participant_role: ["teacher", "student"],
       payment_status: ["pending", "succeeded", "failed", "refunded"],
@@ -6557,6 +6763,12 @@ export const Constants = {
         "combined",
         "other",
       ],
+      specialized_purpose: [
+        "review",
+        "consolidate_surah",
+        "memorize_mutoon",
+        "test_juz_mutashabihat",
+      ],
       student_level: ["beginner", "intermediate", "advanced"],
       subscription_status: [
         "incomplete",
@@ -6570,4 +6782,3 @@ export const Constants = {
     },
   },
 } as const
-

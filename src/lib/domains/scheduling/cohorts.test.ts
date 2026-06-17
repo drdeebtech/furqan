@@ -29,12 +29,7 @@ describe("joinHalaqa", () => {
 
   it("should join a halaqa successfully when not full", async () => {
     mockAdmin.single.mockResolvedValueOnce({
-      data: { id: classOfferingId, capacity: 5, current_enrollment: 2, status: "open", session_type: "halaqa" },
-      error: null,
-    });
-
-    mockAdmin.maybeSingle.mockResolvedValueOnce({
-      data: { id: "session-789" },
+      data: { id: classOfferingId, capacity: 5, current_enrollment: 2, status: "open", session_type: "halaqa", session_id: "session-789" },
       error: null,
     });
 
@@ -58,25 +53,29 @@ describe("joinHalaqa", () => {
 
   it("should redirect to overflow when halaqa is full", async () => {
     mockAdmin.single.mockResolvedValueOnce({
-      data: { id: classOfferingId, capacity: 5, current_enrollment: 5, status: "open", session_type: "halaqa" },
+      data: { id: classOfferingId, capacity: 5, current_enrollment: 5, status: "open", session_type: "halaqa", session_id: null },
       error: null,
     });
 
+    // overflow RPC
     mockAdmin.rpc.mockResolvedValueOnce({
       data: [{ halaqa_id: "overflow-789", was_created: true }],
       error: null,
     });
 
-    mockAdmin.maybeSingle.mockResolvedValueOnce({
-      data: { id: "session-overflow" },
+    // overflow offering session_id lookup
+    mockAdmin.single.mockResolvedValueOnce({
+      data: { session_id: "session-overflow" },
       error: null,
     });
 
+    // session_participants insert
     mockAdmin.single.mockResolvedValueOnce({
       data: { id: "membership-002" },
       error: null,
     });
 
+    // increment_enrollment
     mockAdmin.rpc.mockResolvedValueOnce({ error: null });
 
     const result = await joinHalaqa(mockSupabase, mockAdmin, userId, classOfferingId);
@@ -90,12 +89,13 @@ describe("joinHalaqa", () => {
 
   it("should enforce entry conditions for courses", async () => {
     mockAdmin.single.mockResolvedValueOnce({
-      data: { 
-        id: classOfferingId, 
-        capacity: 5, 
-        current_enrollment: 2, 
-        status: "open", 
+      data: {
+        id: classOfferingId,
+        capacity: 5,
+        current_enrollment: 2,
+        status: "open",
         session_type: "course",
+        session_id: "session-789",
         entry_conditions_json: { required_confirmation: true, prompt: "Accept terms" }
       },
       error: null,

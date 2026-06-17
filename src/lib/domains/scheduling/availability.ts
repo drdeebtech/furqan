@@ -35,8 +35,12 @@ export async function getOpenSlots(
 
   if (month) {
     const start = `${month}-01`;
-    const end = `${month}-31`; // Approx, Postgres date comparison handles it
-    query = query.gte("slot_date", start).lte("slot_date", end);
+    const [year, mon] = month.split("-").map(Number);
+    const nextMonth =
+      mon === 12
+        ? `${year + 1}-01-01`
+        : `${year}-${String(mon + 1).padStart(2, "0")}-01`;
+    query = query.gte("slot_date", start).lt("slot_date", nextMonth);
   } else {
     // Default to today onwards
     query = query.gte("slot_date", new Date().toISOString().split("T")[0]);
@@ -68,6 +72,20 @@ export async function lockSlot(
 
   if (error) throw error;
   return data as boolean;
+}
+
+/**
+ * Best-effort unlock of a dated slot instance (reverses lockSlot on insert failure).
+ * Never throws — caller logs any error.
+ */
+export async function unlockSlot(
+  admin: SupabaseClient<Database>,
+  slotInstanceId: string,
+): Promise<void> {
+  await admin
+    .from("teacher_availability_instances")
+    .update({ is_booked: false })
+    .eq("id", slotInstanceId);
 }
 
 /**

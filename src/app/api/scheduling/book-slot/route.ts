@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: err.message }, { status: 409 });
     }
 
-    logError("api/scheduling/book-slot: failed", err, { user_id: user.id, slot_instance_id: slotInstanceId });
+    logError("api/scheduling/book-slot: failed", err, {});
     return NextResponse.json({ error: "Failed to create booking" }, { status: 500 });
   }
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { reassignTeacher } from "@/lib/domains/scheduling/assignments";
+import { requireAdminUser } from "../../_adminAuth";
 import { logError } from "@/lib/logger";
 
 const bodySchema = z.object({
@@ -15,27 +15,9 @@ const bodySchema = z.object({
  * Admin only. Bulk-cancels future bookings.
  */
 export async function POST(request: Request) {
-  const admin = createAdminClient();
-  
-  // Auth check: verify admin role
-  const { data: { user }, error: authErr } = await admin.auth.getUser(
-    request.headers.get("Authorization")?.split(" ")[1] ?? ""
-  );
-
-  if (authErr || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  // Check admin role in profiles
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (profile?.role !== "admin" && profile?.role !== ("super_admin" as any)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await requireAdminUser(request);
+  if (!auth.ok) return auth.response;
+  const { admin, userId } = auth.value;
 
   const body = await request.json();
   const result = bodySchema.safeParse(body);
@@ -52,12 +34,12 @@ export async function POST(request: Request) {
       assignmentId,
       newTeacherId,
       reason,
-      user.id
+      userId
     );
 
     return NextResponse.json(reassignmentResult, { status: 200 });
   } catch (err) {
-    logError("api/scheduling/admin/reassign-teacher: failed", err, { admin_id: user.id, assignment_id: assignmentId });
+    logError("api/scheduling/admin/reassign-teacher: failed", err, {});
     return NextResponse.json({ error: "Failed to reassign teacher" }, { status: 500 });
   }
 }

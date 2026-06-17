@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { getStudentAssignmentHistory } from "@/lib/domains/scheduling/assignments";
+import { requireAdminUser } from "../../_adminAuth";
 import { logError } from "@/lib/logger";
 
 const querySchema = z.object({
@@ -13,27 +13,9 @@ const querySchema = z.object({
  * Admin only.
  */
 export async function GET(request: Request) {
-  const admin = createAdminClient();
-  
-  // Auth check: verify admin role
-  const { data: { user }, error: authErr } = await admin.auth.getUser(
-    request.headers.get("Authorization")?.split(" ")[1] ?? ""
-  );
-
-  if (authErr || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  // Check admin role in profiles
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (profile?.role !== "admin" && profile?.role !== ("super_admin" as any)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await requireAdminUser(request);
+  if (!auth.ok) return auth.response;
+  const { admin } = auth.value;
 
   const { searchParams } = new URL(request.url);
   const result = querySchema.safeParse(Object.fromEntries(searchParams));
@@ -48,7 +30,7 @@ export async function GET(request: Request) {
     const history = await getStudentAssignmentHistory(admin, studentId);
     return NextResponse.json({ history });
   } catch (err) {
-    logError("api/scheduling/admin/assignment-history: failed", err, { admin_id: user.id, student_id: studentId });
+    logError("api/scheduling/admin/assignment-history: failed", err, {});
     return NextResponse.json({ error: "Failed to fetch assignment history" }, { status: 500 });
   }
 }

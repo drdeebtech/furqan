@@ -3,7 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase.generated";
 import { getMyAssignment } from "./assignments";
-import { lockSlot } from "./availability";
+import { lockSlot, unlockSlot } from "./availability";
 import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
 
@@ -98,10 +98,12 @@ export async function createConstrainedBooking(
     .single();
 
   if (bookErr) {
-    // If booking insert fails (e.g. RLS or constraint), we should ideally 
-    // unlock the slot, but in a stateless serverless context, we rely 
-    // on the transaction if we were using one. Since we're not, 
-    // a failed booking leaves the slot 'booked' until cleanup.
+    // Best-effort rollback: release the slot lock so it doesn't stay orphaned.
+    unlockSlot(admin, slotInstanceId).catch((unlockErr) =>
+      logError("createConstrainedBooking: slot unlock failed", unlockErr, {
+        slot_id: slotInstanceId,
+      })
+    );
     throw bookErr;
   }
 

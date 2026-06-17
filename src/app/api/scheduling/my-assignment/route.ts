@@ -19,7 +19,7 @@ export async function GET() {
     const assignment = await getMyAssignment(supabase, user.id);
     return NextResponse.json({ assignment });
   } catch (err) {
-    logError("api/scheduling/my-assignment: failed", err, { user_id: user.id });
+    logError("api/scheduling/my-assignment: failed", err, {});
     return NextResponse.json({ error: "Failed to fetch assignment" }, { status: 500 });
   }
 }

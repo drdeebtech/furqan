@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       }, { status: 422 });
     }
     
-    logError("api/scheduling/join-halaqa: failed", err, { user_id: user.id, class_offering_id: classOfferingId });
+    logError("api/scheduling/join-halaqa: failed", err, {});
     return NextResponse.json({ error: "Failed to join halaqa" }, { status: 500 });
   }
 }

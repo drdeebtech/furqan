@@ -56,12 +56,17 @@ describe("createConstrainedBooking", () => {
     const result = await createConstrainedBooking(mockSupabase, mockAdmin, userId, slotInstanceId, scheduledAt);
 
     expect(result).toBe("booking-001");
-    expect(mockSupabase.insert).toHaveBeenCalledWith({
-      student_id: userId,
-      teacher_id: teacherId,
-      scheduled_at: scheduledAt,
-      status: "pending",
-    });
+    expect(mockSupabase.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        student_id: userId,
+        teacher_id: teacherId,
+        scheduled_at: scheduledAt,
+        status: "pending",
+        amount_usd: 0,
+        duration_min: 60,
+        rate_snapshot: 0,
+      })
+    );
   });
 
   it("should throw AssignmentNotFoundError when no assignment exists", async () => {

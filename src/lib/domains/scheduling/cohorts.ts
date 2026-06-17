@@ -132,13 +132,20 @@ export async function joinHalaqa(
       throw joinErr;
     }
 
-    // 5. Increment enrollment (atomic)
+    // 5. Increment enrollment (atomic). Roll back participant row on failure to
+    // prevent over-enrollment from a stale count.
     const { error: incErr } = await admin.rpc("increment_enrollment", {
       p_offering_id: targetId
     });
 
     if (incErr) {
-      logError("joinHalaqa: enrollment increment failed", incErr, { target_id: targetId });
+      logError("joinHalaqa: enrollment increment failed — rolling back participant", incErr, { target_id: targetId });
+      try {
+        await admin.from("session_participants").delete().eq("id", membership.id);
+      } catch (delErr) {
+        logError("joinHalaqa: participant cleanup failed", delErr, {});
+      }
+      return { ok: false, error: "Failed to complete enrollment. Please try again." };
     }
 
     // Emit member.joined event (FR-021)
