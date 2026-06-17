@@ -55,7 +55,7 @@ export async function hasActiveHifzSubscription(
     .select("id", { count: "exact", head: true })
     .eq("student_id", studentId)
     .eq("is_hifz", true)
-    .not("status", "in", '("canceled","incomplete_expired")');
+    .not("status", "in", "(canceled,incomplete_expired)");
 
   if (error) throw error;
   return (count ?? 0) > 0;

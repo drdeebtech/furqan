@@ -66,7 +66,7 @@ export async function resolveGuardianDiscount(
     .select("id, student_id, plan_id")
     .in("student_id", childIds)
     .eq("is_hifz", true)
-    .not("status", "in", '("canceled","incomplete_expired")');
+    .not("status", "in", "(canceled,incomplete_expired)");
 
   if (subsErr) {
     logError("resolveGuardianDiscount: active subscriptions lookup failed", subsErr, {

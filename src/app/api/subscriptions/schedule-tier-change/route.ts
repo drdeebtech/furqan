@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     .select("id, plan_id, student_id")
     .eq("id", parsed.subscriptionId)
     .eq("student_id", userId)
-    .not("status", "in", '("canceled","incomplete_expired")')
+    .not("status", "in", "(canceled,incomplete_expired)")
     .maybeSingle();
 
   if (subErr || !sub) {
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   // Verify target package exists and is a hifz product.
   const { data: targetPkg, error: targetErr } = await admin
     .from("packages")
-    .select("id")
+    .select("id, subscription_plan_id")
     .eq("id", parsed.toPackageId)
     .eq("is_hifz_product", true)
     .maybeSingle();
@@ -80,6 +80,9 @@ export async function POST(request: Request) {
   }
   if (!targetPkg) {
     return NextResponse.json({ error: "Target package not found" }, { status: 404 });
+  }
+  if (targetPkg.subscription_plan_id === sub.plan_id) {
+    return NextResponse.json({ error: "Already on this tier" }, { status: 422 });
   }
 
   // Resolve current package for the from_package_id (hifz only).

@@ -67,6 +67,12 @@ begin
       using errcode = '22023';
   end if;
 
+  -- Reject zero/negative override — prevents corrupt cycle grants.
+  if p_session_count is not null and p_session_count <= 0 then
+    raise exception 'grant_hifz_cycle_credits: p_session_count must be > 0 when provided'
+      using errcode = '22023';
+  end if;
+
   -- Apply override: mid-cycle upgrades pass deltaSessions; renewals pass null → full count.
   v_sessions_per_mon := coalesce(p_session_count, v_sessions_per_mon);
 

@@ -42,7 +42,7 @@ export async function GET() {
     .eq("guardian_id", userId);
 
   if (error) {
-    logError("guardian/children: fetch failed", error, { tag: "guardian", user_id: userId });
+    logError("guardian/children: fetch failed", error, { tag: "guardian" });
     return NextResponse.json({ error: "Failed to fetch children" }, { status: 500 });
   }
 

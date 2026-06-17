@@ -59,7 +59,7 @@ export async function POST(request: Request) {
     .select("id, stripe_subscription_id, plan_id, student_id, current_period_end")
     .eq("id", parsed.subscriptionId)
     .eq("student_id", userId)
-    .not("status", "in", '("canceled","incomplete_expired")')
+    .not("status", "in", "(canceled,incomplete_expired)")
     .maybeSingle();
 
   if (subErr || !sub) {
@@ -105,6 +105,10 @@ export async function POST(request: Request) {
 
   if (newPkgErr || !newPkg?.subscription_plan_id) {
     return NextResponse.json({ error: "Target package not found" }, { status: 404 });
+  }
+
+  if (newPkg.id === currentPkg.id) {
+    return NextResponse.json({ error: "Already on this tier" }, { status: 422 });
   }
 
   const { data: newPlan, error: newPlanErr } = await admin

@@ -234,4 +234,44 @@ describe("applyPendingTierChangeAtRenewal", () => {
       expect(result.reason).toBe("update_failed");
     }
   });
+
+  it("returns update_failed when subscription plan update fails", async () => {
+    const admin = mockAdmin({
+      pendingChange: {
+        id: "ptc-1",
+        subscription_id: "sub-1",
+        student_id: "stu-1",
+        from_package_id: "pkg-old",
+        to_package_id: "pkg-new",
+        change_reason: "type_change",
+        status: "pending",
+      },
+      targetPackage: { subscription_plan_id: "plan-new" },
+      subUpdateError: { message: "write failed" },
+    });
+
+    const result = await applyPendingTierChangeAtRenewal(admin, "sub-1", "inv-1");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("update_failed");
+  });
+
+  it("returns update_failed when regrant RPC fails", async () => {
+    const admin = mockAdmin({
+      pendingChange: {
+        id: "ptc-1",
+        subscription_id: "sub-1",
+        student_id: "stu-1",
+        from_package_id: "pkg-old",
+        to_package_id: "pkg-new",
+        change_reason: "type_change",
+        status: "pending",
+      },
+      targetPackage: { subscription_plan_id: "plan-new" },
+      rpcError: { message: "grant failed" },
+    });
+
+    const result = await applyPendingTierChangeAtRenewal(admin, "sub-1", "inv-1");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("update_failed");
+  });
 });
