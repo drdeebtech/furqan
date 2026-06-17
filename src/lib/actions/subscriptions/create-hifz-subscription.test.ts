@@ -17,8 +17,8 @@ import {
  * `hasActiveHifzSubscription` chain: from → select → eq → eq → not → await {count}
  * `isPlanHifzProduct` chain: from → select → eq → maybeSingle → await {data}
  */
-function makeCountAdmin(count: number | null) {
-  const terminal = Promise.resolve({ count });
+function makeCountAdmin(count: number | null, error: any = null) {
+  const terminal = Promise.resolve({ count, error });
   const not = vi.fn(() => terminal);
   const eq2 = vi.fn(() => ({ not }));
   const eq1 = vi.fn(() => ({ eq: eq2 }));
@@ -26,12 +26,12 @@ function makeCountAdmin(count: number | null) {
   return { from: vi.fn(() => ({ select })) } as never;
 }
 
-function maybeSingleFn(data: unknown) {
-  return Promise.resolve({ data });
+function maybeSingleFn(data: unknown, error: any = null) {
+  return Promise.resolve({ data, error });
 }
 
-function makeDataAdmin(data: unknown) {
-  const maybeSingle = vi.fn(() => maybeSingleFn(data));
+function makeDataAdmin(data: unknown, error: any = null) {
+  const maybeSingle = vi.fn(() => maybeSingleFn(data, error));
   const eq = vi.fn(() => ({ maybeSingle }));
   const select = vi.fn(() => ({ eq }));
   return { from: vi.fn(() => ({ select })) } as never;
@@ -86,6 +86,11 @@ describe("hasActiveHifzSubscription", () => {
     const admin = makeCountAdmin(null);
     expect(await hasActiveHifzSubscription(admin, "stu-1")).toBe(false);
   });
+
+  it("throws when query returns an error", async () => {
+    const admin = makeCountAdmin(null, { message: "db error" });
+    await expect(hasActiveHifzSubscription(admin, "stu-1")).rejects.toThrow("db error");
+  });
 });
 
 // ─── assertNoActiveHifz ─────────────────────────────────────────────────────
@@ -118,5 +123,10 @@ describe("isPlanHifzProduct", () => {
   it("returns false when plan not found (data null)", async () => {
     const admin = makeDataAdmin(null);
     expect(await isPlanHifzProduct(admin, "plan-missing")).toBe(false);
+  });
+
+  it("throws when query returns an error", async () => {
+    const admin = makeDataAdmin(null, { message: "db error" });
+    await expect(isPlanHifzProduct(admin, "plan-1")).rejects.toThrow("db error");
   });
 });

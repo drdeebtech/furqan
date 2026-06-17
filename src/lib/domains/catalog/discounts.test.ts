@@ -161,6 +161,18 @@ describe("resolveGuardianDiscount", () => {
     const result = await resolveGuardianDiscount(admin, GUARDIAN_ID, "tajweed");
     expect(result.applies).toBe(false);
   });
+
+  it("throws when package query fails", async () => {
+    mockGetSetting.mockResolvedValue("15");
+    const admin = makeAdmin({
+      guardian_children: { data: [{ child_id: CHILD_ID_1 }, { child_id: CHILD_ID_2 }], error: null },
+      subscriptions: { data: [activeIndividualSub], error: null },
+      packages: { data: null, error: { message: "packages db error" } },
+    });
+
+    await expect(resolveGuardianDiscount(admin, GUARDIAN_ID, "hifz_individual"))
+      .rejects.toThrow("packages db error");
+  });
 });
 
 describe("recordDiscount", () => {
