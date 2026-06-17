@@ -12,13 +12,19 @@ const {
   mockGetUser,
   mockAdminFrom,
   mockSessionsCreate,
+  mockCouponsCreate,
   mockGetPlan,
+  mockIsPlanHifz,
+  mockAssertNoActive,
 } = vi.hoisted(() => ({
   mockRequireRole: vi.fn(),
   mockGetUser: vi.fn(),
   mockAdminFrom: vi.fn(),
   mockSessionsCreate: vi.fn(),
+  mockCouponsCreate: vi.fn(),
   mockGetPlan: vi.fn(),
+  mockIsPlanHifz: vi.fn(),
+  mockAssertNoActive: vi.fn(),
 }));
 
 // Real error classes so the route's `instanceof` checks work.
@@ -37,11 +43,21 @@ vi.mock("@/lib/stripe/client", () => ({
   getStripe: vi.fn(() => ({
     customers: { create: vi.fn() },
     checkout: { sessions: { create: mockSessionsCreate } },
+    coupons: { create: mockCouponsCreate },
   })),
   isStripeConfigured: () => true,
 }));
 
 vi.mock("@/lib/domains/billing", () => ({ getActivePlanByCode: mockGetPlan }));
+
+vi.mock("@/lib/actions/subscriptions/create-hifz-subscription", () => ({
+  isPlanHifzProduct: mockIsPlanHifz,
+  assertNoActiveHifz: mockAssertNoActive,
+  resolveStudentFamilyDiscount: vi.fn().mockResolvedValue({ applies: false }),
+  HifzAlreadyActiveError: class HifzAlreadyActiveError extends Error {
+    constructor(message = "hifz active") { super(message); this.name = "HifzAlreadyActiveError"; }
+  },
+}));
 
 // Non-hoisted: only used at runtime (in beforeEach), not inside a mock factory.
 const mockMaybeSingle = vi.fn();
@@ -77,12 +93,22 @@ beforeEach(() => {
   mockRequireRole.mockResolvedValue({ id: STUDENT_ID });
   mockGetUser.mockResolvedValue({ data: { user: { email: "s@test.local" } } });
   mockGetPlan.mockResolvedValue(PLAN);
-  // stripe_customers fast path: existing mapping
+  mockIsPlanHifz.mockResolvedValue(false);
+  mockAssertNoActive.mockResolvedValue(undefined);
+  // stripe_customers fast path: existing mapping.
+  // eqChain supports any depth of .eq() chaining (T019 adds a 2-deep chain
+  // for the packages query: .eq(subscription_plan_id).eq(is_hifz_product).maybeSingle()).
+  const eqChain: Record<string, unknown> = {
+    maybeSingle: mockMaybeSingle,
+  };
+  eqChain.eq = () => eqChain;
+  eqChain.not = () => eqChain;
   mockAdminFrom.mockReturnValue({
-    select: () => ({ eq: () => ({ maybeSingle: mockMaybeSingle }) }),
+    select: () => eqChain,
   });
   mockMaybeSingle.mockResolvedValue({ data: { stripe_customer_id: "cus_existing" }, error: null });
   mockSessionsCreate.mockResolvedValue({ url: "https://checkout.stripe.com/c/session" });
+  mockCouponsCreate.mockResolvedValue({ id: "coupon_123" });
 });
 
 afterEach(() => {
@@ -134,6 +160,14 @@ describe("POST /api/stripe/checkout — subscription mode (spec 018)", () => {
     expect(res.status).toBe(400);
   });
 
+  it("returns 409 when student already has active hifz (FR-007)", async () => {
+    const { HifzAlreadyActiveError } = await import("@/lib/actions/subscriptions/create-hifz-subscription");
+    mockIsPlanHifz.mockResolvedValue(true);
+    mockAssertNoActive.mockRejectedValue(new HifzAlreadyActiveError());
+    const res = await POST(makeReq({ planCode: "HIFZ_GROUP_4" }));
+    expect(res.status).toBe(409);
+  });
+
   it("creates a subscription-mode Checkout and returns {url}", async () => {
     const res = await POST(makeReq({ planCode: "MONTHLY" }));
     expect(res.status).toBe(200);
@@ -163,5 +197,27 @@ describe("POST /api/stripe/checkout — subscription mode (spec 018)", () => {
     delete process.env.NEXT_PUBLIC_APP_URL;
     const res = await POST(makeReq({ planCode: "MONTHLY" }));
     expect(res.status).toBe(500);
+  });
+
+  it("passes discount coupon to Stripe when family discount applies", async () => {
+    const { resolveStudentFamilyDiscount } = await import("@/lib/actions/subscriptions/create-hifz-subscription");
+    // Mock the discount resolver to return an applicable discount.
+    vi.mocked(resolveStudentFamilyDiscount).mockResolvedValue({
+      applies: true,
+      discountType: "sibling_group",
+      discountPct: 10,
+      settingKey: "hifz_sibling_group_discount_pct",
+    });
+
+    // Provide a mocked package product_category via mockMaybeSingle so discount check proceeds
+    mockMaybeSingle.mockResolvedValueOnce({ data: { product_category: "hifz_group" }, error: null }) // package lookup
+      .mockResolvedValueOnce({ data: { stripe_customer_id: "cus_existing" }, error: null }); // customer lookup
+
+    const res = await POST(makeReq({ planCode: "MONTHLY" }));
+    expect(res.status).toBe(200);
+
+    expect(mockSessionsCreate).toHaveBeenCalledWith(expect.objectContaining({
+      discounts: [{ coupon: "coupon_123" }],
+    }));
   });
 });

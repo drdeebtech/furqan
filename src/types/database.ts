@@ -8,9 +8,34 @@ export type Json =
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  // instead of createClient<Database, { PostgrestVersion: "14.5" }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -57,6 +82,13 @@ export type Database = {
             columns: ["changed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_log_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -119,6 +151,13 @@ export type Database = {
             columns: ["resolved_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_dead_letter_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -216,6 +255,60 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "availability_exceptions_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      billing_events: {
+        Row: {
+          created_at: string
+          error_detail: string | null
+          event_type: string
+          id: string
+          payload: Json
+          status: Database["public"]["Enums"]["billing_event_status"]
+          stripe_customer_id: string | null
+          stripe_event_created: string
+          stripe_event_id: string
+          subscription_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_detail?: string | null
+          event_type: string
+          id?: string
+          payload: Json
+          status?: Database["public"]["Enums"]["billing_event_status"]
+          stripe_customer_id?: string | null
+          stripe_event_created: string
+          stripe_event_id: string
+          subscription_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_detail?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json
+          status?: Database["public"]["Enums"]["billing_event_status"]
+          stripe_customer_id?: string | null
+          stripe_event_created?: string
+          stripe_event_id?: string
+          subscription_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_events_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
         ]
       }
       blog_posts: {
@@ -292,6 +385,10 @@ export type Database = {
           amount_local: number | null
           amount_usd: number
           cancel_reason: string | null
+          cancel_reason_code:
+            | Database["public"]["Enums"]["booking_cancel_reason_code"]
+            | null
+          cancel_reason_detail: string | null
           cancelled_at: string | null
           cancelled_by: string | null
           class_offering_id: string | null
@@ -323,6 +420,10 @@ export type Database = {
           amount_local?: number | null
           amount_usd: number
           cancel_reason?: string | null
+          cancel_reason_code?:
+            | Database["public"]["Enums"]["booking_cancel_reason_code"]
+            | null
+          cancel_reason_detail?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
           class_offering_id?: string | null
@@ -354,6 +455,10 @@ export type Database = {
           amount_local?: number | null
           amount_usd?: number
           cancel_reason?: string | null
+          cancel_reason_code?:
+            | Database["public"]["Enums"]["booking_cancel_reason_code"]
+            | null
+          cancel_reason_detail?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
           class_offering_id?: string | null
@@ -390,6 +495,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bookings_cancelled_by_fkey"
+            columns: ["cancelled_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "bookings_class_offering_id_fkey"
             columns: ["class_offering_id"]
             isOneToOne: false
@@ -401,6 +513,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -446,11 +565,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bookings_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "bookings_student_package_id_fkey"
             columns: ["student_package_id"]
             isOneToOne: false
             referencedRelation: "student_packages"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_student_package_id_fkey"
+            columns: ["student_package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_effective_status"
+            referencedColumns: ["student_package_id"]
           },
           {
             foreignKeyName: "bookings_student_package_id_fkey"
@@ -464,6 +597,13 @@ export type Database = {
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -536,6 +676,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "class_offerings_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       communication_preferences: {
@@ -584,6 +731,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -670,8 +824,29 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "conversations_initiated_by_fkey"
+            columns: ["initiated_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "conversations_student_id_fkey"
             columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_teacher_id_fkey"
+            columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -680,7 +855,7 @@ export type Database = {
             foreignKeyName: "conversations_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -748,6 +923,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_enrollments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -916,6 +1098,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "course_payouts_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       course_reviews: {
@@ -972,6 +1161,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1082,10 +1278,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "courses_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "courses_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courses_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1159,6 +1369,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "forum_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       forum_replies: {
@@ -1198,6 +1415,13 @@ export type Database = {
             columns: ["author_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forum_replies_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1252,10 +1476,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "forum_reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "forum_reports_resolved_by_fkey"
             columns: ["resolved_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forum_reports_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1317,6 +1555,60 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "forum_threads_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guardian_children: {
+        Row: {
+          child_id: string
+          created_at: string
+          guardian_id: string
+        }
+        Insert: {
+          child_id: string
+          created_at?: string
+          guardian_id: string
+        }
+        Update: {
+          child_id?: string
+          created_at?: string
+          guardian_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guardian_children_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardian_children_child_id_fkey"
+            columns: ["child_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardian_children_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guardian_children_guardian_id_fkey"
+            columns: ["guardian_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       halaqa_waiting_list: {
@@ -1364,6 +1656,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "halaqa_waiting_list_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1424,6 +1723,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "help_articles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1582,10 +1888,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "homework_assignments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "homework_assignments_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "homework_assignments_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1725,6 +2045,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "invoices_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       legal_document_versions: {
@@ -1841,6 +2168,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "message_delivery_log_recipient_user_id_fkey"
+            columns: ["recipient_user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       messages: {
@@ -1911,8 +2245,29 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "messages_flagged_by_fkey"
+            columns: ["flagged_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "messages_hidden_by_fkey"
             columns: ["hidden_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_hidden_by_fkey"
+            columns: ["hidden_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1921,7 +2276,7 @@ export type Database = {
             foreignKeyName: "messages_sender_id_fkey"
             columns: ["sender_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2006,6 +2361,63 @@ export type Database = {
           },
         ]
       }
+      notification_broadcasts: {
+        Row: {
+          body: string | null
+          created_at: string
+          cursor_after: string | null
+          id: string
+          initiated_by: string | null
+          processed_at: string | null
+          recipients_failed: number
+          recipients_sent: number
+          status: string
+          target: string
+          title: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          cursor_after?: string | null
+          id?: string
+          initiated_by?: string | null
+          processed_at?: string | null
+          recipients_failed?: number
+          recipients_sent?: number
+          status?: string
+          target: string
+          title: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          cursor_after?: string | null
+          id?: string
+          initiated_by?: string | null
+          processed_at?: string | null
+          recipients_failed?: number
+          recipients_sent?: number
+          status?: string
+          target?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_broadcasts_initiated_by_fkey"
+            columns: ["initiated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_broadcasts_initiated_by_fkey"
+            columns: ["initiated_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
@@ -2051,6 +2463,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       packages: {
@@ -2066,6 +2485,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           is_featured: boolean | null
+          is_hifz_product: boolean
           name: string
           name_ar: string | null
           package_type: string
@@ -2073,8 +2493,10 @@ export type Database = {
           price_gbp: number | null
           price_sar: number | null
           price_usd: number
+          product_category: string | null
           session_count: number
           session_mode_allowances: Json
+          subscription_plan_id: string | null
           supports_session_modes: string[]
           updated_at: string
         }
@@ -2090,6 +2512,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_featured?: boolean | null
+          is_hifz_product?: boolean
           name: string
           name_ar?: string | null
           package_type: string
@@ -2097,8 +2520,10 @@ export type Database = {
           price_gbp?: number | null
           price_sar?: number | null
           price_usd: number
+          product_category?: string | null
           session_count: number
           session_mode_allowances?: Json
+          subscription_plan_id?: string | null
           supports_session_modes?: string[]
           updated_at?: string
         }
@@ -2114,6 +2539,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_featured?: boolean | null
+          is_hifz_product?: boolean
           name?: string
           name_ar?: string | null
           package_type?: string
@@ -2121,12 +2547,22 @@ export type Database = {
           price_gbp?: number | null
           price_sar?: number | null
           price_usd?: number
+          product_category?: string | null
           session_count?: number
           session_mode_allowances?: Json
+          subscription_plan_id?: string | null
           supports_session_modes?: string[]
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "packages_subscription_plan_id_fkey"
+            columns: ["subscription_plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       parent_reports: {
         Row: {
@@ -2180,10 +2616,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "parent_reports_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "parent_reports_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parent_reports_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2325,6 +2775,91 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "payments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pending_tier_changes: {
+        Row: {
+          applied_at: string | null
+          applies_at_period_end: boolean
+          change_reason: string
+          created_at: string
+          from_package_id: string
+          id: string
+          requested_at: string
+          status: string
+          student_id: string
+          subscription_id: string
+          to_package_id: string
+        }
+        Insert: {
+          applied_at?: string | null
+          applies_at_period_end?: boolean
+          change_reason: string
+          created_at?: string
+          from_package_id: string
+          id?: string
+          requested_at?: string
+          status?: string
+          student_id: string
+          subscription_id: string
+          to_package_id: string
+        }
+        Update: {
+          applied_at?: string | null
+          applies_at_period_end?: boolean
+          change_reason?: string
+          created_at?: string
+          from_package_id?: string
+          id?: string
+          requested_at?: string
+          status?: string
+          student_id?: string
+          subscription_id?: string
+          to_package_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_tier_changes_from_package_id_fkey"
+            columns: ["from_package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_tier_changes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_tier_changes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_tier_changes_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_tier_changes_to_package_id_fkey"
+            columns: ["to_package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
         ]
       }
       platform_settings: {
@@ -2358,6 +2893,13 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2475,6 +3017,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2620,6 +3169,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "quizzes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "quizzes_lesson_id_fkey"
             columns: ["lesson_id"]
             isOneToOne: false
@@ -2627,6 +3183,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      quran_surahs: {
+        Row: {
+          ayah_count: number
+          juz_start: number | null
+          surah_num: number
+        }
+        Insert: {
+          ayah_count: number
+          juz_start?: number | null
+          surah_num: number
+        }
+        Update: {
+          ayah_count?: number
+          juz_start?: number | null
+          surah_num?: number
+        }
+        Relationships: []
       }
       recitation_errors: {
         Row: {
@@ -2785,6 +3359,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "resource_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "resource_assignments_halaqa_id_fkey"
             columns: ["halaqa_id"]
             isOneToOne: false
@@ -2810,6 +3391,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_assignments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2875,10 +3463,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "resources_created_by_teacher_id_fkey"
+            columns: ["created_by_teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "resources_uploaded_by_fkey"
             columns: ["uploaded_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resources_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2935,6 +3537,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: true
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retention_signals_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2996,10 +3605,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "reviews_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "reviews_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reviews_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3134,10 +3757,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "session_evaluations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "session_evaluations_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_evaluations_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3170,6 +3807,13 @@ export type Database = {
             columns: ["saved_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_notes_history_saved_by_fkey"
+            columns: ["saved_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -3222,6 +3866,13 @@ export type Database = {
             columns: ["observer_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_observers_observer_id_fkey"
+            columns: ["observer_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -3319,6 +3970,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "session_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       session_presence_events: {
@@ -3369,6 +4027,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_presence_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3485,6 +4150,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sessions_admin_observer_id_fkey"
+            columns: ["admin_observer_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "sessions_booking_id_fkey"
             columns: ["booking_id"]
             isOneToOne: true
@@ -3552,6 +4224,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_announcements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3670,6 +4349,45 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_customers: {
+        Row: {
+          created_at: string
+          id: string
+          stripe_customer_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          stripe_customer_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          stripe_customer_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stripe_customers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stripe_customers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_credits: {
         Row: {
           created_at: string
@@ -3723,10 +4441,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "student_credits_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "student_credits_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_credits_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3780,6 +4512,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "student_ijazah_progress_issuing_teacher_id_fkey"
+            columns: ["issuing_teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "student_ijazah_progress_pathway_id_fkey"
             columns: ["pathway_id"]
             isOneToOne: false
@@ -3791,6 +4530,13 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_ijazah_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3848,14 +4594,26 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "student_ijazah_requirement_progress_verifying_teacher_id_fkey"
+            columns: ["verifying_teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       student_packages: {
         Row: {
+          billing_cycle_key: string | null
+          cancel_reason_code:
+            | Database["public"]["Enums"]["booking_cancel_reason_code"]
+            | null
+          cancel_reason_detail: string | null
           created_at: string
           expires_at: string | null
           id: string
-          package_id: string
+          package_id: string | null
           payment_id: string | null
           purchased_at: string
           session_mode_used: Json
@@ -3864,12 +4622,18 @@ export type Database = {
           sessions_used: number
           status: string
           student_id: string
+          subscription_id: string | null
         }
         Insert: {
+          billing_cycle_key?: string | null
+          cancel_reason_code?:
+            | Database["public"]["Enums"]["booking_cancel_reason_code"]
+            | null
+          cancel_reason_detail?: string | null
           created_at?: string
           expires_at?: string | null
           id?: string
-          package_id: string
+          package_id?: string | null
           payment_id?: string | null
           purchased_at?: string
           session_mode_used?: Json
@@ -3878,12 +4642,18 @@ export type Database = {
           sessions_used?: number
           status?: string
           student_id: string
+          subscription_id?: string | null
         }
         Update: {
+          billing_cycle_key?: string | null
+          cancel_reason_code?:
+            | Database["public"]["Enums"]["booking_cancel_reason_code"]
+            | null
+          cancel_reason_detail?: string | null
           created_at?: string
           expires_at?: string | null
           id?: string
-          package_id?: string
+          package_id?: string | null
           payment_id?: string | null
           purchased_at?: string
           session_mode_used?: Json
@@ -3892,6 +4662,7 @@ export type Database = {
           sessions_used?: number
           status?: string
           student_id?: string
+          subscription_id?: string | null
         }
         Relationships: [
           {
@@ -3913,6 +4684,20 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_packages_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_packages_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
             referencedColumns: ["id"]
           },
         ]
@@ -3992,11 +4777,85 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "student_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "student_progress_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_progress_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_review_schedule: {
+        Row: {
+          algorithm_version: number
+          batch_for_date: string | null
+          created_at: string
+          easiness_factor: number
+          id: string
+          interval_days: number
+          lapse_count: number
+          last_reviewed_at: string | null
+          next_review_at: string
+          progress_id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          algorithm_version?: number
+          batch_for_date?: string | null
+          created_at?: string
+          easiness_factor?: number
+          id?: string
+          interval_days?: number
+          lapse_count?: number
+          last_reviewed_at?: string | null
+          next_review_at: string
+          progress_id: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          algorithm_version?: number
+          batch_for_date?: string | null
+          created_at?: string
+          easiness_factor?: number
+          id?: string
+          interval_days?: number
+          lapse_count?: number
+          last_reviewed_at?: string | null
+          next_review_at?: string
+          progress_id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_review_schedule_progress_id_fkey"
+            columns: ["progress_id"]
+            isOneToOne: false
+            referencedRelation: "student_progress"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_review_schedule_progress_id_fkey"
+            columns: ["progress_id"]
+            isOneToOne: false
+            referencedRelation: "v_progress"
+            referencedColumns: ["progress_id"]
           },
         ]
       }
@@ -4042,6 +4901,205 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "study_log_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_discount_records: {
+        Row: {
+          applied_at: string
+          discount_pct: number
+          discount_type: string
+          id: string
+          setting_key: string
+          subscription_id: string
+        }
+        Insert: {
+          applied_at?: string
+          discount_pct: number
+          discount_type: string
+          id?: string
+          setting_key: string
+          subscription_id: string
+        }
+        Update: {
+          applied_at?: string
+          discount_pct?: number
+          discount_type?: string
+          id?: string
+          setting_key?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_discount_records_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_plans: {
+        Row: {
+          created_at: string
+          currency: string
+          id: string
+          is_active: boolean
+          is_hifz_product: boolean
+          monthly_credit_count: number
+          name: string
+          plan_code: string
+          plan_type: Database["public"]["Enums"]["billing_plan_type"]
+          price_cents: number
+          session_duration_min: number | null
+          session_metadata: Json
+          sessions_per_month: number | null
+          stripe_price_id: string
+          stripe_product_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          id?: string
+          is_active?: boolean
+          is_hifz_product?: boolean
+          monthly_credit_count: number
+          name: string
+          plan_code: string
+          plan_type: Database["public"]["Enums"]["billing_plan_type"]
+          price_cents: number
+          session_duration_min?: number | null
+          session_metadata?: Json
+          sessions_per_month?: number | null
+          stripe_price_id: string
+          stripe_product_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          id?: string
+          is_active?: boolean
+          is_hifz_product?: boolean
+          monthly_credit_count?: number
+          name?: string
+          plan_code?: string
+          plan_type?: Database["public"]["Enums"]["billing_plan_type"]
+          price_cents?: number
+          session_duration_min?: number | null
+          session_metadata?: Json
+          sessions_per_month?: number | null
+          stripe_price_id?: string
+          stripe_product_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean
+          canceled_at: string | null
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          is_hifz: boolean
+          last_event_at: string
+          payer_user_id: string | null
+          pending_tier_change_id: string | null
+          plan_id: string
+          status: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id: string
+          stripe_subscription_id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean
+          canceled_at?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          is_hifz?: boolean
+          last_event_at?: string
+          payer_user_id?: string | null
+          pending_tier_change_id?: string | null
+          plan_id: string
+          status: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id: string
+          stripe_subscription_id: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean
+          canceled_at?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          is_hifz?: boolean
+          last_event_at?: string
+          payer_user_id?: string | null
+          pending_tier_change_id?: string | null
+          plan_id?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          stripe_customer_id?: string
+          stripe_subscription_id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_payer_user_id_fkey"
+            columns: ["payer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_payer_user_id_fkey"
+            columns: ["payer_user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_pending_tier_change_id_fkey"
+            columns: ["pending_tier_change_id"]
+            isOneToOne: false
+            referencedRelation: "pending_tier_changes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       teacher_availability: {
@@ -4078,6 +5136,13 @@ export type Database = {
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_availability_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -4128,10 +5193,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "teacher_ijaza_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "teacher_ijaza_verified_by_fkey"
             columns: ["verified_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_ijaza_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -4220,6 +5299,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "teacher_mentorship_feedback_written_by_fkey"
+            columns: ["written_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       teacher_mentorships: {
@@ -4265,10 +5351,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "teacher_mentorships_mentee_id_fkey"
+            columns: ["mentee_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "teacher_mentorships_mentor_id_fkey"
             columns: ["mentor_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_mentorships_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -4358,10 +5458,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "teacher_profiles_cv_reviewed_by_fkey"
+            columns: ["cv_reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "teacher_profiles_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: true
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_profiles_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: true
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -4422,6 +5536,30 @@ export type Database = {
       }
     }
     Views: {
+      public_profiles: {
+        Row: {
+          avatar_url: string | null
+          full_name: string | null
+          full_name_ar: string | null
+          id: string | null
+          role: Database["public"]["Enums"]["user_role"] | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          full_name?: string | null
+          full_name_ar?: string | null
+          id?: string | null
+          role?: Database["public"]["Enums"]["user_role"] | null
+        }
+        Update: {
+          avatar_url?: string | null
+          full_name?: string | null
+          full_name_ar?: string | null
+          id?: string | null
+          role?: Database["public"]["Enums"]["user_role"] | null
+        }
+        Relationships: []
+      }
       v_bookings: {
         Row: {
           booking_id: string | null
@@ -4446,11 +5584,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "bookings_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "bookings_student_package_id_fkey"
             columns: ["student_package_id"]
             isOneToOne: false
             referencedRelation: "student_packages"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_student_package_id_fkey"
+            columns: ["student_package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_effective_status"
+            referencedColumns: ["student_package_id"]
           },
           {
             foreignKeyName: "bookings_student_package_id_fkey"
@@ -4464,6 +5616,13 @@ export type Database = {
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -4497,10 +5656,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "session_evaluations_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "session_evaluations_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_evaluations_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -4565,10 +5738,95 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "homework_assignments_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "homework_assignments_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "homework_assignments_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_package_effective_status: {
+        Row: {
+          created_at: string | null
+          effective_status: string | null
+          expires_at: string | null
+          package_id: string | null
+          payment_id: string | null
+          purchased_at: string | null
+          sessions_remaining: number | null
+          sessions_total: number | null
+          sessions_used: number | null
+          student_id: string | null
+          student_package_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          effective_status?: never
+          expires_at?: string | null
+          package_id?: string | null
+          payment_id?: string | null
+          purchased_at?: string | null
+          sessions_remaining?: never
+          sessions_total?: number | null
+          sessions_used?: number | null
+          student_id?: string | null
+          student_package_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          effective_status?: never
+          expires_at?: string | null
+          package_id?: string | null
+          payment_id?: string | null
+          purchased_at?: string | null
+          sessions_remaining?: never
+          sessions_total?: number | null
+          sessions_used?: number | null
+          student_id?: string | null
+          student_package_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_packages_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_packages_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_packages_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_packages_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -4615,10 +5873,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "student_progress_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "student_progress_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_progress_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -4697,6 +5969,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "student_packages_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       v_teachers: {
@@ -4728,17 +6007,35 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "teacher_profiles_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: true
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
     Functions: {
+      complete_review: {
+        Args: {
+          p_easiness: number
+          p_interval_days: number
+          p_schedule_id: string
+        }
+        Returns: {
+          easiness_factor: number
+          interval_days: number
+          next_review_at: string
+        }[]
+      }
       compute_murajaah_batch_for_date: {
         Args: { p_date: string }
-        Returns: { students_processed: number; rows_scheduled: number }[]
-      }
-      complete_review: {
-        Args: { p_schedule_id: string; p_easiness: number; p_interval_days: number }
-        Returns: { next_review_at: string; easiness_factor: number; interval_days: number }[]
+        Returns: {
+          rows_scheduled: number
+          students_processed: number
+        }[]
       }
       confirm_booking_with_session: {
         Args: {
@@ -4749,36 +6046,16 @@ export type Database = {
         }
         Returns: string
       }
-      end_session_with_booking: {
-        Args: {
-          p_actual_duration: number
-          p_session_id: string
-        }
-        Returns: string
-      }
-      record_student_progress: {
-        Args: {
-          p_booking_id: string
-          p_progress_type: string
-          p_surah_from: number | null
-          p_ayah_from: number | null
-          p_surah_to: number | null
-          p_ayah_to: number | null
-          p_pages_reviewed: number | null
-          p_quality_rating: number | null
-          p_level: string | null
-          p_teacher_notes: string | null
-          p_errors: Json | null
-        }
-        Returns: string
-      }
       deduct_package_session: {
         Args: { p_package_id: string }
         Returns: boolean
       }
       deduct_package_session_mode: {
         Args: { p_mode: string; p_package_id: string }
-        Returns: { deducted: boolean; used_legacy: boolean }[]
+        Returns: {
+          deducted: boolean
+          used_legacy: boolean
+        }[]
       }
       end_session_from_webhook: {
         Args: {
@@ -4800,18 +6077,160 @@ export type Database = {
           teacher_id: string
         }[]
       }
+      end_session_with_booking: {
+        Args: { p_actual_duration: number; p_session_id: string }
+        Returns: string
+      }
       get_teacher_overdue_eval_count: {
         Args: { p_teacher_id: string }
         Returns: number
       }
+      get_user_id_by_email: { Args: { p_email: string }; Returns: string }
+      grant_hifz_cycle_credits: {
+        Args: {
+          p_billing_cycle_key: string
+          p_plan_id: string
+          p_subscription_id: string
+          p_session_count?: number | null
+        }
+        Returns: string
+      }
+      grant_subscription_cycle: {
+        Args: {
+          p_amount_cents: number
+          p_credit_count: number
+          p_cycle_key: string
+          p_expires_at: string
+          p_plan_id: string
+          p_session_metadata: Json
+          p_stripe_payment_intent: string
+          p_student_id: string
+          p_subscription_id: string
+        }
+        Returns: string
+      }
       is_admin: { Args: never; Returns: boolean }
       is_admin_or_mod: { Args: never; Returns: boolean }
       is_moderator: { Args: never; Returns: boolean }
+      murajaah_due_student_ids: {
+        Args: { p_active_since: string; p_today_start: string }
+        Returns: {
+          student_id: string
+        }[]
+      }
+      profiles_role_counts: {
+        Args: never
+        Returns: {
+          n: number
+          role: string
+        }[]
+      }
       recompute_course_review_aggregates: {
         Args: { p_course_id: string }
         Returns: undefined
       }
+      record_student_progress: {
+        Args: {
+          p_ayah_from: number | null
+          p_ayah_to: number | null
+          p_booking_id: string
+          p_errors: Json | null
+          p_level: string | null
+          p_pages_reviewed: number | null
+          p_progress_type: string
+          p_quality_rating: number | null
+          p_surah_from: number | null
+          p_surah_to: number | null
+          p_teacher_notes: string | null
+        }
+        Returns: string
+      }
       redact_pii: { Args: { payload: Json }; Returns: Json }
+      refund_package_session: {
+        Args: { p_package_id: string }
+        Returns: boolean
+      }
+      roster_recent_evaluations: {
+        Args: { p_student_ids: string[]; p_teacher_id: string }
+        Returns: {
+          areas_for_improvement: string | null
+          attendance_score: number | null
+          created_at: string
+          evaluation_date: string
+          evaluation_type: Database["public"]["Enums"]["evaluation_type"]
+          fluency_score: number | null
+          hifz_score: number | null
+          id: string
+          next_goals: string | null
+          overall_score: number | null
+          strengths: string | null
+          student_id: string
+          tajweed_score: number | null
+          teacher_comments: string | null
+          teacher_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "session_evaluations"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      roster_recent_progress: {
+        Args: { p_student_ids: string[] }
+        Returns: {
+          ayah_from: number | null
+          ayah_to: number | null
+          booking_id: string
+          created_at: string
+          id: string
+          level: Database["public"]["Enums"]["student_level"]
+          pages_reviewed: number | null
+          progress_type: string
+          quality_rating: number | null
+          recitation_standard: string | null
+          student_id: string
+          surah_from: number | null
+          surah_to: number | null
+          teacher_id: string
+          teacher_notes: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "student_progress"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      search_teachers: {
+        Args: { p_limit: number; p_needle: string; p_offset: number }
+        Returns: {
+          avatar_url: string
+          cv_status: string
+          email: string
+          full_name: string
+          hourly_rate: number
+          is_accepting: boolean
+          is_archived: boolean
+          rating_avg: number
+          specialties: string[]
+          teacher_id: string
+          total_count: number
+          total_sessions: number
+        }[]
+      }
+      start_instant_session_booking: {
+        Args: {
+          p_amount_usd: number
+          p_duration_min: number
+          p_rate_snapshot: number
+          p_scheduled_at: string
+          p_session_type: Database["public"]["Enums"]["session_type"]
+          p_student_id: string
+          p_teacher_id: string
+        }
+        Returns: string
+      }
       start_session_from_webhook: {
         Args: {
           p_event_id: string
@@ -4822,6 +6241,22 @@ export type Database = {
         }
         Returns: boolean
       }
+      teacher_at_risk_students: {
+        Args: { p_limit?: number; p_teacher_id: string }
+        Returns: {
+          churn_risk_score: number
+          full_name: string
+          last_session_at: string
+          package_remaining: number
+          student_id: string
+        }[]
+      }
+      teacher_distinct_students: {
+        Args: { p_teacher_id: string }
+        Returns: {
+          student_id: string
+        }[]
+      }
       user_is_session_participant: { Args: { s_id: string }; Returns: boolean }
     }
     Enums: {
@@ -4831,6 +6266,16 @@ export type Database = {
         | "absent"
         | "late"
         | "left_early"
+      billing_event_status: "received" | "processed" | "ignored" | "failed"
+      billing_plan_type: "recurring_monthly" | "recurring_limited"
+      booking_cancel_reason_code:
+        | "teacher_unavailable"
+        | "student_request"
+        | "schedule_conflict"
+        | "technical_issue"
+        | "admin_override"
+        | "package_exhausted"
+        | "other"
       booking_status:
         | "pending"
         | "confirmed"
@@ -4882,7 +6327,14 @@ export type Database = {
         | "combined"
         | "other"
       student_level: "beginner" | "intermediate" | "advanced"
-      user_role: "student" | "teacher" | "admin" | "moderator"
+      subscription_status:
+        | "incomplete"
+        | "active"
+        | "past_due"
+        | "canceled"
+        | "incomplete_expired"
+        | "unpaid"
+      user_role: "student" | "teacher" | "admin" | "guardian" | "moderator"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -5008,6 +6460,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       attendance_status: [
@@ -5016,6 +6471,17 @@ export const Constants = {
         "absent",
         "late",
         "left_early",
+      ],
+      billing_event_status: ["received", "processed", "ignored", "failed"],
+      billing_plan_type: ["recurring_monthly", "recurring_limited"],
+      booking_cancel_reason_code: [
+        "teacher_unavailable",
+        "student_request",
+        "schedule_conflict",
+        "technical_issue",
+        "admin_override",
+        "package_exhausted",
+        "other",
       ],
       booking_status: [
         "pending",
@@ -5074,10 +6540,19 @@ export const Constants = {
         "other",
       ],
       student_level: ["beginner", "intermediate", "advanced"],
-      user_role: ["student", "teacher", "admin", "moderator"],
+      subscription_status: [
+        "incomplete",
+        "active",
+        "past_due",
+        "canceled",
+        "incomplete_expired",
+        "unpaid",
+      ],
+      user_role: ["student", "teacher", "admin", "guardian", "moderator"],
     },
   },
 } as const
+
 // ─── Postgres native enum types ─────────────────────────────────────────────
 // These come from `CREATE TYPE ... AS ENUM (...)` in v9_001_schema.sql.
 // They appear in Database["public"]["Enums"] because they're real pg_enum entries.

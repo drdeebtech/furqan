@@ -6,6 +6,7 @@ import { getStripe } from "@/lib/stripe/client";
 import { getActivePlanByCode } from "@/lib/domains/billing";
 import { requireRole } from "@/lib/auth/require-admin";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
+import { assertNoActiveHifz, HifzAlreadyActiveError, isPlanHifzProduct, resolveStudentFamilyDiscount } from "@/lib/actions/subscriptions/create-hifz-subscription";
 import { logError } from "@/lib/logger";
 
 export const maxDuration = 60;
@@ -67,6 +68,64 @@ export async function POST(request: Request) {
   const stripe = getStripe();
   const admin = createAdminClient();
 
+  // ── Single-active-hifz guard (spec 019 US2 / FR-007) ──────────────────────
+  // A student may hold at most one active hifz subscription. Check BEFORE the
+  // Stripe call so we don't waste a checkout session the user can't complete.
+  // The DB partial unique index is the concurrency backstop (FR-009).
+  try {
+    const hifzProduct = await isPlanHifzProduct(admin, plan.id);
+    if (hifzProduct) {
+      await assertNoActiveHifz(admin, userId);
+    }
+  } catch (e) {
+    if (e instanceof HifzAlreadyActiveError) {
+      return NextResponse.json({ error: e.message }, { status: 409 });
+    }
+    throw e;
+  }
+
+  // ── Guardian family discount (spec 019 US4) ──────────────────────────────
+  let stripeCouponId: string | undefined;
+  {
+    const { data: pkg, error: pkgErr } = await admin
+      .from("packages")
+      .select("product_category")
+      .eq("subscription_plan_id", plan.id)
+      .eq("is_hifz_product", true)
+      .maybeSingle();
+    if (pkgErr) {
+      logError("checkout: package category lookup failed", pkgErr, {
+        tag: "billing",
+        user_id: userId,
+        plan_id: plan.id,
+      });
+    }
+    const productCategory = pkg?.product_category ?? null;
+
+    if (productCategory) {
+      const discountRes = await resolveStudentFamilyDiscount(admin, userId, productCategory);
+      if (discountRes.applies) {
+        try {
+          const coupon = await stripe.coupons.create({
+            percent_off: discountRes.discountPct,
+            duration: "once",
+            metadata: {
+              discount_type: discountRes.discountType,
+              setting_key: discountRes.settingKey,
+            },
+          });
+          stripeCouponId = coupon.id;
+        } catch (err) {
+          logError("checkout: guardian discount coupon creation failed", err, {
+            tag: "billing",
+            user_id: userId,
+          });
+          // Non-fatal: proceed without discount rather than blocking checkout
+        }
+      }
+    }
+  }
+
   // ── Email for the Stripe customer record (best-effort) ────────────────────
   let email: string | undefined;
   try {
@@ -88,6 +147,7 @@ export async function POST(request: Request) {
       mode: "subscription",
       customer: stripeCustomerId.value,
       line_items: [{ price: plan.stripePriceId, quantity: 1 }],
+      ...(stripeCouponId ? { discounts: [{ coupon: stripeCouponId }] } : {}),
       client_reference_id: userId,
       metadata: { student_id: userId, plan_code: plan.planCode },
       subscription_data: { metadata: { student_id: userId, plan_code: plan.planCode } },

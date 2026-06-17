@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 import StripeSdk from "stripe";
 import type { Json } from "@/types/supabase.generated";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { logError } from "@/lib/logger";
+import { logError, logInfo } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import {
   upsertMirror,
@@ -12,6 +12,7 @@ import {
   BillingEvents,
   type StripeSubscriptionSnapshot,
 } from "@/lib/domains/billing";
+import { applyPendingTierChangeAtRenewal } from "@/lib/domains/catalog/credit-grant";
 
 export const maxDuration = 60;
 
@@ -232,13 +233,14 @@ async function handleInvoicePaid(ctx: EventContext): Promise<void> {
   // Plan catalog row (binding source of credit count + price).
   const { data: plan } = await ctx.admin
     .from("subscription_plans")
-    .select("id, monthly_credit_count, price_cents, session_metadata")
+    .select("id, monthly_credit_count, price_cents, session_metadata, is_hifz_product")
     .eq("id", resolved.planId)
     .maybeSingle<{
       id: string;
       monthly_credit_count: number;
       price_cents: number;
       session_metadata: unknown;
+      is_hifz_product: boolean | null;
     }>();
   if (!plan) {
     await markEvent(ctx, "failed", `plan not found: ${resolved.planId}`);
@@ -268,6 +270,32 @@ async function handleInvoicePaid(ctx: EventContext): Promise<void> {
   }
 
   await ctx.admin.from("billing_events").update({ subscription_id: mirrorId }).eq("id", ctx.billingEventId!);
+
+  // ── T014a: Apply pending tier change at renewal (FR-019) ────────────────
+  // If this is a hifz product and there's a pending tier change, apply it now:
+  // transition pending→applied, switch subscription to new plan, re-grant credits.
+  // The WHERE status='pending' guard makes this replay-safe.
+  let activePlanId = plan.id;
+  if (plan.is_hifz_product) {
+    const tierResult = await applyPendingTierChangeAtRenewal(ctx.admin, mirrorId, invoice.id);
+    if (tierResult.ok) {
+      activePlanId = tierResult.newPlanId;
+      logInfo("stripe-webhook: pending tier change applied", {
+        tag: "billing",
+        subscription_id: mirrorId,
+        pending_id: tierResult.pendingId,
+        new_plan_id: tierResult.newPlanId,
+      });
+    } else if (tierResult.reason !== "no_pending") {
+      logError("stripe-webhook: pending tier change failed", new Error(tierResult.reason), {
+        tag: "billing",
+        subscription_id: mirrorId,
+        error: tierResult.error,
+      });
+      throw new Error(`pending tier change failed: ${tierResult.reason}`);
+    }
+  }
+
   await markEvent(ctx, "processed");
 
   // Post-commit, non-blocking lifecycle emit (Principle III). First paid cycle
@@ -276,7 +304,7 @@ async function handleInvoicePaid(ctx: EventContext): Promise<void> {
     result.created ? BillingEvents.Activated : BillingEvents.Renewed,
     "subscription",
     mirrorId,
-    { student_id: studentId, plan_id: plan.id, cycle_key: cycleKey, grant_id: result.grantId },
+    { student_id: studentId, plan_id: activePlanId, cycle_key: cycleKey, grant_id: result.grantId },
   ).catch((err) => logError("emit subscription.activated/renewed failed", err, { tag: "billing" }));
 }
 
