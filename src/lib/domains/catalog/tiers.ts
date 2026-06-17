@@ -41,6 +41,7 @@ function mapTier(row: CatalogTierRow): CatalogTier | null {
   if (!row.subscription_plan_id) return null;
   if (!row.plan_sessions_per_month || row.plan_sessions_per_month <= 0) return null;
   if (!row.plan_session_duration_min || row.plan_session_duration_min <= 0) return null;
+  if (!row.price_usd || row.price_usd <= 0) return null;
 
   if (
     row.product_category !== "hifz_group" &&

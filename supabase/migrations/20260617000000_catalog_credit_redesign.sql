@@ -140,6 +140,8 @@ alter table public.subscriptions
   references public.pending_tier_changes (id, subscription_id)
   not valid;
 
+alter table public.subscriptions validate constraint fk_subscriptions_pending_tier_change;
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 5b. Partial unique index — single active hifz per student (R-001)
 -- ─────────────────────────────────────────────────────────────────────────────

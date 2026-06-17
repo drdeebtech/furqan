@@ -40,7 +40,8 @@ export async function POST(request: Request) {
   let parsed: z.infer<typeof Body>;
   try {
     parsed = Body.parse(await request.json());
-  } catch {
+  } catch (e) {
+    logError("add-child: invalid request body", e, { tag: "guardian", guardian_id: userId });
     return NextResponse.json(
       { error: "Invalid body: { childEmail: string } required" },
       { status: 400 },

@@ -119,6 +119,8 @@ export async function resolveStudentFamilyDiscount(
       tag: "billing",
       student_id: studentId,
     });
+    // Fail-open: checkout proceeds without discount on transient DB error rather than blocking
+    // the student entirely. Operators are alerted via Sentry; discount can be applied manually.
     return { applies: false };
   }
 

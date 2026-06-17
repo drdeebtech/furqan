@@ -168,6 +168,7 @@ export async function recordDiscount(
   if (error) {
     logError("recordDiscount: insert failed", error, {
       tag: "billing",
+      severity: "critical",
       subscription_id: subscriptionId,
       discount_type: discount.discountType,
     });

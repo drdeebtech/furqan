@@ -47,7 +47,7 @@ export async function GET() {
   }
 
   const children = (links ?? []).map((link) => {
-    const profile = Array.isArray(link.profiles) ? link.profiles[0] : link.profiles;
+    const profile = link.profiles;
     return {
       id: link.child_id,
       full_name: profile?.full_name ?? null,
