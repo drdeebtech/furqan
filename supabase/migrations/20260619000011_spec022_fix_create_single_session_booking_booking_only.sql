@@ -82,8 +82,16 @@ begin
   -- Link the payment (no-op when p_payment_id is NULL — zero-price path).
   -- UNIQUE constraint payments_booking_id_key guarantees two bookings cannot
   -- claim the same payment.
+  -- CodeRabbit #6: verify the UPDATE actually affected exactly one row.
+  -- Without this check, a stale/nonexistent p_payment_id would leave the
+  -- booking unlinked to any payment but the function would still return a
+  -- booking id — masking the integrity violation.
   if p_payment_id is not null then
     update public.payments set booking_id = v_booking_id where id = p_payment_id;
+    if not found then
+      raise exception 'p_payment_id % did not match any payments row — booking % created but unlinked',
+        p_payment_id, v_booking_id using errcode = 'P0002';
+    end if;
   end if;
 
   return v_booking_id;
