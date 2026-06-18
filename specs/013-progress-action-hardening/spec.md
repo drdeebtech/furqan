@@ -1,14 +1,16 @@
 # 013 — Progress / follow-up action hardening (MEDIUM audit items)
 
-**Date:** 2026-06-13 · **Source:** `specs/audit-progress-actions.md` (MEDIUM tier, still open)
+**Status:** Shipped via [#458](https://github.com/drdeebtech/furqan/pull/458) (refactor/follow-up-collapse) — verified 2026-06-18.
+**Date:** 2026-06-13 · **Source:** `specs/audit-progress-actions.md` (MEDIUM tier, now closed)
 **Lenses:** 🛠 engineer (validation/authz/UX) · 📖 Quran (range integrity) · 🎓 platform (stale-UI)
 
 ## Problem
 
 The follow-up / ḥifẓ-progress write surface passes the three-lens audit on the HIGH items
 (already shipped: surah/ayah range guard, tajweed-error passthrough) but five **MEDIUM** items
-remain — boundary-validation gaps and a stale-UI bug. None is a live exploit, but each weakens a
-defense-in-depth layer or degrades correctness. Verified still-open on 2026-06-13:
+remained — boundary-validation gaps and a stale-UI bug. None was a live exploit, but each weakened
+a defense-in-depth layer or degraded correctness. All M1-M5 closed via #458; this spec is the
+paper-trail close-out. Verified still-fixed on 2026-06-18.
 
 | ID | Lens | Issue | Location |
 |----|------|-------|----------|
