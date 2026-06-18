@@ -32,7 +32,10 @@ interface ChartDataPoint {
 
 interface DashboardData {
   fullName: string | null;
-  nextBooking: { id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: string } | null;
+  // Spec 022: scheduled_at may be NULL for single-session assessment/specialized
+  // bookings (slot chosen after creation). Display sites treat NULL as
+  // "Unscheduled" and exclude from countdowns.
+  nextBooking: { id: string; teacher_id: string; scheduled_at: string | null; duration_min: number; session_type: string } | null;
   sessionId: string | null;
   totalSessions: number;
   monthSessions: number;
@@ -53,7 +56,7 @@ interface DashboardData {
   resumeLesson: { lessonId: string; title: string; href: string; progressPct: number } | null;
   streakInfo: { streak: number; weeklyMinutes: number; weeklyDelta: number; loggedToday: boolean };
   homeworkPulse: { overdue: number; dueToday: number; dueThisWeek: number; nextItem: { id: string; description: string | null; dueDate: string | null; type: string } | null };
-  todaySessions: { id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: string; status: string }[];
+  todaySessions: { id: string; teacher_id: string; scheduled_at: string | null; duration_min: number; session_type: string; status: string }[];
   todayHomework: { id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[];
   latestEvaluation: { next_goals: string | null; evaluation_type: string; created_at: string } | null;
   murajaahBatch: MurajaahDueItem[];
@@ -101,13 +104,14 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
   const refresh = () => router.refresh();
 
   // Countdown to next session (used by KPI 4).
-  const minsUntilNext = nextBooking
+  // Spec 022: NULL scheduled_at = slot not chosen → treat as no countdown.
+  const minsUntilNext = nextBooking && nextBooking.scheduled_at
     ? Math.floor((new Date(nextBooking.scheduled_at).getTime() - now) / 60_000)
     : null;
   const isImminent = minsUntilNext != null && minsUntilNext <= 30;
 
   let countdownShort = "—";
-  if (nextBooking) {
+  if (nextBooking && nextBooking.scheduled_at) {
     const diff = new Date(nextBooking.scheduled_at).getTime() - now;
     if (diff < 0) {
       countdownShort = t("الآن", "Now");
@@ -119,6 +123,9 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
       else if (hours < 24) countdownShort = `${hours}h`;
       else countdownShort = lang === "ar" ? `${days} يوم` : `${days}d`;
     }
+  } else if (nextBooking && !nextBooking.scheduled_at) {
+    // Pending assessment booking without a slot — distinct from "no booking".
+    countdownShort = lang === "ar" ? "غير مُجدوَل" : "Unscheduled";
   }
 
   // KPI 1 — Active Package: sessions remaining + percent used.
@@ -146,6 +153,10 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
     const localTodayStart = new Date(now); localTodayStart.setHours(0, 0, 0, 0);
     const localTodayEnd = new Date(now); localTodayEnd.setHours(23, 59, 59, 999);
     for (const s of todaySessions) {
+      // Spec 022: skip slot-less assessment/specialized bookings — they have
+      // no chronological position to filter on, and Epoch (new Date(null))
+      // would always fail the localToday range check anyway, but be explicit.
+      if (!s.scheduled_at) continue;
       const sessionTime = new Date(s.scheduled_at).getTime();
       if (sessionTime < localTodayStart.getTime() || sessionTime > localTodayEnd.getTime()) continue;
       const teacherName = nameMap[s.teacher_id] ?? t("معلمك", "your teacher");

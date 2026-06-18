@@ -37,7 +37,9 @@ interface TeacherSessionCardProps {
   bookingId: string;
   studentName: string;
   sessionType: SessionType;
-  scheduledAt: string;
+  // Spec 022: NULL for single-session assessment/specialized bookings where
+  // the slot is chosen after creation. Rendered as "Unscheduled".
+  scheduledAt: string | null;
   durationMin: number;
   roomUrl: string | null;
   expiresAt: string | null;
@@ -82,10 +84,13 @@ export function TeacherSessionCard({
     expiresMs !== null && !isExpired && expiresMs - now < 15 * 60 * 1000;
 
   const isLive = !isEnded && !isExpired && startedAt !== null;
-  const scheduledMs = new Date(scheduledAt).getTime();
+  // Spec 022: scheduledAt may be NULL (assessment/specialized booking without slot).
+  // NULL → no scheduledMs, no live window. Display layer renders "Unscheduled".
+  const scheduledMs = scheduledAt ? new Date(scheduledAt).getTime() : null;
   const inWindow =
     !isEnded &&
     !isExpired &&
+    scheduledMs !== null &&
     now >= scheduledMs - 10 * 60 * 1000 &&
     now < scheduledMs + (durationMin + 30) * 60 * 1000;
 
@@ -175,10 +180,12 @@ export function TeacherSessionCard({
             {lang === "ar" ? SESSION_TYPE_AR[sessionType] : SESSION_TYPE_EN[sessionType]} · {durationMin} {lang === "ar" ? "دقيقة" : "min"}
           </p>
           <p dir="ltr" className="mt-1 text-start text-sm text-muted">
-            {new Date(scheduledAt).toLocaleTimeString(locale, {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            {scheduledAt
+              ? new Date(scheduledAt).toLocaleTimeString(locale, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : (lang === "ar" ? "غير مُجدوَل" : "Unscheduled")}
           </p>
         </div>
 

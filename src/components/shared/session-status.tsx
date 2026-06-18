@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Circle, Clock, CheckCircle, XCircle, Radio } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 
-type SessionState = "upcoming" | "live" | "ended" | "expired";
+type SessionState = "upcoming" | "live" | "ended" | "expired" | "unscheduled";
 
 const STATE_CONFIG: Record<
   SessionState,
@@ -28,6 +28,13 @@ const STATE_CONFIG: Record<
     icon: CheckCircle,
     className: "border-muted/30 bg-muted/10 text-muted",
   },
+  // Spec 022: assessment/specialized booking created without a slot yet.
+  unscheduled: {
+    label: "غير مُجدوَل",
+    en: "Unscheduled",
+    icon: Circle,
+    className: "border-gold/30 bg-gold/10 text-gold",
+  },
   expired: {
     label: "منتهية الصلاحية",
     en: "Expired",
@@ -37,12 +44,15 @@ const STATE_CONFIG: Record<
 };
 
 function computeState(
-  scheduledAt: string,
+  scheduledAt: string | null,
   durationMin: number,
   expiresAt: string | null,
   endedAt: string | null,
 ): SessionState {
   if (endedAt) return "ended";
+  // Spec 022: NULL scheduledAt = slot not chosen yet → "unscheduled".
+  // Distinct from "upcoming" (which assumes a known start time).
+  if (!scheduledAt) return "unscheduled";
   const now = Date.now();
   if (expiresAt && new Date(expiresAt).getTime() < now) return "expired";
   const start = new Date(scheduledAt).getTime();
@@ -61,7 +71,7 @@ export function SessionStatus({
   showLabel = true,
   size = "sm",
 }: {
-  scheduledAt: string;
+  scheduledAt: string | null;
   durationMin: number;
   expiresAt?: string | null;
   endedAt?: string | null;
@@ -72,7 +82,9 @@ export function SessionStatus({
   // Hydration-safe initial state: deterministic (no Date.now() on server). The
   // useEffect below immediately recomputes the real state on mount, so the
   // "upcoming"/"ended" placeholder is invisible (<16ms before useEffect runs).
-  const [state, setState] = useState<SessionState>(endedAt ? "ended" : "upcoming");
+  // Spec 022: NULL scheduledAt renders deterministically as "unscheduled".
+  const [state, setState] = useState<SessionState>(
+    endedAt ? "ended" : scheduledAt ? "upcoming" : "unscheduled");
 
   useEffect(() => {
     const check = () =>

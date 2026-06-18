@@ -89,8 +89,15 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
   const imminentSession = useMemo(() => {
     const candidate = todaySessions
       .map(b => ({ booking: b, sess: sessionDataMap[b.id] }))
-      .filter(({ booking, sess }) => sess && !sess.ended_at && new Date(booking.scheduled_at).getTime() - now <= 30 * 60_000)
-      .sort((a, b) => new Date(a.booking.scheduled_at).getTime() - new Date(b.booking.scheduled_at).getTime())[0];
+      .filter(({ booking, sess }) =>
+        // Spec 022: scheduled_at is NULL for single-session assessment/specialized
+        // bookings where the slot is chosen after creation. They cannot be
+        // "imminent" — exclude them explicitly. Without this guard,
+        // new Date(null).getTime() === 0 (Epoch) and the time delta collapses
+        // to a huge negative, falsely matching the <= 30min window.
+        booking.scheduled_at && sess && !sess.ended_at &&
+        new Date(booking.scheduled_at).getTime() - now <= 30 * 60_000)
+      .sort((a, b) => new Date(a.booking.scheduled_at as string).getTime() - new Date(b.booking.scheduled_at as string).getTime())[0];
     if (!candidate) return null;
     return {
       sessionId: candidate.sess.id,
@@ -394,8 +401,14 @@ export function TeacherDashboardContent({ data }: { data: TeacherDashboardData }
                           <td className="py-3 font-medium">{nameMap[b.student_id] ?? t("طالب", "Student")}</td>
                           <td className="py-3 text-muted">{st(b.session_type)} <span aria-hidden="true">·</span> {b.duration_min} {t("د", "m")}</td>
                           <td className="py-3 text-muted">
-                            {new Date(b.scheduled_at).toLocaleDateString(locale, { month: "short", day: "numeric" })}{" "}
-                            {new Date(b.scheduled_at).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}
+                            {b.scheduled_at ? (
+                              <>
+                                {new Date(b.scheduled_at).toLocaleDateString(locale, { month: "short", day: "numeric" })}{" "}
+                                {new Date(b.scheduled_at).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}
+                              </>
+                            ) : (
+                              <span className="italic">{t("غير مُجدوَل", "Unscheduled")}</span>
+                            )}
                           </td>
                           <td className="py-3 text-end">
                             <BookingActions bookingId={b.id} isFirst={uniqueStudents === 0} />

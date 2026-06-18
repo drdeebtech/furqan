@@ -10,7 +10,10 @@ import { useNowTicker } from "@/lib/hooks/use-now-ticker";
 
 interface NextActionData {
   /** Most-imminent confirmed booking, if any. */
-  nextBooking: { sessionId: string | null; bookingId: string; scheduledAt: string; teacherName: string | null } | null;
+  // Spec 022: scheduledAt may be NULL for single-session assessment/specialized
+  // bookings (slot chosen after creation). Treated as "scheduled but unscheduled"
+  // — falls through to the scheduled-session branch with an "Unscheduled" label.
+  nextBooking: { sessionId: string | null; bookingId: string; scheduledAt: string | null; teacherName: string | null } | null;
   /** First in-progress course lesson the student should resume, if any. */
   resumeLesson: { lessonId: string; title: string; href: string; progressPct: number } | null;
   /** Follow-up signal (overdue + due-today + next item). */
@@ -51,7 +54,12 @@ export function NextActionBanner({ data, renderedAtMs }: { data: NextActionData;
   const dismissedKey = localDismissal ?? storedDismissal;
 
   const next = data.nextBooking;
-  const minsUntilNext = next ? Math.floor((new Date(next.scheduledAt).getTime() - now) / 60_000) : null;
+  // Spec 022: NULL scheduledAt = slot not chosen yet. Not "imminent" —
+  // new Date(null).getTime() === 0 (Epoch) would otherwise produce a huge
+  // negative minsUntilNext and falsely fire the imminent-session branch.
+  const minsUntilNext = next && next.scheduledAt
+    ? Math.floor((new Date(next.scheduledAt).getTime() - now) / 60_000)
+    : null;
   const hw = data.homework;
   const quiz = data.nextQuiz;
   const quizDate = quiz?.due_at ? new Date(quiz.due_at) : null;
@@ -142,9 +150,16 @@ export function NextActionBanner({ data, renderedAtMs }: { data: NextActionData;
         </BannerShell>
       );
     case "scheduled-session": {
-      const date = new Date(state.next.scheduledAt);
-      const dayLabel = date.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "short" });
-      const timeLabel = date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+      // Spec 022: scheduledAt may be NULL (assessment/specialized without slot).
+      // Render an "Unscheduled" label instead of Epoch (Jan 1 1970).
+      const unscheduled = !state.next.scheduledAt;
+      const date = unscheduled ? null : new Date(state.next.scheduledAt!);
+      const dayLabel = unscheduled
+        ? (lang === "ar" ? "غير مُجدوَل" : "Unscheduled")
+        : date!.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "short" });
+      const timeLabel = unscheduled
+        ? (lang === "ar" ? "اختر الموعد" : "Pick a time")
+        : date!.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
       const href = state.next.sessionId ? `/student/sessions/${state.next.sessionId}` : "/student/sessions";
       return (
         <BannerShell tone="calm" onDismiss={dismiss} dismissLabel={t("إخفاء", "Dismiss")}>
