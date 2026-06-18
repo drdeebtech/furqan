@@ -38,7 +38,11 @@ no schema/migration changes (app-layer only); no `db push`.
   **Done:** Imports are now `validateRange, violationMessageAr, validateHomeworkRange` + `ayahCount, AYAH_COUNTS` only.
 
 - [x] **T7 (gate)** `npx tsc --noEmit` clean; `npm run test:unit` green; lint the changed files clean.
-  **Done (verified 2026-06-18 on `013-progress-action-hardening` branch):** tsc 0 errors; 49/49 follow-up + zod tests pass; full suite 645/645.
+  **Done (verified 2026-06-18 on `013-progress-action-hardening` branch):**
+  - `tsc`: 0 errors
+  - `vitest` (follow-up + zod): 49/49 pass
+  - full unit suite: 645/645 pass
+  - `eslint specs/013-progress-action-hardening/ specs/audit-progress-actions.md`: exit 0 (no source files in this docs-only close-out — ESLint config does not lint `.md`; no regressions possible since no `.ts`/`.tsx` touched).
 
 **Stop-and-report triggers:** any task needs a schema/migration change; any existing test breaks in a
 way that implies a real behavior change (not just a new assertion); the whitelist breaks a legit edit field.
