@@ -171,6 +171,33 @@ describe("POST /api/stripe/checkout/single-session (spec 022)", () => {
     expect(mockSessionsCreate).not.toHaveBeenCalled();
   });
 
+  // CodeRabbit #3: Number(null)/Number("") === 0 previously collapsed the
+  // limit to 0 and blocked every assessment. The default-policy branch must
+  // fire for missing/blank/non-numeric settings so the limit falls back to 1.
+  it("does NOT block when assessment-limit setting is null (default policy)", async () => {
+    mockGetSetting.mockResolvedValueOnce(null);
+    mockCountAssessments.mockResolvedValueOnce(0);
+    const res = await POST(makeReq({ productType: "assessment", specialty: "hifz" }));
+    expect(res.status).toBe(200);
+    expect(mockSessionsCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT block when assessment-limit setting is blank string", async () => {
+    mockGetSetting.mockResolvedValueOnce("");
+    mockCountAssessments.mockResolvedValueOnce(0);
+    const res = await POST(makeReq({ productType: "assessment", specialty: "hifz" }));
+    expect(res.status).toBe(200);
+    expect(mockSessionsCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT block when assessment-limit setting is non-numeric", async () => {
+    mockGetSetting.mockResolvedValueOnce("unlimited");
+    mockCountAssessments.mockResolvedValueOnce(0);
+    const res = await POST(makeReq({ productType: "assessment", specialty: "hifz" }));
+    expect(res.status).toBe(200);
+    expect(mockSessionsCreate).toHaveBeenCalledTimes(1);
+  });
+
   it("returns 422 when no specialist matches the specialty (FR-013)", async () => {
     mockFindSpecialist.mockResolvedValueOnce(null);
     const res = await POST(makeReq({ productType: "assessment", specialty: "qiraat" }));

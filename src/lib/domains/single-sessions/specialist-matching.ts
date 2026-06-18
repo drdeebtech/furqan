@@ -27,10 +27,13 @@ export interface Specialist {
 /**
  * Find an available specialist teacher for the requested specialty.
  *
- * Returns the first matching teacher (ordered by `is_accepting desc,
- * teacher_profiles.created_at`) or `null` when none is available. The caller
- * (checkout route) treats null as a 422 fail-before-charge — no charge is
- * initiated, no session is created, no non-matching teacher is assigned.
+ * Returns the first matching teacher (ordered by `teacher_profiles.created_at`
+ * — longest-tenured specialist wins ties) or `null` when none is available.
+ * The caller (checkout route) treats null as a 422 fail-before-charge — no
+ * charge is initiated, no session is created, no non-matching teacher is
+ * assigned.
+ *
+ * Only teachers with `is_accepting = true` are returned (CodeRabbit #4).
  *
  * Per R-004 scale check: the teacher pool is small (<100); a full scan of
  * teacher_profiles with `specialties @> ARRAY[:specialty]::text[]` is fine.
@@ -46,6 +49,8 @@ export async function findAvailableSpecialist(
   // Teachers whose specialty array contains the requested specialty AND who
   // are accepting students. teacher_profiles is the authoritative source for
   // specialties (profiles.specialties is the legacy non-authoritative view).
+  // CodeRabbit #4: filter on is_accepting=true — ordering alone lets non-
+  // accepting teachers be returned, contradicting the docstring above.
   const { data: teachers, error } = await admin
     .from("teacher_profiles")
     .select(
@@ -53,7 +58,8 @@ export async function findAvailableSpecialist(
     )
     .contains("specialties", [trimmed])
     .eq("is_archived", false)
-    .order("is_accepting", { ascending: false })
+    .eq("is_accepting", true)
+    .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle<{
       teacher_id: string;
@@ -113,7 +119,8 @@ export async function listAvailableSpecialists(
     .select("teacher_id, specialties, is_accepting")
     .contains("specialties", [trimmed])
     .eq("is_archived", false)
-    .order("is_accepting", { ascending: false })
+    .eq("is_accepting", true)
+    .order("created_at", { ascending: true })
     .returns<{
       teacher_id: string;
       specialties: string[];
@@ -164,7 +171,10 @@ export async function listAvailableSpecialists(
  * the route to enforce the per-specialty assessment limit (FR-014 / R-003):
  * over-limit requests are rejected with 409 BEFORE any Stripe call.
  *
- * Only counts bookings actually created (not abandoned checkouts).
+ * Counts bookings that actually count toward the limit: cancelled / no_show
+ * rows don't consume an assessment attempt (CodeRabbit #8 — the docstring
+ * previously claimed "not abandoned checkouts" but the query counted
+ * everything including cancellations).
  */
 export async function countStudentAssessmentsForSpecialty(
   studentId: string,
@@ -179,7 +189,8 @@ export async function countStudentAssessmentsForSpecialty(
     .select("id", { count: "exact", head: true })
     .eq("student_id", studentId)
     .eq("booking_product_type", "assessment")
-    .eq("specialty", trimmed);
+    .eq("specialty", trimmed)
+    .not("status", "in", '("cancelled","no_show")');
 
   if (error) {
     logError(

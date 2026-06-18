@@ -110,9 +110,16 @@ async function checkAssessmentLimit(
   specialty: string,
 ): Promise<AssessmentLimitResult> {
   const raw = await getSetting("hifz_assessment_limit_per_specialty");
+  // Spec 022 / CodeRabbit #3: Number(null) and Number("") both return 0,
+  // which previously made the default-policy branch unreachable whenever the
+  // setting was missing or blank — every assessment was blocked because the
+  // limit collapsed to 0. Treat null/undefined/blank/non-finite as the
+  // default policy (1 attempt per specialty).
+  const DEFAULT_LIMIT = 1;
   const limit = (() => {
+    if (raw === null || raw === undefined || raw.trim() === "") return DEFAULT_LIMIT;
     const n = Number(raw);
-    if (!Number.isFinite(n) || n < 0) return 1; // default policy
+    if (!Number.isFinite(n) || n < 0) return DEFAULT_LIMIT;
     return Math.floor(n);
   })();
   const current = await countStudentAssessmentsForSpecialty(studentId, specialty);
