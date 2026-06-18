@@ -39,8 +39,8 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ assignmentId }, { status: 201 });
-  } catch (err: any) {
-    if (err.code === "23505") {
+  } catch (err) {
+    if (err && typeof err === "object" && "code" in err && err.code === "23505") {
       return NextResponse.json({ error: "Student already has an active assignment" }, { status: 409 });
     }
     logError("api/scheduling/assign-teacher: failed", err, {});

@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/supabase.generated";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/automation/emit", () => ({
@@ -13,19 +15,23 @@ vi.mock("./assignments");
 vi.mock("./availability");
 
 describe("createConstrainedBooking", () => {
+  // Mocks imitate a chainable Supabase query builder. The literal is inferred
+  // (so individual mock methods stay directly callable); cast to
+  // `SupabaseClient<Database>` only when passed into the function under test.
+  // No `as any` — the literal's vi.fn shape is its own structural type.
   const mockSupabase = {
     from: vi.fn().mockReturnThis(),
     insert: vi.fn().mockReturnThis(),
     select: vi.fn().mockReturnThis(),
     single: vi.fn(),
-  } as any;
+  };
 
   const mockAdmin = {
     from: vi.fn().mockReturnThis(),
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     single: vi.fn(),
-  } as any;
+  };
 
   const userId = "student-123";
   const slotInstanceId = "slot-456";
@@ -39,7 +45,7 @@ describe("createConstrainedBooking", () => {
   it("should create a booking when teacher matches assignment", async () => {
     vi.spyOn(assignments, "getMyAssignment").mockResolvedValue({
       teacher_id: teacherId,
-    } as any);
+    } as never);
 
     mockAdmin.single.mockResolvedValueOnce({
       data: { teacher_id: teacherId, is_booked: false },
@@ -53,7 +59,13 @@ describe("createConstrainedBooking", () => {
       error: null,
     });
 
-    const result = await createConstrainedBooking(mockSupabase, mockAdmin, userId, slotInstanceId, scheduledAt);
+    const result = await createConstrainedBooking(
+      mockSupabase as unknown as SupabaseClient<Database>,
+      mockAdmin as unknown as SupabaseClient<Database>,
+      userId,
+      slotInstanceId,
+      scheduledAt,
+    );
 
     expect(result).toBe("booking-001");
     expect(mockSupabase.insert).toHaveBeenCalledWith(
@@ -65,49 +77,70 @@ describe("createConstrainedBooking", () => {
         amount_usd: 0,
         duration_min: 60,
         rate_snapshot: 0,
-      })
+      }),
     );
   });
 
   it("should throw AssignmentNotFoundError when no assignment exists", async () => {
     vi.spyOn(assignments, "getMyAssignment").mockResolvedValue(null);
 
-    await expect(createConstrainedBooking(mockSupabase, mockAdmin, userId, slotInstanceId, scheduledAt))
-      .rejects.toThrow(AssignmentNotFoundError);
+    await expect(
+      createConstrainedBooking(
+        mockSupabase as unknown as SupabaseClient<Database>,
+        mockAdmin as unknown as SupabaseClient<Database>,
+        userId,
+        slotInstanceId,
+        scheduledAt,
+      ),
+    ).rejects.toThrow(AssignmentNotFoundError);
   });
 
   it("should throw TeacherMismatchError when teacher does not match", async () => {
     vi.spyOn(assignments, "getMyAssignment").mockResolvedValue({
       teacher_id: teacherId,
-    } as any);
+    } as never);
 
     mockAdmin.single.mockResolvedValueOnce({
       data: { teacher_id: "other-teacher", is_booked: false },
       error: null,
     });
 
-    await expect(createConstrainedBooking(mockSupabase, mockAdmin, userId, slotInstanceId, scheduledAt))
-      .rejects.toThrow(TeacherMismatchError);
+    await expect(
+      createConstrainedBooking(
+        mockSupabase as unknown as SupabaseClient<Database>,
+        mockAdmin as unknown as SupabaseClient<Database>,
+        userId,
+        slotInstanceId,
+        scheduledAt,
+      ),
+    ).rejects.toThrow(TeacherMismatchError);
   });
 
   it("should throw SlotAlreadyBookedError when slot is already booked", async () => {
     vi.spyOn(assignments, "getMyAssignment").mockResolvedValue({
       teacher_id: teacherId,
-    } as any);
+    } as never);
 
     mockAdmin.single.mockResolvedValueOnce({
       data: { teacher_id: teacherId, is_booked: true },
       error: null,
     });
 
-    await expect(createConstrainedBooking(mockSupabase, mockAdmin, userId, slotInstanceId, scheduledAt))
-      .rejects.toThrow(SlotAlreadyBookedError);
+    await expect(
+      createConstrainedBooking(
+        mockSupabase as unknown as SupabaseClient<Database>,
+        mockAdmin as unknown as SupabaseClient<Database>,
+        userId,
+        slotInstanceId,
+        scheduledAt,
+      ),
+    ).rejects.toThrow(SlotAlreadyBookedError);
   });
 
   it("should throw SlotAlreadyBookedError when lockSlot fails (race)", async () => {
     vi.spyOn(assignments, "getMyAssignment").mockResolvedValue({
       teacher_id: teacherId,
-    } as any);
+    } as never);
 
     mockAdmin.single.mockResolvedValueOnce({
       data: { teacher_id: teacherId, is_booked: false },
@@ -116,7 +149,14 @@ describe("createConstrainedBooking", () => {
 
     vi.spyOn(availability, "lockSlot").mockResolvedValue(false);
 
-    await expect(createConstrainedBooking(mockSupabase, mockAdmin, userId, slotInstanceId, scheduledAt))
-      .rejects.toThrow(SlotAlreadyBookedError);
+    await expect(
+      createConstrainedBooking(
+        mockSupabase as unknown as SupabaseClient<Database>,
+        mockAdmin as unknown as SupabaseClient<Database>,
+        userId,
+        slotInstanceId,
+        scheduledAt,
+      ),
+    ).rejects.toThrow(SlotAlreadyBookedError);
   });
 });

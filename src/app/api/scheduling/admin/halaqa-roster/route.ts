@@ -29,8 +29,8 @@ export async function GET(request: Request) {
   try {
     const roster = await getHalaqaRoster(admin, classOfferingId);
     return NextResponse.json(roster);
-  } catch (err: any) {
-    if (err.message === "Halaqa not found") {
+  } catch (err) {
+    if (err instanceof Error && err.message === "Halaqa not found") {
       return NextResponse.json({ error: err.message }, { status: 404 });
     }
     logError("api/scheduling/admin/halaqa-roster: failed", err, {});

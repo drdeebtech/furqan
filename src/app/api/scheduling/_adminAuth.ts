@@ -39,7 +39,13 @@ export async function requireAdminUser(
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "admin" && profile?.role !== ("super_admin" as any)) {
+  // Allow the canonical "admin" role plus the defensive "super_admin" string
+  // (not in the user_role enum today, kept for forward-compat). String
+  // comparison avoids the `as any` cast against the typed enum.
+  const role: unknown = profile?.role;
+  const isAdmin =
+    role === "admin" || role === "super_admin";
+  if (!isAdmin) {
     return {
       ok: false,
       response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),

@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/supabase.generated";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/automation/emit", () => ({
@@ -8,8 +10,9 @@ vi.mock("@/lib/automation/emit", () => ({
 import { joinHalaqa, EntryConditionError } from "./cohorts";
 
 describe("joinHalaqa", () => {
-  const mockSupabase = {} as any;
+  const mockSupabase = {} as SupabaseClient<Database>;
 
+  // Literal-inferred so each vi.fn stays directly callable; cast at call site.
   const mockAdmin = {
     from: vi.fn().mockReturnThis(),
     select: vi.fn().mockReturnThis(),
@@ -18,7 +21,7 @@ describe("joinHalaqa", () => {
     single: vi.fn(),
     insert: vi.fn().mockReturnThis(),
     rpc: vi.fn(),
-  } as any;
+  };
 
   const userId = "student-123";
   const classOfferingId = "offering-456";
@@ -40,7 +43,7 @@ describe("joinHalaqa", () => {
 
     mockAdmin.rpc.mockResolvedValueOnce({ error: null });
 
-    const result = await joinHalaqa(mockSupabase, mockAdmin, userId, classOfferingId);
+    const result = await joinHalaqa(mockSupabase, mockAdmin as unknown as SupabaseClient<Database>, userId, classOfferingId);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -78,7 +81,7 @@ describe("joinHalaqa", () => {
     // increment_enrollment
     mockAdmin.rpc.mockResolvedValueOnce({ error: null });
 
-    const result = await joinHalaqa(mockSupabase, mockAdmin, userId, classOfferingId);
+    const result = await joinHalaqa(mockSupabase, mockAdmin as unknown as SupabaseClient<Database>, userId, classOfferingId);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -102,11 +105,11 @@ describe("joinHalaqa", () => {
     });
 
     try {
-      await joinHalaqa(mockSupabase, mockAdmin, userId, classOfferingId);
+      await joinHalaqa(mockSupabase, mockAdmin as unknown as SupabaseClient<Database>, userId, classOfferingId);
       expect.fail("Should have thrown EntryConditionError");
-    } catch (err: any) {
+    } catch (err) {
       expect(err).toBeInstanceOf(EntryConditionError);
-      expect(err.unmetCondition).toBe("Accept terms");
+      expect((err as EntryConditionError).unmetCondition).toBe("Accept terms");
     }
   });
 });

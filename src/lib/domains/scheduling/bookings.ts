@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase.generated";
+import type { TableInsert } from "@/lib/supabase/typed-helpers";
 import { getMyAssignment } from "./assignments";
 import { lockSlot, unlockSlot } from "./availability";
 import { emitEvent } from "@/lib/automation/emit";
@@ -93,7 +94,7 @@ export async function createConstrainedBooking(
       duration_min: 60, // TODO: fetch from tier
       amount_usd: 0,
       rate_snapshot: 0,
-    } as any)
+    } satisfies TableInsert<"bookings">)
     .select("id")
     .single();
 

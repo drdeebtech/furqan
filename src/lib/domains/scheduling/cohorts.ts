@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase.generated";
+import type { TableInsert } from "@/lib/supabase/typed-helpers";
 import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
 
@@ -10,6 +11,27 @@ import { logError } from "@/lib/logger";
  *
  * Domain layer for group halaqas and cohorts.
  */
+
+/** Shape of `class_offerings.entry_conditions_json` (US3 course gating). */
+interface EntryConditions {
+  required_confirmation?: boolean;
+  prompt?: string;
+}
+
+/** Roster member row (US5 admin view). */
+export interface RosterMember {
+  id: string;
+  name: string | null;
+  name_ar: string | null;
+}
+
+/** Sibling halaqa row (US5 admin view). */
+export interface SiblingHalaqa {
+  id: string;
+  capacity: number;
+  current_enrollment: number;
+  status: string;
+}
 
 export interface JoinResult {
   ok: true;
@@ -88,20 +110,19 @@ export async function joinHalaqa(
 
     // 3. Entry conditions (T018 / US3)
     if (offering.entry_conditions_json) {
-      const conditions = offering.entry_conditions_json as any;
+      const conditions = offering.entry_conditions_json as EntryConditions;
       if (conditions.required_confirmation && !entryConfirmation) {
         throw new EntryConditionError("Entry conditions not met", conditions.prompt || "Confirmation required");
       }
     }
 
     // 4. Join the target halaqa (session_participants)
-    // We use offering.session_id if the session is already created.
-    // If it's a new overflow, the session might not exist yet depending on creation logic.
-    // For now, we assume offering.session_id is populated.
-    let sessionId = offering.session_id;
+    // When overflow redirected, always resolve the session_id from the
+    // overflow target offering — the source offering's session_id may be
+    // stale or null after the overflow clone (CodeRabbit CR2).
+    let sessionId: string | null = offering.session_id;
 
-    if (!sessionId && overflowRedirected) {
-      // If redirected to overflow, we need the overflow's session_id
+    if (overflowRedirected) {
       const { data: overflowOffering } = await admin
         .from("class_offerings")
         .select("session_id")
@@ -121,7 +142,7 @@ export async function joinHalaqa(
         user_id: userId,
         role: "student",
         attendance_status: "registered",
-      } as any)
+      } satisfies TableInsert<"session_participants">)
       .select("id")
       .single();
 
@@ -189,7 +210,7 @@ export async function getHalaqaRoster(
   }
 
   // 2. Fetch participants
-  let members: any[] = [];
+  const members: RosterMember[] = [];
   if (offering.session_id) {
     const { data: participants, error: partErr } = await admin
       .from("session_participants")
@@ -206,19 +227,19 @@ export async function getHalaqaRoster(
       .eq("attendance_status", "registered");
 
     if (!partErr && participants) {
-      members = participants.map((p) => {
+      for (const p of participants) {
         const profile = Array.isArray(p.profile) ? p.profile[0] : p.profile;
-        return {
+        members.push({
           id: p.user_id,
-          name: profile?.full_name,
-          name_ar: profile?.full_name_ar,
-        };
-      });
+          name: profile?.full_name ?? null,
+          name_ar: profile?.full_name_ar ?? null,
+        });
+      }
     }
   }
 
   // 3. Fetch sibling halaqas
-  let sibling_halaqas: any[] = [];
+  const sibling_halaqas: SiblingHalaqa[] = [];
   if (offering.program_level) {
     const { data: siblings } = await admin
       .from("class_offerings")
@@ -226,9 +247,16 @@ export async function getHalaqaRoster(
       .eq("teacher_id", offering.teacher_id)
       .eq("program_level", offering.program_level)
       .neq("id", classOfferingId);
-      
+
     if (siblings) {
-      sibling_halaqas = siblings;
+      for (const s of siblings) {
+        sibling_halaqas.push({
+          id: s.id,
+          capacity: s.capacity,
+          current_enrollment: s.current_enrollment,
+          status: s.status,
+        });
+      }
     }
   }
 
