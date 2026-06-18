@@ -27,6 +27,11 @@ describe("joinHalaqa", () => {
   const classOfferingId = "offering-456";
 
   beforeEach(() => {
+    // clearAllMocks (not resetAllMocks) — keeps the mockReturnThis defaults
+    // on from/select/eq/insert that the chainable Supabase query builder
+    // relies on. resetAllMocks would wipe those and break every chain.
+    // Cross-test leakage of mockResolvedValueOnce queues is bounded because
+    // each test re-stubs the specific call sites it exercises.
     vi.clearAllMocks();
   });
 

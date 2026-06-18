@@ -44,18 +44,20 @@ export class SlotInstanceNotFoundError extends Error {
 
 /**
  * Create a booking constrained to the student's assigned teacher.
- * 
+ *
  * 1. Verifies student has an active assignment.
  * 2. Verifies the slot's teacher matches the assigned teacher.
  * 3. Locks the dated slot instance (atomic).
- * 4. Inserts the booking row.
+ * 4. Inserts the booking row with `scheduled_at` derived from the locked
+ *    slot instance (slot_date + start_time), NOT from client input —
+ *    closes the authz gap where a client could book one slot but write
+ *    an arbitrary `scheduled_at` to the bookings row.
  */
 export async function createConstrainedBooking(
   supabase: SupabaseClient<Database>,
   admin: SupabaseClient<Database>,
   userId: string,
   slotInstanceId: string,
-  scheduledAt: string,
 ): Promise<string> {
   // 1. Get active assignment
   const assignment = await getMyAssignment(supabase, userId);
@@ -63,10 +65,14 @@ export async function createConstrainedBooking(
     throw new AssignmentNotFoundError();
   }
 
-  // 2. Get slot instance details to check teacher_id
+  // 2. Get slot instance details. Fetch the canonical slot_date +
+  //    start_time so `scheduled_at` is derived from the locked row, not
+  //    from client input. Slot times are stored as `time` (no tz) and
+  //    bookings.scheduled_at is timestamptz (UTC); we treat slot time as
+  //    UTC, which matches the existing storage convention.
   const { data: slot, error: slotErr } = await admin
     .from("teacher_availability_instances")
-    .select("teacher_id, is_booked")
+    .select("teacher_id, is_booked, slot_date, start_time")
     .eq("id", slotInstanceId)
     .single();
 
@@ -81,6 +87,9 @@ export async function createConstrainedBooking(
   if (slot.is_booked) {
     throw new SlotAlreadyBookedError();
   }
+
+  // Derive canonical scheduled_at from the slot row. ISO 8601 UTC.
+  const scheduledAt = `${slot.slot_date}T${slot.start_time}Z`;
 
   // 3. Atomic lock on dated instance
   const locked = await lockSlot(admin, slotInstanceId);
@@ -121,6 +130,6 @@ export async function createConstrainedBooking(
     teacher_id: slot.teacher_id,
     scheduled_at: scheduledAt,
   }).catch((err) => logError("emit booking.created failed", err, { tag: "automation" }));
-  
+
   return booking.id;
 }

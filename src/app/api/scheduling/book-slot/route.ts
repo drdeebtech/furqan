@@ -13,12 +13,12 @@ import { logError } from "@/lib/logger";
 
 const bodySchema = z.object({
   slotInstanceId: z.string().uuid(),
-  scheduledAt: z.string().datetime(),
 });
 
 /**
  * POST /api/scheduling/book-slot — create a booking constrained to the assigned teacher.
- * Auth required. 
+ * Auth required. `scheduled_at` is derived server-side from the locked
+ * slot instance; clients cannot set it.
  */
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -28,14 +28,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    // Malformed JSON → controlled 400 rather than an unhandled 500.
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const result = bodySchema.safeParse(body);
 
   if (!result.success) {
     return NextResponse.json({ error: "Invalid request body", details: result.error.format() }, { status: 400 });
   }
 
-  const { slotInstanceId, scheduledAt } = result.data;
+  const { slotInstanceId } = result.data;
 
   try {
     const admin = createAdminClient();
@@ -44,7 +50,6 @@ export async function POST(request: Request) {
       admin,
       user.id,
       slotInstanceId,
-      scheduledAt
     );
 
     return NextResponse.json({ bookingId }, { status: 201 });

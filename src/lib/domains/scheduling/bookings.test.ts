@@ -36,19 +36,30 @@ describe("createConstrainedBooking", () => {
   const userId = "student-123";
   const slotInstanceId = "slot-456";
   const teacherId = "teacher-789";
-  const scheduledAt = "2026-07-01T10:00:00Z";
+  // Slot row now carries the canonical date + time; scheduled_at is derived.
+  const slotDate = "2026-07-01";
+  const slotStartTime = "10:00:00";
+  const expectedScheduledAt = `${slotDate}T${slotStartTime}Z`;
+
+  const slotRow = (overrides: Partial<{ teacher_id: string; is_booked: boolean; slot_date: string; start_time: string }> = {}) => ({
+    teacher_id: teacherId,
+    is_booked: false,
+    slot_date: slotDate,
+    start_time: slotStartTime,
+    ...overrides,
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("should create a booking when teacher matches assignment", async () => {
+  it("should create a booking with scheduled_at derived from the slot instance", async () => {
     vi.spyOn(assignments, "getMyAssignment").mockResolvedValue({
       teacher_id: teacherId,
     } as never);
 
     mockAdmin.single.mockResolvedValueOnce({
-      data: { teacher_id: teacherId, is_booked: false },
+      data: slotRow(),
       error: null,
     });
 
@@ -64,7 +75,6 @@ describe("createConstrainedBooking", () => {
       mockAdmin as unknown as SupabaseClient<Database>,
       userId,
       slotInstanceId,
-      scheduledAt,
     );
 
     expect(result).toBe("booking-001");
@@ -72,7 +82,7 @@ describe("createConstrainedBooking", () => {
       expect.objectContaining({
         student_id: userId,
         teacher_id: teacherId,
-        scheduled_at: scheduledAt,
+        scheduled_at: expectedScheduledAt, // derived server-side, not from client
         status: "pending",
         amount_usd: 0,
         duration_min: 60,
@@ -90,7 +100,6 @@ describe("createConstrainedBooking", () => {
         mockAdmin as unknown as SupabaseClient<Database>,
         userId,
         slotInstanceId,
-        scheduledAt,
       ),
     ).rejects.toThrow(AssignmentNotFoundError);
   });
@@ -101,7 +110,7 @@ describe("createConstrainedBooking", () => {
     } as never);
 
     mockAdmin.single.mockResolvedValueOnce({
-      data: { teacher_id: "other-teacher", is_booked: false },
+      data: slotRow({ teacher_id: "other-teacher" }),
       error: null,
     });
 
@@ -111,7 +120,6 @@ describe("createConstrainedBooking", () => {
         mockAdmin as unknown as SupabaseClient<Database>,
         userId,
         slotInstanceId,
-        scheduledAt,
       ),
     ).rejects.toThrow(TeacherMismatchError);
   });
@@ -122,7 +130,7 @@ describe("createConstrainedBooking", () => {
     } as never);
 
     mockAdmin.single.mockResolvedValueOnce({
-      data: { teacher_id: teacherId, is_booked: true },
+      data: slotRow({ is_booked: true }),
       error: null,
     });
 
@@ -132,7 +140,6 @@ describe("createConstrainedBooking", () => {
         mockAdmin as unknown as SupabaseClient<Database>,
         userId,
         slotInstanceId,
-        scheduledAt,
       ),
     ).rejects.toThrow(SlotAlreadyBookedError);
   });
@@ -143,7 +150,7 @@ describe("createConstrainedBooking", () => {
     } as never);
 
     mockAdmin.single.mockResolvedValueOnce({
-      data: { teacher_id: teacherId, is_booked: false },
+      data: slotRow(),
       error: null,
     });
 
@@ -155,7 +162,6 @@ describe("createConstrainedBooking", () => {
         mockAdmin as unknown as SupabaseClient<Database>,
         userId,
         slotInstanceId,
-        scheduledAt,
       ),
     ).rejects.toThrow(SlotAlreadyBookedError);
   });
@@ -166,7 +172,7 @@ describe("createConstrainedBooking", () => {
     } as never);
 
     mockAdmin.single.mockResolvedValueOnce({
-      data: { teacher_id: teacherId, is_booked: false },
+      data: slotRow(),
       error: null,
     });
 
@@ -187,7 +193,6 @@ describe("createConstrainedBooking", () => {
         mockAdmin as unknown as SupabaseClient<Database>,
         userId,
         slotInstanceId,
-        scheduledAt,
       ),
     ).rejects.toEqual(bookErr);
 
