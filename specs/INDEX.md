@@ -28,7 +28,7 @@
 | [018-subscription-billing-foundation](./018-subscription-billing-foundation/spec.md) | Shipped | `018-subscription-billing-foundation` | [#474](https://github.com/drdeebtech/furqan/pull/474) |
 | [019-catalog-credit-redesign](./019-catalog-credit-redesign/spec.md) | Shipped | `019-catalog-credit-redesign` | [#477](https://github.com/drdeebtech/furqan/pull/477) |
 | [020-scheduling-cohorts](./020-scheduling-cohorts/spec.md) | Shipped | `020-scheduling-cohorts` | [#479](https://github.com/drdeebtech/furqan/pull/479) |
-| [021-attendance-payroll](./021-attendance-payroll/spec.md) | Tasks-ready | `021-attendance-payroll` | _(pending)_ |
+| [021-attendance-payroll](./021-attendance-payroll/spec.md) | Implementing | `021-attendance-payroll` | [#482](https://github.com/drdeebtech/furqan/pull/482) |
 | [022-onboarding-single-sessions](./022-onboarding-single-sessions/spec.md) | Tasks-ready | `022-onboarding-single-sessions` | _(pending)_ |
 | [023-reports-gamification-notifications](./023-reports-gamification-notifications/spec.md) | Tasks-ready | `023-reports-gamification-notifications` | _(pending)_ |
 | [024-migration-cutover](./024-migration-cutover/spec.md) | Tasks-ready | `024-migration-cutover` | _(pending)_ |
