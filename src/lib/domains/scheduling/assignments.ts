@@ -108,6 +108,13 @@ export async function createAssignment(
 /**
  * Reassign a student to a different teacher (US4 / T021).
  * Admin only. Bulk-cancels future bookings.
+ *
+ * Delegates to the `reassign_teacher_atomic` SECURITY DEFINER RPC so the
+ * assignment update, audit-timestamp write, and future-booking cancellation
+ * land in a single Postgres transaction. This closes the silent
+ * data-integrity gap where a failed cancel could leave the assignment row
+ * showing a `cancelled_future_bookings_at` timestamp while bookings stayed
+ * active under the old teacher.
  */
 export async function reassignTeacher(
   admin: SupabaseClient<Database>,
@@ -116,47 +123,33 @@ export async function reassignTeacher(
   reason: string,
   adminId: string,
 ): Promise<{ ok: true; cancellationCount: number }> {
-  // 1. Fetch current assignment to get student_id
-  const { data: assignment, error: getErr } = await admin
-    .from("subscription_teacher_assignments")
-    .select("student_id")
-    .eq("id", assignmentId)
-    .single();
-  
-  if (getErr || !assignment) throw new Error("Assignment not found");
+  const { data, error } = await admin.rpc("reassign_teacher_atomic", {
+    p_assignment_id: assignmentId,
+    p_new_teacher_id: newTeacherId,
+    p_admin_id: adminId,
+  });
 
-  // 2. Update assignment: new teacher + audit trail
-  const now = new Date().toISOString();
-  const { error: updErr } = await admin
-    .from("subscription_teacher_assignments")
-    .update({
-      teacher_id: newTeacherId,
-      approved_by: adminId,
-      cancelled_future_bookings_at: now,
-    })
-    .eq("id", assignmentId);
+  if (error) {
+    // P0002 (no_data_found) from SELECT INTO STRICT — assignment missing.
+    // Surface the underlying DB error verbatim; the caller is responsible
+    // for mapping known codes to HTTP responses.
+    throw error;
+  }
 
-  if (updErr) throw updErr;
-
-  // 3. Bulk-cancel future pending/confirmed bookings for this student
-  const { count, error: cancelErr } = await admin
-    .from("bookings")
-    .update({ status: "cancelled" })
-    .eq("student_id", assignment.student_id)
-    .in("status", ["pending", "confirmed"])
-    .gt("scheduled_at", now);
-
-  if (cancelErr) throw cancelErr;
+  // RPC returns TABLE(student_id uuid, cancellation_count int); Supabase
+  // types it as an array of rows. We expect exactly one row.
+  const resultRow = (data as unknown as Array<{ student_id: string; cancellation_count: number }>)[0];
+  const cancellationCount = resultRow?.cancellation_count ?? 0;
 
   // Emit assignment.changed event (FR-021)
   emitEvent("assignment.changed", "assignment", assignmentId, {
-    student_id: assignment.student_id,
+    student_id: resultRow?.student_id,
     teacher_id: newTeacherId,
     reason,
-    cancellations: count ?? 0,
+    cancellations: cancellationCount,
   }, adminId).catch((err) => logError("emit assignment.changed failed", err, { tag: "automation" }));
 
-  return { ok: true, cancellationCount: count ?? 0 };
+  return { ok: true, cancellationCount };
 }
 
 /**

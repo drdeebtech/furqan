@@ -6330,6 +6330,17 @@ export type Database = {
           role: string
         }[]
       }
+      reassign_teacher_atomic: {
+        Args: {
+          p_admin_id: string
+          p_assignment_id: string
+          p_new_teacher_id: string
+        }
+        Returns: {
+          cancellation_count: number
+          student_id: string
+        }[]
+      }
       recompute_course_review_aggregates: {
         Args: { p_course_id: string }
         Returns: undefined

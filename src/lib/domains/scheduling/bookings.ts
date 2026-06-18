@@ -35,6 +35,13 @@ export class SlotAlreadyBookedError extends Error {
   }
 }
 
+export class SlotInstanceNotFoundError extends Error {
+  constructor() {
+    super("Slot instance not found.");
+    this.name = "SlotInstanceNotFoundError";
+  }
+}
+
 /**
  * Create a booking constrained to the student's assigned teacher.
  * 
@@ -64,7 +71,7 @@ export async function createConstrainedBooking(
     .single();
 
   if (slotErr || !slot) {
-    throw new Error("Slot instance not found");
+    throw new SlotInstanceNotFoundError();
   }
 
   if (slot.teacher_id !== assignment.teacher_id) {

@@ -159,4 +159,39 @@ describe("createConstrainedBooking", () => {
       ),
     ).rejects.toThrow(SlotAlreadyBookedError);
   });
+
+  it("should unlock the slot (rollback) when booking insert fails", async () => {
+    vi.spyOn(assignments, "getMyAssignment").mockResolvedValue({
+      teacher_id: teacherId,
+    } as never);
+
+    mockAdmin.single.mockResolvedValueOnce({
+      data: { teacher_id: teacherId, is_booked: false },
+      error: null,
+    });
+
+    vi.spyOn(availability, "lockSlot").mockResolvedValue(true);
+    const unlockSpy = vi
+      .spyOn(availability, "unlockSlot")
+      .mockResolvedValue(undefined);
+
+    const bookErr = { code: "23505", message: "duplicate booking" };
+    mockSupabase.single.mockResolvedValueOnce({
+      data: null,
+      error: bookErr,
+    });
+
+    await expect(
+      createConstrainedBooking(
+        mockSupabase as unknown as SupabaseClient<Database>,
+        mockAdmin as unknown as SupabaseClient<Database>,
+        userId,
+        slotInstanceId,
+        scheduledAt,
+      ),
+    ).rejects.toEqual(bookErr);
+
+    // Rollback must release the orphaned slot lock using the admin client.
+    expect(unlockSpy).toHaveBeenCalledWith(mockAdmin, slotInstanceId);
+  });
 });

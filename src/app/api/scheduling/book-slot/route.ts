@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { 
-  createConstrainedBooking, 
-  AssignmentNotFoundError, 
-  TeacherMismatchError, 
-  SlotAlreadyBookedError 
+import {
+  createConstrainedBooking,
+  AssignmentNotFoundError,
+  TeacherMismatchError,
+  SlotAlreadyBookedError,
+  SlotInstanceNotFoundError,
 } from "@/lib/domains/scheduling/bookings";
 import { logError } from "@/lib/logger";
 
@@ -57,8 +58,15 @@ export async function POST(request: Request) {
     if (err instanceof SlotAlreadyBookedError) {
       return NextResponse.json({ error: err.message }, { status: 409 });
     }
+    if (err instanceof SlotInstanceNotFoundError) {
+      return NextResponse.json({ error: err.message }, { status: 404 });
+    }
 
-    logError("api/scheduling/book-slot: failed", err, {});
+    logError("api/scheduling/book-slot: failed", err, {
+      tag: "scheduling",
+      user_id: user.id,
+      slot_instance_id: slotInstanceId,
+    });
     return NextResponse.json({ error: "Failed to create booking" }, { status: 500 });
   }
 }

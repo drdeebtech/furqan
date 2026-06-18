@@ -124,6 +124,11 @@ export const WEBHOOK_ROUTES = {
   "subscription.renewed": "/webhook/furqan-subscription-renewed",
   "subscription.past_due": "/webhook/furqan-subscription-past-due",
   "subscription.canceled": "/webhook/furqan-subscription-canceled",
+  // Scheduling domain (spec 020): assignment, cohort, and booking lifecycle
+  // events. NOTE: n8n workflows for these routes must be created to handle
+  // teacher assignment notifications, cohort overflow processing, and member
+  // join triggers. Until then dispatch logs a non-fatal failed-delivery
+  // automation_log entry.
   "assignment.created": "/webhook/furqan-assignment-created",
   "assignment.changed": "/webhook/furqan-assignment-changed",
   "cohort.opened": "/webhook/furqan-cohort-opened",

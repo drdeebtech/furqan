@@ -33,11 +33,24 @@ export async function requireAdminUser(
     };
   }
 
-  const { data: profile } = await admin
+  const { data: profile, error: profileErr } = await admin
     .from("profiles")
     .select("role")
     .eq("id", user.id)
     .single();
+
+  // Surface DB/profile retrieval failures as server errors so transient
+  // outages are not misreported as authorization failures (which would
+  // incorrectly deny access to valid admins).
+  if (profileErr || !profile) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: "Failed to load admin profile" },
+        { status: 503 },
+      ),
+    };
+  }
 
   // Allow the canonical "admin" role plus the defensive "super_admin" string
   // (not in the user_role enum today, kept for forward-compat). String

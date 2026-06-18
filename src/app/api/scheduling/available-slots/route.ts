@@ -45,7 +45,12 @@ export async function GET(request: Request) {
     const slots = await getOpenSlots(supabase, targetTeacherId, month);
     return NextResponse.json({ slots });
   } catch (err) {
-    logError("api/scheduling/available-slots: failed", err, {});
+    logError("api/scheduling/available-slots: failed", err, {
+      tag: "scheduling",
+      user_id: user.id,
+      teacher_id: teacherId ?? null,
+      month: month ?? null,
+    });
     return NextResponse.json({ error: "Failed to fetch available slots" }, { status: 500 });
   }
 }

@@ -9,9 +9,13 @@ vi.mock("@/lib/automation/emit", () => ({
 
 import { reassignTeacher } from "./assignments";
 
-/** Minimal admin-client mock shape (chainable per-table builder). */
+/**
+ * Minimal admin-client mock. reassignTeacher delegates everything to the
+ * reassign_teacher_atomic RPC, so the mock only needs an `rpc` resolver —
+ * no fragile chainable query-builder doubles.
+ */
 interface AdminMock {
-  from: ReturnType<typeof vi.fn>;
+  rpc: ReturnType<typeof vi.fn>;
 }
 
 describe("reassignTeacher", () => {
@@ -27,30 +31,9 @@ describe("reassignTeacher", () => {
 
   it("should reassign teacher and cancel future bookings", async () => {
     const mockAdmin: AdminMock = {
-      from: vi.fn().mockImplementation((table) => {
-        if (table === "subscription_teacher_assignments") {
-          return {
-            select: vi.fn().mockReturnThis(),
-            update: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockImplementation((col: string) => {
-              if (col === "id") {
-                return {
-                  single: vi.fn().mockResolvedValue({ data: { student_id: studentId }, error: null }),
-                  then: (cb: (v: { error: unknown }) => void) => cb({ error: null }),
-                };
-              }
-              return this;
-            }),
-          };
-        } else if (table === "bookings") {
-          return {
-            update: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockReturnThis(),
-            in: vi.fn().mockReturnThis(),
-            gt: vi.fn().mockResolvedValue({ count: 2, error: null }),
-          };
-        }
-        return undefined;
+      rpc: vi.fn().mockResolvedValue({
+        data: [{ student_id: studentId, cancellation_count: 2 }],
+        error: null,
       }),
     };
 
@@ -64,27 +47,17 @@ describe("reassignTeacher", () => {
 
     expect(result.ok).toBe(true);
     expect(result.cancellationCount).toBe(2);
+    expect(mockAdmin.rpc).toHaveBeenCalledWith("reassign_teacher_atomic", {
+      p_assignment_id: assignmentId,
+      p_new_teacher_id: newTeacherId,
+      p_admin_id: adminId,
+    });
   });
 
-  it("should throw if assignment not found", async () => {
+  it("should surface RPC error when assignment is missing (P0002)", async () => {
+    const dbErr = { code: "P0002", message: "no_data_found" };
     const mockAdmin: AdminMock = {
-      from: vi.fn().mockImplementation((table) => {
-        if (table === "subscription_teacher_assignments") {
-          return {
-            select: vi.fn().mockReturnThis(),
-            update: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockImplementation((col: string) => {
-              if (col === "id") {
-                return {
-                  single: vi.fn().mockResolvedValue({ data: null, error: { message: "Not found" } }),
-                };
-              }
-              return this;
-            }),
-          };
-        }
-        return undefined;
-      }),
+      rpc: vi.fn().mockResolvedValue({ data: null, error: dbErr }),
     };
 
     await expect(
@@ -95,6 +68,6 @@ describe("reassignTeacher", () => {
         reason,
         adminId,
       ),
-    ).rejects.toThrow("Assignment not found");
+    ).rejects.toEqual(dbErr);
   });
 });

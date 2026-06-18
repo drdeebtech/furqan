@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase.generated";
+import { logError } from "@/lib/logger";
 
 /**
  * Spec 020 — Scheduling (US1 / T008).
@@ -54,38 +55,46 @@ export async function getOpenSlots(
 
 /**
  * Lock one dated slot instance for booking race prevention.
- * Uses SELECT FOR UPDATE on the dated instance row.
- * Returns true if lock acquired and slot was not already booked.
+ * Delegates to the `lock_slot_instance` SECURITY DEFINER RPC (SELECT FOR
+ * UPDATE + UPDATE in one transaction). Returns true iff the slot exists
+ * and was not already booked.
  */
 export async function lockSlot(
   admin: SupabaseClient<Database>,
   slotInstanceId: string,
 ): Promise<boolean> {
-  // Use a transaction (RPC) if possible, but for a single-row lock-then-update,
-  // we can use a direct SELECT FOR UPDATE + UPDATE.
-  // Note: Supabase JS doesn't support SELECT FOR UPDATE directly; 
-  // this usually needs an RPC.
-  
   const { data, error } = await admin.rpc("lock_slot_instance", {
-    p_slot_id: slotInstanceId
+    p_slot_id: slotInstanceId,
   });
 
   if (error) throw error;
-  return data as boolean;
+  return data;
 }
 
 /**
- * Best-effort unlock of a dated slot instance (reverses lockSlot on insert failure).
- * Never throws — caller logs any error.
+ * Best-effort unlock of a dated slot instance (reverses lockSlot on insert
+ * failure). Never throws — logs any error internally so the caller's
+ * rollback path stays clean. The returned Promise resolves once the update
+ * (and any error log) has settled.
  */
 export async function unlockSlot(
   admin: SupabaseClient<Database>,
   slotInstanceId: string,
 ): Promise<void> {
-  await admin
+  const { error } = await admin
     .from("teacher_availability_instances")
     .update({ is_booked: false })
     .eq("id", slotInstanceId);
+
+  if (error) {
+    // Best-effort: this runs on the rollback path where the caller is
+    // already dealing with a primary failure. Surface the secondary failure
+    // to Sentry so an orphaned-lock pattern is observable.
+    logError("unlockSlot: best-effort rollback failed", error, {
+      tag: "scheduling",
+      slot_id: slotInstanceId,
+    });
+  }
 }
 
 /**

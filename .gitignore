@@ -127,3 +127,12 @@ automation/
 # ECC (Everything Claude Code) — large external tooling repo, not project source
 ECC/
 .gstack/
+
+# Stray debug-capture dumps (large, machine-generated, never source).
+# Patterns catch *_head.txt / *_output.txt at repo root so future ad-hoc
+# captures don't sneak in.
+/db_head.txt
+/gen_head.txt
+/lint_output.txt
+/*_head.txt
+/*_output.txt

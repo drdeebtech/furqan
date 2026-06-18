@@ -110,9 +110,19 @@ export async function joinHalaqa(
 
     // 3. Entry conditions (T018 / US3)
     if (offering.entry_conditions_json) {
-      const conditions = offering.entry_conditions_json as EntryConditions;
-      if (conditions.required_confirmation && !entryConfirmation) {
-        throw new EntryConditionError("Entry conditions not met", conditions.prompt || "Confirmation required");
+      // JSON column — validate shape before treating it as EntryConditions.
+      // Malformed JSON shouldn't crash the join path; fall back to "no
+      // conditions" rather than blindly trusting the `as` cast.
+      const raw = offering.entry_conditions_json;
+      const conditions: EntryConditions =
+        typeof raw === "object" && raw !== null
+          ? (raw as EntryConditions)
+          : { required_confirmation: false };
+      if (conditions.required_confirmation === true && !entryConfirmation) {
+        throw new EntryConditionError(
+          "Entry conditions not met",
+          conditions.prompt || "Confirmation required",
+        );
       }
     }
 
@@ -123,12 +133,25 @@ export async function joinHalaqa(
     let sessionId: string | null = offering.session_id;
 
     if (overflowRedirected) {
-      const { data: overflowOffering } = await admin
+      const { data: overflowOffering, error: overflowErr } = await admin
         .from("class_offerings")
         .select("session_id")
         .eq("id", targetId)
         .single();
-      sessionId = overflowOffering?.session_id || null;
+
+      // Surface the actual lookup failure instead of falling through to a
+      // misleading "session not found" — distinguishes DB errors from a
+      // genuinely missing session_id.
+      if (overflowErr || !overflowOffering) {
+        logError("joinHalaqa: overflow offering lookup failed", overflowErr, {
+          target_id: targetId,
+        });
+        return {
+          ok: false,
+          error: "Failed to resolve overflow halaqa session",
+        };
+      }
+      sessionId = overflowOffering.session_id;
     }
 
     if (!sessionId) {
@@ -211,54 +234,65 @@ export async function getHalaqaRoster(
 
   // 2. Fetch participants
   const members: RosterMember[] = [];
-  if (offering.session_id) {
-    const { data: participants, error: partErr } = await admin
-      .from("session_participants")
-      .select(`
-        id,
-        user_id,
-        attendance_status,
-        profile:profiles!user_id (
-          full_name,
-          full_name_ar
-        )
-      `)
-      .eq("session_id", offering.session_id)
-      .eq("attendance_status", "registered");
+    if (offering.session_id) {
+      const { data: participants, error: partErr } = await admin
+        .from("session_participants")
+        .select(`
+          id,
+          user_id,
+          attendance_status,
+          profile:profiles!user_id (
+            full_name,
+            full_name_ar
+          )
+        `)
+        .eq("session_id", offering.session_id)
+        .eq("attendance_status", "registered");
 
-    if (!partErr && participants) {
-      for (const p of participants) {
-        const profile = Array.isArray(p.profile) ? p.profile[0] : p.profile;
-        members.push({
-          id: p.user_id,
-          name: profile?.full_name ?? null,
-          name_ar: profile?.full_name_ar ?? null,
-        });
+      if (partErr) {
+        throw new Error("Failed to load halaqa participants");
+      }
+
+      if (participants) {
+        for (const p of participants) {
+          const profile = Array.isArray(p.profile) ? p.profile[0] : p.profile;
+          members.push({
+            id: p.user_id,
+            name: profile?.full_name ?? null,
+            name_ar: profile?.full_name_ar ?? null,
+          });
+        }
       }
     }
-  }
 
-  // 3. Fetch sibling halaqas
-  const sibling_halaqas: SiblingHalaqa[] = [];
-  if (offering.program_level) {
-    const { data: siblings } = await admin
-      .from("class_offerings")
-      .select("id, capacity, current_enrollment, status")
-      .eq("teacher_id", offering.teacher_id)
-      .eq("program_level", offering.program_level)
-      .neq("id", classOfferingId);
+    // 3. Fetch sibling halaqas
+    const sibling_halaqas: SiblingHalaqa[] = [];
+    // Guard both program_level AND teacher_id: .eq("teacher_id", null) would
+    // match every null-teacher offering at the same program_level, surfacing
+    // unrelated offerings as "siblings".
+    if (offering.program_level && offering.teacher_id) {
+      const { data: siblings, error: siblingErr } = await admin
+        .from("class_offerings")
+        .select("id, capacity, current_enrollment, status")
+        .eq("teacher_id", offering.teacher_id)
+        .eq("program_level", offering.program_level)
+        .neq("id", classOfferingId);
 
-    if (siblings) {
-      for (const s of siblings) {
-        sibling_halaqas.push({
-          id: s.id,
-          capacity: s.capacity,
-          current_enrollment: s.current_enrollment,
-          status: s.status,
-        });
+      if (siblingErr) {
+        throw new Error("Failed to load sibling halaqas");
+      }
+
+      if (siblings) {
+        for (const s of siblings) {
+          sibling_halaqas.push({
+            id: s.id,
+            capacity: s.capacity,
+            current_enrollment: s.current_enrollment,
+            status: s.status,
+          });
+        }
       }
     }
-  }
 
   return {
     capacity: offering.capacity,

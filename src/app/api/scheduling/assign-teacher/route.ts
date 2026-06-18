@@ -9,7 +9,7 @@ const bodySchema = z.object({
   teacherId: z.string().uuid(),
   subscriptionId: z.string().uuid(),
   productType: z.enum(["hifz_individual", "hifz_group", "course"]),
-  lockMonth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  lockMonth: z.string().date(),
 });
 
 /**
@@ -21,7 +21,13 @@ export async function POST(request: Request) {
   if (!auth.ok) return auth.response;
   const { admin, userId } = auth.value;
 
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    // Malformed JSON → controlled 400 rather than an unhandled 500.
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const result = bodySchema.safeParse(body);
 
   if (!result.success) {
@@ -43,7 +49,12 @@ export async function POST(request: Request) {
     if (err && typeof err === "object" && "code" in err && err.code === "23505") {
       return NextResponse.json({ error: "Student already has an active assignment" }, { status: 409 });
     }
-    logError("api/scheduling/assign-teacher: failed", err, {});
+    logError("api/scheduling/assign-teacher: failed", err, {
+      tag: "scheduling",
+      admin_id: userId,
+      student_id: result.data.studentId,
+      teacher_id: result.data.teacherId,
+    });
     return NextResponse.json({ error: "Failed to create assignment" }, { status: 500 });
   }
 }

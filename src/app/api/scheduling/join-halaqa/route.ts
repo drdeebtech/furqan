@@ -22,7 +22,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const result = bodySchema.safeParse(body);
 
   if (!result.success) {
@@ -42,23 +47,35 @@ export async function POST(request: Request) {
     );
 
     if (!joinResult.ok) {
-      return NextResponse.json({ error: joinResult.error }, { status: 400 });
+      // Map known domain failures to semantically correct HTTP status codes
+      // instead of a blanket 400. The error strings are the contract with
+      // the client; status codes are the contract with HTTP semantics.
+      const error = joinResult.error;
+      let status = 400;
+      if (error.includes("not found")) status = 404;
+      else if (error.includes("already a member")) status = 409;
+      else if (error.includes("Failed to")) status = 500;
+      return NextResponse.json({ error }, { status });
     }
 
-    return NextResponse.json({ 
-      membershipId: joinResult.membershipId, 
-      classOfferingId: joinResult.classOfferingId, 
-      overflowRedirected: joinResult.overflowRedirected 
+    return NextResponse.json({
+      membershipId: joinResult.membershipId,
+      classOfferingId: joinResult.classOfferingId,
+      overflowRedirected: joinResult.overflowRedirected,
     }, { status: 201 });
   } catch (err) {
     if (err instanceof EntryConditionError) {
-      return NextResponse.json({ 
-        success: false, 
-        unmetCondition: err.unmetCondition 
+      return NextResponse.json({
+        error: err.message,
+        unmetCondition: err.unmetCondition,
       }, { status: 422 });
     }
-    
-    logError("api/scheduling/join-halaqa: failed", err, {});
+
+    logError("api/scheduling/join-halaqa: failed", err, {
+      tag: "scheduling",
+      user_id: user.id,
+      class_offering_id: classOfferingId,
+    });
     return NextResponse.json({ error: "Failed to join halaqa" }, { status: 500 });
   }
 }
