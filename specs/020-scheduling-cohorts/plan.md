@@ -101,4 +101,4 @@ src/
 | data-model.md | ✅ Complete |
 | contracts/api.md | ✅ Complete |
 | quickstart.md | ✅ Complete |
-| tasks.md | ⏳ Next — run `/speckit-tasks` |
+| tasks.md | ✅ Complete |
