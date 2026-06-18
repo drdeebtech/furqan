@@ -27,6 +27,9 @@ export const ALLOWED_SETTING_KEYS = [
   "hifz_sibling_group_discount_pct",
   "hifz_assessment_price_usd",
   "hifz_assessment_limit_per_specialty",
+  // Spec 021 — attendance & payroll tuning knobs.
+  "excuse_notice_threshold_seconds", // default 7200 (2h); minimum notice for an eligible excuse
+  "payroll_run_day_of_month",        // default 1; day of month the monthly payout run fires
 ] as const;
 
 export type AllowedSettingKey = (typeof ALLOWED_SETTING_KEYS)[number];

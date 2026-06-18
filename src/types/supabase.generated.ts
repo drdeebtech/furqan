@@ -39,6 +39,102 @@ export type Database = {
   }
   public: {
     Tables: {
+      attendance_records: {
+        Row: {
+          booking_id: string
+          created_at: string
+          credit_action: Database["public"]["Enums"]["credit_action"]
+          finalized_at: string | null
+          id: string
+          outcome: Database["public"]["Enums"]["attendance_outcome"]
+          session_id: string | null
+          student_id: string
+          teacher_id: string
+          updated_at: string
+        }
+        Insert: {
+          booking_id: string
+          created_at?: string
+          credit_action?: Database["public"]["Enums"]["credit_action"]
+          finalized_at?: string | null
+          id?: string
+          outcome: Database["public"]["Enums"]["attendance_outcome"]
+          session_id?: string | null
+          student_id: string
+          teacher_id: string
+          updated_at?: string
+        }
+        Update: {
+          booking_id?: string
+          created_at?: string
+          credit_action?: Database["public"]["Enums"]["credit_action"]
+          finalized_at?: string | null
+          id?: string
+          outcome?: Database["public"]["Enums"]["attendance_outcome"]
+          session_id?: string | null
+          student_id?: string
+          teacher_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_records_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_records_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: true
+            referencedRelation: "v_bookings"
+            referencedColumns: ["booking_id"]
+          },
+          {
+            foreignKeyName: "attendance_records_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_records_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "attendance_records_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_records_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_records_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_records_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -1369,6 +1465,105 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_sessions"
             referencedColumns: ["session_id"]
+          },
+        ]
+      }
+      excuse_requests: {
+        Row: {
+          booking_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          is_eligible: boolean
+          reason: string
+          status: Database["public"]["Enums"]["excuse_status"]
+          student_id: string
+          submitted_at: string
+          teacher_id: string
+        }
+        Insert: {
+          booking_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          is_eligible: boolean
+          reason: string
+          status?: Database["public"]["Enums"]["excuse_status"]
+          student_id: string
+          submitted_at?: string
+          teacher_id: string
+        }
+        Update: {
+          booking_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          is_eligible?: boolean
+          reason?: string
+          status?: Database["public"]["Enums"]["excuse_status"]
+          student_id?: string
+          submitted_at?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "excuse_requests_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "excuse_requests_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "v_bookings"
+            referencedColumns: ["booking_id"]
+          },
+          {
+            foreignKeyName: "excuse_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "excuse_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "excuse_requests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "excuse_requests_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "excuse_requests_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "excuse_requests_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2943,6 +3138,7 @@ export type Database = {
           deleted_at: string | null
           full_name: string | null
           full_name_ar: string | null
+          hourly_rate_usd: number | null
           id: string
           is_active: boolean
           lang: string
@@ -2963,6 +3159,7 @@ export type Database = {
           deleted_at?: string | null
           full_name?: string | null
           full_name_ar?: string | null
+          hourly_rate_usd?: number | null
           id: string
           is_active?: boolean
           lang?: string
@@ -2983,6 +3180,7 @@ export type Database = {
           deleted_at?: string | null
           full_name?: string | null
           full_name_ar?: string | null
+          hourly_rate_usd?: number | null
           id?: string
           is_active?: boolean
           lang?: string
@@ -3725,6 +3923,68 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      session_deliveries: {
+        Row: {
+          created_at: string
+          delivered_at: string
+          duration_minutes: number
+          hourly_rate_usd: number
+          id: string
+          payroll_period_month: string
+          session_id: string
+          teacher_id: string
+        }
+        Insert: {
+          created_at?: string
+          delivered_at: string
+          duration_minutes: number
+          hourly_rate_usd: number
+          id?: string
+          payroll_period_month: string
+          session_id: string
+          teacher_id: string
+        }
+        Update: {
+          created_at?: string
+          delivered_at?: string
+          duration_minutes?: number
+          hourly_rate_usd?: number
+          id?: string
+          payroll_period_month?: string
+          session_id?: string
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_deliveries_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_deliveries_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "v_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "session_deliveries_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_deliveries_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       session_evaluations: {
         Row: {
@@ -4975,6 +5235,89 @@ export type Database = {
           },
         ]
       }
+      subscription_extensions: {
+        Row: {
+          booking_id: string
+          extension_seconds: number
+          granted_at: string
+          granted_by_user_id: string
+          id: string
+          reason: string
+          session_id: string | null
+          subscription_id: string
+        }
+        Insert: {
+          booking_id: string
+          extension_seconds: number
+          granted_at?: string
+          granted_by_user_id: string
+          id?: string
+          reason: string
+          session_id?: string | null
+          subscription_id: string
+        }
+        Update: {
+          booking_id?: string
+          extension_seconds?: number
+          granted_at?: string
+          granted_by_user_id?: string
+          id?: string
+          reason?: string
+          session_id?: string | null
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_extensions_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_extensions_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "v_bookings"
+            referencedColumns: ["booking_id"]
+          },
+          {
+            foreignKeyName: "subscription_extensions_granted_by_user_id_fkey"
+            columns: ["granted_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_extensions_granted_by_user_id_fkey"
+            columns: ["granted_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_extensions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_extensions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "subscription_extensions_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_plans: {
         Row: {
           created_at: string
@@ -5544,6 +5887,57 @@ export type Database = {
           {
             foreignKeyName: "teacher_mentorships_mentor_id_fkey"
             columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_payouts: {
+        Row: {
+          created_at: string
+          hourly_rate_usd: number
+          id: string
+          payroll_period_month: string
+          run_at: string
+          status: Database["public"]["Enums"]["payout_status"]
+          teacher_id: string
+          total_amount_usd: number
+          total_hours: number
+        }
+        Insert: {
+          created_at?: string
+          hourly_rate_usd: number
+          id?: string
+          payroll_period_month: string
+          run_at?: string
+          status?: Database["public"]["Enums"]["payout_status"]
+          teacher_id: string
+          total_amount_usd: number
+          total_hours: number
+        }
+        Update: {
+          created_at?: string
+          hourly_rate_usd?: number
+          id?: string
+          payroll_period_month?: string
+          run_at?: string
+          status?: Database["public"]["Enums"]["payout_status"]
+          teacher_id?: string
+          total_amount_usd?: number
+          total_hours?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_payouts_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_payouts_teacher_id_fkey"
+            columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "public_profiles"
             referencedColumns: ["id"]
@@ -6270,6 +6664,14 @@ export type Database = {
         Args: { p_actual_duration: number; p_session_id: string }
         Returns: string
       }
+      finalize_attendance: {
+        Args: {
+          p_actual_teacher_id?: string
+          p_booking_id: string
+          p_outcome: Database["public"]["Enums"]["attendance_outcome"]
+        }
+        Returns: undefined
+      }
       get_teacher_overdue_eval_count: {
         Args: { p_teacher_id: string }
         Returns: number
@@ -6418,6 +6820,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      run_monthly_payroll: { Args: { p_month: string }; Returns: number }
       search_teachers: {
         Args: { p_limit: number; p_needle: string; p_offset: number }
         Returns: {
@@ -6490,6 +6893,11 @@ export type Database = {
       user_is_session_participant: { Args: { s_id: string }; Returns: boolean }
     }
     Enums: {
+      attendance_outcome:
+        | "present"
+        | "student_absent"
+        | "teacher_absent"
+        | "excused_carried"
       attendance_status:
         | "registered"
         | "attended"
@@ -6512,8 +6920,10 @@ export type Database = {
         | "completed"
         | "cancelled"
         | "no_show"
+      credit_action: "none" | "debited" | "restored"
       cv_status: "draft" | "pending_review" | "approved" | "rejected"
       evaluation_type: "weekly" | "biweekly" | "monthly" | "quarterly"
+      excuse_status: "pending" | "accepted" | "rejected" | "ineligible"
       gender_type: "male" | "female"
       homework_status:
         | "assigned"
@@ -6540,6 +6950,7 @@ export type Database = {
         | "course"
       participant_role: "teacher" | "student"
       payment_status: "pending" | "succeeded" | "failed" | "refunded"
+      payout_status: "pending" | "paid" | "failed"
       report_type:
         | "session_summary"
         | "evaluation"
@@ -6700,6 +7111,12 @@ export const Constants = {
   },
   public: {
     Enums: {
+      attendance_outcome: [
+        "present",
+        "student_absent",
+        "teacher_absent",
+        "excused_carried",
+      ],
       attendance_status: [
         "registered",
         "attended",
@@ -6725,8 +7142,10 @@ export const Constants = {
         "cancelled",
         "no_show",
       ],
+      credit_action: ["none", "debited", "restored"],
       cv_status: ["draft", "pending_review", "approved", "rejected"],
       evaluation_type: ["weekly", "biweekly", "monthly", "quarterly"],
+      excuse_status: ["pending", "accepted", "rejected", "ineligible"],
       gender_type: ["male", "female"],
       homework_status: [
         "assigned",
@@ -6756,6 +7175,7 @@ export const Constants = {
       ],
       participant_role: ["teacher", "student"],
       payment_status: ["pending", "succeeded", "failed", "refunded"],
+      payout_status: ["pending", "paid", "failed"],
       report_type: [
         "session_summary",
         "evaluation",
