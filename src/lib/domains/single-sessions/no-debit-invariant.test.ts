@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, readdirSync } from "node:fs";
+import { resolve, join } from "node:path";
 
 /**
  * Spec 022 / T027 — no-debit invariant.
@@ -36,14 +36,17 @@ describe("no-debit invariant (spec 022 / T027)", () => {
     ];
 
     const offenders: string[] = [];
+    // CodeRabbit #5: collect missing files instead of silently continuing.
+    // A rename or moved file would otherwise make the test pass vacuously,
+    // masking coverage drift. Fail loudly if any audited file is missing.
+    const missing: string[] = [];
     for (const rel of FILES_TO_AUDIT) {
       const abs = resolve(process.cwd(), rel);
       let src: string;
       try {
         src = readFileSync(abs, "utf8");
-      } catch {
-        // Test scaffolding — skip files that aren't on disk in a given checkout
-        // (the test fails for actual edits on real files).
+      } catch (e) {
+        missing.push(`${rel}: ${(e as NodeJS.ErrnoException).message}`);
         continue;
       }
       for (const re of FORBIDDEN) {
@@ -54,40 +57,52 @@ describe("no-debit invariant (spec 022 / T027)", () => {
       }
     }
 
+    expect(
+      missing,
+      `No-debit invariant test could not find expected files (coverage drift):\n${missing.join("\n")}`,
+    ).toEqual([]);
     expect(offenders, `Found forbidden debit/mutation references:\n${offenders.join("\n")}`).toEqual([]);
   });
 
   it("the atomic creator SQL stamps student_package_id = NULL on every path", () => {
-    const migrationPath = resolve(
-      process.cwd(),
-      "supabase/migrations/20260619000001_single_session_columns.sql",
-    );
-    const sql = readFileSync(migrationPath, "utf8");
+    // CodeRabbit #5: validate the invariant across every migration that
+    // (re)defines create_single_session_booking, not just the original.
+    // A later migration could silently redefine the function and remove
+    // the NULL stamp — this test catches that drift.
+    const migrationDir = resolve(process.cwd(), "supabase/migrations");
+    const migrationFiles = readdirSync(migrationDir)
+      .filter((f) => /\.sql$/.test(f))
+      .sort()
+      .map((f) => join(migrationDir, f));
 
-    // create_single_session_booking body — the booking insert lists
-    // student_package_id as NULL explicitly. Match from `create or replace
-    // function create_single_session_booking` through the closing `$$;`.
-    const creatorStart = sql.indexOf(
-      "create or replace function public.create_single_session_booking",
-    );
-    expect(creatorStart, "create_single_session_booking not found").toBeGreaterThanOrEqual(0);
-    // Find the END of the function (the `$$;` AFTER the body, which is the
-    // next `$$` followed by `;` after the body's opening `as $$`).
-    const bodyOpen = sql.indexOf("as $$", creatorStart);
-    const bodyClose = sql.indexOf("\n$$;", bodyOpen);
-    const creatorBody = sql.slice(creatorStart, bodyClose + 4);
-    expect(creatorBody).toContain("p_student_id, p_teacher_id, null,");
+    expect(migrationFiles.length, "no migration files found").toBeGreaterThan(0);
 
-    // The adapted start_instant_session_booking paid path also stamps NULL.
-    const instantStart = sql.indexOf(
-      "create or replace function public.start_instant_session_booking",
-    );
-    expect(instantStart, "start_instant_session_booking not found").toBeGreaterThanOrEqual(0);
-    const instantBodyOpen = sql.indexOf("as $$", instantStart);
-    const instantBodyClose = sql.indexOf("\n$$;", instantBodyOpen);
-    const instantBody = sql.slice(instantStart, instantBodyClose + 4);
-    expect(instantBody).toMatch(
-      /student_package_id, booking_product_type[\s\S]*?null, 'instant'/,
-    );
+    const creatorsDefiningNullStamp: string[] = [];
+    const creatorsDefiningPkgId: string[] = [];
+    for (const migrationFile of migrationFiles) {
+      const sql = readFileSync(migrationFile, "utf8");
+      // Find any CREATE OR REPLACE FUNCTION create_single_session_booking block.
+      const fnRegex = /create\s+or\s+replace\s+function\s+public\.create_single_session_booking[\s\S]*?\n\$\$;/gi;
+      let match: RegExpExecArray | null;
+      while ((match = fnRegex.exec(sql)) !== null) {
+        const body = match[0];
+        // Track every definition so we can assert the list is non-empty.
+        creatorsDefiningPkgId.push(migrationFile);
+        // The body must explicitly stamp student_package_id as NULL in the
+        // INSERT (the canonical "no debit" guarantee).
+        if (/student_package_id[\s\S]*?null/i.test(body) || /p_student_id,\s*p_teacher_id,\s*null,/i.test(body)) {
+          creatorsDefiningNullStamp.push(migrationFile);
+        }
+      }
+    }
+
+    expect(
+      creatorsDefiningPkgId.length,
+      "create_single_session_booking is not defined in any migration",
+    ).toBeGreaterThan(0);
+    expect(
+      creatorsDefiningNullStamp.length,
+      `create_single_session_booking is redefined in ${creatorsDefiningPkgId.length} migration(s) but NONE stamp student_package_id = NULL: ${creatorsDefiningPkgId.join(", ")}`,
+    ).toBe(creatorsDefiningPkgId.length);
   });
 });

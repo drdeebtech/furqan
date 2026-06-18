@@ -21,7 +21,9 @@ const UpdatePriceSchema = z.object({
   value: z
     .string()
     .trim()
-    .regex(/^\d+(\.\d{1,2})?$/, "Must be a non-negative decimal USD amount (e.g. 5 or 5.00)"),
+    // CodeRabbit: disallow leading zeros — `007.50` or `00` are not valid USD
+    // amounts. Accepts 0, 5, 50, 0.50; rejects 00, 007, 007.50.
+    .regex(/^(0|[1-9]\d*)(\.\d{1,2})?$/, "Must be a non-negative decimal USD amount (e.g. 5 or 5.00)"),
 });
 
 /**
