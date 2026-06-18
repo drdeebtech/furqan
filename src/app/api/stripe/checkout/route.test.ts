@@ -5,30 +5,62 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/logger", () => ({ logError: vi.fn() }));
 
-const mockGetUser = vi.fn();
-const mockProfileQuery = vi.fn();
-const mockAdminQuery = vi.fn();
-const mockInsert = vi.fn().mockResolvedValue({ error: null });
+// Mock fns declared via vi.hoisted so they're visible inside the hoisted
+// vi.mock factories (factories run before top-level let bindings initialize).
+const {
+  mockRequireRole,
+  mockGetUser,
+  mockAdminFrom,
+  mockSessionsCreate,
+  mockCouponsCreate,
+  mockGetPlan,
+  mockIsPlanHifz,
+  mockAssertNoActive,
+} = vi.hoisted(() => ({
+  mockRequireRole: vi.fn(),
+  mockGetUser: vi.fn(),
+  mockAdminFrom: vi.fn(),
+  mockSessionsCreate: vi.fn(),
+  mockCouponsCreate: vi.fn(),
+  mockGetPlan: vi.fn(),
+  mockIsPlanHifz: vi.fn(),
+  mockAssertNoActive: vi.fn(),
+}));
+
+// Real error classes so the route's `instanceof` checks work.
+import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
+vi.mock("@/lib/auth/require-admin", () => ({ requireRole: mockRequireRole }));
 
 vi.mock("@/lib/supabase/server", () => ({
-  createClient: vi.fn(() => ({
-    auth: { getUser: mockGetUser },
-    from: () => ({
-      select: () => ({ eq: () => ({ single: mockProfileQuery }) }),
-    }),
-  })),
+  createClient: vi.fn(() => ({ auth: { getUser: mockGetUser } })),
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({
-  createAdminClient: vi.fn(() => ({
-    from: () => ({
-      select: () => ({
-        eq: () => ({ eq: () => ({ single: mockAdminQuery }) }),
-      }),
-      insert: mockInsert,
-    }),
-  })),
+  createAdminClient: vi.fn(() => ({ from: mockAdminFrom })),
 }));
+
+vi.mock("@/lib/stripe/client", () => ({
+  getStripe: vi.fn(() => ({
+    customers: { create: vi.fn() },
+    checkout: { sessions: { create: mockSessionsCreate } },
+    coupons: { create: mockCouponsCreate },
+  })),
+  isStripeConfigured: () => true,
+}));
+
+vi.mock("@/lib/domains/billing", () => ({ getActivePlanByCode: mockGetPlan }));
+
+vi.mock("@/lib/actions/subscriptions/create-hifz-subscription", () => ({
+  isPlanHifzProduct: mockIsPlanHifz,
+  assertNoActiveHifz: mockAssertNoActive,
+  resolveStudentFamilyDiscount: vi.fn().mockResolvedValue({ applies: false }),
+  HifzAlreadyActiveError: class HifzAlreadyActiveError extends Error {
+    constructor(message = "hifz active") { super(message); this.name = "HifzAlreadyActiveError"; }
+  },
+}));
+
+// Non-hoisted: only used at runtime (in beforeEach), not inside a mock factory.
+const mockMaybeSingle = vi.fn();
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -36,22 +68,47 @@ function makeReq(body: unknown): Request {
   return { json: async () => body } as Request;
 }
 
-async function status(res: Response): Promise<number> {
-  return res.status;
-}
-
-async function json(res: Response): Promise<unknown> {
-  return res.json();
-}
+const STUDENT_ID = "stu-00000000-0000-0000-000000000001";
+const PLAN = {
+  id: "plan-1",
+  planCode: "MONTHLY",
+  name: "Monthly",
+  planType: "recurring_monthly" as const,
+  monthlyCreditCount: 8,
+  sessionMetadata: {},
+  priceCents: 4000,
+  currency: "usd",
+  stripeProductId: "prod_1",
+  stripePriceId: "price_1",
+  isActive: true,
+};
 
 let originalEnv: Record<string, string | undefined>;
 
 beforeEach(() => {
   originalEnv = { ...process.env };
   vi.clearAllMocks();
-  // Authenticated student by default
-  mockGetUser.mockResolvedValue({ data: { user: { id: "user-uuid-0000-0000-000000000001" } } });
-  mockProfileQuery.mockResolvedValue({ data: { role: "student" } });
+  process.env.NEXT_PUBLIC_APP_URL = "https://app.test";
+  process.env.STRIPE_SECRET_KEY = "sk_test_x";
+  mockRequireRole.mockResolvedValue({ id: STUDENT_ID });
+  mockGetUser.mockResolvedValue({ data: { user: { email: "s@test.local" } } });
+  mockGetPlan.mockResolvedValue(PLAN);
+  mockIsPlanHifz.mockResolvedValue(false);
+  mockAssertNoActive.mockResolvedValue(undefined);
+  // stripe_customers fast path: existing mapping.
+  // eqChain supports any depth of .eq() chaining (T019 adds a 2-deep chain
+  // for the packages query: .eq(subscription_plan_id).eq(is_hifz_product).maybeSingle()).
+  const eqChain: Record<string, unknown> = {
+    maybeSingle: mockMaybeSingle,
+  };
+  eqChain.eq = () => eqChain;
+  eqChain.not = () => eqChain;
+  mockAdminFrom.mockReturnValue({
+    select: () => eqChain,
+  });
+  mockMaybeSingle.mockResolvedValue({ data: { stripe_customer_id: "cus_existing" }, error: null });
+  mockSessionsCreate.mockResolvedValue({ url: "https://checkout.stripe.com/c/session" });
+  mockCouponsCreate.mockResolvedValue({ id: "coupon_123" });
 });
 
 afterEach(() => {
@@ -62,85 +119,105 @@ afterEach(() => {
     if (v === undefined) delete process.env[k];
     else process.env[k] = v;
   }
-  vi.restoreAllMocks();
 });
-
-// ─── Tests ───────────────────────────────────────────────────────────────────
 
 import { POST } from "./route";
 
-describe("POST /api/stripe/checkout — input validation", () => {
+// ─── Tests ───────────────────────────────────────────────────────────────────
+
+describe("POST /api/stripe/checkout — subscription mode (spec 018)", () => {
   it("returns 401 when unauthenticated", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null } });
+    mockRequireRole.mockRejectedValue(new UnauthenticatedError());
+    const res = await POST(makeReq({ planCode: "MONTHLY" }));
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 403 when not a student", async () => {
+    mockRequireRole.mockRejectedValue(new ForbiddenError());
+    const res = await POST(makeReq({ planCode: "MONTHLY" }));
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 400 when planCode is missing", async () => {
     const res = await POST(makeReq({}));
-    expect(await status(res)).toBe(401);
+    expect(res.status).toBe(400);
   });
 
-  it("returns 403 when user is not a student", async () => {
-    mockProfileQuery.mockResolvedValue({ data: { role: "teacher" } });
-    const res = await POST(makeReq({ package_id: "00000000-0000-0000-0000-000000000001" }));
-    expect(await status(res)).toBe(403);
+  it("returns 400 when planCode is empty", async () => {
+    const res = await POST(makeReq({ planCode: "" }));
+    expect(res.status).toBe(400);
   });
 
-  it("returns 400 when package_id is missing", async () => {
-    const res = await POST(makeReq({}));
-    expect(await status(res)).toBe(400);
-    expect((await json(res) as { error: string }).error).toBe("package_id required");
+  it("returns 400 when plan is unknown / inactive", async () => {
+    mockGetPlan.mockResolvedValue(null);
+    const res = await POST(makeReq({ planCode: "NOPE" }));
+    expect(res.status).toBe(400);
   });
 
-  it("returns 400 with invalid UUID string (issue #408 repro)", async () => {
-    const res = await POST(makeReq({ package_id: "test-valid-package-id" }));
-    expect(await status(res)).toBe(400);
-    expect((await json(res) as { error: string }).error).toBe("معرّف الحزمة غير صالح — invalid package_id");
+  it("returns 400 when plan currency is not USD (FR-008)", async () => {
+    mockGetPlan.mockResolvedValue({ ...PLAN, currency: "eur" });
+    const res = await POST(makeReq({ planCode: "MONTHLY" }));
+    expect(res.status).toBe(400);
   });
 
-  it("returns 400 for other non-UUID strings", async () => {
-    for (const bad of ["abc", "123", "not-a-uuid-at-all", "00000000-0000-0000"]) {
-      const res = await POST(makeReq({ package_id: bad }));
-      expect(await status(res)).toBe(400);
-      expect((await json(res) as { error: string }).error).toBe("معرّف الحزمة غير صالح — invalid package_id");
-    }
+  it("returns 409 when student already has active hifz (FR-007)", async () => {
+    const { HifzAlreadyActiveError } = await import("@/lib/actions/subscriptions/create-hifz-subscription");
+    mockIsPlanHifz.mockResolvedValue(true);
+    mockAssertNoActive.mockRejectedValue(new HifzAlreadyActiveError());
+    const res = await POST(makeReq({ planCode: "HIFZ_GROUP_4" }));
+    expect(res.status).toBe(409);
   });
 
-  it("returns 400 when package_id is an array (typeof bypass attempt)", async () => {
-    // RegExp.test() coerces arrays to strings; the typeof guard must block this
-    const res = await POST(makeReq({ package_id: ["00000000-0000-0000-0000-000000000001"] }));
-    expect(await status(res)).toBe(400);
-    expect((await json(res) as { error: string }).error).toBe("معرّف الحزمة غير صالح — invalid package_id");
+  it("creates a subscription-mode Checkout and returns {url}", async () => {
+    const res = await POST(makeReq({ planCode: "MONTHLY" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ url: "https://checkout.stripe.com/c/session" });
+    expect(mockSessionsCreate).toHaveBeenCalledWith(expect.objectContaining({
+      mode: "subscription",
+      customer: "cus_existing",
+      line_items: [{ price: "price_1", quantity: 1 }],
+      client_reference_id: STUDENT_ID,
+    }));
   });
 
-  it("passes UUID validation and queries the DB for a well-formed UUID", async () => {
-    mockAdminQuery.mockResolvedValue({ data: { id: "00000000-0000-0000-0000-000000000001", price_usd: 50, name: "Test" } });
-    const res = await POST(makeReq({ package_id: "00000000-0000-0000-0000-000000000001" }));
-    expect(await status(res)).toBe(501);
+  it("stamps student_id in metadata + client_reference (identity from session)", async () => {
+    await POST(makeReq({ planCode: "MONTHLY" }));
+    const call = mockSessionsCreate.mock.calls[0][0] as { metadata: Record<string, string>; client_reference_id: string };
+    expect(call.metadata.student_id).toBe(STUDENT_ID);
+    expect(call.client_reference_id).toBe(STUDENT_ID);
   });
 
-  it("accepts uppercase UUIDs (regex flag /i)", async () => {
-    mockAdminQuery.mockResolvedValue({ data: { id: "00000000-0000-0000-0000-000000000001", price_usd: 50, name: "Test" } });
-    const res = await POST(makeReq({ package_id: "00000000-0000-0000-0000-000000000001".toUpperCase() }));
-    expect(await status(res)).not.toBe(400);
+  it("returns 500 when Stripe returns no url", async () => {
+    mockSessionsCreate.mockResolvedValue({ url: null });
+    const res = await POST(makeReq({ planCode: "MONTHLY" }));
+    expect(res.status).toBe(502);
   });
 
-  it("returns 404 when package is not found", async () => {
-    mockAdminQuery.mockResolvedValue({ data: null });
-    const res = await POST(makeReq({ package_id: "00000000-0000-0000-0000-000000000001" }));
-    expect(await status(res)).toBe(404);
+  it("returns 500 when NEXT_PUBLIC_APP_URL is unset", async () => {
+    delete process.env.NEXT_PUBLIC_APP_URL;
+    const res = await POST(makeReq({ planCode: "MONTHLY" }));
+    expect(res.status).toBe(500);
   });
 
-  // Regression guard for the public-repo security fix: until Stripe is wired the
-  // route must NOT write a `payments` row, or any authenticated student could
-  // loop it to flood the table with orphaned `pending` rows.
-  it("does NOT insert a payments row while Stripe is unwired", async () => {
-    mockAdminQuery.mockResolvedValue({ data: { id: "00000000-0000-0000-0000-000000000001", price_usd: 50, name: "Test" } });
-    const res = await POST(makeReq({ package_id: "00000000-0000-0000-0000-000000000001" }));
-    expect(await status(res)).toBe(501);
-    expect(mockInsert).not.toHaveBeenCalled();
-  });
+  it("passes discount coupon to Stripe when family discount applies", async () => {
+    const { resolveStudentFamilyDiscount } = await import("@/lib/actions/subscriptions/create-hifz-subscription");
+    // Mock the discount resolver to return an applicable discount.
+    vi.mocked(resolveStudentFamilyDiscount).mockResolvedValue({
+      applies: true,
+      discountType: "sibling_group",
+      discountPct: 10,
+      settingKey: "hifz_sibling_group_discount_pct",
+    });
 
-  it("does not leak a placeholder payment id in the 501 response", async () => {
-    mockAdminQuery.mockResolvedValue({ data: { id: "00000000-0000-0000-0000-000000000001", price_usd: 50, name: "Test" } });
-    const res = await POST(makeReq({ package_id: "00000000-0000-0000-0000-000000000001" }));
-    expect(await status(res)).toBe(501);
-    expect(await json(res)).not.toHaveProperty("pending_payment_id");
+    // Provide a mocked package product_category via mockMaybeSingle so discount check proceeds
+    mockMaybeSingle.mockResolvedValueOnce({ data: { product_category: "hifz_group" }, error: null }) // package lookup
+      .mockResolvedValueOnce({ data: { stripe_customer_id: "cus_existing" }, error: null }); // customer lookup
+
+    const res = await POST(makeReq({ planCode: "MONTHLY" }));
+    expect(res.status).toBe(200);
+
+    expect(mockSessionsCreate).toHaveBeenCalledWith(expect.objectContaining({
+      discounts: [{ coupon: "coupon_123" }],
+    }));
   });
 });

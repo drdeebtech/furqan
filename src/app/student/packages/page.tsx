@@ -25,7 +25,7 @@ export default async function StudentPackagesPage() {
     .returns<StudentPackage[]>();
 
   // Fetch package details for each
-  const packageIds = [...new Set((studentPackages ?? []).map(sp => sp.package_id))];
+  const packageIds = [...new Set((studentPackages ?? []).map(sp => sp.package_id).filter((id): id is string => id !== null))];
   const packageMap: Record<string, PackageType> = {};
   if (packageIds.length > 0) {
     const { data: pkgs } = await supabase
@@ -77,7 +77,7 @@ export default async function StudentPackagesPage() {
               <h2 className="mb-3 font-semibold">{t("باقات نشطة", "Active Packages")}</h2>
               <div className="grid gap-4 sm:grid-cols-2">
                 {active.map(sp => {
-                  const pkg = packageMap[sp.package_id];
+                  const pkg = sp.package_id ? packageMap[sp.package_id] : null;
                   const remaining = sp.sessions_total - sp.sessions_used;
                   const pct = Math.round((sp.sessions_used / sp.sessions_total) * 100);
                   const style = STUDENT_PACKAGE_STATUS_STYLE[sp.status as StudentPackageStatus];
@@ -135,7 +135,7 @@ export default async function StudentPackagesPage() {
               <h2 className="mb-3 text-sm text-muted">{t("سجل الباقات", "Package History")}</h2>
               <div className="space-y-2">
                 {inactive.map(sp => {
-                  const pkg = packageMap[sp.package_id];
+                  const pkg = sp.package_id ? packageMap[sp.package_id] : null;
                   const style = STUDENT_PACKAGE_STATUS_STYLE[sp.status as StudentPackageStatus];
                   const pkgName = pkg ? ((lang === "ar" ? pkg.name_ar : pkg.name) ?? pkg.name) : t("باقة", "Package");
                   return (
