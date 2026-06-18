@@ -267,9 +267,11 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
         }
         statusBadge={
           nextBooking
-            ? isImminent
-              ? { text: t("جاهز", "Ready"), type: "active", icon: <Sparkles size={11} /> }
-              : { text: t("مجدول", "Scheduled"), type: "info", icon: <Calendar size={11} /> }
+            ? !nextBooking.scheduled_at
+              ? { text: t("غير مُجدوَل", "Unscheduled"), type: "info", icon: <Calendar size={11} /> }
+              : isImminent
+                ? { text: t("جاهز", "Ready"), type: "active", icon: <Sparkles size={11} /> }
+                : { text: t("مجدول", "Scheduled"), type: "info", icon: <Calendar size={11} /> }
             : undefined
         }
       />

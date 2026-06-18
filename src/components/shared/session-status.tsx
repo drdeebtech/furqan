@@ -29,11 +29,14 @@ const STATE_CONFIG: Record<
     className: "border-muted/30 bg-muted/10 text-muted",
   },
   // Spec 022: assessment/specialized booking created without a slot yet.
+  // CodeRabbit #7: use neutral muted tokens — gold is reserved for
+  // actionable/interactive elements per the design system; a passive
+  // "unscheduled" status is informational only.
   unscheduled: {
     label: "غير مُجدوَل",
     en: "Unscheduled",
     icon: Circle,
-    className: "border-gold/30 bg-gold/10 text-gold",
+    className: "border-muted/30 bg-muted/10 text-muted",
   },
   expired: {
     label: "منتهية الصلاحية",
