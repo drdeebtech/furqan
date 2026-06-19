@@ -17,7 +17,7 @@
 ## Phase 1: Setup
 
 - [ ] T001 Add 3 typed event members to the shared `FurqanEvent` surface (`src/lib/automation/events.ts` / `emit.ts` `WEBHOOK_ROUTES`): `MonthlyReportReady = 'monthly_report_ready'`, `CertificateEarned = 'certificate_earned'`, `HonorBoardUpdated = 'honor_board_updated'`. Confirm `PaymentFailed`, `SubscriptionExpiring`, `AbsenceOutcome` already exist (emitted by 018/021); if absent, stop and flag — this spec consumes, never defines, those.
-- [ ] T002 [P] Add 3 keys to `ALLOWED_SETTING_KEYS` in `src/lib/settings.ts`: `honor_board_refresh_cadence_days`, `notifications_whatsapp_enabled`, `notification_channel_matrix` (JSON `trigger → channel[]`, FR-012 matrix).
+- [ ] T002 [P] Add 4 keys to `ALLOWED_SETTING_KEYS` in `src/lib/settings.ts`: `honor_board_refresh_cadence_days`, `notifications_whatsapp_enabled`, `notification_channel_matrix` (JSON `trigger → channel[]`, FR-012 matrix), and `subscription_expiring_lead_days` (integer days before period end for the expiry "continue?" prompt, default 7 — clarified 2026-06-19 / CHK015).
 
 **Checkpoint**: `npx tsc --noEmit` + `npm run lint` pass; event names resolve as typed members (a typo fails to compile).
 
@@ -35,7 +35,7 @@
 - [ ] T004 Create `supabase/migrations/20260620000001_reports_certificates.sql`:
   - **Verify first**: confirm no existing teacher-notes/session-notes table already serves this purpose; only create `teacher_notes` if absent (Key Entities note).
   - `CREATE TABLE teacher_notes (id uuid PK, student_id uuid FK→profiles, teacher_id uuid FK→profiles, content text, created_at, updated_at)` + index on `student_id`, `teacher_id` + `set_updated_at` trigger.
-  - `CREATE TABLE monthly_reports (id uuid PK, student_id uuid FK→profiles, subscription_id uuid FK→subscriptions, period_year integer, period_month integer CHECK BETWEEN 1 AND 12, level_assessment_summary text, generated_at timestamptz)` + `UNIQUE(student_id, period_year, period_month)`.
+  - `CREATE TABLE monthly_reports (id uuid PK, student_id uuid FK→profiles, subscription_id uuid FK→subscriptions, period_year integer, period_month integer CHECK BETWEEN 1 AND 12, version integer NOT NULL DEFAULT 1 CHECK (version >= 1), level_assessment_summary text, generated_at timestamptz)` + `UNIQUE(student_id, period_year, period_month, version)` (clarified 2026-06-19 / CHK024 — versioned append for out-of-order corrections; reader contract `ORDER BY version DESC LIMIT 1`).
   - `CREATE TYPE certificate_type AS ENUM ('appreciation_juz','appreciation_level','course_completion');`
   - `CREATE TABLE certificates (id uuid PK, student_id uuid FK→profiles, certificate_type certificate_type, milestone_key text, cited_range_start text, cited_range_end text, issued_at timestamptz)` + `UNIQUE(student_id, certificate_type, milestone_key)`.
   - `CREATE TABLE honor_board_entries (id uuid PK, student_id uuid FK→profiles, display_name text, avatar_url text, achievement_metric numeric, rank_period date, is_opted_out boolean NOT NULL DEFAULT false, computed_at timestamptz)` + partial index `WHERE is_opted_out = false` + `UNIQUE(student_id, rank_period)`.
@@ -44,7 +44,7 @@
     - `monthly_reports`: student + linked guardian SELECT own; service_role INSERT; BEFORE UPDATE OF `student_id`, `period_year`, `period_month` guard (service_role/migrations exempt).
     - `certificates`: student + linked guardian SELECT own; service_role INSERT; BEFORE UPDATE OF `student_id`, `certificate_type`, `milestone_key` immutable guard as **defense-in-depth** per FR-020 (service_role/migrations exempt) — ship the guard even though no client UPDATE policy is granted.
     - `honor_board_entries`: authenticated SELECT `WHERE is_opted_out = false`; student UPDATE `is_opted_out` on own row only (BEFORE UPDATE OF `student_id`, `achievement_metric`, `rank_period`, `display_name` guard); service_role INSERT/compute.
-  - Seed `platform_settings`: `honor_board_refresh_cadence_days='7'`, `notifications_whatsapp_enabled='true'`, `notification_channel_matrix` (FR-012 default JSON map — see data-model §3).
+  - Seed `platform_settings`: `honor_board_refresh_cadence_days='7'`, `notifications_whatsapp_enabled='true'`, `notification_channel_matrix` (FR-012 default JSON map — see data-model §3), `subscription_expiring_lead_days='7'` (CHK015).
 
 - [ ] T005 `supabase migration up` (or `bash scripts/dev-local-db-bootstrap.sh` locally) — apply both migrations.
 - [ ] T006 `npm run db:types` → commit regenerated `src/types/database.ts`.
@@ -61,12 +61,12 @@
 **Independent Test**: Link guardian→student, teacher saves notes, close billing month → guardian (only) reads notes + single monthly report, rendered RTL.
 
 - [ ] T008 [P] [US1] Create `src/lib/domains/reports/notes.ts`: `getNotesForStudent(studentId)` (RLS-scoped read), `createNote(studentId, content)` — teacher-assignment check server-side; strip CR/LF from any value later placed in a notification header.
-- [ ] T009 [P] [US1] Create `src/lib/domains/reports/monthly-report.ts`: `generateMonthlyReport(studentId, year, month)` — idempotent via `automation_logs` key `report:{studentId}:{year}:{month}` (ON CONFLICT → skipped, no second row); any cited surah/juz from `src/lib/quran/ayah-counts.ts`, never hardcoded; append-only (never overwrites a newer assessment).
+- [ ] T009 [P] [US1] Create `src/lib/domains/reports/monthly-report.ts`: `generateMonthlyReport(studentId, year, month)` — idempotent via `automation_logs` key `report:{studentId}:{year}:{month}` (ON CONFLICT → skipped, no second issuance attempt); any cited surah/juz from `src/lib/quran/ayah-counts.ts`, never hardcoded; **versioned append on correction (CHK024 / clarified 2026-06-19)**: a re-run with new assessment content inserts `version = (SELECT COALESCE(MAX(version),0)+1 FROM monthly_reports WHERE student_id=? AND period_year=? AND period_month=?)` so corrections never overwrite; reads always `ORDER BY version DESC LIMIT 1`.
 - [ ] T010 [US1] Create `src/app/api/reports/[studentId]/notes/route.ts`: GET (student/guardian/teacher/admin, RLS) + POST (teacher only, zod `{content: string min1 max5000}`, 403 if not assigned, 422 validation).
 - [ ] T011 [US1] Create `src/app/api/reports/[studentId]/monthly/[year]/[month]/route.ts`: GET (student/guardian/admin), zod path params (`month` 1–12), returns nullable report.
 - [ ] ⛔ T011a [US1] **BLOCKER (verify before T012):** confirm spec 018 emits a month-close event that triggers `monthly_report_ready`. This spec only consumes it — if no upstream emitter exists, FR-002's report never fires. Stop and resolve in spec 018 (add the emitter) before T012; do not mark FR-002 done with no emitter wired.
 - [ ] T012 [US1] Wire `MonthlyReportReady` consumption into `src/app/api/webhooks/n8n/route.ts`: on `monthly_report_ready` → `generateMonthlyReport` + INSERT report-ready `notifications` row, single idempotency key.
-- [ ] T013 [P] [US1] Unit tests: `notes.test.ts` (RLS scoping, teacher-assignment gate), `monthly-report.test.ts` (idempotent replay → skipped, no duplicate; out-of-order event does not overwrite newer report).
+- [ ] T013 [P] [US1] Unit tests: `notes.test.ts` (RLS scoping, teacher-assignment gate), `monthly-report.test.ts` (idempotent replay of same content → skipped, no duplicate issuance attempt; **corrected content → new `version` row appended, MAX(version) canonical, prior versions preserved** per CHK024; out-of-order correction arriving after a newer period still appends to the older period only).
 
 **Checkpoint**: Guardian reads only own student's notes + one monthly report; replay produces no second report.
 
@@ -125,10 +125,10 @@
 
 **Independent Test**: Emit each owned trigger → single notification per (recipient, trigger, subject); replay → skipped; WhatsApp/n8n failure → `failed`, Sentry-surfaced.
 
-- [ ] T028 [US5] Create `src/lib/domains/notifications/routing.ts`: per-trigger Arabic-first (RTL) content builders for dunning/pre-suspension, expiry "continue?" (sent before period end), payment-retry, absence/excuse outcome, report-ready, certificate-earned; resolve the `notifications.channel[]` array per the **FR-012 channel matrix** from `platform_settings.notification_channel_matrix` (dropping `whatsapp` when `notifications_whatsapp_enabled='false'`) — never hardcode the channel set in handler code; idempotent INSERT via `automation_logs` key `notif:{recipientId}:{trigger}:{subjectKey}`; strip CR/LF from any user/teacher-authored value placed in subject/header (FR-016).
+- [ ] T028 [US5] Create `src/lib/domains/notifications/routing.ts`: per-trigger Arabic-first (RTL) content builders for dunning/pre-suspension, expiry "continue?" (sent at exactly `period_end - N days` where N = `getSetting('subscription_expiring_lead_days')` parsed as integer, default 7 — CHK015), payment-retry, absence/excuse outcome, report-ready, certificate-earned; resolve the `notifications.channel[]` array per the **FR-012 channel matrix** from `platform_settings.notification_channel_matrix` (dropping `whatsapp` when `notifications_whatsapp_enabled='false'`) — never hardcode the channel set in handler code; idempotent INSERT via `automation_logs` key `notif:{recipientId}:{trigger}:{subjectKey}` (recipient-first; **issuance keys `cert:`/`report:` stay distinct per contracts §8** — issuance and delivery fail/retry independently, CHK048); strip CR/LF from any user/teacher-authored value placed in subject/header (FR-016).
 - [ ] T029 [US5] Extend `src/app/api/webhooks/n8n/route.ts` branches for `payment_failed`, `subscription_expiring`, `absence_outcome` — `safeCompareSecret` fail-closed before any side effect; consume only (never emit/mutate billing/attendance state).
-- [ ] T030 [US5] Fail-closed delivery accounting: n8n unreachable / non-2xx → `automation_logs.status='failed'` (never `'succeeded'`), surfaced via `logError`/Sentry; retry-safe under the idempotency key (a `failed` row may retry; a `succeeded`/`skipped` one is a no-op).
-- [ ] T031 [P] [US5] Unit tests: per-trigger single notification; replay → `skipped` no-op (NFR-002); n8n 500 → `failed` not `succeeded` (SC-006); CR/LF stripped from header fields.
+- [ ] T030 [US5] Fail-closed delivery accounting + spec-local retry (CHK032 / clarified 2026-06-19): n8n unreachable / non-2xx → `automation_logs.status='failed'` (never `'succeeded'`), surfaced via `logError`/Sentry. **Retry mechanism (spec-local, no platform schema change):** on a future delivery of the same `(recipient, trigger, subject)` for a row currently at `status='failed'`, the dispatcher MAY `DELETE` the failed row and re-INSERT as `started` to re-attempt. `succeeded`/`skipped`/in-flight `started` rows still hold the UNIQUE lock (delete-and-retry applies only to `failed`). The platform-wide partial UNIQUE index `WHERE status <> 'failed'` is filed as a separate follow-up spec (see T039) — do NOT bundle that cross-cutting migration into this spec.
+- [ ] T031 [P] [US5] Unit tests: per-trigger single notification; replay → `skipped` no-op (NFR-002); n8n 500 → `failed` not `succeeded` (SC-006); CR/LF stripped from header fields; **delete-and-retry: a `failed` row may be deleted + re-attempted → `started` → `succeeded`, but a `succeeded`/`skipped` row MUST NOT be re-attempted** (CHK032).
 
 **Checkpoint**: Each owned trigger delivers once per recipient on configured channels; replay no-op; failures recorded `failed`.
 
@@ -143,6 +143,7 @@
 - [ ] T036 [P] Quran-range unit test (NFR-003 / SC-003): assert every cited certificate range equals `src/lib/quran/ayah-counts.ts` values AND a scan proves **no hardcoded** ayah/juz boundary literal in `src/lib/domains/certificates/` — `grep -rn '[0-9]\{1,3\}:[0-9]\{1,3\}' src/lib/domains/certificates/` → zero non-canonical literals.
 - [ ] T037 [P] RTL verification: certificates, monthly reports, honor board, and all 6 notification templates render correctly in Arabic RTL with tashkeel/waqf preserved (SC-007).
 - [ ] T038 Commit all spec 023 artifacts + tasks.md; push.
+- [ ] T039 [P] File follow-up spec for the platform-wide `automation_logs` partial UNIQUE index `WHERE status <> 'failed'` (CHK032 cross-cutting follow-up). `automation_logs` is shared across specs 018/021/022/023 — a partial-index migration affects every consumer's retry semantics. Author a new spec (e.g. `025-automation-logs-partial-unique`) that: (a) audits each consumer (018/021/022/023) for behavior change under the partial index, (b) ships the ALTER as its own forward migration, (c) removes spec-local delete-and-retry from 023's T030 once the platform fix lands. **Out of scope for 023 — file the spec, do not implement here.**
 
 ---
 
