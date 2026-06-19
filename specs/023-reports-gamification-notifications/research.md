@@ -79,3 +79,63 @@ No new webhook endpoint or secret. All events route through a single webhook pat
 **Alternatives considered**:
 - Separate webhook per notification type: fragments routing and multiplies secrets — rejected.
 - Direct database insert for notifications (skip n8n): loses the existing email/WhatsApp dispatch infrastructure in n8n — rejected.
+
+---
+
+## R-006 — 2026-06-19 clarification decisions (post-clarify)
+
+Five decisions from the 2026-06-19 `/speckit-clarify` pass. Spec §Clarifications "Session 2026-06-19" is the source of truth; this section captures the research rationale.
+
+### R-006.1 — `failed` row non-terminal (CHK032 retry-vs-lock)
+
+**Decision**: `failed` MUST be retry-safe under the idempotency key. Spec 023 ships **spec-local delete-and-retry** (on a `failed` row for the same key, the dispatcher MAY delete + re-INSERT as `started`). Platform-wide partial UNIQUE index on `automation_logs` is filed as a separate follow-up spec.
+
+**Rationale**: SC-006 promises "retry-safe under the idempotency key". A terminal-`failed` design silently breaks that guarantee: a transient n8n outage permanently drops the notification. Cross-cutting concern — `automation_logs` is shared across 018/021/022/023, so a schema change affects every consumer's retry semantics. Spec-local delete-and-retry avoids the cross-spec blast radius while honoring the retry-safe guarantee.
+
+**Alternatives**:
+- Terminal `failed` + manual reconciliation — contradicts SC-006, rejected.
+- Partial UNIQUE index `WHERE status <> 'failed'` platform-wide in spec 023 — too high a blast radius for a single spec; needs its own audit + migration. Filed as follow-up.
+- Composite key `(idempotency_key, attempt_number)` — heavier schema; multiple `failed` rows per key complicate reporting. Rejected.
+
+### R-006.2 — Versioned month-close merge (CHK024)
+
+**Decision**: `monthly_reports` adds `version integer NOT NULL DEFAULT 1` + composite UNIQUE `(student_id, period_year, period_month, version)`. Corrections append `version = MAX(version)+1`; reads select MAX(version).
+
+**Rationale**: AGENTS.md §4 "progress is merged, never overwritten" applies to data the user has seen — a corrected report arriving after a later one must not silently lose the audit trail. Versioned append preserves history while making the latest correction canonical.
+
+**Alternatives**:
+- True append-only with no version column — duplicate reads; needs a "latest" query anyway. Effectively the same but with a less explicit contract.
+- Update-in-place with no audit — violates "merged never overwritten". Rejected.
+- Last-write-wins by event timestamp — silently loses corrections if clocks drift or events arrive out of order. Rejected.
+
+### R-006.3 — Expiry lead time default 7 days (CHK015)
+
+**Decision**: Default 7 days before period end, admin-configurable via `platform_settings.subscription_expiring_lead_days`.
+
+**Rationale**: 7 days is the industry-standard renewal reminder window — gives the guardian time to fix a failed payment or reactivate before access is suspended. Configurable per deployment because some markets/sizes may want shorter (3d) or longer (14d).
+
+**Alternatives**:
+- 3 days — too tight if the guardian misses the email/WhatsApp; risks suspension despite intent to renew.
+- 1 day — only works as a SECOND reminder, not a first.
+- No default (must be set at deploy) — pushes a config decision onto every deployment; bad defaults beat no defaults.
+
+### R-006.4 — `milestone_key` composite UNIQUE (CHK047)
+
+**Decision**: Composite UNIQUE `(student_id, certificate_type, milestone_key)` with plain per-type values (juz=`1..30`, level=level-id, course=course-id). `certificate_type` disambiguates.
+
+**Rationale**: Schema enforces disambiguation. No string parsing (`juz:1` vs `level:1`) needed. Matches the existing `uix_certificates_student_milestone` in data-model §2c — no schema change, only spec-text clarification.
+
+**Alternatives**:
+- Prefixed string `juz:1` / `level:abc` / `course:xyz` — works but requires every read to parse; loses type-safety.
+- UUID per issuance — defeats idempotency (same milestone would generate a new UUID each time).
+
+### R-006.5 — Distinct `notif:` prefix for delivery (CHK048)
+
+**Decision**: `monthly_report_ready` → `notif:{guardianId}:monthly_report_ready:{reportId}`; `certificate_earned` → `notif:{recipientId}:certificate_earned:{certId}`. Issuance keys stay `report:`/`cert:`. Distinct.
+
+**Rationale**: Issuance and delivery can fail independently. Sharing a key creates a false cross-dependency: a successful issuance + failed notification would block retry of either (lock held by issuance). Distinct keys let each retry independently.
+
+**Alternatives**:
+- Reuse `report:`/`cert:` for both — couples issuance to delivery; rejects the retry-safe guarantee when one half fails.
+- Hybrid (`cert:{...}:notif`) — same coupling problem in a different shape.
+

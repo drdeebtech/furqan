@@ -124,6 +124,10 @@ export const WEBHOOK_ROUTES = {
   "subscription.renewed": "/webhook/furqan-subscription-renewed",
   "subscription.past_due": "/webhook/furqan-subscription-past-due",
   "subscription.canceled": "/webhook/furqan-subscription-canceled",
+  // Spec 023 fallback detector (T011b): emitted locally only if spec 018 has
+  // not yet shipped an upstream month-close emitter. Dot.notation keeps the
+  // event taxonomy consistent with the rest of the codebase.
+  "subscription.month_closed": "/webhook/furqan-subscription-month-closed",
   // Scheduling domain (spec 020): assignment, cohort, and booking lifecycle
   // events. NOTE: n8n workflows for these routes must be created to handle
   // teacher assignment notifications, cohort overflow processing, and member
@@ -133,6 +137,16 @@ export const WEBHOOK_ROUTES = {
   "assignment.changed": "/webhook/furqan-assignment-changed",
   "cohort.opened": "/webhook/furqan-cohort-opened",
   "member.joined": "/webhook/furqan-member-joined",
+  // Spec 023 — reports/gamification/notifications. These are the events
+  // THIS spec emits (issuance + computed artifacts). NOTE: the events this
+  // spec CONSUMES — payment_failed, subscription_expiring, absence_outcome
+  // — are NOT yet emitted by specs 018/021 (verified 2026-06-19). The
+  // webhook branches in /api/webhooks/n8n/route.ts that consume them are
+  // stubbed until 018/021 ship the emitters. See tasks.md ⛔ T011a + T011b
+  // (fallback month-close detector) for the parallel upstream-track work.
+  "monthly_report.ready": "/webhook/furqan-monthly-report-ready",
+  "certificate.earned": "/webhook/furqan-certificate-earned",
+  "honor_board.updated": "/webhook/furqan-honor-board-updated",
 } as const satisfies Record<string, string>;
 
 /**

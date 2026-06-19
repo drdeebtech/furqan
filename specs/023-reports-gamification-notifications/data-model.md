@@ -67,13 +67,21 @@ CREATE TABLE monthly_reports (
   subscription_id          uuid        REFERENCES subscriptions(id),
   period_year              integer     NOT NULL,
   period_month             integer     NOT NULL CHECK (period_month BETWEEN 1 AND 12),
+  version                  integer     NOT NULL DEFAULT 1 CHECK (version >= 1),
   level_assessment_summary text,
   generated_at             timestamptz NOT NULL DEFAULT now(),
   created_at               timestamptz NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX uix_monthly_reports_student_period
-  ON monthly_reports(student_id, period_year, period_month);
-CREATE INDEX idx_monthly_reports_student ON monthly_reports(student_id);
+-- Clarified 2026-06-19 (CHK024): composite UNIQUE on (student, period, version).
+-- A corrected month-close event appends version = MAX(version)+1; reads
+-- select MAX(version) per (student, year, month). Honors "merged never
+-- overwritten" with full audit trail. A correction arriving after a newer
+-- period's report still appends (corrects the older period only).
+CREATE UNIQUE INDEX uix_monthly_reports_student_period_version
+  ON monthly_reports(student_id, period_year, period_month, version);
+-- Reader contract: SELECT … WHERE (student_id, period_year, period_month) = (?)
+--   ORDER BY version DESC LIMIT 1 — always returns the canonical latest row.
+CREATE INDEX idx_monthly_reports_student_period ON monthly_reports(student_id, period_year, period_month);
 ```
 
 **RLS**:
@@ -169,16 +177,16 @@ Default seed for `notification_channel_matrix` (matches the FR-012 matrix; `push
 
 ```json
 {
-  "payment_failed":        ["in_app","email","whatsapp"],
-  "subscription_expiring": ["in_app","email","whatsapp"],
+  "payment.failed":        ["in_app","email","whatsapp"],
+  "subscription.expiring": ["in_app","email","whatsapp"],
   "payment_retry":         ["in_app","email","whatsapp"],
-  "absence_outcome":       ["in_app","email"],
-  "monthly_report_ready":  ["in_app","email"],
-  "certificate_earned":    ["in_app"]
+  "absence.outcome":       ["in_app","email"],
+  "monthly_report.ready":  ["in_app","email"],
+  "certificate.earned":    ["in_app"]
 }
 ```
 
-`honor_board_updated` (FurqanEvent.HonorBoardUpdated) is intentionally **absent** from this seed: honor-board notification routing is gated on the open FR-010 honor-board clarification (T023 blocked) — add it here only once that decision is supplied; until then the event is defined but unrouted.
+`honor_board.updated` (FurqanEvent.honor_board.updated) is intentionally **absent** from this seed: honor-board notification routing is gated on the open FR-010 honor-board clarification (T023 blocked) — add it here only once that decision is supplied; until then the event is defined but unrouted.
 
 WhatsApp entries are dropped at resolve time when `notifications_whatsapp_enabled='false'`; remaining channels still send. Each resolved array MUST be a subset of {in_app, email, push, whatsapp} (the widened `notifications.channel` CHECK).
 
@@ -193,16 +201,18 @@ Add to the shared events surface (e.g. `src/lib/automation/events.ts`):
 ```ts
 export enum FurqanEvent {
   // ... existing entries ...
-  MonthlyReportReady  = 'monthly_report_ready',
-  CertificateEarned   = 'certificate_earned',
-  HonorBoardUpdated   = 'honor_board_updated',
+  monthly_report_ready  = 'monthly_report.ready',
+  certificate_earned    = 'certificate.earned',
+  honor_board_updated   = 'honor_board.updated',
 }
 ```
 
 Consumed (emitted by other specs, handled here):
-- `FurqanEvent.PaymentFailed` (spec 018)
-- `FurqanEvent.SubscriptionExpiring` (spec 018)
-- `FurqanEvent.AbsenceOutcome` (spec 021)
+- `FurqanEvent.subscription_past_due` (spec 018 — billing/dunning events)
+- `FurqanEvent.absence_outcome` (spec 021)
+
+Emitted locally by spec 023:
+- `FurqanEvent.subscription_expiring` (nightly cron reads `current_period_end`, emits at `period_end − 7d`)
 
 ---
 
@@ -238,3 +248,34 @@ automation_logs ── idempotency_key UNIQUE
 | `automation_logs` (existing) | 100k+/month | Unique on idempotency_key |
 
 All acceptable. No unbounded fan-out.
+
+---
+
+## §6. Revisions — Session 2026-06-19 (post-clarify)
+
+Five clarifications from the 2026-06-19 `/speckit-clarify` pass; data-model impact summarized below. Spec §Clarifications is the source of truth.
+
+### §6.1 Q2 — `monthly_reports` versioning (CHK024)
+
+Schema updated in §2b above: added `version integer NOT NULL DEFAULT 1 CHECK (version >= 1)`; composite UNIQUE `(student_id, period_year, period_month, version)`; reader contract `ORDER BY version DESC LIMIT 1`. The prior plain UNIQUE on `(student_id, period_year, period_month)` would have rejected legitimate corrections; the versioned form lets a correction append a new row instead.
+
+### §6.2 Q1 — `automation_logs` partial UNIQUE index (CHK032) — CROSS-CUTTING
+
+The clarification answer (partial UNIQUE index `WHERE status <> 'failed'`) is correct operationally but **`automation_logs` is shared across specs 018 / 021 / 022 / 023**. Changing its index platform-wide affects every consumer's retry semantics. Two paths:
+
+- **Option A (recommended for 023): spec-local retry-safe delete-and-retry.** Spec 023's notification dispatcher, on a `failed` row for the same `(recipient, trigger, subject)`, MAY delete the failed row and re-INSERT as `started` to re-attempt. No schema change to `automation_logs`. The platform-wide lock is preserved for `succeeded`/`skipped`/in-flight `started`. This satisfies FR-014's "retry-safe under the idempotency key" without a cross-spec migration.
+- **Option B (platform-wide, separate spec): partial UNIQUE index.** File a new spec (e.g. `025-automation-logs-partial-unique`) that ALTERs the existing index, audit every consumer (018/021/022/023) for behavior change, ship as its own forward migration. Higher blast radius; needs Architect sign-off.
+
+**Plan posture:** ship Option A inside 023; file Option B as a follow-up spec for the platform team. Do NOT bundle the platform-wide migration into 023.
+
+### §6.3 Q4 — `certificates.milestone_key` (CHK047)
+
+Already aligned. The existing `uix_certificates_student_milestone ON certificates(student_id, certificate_type, milestone_key)` (§2c) IS the composite UNIQUE. Plain per-type values are safe because `certificate_type` disambiguates. No schema change — only the spec text was clarified.
+
+### §6.4 Q3 — expiry lead time (CHK015)
+
+No schema change. `platform_settings.subscription_expiring_lead_days` (integer, default 7) is added to the seed block in §3 (add to the existing `INSERT INTO platform_settings …` migration). The dispatcher reads it via `getSetting`.
+
+### §6.5 Q5 — `notif:` vs `report:`/`cert:` key independence (CHK048)
+
+Already aligned. contracts/api.md §7 already uses `report:`/`cert:` for issuance and `notif:` for delivery (independent keys, can fail independently). No schema change.

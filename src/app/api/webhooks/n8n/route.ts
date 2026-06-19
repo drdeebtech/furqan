@@ -1,8 +1,41 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notify } from "@/lib/notifications/dispatcher";
 import { safeCompareSecret } from "@/lib/security/secrets";
 import { logError } from "@/lib/logger";
+
+const MonthlyReportReadySchema = z.object({
+  student_id: z.string().uuid(),
+  year: z.number().int().min(2020).max(2100),
+  month: z.number().int().min(1).max(12),
+  version: z.number().int().min(1).optional(),
+});
+
+const CertificateEarnedSchema = z.object({
+  student_id: z.string().uuid(),
+  type: z.enum(["appreciation_juz", "appreciation_level", "course_completion"]),
+  milestone_key: z.string().min(1).max(100),
+});
+
+const SubscriptionPastDueSchema = z.object({
+  student_id: z.string().uuid(),
+  subscription_id: z.string().uuid().optional(),
+  student_name: z.string().max(500).optional(),
+});
+
+const SubscriptionExpiringSchema = z.object({
+  student_id: z.string().uuid(),
+  subscription_id: z.string().uuid().optional(),
+  period_end: z.string().optional(),
+  student_name: z.string().max(500).optional(),
+});
+
+const AbsenceOutcomeSchema = z.object({
+  student_id: z.string().uuid(),
+  attendance_id: z.string().uuid().optional(),
+  student_name: z.string().max(500).optional(),
+});
 
 /**
  * n8n callback endpoint.
@@ -143,6 +176,160 @@ export async function POST(request: Request) {
         .returns<{ id: string }[]>()
         .single();
       return NextResponse.json({ exists: !!existing });
+    }
+
+    case "monthly_report_ready": {
+      // T012 — on n8n callback after monthly_report.ready dispatch, insert in-app notification.
+      const reportParsed = MonthlyReportReadySchema.safeParse(data);
+      if (!reportParsed.success) {
+        return NextResponse.json(
+          { error: "invalid payload", issues: reportParsed.error.flatten() },
+          { status: 422 },
+        );
+      }
+      const reportData = reportParsed.data;
+      const { routeInAppNotification: routeReport } = await import("@/lib/domains/notifications/routing");
+      await routeReport({
+        recipientId: reportData.student_id,
+        trigger: "monthly_report.ready",
+        subjectKey: `report:${reportData.student_id}:${reportData.year}:${reportData.month}`,
+        ctx: {
+          period: `${reportData.year}/${String(reportData.month).padStart(2, "0")}`,
+        },
+        data: { student_id: reportData.student_id, year: reportData.year, month: reportData.month, version: reportData.version },
+      });
+      return NextResponse.json({ notified: true });
+    }
+
+    case "certificate_earned": {
+      // T016 — issue certificate + notify student and linked guardians.
+      const certParsed = CertificateEarnedSchema.safeParse(data);
+      if (!certParsed.success) {
+        return NextResponse.json(
+          { error: "invalid payload", issues: certParsed.error.flatten() },
+          { status: 422 },
+        );
+      }
+      const certData = certParsed.data;
+      const { issueCertificate } = await import("@/lib/domains/certificates/issue");
+      const result = await issueCertificate(certData.student_id, certData.type, certData.milestone_key);
+      if (!result.ok) {
+        logError("certificate_earned webhook: issueCertificate failed", new Error(result.error), {
+          tag: "certificate",
+        });
+        return NextResponse.json({ error: result.error }, { status: 500 });
+      }
+      // T021 — for course_completion, attach next-product suggestion to notification payload.
+      let nextProduct: { id: string; title_ar: string; title_en: string | null; price_cents: number; currency: string } | null = null;
+      if (certData.type === "course_completion") {
+        const { suggestNextProduct } = await import("@/lib/domains/certificates/next-product");
+        nextProduct = await suggestNextProduct(certData.student_id, certData.milestone_key).catch(() => null);
+      }
+
+      const { routeInAppNotification: routeCert } = await import("@/lib/domains/notifications/routing");
+      await routeCert({
+        recipientId: certData.student_id,
+        trigger: "certificate.earned",
+        subjectKey: `cert:${certData.student_id}:${certData.type}:${certData.milestone_key}`,
+        data: {
+          certificate_id: result.certificate.id,
+          ...(nextProduct ? { next_product: nextProduct } : {}),
+        },
+      });
+      const { data: guardians, error: guardiansErr } = await supabase
+        .from("guardian_children")
+        .select("guardian_id")
+        .eq("child_id", certData.student_id);
+      if (guardiansErr) {
+        logError("certificate_earned webhook: guardian lookup failed", guardiansErr, {
+          tag: "certificate",
+          student_id: certData.student_id,
+        });
+        return NextResponse.json({ error: "guardian lookup failed" }, { status: 500 });
+      }
+      if (guardians) {
+        for (const g of guardians) {
+          await routeCert({
+            recipientId: g.guardian_id,
+            trigger: "certificate.earned",
+            subjectKey: `cert:${g.guardian_id}:${certData.student_id}:${certData.type}:${certData.milestone_key}`,
+            data: {
+              certificate_id: result.certificate.id,
+              student_id: certData.student_id,
+              ...(nextProduct ? { next_product: nextProduct } : {}),
+            },
+          }).catch((err) => logError("guardian cert notify failed", err, {}));
+        }
+      }
+      return NextResponse.json({
+        issued: !result.idempotent,
+        idempotent: result.idempotent,
+        certificate_id: result.certificate.id,
+        next_product: nextProduct,
+      });
+    }
+
+    case "subscription_past_due": {
+      // T029 — consumed from spec 018; route dunning notification.
+      const pastDueParsed = SubscriptionPastDueSchema.safeParse(data);
+      if (!pastDueParsed.success) {
+        return NextResponse.json(
+          { error: "invalid payload", issues: pastDueParsed.error.flatten() },
+          { status: 422 },
+        );
+      }
+      const pastDueData = pastDueParsed.data;
+      const { routeInAppNotification: routePastDue } = await import("@/lib/domains/notifications/routing");
+      await routePastDue({
+        recipientId: pastDueData.student_id,
+        trigger: "subscription.past_due",
+        subjectKey: `past_due:${pastDueData.student_id}:${pastDueData.subscription_id ?? ""}`,
+        ctx: { studentName: pastDueData.student_name ?? null },
+        data: { subscription_id: pastDueData.subscription_id },
+      });
+      return NextResponse.json({ notified: true });
+    }
+
+    case "subscription_expiring": {
+      // T029 — emitted locally by spec 023 nightly job; route expiry "continue?" prompt.
+      const expiringParsed = SubscriptionExpiringSchema.safeParse(data);
+      if (!expiringParsed.success) {
+        return NextResponse.json(
+          { error: "invalid payload", issues: expiringParsed.error.flatten() },
+          { status: 422 },
+        );
+      }
+      const expiringData = expiringParsed.data;
+      const { routeInAppNotification: routeExpiring } = await import("@/lib/domains/notifications/routing");
+      await routeExpiring({
+        recipientId: expiringData.student_id,
+        trigger: "subscription.expiring",
+        subjectKey: `expiring:${expiringData.student_id}:${expiringData.period_end ?? ""}`,
+        ctx: { studentName: expiringData.student_name ?? null },
+        data: { subscription_id: expiringData.subscription_id, period_end: expiringData.period_end },
+      });
+      return NextResponse.json({ notified: true });
+    }
+
+    case "absence_outcome": {
+      // T029 — emitted locally by spec 023 scheduled job; route absence/excuse outcome.
+      const absenceParsed = AbsenceOutcomeSchema.safeParse(data);
+      if (!absenceParsed.success) {
+        return NextResponse.json(
+          { error: "invalid payload", issues: absenceParsed.error.flatten() },
+          { status: 422 },
+        );
+      }
+      const absenceData = absenceParsed.data;
+      const { routeInAppNotification: routeAbsence } = await import("@/lib/domains/notifications/routing");
+      await routeAbsence({
+        recipientId: absenceData.student_id,
+        trigger: "absence.outcome",
+        subjectKey: `absence:${absenceData.student_id}:${absenceData.attendance_id ?? ""}`,
+        ctx: { studentName: absenceData.student_name ?? null },
+        data: { attendance_id: absenceData.attendance_id },
+      });
+      return NextResponse.json({ notified: true });
     }
 
     default:
