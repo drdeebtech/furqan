@@ -5534,6 +5534,132 @@ export type Database = {
         }
         Relationships: []
       }
+      certificates: {
+        Row: {
+          id: string
+          student_id: string
+          certificate_type: "appreciation_juz" | "appreciation_level" | "course_completion"
+          milestone_key: string
+          cited_range_start: string | null
+          cited_range_end: string | null
+          issued_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          certificate_type: "appreciation_juz" | "appreciation_level" | "course_completion"
+          milestone_key: string
+          cited_range_start?: string | null
+          cited_range_end?: string | null
+          issued_at?: string
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          certificate_type?: "appreciation_juz" | "appreciation_level" | "course_completion"
+          milestone_key?: string
+          cited_range_start?: string | null
+          cited_range_end?: string | null
+          issued_at?: string
+        }
+        Relationships: []
+      }
+      monthly_reports: {
+        Row: {
+          id: string
+          student_id: string
+          subscription_id: string | null
+          period_year: number
+          period_month: number
+          version: number
+          level_assessment_summary: string | null
+          generated_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          subscription_id?: string | null
+          period_year: number
+          period_month: number
+          version?: number
+          level_assessment_summary?: string | null
+          generated_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          subscription_id?: string | null
+          period_year?: number
+          period_month?: number
+          version?: number
+          level_assessment_summary?: string | null
+          generated_at?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      teacher_notes: {
+        Row: {
+          id: string
+          student_id: string
+          teacher_id: string
+          content: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          teacher_id: string
+          content: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          teacher_id?: string
+          content?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      honor_board_entries: {
+        Row: {
+          id: string
+          student_id: string
+          display_name: string | null
+          avatar_url: string | null
+          achievement_metric: number | null
+          rank_period: string
+          is_opted_out: boolean
+          computed_at: string | null
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          display_name?: string | null
+          avatar_url?: string | null
+          achievement_metric?: number | null
+          rank_period: string
+          is_opted_out?: boolean
+          computed_at?: string | null
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          display_name?: string | null
+          avatar_url?: string | null
+          achievement_metric?: number | null
+          rank_period?: string
+          is_opted_out?: boolean
+          computed_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       public_profiles: {

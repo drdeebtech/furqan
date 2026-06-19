@@ -6115,8 +6115,8 @@ export type Database = {
           student_id: string
           certificate_type: "appreciation_juz" | "appreciation_level" | "course_completion"
           milestone_key: string
-          cited_range_start: string
-          cited_range_end: string
+          cited_range_start: string | null
+          cited_range_end: string | null
           issued_at: string
           created_at: string
         }
@@ -6125,8 +6125,8 @@ export type Database = {
           student_id: string
           certificate_type: "appreciation_juz" | "appreciation_level" | "course_completion"
           milestone_key: string
-          cited_range_start: string
-          cited_range_end: string
+          cited_range_start?: string | null
+          cited_range_end?: string | null
           issued_at?: string
           created_at?: string
         }
@@ -6135,8 +6135,8 @@ export type Database = {
           student_id?: string
           certificate_type?: "appreciation_juz" | "appreciation_level" | "course_completion"
           milestone_key?: string
-          cited_range_start?: string
-          cited_range_end?: string
+          cited_range_start?: string | null
+          cited_range_end?: string | null
           issued_at?: string
           created_at?: string
         }

@@ -145,6 +145,124 @@ export async function POST(request: Request) {
       return NextResponse.json({ exists: !!existing });
     }
 
+    case "monthly_report_ready": {
+      // T012 — on n8n callback after monthly_report.ready dispatch, insert in-app notification.
+      if (!data.student_id) {
+        return NextResponse.json({ error: "student_id required" }, { status: 400 });
+      }
+      const { routeInAppNotification: routeReport } = await import("@/lib/domains/notifications/routing");
+      await routeReport({
+        recipientId: data.student_id as string,
+        trigger: "monthly_report.ready",
+        subjectKey: `report:${data.student_id}:${data.year}:${data.month}`,
+        ctx: {
+          period:
+            data.year != null && data.month != null
+              ? `${data.year}/${String(data.month).padStart(2, "0")}`
+              : undefined,
+        },
+        data: { student_id: data.student_id, year: data.year, month: data.month, version: data.version },
+      });
+      return NextResponse.json({ notified: true });
+    }
+
+    case "certificate_earned": {
+      // T016 — issue certificate + notify student and linked guardians.
+      if (!data.student_id || !data.type || !data.milestone_key) {
+        return NextResponse.json(
+          { error: "student_id, type, milestone_key required" },
+          { status: 400 },
+        );
+      }
+      const { issueCertificate } = await import("@/lib/domains/certificates/issue");
+      const result = await issueCertificate(
+        data.student_id as string,
+        data.type as "appreciation_juz" | "appreciation_level" | "course_completion",
+        data.milestone_key as string,
+      );
+      if (!result.ok) {
+        logError("certificate_earned webhook: issueCertificate failed", new Error(result.error), {
+          tag: "certificate",
+        });
+        return NextResponse.json({ error: result.error }, { status: 500 });
+      }
+      const { routeInAppNotification: routeCert } = await import("@/lib/domains/notifications/routing");
+      await routeCert({
+        recipientId: data.student_id as string,
+        trigger: "certificate.earned",
+        subjectKey: `cert:${data.student_id}:${data.type}:${data.milestone_key}`,
+        data: { certificate_id: result.certificate.id },
+      });
+      const { data: guardians } = await supabase
+        .from("guardian_children")
+        .select("guardian_id")
+        .eq("child_id", data.student_id as string)
+        .returns<{ guardian_id: string }[]>();
+      if (guardians) {
+        for (const g of guardians) {
+          await routeCert({
+            recipientId: g.guardian_id,
+            trigger: "certificate.earned",
+            subjectKey: `cert:${g.guardian_id}:${data.student_id}:${data.type}:${data.milestone_key}`,
+            data: { certificate_id: result.certificate.id, student_id: data.student_id },
+          }).catch((err) => logError("guardian cert notify failed", err, {}));
+        }
+      }
+      return NextResponse.json({
+        issued: !result.idempotent,
+        idempotent: result.idempotent,
+        certificate_id: result.certificate.id,
+      });
+    }
+
+    case "subscription_past_due": {
+      // T029 — consumed from spec 018; route dunning notification.
+      if (!data.student_id) {
+        return NextResponse.json({ error: "student_id required" }, { status: 400 });
+      }
+      const { routeInAppNotification: routePastDue } = await import("@/lib/domains/notifications/routing");
+      await routePastDue({
+        recipientId: data.student_id as string,
+        trigger: "subscription.past_due",
+        subjectKey: `past_due:${data.student_id}:${data.subscription_id ?? ""}`,
+        ctx: { studentName: (data.student_name as string | null) ?? null },
+        data: { subscription_id: data.subscription_id },
+      });
+      return NextResponse.json({ notified: true });
+    }
+
+    case "subscription_expiring": {
+      // T029 — emitted locally by spec 023 nightly job; route expiry "continue?" prompt.
+      if (!data.student_id) {
+        return NextResponse.json({ error: "student_id required" }, { status: 400 });
+      }
+      const { routeInAppNotification: routeExpiring } = await import("@/lib/domains/notifications/routing");
+      await routeExpiring({
+        recipientId: data.student_id as string,
+        trigger: "subscription.expiring",
+        subjectKey: `expiring:${data.student_id}:${data.period_end ?? ""}`,
+        ctx: { studentName: (data.student_name as string | null) ?? null },
+        data: { subscription_id: data.subscription_id, period_end: data.period_end },
+      });
+      return NextResponse.json({ notified: true });
+    }
+
+    case "absence_outcome": {
+      // T029 — emitted locally by spec 023 scheduled job; route absence/excuse outcome.
+      if (!data.student_id) {
+        return NextResponse.json({ error: "student_id required" }, { status: 400 });
+      }
+      const { routeInAppNotification: routeAbsence } = await import("@/lib/domains/notifications/routing");
+      await routeAbsence({
+        recipientId: data.student_id as string,
+        trigger: "absence.outcome",
+        subjectKey: `absence:${data.student_id}:${data.attendance_id ?? ""}`,
+        ctx: { studentName: (data.student_name as string | null) ?? null },
+        data: { attendance_id: data.attendance_id },
+      });
+      return NextResponse.json({ notified: true });
+    }
+
     default:
       return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
   }
