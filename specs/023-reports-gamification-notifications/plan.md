@@ -106,8 +106,30 @@ supabase/migrations/
 
 | File | Status |
 |------|--------|
-| research.md | ✅ Complete |
-| data-model.md | ✅ Complete |
-| contracts/api.md | ✅ Complete |
+| research.md | ✅ Complete (+ R-006 2026-06-19 decisions appended) |
+| data-model.md | ✅ Complete (+ §6 revisions 2026-06-19 appended; `monthly_reports.version` + composite UNIQUE added) |
+| contracts/api.md | ✅ Complete (+ §8 note on issuance/delivery key independence appended) |
 | quickstart.md | ✅ Complete |
-| tasks.md | ⏳ Next |
+| tasks.md | ⏳ Next (regenerate via `/speckit-tasks` to reflect the 5 clarifications) |
+
+---
+
+## Plan Revisions — Session 2026-06-19 (post-clarify)
+
+Five clarifications from the 2026-06-19 `/speckit-clarify` pass; plan impact below. Spec §Clarifications "Session 2026-06-19" is the source of truth.
+
+| # | Topic | Plan impact |
+|---|-------|-------------|
+| Q1 | Retry vs idempotency lock (CHK032) | **Cross-cutting.** Spec 023 ships a **spec-local delete-and-retry** on `failed` rows (no platform schema change). A platform-wide partial UNIQUE index on `automation_logs` is filed as a **separate follow-up spec** — do NOT bundle into 023. See data-model §6.2. |
+| Q2 | Out-of-order month-close merge (CHK024) | `monthly_reports` schema updated: added `version` column + composite UNIQUE `(student_id, period_year, period_month, version)`. Reader contract `ORDER BY version DESC LIMIT 1`. Tasks that generate or read monthly reports (T012, T013, monthly-report domain code) must follow this. |
+| Q3 | Expiry lead time (CHK015) | `platform_settings.subscription_expiring_lead_days` (integer, default 7) added to the seed block. The dispatcher reads it via `getSetting` (no hardcoding). SC-005 asserts delivery at exactly `period_end - N days`. |
+| Q4 | `milestone_key` format (CHK047) | No change — the existing `uix_certificates_student_milestone (student_id, certificate_type, milestone_key)` IS the correct composite. Spec text clarified; schema unchanged. |
+| Q5 | `notif:` vs `report:`/`cert:` independence (CHK048) | No change — contracts §7 already uses distinct prefixes (issuance `report:`/`cert:`, delivery `notif:`). Spec text clarified. |
+
+### ⛔ Outstanding (deferred, not blockers)
+
+- **FR-010 honor-board achievement metric** — `[NEEDS CLARIFICATION]` pending product-owner input. Blocks task T023 and the ranking half of SC-008. Confined to P2/US4 — does NOT affect any P1 story.
+- **CHK006 WhatsApp provider/templates** — pending n8n-owner input.
+- **CHK001/CHK042 month-close emitter** — cross-spec dependency on spec 018 emitting `SubscriptionMonthClosed` (or equivalent). Currently no emitter; blocks the FR-002 user story until spec 018 ships one. Flagged in FR-002.
+
+`/speckit-tasks` can proceed against the resolved items; the deferred items remain tagged in the spec for the product owner and will produce ⛔ markers in `tasks.md`.

@@ -178,3 +178,18 @@ z.object({
 ```
 
 **Response**: `{ success: true, status: 'succeeded'|'skipped' }` — always 200 for valid signature; 401 for invalid signature.
+
+---
+
+## §8. Issuance vs delivery key independence (clarified 2026-06-19, CHK048)
+
+The keys in §7 are **independent per concern** — issuance and delivery can fail and retry independently. Specifically:
+
+| Concern | Key shape | Example |
+|---------|-----------|---------|
+| Artifact issuance (cert / report) | `cert:{studentId}:{type}:{milestoneKey}` / `report:{studentId}:{year}:{month}` | `cert:abc:juz:30` |
+| Notification delivery | `notif:{recipientId}:{trigger}:{subjectKey}` | `notif:guardian_xyz:monthly_report_ready:report-uuid` |
+
+**Independence contract**: a successful issuance + failed delivery (or vice versa) MUST NOT block retry of either. The two key spaces are disjoint by prefix (`cert:`/`report:` vs `notif:`); a `failed` row in one space does not lock the other. Each retries under its own key per §7 + Q1 (CHK032) delete-and-retry semantics.
+
+The `subjectKey` for `monthly_report_ready` is the **report row id** (not the period), so two notifications for the same report (e.g. re-delivery) collapse correctly while two notifications for two distinct reports (e.g. versioned corrections per Q2) each have their own key.
