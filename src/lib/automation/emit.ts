@@ -124,6 +124,10 @@ export const WEBHOOK_ROUTES = {
   "subscription.renewed": "/webhook/furqan-subscription-renewed",
   "subscription.past_due": "/webhook/furqan-subscription-past-due",
   "subscription.canceled": "/webhook/furqan-subscription-canceled",
+  // Spec 023 fallback detector (T011b): emitted locally only if spec 018 has
+  // not yet shipped an upstream month-close emitter. Dot.notation keeps the
+  // event taxonomy consistent with the rest of the codebase.
+  "subscription.month_closed": "/webhook/furqan-subscription-month-closed",
   // Scheduling domain (spec 020): assignment, cohort, and booking lifecycle
   // events. NOTE: n8n workflows for these routes must be created to handle
   // teacher assignment notifications, cohort overflow processing, and member

@@ -6105,6 +6105,142 @@ export type Database = {
         }
         Relationships: []
       }
+      // Spec 023 tables — added surgically (regen from local DB breaks other
+      // code; these match the schema applied by 20260620000001_reports_certificates.sql.
+      // When a clean prod-linked regen is possible, this block is replaced by
+      // the generator's output.
+      certificates: {
+        Row: {
+          id: string
+          student_id: string
+          certificate_type: "appreciation_juz" | "appreciation_level" | "course_completion"
+          milestone_key: string
+          cited_range_start: string
+          cited_range_end: string
+          issued_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          certificate_type: "appreciation_juz" | "appreciation_level" | "course_completion"
+          milestone_key: string
+          cited_range_start: string
+          cited_range_end: string
+          issued_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          certificate_type?: "appreciation_juz" | "appreciation_level" | "course_completion"
+          milestone_key?: string
+          cited_range_start?: string
+          cited_range_end?: string
+          issued_at?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      honor_board_entries: {
+        Row: {
+          id: string
+          student_id: string
+          display_name: string | null
+          avatar_url: string | null
+          achievement_metric: number | null
+          rank_period: string
+          is_opted_out: boolean
+          computed_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          display_name?: string | null
+          avatar_url?: string | null
+          achievement_metric?: number | null
+          rank_period: string
+          is_opted_out?: boolean
+          computed_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          display_name?: string | null
+          avatar_url?: string | null
+          achievement_metric?: number | null
+          rank_period?: string
+          is_opted_out?: boolean
+          computed_at?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      monthly_reports: {
+        Row: {
+          id: string
+          student_id: string
+          subscription_id: string | null
+          period_year: number
+          period_month: number
+          version: number
+          level_assessment_summary: string | null
+          generated_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          subscription_id?: string | null
+          period_year: number
+          period_month: number
+          version?: number
+          level_assessment_summary?: string | null
+          generated_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          subscription_id?: string | null
+          period_year?: number
+          period_month?: number
+          version?: number
+          level_assessment_summary?: string | null
+          generated_at?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      teacher_notes: {
+        Row: {
+          id: string
+          student_id: string
+          teacher_id: string
+          content: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          teacher_id: string
+          content: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          teacher_id?: string
+          content?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       public_profiles: {
@@ -7111,6 +7247,11 @@ export const Constants = {
   },
   public: {
     Enums: {
+      certificate_type: [
+        "appreciation_juz",
+        "appreciation_level",
+        "course_completion",
+      ],
       attendance_outcome: [
         "present",
         "student_absent",
