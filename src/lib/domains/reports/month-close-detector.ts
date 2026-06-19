@@ -21,51 +21,66 @@ export interface DetectionResult {
   failed: number;
 }
 
+const BATCH_SIZE = 1000;
+
 export async function detectMonthCloseAndEmit(): Promise<DetectionResult> {
   const admin = createAdminClient();
   const result: DetectionResult = { scanned: 0, emitted: 0, failed: 0 };
+  const now = new Date().toISOString();
+  let lastId: string | null = null;
 
-  const { data: due, error } = await admin
-    .from("subscriptions")
-    .select("id, student_id, current_period_end")
-    .lt("current_period_end", new Date().toISOString())
-    .order("current_period_end", { ascending: true })
-    .limit(1000)
-    .returns<{
+  for (;;) {
+    let query = admin
+      .from("subscriptions")
+      .select("id, student_id, current_period_end")
+      .lt("current_period_end", now)
+      .order("id", { ascending: true })
+      .limit(BATCH_SIZE);
+
+    if (lastId !== null) {
+      query = query.gt("id", lastId);
+    }
+
+    const { data: due, error } = await query.returns<{
       id: string;
       student_id: string;
       current_period_end: string;
     }[]>();
 
-  if (error) {
-    logError("detectMonthCloseAndEmit: subscriptions query failed", error, {
-      tag: "reports-fallback",
-    });
-    result.failed += 1;
-    return result;
-  }
-
-  result.scanned = due?.length ?? 0;
-
-  for (const sub of due ?? []) {
-    try {
-      await emitEvent(
-        "subscription.month_closed",
-        "subscription",
-        sub.id,
-        {
-          student_id: sub.student_id,
-          current_period_end: sub.current_period_end,
-        },
-      );
-      result.emitted += 1;
-    } catch (e) {
-      logError("detectMonthCloseAndEmit: emit failed", e, {
+    if (error) {
+      logError("detectMonthCloseAndEmit: subscriptions query failed", error, {
         tag: "reports-fallback",
-        subscription_id: sub.id,
       });
       result.failed += 1;
+      break;
     }
+
+    if (!due?.length) break;
+    result.scanned += due.length;
+
+    for (const sub of due) {
+      try {
+        await emitEvent(
+          "subscription.month_closed",
+          "subscription",
+          sub.id,
+          {
+            student_id: sub.student_id,
+            current_period_end: sub.current_period_end,
+          },
+        );
+        result.emitted += 1;
+      } catch (e) {
+        logError("detectMonthCloseAndEmit: emit failed", e, {
+          tag: "reports-fallback",
+          subscription_id: sub.id,
+        });
+        result.failed += 1;
+      }
+    }
+
+    if (due.length < BATCH_SIZE) break;
+    lastId = due[due.length - 1].id;
   }
 
   return result;

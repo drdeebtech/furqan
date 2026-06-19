@@ -19,10 +19,11 @@ import { logError } from "@/lib/logger";
 
 const MAX_CONTENT_LENGTH = 5000;
 const CR_REGEX = /\r/g;
+const CRLF_REGEX = /[\r\n]/g;
 
-/** Strip CR (header-injection risk if later embedded in subject/header). */
+/** Strip CR and LF (both are header-injection vectors when embedded in subject/header). */
 export function sanitizeForHeader(value: string): string {
-  return (value ?? "").replace(CR_REGEX, "").trim();
+  return (value ?? "").replace(CRLF_REGEX, "").trim();
 }
 
 /** Normalize note content: trim, strip CR (LF preserved for readability), cap length. */

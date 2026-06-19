@@ -5540,27 +5540,30 @@ export type Database = {
           student_id: string
           certificate_type: "appreciation_juz" | "appreciation_level" | "course_completion"
           milestone_key: string
-          cited_range_start: string | null
-          cited_range_end: string | null
+          cited_range_start: string
+          cited_range_end: string
           issued_at: string
+          created_at: string
         }
         Insert: {
           id?: string
           student_id: string
           certificate_type: "appreciation_juz" | "appreciation_level" | "course_completion"
           milestone_key: string
-          cited_range_start?: string | null
-          cited_range_end?: string | null
+          cited_range_start: string
+          cited_range_end: string
           issued_at?: string
+          created_at?: string
         }
         Update: {
           id?: string
           student_id?: string
           certificate_type?: "appreciation_juz" | "appreciation_level" | "course_completion"
           milestone_key?: string
-          cited_range_start?: string | null
-          cited_range_end?: string | null
+          cited_range_start?: string
+          cited_range_end?: string
           issued_at?: string
+          created_at?: string
         }
         Relationships: []
       }
@@ -5636,7 +5639,8 @@ export type Database = {
           achievement_metric: number | null
           rank_period: string
           is_opted_out: boolean
-          computed_at: string | null
+          computed_at: string
+          created_at: string
         }
         Insert: {
           id?: string
@@ -5646,7 +5650,8 @@ export type Database = {
           achievement_metric?: number | null
           rank_period: string
           is_opted_out?: boolean
-          computed_at?: string | null
+          computed_at?: string
+          created_at?: string
         }
         Update: {
           id?: string
@@ -5656,7 +5661,8 @@ export type Database = {
           achievement_metric?: number | null
           rank_period?: string
           is_opted_out?: boolean
-          computed_at?: string | null
+          computed_at?: string
+          created_at?: string
         }
         Relationships: []
       }

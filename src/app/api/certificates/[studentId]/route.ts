@@ -44,6 +44,10 @@ export async function GET(request: Request, { params }: RouteParams) {
   const { studentId } = paramsParsed.data;
   const { type, limit } = queryParsed.data;
   const supabase = await createClient();
+  const { data: { user }, error: authErr } = await supabase.auth.getUser();
+  if (authErr || !user) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
 
   type CertRow = {
     id: string;

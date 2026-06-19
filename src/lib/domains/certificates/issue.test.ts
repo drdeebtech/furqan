@@ -7,6 +7,9 @@ vi.mock("@/lib/automation/emit", () => ({
 vi.mock("./quran-ranges", () => ({
   getLevelBoundaries: vi.fn().mockReturnValue({ start: "78:1", end: "78:20" }),
 }));
+vi.mock("@/lib/quran/juz-boundaries", () => ({
+  getJuzBoundary: vi.fn().mockReturnValue({ startSurah: 1, startAyah: 1, endSurah: 2, endAyah: 141 }),
+}));
 vi.mock("@/lib/logger", () => ({
   logError: vi.fn(),
 }));
@@ -98,6 +101,38 @@ describe("issueCertificate", () => {
     }
     // Must NOT attempt a new cert insert.
     expect(chain.insert).not.toHaveBeenCalled();
+  });
+
+  it("in-flight: log status='started' but cert not yet in DB → returns error (not synthetic row)", async () => {
+    chain.maybeSingle
+      .mockResolvedValueOnce({ data: { id: "log-started", status: "started" }, error: null }) // log query
+      .mockResolvedValueOnce({ data: null, error: null }); // cert lookup → not found yet
+
+    const result = await issueCertificate(STUDENT, TYPE, MILESTONE);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("concurrent issuance in progress");
+    }
+    // Must NOT attempt a new cert insert.
+    expect(chain.insert).not.toHaveBeenCalled();
+  });
+
+  it("appreciation_juz: malformed milestone_key with trailing chars → fails with invalid key error", async () => {
+    chain.maybeSingle
+      .mockResolvedValueOnce({ data: null, error: null }); // log query → no existing
+    chain.single
+      .mockResolvedValueOnce({ data: { id: "log-1" }, error: null }); // lock insert → id
+    chain.update.mockReturnValue(chain); // markFailed chain
+
+    const result = await issueCertificate(STUDENT, "appreciation_juz", "3abc");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toMatch(/invalid juz milestone_key/);
+    }
+    // Lock was acquired but no cert insert attempted.
+    expect(chain.insert).toHaveBeenCalledTimes(1);
   });
 
   it("failed-row retry: existing log status='failed' → deletes old log row, then issues cert", async () => {

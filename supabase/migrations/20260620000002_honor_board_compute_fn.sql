@@ -28,15 +28,19 @@ set search_path = public, private
 set statement_timeout = '30s'
 as $$
 begin
-  -- Delete the existing snapshot for this period so we can refresh it.
-  delete from public.honor_board_entries
-  where rank_period = p_rank_period;
-
-  -- Insert fresh snapshot.
-  -- Only students with at least one completed session and ≥1 page reviewed
-  -- in the target month appear on the board.
-  -- is_opted_out defaults to false (per-period fresh start; students may call
-  -- PATCH /api/honor-board/opt-out after the compute run).
+  -- Refresh the snapshot while preserving each student's opt-out choice.
+  -- The CTE captures opt-outs before deletion; the INSERT LEFT JOIN restores them.
+  -- Students no longer qualifying are excluded from the INSERT (and thus removed).
+  with
+    captured_optouts as (
+      select student_id, is_opted_out
+      from public.honor_board_entries
+      where rank_period = p_rank_period
+    ),
+    deleted as (
+      delete from public.honor_board_entries
+      where rank_period = p_rank_period
+    )
   insert into public.honor_board_entries (
     student_id,
     display_name,
@@ -58,18 +62,19 @@ begin
       2
     ) as achievement_metric,
     p_rank_period,
-    false,
+    coalesce(po.is_opted_out, false),
     now()
   from public.profiles pr
   join public.student_progress sp on sp.student_id = pr.id
   join public.bookings b on b.id = sp.booking_id
+  left join captured_optouts po on po.student_id = pr.id
   where
     pr.deleted_at is null
     and pr.is_active = true
     and b.status = 'completed'
     and date_trunc('month', b.scheduled_at at time zone 'UTC')
         = date_trunc('month', p_rank_period::timestamptz at time zone 'UTC')
-  group by pr.id, pr.full_name, pr.full_name_ar, pr.avatar_url
+  group by pr.id, pr.full_name, pr.full_name_ar, pr.avatar_url, po.is_opted_out
   having sum(coalesce(sp.pages_reviewed, 0)) > 0;
 end;
 $$;

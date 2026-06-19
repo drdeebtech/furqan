@@ -16,8 +16,8 @@ export interface CertificateRow {
   student_id: string;
   certificate_type: CertificateType;
   milestone_key: string;
-  cited_range_start: string | null;
-  cited_range_end: string | null;
+  cited_range_start: string;
+  cited_range_end: string;
   issued_at: string;
 }
 
@@ -69,20 +69,8 @@ export async function issueCertificate(
     ) {
       const existing = await fetchExistingCert(admin, studentId, type, milestoneKey);
       if (existing) return { ok: true, certificate: existing, idempotent: true };
-      // 'started' but cert not yet written — in-flight idempotent response.
-      return {
-        ok: true,
-        certificate: {
-          id: "",
-          student_id: studentId,
-          certificate_type: type,
-          milestone_key: milestoneKey,
-          cited_range_start: null,
-          cited_range_end: null,
-          issued_at: "",
-        },
-        idempotent: true,
-      };
+      // 'started' but cert not yet written — concurrent issuance in progress.
+      return { ok: false, error: "concurrent issuance in progress" };
     }
     if (existingLog.status === "failed") {
       // Delete failed row so we can retry (T030 spec-local retry).
@@ -119,9 +107,9 @@ export async function issueCertificate(
 
   const logId = lockRow?.id ?? null;
 
-  // 3. Compute cited range (level branch only — juz branch blocked on T014a).
-  let citedRangeStart: string | null = null;
-  let citedRangeEnd: string | null = null;
+  // 3. Compute cited range. course_completion uses empty string (no specific range).
+  let citedRangeStart = "";
+  let citedRangeEnd = "";
 
   if (type === "appreciation_level") {
     try {
@@ -134,7 +122,11 @@ export async function issueCertificate(
       return { ok: false, error: (e as Error).message };
     }
   } else if (type === "appreciation_juz") {
-    const juzNum = parseInt(milestoneKey, 10);
+    if (!/^\d+$/.test(milestoneKey)) {
+      await markFailed(admin, logId, `invalid juz milestone_key: ${milestoneKey}`);
+      return { ok: false, error: `invalid juz milestone_key: ${milestoneKey}` };
+    }
+    const juzNum = Number(milestoneKey);
     if (!Number.isInteger(juzNum) || juzNum < 1 || juzNum > 30) {
       await markFailed(admin, logId, `invalid juz milestone_key: ${milestoneKey}`);
       return { ok: false, error: `invalid juz milestone_key: ${milestoneKey}` };
@@ -200,13 +192,14 @@ async function fetchExistingCert(
   type: CertificateType,
   milestoneKey: string,
 ): Promise<CertificateRow | null> {
-  const { data } = await admin
+  const { data, error } = await admin
     .from("certificates")
     .select("id, student_id, certificate_type, milestone_key, cited_range_start, cited_range_end, issued_at")
     .eq("student_id", studentId)
     .eq("certificate_type", type)
     .eq("milestone_key", milestoneKey)
     .maybeSingle<CertificateRow>();
+  if (error) throw error;
   return data ?? null;
 }
 

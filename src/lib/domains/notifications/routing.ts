@@ -46,7 +46,8 @@ export async function resolveChannels(
       const override = parsed[trigger];
       if (Array.isArray(override) && override.length > 0) {
         const allowed: NotificationChannel[] = ["in_app", "email", "push", "whatsapp"];
-        channels = override.filter((c): c is NotificationChannel => allowed.includes(c));
+        const filtered = override.filter((c): c is NotificationChannel => allowed.includes(c));
+        channels = filtered.length > 0 ? filtered : defaultChannels;
       }
     } catch {
       // Invalid override → fall back to defaults.

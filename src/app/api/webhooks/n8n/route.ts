@@ -206,10 +206,17 @@ export async function POST(request: Request) {
           ...(nextProduct ? { next_product: nextProduct } : {}),
         },
       });
-      const { data: guardians } = await supabase
+      const { data: guardians, error: guardiansErr } = await supabase
         .from("guardian_children")
         .select("guardian_id")
-        .eq("child_id", data.student_id as string) as { data: { guardian_id: string }[] | null };
+        .eq("child_id", data.student_id as string);
+      if (guardiansErr) {
+        logError("certificate_earned webhook: guardian lookup failed", guardiansErr, {
+          tag: "certificate",
+          student_id: data.student_id,
+        });
+        return NextResponse.json({ error: "guardian lookup failed" }, { status: 500 });
+      }
       if (guardians) {
         for (const g of guardians) {
           await routeCert({

@@ -21,8 +21,9 @@ export type ComputeResult =
  * quality_factor = COALESCE(quality_rating, 4.0) / 5.0.
  */
 export async function computeHonorBoard(rankPeriod: string): Promise<ComputeResult> {
-  const periodDate = new Date(rankPeriod);
-  if (isNaN(periodDate.getTime())) {
+  const isoMonthStart = /^\d{4}-\d{2}-01$/;
+  const periodDate = new Date(`${rankPeriod}T00:00:00.000Z`);
+  if (!isoMonthStart.test(rankPeriod) || Number.isNaN(periodDate.getTime())) {
     return { ok: false, error: `invalid rankPeriod: ${rankPeriod}` };
   }
 

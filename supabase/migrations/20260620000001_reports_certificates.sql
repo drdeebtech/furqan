@@ -137,12 +137,34 @@ create policy "teacher_notes_select_self_or_guardian_or_admin"
 create policy "teacher_notes_insert_own_teacher"
   on public.teacher_notes for insert
   to authenticated
-  with check (teacher_id = (select auth.uid()) or private.is_admin());
+  with check (
+    (select auth.uid()) = teacher_id
+    and (
+      private.is_admin()
+      or exists (
+        select 1 from public.subscription_teacher_assignments sta
+        where sta.teacher_id = (select auth.uid())
+          and sta.student_id = public.teacher_notes.student_id
+          and sta.is_active = true
+      )
+    )
+  );
 create policy "teacher_notes_update_own_teacher"
   on public.teacher_notes for update
   to authenticated
   using (teacher_id = (select auth.uid()) or private.is_admin())
-  with check (teacher_id = (select auth.uid()) or private.is_admin());
+  with check (
+    (select auth.uid()) = teacher_id
+    and (
+      private.is_admin()
+      or exists (
+        select 1 from public.subscription_teacher_assignments sta
+        where sta.teacher_id = (select auth.uid())
+          and sta.student_id = public.teacher_notes.student_id
+          and sta.is_active = true
+      )
+    )
+  );
 
 -- monthly_reports: student + linked guardian read own; service-role INSERT only
 -- (no client INSERT/UPDATE/DELETE policy — fully immutable from the client).
@@ -253,6 +275,7 @@ begin
   -- rank_period / student_id are platform-computed and immutable from the client.
   if new.student_id is distinct from old.student_id
      or new.display_name is distinct from old.display_name
+     or new.avatar_url is distinct from old.avatar_url
      or new.achievement_metric is distinct from old.achievement_metric
      or new.rank_period is distinct from old.rank_period then
     raise exception 'honor_board_entries identity/metric columns are immutable from client (only is_opted_out is settable)'
@@ -264,7 +287,7 @@ $$;
 alter function private.guard_honor_board_identity_change() owner to postgres;
 drop trigger if exists t_guard_honor_board_identity on public.honor_board_entries;
 create trigger t_guard_honor_board_identity
-  before update of student_id, display_name, achievement_metric, rank_period
+  before update of student_id, display_name, avatar_url, achievement_metric, rank_period
   on public.honor_board_entries
   for each row execute function private.guard_honor_board_identity_change();
 

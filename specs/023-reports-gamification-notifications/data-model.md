@@ -201,16 +201,18 @@ Add to the shared events surface (e.g. `src/lib/automation/events.ts`):
 ```ts
 export enum FurqanEvent {
   // ... existing entries ...
-  monthly_report.ready  = 'monthly_report.ready',
-  certificate.earned   = 'certificate.earned',
-  honor_board.updated   = 'honor_board.updated',
+  monthly_report_ready  = 'monthly_report.ready',
+  certificate_earned    = 'certificate.earned',
+  honor_board_updated   = 'honor_board.updated',
 }
 ```
 
 Consumed (emitted by other specs, handled here):
-- `FurqanEvent.payment.failed` (spec 018)
-- `FurqanEvent.subscription.expiring` (spec 018)
-- `FurqanEvent.absence.outcome` (spec 021)
+- `FurqanEvent.subscription_past_due` (spec 018 — billing/dunning events)
+- `FurqanEvent.absence_outcome` (spec 021)
+
+Emitted locally by spec 023:
+- `FurqanEvent.subscription_expiring` (nightly cron reads `current_period_end`, emits at `period_end − 7d`)
 
 ---
 

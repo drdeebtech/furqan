@@ -13,7 +13,7 @@
 - **T011b fallback detector**: ship only if spec 018 lags. Unchanged.
 
 **Prerequisites**:
-- spec 018 merged — emits `payment.failed`, `subscription.expiring` lifecycle events.
+- spec 018 merged — emits `subscription.past_due` (billing/dunning events).
 - spec 021 merged — emits `absence.outcome` events.
 - spec 019 merged — defines courses/products referenced by `course_completion` certificates + next-product suggestion.
 - Existing infrastructure: `notifications`, `automation_logs` (`idempotency_key` UNIQUE), `profiles`, `platform_settings`, `guardian_children`, `quran_surahs_reference`, `src/lib/automation/emit.ts`, `src/app/api/webhooks/n8n/route.ts` (`safeCompareSecret`), `src/lib/quran/ayah-counts.ts`.

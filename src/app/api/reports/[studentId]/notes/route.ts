@@ -49,7 +49,14 @@ export async function GET(_request: Request, { params }: RouteParams) {
  * (subscription_teacher_assignments.is_active = true) before writing.
  */
 export async function POST(request: Request, { params }: RouteParams) {
-  const { studentId } = await params;
+  const paramsParsed = ParamsSchema.safeParse(await params);
+  if (!paramsParsed.success) {
+    return NextResponse.json(
+      { error: "invalid studentId", issues: paramsParsed.error.flatten() },
+      { status: 422 },
+    );
+  }
+  const { studentId } = paramsParsed.data;
   let teacherId: string;
   try {
     const session = await requireRole("teacher");

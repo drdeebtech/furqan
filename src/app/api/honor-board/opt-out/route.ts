@@ -42,7 +42,7 @@ export async function PATCH(request: Request) {
 
   const result = await setOptOut(targetStudentId, optedOut, user.id);
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json({ error: result.error }, { status: result.status ?? 500 });
   }
 
   return NextResponse.json({ ok: true, studentId: targetStudentId, optedOut });

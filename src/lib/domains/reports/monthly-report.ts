@@ -74,13 +74,19 @@ export async function generateMonthlyReport(args: {
 
   // Identical-content short-circuit → idempotent skip.
   if (latest && (latest.level_assessment_summary ?? null) === summary) {
-    const { data: fullRaw } = await admin
+    const { data: fullRaw, error: fullErr } = await admin
       .from("monthly_reports")
       .select("id, student_id, subscription_id, period_year, period_month, version, level_assessment_summary, generated_at, created_at")
       .eq("id", latest.id)
       .single();
     const full = fullRaw as MonthlyReportRow | null;
-    if (full) return { ok: true, report: full, idempotent: true, reason: "duplicate-issuance" };
+    if (fullErr || !full) {
+      logError("generateMonthlyReport: idempotent full-row fetch failed", fullErr ?? new Error("no row"), {
+        tag: "reports", student_id: studentId, year, month, report_id: latest.id,
+      });
+      return { ok: false, error: fullErr?.message ?? "idempotent fetch failed" };
+    }
+    return { ok: true, report: full, idempotent: true, reason: "duplicate-issuance" };
   }
 
   // New version append.
