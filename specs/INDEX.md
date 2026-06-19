@@ -18,9 +18,9 @@
 | [008-ops-debt-cleanup](./008-ops-debt-cleanup/spec.md) | Shipped | `008-ops-debt-cleanup` | [#298](https://github.com/drdeebtech/furqan/pull/298) |
 | [009-n8n-cron-all-routes](./009-n8n-cron-all-routes/spec.md) | Shipped | `009-n8n-cron-all-routes` | [#300](https://github.com/drdeebtech/furqan/pull/300) |
 | [010-hifz-progress-capture](./010-hifz-progress-capture/spec.md) | Shipped | `010-hifz-progress-capture` | [#367](https://github.com/drdeebtech/furqan/pull/367) |
-| [011-fix-is-admin-ordering](./011-fix-is-admin-ordering/spec.md) | Malformed | _(unknown)_ | _(pending)_ |
-| [012-prod-rls-hardening](./012-prod-rls-hardening/spec.md) | Malformed | _(unknown)_ | _(pending)_ |
-| [013-progress-action-hardening](./013-progress-action-hardening/spec.md) | Tasks-ready | _(unknown)_ | _(pending)_ |
+| [011-fix-is-admin-ordering](./011-fix-is-admin-ordering/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
+| [012-prod-rls-hardening](./012-prod-rls-hardening/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
+| [013-progress-action-hardening](./013-progress-action-hardening/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
 | [014-session-participant-secdef](./014-session-participant-secdef/spec.md) | Tasks-ready | _(unknown)_ | _(pending)_ |
 | [015-pr458-review-remediation](./015-pr458-review-remediation/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
 | [016-public-profiles-rls-bypass](./016-public-profiles-rls-bypass/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |

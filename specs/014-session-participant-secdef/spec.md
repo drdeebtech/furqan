@@ -1,6 +1,7 @@
 # 014 — `user_is_session_participant` → SECURITY DEFINER (spec 012 P1 2.5)
 
-**Status:** Shipped via [#458](https://github.com/drdeebtech/furqan/pull/458) (refactor/follow-up-collapse) — verified 2026-06-18.
+**Status:** Shipped via [#458](https://github.com/drdeebtech/furqan/pull/458) (refactor/follow-up-collapse) — verified 2026-06-18. Close-out PR: [#483](https://github.com/drdeebtech/furqan/pull/483).
+**Feature Branch:** `014-session-participant-secdef`
 **Type:** security fix (RLS helper). **Date:** 2026-06-13
 **Lenses:** 🔒 security (primary) · 🛠 engineer (RLS recursion correctness)
 **Origin:** last open P1 from [[012-prod-rls-hardening]] §2.5, verified live 2026-06-13.
