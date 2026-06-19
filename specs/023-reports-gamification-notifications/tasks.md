@@ -17,8 +17,8 @@
 ## Phase 1: Setup
 
 - [ ] T000 **Open draft PR same-day** (constitution §branch-hygiene, /speckit-analyze C2). `gh pr create --draft --base main --head 023-reports-gamification-notifications --title "feat(023): reports, gamification & notifications — WIP"`. Done on 2026-06-19 → PR [#490](https://github.com/drdeebtech/furqan/pull/490), tracking issue [#489](https://github.com/drdeebtech/furqan/issues/489).
-- [ ] T001 Add 3 typed event members to the shared `FurqanEvent` surface (`src/lib/automation/events.ts` / `emit.ts` `WEBHOOK_ROUTES`): `MonthlyReportReady = 'monthly_report_ready'`, `CertificateEarned = 'certificate_earned'`, `HonorBoardUpdated = 'honor_board_updated'`. Confirm `PaymentFailed`, `SubscriptionExpiring`, `AbsenceOutcome` already exist (emitted by 018/021); if absent, stop and flag — this spec consumes, never defines, those.
-- [ ] T002 [P] Add 4 keys to `ALLOWED_SETTING_KEYS` in `src/lib/settings.ts`: `honor_board_refresh_cadence_days`, `notifications_whatsapp_enabled`, `notification_channel_matrix` (JSON `trigger → channel[]`, FR-012 matrix), and `subscription_expiring_lead_days` (integer days before period end for the expiry "continue?" prompt, default 7 — clarified 2026-06-19 / CHK015).
+- [x] T001 Add 3 typed event members to the shared `FurqanEvent` surface (`src/lib/automation/events.ts` / `emit.ts` `WEBHOOK_ROUTES`): `MonthlyReportReady = 'monthly_report_ready'`, `CertificateEarned = 'certificate_earned'`, `HonorBoardUpdated = 'honor_board_updated'`. Confirm `PaymentFailed`, `SubscriptionExpiring`, `AbsenceOutcome` already exist (emitted by 018/021); if absent, stop and flag — this spec consumes, never defines, those.
+- [x] T002 [P] Add 4 keys to `ALLOWED_SETTING_KEYS` in `src/lib/settings.ts`: `honor_board_refresh_cadence_days`, `notifications_whatsapp_enabled`, `notification_channel_matrix` (JSON `trigger → channel[]`, FR-012 matrix), and `subscription_expiring_lead_days` (integer days before period end for the expiry "continue?" prompt, default 7 — clarified 2026-06-19 / CHK015).
 
 **Checkpoint**: `npx tsc --noEmit` + `npm run lint` pass; event names resolve as typed members (a typo fails to compile).
 
@@ -28,12 +28,12 @@
 
 **⚠️ CRITICAL**: All user-story work is blocked until T006 (`npm run db:types`) completes.
 
-- [ ] T003 Create `supabase/migrations/20260620000000_notifications_whatsapp_channel.sql`:
+- [x] T003 Create `supabase/migrations/20260620000000_notifications_whatsapp_channel.sql`:
   - `ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_channel_check;`
   - `ALTER TABLE notifications ADD CONSTRAINT notifications_channel_check CHECK (channel <@ ARRAY['in_app','email','push','whatsapp']);`
   - No data migration — existing rows already satisfy the widened set.
 
-- [ ] T004 Create `supabase/migrations/20260620000001_reports_certificates.sql`:
+- [x] T004 Create `supabase/migrations/20260620000001_reports_certificates.sql`:
   - **Verify first**: confirm no existing teacher-notes/session-notes table already serves this purpose; only create `teacher_notes` if absent (Key Entities note).
   - `CREATE TABLE teacher_notes (id uuid PK, student_id uuid FK→profiles, teacher_id uuid FK→profiles, content text, created_at, updated_at)` + index on `student_id`, `teacher_id` + `set_updated_at` trigger.
   - `CREATE TABLE monthly_reports (id uuid PK, student_id uuid FK→profiles, subscription_id uuid FK→subscriptions, period_year integer, period_month integer CHECK BETWEEN 1 AND 12, version integer NOT NULL DEFAULT 1 CHECK (version >= 1), level_assessment_summary text, generated_at timestamptz)` + `UNIQUE(student_id, period_year, period_month, version)` (clarified 2026-06-19 / CHK024 — versioned append for out-of-order corrections; reader contract `ORDER BY version DESC LIMIT 1`).
@@ -47,9 +47,9 @@
     - `honor_board_entries`: authenticated SELECT `WHERE is_opted_out = false`; student UPDATE `is_opted_out` on own row only (BEFORE UPDATE OF `student_id`, `achievement_metric`, `rank_period`, `display_name` guard); service_role INSERT/compute.
   - Seed `platform_settings`: `honor_board_refresh_cadence_days='7'`, `notifications_whatsapp_enabled='true'`, `notification_channel_matrix` (FR-012 default JSON map — see data-model §3), `subscription_expiring_lead_days='7'` (CHK015).
 
-- [ ] T005 `supabase migration up` (or `bash scripts/dev-local-db-bootstrap.sh` locally) — apply both migrations.
-- [ ] T006 `npm run db:types` → commit regenerated `src/types/database.ts`.
-- [ ] T007 Local verification (NFR-002): duplicate-insert blocked by each UNIQUE index; `certificates`/`monthly_reports` UPDATE of identity cols blocked by BEFORE UPDATE guard; non-linked guardian SELECT denied by RLS.
+- [x] T005 `supabase migration up` (or `bash scripts/dev-local-db-bootstrap.sh` locally) — apply both migrations.
+- [x] T006 `npm run db:types` → commit regenerated `src/types/database.ts`.
+- [x] T007 Local verification (NFR-002): duplicate-insert blocked by each UNIQUE index; `certificates`/`monthly_reports` UPDATE of identity cols blocked by BEFORE UPDATE guard; non-linked guardian SELECT denied by RLS.
 
 **Checkpoint**: `npm run sb:advisors` clean for the 4 new tables; `npx tsc --noEmit` passes.
 

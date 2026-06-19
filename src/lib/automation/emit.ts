@@ -133,6 +133,16 @@ export const WEBHOOK_ROUTES = {
   "assignment.changed": "/webhook/furqan-assignment-changed",
   "cohort.opened": "/webhook/furqan-cohort-opened",
   "member.joined": "/webhook/furqan-member-joined",
+  // Spec 023 — reports/gamification/notifications. These are the events
+  // THIS spec emits (issuance + computed artifacts). NOTE: the events this
+  // spec CONSUMES — payment_failed, subscription_expiring, absence_outcome
+  // — are NOT yet emitted by specs 018/021 (verified 2026-06-19). The
+  // webhook branches in /api/webhooks/n8n/route.ts that consume them are
+  // stubbed until 018/021 ship the emitters. See tasks.md ⛔ T011a + T011b
+  // (fallback month-close detector) for the parallel upstream-track work.
+  "monthly_report.ready": "/webhook/furqan-monthly-report-ready",
+  "certificate.earned": "/webhook/furqan-certificate-earned",
+  "honor_board.updated": "/webhook/furqan-honor-board-updated",
 } as const satisfies Record<string, string>;
 
 /**

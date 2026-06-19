@@ -30,6 +30,11 @@ export const ALLOWED_SETTING_KEYS = [
   // Spec 021 — attendance & payroll tuning knobs.
   "excuse_notice_threshold_seconds", // default 7200 (2h); minimum notice for an eligible excuse
   "payroll_run_day_of_month",        // default 1; day of month the monthly payout run fires
+  // Spec 023 — reports/gamification/notifications tuning knobs.
+  "honor_board_refresh_cadence_days",     // default 7; days between honor-board recomputes
+  "notifications_whatsapp_enabled",       // default 'true'; global WhatsApp feature flag (per-trigger matrix still applies)
+  "notification_channel_matrix",          // JSON map trigger → channel[]; overrides FR-012 defaults
+  "subscription_expiring_lead_days",      // default 7; days before period end the "continue?" prompt fires (CHK015)
 ] as const;
 
 export type AllowedSettingKey = (typeof ALLOWED_SETTING_KEYS)[number];
