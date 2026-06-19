@@ -1,5 +1,6 @@
 # 013 — Progress / follow-up action hardening (MEDIUM audit items)
 
+**Feature Branch**: `refactor/follow-up-collapse` *(spec 013's work shipped via PR #458 alongside specs 011/012/015/016/017; all 7 tasks marked complete in tasks.md with per-task completion notes)*
 **Status:** Shipped via [#458](https://github.com/drdeebtech/furqan/pull/458) (refactor/follow-up-collapse) — verified 2026-06-18.
 **Date:** 2026-06-13 · **Source:** `specs/audit-progress-actions.md` (MEDIUM tier, now closed)
 **Lenses:** 🛠 engineer (validation/authz/UX) · 📖 Quran (range integrity) · 🎓 platform (stale-UI)
