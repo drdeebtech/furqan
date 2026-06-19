@@ -158,9 +158,9 @@
 - [x] T035 `npm run sb:advisors` — zero new advisories for the 4 new tables.
 - [x] T036 [P] Quran-range unit test (NFR-003 / SC-003): assert every cited certificate range equals `src/lib/quran/ayah-counts.ts` values AND a scan proves **no hardcoded** ayah/juz boundary literal in `src/lib/domains/certificates/` — `grep -rn '[0-9]\{1,3\}:[0-9]\{1,3\}' src/lib/domains/certificates/` → zero non-canonical literals.
 - [ ] T037 [P] RTL verification: certificates, monthly reports, honor board, and all 6 notification templates render correctly in Arabic RTL with tashkeel/waqf preserved (SC-007).
-- [ ] T038 Commit all spec 023 artifacts + tasks.md; push.
+- [x] T038 Commit all spec 023 artifacts + tasks.md; push.
 - [ ] T039 [P] File follow-up spec for the platform-wide `automation_logs` partial UNIQUE index `WHERE status <> 'failed'` (CHK032 cross-cutting follow-up, /speckit-analyze M4). `automation_logs` is shared across specs 018/021/022/023 — a partial-index migration affects every consumer's retry semantics. **Filed 2026-06-19 as [#491](https://github.com/drdeebtech/furqan/issues/491)**. Author spec 025 that: (a) audits each consumer (018/021/022/023) for behavior change under the partial index, (b) ships the ALTER as its own forward migration, (c) removes spec-local delete-and-retry from 023's T030 once the platform fix lands. **Out of scope for 023 — issue filed, do not implement here.**
-- [ ] T039a [P] Run `npm run specs:index` and commit the regenerated `specs/INDEX.md` (flips 023 → "Implementing" via the open draft PR #490). Note: husky pre-commit on `specs/**/*.md` already does this automatically — this task is a belt-and-braces verification step before merge.
+- [x] T039a [P] Run `npm run specs:index` and commit the regenerated `specs/INDEX.md` (flips 023 → "Implementing" via the open draft PR #490). Note: husky pre-commit on `specs/**/*.md` already does this automatically — this task is a belt-and-braces verification step before merge.
 
 ---
 
