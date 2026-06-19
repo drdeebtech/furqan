@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import { getLevelBoundaries } from "./quran-ranges";
+import { getJuzBoundary } from "@/lib/quran/juz-boundaries";
 
 export type CertificateType =
   | "appreciation_juz"
@@ -136,12 +137,14 @@ export async function issueCertificate(
       return { ok: false, error: (e as Error).message };
     }
   } else if (type === "appreciation_juz") {
-    // T014a blocked: juz-boundaries.ts not yet authored by architect.
-    logError(
-      "issueCertificate: appreciation_juz cited range skipped — T014a pending",
-      new Error("juz-boundaries blocked"),
-      { tag: "certificate", milestone_key: milestoneKey },
-    );
+    const juzNum = parseInt(milestoneKey, 10);
+    if (!Number.isInteger(juzNum) || juzNum < 1 || juzNum > 30) {
+      await markFailed(admin, logId, `invalid juz milestone_key: ${milestoneKey}`);
+      return { ok: false, error: `invalid juz milestone_key: ${milestoneKey}` };
+    }
+    const boundary = getJuzBoundary(juzNum);
+    citedRangeStart = `${boundary.startSurah}:${boundary.startAyah}`;
+    citedRangeEnd   = `${boundary.endSurah}:${boundary.endAyah}`;
   }
   // course_completion: null/null is correct per spec.
 

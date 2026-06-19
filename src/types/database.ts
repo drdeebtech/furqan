@@ -6156,6 +6156,10 @@ export type Database = {
           next_review_at: string
         }[]
       }
+      compute_honor_board: {
+        Args: { p_rank_period: string }
+        Returns: undefined
+      }
       compute_murajaah_batch_for_date: {
         Args: { p_date: string }
         Returns: {
