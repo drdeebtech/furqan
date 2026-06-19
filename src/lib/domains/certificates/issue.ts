@@ -90,16 +90,21 @@ export async function issueCertificate(
     }
   }
 
-  // 2. Acquire the idempotency lock ('started').
-  const { error: lockErr } = await admin.from("automation_logs").insert({
-    workflow_name: WORKFLOW_NAME,
-    event_name: EVENT_NAME,
-    idempotency_key: idempotencyKey,
-    status: "started",
-    entity_type: "certificate",
-    entity_id: studentId,
-    payload_json: { student_id: studentId, type, milestone_key: milestoneKey } as never,
-  });
+  // 2. Acquire the idempotency lock ('started') and get the row id in one round-trip
+  //    to avoid a race where a concurrent request transitions the row before a second SELECT.
+  const { data: lockRow, error: lockErr } = await admin
+    .from("automation_logs")
+    .insert({
+      workflow_name: WORKFLOW_NAME,
+      event_name: EVENT_NAME,
+      idempotency_key: idempotencyKey,
+      status: "started",
+      entity_type: "certificate",
+      entity_id: studentId,
+      payload_json: { student_id: studentId, type, milestone_key: milestoneKey } as never,
+    })
+    .select("id")
+    .single<{ id: string }>();
 
   if (lockErr) {
     if (lockErr.code === "23505") {
@@ -112,15 +117,7 @@ export async function issueCertificate(
     return { ok: false, error: lockErr.message };
   }
 
-  // Fetch the log row id for later update.
-  const { data: logRow } = await admin
-    .from("automation_logs")
-    .select("id")
-    .eq("idempotency_key", idempotencyKey)
-    .eq("status", "started")
-    .maybeSingle<{ id: string }>();
-
-  const logId = logRow?.id ?? null;
+  const logId = lockRow?.id ?? null;
 
   // 3. Compute cited range (level branch only — juz branch blocked on T014a).
   let citedRangeStart: string | null = null;

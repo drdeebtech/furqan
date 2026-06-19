@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
 
 const QuerySchema = z.object({
@@ -36,9 +36,11 @@ export async function GET(request: Request) {
   }
   const { period, limit } = parsed.data;
 
-  const admin = createAdminClient();
+  // Use the session/anon client so RLS (honor_board_select_opted_in) acts as a backstop.
+  // The .eq("is_opted_out", false) filter below is defense-in-depth on top of RLS.
+  const supabase = await createClient();
 
-  let query = admin
+  let query = supabase
     .from("honor_board_entries")
     .select("id, display_name, avatar_url, achievement_metric, rank_period, computed_at")
     .eq("is_opted_out", false)

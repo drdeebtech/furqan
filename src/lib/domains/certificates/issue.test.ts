@@ -48,11 +48,9 @@ beforeEach(() => {
 describe("issueCertificate", () => {
   it("fresh issue: no existing log → issues cert and returns idempotent=false", async () => {
     chain.maybeSingle
-      .mockResolvedValueOnce({ data: null, error: null }) // log query (no existing row)
-      .mockResolvedValueOnce({ data: { id: "log-1" }, error: null }); // log id fetch
+      .mockResolvedValueOnce({ data: null, error: null }); // log query (no existing row)
 
-    chain.insert.mockReturnValueOnce({ error: null }); // log lock insert
-
+    // Lock insert now uses insert().select("id").single() — one round-trip, no separate fetch.
     const certRow = {
       id: "cert-1",
       student_id: STUDENT,
@@ -63,7 +61,8 @@ describe("issueCertificate", () => {
       issued_at: "2026-01-01T00:00:00Z",
     };
     chain.single
-      .mockResolvedValueOnce({ data: certRow, error: null }); // cert insert single
+      .mockResolvedValueOnce({ data: { id: "log-1" }, error: null }) // lock insert → id
+      .mockResolvedValueOnce({ data: certRow, error: null }); // cert insert → row
 
     chain.update.mockReturnValue(chain); // log update chain
 
@@ -103,11 +102,9 @@ describe("issueCertificate", () => {
 
   it("failed-row retry: existing log status='failed' → deletes old log row, then issues cert", async () => {
     chain.maybeSingle
-      .mockResolvedValueOnce({ data: { id: "log-failed", status: "failed" }, error: null }) // log query
-      .mockResolvedValueOnce({ data: { id: "log-new" }, error: null }); // log id fetch after re-insert
+      .mockResolvedValueOnce({ data: { id: "log-failed", status: "failed" }, error: null }); // log query
 
-    chain.insert.mockReturnValueOnce({ error: null }); // new log lock insert
-
+    // Lock re-insert now uses insert().select("id").single() — one round-trip.
     const certRow = {
       id: "cert-retry",
       student_id: STUDENT,
@@ -117,7 +114,9 @@ describe("issueCertificate", () => {
       cited_range_end: "78:20",
       issued_at: "2026-01-01T00:00:00Z",
     };
-    chain.single.mockResolvedValueOnce({ data: certRow, error: null });
+    chain.single
+      .mockResolvedValueOnce({ data: { id: "log-new" }, error: null }) // lock insert → id
+      .mockResolvedValueOnce({ data: certRow, error: null }); // cert insert → row
     chain.update.mockReturnValue(chain);
 
     const result = await issueCertificate(STUDENT, TYPE, MILESTONE);

@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createNote, getNotesForStudent } from "@/lib/domains/reports/notes";
 import { requireRole } from "@/lib/auth/require-admin";
+import { createClient } from "@/lib/supabase/server";
+
+const ParamsSchema = z.object({
+  studentId: z.string().uuid("studentId must be a valid UUID"),
+});
 
 const NoteBodySchema = z.object({
   content: z.string().trim().min(1).max(5000),
@@ -14,13 +19,25 @@ interface RouteParams {
 /**
  * GET /api/reports/[studentId]/notes
  *
- * RLS scopes reads to the caller's permissions (teacher, student,
- * linked guardian, admin). The domain helper uses the session client for
- * user-facing reads, so no extra auth branching is needed here beyond a
- * basic session check in downstream helpers.
+ * Requires an authenticated session. RLS scopes reads to the caller's
+ * permissions (teacher, student, linked guardian, admin).
  */
 export async function GET(_request: Request, { params }: RouteParams) {
-  const { studentId } = await params;
+  const paramsParsed = ParamsSchema.safeParse(await params);
+  if (!paramsParsed.success) {
+    return NextResponse.json(
+      { error: "invalid studentId", issues: paramsParsed.error.flatten() },
+      { status: 422 },
+    );
+  }
+  const { studentId } = paramsParsed.data;
+
+  const supabase = await createClient();
+  const { data: { user }, error: authErr } = await supabase.auth.getUser();
+  if (authErr || !user) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
   const notes = await getNotesForStudent(studentId, { admin: false });
   return NextResponse.json({ studentId, notes });
 }
