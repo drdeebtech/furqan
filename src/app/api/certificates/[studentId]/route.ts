@@ -49,11 +49,6 @@ export async function GET(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const { data: { user }, error: authErr } = await supabase.auth.getUser();
-  if (authErr || !user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
   type CertRow = {
     id: string;
     certificate_type: "appreciation_juz" | "appreciation_level" | "course_completion";
