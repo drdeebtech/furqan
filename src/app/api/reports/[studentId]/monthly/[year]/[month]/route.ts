@@ -36,6 +36,11 @@ export async function GET(_request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
+  const { data: { user }, error: authErr } = await supabase.auth.getUser();
+  if (authErr || !user) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
   const { data: report, error } = await supabase
     .from("monthly_reports")
     .select("id, student_id, subscription_id, period_year, period_month, version, level_assessment_summary, generated_at, created_at")
