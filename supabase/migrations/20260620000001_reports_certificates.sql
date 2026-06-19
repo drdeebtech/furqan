@@ -138,10 +138,10 @@ create policy "teacher_notes_insert_own_teacher"
   on public.teacher_notes for insert
   to authenticated
   with check (
-    (select auth.uid()) = teacher_id
-    and (
-      private.is_admin()
-      or exists (
+    private.is_admin()
+    or (
+      (select auth.uid()) = teacher_id
+      and exists (
         select 1 from public.subscription_teacher_assignments sta
         where sta.teacher_id = (select auth.uid())
           and sta.student_id = public.teacher_notes.student_id
@@ -154,10 +154,10 @@ create policy "teacher_notes_update_own_teacher"
   to authenticated
   using (teacher_id = (select auth.uid()) or private.is_admin())
   with check (
-    (select auth.uid()) = teacher_id
-    and (
-      private.is_admin()
-      or exists (
+    private.is_admin()
+    or (
+      (select auth.uid()) = teacher_id
+      and exists (
         select 1 from public.subscription_teacher_assignments sta
         where sta.teacher_id = (select auth.uid())
           and sta.student_id = public.teacher_notes.student_id
@@ -271,13 +271,16 @@ begin
   if v_jwt_role is null or v_jwt_role = 'service_role' or private.is_admin() then
     return new;
   end if;
-  -- Students may flip is_opted_out only; display_name / achievement_metric /
-  -- rank_period / student_id are platform-computed and immutable from the client.
+  -- Students may flip is_opted_out only; all other columns are platform-computed
+  -- and immutable from the client. Trigger fires on ALL updates (not a column
+  -- subset) so it cannot be bypassed by touching an unlisted column.
   if new.student_id is distinct from old.student_id
      or new.display_name is distinct from old.display_name
      or new.avatar_url is distinct from old.avatar_url
      or new.achievement_metric is distinct from old.achievement_metric
-     or new.rank_period is distinct from old.rank_period then
+     or new.rank_period is distinct from old.rank_period
+     or new.computed_at is distinct from old.computed_at
+     or new.created_at is distinct from old.created_at then
     raise exception 'honor_board_entries identity/metric columns are immutable from client (only is_opted_out is settable)'
       using errcode = '42501';
   end if;
@@ -287,8 +290,7 @@ $$;
 alter function private.guard_honor_board_identity_change() owner to postgres;
 drop trigger if exists t_guard_honor_board_identity on public.honor_board_entries;
 create trigger t_guard_honor_board_identity
-  before update of student_id, display_name, avatar_url, achievement_metric, rank_period
-  on public.honor_board_entries
+  before update on public.honor_board_entries
   for each row execute function private.guard_honor_board_identity_change();
 
 -- ────────────────────────────────────────────────────────────────────────────

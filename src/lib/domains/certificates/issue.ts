@@ -62,15 +62,27 @@ export async function issueCertificate(
   }
 
   if (existingLog) {
-    if (
-      existingLog.status === "succeeded" ||
-      existingLog.status === "skipped" ||
-      existingLog.status === "started"
-    ) {
-      const existing = await fetchExistingCert(admin, studentId, type, milestoneKey);
+    if (existingLog.status === "started") {
+      let existing: CertificateRow | null = null;
+      try {
+        existing = await fetchExistingCert(admin, studentId, type, milestoneKey);
+      } catch (e) {
+        logError("issueCertificate: existing cert lookup failed", e, { tag: "certificate" });
+        return { ok: false, error: "certificate lookup failed" };
+      }
       if (existing) return { ok: true, certificate: existing, idempotent: true };
-      // 'started' but cert not yet written — concurrent issuance in progress.
       return { ok: false, error: "concurrent issuance in progress" };
+    }
+    if (existingLog.status === "succeeded" || existingLog.status === "skipped") {
+      let existing: CertificateRow | null = null;
+      try {
+        existing = await fetchExistingCert(admin, studentId, type, milestoneKey);
+      } catch (e) {
+        logError("issueCertificate: existing cert lookup failed", e, { tag: "certificate" });
+        return { ok: false, error: "certificate lookup failed" };
+      }
+      if (existing) return { ok: true, certificate: existing, idempotent: true };
+      return { ok: false, error: "idempotency log/certificate mismatch" };
     }
     if (existingLog.status === "failed") {
       // Delete failed row so we can retry (T030 spec-local retry).
@@ -97,7 +109,13 @@ export async function issueCertificate(
   if (lockErr) {
     if (lockErr.code === "23505") {
       // Race condition: another request beat us to the lock.
-      const existing = await fetchExistingCert(admin, studentId, type, milestoneKey);
+      let existing: CertificateRow | null = null;
+      try {
+        existing = await fetchExistingCert(admin, studentId, type, milestoneKey);
+      } catch (e) {
+        logError("issueCertificate: existing cert lookup failed", e, { tag: "certificate" });
+        return { ok: false, error: "certificate lookup failed" };
+      }
       if (existing) return { ok: true, certificate: existing, idempotent: true };
       return { ok: false, error: "concurrent issuance in progress" };
     }
@@ -154,7 +172,13 @@ export async function issueCertificate(
 
   if (certInsertErr) {
     if (certInsertErr.code === "23505") {
-      const existing = await fetchExistingCert(admin, studentId, type, milestoneKey);
+      let existing: CertificateRow | null = null;
+      try {
+        existing = await fetchExistingCert(admin, studentId, type, milestoneKey);
+      } catch (e) {
+        logError("issueCertificate: cert unique-conflict lookup failed", e, { tag: "certificate" });
+        return { ok: false, error: "certificate lookup failed" };
+      }
       if (existing) {
         await markSucceeded(admin, logId, existing.id);
         return { ok: true, certificate: existing, idempotent: true };
