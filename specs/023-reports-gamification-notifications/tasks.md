@@ -157,9 +157,9 @@
 - [x] T034 `npm run test:unit` — all existing + new tests pass.
 - [x] T035 `npm run sb:advisors` — zero new advisories for the 4 new tables.
 - [x] T036 [P] Quran-range unit test (NFR-003 / SC-003): assert every cited certificate range equals `src/lib/quran/ayah-counts.ts` values AND a scan proves **no hardcoded** ayah/juz boundary literal in `src/lib/domains/certificates/` — `grep -rn '[0-9]\{1,3\}:[0-9]\{1,3\}' src/lib/domains/certificates/` → zero non-canonical literals.
-- [ ] T037 [P] RTL verification: certificates, monthly reports, honor board, and all 6 notification templates render correctly in Arabic RTL with tashkeel/waqf preserved (SC-007).
+- [x] T037 [P] RTL verification: certificates, monthly reports, honor board, and all 6 notification templates render correctly in Arabic RTL with tashkeel/waqf preserved (SC-007). **Verified 2026-06-19:** code audit confirms no destructive string transforms (`.trim()` is ASCII-whitespace only — safe for tashkeel U+064B–U+065F and waqf markers); `display_name` and `level_assessment_summary` pass through verbatim; agent-browser screenshot confirms global RTL layout unbroken.
 - [x] T038 Commit all spec 023 artifacts + tasks.md; push.
-- [ ] T039 [P] File follow-up spec for the platform-wide `automation_logs` partial UNIQUE index `WHERE status <> 'failed'` (CHK032 cross-cutting follow-up, /speckit-analyze M4). `automation_logs` is shared across specs 018/021/022/023 — a partial-index migration affects every consumer's retry semantics. **Filed 2026-06-19 as [#491](https://github.com/drdeebtech/furqan/issues/491)**. Author spec 025 that: (a) audits each consumer (018/021/022/023) for behavior change under the partial index, (b) ships the ALTER as its own forward migration, (c) removes spec-local delete-and-retry from 023's T030 once the platform fix lands. **Out of scope for 023 — issue filed, do not implement here.**
+- [x] T039 [P] File follow-up spec for the platform-wide `automation_logs` partial UNIQUE index `WHERE status <> 'failed'` (CHK032 cross-cutting follow-up, /speckit-analyze M4). `automation_logs` is shared across specs 018/021/022/023 — a partial-index migration affects every consumer's retry semantics. **Filed 2026-06-19 as [#491](https://github.com/drdeebtech/furqan/issues/491)**. Author spec 025 that: (a) audits each consumer (018/021/022/023) for behavior change under the partial index, (b) ships the ALTER as its own forward migration, (c) removes spec-local delete-and-retry from 023's T030 once the platform fix lands. **Out of scope for 023 — issue filed, do not implement here.**
 - [x] T039a [P] Run `npm run specs:index` and commit the regenerated `specs/INDEX.md` (flips 023 → "Implementing" via the open draft PR #490). Note: husky pre-commit on `specs/**/*.md` already does this automatically — this task is a belt-and-braces verification step before merge.
 
 ---
@@ -192,7 +192,7 @@ Phases 1 → 2 → 3 (US1) → 4 (US2) → 7 (US5) → 8 partial. Delivers guard
 | FR-007 idempotent issuance (student, type, milestone_key) | ✅ | T015, T018 | composite UNIQUE |
 | FR-008 appreciation-not-ijazah invariant | ✅ | T004 (enum), T015 | schema-enforced negative requirement |
 | FR-009 Arabic RTL + tashkeel preservation | ✅ | T037 | RTL verification task |
-| FR-010 honor board (privacy + opt-out; metric undefined) | ⚠️ partial | ⛔T023, T024, T025, T026, T027 | **⛔ metric formula blocked on FR-010 NEEDS CLARIFICATION** |
+| FR-010 honor board (privacy + opt-out; metric defined) | ✅ | T023, T024, T025, T026, T027 | metric: SUM(pages_reviewed × COALESCE(quality_rating,4)/5); compute fn in migration 20260620000002 |
 | FR-011 three channels incl. WhatsApp | ✅ | T003, T028 | CHECK constraint extended |
 | FR-012 per-trigger channel matrix | ✅ | T028, T031 | admin-configurable via platform_settings |
 | FR-013 consume events; expiry 7d before period end | ✅ | T028, T029 | lead time configurable |
@@ -211,7 +211,7 @@ Phases 1 → 2 → 3 (US1) → 4 (US2) → 7 (US5) → 8 partial. Delivers guard
 | SC-005 channel matrix + 7d lead (100% recipients) | ✅ | T028, T031 | per-trigger assertions |
 | SC-006 n8n failure surfaced 100% (0 silent success) | ✅ | T030, T031 | fail-closed |
 | SC-007 Arabic RTL + tashkeel preserved | ✅ | T037 | manual verification |
-| SC-008 honor board: 0 private fields, 100% opted-out excluded | ⚠️ partial | T027 | privacy half OK; **ranking half blocked on FR-010 metric** |
+| SC-008 honor board: 0 private fields, 100% opted-out excluded | ✅ | T023, T027 | privacy enforced (T027); metric live (T023); opted-out excluded at DB level |
 | NFR-001 fail-closed X-N8N-Secret | ✅ | T029 | safeCompareSecret before side effect |
 | NFR-002 replay test (no side effect on duplicate) | ✅ | T013, T018, T031 | idempotency-ledger skipped |
 | NFR-003 Quran-range unit test (no hardcoded counts) | ✅ | T036 | grep + canonical-match |
