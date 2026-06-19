@@ -55,7 +55,7 @@ export async function generateMonthlyReport(args: {
   const subscriptionId = args.subscriptionId ?? null;
 
   // Find the current latest row for (student, period).
-  const { data: latest, error: latestErr } = await admin
+  const { data: latestRaw, error: latestErr } = await admin
     .from("monthly_reports")
     .select("id, version, level_assessment_summary")
     .eq("student_id", studentId)
@@ -63,8 +63,8 @@ export async function generateMonthlyReport(args: {
     .eq("period_month", month)
     .order("version", { ascending: false })
     .limit(1)
-    .maybeSingle()
-    .returns<{ id: string; version: number; level_assessment_summary: string | null } | null>();
+    .maybeSingle();
+  const latest = latestRaw as { id: string; version: number; level_assessment_summary: string | null } | null;
   if (latestErr) {
     logError("generateMonthlyReport: latest-row lookup failed", latestErr, {
       tag: "reports", student_id: studentId, year, month,
@@ -74,18 +74,18 @@ export async function generateMonthlyReport(args: {
 
   // Identical-content short-circuit → idempotent skip.
   if (latest && (latest.level_assessment_summary ?? null) === summary) {
-    const { data: full } = await admin
+    const { data: fullRaw } = await admin
       .from("monthly_reports")
       .select("id, student_id, subscription_id, period_year, period_month, version, level_assessment_summary, generated_at, created_at")
       .eq("id", latest.id)
-      .single()
-      .returns<MonthlyReportRow>();
+      .single();
+    const full = fullRaw as MonthlyReportRow | null;
     if (full) return { ok: true, report: full, idempotent: true, reason: "duplicate-issuance" };
   }
 
   // New version append.
   const nextVersion = (latest?.version ?? 0) + 1;
-  const { data: inserted, error: insertErr } = await admin
+  const { data: insertedRaw, error: insertErr } = await admin
     .from("monthly_reports")
     .insert({
       student_id: studentId,
@@ -96,8 +96,8 @@ export async function generateMonthlyReport(args: {
       level_assessment_summary: summary,
     })
     .select("id, student_id, subscription_id, period_year, period_month, version, level_assessment_summary, generated_at, created_at")
-    .single()
-    .returns<MonthlyReportRow>();
+    .single();
+  const inserted = insertedRaw as MonthlyReportRow | null;
   if (insertErr || !inserted) {
     logError("generateMonthlyReport: insert failed", insertErr ?? new Error("no row"), {
       tag: "reports", student_id: studentId, year, month, version: nextVersion,

@@ -186,25 +186,41 @@ export async function POST(request: Request) {
         });
         return NextResponse.json({ error: result.error }, { status: 500 });
       }
+      // T021 — for course_completion, attach next-product suggestion to notification payload.
+      let nextProduct: { id: string; title_ar: string; title_en: string | null; price_cents: number; currency: string } | null = null;
+      if (data.type === "course_completion") {
+        const { suggestNextProduct } = await import("@/lib/domains/certificates/next-product");
+        nextProduct = await suggestNextProduct(
+          data.student_id as string,
+          data.milestone_key as string,
+        ).catch(() => null);
+      }
+
       const { routeInAppNotification: routeCert } = await import("@/lib/domains/notifications/routing");
       await routeCert({
         recipientId: data.student_id as string,
         trigger: "certificate.earned",
         subjectKey: `cert:${data.student_id}:${data.type}:${data.milestone_key}`,
-        data: { certificate_id: result.certificate.id },
+        data: {
+          certificate_id: result.certificate.id,
+          ...(nextProduct ? { next_product: nextProduct } : {}),
+        },
       });
       const { data: guardians } = await supabase
         .from("guardian_children")
         .select("guardian_id")
-        .eq("child_id", data.student_id as string)
-        .returns<{ guardian_id: string }[]>();
+        .eq("child_id", data.student_id as string) as { data: { guardian_id: string }[] | null };
       if (guardians) {
         for (const g of guardians) {
           await routeCert({
             recipientId: g.guardian_id,
             trigger: "certificate.earned",
             subjectKey: `cert:${g.guardian_id}:${data.student_id}:${data.type}:${data.milestone_key}`,
-            data: { certificate_id: result.certificate.id, student_id: data.student_id },
+            data: {
+              certificate_id: result.certificate.id,
+              student_id: data.student_id,
+              ...(nextProduct ? { next_product: nextProduct } : {}),
+            },
           }).catch((err) => logError("guardian cert notify failed", err, {}));
         }
       }
@@ -212,6 +228,7 @@ export async function POST(request: Request) {
         issued: !result.idempotent,
         idempotent: result.idempotent,
         certificate_id: result.certificate.id,
+        next_product: nextProduct,
       });
     }
 
