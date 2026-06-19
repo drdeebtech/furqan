@@ -97,7 +97,11 @@ supabase/migrations/
 
 4. **Honor board privacy**: `is_opted_out boolean DEFAULT false`. SELECT query filters `WHERE is_opted_out = false`. Only display-safe columns in SELECT (`display_name`, `avatar_url`, `achievement_metric`, `rank_period`). Guardian opt-out for minors validated via `guardian_children` join. ⛔ **`achievement_metric` ranking formula is [NEEDS CLARIFICATION] (FR-010) and blocks T023 — P2/US4 only; privacy/opt-out (SC-008) is unaffected.**
 
-5. **n8n event routing**: New `FurqanEvent` enum entries: `MonthlyReportReady`, `CertificateEarned`, `HonorBoardUpdated`. Consumed events: `PaymentFailed`, `SubscriptionExpiring`, `AbsenceOutcome`. All routed via existing `emitEvent()`. Delivery failures → `automation_logs.status = 'failed'`, Sentry-surfaced, never `'succeeded'`.
+5. **n8n event routing** *(round-2 clarification 2026-06-19: pragmatic ownership split)*: 
+   - **Owned + emitted by spec 023** (`FurqanEvent` enum entries added in T001): `monthly_report.ready`, `certificate.earned`, `honor_board.updated`.
+   - **Consumed from spec 018** (already emitted, no new work): `subscription.past_due` — routed to dunning / payment-failed notifications.
+   - **Emitted locally by spec 023** (no upstream emitter exists as of 2026-06-19): `subscription.expiring` (nightly cron reads `subscriptions.current_period_end - lead_days` and emits per due row) and `absence.outcome` (scheduled job queries `attendance` for new absence/excuse outcomes). Specs 018/021 may later take over emission; the dot.notation names already match so no rename is needed when they do.
+   - All routed via existing `emitEvent()`. Delivery failures → `automation_logs.status = 'failed'` (column name canonical per round-2: `workflow_name`, `event_name`, `payload_json`, `result_json`, `error_message`), Sentry-surfaced, never `'succeeded'`.
 
 6. **Certificates are appreciation only**: The system MUST NOT represent any certificate as ijazah or implement isnād/sanad chains. `certificate_type` enum contains only `appreciation_juz`, `appreciation_level`, `course_completion`. No ijazah fields on the table.
 
@@ -140,6 +144,6 @@ Five clarifications from the 2026-06-19 `/speckit-clarify` pass; plan impact bel
 
 - **FR-010 honor-board achievement metric** — `[NEEDS CLARIFICATION]` pending product-owner input. Blocks task T023 and the ranking half of SC-008. Confined to P2/US4 — does NOT affect any P1 story.
 - **CHK006 WhatsApp provider/templates** — pending n8n-owner input.
-- **CHK001/CHK042 month-close emitter** — cross-spec dependency on spec 018 emitting `SubscriptionMonthClosed` (or equivalent). Currently no emitter; blocks the FR-002 user story until spec 018 ships one. Flagged in FR-002.
+- **CHK001/CHK042 month-close emitter** — cross-spec dependency on spec 018 emitting `subscription.month_closed` (or equivalent). Currently no emitter; blocks the FR-002 user story until spec 018 ships one. Flagged in FR-002.
 
 `/speckit-tasks` can proceed against the resolved items; the deferred items remain tagged in the spec for the product owner and will produce ⛔ markers in `tasks.md`.

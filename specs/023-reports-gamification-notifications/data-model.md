@@ -177,16 +177,16 @@ Default seed for `notification_channel_matrix` (matches the FR-012 matrix; `push
 
 ```json
 {
-  "payment_failed":        ["in_app","email","whatsapp"],
-  "subscription_expiring": ["in_app","email","whatsapp"],
+  "payment.failed":        ["in_app","email","whatsapp"],
+  "subscription.expiring": ["in_app","email","whatsapp"],
   "payment_retry":         ["in_app","email","whatsapp"],
-  "absence_outcome":       ["in_app","email"],
-  "monthly_report_ready":  ["in_app","email"],
-  "certificate_earned":    ["in_app"]
+  "absence.outcome":       ["in_app","email"],
+  "monthly_report.ready":  ["in_app","email"],
+  "certificate.earned":    ["in_app"]
 }
 ```
 
-`honor_board_updated` (FurqanEvent.HonorBoardUpdated) is intentionally **absent** from this seed: honor-board notification routing is gated on the open FR-010 honor-board clarification (T023 blocked) — add it here only once that decision is supplied; until then the event is defined but unrouted.
+`honor_board.updated` (FurqanEvent.honor_board.updated) is intentionally **absent** from this seed: honor-board notification routing is gated on the open FR-010 honor-board clarification (T023 blocked) — add it here only once that decision is supplied; until then the event is defined but unrouted.
 
 WhatsApp entries are dropped at resolve time when `notifications_whatsapp_enabled='false'`; remaining channels still send. Each resolved array MUST be a subset of {in_app, email, push, whatsapp} (the widened `notifications.channel` CHECK).
 
@@ -201,16 +201,16 @@ Add to the shared events surface (e.g. `src/lib/automation/events.ts`):
 ```ts
 export enum FurqanEvent {
   // ... existing entries ...
-  MonthlyReportReady  = 'monthly_report_ready',
-  CertificateEarned   = 'certificate_earned',
-  HonorBoardUpdated   = 'honor_board_updated',
+  monthly_report.ready  = 'monthly_report.ready',
+  certificate.earned   = 'certificate.earned',
+  honor_board.updated   = 'honor_board.updated',
 }
 ```
 
 Consumed (emitted by other specs, handled here):
-- `FurqanEvent.PaymentFailed` (spec 018)
-- `FurqanEvent.SubscriptionExpiring` (spec 018)
-- `FurqanEvent.AbsenceOutcome` (spec 021)
+- `FurqanEvent.payment.failed` (spec 018)
+- `FurqanEvent.subscription.expiring` (spec 018)
+- `FurqanEvent.absence.outcome` (spec 021)
 
 ---
 

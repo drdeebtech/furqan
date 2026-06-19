@@ -157,11 +157,11 @@ z.object({ success: z.literal(true) })
 
 | Event type | Action |
 |------------|--------|
-| `monthly_report_ready` | Generate `monthly_reports` row + INSERT `notifications`; idempotency key `report:{studentId}:{year}:{month}` |
-| `certificate_earned` | INSERT `certificates` + INSERT `notifications`; idempotency key `cert:{studentId}:{type}:{milestoneKey}` |
-| `payment_failed` | INSERT `notifications` (dunning/pre-suspension alert); idempotency key `notif:{recipientId}:payment_failed:{subscriptionId}-{attempt}` |
-| `subscription_expiring` | INSERT `notifications` ("continue?" prompt); idempotency key `notif:{recipientId}:subscription_expiring:{subscriptionId}-{periodEnd}` |
-| `absence_outcome` | INSERT `notifications` (excuse/make-up result); idempotency key `notif:{recipientId}:absence_outcome:{bookingId}-{outcome}` |
+| `monthly_report.ready` | Generate `monthly_reports` row + INSERT `notifications`; idempotency key `report:{studentId}:{year}:{month}` |
+| `certificate.earned` | INSERT `certificates` + INSERT `notifications`; idempotency key `cert:{studentId}:{type}:{milestoneKey}` |
+| `payment.failed` | INSERT `notifications` (dunning/pre-suspension alert); idempotency key `notif:{recipientId}:payment.failed:{subscriptionId}-{attempt}` |
+| `subscription.expiring` | INSERT `notifications` ("continue?" prompt); idempotency key `notif:{recipientId}:subscription.expiring:{subscriptionId}-{periodEnd}` |
+| `absence.outcome` | INSERT `notifications` (excuse/make-up result); idempotency key `notif:{recipientId}:absence.outcome:{bookingId}-{outcome}` |
 
 All `notif:` keys follow the canonical recipient-first schema `notif:{recipientId}:{trigger}:{subjectKey}` (FR-014: recipient, trigger, subject), where `{subjectKey}` is the per-trigger subject identifier shown above.
 
@@ -188,8 +188,8 @@ The keys in §7 are **independent per concern** — issuance and delivery can fa
 | Concern | Key shape | Example |
 |---------|-----------|---------|
 | Artifact issuance (cert / report) | `cert:{studentId}:{type}:{milestoneKey}` / `report:{studentId}:{year}:{month}` | `cert:abc:juz:30` |
-| Notification delivery | `notif:{recipientId}:{trigger}:{subjectKey}` | `notif:guardian_xyz:monthly_report_ready:report-uuid` |
+| Notification delivery | `notif:{recipientId}:{trigger}:{subjectKey}` | `notif:guardian_xyz:monthly_report.ready:report-uuid` |
 
 **Independence contract**: a successful issuance + failed delivery (or vice versa) MUST NOT block retry of either. The two key spaces are disjoint by prefix (`cert:`/`report:` vs `notif:`); a `failed` row in one space does not lock the other. Each retries under its own key per §7 + Q1 (CHK032) delete-and-retry semantics.
 
-The `subjectKey` for `monthly_report_ready` is the **report row id** (not the period), so two notifications for the same report (e.g. re-delivery) collapse correctly while two notifications for two distinct reports (e.g. versioned corrections per Q2) each have their own key.
+The `subjectKey` for `monthly_report.ready` is the **report row id** (not the period), so two notifications for the same report (e.g. re-delivery) collapse correctly while two notifications for two distinct reports (e.g. versioned corrections per Q2) each have their own key.
