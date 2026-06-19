@@ -16,6 +16,7 @@
 
 ## Phase 1: Setup
 
+- [ ] T000 **Open draft PR same-day** (constitution §branch-hygiene, /speckit-analyze C2). `gh pr create --draft --base main --head 023-reports-gamification-notifications --title "feat(023): reports, gamification & notifications — WIP"`. Done on 2026-06-19 → PR [#490](https://github.com/drdeebtech/furqan/pull/490), tracking issue [#489](https://github.com/drdeebtech/furqan/issues/489).
 - [ ] T001 Add 3 typed event members to the shared `FurqanEvent` surface (`src/lib/automation/events.ts` / `emit.ts` `WEBHOOK_ROUTES`): `MonthlyReportReady = 'monthly_report_ready'`, `CertificateEarned = 'certificate_earned'`, `HonorBoardUpdated = 'honor_board_updated'`. Confirm `PaymentFailed`, `SubscriptionExpiring`, `AbsenceOutcome` already exist (emitted by 018/021); if absent, stop and flag — this spec consumes, never defines, those.
 - [ ] T002 [P] Add 4 keys to `ALLOWED_SETTING_KEYS` in `src/lib/settings.ts`: `honor_board_refresh_cadence_days`, `notifications_whatsapp_enabled`, `notification_channel_matrix` (JSON `trigger → channel[]`, FR-012 matrix), and `subscription_expiring_lead_days` (integer days before period end for the expiry "continue?" prompt, default 7 — clarified 2026-06-19 / CHK015).
 
@@ -64,7 +65,8 @@
 - [ ] T009 [P] [US1] Create `src/lib/domains/reports/monthly-report.ts`: `generateMonthlyReport(studentId, year, month)` — idempotent via `automation_logs` key `report:{studentId}:{year}:{month}` (ON CONFLICT → skipped, no second issuance attempt); any cited surah/juz from `src/lib/quran/ayah-counts.ts`, never hardcoded; **versioned append on correction (CHK024 / clarified 2026-06-19)**: a re-run with new assessment content inserts `version = (SELECT COALESCE(MAX(version),0)+1 FROM monthly_reports WHERE student_id=? AND period_year=? AND period_month=?)` so corrections never overwrite; reads always `ORDER BY version DESC LIMIT 1`.
 - [ ] T010 [US1] Create `src/app/api/reports/[studentId]/notes/route.ts`: GET (student/guardian/teacher/admin, RLS) + POST (teacher only, zod `{content: string min1 max5000}`, 403 if not assigned, 422 validation).
 - [ ] T011 [US1] Create `src/app/api/reports/[studentId]/monthly/[year]/[month]/route.ts`: GET (student/guardian/admin), zod path params (`month` 1–12), returns nullable report.
-- [ ] ⛔ T011a [US1] **BLOCKER (verify before T012):** confirm spec 018 emits a month-close event that triggers `monthly_report_ready`. This spec only consumes it — if no upstream emitter exists, FR-002's report never fires. Stop and resolve in spec 018 (add the emitter) before T012; do not mark FR-002 done with no emitter wired.
+- [ ] ⛔ T011a [US1] **BLOCKER (verify before T012):** confirm spec 018 emits a month-close event that triggers `monthly_report_ready`. This spec only consumes it — if no upstream emitter exists, FR-002's report never fires. Stop and resolve in spec 018 (add the emitter) before T012; do not mark FR-002 done with no emitter wired. **(/speckit-analyze H2):** [tracking issue](https://github.com/drdeebtech/furqan/issues) for the spec 018 emitter is filed separately; if 018 lags, T011b provides a fallback that lets 023 ship independently.
+- [ ] T011b [US1] **Fallback month-close detector** (de-risk H2 — implement only if spec 018 has not shipped `SubscriptionMonthClosed` by the time US1 is ready): nightly n8n cron that scans `subscriptions` for periods that crossed `current_period_end < now()` since the last run, emits `SubscriptionMonthClosed` locally via `emitEvent`, then runs `generateMonthlyReport`. Idempotent via the same `report:{studentId}:{year}:{month}` key — no duplicate risk if both 018's emitter and this fallback fire. Drop this task once spec 018's emitter is live.
 - [ ] T012 [US1] Wire `MonthlyReportReady` consumption into `src/app/api/webhooks/n8n/route.ts`: on `monthly_report_ready` → `generateMonthlyReport` + INSERT report-ready `notifications` row, single idempotency key.
 - [ ] T013 [P] [US1] Unit tests: `notes.test.ts` (RLS scoping, teacher-assignment gate), `monthly-report.test.ts` (idempotent replay of same content → skipped, no duplicate issuance attempt; **corrected content → new `version` row appended, MAX(version) canonical, prior versions preserved** per CHK024; out-of-order correction arriving after a newer period still appends to the older period only).
 
@@ -109,7 +111,7 @@
 
 **Independent Test**: Several students with progress → board lists by metric, display-safe only; opt-out excludes; guardian re-opts-in minor.
 
-- [ ] ⛔ T023 [P] [US4] **BLOCKED — honor-board achievement metric formula undefined (see FR-010 [NEEDS CLARIFICATION]).** Do NOT invent a ranking formula. `computeHonorBoard` cannot populate `achievement_metric` until the product owner defines the metric. Stop and resolve FR-010 before implementing. Once defined: Create `src/lib/domains/honor-board/compute.ts`: `computeHonorBoard(rankPeriod)` — service-role INSERT of display-safe snapshot rows (`display_name`, `avatar_url`, `achievement_metric`, `rank_period`); cadence from `honor_board_refresh_cadence_days`; `getHonorBoard(period, limit)` query `WHERE is_opted_out = false`. (P2/US4 only — does not block any P1 task.)
+- [ ] ⛔ T023 [P] [US4] **BLOCKED — honor-board achievement metric formula undefined (see FR-010 [NEEDS CLARIFICATION]).** Do NOT invent a ranking formula. `computeHonorBoard` cannot populate `achievement_metric` until the product owner defines the metric. Stop and resolve FR-010 before implementing. Once defined: Create `src/lib/domains/honor-board/compute.ts`: `computeHonorBoard(rankPeriod)` — **sized at 50k per constitution §scale-target** (/speckit-analyze C1/C4, resolved): single-statement `BEGIN; DELETE FROM honor_board_entries WHERE rank_period = :period; INSERT INTO honor_board_entries (…) SELECT … FROM profiles WHERE is_active AND deleted_at IS NULL [inline metric]; COMMIT;` (≤50k rows, one round-trip, no N+1, no client loop); worker runs with `statement_timeout='30s'` so a timeout surfaces to Sentry without committing a partial state; reads always SELECT from the snapshot (no per-render write amplification); cadence from `honor_board_refresh_cadence_days`; `getHonorBoard(period, limit)` query `WHERE is_opted_out = false`. (P2/US4 only — does not block any P1 task.)
 - [ ] T024 [P] [US4] Create `src/lib/domains/honor-board/opt-out.ts`: `setOptOut(studentId, optedOut, callerUid)` — student sets own; guardian sets for linked child (validated via `guardian_children`); writes only `is_opted_out`.
 - [ ] T025 [US4] Create `src/app/api/honor-board/route.ts`: GET (auth optional, public), zod `{period?, limit default 20 max 100}`, returns display-safe fields only (no email/phone/contact).
 - [ ] T026 [US4] Create `src/app/api/honor-board/opt-out/route.ts`: PATCH (student/guardian), zod `{studentId?, optedOut: boolean}`, 403 if not authorized for that student.
@@ -143,7 +145,8 @@
 - [ ] T036 [P] Quran-range unit test (NFR-003 / SC-003): assert every cited certificate range equals `src/lib/quran/ayah-counts.ts` values AND a scan proves **no hardcoded** ayah/juz boundary literal in `src/lib/domains/certificates/` — `grep -rn '[0-9]\{1,3\}:[0-9]\{1,3\}' src/lib/domains/certificates/` → zero non-canonical literals.
 - [ ] T037 [P] RTL verification: certificates, monthly reports, honor board, and all 6 notification templates render correctly in Arabic RTL with tashkeel/waqf preserved (SC-007).
 - [ ] T038 Commit all spec 023 artifacts + tasks.md; push.
-- [ ] T039 [P] File follow-up spec for the platform-wide `automation_logs` partial UNIQUE index `WHERE status <> 'failed'` (CHK032 cross-cutting follow-up). `automation_logs` is shared across specs 018/021/022/023 — a partial-index migration affects every consumer's retry semantics. Author a new spec (e.g. `025-automation-logs-partial-unique`) that: (a) audits each consumer (018/021/022/023) for behavior change under the partial index, (b) ships the ALTER as its own forward migration, (c) removes spec-local delete-and-retry from 023's T030 once the platform fix lands. **Out of scope for 023 — file the spec, do not implement here.**
+- [ ] T039 [P] File follow-up spec for the platform-wide `automation_logs` partial UNIQUE index `WHERE status <> 'failed'` (CHK032 cross-cutting follow-up, /speckit-analyze M4). `automation_logs` is shared across specs 018/021/022/023 — a partial-index migration affects every consumer's retry semantics. **Filed 2026-06-19 as [#491](https://github.com/drdeebtech/furqan/issues/491)**. Author spec 025 that: (a) audits each consumer (018/021/022/023) for behavior change under the partial index, (b) ships the ALTER as its own forward migration, (c) removes spec-local delete-and-retry from 023's T030 once the platform fix lands. **Out of scope for 023 — issue filed, do not implement here.**
+- [ ] T039a [P] Run `npm run specs:index` and commit the regenerated `specs/INDEX.md` (flips 023 → "Implementing" via the open draft PR #490). Note: husky pre-commit on `specs/**/*.md` already does this automatically — this task is a belt-and-braces verification step before merge.
 
 ---
 
@@ -159,3 +162,43 @@
 ## MVP Scope (P1 only)
 
 Phases 1 → 2 → 3 (US1) → 4 (US2) → 7 (US5) → 8 partial. Delivers guardian reports, juz/level appreciation certificates, and lifecycle notifications — the encouragement + visibility core. US3 (course-completion) and US4 (honor board) are P2 follow-ons.
+
+---
+
+## Requirements Coverage (traceability matrix — /speckit-analyze M1)
+
+| Req | Has task(s)? | Task IDs | Notes |
+|-----|--------------|----------|-------|
+| FR-001 teacher notes (guardian-readable, RLS) | ✅ | T008, T010 | notes CRUD + route |
+| FR-002 monthly report + versioned merge | ✅ | T009, T011, ⛔T011a, T011b, T012 | **⛔ blocked on upstream emitter; T011b fallback** |
+| FR-003 Quran ranges canonical-only | ✅ | T009 | ranges from `src/lib/quran/` |
+| FR-004 "report ready" notification | ✅ | T012 | delivered on generation |
+| FR-005 juz/level appreciation cert | ✅ | T014, T015, T016 | canonical-range cited |
+| FR-006 course-completion + next-product | ✅ | T019, T020, T021 | degrade-to-neutral when none |
+| FR-007 idempotent issuance (student, type, milestone_key) | ✅ | T015, T018 | composite UNIQUE |
+| FR-008 appreciation-not-ijazah invariant | ✅ | T004 (enum), T015 | schema-enforced negative requirement |
+| FR-009 Arabic RTL + tashkeel preservation | ✅ | T037 | RTL verification task |
+| FR-010 honor board (privacy + opt-out; metric undefined) | ⚠️ partial | ⛔T023, T024, T025, T026, T027 | **⛔ metric formula blocked on FR-010 NEEDS CLARIFICATION** |
+| FR-011 three channels incl. WhatsApp | ✅ | T003, T028 | CHECK constraint extended |
+| FR-012 per-trigger channel matrix | ✅ | T028, T031 | admin-configurable via platform_settings |
+| FR-013 consume events; expiry 7d before period end | ✅ | T028, T029 | lead time configurable |
+| FR-014 idempotent delivery (recipient, trigger, subject) | ✅ | T028, T030, T031 | recipient-first notif: prefix |
+| FR-015 n8n failure → `failed` (never `succeeded`) | ✅ | T030 | retry-safe via delete-and-retry |
+| FR-016 CR/LF strip on subject/header fields | ✅ | T028, T031 | injection guard |
+| FR-017 typed `FurqanEvent` names only | ✅ | T001 | enum members |
+| FR-018 RLS on every new table, same migration | ✅ | T004 | all 4 new tables |
+| FR-019 `(select auth.uid())` initplan + is_admin | ✅ | T004 | policy pattern |
+| FR-020 BEFORE UPDATE OF guards on identity cols | ✅ | T004, T007 | service-role/migrations exempt |
+| FR-021 db:types + tsc + lint + sb:advisors | ✅ | T006, T032, T033, T035 | gates |
+| SC-001 guardian RLS scoping (100% test cases) | ✅ | T013 | notes + monthly RLS tests |
+| SC-002 exactly one report + notification per student+month | ✅ | T013, T018 | idempotent replay test |
+| SC-003 cited range matches canonical (0 fabricated) | ✅ | T018, T036 | NFR-003 scan |
+| SC-004 0 duplicates across 100% of retries | ✅ | T013, T018, T031 | NFR-002 replay |
+| SC-005 channel matrix + 7d lead (100% recipients) | ✅ | T028, T031 | per-trigger assertions |
+| SC-006 n8n failure surfaced 100% (0 silent success) | ✅ | T030, T031 | fail-closed |
+| SC-007 Arabic RTL + tashkeel preserved | ✅ | T037 | manual verification |
+| SC-008 honor board: 0 private fields, 100% opted-out excluded | ⚠️ partial | T027 | privacy half OK; **ranking half blocked on FR-010 metric** |
+| NFR-001 fail-closed X-N8N-Secret | ✅ | T029 | safeCompareSecret before side effect |
+| NFR-002 replay test (no side effect on duplicate) | ✅ | T013, T018, T031 | idempotency-ledger skipped |
+| NFR-003 Quran-range unit test (no hardcoded counts) | ✅ | T036 | grep + canonical-match |
+| NFR-004 unit/integration coverage on critical paths | ✅ | T013, T018, T022, T027, T031 | per-story test tasks |

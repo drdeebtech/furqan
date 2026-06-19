@@ -21,7 +21,7 @@ This is a **light, encouragement-first** phase. Certificates here are **simple a
 - **Gamification**: appreciation certificate after each completed juz and after any level milestone (encouragement); an **honor board** highlighting top/diligent students.
 - **Certificates (simple)**: appreciation + course-completion certificate records, citing exact `surah:ayah`/juz read **from canonical structure** (`src/lib/quran/`); fully RTL/Arabic renderable.
 - **Notification content & channels**: in-app + email + **WhatsApp**, routed through n8n; idempotent per (recipient, trigger, subject) using the existing `automation_logs` idempotency ledger.
-- **Notification triggers this spec owns the content/delivery for** (events emitted elsewhere): dunning / pre-suspension alert (events from 018), subscription-expiry "continue?" prompt (plan #8, sent before period end), payment-retry / dunning escalation (plan #25), absence/excuse outcome (events from 021), and this spec's own monthly-report-ready and certificate-earned triggers.
+- **Notification triggers this spec owns the content/delivery for** (events emitted elsewhere): dunning / pre-suspension alert (events from 018), subscription-expiring "continue?" prompt (plan #8, sent 7 days before period end — configurable via `subscription_expiring_lead_days`), payment-retry / dunning escalation (plan #25), absence/excuse outcome (events from 021), and this spec's own monthly-report-ready and certificate-earned triggers.
 
 **Explicitly out of scope (owned by other specs):**
 - Billing, grants, and **emission** of billing/subscription events → **spec 018** (م١). This spec consumes those events; it never emits or mutates billing state.
@@ -116,7 +116,7 @@ Guardians receive timely, idempotent notifications for events emitted by other p
 
 1. **Given** a `payment_failed`/dunning event from 018, **When** notification routing runs, **Then** a pre-suspension alert is delivered once per recipient on the configured channels, recorded in the idempotency ledger.
 2. **Given** the same event is re-delivered (n8n/webhook retry), **When** routing runs again, **Then** the existing `automation_logs.idempotency_key` causes a **skipped** no-op — no duplicate message.
-3. **Given** a subscription nears period end (expiry "continue?" trigger, plan #8), **When** the prompt is sent **before** period end, **Then** the guardian receives a single "continue?" notification with the renew path.
+3. **Given** a subscription nears period end (expiry "continue?" trigger, plan #8), **When** the prompt is sent at exactly `period_end - 7d` (or the configured `subscription_expiring_lead_days`), **Then** the guardian receives a single "continue?" notification with the renew path.
 4. **Given** an absence/excuse outcome event from 021, **When** routing runs, **Then** the guardian is notified of the outcome (excused / make-up scheduled) once.
 5. **Given** a WhatsApp send fails at n8n, **When** the failure returns, **Then** it is recorded (status `failed`) and surfaced — never silently swallowed — and is retry-safe under the idempotency key.
 
@@ -141,8 +141,8 @@ Guardians receive timely, idempotent notifications for events emitted by other p
 ### Functional Requirements — Reports
 
 - **FR-001**: System MUST let a teacher record per-student notes and MUST make those notes readable by the **linked guardian** of that student (and the student) — and by no other family — enforced by RLS.
-- **FR-002**: System MUST generate **one** monthly level-assessment report per student per closed subscription month, triggered by the month-close event emitted by spec 018. Re-delivery of that event MUST NOT create a second report for the same student+month+version. **Out-of-order merge rule (clarified 2026-06-19):** `monthly_reports` carries a `version` column with composite UNIQUE `(student_id, report_year, report_month, version)`; a corrected event appends `version = MAX(version)+1`; reads select `MAX(version)` per `(student, year, month)`. A correction arriving after a newer period's report still appends (corrects the older period only).
-  > ⛔ **BLOCKING DEPENDENCY:** no month-close emitter is currently defined in spec 018 — this spec only *consumes* the event. Without an upstream emitter, the monthly report never fires (dead feature). Confirm or add the month-close event in spec 018 BEFORE implementing FR-002 (tasks T012). This is a hard cross-spec dependency, not an open question.
+- **FR-002**: System MUST generate **one** monthly level-assessment report per student per closed subscription month, triggered by the **upstream `SubscriptionMonthClosed` event** emitted by spec 018 (terminology note: `SubscriptionMonthClosed` is the **upstream trigger** this spec *consumes*; `MonthlyReportReady` is the **downstream event** this spec *emits* after generating the report — see FR-017 / T001). Re-delivery of that event MUST NOT create a second report for the same student+month+version. **Out-of-order merge rule (clarified 2026-06-19):** `monthly_reports` carries a `version` column with composite UNIQUE `(student_id, report_year, report_month, version)`; a corrected event appends `version = MAX(version)+1`; reads select `MAX(version)` per `(student, year, month)`. A correction arriving after a newer period's report still appends (corrects the older period only).
+  > ⛔ **BLOCKING DEPENDENCY:** no `SubscriptionMonthClosed` emitter is currently defined in spec 018 — this spec only *consumes* the event. Without an upstream emitter, the monthly report never fires (dead feature). Confirm or add the emitter in spec 018 BEFORE implementing FR-002 (tasks T012). T011b provides a fallback detector if 018 lags. This is a hard cross-spec dependency, not an open question.
 - **FR-003**: A monthly report MUST summarize the student's progress for that month and MUST reference any surah/juz/ayah using values read from canonical structure (`src/lib/quran/`) — never generated or hardcoded counts.
 - **FR-004**: On generation of a monthly report, the system MUST deliver a single "report ready" notification to the guardian via the routing in FR-013/FR-014.
 
@@ -166,7 +166,7 @@ Guardians receive timely, idempotent notifications for events emitted by other p
   | Trigger | Default channels | Rationale |
   |---------|------------------|-----------|
   | `payment_failed` (dunning / pre-suspension) | `in_app`, `email`, `whatsapp` | money/continuity-critical — highest-reach |
-  | `subscription_expiring` (expiry "continue?") | `in_app`, `email`, `whatsapp` | renewal prompt, sent before period end — highest-reach |
+  | `subscription_expiring` (expiry "continue?") | `in_app`, `email`, `whatsapp` | renewal prompt, sent 7d before period end (configurable) — highest-reach |
   | `payment_retry` / dunning escalation | `in_app`, `email`, `whatsapp` | escalation of an unresolved failure |
   | `absence_outcome` (excuse / make-up) | `in_app`, `email` | informational outcome — no WhatsApp by default |
   | `monthly_report_ready` | `in_app`, `email` | recurring digest — no WhatsApp by default |
@@ -198,9 +198,10 @@ Guardians receive timely, idempotent notifications for events emitted by other p
 - **Certificate**: a student's earned artifact — type (appreciation-juz / appreciation-level / course-completion), the milestone key (juz number, level id, or course id), the canonical cited range, issue timestamp, and recipient student. Relationships: belongs to a student (profiles); one per (student, type, milestone-key).
 - **Monthly Report**: one per student per closed subscription month — period bounds, the level-assessment summary, and the linked student/guardian. Append/version-safe; never silently regressed.
 - **Report Note** *(verify against existing notes surface before adding)*: a teacher-authored per-student note made visible to the linked guardian.
-- **Honor Board Entry**: a display-safe ranking record — student display fields, the diligence/achievement metric, period, and opt-out flag.
+- **Honor Board Entry**: a display-safe ranking record — student display fields, the diligence/achievement metric, period, and opt-out flag. **Display-safe field allow-list** (resolved 2026-06-19, /speckit-analyze L1): exactly `{display_name, avatar_url, achievement_metric, rank_period}` — no email, phone, dob, address, or any other PII. RLS policy and `SELECT` projection MUST enumerate this allow-list explicitly (not rely on exclusion of "private contact data").
 - **Notification** (reused — `public.notifications`): `user_id`, `type` (`notif_type`), `channel text[]` (extended to include WhatsApp), `title`, `body`, `data`, `is_read`, `expires_at`.
 - **Automation Log** (reused — `public.automation_logs`): the `idempotency_key`-unique delivery/issuance ledger with status `started/succeeded/failed/skipped`.
+- **Guardian↔Student Linkage** (reused — `public.guardian_children`, /speckit-analyze H1): existing table relating a guardian `profiles.id` to one or more student `profiles.id` rows. Every guardian-scoped RLS policy and notification routing rule in this spec resolves linkage via `guardian_children` — this spec does **not** redefine the table or its semantics; it consumes the existing relationship.
 
 ---
 

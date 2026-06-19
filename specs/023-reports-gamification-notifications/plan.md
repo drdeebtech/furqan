@@ -1,6 +1,7 @@
 # Implementation Plan: Reports, Gamification & Notifications
 
-**Branch**: `023-reports-gamification-notifications` | **Date**: 2026-06-16 | **Spec**: [spec.md](spec.md)
+**Branch**: `023-reports-gamification-notifications` | **Date**: 2026-06-16 (revised 2026-06-19) | **Spec**: [spec.md](spec.md)
+**Tracking issue**: [#489](https://github.com/drdeebtech/furqan/issues/489) | **Draft PR**: [#490](https://github.com/drdeebtech/furqan/pull/490) (constitution §branch-hygiene: opened same-day)
 **Input**: Feature specification from `specs/023-reports-gamification-notifications/spec.md`
 
 ---
@@ -99,6 +100,15 @@ supabase/migrations/
 5. **n8n event routing**: New `FurqanEvent` enum entries: `MonthlyReportReady`, `CertificateEarned`, `HonorBoardUpdated`. Consumed events: `PaymentFailed`, `SubscriptionExpiring`, `AbsenceOutcome`. All routed via existing `emitEvent()`. Delivery failures → `automation_logs.status = 'failed'`, Sentry-surfaced, never `'succeeded'`.
 
 6. **Certificates are appreciation only**: The system MUST NOT represent any certificate as ijazah or implement isnād/sanad chains. `certificate_type` enum contains only `appreciation_juz`, `appreciation_level`, `course_completion`. No ijazah fields on the table.
+
+7. **Honor board refresh sizing @ 50k** *(resolved 2026-06-19, /speckit-analyze C1/C4)*: a single refresh recomputes `honor_board_entries` for every active student — ~50k rows at the constitution scale target (CLAUDE.md §"Scale Target Rule"). The naive "INSERT one row per student per refresh" pattern is an **unbounded bulk INSERT** at that scale. The implementation MUST:
+   - **Single-statement `INSERT … SELECT … FROM profiles WHERE is_active AND deleted_at IS NULL`** with the metric computed inline — one round-trip, no N+1, no client-side loop. A 50k-row INSERT in a single statement runs in seconds on Postgres with appropriate indexes.
+   - **Period-replace semantics**: `BEGIN; DELETE FROM honor_board_entries WHERE rank_period = :period; INSERT … SELECT …; COMMIT;` — bounded by rows-for-period (≤ 50k), transactional, no orphaned partial states.
+   - **Runtime budget**: a refresh is a background job (not a request). Cap wall-clock at 30s via `statement_timeout = '30s'` on the worker connection; if it times out, the previous period's rows remain (DELETE hasn't committed) and Sentry surfaces the timeout.
+   - **Cadence**: `honor_board_refresh_cadence_days` (default 7) gates how often the job fires; not a per-render write.
+   - **No per-page-render write amplification**: honor board reads are SELECTs against the precomputed snapshot; no `computed_at` UPDATE on view.
+
+   This resolves constitution §50k CRITICAL flags: "nightly cron whose worst-case fan-out is unsized at 50k × per-user-row-count" (now sized — single-statement, ≤50k rows, 30s budget) and "admin action that performs an unbounded UPDATE / DELETE / INSERT" (now bounded — DELETE is period-scoped, INSERT is one statement).
 
 ---
 
