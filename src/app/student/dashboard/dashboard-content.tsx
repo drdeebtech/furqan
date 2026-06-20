@@ -368,8 +368,8 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
                 icon={Briefcase}
                 label={t("باقتي", "Active Package")}
                 value={primaryPackage ? `${pkgRemaining}` : "—"}
-                href="/student/packages"
-                actionLabel={primaryPackage ? `${pkgPct}% ${t("مستخدم", "used")}` : t("اشتر باقة", "Buy Package")}
+                href="/student/sessions"
+                actionLabel={primaryPackage ? `${pkgPct}% ${t("مستخدم", "used")}` : undefined}
                 statusBadge={primaryPackage
                   ? { text: t("نشط", "Active"), type: "active", icon: <CheckCircle size={11} /> }
                   : isEmptyShell ? { text: t("ابدأ", "Start"), type: "info", icon: <Sparkles size={11} /> } : undefined}

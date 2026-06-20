@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { AlertTriangle, BookOpen, Package, Timer, TrendingDown, Users, XCircle } from "lucide-react";
+import { AlertTriangle, BookOpen, Timer, TrendingDown, Users, XCircle } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { ActionFeedback } from "@/components/shared/action-feedback";
 import type { ControlTowerSnapshot, WidgetKey, WidgetTier } from "@/app/admin/control-tower/data";
@@ -29,7 +29,6 @@ const WIDGETS: Widget[] = [
   { key: "dead-letter", labelAr: "مهام فاشلة نهائياً", labelEn: "Dead-Letter Queue", icon: XCircle, tier: "error", href: "/admin/automation", threshold: 0 },
   { key: "stuck", labelAr: "جلسات متوقفة", labelEn: "Stuck Sessions (>15m)", icon: Timer, tier: "error", href: "/admin/sessions/live", threshold: 0 },
   { key: "no-show", labelAr: "غياب اليوم", labelEn: "No-Shows Today", icon: AlertTriangle, tier: "warning", href: "/admin/sessions", threshold: 0 },
-  { key: "low-balance", labelAr: "باقات منخفضة الرصيد", labelEn: "Low Balance Packages", icon: Package, tier: "info", href: "/admin/credits", threshold: 0 },
   { key: "new-signups", labelAr: "مسجلون جدد (7 أيام)", labelEn: "New Signups (7d)", icon: Users, tier: "success", href: "/admin/users", threshold: -1 },
   { key: "at-risk", labelAr: "طلاب في خطر التسرب", labelEn: "At-Risk Students", icon: TrendingDown, tier: "error", href: "/admin/retention", threshold: 0 },
   { key: "grading", labelAr: "متابعات بانتظار التقييم", labelEn: "Pending Grading", icon: BookOpen, tier: "info", href: "/admin/notes", threshold: 0 },

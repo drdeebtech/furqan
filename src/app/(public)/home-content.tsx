@@ -9,7 +9,7 @@ import { useLang } from "@/lib/i18n/context";
 import { useInView } from "@/lib/hooks/use-in-view";
 import { RegisterBanner } from "@/components/public/register-banner";
 import { resolveIcon } from "@/lib/site-content/icon-map";
-import type { SiteFeature, SubjectMeta, PackagePreviewMeta } from "@/lib/site-content/types";
+import type { SiteFeature, SubjectMeta } from "@/lib/site-content/types";
 
 /** Section wrapper that fades + slides 16px on viewport entry (one-shot).
  *  Reduced-motion users see content statically per the CSS guard. */
@@ -31,7 +31,6 @@ interface Props {
   whyUs: SiteFeature[];
   subjects: SiteFeature[];
   trustStrip: SiteFeature[];
-  packagePreview: SiteFeature[];
 }
 
 export default function HomePage({
@@ -39,7 +38,6 @@ export default function HomePage({
   whyUs,
   subjects,
   trustStrip,
-  packagePreview,
 }: Props) {
   const { t } = useLang();
 
@@ -319,65 +317,6 @@ export default function HomePage({
       <div className="section-light">
         <Testimonials />
       </div>
-
-      {/* ══════════════════════════════════════════
-          PACKAGES PREVIEW
-          ══════════════════════════════════════════ */}
-      <RevealSection className="py-24">
-        <div className="mx-auto max-w-5xl px-6">
-          <div className="text-center">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-muted">{t("الباقات", "Packages")}</p>
-            <h2 className="font-display mt-3 text-4xl font-bold leading-tight">{t("باقاتنا", "Our Packages")}</h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm text-muted">
-              {t(
-                "ابدأ بجلسة تجريبية مجانية، ثم اختر الباقة التي تناسبك.",
-                "Start with a free trial session, then choose the plan that fits.",
-              )}
-            </p>
-          </div>
-
-          <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {packagePreview.map((p) => {
-              const meta = p.meta as PackagePreviewMeta;
-              return (
-                <div
-                  key={p.id}
-                  className={[
-                    "glass-card relative flex flex-col p-6 transition-all duration-200",
-                    meta.featured ? "border-2 border-gold lg:-translate-y-2 lg:shadow-[0_12px_40px_rgba(200,166,82,0.15)]" : "",
-                  ].join(" ")}
-                >
-                  {meta.featured && (
-                    <span className="glass-gold glass-pill absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 text-[11px] font-bold">
-                      {t("الأكثر طلباً", "Most Popular")}
-                    </span>
-                  )}
-                  <h3 className="text-lg font-bold">{t(p.title_ar, p.title_en)}</h3>
-                  <p className="mt-2 text-sm text-muted">{t(meta.freq_ar ?? "", meta.freq_en ?? "")}</p>
-                  <p className="mt-3 text-sm text-gold">{t("تواصل معنا للتسعير", "Contact us for pricing")}</p>
-                  <Link
-                    href="/packages"
-                    className={[
-                      "mt-auto block py-2.5 text-center text-sm font-medium transition-colors duration-200",
-                      meta.featured
-                        ? "glass-gold glass-pill mt-5 text-background hover:bg-gold-hover"
-                        : "glass glass-pill mt-5 text-gold hover:bg-gold hover:text-background",
-                    ].join(" ")}
-                  >
-                    {t("التفاصيل", "View Details")}
-                  </Link>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-8 text-center">
-            <Link href="/packages" className="text-sm font-medium text-gold transition-colors hover:text-gold-light">
-              {t("عرض جميع الباقات ←", "View All Packages →")}
-            </Link>
-          </div>
-        </div>
-      </RevealSection>
 
       {/* ── FINAL CTA ── */}
       <RegisterBanner />
