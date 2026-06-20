@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import type { MetadataRoute } from "next";
+import { BASE_URL } from "@/lib/constants";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = "https://www.furqan.today";
+  const baseUrl = BASE_URL;
 
   const altLangs = (path: string) => ({
     languages: {
@@ -16,6 +17,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: baseUrl, lastModified: new Date(), changeFrequency: "weekly", priority: 1.0, alternates: altLangs("/") },
     { url: `${baseUrl}/about`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8, alternates: altLangs("/about") },
     { url: `${baseUrl}/services`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.9, alternates: altLangs("/services") },
+    { url: `${baseUrl}/pricing`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.9, alternates: altLangs("/pricing") },
     { url: `${baseUrl}/teachers`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8, alternates: altLangs("/teachers") },
     { url: `${baseUrl}/teach-with-us`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8, alternates: altLangs("/teach-with-us") },
     { url: `${baseUrl}/blog`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9, alternates: altLangs("/blog") },
