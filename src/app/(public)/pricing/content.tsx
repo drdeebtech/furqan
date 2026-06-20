@@ -61,31 +61,35 @@ function PlanCard({
   highlight: boolean;
 }) {
   return (
-    <div
-      className={`glass-card relative flex flex-col gap-4 p-6 transition-shadow duration-200 hover:shadow-gold/10 hover:shadow-lg ${
-        highlight ? "border-gold/40 ring-1 ring-gold/30" : ""
-      }`}
-    >
+    // Wrapper provides positioning context for the badge WITHOUT overflow:hidden,
+    // so the badge isn't clipped by glass-card's overflow:hidden backdrop-filter boundary.
+    <div className={`relative ${highlight ? "pt-3" : ""}`}>
       {highlight && (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gold px-3 py-0.5 text-xs font-semibold text-background">
+        <span className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold px-3 py-0.5 text-xs font-semibold text-background">
           {t("الأكثر طلباً", "Most popular")}
         </span>
       )}
-      <div>
-        <p className="text-xs font-medium tracking-widest text-muted uppercase">
-          {sessionLabel(plan, t)}
-        </p>
-        <p className="font-display mt-1 text-3xl font-bold">
-          {formatPrice(plan.price_cents)}
-          <span className="text-base font-normal text-muted"> / {t("شهر", "mo")}</span>
-        </p>
-      </div>
-      <Link
-        href="/register"
-        className="glass-gold glass-pill inline-flex items-center justify-center px-5 py-3 text-sm font-semibold text-background transition-colors hover:bg-gold-hover focus-ring"
+      <div
+        className={`glass-card flex flex-col gap-4 p-6 transition-shadow duration-200 hover:shadow-gold/10 hover:shadow-lg h-full ${
+          highlight ? "border-gold/40 ring-1 ring-gold/30" : ""
+        }`}
       >
-        {t("ابدأ الآن", "Get started")}
-      </Link>
+        <div>
+          <p className="text-xs font-medium tracking-widest text-muted uppercase">
+            {sessionLabel(plan, t)}
+          </p>
+          <p className="font-display mt-1 text-3xl font-bold" dir="ltr">
+            {formatPrice(plan.price_cents)}
+            <span className="text-base font-normal text-muted"> / {t("شهر", "mo")}</span>
+          </p>
+        </div>
+        <Link
+          href={`/register?plan=${plan.plan_code}`}
+          className="glass-gold glass-pill inline-flex items-center justify-center px-5 py-3 text-sm font-semibold text-background transition-colors hover:bg-gold-hover focus-ring"
+        >
+          {t("ابدأ الآن", "Get started")}
+        </Link>
+      </div>
     </div>
   );
 }
@@ -114,7 +118,7 @@ function Tier({
       </div>
 
       <div
-        className={`grid gap-4 ${tier.plans.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
+        className={`grid items-end gap-4 ${tier.plans.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
       >
         {tier.plans.map((plan, i) => (
           <PlanCard key={plan.id} plan={plan} t={t} highlight={i === middle} />
