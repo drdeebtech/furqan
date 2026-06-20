@@ -395,7 +395,7 @@ export async function register(
       signupErr.code === "email_exists" ||
       signupErr.message?.includes("already registered")
     ) {
-      redirect(plan ? `/login?registered=true&plan=${encodeURIComponent(plan)}` : "/login?registered=true");
+      redirect(plan ? `/login?registered=true&redirect=/subscribe?plan=${encodeURIComponent(plan)}` : "/login?registered=true");
     }
 
     if (signupErr.code === "signup_disabled") {
@@ -438,7 +438,7 @@ export async function register(
     return { error: "حدث خطأ أثناء إنشاء الحساب" };
   }
 
-  redirect(plan ? `/login?registered=true&plan=${encodeURIComponent(plan)}` : "/login?registered=true");
+  redirect(plan ? `/login?registered=true&redirect=/subscribe?plan=${encodeURIComponent(plan)}` : "/login?registered=true");
 }
 
 export async function forgotPassword(
