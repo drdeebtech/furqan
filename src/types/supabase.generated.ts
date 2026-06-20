@@ -716,6 +716,54 @@ export type Database = {
           },
         ]
       }
+      certificates: {
+        Row: {
+          certificate_type: Database["public"]["Enums"]["certificate_type"]
+          cited_range_end: string
+          cited_range_start: string
+          created_at: string
+          id: string
+          issued_at: string
+          milestone_key: string
+          student_id: string
+        }
+        Insert: {
+          certificate_type: Database["public"]["Enums"]["certificate_type"]
+          cited_range_end: string
+          cited_range_start: string
+          created_at?: string
+          id?: string
+          issued_at?: string
+          milestone_key: string
+          student_id: string
+        }
+        Update: {
+          certificate_type?: Database["public"]["Enums"]["certificate_type"]
+          cited_range_end?: string
+          cited_range_start?: string
+          created_at?: string
+          id?: string
+          issued_at?: string
+          milestone_key?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificates_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       class_offerings: {
         Row: {
           capacity: number
@@ -2135,6 +2183,57 @@ export type Database = {
           },
         ]
       }
+      honor_board_entries: {
+        Row: {
+          achievement_metric: number | null
+          avatar_url: string | null
+          computed_at: string
+          created_at: string
+          display_name: string | null
+          id: string
+          is_opted_out: boolean
+          rank_period: string
+          student_id: string
+        }
+        Insert: {
+          achievement_metric?: number | null
+          avatar_url?: string | null
+          computed_at?: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_opted_out?: boolean
+          rank_period: string
+          student_id: string
+        }
+        Update: {
+          achievement_metric?: number | null
+          avatar_url?: string | null
+          computed_at?: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_opted_out?: boolean
+          rank_period?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "honor_board_entries_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "honor_board_entries_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ijazah_pathways: {
         Row: {
           created_at: string
@@ -2582,6 +2681,64 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monthly_reports: {
+        Row: {
+          created_at: string
+          generated_at: string
+          id: string
+          level_assessment_summary: string | null
+          period_month: number
+          period_year: number
+          student_id: string
+          subscription_id: string | null
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          generated_at?: string
+          id?: string
+          level_assessment_summary?: string | null
+          period_month: number
+          period_year: number
+          student_id: string
+          subscription_id?: string | null
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          generated_at?: string
+          id?: string
+          level_assessment_summary?: string | null
+          period_month?: number
+          period_year?: number
+          student_id?: string
+          subscription_id?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_reports_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_reports_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_reports_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
             referencedColumns: ["id"]
           },
         ]
@@ -5893,6 +6050,62 @@ export type Database = {
           },
         ]
       }
+      teacher_notes: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          student_id: string
+          teacher_id: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          student_id: string
+          teacher_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          student_id?: string
+          teacher_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_notes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_notes_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_notes_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_notes_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teacher_payouts: {
         Row: {
           created_at: string
@@ -6102,142 +6315,6 @@ export type Database = {
           label_ar?: string
           label_en?: string
           sort_order?: number
-        }
-        Relationships: []
-      }
-      // Spec 023 tables — added surgically (regen from local DB breaks other
-      // code; these match the schema applied by 20260620000001_reports_certificates.sql.
-      // When a clean prod-linked regen is possible, this block is replaced by
-      // the generator's output.
-      certificates: {
-        Row: {
-          id: string
-          student_id: string
-          certificate_type: "appreciation_juz" | "appreciation_level" | "course_completion"
-          milestone_key: string
-          cited_range_start: string | null
-          cited_range_end: string | null
-          issued_at: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          student_id: string
-          certificate_type: "appreciation_juz" | "appreciation_level" | "course_completion"
-          milestone_key: string
-          cited_range_start?: string | null
-          cited_range_end?: string | null
-          issued_at?: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          student_id?: string
-          certificate_type?: "appreciation_juz" | "appreciation_level" | "course_completion"
-          milestone_key?: string
-          cited_range_start?: string | null
-          cited_range_end?: string | null
-          issued_at?: string
-          created_at?: string
-        }
-        Relationships: []
-      }
-      honor_board_entries: {
-        Row: {
-          id: string
-          student_id: string
-          display_name: string | null
-          avatar_url: string | null
-          achievement_metric: number | null
-          rank_period: string
-          is_opted_out: boolean
-          computed_at: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          student_id: string
-          display_name?: string | null
-          avatar_url?: string | null
-          achievement_metric?: number | null
-          rank_period: string
-          is_opted_out?: boolean
-          computed_at?: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          student_id?: string
-          display_name?: string | null
-          avatar_url?: string | null
-          achievement_metric?: number | null
-          rank_period?: string
-          is_opted_out?: boolean
-          computed_at?: string
-          created_at?: string
-        }
-        Relationships: []
-      }
-      monthly_reports: {
-        Row: {
-          id: string
-          student_id: string
-          subscription_id: string | null
-          period_year: number
-          period_month: number
-          version: number
-          level_assessment_summary: string | null
-          generated_at: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          student_id: string
-          subscription_id?: string | null
-          period_year: number
-          period_month: number
-          version?: number
-          level_assessment_summary?: string | null
-          generated_at?: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          student_id?: string
-          subscription_id?: string | null
-          period_year?: number
-          period_month?: number
-          version?: number
-          level_assessment_summary?: string | null
-          generated_at?: string
-          created_at?: string
-        }
-        Relationships: []
-      }
-      teacher_notes: {
-        Row: {
-          id: string
-          student_id: string
-          teacher_id: string
-          content: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          student_id: string
-          teacher_id: string
-          content: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          student_id?: string
-          teacher_id?: string
-          content?: string
-          created_at?: string
-          updated_at?: string
         }
         Relationships: []
       }
@@ -6725,6 +6802,7 @@ export type Database = {
       }
     }
     Functions: {
+      booking_end_ts: { Args: { mins: number; ts: string }; Returns: string }
       complete_review: {
         Args: {
           p_easiness: number
@@ -6736,6 +6814,10 @@ export type Database = {
           interval_days: number
           next_review_at: string
         }[]
+      }
+      compute_honor_board: {
+        Args: { p_rank_period: string }
+        Returns: undefined
       }
       compute_murajaah_batch_for_date: {
         Args: { p_date: string }
@@ -7056,6 +7138,10 @@ export type Database = {
         | "completed"
         | "cancelled"
         | "no_show"
+      certificate_type:
+        | "appreciation_juz"
+        | "appreciation_level"
+        | "course_completion"
       credit_action: "none" | "debited" | "restored"
       cv_status: "draft" | "pending_review" | "approved" | "rejected"
       evaluation_type: "weekly" | "biweekly" | "monthly" | "quarterly"
@@ -7247,11 +7333,6 @@ export const Constants = {
   },
   public: {
     Enums: {
-      certificate_type: [
-        "appreciation_juz",
-        "appreciation_level",
-        "course_completion",
-      ],
       attendance_outcome: [
         "present",
         "student_absent",
@@ -7282,6 +7363,11 @@ export const Constants = {
         "completed",
         "cancelled",
         "no_show",
+      ],
+      certificate_type: [
+        "appreciation_juz",
+        "appreciation_level",
+        "course_completion",
       ],
       credit_action: ["none", "debited", "restored"],
       cv_status: ["draft", "pending_review", "approved", "rejected"],
