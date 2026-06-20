@@ -64,7 +64,7 @@ src/
 
 supabase/migrations/
 ├── 20260619000000_payments_booking_id.sql     ← ALTER payments ADD booking_id
-└── 20260619000001_single_session_columns.sql  ← specialized_purpose enum, bookings columns,
+└── 20260619000005_single_session_columns.sql  ← specialized_purpose enum, bookings columns,
                                                   BEFORE UPDATE guard trigger (request.jwt.claims
                                                   service-role idiom), create_single_session_booking
                                                   atomic creator, seed prices

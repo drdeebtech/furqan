@@ -22,7 +22,7 @@
 - [x] T003 Create `supabase/migrations/20260619000000_payments_booking_id.sql`:
   - `ALTER TABLE payments ADD COLUMN booking_id uuid UNIQUE REFERENCES bookings(id)`
 
-- [x] T004 Create `supabase/migrations/20260619000001_single_session_columns.sql`:
+- [x] T004 Create `supabase/migrations/20260619000005_single_session_columns.sql`:
   - `CREATE TYPE specialized_purpose AS ENUM ('review','consolidate_surah','memorize_mutoon','test_juz_mutashabihat')`
   - `ALTER TABLE bookings ADD COLUMN booking_product_type text CHECK(...)`, `specialty text`, `purpose specialized_purpose`, `target_scope jsonb`
   - BEFORE UPDATE OF trigger `bookings_single_session_identity_guard` on new columns (service_role and admin exempt). Service-role bypass MUST use the canonical verified idiom `nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role' = 'service_role'` (NULL/empty JWT = trusted direct-DB/migration write → bypass). Do NOT use `current_setting('role')` — it reads the wrong GUC and the exemption never matches.
@@ -37,7 +37,7 @@
 
 - [x] T007 Adapt `start_instant_session_booking` DB function: add optional `p_payment_id uuid DEFAULT NULL` param; when set → `student_package_id = NULL` + `UPDATE payments SET booking_id = new_booking_id`; EXECUTE lockdown unchanged; verify both code paths work locally
 
-- [x] T007b Create atomic SECURITY DEFINER creator `create_single_session_booking(p_student_id, p_teacher_id, p_payment_id, p_booking_product_type, p_specialty, p_purpose, p_target_scope)` in `supabase/migrations/20260619000001_single_session_columns.sql` (see data-model.md §3): creates booking + session in **one transaction**, sets `student_package_id = NULL`, links `payments.booking_id`. EXECUTE lockdown: REVOKE from public/anon/authenticated; GRANT to service_role only. The assessment/specialized webhook branches (T013/T019) AND the zero-price assessment route path (T012, called with `p_payment_id := NULL`) MUST call this fn — never a bare `INSERT bookings + sessions`. This is the single creation path for assessment/specialized bookings. Verify locally: partial booking-without-session can never persist; retried call is idempotent.
+- [x] T007b Create atomic SECURITY DEFINER creator `create_single_session_booking(p_student_id, p_teacher_id, p_payment_id, p_booking_product_type, p_specialty, p_purpose, p_target_scope)` in `supabase/migrations/20260619000005_single_session_columns.sql` (see data-model.md §3): creates booking + session in **one transaction**, sets `student_package_id = NULL`, links `payments.booking_id`. EXECUTE lockdown: REVOKE from public/anon/authenticated; GRANT to service_role only. The assessment/specialized webhook branches (T013/T019) AND the zero-price assessment route path (T012, called with `p_payment_id := NULL`) MUST call this fn — never a bare `INSERT bookings + sessions`. This is the single creation path for assessment/specialized bookings. Verify locally: partial booking-without-session can never persist; retried call is idempotent.
 
 **Checkpoint**: `npm run sb:advisors` clean; `npx tsc --noEmit` passes.
 

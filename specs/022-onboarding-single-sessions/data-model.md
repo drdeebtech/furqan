@@ -15,7 +15,7 @@ Nullable — existing subscription-funded payments rows unaffected. UNIQUE const
 
 ---
 
-## 2. Migration 2: `20260619000001_single_session_columns.sql`
+## 2. Migration 2: `20260619000005_single_session_columns.sql`
 
 ```sql
 CREATE TYPE specialized_purpose AS ENUM (
