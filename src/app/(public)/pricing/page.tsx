@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default async function PricingPage() {
   const supabase = await createClient();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("subscription_plans")
     .select(
       "id, plan_code, name, monthly_credit_count, price_cents, currency",
@@ -30,6 +30,10 @@ export default async function PricingPage() {
         currency: string;
       }[]
     >();
+
+  if (error) {
+    console.error("[pricing] failed to load subscription_plans:", error.message);
+  }
 
   return (
     <>

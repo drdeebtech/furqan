@@ -82,7 +82,7 @@ function PlanCard({
       </div>
       <Link
         href="/register"
-        className="glass-gold glass-pill inline-flex items-center justify-center px-5 py-2.5 text-sm font-semibold text-background transition-colors hover:bg-gold-hover focus-ring"
+        className="glass-gold glass-pill inline-flex items-center justify-center px-5 py-3 text-sm font-semibold text-background transition-colors hover:bg-gold-hover focus-ring"
       >
         {t("ابدأ الآن", "Get started")}
       </Link>
