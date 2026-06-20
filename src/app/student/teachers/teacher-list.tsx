@@ -40,6 +40,7 @@ export function TeacherList({
   teachers,
   specialtyLabels,
   studentStandard,
+  hasActiveSubscription = false,
 }: {
   teachers: TeacherData[];
   specialtyLabels: TeacherLanguage[];
@@ -47,6 +48,9 @@ export function TeacherList({
    *  who teach in the same tradition with a "matches your standard"
    *  badge. Null for brand-new students or when no standard is set. */
   studentStandard?: string | null;
+  /** Whether the student has an active subscription. Book buttons are
+   *  locked behind a paywall when false. */
+  hasActiveSubscription?: boolean;
 }) {
   // Read initial filter values from URL on mount, so deep links like
   // /student/teachers?q=aisha&specialty=hifz&gender=female open in the
@@ -228,12 +232,22 @@ export function TeacherList({
                     </div>
                   </Link>
                   {/* Mobile: inline book button */}
-                  <Link
-                    href={`/student/bookings/new?teacher=${teacher.teacher_id}`}
-                    className="shrink-0 rounded-lg glass-gold px-4 py-2 text-sm font-bold text-white transition-colors md:hidden"
-                  >
-                    {t("احجز", "Book")}
-                  </Link>
+                  {hasActiveSubscription ? (
+                    <Link
+                      href={`/student/bookings/new?teacher=${teacher.teacher_id}`}
+                      className="shrink-0 rounded-lg glass-gold px-4 py-2 text-sm font-bold text-white transition-colors md:hidden"
+                    >
+                      {t("احجز", "Book")}
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/pricing"
+                      className="shrink-0 rounded-lg border border-gold/40 px-3 py-2 text-xs font-semibold text-gold transition-colors hover:border-gold/70 md:hidden"
+                      title={t("اشترك للحجز", "Subscribe to book")}
+                    >
+                      🔒 {t("اشترك", "Subscribe")}
+                    </Link>
+                  )}
                 </div>
 
                 {/* Desktop-only details */}
@@ -303,12 +317,21 @@ export function TeacherList({
                 )}
 
                 {/* Desktop: full-width book button */}
-                <Link
-                  href={`/student/bookings/new?teacher=${teacher.teacher_id}`}
-                  className="mt-4 hidden w-full items-center justify-center gap-2 rounded-lg glass-gold py-2.5 font-semibold text-white transition-colors md:flex"
-                >
-                  {t("احجز جلسة", "Book Session")}
-                </Link>
+                {hasActiveSubscription ? (
+                  <Link
+                    href={`/student/bookings/new?teacher=${teacher.teacher_id}`}
+                    className="mt-4 hidden w-full items-center justify-center gap-2 rounded-lg glass-gold py-2.5 font-semibold text-white transition-colors md:flex"
+                  >
+                    {t("احجز جلسة", "Book Session")}
+                  </Link>
+                ) : (
+                  <Link
+                    href="/pricing"
+                    className="mt-4 hidden w-full items-center justify-center gap-2 rounded-lg border border-gold/40 py-2.5 font-semibold text-gold transition-colors hover:border-gold/70 md:flex"
+                  >
+                    🔒 {t("اشترك للحجز", "Subscribe to Book")}
+                  </Link>
+                )}
               </div>
             );
           })}
