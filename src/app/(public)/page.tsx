@@ -17,12 +17,11 @@ export const metadata: Metadata = {
 export const revalidate = 600;
 
 export default async function HomePage() {
-  const [howItWorks, whyUs, subjects, trustStrip, packagePreview] = await Promise.all([
+  const [howItWorks, whyUs, subjects, trustStrip] = await Promise.all([
     getFeaturesBySlot("home_how_it_works"),
     getFeaturesBySlot("home_why_us"),
     getFeaturesBySlot("home_subjects"),
     getFeaturesBySlot("home_trust_strip"),
-    getFeaturesBySlot("home_package_preview"),
   ]);
 
   return (
@@ -31,7 +30,6 @@ export default async function HomePage() {
       whyUs={whyUs}
       subjects={subjects}
       trustStrip={trustStrip}
-      packagePreview={packagePreview}
     />
   );
 }

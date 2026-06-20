@@ -30,13 +30,6 @@ export function RegisterBanner() {
             >
               {t("سجّل الآن", "Register Now")}
             </Link>
-            <Link
-              href="/packages"
-              className="glass glass-pill inline-flex items-center gap-2 px-6 py-3 text-sm font-medium text-gold transition-colors hover:bg-gold/10 focus-ring"
-            >
-              {t("تعرف على باقاتنا", "View our packages")}
-              <span aria-hidden="true">→</span>
-            </Link>
           </div>
 
           <ul className="mx-auto mt-6 flex max-w-xl flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted">

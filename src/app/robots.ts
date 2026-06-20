@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/about", "/services", "/packages", "/teachers", "/blog", "/blog/*", "/contact"],
+        allow: ["/", "/about", "/services", "/teachers", "/blog", "/blog/*", "/contact"],
         disallow: ["/student/", "/teacher/", "/admin/", "/api/", "/login", "/register"],
       },
       { userAgent: "GPTBot", allow: ["/", "/about", "/services", "/blog/*"] },

@@ -646,7 +646,7 @@ export async function getStudentCalendarEvents(
       date: day(p.expires_at),
       kind: "package_expiry",
       title: "Package expires",
-      href: "/student/packages",
+      href: "/student/dashboard",
       color: "#8B5CF6",
     });
   }

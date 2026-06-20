@@ -15,7 +15,6 @@ const BASE_LINKS = [
   { href: "/", ar: "الرئيسية", en: "Home" },
   { href: "/about", ar: "من نحن", en: "About" },
   { href: "/services", ar: "خدماتنا", en: "Services" },
-  { href: "/packages", ar: "باقاتنا", en: "Packages" },
   { href: "/courses", ar: "الدورات المسجلة", en: "Courses" },
 ];
 

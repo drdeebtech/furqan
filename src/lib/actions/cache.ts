@@ -16,7 +16,6 @@ const PUBLIC_PATHS = [
   "/",
   "/teach-with-us",
   "/teachers",
-  "/packages",
   "/services",
   "/blog",
   "/about",

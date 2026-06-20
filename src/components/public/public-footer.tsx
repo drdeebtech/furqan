@@ -29,7 +29,6 @@ export function PublicFooter() {
               { href: "/", ar: "الرئيسية", en: "Home" },
               { href: "/about", ar: "من نحن", en: "About" },
               { href: "/services", ar: "خدماتنا", en: "Services" },
-              { href: "/packages", ar: "باقاتنا", en: "Packages" },
               { href: "/blog", ar: "المدونة", en: "Blog" },
               { href: "/contact", ar: "اتصل بنا", en: "Contact" },
             ].map((l) => (
