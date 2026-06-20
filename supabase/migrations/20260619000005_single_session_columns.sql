@@ -1,4 +1,9 @@
--- 20260619000001_single_session_columns.sql
+-- 20260619000005_single_session_columns.sql
+-- (renamed from 20260619000001 → 20260619000005 to resolve a schema_migrations
+--  version collision with spec 021's 20260619000001_subscription_extensions.sql,
+--  already merged to main and owning that timestamp. Applies after 021's
+--  attendance/payroll block — no cross-dependency — and before 022's own
+--  20260619000010/000011 fixes that depend on this file.)
 --
 -- Spec 022 (م٥): Onboarding assessment + per-session-paid single sessions.
 --

@@ -65,6 +65,21 @@ alter table public.bookings
 -- guard continues to prevent double-booked *scheduled* slots while leaving
 -- pending slot-less bookings free to coexist. Once a slot is chosen
 -- (scheduled_at set), the constraint re-engages and prevents conflicts.
+-- Committed IMMUTABLE booking-end helper. A GiST EXCLUDE constraint requires an
+-- IMMUTABLE index expression, but `scheduled_at + interval` is STABLE in
+-- Postgres (timezone-sensitive for month/year intervals). For pure-minute
+-- session durations the result is deterministic, so wrap it in an IMMUTABLE
+-- function. This REPLACES the local-only `furqan_local_booking_end` dev-bootstrap
+-- shim that previous revisions referenced — that shim only existed in
+-- scripts/dev-local-db-bootstrap.sh, making this migration non-replayable in CI
+-- (Fresh-Apply DR guard) and undeployable to prod. Self-contained now.
+create or replace function public.booking_end_ts(ts timestamptz, mins integer)
+  returns timestamptz
+  language sql
+  immutable
+  set search_path to ''
+  as $$ select ts + (mins * interval '1 minute') $$;
+
 alter table public.bookings
   drop constraint if exists no_booking_overlap;
 
@@ -72,6 +87,6 @@ alter table public.bookings
   add constraint no_booking_overlap
   exclude using gist (
     teacher_id with =,
-    tstzrange(scheduled_at, furqan_local_booking_end(scheduled_at, duration_min)) with &&
+    tstzrange(scheduled_at, public.booking_end_ts(scheduled_at, duration_min)) with &&
   ) where (status <> all (array['cancelled'::booking_status, 'no_show'::booking_status])
            and scheduled_at is not null);
