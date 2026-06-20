@@ -1,5 +1,7 @@
 import type { BookingStatus, SessionType, RecitationStandard, HomeworkType, HomeworkStatus, PackageType, StudentPackageStatus } from "@/types/database";
 
+export const BASE_URL = "https://www.furqan.today";
+
 export const SESSION_TYPE_AR: Record<SessionType, string> = {
   hifz: "حفظ",
   muraja: "مراجعة",

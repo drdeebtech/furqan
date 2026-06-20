@@ -64,7 +64,7 @@ function PlanCard({
     // so the badge isn't clipped by glass-card's overflow:hidden backdrop-filter boundary.
     <div className={`relative ${highlight ? "pt-3" : ""}`}>
       {highlight && (
-        <span className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/40 bg-surface px-3 py-0.5 text-xs font-semibold text-primary">
+        <span className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-muted/40 bg-surface px-3 py-0.5 text-xs font-semibold text-foreground">
           {t("الأكثر طلباً", "Most popular")}
         </span>
       )}
@@ -84,7 +84,7 @@ function PlanCard({
         </div>
         <Link
           href={`/register?plan=${plan.plan_code}`}
-          className="glass-gold glass-pill inline-flex items-center justify-center px-5 py-3 text-sm font-semibold text-background transition-colors hover:bg-gold-hover focus-ring"
+          className="glass-gold glass-pill inline-flex min-h-[44px] items-center justify-center px-5 py-3 text-sm font-semibold text-background transition-colors hover:bg-gold-hover focus-ring"
         >
           {t("ابدأ الآن", "Get started")}
         </Link>
@@ -105,7 +105,7 @@ function Tier({
   return (
     <div className="glass-card p-8">
       <div className="mb-6 flex items-start gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gold/10 text-gold">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-surface text-muted">
           {tier.icon}
         </div>
         <div>
@@ -127,7 +127,7 @@ function Tier({
       <ul className="mt-6 grid gap-2 sm:grid-cols-2">
         {tier.features.map((f) => (
           <li key={f.en} className="flex items-start gap-2 text-sm">
-            <CheckCircle size={15} className="mt-0.5 shrink-0 text-gold" aria-hidden="true" />
+            <CheckCircle size={15} className="mt-0.5 shrink-0 text-success" aria-hidden="true" />
             <span className="text-muted">{t(f.ar, f.en)}</span>
           </li>
         ))}

@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import type { MetadataRoute } from "next";
+import { BASE_URL } from "@/lib/constants";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = "https://www.furqan.today";
+  const baseUrl = BASE_URL;
 
   const altLangs = (path: string) => ({
     languages: {

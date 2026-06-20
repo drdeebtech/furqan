@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { BreadcrumbSchema } from "@/components/seo/structured-data";
+import { BASE_URL } from "@/lib/constants";
 import { PricingContent } from "./content";
 
 export const metadata: Metadata = {
   title: "الأسعار — اشتراكات حفظ القرآن",
   description:
     "خطط اشتراك شهرية لحفظ القرآن الكريم: حلقات جماعية وجلسات فردية. اختر الخطة المناسبة لك وابدأ رحلتك اليوم.",
-  alternates: { canonical: "https://www.furqan.today/pricing" },
+  alternates: { canonical: `${BASE_URL}/pricing` },
 };
 
 export default async function PricingPage() {
@@ -36,8 +37,8 @@ export default async function PricingPage() {
     <>
       <BreadcrumbSchema
         items={[
-          { name: "الرئيسية", url: "https://www.furqan.today" },
-          { name: "الأسعار", url: "https://www.furqan.today/pricing" },
+          { name: "الرئيسية", url: BASE_URL },
+          { name: "الأسعار", url: `${BASE_URL}/pricing` },
         ]}
       />
       <PricingContent plans={data ?? []} />
