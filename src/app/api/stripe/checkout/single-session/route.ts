@@ -283,13 +283,24 @@ export async function POST(request: Request) {
   // teacher via findAvailableSpecialist, so only the other two need this gate
   // (FR-013 fail-before-charge parity).
   if (body.productType !== "assessment") {
-    const { data: teacherOk } = await admin
+    const { data: teacherOk, error: teacherLookupErr } = await admin
       .from("teacher_profiles")
       .select("teacher_id")
       .eq("teacher_id", teacherId)
       .eq("is_archived", false)
       .eq("is_accepting", true)
       .maybeSingle<{ teacher_id: string }>();
+    if (teacherLookupErr) {
+      // Don't mask a real DB/RLS/schema failure as "teacher unavailable" (422).
+      logError("single-session checkout: teacher_profiles lookup failed", teacherLookupErr, {
+        tag: "single-sessions",
+        teacher_id: teacherId,
+      });
+      return NextResponse.json(
+        { success: false, error: "Could not verify teacher availability" },
+        { status: 500 },
+      );
+    }
     if (!teacherOk) {
       return NextResponse.json(
         { success: false, error: "Selected teacher is not available for booking" },

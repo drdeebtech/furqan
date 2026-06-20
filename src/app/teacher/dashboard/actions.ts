@@ -353,12 +353,19 @@ export const markNoShow = loudAction<{ bookingId: string }, { message: string }>
     // Auth: verify teacher owns this booking before delegating.
     const { data: booking } = await supabase
       .from("bookings")
-      .select("id")
+      .select("id, scheduled_at")
       .eq("id", bookingId)
       .eq("teacher_id", actorId!)
-      .maybeSingle<{ id: string }>();
+      .maybeSingle<{ id: string; scheduled_at: string | null }>();
 
     if (!booking) throw new Error("الحجز غير موجود أو ليس لديك صلاحية");
+
+    // Spec 022: an unscheduled assessment/specialized booking has no session to
+    // miss — no-show is only meaningful once a slot is scheduled (server-side
+    // guard backing the UI; clients must not be able to no-show a slot-less row).
+    if (booking.scheduled_at === null) {
+      throw new Error("لا يمكن تسجيل الغياب لحجز غير مُجدوَل");
+    }
 
     await recordNoShow({ bookingId, actorId: actorId! });
 
@@ -530,9 +537,15 @@ export async function recreateRoom(bookingId: string) {
     .select("teacher_id, scheduled_at")
     .eq("id", bookingId)
     .eq("teacher_id", user.id)
-    .single<{ teacher_id: string; scheduled_at: string }>();
+    .single<{ teacher_id: string; scheduled_at: string | null }>();
 
   if (!booking) return { error: "الحجز غير موجود أو ليس لديك صلاحية" };
+
+  // Spec 022: no room to (re)create for a slot-less booking — the slot must be
+  // chosen first. Server-side guard backing the UI's hasScheduledSlot gate.
+  if (booking.scheduled_at === null) {
+    return { error: "لا يمكن إنشاء غرفة لحجز غير مُجدوَل" };
+  }
 
   const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
   const roomName = `furqan-${bookingId.replace(/-/g, "")}-${Date.now()}`;

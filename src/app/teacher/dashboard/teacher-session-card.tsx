@@ -87,6 +87,9 @@ export function TeacherSessionCard({
   // Spec 022: scheduledAt may be NULL (assessment/specialized booking without slot).
   // NULL → no scheduledMs, no live window. Display layer renders "Unscheduled".
   const scheduledMs = scheduledAt ? new Date(scheduledAt).getTime() : null;
+  // Spec 022: an assessment/specialized booking can exist without a slot yet.
+  // No-show / recreate-room only make sense once a slot is scheduled.
+  const hasScheduledSlot = scheduledAt !== null;
   const inWindow =
     !isEnded &&
     !isExpired &&
@@ -236,15 +239,18 @@ export function TeacherSessionCard({
             </button>
           )}
 
-          {/* Mark No-Show */}
-          <button
-            onClick={handleMarkNoShow}
-            disabled={loading !== null}
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-warning/30 px-4 py-2 text-xs font-medium text-warning transition-colors hover:bg-warning/10 disabled:opacity-50 sm:px-3 sm:py-1.5"
-          >
-            {loading === "noshow" ? spinner : <UserX size={14} />}
-            لم يحضر
-          </button>
+          {/* Mark No-Show — only when a slot exists; an unscheduled
+              assessment/specialized booking has no session to miss. */}
+          {hasScheduledSlot && (
+            <button
+              onClick={handleMarkNoShow}
+              disabled={loading !== null}
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-warning/30 px-4 py-2 text-xs font-medium text-warning transition-colors hover:bg-warning/10 disabled:opacity-50 sm:px-3 sm:py-1.5"
+            >
+              {loading === "noshow" ? spinner : <UserX size={14} />}
+              لم يحضر
+            </button>
+          )}
 
           {/* Extend Room */}
           {sessionId && isAboutToExpire && (
@@ -258,8 +264,9 @@ export function TeacherSessionCard({
             </button>
           )}
 
-          {/* Recreate Room */}
-          {(isExpired || !currentRoomUrl) && (
+          {/* Recreate Room — only when a slot exists (no room to recreate for
+              an unscheduled booking). */}
+          {hasScheduledSlot && (isExpired || !currentRoomUrl) && (
             <button
               onClick={handleRecreateRoom}
               disabled={loading !== null}
