@@ -57,7 +57,7 @@ export function PublicNav({ dashboardHref }: { dashboardHref?: string }) {
       {/* Main nav */}
       <nav className="sticky top-0 z-50 glass">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex min-h-[44px] items-center gap-2">
             <Image src="/logo-192.png" alt="فرقان" width={32} height={32} sizes="32px" className="rounded-full" priority />
             <span className="font-display text-2xl font-bold text-gold">فُرقان</span>
           </Link>
@@ -70,7 +70,7 @@ export function PublicNav({ dashboardHref }: { dashboardHref?: string }) {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`glass-nav-item px-3 py-2 text-sm transition-all duration-200 ${active ? "font-medium text-gold" : "text-muted hover:text-foreground"}`}
+                  className={`glass-nav-item inline-flex min-h-[44px] items-center px-3 py-2 text-sm transition-all duration-200 ${active ? "font-medium text-gold" : "text-muted hover:text-foreground"}`}
                 >
                   {t(link.ar, link.en)}
                 </Link>
@@ -85,18 +85,18 @@ export function PublicNav({ dashboardHref }: { dashboardHref?: string }) {
             {dashboardHref ? (
               <Link
                 href={dashboardHref}
-                className="glass glass-pill px-4 py-2 text-sm font-medium text-gold transition-all duration-200 hover:bg-gold hover:text-background"
+                className="glass glass-pill inline-flex min-h-[44px] items-center px-4 py-2 text-sm font-medium text-gold transition-all duration-200 hover:bg-gold hover:text-background"
               >
                 {t("لوحتي", "My Dashboard")}
               </Link>
             ) : (
               <>
-                <Link href="/login" className="text-sm text-muted transition-colors hover:text-gold">
+                <Link href="/login" className="inline-flex min-h-[44px] items-center px-2 text-sm text-muted transition-colors hover:text-gold">
                   {t("تسجيل الدخول", "Sign In")}
                 </Link>
                 <Link
                   href="/register"
-                  className="glass glass-pill px-4 py-2 text-sm font-medium text-gold transition-all duration-200 hover:bg-gold hover:text-background"
+                  className="glass glass-pill inline-flex min-h-[44px] items-center px-4 py-2 text-sm font-medium text-gold transition-all duration-200 hover:bg-gold hover:text-background"
                 >
                   {t("سجّل الآن", "Register Now")}
                 </Link>
