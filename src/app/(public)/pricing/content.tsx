@@ -12,7 +12,6 @@ interface Plan {
   name: string;
   monthly_credit_count: number;
   price_cents: number;
-  currency: string;
 }
 
 interface PlanTier {
@@ -65,7 +64,7 @@ function PlanCard({
     // so the badge isn't clipped by glass-card's overflow:hidden backdrop-filter boundary.
     <div className={`relative ${highlight ? "pt-3" : ""}`}>
       {highlight && (
-        <span className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold px-3 py-0.5 text-xs font-semibold text-background">
+        <span className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-gold/40 bg-surface px-3 py-0.5 text-xs font-semibold text-gold">
           {t("الأكثر طلباً", "Most popular")}
         </span>
       )}
@@ -222,7 +221,7 @@ export function PricingContent({ plans }: { plans: Plan[] }) {
               </p>
               <Link
                 href="/contact"
-                className="glass glass-pill mt-4 inline-block px-6 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background focus-ring"
+                className="glass glass-pill mt-4 inline-block px-6 py-3 text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background focus-ring"
               >
                 {t("تواصل معنا", "Contact us")}
               </Link>

@@ -15,9 +15,7 @@ export default async function PricingPage() {
 
   const { data, error } = await supabase
     .from("subscription_plans")
-    .select(
-      "id, plan_code, name, monthly_credit_count, price_cents, currency",
-    )
+    .select("id, plan_code, name, monthly_credit_count, price_cents")
     .eq("is_active", true)
     .order("price_cents", { ascending: true })
     .returns<
@@ -27,7 +25,6 @@ export default async function PricingPage() {
         name: string;
         monthly_credit_count: number;
         price_cents: number;
-        currency: string;
       }[]
     >();
 
