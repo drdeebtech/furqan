@@ -54,7 +54,7 @@ export function PublicFooter() {
               { ar: "القراءات", en: "Qira'at" },
               { ar: "تفسير القرآن", en: "Tafsir" },
             ].map((s) => (
-              <li key={s.en}><Link href="/services" className="inline-flex py-1.5 transition-all duration-200 hover:text-gold">{t(s.ar, s.en)}</Link></li>
+              <li key={s.en}><Link href="/services" className="inline-flex py-1.5 transition-all duration-200 hover:text-gold focus-ring">{t(s.ar, s.en)}</Link></li>
             ))}
           </ul>
         </div>
