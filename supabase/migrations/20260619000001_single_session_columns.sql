@@ -280,10 +280,10 @@ begin
   insert into public.bookings (
     student_id, teacher_id, session_type, duration_min, rate_snapshot,
     amount_usd, scheduled_at, status, teacher_confirmed, teacher_confirmed_at,
-    student_package_id
+    student_package_id, booking_product_type
   ) values (
     p_student_id, p_teacher_id, p_session_type, p_duration_min, p_rate_snapshot,
-    p_amount_usd, p_scheduled_at, 'confirmed', true, p_scheduled_at, v_pkg
+    p_amount_usd, p_scheduled_at, 'confirmed', true, p_scheduled_at, v_pkg, 'instant'
   )
   returning id into v_booking_id;
 
