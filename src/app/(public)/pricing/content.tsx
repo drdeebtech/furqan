@@ -64,7 +64,7 @@ function PlanCard({
     // so the badge isn't clipped by glass-card's overflow:hidden backdrop-filter boundary.
     <div className={`relative ${highlight ? "pt-3" : ""}`}>
       {highlight && (
-        <span className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-gold/40 bg-surface px-3 py-0.5 text-xs font-semibold text-gold">
+        <span className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/40 bg-surface px-3 py-0.5 text-xs font-semibold text-primary">
           {t("الأكثر طلباً", "Most popular")}
         </span>
       )}
