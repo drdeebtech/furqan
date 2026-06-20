@@ -54,10 +54,29 @@ jobs:
       - name: Install Supabase CLI
         uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
         with:
-          version: latest
+          # Pin the CLI version: `latest` forces an unauthenticated GitHub API
+          # release lookup on every run, which intermittently fails with
+          # "rate limit exceeded". A fixed version downloads the asset directly.
+          version: 2.102.0
 
       - name: Start local Supabase
-        run: supabase start --ignore-health-check 2>&1 | tail -5
+        # `set -o pipefail` so a failed `supabase start` surfaces here instead of
+        # being masked by the `| tail` pipe (the pipe's exit code is tail's 0),
+        # which previously let the job limp on to `db reset` and fail with the
+        # misleading "supabase start is not running". Retry to absorb transient
+        # Docker/registry image-pull flakes.
+        run: |
+          set -o pipefail
+          for attempt in 1 2 3; do
+            if supabase start --ignore-health-check 2>&1 | tail -20; then
+              exit 0
+            fi
+            echo "::warning::supabase start attempt ${attempt}/3 failed — stopping and retrying…"
+            supabase stop --no-backup 2>/dev/null || true
+            sleep 10
+          done
+          echo "::error::supabase start failed after 3 attempts (likely a transient image-pull/registry issue)."
+          exit 1
 
       - name: Apply all migrations from zero
         run: |

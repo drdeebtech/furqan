@@ -2,7 +2,10 @@ import type { SessionType } from "@/types/database";
 
 export interface PendingBooking {
   id: string;
-  scheduled_at: string;
+  // Spec 022: NULL for single-session assessment/specialized bookings where
+  // the slot is chosen after creation. Render as "Unscheduled" / exclude from
+  // imminent-session windows.
+  scheduled_at: string | null;
   duration_min: number;
   session_type: SessionType;
   amount_usd: number;

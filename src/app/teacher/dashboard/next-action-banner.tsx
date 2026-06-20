@@ -10,7 +10,9 @@ import { useNowTicker } from "@/lib/hooks/use-now-ticker";
 
 interface TeacherNextActionData {
   cvStatus: "draft" | "pending_review" | "approved" | "rejected";
-  imminentSession: { sessionId: string | null; bookingId: string; scheduledAt: string; studentName: string | null } | null;
+  // Spec 022: scheduledAt may be NULL for single-session assessment/specialized
+  // bookings (slot chosen after creation). Treated as "no imminent session".
+  imminentSession: { sessionId: string | null; bookingId: string; scheduledAt: string | null; studentName: string | null } | null;
   pendingBookings: number;
   ungradedHomework: number;
   unreadMessages: number;
@@ -45,7 +47,12 @@ export function TeacherNextActionBanner({ data }: { data: TeacherNextActionData 
   const dismissedKey = localDismissal ?? storedDismissal;
 
   const imminent = data.imminentSession;
-  const minsUntilNext = imminent ? Math.floor((new Date(imminent.scheduledAt).getTime() - now) / 60_000) : null;
+  // Spec 022: NULL scheduledAt means no slot chosen yet — cannot be "imminent".
+  // Guard explicitly: new Date(null).getTime() === 0 (Epoch), which would
+  // otherwise produce a huge negative minsUntilNext and falsely fire the banner.
+  const minsUntilNext = imminent && imminent.scheduledAt
+    ? Math.floor((new Date(imminent.scheduledAt).getTime() - now) / 60_000)
+    : null;
   const isImminent = minsUntilNext != null && minsUntilNext <= 30;
 
   const state = ((): TeacherBannerState => {
@@ -121,7 +128,9 @@ export function TeacherNextActionBanner({ data }: { data: TeacherNextActionData 
       );
     case "imminent-session": {
       const minsLabel = state.mins <= 0 ? t("الآن", "Now") : t(`خلال ${state.mins} د`, `In ${state.mins} min`);
-      const date = new Date(state.imminent.scheduledAt).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+      // state.imminent.scheduledAt is non-null here — isImminent required it (see guard above).
+      const scheduledAt = state.imminent.scheduledAt!;
+      const date = new Date(scheduledAt).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
       const href = state.imminent.sessionId ? `/teacher/sessions/${state.imminent.sessionId}` : "/teacher/sessions";
       return (
         <Banner tone="primary" onDismiss={dismiss}>

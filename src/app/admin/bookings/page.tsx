@@ -11,7 +11,9 @@ import { BookingsTable } from "./bookings-table";
 
 export const metadata: Metadata = { title: "إدارة الحجوزات" };
 
-interface Row { id: string; student_id: string; teacher_id: string; scheduled_at: string; duration_min: number; status: BookingStatus; session_type: SessionType; amount_usd: number; created_at: string; }
+// Spec 022: scheduled_at is NULL for single-session assessment/specialized
+// bookings where the slot is chosen after creation. Rendered as "Unscheduled".
+interface Row { id: string; student_id: string; teacher_id: string; scheduled_at: string | null; duration_min: number; status: BookingStatus; session_type: SessionType; amount_usd: number; created_at: string; }
 
 interface PageProps {
   searchParams: Promise<{ q?: string }>;

@@ -211,7 +211,7 @@ create policy "honor_board_update_own_optout"
 --    certificates, ship the guard per the platform "guard columns, not just
 --    transitions" rule. Service-role + migrations exempt via the canonical
 --    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role'
---    bypass idiom (matches 20260619000001_single_session_columns.sql).
+--    bypass idiom (matches 20260619000005_single_session_columns.sql).
 -- ────────────────────────────────────────────────────────────────────────────
 create or replace function private.guard_monthly_reports_identity_change()
 returns trigger language plpgsql security definer set search_path to 'public' as $$

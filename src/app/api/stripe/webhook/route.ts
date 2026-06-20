@@ -100,6 +100,7 @@ export async function POST(request: Request) {
           case "customer.subscription.created":
           case "customer.subscription.updated": await handleSubscriptionLifecycle(retryCtx); break;
           case "customer.subscription.deleted": await handleSubscriptionDeleted(retryCtx); break;
+          case "payment_intent.succeeded": await handlePaymentIntentSucceeded(retryCtx); break;
           default: await markEvent(retryCtx, "ignored"); break;
         }
       } catch (err) {
@@ -133,6 +134,9 @@ export async function POST(request: Request) {
         break;
       case "customer.subscription.deleted":
         await handleSubscriptionDeleted(ctx);
+        break;
+      case "payment_intent.succeeded":
+        await handlePaymentIntentSucceeded(ctx);
         break;
       default:
         await markEvent(ctx, "ignored");
@@ -500,4 +504,299 @@ async function snapshotFromSubscription(
     studentId,
     planId,
   };
+}
+
+// ── payment_intent.succeeded → materialize one-time-paid single session ─────
+//
+// Spec 022 (م٥): the Stripe `payment`-mode Checkout for assessment / instant /
+// specialized products. The booking + session + payment link MUST be created
+// atomically — never a bare INSERT in this handler.
+//
+// • Idempotency: reuses the spec 018 `billing_events (stripe_event_id UNIQUE)`
+//   ledger. We additionally stamp a SECOND idempotency sentinel keyed on the
+//   PaymentIntent id (`pi_{id}`) into the same table — a duplicate
+//   `payment_intent.succeeded` event with a NEW event id but the SAME PI id
+//   must not double-create a booking. (FR-010 / SC-005).
+//
+// • Single creation path: assessment/specialized bookings call the atomic
+//   `create_single_session_booking` SECURITY DEFINER creator (booking +
+//   session + payment link in ONE transaction). instant bookings call the
+//   adapted `start_instant_session_booking(p_payment_id)`.
+//
+// • Recovery: if the creator fails after all retries, the `payments` row is
+//   left with `booking_id` NULL for reconciliation/refund (FR-013 / R-002).
+//   The charge never silently vanishes — it is recorded in `payments` from
+//   the moment the PI succeeded.
+async function handlePaymentIntentSucceeded(ctx: EventContext): Promise<void> {
+  const pi = ctx.event.data.object as Stripe.PaymentIntent;
+
+  // FR / Edge: USD only. A non-USD PI must never materialize a booking.
+  if (pi.currency !== "usd") {
+    logError("stripe-webhook: non-USD payment_intent rejected", new Error("non-usd"), {
+      tag: "stripe-webhook", event_id: ctx.event.id, currency: pi.currency,
+    });
+    await markEvent(ctx, "failed", `non-usd currency: ${pi.currency}`);
+    return;
+  }
+
+  const md = (pi.metadata ?? {}) as Record<string, string | undefined>;
+  const bookingType = md.booking_type;
+  const studentId = md.student_id;
+  const teacherId = md.teacher_id;
+  const specialty = md.specialty;
+  const purpose = md.purpose;
+  const targetScopeRaw = md.target_scope;
+
+  if (!bookingType || !studentId || !teacherId) {
+    await markEvent(
+      ctx,
+      "failed",
+      `payment_intent.succeeded metadata incomplete: booking_type=${bookingType}, student_id=${studentId ? "set" : "missing"}, teacher_id=${teacherId ? "set" : "missing"}`,
+    );
+    return;
+  }
+
+  if (bookingType !== "assessment" && bookingType !== "instant" && bookingType !== "specialized") {
+    await markEvent(ctx, "failed", `unknown booking_type in PI metadata: ${bookingType}`);
+    return;
+  }
+
+  // ── PI-level idempotency sentinel ─────────────────────────────────────────
+  // A PI may be re-succeeded (e.g. retried capture) and emit the event with
+  // a different event id while reusing the same `pi_...` id. The unique
+  // stripe_event_id insert at the top of the handler dedups the exact event;
+  // this sentinel dedups the PI itself so we never create two bookings for
+  // one PI.
+  const idempotencyKey = `pi_${pi.id}`;
+  const { data: priorPi } = await ctx.admin
+    .from("billing_events")
+    .select("id")
+    .eq("stripe_event_id", idempotencyKey)
+    .maybeSingle<{ id: string }>();
+  if (priorPi) {
+    // A previous delivery of THIS PI inserted a sentinel. Verify it actually
+    // completed — a sentinel left at "received" means a prior delivery crashed
+    // mid-flight (or is concurrently in progress). Re-check the actual payment
+    // state to decide: if the payment is linked to a booking, the prior
+    // attempt truly succeeded; otherwise treat the sentinel as stale and
+    // re-attempt. Without this recovery check, any transient failure after
+    // sentinel insert would permanently block recovery (CodeRabbit #1).
+    const { data: priorPayment } = await ctx.admin
+      .from("payments")
+      .select("id, booking_id")
+      .eq("stripe_payment_intent", pi.id)
+      .maybeSingle<{ id: string; booking_id: string | null }>();
+    if (priorPayment?.booking_id) {
+      await markEvent(ctx, "processed", `duplicate PI ${pi.id} — payment already linked to booking ${priorPayment.booking_id}`);
+      return;
+    }
+    // Sentinel is stale (prior delivery crashed before linking the booking).
+    // Release it so this delivery can re-attempt materialization. The UNIQUE
+    // stripe_event_id on the original event row still prevents exact
+    // redelivery from double-processing.
+    await ctx.admin.from("billing_events").delete().eq("id", priorPi.id);
+    // Fall through to re-attempt: insert a fresh sentinel owned by THIS delivery.
+    const { error: reinsertErr } = await ctx.admin.from("billing_events").insert({
+      stripe_event_id: idempotencyKey,
+      event_type: "payment_intent.succeeded.pi",
+      stripe_event_created: new Date(ctx.event.created * 1000).toISOString(),
+      status: "received",
+      payload: { pi_id: pi.id, booking_type: bookingType, student_id: studentId, recovered_from: priorPi.id } as unknown as Json,
+    });
+    if (reinsertErr) {
+      if (reinsertErr.code === "23505") {
+        // Lost the reinsert race with another concurrent recovery — let the other delivery own it.
+        await markEvent(ctx, "processed", `duplicate PI ${pi.id} — reinsert race-lost`);
+        return;
+      }
+      logError("stripe-webhook: PI sentinel reinsert failed", reinsertErr, {
+        tag: "stripe-webhook", pi_id: pi.id,
+      });
+      await markEvent(ctx, "failed", "PI sentinel reinsert failed");
+      return;
+    }
+  } else {
+    // Insert the sentinel (UNIQUE stripe_event_id guarantees single-owner).
+    const { error: sentinelErr } = await ctx.admin.from("billing_events").insert({
+      stripe_event_id: idempotencyKey,
+      event_type: "payment_intent.succeeded.pi",
+      stripe_event_created: new Date(ctx.event.created * 1000).toISOString(),
+      status: "received",
+      payload: { pi_id: pi.id, booking_type: bookingType, student_id: studentId } as unknown as Json,
+    });
+    if (sentinelErr) {
+      if (sentinelErr.code === "23505") {
+        // Lost the race with a concurrent delivery of the same PI — another
+        // worker owns the materialization. Safe no-op.
+        await markEvent(ctx, "processed", `duplicate PI ${pi.id} — race-lost`);
+        return;
+      }
+      logError("stripe-webhook: PI sentinel insert failed", sentinelErr, {
+        tag: "stripe-webhook", pi_id: pi.id,
+      });
+      await markEvent(ctx, "failed", "PI sentinel insert failed");
+      return;
+    }
+  }
+
+  // ── Record the payment (always — even if booking creation later fails) ────
+  // `payments.booking_id` starts NULL and is linked inside the atomic creator.
+  // A failed creator leaves this row with booking_id NULL for reconciliation.
+  const amountUsd = pi.amount_received != null ? pi.amount_received / 100 : 0;
+  const { data: paymentRow, error: payErr } = await ctx.admin
+    .from("payments")
+    .insert({
+      student_id: studentId,
+      amount_usd: amountUsd,
+      amount_before_tax: amountUsd,
+      tax_amount: 0,
+      tax_rate: 0,
+      provider: "stripe",
+      status: "succeeded",
+      stripe_payment_intent: pi.id,
+      paid_at: new Date(ctx.event.created * 1000).toISOString(),
+    })
+    .select("id")
+    .maybeSingle<{ id: string }>();
+  if (payErr || !paymentRow) {
+    if (payErr?.code === "23505") {
+      // A `payments.stripe_payment_intent` UNIQUE conflict means a prior
+      // delivery already recorded this payment — reuse that row.
+      const { data: existing } = await ctx.admin
+        .from("payments")
+        .select("id, booking_id")
+        .eq("stripe_payment_intent", pi.id)
+        .maybeSingle<{ id: string; booking_id: string | null }>();
+      if (existing?.booking_id) {
+        // Already linked → fully idempotent, nothing to do.
+        await markEvent(ctx, "processed", `payment already linked to booking ${existing.booking_id}`);
+        return;
+      }
+      if (!existing) {
+        await markEvent(ctx, "failed", "payment UNIQUE conflict but no existing row");
+        return;
+      }
+      // Payment exists but not linked — try to link via the creator below.
+      // Capture the result so we finalize event status (CodeRabbit #2).
+      const conflictResult = await materializeBooking(ctx, {
+        paymentId: existing.id,
+        bookingType,
+        studentId,
+        teacherId,
+        specialty: specialty ?? null,
+        purpose: (purpose as "review" | "consolidate_surah" | "memorize_mutoon" | "test_juz_mutashabihat" | null) ?? null,
+        targetScopeRaw: targetScopeRaw ?? null,
+      });
+      if (!conflictResult.ok) {
+        // Release the sentinel so a future retry can re-attempt (CodeRabbit #1).
+        await ctx.admin.from("billing_events").delete().eq("stripe_event_id", idempotencyKey);
+        await markEvent(ctx, "failed", conflictResult.error);
+        return;
+      }
+      await markEvent(ctx, "processed");
+      return;
+    }
+    logError("stripe-webhook: payments insert failed", payErr, {
+      tag: "stripe-webhook", pi_id: pi.id,
+    });
+    await markEvent(ctx, "failed", "payments insert failed");
+    return;
+  }
+
+  const result = await materializeBooking(ctx, {
+    paymentId: paymentRow.id,
+    bookingType,
+    studentId,
+    teacherId,
+    specialty: specialty ?? null,
+    purpose: (purpose as "review" | "consolidate_surah" | "memorize_mutoon" | "test_juz_mutashabihat" | null) ?? null,
+    targetScopeRaw: targetScopeRaw ?? null,
+  });
+  if (!result.ok) {
+    // Release the sentinel so a future retry of this PI can re-attempt
+    // (CodeRabbit #1). The payments row stays with booking_id NULL for
+    // reconciliation/refund per FR-013. The original event's UNIQUE
+    // stripe_event_id still prevents exact-event redelivery from
+    // double-processing.
+    await ctx.admin.from("billing_events").delete().eq("stripe_event_id", idempotencyKey);
+    await markEvent(ctx, "failed", result.error);
+    return;
+  }
+  await markEvent(ctx, "processed");
+}
+
+/**
+ * Call the appropriate atomic creator to materialize the booking. The creator
+ * also links `payments.booking_id` in the SAME transaction. Returns
+ * `{ ok: false, error }` on failure — the caller leaves the `payments` row
+ * intact with `booking_id` NULL for reconciliation/refund (FR-013).
+ */
+async function materializeBooking(
+  ctx: EventContext,
+  args: {
+    paymentId: string;
+    bookingType: "assessment" | "instant" | "specialized";
+    studentId: string;
+    teacherId: string;
+    specialty: string | null;
+    purpose: "review" | "consolidate_surah" | "memorize_mutoon" | "test_juz_mutashabihat" | null;
+    targetScopeRaw: string | null;
+  },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const admin = ctx.admin;
+
+  if (args.bookingType === "instant") {
+    // Instant path: adapted start_instant_session_booking with p_payment_id.
+    const { data: bookingId, error: rpcErr } = await admin.rpc(
+      "start_instant_session_booking",
+      {
+        p_student_id: args.studentId,
+        p_teacher_id: args.teacherId,
+        p_session_type: "hifz" as const,
+        p_duration_min: 30,
+        p_rate_snapshot: 0,
+        p_amount_usd: 0,
+        p_scheduled_at: new Date().toISOString(),
+        p_payment_id: args.paymentId,
+      },
+    );
+    if (rpcErr || !bookingId) {
+      logError("single-session webhook: instant creator failed", rpcErr ?? new Error("no id"), {
+        tag: "stripe-webhook", pi_id_hint: args.paymentId, booking_type: "instant",
+      });
+      return { ok: false, error: rpcErr?.message ?? "instant creator returned no id" };
+    }
+    return { ok: true };
+  }
+
+  // assessment / specialized: atomic create_single_session_booking.
+  let targetScopeJson: unknown = null;
+  if (args.targetScopeRaw) {
+    try {
+      targetScopeJson = JSON.parse(args.targetScopeRaw);
+    } catch {
+      return { ok: false, error: "target_scope metadata is not valid JSON" };
+    }
+  }
+
+  const { data: bookingId, error: rpcErr } = await admin.rpc(
+    "create_single_session_booking",
+    {
+      p_student_id: args.studentId,
+      p_teacher_id: args.teacherId,
+      p_booking_product_type: args.bookingType,
+      p_payment_id: args.paymentId,
+      p_specialty: args.specialty ?? undefined,
+      p_purpose: args.purpose ?? undefined,
+      p_target_scope: targetScopeJson as never,
+    },
+  );
+  if (rpcErr || !bookingId) {
+    logError("single-session webhook: creator failed", rpcErr ?? new Error("no id"), {
+      tag: "stripe-webhook", payment_id: args.paymentId, booking_type: args.bookingType,
+    });
+    // Recovery path (FR-013): leave the payments row with booking_id NULL.
+    return { ok: false, error: rpcErr?.message ?? "creator returned no id" };
+  }
+  return { ok: true };
 }

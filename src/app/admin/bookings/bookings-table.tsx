@@ -23,7 +23,8 @@ interface BookingRow {
   id: string;
   student_id: string;
   teacher_id: string;
-  scheduled_at: string;
+  // Spec 022: NULL for single-session assessment/specialized bookings (slot chosen after creation).
+  scheduled_at: string | null;
   duration_min: number;
   status: BookingStatus;
   session_type: SessionType;
@@ -233,8 +234,14 @@ export function BookingsTable({
                     {lang === "ar" ? SESSION_TYPE_AR[b.session_type] : SESSION_TYPE_EN[b.session_type]}
                   </td>
                   <td className="px-3 py-3 text-xs text-muted">
-                    {new Date(b.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US")}{" "}
-                    {lang === "ar" ? `${b.duration_min}د` : `${b.duration_min}m`}
+                    {b.scheduled_at ? (
+                      <>
+                        {new Date(b.scheduled_at).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US")}{" "}
+                        {lang === "ar" ? `${b.duration_min}د` : `${b.duration_min}m`}
+                      </>
+                    ) : (
+                      <span className="italic">{lang === "ar" ? "غير مُجدوَل" : "Unscheduled"}</span>
+                    )}
                   </td>
                   <td className="px-3 py-3 text-gold">${b.amount_usd}</td>
                   <td className="px-3 py-3">

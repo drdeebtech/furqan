@@ -17,7 +17,9 @@ const SESSION_TYPE_EN: Record<SessionType, string> = {
 
 interface BookingRow {
   id: string;
-  scheduled_at: string;
+  // Spec 022: scheduled_at is NULL for single-session assessment/specialized
+  // bookings where the slot is chosen after creation. Render as "Unscheduled".
+  scheduled_at: string | null;
   duration_min: number;
   status: BookingStatus;
   session_type: SessionType;
@@ -98,7 +100,7 @@ export default async function StudentBookingsPage() {
       ) : (
         <div className="space-y-3">
           {list.map((booking) => {
-            const date = new Date(booking.scheduled_at);
+            const date = booking.scheduled_at ? new Date(booking.scheduled_at) : null;
             const statusInfo = STATUS_STYLE[booking.status];
             const locale = lang === "ar" ? "ar-EG" : "en-US";
 
@@ -128,19 +130,25 @@ export default async function StudentBookingsPage() {
                   </div>
                 </div>
 
-                <div dir="ltr" className="mt-3 text-left text-sm text-muted">
-                  {date.toLocaleDateString(locale, {
-                    weekday: "long",
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                  <span className="mx-2">·</span>
-                  {date.toLocaleTimeString(locale, {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </div>
+                {date ? (
+                  <div dir="ltr" className="mt-3 text-left text-sm text-muted">
+                    {date.toLocaleDateString(locale, {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                    <span className="mx-2">·</span>
+                    {date.toLocaleTimeString(locale, {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </div>
+                ) : (
+                  <div className="mt-3 text-sm text-muted italic">
+                    {t("غير مُجدوَل — اختر الموعد", "Unscheduled — pick a time")}
+                  </div>
+                )}
               </div>
             );
           })}

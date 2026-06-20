@@ -37,7 +37,9 @@ interface TeacherSessionCardProps {
   bookingId: string;
   studentName: string;
   sessionType: SessionType;
-  scheduledAt: string;
+  // Spec 022: NULL for single-session assessment/specialized bookings where
+  // the slot is chosen after creation. Rendered as "Unscheduled".
+  scheduledAt: string | null;
   durationMin: number;
   roomUrl: string | null;
   expiresAt: string | null;
@@ -82,10 +84,16 @@ export function TeacherSessionCard({
     expiresMs !== null && !isExpired && expiresMs - now < 15 * 60 * 1000;
 
   const isLive = !isEnded && !isExpired && startedAt !== null;
-  const scheduledMs = new Date(scheduledAt).getTime();
+  // Spec 022: scheduledAt may be NULL (assessment/specialized booking without slot).
+  // NULL → no scheduledMs, no live window. Display layer renders "Unscheduled".
+  const scheduledMs = scheduledAt ? new Date(scheduledAt).getTime() : null;
+  // Spec 022: an assessment/specialized booking can exist without a slot yet.
+  // No-show / recreate-room only make sense once a slot is scheduled.
+  const hasScheduledSlot = scheduledAt !== null;
   const inWindow =
     !isEnded &&
     !isExpired &&
+    scheduledMs !== null &&
     now >= scheduledMs - 10 * 60 * 1000 &&
     now < scheduledMs + (durationMin + 30) * 60 * 1000;
 
@@ -174,11 +182,16 @@ export function TeacherSessionCard({
           <p className="mt-1 text-sm text-gold">
             {lang === "ar" ? SESSION_TYPE_AR[sessionType] : SESSION_TYPE_EN[sessionType]} · {durationMin} {lang === "ar" ? "دقيقة" : "min"}
           </p>
-          <p dir="ltr" className="mt-1 text-start text-sm text-muted">
-            {new Date(scheduledAt).toLocaleTimeString(locale, {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+          <p
+            dir={scheduledAt ? "ltr" : undefined}
+            className="mt-1 text-start text-sm text-muted"
+          >
+            {scheduledAt
+              ? new Date(scheduledAt).toLocaleTimeString(locale, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : (lang === "ar" ? "غير مُجدوَل" : "Unscheduled")}
           </p>
         </div>
 
@@ -226,15 +239,18 @@ export function TeacherSessionCard({
             </button>
           )}
 
-          {/* Mark No-Show */}
-          <button
-            onClick={handleMarkNoShow}
-            disabled={loading !== null}
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-warning/30 px-4 py-2 text-xs font-medium text-warning transition-colors hover:bg-warning/10 disabled:opacity-50 sm:px-3 sm:py-1.5"
-          >
-            {loading === "noshow" ? spinner : <UserX size={14} />}
-            لم يحضر
-          </button>
+          {/* Mark No-Show — only when a slot exists; an unscheduled
+              assessment/specialized booking has no session to miss. */}
+          {hasScheduledSlot && (
+            <button
+              onClick={handleMarkNoShow}
+              disabled={loading !== null}
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-warning/30 px-4 py-2 text-xs font-medium text-warning transition-colors hover:bg-warning/10 disabled:opacity-50 sm:px-3 sm:py-1.5"
+            >
+              {loading === "noshow" ? spinner : <UserX size={14} />}
+              لم يحضر
+            </button>
+          )}
 
           {/* Extend Room */}
           {sessionId && isAboutToExpire && (
@@ -248,8 +264,9 @@ export function TeacherSessionCard({
             </button>
           )}
 
-          {/* Recreate Room */}
-          {(isExpired || !currentRoomUrl) && (
+          {/* Recreate Room — only when a slot exists (no room to recreate for
+              an unscheduled booking). */}
+          {hasScheduledSlot && (isExpired || !currentRoomUrl) && (
             <button
               onClick={handleRecreateRoom}
               disabled={loading !== null}
