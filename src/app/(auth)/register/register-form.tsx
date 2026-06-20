@@ -6,7 +6,7 @@ import { Eye, EyeOff, UserPlus } from "lucide-react";
 import { register, type AuthResult } from "../actions";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
-export function RegisterForm() {
+export function RegisterForm({ initialPlan }: { initialPlan?: string }) {
   const [showPassword, setShowPassword] = useState(false);
   const [state, formAction, pending] = useActionState<AuthResult, FormData>(
     register,
@@ -117,6 +117,8 @@ export function RegisterForm() {
             placeholder="••••••••"
           />
         </div>
+
+        {initialPlan && <input type="hidden" name="plan" value={initialPlan} />}
 
         {/* Submit */}
         <button

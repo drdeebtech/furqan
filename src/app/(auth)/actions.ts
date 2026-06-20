@@ -321,6 +321,7 @@ export async function register(
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const confirmPassword = formData.get("confirm_password") as string;
+  const plan = formData.get("plan") as string | null;
 
   if (shouldBypassBotId(email)) {
     logError("BotID bypassed for allow-listed email", new Error("register.bot_bypass"), {
@@ -394,7 +395,7 @@ export async function register(
       signupErr.code === "email_exists" ||
       signupErr.message?.includes("already registered")
     ) {
-      redirect("/login?registered=true");
+      redirect(plan ? `/login?registered=true&plan=${encodeURIComponent(plan)}` : "/login?registered=true");
     }
 
     if (signupErr.code === "signup_disabled") {
@@ -437,7 +438,7 @@ export async function register(
     return { error: "حدث خطأ أثناء إنشاء الحساب" };
   }
 
-  redirect("/login?registered=true");
+  redirect(plan ? `/login?registered=true&plan=${encodeURIComponent(plan)}` : "/login?registered=true");
 }
 
 export async function forgotPassword(

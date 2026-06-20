@@ -8,6 +8,11 @@ export const metadata: Metadata = {
   alternates: { canonical: "https://www.furqan.today/register" },
 };
 
-export default function RegisterPage() {
-  return <RegisterForm />;
+export default async function RegisterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ plan?: string }>;
+}) {
+  const { plan } = await searchParams;
+  return <RegisterForm initialPlan={plan} />;
 }
