@@ -54,15 +54,19 @@ export async function GET(request: Request) {
 
   const supabase = await createClient();
 
+  // Single-session product types this route surfaces; narrow to the requested
+  // one when productType is provided (zod-validated to be one of these three),
+  // avoiding a redundant second filter.
+  const productTypes = parsed.data.productType
+    ? [parsed.data.productType]
+    : ["assessment", "instant", "specialized"];
+
   // Count total for pagination metadata.
-  let countQuery = supabase
+  const countQuery = supabase
     .from("bookings")
     .select("id", { count: "exact", head: true })
     .eq("student_id", authed.id)
-    .in("booking_product_type", ["assessment", "instant", "specialized"]);
-  if (parsed.data.productType) {
-    countQuery = countQuery.eq("booking_product_type", parsed.data.productType);
-  }
+    .in("booking_product_type", productTypes);
   const { count, error: countErr } = await countQuery;
   if (countErr) {
     return NextResponse.json({ error: "Failed to count bookings" }, { status: 500 });
