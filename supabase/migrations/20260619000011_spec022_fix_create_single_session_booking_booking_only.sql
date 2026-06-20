@@ -52,12 +52,52 @@ set search_path to 'public'
 as $$
 declare
   v_booking_id uuid;
+  v_limit      integer;
+  v_count      integer;
 begin
   -- Validate product type at the kernel (defense in depth; route already
   -- zod-validates). assessment/specialized flow through this creator only.
   if p_booking_product_type not in ('assessment','specialized') then
     raise exception 'invalid booking_product_type for single-session creator: %',
       p_booking_product_type using errcode = 'P0001';
+  end if;
+
+  -- FR-014 per-specialty assessment limit, enforced ATOMICALLY at the single
+  -- creation chokepoint. The route's pre-charge checkAssessmentLimit() is a
+  -- UX-friendly early rejection, but two concurrent checkouts can both pass it
+  -- (TOCTOU: count-read then act). Serialize per (student, specialty) with a
+  -- transaction-scoped advisory lock, then recount UNDER the lock, so at most
+  -- `limit` active assessments can ever exist. Lock auto-releases at commit/abort.
+  -- Paid path: an over-limit rejection raises here; the webhook leaves the
+  -- payment recorded-but-unlinked for reconciliation (existing behaviour) —
+  -- the hard limit is honoured, the charge is never silently lost.
+  if p_booking_product_type = 'assessment' then
+    if p_specialty is null then
+      raise exception 'assessment booking requires a specialty' using errcode = 'P0001';
+    end if;
+    perform pg_advisory_xact_lock(
+      hashtextextended(p_student_id::text || ':' || p_specialty, 0)
+    );
+    -- Limit from platform_settings; missing/blank/0 → default 1 (matches the
+    -- app's checkAssessmentLimit default policy).
+    select coalesce(nullif(trim(value), '')::integer, 1)
+      into v_limit
+      from public.platform_settings
+      where key = 'hifz_assessment_limit_per_specialty';
+    v_limit := coalesce(v_limit, 1);
+    -- Count toward the limit: same predicate as countStudentAssessmentsForSpecialty
+    -- (active rows only — cancelled / no_show do not consume an attempt).
+    select count(*)
+      into v_count
+      from public.bookings
+      where student_id = p_student_id
+        and booking_product_type = 'assessment'
+        and specialty = p_specialty
+        and status <> all (array['cancelled'::booking_status, 'no_show'::booking_status]);
+    if v_count >= v_limit then
+      raise exception 'assessment limit reached for specialty % (% / %)',
+        p_specialty, v_count, v_limit using errcode = 'P0001';
+    end if;
   end if;
 
   -- Booking. student_package_id is ALWAYS NULL — these products are one-time
