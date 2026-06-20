@@ -502,7 +502,7 @@ export type Database = {
           rate_snapshot: number
           refund_policy_id: string | null
           rescheduled_from: string | null
-          scheduled_at: string
+          scheduled_at: string | null
           session_id: string | null
           session_type: Database["public"]["Enums"]["session_type"]
           specialty: string | null
@@ -541,7 +541,7 @@ export type Database = {
           rate_snapshot: number
           refund_policy_id?: string | null
           rescheduled_from?: string | null
-          scheduled_at: string
+          scheduled_at?: string | null
           session_id?: string | null
           session_type?: Database["public"]["Enums"]["session_type"]
           specialty?: string | null
@@ -580,7 +580,7 @@ export type Database = {
           rate_snapshot?: number
           refund_policy_id?: string | null
           rescheduled_from?: string | null
-          scheduled_at?: string
+          scheduled_at?: string | null
           session_id?: string | null
           session_type?: Database["public"]["Enums"]["session_type"]
           specialty?: string | null

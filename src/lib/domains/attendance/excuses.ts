@@ -72,6 +72,14 @@ export async function submitExcuse(
   if (booking.student_id !== userId) {
     throw new Error("Not your booking.");
   }
+  // Spec 022: single-session bookings can exist before a slot is chosen
+  // (scheduled_at NULL). Excuse eligibility is defined relative to the slot
+  // time, so an unscheduled booking has nothing to be excused from — reject
+  // explicitly rather than let new Date(null) collapse to epoch 0 and return
+  // a silently-wrong isEligible=false.
+  if (booking.scheduled_at === null) {
+    throw new Error("Cannot submit an excuse for an unscheduled booking.");
+  }
 
   // Compute eligibility from platform setting.
   const settings = await getSettings();
