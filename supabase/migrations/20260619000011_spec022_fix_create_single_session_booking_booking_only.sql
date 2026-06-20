@@ -87,9 +87,12 @@ begin
   -- booking unlinked to any payment but the function would still return a
   -- booking id — masking the integrity violation.
   if p_payment_id is not null then
-    update public.payments set booking_id = v_booking_id where id = p_payment_id;
+    -- `and booking_id is null` prevents reassigning an already-linked payment to
+    -- a new booking; not-found then covers both nonexistent and already-linked.
+    update public.payments set booking_id = v_booking_id
+      where id = p_payment_id and booking_id is null;
     if not found then
-      raise exception 'p_payment_id % did not match any payments row — booking % created but unlinked',
+      raise exception 'p_payment_id % not found or already linked — booking % rejected',
         p_payment_id, v_booking_id using errcode = 'P0002';
     end if;
   end if;

@@ -179,7 +179,10 @@ export function TeacherSessionCard({
           <p className="mt-1 text-sm text-gold">
             {lang === "ar" ? SESSION_TYPE_AR[sessionType] : SESSION_TYPE_EN[sessionType]} · {durationMin} {lang === "ar" ? "دقيقة" : "min"}
           </p>
-          <p dir="ltr" className="mt-1 text-start text-sm text-muted">
+          <p
+            dir={scheduledAt ? "ltr" : undefined}
+            className="mt-1 text-start text-sm text-muted"
+          >
             {scheduledAt
               ? new Date(scheduledAt).toLocaleTimeString(locale, {
                   hour: "2-digit",

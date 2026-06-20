@@ -168,7 +168,12 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    throw e;
+    // Malformed JSON body (request.json() threw a SyntaxError) → 400, not a
+    // generic 500. The only awaited call in this try is request.json()/parse.
+    return NextResponse.json(
+      { error: "Invalid or malformed JSON body" },
+      { status: 400 },
+    );
   }
 
   // ── Currency gate (FR / Edge: USD only this phase) ────────────────────────
@@ -270,6 +275,27 @@ export async function POST(request: Request) {
       purpose,
       targetScope,
     };
+  }
+
+  // ── Validate client-supplied teacherId BEFORE any Stripe interaction ──────
+  // For instant/specialized the teacherId comes straight from the request body;
+  // a syntactically valid UUID is not enough. Assessment already validated its
+  // teacher via findAvailableSpecialist, so only the other two need this gate
+  // (FR-013 fail-before-charge parity).
+  if (body.productType !== "assessment") {
+    const { data: teacherOk } = await admin
+      .from("teacher_profiles")
+      .select("teacher_id")
+      .eq("teacher_id", teacherId)
+      .eq("is_archived", false)
+      .eq("is_accepting", true)
+      .maybeSingle<{ teacher_id: string }>();
+    if (!teacherOk) {
+      return NextResponse.json(
+        { success: false, error: "Selected teacher is not available for booking" },
+        { status: 422 },
+      );
+    }
   }
 
   // ── Zero-price path: create the booking directly via the atomic creator ──

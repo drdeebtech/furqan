@@ -19,6 +19,7 @@ const {
   mockSpecializedPrice,
   mockGetSetting,
   mockSessionsCreate,
+  mockAdminFrom,
 } = vi.hoisted(() => ({
   mockRequireRole: vi.fn(),
   mockGetUser: vi.fn(),
@@ -30,6 +31,7 @@ const {
   mockSpecializedPrice: vi.fn(),
   mockGetSetting: vi.fn(),
   mockSessionsCreate: vi.fn(),
+  mockAdminFrom: vi.fn(),
 }));
 
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
@@ -40,7 +42,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({
-  createAdminClient: vi.fn(() => ({ rpc: mockRpc })),
+  createAdminClient: vi.fn(() => ({ rpc: mockRpc, from: mockAdminFrom })),
 }));
 
 vi.mock("@/lib/stripe/client", () => ({
@@ -104,6 +106,15 @@ beforeEach(() => {
   });
   mockSessionsCreate.mockResolvedValue({ url: "https://checkout.stripe.com/c/sess" });
   mockRpc.mockResolvedValue({ data: null, error: null });
+  // teacher_profiles validation lookup (instant/specialized fail-before-charge
+  // gate): default to a valid accepting teacher. A test can override
+  // maybeSingle to return null to assert the 422 unavailable-teacher path.
+  const teacherChain = {
+    select: vi.fn(() => teacherChain),
+    eq: vi.fn(() => teacherChain),
+    maybeSingle: vi.fn().mockResolvedValue({ data: { teacher_id: TEACHER_ID }, error: null }),
+  };
+  mockAdminFrom.mockReturnValue(teacherChain);
 });
 
 afterEach(() => {

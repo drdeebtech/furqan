@@ -239,12 +239,15 @@ begin
     )
     returning id into v_booking_id;
 
-    -- CodeRabbit #11: verify the payment link actually matched a row.
-    -- Without this check, a stale/nonexistent p_payment_id would leave the
-    -- booking unlinked but the function would still return a booking id.
-    update public.payments set booking_id = v_booking_id where id = p_payment_id;
+    -- CodeRabbit #11/#? : verify the payment link matched an UNLINKED row.
+    -- `and booking_id is null` prevents reassigning a payment that is already
+    -- linked to another booking (integrity corruption); the not-found branch
+    -- then covers both nonexistent and already-linked p_payment_id. The whole
+    -- function is one txn, so raising rolls back the booking insert too.
+    update public.payments set booking_id = v_booking_id
+      where id = p_payment_id and booking_id is null;
     if not found then
-      raise exception 'p_payment_id % did not match any payments row — instant booking % created but unlinked',
+      raise exception 'p_payment_id % not found or already linked — instant booking % rejected',
         p_payment_id, v_booking_id using errcode = 'P0002';
     end if;
 
