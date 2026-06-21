@@ -45,6 +45,33 @@ describe("beforeSend", () => {
     expect(result).toBeNull();
   });
 
+  // A real, non-noise error used to isolate the environment gate.
+  const realEvent = (environment?: string): ErrorEvent =>
+    buildEvent({
+      environment,
+      exception: {
+        values: [
+          {
+            type: "Error",
+            value: "Real boom",
+            stacktrace: {
+              frames: [{ filename: "src/app/page.tsx", function: "Page", in_app: true }],
+            },
+          },
+        ],
+      },
+    });
+
+  it("drops any event from the development environment", () => {
+    const result = beforeSend(realEvent("development"), buildHint("Real boom"));
+    expect(result).toBeNull();
+  });
+
+  it("keeps a real error from the production environment", () => {
+    const result = beforeSend(realEvent("production"), buildHint("Real boom"));
+    expect(result).not.toBeNull();
+  });
+
   it("drops Load failed server-action noise when Sentry leaves event.message empty", () => {
     const result = beforeSend(
       buildEvent({

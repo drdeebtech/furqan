@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { withCronMonitor } from "@/lib/sentry/cron";
+import { withAuthedCronMonitor } from "@/lib/sentry/cron";
 import { emitEvent } from "@/lib/automation/emit";
 import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
-import { safeCompareSecret } from "@/lib/security/secrets";
 
 export const dynamic = "force-dynamic";
 
@@ -28,21 +27,10 @@ export const dynamic = "force-dynamic";
  * errors (sessions/bookings) so Sentry's monitor marks the run failed when
  * the whole job is broken, not when one row hiccups.
  */
-export const GET = withCronMonitor(
+export const GET = withAuthedCronMonitor(
   "cron-auto-complete-sessions",
   "*/15 * * * *",
-  async (request: Request) => {
-    const cronAuth = request.headers.get("authorization");
-    const expectedCron = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-    const cronOk = !!expectedCron && safeCompareSecret(cronAuth, expectedCron);
-
-    const n8nSecret = request.headers.get("X-N8N-Secret");
-    const n8nOk = safeCompareSecret(n8nSecret, process.env.N8N_WEBHOOK_SECRET);
-
-    if (!cronOk && !n8nOk) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
+  async () => {
     const admin = createAdminClient();
     const now = new Date();
 

@@ -12,6 +12,8 @@
 // every cycle.
 
 import * as Sentry from "@sentry/nextjs";
+import { NextResponse } from "next/server";
+import { safeCompareSecret } from "@/lib/security/secrets";
 
 type CronSchedule = { type: "crontab"; value: string };
 
@@ -51,4 +53,33 @@ export function withCronMonitor<H extends (req: Request) => Promise<Response>>(
     return response;
   }) as H;
   return wrapped;
+}
+
+/**
+ * Like withCronMonitor, but performs the canonical dual-auth check FIRST and
+ * only enters Sentry.withMonitor for authorized requests. A rejected (401)
+ * request never reaches the monitor, so unauthorized hits can't register a
+ * false-successful check-in (which would mask a misconfigured CRON_SECRET /
+ * N8N_WEBHOOK_SECRET). Accepts either:
+ *   - Authorization: Bearer ${CRON_SECRET}  (Vercel/operator), OR
+ *   - X-N8N-Secret: ${N8N_WEBHOOK_SECRET}    (n8n trigger)
+ */
+export function withAuthedCronMonitor(
+  slug: string,
+  schedule: string,
+  handler: (req: Request) => Promise<Response>,
+  options?: { maxRuntimeMinutes?: number; checkinMarginMinutes?: number; timezone?: string },
+): (req: Request) => Promise<Response> {
+  const monitored = withCronMonitor(slug, schedule, handler, options);
+  return async (req: Request) => {
+    const cronAuth = req.headers.get("authorization");
+    const expectedCron = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
+    const cronOk = !!expectedCron && safeCompareSecret(cronAuth, expectedCron);
+    const n8nSecret = req.headers.get("X-N8N-Secret");
+    const n8nOk = safeCompareSecret(n8nSecret, process.env.N8N_WEBHOOK_SECRET);
+    if (!cronOk && !n8nOk) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    return monitored(req);
+  };
 }

@@ -15,19 +15,10 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { processBroadcast } from "@/lib/notifications/broadcast";
-import { withCronMonitor } from "@/lib/sentry/cron";
-import { safeCompareSecret } from "@/lib/security/secrets";
+import { withAuthedCronMonitor } from "@/lib/sentry/cron";
 import { logError } from "@/lib/logger";
 
-export const GET = withCronMonitor("cron-process-broadcasts", "*/2 * * * *", async (request: Request) => {
-  const cronAuth = request.headers.get("authorization");
-  const expectedCron = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-  const cronOk = !!expectedCron && safeCompareSecret(cronAuth, expectedCron);
-  const n8nOk = safeCompareSecret(request.headers.get("X-N8N-Secret"), process.env.N8N_WEBHOOK_SECRET);
-  if (!cronOk && !n8nOk) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export const GET = withAuthedCronMonitor("cron-process-broadcasts", "*/2 * * * *", async () => {
   const admin = createAdminClient();
   const { data: pending, error } = await admin
     .from("notification_broadcasts")

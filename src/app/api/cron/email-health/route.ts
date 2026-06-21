@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { logError } from "@/lib/logger";
-import { withCronMonitor } from "@/lib/sentry/cron";
-import { safeCompareSecret } from "@/lib/security/secrets";
+import { withAuthedCronMonitor } from "@/lib/sentry/cron";
 
 export const dynamic = "force-dynamic";
 
@@ -27,18 +26,7 @@ export const dynamic = "force-dynamic";
  * audit-cleanup/route.ts for the full migration rationale). Still
  * accepts CRON_SECRET for operator-driven invocation.
  */
-export const GET = withCronMonitor("cron-email-health", "0 6 * * *", async (request: Request) => {
-  const cronAuth = request.headers.get("authorization");
-  const expectedCron = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-  const cronOk = !!expectedCron && safeCompareSecret(cronAuth, expectedCron);
-
-  const n8nSecret = request.headers.get("X-N8N-Secret");
-  const n8nOk = safeCompareSecret(n8nSecret, process.env.N8N_WEBHOOK_SECRET);
-
-  if (!cronOk && !n8nOk) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export const GET = withAuthedCronMonitor("cron-email-health", "0 6 * * *", async () => {
   const key = process.env.RESEND_API_KEY;
   if (!key) {
     logError("Resend health check: RESEND_API_KEY not set", new Error("missing-key"), {

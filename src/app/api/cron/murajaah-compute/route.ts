@@ -19,22 +19,13 @@
 
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { withCronMonitor } from "@/lib/sentry/cron";
+import { withAuthedCronMonitor } from "@/lib/sentry/cron";
 import { logError } from "@/lib/logger";
-import { safeCompareSecret } from "@/lib/security/secrets";
 
-export const GET = withCronMonitor(
+export const GET = withAuthedCronMonitor(
   "cron-murajaah-compute",
   "0 2 * * *",
-  async (request: Request) => {
-    const cronAuth = request.headers.get("authorization");
-    const expectedCron = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-    const cronOk = !!expectedCron && safeCompareSecret(cronAuth, expectedCron);
-    const n8nOk = safeCompareSecret(request.headers.get("X-N8N-Secret"), process.env.N8N_WEBHOOK_SECRET);
-    if (!cronOk && !n8nOk) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
+  async () => {
     const admin = createAdminClient();
     const today = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
 

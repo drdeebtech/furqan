@@ -447,6 +447,13 @@ function enrichTags(event: ErrorEvent, hint: EventHint): void {
 }
 
 export function beforeSend(event: ErrorEvent, hint: EventHint): ErrorEvent | null {
+  // Drop everything originating from the development environment. Local dev
+  // produces noise that is not a production signal — Next.js Fast Refresh
+  // reloads, transient compile/merge-conflict parse errors during an edit,
+  // HMR churn — and it should never create Sentry issues. `environment` is set
+  // by each Sentry.init to VERCEL_ENV (falling back to "development" locally),
+  // so production + preview still flow through. (FURQAN-3V / FURQAN-41)
+  if (event.environment === "development") return null;
   if (shouldDrop(event, hint)) return null;
   enrichTags(event, hint);
   redactRequestUrl(event);
