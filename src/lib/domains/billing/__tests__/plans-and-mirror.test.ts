@@ -23,7 +23,10 @@ import { BillingEvents } from "../events";
 function makeClient(queue: Array<{ data?: unknown; error?: unknown }>) {
   const q = [...queue];
   const next = () => {
-    const r = q.shift() ?? { data: null, error: null };
+    if (q.length === 0) {
+      throw new Error("Supabase mock queue exhausted — unexpected extra query");
+    }
+    const r = q.shift()!;
     const data = r.data === undefined ? null : r.data;
     const error = r.error === undefined ? null : r.error;
     return Promise.resolve({ data, error });
