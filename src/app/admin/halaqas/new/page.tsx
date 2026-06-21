@@ -20,7 +20,10 @@ export default async function NewHalaqaPage() {
   // listing eligibility rules from v15_003 RLS).
   const { data: teachers } = await supabase
     .from("teacher_profiles")
-    .select("teacher_id, profiles!inner(id, full_name)")
+    // Disambiguate: teacher_profiles↔profiles has two FKs (teacher_id and
+    // cv_reviewed_by). Follow teacher_id explicitly, else PostgREST raises
+    // PGRST201 (Sentry FURQAN-3M).
+    .select("teacher_id, profiles!teacher_profiles_teacher_id_fkey!inner(id, full_name)")
     .eq("cv_status", "approved")
     .eq("is_archived", false)
     .eq("is_accepting", true)
