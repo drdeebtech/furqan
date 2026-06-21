@@ -27,7 +27,7 @@ const DEAD_LETTER_BATCH = 10;
 export const retryFailedAutomations = loudAction({
   name: "admin.control-tower.retry-failed-automations",
   severity: "warning",
-  audit: { table: "automation_logs", recordId: "bulk", action: "UPDATE", reasonPrefix: "control-tower.retry-failed" },
+  audit: { table: "automation_logs", recordId: null, action: "UPDATE", reasonPrefix: "control-tower.retry-failed" },
   preflight: async () => {
     const { id } = await requireAdmin();
     return { actorId: id };
@@ -48,7 +48,7 @@ export const retryFailedAutomations = loudAction({
 export const resolveOldestDeadLetters = loudAction({
   name: "admin.control-tower.resolve-dead-letters",
   severity: "warning",
-  audit: { table: "automation_dead_letter", recordId: "bulk", action: "UPDATE", reasonPrefix: "control-tower.resolve-dead-letters" },
+  audit: { table: "automation_dead_letter", recordId: null, action: "UPDATE", reasonPrefix: "control-tower.resolve-dead-letters" },
   preflight: async () => {
     const { id } = await requireAdmin();
     return { actorId: id };
@@ -81,7 +81,7 @@ export const resolveOldestDeadLetters = loudAction({
 export const forceEndStuckSessions = loudAction({
   name: "admin.control-tower.force-end-stuck",
   severity: "critical",
-  audit: { table: "sessions", recordId: "bulk", action: "UPDATE", reasonPrefix: "control-tower.force-end-stuck" },
+  audit: { table: "sessions", recordId: null, action: "UPDATE", reasonPrefix: "control-tower.force-end-stuck" },
   preflight: async () => {
     const { id } = await requireAdmin();
     return { actorId: id };

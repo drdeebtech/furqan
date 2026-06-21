@@ -92,8 +92,13 @@ export function ServicesContent({ services }: { services: Service[] }) {
                           width={384}
                           height={192}
                           sizes="(max-width: 768px) 100vw, 384px"
-                          className="max-h-48 rounded-xl object-contain"
-                          style={{ height: "auto", width: "auto" }}
+                          className="rounded-xl object-contain"
+                          // width+height attrs set the intrinsic ratio; the
+                          // responsive pair (width:100% / height:auto) is Next's
+                          // blessed combo — modifying only one dimension via CSS
+                          // triggers the "width or height modified" warning
+                          // (Sentry FURQAN-3X). maxHeight caps it (was max-h-48).
+                          style={{ width: "100%", height: "auto", maxHeight: "12rem" }}
                           priority={i === 0}
                         />
                       ) : (

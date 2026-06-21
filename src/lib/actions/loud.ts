@@ -110,7 +110,13 @@ type Severity = "info" | "warning" | "critical";
 
 interface AuditConfig<TInput> {
   table: string;
-  recordId: string | ((input: TInput, actorId: string | null) => string);
+  /**
+   * The audited row's UUID, or `null` when the action has no single-row target
+   * — bulk operations (control-tower) and key-based tables (platform_settings).
+   * `audit_log.record_id` is a nullable uuid; writing a non-UUID sentinel there
+   * raised 22P02. For null targets the human-readable subject lives in `reason`.
+   */
+  recordId: string | null | ((input: TInput, actorId: string | null) => string | null);
   action: "INSERT" | "UPDATE" | "DELETE";
   reasonPrefix?: string;
 }

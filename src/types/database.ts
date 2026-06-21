@@ -49,7 +49,7 @@ export type Database = {
           new_data: Json | null
           old_data: Json | null
           reason: string | null
-          record_id: string
+          record_id: string | null
           table_name: string
         }
         Insert: {
@@ -61,7 +61,7 @@ export type Database = {
           new_data?: Json | null
           old_data?: Json | null
           reason?: string | null
-          record_id: string
+          record_id?: string | null
           table_name: string
         }
         Update: {
@@ -73,7 +73,7 @@ export type Database = {
           new_data?: Json | null
           old_data?: Json | null
           reason?: string | null
-          record_id?: string
+          record_id?: string | null
           table_name?: string
         }
         Relationships: [
@@ -175,6 +175,7 @@ export type Database = {
           idempotency_key: string | null
           payload_json: Json | null
           result_json: Json | null
+          retry_at: string | null
           started_at: string
           status: string
           trace_id: string
@@ -192,6 +193,7 @@ export type Database = {
           idempotency_key?: string | null
           payload_json?: Json | null
           result_json?: Json | null
+          retry_at?: string | null
           started_at?: string
           status?: string
           trace_id?: string
@@ -209,6 +211,7 @@ export type Database = {
           idempotency_key?: string | null
           payload_json?: Json | null
           result_json?: Json | null
+          retry_at?: string | null
           started_at?: string
           status?: string
           trace_id?: string

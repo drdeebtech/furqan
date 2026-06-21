@@ -130,6 +130,9 @@ export default async function RootLayout({
     <html
       lang={lang}
       dir={dir}
+      // globals.css sets `html { scroll-behavior: smooth }`; this opt-in tells
+      // Next not to warn about route-transition scroll behavior (Sentry FURQAN-21).
+      data-scroll-behavior="smooth"
       className={`${inter.variable} ${rakkas.variable} ${body.variable} h-full antialiased`}
     >
       <head>

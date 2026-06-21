@@ -6,7 +6,7 @@ import { headers } from "next/headers";
 import { checkBotId } from "botid/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { logError } from "@/lib/logger";
+import { logError, logInfo } from "@/lib/logger";
 import { withTimeout } from "@/lib/promise-utils";
 import { isSafeRelativePath } from "@/lib/security/safe-url";
 
@@ -190,7 +190,10 @@ export async function login(
   // 2026-05-01, /teach-with-us/apply incident). Credential-stuffing risk on the
   // ambiguous-allow path is capped by the per-email rate limit below.
   if (shouldBypassBotId(email)) {
-    logError("BotID bypassed for allow-listed email", new Error("login.bot_bypass"), {
+    // Allow-listed admin bypass is expected behavior, not an error — log to
+    // Sentry Logs (audit trail) via logInfo, not logError (which files an Issue
+    // on every admin login: FURQAN-35/39).
+    logInfo("BotID bypassed for allow-listed email", {
       component: "auth.login",
       tag: "auth-bot-bypass",
       metadata: { email },
@@ -324,7 +327,8 @@ export async function register(
   const plan = formData.get("plan") as string | null;
 
   if (shouldBypassBotId(email)) {
-    logError("BotID bypassed for allow-listed email", new Error("register.bot_bypass"), {
+    // See login bypass above — expected admin behavior, not an Issue-worthy error.
+    logInfo("BotID bypassed for allow-listed email", {
       component: "auth.register",
       tag: "auth-bot-bypass",
       metadata: { email },
