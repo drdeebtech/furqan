@@ -89,7 +89,7 @@ export default function HomePage({
               </Link>
               <Link
                 href="/services"
-                className="inline-flex items-center gap-1.5 text-base text-muted transition-colors hover:text-gold sm:w-auto"
+                className="inline-flex min-h-[44px] items-center gap-1.5 text-base text-muted transition-colors hover:text-gold sm:w-auto"
               >
                 {t("تعرف على خدماتنا", "Explore our services")}
                 <span aria-hidden>→</span>
@@ -280,7 +280,7 @@ export default function HomePage({
           </div>
 
           <div className="mt-8 text-center">
-            <Link href="/services" className="text-sm font-medium text-gold transition-colors hover:text-gold-light">
+            <Link href="/services" className="inline-flex min-h-[44px] items-center text-sm font-medium text-gold transition-colors hover:text-gold-light">
               {t("عرض جميع الخدمات ←", "View All Services →")}
             </Link>
           </div>

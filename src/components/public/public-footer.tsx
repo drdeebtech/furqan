@@ -32,10 +32,10 @@ export function PublicFooter() {
               { href: "/blog", ar: "المدونة", en: "Blog" },
               { href: "/contact", ar: "اتصل بنا", en: "Contact" },
             ].map((l) => (
-              <li key={l.href}><Link href={l.href} className="inline-block transition-all duration-200 hover:text-gold focus-ring">{t(l.ar, l.en)}</Link></li>
+              <li key={l.href}><Link href={l.href} className="inline-flex py-1.5 transition-all duration-200 hover:text-gold focus-ring">{t(l.ar, l.en)}</Link></li>
             ))}
             <li>
-              <Link href="/login" className="inline-flex items-center gap-1.5 transition-all duration-200 hover:text-gold focus-ring">
+              <Link href="/login" className="inline-flex items-center gap-1.5 py-1.5 transition-all duration-200 hover:text-gold focus-ring">
                 <Lock size={12} aria-hidden="true" />
                 {t("بوابة الطلاب", "Student Portal")}
               </Link>
@@ -54,7 +54,7 @@ export function PublicFooter() {
               { ar: "القراءات", en: "Qira'at" },
               { ar: "تفسير القرآن", en: "Tafsir" },
             ].map((s) => (
-              <li key={s.en}><Link href="/services" className="inline-block transition-all duration-200 hover:text-gold">{t(s.ar, s.en)}</Link></li>
+              <li key={s.en}><Link href="/services" className="inline-flex py-1.5 transition-all duration-200 hover:text-gold focus-ring">{t(s.ar, s.en)}</Link></li>
             ))}
           </ul>
         </div>
