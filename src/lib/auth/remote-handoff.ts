@@ -40,35 +40,12 @@ export type ConsumeHandoffResult =
   | { ok: false; status: 404 | 410 | 500; error: string };
 
 // ---------------------------------------------------------------------------
-// TODO(human): implement validateTargetPath
-//
-// Contract: this is the LAST line of defense before a `target_path` value
-// gets stored in the DB and (later) used as the redirect target after
-// magic-link verification. The migration adds a CHECK constraint at the
-// storage layer; this function is the application-layer twin.
-//
-// Signature:
-//   function validateTargetPath(rawPath: string):
-//     | { ok: true; path: string }   // `path` is the cleaned/normalized value to store
-//     | { ok: false; error: string } // user-facing Arabic error
-//
-// Threats this must defend against:
-//   - Open redirect (e.g. `//evil.com/`, `/\\evil.com`, `https://evil.com`)
-//   - Path traversal (`/admin/..`, `/admin/../../auth/login`)
-//   - Header injection / response splitting (CR, LF, NULL bytes)
-//   - Very long paths that bloat the DB / log lines (cap to TARGET_PATH_MAX_LEN)
-//   - Anything that doesn't actually start under `/admin/` (the only
-//     surface the remote handoff feature is approved for in this iteration)
-//
-// Hints:
-//   - Reject if `rawPath` doesn't start with '/admin/' (note the trailing slash —
-//     '/adminbypass' must fail)
-//   - Reject if it starts with '//' (protocol-relative URL trick)
-//   - Reject if it contains '\r', '\n', '\x00', or '\\'
-//   - Reject if it contains '..' segments
-//   - Length cap via TARGET_PATH_MAX_LEN
-//   - Return Arabic error messages so the modal feedback is consistent with
-//     the rest of the admin surface
+// validateTargetPath — LAST application-layer line of defense before a
+// `target_path` is stored and later used as the post-magic-link redirect
+// target (the storage-layer twin is a CHECK constraint in migration
+// 20260503195950). Defends against open redirect (`//evil.com`, `\\evil.com`),
+// path traversal (`..` segments), header injection (CR/LF/NUL), over-long
+// paths, and anything not under `/admin/`. Returns Arabic errors for the modal.
 // ---------------------------------------------------------------------------
 function validateTargetPath(rawPath: string): { ok: true; path: string } | { ok: false; error: string } {
   const path = rawPath.trim();

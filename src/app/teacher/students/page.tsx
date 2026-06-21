@@ -26,31 +26,27 @@ export default async function TeacherStudentsPage({ searchParams }: PageProps) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+  // Per-student booking aggregates (total / this-month / last session) computed
+  // server-side via RPC — avoids the previous 500-row cap that silently
+  // truncated stats for high-volume teachers. The function keys on auth.uid(),
+  // so a teacher only ever receives their own students.
+  const { data: statRows } = await (
+    supabase.rpc as unknown as (
+      fn: string,
+    ) => Promise<{
+      data:
+        | { student_id: string; total: number; this_month: number; last_session: string }[]
+        | null;
+    }>
+  )("teacher_student_booking_stats");
 
-  // TODO: replace with an RPC aggregate at scale — at 50k DAU a teacher with
-  // 500+ completed bookings will hit this cap. The RPC should return
-  // per-student { total, thisMonth, lastSession } without fetching every row.
-  const { data: bookingData } = await supabase.from("bookings")
-    .select("student_id, scheduled_at, status")
-    .eq("teacher_id", user.id).in("status", ["confirmed", "completed"])
-    .order("scheduled_at", { ascending: false })
-    .limit(500)
-    .returns<{ student_id: string; scheduled_at: string; status: string }[]>();
-
-  const list = bookingData ?? [];
-
-  // Group by student
   const studentStats = new Map<string, { total: number; lastSession: string; thisMonth: number }>();
-  for (const b of list) {
-    const existing = studentStats.get(b.student_id);
-    const isThisMonth = b.scheduled_at >= monthStart;
-    if (existing) {
-      existing.total++;
-      if (isThisMonth) existing.thisMonth++;
-    } else {
-      studentStats.set(b.student_id, { total: 1, lastSession: b.scheduled_at, thisMonth: isThisMonth ? 1 : 0 });
-    }
+  for (const r of statRows ?? []) {
+    studentStats.set(r.student_id, {
+      total: Number(r.total),
+      lastSession: r.last_session,
+      thisMonth: Number(r.this_month),
+    });
   }
 
   // Get profiles

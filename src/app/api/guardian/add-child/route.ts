@@ -20,10 +20,6 @@ const Body = z.object({
 });
 
 export async function POST(request: Request) {
-  // TODO(H-1): add per-IP rate limiting on this endpoint — the email lookup
-  // is a potential enumeration/abuse vector. No rate-limiting utility exists
-  // in this repo yet; wire up Upstash or middleware-level limiting in a
-  // follow-up PR.
   let userId: string;
   try {
     ({ id: userId } = await requireRole("guardian"));
@@ -37,6 +33,33 @@ export async function POST(request: Request) {
     throw e;
   }
 
+  const admin = createAdminClient();
+
+  // Per-guardian rate limit (audit H-1): blunts the email-enumeration/abuse
+  // vector. Keyed on the authenticated guardian id, not client IP — the
+  // endpoint is auth-gated, so userId is the trustworthy throttle key.
+  const { data: rateAllowed, error: rateErr } = await (
+    admin.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: boolean | null; error: { message: string } | null }>
+  )("check_and_increment_rate_limit", {
+    p_bucket: "guardian_add_child",
+    p_identifier: userId,
+    p_max: 20,
+    p_window_seconds: 3600,
+  });
+  if (rateErr) {
+    // Fail open on a limiter infra error — don't block a legitimate guardian
+    // because the throttle is down — but log so the outage is visible.
+    logError("add-child: rate-limit check failed (allowing)", rateErr, {
+      tag: "guardian",
+      guardian_id: userId,
+    });
+  } else if (rateAllowed === false) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   let parsed: z.infer<typeof Body>;
   try {
     parsed = Body.parse(await request.json());
@@ -47,8 +70,6 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-
-  const admin = createAdminClient();
 
   const { data: childId, error: lookupErr } = await admin.rpc("get_user_id_by_email", {
     p_email: parsed.childEmail,
