@@ -110,6 +110,24 @@ e2e/, **/*.test.ts               tests
 .github/workflows/**, scripts/   CI / infra
 ```
 
+## 6.1 · Agent navigation & token efficiency
+
+Read this before exploring — it saves humans and agents from re-deriving the map.
+
+**Large files — never read wholesale (query a symbol or a narrow range instead):**
+- `src/types/database.ts` (~6.8k lines) — a **hand-corrected** types layer, NOT a stale dup of the generated file. Read only the alias section at the end (`SessionType`, `Profile`, …). Never collapse/blind-regen it — see `specs/026-database-types-drift-guard/spec.md`.
+- `src/types/supabase.generated.ts` (~7.4k lines) — raw codegen; only the client reads it as `{ Database }`.
+- `src/lib/dashboard-queries.ts` (~1.7k lines) — legacy god module; the per-screen read bundles live in `src/lib/views/{student,teacher}-dashboard.ts` (injected client = test seam).
+
+**Symptom → where to look:**
+- billing / checkout / subscription → `src/lib/domains/billing/**`. The webhook route (`src/app/api/stripe/webhook/route.ts`) is a thin verify+dispatch shell; handlers are in `webhook-handlers.ts`.
+- booking allowed? credits/paywall? → `src/lib/domains/booking/actions.ts` — fail-closed active-package precondition (a subscription grants the package; UI paywall is a UX layer over this).
+- a dashboard read → `src/lib/views/*-dashboard.ts`.
+- teacher-dashboard server actions → `src/lib/actions/teacher-{booking,session}.ts`, re-exported via the `app/teacher/dashboard/actions.ts` barrel (the barrel carries **no** `"use server"` — leaf files own it; see below).
+- why did a widget fail? → `logError` tags every failure with `route` + `widget`; grep the tag.
+
+**Verify before "done":** run `npm run build`, not just `tsc`. `tsc` does not model the server/client boundary, so it passes while Turbopack fails (e.g. a `"use server"` re-export barrel dropping a client reference). CI's coverage gate also excludes `src/app/api/**` — relocating code into `src/lib` can drop coverage below threshold.
+
 ## 7 · Code intelligence (GitNexus)
 
 GitNexus is the canonical navigation layer (MCP tools). **Required:**
