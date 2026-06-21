@@ -28,7 +28,7 @@ export default async function StudentCalendarPage({ searchParams }: PageProps) {
   const monthStart = startOfMonth(viewMonth);
   const monthEnd = endOfMonth(viewMonth);
 
-  const events = await getStudentCalendarEvents(user.id, monthStart, monthEnd);
+  const events = await getStudentCalendarEvents(supabase, user.id, monthStart, monthEnd);
 
   const todayIso = now.toISOString().slice(0, 10);
 

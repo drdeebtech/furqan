@@ -3,6 +3,7 @@ import { Mic, ArrowRight, Clock } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
 import { helperOrFail } from "@/lib/supabase/load-or-fail";
 import { getTeacherTalqeenInbox } from "@/lib/dashboard-queries";
+import { createClient } from "@/lib/supabase/server";
 import { Skeleton } from "@/components/shared/skeleton";
 
 /**
@@ -51,8 +52,9 @@ function relativeTime(iso: string | null, lang: "ar" | "en"): string {
 export async function TalqeenInboxCard({ teacherId }: { teacherId: string }) {
   // Self-fetching so the parent page can wrap us in <Suspense> and
   // unblock first-paint while this query runs (Stream 1B perf refactor).
+  const supabase = await createClient();
   const { data } = await helperOrFail(
-    () => getTeacherTalqeenInbox(teacherId),
+    () => getTeacherTalqeenInbox(supabase, teacherId),
     { totalCount: 0, recent: [] },
     { route: "teacher-dashboard", widget: "talqeen-inbox" },
   );

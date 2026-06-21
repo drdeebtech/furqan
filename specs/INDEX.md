@@ -31,7 +31,9 @@
 | [021-attendance-payroll](./021-attendance-payroll/spec.md) | Shipped | `021-attendance-payroll` | [#482](https://github.com/drdeebtech/furqan/pull/482) |
 | [022-onboarding-single-sessions](./022-onboarding-single-sessions/spec.md) | Shipped | `022-onboarding-single-sessions` | [#485](https://github.com/drdeebtech/furqan/pull/485) |
 | [023-reports-gamification-notifications](./023-reports-gamification-notifications/spec.md) | Shipped | `023-reports-gamification-notifications` | [#490](https://github.com/drdeebtech/furqan/pull/490) |
-| [024-migration-cutover](./024-migration-cutover/spec.md) | Tasks-ready | `024-migration-cutover` | _(pending)_ |
+| [024-migration-cutover](./024-migration-cutover/spec.md) | Shipped | `024-migration-cutover` | [#495](https://github.com/drdeebtech/furqan/pull/495) |
+| [025-subscribe-checkout](./025-subscribe-checkout/spec.md) | Malformed | _(unknown)_ | _(pending)_ |
+| [026-database-types-drift-guard](./026-database-types-drift-guard/spec.md) | Draft | _(unknown)_ | _(pending)_ |
 
 ## Abandoned (last 90 days)
 
