@@ -167,4 +167,27 @@ describe("subscriptions.upsertMirror", () => {
     const client = makeClient([{ data: null, error: { message: "read boom" } }]);
     expect(await upsertMirror(client as never, snap())).toBeNull();
   });
+
+  it("returns null when the update query fails", async () => {
+    const client = makeClient([
+      { data: { id: "sub-1", last_event_at: "2020-01-01T00:00:00.000Z" } },
+      { data: null, error: { message: "update boom" } },
+    ]);
+    expect(await upsertMirror(client as never, snap())).toBeNull();
+  });
+
+  it("returns null when the insert query fails", async () => {
+    const client = makeClient([
+      { data: null },
+      { data: null, error: { message: "insert boom" } },
+    ]);
+    expect(await upsertMirror(client as never, snap())).toBeNull();
+  });
+
+  it("returns null (caught) when a query throws unexpectedly", async () => {
+    // Empty queue → the mock throws inside upsertMirror's try; the outer
+    // catch must swallow it and return null (never roll back a committed grant).
+    const client = makeClient([]);
+    expect(await upsertMirror(client as never, snap())).toBeNull();
+  });
 });
