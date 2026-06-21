@@ -70,12 +70,13 @@ describe("markEvent", () => {
   it("updates billing_events status to 'processed'", async () => {
     const eqFn = vi.fn().mockResolvedValue({ error: null });
     const update = vi.fn().mockReturnValue({ eq: eqFn });
-    const admin = { from: vi.fn(() => ({ update })) } as never;
+    const fromFn = vi.fn(() => ({ update }));
+    const admin = { from: fromFn } as never;
     const ctx = makeEventCtx(admin, "evt-1");
 
     await markEvent(ctx, "processed");
 
-    expect(admin.from).toHaveBeenCalledWith("billing_events");
+    expect(fromFn).toHaveBeenCalledWith("billing_events");
     expect(update).toHaveBeenCalledWith({ status: "processed" });
     expect(eqFn).toHaveBeenCalledWith("id", "evt-1");
   });
