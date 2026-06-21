@@ -15,7 +15,9 @@ const updateSettingBase = routeAction<{ key: string; value: string }, { message:
   role: "admin",
   severity: "info",
   schema: z.object({ key: z.string().min(1), value: z.string() }),
-  audit: { table: "platform_settings", recordId: (i) => i.key, action: "UPDATE" },
+  // platform_settings is key-based — no UUID row id. record_id stays null;
+  // the setting key is preserved in the diff audit row's reason below.
+  audit: { table: "platform_settings", recordId: null, action: "UPDATE" },
   handler: async ({ key, value }, { actorId }) => {
     if (!isAllowedSettingKey(key)) throw new UserError("Invalid setting key");
 
@@ -45,7 +47,7 @@ const updateSettingBase = routeAction<{ key: string; value: string }, { message:
     await supabase.from("audit_log").insert({
       changed_by: actorId,
       table_name: "platform_settings",
-      record_id: key,
+      record_id: null,
       action: "UPDATE",
       old_data: { value: previous?.value ?? null },
       new_data: { value },

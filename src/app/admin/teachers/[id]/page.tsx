@@ -250,7 +250,10 @@ async function OverviewPanel({
     supabase
       .from("sessions")
       .select(
-        "id, started_at, teacher_joined, booking_id, bookings!inner(teacher_id, scheduled_at)",
+        // Disambiguate: sessions↔bookings has two FKs (bookings.session_id and
+        // sessions.booking_id). Follow sessions.booking_id explicitly, else
+        // PostgREST raises PGRST201 (Sentry FURQAN-3N).
+        "id, started_at, teacher_joined, booking_id, bookings!sessions_booking_id_fkey!inner(teacher_id, scheduled_at)",
       )
       .eq("bookings.teacher_id", teacherId)
       .gte("bookings.scheduled_at", since),

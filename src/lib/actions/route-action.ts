@@ -55,7 +55,8 @@ const FORBIDDEN_MESSAGE = "ليس لديك صلاحية";
 
 interface RouteAuditConfig<TInput> {
   table: string;
-  recordId: string | ((input: TInput, actorId: string | null) => string);
+  /** UUID of the audited row, or `null` for bulk / key-based actions. See AuditConfig in loud.ts. */
+  recordId: string | null | ((input: TInput, actorId: string | null) => string | null);
   action: "INSERT" | "UPDATE" | "DELETE";
   reasonPrefix?: string;
 }
