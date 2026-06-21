@@ -26,6 +26,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read  # gh pr view in the relevance gate needs this
 
 concurrency:
   group: silent-fail-${{ github.ref }}

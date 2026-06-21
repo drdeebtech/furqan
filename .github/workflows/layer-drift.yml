@@ -3,6 +3,13 @@ name: Knowledge Graph Layer Drift
 on:
   pull_request:  # No paths filter — job skips internally when no TS files changed
 
+# gh pr view (relevance gate below) needs pull-requests:read. Without it the
+# hardened default token (contents:read only) fails with "Resource not
+# accessible by integration" on every PR.
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   detect-drift:
     runs-on: ubuntu-latest
