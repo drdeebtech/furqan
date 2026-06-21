@@ -26,8 +26,8 @@ import type { SessionType } from "@/types/database";
 // A chainable, awaitable query-builder. Chain methods return the builder;
 // terminal `.single()/.maybeSingle()/.returns()` and `await` resolve the
 // per-table result `{ data, error }`.
-function makeQB(result: { data?: unknown; error?: unknown }) {
-  const res = { data: result.data ?? null, error: result.error ?? null };
+function makeQB({ data = null, error = null }: { data?: unknown; error?: unknown }) {
+  const res = { data, error };
   const qb: Record<string, unknown> = {};
   for (const m of ["select", "eq", "in", "order", "limit", "insert", "update"]) {
     qb[m] = vi.fn(() => qb);
