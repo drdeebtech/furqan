@@ -5,6 +5,13 @@ import { formatDate } from "@/lib/i18n/format-date";
 import { logError } from "@/lib/logger";
 import { toMurajaahDueItems, type MurajaahDueItem, type MurajaahScheduleRow } from "@/lib/domains/murajaah/batch";
 
+/**
+ * Injected server client type. Every read helper takes this as its first
+ * argument (the test seam) instead of opening its own `createClient()`, so the
+ * dashboard view modules can be exercised against a fake/stub client.
+ */
+type ServerClient = Awaited<ReturnType<typeof createClient>>;
+
 interface ChartDataPoint {
   day: string;
   value: number;
@@ -78,10 +85,9 @@ function groupSessionsByDay(
  * entry attributed to the previous server day.
  */
 export async function getStudentStreak(
+  supabase: ServerClient,
   studentId: string,
 ): Promise<{ streak: number; weeklyMinutes: number; weeklyDelta: number; loggedToday: boolean }> {
-  const supabase = await createClient();
-
   // Resolve the student's preferred timezone — defaults to UTC if missing or
   // if Intl rejects the value. Using the student's tz aligns "today" with
   // their local midnight, not the Vercel region's.
@@ -180,6 +186,7 @@ export async function getStudentStreak(
  * due in the next 7 days, and the most-urgent open item (for banner copy).
  */
 export async function getStudentHomeworkPulse(
+  supabase: ServerClient,
   studentId: string,
 ): Promise<{
   overdue: number;
@@ -187,7 +194,6 @@ export async function getStudentHomeworkPulse(
   dueThisWeek: number;
   nextItem: { id: string; description: string | null; dueDate: string | null; type: string } | null;
 }> {
-  const supabase = await createClient();
   const now = new Date();
   const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0);
   const endOfDay = new Date(now); endOfDay.setHours(23, 59, 59, 999);
@@ -222,10 +228,10 @@ export async function getStudentHomeworkPulse(
 }
 
 export async function getStudentWeeklyStudyTime(
+  supabase: ServerClient,
   studentId: string,
   lang: "ar" | "en" = "en"
 ): Promise<ChartDataPoint[]> {
-  const supabase = await createClient();
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -269,6 +275,7 @@ export async function getStudentWeeklyStudyTime(
  * highlights it with the gold/purple gradient + 🔥 tooltip.
  */
 export async function getStudentStudyAnalytics(
+  supabase: ServerClient,
   studentId: string,
   lang: "ar" | "en" = "en"
 ): Promise<{
@@ -276,7 +283,6 @@ export async function getStudentStudyAnalytics(
   weekly: ChartDataPoint[];
   monthly: ChartDataPoint[];
 }> {
-  const supabase = await createClient();
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -432,10 +438,9 @@ function markPeak(rows: ChartDataPoint[]): void {
 }
 
 export async function getStudentLiveSessions(
+  supabase: ServerClient,
   studentId: string
 ): Promise<LiveSessionItem[]> {
-  const supabase = await createClient();
-
   const { data: bookings, error: bookingsErr } = await supabase
     .from("bookings")
     .select("id, teacher_id, session_type")
@@ -521,9 +526,9 @@ export async function getStudentLiveSessions(
  * pending quiz, so callers can fall back to the next-session value.
  */
 export async function getStudentNextQuiz(
+  supabase: ServerClient,
   studentId: string,
 ): Promise<{ id: string; title: string; due_at: string | null } | null> {
-  const supabase = await createClient();
   const { data: enrollments, error: enrollmentsErr } = await supabase.from("course_enrollments")
     .select("course_id")
     .eq("student_id", studentId)
@@ -582,11 +587,11 @@ export type CalendarEvent = {
 };
 
 export async function getStudentCalendarEvents(
+  supabase: ServerClient,
   studentId: string,
   monthStart: Date,
   monthEnd: Date,
 ): Promise<CalendarEvent[]> {
-  const supabase = await createClient();
   const startIso = monthStart.toISOString();
   const endIso = monthEnd.toISOString();
 
@@ -671,12 +676,11 @@ export async function getStudentCalendarEvents(
  * and the caller falls back to `getStudentRecentRecordings`.
  */
 export async function getStudentContinueWatching(
+  supabase: ServerClient,
   studentId: string,
   lang: "ar" | "en" = "en",
   limit = 5,
 ): Promise<{ id: string; [key: string]: unknown }[]> {
-  const supabase = await createClient();
-
   // course_lesson_progress is keyed by enrollment_id, so resolve the
   // student's enrollments first, then pull in-progress rows for them.
   const { data: enrollments, error: enrollmentsErr } = await supabase
@@ -780,12 +784,11 @@ export async function getStudentContinueWatching(
 }
 
 export async function getStudentRecentRecordings(
+  supabase: ServerClient,
   studentId: string,
   lang: "ar" | "en" = "en",
   limit = 6
 ): Promise<Record<string, unknown>[]> {
-  const supabase = await createClient();
-
   const { data: bookings, error: bookingsErr } = await supabase
     .from("bookings")
     .select("id, teacher_id, session_type, scheduled_at")
@@ -848,10 +851,10 @@ export async function getStudentRecentRecordings(
 // ============================================
 
 export async function getTeacherWeeklyHours(
+  supabase: ServerClient,
   teacherId: string,
   lang: "ar" | "en" = "en"
 ): Promise<ChartDataPoint[]> {
-  const supabase = await createClient();
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -884,10 +887,9 @@ export async function getTeacherWeeklyHours(
 }
 
 export async function getTeacherLiveSessions(
+  supabase: ServerClient,
   teacherId: string
 ): Promise<LiveSessionItem[]> {
-  const supabase = await createClient();
-
   // Throw on supabase errors so helperOrFail at the call site can surface
   // them — empty-array returns are reserved for genuinely-zero-rows.
   const bookingsRes = await supabase
@@ -976,9 +978,9 @@ const BREAKDOWN_COLORS: Record<
 };
 
 export async function getTeacherSessionTypeBreakdown(
+  supabase: ServerClient,
   teacherId: string
 ): Promise<{ label: string; value: number; color: string }[]> {
-  const supabase = await createClient();
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -1010,11 +1012,10 @@ export async function getTeacherSessionTypeBreakdown(
 }
 
 export async function getTeacherRecentStudents(
+  supabase: ServerClient,
   teacherId: string,
   limit = 6
 ): Promise<{ id: string; [key: string]: unknown }[]> {
-  const supabase = await createClient();
-
   const bookingsRes = await supabase
     .from("bookings")
     .select("id, student_id, session_type, scheduled_at")
@@ -1360,9 +1361,9 @@ export async function getAdminRecentBookings(
  * component, not here, since they're a UX choice.
  */
 export async function getTeacherTimeToGrade(
+  supabase: ServerClient,
   teacherId: string,
 ): Promise<{ medianHours: number | null; p90Hours: number | null; sampleSize: number }> {
-  const supabase = await createClient();
   const thirtyDaysAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
   // Only graded follow-ups (any of the 4 completed_* statuses) where both
@@ -1429,9 +1430,9 @@ export async function getTeacherTimeToGrade(
 export type RecitationErrorCategory = "makharij" | "sifat" | "madd" | "waqf" | "ghunna" | "other";
 
 export async function getTeacherRosterErrorPulse(
+  supabase: ServerClient,
   teacherId: string,
 ): Promise<{ category: RecitationErrorCategory; count: number }[]> {
-  const supabase = await createClient();
   const thirtyDaysAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
   // Step 1: this teacher's progress rows (last 30 days). recitation_errors
@@ -1490,6 +1491,7 @@ export async function getTeacherRosterErrorPulse(
  * grading (status='student_ready'), with student name resolved.
  */
 export async function getTeacherTalqeenInbox(
+  supabase: ServerClient,
   teacherId: string,
 ): Promise<{
   totalCount: number;
@@ -1501,8 +1503,6 @@ export async function getTeacherTalqeenInbox(
     readyAt: string | null;
   }>;
 }> {
-  const supabase = await createClient();
-
   // Count + recent rows in one fetch — limited to 5 for rendering speed.
   // We get the total count by selecting with count exact head:false (count
   // returns the total, data is paginated by .limit).
@@ -1570,13 +1570,13 @@ export async function getTeacherTalqeenInbox(
  * a footnote rather than implying delivery.
  */
 export async function getTeacherParentReportDigest(
+  supabase: ServerClient,
   teacherId: string,
 ): Promise<{
   totalCount: number;
   byType: { type: string; count: number }[];
   recent: Array<{ id: string; reportType: string; studentName: string; createdAt: string; sent: boolean }>;
 }> {
-  const supabase = await createClient();
   const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   // Fetch the 3 most-recent rows + the total via count: "exact".
@@ -1670,10 +1670,9 @@ export async function getTeacherParentReportDigest(
  * split they need before context-switching between students.
  */
 export async function getTeacherRecitationStandardRoster(
+  supabase: ServerClient,
   teacherId: string,
 ): Promise<{ standard: string; count: number }[]> {
-  const supabase = await createClient();
-
   // Get the teacher's distinct students with the most recent
   // recitation_standard per student. Two-step: fetch all progress
   // rows for this teacher (sorted recent-first), then dedupe by
@@ -1714,8 +1713,7 @@ export async function getTeacherRecitationStandardRoster(
  */
 export type { MurajaahDueItem };
 
-export async function getTodaysMurajaahBatch(studentId: string): Promise<MurajaahDueItem[]> {
-  const supabase = await createClient();
+export async function getTodaysMurajaahBatch(supabase: ServerClient, studentId: string): Promise<MurajaahDueItem[]> {
   const today = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD (matches the compute cron)
   // student_review_schedule is not in the generated types until its migration is
   // live (the db-types-fresh CI gate enforces generated == prod). Query via a

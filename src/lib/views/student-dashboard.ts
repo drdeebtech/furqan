@@ -38,10 +38,10 @@ import {
  *
  * Tracer note: this is the first slice of a spec-kit'd multi-PR sweep that
  * pulls teacher + admin dashboard reads behind sibling `src/lib/views/*`
- * modules and shrinks the 1838-line `dashboard-queries.ts` god-module. The 8
- * `getStudent*` helpers still open their own `createClient()` internally; a
- * follow-up threads the injected client through them so the whole screen reads
- * on one client. They are kept as-is here to keep the tracer behavior-identical.
+ * modules and shrinks the `dashboard-queries.ts` god-module. The `getStudent*`
+ * helpers now receive the injected `supabase` client as their first argument,
+ * so the whole screen reads on one client and the bundle is testable against a
+ * fake/stub without a live server client.
  */
 
 type ServerClient = Awaited<ReturnType<typeof createClient>>;
@@ -232,19 +232,19 @@ export async function studentDashboardView(
       .eq("student_id", studentId).eq("status", "active")
       .returns<{ id: string; sessions_total: number; sessions_used: number; status: string; expires_at: string | null }[]>(),
     hwCountsP,
-    getStudentStudyAnalytics(studentId),
-    getStudentLiveSessions(studentId),
-    getStudentContinueWatching(studentId),
-    getStudentRecentRecordings(studentId),
-    getStudentNextQuiz(studentId),
+    getStudentStudyAnalytics(supabase, studentId),
+    getStudentLiveSessions(supabase, studentId),
+    getStudentContinueWatching(supabase, studentId),
+    getStudentRecentRecordings(supabase, studentId),
+    getStudentNextQuiz(supabase, studentId),
     supabase.from("student_progress")
       .select("surah_to, ayah_to, surah_from, ayah_from, level, recitation_standard, created_at")
       .eq("student_id", studentId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle<{ surah_to: number | null; ayah_to: number | null; surah_from: number | null; ayah_from: number | null; level: string; recitation_standard: string | null; created_at: string }>(),
-    getStudentStreak(studentId),
-    getStudentHomeworkPulse(studentId),
+    getStudentStreak(supabase, studentId),
+    getStudentHomeworkPulse(supabase, studentId),
     // Latest evaluation's next_goals text — drives the "Your focus this
     // week" card. Only next_goals + meta are needed; the full
     // strengths/areas_for_improvement live on /student/progress to avoid duplication.
@@ -255,7 +255,7 @@ export async function studentDashboardView(
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle<{ next_goals: string | null; evaluation_type: string; created_at: string }>(),
-    getTodaysMurajaahBatch(studentId),
+    getTodaysMurajaahBatch(supabase, studentId),
   ]);
   const packagesLoad = loadOrFail(packagesRes, [], { route: ROUTE, widget: "active-packages" });
   const lastProgressLoad = loadOrFail(lastProgressRes, null, { route: ROUTE, widget: "last-progress" });

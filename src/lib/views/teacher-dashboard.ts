@@ -131,27 +131,27 @@ export async function teacherDashboardView(
       .eq("teacher_id", teacherId).eq("status", "student_ready"),
     supabase.from("conversations").select("id").eq("teacher_id", teacherId).returns<{ id: string }[]>(),
     helperOrFail(
-      () => getTeacherWeeklyHours(teacherId),
+      () => getTeacherWeeklyHours(supabase, teacherId),
       [],
       { route: ROUTE, widget: "weekly-hours" },
     ),
     helperOrFail(
-      () => getTeacherLiveSessions(teacherId),
+      () => getTeacherLiveSessions(supabase, teacherId),
       [],
       { route: ROUTE, widget: "live-sessions" },
     ),
     helperOrFail(
-      () => getTeacherSessionTypeBreakdown(teacherId),
+      () => getTeacherSessionTypeBreakdown(supabase, teacherId),
       [],
       { route: ROUTE, widget: "session-breakdown" },
     ),
     helperOrFail(
-      () => getTeacherRecentStudents(teacherId),
+      () => getTeacherRecentStudents(supabase, teacherId),
       [],
       { route: ROUTE, widget: "recent-students" },
     ),
     helperOrFail(
-      () => getTeacherTimeToGrade(teacherId),
+      () => getTeacherTimeToGrade(supabase, teacherId),
       { medianHours: null, p90Hours: null, sampleSize: 0 },
       { route: ROUTE, widget: "time-to-grade" },
     ),

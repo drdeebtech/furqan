@@ -3,6 +3,7 @@ import { Activity, ArrowRight } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
 import { helperOrFail } from "@/lib/supabase/load-or-fail";
 import { getTeacherRosterErrorPulse, type RecitationErrorCategory } from "@/lib/dashboard-queries";
+import { createClient } from "@/lib/supabase/server";
 import { Skeleton } from "@/components/shared/skeleton";
 
 /**
@@ -26,8 +27,9 @@ const CATEGORY_LABELS: Record<RecitationErrorCategory, { ar: string; en: string 
 
 export async function RosterErrorPulse({ teacherId }: { teacherId: string }) {
   // Self-fetching for Suspense streaming (Stream 1B).
+  const supabase = await createClient();
   const { data } = await helperOrFail(
-    () => getTeacherRosterErrorPulse(teacherId),
+    () => getTeacherRosterErrorPulse(supabase, teacherId),
     [] as { category: RecitationErrorCategory; count: number }[],
     { route: "teacher-dashboard", widget: "roster-error-pulse" },
   );
