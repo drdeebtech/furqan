@@ -244,14 +244,14 @@ export function TeacherList({
                   {hasActiveSubscription ? (
                     <Link
                       href={`/student/bookings/new?teacher=${teacher.teacher_id}`}
-                      className="shrink-0 rounded-lg glass-gold px-4 py-2 text-sm font-bold text-white transition-colors md:hidden"
+                      className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-lg glass-gold px-4 py-2 text-sm font-bold text-white transition-colors md:hidden"
                     >
                       {t("احجز", "Book")}
                     </Link>
                   ) : (
                     <Link
                       href="/pricing"
-                      className="shrink-0 rounded-lg border border-gold/40 px-3 py-2 text-xs font-semibold text-gold transition-colors hover:border-gold/70 md:hidden"
+                      className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-lg border border-gold/40 px-3 py-2 text-xs font-semibold text-gold transition-colors hover:border-gold/70 md:hidden"
                       title={t("اشترك للحجز", "Subscribe to book")}
                     >
                       🔒 {t("اشترك", "Subscribe")}
@@ -329,14 +329,14 @@ export function TeacherList({
                 {hasActiveSubscription ? (
                   <Link
                     href={`/student/bookings/new?teacher=${teacher.teacher_id}`}
-                    className="mt-4 hidden w-full items-center justify-center gap-2 rounded-lg glass-gold py-2.5 font-semibold text-white transition-colors md:flex"
+                    className="mt-4 hidden min-h-[44px] w-full items-center justify-center gap-2 rounded-lg glass-gold py-2.5 font-semibold text-white transition-colors md:flex"
                   >
                     {t("احجز جلسة", "Book Session")}
                   </Link>
                 ) : (
                   <Link
                     href="/pricing"
-                    className="mt-4 hidden w-full items-center justify-center gap-2 rounded-lg border border-gold/40 py-2.5 font-semibold text-gold transition-colors hover:border-gold/70 md:flex"
+                    className="mt-4 hidden min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-gold/40 py-2.5 font-semibold text-gold transition-colors hover:border-gold/70 md:flex"
                   >
                     🔒 {t("اشترك للحجز", "Subscribe to Book")}
                   </Link>
