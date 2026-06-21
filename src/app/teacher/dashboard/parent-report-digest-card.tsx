@@ -2,6 +2,7 @@ import { Mail, Clock } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
 import { helperOrFail } from "@/lib/supabase/load-or-fail";
 import { getTeacherParentReportDigest } from "@/lib/dashboard-queries";
+import { createClient } from "@/lib/supabase/server";
 import { Skeleton } from "@/components/shared/skeleton";
 
 /**
@@ -42,8 +43,9 @@ export async function ParentReportDigestCard({ teacherId }: { teacherId: string 
   // Self-fetching for Suspense-streaming (Stream 1B). Empty fallback shape
   // matches the helper's success-path return type so no widget code below
   // needs to defend against undefined.
+  const supabase = await createClient();
   const { data } = await helperOrFail(
-    () => getTeacherParentReportDigest(teacherId),
+    () => getTeacherParentReportDigest(supabase, teacherId),
     { totalCount: 0, byType: [] as { type: string; count: number }[], recent: [] as { id: string; reportType: string; studentName: string; createdAt: string; sent: boolean }[] },
     { route: "teacher-dashboard", widget: "parent-report-digest" },
   );

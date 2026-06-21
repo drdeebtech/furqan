@@ -20,7 +20,7 @@ export default async function TeachersPage() {
   // teachers list so each teacher card can highlight matching standards.
   // Without this, the student has no signal that "Hafs an Asim" on a
   // teacher card is the standard they're already studying.
-  const [teachersRes, studentStandardRes] = await Promise.all([
+  const [teachersRes, studentStandardRes, subscriptionRes] = await Promise.all([
     supabase
       .from("teacher_profiles")
       .select("teacher_id, bio, bio_en, specialties, recitation_standards, hourly_rate, rating_avg, total_sessions, gender")
@@ -37,9 +37,17 @@ export default async function TeachersPage() {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle<{ recitation_standard: string | null }>(),
+    supabase
+      .from("subscriptions")
+      .select("id")
+      .eq("student_id", user.id)
+      .eq("status", "active")
+      .limit(1)
+      .maybeSingle(),
   ]);
   const teachers = teachersRes.data;
   const studentStandard = studentStandardRes.data?.recitation_standard ?? null;
+  const hasActiveSubscription = !!subscriptionRes.data;
 
   const list = teachers ?? [];
 
@@ -85,6 +93,7 @@ export default async function TeachersPage() {
         teachers={teacherData}
         specialtyLabels={specialtyLabels}
         studentStandard={studentStandard}
+        hasActiveSubscription={hasActiveSubscription}
       />
     </Suspense>
   );

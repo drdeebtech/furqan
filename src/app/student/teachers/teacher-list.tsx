@@ -40,6 +40,7 @@ export function TeacherList({
   teachers,
   specialtyLabels,
   studentStandard,
+  hasActiveSubscription = false,
 }: {
   teachers: TeacherData[];
   specialtyLabels: TeacherLanguage[];
@@ -47,6 +48,9 @@ export function TeacherList({
    *  who teach in the same tradition with a "matches your standard"
    *  badge. Null for brand-new students or when no standard is set. */
   studentStandard?: string | null;
+  /** Whether the student has an active subscription. Book buttons are
+   *  locked behind a paywall when false. */
+  hasActiveSubscription?: boolean;
 }) {
   // Read initial filter values from URL on mount, so deep links like
   // /student/teachers?q=aisha&specialty=hifz&gender=female open in the
@@ -108,7 +112,16 @@ export function TeacherList({
           <BookingSteps current={1} />
           <div className="mb-6 glass-card p-5 text-center">
             <p className="text-lg font-bold text-gold">{t("مرحباً! اختر معلمك لتبدأ رحلتك مع القرآن", "Welcome! Choose your teacher to begin your journey with the Qur'an")}</p>
-            <p className="mt-1 text-sm text-muted">{t("تصفح المعلمين واضغط \"احجز\" لحجز جلستك الأولى", "Browse teachers and press \"Book\" to schedule your first session")}</p>
+            {hasActiveSubscription ? (
+              <p className="mt-1 text-sm text-muted">{t("تصفح المعلمين واضغط \"احجز\" لحجز جلستك الأولى", "Browse teachers and press \"Book\" to schedule your first session")}</p>
+            ) : (
+              <p className="mt-1 text-sm text-muted">
+                {t("تحتاج إلى اشتراك للحجز — ", "You need a subscription to book — ")}
+                <Link href="/pricing" className="font-semibold text-gold underline underline-offset-2 hover:text-gold-light">
+                  {t("اشترك الآن", "Subscribe now")}
+                </Link>
+              </p>
+            )}
           </div>
         </>
       )}
@@ -228,12 +241,22 @@ export function TeacherList({
                     </div>
                   </Link>
                   {/* Mobile: inline book button */}
-                  <Link
-                    href={`/student/bookings/new?teacher=${teacher.teacher_id}`}
-                    className="shrink-0 rounded-lg glass-gold px-4 py-2 text-sm font-bold text-white transition-colors md:hidden"
-                  >
-                    {t("احجز", "Book")}
-                  </Link>
+                  {hasActiveSubscription ? (
+                    <Link
+                      href={`/student/bookings/new?teacher=${teacher.teacher_id}`}
+                      className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-lg glass-gold px-4 py-2 text-sm font-bold text-white transition-colors md:hidden"
+                    >
+                      {t("احجز", "Book")}
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/pricing"
+                      className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-lg border border-gold/40 px-3 py-2 text-xs font-semibold text-gold transition-colors hover:border-gold/70 md:hidden"
+                      title={t("اشترك للحجز", "Subscribe to book")}
+                    >
+                      🔒 {t("اشترك", "Subscribe")}
+                    </Link>
+                  )}
                 </div>
 
                 {/* Desktop-only details */}
@@ -303,12 +326,21 @@ export function TeacherList({
                 )}
 
                 {/* Desktop: full-width book button */}
-                <Link
-                  href={`/student/bookings/new?teacher=${teacher.teacher_id}`}
-                  className="mt-4 hidden w-full items-center justify-center gap-2 rounded-lg glass-gold py-2.5 font-semibold text-white transition-colors md:flex"
-                >
-                  {t("احجز جلسة", "Book Session")}
-                </Link>
+                {hasActiveSubscription ? (
+                  <Link
+                    href={`/student/bookings/new?teacher=${teacher.teacher_id}`}
+                    className="mt-4 hidden min-h-[44px] w-full items-center justify-center gap-2 rounded-lg glass-gold py-2.5 font-semibold text-white transition-colors md:flex"
+                  >
+                    {t("احجز جلسة", "Book Session")}
+                  </Link>
+                ) : (
+                  <Link
+                    href="/pricing"
+                    className="mt-4 hidden min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-gold/40 py-2.5 font-semibold text-gold transition-colors hover:border-gold/70 md:flex"
+                  >
+                    🔒 {t("اشترك للحجز", "Subscribe to Book")}
+                  </Link>
+                )}
               </div>
             );
           })}

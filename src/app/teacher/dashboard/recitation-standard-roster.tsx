@@ -2,6 +2,7 @@ import { BookMarked } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
 import { helperOrFail } from "@/lib/supabase/load-or-fail";
 import { getTeacherRecitationStandardRoster } from "@/lib/dashboard-queries";
+import { createClient } from "@/lib/supabase/server";
 import { Skeleton } from "@/components/shared/skeleton";
 
 /**
@@ -27,8 +28,9 @@ const STANDARD_LABELS: Record<string, { ar: string; en: string }> = {
 export async function RecitationStandardRoster({ teacherId }: { teacherId: string }) {
   // Self-fetching for Suspense streaming (Stream 1B). Falls back to []
   // on helper error — same as the page-level helperOrFail did before.
+  const supabase = await createClient();
   const { data } = await helperOrFail(
-    () => getTeacherRecitationStandardRoster(teacherId),
+    () => getTeacherRecitationStandardRoster(supabase, teacherId),
     [] as { standard: string; count: number }[],
     { route: "teacher-dashboard", widget: "recitation-standard-roster" },
   );
