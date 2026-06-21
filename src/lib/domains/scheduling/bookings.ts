@@ -97,6 +97,18 @@ export async function createConstrainedBooking(
     throw new SlotAlreadyBookedError();
   }
 
+  // Resolve the session length from the student's subscription plan
+  // (`subscription_plans.session_duration_min`). Falls back to 60 when the
+  // plan or column is absent, preserving the previous hardcoded default.
+  const { data: subRow } = await admin
+    .from("subscriptions")
+    .select("subscription_plans!inner(session_duration_min)")
+    .eq("id", assignment.subscription_id)
+    .maybeSingle();
+  const planRel = subRow?.subscription_plans;
+  const plan = Array.isArray(planRel) ? planRel[0] : planRel;
+  const durationMin = plan?.session_duration_min ?? 60;
+
   // 4. Insert booking
   // Note: student_package_id resolution and debit is owned by the existing kernel
   // (confirm_booking_with_session). This route only creates the reservation.
@@ -107,7 +119,7 @@ export async function createConstrainedBooking(
       teacher_id: slot.teacher_id,
       scheduled_at: scheduledAt,
       status: "pending",
-      duration_min: 60, // TODO: fetch from tier
+      duration_min: durationMin,
       amount_usd: 0,
       rate_snapshot: 0,
     } satisfies TableInsert<"bookings">)

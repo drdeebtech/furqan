@@ -31,6 +31,7 @@ describe("createConstrainedBooking", () => {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     single: vi.fn(),
+    maybeSingle: vi.fn(),
   };
 
   const userId = "student-123";
@@ -65,6 +66,12 @@ describe("createConstrainedBooking", () => {
 
     vi.spyOn(availability, "lockSlot").mockResolvedValue(true);
 
+    // Plan lookup → session length comes from the subscription plan.
+    mockAdmin.maybeSingle.mockResolvedValueOnce({
+      data: { subscription_plans: { session_duration_min: 30 } },
+      error: null,
+    });
+
     mockSupabase.single.mockResolvedValueOnce({
       data: { id: "booking-001" },
       error: null,
@@ -85,9 +92,31 @@ describe("createConstrainedBooking", () => {
         scheduled_at: expectedScheduledAt, // derived server-side, not from client
         status: "pending",
         amount_usd: 0,
-        duration_min: 60,
+        duration_min: 30, // sourced from subscription_plans.session_duration_min
         rate_snapshot: 0,
       }),
+    );
+  });
+
+  it("falls back to 60-minute duration when the plan has none", async () => {
+    vi.spyOn(assignments, "getMyAssignment").mockResolvedValue({
+      teacher_id: teacherId,
+    } as never);
+
+    mockAdmin.single.mockResolvedValueOnce({ data: slotRow(), error: null });
+    vi.spyOn(availability, "lockSlot").mockResolvedValue(true);
+    mockAdmin.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+    mockSupabase.single.mockResolvedValueOnce({ data: { id: "booking-002" }, error: null });
+
+    await createConstrainedBooking(
+      mockSupabase as unknown as SupabaseClient<Database>,
+      mockAdmin as unknown as SupabaseClient<Database>,
+      userId,
+      slotInstanceId,
+    );
+
+    expect(mockSupabase.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ duration_min: 60 }),
     );
   });
 
@@ -180,6 +209,8 @@ describe("createConstrainedBooking", () => {
     const unlockSpy = vi
       .spyOn(availability, "unlockSlot")
       .mockResolvedValue(undefined);
+
+    mockAdmin.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
 
     const bookErr = { code: "23505", message: "duplicate booking" };
     mockSupabase.single.mockResolvedValueOnce({
