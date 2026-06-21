@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { withCronMonitor } from "@/lib/sentry/cron";
-import { safeCompareSecret } from "@/lib/security/secrets";
+import { withAuthedCronMonitor } from "@/lib/sentry/cron";
 
 export const dynamic = "force-dynamic";
 
@@ -27,18 +26,7 @@ export const dynamic = "force-dynamic";
  * Auth: still accepts Vercel's `Authorization: Bearer ${CRON_SECRET}`
  * for any operator who wants to invoke the route without n8n.
  */
-export const GET = withCronMonitor("cron-audit-cleanup", "0 2 * * *", async (request: Request) => {
-  const cronAuth = request.headers.get("authorization");
-  const expectedCron = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-  const cronOk = !!expectedCron && safeCompareSecret(cronAuth, expectedCron);
-
-  const n8nSecret = request.headers.get("X-N8N-Secret");
-  const n8nOk = safeCompareSecret(n8nSecret, process.env.N8N_WEBHOOK_SECRET);
-
-  if (!cronOk && !n8nOk) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export const GET = withAuthedCronMonitor("cron-audit-cleanup", "0 2 * * *", async () => {
   const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
   const webhookCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const admin = createAdminClient();

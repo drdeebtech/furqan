@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { scoreRetentionBatch } from "@/lib/actions/retention-batch";
-import { safeCompareSecret } from "@/lib/security/secrets";
-import { withCronMonitor } from "@/lib/sentry/cron";
+import { withAuthedCronMonitor } from "@/lib/sentry/cron";
 
 /**
  * Daily retention scorer endpoint.
@@ -16,18 +15,7 @@ import { withCronMonitor } from "@/lib/sentry/cron";
  * marks the run failed (withMonitor keys on a thrown error, not a 500 body), so
  * we let it propagate instead of swallowing it into a JSON 500.
  */
-export const POST = withCronMonitor("cron-retention-score", "0 4 * * *", async (request: Request) => {
-  const cronAuth = request.headers.get("authorization");
-  const expectedCron = process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : null;
-  const cronOk = !!expectedCron && safeCompareSecret(cronAuth, expectedCron);
-
-  const n8nSecret = request.headers.get("X-N8N-Secret");
-  const n8nOk = safeCompareSecret(n8nSecret, process.env.N8N_WEBHOOK_SECRET);
-
-  if (!cronOk && !n8nOk) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+export const POST = withAuthedCronMonitor("cron-retention-score", "0 4 * * *", async () => {
   const result = await scoreRetentionBatch();
   return NextResponse.json({ ok: true, ...result });
 });
