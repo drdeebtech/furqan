@@ -14,6 +14,7 @@ import "server-only";
  */
 
 import type Stripe from "stripe";
+import { z } from "zod";
 import type { Json } from "@/types/supabase.generated";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError, logInfo } from "@/lib/logger";
@@ -214,7 +215,11 @@ async function resolveSubscription(
   let priceId: string | null = null;
   try {
     const sub = await ctx.stripe.subscriptions.retrieve(subscriptionId);
-    studentId = (sub.metadata?.student_id as string | undefined) ?? null;
+    // Defense-in-depth: `student_id` is server-stamped at checkout and reaches
+    // us via Stripe's signature-verified API, and the subscriptions.student_id
+    // FK→profiles already rejects a bogus id — but validate the shape here so a
+    // malformed value fails fast and clearly rather than at the DB layer.
+    studentId = z.uuid().safeParse(sub.metadata?.student_id).data ?? null;
     priceId = sub.items?.data?.[0]?.price?.id ?? null;
   } catch (err) {
     logError("stripe-webhook: subscriptions.retrieve failed", err, {

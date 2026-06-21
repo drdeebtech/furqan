@@ -1,15 +1,21 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { requireAdminForApi } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { activateWorkflow, deactivateWorkflow } from "@/lib/n8n/client";
 import { logError } from "@/lib/logger";
 
+const Body = z.object({ id: z.string().min(1), active: z.boolean() });
+
 export async function POST(request: Request) {
   const guard = await requireAdminForApi();
   if (guard instanceof NextResponse) return guard;
 
-  const { id, active } = await request.json();
-  if (!id) return NextResponse.json({ error: "Missing workflow id" }, { status: 400 });
+  const parsed = Body.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid body: { id: string, active: boolean } required" }, { status: 400 });
+  }
+  const { id, active } = parsed.data;
 
   const admin = createAdminClient();
   const action = active ? "activate" : "deactivate";

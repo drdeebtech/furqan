@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { BreadcrumbSchema } from "@/components/seo/structured-data";
 import { BASE_URL } from "@/lib/constants";
+import { logError } from "@/lib/logger";
 import { PricingContent } from "./content";
 
 export const metadata: Metadata = {
@@ -30,7 +31,7 @@ export default async function PricingPage() {
     >();
 
   if (error) {
-    console.error("[pricing] failed to load subscription_plans:", error.message);
+    logError("pricing: subscription_plans fetch failed", error, { tag: "pricing" });
   }
 
   return (
