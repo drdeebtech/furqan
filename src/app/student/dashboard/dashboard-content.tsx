@@ -89,8 +89,15 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
   // read exactly once at page load. Including `searchParams` in deps would
   // re-fire on subsequent navigations and show duplicate toasts.
   useEffect(() => {
+    const sub = searchParams.get("subscription");
     if (searchParams.get("booked") === "1") {
       toast.success(t("تم الحجز بنجاح! سيتم تأكيده من المعلم", "Booking submitted! Teacher will confirm soon."));
+      window.history.replaceState(null, "", "/student/dashboard");
+    } else if (sub === "success") {
+      toast.success(t("تم تفعيل اشتراكك! يمكنك الآن حجز جلساتك", "Subscription activated! You can now book sessions."));
+      window.history.replaceState(null, "", "/student/dashboard");
+    } else if (sub === "cancelled") {
+      toast.info(t("تم إلغاء عملية الدفع", "Payment was cancelled."));
       window.history.replaceState(null, "", "/student/dashboard");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

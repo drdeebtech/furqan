@@ -112,7 +112,16 @@ export function TeacherList({
           <BookingSteps current={1} />
           <div className="mb-6 glass-card p-5 text-center">
             <p className="text-lg font-bold text-gold">{t("مرحباً! اختر معلمك لتبدأ رحلتك مع القرآن", "Welcome! Choose your teacher to begin your journey with the Qur'an")}</p>
-            <p className="mt-1 text-sm text-muted">{t("تصفح المعلمين واضغط \"احجز\" لحجز جلستك الأولى", "Browse teachers and press \"Book\" to schedule your first session")}</p>
+            {hasActiveSubscription ? (
+              <p className="mt-1 text-sm text-muted">{t("تصفح المعلمين واضغط \"احجز\" لحجز جلستك الأولى", "Browse teachers and press \"Book\" to schedule your first session")}</p>
+            ) : (
+              <p className="mt-1 text-sm text-muted">
+                {t("تحتاج إلى اشتراك للحجز — ", "You need a subscription to book — ")}
+                <Link href="/pricing" className="font-semibold text-gold underline underline-offset-2 hover:text-gold-light">
+                  {t("اشترك الآن", "Subscribe now")}
+                </Link>
+              </p>
+            )}
           </div>
         </>
       )}

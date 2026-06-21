@@ -145,7 +145,7 @@ export async function studentDashboardView(
     .eq("student_id", studentId).eq("status", "completed").gte("created_at", monthStart);
   if (monthEnd) monthQ = monthQ.lte("created_at", monthEnd);
 
-  const [profileRes, nextBookingRes, totalRes, monthRes, pendingRes] = await Promise.all([
+  const [profileRes, nextBookingRes, totalRes, monthRes, pendingRes, activeSubRes] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", studentId).single<{ full_name: string | null }>(),
     supabase.from("bookings")
       .select("id, teacher_id, scheduled_at, duration_min, session_type, status")
@@ -156,6 +156,7 @@ export async function studentDashboardView(
     totalQScoped,
     monthQ,
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("student_id", studentId).eq("status", "pending"),
+    supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("student_id", studentId).eq("status", "active").limit(1),
   ]);
 
   // loadOrFail: pipe failed reads through Sentry with the dashboard route
@@ -174,9 +175,11 @@ export async function studentDashboardView(
   const totalSessions = totalLoad.count;
   const monthSessions = monthLoad.count;
   const pendingBookings = pendingLoad.count;
+  const hasActiveSub = (activeSubRes.count ?? 0) > 0;
 
-  // New students with no activity → page guides them to the teachers screen.
-  const isNewStudent = !anyFailed && totalSessions === 0 && pendingBookings === 0 && !nextBooking;
+  // New students with no activity AND no active subscription → guide to teachers.
+  // Subscribed students with no sessions yet land on the dashboard (not a loop).
+  const isNewStudent = !anyFailed && totalSessions === 0 && pendingBookings === 0 && !nextBooking && !hasActiveSub;
   if (isNewStudent) {
     return {
       data: emptyData(fullName, now),
