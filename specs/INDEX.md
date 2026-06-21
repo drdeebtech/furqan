@@ -33,6 +33,7 @@
 | [023-reports-gamification-notifications](./023-reports-gamification-notifications/spec.md) | Shipped | `023-reports-gamification-notifications` | [#490](https://github.com/drdeebtech/furqan/pull/490) |
 | [024-migration-cutover](./024-migration-cutover/spec.md) | Shipped | `024-migration-cutover` | [#495](https://github.com/drdeebtech/furqan/pull/495) |
 | [025-subscribe-checkout](./025-subscribe-checkout/spec.md) | Malformed | _(unknown)_ | _(pending)_ |
+| [026-database-types-drift-guard](./026-database-types-drift-guard/spec.md) | Draft | _(unknown)_ | _(pending)_ |
 
 ## Abandoned (last 90 days)
 
