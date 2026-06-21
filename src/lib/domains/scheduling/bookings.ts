@@ -100,11 +100,17 @@ export async function createConstrainedBooking(
   // Resolve the session length from the student's subscription plan
   // (`subscription_plans.session_duration_min`). Falls back to 60 when the
   // plan or column is absent, preserving the previous hardcoded default.
-  const { data: subRow } = await admin
+  const { data: subRow, error: subErr } = await admin
     .from("subscriptions")
     .select("subscription_plans!inner(session_duration_min)")
     .eq("id", assignment.subscription_id)
     .maybeSingle();
+  if (subErr) {
+    logError("createConstrainedBooking: plan duration lookup failed (defaulting to 60)", subErr, {
+      tag: "scheduling",
+      student_id: userId,
+    });
+  }
   const planRel = subRow?.subscription_plans;
   const plan = Array.isArray(planRel) ? planRel[0] : planRel;
   const durationMin = plan?.session_duration_min ?? 60;

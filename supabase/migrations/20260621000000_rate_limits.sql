@@ -24,6 +24,10 @@ create table if not exists public.rate_limits (
 -- touch this table; authenticated/anon get deny-all.
 alter table public.rate_limits enable row level security;
 
+-- NOTE: one row accumulates per (bucket, identifier, window). Volume is bounded
+-- per active identifier, but a periodic purge of windows older than the longest
+-- configured window is a sensible follow-up (pg_cron / scheduled job).
+
 -- Atomically bump the counter for the current fixed window and report whether
 -- the caller is still under the limit. Returns true = allowed, false = exceeded.
 create or replace function public.check_and_increment_rate_limit(
@@ -42,6 +46,11 @@ declare
 begin
   if p_window_seconds is null or p_window_seconds <= 0 then
     raise exception 'check_and_increment_rate_limit: window_seconds must be > 0'
+      using errcode = '22023';
+  end if;
+
+  if p_max is null or p_max < 0 then
+    raise exception 'check_and_increment_rate_limit: max must be >= 0'
       using errcode = '22023';
   end if;
 

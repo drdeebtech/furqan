@@ -38,18 +38,25 @@ export async function POST(request: Request) {
   // Per-guardian rate limit (audit H-1): blunts the email-enumeration/abuse
   // vector. Keyed on the authenticated guardian id, not client IP — the
   // endpoint is auth-gated, so userId is the trustworthy throttle key.
-  const { data: rateAllowed } = await (
+  const { data: rateAllowed, error: rateErr } = await (
     admin.rpc as unknown as (
       fn: string,
       args: Record<string, unknown>,
-    ) => Promise<{ data: boolean | null }>
+    ) => Promise<{ data: boolean | null; error: { message: string } | null }>
   )("check_and_increment_rate_limit", {
     p_bucket: "guardian_add_child",
     p_identifier: userId,
     p_max: 20,
     p_window_seconds: 3600,
   });
-  if (rateAllowed === false) {
+  if (rateErr) {
+    // Fail open on a limiter infra error — don't block a legitimate guardian
+    // because the throttle is down — but log so the outage is visible.
+    logError("add-child: rate-limit check failed (allowing)", rateErr, {
+      tag: "guardian",
+      guardian_id: userId,
+    });
+  } else if (rateAllowed === false) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
