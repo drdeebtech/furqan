@@ -219,7 +219,8 @@ async function resolveSubscription(
     // us via Stripe's signature-verified API, and the subscriptions.student_id
     // FK→profiles already rejects a bogus id — but validate the shape here so a
     // malformed value fails fast and clearly rather than at the DB layer.
-    studentId = z.uuid().safeParse(sub.metadata?.student_id).data ?? null;
+    const studentIdParsed = z.uuid().safeParse(sub.metadata?.student_id);
+    studentId = studentIdParsed.success ? studentIdParsed.data : null;
     priceId = sub.items?.data?.[0]?.price?.id ?? null;
   } catch (err) {
     logError("stripe-webhook: subscriptions.retrieve failed", err, {
