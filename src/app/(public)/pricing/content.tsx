@@ -215,7 +215,7 @@ export function PricingContent({ plans }: { plans: Plan[] }) {
             <span aria-hidden="true" className="text-muted-light">·</span>
             <span className="inline-flex items-center gap-1.5">
               <CheckCircle size={14} className="shrink-0 text-success" aria-hidden="true" />
-              {t("ألغِ في أي وقت", "Cancel anytime")}
+              {t("اشتراك شهري بدون عقد", "Monthly — no long-term contract")}
             </span>
           </div>
           <p className="font-display mt-4 text-base text-gold/70">
@@ -268,6 +268,75 @@ export function PricingContent({ plans }: { plans: Plan[] }) {
               )}
             </p>
           )}
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="pb-16" aria-labelledby="faq-heading">
+        <div className="mx-auto max-w-3xl px-6">
+          <h2
+            id="faq-heading"
+            className="font-display mb-6 text-center text-2xl font-bold"
+          >
+            {t("أسئلة شائعة", "Frequently asked questions")}
+          </h2>
+          <div className="space-y-3">
+            {[
+              {
+                q: t("كيف يتم اختيار المعلمين؟", "How are teachers selected?"),
+                a: t(
+                  "كل المعلمين حاصلون على الإجازة، وتتم مراجعة سيرتهم الذاتية قبل اعتمادهم على المنصة.",
+                  "All teachers hold an Ijazah, and their credentials are reviewed before they're approved on the platform.",
+                ),
+              },
+              {
+                q: t("هل توجد حصة تجريبية؟", "Is there a trial session?"),
+                a: t(
+                  "نعم، تتوفر حصة تجريبية مدفوعة لتجربة المعلم والأسلوب قبل الاشتراك الكامل.",
+                  "Yes — a paid trial session is available to try the teacher and approach before committing to a full subscription.",
+                ),
+              },
+              {
+                q: t("كيف ألغي اشتراكي؟", "How do I cancel my subscription?"),
+                a: t(
+                  "تواصل مع فريق الدعم في أي وقت وسنساعدك في إنهاء الاشتراك.",
+                  "Contact our support team anytime and we'll help you cancel your subscription.",
+                ),
+              },
+              {
+                q: t("هل يمكن استرجاع المبلغ؟", "Can I get a refund?"),
+                a: t(
+                  "نراجع طلبات الاسترجاع حسب كل حالة — تواصل مع الدعم وسنبحث الأمر معك.",
+                  "Refund requests are reviewed case by case — contact support and we'll look into it with you.",
+                ),
+              },
+              {
+                q: t("ماذا لو فاتتني حصة؟", "What if I miss a session?"),
+                a: t(
+                  "ننصح بالحرص على موعدك؛ الحصة الفائتة تُحتسب ضمن باقتك ولا تُعوَّض، لذا اختر وقتاً يناسبك عند الحجز.",
+                  "Please attend on time — a missed session counts toward your plan and isn't made up, so choose a time that suits you when booking.",
+                ),
+              },
+            ].map((item) => (
+              <details
+                key={item.q}
+                className="glass-card group p-5 [&_summary::-webkit-details-marker]:hidden"
+              >
+                <summary className="flex cursor-pointer items-center justify-between gap-3 text-sm font-semibold focus-ring">
+                  <span>{item.q}</span>
+                  <span
+                    aria-hidden="true"
+                    className="text-muted transition-transform group-open:rotate-180"
+                  >
+                    ⌄
+                  </span>
+                </summary>
+                <p className="mt-3 text-sm leading-relaxed text-muted">
+                  {item.a}
+                </p>
+              </details>
+            ))}
+          </div>
         </div>
       </section>
 
