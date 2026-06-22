@@ -6,6 +6,8 @@ dab0f2dd049ccbb1beb211fdcdf7f8c2c0b74c57:testsprite_tests/TC005_post_api_booking
 dab0f2dd049ccbb1beb211fdcdf7f8c2c0b74c57:testsprite_tests/TC010_get_api_n8n_workflows_admin_authenticated.py:generic-api-key:8
 dc5749e77f47cc9c3eacb7b8625b4abf014b058c:supabase/migrations/20260601202447_murajaah_scheduler_sm2_foundation.sql:generic-api-key:82
 dc5749e77f47cc9c3eacb7b8625b4abf014b058c:supabase/migrations/20260601202447_murajaah_scheduler_sm2_foundation.sql:generic-api-key:83
+a8b5f1268ba871dbab5087217a6db64afb34756c:supabase/migrations/20260428000000_remote_baseline.sql:generic-api-key:592
+a8b5f1268ba871dbab5087217a6db64afb34756c:supabase/migrations/20260428000000_remote_baseline.sql:generic-api-key:593
 b84dadaa2b7869196c958eff6739746ab546c26e:.claude/agents/payments/agentic-payments.md:generic-api-key:35
 d4ef1b588a78de5d6e428f4444af484e431b75ab:src/lib/daily/webhook-verify.test.ts:generic-api-key:72
 9ef641bab7aa6e03c15331285a9eca995f98ec67:src/lib/daily/webhook-verify.test.ts:generic-api-key:5
@@ -28,7 +30,10 @@ e7f45f409ffcb6217ec5553dfdfc2077f0887d50:src/lib/n8n/audit.test.ts:jwt:46
 # ─── Baseline rationale (triaged 2026-06-07) ──────────────────────────────────
 # All fingerprints above are historical-commit findings, triaged as:
 # - Sentry DSN public keys in csp.ts / vercel.json CSP report-uri (public by design)
-# - SM-2 algorithm column names in migration + data-model.md (identifiers, not secrets)
+# - SM-2 algorithm column names in migration + data-model.md (identifiers, not secrets).
+#   Same `platform_settings` key names ('sm2_initial_interval_days', 'sm2_easiness_factor')
+#   appear in BOTH the archived scheduler migration (lines 7-8 above) and the prod baseline
+#   remote_baseline.sql:592-593 (lines 9-10 above) — `where key = '...'` lookups, not credentials.
 # - Test dummy values in webhook/idempotency/audit tests (literal "test-secret…" / fake JWT)
 # - Daily.co probe fixture @ d4ef1b5 — real at capture time; scrubbed in 9ef641b and
 #   DAILY_WEBHOOK_SECRET rotated the same day (2026-05-12)
