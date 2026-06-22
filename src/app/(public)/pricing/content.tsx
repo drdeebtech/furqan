@@ -191,7 +191,10 @@ export function PricingContent({ plans }: { plans: Plan[] }) {
             <span className="text-muted">{t("الأسعار", "Pricing")}</span>
           </nav>
           <h1 className="font-display mt-4 text-4xl font-bold leading-tight sm:text-5xl">
-            {t("خطط الاشتراك", "Subscription Plans")}
+            {t(
+              "احفظ القرآن مع معلّم مُجاز — اختر خطتك",
+              "Memorize the Quran with a certified teacher — choose your plan",
+            )}
           </h1>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted sm:text-base">
             {t(
@@ -199,6 +202,22 @@ export function PricingContent({ plans }: { plans: Plan[] }) {
               "Start your Quran memorisation journey — choose the plan that fits your schedule and goal.",
             )}
           </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-xs text-muted">
+            <span className="inline-flex items-center gap-1.5">
+              <CheckCircle size={14} className="shrink-0 text-success" aria-hidden="true" />
+              {t("معلمون حاصلون على الإجازة", "Ijazah-certified teachers")}
+            </span>
+            <span aria-hidden="true" className="text-muted-light">·</span>
+            <span className="inline-flex items-center gap-1.5">
+              <CheckCircle size={14} className="shrink-0 text-success" aria-hidden="true" />
+              {t("جلسات فيديو مباشرة", "Live video sessions")}
+            </span>
+            <span aria-hidden="true" className="text-muted-light">·</span>
+            <span className="inline-flex items-center gap-1.5">
+              <CheckCircle size={14} className="shrink-0 text-success" aria-hidden="true" />
+              {t("ألغِ في أي وقت", "Cancel anytime")}
+            </span>
+          </div>
           <p className="font-display mt-4 text-base text-gold/70">
             ﴿ إِنَّا نَحْنُ نَزَّلْنَا الذِّكْرَ وَإِنَّا لَهُ لَحَافِظُونَ ﴾
           </p>
