@@ -20,9 +20,9 @@ Furqan is a full-stack Next.js (App Router) + Supabase + Stripe Quran-memorizati
 
 | File | Scope |
 |------|-------|
-| [domains.md](./domains.md) | `src/lib/domains/**` — 84 files, 8 domain owners (billing, booking, progress, etc.) |
+| [domains.md](./domains.md) | `src/lib/domains/**` — 47 files, 15 domain owners (billing, booking, progress, etc.) |
 | [actions-and-views.md](./actions-and-views.md) | `src/lib/actions/**` + `src/lib/views/**` — server actions, cross-route reads, barrel pattern |
-| [api-routes.md](./api-routes.md) | `src/app/api/**` — 72 routes (webhooks, cron, integrations, auth) |
+| [api-routes.md](./api-routes.md) | `src/app/api/**` — 67 routes (webhooks, cron, integrations, auth) |
 | [app-screens.md](./app-screens.md) | `src/app/{admin,teacher,student,(public),(auth)}/...` — user-facing pages & layouts |
 
 ## Quick Lookups
@@ -37,7 +37,7 @@ Furqan is a full-stack Next.js (App Router) + Supabase + Stripe Quran-memorizati
 
 ## Architecture Overview
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │  src/app/{admin,teacher,student,(public),(auth)}/          │
 │  User-facing screens, layouts, page.tsx, layout.tsx        │

@@ -98,6 +98,8 @@ Entry point: `/admin/dashboard` — system overview, key metrics, quick actions.
 
 Entry point: `/teacher/dashboard` — students, sessions, follow-up, evaluations overview.
 
+> **Scope:** this table lists rendered screens (`page.tsx`) only — it is **not** an exhaustive map of every booking-related route. Booking **confirm** and **new** flows are route adapters (`actions.ts`), not standalone teacher screens: `confirmBooking` is wrapped by `src/app/admin/bookings/actions.ts`, and the create-booking screen lives under the student tree (`/student/bookings/new`). There is no `/teacher/bookings/*` route tree.
+
 | Route | File | Purpose | Called Actions |
 |-------|------|---------|---|
 | `/teacher/dashboard` | `teacher/dashboard/page.tsx` | Overview (upcoming sessions, student roster, follow-up pending, hours) | `getTeacherDashboard(client)` from views |

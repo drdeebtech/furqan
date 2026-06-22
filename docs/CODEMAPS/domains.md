@@ -1,7 +1,7 @@
 # Domains Codemap
 
 **Last Updated:** 2026-06-22
-**Location:** `src/lib/domains/**` (16 domains, 47 files)
+**Location:** `src/lib/domains/**` (15 domains, 47 files)
 
 The domains layer owns business logic. Each domain has a **single owner** (Table 3, CONTEXT.md). Phase 5 pilot: Booking domain migrated to `domains/booking/{actions.ts, types.ts, orchestrate.ts, validation.ts}`; others still split between `src/lib/actions/*` and route-colocated files.
 
@@ -64,14 +64,14 @@ The domains layer owns business logic. Each domain has a **single owner** (Table
 **Key files:**
 - `types.ts` — booking data shapes, enums, error classes
 - `actions.ts` — `createBooking`, `updateBookingStatus`, `cancelBooking` (domain-owned mutations)
-- `orchestrate.ts` — `confirmBooking(bookingId, roomUrl?)`: atomic session creation + package debit + events/notifications (called by route adapters in `src/app/{teacher,admin}/bookings/*/actions.ts`)
+- `orchestrate.ts` — `confirmBooking(bookingId, roomUrl?)`: atomic session creation + package debit + events/notifications (called by the route adapter in `src/app/admin/bookings/actions.ts`)
 - `validation.ts` — input shape validation, Zod schemas for bookings
 
 **Route adapters still colocated:**
-- `src/app/teacher/bookings/confirm/actions.ts` — wraps `confirmBooking`, handles FormData/auth
-- `src/app/teacher/bookings/new/actions.ts` — wraps `createBooking`
+- `src/app/admin/bookings/actions.ts` — wraps `confirmBooking` and `createBooking`, handles FormData/auth
+- `src/app/student/bookings/new/actions.ts` — wraps `createBooking` (student-initiated booking)
 
-**Key detail:** Booking mutations route through domain `actions.ts` (phase 5 pilot). Orchestrator `confirmBooking` owns the 5-step sequence: Daily room creation → atomic `confirm_booking_with_session()` SQL → package debit → audit log → event emission → notifications (best-effort).
+**Key detail:** Booking mutations route through domain `actions.ts` (phase 5 pilot). Orchestrator `confirmBooking` owns the 5-step sequence: pre-read booking row → reject if not `pending` → Daily room creation → atomic `confirm_booking_with_session()` SQL (UPDATE status + INSERT session; package debit runs via the `deduct_student_package` trigger inside this transaction) → best-effort post-commit fan-out (notify student + emit `booking.confirmed`).
 
 ---
 
@@ -283,7 +283,7 @@ The domains layer owns business logic. Each domain has a **single owner** (Table
 - `opt-out.ts` — student opt-out (RLS hides their rank from public view)
 
 **Entry points:**
-- Cron: `src/app/api/cron/honor-board-compute/route.ts`
+- API: `src/app/api/honor-board/route.ts` (GET rankings; compute happens on read/cache)
 - Route adapters: `src/app/student/settings/privacy/actions.ts` (opt-out)
 
 ---

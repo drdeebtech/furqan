@@ -1,7 +1,7 @@
 # API Routes Codemap
 
 **Last Updated:** 2026-06-22
-**Location:** `src/app/api/**` (72 routes)
+**Location:** `src/app/api/**` (67 routes)
 
 API routes are integration endpoints: webhooks (Stripe, Daily, n8n, Bunny), cron jobs, admin endpoints, and client-side POST handlers.
 
@@ -9,7 +9,7 @@ API routes are integration endpoints: webhooks (Stripe, Daily, n8n, Bunny), cron
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │  src/app/api/**                                            │
 │  ├── {webhooks, cron, admin, auth, ...}/route.ts          │
@@ -89,6 +89,7 @@ API routes are integration endpoints: webhooks (Stripe, Daily, n8n, Bunny), cron
 | `/api/n8n/toggle` | POST | Enable/disable workflow | `requireAdmin()` |
 | `/api/n8n/auto-restart` | POST | Force restart failed workflow | `requireAdmin()` |
 | `/api/n8n/admin-actions` | POST | Trigger admin workflow (user management, retention, etc.) | `requireAdmin()` |
+| `/api/n8n/audit` | POST | Full workflow audit (fetch all workflows + executions) | `requireAdmin()` |
 
 **Webhook (`/api/webhooks/n8n`):**
 - Receives: automation events (billing cycle grant, retention batch, broadcasts)
@@ -125,14 +126,13 @@ Cron routes trigger background jobs. Secured by `Authorization: Bearer CRON_SECR
 | Route | Interval | Purpose | Calls |
 |-------|----------|---------|-------|
 | `/api/cron/reconciliation` | Daily (midnight) | Detect month-close, finalize reports | Reports domain, finalize attendance |
-| `/api/cron/email-health` | Daily | Check email delivery logs | Email domain |
+| `/api/cron/email-health` | Daily | Check email delivery logs | Notifications domain |
 
 ### Retention & Engagement
 
 | Route | Interval | Purpose | Calls |
 |-------|----------|---------|-------|
-| `/api/cron/retention-score` | Daily (06:00 UTC) | Compute student retention risk scores | Retention scoring domain, n8n trigger |
-| `/api/cron/honor-board-compute` | Weekly | Compute leaderboard rankings | Honor board domain |
+| `/api/cron/retention-score` | Daily (06:00 UTC) | Compute student retention risk scores | Reports domain (`src/lib/actions/retention-batch.ts`), n8n trigger |
 
 ### Admin & Maintenance
 
@@ -143,6 +143,7 @@ Cron routes trigger background jobs. Secured by `Authorization: Bearer CRON_SECR
 | `/api/cron/handoff-cleanup` | Daily | Delete expired OAuth handoff codes | Auth domain |
 | `/api/cron/n8n-healthcheck` | Every 15 min | Verify n8n is responding | n8n admin API |
 | `/api/cron/process-broadcasts` | Every 5 min | Send queued announcements | Notifications domain |
+| `/api/cron/bunny-stuck-lessons` | Periodic | Retry stuck Bunny video encodings | Bunny CDN client (see Bunny Integration) |
 
 ---
 
@@ -265,7 +266,7 @@ Cron routes trigger background jobs. Secured by `Authorization: Bearer CRON_SECR
 ```
 
 ### Webhook Acknowledge (2xx)
-```
+```text
 HTTP 200 OK
 (body optional or { success: true })
 ```
@@ -275,7 +276,7 @@ HTTP 200 OK
 ## Error Handling
 
 **Webhook pattern (fail-closed):**
-```typescript
+```ts
 // Step 1: Verify signature
 if (!verifySignature(body, signature)) {
   return NextResponse.json({ error: 'Invalid signature' }, { status: 403 })
@@ -295,7 +296,7 @@ try {
 ```
 
 **Cron pattern:**
-```typescript
+```ts
 // Verify CRON_SECRET
 if (req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
