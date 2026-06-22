@@ -93,8 +93,55 @@ export default async function CourseLandingPage({ params }: PageProps) {
   const hours = Math.floor(totalDuration / 3600);
   const minutes = Math.floor((totalDuration % 3600) / 60);
 
+  // Course JSON-LD (schema.org) — built from the same fetched course/teacher/rating
+  // data rendered below, so it matches on-page content. Enables Google course +
+  // price rich results for long-tail queries ("online tajweed course", etc.).
+  const canonicalUrl = `https://www.furqan.today/courses/${slug}`;
+  const isFree = course.pricing_type === "free";
+  const ratingCount = course.rating_count_cached ?? 0;
+  const courseJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Course",
+    name: course.title_en ?? course.title_ar,
+    description: (course.description_ar ?? course.title_ar).slice(0, 500),
+    url: canonicalUrl,
+    ...(course.cover_image_url ? { image: course.cover_image_url } : {}),
+    provider: { "@type": "Organization", name: "FURQAN Academy", url: "https://www.furqan.today" },
+    ...(ratingCount > 0 && course.rating_avg_cached
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: course.rating_avg_cached,
+            reviewCount: ratingCount,
+            bestRating: 5,
+            worstRating: 1,
+          },
+        }
+      : {}),
+    offers: {
+      "@type": "Offer",
+      category: isFree ? "Free" : "Paid",
+      price: isFree ? 0 : (course.price_cents ?? 0) / 100,
+      priceCurrency: (course.currency ?? "USD").toUpperCase(),
+      availability: "https://schema.org/InStock",
+      url: canonicalUrl,
+    },
+    hasCourseInstance: {
+      "@type": "CourseInstance",
+      courseMode: "Online",
+      ...(totalDuration > 0 ? { courseWorkload: `PT${hours}H${minutes}M` } : {}),
+      instructor: teacher?.full_name
+        ? { "@type": "Person", name: teacher.full_name }
+        : { "@type": "Organization", name: "FURQAN Academy" },
+    },
+  };
+
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-10">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(courseJsonLd) }}
+      />
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <header className="mb-6">
