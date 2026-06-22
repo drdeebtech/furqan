@@ -4,7 +4,7 @@ import { WhatsAppButton } from "@/components/public/whatsapp-button";
 import { MobileRegisterBar } from "@/components/public/mobile-register-bar";
 import { LazyWelcomePopup } from "@/components/public/lazy-welcome-popup";
 import { SiteAnnouncementBanner } from "@/components/public/site-announcement-banner";
-import { OrganizationSchema, FAQSchema } from "@/components/seo/structured-data";
+import { OrganizationSchema } from "@/components/seo/structured-data";
 import { PublicDirWrapper } from "./dir-wrapper";
 import { FeatureFlagsProvider } from "@/lib/feature-flags-context";
 import { getSettings } from "@/lib/settings";
@@ -44,7 +44,6 @@ export default async function PublicLayout({
   return (
     <FeatureFlagsProvider flags={flags}>
       <OrganizationSchema />
-      <FAQSchema />
       <PublicDirWrapper>
         <SiteAnnouncementBanner />
         <PublicNav dashboardHref={dashboardHref} />
