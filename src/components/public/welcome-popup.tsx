@@ -21,7 +21,14 @@ export function WelcomePopup() {
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (pathname && SUPPRESSED_PATHS.has(pathname)) return;
+    if (pathname && SUPPRESSED_PATHS.has(pathname)) {
+      // Also close an already-open popup so it never competes with the
+      // conversion flow after client-side navigation to a suppressed route.
+      // Wrapped in startTransition to match the open path and satisfy
+      // react-hooks/set-state-in-effect.
+      startTransition(() => setShow(false));
+      return;
+    }
     const seen = localStorage.getItem("furqan-welcome-seen");
     if (!seen) {
       const timer = setTimeout(() => startTransition(() => setShow(true)), 2000);
