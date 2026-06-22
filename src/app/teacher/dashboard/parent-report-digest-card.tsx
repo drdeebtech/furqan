@@ -1,7 +1,7 @@
 import { Mail, Clock } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
 import { helperOrFail } from "@/lib/supabase/load-or-fail";
-import { getTeacherParentReportDigest } from "@/lib/dashboard-queries";
+import { getTeacherParentReportDigest } from "@/lib/views/teacher-inbox";
 import { createClient } from "@/lib/supabase/server";
 import { Skeleton } from "@/components/shared/skeleton";
 

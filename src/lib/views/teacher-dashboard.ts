@@ -7,8 +7,8 @@ import {
   getTeacherLiveSessions,
   getTeacherSessionTypeBreakdown,
   getTeacherRecentStudents,
-  getTeacherTimeToGrade,
 } from "@/lib/dashboard-queries";
+import { getTeacherTimeToGrade } from "@/lib/views/teacher-insights";
 import type { PendingBooking, SessionData } from "@/app/teacher/dashboard/types";
 
 /**
