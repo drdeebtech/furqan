@@ -19,8 +19,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/services`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.9, alternates: altLangs("/services") },
     { url: `${baseUrl}/pricing`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.9, alternates: altLangs("/pricing") },
     { url: `${baseUrl}/teachers`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8, alternates: altLangs("/teachers") },
+    { url: `${baseUrl}/courses`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8, alternates: altLangs("/courses") },
     { url: `${baseUrl}/teach-with-us`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8, alternates: altLangs("/teach-with-us") },
     { url: `${baseUrl}/blog`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9, alternates: altLangs("/blog") },
+    { url: `${baseUrl}/help`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5, alternates: altLangs("/help") },
     { url: `${baseUrl}/contact`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7, alternates: altLangs("/contact") },
     { url: `${baseUrl}/privacy`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
     { url: `${baseUrl}/terms`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
@@ -41,5 +43,34 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  return [...staticPages, ...blogPages];
+  // Published course landing pages — highest-intent long-tail surfaces.
+  const { data: courses } = await supabase
+    .from("courses")
+    .select("slug, updated_at")
+    .eq("status", "published")
+    .is("deleted_at", null)
+    .returns<{ slug: string; updated_at: string }[]>();
+
+  const coursePages: MetadataRoute.Sitemap = (courses ?? []).map((course) => ({
+    url: `${baseUrl}/courses/${course.slug}`,
+    lastModified: new Date(course.updated_at),
+    changeFrequency: "weekly" as const,
+    priority: 0.7,
+  }));
+
+  // Published help-center articles — long-tail informational queries.
+  const { data: helpArticles } = await supabase
+    .from("help_articles")
+    .select("slug, updated_at")
+    .eq("is_published", true)
+    .returns<{ slug: string; updated_at: string }[]>();
+
+  const helpPages: MetadataRoute.Sitemap = (helpArticles ?? []).map((article) => ({
+    url: `${baseUrl}/help/${article.slug}`,
+    lastModified: new Date(article.updated_at),
+    changeFrequency: "monthly" as const,
+    priority: 0.5,
+  }));
+
+  return [...staticPages, ...blogPages, ...coursePages, ...helpPages];
 }
