@@ -30,7 +30,10 @@ e7f45f409ffcb6217ec5553dfdfc2077f0887d50:src/lib/n8n/audit.test.ts:jwt:46
 # ─── Baseline rationale (triaged 2026-06-07) ──────────────────────────────────
 # All fingerprints above are historical-commit findings, triaged as:
 # - Sentry DSN public keys in csp.ts / vercel.json CSP report-uri (public by design)
-# - SM-2 algorithm column names in migration + data-model.md (identifiers, not secrets)
+# - SM-2 algorithm column names in migration + data-model.md (identifiers, not secrets).
+#   Same `platform_settings` key names ('sm2_initial_interval_days', 'sm2_easiness_factor')
+#   appear in BOTH the archived scheduler migration (lines 7-8 above) and the prod baseline
+#   remote_baseline.sql:592-593 (lines 9-10 above) — `where key = '...'` lookups, not credentials.
 # - Test dummy values in webhook/idempotency/audit tests (literal "test-secret…" / fake JWT)
 # - Daily.co probe fixture @ d4ef1b5 — real at capture time; scrubbed in 9ef641b and
 #   DAILY_WEBHOOK_SECRET rotated the same day (2026-05-12)
