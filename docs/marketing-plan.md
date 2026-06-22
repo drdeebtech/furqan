@@ -27,7 +27,7 @@
 ## 3. Funnel
 
 - **Acquire:** SEO ("learn Quran online", hifz, tajweed), short-form video (recitation/teacher clips), referrals, mosque/community + influencer partnerships.
-- **Convert:** `/pricing` (now CRO'd) → **paid assessment session as the "try" step** (there's no free trial, so this is the low-commitment entry) → checkout (409 guard if already subscribed).
+- **Convert:** `/pricing` (now CRO'd) → **free 15-min placement call as the "try" step** (specialist-matched, framed as placement not a lesson — the low-commitment entry; no free subscription or free lessons) → checkout (409 guard if already subscribed).
 - **Activate:** first session booked + attended; teacher selection onboarding.
 - **Retain:** additive monthly credits, progress tracking, murajaah scheduler; recover `past_due` via dunning.
 - **Refer/expand:** sibling discount, guardian multi-child, track upgrade (group → individual).
@@ -40,7 +40,7 @@
 
 ## 5. Offers (only within real policy — no fabrication)
 
-- **Entry offer = the paid assessment session** (price **TBD — awaiting owner decision**; do not advertise the offer until a real price is set).
+- **Entry offer = a free 15-min placement call** (تقييم) — specialist-matched, framed as placement not a full lesson. Decided 2026-06-22 (DB seed $0); may revisit to a small paid fee once the funnel is proven.
 - **Family/sibling discount** (final % **TBD — awaiting owner decision**).
 - **Recommended NEW:** an **annual plan** (price anchor + cash flow + retention) — needs a Stripe annual price added.
 - **Do NOT** advertise free trial / money-back / cancel-anytime-self-serve unless the policy actually changes.
@@ -54,13 +54,13 @@
 
 ## 7. Launch sequence
 
-1. **Pre-launch:** close go-live blockers (refund ownership, Stripe cutover); add self-serve cancel + missed-session makeup; collect 5–10 testimonials; finalize discount % + assessment price.
+1. **Pre-launch:** close go-live blockers (refund ownership, Stripe cutover); add self-serve cancel + missed-session makeup; collect 5–10 testimonials; finalize discount %.
 2. **Launch week:** email list + social + PR; referral program live.
 3. **Post-launch:** turn on paid once cutover is done; iterate `/pricing` + the assessment offer; begin programmatic SEO.
 
 ## 8. This-week actions (concrete)
 
-- [ ] Owner provides the **4 open decisions** (testimonials, refund policy, discount %, assessment price) — see `.claude/product-marketing.md`.
+- [ ] Owner provides the **3 open decisions** (testimonials, refund policy, discount %) — see `.claude/product-marketing.md`. (Assessment price resolved: free 15-min placement.)
 - [ ] Decide **self-serve cancel** + **missed-session makeup** (conversion + go-live).
 - [ ] Ship **social-proof strip + finalized FAQ** (PR #507 follow-up) once testimonials arrive.
 - [ ] Run an **SEO audit** of the public pages (`/`, `/pricing`, `/courses`, `/teach-with-us`).

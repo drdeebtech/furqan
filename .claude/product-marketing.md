@@ -44,7 +44,7 @@ Individual basis = **$10/session-hour** (`hifz_individual_hourly_rate_usd=10`). 
 
 ## Policies (current, public-facing — confirmed by owner 2026-06-22)
 
-- **Trial:** a **paid** trial/assessment session (specialist-matched). **No free subscription trial.** (Assessment price seeds at $0 until admin sets it.)
+- **Trial:** a **free 15-min placement/assessment call** (تقييم) — specialist-matched, framed as a short **placement, not a full lesson**. **No free subscription trial and no free teaching lessons** (live teacher time is never free). Decided 2026-06-22 (DB seed already $0); may revisit to a small paid fee once testimonials + funnel are proven.
 - **Cancellation:** **via support** (no in-app self-cancel route exists yet; Stripe Customer Portal is the spec intent). Public copy: "Monthly, no long-term contract."
 - **Refunds:** **case-by-case via support** — no automated refund path. ⚠️ Single-session charge-but-unserved refund ownership is **undefined and BLOCKING for go-live** (spec 022).
 - **Missed session:** **counts toward the plan, not made up.** (Conversion-negative — consider a makeup/reschedule policy.)
@@ -59,11 +59,11 @@ Individual basis = **$10/session-hour** (`hifz_individual_hourly_rate_usd=10`). 
 - **Defined memorization courses** & **tajweed/mutoon courses** exist in schema but are **not on the live pricing page**; tajweed pricing is **undocumented**. Don't sell them as available.
 - **Stripe is still in test/cutover** — live key flip + data migration (spec 024) pending; gated on the refund-ownership + balance-conversion decisions.
 - "Same-teacher upgrade" rule is **spec-only, not enforced** in code.
-- Family discount % and assessment price are **placeholders** until an admin confirms.
+- Family discount % is a **placeholder** until an admin confirms. (Assessment = free 15-min placement — decided 2026-06-22.)
 
 ## Open decisions to get from the owner (don't invent)
 
 1. Real **testimonials / student count / teacher count** for social proof.
 2. Final **refund** policy + the single-session unserved-refund owner (go-live blocker).
-3. Final **family discount %** and **assessment session price**.
+3. Final **family discount %**. (Assessment session = free 15-min placement — decided 2026-06-22.)
 4. Whether to add **self-serve cancel** and **missed-session makeup** (both lift conversion).
