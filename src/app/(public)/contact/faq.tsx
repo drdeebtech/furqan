@@ -8,8 +8,25 @@ export async function FAQ() {
 
   if (faqs.length === 0) return null;
 
+  // FAQPage JSON-LD built from the SAME rows + language resolution rendered below,
+  // so the structured data always matches the visible DOM (Google FAQ-policy safe).
+  // Replaces the old static site-wide FAQSchema that violated that policy.
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: t(faq.question_ar, faq.question_en),
+      acceptedAnswer: { "@type": "Answer", text: t(faq.answer_ar, faq.answer_en) },
+    })),
+  };
+
   return (
     <section className="py-24">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
       <div className="mx-auto max-w-3xl px-6">
         <p className="text-sm font-medium tracking-widest text-muted">❖ {t("أسئلة شائعة", "FAQ")}</p>
         <h2 className="font-display mt-3 text-3xl font-bold leading-tight">{t("الأسئلة الشائعة", "Frequently Asked Questions")}</h2>
