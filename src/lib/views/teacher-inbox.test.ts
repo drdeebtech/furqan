@@ -111,6 +111,37 @@ describe("getTeacherParentReportDigest", () => {
     expect(chain.returns).toHaveBeenCalledTimes(1);
   });
 
+  it("does not return a false-empty digest when count is null but rows exist", async () => {
+    // Regression: supabase-js types `count` as number | null. A null count
+    // with populated rows must NOT collapse to an empty digest — the
+    // empty-state is decided by the rows, and totalCount falls back to the
+    // full type-fetch length.
+    chain.returns
+      .mockResolvedValueOnce({
+        data: [
+          { id: "r1", report_type: "progress", student_id: "s1", sent_at: null, created_at: "2026-06-21T00:00:00.000Z" },
+        ],
+        count: null,
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: [{ report_type: "progress" }, { report_type: "behavior" }],
+        error: null,
+      })
+      .mockResolvedValueOnce({ data: [{ id: "s1", full_name: "Aisha" }], error: null });
+
+    const result = await getTeacherParentReportDigest(chain as never, TEACHER);
+    expect(chain.returns).toHaveBeenCalledTimes(3); // not short-circuited
+    expect(result.totalCount).toBe(2); // fallback to full type-fetch length
+    expect(result.byType).toEqual([
+      { type: "progress", count: 1 },
+      { type: "behavior", count: 1 },
+    ]);
+    expect(result.recent).toEqual([
+      { id: "r1", reportType: "progress", studentName: "Aisha", createdAt: "2026-06-21T00:00:00.000Z", sent: false },
+    ]);
+  });
+
   describe("7-day window boundary", () => {
     beforeEach(() => {
       vi.useFakeTimers();

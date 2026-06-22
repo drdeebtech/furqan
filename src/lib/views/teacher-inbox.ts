@@ -135,9 +135,12 @@ export async function getTeacherParentReportDigest(
   const count = recentRes.count;
 
   const rows = data ?? [];
-  const totalCount = count ?? 0;
-  if (totalCount === 0) {
-    return { totalCount: 0, byType: [], recent: [] };
+  // Empty-state is decided by the actual rows, NOT by `count`. With
+  // count:"exact" the count is virtually always present, but supabase-js
+  // types it `number | null`; gating on `count ?? 0 === 0` would drop a
+  // populated result as a false-empty digest if count ever came back null.
+  if (rows.length === 0) {
+    return { totalCount: count ?? 0, byType: [], recent: [] };
   }
 
   // Type breakdown needs ALL rows in window, not just the 3 most-recent.
@@ -158,6 +161,11 @@ export async function getTeacherParentReportDigest(
   const byType = Object.entries(typeCounts)
     .sort((a, b) => b[1] - a[1])
     .map(([type, count]) => ({ type, count }));
+
+  // Total reports in the 7-day window. Prefer the exact count; fall back to
+  // the full type-fetch length (same window, unlimited) so a null count
+  // never collapses a populated digest to empty.
+  const totalCount = count ?? typeRows?.length ?? rows.length;
 
   // Resolve student names for the recent rows.
   const studentIds = [...new Set(rows.map(r => r.student_id))];
