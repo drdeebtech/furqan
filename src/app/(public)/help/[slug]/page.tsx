@@ -21,8 +21,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .single<{ title_ar: string; title_en: string | null; body_ar: string | null }>();
   if (!data) return { title: "مركز المساعدة" };
   return {
-    title: `${data.title_ar} | مركز المساعدة`,
-    description: (data.body_ar ?? data.title_ar).replace(/\s+/g, " ").slice(0, 160),
+    title: `${data.title_ar}${data.title_en ? ` — ${data.title_en}` : ""} | مركز المساعدة`,
+    // Slice before the whitespace-collapse so we don't regex-scan an entire long body.
+    description: (data.body_ar ?? data.title_ar).slice(0, 300).replace(/\s+/g, " ").trim().slice(0, 160),
     alternates: { canonical: `https://www.furqan.today/help/${slug}` },
   };
 }
