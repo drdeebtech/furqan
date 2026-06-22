@@ -9,6 +9,8 @@ import type { Course } from "@/types/database";
 export const metadata: Metadata = {
   title: "الدورات المسجلة",
   description: "تصفح الدورات المسجلة من معلمي فرقان — تجويد، حفظ، إجازة، عربية.",
+  // Canonical collapses all ?specialty/?level/?pricing filter variants under one URL.
+  alternates: { canonical: "https://www.furqan.today/courses" },
 };
 
 interface SearchParams {
@@ -197,7 +199,7 @@ export default async function PublicCoursesPage({
               {c.cover_image_url ? (
                 <Image
                   src={c.cover_image_url}
-                  alt=""
+                  alt={c.title_ar ?? c.title_en ?? ""}
                   width={640}
                   height={360}
                   className="aspect-video w-full object-cover"

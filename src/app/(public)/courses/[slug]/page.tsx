@@ -26,6 +26,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: course.title_en ?? course.title_ar,
     description: (course.description_ar ?? "").slice(0, 160),
+    alternates: { canonical: `https://www.furqan.today/courses/${slug}` },
   };
 }
 
