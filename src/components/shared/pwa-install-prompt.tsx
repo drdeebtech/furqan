@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, startTransition } from "react";
+import { usePathname } from "next/navigation";
 import { Download, X } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 
@@ -11,6 +12,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 export function PwaInstallPrompt() {
   const { t } = useLang();
+  const pathname = usePathname();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   // Hydration-safe: server renders `false`, client reconciles from sessionStorage on mount.
   // Banner is gated by `deferredPrompt` (always null on SSR until beforeinstallprompt fires),
@@ -62,8 +64,9 @@ export function PwaInstallPrompt() {
     try { sessionStorage.setItem("pwa-dismissed", "1"); } catch { /* private mode */ }
   }
 
-  // Don't show if no prompt available, already installed, or dismissed
-  if (!deferredPrompt || dismissed) return null;
+  // Don't show if no prompt available, already installed, or dismissed.
+  // Also suppress on /pricing so it doesn't compete with the purchase decision.
+  if (!deferredPrompt || dismissed || pathname === "/pricing") return null;
 
   return (
     <div className="fixed bottom-4 start-4 end-4 z-50 mx-auto max-w-sm animate-in slide-in-from-bottom">

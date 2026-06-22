@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, startTransition } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { X, UserPlus, BookOpen } from "lucide-react";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { useLang } from "@/lib/i18n/context";
@@ -9,19 +10,31 @@ import { useLang } from "@/lib/i18n/context";
 const FOCUSABLE_SELECTOR =
   'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
+// Conversion routes where the welcome popup must not compete with the decision.
+const SUPPRESSED_PATHS = new Set(["/pricing", "/subscribe", "/register", "/login"]);
+
 export function WelcomePopup() {
   const { t } = useLang();
+  const pathname = usePathname();
   const [show, setShow] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
+    if (pathname && SUPPRESSED_PATHS.has(pathname)) {
+      // Also close an already-open popup so it never competes with the
+      // conversion flow after client-side navigation to a suppressed route.
+      // Wrapped in startTransition to match the open path and satisfy
+      // react-hooks/set-state-in-effect.
+      startTransition(() => setShow(false));
+      return;
+    }
     const seen = localStorage.getItem("furqan-welcome-seen");
     if (!seen) {
       const timer = setTimeout(() => startTransition(() => setShow(true)), 2000);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [pathname]);
 
   const dismiss = useCallback(() => {
     setShow(false);
