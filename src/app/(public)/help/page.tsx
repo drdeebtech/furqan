@@ -6,7 +6,12 @@ import { getT } from "@/lib/i18n/server";
 import { isFeatureEnabled } from "@/lib/settings";
 import { notFound } from "next/navigation";
 
-export const metadata: Metadata = { title: "مركز المساعدة" };
+export const metadata: Metadata = {
+  title: "مركز المساعدة — Help Center | فرقان",
+  description:
+    "إجابات عن أسئلة حفظ القرآن، التجويد، وحصص أكاديمية فرقان. Answers about Quran memorization, Tajweed, and FURQAN Academy sessions.",
+  alternates: { canonical: "https://www.furqan.today/help" },
+};
 
 export default async function HelpCenterIndexPage() {
   if (!(await isFeatureEnabled("help_center_enabled"))) notFound();

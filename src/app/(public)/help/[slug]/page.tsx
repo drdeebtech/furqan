@@ -15,12 +15,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("help_articles")
-    .select("title_ar, title_en")
+    .select("title_ar, title_en, body_ar")
     .eq("slug", slug)
     .eq("is_published", true)
-    .single<{ title_ar: string; title_en: string | null }>();
+    .single<{ title_ar: string; title_en: string | null; body_ar: string | null }>();
   if (!data) return { title: "مركز المساعدة" };
-  return { title: `${data.title_ar} | مركز المساعدة` };
+  return {
+    title: `${data.title_ar} | مركز المساعدة`,
+    description: (data.body_ar ?? data.title_ar).replace(/\s+/g, " ").slice(0, 160),
+    alternates: { canonical: `https://www.furqan.today/help/${slug}` },
+  };
 }
 
 export default async function HelpArticlePage({ params }: Props) {
