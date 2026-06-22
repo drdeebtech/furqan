@@ -27,14 +27,9 @@ export function OrganizationSchema() {
     email: "alforqan.egy@gmail.com",
     telephone: "+96597795626",
     address: { "@type": "PostalAddress", addressCountry: "KW", addressLocality: "Kuwait" },
-    offers: {
-      "@type": "Offer",
-      description: "Online Quran lessons",
-      price: "0",
-      priceCurrency: "USD",
-      availability: "https://schema.org/InStock",
-      name: "Free Registration",
-    },
+    // NOTE: no top-level `offers` here — a price:"0" "Free Registration" Offer is
+    // misleading (sessions are $12–$80/mo) and risks a Google rich-result penalty.
+    // The hasOfferCatalog below lists the (non-priced) program catalog, which is valid.
     hasOfferCatalog: {
       "@type": "OfferCatalog",
       name: "Quran Learning Programs",
@@ -90,19 +85,8 @@ export function ArticleSchema({
   return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />;
 }
 
-export function FAQSchema() {
-  const schema = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: [
-      { "@type": "Question", name: "How do I register?", acceptedAnswer: { "@type": "Answer", text: "Create a free account on the platform, then choose your teacher and book your first session. Registration is easy and takes less than a minute." } },
-      { "@type": "Question", name: "Are female teachers available?", acceptedAnswer: { "@type": "Answer", text: "Yes, we have certified female teachers available for sisters and children." } },
-      { "@type": "Question", name: "What qualifications do teachers have?", acceptedAnswer: { "@type": "Answer", text: "All teachers hold Ijazah from certified scholars and are graduates of prestigious Islamic universities." } },
-      { "@type": "Question", name: "How do sessions work?", acceptedAnswer: { "@type": "Answer", text: "Sessions are conducted via built-in video. After booking confirmation, you receive a session link directly." } },
-      { "@type": "Question", name: "Can I reschedule?", acceptedAnswer: { "@type": "Answer", text: "Yes, you can reschedule up to 24 hours before the session at no additional cost." } },
-    ],
-  };
-
-  // Safe: schema is hardcoded static content, not user-generated
-  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />;
-}
+// FAQSchema removed: it was rendered site-wide (every public page) with 5 hardcoded
+// English Q&As that don't appear in the visible DOM — a FAQPage-policy violation.
+// The real visible FAQ on /contact is DB-driven from `site_faqs`. The correct
+// replacement is a DYNAMIC FAQPage schema generated from those same `site_faqs`
+// rows and rendered only on /contact. Tracked as a follow-up.
