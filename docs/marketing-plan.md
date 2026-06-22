@@ -1,6 +1,6 @@
 # furqan.today — Marketing Plan
 
-> Grounded in `.agents/product-marketing.md` (source of truth, 2026-06-22). Update both together.
+> Grounded in `.claude/product-marketing.md` (source of truth, 2026-06-22). Update both together.
 > Scope: go-to-market for the subscription hifz platform. Honest about what's gated.
 
 ## 0. Reality gates (read first)
@@ -40,8 +40,8 @@
 
 ## 5. Offers (only within real policy — no fabrication)
 
-- **Entry offer = the paid assessment session** (set a low, confirmed price — currently seeds at $0).
-- **Family/sibling discount** (confirm final % — seeded 10/10 as placeholder).
+- **Entry offer = the paid assessment session** (price **TBD — awaiting owner decision**; do not advertise the offer until a real price is set).
+- **Family/sibling discount** (final % **TBD — awaiting owner decision**).
 - **Recommended NEW:** an **annual plan** (price anchor + cash flow + retention) — needs a Stripe annual price added.
 - **Do NOT** advertise free trial / money-back / cancel-anytime-self-serve unless the policy actually changes.
 
@@ -60,7 +60,7 @@
 
 ## 8. This-week actions (concrete)
 
-- [ ] Owner provides the **4 open decisions** (testimonials, refund policy, discount %, assessment price) — see `.agents/product-marketing.md`.
+- [ ] Owner provides the **4 open decisions** (testimonials, refund policy, discount %, assessment price) — see `.claude/product-marketing.md`.
 - [ ] Decide **self-serve cancel** + **missed-session makeup** (conversion + go-live).
 - [ ] Ship **social-proof strip + finalized FAQ** (PR #507 follow-up) once testimonials arrive.
 - [ ] Run an **SEO audit** of the public pages (`/`, `/pricing`, `/courses`, `/teach-with-us`).
