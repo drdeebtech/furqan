@@ -110,5 +110,46 @@ export default async function TeachersPage() {
 
   const { teacherData, specialtyLabels, recitationLabels } = await getPublicTeachers();
 
-  return <TeachersContent teachers={teacherData} specialtyLabels={specialtyLabels} recitationLabels={recitationLabels} />;
+  // Person JSON-LD (schema.org ItemList) for the indexed teacher cards. Built from
+  // the same data rendered below. No aggregateRating: we have rating_avg but no true
+  // rating *count* (total_sessions ≠ review count), and emitting a fabricated count
+  // would be misleading structured data. hasCredential reflects the platform's
+  // verified positioning (listing is filtered to cv_status='approved' teachers).
+  const namedTeachers = teacherData.filter((tch) => tch.name && tch.name !== "—");
+  const teachersJsonLd =
+    namedTeachers.length > 0
+      ? {
+          "@context": "https://schema.org",
+          "@type": "ItemList",
+          itemListElement: namedTeachers.map((tch, i) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            item: {
+              "@type": "Person",
+              name: tch.name,
+              ...(tch.nameAr ? { alternateName: tch.nameAr } : {}),
+              ...(tch.bio ? { description: tch.bio } : {}),
+              ...(tch.avatarUrl ? { image: tch.avatarUrl } : {}),
+              jobTitle: "Quran Teacher",
+              worksFor: { "@type": "Organization", name: "FURQAN Academy", url: "https://www.furqan.today" },
+              hasCredential: { "@type": "EducationalOccupationalCredential", credentialCategory: "Ijazah" },
+              ...(tch.specialties?.length
+                ? { knowsAbout: tch.specialties.map((k) => specialtyLabels[k]?.en ?? k) }
+                : {}),
+            },
+          })),
+        }
+      : null;
+
+  return (
+    <>
+      {teachersJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(teachersJsonLd) }}
+        />
+      )}
+      <TeachersContent teachers={teacherData} specialtyLabels={specialtyLabels} recitationLabels={recitationLabels} />
+    </>
+  );
 }
