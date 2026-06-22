@@ -6,7 +6,7 @@
 ## 0. Reality gates (read first)
 
 - **Stripe is still test/cutover** (spec 024). Do **not** run paid acquisition at scale until the live key flip + the single-session refund-ownership decision are done. → **organic/pre-launch now; paid after go-live.**
-- **Three conversion-negative policies**: paid-only trial, support-only cancel, missed-session-lost. Fixing the *policy* (self-serve cancel + a makeup/reschedule rule) will lift conversion more than any copy. Prioritize before heavy spend.
+- **Three conversion-negative policies**: no free *service* trial (only a free 15-min placement call), support-only cancel, missed-session-lost. Fixing the *policy* (self-serve cancel + a makeup/reschedule rule) will lift conversion more than any copy. Prioritize before heavy spend.
 - **No social proof exists yet** — start collecting testimonials + counts from day one (it's the biggest trust lever after certification).
 
 ## 1. Positioning

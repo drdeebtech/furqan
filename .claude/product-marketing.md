@@ -59,7 +59,7 @@ Individual basis = **$10/session-hour** (`hifz_individual_hourly_rate_usd=10`). 
 - **Defined memorization courses** & **tajweed/mutoon courses** exist in schema but are **not on the live pricing page**; tajweed pricing is **undocumented**. Don't sell them as available.
 - **Stripe is still in test/cutover** — live key flip + data migration (spec 024) pending; gated on the refund-ownership + balance-conversion decisions.
 - "Same-teacher upgrade" rule is **spec-only, not enforced** in code.
-- Family discount % is a **placeholder** until an admin confirms. (Assessment = free 15-min placement — decided 2026-06-22.)
+- Family discount % is a **placeholder** until an admin confirms.
 
 ## Open decisions to get from the owner (don't invent)
 
