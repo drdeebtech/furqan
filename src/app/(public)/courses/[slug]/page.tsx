@@ -164,9 +164,9 @@ export default async function CourseLandingPage({ params }: PageProps) {
       />
       <BreadcrumbSchema
         items={[
-          { name: "الرئيسية", url: "https://www.furqan.today" },
-          { name: "الدورات", url: "https://www.furqan.today/courses" },
-          { name: course.title_ar, url: canonicalUrl },
+          { name: t("الرئيسية", "Home"), url: "https://www.furqan.today" },
+          { name: t("الدورات", "Courses"), url: "https://www.furqan.today/courses" },
+          { name: course.title_en ?? course.title_ar, url: canonicalUrl },
         ]}
       />
       <div className="grid gap-6 lg:grid-cols-3">
