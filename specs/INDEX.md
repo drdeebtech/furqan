@@ -21,7 +21,7 @@
 | [011-fix-is-admin-ordering](./011-fix-is-admin-ordering/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
 | [012-prod-rls-hardening](./012-prod-rls-hardening/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
 | [013-progress-action-hardening](./013-progress-action-hardening/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
-| [014-session-participant-secdef](./014-session-participant-secdef/spec.md) | Tasks-ready | _(unknown)_ | _(pending)_ |
+| [014-session-participant-secdef](./014-session-participant-secdef/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
 | [015-pr458-review-remediation](./015-pr458-review-remediation/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
 | [016-public-profiles-rls-bypass](./016-public-profiles-rls-bypass/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
 | [017-pr458-cursor-authz-findings](./017-pr458-cursor-authz-findings/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
@@ -32,8 +32,9 @@
 | [022-onboarding-single-sessions](./022-onboarding-single-sessions/spec.md) | Shipped | `022-onboarding-single-sessions` | [#485](https://github.com/drdeebtech/furqan/pull/485) |
 | [023-reports-gamification-notifications](./023-reports-gamification-notifications/spec.md) | Shipped | `023-reports-gamification-notifications` | [#490](https://github.com/drdeebtech/furqan/pull/490) |
 | [024-migration-cutover](./024-migration-cutover/spec.md) | Shipped | `024-migration-cutover` | [#495](https://github.com/drdeebtech/furqan/pull/495) |
-| [025-subscribe-checkout](./025-subscribe-checkout/spec.md) | Malformed | _(unknown)_ | _(pending)_ |
-| [026-database-types-drift-guard](./026-database-types-drift-guard/spec.md) | Draft | _(unknown)_ | _(pending)_ |
+| [025-subscribe-checkout](./025-subscribe-checkout/spec.md) | Shipped | `chore/stripe-live-plan-bootstrap` | [#497](https://github.com/drdeebtech/furqan/pull/497) |
+| [026-database-types-drift-guard](./026-database-types-drift-guard/spec.md) | Tasks-ready | `026-database-types-drift-guard` | _(pending)_ |
+| [027-seo-audit-gaps](./027-seo-audit-gaps/spec.md) | Draft | `027-seo-audit-gaps` | _(pending)_ |
 
 ## Abandoned (last 90 days)
 

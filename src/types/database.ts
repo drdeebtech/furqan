@@ -1,3 +1,22 @@
+/**
+ * ⚠️ HAND-CORRECTED LAYER — DO NOT collapse to `import { Database } from "./supabase.generated"`.
+ * This file embeds a patched copy of the generated `Database` type; ~96 importers derive
+ * domain aliases (SessionType, Profile, Booking, …) from it. A 2026-06-21 spike proved that
+ * re-exporting the raw generated type drops the corrections below → 12 tsc errors
+ * (8 in src/lib/domains/progress/capture.ts, 4 in src/lib/supabase/rpc.test.ts).
+ *
+ * CORRECTION INVENTORY — re-apply ALL of these after any regen (see scripts/regen-database-types.md):
+ *   1. Nullable RPC args with DEFAULT NULL — generated as non-null, patched to `… | null` here.
+ *      e.g. record_student_progress: p_surah_from, p_ayah_from, p_pages_reviewed,
+ *      p_quality_rating, p_level, p_teacher_notes.
+ *   2. Course row override — teacher_id nullable; adds `ownership`, `teacher_revenue_share_bps`.
+ *   3. Ijazah / Mentorship row overrides — recitation_standard, status, requirement_type,
+ *      severity narrowed to hand-authored TEXT-CHECK unions.
+ *   4. TEXT-CHECK enum unions the generator can't see (TEXT + CHECK, not pg_enum):
+ *      RecitationStandard, PackageType, … (string-literal unions).
+ *
+ * To update: follow scripts/regen-database-types.md. Never blind-regen this file; never use `any`.
+ */
 export type Json =
   | string
   | number
