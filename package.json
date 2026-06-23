@@ -98,6 +98,9 @@
   },
   "overrides": {
     "postcss": "^8.5.10",
-    "@opentelemetry/core": "2.8.0"
+    "@opentelemetry/core": "2.8.0",
+    "webpack-bundle-analyzer": {
+      "ws": "7.5.11"
+    }
   }
 }
