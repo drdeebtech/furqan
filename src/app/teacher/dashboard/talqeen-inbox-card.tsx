@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Mic, ArrowRight, Clock } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
 import { helperOrFail } from "@/lib/supabase/load-or-fail";
-import { getTeacherTalqeenInbox } from "@/lib/dashboard-queries";
+import { getTeacherTalqeenInbox } from "@/lib/views/teacher-inbox";
 import { createClient } from "@/lib/supabase/server";
 import { Skeleton } from "@/components/shared/skeleton";
 

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Activity, ArrowRight } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
 import { helperOrFail } from "@/lib/supabase/load-or-fail";
-import { getTeacherRosterErrorPulse, type RecitationErrorCategory } from "@/lib/dashboard-queries";
+import { getTeacherRosterErrorPulse, type RecitationErrorCategory } from "@/lib/views/teacher-insights";
 import { createClient } from "@/lib/supabase/server";
 import { Skeleton } from "@/components/shared/skeleton";
 
