@@ -85,6 +85,24 @@ export function ArticleSchema({
   return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />;
 }
 
+export function WebSiteSchema() {
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "فرقان — FURQAN Quran Academy",
+    alternateName: "Furqan Academy",
+    url: "https://www.furqan.today",
+    inLanguage: ["ar", "en"],
+    publisher: { "@type": "Organization", name: "FURQAN Academy", url: "https://www.furqan.today" },
+    // No `potentialAction` SearchAction (sitelinks searchbox): the site has no
+    // public search endpoint, so emitting a search target would be fabricated.
+    // Add it here when a public /search route ships (see spec 027 deferred work).
+  };
+
+  // Safe: schema is hardcoded static content, not user-generated.
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />;
+}
+
 // FAQSchema removed: it was rendered site-wide (every public page) with 5 hardcoded
 // English Q&As that don't appear in the visible DOM — a FAQPage-policy violation.
 // The real visible FAQ on /contact is DB-driven from `site_faqs`. The correct

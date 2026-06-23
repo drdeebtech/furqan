@@ -43,7 +43,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  // Published course landing pages — highest-intent long-tail surfaces.
+  // Published course landing pages — highest-intent long-tail acquisition
+  // surfaces, so they carry a higher priority (0.8) than blog/help (0.7/0.5).
   const { data: courses } = await supabase
     .from("courses")
     .select("slug, updated_at")
@@ -55,7 +56,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: `${baseUrl}/courses/${course.slug}`,
     lastModified: new Date(course.updated_at),
     changeFrequency: "weekly" as const,
-    priority: 0.7,
+    priority: 0.8,
   }));
 
   // Published help-center articles — long-tail informational queries.

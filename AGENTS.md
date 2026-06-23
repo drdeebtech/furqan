@@ -160,7 +160,7 @@ with a failing typecheck, lint, or test.
 <!-- Tool-managed blocks regenerate below this line — keep everything above intact. -->
 <!-- BEGIN:nextjs-agent-rules --><!-- END:nextjs-agent-rules -->
 <!-- gitnexus:start --><!-- gitnexus:end -->
-<!-- SPECKIT START -->Current plan: specs/023-reports-gamification-notifications/plan.md<!-- SPECKIT END -->
+<!-- SPECKIT START -->Current plan: specs/027-seo-audit-gaps/plan.md<!-- SPECKIT END -->
 
 ## Cursor Cloud specific instructions
 

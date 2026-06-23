@@ -85,10 +85,35 @@ const getPublicTeachers = unstable_cache(
   { tags: ["teachers-public"], revalidate: 300 },
 );
 
+const TEACHERS_URL = "https://www.furqan.today/teachers";
+const TEACHERS_TITLE = "معلمونا — معلمو القرآن المعتمدون";
+const TEACHERS_DESC =
+  "معلمو أكاديمية فرقان حاصلون على الإجازة من كبار العلماء. خريجو الأزهر. متاح معلمات للأخوات.";
+
 export const metadata: Metadata = {
-  title: "معلمونا — معلمو القرآن المعتمدون",
-  description: "معلمو أكاديمية فرقان حاصلون على الإجازة من كبار العلماء. خريجو الأزهر. متاح معلمات للأخوات.",
-  alternates: { canonical: "https://www.furqan.today/teachers" },
+  title: TEACHERS_TITLE,
+  description: TEACHERS_DESC,
+  alternates: {
+    canonical: TEACHERS_URL,
+    languages: {
+      ar: `${TEACHERS_URL}?lang=ar`,
+      en: `${TEACHERS_URL}?lang=en`,
+      "x-default": TEACHERS_URL,
+    },
+  },
+  openGraph: {
+    title: TEACHERS_TITLE,
+    description: TEACHERS_DESC,
+    url: TEACHERS_URL,
+    siteName: "فرقان — FURQAN",
+    locale: "ar_SA",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TEACHERS_TITLE,
+    description: TEACHERS_DESC,
+  },
 };
 
 // ISR — public teacher list changes when an admin approves/archives a
