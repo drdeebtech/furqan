@@ -8,6 +8,12 @@ const withBundleAnalyzer = bundleAnalyzer({
 });
 
 const nextConfig: NextConfig = {
+  // Pin the Turbopack workspace root to THIS repo. Stray manifests above the
+  // repo (e.g. ~/package.json from Cursor/claude-flow tooling) otherwise make
+  // Next infer a parent workspace root, which corrupts relative `@import`
+  // resolution (Tailwind's `@import "../styles/glass.css"` climbed into
+  // /home/<user>/ and 404'd). Vercel is unaffected (root is already the repo).
+  turbopack: { root: __dirname },
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },
