@@ -10,6 +10,7 @@ import { PreviewDeploymentBanner } from "@/components/shared/preview-deployment-
 import { HydrationBeacon } from "@/components/shared/hydration-beacon";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { WebSiteSchema } from "@/components/seo/structured-data";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -140,6 +141,7 @@ export default async function RootLayout({
             DOM after CSP validation, so React hydration sees a mismatch.
             This suppresses the false-positive Sentry error (FURQAN-2H). */}
         <script src="/sw-register.js" defer nonce={nonce} suppressHydrationWarning />
+        <WebSiteSchema />
       </head>
       <body className="min-h-full flex flex-col">
         <a

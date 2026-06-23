@@ -5,8 +5,25 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/about", "/services", "/teachers", "/blog", "/blog/*", "/contact"],
-        disallow: ["/student/", "/teacher/", "/admin/", "/api/", "/login", "/register"],
+        // Public acquisition surfaces are explicitly allowed (clearer than
+        // relying on the default-allow of "/"). /subscribe is intentionally
+        // omitted: it is auth-gated and noindex (see src/app/subscribe/page.tsx).
+        allow: [
+          "/",
+          "/about",
+          "/services",
+          "/pricing",
+          "/teachers",
+          "/courses",
+          "/courses/*",
+          "/teach-with-us",
+          "/blog",
+          "/blog/*",
+          "/help",
+          "/help/*",
+          "/contact",
+        ],
+        disallow: ["/student/", "/teacher/", "/admin/", "/api/", "/login", "/register", "/subscribe"],
       },
       { userAgent: "GPTBot", allow: ["/", "/about", "/services", "/blog/*"] },
       { userAgent: "Claude-Web", allow: ["/", "/about", "/services", "/blog/*"] },

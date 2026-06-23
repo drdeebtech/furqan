@@ -5,6 +5,7 @@ import { Building2, GraduationCap, Inbox, Star } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getT } from "@/lib/i18n/server";
 import type { Course } from "@/types/database";
+import { BreadcrumbSchema } from "@/components/seo/structured-data";
 
 export const metadata: Metadata = {
   title: "الدورات المسجلة",
@@ -118,6 +119,12 @@ export default async function PublicCoursesPage({
 
   return (
     <div dir={dir}>
+      <BreadcrumbSchema
+        items={[
+          { name: t("الرئيسية", "Home"), url: "https://www.furqan.today" },
+          { name: t("الدورات", "Courses"), url: "https://www.furqan.today/courses" },
+        ]}
+      />
       <section className="islamic-pattern relative overflow-hidden pt-24 pb-12 text-center">
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-background" aria-hidden="true" />
         <div className="relative mx-auto max-w-3xl px-6">

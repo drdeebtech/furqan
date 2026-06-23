@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import type { Course, CourseLesson, CourseReview } from "@/types/database";
+import { BreadcrumbSchema } from "@/components/seo/structured-data";
 import { EnrollButton } from "./enroll-button";
 
 interface PageProps {
@@ -23,10 +24,29 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     .eq("status", "published")
     .single<Pick<Course, "title_ar" | "title_en" | "description_ar">>();
   if (!course) return { title: "دورة" };
+  const url = `https://www.furqan.today/courses/${slug}`;
+  const title = course.title_en ?? course.title_ar;
+  const description = (course.description_ar ?? "").slice(0, 160);
   return {
-    title: course.title_en ?? course.title_ar,
-    description: (course.description_ar ?? "").slice(0, 160),
-    alternates: { canonical: `https://www.furqan.today/courses/${slug}` },
+    title,
+    description,
+    alternates: {
+      canonical: url,
+      languages: {
+        ar: `${url}?lang=ar`,
+        en: `${url}?lang=en`,
+        "x-default": url,
+      },
+    },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: "فرقان — FURQAN",
+      locale: "ar_SA",
+      type: "website",
+    },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
@@ -141,6 +161,13 @@ export default async function CourseLandingPage({ params }: PageProps) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(courseJsonLd) }}
+      />
+      <BreadcrumbSchema
+        items={[
+          { name: "الرئيسية", url: "https://www.furqan.today" },
+          { name: "الدورات", url: "https://www.furqan.today/courses" },
+          { name: course.title_ar, url: canonicalUrl },
+        ]}
       />
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">

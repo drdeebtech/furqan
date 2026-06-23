@@ -20,11 +20,29 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .eq("is_published", true)
     .single<{ title_ar: string; title_en: string | null; body_ar: string | null }>();
   if (!data) return { title: "مركز المساعدة" };
+  const url = `https://www.furqan.today/help/${slug}`;
+  const title = `${data.title_ar}${data.title_en ? ` — ${data.title_en}` : ""} | مركز المساعدة`;
+  // Slice before the whitespace-collapse so we don't regex-scan an entire long body.
+  const description = (data.body_ar ?? data.title_ar).slice(0, 300).replace(/\s+/g, " ").trim().slice(0, 160);
   return {
-    title: `${data.title_ar}${data.title_en ? ` — ${data.title_en}` : ""} | مركز المساعدة`,
-    // Slice before the whitespace-collapse so we don't regex-scan an entire long body.
-    description: (data.body_ar ?? data.title_ar).slice(0, 300).replace(/\s+/g, " ").trim().slice(0, 160),
-    alternates: { canonical: `https://www.furqan.today/help/${slug}` },
+    title,
+    description,
+    alternates: {
+      canonical: url,
+      languages: {
+        ar: `${url}?lang=ar`,
+        en: `${url}?lang=en`,
+        "x-default": url,
+      },
+    },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: "فرقان — FURQAN",
+      locale: "ar_SA",
+      type: "article",
+    },
   };
 }
 

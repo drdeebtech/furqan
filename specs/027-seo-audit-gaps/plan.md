@@ -114,3 +114,34 @@ Design artifacts:
 ## Complexity Tracking
 
 No constitution violations or justified complexity exceptions.
+
+## Pre-Work Log
+
+### T001 — Issue #517 scope confirmation (2026-06-23)
+
+`gh issue view 517` confirmed: the issue is the source of truth and maps 1:1 to `tasks.md`. Prior SEO PRs #512/#513/#515 are **verified correct — no rework**. Scope buckets:
+
+- **HIGH → P1** (US1/US2/US3): `/teachers` metadata; course OG image; OG images for `/pricing`, `/about`, `/help/[slug]`; child-page hreflang (`courses/[slug]`, `help/[slug]`, `blog/[slug]`); `/subscribe` sitemap decision; BreadcrumbSchema on `/courses` + `/courses/[slug]`.
+- **MEDIUM → P3/US4**: robots course allow-list; WebSite root schema (searchAction); verify `/courses/[slug]` cover_image `alt` (listing fixed in 0c0a402); metadata on `/terms`/`/privacy`/`/cookies`; per-teacher Person `image`; FAQ schema audit for `/pricing`+`/help`; sitemap priority tuning.
+- **LOW → US4 polish / deferred**: blog `title_en`/`excerpt_en` bilingual (mirror help/[slug] pattern from 2655c4f); optional root OG motif; optional Org `founder`/`foundingDate`; optional `/teach-with-us` JobPosting.
+
+Constraint reaffirmed by issue: do not fabricate schema facts, reviews, ratings, or Quran text.
+
+## Implementation Decisions & Deferred Work (2026-06-23)
+
+**OG-image Arabic constraint (T010–T012, T018).** `@vercel/og`'s Bidi pipeline crashes *uncatchably* (in the response stream, past any try/catch) on certain Arabic GSUB lookup tables — a documented production incident (root `src/app/opengraph-image.tsx`, Sentry NEXTJS-9). All new OG routes therefore avoid rendering DB Arabic: pricing/about/help use Latin branded cards; the course route prefers `title_en` + the cover raster with a Latin fallback (blog-style try/catch + Sentry). Teacher Arabic names and Arabic course titles are intentionally not drawn into OG images. Re-enabling Arabic requires bundling a Cairo/Noto font with simpler GSUB tables via `ImageResponse({ fonts })`.
+
+**T021 — `/subscribe` excluded from sitemap (decided).** `src/app/subscribe/page.tsx` is **both** `robots: { index: false, follow: false }` **and** auth-gated (redirects to `/login` without a session; requires a `?plan=` param). Including it would create a misleading index entry. Left out of `sitemap.ts`; also added to `robots.ts` disallow for explicitness. Satisfies FR-006 / SC-005.
+
+**Already-satisfied tasks (verify-only, no change):**
+- **T024–T026** — `/terms`, `/privacy`, `/cookies` already export `metadata` with title + description + canonical.
+- **T027** — `teachers/page.tsx` already emits Person `image` conditionally (`...(tch.avatarUrl ? { image } : {})`), with no fabrication when absent.
+- **T019** — course detail renders no cover `<img>`; the teacher avatar correctly uses `alt=""` with the name in an adjacent `<span>` (decorative pattern). Nothing missing.
+
+**T029 — no FAQPage added (honors FR-012).** Neither `/pricing` (no FAQ content) nor `/help` (a category index of articles, not an explicit visible Q&A list) contains DOM-visible question/answer pairs. Fabricating FAQPage there would repeat the policy violation that removed the old site-wide FAQSchema. The real DB-driven FAQ lives on `/contact`.
+
+**Deferred (optional, facts/infra not yet available):**
+- **T028 `searchAction`** — WebSite schema shipped without a sitelinks-searchbox `potentialAction`; no public `/search` endpoint exists, so a search target would be fabricated. Add when a public search route ships.
+- Root OG Arabic motif (needs bundled Arabic font, per above).
+- Organization `founder`/`foundingDate`; `/teach-with-us` JobPosting — only if verified facts are provided.
+- Per-article/per-course Arabic OG titles — blocked on the `@vercel/og` Arabic-font fix.

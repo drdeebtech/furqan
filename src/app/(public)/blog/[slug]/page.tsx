@@ -17,23 +17,43 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const supabase = await createClient();
   const { data: post } = await supabase
     .from("blog_posts")
-    .select("title_ar, excerpt_ar, slug, published_at, updated_at")
+    .select("title_ar, title_en, excerpt_ar, excerpt_en, slug, published_at, updated_at")
     .eq("slug", slug)
     .eq("is_published", true)
-    .single<{ title_ar: string; excerpt_ar: string; slug: string; published_at: string; updated_at: string }>();
+    .single<{
+      title_ar: string;
+      title_en: string | null;
+      excerpt_ar: string;
+      excerpt_en: string | null;
+      slug: string;
+      published_at: string;
+      updated_at: string;
+    }>();
 
   if (!post) return { title: "مقال" };
 
   const url = `https://www.furqan.today/blog/${post.slug}`;
   const ogImage = `${url}/opengraph-image`;
+  // Bilingual title mirrors the help/[slug] pattern: Arabic primary, English
+  // appended when present. Description prefers the Arabic excerpt (primary
+  // audience), falling back to the English excerpt only if Arabic is empty.
+  const title = post.title_en ? `${post.title_ar} — ${post.title_en}` : post.title_ar;
+  const description = post.excerpt_ar || post.excerpt_en || "";
 
   return {
-    title: post.title_ar,
-    description: post.excerpt_ar,
-    alternates: { canonical: url },
+    title,
+    description,
+    alternates: {
+      canonical: url,
+      languages: {
+        ar: `${url}?lang=ar`,
+        en: `${url}?lang=en`,
+        "x-default": url,
+      },
+    },
     openGraph: {
-      title: post.title_ar,
-      description: post.excerpt_ar,
+      title,
+      description,
       type: "article",
       url,
       siteName: "فرقان — FURQAN Academy",
@@ -41,12 +61,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       publishedTime: post.published_at,
       modifiedTime: post.updated_at,
       authors: ["FURQAN Academy"],
-      images: [{ url: ogImage, width: 1200, height: 630, alt: post.title_ar }],
+      images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
     },
     twitter: {
       card: "summary_large_image",
-      title: post.title_ar,
-      description: post.excerpt_ar,
+      title,
+      description,
       images: [ogImage],
     },
   };
