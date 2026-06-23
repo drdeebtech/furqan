@@ -1,12 +1,20 @@
 # Spec 026 — Drift management for `src/types/database.ts`
 
-**Status:** Backlog — needs careful design (NOT a quick win)
+**Feature Branch**: `026-database-types-drift-guard`
+
+**Status:** Tasks-ready
 **Created:** 2026-06-21
 **Updated:** 2026-06-21 (premise corrected after a hands-on spike — see below)
 **Owner:** unassigned
 **Risk:** High (96 importers; this file is a hand-corrected layer, not a stale dup)
 
 ---
+
+## Clarifications
+
+### Session 2026-06-23
+
+- Q: What form should the migration drift reminder take for MVP? → A: Docs-only reminder in `scripts/regen-database-types.md` plus migration workflow docs; automated guard is optional follow-up.
 
 ## ⚠️ Corrected premise (read first)
 
@@ -89,14 +97,30 @@ mechanical edit. The earlier "Option A guard / Option B collapse" framing is
 withdrawn: a hard CI diff is impossible (corrections always differ) and a
 re-export collapse is proven to drop corrections.
 
+## User Stories & Testing
+
+### User Story 1 - Maintainer follows a safe regen workflow (Priority: P1)
+
+A maintainer regenerates Supabase types, reviews `src/types/database.ts` against the correction inventory, re-applies intentional corrections, and verifies the result without collapsing to raw generated types.
+
+**Independent Test**: Follow the documented runbook after a dry-run type regeneration and confirm `npx tsc --noEmit` plus `npm run test:unit` pass without replacing `database.ts` with a raw re-export.
+
+### User Story 2 - Schema author gets a drift-review reminder (Priority: P2)
+
+A schema author changing migrations has a clear reminder to review `src/types/database.ts` and the regen/repatch workflow, so uncorrected aliases do not silently drift.
+
+**Independent Test**: A migration-related change has a docs-only review path that points to `database.ts` and the regen runbook without relying on a hard raw-codegen diff; automated guard remains optional follow-up.
+
 ## Acceptance criteria
 
 - [ ] `database.ts` carries an explicit, current list of every hand-correction.
 - [ ] A documented, repeatable regen + re-patch path (script or runbook).
-- [ ] `npx tsc --noEmit` clean and `npm run test:unit` green after a dry-run regen.
-- [ ] (B′ only) corrections isolated as overlays over `supabase.generated.ts`;
-      a typed-RPC layer carries the function-arg nullability; embedded copy
-      deleted; all 96 importers compile.
+- [ ] `npx tsc --noEmit` clean and `npm run test:unit` green after a documented dry-run regen review.
+- [ ] Migration drift reminder path is documented; docs-only reminder is acceptable MVP, automated guard is optional follow-up.
+
+## Deferred acceptance for future B-prime spec
+
+- Corrections isolated as overlays over `supabase.generated.ts`; a typed-RPC layer carries the function-arg nullability; embedded copy deleted; all 96 importers compile.
 
 ## Out of scope
 
@@ -115,6 +139,7 @@ re-export collapse is proven to drop corrections.
 
 ## References
 
+- Regen + re-patch runbook: `scripts/regen-database-types.md`
 - Existing guard (for the OTHER file): `.github/workflows/db-types-fresh.yml`
 - Generation script: `package.json` → `"db:types"` (writes `supabase.generated.ts`)
 - Spike that corrected this spec: 2026-06-21, branch `chore/database-types-drift-guard`
