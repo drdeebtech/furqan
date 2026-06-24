@@ -35,7 +35,10 @@ async function wireErrorWorkflow(id) {
   const currentError = wf.settings?.errorWorkflow;
   if (currentError === PRODUCER_ID) return { status: "skipped", reason: "already wired" };
 
-  await api("PATCH", `/workflows/${id}`, {
+  // n8n v1 REST API only supports PUT (full replacement) — PATCH is not valid.
+  // Send the full workflow object back with only settings.errorWorkflow changed.
+  await api("PUT", `/workflows/${id}`, {
+    ...wf,
     settings: { ...wf.settings, errorWorkflow: PRODUCER_ID },
   });
   return { status: "ok", was: currentError || "none" };
@@ -127,3 +130,4 @@ const errored = results.filter((r) => r.status === "error").length;
 console.log(`ok=${ok} skipped=${skipped} errored=${errored} total=${results.length}`);
 console.log("\nDetails:");
 for (const r of results) console.log(JSON.stringify(r));
+if (errored > 0) process.exitCode = 1;
