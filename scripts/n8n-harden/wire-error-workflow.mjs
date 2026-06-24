@@ -100,6 +100,8 @@ const TARGETS = [
   ["9KwDYggodBkSLrPJ", "cron-process-broadcasts"],
   ["iZg4PFpB5uJX98Qa", "weekly-teacher-performance"],
   ["LC1IbAHxkYQOzrO7", "dead-letter-nurse"],
+  // Phase 3:
+  ["7p0ekQ1pkSVNCPXO", "app-error-triage"],
   // Excluded: daily-admin-digest (already hardened separately), telegram-admin-bot (webhook),
   // platform-health-check, dead-letter-producer (error trigger — is the handler, not a target)
 ];

@@ -90,6 +90,9 @@ const TARGETS = [
   // Hardener still runs to rebind credentials + set onError/alwaysOutputData on HTTP nodes.
   ["RJxrvvvnegIoD4ja", "subscription-lifecycle"],
   ["PYna6mSskM0uQZNX", "events-ack"],
+
+  // Phase 3 — App-Error Triage Officer:
+  ["7p0ekQ1pkSVNCPXO", "app-error-triage"],
 ];
 
 const args = process.argv.slice(2);
