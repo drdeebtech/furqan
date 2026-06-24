@@ -71,6 +71,13 @@ const TARGETS = [
   ["oA3GwRAcQcxn1tzX", "monthly-progress-ai"],
   ["qIBeDQgiEOWiMLFB", "curriculum-advisor"],
   ["XnKFXvQJM6zsHJa9", "matching-advisor"],
+
+  // Previously unregistered workflows (discovered in Phase 0 audit):
+  ["9ax9JqAmRdeVVJpB", "package-credit-granted"],
+  ["OTaYRQyIsTZYtsWz", "teacher-status"],
+  ["9KwDYggodBkSLrPJ", "cron-process-broadcasts"],
+  ["M5no8QqNzCd11vrh", "telegram-admin-bot"],
+  ["iZg4PFpB5uJX98Qa", "weekly-teacher-performance"],
 ];
 
 const args = process.argv.slice(2);

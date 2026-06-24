@@ -155,7 +155,10 @@ export function findTrigger(nodes) {
 // Applies the bulk hardening transform to a workflow:
 //   1. Adds onError + alwaysOutputData to every HTTP node that lacks it.
 //   2. Re-binds credentials on every HTTP node (REST PUT clears them otherwise).
-//   3. Adds a "Log Run" node hanging off the trigger in parallel.
+//   3. Wires Log Run sequentially after Call Route (success output) so it
+//      receives items and POSTs to automation_logs. Previous wiring was parallel
+//      from the trigger, which caused itemsInput:0 in n8n v2+ — the node would
+//      output {} via alwaysOutputData without ever calling the Supabase endpoint.
 // Returns the new payload — caller does the PUT.
 export function applyHardening(wf, workflowSlug) {
   const trigger = findTrigger(wf.nodes);
@@ -212,24 +215,42 @@ export function applyHardening(wf, workflowSlug) {
 
   const newConnections = { ...wf.connections };
 
-  // Add Log Run as a sibling output of the trigger (parallel to existing chain).
-  const triggerEntry = newConnections[trigger.name] ?? { main: [[]] };
-  if (!triggerEntry.main) triggerEntry.main = [[]];
-  if (!triggerEntry.main[0]) triggerEntry.main[0] = [];
-  if (!triggerEntry.main[0].some((c) => c.node === "Log Run")) {
-    triggerEntry.main[0] = [...triggerEntry.main[0], { node: "Log Run", type: "main", index: 0 }];
-  }
-  newConnections[trigger.name] = triggerEntry;
-
-  // Connect Call Route error output (index 1) → Log Failure.
   if (callRouteName) {
+    // Sequential wiring: Trigger → Call Route → Log Run (success, index 0)
+    //                                          → Log Failure (error, index 1)
+    // Remove any stale Trigger → Log Run connection left by previous parallel wiring.
+    const triggerEntry = newConnections[trigger.name];
+    if (triggerEntry?.main?.[0]) {
+      newConnections[trigger.name] = {
+        ...triggerEntry,
+        main: triggerEntry.main.map((slot, i) =>
+          i === 0 ? slot.filter((c) => c.node !== "Log Run") : slot,
+        ),
+      };
+    }
+
+    // Wire Call Route success output (index 0) → Log Run.
+    // Wire Call Route error output (index 1) → Log Failure.
     const callEntry = newConnections[callRouteName] ?? { main: [[], []] };
     if (!callEntry.main) callEntry.main = [[], []];
+    if (!callEntry.main[0]) callEntry.main[0] = [];
     if (!callEntry.main[1]) callEntry.main[1] = [];
+    if (!callEntry.main[0].some((c) => c.node === "Log Run")) {
+      callEntry.main[0] = [...callEntry.main[0], { node: "Log Run", type: "main", index: 0 }];
+    }
     if (!callEntry.main[1].some((c) => c.node === "Log Failure")) {
       callEntry.main[1] = [...callEntry.main[1], { node: "Log Failure", type: "main", index: 0 }];
     }
     newConnections[callRouteName] = callEntry;
+  } else {
+    // No cron-route node — Log Run stays parallel to trigger for non-cron workflows.
+    const triggerEntry = newConnections[trigger.name] ?? { main: [[]] };
+    if (!triggerEntry.main) triggerEntry.main = [[]];
+    if (!triggerEntry.main[0]) triggerEntry.main[0] = [];
+    if (!triggerEntry.main[0].some((c) => c.node === "Log Run")) {
+      triggerEntry.main[0] = [...triggerEntry.main[0], { node: "Log Run", type: "main", index: 0 }];
+    }
+    newConnections[trigger.name] = triggerEntry;
   }
 
   return {
@@ -246,7 +267,23 @@ export async function hardenWorkflow(id, workflowSlug) {
   const hasLogRun = wf.nodes.some((n) => n.id === "log_run" || n.name === "Log Run");
   const hasLogFailure = wf.nodes.some((n) => n.id === "log_failure" || n.name === "Log Failure");
   if (hasLogRun && hasLogFailure) {
-    return { id, name: wf.name, status: "skipped", reason: "already hardened (Log Run + Log Failure present)" };
+    // Only skip if Log Run is correctly wired after Call Route.
+    // Previously hardened workflows may have Log Run parallel to the trigger
+    // (itemsInput:0 bug) — detect that and re-harden them.
+    const callRouteNode = wf.nodes.find(
+      (n) => n.type === "n8n-nodes-base.httpRequest" &&
+             (n.parameters?.url || "").includes("furqan.today/api/cron"),
+    );
+    if (callRouteNode) {
+      const callConns = wf.connections[callRouteNode.name]?.main?.[0] ?? [];
+      const logRunOnCallRoute = callConns.some((c) => c.node === "Log Run");
+      if (logRunOnCallRoute) {
+        return { id, name: wf.name, status: "skipped", reason: "already hardened correctly" };
+      }
+      // Log Run exists but on the trigger instead of Call Route — rewire.
+    } else {
+      return { id, name: wf.name, status: "skipped", reason: "already hardened (Log Run + Log Failure present)" };
+    }
   }
   const payload = applyHardening(wf, workflowSlug);
   await putWorkflow(id, payload);

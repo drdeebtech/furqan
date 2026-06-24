@@ -156,15 +156,7 @@ export async function endSession(input: EndSessionInput): Promise<EndSessionResu
   }
 
   try {
-    await notifyParentSessionComplete(
-      booking.student_id,
-      booking.teacher_id,
-      // When force-ending a not-yet-started session, date the parent's
-      // completion report to the booked session date, not the admin-action time.
-      session.started_at ?? booking.scheduled_at,
-      actualDuration,
-      actorId,
-    );
+    await notifyParentSessionComplete(sessionId, actorId);
   } catch (err) {
     logError("endSession: notifyParentSessionComplete failed", err, {
       component: "session.orchestrate.endSession",
