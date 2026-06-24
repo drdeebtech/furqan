@@ -1,32 +1,54 @@
-// Bulk-harden furqan n8n workflows. Adds a parallel "Log Run" node that
-// writes to automation_logs on every trigger fire, plus onError +
-// alwaysOutputData on every HTTP node, and re-binds known credentials.
+// Wire every cron workflow to use the dead-letter producer as its error handler.
+// This makes n8n call furqan-dead-letter-producer whenever any wired workflow fails,
+// which inserts a retry row into automation_dead_letter for the Nurse to process.
 //
 // Usage:
-//   node scripts/n8n-harden/run.mjs                    # all workflows
-//   node scripts/n8n-harden/run.mjs <id> <slug>        # single workflow
-//   node scripts/n8n-harden/run.mjs --dry-run          # show plan only
-import { hardenWorkflow, getWorkflow, applyHardening } from "./lib.mjs";
+//   node scripts/n8n-harden/wire-error-workflow.mjs             # wire all TARGETS
+//   node scripts/n8n-harden/wire-error-workflow.mjs --dry-run   # show what would change
+//   node scripts/n8n-harden/wire-error-workflow.mjs <id>        # single workflow
+import { config } from "dotenv";
+config({ path: ".env.local" });
 
-// (workflowId, automation_logs slug). Slug is the workflow_name we'll write.
-// Excluded: daily-admin-digest (already hardened), the two inactive
-// workflows, and the test workflow we already updated this session.
+const BASE = (process.env.N8N_API_URL || "https://n8n.drdeeb.tech").replace(/\/api\/v1\/?$/, "") + "/api/v1";
+const KEY = process.env.N8N_API_KEY;
+if (!KEY) throw new Error("missing N8N_API_KEY");
+
+// The producer workflow that receives error payloads and writes to automation_dead_letter.
+const PRODUCER_ID = "by7CKOLY8DQ9ktSW";
+
+async function api(method, path, body) {
+  const res = await fetch(`${BASE}${path}`, {
+    method,
+    headers: { "X-N8N-API-KEY": KEY, "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error(`${method} ${path} → ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
+async function getWorkflow(id) {
+  return api("GET", `/workflows/${id}`);
+}
+
+async function wireErrorWorkflow(id) {
+  const wf = await getWorkflow(id);
+  const currentError = wf.settings?.errorWorkflow;
+  if (currentError === PRODUCER_ID) return { status: "skipped", reason: "already wired" };
+
+  await api("PATCH", `/workflows/${id}`, {
+    settings: { ...wf.settings, errorWorkflow: PRODUCER_ID },
+  });
+  return { status: "ok", was: currentError || "none" };
+}
+
+// All cron workflows — same list as run.mjs (excludes error-trigger and webhook-trigger workflows).
 const TARGETS = [
-  // Already-hardened today (skip; lib idempotent guards anyway):
-  // ["1aV0FOmaNuHbVVMj", "daily-admin-digest"],
-  // ["dldJFeIfXwvIUqyW", "platform-health-check"],
-
-  // Cat A — single-HTTP cron-to-app:
   ["yJfMjUEbQOwWpMZH", "retention-scorer"],
   ["oSgC94xMLDGUYu8s", "bunny-stuck-lessons"],
   ["3e1PXvnyqiY1jgHv", "cron-audit-cleanup"],
   ["XqV6KlMgCbhnziG9", "cron-email-health"],
   ["G67KJ5XZqdyd68on", "cron-reconciliation"],
-
-  // Cat B — in-flow data-fetch chains:
   ["3jAF2OnFdTXig6zQ", "session-reminder-engine"],
-
-  // Everything else — categorize on the fly via getWorkflow during run:
   ["FF2Cx7UkOgQ2cn9E", "role-based-welcome"],
   ["u0yd4Fej5cS0dQdV", "cv-approval-notification"],
   ["AiGdv6k9wAGNaQ8E", "teacher-onboarding-nudges"],
@@ -56,54 +78,41 @@ const TARGETS = [
   ["cdb2iKW0dlNFWZm8", "audit-log-enrichment"],
   ["HpCTrDfCFqE0wziT", "announcement-broadcaster"],
   ["lqdQg2BvGTUpHJjF", "message-content-moderation"],
-
-  // New cron workflows wired via n8n MCP (spec 009):
   ["9HJZmdeLsaUKgZC0", "cron-auto-complete-sessions"],
   ["ezrnzox3Awy4pGMy", "cron-cache-clear"],
   ["ucQUFb31nnQY0brM", "cron-handoff-cleanup"],
   ["ddPFuoV80kGo0mkT", "cron-murajaah-due"],
   ["RvOlWJygNON7R53Q", "cron-n8n-healthcheck"],
-
-  // AI/LLM workflows (spec 028):
-  ["W3p91rvz5qgye42s", "weakness-detector"],
-  ["TItGouB9AVrQ64P1", "coaching-insight"],
-  ["HzyVpE4NxU0zcyDg", "risk-classifier"],
-  ["oA3GwRAcQcxn1tzX", "monthly-progress-ai"],
-  ["qIBeDQgiEOWiMLFB", "curriculum-advisor"],
-  ["XnKFXvQJM6zsHJa9", "matching-advisor"],
-
-  // Previously unregistered workflows (discovered in Phase 0 audit):
   ["9ax9JqAmRdeVVJpB", "package-credit-granted"],
   ["OTaYRQyIsTZYtsWz", "teacher-status"],
   ["9KwDYggodBkSLrPJ", "cron-process-broadcasts"],
-  // telegram-admin-bot excluded: webhook-triggered (telegramTrigger), not a cron workflow.
-  // Already writes to automation_logs via its own Log Result node — no cron hardening needed.
   ["iZg4PFpB5uJX98Qa", "weekly-teacher-performance"],
-
-  // Phase 1.2 — Dead-Letter infrastructure:
-  // Producer excluded: errorTrigger (not cron); already has Log Run node built-in.
-  ["LC1IbAHxkYQOzrO7", "dead-letter-nurse"], // scheduleTrigger — harden normally
+  ["LC1IbAHxkYQOzrO7", "dead-letter-nurse"],
+  // Excluded: daily-admin-digest (already hardened separately), telegram-admin-bot (webhook),
+  // platform-health-check, dead-letter-producer (error trigger — is the handler, not a target)
 ];
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 const single = args.find((a) => !a.startsWith("--"));
-const singleSlug = args[args.indexOf(single) + 1];
 
-const targets = single ? [[single, singleSlug || "unknown"]] : TARGETS;
+const targets = single ? [[single, "unknown"]] : TARGETS;
+
+console.log(`Wiring ${targets.length} workflow(s) → producer ${PRODUCER_ID}${dryRun ? " [DRY RUN]" : ""}`);
 
 const results = [];
 for (const [id, slug] of targets) {
   try {
     if (dryRun) {
       const wf = await getWorkflow(id);
-      const payload = applyHardening(wf, slug);
-      results.push({ id, name: wf.name, slug, dry_run: "would PUT", added_log_node: payload.nodes.some((n) => n.name === "Log Run") });
+      const current = wf.settings?.errorWorkflow;
+      results.push({ id, slug, status: "dry-run", current: current || "none", would_set: PRODUCER_ID });
+      process.stdout.write(".");
     } else {
-      const r = await hardenWorkflow(id, slug);
-      results.push({ slug, ...r });
+      const r = await wireErrorWorkflow(id);
+      results.push({ id, slug, ...r });
+      process.stdout.write(r.status === "ok" ? "." : "s");
     }
-    process.stdout.write(".");
   } catch (e) {
     results.push({ id, slug, status: "error", error: e.message });
     process.stdout.write("x");

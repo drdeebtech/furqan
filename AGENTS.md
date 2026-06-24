@@ -157,6 +157,26 @@ from input · commit secrets or `.env*` · edit a symbol without `gitnexus_impac
 with a failing typecheck, lint, or test.
 
 ---
+
+## 10 · PR workflow rules
+
+These apply every time an agent creates or prepares a PR:
+
+1. **Always branch from `origin/main`, never local `main`.**
+   ```bash
+   git fetch origin
+   git checkout -b <branch-name> origin/main
+   ```
+   Branching from local `main` risks creating a PR that is already behind `origin/main`, forcing a mandatory update before merge.
+
+2. **Always rebase onto `origin/main` before pushing.**
+   ```bash
+   git fetch origin
+   git rebase origin/main
+   ```
+   Run this immediately before `git push` (and before `gh pr create`). This ensures the branch includes the latest `origin/main` commits and satisfies GitHub's "require branch to be up to date" protection rule — avoiding a blocked merge after CI has already run.
+
+---
 <!-- Tool-managed blocks regenerate below this line — keep everything above intact. -->
 <!-- BEGIN:nextjs-agent-rules --><!-- END:nextjs-agent-rules -->
 <!-- gitnexus:start --><!-- gitnexus:end -->
