@@ -36,10 +36,19 @@ async function wireErrorWorkflow(id) {
   if (currentError === PRODUCER_ID) return { status: "skipped", reason: "already wired" };
 
   // n8n v1 REST API only supports PUT (full replacement) — PATCH is not valid.
-  // Send the full workflow object back with only settings.errorWorkflow changed.
+  // Use an allowlist: only send mutable fields the PUT schema accepts.
+  // Read-only fields (versionId, activeVersionId, versionCounter, triggerCount,
+  // shared, createdAt, updatedAt, id, isArchived, meta, active, description) must be excluded.
+  const { name, nodes, connections, settings: _settings, staticData, pinData } = wf;
+  // n8n stores these settings internally but rejects them in PUT body/settings schema.
+  const { availableInMCP: _a, binaryMode: _b, timeSavedMode: _t, ...cleanSettings } = _settings || {};
   await api("PUT", `/workflows/${id}`, {
-    ...wf,
-    settings: { ...wf.settings, errorWorkflow: PRODUCER_ID },
+    name,
+    nodes,
+    connections,
+    settings: { ...cleanSettings, errorWorkflow: PRODUCER_ID },
+    ...(staticData ? { staticData } : {}),
+    ...(pinData ? { pinData } : {}),
   });
   return { status: "ok", was: currentError || "none" };
 }

@@ -83,6 +83,13 @@ const TARGETS = [
   // Phase 1.2 — Dead-Letter infrastructure:
   // Producer excluded: errorTrigger (not cron); already has Log Run node built-in.
   ["LC1IbAHxkYQOzrO7", "dead-letter-nurse"], // scheduleTrigger — harden normally
+
+  // Phase 2 — Event Switchboard:
+  // subscription-lifecycle: webhook-triggered; already writes to automation_logs via Log Ack / Log Past Due nodes.
+  // events-ack: webhook-triggered; already writes to automation_logs via Log Ack node.
+  // Hardener still runs to rebind credentials + set onError/alwaysOutputData on HTTP nodes.
+  ["RJxrvvvnegIoD4ja", "subscription-lifecycle"],
+  ["PYna6mSskM0uQZNX", "events-ack"],
 ];
 
 const args = process.argv.slice(2);
