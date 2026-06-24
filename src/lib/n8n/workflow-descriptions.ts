@@ -362,6 +362,31 @@ const META: Record<string, WorkflowMeta> = {
     en: "Daily check of token validity windows and critical-integration sanity.",
     area: "platform_health",
   },
+  "app-error-triage": {
+    ar: "تقرير يومي بمشاكل Sentry وإخفاقات n8n والرسائل المعلّقة في طابور إعادة المحاولة.",
+    en: "Daily digest of Sentry issues, n8n failure spikes, and dead-letter queue depth.",
+    area: "platform_health",
+  },
+  "dead-letter-nurse": {
+    ar: "مراجعة دورية لطابور إعادة المحاولة وإعادة تشغيل المهام الفاشلة مع التصعيد التلقائي.",
+    en: "Periodic retry of dead-letter queue items with exponential backoff and Telegram escalation.",
+    area: "platform_health",
+  },
+  "dead-letter-producer": {
+    ar: "يستقبل أخطاء n8n تلقائياً ويدرجها في طابور إعادة المحاولة للمراجعة اللاحقة.",
+    en: "Error-trigger workflow that captures n8n failures into automation_dead_letter for retry.",
+    area: "platform_health",
+  },
+  "subscription-lifecycle": {
+    ar: "يعالج أحداث الاشتراك: التفعيل، التجديد، الإلغاء، التأخر في الدفع، وإشعار الطالب.",
+    en: "Handles subscription events (activated, renewed, canceled, past_due) and notifies students.",
+    area: "payments",
+  },
+  "events-ack": {
+    ar: "يُسجّل وصول الأحداث الثانوية في سجل التشغيل لمنع الإخفاقات الوهمية في اللوحة.",
+    en: "Acknowledges secondary platform events to automation_logs, eliminating false-failed entries.",
+    area: "platform_health",
+  },
 
   // Retention scoring (separate from at-risk detector — computes churn probability scores)
   "retention-scorer": {
