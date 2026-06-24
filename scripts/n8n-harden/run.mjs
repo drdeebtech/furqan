@@ -76,7 +76,8 @@ const TARGETS = [
   ["9ax9JqAmRdeVVJpB", "package-credit-granted"],
   ["OTaYRQyIsTZYtsWz", "teacher-status"],
   ["9KwDYggodBkSLrPJ", "cron-process-broadcasts"],
-  ["M5no8QqNzCd11vrh", "telegram-admin-bot"],
+  // telegram-admin-bot excluded: webhook-triggered (telegramTrigger), not a cron workflow.
+  // Already writes to automation_logs via its own Log Result node — no cron hardening needed.
   ["iZg4PFpB5uJX98Qa", "weekly-teacher-performance"],
 ];
 
