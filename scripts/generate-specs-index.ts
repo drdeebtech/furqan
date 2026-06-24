@@ -89,7 +89,7 @@ async function readFileSafe(p: string): Promise<string | null> {
 
 function extractBranchName(specMd: string | null): string | null {
   if (!specMd) return null;
-  const m = specMd.match(/\*\*Feature Branch\*\*:\s*`([^`]+)`/);
+  const m = specMd.match(/\*\*Feature Branch:?\*\*:?\s*`([^`]+)`/);
   return m ? m[1] : null;
 }
 
