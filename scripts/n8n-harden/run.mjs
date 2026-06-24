@@ -91,8 +91,9 @@ const TARGETS = [
   ["RJxrvvvnegIoD4ja", "subscription-lifecycle"],
   ["PYna6mSskM0uQZNX", "events-ack"],
 
-  // Phase 3 — App-Error Triage Officer:
+  // Phase 3 — App-Error Triage Officer + Credential Watcher:
   ["7p0ekQ1pkSVNCPXO", "app-error-triage"],
+  ["iJ0UO7c1LIZiVhQs", "credential-watcher"],
 ];
 
 const args = process.argv.slice(2);

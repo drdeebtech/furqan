@@ -102,6 +102,7 @@ const TARGETS = [
   ["LC1IbAHxkYQOzrO7", "dead-letter-nurse"],
   // Phase 3:
   ["7p0ekQ1pkSVNCPXO", "app-error-triage"],
+  ["iJ0UO7c1LIZiVhQs", "credential-watcher"],
   // Excluded: daily-admin-digest (already hardened separately), telegram-admin-bot (webhook),
   // platform-health-check, dead-letter-producer (error trigger — is the handler, not a target)
 ];
