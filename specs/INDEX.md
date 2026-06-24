@@ -21,7 +21,7 @@
 | [011-fix-is-admin-ordering](./011-fix-is-admin-ordering/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
 | [012-prod-rls-hardening](./012-prod-rls-hardening/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
 | [013-progress-action-hardening](./013-progress-action-hardening/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
-| [014-session-participant-secdef](./014-session-participant-secdef/spec.md) | Tasks-ready | _(unknown)_ | _(pending)_ |
+| [014-session-participant-secdef](./014-session-participant-secdef/spec.md) | Shipped | `014-session-participant-secdef` | [#483](https://github.com/drdeebtech/furqan/pull/483) |
 | [015-pr458-review-remediation](./015-pr458-review-remediation/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
 | [016-public-profiles-rls-bypass](./016-public-profiles-rls-bypass/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
 | [017-pr458-cursor-authz-findings](./017-pr458-cursor-authz-findings/spec.md) | Shipped | `refactor/follow-up-collapse` | [#458](https://github.com/drdeebtech/furqan/pull/458) |
@@ -32,7 +32,7 @@
 | [022-onboarding-single-sessions](./022-onboarding-single-sessions/spec.md) | Shipped | `022-onboarding-single-sessions` | [#485](https://github.com/drdeebtech/furqan/pull/485) |
 | [023-reports-gamification-notifications](./023-reports-gamification-notifications/spec.md) | Shipped | `023-reports-gamification-notifications` | [#490](https://github.com/drdeebtech/furqan/pull/490) |
 | [024-migration-cutover](./024-migration-cutover/spec.md) | Shipped | `024-migration-cutover` | [#495](https://github.com/drdeebtech/furqan/pull/495) |
-| [025-subscribe-checkout](./025-subscribe-checkout/spec.md) | Malformed | _(unknown)_ | _(pending)_ |
+| [025-subscribe-checkout](./025-subscribe-checkout/spec.md) | Shipped | `refactor/subscription-ux-and-dashboard-maintainability` | [#499](https://github.com/drdeebtech/furqan/pull/499) |
 | [026-database-types-drift-guard](./026-database-types-drift-guard/spec.md) | Shipped | `026-database-types-drift-guard` | [#518](https://github.com/drdeebtech/furqan/pull/518) |
 | [027-seo-audit-gaps](./027-seo-audit-gaps/spec.md) | Shipped | `027-seo-audit-gaps` | [#519](https://github.com/drdeebtech/furqan/pull/519) |
 
