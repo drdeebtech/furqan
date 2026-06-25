@@ -41,7 +41,7 @@ That was **a false alarm caused by the audit itself**, proven and then fixed:
 ## 2. 🟢 Green (20) — confirmed firing + logging
 
 Crons & high-traffic flows, all writing success rows in the 30-day window:
-`platform-health-check`, `session-reminder-engine`, `workflow-failure-sentinel`, `no-show-detector`, `retention-scorer`, `session-auto-complete`, `cron-auto-complete-sessions`, `cron-n8n-healthcheck`, `cron-murajaah-due`, `cron-audit-cleanup`, `cron-email-health`, `cron-reconciliation`, `cron-cache-clear`, `cron-handoff-cleanup`, `daily-admin-digest`, `bunny-stuck-lessons`, `audit-log-enrichment`, `auto-decline-stale-bookings`, `realtime-kpi-alerting`, `session-auto-complete`. *(See raw report for per-workflow 30-day counts.)*
+`platform-health-check`, `session-reminder-engine`, `workflow-failure-sentinel`, `no-show-detector`, `retention-scorer`, `session-auto-complete`, `cron-auto-complete-sessions`, `cron-n8n-healthcheck`, `cron-murajaah-due`, `cron-audit-cleanup`, `cron-email-health`, `cron-reconciliation`, `cron-cache-clear`, `cron-handoff-cleanup`, `daily-admin-digest`, `bunny-stuck-lessons`, `audit-log-enrichment`, `auto-decline-stale-bookings`, `realtime-kpi-alerting`, `dailyco-room-creation`. *(See raw report for per-workflow 30-day counts.)*
 
 ---
 

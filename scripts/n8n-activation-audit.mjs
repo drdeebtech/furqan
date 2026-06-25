@@ -191,12 +191,12 @@ async function sbGetAll(path, pageSize = 1000) {
         },
       });
     } catch (e) {
-      process.stderr.write(`[supabase] ${e.message}\n`);
-      return all.length ? all : null;
+      // Fail closed: a partial page set would under-count and manufacture false
+      // Amber/Dark — the exact bug this paginator exists to prevent.
+      throw new Error(`supabase pagination network error after ${all.length} rows: ${e.message}`);
     }
     if (!res.ok && res.status !== 206) {
-      process.stderr.write(`[supabase] ${res.status} ${path}\n`);
-      return all.length ? all : null;
+      throw new Error(`supabase pagination failed (${res.status}) after ${all.length} rows: ${path}`);
     }
     const page = await res.json();
     if (!Array.isArray(page) || page.length === 0) break;
@@ -215,6 +215,12 @@ if (!SB_KEY) process.stderr.write("[warn] SUPABASE_SERVICE_ROLE_KEY not set — 
 // 1. Fetch all live n8n workflows (one call — no per-ID requests needed)
 process.stderr.write("[audit] Fetching n8n workflow list...\n");
 const n8nList = await n8nGet("/workflows?limit=250");
+// Fail closed: if the key IS set but the fetch failed, every workflow would read
+// as "not found in n8n" → confident-but-wrong Dark. Abort rather than mislead.
+if (N8N_KEY && !n8nList) {
+  process.stderr.write("[fatal] N8N_API_KEY is set but the n8n workflow-list fetch failed — aborting to avoid a false all-Dark report.\n");
+  process.exit(2);
+}
 /** @type {Map<string, boolean>} id → active */
 const n8nActiveById = new Map(
   (n8nList?.data ?? []).map((w) => [w.id, w.active])
@@ -246,6 +252,12 @@ const flagKeys = Object.keys(FLAG_GATES).join(",");
 const settingsRows = await sbGet(
   `/platform_settings?select=key,value&key=in.(${flagKeys})`
 );
+// Fail closed: flags drive masterFlagOn + the gate columns. A failed fetch with
+// the key set would read every flag as off → false Dark/Amber. Abort instead.
+if (SB_KEY && !settingsRows) {
+  process.stderr.write("[fatal] SUPABASE_SERVICE_ROLE_KEY is set but the platform_settings fetch failed — aborting to avoid a false report.\n");
+  process.exit(2);
+}
 /** @type {Record<string, string>} */
 const flags = Object.fromEntries((settingsRows ?? []).map((r) => [r.key, r.value]));
 
