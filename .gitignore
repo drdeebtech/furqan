@@ -90,6 +90,10 @@ docs/adrs
 # understand-anything knowledge graph + audit tooling (local only)
 .understand-anything/
 
+# Graphify (code-graph generator) local output — large generated artifacts
+# (graph.json/html, manifest, chunk + community caches). Not project source.
+graphify-out/
+
 # AI tooling runtime state (local only — must not be committed/published)
 .swarm/
 .claude-flow/
