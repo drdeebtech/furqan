@@ -11,20 +11,25 @@ export default async function AdminAiReviewPage() {
   const { t, dir } = await getT();
   const supabase = await createClient();
 
-  const { data: pending } = await supabase
+  // Table not yet in generated types (migration pending prod push); cast result after fetch.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const db = supabase as any;
+
+  const { data: pendingRaw } = await db
     .from("ai_output_review")
     .select("*")
     .eq("status", "pending_review")
-    .order("created_at", { ascending: true })
-    .returns<AiOutputReview[]>();
+    .order("created_at", { ascending: true });
 
-  const { data: recent } = await supabase
+  const { data: recentRaw } = await db
     .from("ai_output_review")
     .select("*")
     .neq("status", "pending_review")
     .order("reviewed_at", { ascending: false })
-    .limit(20)
-    .returns<AiOutputReview[]>();
+    .limit(20);
+
+  const pending = pendingRaw as AiOutputReview[] | null;
+  const recent = recentRaw as AiOutputReview[] | null;
 
   const rows = pending ?? [];
   const history = recent ?? [];

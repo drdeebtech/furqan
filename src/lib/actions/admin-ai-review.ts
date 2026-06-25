@@ -22,7 +22,8 @@ export async function approveReview(formData: FormData) {
   const { id } = ApproveSchema.parse({ id: formData.get("id") });
 
   const supabase = await createClient();
-  const { error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
     .from("ai_output_review")
     .update({
       status: "approved",
@@ -47,7 +48,8 @@ export async function rejectReview(formData: FormData) {
   });
 
   const supabase = await createClient();
-  const { error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
     .from("ai_output_review")
     .update({
       status: "rejected",
