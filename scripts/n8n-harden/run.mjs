@@ -71,6 +71,29 @@ const TARGETS = [
   ["oA3GwRAcQcxn1tzX", "monthly-progress-ai"],
   ["qIBeDQgiEOWiMLFB", "curriculum-advisor"],
   ["XnKFXvQJM6zsHJa9", "matching-advisor"],
+
+  // Previously unregistered workflows (discovered in Phase 0 audit):
+  ["9ax9JqAmRdeVVJpB", "package-credit-granted"],
+  ["OTaYRQyIsTZYtsWz", "teacher-status"],
+  ["9KwDYggodBkSLrPJ", "cron-process-broadcasts"],
+  // telegram-admin-bot excluded: webhook-triggered (telegramTrigger), not a cron workflow.
+  // Already writes to automation_logs via its own Log Result node — no cron hardening needed.
+  ["iZg4PFpB5uJX98Qa", "weekly-teacher-performance"],
+
+  // Phase 1.2 — Dead-Letter infrastructure:
+  // Producer excluded: errorTrigger (not cron); already has Log Run node built-in.
+  ["LC1IbAHxkYQOzrO7", "dead-letter-nurse"], // scheduleTrigger — harden normally
+
+  // Phase 2 — Event Switchboard:
+  // subscription-lifecycle: webhook-triggered; already writes to automation_logs via Log Ack / Log Past Due nodes.
+  // events-ack: webhook-triggered; already writes to automation_logs via Log Ack node.
+  // Hardener still runs to rebind credentials + set onError/alwaysOutputData on HTTP nodes.
+  ["RJxrvvvnegIoD4ja", "subscription-lifecycle"],
+  ["PYna6mSskM0uQZNX", "events-ack"],
+
+  // Phase 3 — App-Error Triage Officer + Credential Watcher:
+  ["7p0ekQ1pkSVNCPXO", "app-error-triage"],
+  ["iJ0UO7c1LIZiVhQs", "credential-watcher"],
 ];
 
 const args = process.argv.slice(2);

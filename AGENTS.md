@@ -4,7 +4,7 @@ Quran-memorization platform. This file is the contract for every AI agent (Claud
 in this repo. Read it before any change. `CLAUDE.md` symlinks here, so both tools share one source of truth.
 
 **Stack:** Next.js App Router · TypeScript (strict) · Tailwind · Supabase (Postgres/Auth/RLS/Storage) ·
-Stripe · Daily.co · Bunny CDN · Pusher · Sentry · n8n · PWA · full RTL/Arabic · Vercel.
+Stripe · Daily.co · Bunny CDN · Sentry · n8n · PWA · full RTL/Arabic · Vercel.
 
 **Heads-up:** this repo runs a modified/canary Next.js — APIs may differ from your training data.
 Check `node_modules/next/dist/docs/` before using an unfamiliar Next API.
@@ -63,11 +63,11 @@ Every secret has a paired env var and is **never** `NEXT_PUBLIC_*` or logged. Se
 
 - TypeScript strict; no `any`; no `@ts-ignore` without a one-line reason.
 - Prefer Server Components; reach for Client Components only when interactivity needs it.
-- **Typed event names only** — one shared enum, no string literals:
+- **Typed event names only** — `FurqanEvent` (from `src/lib/automation/emit.ts`), no raw strings:
 
 ```ts
-// ✗ pusher.trigger(ch, 'progress-updated', payload)
-// ✓ pusher.trigger(ch, Events.ProgressUpdated, payload)
+// ✗ emitEvent('progress.recorded' as any, ...)      // bypasses type check
+// ✓ emitEvent('progress.recorded', ...)             // FurqanEvent = keyof WEBHOOK_ROUTES
 ```
 
 - Progress is **merged, never overwritten** — never silently lose, reset, or overstate memorization.
@@ -155,6 +155,26 @@ Commit the plan first; commit between handoffs; one agent edits at a time.
 Modify Quran text · disable or bypass RLS · expose the service-role key client-side · trust `userId`
 from input · commit secrets or `.env*` · edit a symbol without `gitnexus_impact` · mark work "done"
 with a failing typecheck, lint, or test.
+
+---
+
+## 10 · PR workflow rules
+
+These apply every time an agent creates or prepares a PR:
+
+1. **Always branch from `origin/main`, never local `main`.**
+   ```bash
+   git fetch origin
+   git checkout -b <branch-name> origin/main
+   ```
+   Branching from local `main` risks creating a PR that is already behind `origin/main`, forcing a mandatory update before merge.
+
+2. **Always rebase onto `origin/main` before pushing.**
+   ```bash
+   git fetch origin
+   git rebase origin/main
+   ```
+   Run this immediately before `git push` (and before `gh pr create`). This ensures the branch includes the latest `origin/main` commits and satisfies GitHub's "require branch to be up to date" protection rule — avoiding a blocked merge after CI has already run.
 
 ---
 <!-- Tool-managed blocks regenerate below this line — keep everything above intact. -->
