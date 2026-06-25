@@ -58,6 +58,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_output_review: {
+        Row: {
+          auto_send_eligible: boolean
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          output_json: Json | null
+          output_text: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          workflow_name: string
+        }
+        Insert: {
+          auto_send_eligible?: boolean
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          output_json?: Json | null
+          output_text: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          workflow_name: string
+        }
+        Update: {
+          auto_send_eligible?: boolean
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          output_json?: Json | null
+          output_text?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          workflow_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_output_review_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_output_review_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -6867,4 +6927,20 @@ export type TeacherMentorship = Omit<T["teacher_mentorships"]["Row"], "status"> 
 };
 export type TeacherMentorshipFeedback = Omit<T["teacher_mentorship_feedback"]["Row"], "severity"> & {
   severity: TeacherMentorshipFeedbackSeverity;
+};
+
+export type AiOutputReviewStatus = "pending_review" | "approved" | "rejected";
+export type AiOutputReview = {
+  id: string;
+  workflow_name: string;
+  entity_type: string;
+  entity_id: string;
+  output_text: string;
+  output_json: Record<string, unknown> | null;
+  status: AiOutputReviewStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  auto_send_eligible: boolean;
+  created_at: string;
 };

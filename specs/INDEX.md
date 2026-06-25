@@ -35,6 +35,7 @@
 | [025-subscribe-checkout](./025-subscribe-checkout/spec.md) | Shipped | `refactor/subscription-ux-and-dashboard-maintainability` | [#499](https://github.com/drdeebtech/furqan/pull/499) |
 | [026-database-types-drift-guard](./026-database-types-drift-guard/spec.md) | Shipped | `026-database-types-drift-guard` | [#518](https://github.com/drdeebtech/furqan/pull/518) |
 | [027-seo-audit-gaps](./027-seo-audit-gaps/spec.md) | Shipped | `027-seo-audit-gaps` | [#519](https://github.com/drdeebtech/furqan/pull/519) |
+| [028-ai-llm-workflows](./028-ai-llm-workflows/spec.md) | Malformed | _(unknown)_ | _(pending)_ |
 
 ## Abandoned (last 90 days)
 
