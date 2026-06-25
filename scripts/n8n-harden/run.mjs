@@ -63,6 +63,14 @@ const TARGETS = [
   ["ucQUFb31nnQY0brM", "cron-handoff-cleanup"],
   ["ddPFuoV80kGo0mkT", "cron-murajaah-due"],
   ["RvOlWJygNON7R53Q", "cron-n8n-healthcheck"],
+
+  // AI/LLM workflows (spec 028):
+  ["W3p91rvz5qgye42s", "weakness-detector"],
+  ["TItGouB9AVrQ64P1", "coaching-insight"],
+  ["HzyVpE4NxU0zcyDg", "risk-classifier"],
+  ["oA3GwRAcQcxn1tzX", "monthly-progress-ai"],
+  ["qIBeDQgiEOWiMLFB", "curriculum-advisor"],
+  ["XnKFXvQJM6zsHJa9", "matching-advisor"],
 ];
 
 const args = process.argv.slice(2);

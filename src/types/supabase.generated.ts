@@ -39,6 +39,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_output_review: {
+        Row: {
+          auto_send_eligible: boolean
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          output_json: Json | null
+          output_text: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          workflow_name: string
+        }
+        Insert: {
+          auto_send_eligible?: boolean
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          output_json?: Json | null
+          output_text: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          workflow_name: string
+        }
+        Update: {
+          auto_send_eligible?: boolean
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          output_json?: Json | null
+          output_text?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          workflow_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_output_review_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_output_review_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance_records: {
         Row: {
           booking_id: string
