@@ -103,6 +103,17 @@ const TARGETS = [
   // Phase 3:
   ["7p0ekQ1pkSVNCPXO", "app-error-triage"],
   ["iJ0UO7c1LIZiVhQs", "credential-watcher"],
+  // AI/LLM workflows (spec 028):
+  ["W3p91rvz5qgye42s", "weakness-detector"],
+  ["TItGouB9AVrQ64P1", "coaching-insight"],
+  ["HzyVpE4NxU0zcyDg", "risk-classifier"],
+  ["oA3GwRAcQcxn1tzX", "monthly-progress-ai"],
+  ["qIBeDQgiEOWiMLFB", "curriculum-advisor"],
+  ["XnKFXvQJM6zsHJa9", "matching-advisor"],
+
+  // Phase 2 — Event Switchboard (webhook-triggered; hardener sets onError/credentials):
+  ["RJxrvvvnegIoD4ja", "subscription-lifecycle"],
+  ["PYna6mSskM0uQZNX", "events-ack"],
   // Excluded: daily-admin-digest (already hardened separately), telegram-admin-bot (webhook),
   // platform-health-check, dead-letter-producer (error trigger — is the handler, not a target)
 ];
