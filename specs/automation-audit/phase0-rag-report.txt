@@ -1,0 +1,92 @@
+◇ injected env (27) from .env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+
+n8n Activation Audit — 2026-06-25T17:22:57.741Z
+Master flag (automation_enabled): ✅ ON
+
+Feature flags:
+  ✅ automation_enabled = true
+  ❌ renewal_campaigns_enabled = false
+  ✅ ai_parent_reports_enabled = true
+  ✅ teacher_quality_monitor_enabled = true
+  ✅ retention_automation_enabled = true
+
+Summary: 🟢 20 Green  🟡 18 Amber  ⚫ 4 Dark
+
+SLUG                                   │ n8n        │ FLAG GATE                          │ 30d (✅/❌/⏭)          │ STATUS  
+───────────────────────────────────────┼────────────┼────────────────────────────────────┼──────────────────────┼─────────
+abandoned-booking-recovery             │ ✅ active   │ renewal_campaigns_enabled=false    │ 59 / 0 / 0           │ ⚫ DARK  
+package-renewal-campaign               │ ✅ active   │ renewal_campaigns_enabled=false    │ 0 / 0 / 0            │ ⚫ DARK  
+trial-to-paid-conversion               │ ✅ active   │ renewal_campaigns_enabled=false    │ 0 / 0 / 0            │ ⚫ DARK  
+upsell-higher-package                  │ ✅ active   │ renewal_campaigns_enabled=false    │ 0 / 0 / 0            │ ⚫ DARK  
+role-based-welcome                     │ ✅ active   │ none                               │ 0 / 0 / 0            │ 🟡 AMBER
+cv-approval-notification               │ ✅ active   │ none                               │ 0 / 0 / 0            │ 🟡 AMBER
+teacher-onboarding-nudges              │ ✅ active   │ none                               │ 0 / 0 / 0            │ 🟡 AMBER
+learning-streak-encouragement          │ ✅ active   │ none                               │ 0 / 0 / 0            │ 🟡 AMBER
+first-student-celebration              │ ✅ active   │ none                               │ 0 / 0 / 0            │ 🟡 AMBER
+missed-session-parent-alert            │ ✅ active   │ none                               │ 0 / 0 / 0            │ 🟡 AMBER
+package-expiry-countdown               │ ✅ active   │ none                               │ 0 / 0 / 0            │ 🟡 AMBER
+homework-noncompletion-parent-alert    │ ✅ active   │ none                               │ 0 / 0 / 0            │ 🟡 AMBER
+low-package-balance-alert              │ ✅ active   │ none                               │ 0 / 0 / 0            │ 🟡 AMBER
+milestone-celebrations                 │ ✅ active   │ none                               │ 0 / 0 / 0            │ 🟡 AMBER
+inactivity-reengagement                │ ✅ active   │ none                               │ 0 / 0 / 0            │ 🟡 AMBER
+parent-post-session-report             │ ✅ active   │ none                               │ 0 / 0 / 0            │ 🟡 AMBER
+student-at-risk-detector               │ ✅ active   │ none                               │ 0 / 0 / 0            │ 🟡 AMBER
+teacher-eval-compliance                │ ✅ active   │ none                               │ 0 / 0 / 0            │ 🟡 AMBER
+teacher-quality-monitor                │ ✅ active   │ none                               │ 0 / 0 / 0            │ 🟡 AMBER
+weekly-progress-digest                 │ ✅ active   │ none                               │ 0 / 0 / 0            │ 🟡 AMBER
+announcement-broadcaster               │ ✅ active   │ none                               │ 0 / 0 / 0            │ 🟡 AMBER
+message-content-moderation             │ ✅ active   │ none                               │ 0 / 0 / 0            │ 🟡 AMBER
+daily-admin-digest                     │ ✅ active   │ none                               │ 1 / 0 / 0            │ 🟢 GREEN
+platform-health-check                  │ ✅ active   │ none                               │ 8549 / 1 / 0         │ 🟢 GREEN
+retention-scorer                       │ ✅ active   │ none                               │ 60 / 0 / 0           │ 🟢 GREEN
+bunny-stuck-lessons                    │ ✅ active   │ none                               │ 1434 / 0 / 0         │ 🟢 GREEN
+cron-audit-cleanup                     │ ✅ active   │ none                               │ 30 / 0 / 0           │ 🟢 GREEN
+cron-email-health                      │ ✅ active   │ none                               │ 30 / 0 / 0           │ 🟢 GREEN
+cron-reconciliation                    │ ✅ active   │ none                               │ 30 / 0 / 0           │ 🟢 GREEN
+session-reminder-engine                │ ✅ active   │ none                               │ 8552 / 0 / 0         │ 🟢 GREEN
+no-show-detector                       │ ✅ active   │ none                               │ 4276 / 0 / 0         │ 🟢 GREEN
+dailyco-room-creation                  │ ✅ active   │ none                               │ 1 / 0 / 0            │ 🟢 GREEN
+auto-decline-stale-bookings            │ ✅ active   │ none                               │ 714 / 0 / 0          │ 🟢 GREEN
+workflow-failure-sentinel              │ ✅ active   │ none                               │ 5702 / 0 / 0         │ 🟢 GREEN
+realtime-kpi-alerting                  │ ✅ active   │ none                               │ 714 / 0 / 0          │ 🟢 GREEN
+session-auto-complete                  │ ✅ active   │ none                               │ 2850 / 0 / 0         │ 🟢 GREEN
+audit-log-enrichment                   │ ✅ active   │ none                               │ 1427 / 0 / 0         │ 🟢 GREEN
+cron-auto-complete-sessions            │ ✅ active   │ none                               │ 2866 / 0 / 0         │ 🟢 GREEN
+cron-cache-clear                       │ ✅ active   │ none                               │ 30 / 0 / 0           │ 🟢 GREEN
+cron-handoff-cleanup                   │ ✅ active   │ none                               │ 30 / 0 / 0           │ 🟢 GREEN
+cron-murajaah-due                      │ ✅ active   │ none                               │ 30 / 0 / 0           │ 🟢 GREEN
+cron-n8n-healthcheck                   │ ✅ active   │ none                               │ 2866 / 0 / 0         │ 🟢 GREEN
+
+
+⚫ DARK — employees hired but not clocking in:
+  abandoned-booking-recovery: flag-gated: renewal_campaigns_enabled=false — set to 'true' in admin → Platform Settings
+  package-renewal-campaign: flag-gated: renewal_campaigns_enabled=false — set to 'true' in admin → Platform Settings
+  trial-to-paid-conversion: flag-gated: renewal_campaigns_enabled=false — set to 'true' in admin → Platform Settings
+  upsell-higher-package: flag-gated: renewal_campaigns_enabled=false — set to 'true' in admin → Platform Settings
+
+🟡 AMBER — active but needs attention:
+  role-based-welcome: active + no flags BUT zero automation_logs rows in 30 days
+  cv-approval-notification: active + no flags BUT zero automation_logs rows in 30 days
+  teacher-onboarding-nudges: active + no flags BUT zero automation_logs rows in 30 days
+  learning-streak-encouragement: active + no flags BUT zero automation_logs rows in 30 days
+  first-student-celebration: active + no flags BUT zero automation_logs rows in 30 days
+  missed-session-parent-alert: active + no flags BUT zero automation_logs rows in 30 days
+  package-expiry-countdown: active + no flags BUT zero automation_logs rows in 30 days
+  homework-noncompletion-parent-alert: active + no flags BUT zero automation_logs rows in 30 days
+  low-package-balance-alert: active + no flags BUT zero automation_logs rows in 30 days
+  milestone-celebrations: active + no flags BUT zero automation_logs rows in 30 days
+  inactivity-reengagement: active + no flags BUT zero automation_logs rows in 30 days
+  parent-post-session-report: active + no flags BUT zero automation_logs rows in 30 days
+  student-at-risk-detector: active + no flags BUT zero automation_logs rows in 30 days
+  teacher-eval-compliance: active + no flags BUT zero automation_logs rows in 30 days
+  teacher-quality-monitor: active + no flags BUT zero automation_logs rows in 30 days
+  weekly-progress-digest: active + no flags BUT zero automation_logs rows in 30 days
+  announcement-broadcaster: active + no flags BUT zero automation_logs rows in 30 days
+  message-content-moderation: active + no flags BUT zero automation_logs rows in 30 days
+
+Action items:
+  1. Fix ⚫ DARK workers: toggle n8n active flags or enable platform_settings flags
+  2. Investigate 🟡 AMBER workers: check automation_logs for error details
+  3. Run with --json for machine-readable output: node scripts/n8n-activation-audit.mjs --json
+  4. Re-run after changes to verify all workers are 🟢 GREEN
+
