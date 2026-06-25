@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/require-admin";
 
 const ApproveSchema = z.object({
@@ -36,10 +37,11 @@ export async function approveReview(formData: FormData) {
   if (error) throw new Error(error.message);
 
   // Downstream delivery + auto-send gate. The approval itself already succeeded,
-  // so failures here must log, not throw. (supabase is typed via the generated
-  // client which predates ai_output_review; cast to any to avoid regenerating types mid-task.)
+  // so failures here must log, not throw. Uses the service-role admin client so RLS
+  // can't silently drop the bookings lookup / parent_reports + notifications inserts /
+  // gate update. The status UPDATE above stays on the session client for the audit trail.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any;
+  const db = createAdminClient() as any;
   try {
     const { data: row } = await db
       .from("ai_output_review")
@@ -96,20 +98,12 @@ export async function approveReview(formData: FormData) {
       }
 
       // auto_send_eligible gate: ≥30 approvals AND ≥90% approval rate for this workflow.
-      const { count: approvedCount } = await db
-        .from("ai_output_review")
-        .select("id", { count: "exact", head: true })
-        .eq("workflow_name", row.workflow_name)
-        .eq("status", "approved");
-
-      const { count: totalReviewed } = await db
-        .from("ai_output_review")
-        .select("id", { count: "exact", head: true })
-        .eq("workflow_name", row.workflow_name)
-        .in("status", ["approved", "rejected"]);
-
-      const approved = approvedCount ?? 0;
-      const total = totalReviewed ?? 0;
+      // Single atomic RPC (counts taken from one snapshot — no drift between queries).
+      const { data: gate } = await db.rpc("ai_review_gate", {
+        p_workflow_name: row.workflow_name,
+      });
+      const approved = (gate?.[0]?.approved_count ?? 0) as number;
+      const total = (gate?.[0]?.total_reviewed ?? 0) as number;
       const approvalRate = total > 0 ? approved / total : 0;
       if (approved >= 30 && approvalRate >= 0.9) {
         const { error: gateError } = await db
