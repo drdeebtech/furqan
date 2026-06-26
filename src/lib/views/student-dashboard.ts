@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
 import { loadOrFail, countOrFail } from "@/lib/supabase/load-or-fail";
+import type { ServerClient } from "@/lib/supabase/types";
 import type { SessionType } from "@/types/database";
 import {
   getStudentStudyAnalytics,
@@ -43,8 +43,6 @@ import {
  * so the whole screen reads on one client and the bundle is testable against a
  * fake/stub without a live server client.
  */
-
-type ServerClient = Awaited<ReturnType<typeof createClient>>;
 
 interface ChartDataPoint {
   day: string;

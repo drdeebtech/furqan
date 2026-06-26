@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import type { ServerClient } from "@/lib/supabase/types";
 import { recentWindow, resolveStudentNames } from "@/lib/views/_shared/teacher-reads";
 
 /**
@@ -12,11 +12,6 @@ import { recentWindow, resolveStudentNames } from "@/lib/views/_shared/teacher-r
  * collapsing the per-widget `public_profiles` name-resolve into the shared
  * `resolveStudentNames` helper (N+1 fix), output-identical.
  */
-
-/**
- * Injected server client type (the test seam).
- */
-type ServerClient = Awaited<ReturnType<typeof createClient>>;
 
 /**
  * Talqeen inbox for the teacher dashboard — Sprint Improvement #2 (2026-05-05).

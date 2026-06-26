@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import type { ServerClient } from "@/lib/supabase/types";
 import { recentWindow } from "@/lib/views/_shared/teacher-reads";
 
 /**
@@ -10,11 +10,6 @@ import { recentWindow } from "@/lib/views/_shared/teacher-reads";
  * `supabase` client is the test seam. Behavior-preserving extraction from
  * the `dashboard-queries.ts` god module — query logic is byte-identical.
  */
-
-/**
- * Injected server client type (the test seam).
- */
-type ServerClient = Awaited<ReturnType<typeof createClient>>;
 
 /**
  * Time-to-grade discipline KPI for the teacher dashboard.

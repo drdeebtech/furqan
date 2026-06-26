@@ -3,12 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import type { ServerClient } from "@/lib/supabase/types";
+import type { Json } from "@/types/supabase.generated";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
 import { requireAdmin } from "@/lib/auth/require-admin";
-
-// Tables added in v16_001 — supabase.generated.ts not regenerated yet.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyClient = any;
 
 // Shared bounds for content-table inputs. Title/label fields cap at 200,
 // long-form bilingual bodies cap at 5k. sort_order stays in a sane int
@@ -65,7 +63,7 @@ const upsertFaqBase = loudAction<z.infer<typeof upsertFaqSchema>, { message?: st
     reasonPrefix: "admin upsert FAQ",
   },
   handler: async (input) => {
-    const supabase = (await createClient()) as AnyClient;
+    const supabase = (await createClient()) as ServerClient;
     const row = {
       sort_order: input.sort_order,
       question_ar: input.question_ar,
@@ -107,7 +105,7 @@ const deleteFaqBase = loudAction<{ id: string }, { message: string }>({
     reasonPrefix: "admin delete FAQ",
   },
   handler: async ({ id }) => {
-    const supabase = (await createClient()) as AnyClient;
+    const supabase = (await createClient()) as ServerClient;
     const { error } = await supabase.from("site_faqs").delete().eq("id", id);
     if (error) throw error;
     revalidatePublicSurfaces();
@@ -146,7 +144,7 @@ const upsertFeatureBase = loudAction<z.infer<typeof upsertFeatureSchema>, { mess
     reasonPrefix: "admin upsert feature",
   },
   handler: async (input) => {
-    const supabase = (await createClient()) as AnyClient;
+    const supabase = (await createClient()) as ServerClient;
     const row = {
       slot: input.slot,
       sort_order: input.sort_order,
@@ -155,7 +153,7 @@ const upsertFeatureBase = loudAction<z.infer<typeof upsertFeatureSchema>, { mess
       title_en: input.title_en,
       description_ar: input.description_ar,
       description_en: input.description_en,
-      meta: input.meta,
+      meta: input.meta as unknown as Json,
       is_active: input.is_active,
     };
     const { error } = input.id
@@ -207,7 +205,7 @@ const deleteFeatureBase = loudAction<{ id: string }, { message: string }>({
     reasonPrefix: "admin delete feature",
   },
   handler: async ({ id }) => {
-    const supabase = (await createClient()) as AnyClient;
+    const supabase = (await createClient()) as ServerClient;
     const { error } = await supabase.from("site_features").delete().eq("id", id);
     if (error) throw error;
     revalidatePublicSurfaces();
@@ -242,7 +240,7 @@ const upsertCategoryBase = loudAction<z.infer<typeof upsertCategorySchema>, { me
     reasonPrefix: "admin upsert blog category",
   },
   handler: async (input) => {
-    const supabase = (await createClient()) as AnyClient;
+    const supabase = (await createClient()) as ServerClient;
     const row = {
       key: input.key,
       label_ar: input.label_ar,
@@ -282,7 +280,7 @@ const deleteCategoryBase = loudAction<{ id: string }, { message: string }>({
     reasonPrefix: "admin delete blog category",
   },
   handler: async ({ id }) => {
-    const supabase = (await createClient()) as AnyClient;
+    const supabase = (await createClient()) as ServerClient;
     const { error } = await supabase.from("site_blog_categories").delete().eq("id", id);
     if (error) throw error;
     revalidatePublicSurfaces();

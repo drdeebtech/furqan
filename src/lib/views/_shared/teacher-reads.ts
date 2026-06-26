@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import type { ServerClient } from "@/lib/supabase/types";
 
 /**
  * Shared read helpers for the teacher deep-read modules
@@ -10,13 +10,6 @@ import { createClient } from "@/lib/supabase/server";
  *   - the per-module `public_profiles` name-resolve block (an N+1 when
  *     each caller re-queried it), now collapsed into one tested query.
  */
-
-/**
- * Injected server client type — the test seam. Every read helper takes
- * this as its first argument instead of opening its own `createClient()`,
- * so the read modules can be exercised against a fake/stub client.
- */
-type ServerClient = Awaited<ReturnType<typeof createClient>>;
 
 /**
  * ISO timestamp for the start of a recent rolling window.

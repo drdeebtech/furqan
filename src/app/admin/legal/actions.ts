@@ -3,12 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import type { ServerClient } from "@/lib/supabase/types";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { emitEvent } from "@/lib/automation/emit";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyClient = any;
 
 const updateLegalSchema = z.object({
   kind: z.enum(["terms", "privacy"]),
@@ -30,7 +28,7 @@ const updateLegalBase = loudAction<z.infer<typeof updateLegalSchema>, { message?
     reasonPrefix: "admin updated legal document",
   },
   handler: async (input, ctx) => {
-    const supabase = (await createClient()) as AnyClient;
+    const supabase = (await createClient()) as ServerClient;
     const now = new Date().toISOString();
 
     // Snapshot the current row into legal_document_versions BEFORE we
