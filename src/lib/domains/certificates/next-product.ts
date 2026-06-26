@@ -24,6 +24,7 @@ export async function suggestNextProduct(
   studentId: string,
   completedCourseId: string,
 ): Promise<NextProductSuggestion | null> {
+  // admin: invoked from n8n webhook — no session; cross-reads enrollments (issue #523)
   const admin = createAdminClient();
 
   const { data: enrolledRaw, error: enrollErr } = await admin

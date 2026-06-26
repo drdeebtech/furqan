@@ -69,6 +69,7 @@ const addStudentToSessionBase = loudAction<AddStudentInput, { message: string }>
 
     // Inherit slot from the primary booking — admin client to bypass RLS so
     // we can read across student-scoped policies if the caller is the teacher.
+    // admin: teacher/admin inserts a NEW booking for a different studentId + debits their package (issue #523)
     const admin = createAdminClient();
     const { data: primary, error: primaryErr } = await admin
       .from("bookings")

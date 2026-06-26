@@ -20,6 +20,7 @@ export async function POST(request: Request) {
     actorId = guard.id;
   }
 
+  // admin: admin or n8n-cron secret; automation_logs + workflow control (issue #523)
   const admin = createAdminClient();
 
   try {

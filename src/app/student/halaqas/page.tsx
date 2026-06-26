@@ -42,6 +42,7 @@ export default async function StudentHalaqasPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // admin: lists all upcoming halaqas + teacher names — cross-user reads, no public RLS read path (issue #523)
   const admin = createAdminClient();
   const nowIso = new Date().toISOString();
 

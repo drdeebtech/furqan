@@ -28,6 +28,7 @@ interface NotifRow {
  */
 export const getRecentBroadcasts = unstable_cache(
   async (limit = 20): Promise<NotifRow[]> => {
+    // admin: inside unstable_cache (cookies disallowed); reads notifications (issue #523)
     const supabase = createAdminClient();
     const { data } = await supabase
       .from("notifications")

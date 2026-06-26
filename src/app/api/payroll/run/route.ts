@@ -38,6 +38,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    // admin: admin-gated; cross-user batch via SECURITY DEFINER RPC (issue #523)
     const adminClient = createAdminClient();
     const payrollResult = await runMonthlyPayroll(adminClient, month);
     return NextResponse.json(payrollResult, { status: 200 });

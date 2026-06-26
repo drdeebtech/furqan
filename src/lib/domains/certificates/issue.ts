@@ -47,6 +47,7 @@ export async function issueCertificate(
   milestoneKey: string,
 ): Promise<IssueResult> {
   const idempotencyKey = `cert:${studentId}:${type}:${milestoneKey}`;
+  // admin: invoked from n8n webhook — no session; writes certificates + automation_logs (issue #523)
   const admin = createAdminClient();
 
   // 1. Check existing automation_log row.

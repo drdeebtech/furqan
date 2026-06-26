@@ -15,6 +15,7 @@ import { BreadcrumbSchema } from "@/components/seo/structured-data";
 // to a single shared fetch across every public visitor.
 const getBlogIndex = unstable_cache(
   async () => {
+    // admin: public anonymous read of published blog (issue #523)
     const supabase = createAdminClient();
     const [postsRes, categoriesRes] = await Promise.all([
       supabase

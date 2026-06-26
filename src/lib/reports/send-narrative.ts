@@ -45,6 +45,7 @@ function renderEmailBody(n: SessionNarrative): string {
  * emits session.report_sent event for n8n subscribers.
  */
 export async function sendSessionNarrative(input: SendNarrativeInput): Promise<SendNarrativeResult> {
+  // admin: cross-channel session narrative; cross-user writes + report idempotency (issue #523)
   const supabase = createAdminClient();
 
   // Idempotency: a report for this session should only be sent once across all channels

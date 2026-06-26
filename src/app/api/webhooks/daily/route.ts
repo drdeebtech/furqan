@@ -198,6 +198,7 @@ async function handleParticipantEvent(payload: DailyPayload): Promise<NextRespon
     return NextResponse.json({ ok: true, applied: false, reason: "no-room-name" });
   }
 
+  // admin: webhook — no user session; Daily.co meeting lifecycle (issue #523)
   const admin = createAdminClient();
   const { data: session } = await admin
     .from("sessions")

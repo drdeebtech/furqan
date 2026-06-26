@@ -41,6 +41,7 @@ export async function approveReview(formData: FormData) {
   // can't silently drop the bookings lookup / parent_reports + notifications inserts /
   // gate update. The status UPDATE above stays on the session client for the audit trail.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // admin: requireAdmin; cross-user fan-out (parent_reports + notifications + bulk update) (issue #523)
   const db = createAdminClient() as any;
   try {
     const { data: row } = await db

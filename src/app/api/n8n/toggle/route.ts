@@ -17,6 +17,7 @@ export async function POST(request: Request) {
   }
   const { id, active } = parsed.data;
 
+  // admin: admin-gated (requireAdminForApi); audit_log telemetry (issue #523)
   const admin = createAdminClient();
   const action = active ? "activate" : "deactivate";
 

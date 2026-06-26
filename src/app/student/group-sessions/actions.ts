@@ -64,6 +64,7 @@ export async function requestJoinGroupSession(sessionId: string): Promise<Action
     return { ok: false, error: "لا توجد مقاعد متاحة" };
   }
 
+  // admin: joins group session — updates sessions.current_enrollment on a row the student doesn't own (issue #523)
   const admin = createAdminClient();
 
   // Already-enrolled check (admin client for consistency with insert below).

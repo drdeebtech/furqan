@@ -309,6 +309,7 @@ async function writeAudit<TInput>(
 ) {
   try {
     const recordId = typeof audit.recordId === "function" ? audit.recordId(input, actorId) : audit.recordId;
+    // admin: framework audit_log writer — actorId may be null; audit_log is service-role telemetry (issue #523)
     const admin = createAdminClient();
     await admin.from("audit_log").insert({
       changed_by: actorId,

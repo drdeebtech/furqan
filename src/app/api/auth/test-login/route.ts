@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
       ? body.email.toLowerCase()
       : DEFAULT_EMAIL_BY_ROLE[role];
 
+  // admin: dev/test route; auth.admin API (issue #523)
   const admin = createAdminClient();
 
   // 1. Find-or-create the auth user. createUser with email_confirm:true is

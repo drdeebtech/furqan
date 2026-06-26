@@ -267,6 +267,7 @@ export async function submitQuizAttempt(
       points: number;
     }[]>();
 
+  // admin: reads quiz_question_keys (answer key) — students must never see it; deliberate RLS bypass (issue #523)
   const admin = createAdminClient();
   const { data: keys, error: keysErr } = await admin.from("quiz_question_keys")
     .select("question_id, correct_answer")

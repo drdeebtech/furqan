@@ -21,6 +21,7 @@ type AuthResult =
 export async function requireAdminUser(
   request: Request,
 ): Promise<AuthResult> {
+  // admin: shared admin-auth helper; auth.admin API for impersonation/role lookup (issue #523)
   const admin = createAdminClient();
 
   const token = request.headers.get("Authorization")?.split(" ")[1] ?? "";

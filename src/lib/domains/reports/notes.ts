@@ -54,6 +54,7 @@ export async function getNotesForStudent(
   studentId: string,
   opts: { admin?: boolean } = {},
 ): Promise<TeacherNoteRow[]> {
+  // admin: getNotesForStudent admin branch (cross-user report gen); createNote is teacher cross-user write (JUDGE — teacher_notes RLS pending) (issue #523)
   const supabase = opts.admin ? createAdminClient() : await userClient();
   const { data, error } = await supabase
     .from("teacher_notes")
@@ -88,6 +89,7 @@ export async function createNote(
     return { ok: false, error: (e as Error).message, status: 422 };
   }
 
+  // admin: getNotesForStudent admin branch (cross-user report gen); createNote is teacher cross-user write (JUDGE — teacher_notes RLS pending) (issue #523)
   const admin = createAdminClient();
 
   // Teacher-assignment check: read from spec 020's authoritative assignment

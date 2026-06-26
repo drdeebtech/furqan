@@ -50,6 +50,7 @@ export async function generateMonthlyReport(args: {
     return { ok: false, error: `invalid month: ${month}` };
   }
 
+  // admin: backend report job — no actor/session; writes monthly_reports (issue #523)
   const admin = createAdminClient();
   const summary = (args.summary ?? "").trim() || null;
   const subscriptionId = args.subscriptionId ?? null;

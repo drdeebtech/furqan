@@ -58,6 +58,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { action, ...data } = body;
 
+  // admin: webhook — no user session; n8n callbacks (issue #523)
   const supabase = createAdminClient();
 
   switch (action) {

@@ -33,6 +33,7 @@ export async function POST(request: Request) {
     throw e;
   }
 
+  // admin: authed guardian, but links ANOTHER user (child) — cross-user write (RLS blocks authed inserts) (issue #523)
   const admin = createAdminClient();
 
   // Per-guardian rate limit (audit H-1): blunts the email-enumeration/abuse

@@ -57,6 +57,7 @@ const MAX_BOOKINGS_PER_HOUR = 10;
  * role has no SELECT/INSERT grants on that table (Sentry FURQAN-2R).
  */
 async function checkRateLimit(userId: string): Promise<boolean> {
+  // admin: checkRateLimit uses automation_logs (no SELECT/INSERT grant for students) (issue #523)
   const admin = createAdminClient();
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const { count, error: countError } = await admin

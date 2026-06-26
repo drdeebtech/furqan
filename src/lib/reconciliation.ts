@@ -27,6 +27,7 @@ export interface ReconcileFinding {
  * keep the check as a belt-and-suspenders backstop.
  */
 async function findOrphanTeachers(): Promise<ReconcileFinding[]> {
+  // admin: runs via cron — no session; cross-table invariant scans (issue #523)
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("profiles")
@@ -61,6 +62,7 @@ async function findOrphanTeachers(): Promise<ReconcileFinding[]> {
  * the auth.users + profiles row without archiving teacher_profiles).
  */
 async function findOrphanTeacherProfiles(): Promise<ReconcileFinding[]> {
+  // admin: runs via cron — no session; cross-table invariant scans (issue #523)
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("teacher_profiles")
@@ -89,6 +91,7 @@ async function findOrphanTeacherProfiles(): Promise<ReconcileFinding[]> {
  * Generated column should make this impossible, but the check is cheap.
  */
 async function findImpossibleSessionBalance(): Promise<ReconcileFinding[]> {
+  // admin: runs via cron — no session; cross-table invariant scans (issue #523)
   const admin = createAdminClient();
   const { data: rows, error: selErr } = await admin
     .from("student_packages")

@@ -208,6 +208,7 @@ export async function enrollInOffering(
   // 0 or 1 (their own). To get the true count we need a service-role
   // round-trip. Reuse the same admin-client pattern as Phase 1.
   const { createAdminClient } = await import("@/lib/supabase/admin");
+  // admin: enrollInOffering counts ALL students' bookings for capacity (RLS would only show own) (issue #523)
   const admin = createAdminClient();
 
   const { count: enrolledCount } = await admin

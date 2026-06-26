@@ -19,6 +19,7 @@ import { withAuthedCronMonitor } from "@/lib/sentry/cron";
 import { logError } from "@/lib/logger";
 
 export const GET = withAuthedCronMonitor("cron-process-broadcasts", "*/2 * * * *", async () => {
+  // admin: cron — no user session; drains notification queue cross-user (issue #523)
   const admin = createAdminClient();
   const { data: pending, error } = await admin
     .from("notification_broadcasts")

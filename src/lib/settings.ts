@@ -56,6 +56,7 @@ export const getSettings = unstable_cache(
   async (): Promise<Record<string, string>> => {
     // Admin client (no cookies()) — required because unstable_cache disallows
     // dynamic APIs inside the cached function body.
+    // admin: inside unstable_cache (cookies disallowed); reads platform_settings (issue #523)
     const supabase = createAdminClient();
     const { data } = await supabase
       .from("platform_settings")

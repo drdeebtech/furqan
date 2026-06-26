@@ -16,6 +16,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
+  // admin: public anonymous read; reads course + teacher profile (issue #523)
   const supabase = createAdminClient();
   const { data: course } = await supabase
     .from("courses")
@@ -53,6 +54,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function CourseLandingPage({ params }: PageProps) {
   const { slug } = await params;
   const { t, dir, lang } = await getT();
+  // admin: public anonymous read; reads course + teacher profile (issue #523)
   const adminSupabase = createAdminClient();
 
   const { data: course } = await adminSupabase

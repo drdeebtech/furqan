@@ -70,6 +70,7 @@ export async function submitContactForm(
   const message = nullify(parsed.data.message);
 
   try {
+    // admin: anonymous form; INSERT contact_submissions (RLS denies anon insert) (issue #523)
     const supabase = createAdminClient();
 
     const { error: dbError } = await supabase.from("contact_submissions").insert({

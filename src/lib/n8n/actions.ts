@@ -33,6 +33,7 @@ async function logAdminAction(
 ): Promise<void> {
   try {
     const actorId = await getAdminUserId();
+    // admin: admin user id context; writes automation_logs telemetry (issue #523)
     const admin = createAdminClient();
     // `automation_logs.entity_id` is a UUID column. n8n workflow IDs are
     // short alphanumeric strings (e.g. "AiGdv6k9wAGNaQ8E") — Postgres rejects
