@@ -10,6 +10,7 @@ import { notifyNewBooking } from "@/lib/whatsapp";
 import { emitEvent } from "@/lib/automation/emit";
 import { dispatchEffects } from "@/lib/automation/effects";
 import { logError } from "@/lib/logger";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { createBooking as createBookingDomain } from "@/lib/domains/booking/actions";
 import {
   BookingValidationError,
@@ -196,6 +197,16 @@ export async function createBooking(
     });
     return { error: "حدث خطأ أثناء إنشاء الحجز" };
   }
+
+  getPostHogClient()?.capture({
+    distinctId: studentId,
+    event: "booking_created",
+    properties: {
+      session_type: sessionType,
+      duration_min: durationMin,
+      teacher_id: teacherId,
+    },
+  });
 
   // Cross-domain choreography stays at the route adapter (per ADR-0002 §1
   // — orchestration is a separate later conversation). Send notifications

@@ -9,6 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logError, logInfo } from "@/lib/logger";
 import { withTimeout } from "@/lib/promise-utils";
 import { isSafeRelativePath } from "@/lib/security/safe-url";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 /**
  * Deterministically hash an email to a UUID-shaped key so it fits the
@@ -304,6 +305,12 @@ export async function login(
   // Audit the sign-in. Fire-and-forget; never blocks the redirect.
   await recordLogin(data.user.id, email, role);
 
+  getPostHogClient()?.capture({
+    distinctId: data.user.id,
+    event: "user_logged_in",
+    properties: { role, method: "email" },
+  });
+
   // If caller provided an explicit redirect (e.g. from ?redirect=/student/bookings), use it.
   // Validate via the shared guard: same-origin relative path only, rejecting
   // protocol-relative, backslash-bypass, CRLF, and traversal payloads.
@@ -366,7 +373,7 @@ export async function register(
 
   const supabase = await createClient();
 
-  const { error } = await supabase.auth.signUp({
+  const { data: signupData, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -440,6 +447,14 @@ export async function register(
       },
     });
     return { error: "حدث خطأ أثناء إنشاء الحساب" };
+  }
+
+  if (signupData?.user?.id) {
+    getPostHogClient()?.capture({
+      distinctId: signupData.user.id,
+      event: "user_signed_up",
+      properties: { method: "email", has_plan: !!plan },
+    });
   }
 
   redirect(plan ? `/login?registered=true&redirect=/subscribe?plan=${encodeURIComponent(plan)}` : "/login?registered=true");

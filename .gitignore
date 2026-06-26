@@ -157,3 +157,4 @@ testsprite_tests/tmp/config.json
 .codebuddy/
 .kiro/
 .hermes.md
+.env.local

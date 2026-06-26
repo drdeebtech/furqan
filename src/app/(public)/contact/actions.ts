@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendContactNotification } from "@/lib/email";
 import { notifyNewContact } from "@/lib/whatsapp";
 import { logError } from "@/lib/logger";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 // Boundary schema for the public, unauthenticated contact form. Length caps
 // prevent multi-MB `message` blobs being stored at scale (write-amplification
@@ -101,6 +102,15 @@ export async function submitContactForm(
       metadata: { email },
     });
   }
+
+  getPostHogClient()?.capture({
+    distinctId: email,
+    event: "contact_form_submitted",
+    properties: {
+      has_package_interest: !!packageInterest,
+      country: country ?? undefined,
+    },
+  });
 
   return { success: true };
 }

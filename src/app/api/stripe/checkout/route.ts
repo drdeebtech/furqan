@@ -8,6 +8,7 @@ import { requireRole } from "@/lib/auth/require-admin";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { assertNoActiveHifz, HifzAlreadyActiveError, isPlanHifzProduct, resolveStudentFamilyDiscount } from "@/lib/actions/subscriptions/create-hifz-subscription";
 import { logError } from "@/lib/logger";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 export const maxDuration = 60;
 
@@ -161,6 +162,17 @@ export async function POST(request: Request) {
       });
       return NextResponse.json({ error: "Checkout session has no url" }, { status: 502 });
     }
+
+    getPostHogClient()?.capture({
+      distinctId: userId,
+      event: "checkout_initiated",
+      properties: {
+        plan_code: plan.planCode,
+        currency: plan.currency,
+        has_discount: !!stripeCouponId,
+      },
+    });
+
     return NextResponse.json({ url: session.url });
   } catch (err) {
     logError("checkout: stripe.checkout.sessions.create failed", err, {
