@@ -70,13 +70,14 @@ export async function createBooking(
   const supabase = createAdminClient();
 
   // 0. Fail-closed package precondition (FR-009). A 1:1 booking is debited from
-  // an active package at confirm time (the deduct_student_package trigger). If
-  // the student has no active package, reject the booking at creation rather
-  // than letting them accumulate pending bookings that can never confirm — and,
-  // critically, so we never reach a confirm that would otherwise grant a free
-  // session. This is the create-time half of the guard; the authoritative,
-  // race-free closure belongs inside confirm_booking_with_session (deferred —
-  // see audit Fix 3). Best-practice: deny by default.
+  // an active package at confirm time (the deduct_student_package trigger).
+  // If the student has no active package, reject the booking at creation rather
+  // than letting them accumulate pending bookings that can never confirm. This
+  // is a create-time fast-fail for UX (clear error up front); the authoritative
+  // race-free guard is the confirm-time trigger, which raises `no_package_credit`
+  // (see migration 20260626000000_deduct_trigger_fail_closed.sql / issue #531)
+  // if no chargeable package exists when the booking confirms — the whole
+  // confirm rolls back. Best-practice: deny by default.
   const activePackage = await selectActivePackage(supabase, studentId);
   if (!activePackage) {
     throw new BookingValidationError(
