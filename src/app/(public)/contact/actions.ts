@@ -1,12 +1,16 @@
 "use server";
 
 import { z } from "zod";
+import { headers } from "next/headers";
 import { checkBotId } from "botid/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendContactNotification } from "@/lib/email";
 import { notifyNewContact } from "@/lib/whatsapp";
 import { logError } from "@/lib/logger";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { checkRateLimit } from "@/lib/security/rate-limit";
+
+const MAX_CONTACT_PER_HOUR = 5;
 
 // Boundary schema for the public, unauthenticated contact form. Length caps
 // prevent multi-MB `message` blobs being stored at scale (write-amplification
@@ -37,6 +41,19 @@ export async function submitContactForm(
   const verification = await checkBotId();
   if (!verification.isHuman) {
     return { error: "تعذر التحقق من الطلب — حاول مرة أخرى" };
+  }
+
+  // Per-IP rate limit (defence-in-depth). BotID is bypassed outside Vercel
+  // and throws when VERCEL_OIDC_TOKEN is unset; this counter is independent
+  // of that, so it still throttles on self-hosted / CI / staging. Enforced
+  // BEFORE any DB write or email send. Mirrors teach-with-us/apply.
+  const hdrs = await headers();
+  const ipKey =
+    hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    hdrs.get("x-real-ip") ||
+    "unknown";
+  if (!(await checkRateLimit(ipKey, "contact-attempt", MAX_CONTACT_PER_HOUR))) {
+    return { error: "تم تجاوز عدد الرسائل المسموحة — حاول خلال ساعة" };
   }
 
   const parsed = contactSchema.safeParse(Object.fromEntries(formData));

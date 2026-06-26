@@ -14,6 +14,7 @@ import { logError } from "@/lib/logger";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { loudAction } from "@/lib/actions/loud";
 import { escapeHtml } from "@/lib/security/sanitize";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import type { CvStatus } from "@/types/database";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { UserError } from "@/lib/actions/user-error";
@@ -73,43 +74,11 @@ const SUCCESS_TEXT = {
 } as const;
 
 async function checkApplyRate(ipKey: string): Promise<boolean> {
-  try {
-    const supabase = createAdminClient();
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    // `automation_logs.entity_id` is a UUID column. Storing the raw IP
-    // string there caused Postgres 22P02 (`invalid input syntax for type
-    // uuid`) on every apply, which surfaced as JAVASCRIPT-NEXTJS-E4-25,
-    // E4-26, E4-29 in Sentry. Move the IP into `payload_json` (jsonb) and
-    // leave `entity_id` NULL — the IP is rate-limit metadata, not a domain
-    // entity. Query/insert pivot to `payload_json->>ip`.
-    const { count } = await supabase
-      .from("automation_logs")
-      .select("id", { count: "exact", head: true })
-      .eq("workflow_name", "teach-apply-attempt")
-      .eq("payload_json->>ip", ipKey)
-      .gte("started_at", oneHourAgo);
-
-    if ((count ?? 0) >= MAX_APPLICATIONS_PER_HOUR) return false;
-
-    const now = new Date().toISOString();
-    const { error: autoLogError } = await supabase.from("automation_logs").insert({
-      workflow_name: "teach-apply-attempt",
-      entity_type: "ip",
-      entity_id: null,
-      payload_json: { ip: ipKey },
-      status: "succeeded",
-      started_at: now,
-      finished_at: now,
-    });
-    if (autoLogError) {
-      logError("teach-apply rate-limit log insert failed", autoLogError, { tag: "teach-apply" });
-    }
-    return true;
-  } catch (err) {
-    // Fail open — never block a real applicant because rate-limit table is down
-    logError("teach-apply rate check failed — allowing", err, { tag: "teach-apply" });
-    return true;
-  }
+  // Delegates to the shared per-IP rate limiter (src/lib/security/rate-limit.ts)
+  // so every anonymous public action shares one counter rule. Behaviour is
+  // identical to the inline version this replaced: count attempts in the last
+  // hour, fail-open on table outage.
+  return checkRateLimit(ipKey, "teach-apply-attempt", MAX_APPLICATIONS_PER_HOUR);
 }
 
 // ─── Wrapped DB-side handler (loudAction, severity=warning) ─────────────────
