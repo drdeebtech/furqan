@@ -110,4 +110,41 @@ describe("recordProgress", () => {
     expect(out.ok).toBe(false);
     if (!out.ok) expect(out.reason).toBe("not_found");
   });
+
+  // ─── correction requires at least one tajweed error (issue #533) ────────────
+  it("rejects progressType=correction with no errors (domain guard)", async () => {
+    const admin = rpcClient({ data: "should-not-be-called" });
+    const out = await recordProgress(admin, {
+      bookingId: "b1",
+      progressType: "correction",
+      range: null,
+      errors: [],
+    });
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.reason).toBe("error");
+    expect(admin.rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects progressType=correction with undefined errors (domain guard)", async () => {
+    const admin = rpcClient({ data: "should-not-be-called" });
+    const out = await recordProgress(admin, {
+      bookingId: "b1",
+      progressType: "correction",
+      range: null,
+    });
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.reason).toBe("error");
+    expect(admin.rpc).not.toHaveBeenCalled();
+  });
+
+  it("accepts progressType=correction when at least one error is present", async () => {
+    const admin = rpcClient({ data: "prog-corr-1" });
+    const out = await recordProgress(admin, {
+      bookingId: "b1",
+      progressType: "correction",
+      range: null,
+      errors: [{ surahNum: 1, ayahNum: 1, errorType: "makharij", note: null }],
+    });
+    expect(out).toEqual({ ok: true, progressId: "prog-corr-1" });
+  });
 });
