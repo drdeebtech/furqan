@@ -410,13 +410,18 @@ body {
 .animate-delay-7 { animation-delay: 350ms; }
 
 /* Scroll-triggered reveal — sections fade up when they enter the viewport.
-   Driven by useInView hook setting data-in-view="true" on the wrapper. */
+   Driven by useInView hook setting data-in-view="true" on the wrapper.
+   The hidden pre-reveal state is gated on data-armed="true" so SSR / no-JS /
+   pre-hydration always renders content (no FOUC) and there is no hydration
+   mismatch (armed is false until the observer is attached in an effect). */
 .scroll-reveal {
-  opacity: 0;
-  transform: translateY(16px);
   transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1),
               transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: opacity, transform;
+}
+.scroll-reveal[data-armed="true"][data-in-view="false"] {
+  opacity: 0;
+  transform: translateY(16px);
 }
 .scroll-reveal[data-in-view="true"] {
   opacity: 1;
