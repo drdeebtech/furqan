@@ -22,11 +22,10 @@ import { emitEvent } from "@/lib/automation/emit";
 import { getPostHogClient } from "@/lib/posthog-server";
 import {
   upsertMirror,
-  grantCycle,
-  buildCycleKey,
-  BillingEvents,
   type StripeSubscriptionSnapshot,
-} from "@/lib/domains/billing";
+} from "@/lib/domains/billing/subscriptions";
+import { grantCycle, buildCycleKey } from "@/lib/domains/billing/orchestrate";
+import { BillingEvents } from "@/lib/domains/billing/events";
 import { applyPendingTierChangeAtRenewal } from "@/lib/domains/catalog/credit-grant";
 
 // ── Shared context ────────────────────────────────────────────────────────────
