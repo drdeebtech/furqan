@@ -261,7 +261,9 @@ export async function joinHalaqaWaitingList(
   } = await supabase.auth.getUser();
   if (!user) return { error: "غير مسجل الدخول" };
 
-  // admin: halaqa enrollment flows update the shared sessions.current_enrollment counter (student isn't the booking owner) and session_participants DELETE is admin-only (issue #523)
+  // admin: joinHalaqaWaitingList reads the max position across ALL waiters'
+  // rows (RLS only shows the student their own), so the cross-student read
+  // forces the service role. (issue #523)
   const admin = createAdminClient();
 
   // Reject if already enrolled — joining the waiting list would be

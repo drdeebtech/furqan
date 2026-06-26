@@ -24,7 +24,7 @@ export interface DetectionResult {
 const BATCH_SIZE = 1000;
 
 export async function detectMonthCloseAndEmit(): Promise<DetectionResult> {
-  // admin: nightly n8n cron — no session; scans all subscriptions (issue #523)
+  // admin: nightly n8n cron — no session; scans due subscriptions (issue #523)
   const admin = createAdminClient();
   const result: DetectionResult = { scanned: 0, emitted: 0, failed: 0 };
   const now = new Date().toISOString();
