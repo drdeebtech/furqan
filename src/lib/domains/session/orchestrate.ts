@@ -211,7 +211,7 @@ async function writeNoopAudit(
   sessionId: string,
   actorId: string,
 ): Promise<void> {
-  await supabase
+  const { error } = await supabase
     .from("audit_log")
     .insert({
       changed_by: actorId,
@@ -219,10 +219,8 @@ async function writeNoopAudit(
       table_name: "sessions",
       record_id: sessionId,
       new_data: { note: "endSession called after the session was already ended; noop" },
-    } satisfies TableInsert<"audit_log">)
-    .then((r: { error: unknown }) => {
-      if (r.error) logError("endSession: noop audit insert failed", r.error, { tag: "session" });
-    });
+    } satisfies TableInsert<"audit_log">);
+  if (error) logError("endSession: noop audit insert failed", error, { tag: "session" });
 }
 
 // Best-effort diff audit row, written for BOTH the teacher and admin paths
@@ -234,7 +232,7 @@ async function writeDiffAudit(
   actualDuration: number,
   reason: string | null | undefined,
 ): Promise<void> {
-  await supabase
+  const { error } = await supabase
     .from("audit_log")
     .insert({
       changed_by: actorId,
@@ -243,10 +241,8 @@ async function writeDiffAudit(
       record_id: sessionId,
       new_data: { actual_duration: actualDuration },
       reason: reason ?? null,
-    } satisfies TableInsert<"audit_log">)
-    .then((r: { error: unknown }) => {
-      if (r.error) logError("endSession: diff audit insert failed", r.error, { tag: "session" });
-    });
+    } satisfies TableInsert<"audit_log">);
+  if (error) logError("endSession: diff audit insert failed", error, { tag: "session" });
 }
 
 /**

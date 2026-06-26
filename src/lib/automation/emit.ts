@@ -196,7 +196,7 @@ export async function emitEvent(
         props[key] = value;
       }
     }
-    try { track(eventName, props); } catch { /* tolerate analytics outage */ }
+    try { track(eventName, props); } catch (err) { logError("emit: analytics track failed", err, { tag: "analytics" }); }
   });
 
   // Whole webhook flow runs in after(): config check, kill-switch check,
