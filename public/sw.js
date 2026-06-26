@@ -3,7 +3,7 @@
 
 // Bump this on any public asset change (logos, manifest, favicons) so installed
 // PWAs invalidate their precache on the next service-worker activation.
-const CACHE_NAME = "furqan-v2-2026-04-24";
+const CACHE_NAME = "furqan-v3-2026-06-28";
 const _OFFLINE_URL = "/offline";
 
 // Static assets to cache on install
@@ -70,4 +70,47 @@ self.addEventListener("fetch", (event) => {
       fetch(request).catch(() => caches.match(request).then((cached) => cached || caches.match("/")))
     );
   }
+});
+
+// Push: display Arabic-first, RTL notifications while the app is closed.
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    const parsed = event.data?.json();
+    payload = parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    payload = { title: "فُرقان", body: event.data?.text() ?? "" };
+  }
+
+  const { title = "فُرقان", body = "", url = "/student/dashboard", tag } = payload;
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      dir: "rtl",
+      lang: "ar",
+      icon: "/logo-192.png",
+      badge: "/logo-192.png",
+      data: { url },
+      tag,
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = new URL(
+    event.notification.data?.url ?? "/student/dashboard",
+    self.location.origin
+  ).href;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clients) => {
+      const existingClient = clients.find((client) => client.url === targetUrl) ?? clients[0];
+      if (existingClient) {
+        if (existingClient.url !== targetUrl) await existingClient.navigate(targetUrl);
+        return existingClient.focus();
+      }
+      return self.clients.openWindow(targetUrl);
+    })
+  );
 });
