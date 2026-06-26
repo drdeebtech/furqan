@@ -140,3 +140,20 @@ ECC/
 /lint_output.txt
 /*_head.txt
 /*_output.txt
+
+testsprite_tests/tmp/config.json
+
+# Backup/temp copies — git is the backup; these are how secrets leak.
+# (.env.local.prod.bak + settings.local.json.bak both carried live keys.)
+*.bak
+*.orig
+*.save
+.claude/*.bak
+
+# Per-developer AI-assistant tool configs (redundant with AGENTS.md, the
+# single source of truth). Kept on disk for the tools, out of git.
+.cursorrules
+.cursor/
+.codebuddy/
+.kiro/
+.hermes.md
