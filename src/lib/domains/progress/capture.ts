@@ -34,6 +34,18 @@ export async function recordProgress(
     };
   }
 
+  // A `correction` session is defined by the tajweed errors being corrected —
+  // recording one with no errors is a data-integrity hole (the core recitation
+  // pedagogy store would be empty for the session). Require at least one
+  // captured error. (Issue #533.)
+  if (input.progressType === "correction" && (!input.errors || input.errors.length === 0)) {
+    return {
+      ok: false,
+      reason: "error",
+      message: "نوع الجلسة «تصحيح» يتطلب تسجيل خطأ تجويد واحد على الأقل.",
+    };
+  }
+
   // Action-layer validation (UX layer of defense in depth).
   if (input.range) {
     const violation = validateRange(input.range);
