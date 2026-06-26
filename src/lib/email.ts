@@ -212,3 +212,58 @@ export async function sendContactNotification(data: {
     return { error: "فشل إرسال البريد" };
   }
 }
+
+/**
+ * Send a parent report email (session summary, no-show alert, homework
+ * follow-up). The body is pre-rendered Arabic text from the parent-notify
+ * helpers; this fn wraps it in the brand's RTL template and sends via
+ * Resend. Returns `{ success: true }` on success or `{ error }` on failure
+ * (including the "no API key" case) so the caller can record the failure.
+ *
+ * NOTE: WhatsApp-to-parent is intentionally NOT supported here. The
+ * Callmebot integration in src/lib/whatsapp.ts requires an API key per
+ * recipient, and only admin keys are configured — parent phones have no
+ * key, so they can't be messaged through that provider. Parent delivery is
+ * email-only until a multi-recipient WhatsApp Business provider is wired.
+ */
+export async function sendParentReportEmail(data: {
+  to: string;
+  studentName?: string | null;
+  subject: string;
+  body: string;
+}): Promise<{ success?: true; error?: string }> {
+  const resend = getResend();
+  if (!resend) {
+    logWarn("RESEND_API_KEY not set — skipping parent report email", { tag: "email" });
+    return { error: "مفتاح البريد غير مُعدّ" };
+  }
+
+  const safeStudent = data.studentName ? escapeHtml(data.studentName) : "";
+  // The body comes from our own parent-notify helpers (Arabic strings we
+  // build ourselves), but escape defensively in case any field is ever
+  // derived from user/teacher input.
+  const safeBody = escapeHtml(data.body);
+  const safeSubject = sanitizeHeaderValue(data.subject);
+
+  try {
+    await resend.emails.send({
+      from: `FURQAN Academy <${FROM_EMAIL}>`,
+      to: data.to,
+      subject: safeSubject,
+      html: `
+        <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 600px;">
+          <h2 style="color: #C8A652;">${safeSubject}</h2>
+          ${safeStudent ? `<p style="color: #666;">الطالب: ${safeStudent}</p>` : ""}
+          <div style="margin-top: 16px; padding: 12px; background: #f5f5f5; border-radius: 8px; line-height: 1.8;">
+            <p style="white-space: pre-line;">${safeBody}</p>
+          </div>
+          <p style="margin-top: 24px; font-size: 12px; color: #999;">— أكاديمية فُرقان | furqan.today</p>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    logError("Failed to send parent report email", error, { tag: "email", to: data.to });
+    return { error: "فشل إرسال البريد" };
+  }
+}

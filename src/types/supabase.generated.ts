@@ -2953,6 +2953,7 @@ export type Database = {
         Row: {
           content: string
           created_at: string
+          error: string | null
           id: string
           parent_email: string | null
           parent_phone: string | null
@@ -2967,6 +2968,7 @@ export type Database = {
         Insert: {
           content: string
           created_at?: string
+          error?: string | null
           id?: string
           parent_email?: string | null
           parent_phone?: string | null
@@ -2981,6 +2983,7 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string
+          error?: string | null
           id?: string
           parent_email?: string | null
           parent_phone?: string | null
