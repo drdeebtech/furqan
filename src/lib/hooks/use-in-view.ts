@@ -16,7 +16,13 @@ interface UseInViewOptions {
  * Pair with the `.scroll-reveal` CSS class in globals.css:
  *
  *   const [ref, inView] = useInView();
- *   return <section ref={ref} className="scroll-reveal" data-in-view={inView}>…</section>;
+ *   return <section ref={ref} className="scroll-reveal" data-in-view={inView} data-armed={armed}>…</section>;
+ *
+ * `armed` is false on the server and on the initial client render, then flips
+ * to true in an effect once the IntersectionObserver is actually watching.
+ * The CSS uses `[data-armed="true"][data-in-view="false"]` for the hidden
+ * pre-reveal state, so SSR / no-JS / pre-hydration always shows content
+ * (no FOUC) and there is no hydration mismatch.
  *
  * Defaults to one-shot reveal (no fade-back-out on scroll up) to match
  * the brand's "Refined" character — re-triggering on every scroll
@@ -24,18 +30,22 @@ interface UseInViewOptions {
  */
 export function useInView<T extends HTMLElement = HTMLElement>(
   options: UseInViewOptions = {},
-): [React.RefObject<T | null>, boolean] {
+): [React.RefObject<T | null>, boolean, boolean] {
   const { threshold = 0.15, rootMargin = "0px 0px -10% 0px", once = true } = options;
   const ref = useRef<T>(null);
-  // Default in-view = true when IntersectionObserver is unavailable (SSR
-  // initial render, very old browsers). Avoids a setState-in-effect cascade
-  // and ensures content is visible without the observer.
-  const [inView, setInView] = useState(() => typeof IntersectionObserver === "undefined");
+  // Initial state must be identical on server and client to avoid a
+  // hydration mismatch (server has no IntersectionObserver; the browser
+  // does). Start false on both, then settle the real value in an effect.
+  const [inView, setInView] = useState(false);
+  const [armed, setArmed] = useState(false);
 
   useEffect(() => {
     const node = ref.current;
-    if (!node) return;
+    // IntersectionObserver unavailable (very old browser) — do nothing.
+    // `armed` stays false, so the CSS shows content (no FOUC); `inView`
+    // is irrelevant when unarmed. This avoids a setState-in-effect.
     if (typeof IntersectionObserver === "undefined") return;
+    if (!node) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -49,8 +59,9 @@ export function useInView<T extends HTMLElement = HTMLElement>(
       { threshold, rootMargin },
     );
     observer.observe(node);
+    setArmed(true);
     return () => observer.disconnect();
   }, [threshold, rootMargin, once]);
 
-  return [ref, inView];
+  return [ref, inView, armed];
 }

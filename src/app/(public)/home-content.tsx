@@ -14,9 +14,14 @@ import type { SiteFeature, SubjectMeta } from "@/lib/site-content/types";
 /** Section wrapper that fades + slides 16px on viewport entry (one-shot).
  *  Reduced-motion users see content statically per the CSS guard. */
 function RevealSection({ className = "", children }: { className?: string; children: ReactNode }) {
-  const [ref, inView] = useInView<HTMLElement>();
+  const [ref, inView, armed] = useInView<HTMLElement>();
   return (
-    <section ref={ref} data-in-view={inView} className={`scroll-reveal ${className}`}>
+    <section
+      ref={ref}
+      data-in-view={inView}
+      data-armed={armed}
+      className={`scroll-reveal ${className}`}
+    >
       {children}
     </section>
   );
