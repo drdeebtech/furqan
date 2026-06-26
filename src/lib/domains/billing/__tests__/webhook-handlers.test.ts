@@ -11,10 +11,14 @@ vi.mock("@/lib/supabase/admin", () => ({
 vi.mock("@/lib/automation/emit", () => ({
   emitEvent: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock("@/lib/domains/billing", () => ({
+vi.mock("@/lib/domains/billing/subscriptions", () => ({
   upsertMirror: vi.fn(),
+}));
+vi.mock("@/lib/domains/billing/orchestrate", () => ({
   grantCycle: vi.fn(),
   buildCycleKey: vi.fn().mockReturnValue("in_1:sub_1:2026-06-01"),
+}));
+vi.mock("@/lib/domains/billing/events", () => ({
   BillingEvents: {
     Activated: "subscription.activated",
     Renewed: "subscription.renewed",
@@ -27,7 +31,7 @@ vi.mock("@/lib/domains/catalog/credit-grant", () => ({
 }));
 
 import { markEvent, handleSubscriptionLifecycle, handleSubscriptionDeleted } from "../webhook-handlers";
-import { upsertMirror } from "@/lib/domains/billing";
+import { upsertMirror } from "@/lib/domains/billing/subscriptions";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
