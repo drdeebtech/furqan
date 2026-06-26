@@ -19,6 +19,7 @@ import type { Json } from "@/types/supabase.generated";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError, logInfo } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
+import { getPostHogClient } from "@/lib/posthog-server";
 import {
   upsertMirror,
   grantCycle,
@@ -178,6 +179,18 @@ export async function handleInvoicePaid(ctx: EventContext): Promise<void> {
   }
 
   await markEvent(ctx, "processed");
+
+  if (result.created) {
+    getPostHogClient()?.capture({
+      distinctId: studentId,
+      event: "subscription_activated",
+      properties: {
+        subscription_id: mirrorId,
+        plan_id: activePlanId,
+        amount_cents: invoice.total ?? plan.price_cents,
+      },
+    });
+  }
 
   // Post-commit, non-blocking lifecycle emit (Principle III). First paid cycle
   // = activation; subsequent = renewal.

@@ -11,6 +11,7 @@ import { sendTelegramAlert } from "@/lib/n8n/client";
 import { notify } from "@/lib/notifications/dispatcher";
 import { notifyNewTeacherApplication } from "@/lib/whatsapp";
 import { logError } from "@/lib/logger";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { loudAction } from "@/lib/actions/loud";
 import { escapeHtml } from "@/lib/security/sanitize";
 import type { CvStatus } from "@/types/database";
@@ -416,6 +417,17 @@ const submitTeacherApplicationBase = loudAction<ApplyInput, { message: string }>
           });
         },
       );
+
+    getPostHogClient()?.capture({
+      distinctId: teacherId,
+      event: "teacher_applied",
+      properties: {
+        country: input.country,
+        languages: input.languages,
+        specialties: input.specialties,
+        years_experience: input.years_experience,
+      },
+    });
 
     return { message: "applied" };
   },

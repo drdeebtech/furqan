@@ -7,6 +7,7 @@ import { getStripe } from "@/lib/stripe/client";
 import { canUpgradeImmediately, scheduleRenewalChange } from "@/lib/domains/catalog/tier-changes";
 import { grantHifzCycleCredits } from "@/lib/domains/catalog/credit-grant";
 import { logError, logInfo } from "@/lib/logger";
+import { getPostHogClient } from "@/lib/posthog-server";
 
 export const maxDuration = 60;
 
@@ -255,6 +256,16 @@ export async function POST(request: Request) {
     subscription_id: sub.id,
     new_plan_id: newPlan.id,
     delta_sessions: eligibility.deltaSessions,
+  });
+
+  getPostHogClient()?.capture({
+    distinctId: userId,
+    event: "subscription_tier_upgraded",
+    properties: {
+      subscription_id: sub.id,
+      new_plan_id: newPlan.id,
+      delta_sessions: eligibility.deltaSessions,
+    },
   });
 
   return NextResponse.json({
