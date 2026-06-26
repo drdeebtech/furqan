@@ -42,7 +42,6 @@ export async function approveReview(formData: FormData) {
   // gate update. The status UPDATE above stays on the session client for the audit trail.
   // admin: requireAdmin; cross-user fan-out (parent_reports + notifications + bulk update) (issue #523)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  // admin: requireAdmin; cross-user fan-out (parent_reports + notifications + bulk update) (issue #523)
   const db = createAdminClient() as any;
   try {
     const { data: row } = await db
