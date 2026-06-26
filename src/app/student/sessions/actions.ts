@@ -4,14 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { notify } from "@/lib/notifications/dispatcher";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
-}
+import { UserError } from "@/lib/actions/user-error";
 
 /**
  * Student attests whether a stale-confirmed session actually happened.

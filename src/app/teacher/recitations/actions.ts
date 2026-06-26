@@ -5,14 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
-}
+import { UserError } from "@/lib/actions/user-error";
 
 /**
  * Quick-action: ask a student to send a fresh recording.

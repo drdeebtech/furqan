@@ -14,14 +14,7 @@ import {
 } from "@/lib/bunny/client";
 import type { CourseLesson } from "@/types/database";
 import { loudAction } from "@/lib/actions/loud";
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
-}
+import { UserError } from "@/lib/actions/user-error";
 
 async function requireTeacherOrAbove(
   supabase: Awaited<ReturnType<typeof createClient>>,

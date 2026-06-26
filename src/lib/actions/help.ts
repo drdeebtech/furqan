@@ -6,20 +6,13 @@ import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { loudAction } from "@/lib/actions/loud";
+import { UserError } from "@/lib/actions/user-error";
 
 export interface HelpFormState {
   ok?: boolean;
   error?: string;
   id?: string;
   slug?: string;
-}
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
 }
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;

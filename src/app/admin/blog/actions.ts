@@ -9,11 +9,7 @@ import { logError } from "@/lib/logger";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { loudAction } from "@/lib/actions/loud";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
-}
+import { UserError } from "@/lib/actions/user-error";
 
 type ActionResult = { error?: string; success?: boolean };
 

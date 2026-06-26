@@ -6,11 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { loudAction } from "@/lib/actions/loud";
 import type { AnnouncementSeverity } from "@/types/database";
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
-}
+import { UserError } from "@/lib/actions/user-error";
 
 // Public return type — preserved from prior shape so existing callers
 // (announcement-form.tsx reads state.success and state.error) keep

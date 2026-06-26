@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
+import { UserError } from "@/lib/actions/user-error";
 
 // JSONB shape stored in sessions.lesson_plan
 export interface LessonPlanCheckpoint {
@@ -20,14 +21,6 @@ export interface LessonPlan {
 interface ActionResult {
   ok: boolean;
   error?: string;
-}
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
 }
 
 // Logged-in user only — session ownership is checked inside the handler so

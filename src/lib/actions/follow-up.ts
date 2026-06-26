@@ -21,6 +21,7 @@ import {
 import { editFollowUp as editFollowUpDomain, deleteFollowUp as deleteFollowUpDomain } from "@/lib/domains/follow-up/manage";
 import type { FollowUpActor } from "@/lib/domains/follow-up/types";
 import { validateHomeworkRange } from "@/lib/domains/progress/validation";
+import { UserError } from "@/lib/actions/user-error";
 
 /**
  * Follow-up write surface — route adapters.
@@ -39,14 +40,6 @@ import { validateHomeworkRange } from "@/lib/domains/progress/validation";
  * Domain language note: user-facing copy says "follow-up" / "متابعة";
  * the `homework_assignments` table name is internal.
  */
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
-}
 
 // ─── Auth helpers (route boundary — resolve the actor) ───────────────────────
 

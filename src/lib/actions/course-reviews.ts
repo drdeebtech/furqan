@@ -6,14 +6,7 @@ import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { loudAction } from "@/lib/actions/loud";
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
-}
+import { UserError } from "@/lib/actions/user-error";
 
 // ─── writeReview ────────────────────────────────────────────────────────────
 // Student writes (or updates) their review of a course they're enrolled in.

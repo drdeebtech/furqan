@@ -8,18 +8,11 @@ import { selectActivePackage, debitPackage } from "@/lib/domains/package/ledger"
 import { emitEvent } from "@/lib/automation/emit";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import type { SessionType } from "@/types/database";
+import { UserError } from "@/lib/actions/user-error";
 
 const VALID_TYPES: ReadonlySet<SessionType> = new Set([
   "hifz", "muraja", "tajweed", "tilawa", "qiraat", "tafsir", "combined", "other",
 ]);
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
-}
 
 interface CreateInput {
   title: string;

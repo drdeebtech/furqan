@@ -10,16 +10,12 @@ import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
 import { endSession as endSessionOrchestrator } from "@/lib/domains/session/orchestrate";
 import { SessionNotFoundError } from "@/lib/domains/session/types";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
+import { UserError } from "@/lib/actions/user-error";
 
 /* ── Row types for query results ──────────────────────────────────────────── */
 
 interface SessionForRecreate { id: string; room_name: string; booking_id: string; expires_at: string | null; room_url: string }
 interface BookingSchedule { scheduled_at: string; duration_min: number }
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
-}
 
 async function adminPreflight(): Promise<{ actorId: string }> {
   const { id } = await requireAdmin();

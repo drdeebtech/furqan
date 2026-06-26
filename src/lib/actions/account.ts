@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loudAction, type LoudResult } from "@/lib/actions/loud";
+import { UserError } from "@/lib/actions/user-error";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -12,10 +13,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // audit_log row marked FAILED (security telemetry: failed-credential
 // attempts are worth retaining), but Sentry queries can filter by
 // tag = "user-error" to keep noise out of infra dashboards.
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
-}
 
 const passwordSchema = z.object({
   current_password: z.string().min(1, "كلمة المرور الحالية مطلوبة"),

@@ -7,6 +7,7 @@ import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
 import { loudAction } from "@/lib/actions/loud";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
+import { UserError } from "@/lib/actions/user-error";
 
 export interface ResourceFormState {
   ok?: boolean;
@@ -16,14 +17,6 @@ export interface ResourceFormState {
 
 const VALID_TYPES = ["pdf", "audio", "link", "video", "image"] as const;
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50 MB cap on uploads
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
-}
 
 async function guardAdmin(): Promise<{ id: string } | { error: string }> {
   try {

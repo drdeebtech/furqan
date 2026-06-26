@@ -9,13 +9,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
 import { loudAction } from "@/lib/actions/loud";
+import { UserError } from "@/lib/actions/user-error";
 
 export type ActionResult = { error?: string; success?: boolean; notice?: string };
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
-}
 
 async function adminPreflight(): Promise<{ actorId: string }> {
   try {

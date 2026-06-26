@@ -9,15 +9,12 @@ import { invalidateRoleCache } from "@/lib/auth/role-cache";
 import { logError } from "@/lib/logger";
 import { loudAction } from "@/lib/actions/loud";
 import { emitEvent } from "@/lib/automation/emit";
+import { UserError } from "@/lib/actions/user-error";
 
 // Tagged error for "user-mistake-not-infra-fault" throws (not-admin,
 // self-deletion, missing user, missing required input). loudAction
 // records audit_log marked FAILED for these but Sentry queries can
 // filter via tag = "user-error" to keep noise out of infra dashboards.
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
-}
 
 type ActionResult = { error?: string; success?: boolean };
 

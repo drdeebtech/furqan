@@ -4,14 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { loudAction } from "@/lib/actions/loud";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
-}
+import { UserError } from "@/lib/actions/user-error";
 
 async function loggedInPreflight(): Promise<{ actorId: string }> {
   const supabase = await createClient();
