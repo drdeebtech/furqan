@@ -5,6 +5,7 @@
 // no-op Sentry.init({dsn: ""}).
 
 import * as Sentry from "@sentry/nextjs";
+import posthog from "posthog-js";
 import { initBotId } from "botid/client/core";
 import { beforeSend, CLIENT_IGNORE_ERRORS } from "@/lib/sentry/before-send";
 
@@ -91,6 +92,31 @@ try {
 } catch (err) {
   // Don't let BotID failures cascade into a broken page or silenced Sentry.
   Sentry.captureException(err, { tags: { component: "botid.init" } });
+}
+
+// PostHog product analytics. Fail-soft: if the key is unset (local dev, or
+// before the env var is configured) we simply don't initialize — no crash, no
+// build break. US host by default to match the PostHog account's region
+// (us.posthog.com). Session recording is OFF so we never capture student PII;
+// errors stay with Sentry (capture_exceptions: false). `defaults` enables
+// automatic pageview/pageleave capture that understands App Router navigation,
+// so no manual pageview wiring is needed.
+//
+// PRIVACY (student data, possibly minors): autocapture is OFF. Disabling session
+// recording alone does NOT stop autocapture from collecting clicked-element text,
+// input values, and URLs (CodeRabbit #582). We keep pageviews (page-level funnels)
+// but do not auto-collect arbitrary DOM text/inputs. Re-enable autocapture later
+// only with explicit text/input masking after a privacy review.
+const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY?.trim();
+if (posthogKey) {
+  posthog.init(posthogKey, {
+    api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim() || "https://us.i.posthog.com",
+    defaults: "2025-05-24",
+    autocapture: false,
+    capture_exceptions: false,
+    disable_session_recording: true,
+    person_profiles: "identified_only",
+  });
 }
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
