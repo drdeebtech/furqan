@@ -3,14 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import type { ServerClient } from "@/lib/supabase/types";
 import { type LoudResult } from "@/lib/actions/loud";
 import { routeAction } from "@/lib/actions/route-action";
-
-// teacher_languages / teacher_specialties / teacher_recitations were
-// added in v15_008. supabase.generated.ts isn't kept in sync — escape
-// hatch consistent with the other content-table queries.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyClient = any;
 
 type PicklistTable = "teacher_languages" | "teacher_specialties" | "teacher_recitations";
 
@@ -62,7 +57,7 @@ const upsertBase = routeAction<z.infer<typeof upsertPicklistSchema>, { message?:
     reasonPrefix: "admin upsert teacher picklist row",
   },
   handler: async (input) => {
-    const supabase = (await createClient()) as AnyClient;
+    const supabase = (await createClient()) as ServerClient;
     const row = {
       key: input.key,
       label_ar: input.label_ar,
@@ -124,7 +119,7 @@ const deletePicklistRowBase = routeAction<{ table: PicklistTable; key: string },
     reasonPrefix: "admin delete teacher picklist row",
   },
   handler: async ({ table, key }) => {
-    const supabase = (await createClient()) as AnyClient;
+    const supabase = (await createClient()) as ServerClient;
     const { error } = await supabase.from(table).delete().eq("key", key);
     if (error) throw error;
     revalidatePicklistConsumers();

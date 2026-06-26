@@ -1,16 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import type { ServerClient } from "@/lib/supabase/types";
 import type { Lang } from "@/lib/i18n/server";
 import { formatDate } from "@/lib/i18n/format-date";
 import { logError } from "@/lib/logger";
 import { toMurajaahDueItems, type MurajaahDueItem, type MurajaahScheduleRow } from "@/lib/domains/murajaah/batch";
-
-/**
- * Injected server client type. Every read helper takes this as its first
- * argument (the test seam) instead of opening its own `createClient()`, so the
- * dashboard view modules can be exercised against a fake/stub client.
- */
-type ServerClient = Awaited<ReturnType<typeof createClient>>;
 
 interface ChartDataPoint {
   day: string;

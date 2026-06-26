@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import type { ServerClient } from "@/lib/supabase/types";
 import { buildNameMap } from "@/lib/admin/name-map";
 import { loadOrFail, countOrFail, helperOrFail } from "@/lib/supabase/load-or-fail";
 import { logError } from "@/lib/logger";
@@ -23,8 +23,6 @@ import type { PendingBooking, SessionData } from "@/app/teacher/dashboard/types"
  * Kuwait timezone anchor, batch structure, and error accumulation are
  * identical to the page implementation this replaces.
  */
-
-type ServerClient = Awaited<ReturnType<typeof createClient>>;
 
 const ROUTE = "teacher-dashboard";
 
