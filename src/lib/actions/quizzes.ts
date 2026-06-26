@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
 import { loudAction } from "@/lib/actions/loud";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
+import { UserError } from "@/lib/actions/user-error";
 
 export type QuestionType = "mcq" | "fill_in" | "true_false";
 
@@ -13,14 +14,6 @@ interface MCQOption {
   id: string;
   text_ar: string;
   text_en?: string;
-}
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
 }
 
 // Auth helpers ----------------------------------------------------------------

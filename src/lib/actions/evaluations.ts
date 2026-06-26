@@ -8,16 +8,13 @@ import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
 import { loudAction } from "@/lib/actions/loud";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
+import { UserError } from "@/lib/actions/user-error";
 
 // Tagged error wrapper for "user-mistake-not-infra-fault" throws (missing
 // fields, IDOR rejection, missing permission). loudAction routes these
 // through audit_log marked FAILED so security telemetry survives, but
 // Sentry queries can filter via tag = "user-error" to keep noise out of
 // infra dashboards. Same pattern as account.ts (PR #250).
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
-}
 
 type ActionResult = { error?: string; success?: boolean };
 

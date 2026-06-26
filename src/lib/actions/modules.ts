@@ -5,14 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
 import { loudAction } from "@/lib/actions/loud";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
-}
+import { UserError } from "@/lib/actions/user-error";
 
 // Verify the caller is the course owner OR admin.
 async function authorizeCourseOwner(courseId: string): Promise<{ ok: true } | { ok: false; error: string }> {

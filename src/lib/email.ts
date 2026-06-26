@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 import { logError, logWarn } from "@/lib/logger";
-import { sanitizeHeaderValue } from "@/lib/security/sanitize";
+import { escapeHtml, sanitizeHeaderValue } from "@/lib/security/sanitize";
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "drdeebtech@gmail.com";
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
@@ -10,15 +10,6 @@ function getResend(): Resend | null {
   if (!process.env.RESEND_API_KEY) return null;
   if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
   return _resend;
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 export async function sendAdminTeacherApplicationAlert(data: {

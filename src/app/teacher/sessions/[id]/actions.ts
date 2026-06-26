@@ -12,14 +12,7 @@ import { recordProgress } from "@/lib/domains/progress/capture";
 import { ayahCount } from "@/lib/quran/ayah-counts";
 import type { ProgressType, StudentLevel, CapturedError } from "@/lib/domains/progress/types";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
-}
+import { UserError } from "@/lib/actions/user-error";
 
 async function loggedInPreflight(): Promise<{ actorId: string }> {
   const supabase = await createClient();

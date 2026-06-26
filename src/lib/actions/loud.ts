@@ -52,6 +52,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendTelegramAlert } from "@/lib/n8n/client";
 import { logError } from "@/lib/logger";
 import { attachGeoToSentryScope } from "@/lib/sentry-geo";
+import { escapeHtml } from "@/lib/security/sanitize";
 
 export type LoudResult = {
   ok: true;
@@ -213,11 +214,11 @@ export function loudAction<TInput, THandlerResult extends void | { message?: str
         throw err;
       }
 
-      // UserError handling — duck-typed because each action file declares
-      // its own UserError class (per-file scope is intentional — keeps
-      // imports light), so `instanceof UserError` from this module won't
-      // match cross-file. Convention: every UserError class sets
-      // `readonly userError = true`.
+      // UserError handling — duck-typed on the `userError === true` flag so a
+      // single shared class (src/lib/actions/user-error.ts) works across all
+      // callers. (Historically each action file declared its own UserError and
+      // cross-file instanceof only matched by luck; the canonical class fixed
+      // that, but the duck-type is kept for the `loudUserError` helper below.)
       //
       // Two sub-cases:
       //
@@ -235,8 +236,6 @@ export function loudAction<TInput, THandlerResult extends void | { message?: str
       //
       // To use case 2, throw with the standard ES2022 cause option:
       //   throw new UserError("فشل ...", { cause: supabaseError });
-      // The per-file UserError classes accept the second argument and
-      // forward it via super(msg, options).
       if (err instanceof Error && (err as { userError?: boolean }).userError === true) {
         const cause = (err as { cause?: unknown }).cause;
         if (cause !== undefined) {
@@ -332,6 +331,5 @@ async function writeAudit<TInput>(
   }
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
-}
+// escapeHtml is imported from @/lib/security/sanitize (single source for the
+// five-char HTML escape used in Telegram alert payloads above).

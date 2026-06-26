@@ -8,14 +8,7 @@ import { notify } from "@/lib/notifications/dispatcher";
 import { isFeatureEnabled } from "@/lib/settings";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
-}
+import { UserError } from "@/lib/actions/user-error";
 
 // ─── enrollFree ─────────────────────────────────────────────────────────────
 // Free path: only allowed when course.pricing_type='free' and course.status='published'.

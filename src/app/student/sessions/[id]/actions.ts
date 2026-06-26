@@ -8,14 +8,7 @@ import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
-}
+import { UserError } from "@/lib/actions/user-error";
 
 /**
  * generateSessionToken returns `{ token, roomUrl }` — a multi-field payload

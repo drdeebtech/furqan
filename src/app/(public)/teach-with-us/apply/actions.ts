@@ -15,6 +15,7 @@ import { loudAction } from "@/lib/actions/loud";
 import { escapeHtml } from "@/lib/security/sanitize";
 import type { CvStatus } from "@/types/database";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
+import { UserError } from "@/lib/actions/user-error";
 
 const MAX_APPLICATIONS_PER_HOUR = 3;
 const VALID_LANGUAGES = new Set(["ar", "en", "ur", "fr", "tr", "id", "ms"]);
@@ -57,14 +58,6 @@ export type ApplyResult = {
   error?: string;
   success?: string;
 };
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
-}
 
 // User-facing success strings. The handler stashes one of the keys in
 // loudAction's `message` slot; the public adapter remaps to the real text.

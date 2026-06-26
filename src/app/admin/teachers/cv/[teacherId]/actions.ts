@@ -11,13 +11,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, ForbiddenError, UnauthenticatedError } from "@/lib/auth/require-admin";
 import { logError } from "@/lib/logger";
 import { loudAction } from "@/lib/actions/loud";
+import { UserError } from "@/lib/actions/user-error";
 
 export type AdminCvSaveResult = { error?: string; success?: boolean };
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) { super(msg, options); this.name = "UserError"; }
-}
 
 // Auth at the boundary (ADR-0001): these CV actions gate the P0 teacher
 // onboarding review, so they MUST require the admin role here — NOT trust the

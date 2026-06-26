@@ -7,14 +7,7 @@ import { emitEvent } from "@/lib/automation/emit";
 import { getSignedPlaybackUrl, isBunnyConfigured } from "@/lib/bunny/client";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { loudAction } from "@/lib/actions/loud";
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
-}
+import { UserError } from "@/lib/actions/user-error";
 
 // ─── getLessonPlaybackUrl ───────────────────────────────────────────────────
 // Mints a 5-minute signed Bunny CDN URL for the given lesson, after

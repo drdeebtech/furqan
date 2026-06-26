@@ -8,14 +8,7 @@ import { loudAction, notFoundOrInfra } from "@/lib/actions/loud";
 import { selectActivePackage, debitPackage } from "@/lib/domains/package/ledger";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import type { SessionType, BookingStatus } from "@/types/database";
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
-}
+import { UserError } from "@/lib/actions/user-error";
 
 /**
  * Phase 1 of group lessons — ad-hoc add-student.

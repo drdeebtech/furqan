@@ -8,14 +8,7 @@ import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { loudAction } from "@/lib/actions/loud";
-
-class UserError extends Error {
-  readonly userError = true;
-  constructor(msg: string, options?: { cause?: unknown }) {
-    super(msg, options);
-    this.name = "UserError";
-  }
-}
+import { UserError } from "@/lib/actions/user-error";
 
 // ─── createThread ───────────────────────────────────────────────────────────
 // Returns { ok, id? } — id must be preserved for callers; keep manual pattern.
