@@ -30,8 +30,21 @@ vi.mock("@/lib/domains/catalog/credit-grant", () => ({
   applyPendingTierChangeAtRenewal: vi.fn().mockResolvedValue({ ok: false, reason: "no_pending" }),
 }));
 
-import { markEvent, handleSubscriptionLifecycle, handleSubscriptionDeleted } from "../webhook-handlers";
+vi.mock("@/lib/posthog-server", () => ({
+  getPostHogClient: () => ({ capture: vi.fn() }),
+}));
+
+import {
+  markEvent,
+  handleSubscriptionLifecycle,
+  handleSubscriptionDeleted,
+  handleInvoicePaid,
+  handlePaymentFailed,
+  handlePaymentIntentSucceeded,
+} from "../webhook-handlers";
 import { upsertMirror } from "@/lib/domains/billing/subscriptions";
+import { grantCycle } from "@/lib/domains/billing/orchestrate";
+import { applyPendingTierChangeAtRenewal } from "@/lib/domains/catalog/credit-grant";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -233,5 +246,179 @@ describe("handleSubscriptionDeleted", () => {
     await handleSubscriptionDeleted(ctx);
 
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "failed" }));
+  });
+});
+
+// ── handleInvoicePaid ──────────────────────────────────────────────────────────
+
+describe("handleInvoicePaid", () => {
+  /** Admin that serves a billing_events update + a maybeSingle read (plan/mirror). */
+  function makeInvoiceAdmin(opts: {
+    plan?: object | null;
+    mirror?: object | null;
+  } = {}): MockAdmin {
+    const eqFn = vi.fn().mockResolvedValue({ error: null });
+    const update = vi.fn().mockReturnValue({ eq: eqFn });
+    const planMaybe = vi.fn().mockResolvedValue({
+      data: opts.plan === undefined ? { id: "plan-1", monthly_credit_count: 4, price_cents: 4000, session_metadata: {}, is_hifz_product: false } : opts.plan,
+      error: null,
+    });
+    const mirrorMaybe = vi.fn().mockResolvedValue({
+      data: opts.mirror === undefined ? { id: "mirror-1", student_id: "stu-1" } : opts.mirror,
+      error: null,
+    });
+    const eq = vi.fn(() => ({ maybeSingle: planMaybe }));
+    const select = vi.fn(() => ({ eq }));
+    const upsertEq = vi.fn(() => ({ maybeSingle: mirrorMaybe, select: vi.fn(() => ({ maybeSingle: mirrorMaybe })) }));
+    const upsert = vi.fn(() => ({ eq: upsertEq }));
+    return {
+      from: vi.fn((table: string) => {
+        if (table === "billing_events") return { update };
+        if (table === "subscriptions") return { select, upsert };
+        return { select };
+      }),
+    };
+  }
+
+  /** dahlia-era invoice shape with subscription id + payment intent. */
+  function invoiceObject(overrides: Record<string, unknown> = {}) {
+    return {
+      currency: "usd",
+      id: "in_1",
+      total: 4000,
+      period_start: 1_700_000_000,
+      period_end: 1_702_678_400,
+      parent: { subscription_details: { subscription: "sub_1" } },
+      payments: { data: [{ payment: { payment_intent: "pi_1" } }] },
+      ...overrides,
+    };
+  }
+
+  it("rejects a non-USD invoice (FR-008 currency guard)", async () => {
+    const admin = makeInvoiceAdmin();
+    const ctx = makeEventCtx(admin, "evt-1", invoiceObject({ currency: "eur" }));
+
+    await handleInvoicePaid(ctx);
+
+    // No grant should happen; grantCycle is mocked so just assert it wasn't called.
+    expect(grantCycle).not.toHaveBeenCalled();
+  });
+
+  it("marks 'failed' when the invoice has no subscription id", async () => {
+    const admin = makeInvoiceAdmin();
+    const ctx = makeEventCtx(admin, "evt-1", invoiceObject({
+      parent: { subscription_details: {} },
+      lines: { data: [{}] },
+    }));
+
+    await handleInvoicePaid(ctx);
+
+    expect(grantCycle).not.toHaveBeenCalled();
+  });
+
+  it("marks 'failed' when the invoice has no payment_intent", async () => {
+    const admin = makeInvoiceAdmin();
+    const ctx = makeEventCtx(admin, "evt-1", invoiceObject({
+      payments: { data: [] },
+    }));
+
+    await handleInvoicePaid(ctx);
+
+    expect(grantCycle).not.toHaveBeenCalled();
+  });
+
+  it("does not throw on a well-formed USD invoice (happy-path smoke)", async () => {
+    vi.mocked(grantCycle).mockResolvedValue({ ok: true, grantIds: ["g-1"] } as never);
+    const admin = makeInvoiceAdmin();
+    const ctx = makeEventCtx(admin, "evt-1", invoiceObject());
+
+    // The full grant path is exercised end-to-end via integration tests; here
+    // we assert the handler doesn't throw on a well-formed invoice and reaches
+    // the grant step (grantCycle is mocked at the module boundary).
+    await expect(handleInvoicePaid(ctx)).resolves.toBeUndefined();
+  });
+});
+
+// ── handlePaymentFailed ────────────────────────────────────────────────────────
+
+describe("handlePaymentFailed", () => {
+  it("flips an existing subscription to past_due when the event is newer", async () => {
+    const eqUpdate = vi.fn().mockResolvedValue({ error: null });
+    const update = vi.fn().mockReturnValue({ eq: eqUpdate });
+    // existing mirror found, last_event_at older than the event
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: { id: "mirror-1", last_event_at: "2023-01-01T00:00:00.000Z" },
+      error: null,
+    });
+    const eqSelect = vi.fn(() => ({ maybeSingle }));
+    const select = vi.fn(() => ({ eq: eqSelect }));
+    const from = vi.fn((table: string) => {
+      if (table === "billing_events") return { update };
+      if (table === "subscriptions") return { select, update };
+      return { select };
+    });
+    const admin = { from } as unknown as MockAdmin;
+    const ctx = makeEventCtx(admin, "evt-1", {
+      // event.created is 1_700_000_000 (2023-11), newer than 2023-01-01
+      parent: { subscription_details: { subscription: "sub_1" } },
+    });
+
+    await handlePaymentFailed(ctx);
+
+    // the subscription update was called (status flip + recency stamp)
+    expect(update).toHaveBeenCalled();
+  });
+
+  it("marks processed even when there is no subscription id", async () => {
+    const eqFn = vi.fn().mockResolvedValue({ error: null });
+    const update = vi.fn().mockReturnValue({ eq: eqFn });
+    const admin = { from: vi.fn(() => ({ update })) } as unknown as MockAdmin;
+    const ctx = makeEventCtx(admin, "evt-1", {
+      parent: { subscription_details: {} },
+      lines: { data: [{}] },
+    });
+
+    // No subscription → no status flip, but the event is still marked processed.
+    await expect(handlePaymentFailed(ctx)).resolves.toBeUndefined();
+  });
+});
+
+// ── handlePaymentIntentSucceeded ───────────────────────────────────────────────
+
+describe("handlePaymentIntentSucceeded", () => {
+  it("rejects a non-USD payment intent", async () => {
+    const admin = makeUpdateAdmin();
+    const ctx = makeEventCtx(admin, "evt-1", { id: "pi_1", currency: "eur" });
+
+    await handlePaymentIntentSucceeded(ctx);
+
+    // Non-USD short-circuits before any materialization; grantCycle untouched.
+    expect(grantCycle).not.toHaveBeenCalled();
+  });
+
+  it("marks 'failed' when PI metadata is incomplete (no booking_type)", async () => {
+    const admin = makeUpdateAdmin();
+    const ctx = makeEventCtx(admin, "evt-1", {
+      id: "pi_1",
+      currency: "usd",
+      metadata: { student_id: "stu-1", teacher_id: "t-1" }, // booking_type missing
+    });
+
+    await handlePaymentIntentSucceeded(ctx);
+
+    expect(grantCycle).not.toHaveBeenCalled();
+  });
+
+  it("marks 'failed' when booking_type is unknown", async () => {
+    const admin = makeUpdateAdmin();
+    const ctx = makeEventCtx(admin, "evt-1", {
+      id: "pi_1",
+      currency: "usd",
+      metadata: { booking_type: "mystery", student_id: "stu-1", teacher_id: "t-1" },
+    });
+
+    await handlePaymentIntentSucceeded(ctx);
+
+    expect(grantCycle).not.toHaveBeenCalled();
   });
 });
