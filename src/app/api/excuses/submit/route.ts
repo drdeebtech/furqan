@@ -39,15 +39,20 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ excuseId, isEligible }, { status: 201 });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to submit excuse";
+    const message = err instanceof Error ? err.message : "";
     logError("api/excuses/submit: failed", err, {
       tag: "attendance",
       user_id: user.id,
       booking_id: result.data.bookingId,
     });
-    // Distinguish "not your booking" / "already exists" as 4xx from infra errors.
-    const status =
-      message.includes("not found") || message.includes("Not your") || message.includes("already") ? 422 : 500;
-    return NextResponse.json({ error: message }, { status });
+    // Distinguish expected domain errors (safe, user-facing messages) from infra
+    // errors. Only the known domain messages are echoed to the client; anything
+    // else is an unexpected failure and must not leak its raw message.
+    const isExpected =
+      message.includes("not found") || message.includes("Not your") || message.includes("already");
+    return NextResponse.json(
+      { error: isExpected ? message : "Failed to submit excuse" },
+      { status: isExpected ? 422 : 500 },
+    );
   }
 }

@@ -333,7 +333,7 @@ export async function POST(request: Request) {
     }
 
     default:
-      return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
+      return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   }
   } catch (err) {
     logError("n8n webhook handler threw", err, {
