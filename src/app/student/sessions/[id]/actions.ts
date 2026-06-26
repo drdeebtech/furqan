@@ -47,12 +47,15 @@ export async function generateSessionToken(sessionId: string) {
     return { error: "الجلسة غير موجودة" };
   }
 
-  // Verify the user is a participant (student or teacher)
+  // Verify the user is a participant (student or teacher) AND the booking is
+  // still confirmed. A cancelled booking must not yield a Daily.co token —
+  // without this check a student who knows a cancelled session's id could
+  // join the room. Status enum: pending | confirmed | cancelled | completed.
   const { data: booking, error: bookingErr } = await supabase
     .from("bookings")
-    .select("student_id, teacher_id")
+    .select("student_id, teacher_id, status")
     .eq("id", session.booking_id)
-    .single<{ student_id: string; teacher_id: string }>();
+    .single<{ student_id: string; teacher_id: string; status: string }>();
   if (bookingErr || !booking) {
     if (bookingErr && bookingErr.code !== "PGRST116") {
       logError("generateSessionToken: booking lookup failed", bookingErr, {
@@ -68,6 +71,11 @@ export async function generateSessionToken(sessionId: string) {
 
   if (!isStudent && !isTeacher) {
     return { error: "ليس لديك صلاحية لهذه الجلسة" };
+  }
+
+  if (booking.status !== "confirmed") {
+    // Cancelled (or otherwise non-confirmed) booking — deny the token.
+    return { error: "تم إلغاء هذا الحجز" };
   }
 
   // Check room not expired
