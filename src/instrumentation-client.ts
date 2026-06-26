@@ -101,11 +101,18 @@ try {
 // errors stay with Sentry (capture_exceptions: false). `defaults` enables
 // automatic pageview/pageleave capture that understands App Router navigation,
 // so no manual pageview wiring is needed.
+//
+// PRIVACY (student data, possibly minors): autocapture is OFF. Disabling session
+// recording alone does NOT stop autocapture from collecting clicked-element text,
+// input values, and URLs (CodeRabbit #582). We keep pageviews (page-level funnels)
+// but do not auto-collect arbitrary DOM text/inputs. Re-enable autocapture later
+// only with explicit text/input masking after a privacy review.
 const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY?.trim();
 if (posthogKey) {
   posthog.init(posthogKey, {
     api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim() || "https://us.i.posthog.com",
     defaults: "2025-05-24",
+    autocapture: false,
     capture_exceptions: false,
     disable_session_recording: true,
     person_profiles: "identified_only",
