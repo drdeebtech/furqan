@@ -54,15 +54,3 @@ export async function getFlag(name: string): Promise<string | null> {
     return null;
   }
 }
-
-/**
- * Convenience wrapper for the boolean-flag pattern. Returns `null`
- * when Edge Config has no answer, so callers can distinguish "EC says
- * false" from "EC has no value" — the latter triggers Postgres
- * fallback, the former is authoritative.
- */
-export async function getBooleanFlag(name: string): Promise<boolean | null> {
-  const value = await getFlag(name);
-  if (value === null) return null;
-  return value === "true";
-}
