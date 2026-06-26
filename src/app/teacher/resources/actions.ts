@@ -82,6 +82,7 @@ export async function uploadTeacherResourceAction(
     if (fileEntry.size > MAX_UPLOAD_BYTES) {
       return { error: "الملف كبير جدًا — الحد الأقصى 50 ميغابايت" };
     }
+    // admin: upload to 'resources' storage bucket (INSERT policy is admin-only) (issue #523)
     const adminClient = createAdminClient();
     const ext = fileEntry.name.split(".").pop()?.toLowerCase() ?? "bin";
     const path = `teacher/${user.id}/${resource_type}/${Date.now()}_${crypto.randomUUID()}.${ext}`;

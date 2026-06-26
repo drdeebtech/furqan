@@ -54,6 +54,7 @@ export async function POST(request: Request) {
     throw e;
   }
 
+  // admin: requireAdminForApi; financial write to platform_settings (service-role only) (issue #523)
   const admin = createAdminClient();
 
   // UPDATE — the row is seeded by migration; we only ever change `value`.

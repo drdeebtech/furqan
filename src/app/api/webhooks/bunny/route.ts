@@ -71,6 +71,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     req.headers.get("x-bunnystream-signature-version") ?? "";
   const signatureAlgorithm =
     req.headers.get("x-bunnystream-signature-algorithm") ?? "";
+  // admin: webhook — no user session; Bunny video lifecycle (issue #523)
   const supabase = createAdminClient();
 
   if (!signature) {

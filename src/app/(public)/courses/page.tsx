@@ -31,6 +31,7 @@ export default async function PublicCoursesPage({
   const { t, dir } = await getT();
   // Use admin client for SSR public catalog so we don't depend on a session.
   // RLS still permits anon SELECT on status='published'.
+  // admin: public anonymous read of published courses (issue #523)
   const supabase = createAdminClient();
 
   let q = supabase

@@ -55,6 +55,7 @@ const updatePasswordBase = loudAction<z.infer<typeof passwordSchema>, { message:
     // Verify current password via admin client to avoid disturbing the
     // active session cookies. signInWithPassword on the regular client
     // would rotate the access token mid-action.
+    // admin: auth.admin.signInWithPassword to verify current password without rotating the session token (issue #523)
     const adminClient = createAdminClient();
     const { error: verifyErr } = await adminClient.auth.signInWithPassword({
       email: user.email,
@@ -106,6 +107,7 @@ const updateEmailBase = loudAction<z.infer<typeof emailSchema>, { message: strin
       throw new UserError("هذا هو بريدك الحالي بالفعل");
     }
 
+    // admin: auth.admin.signInWithPassword to verify current password without rotating the session token (issue #523)
     const adminClient = createAdminClient();
     const { error: verifyErr } = await adminClient.auth.signInWithPassword({
       email: user.email,

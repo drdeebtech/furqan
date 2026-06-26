@@ -57,6 +57,7 @@ export async function GET(request: Request) {
   }
 
   // 2. Read previous status
+  // admin: cron — no user session (issue #523)
   const admin = createAdminClient();
   const { data: prev } = await admin
     .from("automation_logs")

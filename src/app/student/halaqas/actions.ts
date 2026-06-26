@@ -60,6 +60,7 @@ export async function enrollInHalaqa(
   } = await supabase.auth.getUser();
   if (!user) return { error: "غير مسجل الدخول" };
 
+  // admin: halaqa enrollment flows update the shared sessions.current_enrollment counter (student isn't the booking owner) and session_participants DELETE is admin-only (issue #523)
   const admin = createAdminClient();
 
   // Snapshot read — advisory only. The race-safe guard is in the UPDATE
@@ -169,6 +170,7 @@ export async function cancelHalaqaEnrollment(
   } = await supabase.auth.getUser();
   if (!user) return { error: "غير مسجل الدخول" };
 
+  // admin: halaqa enrollment flows update the shared sessions.current_enrollment counter (student isn't the booking owner) and session_participants DELETE is admin-only (issue #523)
   const admin = createAdminClient();
 
   // Delete the participant row. RETURNING tells us whether the row
@@ -259,6 +261,9 @@ export async function joinHalaqaWaitingList(
   } = await supabase.auth.getUser();
   if (!user) return { error: "غير مسجل الدخول" };
 
+  // admin: joinHalaqaWaitingList reads the max position across ALL waiters'
+  // rows (RLS only shows the student their own), so the cross-student read
+  // forces the service role. (issue #523)
   const admin = createAdminClient();
 
   // Reject if already enrolled — joining the waiting list would be
@@ -332,9 +337,9 @@ export async function leaveHalaqaWaitingList(
   } = await supabase.auth.getUser();
   if (!user) return { error: "غير مسجل الدخول" };
 
-  const admin = createAdminClient();
-
-  const { data: deleted, error: delErr } = await admin
+  // Own-row delete: student_id = user.id. RLS halaqa_waiting_list_delete
+  // permits this on the user client (issue #523 — swapped from admin).
+  const { data: deleted, error: delErr } = await supabase
     .from("halaqa_waiting_list")
     .delete()
     .eq("session_id", sessionId)

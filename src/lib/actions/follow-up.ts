@@ -137,6 +137,7 @@ const createFollowUpBase = loudAction<CreateFollowUpInput, { message: string }>(
     const rangeError = validateHomeworkRange(input.surah_number, input.ayah_start, input.ayah_end);
     if (rangeError) throw new UserError(rangeError);
     const actor = await teacherOrAboveActor();
+    // admin: teacher/admin writes about a student's homework (cross-user) (issue #523)
     await createFollowUpDomain(createAdminClient(), actor, {
       bookingId: input.booking_id,
       studentId: input.student_id,
@@ -220,7 +221,10 @@ const markStudentReadyBase = loudAction<MarkStudentReadyInput, { message: string
   preflight: async () => ({ actorId: await requireUserId() }),
   handler: async ({ homeworkId, audio }) => {
     const actor = await studentActor();
-    await markStudentReadyDomain(createAdminClient(), actor, {
+    // Own-row write: domain re-checks hw.student_id === actor.id. RLS permits
+    // the student to update their own homework_assignments row (issue #523 —
+    // swapped from admin).
+    await markStudentReadyDomain(await createClient(), actor, {
       followUpId: homeworkId,
       audio,
     });
@@ -259,6 +263,7 @@ const gradeFollowUpBase = loudAction<GradeFollowUpInput, { message: string }>({
   preflight: async () => ({ actorId: await requireUserId() }),
   handler: async ({ homeworkId, grade, teacher_notes }) => {
     const actor = await teacherOrAboveActor();
+    // admin: teacher/admin writes about a student's homework (cross-user) (issue #523)
     await gradeFollowUpDomain(createAdminClient(), actor, {
       followUpId: homeworkId,
       grade,
@@ -300,6 +305,7 @@ const editFollowUpBase = loudAction<EditFollowUpInput, { message: string }>({
   preflight: async () => ({ actorId: await requireUserId() }),
   handler: async ({ homeworkId, updates }) => {
     const actor = await teacherOrAboveActor();
+    // admin: teacher/admin writes about a student's homework (cross-user) (issue #523)
     await editFollowUpDomain(createAdminClient(), actor, {
       followUpId: homeworkId,
       updates,
@@ -392,6 +398,7 @@ const deleteFollowUpBase = loudAction<{ homeworkId: string }, { message: string 
   preflight: async () => ({ actorId: await requireUserId() }),
   handler: async ({ homeworkId }) => {
     const actor = await anyAuthedActor();
+    // admin: teacher/admin writes about a student's homework (cross-user) (issue #523)
     await deleteFollowUpDomain(createAdminClient(), actor, { followUpId: homeworkId });
     revalidateFollowUpPaths();
     return { message: "deleted" };

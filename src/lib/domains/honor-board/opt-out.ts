@@ -24,6 +24,7 @@ export async function setOptOut(
   optedOut: boolean,
   callerUid: string,
 ): Promise<OptOutResult> {
+  // admin: guardian path is cross-user UPDATE of a child's honor_board_entries (issue #523)
   const admin = createAdminClient();
 
   if (callerUid !== studentId) {

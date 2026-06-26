@@ -203,6 +203,7 @@ const moderateThreadBase = loudAction<
     }
 
     // Use admin client so RLS doesn't gate when mod isn't the author.
+    // admin: requireAdmin; moderation updates another user's thread/reply/report (issue #523)
     const admin = createAdminClient();
     const update: TableUpdate<"forum_threads"> = {};
     if (typeof patch.is_pinned === "boolean") update.is_pinned = patch.is_pinned;
@@ -240,6 +241,7 @@ const moderateReplyBase = loudAction<
       if (e instanceof ForbiddenError) throw new UserError("ليس لديك صلاحية");
       throw e;
     }
+    // admin: requireAdmin; moderation updates another user's thread/reply/report (issue #523)
     const admin = createAdminClient();
     const { error } = await admin.from("forum_replies")
       .update({ is_hidden } satisfies TableUpdate<"forum_replies">)
@@ -271,6 +273,7 @@ const resolveReportBase = loudAction<
       if (e instanceof ForbiddenError) throw new UserError("ليس لديك صلاحية");
       throw e;
     }
+    // admin: requireAdmin; moderation updates another user's thread/reply/report (issue #523)
     const admin = createAdminClient();
     const { error } = await admin.from("forum_reports").update({
       status,

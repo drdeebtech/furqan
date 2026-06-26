@@ -7,6 +7,7 @@ export async function GET() {
   if (guard instanceof NextResponse) return guard;
 
   try {
+    // admin: admin-gated; reads automation_logs telemetry (issue #523)
     const admin = createAdminClient();
     const { data: rows, error } = await admin
       .from("automation_logs")

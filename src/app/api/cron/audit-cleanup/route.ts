@@ -29,6 +29,7 @@ export const dynamic = "force-dynamic";
 export const GET = withAuthedCronMonitor("cron-audit-cleanup", "0 2 * * *", async () => {
   const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
   const webhookCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  // admin: cron — no user session; purges audit_log (issue #523)
   const admin = createAdminClient();
 
   const { count, error } = await admin

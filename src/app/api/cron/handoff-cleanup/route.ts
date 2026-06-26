@@ -22,6 +22,7 @@ export const dynamic = "force-dynamic";
  */
 export const GET = withAuthedCronMonitor("cron-handoff-cleanup", "0 3 * * *", async () => {
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  // admin: cron — no user session; purges remote_handoff_tokens (issue #523)
   const admin = createAdminClient();
 
   const { count, error } = await admin

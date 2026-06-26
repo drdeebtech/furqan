@@ -26,6 +26,7 @@ export const GET = withAuthedCronMonitor(
   "cron-murajaah-compute",
   "0 2 * * *",
   async () => {
+    // admin: cron — no user session; SECURITY DEFINER RPC (issue #523)
     const admin = createAdminClient();
     const today = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
 

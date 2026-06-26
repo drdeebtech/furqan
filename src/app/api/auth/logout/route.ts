@@ -14,6 +14,7 @@ export async function POST() {
     if (user) {
       const h = await headers();
       const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+      // admin: audit_log insert before signOut (can't use session client after) (issue #523)
       const admin = createAdminClient();
       await admin.from("audit_log").insert({
         changed_by: user.id,

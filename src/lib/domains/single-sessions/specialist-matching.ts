@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
 
 /**
@@ -44,6 +45,7 @@ export async function findAvailableSpecialist(
   const trimmed = specialty.trim();
   if (!trimmed) return null;
 
+  // admin: findAvailableSpecialists/listAvailableSpecialists cross-read teacher roster (JUDGE — RLS policy pending) (issue #523)
   const admin = createAdminClient();
 
   // Teachers whose specialty array contains the requested specialty AND who
@@ -112,6 +114,7 @@ export async function listAvailableSpecialists(
   const trimmed = specialty.trim();
   if (!trimmed) return [];
 
+  // admin: findAvailableSpecialists/listAvailableSpecialists cross-read teacher roster (JUDGE — RLS policy pending) (issue #523)
   const admin = createAdminClient();
 
   const { data: teachers, error } = await admin
@@ -183,8 +186,11 @@ export async function countStudentAssessmentsForSpecialty(
   const trimmed = specialty.trim();
   if (!trimmed) return 0;
 
-  const admin = createAdminClient();
-  const { count, error } = await admin
+  // Own-row count: student_id is the authed student, counting their own
+  // bookings. RLS permits reading one's own bookings rows (issue #523 —
+  // swapped from admin).
+  const supabase = await createClient();
+  const { count, error } = await supabase
     .from("bookings")
     .select("id", { count: "exact", head: true })
     .eq("student_id", studentId)

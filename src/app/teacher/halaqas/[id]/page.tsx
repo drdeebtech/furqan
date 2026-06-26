@@ -59,6 +59,7 @@ export default async function TeacherHalaqaPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // admin: teacher reads the student roster (other users' rows) (issue #523)
   const admin = createAdminClient();
 
   // Authorize: caller must be the teacher of this halaqa.

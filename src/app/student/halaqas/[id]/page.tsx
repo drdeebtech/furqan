@@ -48,6 +48,7 @@ export default async function HalaqaDetailPage({
 
   // Admin read — same reasoning as the browse list (#85): no public
   // RLS path on halaqa rows pre-enrollment yet.
+  // admin: reads halaqa roster (other students' names) + waitlist — cross-user (issue #523)
   const admin = createAdminClient();
   const { data: halaqa } = await admin
     .from("sessions")

@@ -43,6 +43,7 @@ export async function notify(opts: NotifyOptions): Promise<void> {
   // writes to RLS-protected tables (notifications, message_delivery_log)
   // on behalf of the platform, not the calling user. Anonymous /
   // authenticated INSERT is denied on those tables by design.
+  // admin: platform-level notify — anonymous/authenticated INSERT denied by design (issue #523)
   const supabase = createAdminClient();
 
   // 1. Fetch user preferences (fallback to defaults if none set)

@@ -40,6 +40,7 @@ export async function approveReview(formData: FormData) {
   // so failures here must log, not throw. Uses the service-role admin client so RLS
   // can't silently drop the bookings lookup / parent_reports + notifications inserts /
   // gate update. The status UPDATE above stays on the session client for the audit trail.
+  // admin: requireAdmin; cross-user fan-out (parent_reports + notifications + bulk update) (issue #523)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = createAdminClient() as any;
   try {

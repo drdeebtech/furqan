@@ -74,6 +74,7 @@ interface BookingParties {
 
 export async function endSession(input: EndSessionInput): Promise<EndSessionResult> {
   const { sessionId, actorId, reason } = input;
+  // admin: endSession/startInstant/recordNoShow — cross-domain writes spanning student+teacher parties + audit_log (issue #523)
   const supabase = createAdminClient();
 
   // `.maybeSingle()` so a missing row is `{ data: null, error: null }` and maps
@@ -272,6 +273,7 @@ export async function startInstantSession(
   input: StartInstantSessionInput,
 ): Promise<StartInstantSessionResult> {
   const { teacherId, studentId, durationMin, hourlyRate } = input;
+  // admin: endSession/startInstant/recordNoShow — cross-domain writes spanning student+teacher parties + audit_log (issue #523)
   const admin = createAdminClient();
   const scheduledAt = new Date();
   const amountUsd = Number((hourlyRate * (durationMin / 60)).toFixed(2));
@@ -422,6 +424,7 @@ export async function startInstantSession(
  */
 export async function recordNoShow(input: RecordNoShowInput): Promise<void> {
   const { bookingId, actorId } = input;
+  // admin: endSession/startInstant/recordNoShow — cross-domain writes spanning student+teacher parties + audit_log (issue #523)
   const admin = createAdminClient();
   const noShowAt = new Date().toISOString();
 

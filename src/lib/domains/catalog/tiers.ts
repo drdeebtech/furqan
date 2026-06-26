@@ -73,6 +73,7 @@ function mapTier(row: CatalogTierRow): CatalogTier | null {
  */
 export const getActiveCatalogTiers = unstable_cache(
   async (): Promise<CatalogTier[]> => {
+    // admin: global catalog read (JUDGE — packages/subscription_plans RLS for authed users pending) (issue #523)
     const supabase = createAdminClient();
 
     const { data, error } = await supabase

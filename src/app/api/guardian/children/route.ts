@@ -24,6 +24,7 @@ export async function GET() {
     throw e;
   }
 
+  // admin: authed guardian; joins guardian_children → profiles (RLS would block cross-profile reads) (issue #523)
   const admin = createAdminClient();
 
   const { data: links, error } = await admin

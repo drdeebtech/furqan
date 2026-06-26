@@ -31,6 +31,7 @@ export const GET = withAuthedCronMonitor(
   "cron-auto-complete-sessions",
   "*/15 * * * *",
   async () => {
+    // admin: cron — no user session; cross-user session completion (issue #523)
     const admin = createAdminClient();
     const now = new Date();
 

@@ -120,6 +120,7 @@ const submitTeacherApplicationBase = loudAction<ApplyInput, { message: string }>
       throw new UserError("تم تجاوز عدد المحاولات المسموحة — حاول خلال ساعة");
     }
 
+    // admin: anonymous applicant; auth.admin.createUser + teacher profile bootstrap (issue #523)
     const adminClient = createAdminClient();
 
     const tempPassword = randomBytes(32).toString("hex");

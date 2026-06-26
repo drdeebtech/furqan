@@ -182,6 +182,7 @@ async function scoreChunk(
 }
 
 export async function scoreRetentionBatch(): Promise<RetentionBatchResult> {
+  // admin: cron/retention endpoint — no session; paginates all students cross-user (issue #523)
   const supabase = createAdminClient();
 
   // Paginate the active-student fetch — a plain select is capped at ~1000 rows

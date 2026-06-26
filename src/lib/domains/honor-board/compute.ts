@@ -27,6 +27,7 @@ export async function computeHonorBoard(rankPeriod: string): Promise<ComputeResu
     return { ok: false, error: `invalid rankPeriod: ${rankPeriod}` };
   }
 
+  // admin: cron SECURITY DEFINER RPC — recomputes entire board across all students (issue #523)
   const admin = createAdminClient();
   const { error } = await callRpc(admin, "compute_honor_board", {
     p_rank_period: rankPeriod,

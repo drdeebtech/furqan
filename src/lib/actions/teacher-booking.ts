@@ -171,6 +171,7 @@ export async function updateBookingStatus(
     roomUrl = confirmResult.roomUrl;
 
     // Audit trail — updateBookingStatus not wrapped in loudAction (ADR-0002 §4)
+    // admin: best-effort audit_log inserts (service-role telemetry) (issue #523)
     const adminForAudit = createAdminClient();
     const { error: confirmAuditErr } = await adminForAudit
       .from("audit_log")
@@ -268,6 +269,7 @@ export async function updateBookingStatus(
       return { error: "حدث خطأ أثناء تحديث الحجز" };
     }
 
+    // admin: best-effort audit_log inserts (service-role telemetry) (issue #523)
     const { error: cancelAuditErr } = await createAdminClient()
       .from("audit_log")
       .insert({
@@ -407,6 +409,7 @@ export async function recreateRoom(bookingId: string) {
     return { success: false, error: `فشل حفظ الغرفة: ${roomErr.message}` };
   }
 
+  // admin: best-effort audit_log inserts (service-role telemetry) (issue #523)
   const { error: recreateAuditErr } = await createAdminClient()
     .from("audit_log")
     .insert({

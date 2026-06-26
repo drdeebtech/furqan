@@ -74,6 +74,7 @@ export async function confirmBooking(
   input: ConfirmBookingInput,
 ): Promise<ConfirmBookingResult> {
   const { bookingId, actorId } = input;
+  // admin: confirmBooking cross-domain: writes booking + session spanning student+teacher parties (issue #523)
   const supabase = createAdminClient();
 
   // 1. Pre-read. Service-role client bypasses RLS — auth has already

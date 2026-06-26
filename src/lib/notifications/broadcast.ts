@@ -43,6 +43,7 @@ export async function processBroadcast(
   budgetMs = 20_000,
 ): Promise<{ done: boolean; sent: number; failed: number }> {
   const deadline = Date.now() + budgetMs;
+  // admin: platform broadcast sender; cross-user notification inserts (issue #523)
   const admin = createAdminClient();
 
   const { data: b, error } = await admin

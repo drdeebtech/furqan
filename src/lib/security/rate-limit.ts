@@ -24,6 +24,7 @@ export async function checkRateLimit(
   maxPerHour: number,
 ): Promise<boolean> {
   try {
+    // admin: rate-limit check; IP-keyed automation_logs telemetry (issue #523)
     const supabase = createAdminClient();
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     // `automation_logs.entity_id` is a UUID column. Storing the raw IP string

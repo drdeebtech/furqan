@@ -14,6 +14,7 @@ import { TeachersContent } from "./content";
 // freshness; the 300s ceiling is just the worst-case staleness floor.
 const getPublicTeachers = unstable_cache(
   async () => {
+    // admin: public anonymous read of teacher listings (issue #523)
     const supabase = createAdminClient();
 
     const { data: teacherProfiles } = await supabase

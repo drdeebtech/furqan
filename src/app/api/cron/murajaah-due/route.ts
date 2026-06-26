@@ -41,6 +41,7 @@ export const GET = withAuthedCronMonitor(
   "cron-murajaah-due",
   "0 9 * * *",
   async () => {
+    // admin: cron — no user session (issue #523)
     const admin = createAdminClient();
     const todayStartIso = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
     const thirtyDaysAgoIso = new Date(Date.now() - 30 * 86400_000).toISOString();

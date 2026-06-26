@@ -69,6 +69,7 @@ export async function saveResource(
     if (fileEntry.size > MAX_UPLOAD_BYTES) {
       return { error: "الملف كبير جدًا — الحد الأقصى 50 ميغابايت" };
     }
+    // admin: requireAdmin; uploads to 'resources' storage bucket (admin-only INSERT) (issue #523)
     const adminClient = createAdminClient();
     const ext = fileEntry.name.split(".").pop()?.toLowerCase() ?? "bin";
     const path = `${resource_type}/${Date.now()}_${crypto.randomUUID()}.${ext}`;

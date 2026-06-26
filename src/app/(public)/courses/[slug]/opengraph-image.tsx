@@ -30,6 +30,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   const { slug } = await params;
 
   try {
+    // admin: public OG image generation; anonymous read (issue #523)
     const supabase = createAdminClient();
     const { data: course } = await supabase
       .from("courses")

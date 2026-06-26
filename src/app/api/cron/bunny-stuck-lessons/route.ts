@@ -51,6 +51,7 @@ export const GET = withAuthedCronMonitor(
     }
 
     const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    // admin: cron — no user session (issue #523)
     const admin = createAdminClient();
 
     const { data: stuck, error: queryErr } = await admin

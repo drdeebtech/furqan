@@ -15,6 +15,7 @@ async function getParentInfo(studentId: string): Promise<ParentInfo | null> {
   // Service-role client: guardian PII is relationship-gated on `profiles` and
   // this helper runs in fire-and-forget notification paths where the acting
   // context isn't always a booking-counterparty of the student.
+  // admin: fire-and-forget notification path; cross-context profile reads + notification inserts (issue #523)
   const supabase = createAdminClient();
   const { data } = await supabase
     .from("profiles")
@@ -52,6 +53,7 @@ async function createAndDeliverParentReport(args: {
   body: string;
   parent: ParentInfo;
 }): Promise<void> {
+  // admin: fire-and-forget notification path; cross-context profile reads + notification inserts (issue #523)
   const supabase = createAdminClient();
   const { studentId, teacherId, reportType, title, body, parent } = args;
 

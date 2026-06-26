@@ -67,6 +67,7 @@ export async function createBooking(
   // already called `requireRole("student")`), so we don't need RLS to
   // re-prove identity. Matches what the route was using implicitly via
   // `await createClient()` after `auth.getUser()`.
+  // admin: createBooking cross-reads teacher rate/availability (JUDGE — RLS policy pending); updateBookingStatus is admin cross-user (issue #523)
   const supabase = createAdminClient();
 
   // 0. Fail-closed package precondition (FR-009). A 1:1 booking is debited from
@@ -253,6 +254,7 @@ export async function updateBookingStatus(
   input: UpdateBookingStatusInput,
 ): Promise<UpdateBookingStatusResult> {
   const { bookingId, newStatus, actorId, reason } = input;
+  // admin: createBooking cross-reads teacher rate/availability (JUDGE — RLS policy pending); updateBookingStatus is admin cross-user (issue #523)
   const supabase = createAdminClient();
 
   // Read current state so we can short-circuit no-ops, write the

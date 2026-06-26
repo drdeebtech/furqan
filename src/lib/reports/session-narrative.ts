@@ -62,6 +62,7 @@ interface ProfileRow {
  * Returns null if the session isn't found or is still in progress.
  */
 export async function buildSessionNarrative(sessionId: string): Promise<SessionNarrative | null> {
+  // admin: builds narrative via cross-table session reads (issue #523)
   const supabase = createAdminClient();
 
   const { data: session } = await supabase

@@ -252,6 +252,7 @@ const recordSessionProgressBase = loudAction<RecordSessionProgressInput, { messa
         ? { surahFrom: input.surahFrom, ayahFrom: input.ayahFrom, surahTo: input.surahTo, ayahTo: input.ayahTo }
         : null;
 
+    // admin: audit_log insert (insert policy requires is_admin_or_mod) (issue #523)
     const admin = createAdminClient();
     const outcome = await recordProgress(admin, {
       bookingId: input.bookingId,
