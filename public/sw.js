@@ -72,6 +72,21 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
+// Resolve a notification target to a same-origin URL. Any absolute or
+// off-origin value (e.g. an injected "https://evil.example") falls back to the
+// dashboard, so a notification can never open an external site.
+const DEFAULT_NOTIFICATION_URL = "/student/dashboard";
+function safeSameOriginUrl(value) {
+  try {
+    const resolved = new URL(value ?? DEFAULT_NOTIFICATION_URL, self.location.origin);
+    return resolved.origin === self.location.origin
+      ? resolved.href
+      : new URL(DEFAULT_NOTIFICATION_URL, self.location.origin).href;
+  } catch {
+    return new URL(DEFAULT_NOTIFICATION_URL, self.location.origin).href;
+  }
+}
+
 // Push: display Arabic-first, RTL notifications while the app is closed.
 self.addEventListener("push", (event) => {
   let payload = {};
@@ -82,7 +97,7 @@ self.addEventListener("push", (event) => {
     payload = { title: "فُرقان", body: event.data?.text() ?? "" };
   }
 
-  const { title = "فُرقان", body = "", url = "/student/dashboard", tag } = payload;
+  const { title = "فُرقان", body = "", url, tag } = payload;
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
@@ -90,7 +105,7 @@ self.addEventListener("push", (event) => {
       lang: "ar",
       icon: "/logo-192.png",
       badge: "/logo-192.png",
-      data: { url },
+      data: { url: safeSameOriginUrl(url) },
       tag,
     })
   );
@@ -98,10 +113,8 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl = new URL(
-    event.notification.data?.url ?? "/student/dashboard",
-    self.location.origin
-  ).href;
+  // Re-clamp at click time in case a notification was created elsewhere.
+  const targetUrl = safeSameOriginUrl(event.notification.data?.url);
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clients) => {

@@ -89,6 +89,32 @@ describe("sendPushToUser", () => {
     expect(mocks.logError).not.toHaveBeenCalled();
   });
 
+  it("keeps fanning out when dead-endpoint cleanup itself fails", async () => {
+    mocks.selectEq.mockResolvedValue({
+      data: [
+        { id: "sub-dead", endpoint: "https://push.test/dead", keys_p256dh: "p", keys_auth: "a" },
+        { id: "sub-live", endpoint: "https://push.test/live", keys_p256dh: "p", keys_auth: "a" },
+      ],
+      error: null,
+    });
+    mocks.sendNotification.mockImplementation((subscription: { endpoint: string }) =>
+      subscription.endpoint.endsWith("/dead")
+        ? Promise.reject(Object.assign(new Error("Gone"), { statusCode: 410 }))
+        : Promise.resolve({ statusCode: 201 }),
+    );
+    // The cleanup delete rejects — must be caught, logged, and not abort the run.
+    mocks.deleteEq.mockRejectedValue(new Error("delete failed"));
+
+    const result = await sendPushToUser("user-1", { title: "تذكير", body: "مراجعة" });
+
+    expect(result).toEqual({ sent: 1, failed: 1 });
+    expect(mocks.logError).toHaveBeenCalledWith(
+      "push: dead subscription cleanup failed",
+      expect.any(Error),
+      expect.objectContaining({ tag: "push", subscriptionId: "sub-dead" }),
+    );
+  });
+
   it("fails soft when the subscription lookup throws", async () => {
     mocks.createAdminClient.mockImplementation(() => {
       throw new Error("database unavailable");

@@ -7,7 +7,13 @@ const sendSchema = z.object({
   userId: z.uuid(),
   title: z.string().min(1).max(200),
   body: z.string().min(1).max(2_000),
-  url: z.string().max(2_000).optional(),
+  // App-relative path only (leading single slash, not protocol-relative "//").
+  // Keeps any URL forwarded to the service worker same-origin.
+  url: z
+    .string()
+    .max(2_000)
+    .regex(/^\/(?!\/)/, "url must be an app-relative path")
+    .optional(),
   tag: z.string().max(200).optional(),
 });
 

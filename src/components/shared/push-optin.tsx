@@ -178,7 +178,7 @@ export function PushOptIn() {
       lang="ar"
       disabled={busy}
       onClick={subscribed ? disablePush : enablePush}
-      className={`${shellClass} flex items-center gap-2 transition-colors hover:border-gold/50 disabled:cursor-wait disabled:opacity-60`}
+      className={`${shellClass} flex min-h-11 items-center gap-2 transition-colors hover:border-gold/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-wait disabled:opacity-60 motion-reduce:transition-none`}
       aria-pressed={subscribed}
     >
       {subscribed ? (
