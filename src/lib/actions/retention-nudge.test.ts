@@ -58,32 +58,40 @@ const realDaysAgo = (n: number) => new Date(Date.now() - n * MS).toISOString();
 type Result = { data?: unknown; error?: unknown };
 
 /**
- * Chainable PostgREST builder stub. `then` makes it awaitable (resolves to
- * `selectResult`); `.eq()` after `.update()` resolves to `updateResult`;
- * `.maybeSingle()` resolves to `singleResult`; `.insert()` resolves to
- * `insertResult`. Covers every call shape retention-nudge.ts uses.
+ * Chainable PostgREST builder stub covering every call shape retention-nudge.ts
+ * uses:
+ *  - detection: `.select().lte().gte().order().range().returns()` then awaited
+ *    → resolves to `selectResult` via `then`.
+ *  - prefs/progress: `.select().eq()….maybeSingle()` → resolves `singleResult`.
+ *  - atomic claim: `.update().eq().or().select()` → the `.select()` after
+ *    `.update()` is the awaited terminal, resolving `claimResult`.
+ *  - completion marker: `.insert()` → resolves `insertResult`.
  */
 function builder(opts: {
   selectResult?: Result;
   singleResult?: Result;
-  updateResult?: Result;
+  claimResult?: Result;
   insertResult?: Result;
+  onUpdate?: () => void;
 }) {
   let isUpdate = false;
   const b: Record<string, unknown> = {
-    select: () => b,
+    select: () =>
+      isUpdate ? Promise.resolve(opts.claimResult ?? { data: [], error: null }) : b,
     update: () => {
       isUpdate = true;
+      opts.onUpdate?.();
       return b;
     },
     insert: () => Promise.resolve(opts.insertResult ?? { error: null }),
     lt: () => b,
     lte: () => b,
     gte: () => b,
+    or: () => b,
     order: () => b,
     range: () => b,
     returns: () => b,
-    eq: () => (isUpdate ? Promise.resolve(opts.updateResult ?? { error: null }) : b),
+    eq: () => b,
     maybeSingle: () => Promise.resolve(opts.singleResult ?? { data: null }),
     then: (resolve: (v: Result) => unknown) =>
       resolve(opts.selectResult ?? { data: [], error: null }),
@@ -176,20 +184,33 @@ describe("buildNudgeCopy", () => {
 // ── nudgeOneStudent ──────────────────────────────────────────────────────────
 
 describe("nudgeOneStudent", () => {
-  function adminFor(prefs: unknown, progress: unknown, updateResult: Result = { error: null }) {
-    return {
+  const CUTOFF = realDaysAgo(14); // cooldown cutoff ISO passed by the caller
+
+  function adminFor(
+    prefs: unknown,
+    progress: unknown,
+    claim: { rows?: unknown[]; error?: unknown } = {},
+  ) {
+    const updateSpy = vi.fn();
+    const admin = {
       from: (table: string) => {
         if (table === "student_progress") return builder({ singleResult: { data: progress } });
         if (table === "communication_preferences") return builder({ singleResult: { data: prefs } });
-        if (table === "retention_signals") return builder({ updateResult });
+        if (table === "retention_signals")
+          return builder({
+            claimResult: { data: claim.rows ?? [{ student_id: "x" }], error: claim.error ?? null },
+            onUpdate: updateSpy,
+          });
         return builder({});
       },
     } as never;
+    return { admin, updateSpy };
   }
 
-  it("fires in-app + push + event and stamps when prefs permit", async () => {
-    const admin = adminFor(permissivePrefs, { surah_to: 1, ayah_to: 3 });
-    await nudgeOneStudent(admin, "stu-1", NOW);
+  it("claims, fires in-app + push + event, returns true when prefs permit and claim wins", async () => {
+    const { admin } = adminFor(permissivePrefs, { surah_to: 1, ayah_to: 3 });
+    const result = await nudgeOneStudent(admin, "stu-1", CUTOFF);
+    expect(result).toBe(true);
     expect(mockNotify).toHaveBeenCalledOnce();
     expect(mockSendPush).toHaveBeenCalledOnce();
     expect(mockEmitEvent).toHaveBeenCalledWith(
@@ -202,47 +223,81 @@ describe("nudgeOneStudent", () => {
   });
 
   it("falls back to generic copy when no progress row", async () => {
-    const admin = adminFor(permissivePrefs, null);
-    await nudgeOneStudent(admin, "stu-2", NOW);
+    const { admin } = adminFor(permissivePrefs, null);
+    await nudgeOneStudent(admin, "stu-2", CUTOFF);
     const arg = mockNotify.mock.calls[0][0] as { body: string };
     expect(arg.body).not.toContain("آية");
   });
 
-  it("skips both channels in quiet hours but still stamps", async () => {
+  it("returns false WITHOUT claiming/emitting/dispatching in quiet hours", async () => {
     mockIsInQuietHours.mockReturnValue(true);
-    const admin = adminFor(
+    const { admin, updateSpy } = adminFor(
       { ...permissivePrefs, quiet_hours_start: "22:00", quiet_hours_end: "06:00" },
       { surah_to: 1, ayah_to: 3 },
     );
-    await nudgeOneStudent(admin, "stu-3", NOW);
+    const result = await nudgeOneStudent(admin, "stu-3", CUTOFF);
+    expect(result).toBe(false);
+    expect(updateSpy).not.toHaveBeenCalled(); // never stamps when nothing sent
     expect(mockNotify).not.toHaveBeenCalled();
     expect(mockSendPush).not.toHaveBeenCalled();
-    expect(mockEmitEvent).toHaveBeenCalledOnce();
+    expect(mockEmitEvent).not.toHaveBeenCalled();
   });
 
-  it("skips both channels in important-only mode", async () => {
-    const admin = adminFor({ ...permissivePrefs, important_only_mode: true }, { surah_to: 1, ayah_to: 3 });
-    await nudgeOneStudent(admin, "stu-4", NOW);
+  it("returns false WITHOUT claiming in important-only mode", async () => {
+    const { admin, updateSpy } = adminFor(
+      { ...permissivePrefs, important_only_mode: true },
+      { surah_to: 1, ayah_to: 3 },
+    );
+    const result = await nudgeOneStudent(admin, "stu-4", CUTOFF);
+    expect(result).toBe(false);
+    expect(updateSpy).not.toHaveBeenCalled();
     expect(mockNotify).not.toHaveBeenCalled();
-    expect(mockSendPush).not.toHaveBeenCalled();
+    expect(mockEmitEvent).not.toHaveBeenCalled();
   });
 
-  it("skips both channels when in_app disabled", async () => {
-    const admin = adminFor({ ...permissivePrefs, in_app_enabled: false }, { surah_to: 1, ayah_to: 3 });
-    await nudgeOneStudent(admin, "stu-5", NOW);
+  it("returns false WITHOUT claiming when in_app disabled", async () => {
+    const { admin, updateSpy } = adminFor(
+      { ...permissivePrefs, in_app_enabled: false },
+      { surah_to: 1, ayah_to: 3 },
+    );
+    const result = await nudgeOneStudent(admin, "stu-5", CUTOFF);
+    expect(result).toBe(false);
+    expect(updateSpy).not.toHaveBeenCalled();
     expect(mockNotify).not.toHaveBeenCalled();
-    expect(mockSendPush).not.toHaveBeenCalled();
   });
 
   it("uses permissive defaults when no prefs row exists", async () => {
-    const admin = adminFor(null, { surah_to: 1, ayah_to: 3 });
-    await nudgeOneStudent(admin, "stu-6", NOW);
+    const { admin } = adminFor(null, { surah_to: 1, ayah_to: 3 });
+    const result = await nudgeOneStudent(admin, "stu-6", CUTOFF);
+    expect(result).toBe(true);
     expect(mockNotify).toHaveBeenCalledOnce();
   });
 
-  it("throws when the cooldown stamp fails", async () => {
-    const admin = adminFor(permissivePrefs, { surah_to: 1, ayah_to: 3 }, { error: { message: "boom" } });
-    await expect(nudgeOneStudent(admin, "stu-7", NOW)).rejects.toThrow(/stamp failed for stu-7/);
+  it("returns false and does NOT dispatch when the claim wins zero rows (lost race / in cooldown)", async () => {
+    const { admin } = adminFor(permissivePrefs, { surah_to: 1, ayah_to: 3 }, { rows: [] });
+    const result = await nudgeOneStudent(admin, "stu-7", CUTOFF);
+    expect(result).toBe(false);
+    expect(mockNotify).not.toHaveBeenCalled();
+    expect(mockSendPush).not.toHaveBeenCalled();
+    expect(mockEmitEvent).not.toHaveBeenCalled();
+  });
+
+  it("throws when the claim update errors", async () => {
+    const { admin } = adminFor(permissivePrefs, { surah_to: 1, ayah_to: 3 }, { error: { message: "boom" } });
+    await expect(nudgeOneStudent(admin, "stu-8", CUTOFF)).rejects.toThrow(/claim failed for stu-8/);
+  });
+
+  it("still returns true (claim holds) but logs when notify throws after a successful claim", async () => {
+    mockNotify.mockRejectedValueOnce(new Error("notify down"));
+    const { admin } = adminFor(permissivePrefs, { surah_to: 1, ayah_to: 3 });
+    const result = await nudgeOneStudent(admin, "stu-9", CUTOFF);
+    expect(result).toBe(true);
+    expect(mockLogError).toHaveBeenCalledWith(
+      expect.stringContaining("dispatch failed after claim"),
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(mockEmitEvent).toHaveBeenCalledOnce(); // event still emitted post-claim
   });
 });
 
@@ -294,9 +349,9 @@ describe("runReengagementNudge — batch", () => {
       if (table === "retention_signals") {
         detectionCalls += 1;
         // First call = detection select (one short page → loop breaks).
-        // Subsequent call = the stamp update.
+        // Subsequent call = the atomic claim (update→select returns the row).
         if (detectionCalls === 1) return builder({ selectResult: { data: page, error: null } });
-        return builder({ updateResult: { error: null } });
+        return builder({ claimResult: { data: [{ student_id: "s1" }], error: null } });
       }
       return builder({});
     });
@@ -306,7 +361,7 @@ describe("runReengagementNudge — batch", () => {
     expect((insert.mock.calls[0][0] as { status: string }).status).toBe("succeeded");
   });
 
-  it("counts a student as skipped and marks succeeded_with_skips when dispatch throws", async () => {
+  it("counts a student as skipped and marks succeeded_with_skips when the claim errors", async () => {
     const page = [{ student_id: "s1", last_session_at: realDaysAgo(8), last_intervention_at: null }];
     let detectionCalls = 0;
     const insert = vi.fn().mockResolvedValue({ error: null });
@@ -318,13 +373,35 @@ describe("runReengagementNudge — batch", () => {
       if (table === "retention_signals") {
         detectionCalls += 1;
         if (detectionCalls === 1) return builder({ selectResult: { data: page, error: null } });
-        return builder({ updateResult: { error: { message: "stamp boom" } } });
+        return builder({ claimResult: { data: null, error: { message: "claim boom" } } });
       }
       return builder({});
     });
     const result = await runReengagementNudge();
     expect(result).toEqual({ detected: 1, nudged: 0, skipped: 1 });
     expect(mockLogError).toHaveBeenCalled();
+    expect((insert.mock.calls[0][0] as { status: string }).status).toBe("succeeded_with_skips");
+  });
+
+  it("counts a student as skipped (clean, no throw) when the claim wins zero rows", async () => {
+    const page = [{ student_id: "s1", last_session_at: realDaysAgo(8), last_intervention_at: null }];
+    let detectionCalls = 0;
+    const insert = vi.fn().mockResolvedValue({ error: null });
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "automation_logs") return { insert };
+      if (table === "student_progress") return builder({ singleResult: { data: null } });
+      if (table === "communication_preferences")
+        return builder({ singleResult: { data: permissivePrefs } });
+      if (table === "retention_signals") {
+        detectionCalls += 1;
+        if (detectionCalls === 1) return builder({ selectResult: { data: page, error: null } });
+        return builder({ claimResult: { data: [], error: null } }); // lost the race
+      }
+      return builder({});
+    });
+    const result = await runReengagementNudge();
+    expect(result).toEqual({ detected: 1, nudged: 0, skipped: 1 });
+    expect(mockNotify).not.toHaveBeenCalled();
     expect((insert.mock.calls[0][0] as { status: string }).status).toBe("succeeded_with_skips");
   });
 

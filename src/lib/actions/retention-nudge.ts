@@ -172,6 +172,9 @@ export async function runReengagementNudge(): Promise<ReengageResult> {
   // predicate in JS (last_intervention_at may be NULL → OR clause).
   const lapsedIso = new Date(now.getTime() - LAPSED_DAYS * MS_PER_DAY).toISOString();
   const capIso = new Date(now.getTime() - CAP_DAYS * MS_PER_DAY).toISOString();
+  // Same cooldown cutoff detection uses — passed into the atomic per-student
+  // claim so the claim's row predicate matches eligibility exactly.
+  const cooldownCutoffIso = new Date(now.getTime() - COOLDOWN_DAYS * MS_PER_DAY).toISOString();
 
   const lapsed: LapsedStudent[] = [];
   for (let from = 0; ; from += CHUNK) {
@@ -206,12 +209,12 @@ export async function runReengagementNudge(): Promise<ReengageResult> {
     await Promise.allSettled(
       group.map(async (student) => {
         try {
-          await nudgeOneStudent(supabase, student.student_id, now);
-          nudged += 1;
+          const wasNudged = await nudgeOneStudent(supabase, student.student_id, cooldownCutoffIso);
+          if (wasNudged) nudged += 1;
+          else skipped += 1; // no channel fired, or lost the concurrent claim
         } catch (err) {
-          // A single student's failure must not abort the batch. The stamp is
-          // the resumable dedupe — if it failed, this student will be retried
-          // next run (still within the cooldown-safe predicate).
+          // A claim-write failure must not abort the batch. The student wasn't
+          // stamped, so they're naturally retried next run.
           skipped += 1;
           logError("reengagement-nudge: student dispatch failed", err, {
             tag: "retention-nudge",
@@ -237,16 +240,60 @@ export async function runReengagementNudge(): Promise<ReengageResult> {
 }
 
 /**
- * Dispatch the nudge for one student: build personalized copy, send in-app +
- * push (both gated on the same prefs/quiet-hours), then stamp the cooldown.
+ * Dispatch the nudge for one student. Returns `true` if the student was nudged,
+ * `false` if skipped (no channel would fire, or another concurrent run already
+ * claimed them). Throws only on an unexpected post-claim dispatch failure.
  * Exported for direct unit testing.
+ *
+ * Order matters (CodeRabbit #604):
+ *  1. Read prefs first; if NEITHER in-app nor push would fire, return WITHOUT
+ *     claiming/emitting/dispatching — never stamp a student we didn't nudge.
+ *  2. Atomic per-student claim: a conditional UPDATE that only stamps rows still
+ *     outside the cooldown window. This single write is BOTH the concurrency
+ *     lock (two overlapping runs can't both claim the same row) AND the
+ *     resumable dedupe. Zero rows claimed → someone else got there first → skip.
+ *  3. Only after a successful claim do we dispatch + emit.
  */
 export async function nudgeOneStudent(
   supabase: ReturnType<typeof createAdminClient>,
   studentId: string,
-  _now: Date,
-): Promise<void> {
-  // Fetch the student's last progress row for copy personalization.
+  cooldownCutoffIso: string,
+): Promise<boolean> {
+  // 1. Prefs gate FIRST — both channels share the same quiet-hours/opt-out rule
+  // (the raw push route bypasses communication_preferences, so we gate it here).
+  const { data: prefs } = await supabase
+    .from("communication_preferences")
+    .select("in_app_enabled, quiet_hours_start, quiet_hours_end, important_only_mode")
+    .eq("user_id", studentId)
+    .maybeSingle<PrefsRow>();
+
+  const willFire =
+    (prefs?.in_app_enabled ?? true) &&
+    !(prefs?.important_only_mode ?? false) &&
+    !userInQuietHours(prefs);
+
+  // Nothing would be sent → do NOT stamp (would suppress for 14d without ever
+  // nudging) and do NOT emit. Caller counts this as skipped.
+  if (!willFire) return false;
+
+  // 2. Atomic claim. Same cooldown cutoff as detection, applied as a row
+  // predicate so only one concurrent run wins. `.select()` returns the rows
+  // actually updated; empty → already claimed (or fell inside cooldown) → skip.
+  const { data: claimed, error: claimErr } = await supabase
+    .from("retention_signals")
+    .update({
+      last_intervention_at: new Date().toISOString(),
+      intervention_type: "reengagement_7d",
+    })
+    .eq("student_id", studentId)
+    .or(`last_intervention_at.is.null,last_intervention_at.lt."${cooldownCutoffIso}"`)
+    .select("student_id");
+  if (claimErr) {
+    throw new Error(`claim failed for ${studentId}: ${claimErr.message}`);
+  }
+  if (!claimed || claimed.length === 0) return false; // lost the race / in cooldown
+
+  // 3. Claimed — now dispatch. Personalize copy from the last progress row.
   const { data: progress } = await supabase
     .from("student_progress")
     .select("surah_to, ayah_to")
@@ -258,22 +305,9 @@ export async function nudgeOneStudent(
 
   const copy = buildNudgeCopy(progress ?? null);
 
-  // Fetch prefs to gate the push channel on the same quiet-hours rule the
-  // dispatcher uses (spec risk: raw push bypasses communication_preferences).
-  const { data: prefs } = await supabase
-    .from("communication_preferences")
-    .select("in_app_enabled, quiet_hours_start, quiet_hours_end, important_only_mode")
-    .eq("user_id", studentId)
-    .maybeSingle<PrefsRow>();
-
-  const inQuietHours = userInQuietHours(prefs);
-  const importantOnly = prefs?.important_only_mode ?? false;
-  const inAppEnabled = prefs?.in_app_enabled ?? true;
-
-  // In-app notify() already enforces quiet hours + important-only for
-  // non-urgent; we pass urgent:false so it respects both. The nudge is
-  // explicitly non-urgent (it's encouragement, not an ops alert).
-  if (inAppEnabled && !importantOnly && !inQuietHours) {
+  try {
+    // In-app (primary): notify() also enforces quiet hours/important-only for
+    // non-urgent, so the gate above and this are belt-and-braces.
     await notify({
       userId: studentId,
       type: "reminder",
@@ -284,35 +318,23 @@ export async function nudgeOneStudent(
       entityId: studentId,
       data: { source: "reengagement_nudge" },
     });
-  }
-
-  // Push: gated on the SAME prefs/quiet-hours (spec risk #1). No dedicated
-  // push opt-out column exists (OPEN DECISION resolved: reuse in_app_enabled +
-  // quiet hours). Only push when in-app would also fire.
-  if (inAppEnabled && !importantOnly && !inQuietHours) {
-    // sendPushToUser is fire-and-forget-safe (logs + prunes internally). Don't
-    // await-blocking the stamp on push success — in-app is the primary channel.
+    // Push (secondary): fire-and-forget-safe (logs + prunes internally).
     void sendPushToUser(studentId, {
       title: copy.title,
       body: copy.body,
       url: "/student/dashboard",
       tag: "reengagement-nudge",
     });
-  }
-
-  // Stamp the cooldown AFTER dispatch so a mid-failure retry skips this
-  // student (spec decision #4 — the stamp IS the resumable dedupe).
-  const { error: stampErr } = await supabase
-    .from("retention_signals")
-    .update({
-      last_intervention_at: new Date().toISOString(),
-      intervention_type: "reengagement_7d",
-    })
-    .eq("student_id", studentId);
-  if (stampErr) {
-    // Don't swallow — surface so the caller's try/catch counts it as skipped
-    // and the student is retried next run.
-    throw new Error(`stamp failed for ${studentId}: ${stampErr.message}`);
+  } catch (err) {
+    // ponytail: residual — the claim already stamped this student, so a notify
+    // failure leaves them suppressed for this cooldown cycle. Rare + acceptable;
+    // we do NOT revert the claim (reverting reopens the double-send race). Log
+    // and count as nudged-attempted. Upgrade path: a transactional outbox if
+    // notify reliability ever needs to gate the stamp.
+    logError("reengagement-nudge: dispatch failed after claim", err, {
+      tag: "retention-nudge",
+      studentId,
+    });
   }
 
   // Reuse the existing event (spec decision #2 — no new event). Gated by
@@ -324,6 +346,7 @@ export async function nudgeOneStudent(
     { intervention_type: "reengagement_7d" },
     null,
   );
+  return true;
 }
 
 /**
