@@ -37,6 +37,10 @@
 | [027-seo-audit-gaps](./027-seo-audit-gaps/spec.md) | Shipped | `027-seo-audit-gaps` | [#519](https://github.com/drdeebtech/furqan/pull/519) |
 | [028-ai-llm-workflows](./028-ai-llm-workflows/spec.md) | Malformed | _(unknown)_ | _(pending)_ |
 | [029-web-push-notifications](./029-web-push-notifications/spec.md) | Draft | _(unknown)_ | _(pending)_ |
+| [030-reengagement-nudge](./030-reengagement-nudge/spec.md) | Draft | _(unknown)_ | _(pending)_ |
+| [031-shareable-certificates](./031-shareable-certificates/spec.md) | Draft | _(unknown)_ | _(pending)_ |
+| [032-realtime-notifications](./032-realtime-notifications/spec.md) | Draft | _(unknown)_ | _(pending)_ |
+| [033-achievement-system](./033-achievement-system/spec.md) | Draft | _(unknown)_ | _(pending)_ |
 
 ## Abandoned (last 90 days)
 
