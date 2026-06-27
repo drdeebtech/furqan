@@ -73,30 +73,30 @@ describe("getTeacherTimeToGrade", () => {
 });
 
 describe("getTeacherRosterErrorPulse", () => {
-  it("returns [] when the teacher has no progress rows in window", async () => {
+  // Single join query: recitation_errors embedding student_progress!inner,
+  // so the mock resolves once with the error rows directly (issue #559).
+  it("returns [] when the join yields no error rows in window", async () => {
     chain.returns.mockResolvedValueOnce({ data: [], error: null });
     const result = await getTeacherRosterErrorPulse(chain as never, TEACHER);
     expect(result).toEqual([]);
   });
 
   it("excludes sentinel rows, buckets unknown types as 'other', and returns top-3 desc", async () => {
-    chain.returns
-      .mockResolvedValueOnce({ data: [{ id: "p1" }], error: null }) // progress
-      .mockResolvedValueOnce({
-        data: [
-          { error_type: "makharij", note: null },
-          { error_type: "makharij", note: null },
-          { error_type: "makharij", note: null },
-          { error_type: "sifat", note: null },
-          { error_type: "sifat", note: null },
-          { error_type: "madd", note: null },
-          { error_type: "waqf", note: null },
-          { error_type: "xyz-unknown", note: null }, // → other
-          { error_type: "madd", note: "__no_errors_observed_sentinel__" }, // skipped
-          { error_type: "sifat", note: "__no_errors_observed_sentinel__" }, // skipped
-        ],
-        error: null,
-      });
+    chain.returns.mockResolvedValueOnce({
+      data: [
+        { error_type: "makharij", note: null },
+        { error_type: "makharij", note: null },
+        { error_type: "makharij", note: null },
+        { error_type: "sifat", note: null },
+        { error_type: "sifat", note: null },
+        { error_type: "madd", note: null },
+        { error_type: "waqf", note: null },
+        { error_type: "xyz-unknown", note: null }, // → other
+        { error_type: "madd", note: "__no_errors_observed_sentinel__" }, // skipped
+        { error_type: "sifat", note: "__no_errors_observed_sentinel__" }, // skipped
+      ],
+      error: null,
+    });
 
     const result = await getTeacherRosterErrorPulse(chain as never, TEACHER);
     expect(result).toEqual([
@@ -106,11 +106,20 @@ describe("getTeacherRosterErrorPulse", () => {
     ]);
   });
 
-  it("returns [] when progress rows exist but no errors logged", async () => {
-    chain.returns
-      .mockResolvedValueOnce({ data: [{ id: "p1" }], error: null })
-      .mockResolvedValueOnce({ data: [], error: null });
+  it("returns [] when every error row is a no-errors sentinel", async () => {
+    chain.returns.mockResolvedValueOnce({
+      data: [
+        { error_type: "madd", note: "__no_errors_observed_sentinel__" },
+        { error_type: "sifat", note: "__no_errors_observed_sentinel__" },
+      ],
+      error: null,
+    });
     const result = await getTeacherRosterErrorPulse(chain as never, TEACHER);
     expect(result).toEqual([]);
+  });
+
+  it("throws when the query errors", async () => {
+    chain.returns.mockResolvedValueOnce({ data: null, error: new Error("db fail") });
+    await expect(getTeacherRosterErrorPulse(chain as never, TEACHER)).rejects.toThrow("db fail");
   });
 });
