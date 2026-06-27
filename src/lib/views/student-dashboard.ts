@@ -40,12 +40,12 @@ import {
  * the page used to compute inline. No schema changes; the year-filter / KPI
  * scoping logic is preserved exactly and passed in via {@link StudentDashboardViewOpts}.
  *
- * Tracer note: this is the first slice of a spec-kit'd multi-PR sweep that
- * pulls teacher + admin dashboard reads behind sibling `src/lib/views/*`
- * modules and shrinks the `dashboard-queries.ts` god-module. The `getStudent*`
- * helpers now receive the injected `supabase` client as their first argument,
- * so the whole screen reads on one client and the bundle is testable against a
- * fake/stub without a live server client.
+ * Streaming: slow queries (analytics chart, live sessions, hwCounts, murajaah,
+ * recentRecordings) are moved to independently-awaitable widget functions
+ * (`studentAnalyticsWidgetData`, `studentMurajaahWidgetData`) so the page
+ * can stream above-fold content without waiting on all ~25-30 queries.
+ * The core view retains `continueWatching` so `resumeLesson` (NextActionBanner
+ * priority 6) is available above-fold without the analytics slot.
  */
 
 interface ChartDataPoint {
@@ -71,7 +71,14 @@ export interface StudentDashboardViewOpts {
   monthEnd: string | undefined;
 }
 
-/** The exact bundle `StudentDashboardContent` renders. */
+/**
+ * The above-fold bundle `StudentDashboardContent` renders.
+ *
+ * Slow widget data (analytics chart, live sessions, hwCounts, murajaah,
+ * watching rows) is intentionally ABSENT — those are fetched by the
+ * independently-streamed slots (`StudentAnalyticsSection`,
+ * `StudentMurajaahSection`) and never block the initial render.
+ */
 export interface StudentDashboardData {
   fullName: string | null;
   nextBooking: { id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: string } | null;
@@ -80,11 +87,6 @@ export interface StudentDashboardData {
   monthSessions: number;
   pendingBookings: number;
   nameMap: Record<string, string>;
-  studyAnalytics: { daily: ChartDataPoint[]; weekly: ChartDataPoint[]; monthly: ChartDataPoint[] };
-  liveSessions: { id: string; title: string; subtitle: string; initials: string; timeRemaining?: string; progressPercent?: number }[];
-  watchingRows: Record<string, unknown>[];
-  continueIsLessons: boolean;
-  hwCounts: Record<string, number>;
   activePackages: { id: string; sessions_total: number; sessions_used: number; status: string; expires_at: string | null }[];
   nextQuiz: { id: string; title: string; due_at: string | null } | null;
   lastProgress: { surah_to: number | null; ayah_to: number | null; surah_from: number | null; ayah_from: number | null; level: string; recitation_standard: string | null; created_at: string } | null;
@@ -94,7 +96,6 @@ export interface StudentDashboardData {
   todaySessions: { id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: string; status: string }[];
   todayHomework: { id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[];
   latestEvaluation: { next_goals: string | null; evaluation_type: string; created_at: string } | null;
-  murajaahBatch: MurajaahDueItem[];
   goal: GoalDashboardData | null;
   /** Earned achievement badges (spec 033). Empty array when none earned yet. */
   achievements: { type: string; metadata_json: Record<string, unknown>; unlocked_at: string }[];
@@ -107,6 +108,15 @@ export interface StudentDashboardViewResult {
   anyFailed: boolean;
   /** True for brand-new students with no activity — page redirects to teachers. */
   isNewStudent: boolean;
+}
+
+/** Slow analytics widget data, fetched independently by `StudentAnalyticsSection`. */
+export interface StudentAnalyticsWidgetData {
+  studyAnalytics: { daily: ChartDataPoint[]; weekly: ChartDataPoint[]; monthly: ChartDataPoint[] };
+  liveSessions: { id: string; title: string; subtitle: string; initials: string; timeRemaining?: string; progressPercent?: number }[];
+  hwCounts: Record<string, number>;
+  watchingRows: Record<string, unknown>[];
+  continueIsLessons: boolean;
 }
 
 const ROUTE = "student-dashboard";
@@ -124,7 +134,9 @@ const HW_STATUSES = [
 ] as const;
 
 /**
- * Assemble the full read bundle for the student dashboard.
+ * Assemble the fast above-fold read bundle for the student dashboard.
+ *
+ * Slow queries (analytics, murajaah) have been moved to widget functions below.
  *
  * @param supabase  Injected server client (the test seam — page passes the real one).
  * @param studentId The authenticated student's user id.
@@ -138,8 +150,6 @@ export async function studentDashboardView(
   const { now, isCurrentYear, yearStart, yearEnd, monthStart, monthEnd } = opts;
 
   // ── Batch 1: profile + next booking + slim KPI counts ──────────────────
-  // Slim KPI queries — recent-sessions + evaluations tables moved off the
-  // dashboard (they live at /student/sessions and /student/progress).
   const totalQ = supabase.from("bookings").select("id", { count: "exact", head: true })
     .eq("student_id", studentId).eq("status", "completed");
   const totalQScoped = isCurrentYear
@@ -164,10 +174,6 @@ export async function studentDashboardView(
     supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("student_id", studentId).eq("status", "active").limit(1),
   ]);
 
-  // loadOrFail: pipe failed reads through Sentry with the dashboard route
-  // tagged, so we know WHICH widget tripped (vs Sprint 1.1 which only sees
-  // the URL). anyFailed accumulates across the whole page so the banner
-  // surfaces even when only one of the loads broke.
   const profileLoad = loadOrFail(profileRes, { full_name: null }, { route: ROUTE, widget: "profile" });
   const nextBookingLoad = loadOrFail(nextBookingRes, [], { route: ROUTE, widget: "next-booking" });
   const totalLoad = countOrFail(totalRes, { route: ROUTE, widget: "total-sessions" });
@@ -182,8 +188,6 @@ export async function studentDashboardView(
   const pendingBookings = pendingLoad.count;
   const hasActiveSub = (activeSubRes.count ?? 0) > 0;
 
-  // New students with no activity AND no active subscription → guide to teachers.
-  // Subscribed students with no sessions yet land on the dashboard (not a loop).
   const isNewStudent = !anyFailed && totalSessions === 0 && pendingBookings === 0 && !nextBooking && !hasActiveSub;
   if (isNewStudent) {
     return {
@@ -194,14 +198,6 @@ export async function studentDashboardView(
   }
 
   // ── Batch 2: next-booking-dependent fan-out (teacher name + sessionId) ──
-  // Only the next-session teacher name is shown above the fold; trim the
-  // teacher-name fan-out that the old recent + evaluations tables required.
-  // Both the teacher-name lookup and the sessions.id lookup depend on
-  // nextBooking but on DIFFERENT fields — fan out as a parallel pair so
-  // the post-batch-1 sequential cost shrinks from 2 RTs to 1 RT. The
-  // .maybeSingle() on sessions is intentional: the sessions row only
-  // exists once the teacher starts the call, so 0 rows is the normal
-  // "no session yet" state (single() would throw PGRST116, Sentry E4-1A).
   const nameMap: Record<string, string> = {};
   let sessionId: string | null = null;
   if (nextBooking) {
@@ -215,32 +211,20 @@ export async function studentDashboardView(
     sessionId = session.data?.id ?? null;
   }
 
-  // ── Batch 3: packages + follow-up counts + widget helpers + waypoints ──
-  // Parallel: packages + follow-up + dashboard widgets + most-recent learning
-  // waypoint (drives the surah breadcrumb above the KPI grid) + streak +
-  // follow-up pulse (drives the smart NextActionBanner).
-  const hwCountsP = Promise.all(
-    HW_STATUSES.map(s =>
-      supabase.from("homework_assignments")
-        .select("id", { count: "exact", head: true })
-        .eq("student_id", studentId).eq("status", s)
-    )
-  );
-
+  // ── Batch 3: fast widget data ───────────────────────────────────────────
+  // Slow queries (analytics chart, live sessions, hwCounts, murajaah,
+  // recentRecordings) have been moved to the streaming widget functions below.
+  // continueWatching stays here so resumeLesson (NextActionBanner priority 6)
+  // is available above-fold without waiting for the analytics slot.
   const [
-    packagesRes, hwCountsRaw, studyAnalytics, liveSessions, continueWatching,
-    recentRecordings, nextQuiz, lastProgressRes, streakInfo, homeworkPulse,
-    latestEvalRes, murajaahBatch, goalLoad, achievementsRes,
+    packagesRes, continueWatching, nextQuiz, lastProgressRes, streakInfo, homeworkPulse,
+    latestEvalRes, goalLoad, achievementsRes,
   ] = await Promise.all([
     supabase.from("student_packages")
       .select("id, sessions_total, sessions_used, status, expires_at")
       .eq("student_id", studentId).eq("status", "active")
       .returns<{ id: string; sessions_total: number; sessions_used: number; status: string; expires_at: string | null }[]>(),
-    hwCountsP,
-    getStudentStudyAnalytics(supabase, studentId),
-    getStudentLiveSessions(supabase, studentId),
     getStudentContinueWatching(supabase, studentId),
-    getStudentRecentRecordings(supabase, studentId),
     getStudentNextQuiz(supabase, studentId),
     supabase.from("student_progress")
       .select("surah_to, ayah_to, surah_from, ayah_from, level, recitation_standard, created_at")
@@ -250,9 +234,6 @@ export async function studentDashboardView(
       .maybeSingle<{ surah_to: number | null; ayah_to: number | null; surah_from: number | null; ayah_from: number | null; level: string; recitation_standard: string | null; created_at: string }>(),
     getStudentStreak(supabase, studentId),
     getStudentHomeworkPulse(supabase, studentId),
-    // Latest evaluation's next_goals text — drives the "Your focus this
-    // week" card. Only next_goals + meta are needed; the full
-    // strengths/areas_for_improvement live on /student/progress to avoid duplication.
     supabase.from("session_evaluations")
       .select("next_goals, evaluation_type, created_at")
       .eq("student_id", studentId)
@@ -260,14 +241,11 @@ export async function studentDashboardView(
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle<{ next_goals: string | null; evaluation_type: string; created_at: string }>(),
-    getTodaysMurajaahBatch(supabase, studentId),
     helperOrFail(
       () => getGoalDashboardData(supabase, studentId, now),
       null,
       { route: ROUTE, widget: "goal" },
     ),
-    // Spec 033: earned badges (RLS: student sees own rows only).
-    // New table not yet in generated types; cast mirrors the student_goals pattern.
     (supabase as unknown as { from(t: string): {
       select(cols: string): { eq(col: string, val: string): {
         returns<T>(): Promise<{ data: T | null; error: unknown }>;
@@ -275,26 +253,14 @@ export async function studentDashboardView(
     } }).from("achievements").select("type, metadata_json, unlocked_at").eq("student_id", studentId)
       .returns<{ type: string; metadata_json: Record<string, unknown>; unlocked_at: string }[]>(),
   ]);
+
   const packagesLoad = loadOrFail(packagesRes, [], { route: ROUTE, widget: "active-packages" });
   const lastProgressLoad = loadOrFail(lastProgressRes, null, { route: ROUTE, widget: "last-progress" });
   const latestEvalLoad = loadOrFail(latestEvalRes, null, { route: ROUTE, widget: "latest-evaluation" });
 
-  // Per-status counts with their own Sentry widget tags — Sentry now reads
-  // "student-dashboard.homework-completed_excellent failed" not just
-  // "homework-counts failed", so a flaky enum branch surfaces directly.
-  const hwCounts: Record<string, number> = {};
-  let hwCountsFailed = false;
-  HW_STATUSES.forEach((s, i) => {
-    const r = countOrFail(hwCountsRaw[i], { route: ROUTE, widget: `homework-${s}` });
-    hwCounts[s] = r.count;
-    if (r.failed) hwCountsFailed = true;
-  });
+  anyFailed = anyFailed || packagesLoad.failed || lastProgressLoad.failed || latestEvalLoad.failed || goalLoad.failed;
 
-  anyFailed = anyFailed || packagesLoad.failed || hwCountsFailed || lastProgressLoad.failed || latestEvalLoad.failed || goalLoad.failed;
-
-  // Spec 033: award streak badges (read-side, idempotent, never blocks render).
-  // after() defers these writes until the response is sent so they never add
-  // latency. The DB unique constraint makes repeat calls safe on every page load.
+  // Spec 033: award streak badges (idempotent, never blocks render).
   if (streakInfo.streak >= 30) {
     after(() =>
       awardAchievement(studentId, "streak_30", { streak: streakInfo.streak }).catch((err) =>
@@ -323,14 +289,12 @@ export async function studentDashboardView(
   const achievements = achievementsData ?? [];
 
   const activePackages = packagesLoad.data;
-  // Continue Watching prefers in-progress course lessons; falls back to recent
-  // session recordings so the table is never empty for active students. The
-  // boolean lets the client component title the section honestly — calling
-  // session recordings "Pick up where you left off" was the source of the
-  // /student/courses confusion the audit flagged (P2-3).
-  const continueIsLessons = continueWatching.length > 0;
-  const watchingRows = continueIsLessons ? continueWatching : recentRecordings;
   const lastProgress = lastProgressLoad.data;
+
+  // resumeLesson: derived from continueWatching (kept in core so NextActionBanner
+  // priority 6 is available above-fold). The analytics slot re-fetches
+  // continueWatching independently for the DataTable — the double-fetch is
+  // accepted in exchange for not blocking the above-fold banner.
   const resumeLessonRow = continueWatching.find(r => r._lessonId && typeof r.progress === "number") as
     | { _lessonId: string; _href: string; subject: string; progress: number }
     | undefined;
@@ -343,12 +307,8 @@ export async function studentDashboardView(
       }
     : null;
 
-  // ── Batch 4: today's plan (sessions + follow-up due today) ─────────────
-  // Today's plan items — sessions today + follow-up due today + quiz due today.
-  // Built server-side so the widget never re-queries client-side.
-  // Use a UTC ±1-day window so students in any timezone (up to UTC+14 / UTC-12)
-  // always receive their local-today sessions. The client-side todaysPlanItems
-  // useMemo already has the live `now` ticker and trims to true local-today.
+  // ── Batch 4: today's plan ───────────────────────────────────────────────
+  // Kept in core (fast pair of queries) so TodaysPlan renders above-fold.
   const todayStart = new Date(now); todayStart.setUTCHours(0, 0, 0, 0); todayStart.setUTCDate(todayStart.getUTCDate() - 1);
   const todayEnd = new Date(now); todayEnd.setUTCHours(23, 59, 59, 999); todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
 
@@ -397,11 +357,6 @@ export async function studentDashboardView(
       monthSessions,
       pendingBookings,
       nameMap,
-      studyAnalytics,
-      liveSessions,
-      watchingRows,
-      continueIsLessons,
-      hwCounts,
       activePackages: activePackages ?? [],
       nextQuiz,
       lastProgress,
@@ -411,7 +366,6 @@ export async function studentDashboardView(
       todaySessions,
       todayHomework,
       latestEvaluation: latestEvalLoad.data,
-      murajaahBatch,
       goal: goalLoad.data,
       achievements,
       renderedAtMs: now.getTime(),
@@ -422,9 +376,7 @@ export async function studentDashboardView(
 }
 
 /**
- * Minimal bundle for the new-student short-circuit. The page redirects before
- * rendering, so this value is never displayed — it exists only to keep the
- * return type total without forcing the page to special-case a partial bundle.
+ * Minimal bundle for the new-student short-circuit.
  */
 function emptyData(fullName: string | null, now: Date): StudentDashboardData {
   return {
@@ -435,11 +387,6 @@ function emptyData(fullName: string | null, now: Date): StudentDashboardData {
     monthSessions: 0,
     pendingBookings: 0,
     nameMap: {},
-    studyAnalytics: { daily: [], weekly: [], monthly: [] },
-    liveSessions: [],
-    watchingRows: [],
-    continueIsLessons: false,
-    hwCounts: {},
     activePackages: [],
     nextQuiz: null,
     lastProgress: null,
@@ -449,9 +396,65 @@ function emptyData(fullName: string | null, now: Date): StudentDashboardData {
     todaySessions: [],
     todayHomework: [],
     latestEvaluation: null,
-    murajaahBatch: [],
     goal: null,
     achievements: [],
     renderedAtMs: now.getTime(),
   };
+}
+
+// ── Streaming widget functions ──────────────────────────────────────────────
+// These are called by async Server Components in the student dashboard page,
+// each wrapped in <Suspense> so they stream independently without blocking
+// the above-fold render. The page passes them as slot props to the client
+// component shell.
+
+/**
+ * Murajaah review widget data — fetched independently so the murajaah card
+ * streams in without delaying the KPI grid or Today's Plan.
+ */
+export async function studentMurajaahWidgetData(
+  supabase: ServerClient,
+  studentId: string,
+): Promise<MurajaahDueItem[]> {
+  return getTodaysMurajaahBatch(supabase, studentId);
+}
+
+/**
+ * Analytics widget data — the slowest batch (chart aggregation + live sessions +
+ * 6 hwCount HEAD queries + continue-watching / recent-recordings).
+ *
+ * continueWatching is re-fetched here (also fetched in core for resumeLesson).
+ * The double-fetch is intentional: it lets the analytics slot be fully
+ * self-contained and stream without coordination with the core view.
+ */
+export async function studentAnalyticsWidgetData(
+  supabase: ServerClient,
+  studentId: string,
+): Promise<StudentAnalyticsWidgetData> {
+  const hwCountsP = Promise.all(
+    HW_STATUSES.map(s =>
+      supabase.from("homework_assignments")
+        .select("id", { count: "exact", head: true })
+        .eq("student_id", studentId).eq("status", s)
+    )
+  );
+
+  const [studyAnalytics, liveSessions, continueWatching, recentRecordings, hwCountsRaw] = await Promise.all([
+    getStudentStudyAnalytics(supabase, studentId),
+    getStudentLiveSessions(supabase, studentId),
+    getStudentContinueWatching(supabase, studentId),
+    getStudentRecentRecordings(supabase, studentId),
+    hwCountsP,
+  ]);
+
+  const hwCounts: Record<string, number> = {};
+  HW_STATUSES.forEach((s, i) => {
+    const r = countOrFail(hwCountsRaw[i], { route: ROUTE, widget: `homework-${s}` });
+    hwCounts[s] = r.count;
+  });
+
+  const continueIsLessons = continueWatching.length > 0;
+  const watchingRows = continueIsLessons ? continueWatching : recentRecordings;
+
+  return { studyAnalytics, liveSessions, hwCounts, watchingRows, continueIsLessons };
 }

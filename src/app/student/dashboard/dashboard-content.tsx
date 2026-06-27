@@ -1,38 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useMemo } from "react";
+import { Suspense, useEffect, useMemo, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Calendar, CheckCircle, Clock, Briefcase, Eye, Keyboard, RefreshCw, Sparkles } from "lucide-react";
+import { Calendar, CheckCircle, Clock, Briefcase, Keyboard, RefreshCw, Sparkles } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useToast } from "@/components/shared/toast";
 import { StatCard } from "@/components/shared/stat-card";
-import { WidgetCard } from "@/components/shared/widget-card";
-import { AnalyticsChart } from "@/components/shared/analytics-chart";
-import { LiveSessionsWidget } from "@/components/shared/live-sessions-widget";
-import { BreakdownBar } from "@/components/shared/breakdown-bar";
-import { DataTable } from "@/components/shared/data-table";
 import { surahName } from "@/lib/quran/surahs";
 import { useKeyboardShortcuts, useShortcutsHelp, type Shortcut } from "@/lib/hooks/use-keyboard-shortcuts";
 import { useNowTicker } from "@/lib/hooks/use-now-ticker";
 import { ShortcutsHelp } from "@/components/shared/shortcuts-help";
 import { SectionErrorBoundary } from "@/components/shared/section-error-boundary";
-import { LessonRowActions } from "./lesson-row-actions";
 import { NextActionBanner } from "./next-action-banner";
 import { WelcomeHeader } from "./welcome-header";
 import { TodaysPlan } from "./todays-plan";
-import { MurajaahCard } from "./murajaah-card";
 import { GoalCard } from "./goal-card";
-import { HonorBoardCard } from "./honor-board-card";
 import { AchievementShelf } from "./achievement-shelf";
-import type { MurajaahDueItem } from "@/lib/dashboard-queries";
 import type { GoalDashboardData } from "@/lib/domains/goals/goals";
-
-interface ChartDataPoint {
-  day: string;
-  value: number;
-  isActive: boolean;
-}
 
 interface DashboardData {
   fullName: string | null;
@@ -45,15 +30,6 @@ interface DashboardData {
   monthSessions: number;
   pendingBookings: number;
   nameMap: Record<string, string>;
-  studyAnalytics: { daily: ChartDataPoint[]; weekly: ChartDataPoint[]; monthly: ChartDataPoint[] };
-  liveSessions: { id: string; title: string; subtitle: string; initials: string; timeRemaining?: string; progressPercent?: number }[];
-  watchingRows: Record<string, unknown>[];
-  /** True when watchingRows came from in-progress course_lesson_progress;
-   *  false when it fell back to recent session recordings. Drives the
-   *  section title so we don't mislabel session recordings as
-   *  "Pick up where you left off". */
-  continueIsLessons: boolean;
-  hwCounts: Record<string, number>;
   activePackages: { id: string; sessions_total: number; sessions_used: number; status: string; expires_at: string | null }[];
   nextQuiz: { id: string; title: string; due_at: string | null } | null;
   lastProgress: { surah_to: number | null; ayah_to: number | null; surah_from: number | null; ayah_from: number | null; level: string; recitation_standard: string | null; created_at: string } | null;
@@ -63,37 +39,47 @@ interface DashboardData {
   todaySessions: { id: string; teacher_id: string; scheduled_at: string | null; duration_min: number; session_type: string; status: string }[];
   todayHomework: { id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[];
   latestEvaluation: { next_goals: string | null; evaluation_type: string; created_at: string } | null;
-  murajaahBatch: MurajaahDueItem[];
   goal: GoalDashboardData | null;
   achievements: { type: string; metadata_json: Record<string, unknown>; unlocked_at: string }[];
   renderedAtMs: number;
 }
 
-export function StudentDashboardContent({ data }: { data: DashboardData }) {
+export function StudentDashboardContent({
+  data,
+  murajaahSlot,
+  analyticsSlot,
+}: {
+  data: DashboardData;
+  murajaahSlot: ReactNode;
+  analyticsSlot: ReactNode;
+}) {
   return (
     <Suspense fallback={null}>
-      <StudentDashboardContentInner data={data} />
+      <StudentDashboardContentInner data={data} murajaahSlot={murajaahSlot} analyticsSlot={analyticsSlot} />
     </Suspense>
   );
 }
 
-function StudentDashboardContentInner({ data }: { data: DashboardData }) {
+function StudentDashboardContentInner({
+  data,
+  murajaahSlot,
+  analyticsSlot,
+}: {
+  data: DashboardData;
+  murajaahSlot: ReactNode;
+  analyticsSlot: ReactNode;
+}) {
   const router = useRouter();
   const { t, dir, lang } = useLang();
   const toast = useToast();
   const searchParams = useSearchParams();
   const {
     fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, nameMap,
-    studyAnalytics, liveSessions, watchingRows, continueIsLessons, hwCounts,
     activePackages, nextQuiz, lastProgress, resumeLesson, streakInfo,
-    homeworkPulse, todaySessions, todayHomework, latestEvaluation, murajaahBatch, goal,
-    achievements, renderedAtMs,
+    homeworkPulse, todaySessions, todayHomework, latestEvaluation,
+    goal, achievements, renderedAtMs,
   } = data;
 
-  // Booking-success toast on ?booked=1 — replace the URL afterwards so a
-  // refresh doesn't re-toast. Intentional mount-only effect: the flag is
-  // read exactly once at page load. Including `searchParams` in deps would
-  // re-fire on subsequent navigations and show duplicate toasts.
   useEffect(() => {
     const sub = searchParams.get("subscription");
     if (searchParams.get("booked") === "1") {
@@ -109,15 +95,10 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Live ticker — every 60s. Seeded from server render time so SSR HTML
-  // matches first client render; useNowTicker preserves the seed across
-  // first start, then snaps fresh on visibility-resume.
   const now = useNowTicker(60_000, renderedAtMs).getTime();
 
   const refresh = () => router.refresh();
 
-  // Countdown to next session (used by KPI 4).
-  // Spec 022: NULL scheduled_at = slot not chosen → treat as no countdown.
   const minsUntilNext = nextBooking && nextBooking.scheduled_at
     ? Math.floor((new Date(nextBooking.scheduled_at).getTime() - now) / 60_000)
     : null;
@@ -137,19 +118,15 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
       else countdownShort = lang === "ar" ? `${days} يوم` : `${days}d`;
     }
   } else if (nextBooking && !nextBooking.scheduled_at) {
-    // Pending assessment booking without a slot — distinct from "no booking".
     countdownShort = lang === "ar" ? "غير مُجدوَل" : "Unscheduled";
   }
 
-  // KPI 1 — Active Package: sessions remaining + percent used.
   const primaryPackage = activePackages[0] ?? null;
   const pkgRemaining = primaryPackage ? primaryPackage.sessions_total - primaryPackage.sessions_used : 0;
   const pkgPct = primaryPackage && primaryPackage.sessions_total > 0
     ? Math.round((primaryPackage.sessions_used / primaryPackage.sessions_total) * 100)
     : 0;
 
-  // Greeting context. The `today` Date wraps `now` so it stays stable inside
-  // useMemo dependencies (useMemo dep is `now` directly, not the Date object).
   const firstName = fullName ? fullName.split(" ")[0] : null;
   const weekday = new Date(now).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { weekday: "long" });
   const surahNum = lastProgress?.surah_to ?? lastProgress?.surah_from ?? null;
@@ -161,14 +138,9 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
   // Today's Plan items — sorted chronologically.
   const todaysPlanItems = useMemo(() => {
     const items: { id: string; kind: "session" | "homework" | "quiz"; title: string; detail: string; href: string; at: string | null; urgent?: boolean }[] = [];
-    // Client-side today boundaries (local time via `now` ticker) — trims the
-    // ±1-day server window down to the student's actual local day.
     const localTodayStart = new Date(now); localTodayStart.setHours(0, 0, 0, 0);
     const localTodayEnd = new Date(now); localTodayEnd.setHours(23, 59, 59, 999);
     for (const s of todaySessions) {
-      // Spec 022: skip slot-less assessment/specialized bookings — they have
-      // no chronological position to filter on, and Epoch (new Date(null))
-      // would always fail the localToday range check anyway, but be explicit.
       if (!s.scheduled_at) continue;
       const sessionTime = new Date(s.scheduled_at).getTime();
       if (sessionTime < localTodayStart.getTime() || sessionTime > localTodayEnd.getTime()) continue;
@@ -218,7 +190,6 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
     return items;
   }, [todaySessions, todayHomework, nextQuiz, nameMap, now, t]);
 
-  // Keyboard shortcuts — navigation, join-session, help overlay.
   const [helpOpen, setHelpOpen] = useShortcutsHelp();
   const shortcuts: Shortcut[] = useMemo(() => [
     {
@@ -243,10 +214,8 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
   ], [sessionId, isImminent, toast, t, setHelpOpen]);
   useKeyboardShortcuts(shortcuts, true);
 
-  // Last refresh marker — derived from the server render time.
   const lastRefreshLabel = new Date(renderedAtMs).toLocaleTimeString(lang === "ar" ? "ar-EG" : "en-US", { hour: "2-digit", minute: "2-digit" });
 
-  // KPI 4 — quiz takes priority, else next session, else "no upcoming".
   const kpi4 = (() => {
     if (nextQuiz) {
       const dueDate = nextQuiz.due_at ? new Date(nextQuiz.due_at) : null;
@@ -291,13 +260,10 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
     );
   })();
 
-  // Empty-state hint for the Active Package KPI when no package is bought.
   const isEmptyShell = !primaryPackage && totalSessions === 0 && !nextBooking;
 
   return (
     <div className="student-dashboard-skin">
-      {/* Skip link — visible only on focus, jumps screen-reader users past
-          the topbar utilities and directly to the dashboard's main region. */}
       <a
         href="#student-main"
         className="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-[200] focus:rounded focus:bg-gold focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-background"
@@ -320,7 +286,6 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
 
         <AchievementShelf achievements={achievements} />
 
-        {/* Single primary CTA — smart resolution covers 8 priority states. */}
         <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل الإجراء التالي", "Couldn't load the next action")}>
           <section aria-label={t("الإجراء التالي", "Next action")} className="mb-8">
             <NextActionBanner
@@ -348,11 +313,6 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
           </SectionErrorBoundary>
         </div>
 
-        {/* "Your focus this week" — surfaces the latest evaluation's
-            recommendations text right at the top of the dashboard so the
-            student opens the app and sees what their teacher said to work
-            on. The full evaluation (strengths/weaknesses/scores) lives on
-            /student/progress; this card is the actionable next-step only. */}
         {latestEvaluation?.next_goals && (
           <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل التركيز", "Couldn't load focus")}>
             <section
@@ -378,7 +338,6 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
           </SectionErrorBoundary>
         )}
 
-        {/* 4-KPI grid — mobile order leads with the actionable one. */}
         <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل المؤشرات", "Couldn't load KPIs")}>
           <section
             aria-label={t("مؤشرات سريعة", "Key metrics")}
@@ -420,142 +379,20 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
           </section>
         </SectionErrorBoundary>
 
-        {/* Today's Plan — unified what's-on-my-plate-now surface.
-            The TodaysPlan widget renders its own visible heading via
-            WidgetCard, so the outer wrapper does NOT add a duplicate
-            sr-only heading (screen readers would announce the title
-            twice). */}
+        {/* Today's Plan — fast, above-fold, data from core view. */}
         <div className="mt-10">
           <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل خطة اليوم", "Couldn't load Today's Plan")}>
             <TodaysPlan items={todaysPlanItems} homeworkPulse={homeworkPulse} />
           </SectionErrorBoundary>
         </div>
 
-        {/* Murajaah daily prompt — scaffolds memorization-decay protection
-            via three review windows (yesterday / last week / last month).
-            The component hides itself when the student is brand-new (no
-            'new' progress entries) or has already logged review today,
-            so it doesn't nag. */}
-        {/* MurajaahCard renders its own <section> with a visible h2 heading.
-            Wrapping it in another section + sr-only h2 here would double the
-            announcement for screen reader users. */}
-        <div className="mt-6">
-          <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل المراجعة", "Couldn't load Murajaah")}>
-            <MurajaahCard items={murajaahBatch} />
-          </SectionErrorBoundary>
-        </div>
+        {/* Murajaah — streamed independently below the fold. */}
+        {murajaahSlot}
 
-        {/* Analytics + sidebar widgets. */}
-        <section aria-label={t("التحليلات", "Analytics")} className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-5">
-          <div className="lg:col-span-3">
-            <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل التحليلات", "Couldn't load analytics")}>
-              <WidgetCard
-                title={t("تحليلات التقدم", "Report Analytics")}
-                subtitle={streakInfo.weeklyMinutes > 0
-                  ? t(
-                      `${streakInfo.weeklyMinutes} د هذا الأسبوع${streakInfo.weeklyDelta !== 0 ? ` (${streakInfo.weeklyDelta > 0 ? "+" : ""}${streakInfo.weeklyDelta}%)` : ""}`,
-                      `${streakInfo.weeklyMinutes} min this week${streakInfo.weeklyDelta !== 0 ? ` (${streakInfo.weeklyDelta > 0 ? "+" : ""}${streakInfo.weeklyDelta}%)` : ""}`,
-                    )
-                  : undefined}
-              >
-                <AnalyticsChart
-                  data={studyAnalytics.weekly}
-                  dailyData={studyAnalytics.daily}
-                  monthlyData={studyAnalytics.monthly}
-                  title={t("تحليلات التقدم", "Report Analytics")}
-                />
-              </WidgetCard>
-            </SectionErrorBoundary>
-          </div>
+        {/* Analytics chart + live sessions + hwCounts + DataTable — slowest queries,
+            streamed independently so the KPI grid and Today's Plan are never blocked. */}
+        {analyticsSlot}
 
-          <div className="space-y-6 lg:col-span-2">
-            <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل الجلسات المباشرة", "Couldn't load live sessions")}>
-              <LiveSessionsWidget
-                sessions={liveSessions}
-                title={t("الجلسات المباشرة", "Online Classes")}
-                ongoingCount={liveSessions.length}
-              />
-            </SectionErrorBoundary>
-            <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل لوحة الشرف", "Couldn't load Honor Board")}>
-              <HonorBoardCard />
-            </SectionErrorBoundary>
-            <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل توزيع المتابعات", "Couldn't load follow-up breakdown")}>
-              <BreakdownBar
-                title={t("توزيع المتابعات", "Follow-up Breakdown")}
-                infoTooltip={t("توزيع حالة المتابعات", "Distribution of follow-up status")}
-                flat
-                segments={[
-                  ...(hwCounts.completed_excellent || hwCounts.completed_good
-                    ? [{
-                        label: t("تم التسليم", "Total Submitted"),
-                        value: (hwCounts.completed_excellent ?? 0) + (hwCounts.completed_good ?? 0),
-                        color: "var(--success)",
-                      }]
-                    : []),
-                  ...(hwCounts.student_ready
-                    ? [{ label: t("قيد المراجعة", "In Review"), value: hwCounts.student_ready, color: "var(--accent-purple)" }]
-                    : []),
-                  ...(hwCounts.assigned || hwCounts.completed_needs_work || hwCounts.completed_not_done
-                    ? [{
-                        label: t("متبقي", "Remaining"),
-                        value: (hwCounts.assigned ?? 0) + (hwCounts.completed_needs_work ?? 0) + (hwCounts.completed_not_done ?? 0),
-                        color: "var(--surface-divider)",
-                      }]
-                    : []),
-                ]}
-                emptyMessage={t("ستظهر المتابعات هنا بعد تعيينها من معلمك", "Follow-ups will appear here once your teacher assigns them")}
-              />
-            </SectionErrorBoundary>
-          </div>
-        </section>
-
-        {/* Continue watching — title shifts honestly between in-progress
-            course lessons (the original intent of "Pick up where you left
-            off") and the recent-session-recordings fallback. The audit
-            (P2-3) caught the dashboard mislabelling session recordings
-            as enrolled-course progress. */}
-        {/* DataTable accepts `title` and renders its own visible heading,
-            so we don't wrap it in a redundant <section> + sr-only h2. */}
-        <div className="mt-10">
-          <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل القائمة", "Couldn't load this list")}>
-            <DataTable
-              title={continueIsLessons
-                ? t("أكمل من حيث توقفت", "Pick up where you left off")
-                : t("تسجيلات جلساتك الأخيرة", "Your recent session recordings")}
-              selectable
-              simpleProgress
-              columns={[
-                { key: "subject", label: t("الكورس", "Subject") },
-                { key: "date", label: t("التاريخ", "Date"), type: "date" },
-                { key: "progress", label: t("التقدم", "Progress"), type: "progress" },
-                { key: "assignee", label: t("الفريق", "Assignee"), type: "assignee" },
-                { key: "view", label: t("الإجراءات", "Actions"), type: "actions" },
-              ]}
-              rows={watchingRows as { id: string; [key: string]: unknown }[]}
-              renderRowActions={(row) => {
-                const lessonId = row._lessonId as string | undefined;
-                const href = (row._href as string | undefined) ?? "/student/courses";
-                if (!lessonId) {
-                  return (
-                    <a
-                      href={href}
-                      aria-label={t("عرض", "View")}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded text-[var(--muted-light,#9CA3AF)] hover:text-foreground"
-                    >
-                      <Eye size={14} aria-hidden="true" />
-                    </a>
-                  );
-                }
-                return <LessonRowActions lessonId={lessonId} href={href} />;
-              }}
-              emptyMessage={t("ستظهر تسجيلات جلساتك هنا بعد جلستك الأولى", "Your session recordings will appear here after your first session")}
-            />
-          </SectionErrorBoundary>
-        </div>
-
-        {/* Footer — last refresh + shortcut hint + refresh button. Keeps the
-            page feeling alive without consuming visual real estate above the
-            fold. */}
         <footer className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--surface-divider,var(--surface-border))] pt-5 text-xs text-muted">
           <p suppressHydrationWarning>
             {t(`آخر تحديث ${lastRefreshLabel}`, `Last refreshed at ${lastRefreshLabel}`)}
