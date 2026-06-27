@@ -41,6 +41,7 @@ const eslintConfig = defineConfig([
     // hooks, the k6 VM) where `require()` is correct — they are not app source
     // and must not be linted by the Next.js TS config (issue #325).
     ".claude/**",
+    ".gitnexus/**",
     ".specify/**",
     "automation/**",
     "k6/**",
