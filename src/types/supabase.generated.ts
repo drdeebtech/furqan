@@ -5057,6 +5057,42 @@ export type Database = {
           },
         ]
       }
+      student_goals: {
+        Row: {
+          ayah_end: number
+          ayah_start: number
+          created_at: string
+          id: string
+          student_id: string
+          surah_end: number
+          surah_start: number
+          target_date: string
+          updated_at: string
+        }
+        Insert: {
+          ayah_end: number
+          ayah_start: number
+          created_at?: string
+          id?: string
+          student_id: string
+          surah_end: number
+          surah_start: number
+          target_date: string
+          updated_at?: string
+        }
+        Update: {
+          ayah_end?: number
+          ayah_start?: number
+          created_at?: string
+          id?: string
+          student_id?: string
+          surah_end?: number
+          surah_start?: number
+          target_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       student_ijazah_progress: {
         Row: {
           completed_at: string | null
