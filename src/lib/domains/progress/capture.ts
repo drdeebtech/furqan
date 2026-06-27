@@ -4,6 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase.generated";
 import { callRpc } from "@/lib/supabase/rpc";
 import { surahName } from "@/lib/quran/surahs";
+import { logError } from "@/lib/logger";
+import { detectJuzCompletions } from "./juz-completion";
 import { validateRange, violationMessageAr } from "./validation";
 import type { RecordProgressInput, RecordProgressOutcome } from "./types";
 
@@ -90,6 +92,15 @@ export async function recordProgress(
   const progressId: unknown = data;
   if (typeof progressId !== "string" || progressId.length === 0) {
     return { ok: false, reason: "error", message: "record_student_progress returned no id" };
+  }
+
+  try {
+    await detectJuzCompletions(admin, progressId);
+  } catch (error) {
+    logError("recordProgress: juz completion detection failed", error, {
+      tag: "progress",
+      progressId,
+    });
   }
   return { ok: true, progressId };
 }

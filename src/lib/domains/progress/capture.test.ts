@@ -1,7 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/quran/surahs", () => ({ surahName: () => "الفاتحة" }));
+vi.mock("@/lib/logger", () => ({ logError: vi.fn() }));
+
+const detectJuzCompletions = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+vi.mock("./juz-completion", () => ({ detectJuzCompletions }));
 
 import { recordProgress } from "./capture";
 
@@ -16,6 +20,10 @@ const validInput = {
   range: { surahFrom: 2, ayahFrom: 1, surahTo: 2, ayahTo: 5 },
 };
 
+beforeEach(() => {
+  detectJuzCompletions.mockReset().mockResolvedValue(undefined);
+});
+
 describe("recordProgress", () => {
   it("records a valid range and returns the progress id", async () => {
     const admin = rpcClient({ data: "prog-1" });
@@ -25,6 +33,17 @@ describe("recordProgress", () => {
       "record_student_progress",
       expect.objectContaining({ p_surah_from: 2, p_ayah_to: 5, p_progress_type: "new" }),
     );
+    expect(detectJuzCompletions).toHaveBeenCalledWith(admin, "prog-1");
+  });
+
+  it("preserves a successful capture when juz detection rejects", async () => {
+    const admin = rpcClient({ data: "prog-1" });
+    detectJuzCompletions.mockRejectedValueOnce(new Error("milestone unavailable"));
+
+    await expect(recordProgress(admin, validInput)).resolves.toEqual({
+      ok: true,
+      progressId: "prog-1",
+    });
   });
 
   it("rejects an impossible range at the action layer (no RPC)", async () => {

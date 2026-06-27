@@ -65,6 +65,7 @@ export const WEBHOOK_ROUTES = {
   // n8n workflow for this route must be created, else dispatch logs a loud
   // non-fatal failed-delivery automation_log until it lands.
   "progress.recorded": "/webhook/furqan-progress-recorded",
+  "progress.juz_completed": "/webhook/furqan-progress-juz-completed",
   "profile.created": "/webhook/furqan-profile-created",
   "teacher.applied": "/webhook/furqan-teacher-applied",
   "teacher.cv_submitted": "/webhook/furqan-cv-event",
