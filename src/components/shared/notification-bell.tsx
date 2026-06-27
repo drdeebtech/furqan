@@ -48,6 +48,13 @@ export function NotificationBell() {
     if (open) loadNotifications();
   }, [open, loadNotifications]);
 
+  // Realtime poke: refetch when RealtimeProvider signals a new notification
+  useEffect(() => {
+    function handleNew() { loadNotifications(); }
+    document.addEventListener("furqan:notification:new", handleNew);
+    return () => document.removeEventListener("furqan:notification:new", handleNew);
+  }, [loadNotifications]);
+
   // Close on outside click and Escape key
   useEffect(() => {
     function handleClick(e: MouseEvent) {
