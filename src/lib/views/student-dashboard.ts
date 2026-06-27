@@ -310,8 +310,17 @@ export async function studentDashboardView(
     );
   }
 
-  const achievements =
-    (achievementsRes as { data: { type: string; metadata_json: Record<string, unknown>; unlocked_at: string }[] | null }).data ?? [];
+  const { data: achievementsData, error: achievementsErr } = achievementsRes as {
+    data: { type: string; metadata_json: Record<string, unknown>; unlocked_at: string }[] | null;
+    error: unknown;
+  };
+  if (achievementsErr) {
+    logError("achievements widget load failed", achievementsErr, {
+      tag: "achievements",
+      route: "student-dashboard",
+    });
+  }
+  const achievements = achievementsData ?? [];
 
   const activePackages = packagesLoad.data;
   // Continue Watching prefers in-progress course lessons; falls back to recent
