@@ -39,6 +39,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          id: string
+          metadata_json: Json
+          student_id: string
+          type: string
+          unlocked_at: string
+        }
+        Insert: {
+          id?: string
+          metadata_json?: Json
+          student_id: string
+          type: string
+          unlocked_at?: string
+        }
+        Update: {
+          id?: string
+          metadata_json?: Json
+          student_id?: string
+          type?: string
+          unlocked_at?: string
+        }
+        Relationships: []
+      }
       ai_output_review: {
         Row: {
           auto_send_eligible: boolean
