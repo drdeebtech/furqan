@@ -148,6 +148,10 @@ export const WEBHOOK_ROUTES = {
   "monthly_report.ready": "/webhook/furqan-monthly-report-ready",
   "certificate.earned": "/webhook/furqan-certificate-earned",
   "honor_board.updated": "/webhook/furqan-honor-board-updated",
+  // Spec 033 — achievement badge awarded (Phase 1: bell + emit; Phase 2: realtime modal via #526).
+  // NOTE: n8n workflow for this route must be created to consume the event (e.g. parent report,
+  // push notification). Until then dispatch logs a non-fatal failed-delivery automation_log entry.
+  "achievement.unlocked": "/webhook/furqan-achievement-unlocked",
 } as const satisfies Record<string, string>;
 
 /**

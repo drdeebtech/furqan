@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase.generated";
 import { emitEvent } from "@/lib/automation/emit";
+import { awardAchievement } from "@/lib/domains/achievements/award";
 import { issueCertificate } from "@/lib/domains/certificates/issue";
 import { logError } from "@/lib/logger";
 import { notify } from "@/lib/notifications/dispatcher";
@@ -95,6 +96,11 @@ async function issueJuzMilestone(
     }
     if (issuance.idempotent) return;
     await announceJuzCompletion(owner, progressId, juz);
+    // Award first_juz badge (spec 033). Idempotent — repeat calls on subsequent
+    // juz are silent no-ops thanks to the DB unique constraint.
+    await awardAchievement(owner.student_id, "first_juz", { juz }).catch((err) =>
+      logError("first_juz award failed", err, { tag: "achievements", juz }),
+    );
   } catch (error) {
     logError("juz milestone processing failed", error, {
       tag: "progress",

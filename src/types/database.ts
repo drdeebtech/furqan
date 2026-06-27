@@ -6986,3 +6986,27 @@ export type AiOutputReview = {
   auto_send_eligible: boolean;
   created_at: string;
 };
+
+// Achievements (spec 033) — table not yet in generated types; hand-authored.
+// first_correction_clean is in the DB CHECK for forward-compat but never awarded.
+export type AchievementType =
+  | "first_session"
+  | "first_juz"
+  | "streak_7"
+  | "streak_30"
+  | "first_correction_clean"
+  | "level_up_intermediate"
+  | "level_up_advanced";
+
+export interface Achievement {
+  id: string;
+  student_id: string;
+  type: AchievementType;
+  metadata_json: Record<string, unknown>;
+  unlocked_at: string;
+}
+export type AchievementInsert = Omit<Achievement, "id" | "unlocked_at"> & {
+  id?: string;
+  unlocked_at?: string;
+};
+export type AchievementUpdate = Partial<AchievementInsert>;

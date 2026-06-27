@@ -14,6 +14,7 @@ import { logError } from "@/lib/logger";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import type { Database } from "@/types/supabase.generated";
 import { createRoom } from "@/lib/daily";
+import { awardAchievement } from "@/lib/domains/achievements/award";
 import {
   SessionEndError,
   SessionNotFoundError,
@@ -195,6 +196,12 @@ export async function endSession(input: EndSessionInput): Promise<EndSessionResu
     ended_by: actorId,
   }).catch((err) =>
     logError("emit session.ended failed", err, { tag: "automation", event: "session.ended" }),
+  );
+
+  // Award first_session badge (spec 033). Idempotent — DB unique constraint
+  // makes repeat calls a silent no-op. Best-effort: never blocks the return.
+  await awardAchievement(booking.student_id, "first_session").catch((err) =>
+    logError("endSession: first_session award failed", err, { tag: "achievements" }),
   );
 
   return {

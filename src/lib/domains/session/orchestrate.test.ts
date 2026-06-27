@@ -41,6 +41,7 @@ vi.mock("@/lib/automation/effects", () => ({
 }));
 vi.mock("@/lib/logger", () => ({ logError: (...a: unknown[]) => mockLogError(...a) }));
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/domains/achievements/award", () => ({ awardAchievement: vi.fn().mockResolvedValue({ awarded: false }) }));
 vi.mock("@/lib/domains/package/ledger", () => ({
   selectActivePackage: (...a: unknown[]) => mockSelectActivePackage(...a),
   debitPackage: (...a: unknown[]) => mockDebitPackage(...a),

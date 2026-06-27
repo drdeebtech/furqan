@@ -24,6 +24,7 @@ import { TodaysPlan } from "./todays-plan";
 import { MurajaahCard } from "./murajaah-card";
 import { GoalCard } from "./goal-card";
 import { HonorBoardCard } from "./honor-board-card";
+import { AchievementShelf } from "./achievement-shelf";
 import type { MurajaahDueItem } from "@/lib/dashboard-queries";
 import type { GoalDashboardData } from "@/lib/domains/goals/goals";
 
@@ -64,6 +65,7 @@ interface DashboardData {
   latestEvaluation: { next_goals: string | null; evaluation_type: string; created_at: string } | null;
   murajaahBatch: MurajaahDueItem[];
   goal: GoalDashboardData | null;
+  achievements: { type: string; metadata_json: Record<string, unknown>; unlocked_at: string }[];
   renderedAtMs: number;
 }
 
@@ -85,7 +87,7 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
     studyAnalytics, liveSessions, watchingRows, continueIsLessons, hwCounts,
     activePackages, nextQuiz, lastProgress, resumeLesson, streakInfo,
     homeworkPulse, todaySessions, todayHomework, latestEvaluation, murajaahBatch, goal,
-    renderedAtMs,
+    achievements, renderedAtMs,
   } = data;
 
   // Booking-success toast on ?booked=1 — replace the URL afterwards so a
@@ -315,6 +317,8 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
           recitationStandard={lastProgress?.recitation_standard ?? null}
           level={lastProgress?.level ?? null}
         />
+
+        <AchievementShelf achievements={achievements} />
 
         {/* Single primary CTA — smart resolution covers 8 priority states. */}
         <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل الإجراء التالي", "Couldn't load the next action")}>
