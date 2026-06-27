@@ -103,26 +103,16 @@ export async function getTeacherRosterErrorPulse(
 ): Promise<{ category: RecitationErrorCategory; count: number }[]> {
   const thirtyDaysAgoIso = recentWindow(30);
 
-  // Step 1: this teacher's progress rows (last 30 days). recitation_errors
-  // is keyed by progress_id (FK), not teacher_id, so we resolve via the
-  // progress table.
-  const progressRes = await supabase
-    .from("student_progress")
-    .select("id")
-    .eq("teacher_id", teacherId)
-    .gte("created_at", thirtyDaysAgoIso)
-    .returns<{ id: string }[]>();
-  if (progressRes.error) throw progressRes.error;
-  const progressRows = progressRes.data;
-
-  if (!progressRows || progressRows.length === 0) return [];
-
-  // Step 2: errors against those progress IDs. Excluding the sentinel
-  // keeps the data honest — those rows aren't tajweed errors.
+  // Single query: recitation_errors joined to this teacher's student_progress
+  // rows (last 30 days) via the progress_id FK. Replaces a 2-query waterfall
+  // (progress ids, then errors.in(progress_id)) with one round-trip on the
+  // dashboard hot path. `!inner` keeps only errors whose progress row belongs
+  // to this teacher; the embedded filter scopes the join. (Issue #559.)
   const errorsRes = await supabase
     .from("recitation_errors")
-    .select("error_type, note")
-    .in("progress_id", progressRows.map(p => p.id))
+    .select("error_type, note, student_progress!inner(teacher_id, created_at)")
+    .eq("student_progress.teacher_id", teacherId)
+    .gte("student_progress.created_at", thirtyDaysAgoIso)
     .gte("created_at", thirtyDaysAgoIso)
     .returns<{ error_type: string; note: string | null }[]>();
   if (errorsRes.error) throw errorsRes.error;
