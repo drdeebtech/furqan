@@ -79,6 +79,14 @@ describe("getTeacherRosterErrorPulse", () => {
     chain.returns.mockResolvedValueOnce({ data: [], error: null });
     const result = await getTeacherRosterErrorPulse(chain as never, TEACHER);
     expect(result).toEqual([]);
+    // Guard the join refactor (issue #559): a dropped filter or malformed
+    // embedded select would otherwise pass silently because the chain mock
+    // returns `this` regardless of arguments.
+    expect(chain.from).toHaveBeenCalledWith("recitation_errors");
+    expect(chain.select).toHaveBeenCalledWith(
+      "error_type, note, student_progress!inner(teacher_id, created_at)",
+    );
+    expect(chain.eq).toHaveBeenCalledWith("student_progress.teacher_id", TEACHER);
   });
 
   it("excludes sentinel rows, buckets unknown types as 'other', and returns top-3 desc", async () => {
