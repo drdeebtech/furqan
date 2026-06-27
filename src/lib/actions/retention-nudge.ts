@@ -79,9 +79,14 @@ export function buildNudgeCopy(progress: StudentProgress | null): {
   if (progress && progress.surah_to != null && progress.surah_to >= 1 && progress.surah_to <= 114) {
     const name = surahName(progress.surah_to, "ar");
     if (name) {
+      // Only claim a specific ayah when we actually have one — naming "آية 1"
+      // for a null ayah_to would OVERSTATE progress (AGENTS.md §2). Otherwise
+      // name the surah only.
+      const lastPlace =
+        progress.ayah_to != null ? `${name} — آية ${progress.ayah_to}` : name;
       return {
         title: "واصل رحلتك مع القرآن 🌙",
-        body: `نتظرُك في جلستك القادمة. آخر ما وصلت إليه: ${name} — آية ${progress.ayah_to ?? 1}. حافظك الله.`,
+        body: `نتظرُك في جلستك القادمة. آخر ما وصلت إليه: ${lastPlace}. حافظك الله.`,
       };
     }
   }
@@ -124,7 +129,8 @@ export function shouldNudge(
 
   const lapsedCutoff = t - LAPSED_DAYS * MS_PER_DAY;
   const capCutoff = t - CAP_DAYS * MS_PER_DAY;
-  if (!(last < lapsedCutoff && last >= capCutoff)) return false;
+  // "7+ days lapsed" → exactly 7 days ago is eligible (inclusive).
+  if (!(last <= lapsedCutoff && last >= capCutoff)) return false;
 
   if (lastInterventionAt) {
     const intervention = new Date(lastInterventionAt).getTime();
@@ -172,7 +178,7 @@ export async function runReengagementNudge(): Promise<ReengageResult> {
     const { data, error } = await supabase
       .from("retention_signals")
       .select("student_id, last_session_at, last_intervention_at")
-      .lt("last_session_at", lapsedIso)
+      .lte("last_session_at", lapsedIso)
       .gte("last_session_at", capIso)
       .order("student_id", { ascending: true })
       .range(from, from + CHUNK - 1)

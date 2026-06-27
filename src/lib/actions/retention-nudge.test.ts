@@ -78,6 +78,7 @@ function builder(opts: {
     },
     insert: () => Promise.resolve(opts.insertResult ?? { error: null }),
     lt: () => b,
+    lte: () => b,
     gte: () => b,
     order: () => b,
     range: () => b,
@@ -111,8 +112,11 @@ describe("shouldNudge", () => {
   it("returns false for an unparseable lastSessionAt", () => {
     expect(shouldNudge("not-a-date", null, NOW)).toBe(false);
   });
-  it("excludes a student lapsed exactly 7 days (boundary)", () => {
-    expect(shouldNudge(daysAgo(7), null, NOW)).toBe(false);
+  it("includes a student lapsed exactly 7 days (inclusive boundary: 7+ days)", () => {
+    expect(shouldNudge(daysAgo(7), null, NOW)).toBe(true);
+  });
+  it("excludes a student lapsed under 7 days (6 days, just-under boundary)", () => {
+    expect(shouldNudge(daysAgo(6), null, NOW)).toBe(false);
   });
   it("includes a student lapsed 8 days (over threshold, under cap)", () => {
     expect(shouldNudge(daysAgo(8), null, NOW)).toBe(true);
@@ -151,10 +155,12 @@ describe("buildNudgeCopy", () => {
   it("uses canonical name for surah 2 (Al-Baqarah)", () => {
     expect(buildNudgeCopy({ surah_to: 2, ayah_to: 255 }).body).toContain("البقرة");
   });
-  it("defaults ayah to 1 when ayah_to is null but surah valid", () => {
+  it("names the surah only (no ayah claim) when ayah_to is null — never overstate progress", () => {
     const copy = buildNudgeCopy({ surah_to: 1, ayah_to: null });
     expect(copy.body).toContain("الفاتحة");
-    expect(copy.body).toContain("1");
+    // Must NOT claim a specific ayah when none is recorded (AGENTS.md §2).
+    expect(copy.body).not.toContain("آية");
+    expect(copy.body).not.toContain("آية 1");
   });
   it("generic fallback when surah_to is null", () => {
     expect(buildNudgeCopy({ surah_to: null, ayah_to: null }).body).not.toContain("آية");
