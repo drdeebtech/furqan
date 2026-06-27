@@ -39,6 +39,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_output_review: {
+        Row: {
+          auto_send_eligible: boolean
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+          output_json: Json | null
+          output_text: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          workflow_name: string
+        }
+        Insert: {
+          auto_send_eligible?: boolean
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          output_json?: Json | null
+          output_text: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          workflow_name: string
+        }
+        Update: {
+          auto_send_eligible?: boolean
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          output_json?: Json | null
+          output_text?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          workflow_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_output_review_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_output_review_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance_records: {
         Row: {
           booking_id: string
@@ -192,53 +252,71 @@ export type Database = {
       automation_dead_letter: {
         Row: {
           attempt_count: number
+          claimed_at: string | null
           created_at: string
           entity_id: string | null
           entity_type: string | null
+          escalated_at: string | null
           event_name: string | null
           first_failed_at: string
           id: string
           idempotency_key: string | null
           last_error: string | null
+          last_execution_id: string | null
           last_failed_at: string
+          next_retry_at: string | null
           payload_json: Json | null
           resolution_notes: string | null
           resolved_at: string | null
           resolved_by: string | null
+          source_execution_id: string | null
+          workflow_id: string | null
           workflow_name: string
         }
         Insert: {
           attempt_count?: number
+          claimed_at?: string | null
           created_at?: string
           entity_id?: string | null
           entity_type?: string | null
+          escalated_at?: string | null
           event_name?: string | null
           first_failed_at?: string
           id?: string
           idempotency_key?: string | null
           last_error?: string | null
+          last_execution_id?: string | null
           last_failed_at?: string
+          next_retry_at?: string | null
           payload_json?: Json | null
           resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          source_execution_id?: string | null
+          workflow_id?: string | null
           workflow_name: string
         }
         Update: {
           attempt_count?: number
+          claimed_at?: string | null
           created_at?: string
           entity_id?: string | null
           entity_type?: string | null
+          escalated_at?: string | null
           event_name?: string | null
           first_failed_at?: string
           id?: string
           idempotency_key?: string | null
           last_error?: string | null
+          last_execution_id?: string | null
           last_failed_at?: string
+          next_retry_at?: string | null
           payload_json?: Json | null
           resolution_notes?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          source_execution_id?: string | null
+          workflow_id?: string | null
           workflow_name?: string
         }
         Relationships: [
@@ -3626,6 +3704,27 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          bucket: string
+          count: number
+          identifier: string
+          window_start: string
+        }
+        Insert: {
+          bucket: string
+          count?: number
+          identifier: string
+          window_start: string
+        }
+        Update: {
+          bucket?: string
+          count?: number
+          identifier?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       recitation_errors: {
         Row: {
           ayah_num: number
@@ -3916,6 +4015,7 @@ export type Database = {
           created_at: string
           engagement_score: number | null
           id: string
+          intervention_suggestion: string | null
           intervention_type: string | null
           last_booking_at: string | null
           last_intervention_at: string | null
@@ -3923,7 +4023,9 @@ export type Database = {
           last_session_at: string | null
           package_expires_at: string | null
           package_remaining: number | null
+          risk_reason: string | null
           student_id: string
+          weakness_json: Json | null
         }
         Insert: {
           churn_risk_score?: number | null
@@ -3931,6 +4033,7 @@ export type Database = {
           created_at?: string
           engagement_score?: number | null
           id?: string
+          intervention_suggestion?: string | null
           intervention_type?: string | null
           last_booking_at?: string | null
           last_intervention_at?: string | null
@@ -3938,7 +4041,9 @@ export type Database = {
           last_session_at?: string | null
           package_expires_at?: string | null
           package_remaining?: number | null
+          risk_reason?: string | null
           student_id: string
+          weakness_json?: Json | null
         }
         Update: {
           churn_risk_score?: number | null
@@ -3946,6 +4051,7 @@ export type Database = {
           created_at?: string
           engagement_score?: number | null
           id?: string
+          intervention_suggestion?: string | null
           intervention_type?: string | null
           last_booking_at?: string | null
           last_intervention_at?: string | null
@@ -3953,7 +4059,9 @@ export type Database = {
           last_session_at?: string | null
           package_expires_at?: string | null
           package_remaining?: number | null
+          risk_reason?: string | null
           student_id?: string
+          weakness_json?: Json | null
         }
         Relationships: [
           {
@@ -6841,7 +6949,23 @@ export type Database = {
       }
     }
     Functions: {
+      ai_review_gate: {
+        Args: { p_workflow_name: string }
+        Returns: {
+          approved_count: number
+          total_reviewed: number
+        }[]
+      }
       booking_end_ts: { Args: { mins: number; ts: string }; Returns: string }
+      check_and_increment_rate_limit: {
+        Args: {
+          p_bucket: string
+          p_identifier: string
+          p_max: number
+          p_window_seconds: number
+        }
+        Returns: boolean
+      }
       complete_review: {
         Args: {
           p_easiness: number
@@ -7145,6 +7269,15 @@ export type Database = {
         Args: { p_teacher_id: string }
         Returns: {
           student_id: string
+        }[]
+      }
+      teacher_student_booking_stats: {
+        Args: never
+        Returns: {
+          last_session: string
+          student_id: string
+          this_month: number
+          total: number
         }[]
       }
       user_is_session_participant: { Args: { s_id: string }; Returns: boolean }
