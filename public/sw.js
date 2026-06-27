@@ -117,12 +117,11 @@ self.addEventListener("notificationclick", (event) => {
   const targetUrl = safeSameOriginUrl(event.notification.data?.url);
 
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clients) => {
-      const existingClient = clients.find((client) => client.url === targetUrl) ?? clients[0];
-      if (existingClient) {
-        if (existingClient.url !== targetUrl) await existingClient.navigate(targetUrl);
-        return existingClient.focus();
-      }
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      // Only reuse a window already on the exact target — never navigate an
+      // unrelated open tab away. Otherwise open a fresh window.
+      const existingClient = clients.find((client) => client.url === targetUrl);
+      if (existingClient) return existingClient.focus();
       return self.clients.openWindow(targetUrl);
     })
   );
