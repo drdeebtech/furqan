@@ -5,6 +5,7 @@ import type { Database } from "@/types/supabase.generated";
 import { callRpc } from "@/lib/supabase/rpc";
 import { surahName } from "@/lib/quran/surahs";
 import { logError } from "@/lib/logger";
+import { awardAchievement } from "@/lib/domains/achievements/award";
 import { detectJuzCompletions } from "./juz-completion";
 import { validateRange, violationMessageAr } from "./validation";
 import type { RecordProgressInput, RecordProgressOutcome } from "./types";
@@ -102,6 +103,29 @@ export async function recordProgress(
       progressId,
     });
   }
+
+  // Award level-up badges (spec 033). DB unique constraint makes repeat calls
+  // at the same level silent no-ops, so "advances past prior max" is implicit.
+  // TODO: award first_correction_clean once its semantics are resolved (spec.md OPEN DECISIONS).
+  if (input.level === "intermediate" || input.level === "advanced") {
+    const levelType =
+      input.level === "intermediate" ? "level_up_intermediate" : "level_up_advanced";
+    const { data: progressRow } = await admin
+      .from("student_progress")
+      .select("student_id")
+      .eq("id", progressId)
+      .maybeSingle<{ student_id: string }>();
+    if (progressRow?.student_id) {
+      await awardAchievement(progressRow.student_id, levelType, { level: input.level }).catch(
+        (err) =>
+          logError("recordProgress: level_up award failed", err, {
+            tag: "achievements",
+            level: input.level,
+          }),
+      );
+    }
+  }
+
   return { ok: true, progressId };
 }
 

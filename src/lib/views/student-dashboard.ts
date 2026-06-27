@@ -1,6 +1,9 @@
+import { after } from "next/server";
 import { loadOrFail, countOrFail, helperOrFail } from "@/lib/supabase/load-or-fail";
 import type { ServerClient } from "@/lib/supabase/types";
 import type { SessionType } from "@/types/database";
+import { awardAchievement } from "@/lib/domains/achievements/award";
+import { logError } from "@/lib/logger";
 import { getGoalDashboardData, type GoalDashboardData } from "@/lib/domains/goals/goals";
 import {
   getStudentStudyAnalytics,
@@ -93,6 +96,8 @@ export interface StudentDashboardData {
   latestEvaluation: { next_goals: string | null; evaluation_type: string; created_at: string } | null;
   murajaahBatch: MurajaahDueItem[];
   goal: GoalDashboardData | null;
+  /** Earned achievement badges (spec 033). Empty array when none earned yet. */
+  achievements: { type: string; metadata_json: Record<string, unknown>; unlocked_at: string }[];
   renderedAtMs: number;
 }
 
@@ -225,7 +230,7 @@ export async function studentDashboardView(
   const [
     packagesRes, hwCountsRaw, studyAnalytics, liveSessions, continueWatching,
     recentRecordings, nextQuiz, lastProgressRes, streakInfo, homeworkPulse,
-    latestEvalRes, murajaahBatch, goalLoad,
+    latestEvalRes, murajaahBatch, goalLoad, achievementsRes,
   ] = await Promise.all([
     supabase.from("student_packages")
       .select("id, sessions_total, sessions_used, status, expires_at")
@@ -261,6 +266,14 @@ export async function studentDashboardView(
       null,
       { route: ROUTE, widget: "goal" },
     ),
+    // Spec 033: earned badges (RLS: student sees own rows only).
+    // New table not yet in generated types; cast mirrors the student_goals pattern.
+    (supabase as unknown as { from(t: string): {
+      select(cols: string): { eq(col: string, val: string): {
+        returns<T>(): Promise<{ data: T | null; error: unknown }>;
+      } };
+    } }).from("achievements").select("type, metadata_json, unlocked_at").eq("student_id", studentId)
+      .returns<{ type: string; metadata_json: Record<string, unknown>; unlocked_at: string }[]>(),
   ]);
   const packagesLoad = loadOrFail(packagesRes, [], { route: ROUTE, widget: "active-packages" });
   const lastProgressLoad = loadOrFail(lastProgressRes, null, { route: ROUTE, widget: "last-progress" });
@@ -278,6 +291,27 @@ export async function studentDashboardView(
   });
 
   anyFailed = anyFailed || packagesLoad.failed || hwCountsFailed || lastProgressLoad.failed || latestEvalLoad.failed || goalLoad.failed;
+
+  // Spec 033: award streak badges (read-side, idempotent, never blocks render).
+  // after() defers these writes until the response is sent so they never add
+  // latency. The DB unique constraint makes repeat calls safe on every page load.
+  if (streakInfo.streak >= 30) {
+    after(() =>
+      awardAchievement(studentId, "streak_30", { streak: streakInfo.streak }).catch((err) =>
+        logError("streak_30 award failed", err, { tag: "achievements" }),
+      ),
+    );
+  }
+  if (streakInfo.streak >= 7) {
+    after(() =>
+      awardAchievement(studentId, "streak_7", { streak: streakInfo.streak }).catch((err) =>
+        logError("streak_7 award failed", err, { tag: "achievements" }),
+      ),
+    );
+  }
+
+  const achievements =
+    (achievementsRes as { data: { type: string; metadata_json: Record<string, unknown>; unlocked_at: string }[] | null }).data ?? [];
 
   const activePackages = packagesLoad.data;
   // Continue Watching prefers in-progress course lessons; falls back to recent
@@ -370,6 +404,7 @@ export async function studentDashboardView(
       latestEvaluation: latestEvalLoad.data,
       murajaahBatch,
       goal: goalLoad.data,
+      achievements,
       renderedAtMs: now.getTime(),
     },
     anyFailed,
@@ -407,6 +442,7 @@ function emptyData(fullName: string | null, now: Date): StudentDashboardData {
     latestEvaluation: null,
     murajaahBatch: [],
     goal: null,
+    achievements: [],
     renderedAtMs: now.getTime(),
   };
 }
