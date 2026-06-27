@@ -1,10 +1,13 @@
 import "server-only";
 
+import { after } from "next/server";
+
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
 import { getLevelBoundaries } from "./quran-ranges";
 import { getJuzBoundary } from "@/lib/quran/juz-boundaries";
+import { isBunnyStorageConfigured } from "@/lib/bunny/storage";
 
 export type CertificateType =
   | "appreciation_juz"
@@ -19,6 +22,7 @@ export interface CertificateRow {
   cited_range_start: string;
   cited_range_end: string;
   issued_at: string;
+  public_slug: string;
 }
 
 export type IssueResult =
@@ -168,7 +172,7 @@ export async function issueCertificate(
       cited_range_end: citedRangeEnd,
       issued_at: now,
     })
-    .select("id, student_id, certificate_type, milestone_key, cited_range_start, cited_range_end, issued_at")
+    .select("id, student_id, certificate_type, milestone_key, cited_range_start, cited_range_end, issued_at, public_slug")
     .single<CertificateRow>();
 
   if (certInsertErr) {
@@ -199,6 +203,49 @@ export async function issueCertificate(
   // 5. Mark log succeeded.
   await markSucceeded(admin, logId, cert.id);
 
+  // 5.5. Pre-generate PDF (best-effort, spec 031 Decision 4).
+  // Guarded by isBunnyStorageConfigured() — no-ops when Bunny is unconfigured.
+  // after() flushes after the response is sent so it never blocks the issuing request.
+  // Wrapped in try-catch: after() throws outside a Next.js request context (e.g. tests).
+  if (isBunnyStorageConfigured()) {
+    const certPublicSlug = cert.public_slug;
+    const certId = cert.id;
+    try {
+      after(async () => {
+        try {
+          // ponytail: dynamic imports keep heavy chromium binary out of the issuing bundle
+          const [{ getPublicCertificate }, { renderCertificatePdf }, { putStorageObject }] =
+            await Promise.all([
+              import("./view"),
+              import("./pdf"),
+              import("@/lib/bunny/storage"),
+            ]);
+
+          const publicCert = await getPublicCertificate(certPublicSlug);
+          if (!publicCert) return;
+
+          const pdfBuffer = await renderCertificatePdf(publicCert);
+          const remotePath = `certificates/${certPublicSlug}.pdf`;
+          const publicUrl = await putStorageObject(remotePath, pdfBuffer);
+
+          // Supabase .update() does NOT throw — capture {error} and throw it so the
+          // catch below logs it; otherwise pdf_url stays stale despite a successful upload.
+          const { error: updateErr } = await createAdminClient()
+            .from("certificates")
+            .update({ pdf_url: publicUrl, pdf_generated_at: new Date().toISOString() })
+            .eq("id", certId);
+          if (updateErr) throw updateErr;
+        } catch (err) {
+          logError("issueCertificate: PDF pre-generation failed (non-fatal)", err, {
+            tag: "cert_pdf",
+          });
+        }
+      });
+    } catch {
+      // after() requires a Next.js request context; skip silently when invoked outside one
+    }
+  }
+
   // 6. Emit certificate.earned (best-effort, non-blocking).
   emitEvent("certificate.earned", "certificate", cert.id, {
     student_id: studentId,
@@ -219,7 +266,7 @@ async function fetchExistingCert(
 ): Promise<CertificateRow | null> {
   const { data, error } = await admin
     .from("certificates")
-    .select("id, student_id, certificate_type, milestone_key, cited_range_start, cited_range_end, issued_at")
+    .select("id, student_id, certificate_type, milestone_key, cited_range_start, cited_range_end, issued_at, public_slug")
     .eq("student_id", studentId)
     .eq("certificate_type", type)
     .eq("milestone_key", milestoneKey)

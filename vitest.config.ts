@@ -25,6 +25,9 @@ export default defineConfig({
         // meaningfully unit-tested outside the framework.
         "src/lib/supabase/server.ts",
         "src/app/api/**",
+        // Public certificate page requires Next.js Server Component runtime
+        // (notFound, generateMetadata) — same exclusion rationale as src/app/api/**
+        "src/app/certificates/**",
         // Extracted body of the (already-excluded) Stripe webhook route. It
         // parses raw Stripe invoice/subscription event shapes and needs the
         // full Stripe runtime — same "no meaningful unit surface" property as

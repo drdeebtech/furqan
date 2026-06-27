@@ -806,6 +806,9 @@ export type Database = {
           id: string
           issued_at: string
           milestone_key: string
+          pdf_generated_at: string | null
+          pdf_url: string | null
+          public_slug: string
           student_id: string
         }
         Insert: {
@@ -816,6 +819,9 @@ export type Database = {
           id?: string
           issued_at?: string
           milestone_key: string
+          pdf_generated_at?: string | null
+          pdf_url?: string | null
+          public_slug?: string
           student_id: string
         }
         Update: {
@@ -826,6 +832,9 @@ export type Database = {
           id?: string
           issued_at?: string
           milestone_key?: string
+          pdf_generated_at?: string | null
+          pdf_url?: string | null
+          public_slug?: string
           student_id?: string
         }
         Relationships: [
