@@ -1,5 +1,5 @@
 import type { ServerClient } from "@/lib/supabase/types";
-import { recentWindow } from "@/lib/views/_shared/teacher-reads";
+import { recentWindow, resolveStudentNames } from "@/lib/views/_shared/teacher-reads";
 
 /**
  * Teacher *insights* deep-read module — passive KPI / analytics reads.
@@ -134,4 +134,102 @@ export async function getTeacherRosterErrorPulse(
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
     .map(([category, count]) => ({ category, count }));
+}
+
+/**
+ * Per-student SM-2 murajaah health for the teacher dashboard.
+ *
+ * Single join query: student_review_schedule filtered to this teacher's
+ * students via student_progress!inner(teacher_id). App-side aggregation
+ * groups by student_id — no N+1. A second flat query resolves display
+ * names from public_profiles.
+ *
+ * Returns one row per student, sorted worst-overdue first.
+ */
+export type MurajaahEaseTrend = "improving" | "stable" | "declining";
+
+export type StudentMurajaahHealth = {
+  studentId: string;
+  studentName: string;
+  overdueCount: number;
+  lastReviewedAt: string | null;
+  avgEasinessFactor: number;
+  easeTrend: MurajaahEaseTrend;
+};
+
+export async function getTeacherMurajaahHealth(
+  supabase: ServerClient,
+  teacherId: string,
+): Promise<StudentMurajaahHealth[]> {
+  // Single join: filter to this teacher's students via the progress FK.
+  // `!inner` means only rows whose progress row has teacher_id = teacherId.
+  const schedRes = await supabase
+    .from("student_review_schedule")
+    .select(
+      "student_id, easiness_factor, next_review_at, last_reviewed_at, student_progress!inner(teacher_id)",
+    )
+    .eq("student_progress.teacher_id", teacherId)
+    .returns<{
+      student_id: string;
+      easiness_factor: number;
+      next_review_at: string;
+      last_reviewed_at: string | null;
+    }[]>();
+  if (schedRes.error) throw schedRes.error;
+  const rows = schedRes.data;
+  if (!rows || rows.length === 0) return [];
+
+  const now = Date.now();
+  const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+
+  type Acc = {
+    overdueCount: number;
+    lastReviewedAt: string | null;
+    sumEase: number;
+    count: number;
+  };
+  const acc = new Map<string, Acc>();
+
+  for (const row of rows) {
+    const prev = acc.get(row.student_id) ?? {
+      overdueCount: 0,
+      lastReviewedAt: null,
+      sumEase: 0,
+      count: 0,
+    };
+    const isOverdue = new Date(row.next_review_at).getTime() < now - THREE_DAYS_MS;
+    // Keep most-recent last_reviewed_at across all this student's schedule rows.
+    const lastReviewedAt =
+      row.last_reviewed_at &&
+      (!prev.lastReviewedAt || row.last_reviewed_at > prev.lastReviewedAt)
+        ? row.last_reviewed_at
+        : prev.lastReviewedAt;
+    acc.set(row.student_id, {
+      overdueCount: prev.overdueCount + (isOverdue ? 1 : 0),
+      lastReviewedAt,
+      sumEase: prev.sumEase + row.easiness_factor,
+      count: prev.count + 1,
+    });
+  }
+
+  // Bulk name resolution — one flat query, not N+1.
+  const studentIds = Array.from(acc.keys());
+  const names = await resolveStudentNames(supabase, studentIds);
+
+  // SM-2 default easiness factor is 2.5; >2.6 = improving, <2.4 = declining.
+  return Array.from(acc.entries())
+    .map(([studentId, a]) => {
+      const avg = a.sumEase / a.count;
+      const easeTrend: MurajaahEaseTrend =
+        avg > 2.6 ? "improving" : avg < 2.4 ? "declining" : "stable";
+      return {
+        studentId,
+        studentName: names.get(studentId) ?? "—",
+        overdueCount: a.overdueCount,
+        lastReviewedAt: a.lastReviewedAt,
+        avgEasinessFactor: Math.round(avg * 100) / 100,
+        easeTrend,
+      };
+    })
+    .sort((a, b) => b.overdueCount - a.overdueCount); // worst-overdue first
 }

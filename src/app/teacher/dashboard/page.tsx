@@ -9,6 +9,7 @@ import { MentorshipCard, MentorshipCardSkeleton } from "./mentorship-card";
 import { DataLoadBanner } from "@/components/shared/data-load-banner";
 import { teacherDashboardView } from "@/lib/views/teacher-dashboard";
 import { RosterErrorPulse, RosterErrorPulseSkeleton } from "./roster-error-pulse";
+import { MurajaahHealthCard, MurajaahHealthCardSkeleton } from "./murajaah-health-card";
 import { TalqeenInboxCard, TalqeenInboxCardSkeleton } from "./talqeen-inbox-card";
 import { ParentReportDigestCard, ParentReportDigestCardSkeleton } from "./parent-report-digest-card";
 import { RecitationStandardRoster, RecitationStandardRosterSkeleton } from "./recitation-standard-roster";
@@ -41,6 +42,12 @@ export default async function TeacherDashboardPage() {
       <div className="mx-auto max-w-7xl px-4 pb-2 sm:px-6">
         <Suspense fallback={<RosterErrorPulseSkeleton />}>
           <RosterErrorPulse teacherId={user.id} />
+        </Suspense>
+      </div>
+
+      <div className="mx-auto max-w-7xl px-4 pb-2 sm:px-6">
+        <Suspense fallback={<MurajaahHealthCardSkeleton />}>
+          <MurajaahHealthCard teacherId={user.id} />
         </Suspense>
       </div>
 

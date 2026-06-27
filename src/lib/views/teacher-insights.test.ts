@@ -13,7 +13,7 @@ const chain = vi.hoisted(() => ({
   returns: vi.fn(),
 }));
 
-import { getTeacherTimeToGrade, getTeacherRosterErrorPulse } from "./teacher-insights";
+import { getTeacherTimeToGrade, getTeacherRosterErrorPulse, getTeacherMurajaahHealth } from "./teacher-insights";
 
 const TEACHER = "teacher-aaa";
 
@@ -129,5 +129,108 @@ describe("getTeacherRosterErrorPulse", () => {
   it("throws when the query errors", async () => {
     chain.returns.mockResolvedValueOnce({ data: null, error: new Error("db fail") });
     await expect(getTeacherRosterErrorPulse(chain as never, TEACHER)).rejects.toThrow("db fail");
+  });
+});
+
+// ─── getTeacherMurajaahHealth ────────────────────────────────────────────────
+
+/** ISO timestamp offset from now by `daysAgo` (negative = future). */
+function daysAgo(n: number): string {
+  return new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString();
+}
+
+const STUDENT_A = "student-aaa";
+const STUDENT_B = "student-bbb";
+
+/** Mock the two-query sequence: schedule rows + profile rows. */
+function mockMurajaahQueries(
+  schedRows: { student_id: string; easiness_factor: number; next_review_at: string; last_reviewed_at: string | null }[],
+  profileRows: { id: string; full_name: string | null }[] = [],
+) {
+  chain.returns
+    .mockResolvedValueOnce({ data: schedRows, error: null })   // schedule query
+    .mockResolvedValueOnce({ data: profileRows, error: null }); // name resolution
+}
+
+describe("getTeacherMurajaahHealth", () => {
+  it("returns [] when no schedule rows exist for the teacher", async () => {
+    chain.returns.mockResolvedValueOnce({ data: [], error: null });
+    const result = await getTeacherMurajaahHealth(chain as never, TEACHER);
+    expect(result).toEqual([]);
+    // Guard query shape: single join with !inner to scope to teacher's students.
+    expect(chain.from).toHaveBeenCalledWith("student_review_schedule");
+    expect(chain.select).toHaveBeenCalledWith(
+      "student_id, easiness_factor, next_review_at, last_reviewed_at, student_progress!inner(teacher_id)",
+    );
+    expect(chain.eq).toHaveBeenCalledWith("student_progress.teacher_id", TEACHER);
+  });
+
+  it("flags students overdue >3 days and counts correctly", async () => {
+    mockMurajaahQueries(
+      [
+        { student_id: STUDENT_A, easiness_factor: 2.5, next_review_at: daysAgo(5), last_reviewed_at: daysAgo(5) },
+        { student_id: STUDENT_A, easiness_factor: 2.5, next_review_at: daysAgo(4), last_reviewed_at: daysAgo(4) },
+        { student_id: STUDENT_B, easiness_factor: 2.5, next_review_at: daysAgo(1), last_reviewed_at: daysAgo(1) },
+      ],
+      [
+        { id: STUDENT_A, full_name: "Ahmed" },
+        { id: STUDENT_B, full_name: "Bilal" },
+      ],
+    );
+    const result = await getTeacherMurajaahHealth(chain as never, TEACHER);
+    const a = result.find(r => r.studentId === STUDENT_A)!;
+    const b = result.find(r => r.studentId === STUDENT_B)!;
+    expect(a.overdueCount).toBe(2);
+    expect(b.overdueCount).toBe(0);
+    expect(a.studentName).toBe("Ahmed");
+  });
+
+  it("sorts worst-overdue students first", async () => {
+    mockMurajaahQueries(
+      [
+        { student_id: STUDENT_B, easiness_factor: 2.5, next_review_at: daysAgo(4), last_reviewed_at: null },
+        { student_id: STUDENT_A, easiness_factor: 2.5, next_review_at: daysAgo(5), last_reviewed_at: null },
+        { student_id: STUDENT_A, easiness_factor: 2.5, next_review_at: daysAgo(6), last_reviewed_at: null },
+      ],
+      [],
+    );
+    const result = await getTeacherMurajaahHealth(chain as never, TEACHER);
+    expect(result[0].studentId).toBe(STUDENT_A); // 2 overdue comes first
+    expect(result[1].studentId).toBe(STUDENT_B); // 1 overdue
+  });
+
+  it("picks the most-recent last_reviewed_at per student", async () => {
+    const older = daysAgo(10);
+    const newer = daysAgo(3);
+    mockMurajaahQueries(
+      [
+        { student_id: STUDENT_A, easiness_factor: 2.5, next_review_at: daysAgo(1), last_reviewed_at: older },
+        { student_id: STUDENT_A, easiness_factor: 2.5, next_review_at: daysAgo(1), last_reviewed_at: newer },
+      ],
+      [],
+    );
+    const [result] = await getTeacherMurajaahHealth(chain as never, TEACHER);
+    expect(result.lastReviewedAt).toBe(newer);
+  });
+
+  it("computes easeTrend: >2.6 = improving, <2.4 = declining, otherwise stable", async () => {
+    mockMurajaahQueries(
+      [
+        { student_id: "s-improving", easiness_factor: 2.8, next_review_at: daysAgo(1), last_reviewed_at: null },
+        { student_id: "s-declining", easiness_factor: 1.8, next_review_at: daysAgo(1), last_reviewed_at: null },
+        { student_id: "s-stable",    easiness_factor: 2.5, next_review_at: daysAgo(1), last_reviewed_at: null },
+      ],
+      [],
+    );
+    const result = await getTeacherMurajaahHealth(chain as never, TEACHER);
+    const trend = (id: string) => result.find(r => r.studentId === id)!.easeTrend;
+    expect(trend("s-improving")).toBe("improving");
+    expect(trend("s-declining")).toBe("declining");
+    expect(trend("s-stable")).toBe("stable");
+  });
+
+  it("throws when the schedule query errors", async () => {
+    chain.returns.mockResolvedValueOnce({ data: null, error: new Error("sched fail") });
+    await expect(getTeacherMurajaahHealth(chain as never, TEACHER)).rejects.toThrow("sched fail");
   });
 });
