@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, startTransition } from "react";
+import { fetchNotifications } from "@/lib/actions/notifications";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, BookOpen, Calendar, MessageSquare, Megaphone, CreditCard, Check, CheckCheck, Trash2, GraduationCap } from "lucide-react";
@@ -39,6 +40,21 @@ export function NotificationsList({
   const [notifications, setNotifications] = useState(initial);
   const [loading, setLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  // Realtime poke: re-fetch when RealtimeProvider signals a new notification
+  useEffect(() => {
+    function handleNew() {
+      fetchNotifications(50).then((result) => {
+        if (result.notifications) {
+          startTransition(() => setNotifications(result.notifications));
+        }
+      }).catch(() => {
+        // fail-soft: list stays stale until next manual visit; bell already refreshed
+      });
+    }
+    document.addEventListener("furqan:notification:new", handleNew);
+    return () => document.removeEventListener("furqan:notification:new", handleNew);
+  }, []);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
