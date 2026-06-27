@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Phone, Mail, User, BarChart3, AlertTriangle, Inbox, BookMarked, MessageSquareQuote, Mic, ScrollText } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { loadOrFail } from "@/lib/supabase/load-or-fail";
+import { helperOrFail, loadOrFail } from "@/lib/supabase/load-or-fail";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import { getT } from "@/lib/i18n/server";
 import type { SessionType, StudentLevel } from "@/types/database";
@@ -11,7 +11,9 @@ import { HomeworkAudioPlayer } from "@/components/shared/homework-audio-player";
 import { DataLoadBanner } from "@/components/shared/data-load-banner";
 import { EvalForm } from "./eval-form";
 import { ResolveErrorButton } from "./resolve-error-button";
+import { GoalSection } from "./goal-section";
 import { RECITATION_STANDARD_LABEL } from "@/lib/recitation-constants";
+import { getActiveGoal } from "@/lib/domains/goals/goals";
 
 const SESSION_TYPE_EN: Record<SessionType, string> = {
   hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
@@ -52,7 +54,7 @@ export default async function StudentDetailPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [profileRes, bookingsRes, progressRes, latestEvalRes, latestStandardRes, audioHwRes] = await Promise.all([
+  const [profileRes, bookingsRes, progressRes, latestEvalRes, latestStandardRes, audioHwRes, goalLoad] = await Promise.all([
     supabase.from("profiles").select("full_name, phone, country, parent_name, parent_phone, parent_email").eq("id", studentId)
       .single<{ full_name: string | null; phone: string | null; country: string | null } & ParentInfo>(),
     supabase.from("bookings")
@@ -94,6 +96,11 @@ export default async function StudentDetailPage({ params }: Props) {
       .order("ready_at", { ascending: false })
       .limit(5)
       .returns<{ id: string; title: string; audio_duration_seconds: number | null; ready_at: string | null; status: string }[]>(),
+    helperOrFail(
+      () => getActiveGoal(supabase, studentId),
+      null,
+      { route: "teacher-student-detail", widget: "goal", metadata: { studentId } },
+    ),
   ]);
 
   const student = profileRes.data;
@@ -104,7 +111,7 @@ export default async function StudentDetailPage({ params }: Props) {
   const latestEvalLoad = loadOrFail(latestEvalRes, null, { route: "teacher-student-detail", widget: "latest-eval", metadata: { studentId } });
   const latestStandardLoad = loadOrFail(latestStandardRes, null, { route: "teacher-student-detail", widget: "recitation-standard", metadata: { studentId } });
   const audioHwLoad = loadOrFail(audioHwRes, [] as { id: string; title: string; audio_duration_seconds: number | null; ready_at: string | null; status: string }[], { route: "teacher-student-detail", widget: "audio-homework", metadata: { studentId } });
-  const anyFailed = bookingsLoad.failed || progressLoad.failed || latestEvalLoad.failed || latestStandardLoad.failed || audioHwLoad.failed;
+  const anyFailed = bookingsLoad.failed || progressLoad.failed || latestEvalLoad.failed || latestStandardLoad.failed || audioHwLoad.failed || goalLoad.failed;
 
   const bookings = bookingsLoad.data;
   const progress = progressLoad.data;
@@ -230,6 +237,8 @@ export default async function StudentDetailPage({ params }: Props) {
           </div>
         )}
       </div>
+
+      <GoalSection studentId={studentId} goal={goalLoad.data} />
 
       {/* Stats Grid */}
       <div className="mb-6 grid grid-cols-4 gap-3">

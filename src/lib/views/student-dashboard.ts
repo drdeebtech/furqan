@@ -1,6 +1,7 @@
-import { loadOrFail, countOrFail } from "@/lib/supabase/load-or-fail";
+import { loadOrFail, countOrFail, helperOrFail } from "@/lib/supabase/load-or-fail";
 import type { ServerClient } from "@/lib/supabase/types";
 import type { SessionType } from "@/types/database";
+import { getGoalDashboardData, type GoalDashboardData } from "@/lib/domains/goals/goals";
 import {
   getStudentStudyAnalytics,
   getStudentLiveSessions,
@@ -91,6 +92,7 @@ export interface StudentDashboardData {
   todayHomework: { id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[];
   latestEvaluation: { next_goals: string | null; evaluation_type: string; created_at: string } | null;
   murajaahBatch: MurajaahDueItem[];
+  goal: GoalDashboardData | null;
   renderedAtMs: number;
 }
 
@@ -223,7 +225,7 @@ export async function studentDashboardView(
   const [
     packagesRes, hwCountsRaw, studyAnalytics, liveSessions, continueWatching,
     recentRecordings, nextQuiz, lastProgressRes, streakInfo, homeworkPulse,
-    latestEvalRes, murajaahBatch,
+    latestEvalRes, murajaahBatch, goalLoad,
   ] = await Promise.all([
     supabase.from("student_packages")
       .select("id, sessions_total, sessions_used, status, expires_at")
@@ -254,6 +256,11 @@ export async function studentDashboardView(
       .limit(1)
       .maybeSingle<{ next_goals: string | null; evaluation_type: string; created_at: string }>(),
     getTodaysMurajaahBatch(supabase, studentId),
+    helperOrFail(
+      () => getGoalDashboardData(supabase, studentId, now),
+      null,
+      { route: ROUTE, widget: "goal" },
+    ),
   ]);
   const packagesLoad = loadOrFail(packagesRes, [], { route: ROUTE, widget: "active-packages" });
   const lastProgressLoad = loadOrFail(lastProgressRes, null, { route: ROUTE, widget: "last-progress" });
@@ -270,7 +277,7 @@ export async function studentDashboardView(
     if (r.failed) hwCountsFailed = true;
   });
 
-  anyFailed = anyFailed || packagesLoad.failed || hwCountsFailed || lastProgressLoad.failed || latestEvalLoad.failed;
+  anyFailed = anyFailed || packagesLoad.failed || hwCountsFailed || lastProgressLoad.failed || latestEvalLoad.failed || goalLoad.failed;
 
   const activePackages = packagesLoad.data;
   // Continue Watching prefers in-progress course lessons; falls back to recent
@@ -362,6 +369,7 @@ export async function studentDashboardView(
       todayHomework,
       latestEvaluation: latestEvalLoad.data,
       murajaahBatch,
+      goal: goalLoad.data,
       renderedAtMs: now.getTime(),
     },
     anyFailed,
@@ -398,6 +406,7 @@ function emptyData(fullName: string | null, now: Date): StudentDashboardData {
     todayHomework: [],
     latestEvaluation: null,
     murajaahBatch: [],
+    goal: null,
     renderedAtMs: now.getTime(),
   };
 }

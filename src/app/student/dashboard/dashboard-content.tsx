@@ -22,7 +22,9 @@ import { NextActionBanner } from "./next-action-banner";
 import { WelcomeHeader } from "./welcome-header";
 import { TodaysPlan } from "./todays-plan";
 import { MurajaahCard } from "./murajaah-card";
+import { GoalCard } from "./goal-card";
 import type { MurajaahDueItem } from "@/lib/dashboard-queries";
+import type { GoalDashboardData } from "@/lib/domains/goals/goals";
 
 interface ChartDataPoint {
   day: string;
@@ -60,6 +62,7 @@ interface DashboardData {
   todayHomework: { id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[];
   latestEvaluation: { next_goals: string | null; evaluation_type: string; created_at: string } | null;
   murajaahBatch: MurajaahDueItem[];
+  goal: GoalDashboardData | null;
   renderedAtMs: number;
 }
 
@@ -80,7 +83,7 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
     fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, nameMap,
     studyAnalytics, liveSessions, watchingRows, continueIsLessons, hwCounts,
     activePackages, nextQuiz, lastProgress, resumeLesson, streakInfo,
-    homeworkPulse, todaySessions, todayHomework, latestEvaluation, murajaahBatch,
+    homeworkPulse, todaySessions, todayHomework, latestEvaluation, murajaahBatch, goal,
     renderedAtMs,
   } = data;
 
@@ -333,6 +336,12 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
             />
           </section>
         </SectionErrorBoundary>
+
+        <div className="mt-8">
+          <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل هدفك", "Couldn't load your goal")}>
+            <GoalCard goal={goal} />
+          </SectionErrorBoundary>
+        </div>
 
         {/* "Your focus this week" — surfaces the latest evaluation's
             recommendations text right at the top of the dashboard so the
