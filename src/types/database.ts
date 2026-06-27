@@ -5659,6 +5659,9 @@ export type Database = {
           cited_range_end: string
           issued_at: string
           created_at: string
+          public_slug: string
+          pdf_url: string | null
+          pdf_generated_at: string | null
         }
         Insert: {
           id?: string
@@ -5669,6 +5672,9 @@ export type Database = {
           cited_range_end: string
           issued_at?: string
           created_at?: string
+          public_slug?: string
+          pdf_url?: string | null
+          pdf_generated_at?: string | null
         }
         Update: {
           id?: string
@@ -5679,6 +5685,9 @@ export type Database = {
           cited_range_end?: string
           issued_at?: string
           created_at?: string
+          public_slug?: string
+          pdf_url?: string | null
+          pdf_generated_at?: string | null
         }
         Relationships: []
       }
