@@ -228,10 +228,13 @@ export async function issueCertificate(
           const remotePath = `certificates/${certPublicSlug}.pdf`;
           const publicUrl = await putStorageObject(remotePath, pdfBuffer);
 
-          await createAdminClient()
+          // Supabase .update() does NOT throw — capture {error} and throw it so the
+          // catch below logs it; otherwise pdf_url stays stale despite a successful upload.
+          const { error: updateErr } = await createAdminClient()
             .from("certificates")
             .update({ pdf_url: publicUrl, pdf_generated_at: new Date().toISOString() })
             .eq("id", certId);
+          if (updateErr) throw updateErr;
         } catch (err) {
           logError("issueCertificate: PDF pre-generation failed (non-fatal)", err, {
             tag: "cert_pdf",

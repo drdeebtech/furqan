@@ -126,6 +126,27 @@ describe("getPublicCertificate", () => {
     }
   });
 
+  it("returns null ranges for course_completion (no citation range)", async () => {
+    mockMaybeSingle
+      .mockResolvedValueOnce({
+        data: {
+          ...BASE_CERT,
+          certificate_type: "course_completion",
+          milestone_key: "course-123",
+          cited_range_start: "", // DB stores empty string for course_completion
+          cited_range_end: "",
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({ data: BASE_PROFILE, error: null });
+
+    const result = await getPublicCertificate(SLUG);
+    expect(result!.cited_range_start).toBeNull();
+    expect(result!.cited_range_end).toBeNull();
+    expect(result!.cited_start_surah_ar).toBeNull();
+    expect(result!.cited_end_surah_ar).toBeNull();
+  });
+
   it("includes pdf_url when present", async () => {
     const pdfUrl = "https://cdn.example.com/certificates/abc.pdf";
     mockMaybeSingle

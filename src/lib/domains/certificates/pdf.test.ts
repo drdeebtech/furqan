@@ -2,13 +2,23 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-// Mock puppeteer-core browser/page chain
-const mockPagePdf = vi.fn();
-const mockPageSetContent = vi.fn();
-const mockPageEvaluate = vi.fn();
-const mockBrowserClose = vi.fn();
-const mockBrowserNewPage = vi.fn();
-const mockPuppeteerLaunch = vi.fn();
+// Mocks used inside vi.mock factories must be created via vi.hoisted so they
+// exist before Vitest hoists the vi.mock calls above the imports (avoids TDZ).
+const {
+  mockPagePdf,
+  mockPageSetContent,
+  mockPageEvaluate,
+  mockBrowserClose,
+  mockBrowserNewPage,
+  mockPuppeteerLaunch,
+} = vi.hoisted(() => ({
+  mockPagePdf: vi.fn(),
+  mockPageSetContent: vi.fn(),
+  mockPageEvaluate: vi.fn(),
+  mockBrowserClose: vi.fn(),
+  mockBrowserNewPage: vi.fn(),
+  mockPuppeteerLaunch: vi.fn(),
+}));
 
 vi.mock("puppeteer-core", () => ({
   default: { launch: mockPuppeteerLaunch },

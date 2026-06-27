@@ -56,12 +56,22 @@ export async function GET(
     const remotePath = `certificates/${cert.public_slug}.pdf`;
     const publicUrl = await putStorageObject(remotePath, pdfBuffer);
 
-    // Persist so subsequent requests serve the cached redirect
+    // Persist so subsequent requests serve the cached redirect.
+    // Supabase .update() does NOT throw — capture {error} explicitly. On failure
+    // we still redirect (the user needs the PDF we just uploaded) but log it so
+    // it's not silent; a future request re-attempts the persist via this path.
     const admin = createAdminClient();
-    await admin
+    const { error: updateErr } = await admin
       .from("certificates")
       .update({ pdf_url: publicUrl, pdf_generated_at: new Date().toISOString() })
       .eq("id", cert.id);
+
+    if (updateErr) {
+      logError("certificates/pdf route: pdf_url persist failed", updateErr, {
+        tag: "cert_pdf",
+        route: "/api/certificates/pdf/[slug]",
+      });
+    }
 
     return Response.redirect(publicUrl, 302);
   } catch (err) {

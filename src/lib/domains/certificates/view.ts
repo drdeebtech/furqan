@@ -10,8 +10,9 @@ export interface PublicCertificate {
   public_slug: string;
   certificate_type: "appreciation_juz" | "appreciation_level" | "course_completion";
   milestone_key: string;
-  cited_range_start: string;
-  cited_range_end: string;
+  /** null for course_completion (no range) and any cert stored with an empty range */
+  cited_range_start: string | null;
+  cited_range_end: string | null;
   /** Arabic surah name for cited_range_start (null for course_completion which has no range) */
   cited_start_surah_ar: string | null;
   /** Arabic surah name for cited_range_end */
@@ -53,16 +54,19 @@ export async function getPublicCertificate(
     .eq("id", cert.student_id)
     .maybeSingle();
 
-  const startSurahNum = parseSurahNum(cert.cited_range_start);
-  const endSurahNum = parseSurahNum(cert.cited_range_end);
+  // course_completion stores "" — normalize empty/whitespace to null for the contract
+  const rangeStart = cert.cited_range_start?.trim() ? cert.cited_range_start : null;
+  const rangeEnd = cert.cited_range_end?.trim() ? cert.cited_range_end : null;
+  const startSurahNum = parseSurahNum(rangeStart);
+  const endSurahNum = parseSurahNum(rangeEnd);
 
   return {
     id: cert.id,
     public_slug: cert.public_slug,
     certificate_type: cert.certificate_type,
     milestone_key: cert.milestone_key,
-    cited_range_start: cert.cited_range_start,
-    cited_range_end: cert.cited_range_end,
+    cited_range_start: rangeStart,
+    cited_range_end: rangeEnd,
     cited_start_surah_ar: surahName(startSurahNum, "ar"),
     cited_end_surah_ar: surahName(endSurahNum, "ar"),
     display_name: profile?.full_name_ar ?? profile?.full_name ?? null,

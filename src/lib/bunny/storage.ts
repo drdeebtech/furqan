@@ -52,25 +52,43 @@ export function isBunnyStorageConfigured(): boolean {
  * @param remotePath  path inside the storage zone, e.g. "certificates/abc.pdf"
  * @param buffer      file bytes
  * @param contentType MIME type (default application/pdf)
+ * @param timeoutMs   abort the upload after this many ms (default 20s — leaves
+ *                    headroom inside the route's 30s budget for the redirect)
  * @returns public CDN URL
- * @throws  on any non-2xx response — caller must not persist a bad pdf_url
+ * @throws  on any non-2xx response or timeout — caller must not persist a bad pdf_url
  */
 export async function putStorageObject(
   remotePath: string,
   buffer: Buffer,
   contentType = "application/pdf",
+  timeoutMs = 20_000,
 ): Promise<string> {
   const cfg = getStorageConfig();
   const url = `https://${cfg.regionEndpoint}/${cfg.zoneName}/${remotePath}`;
 
-  const res = await fetch(url, {
-    method: "PUT",
-    headers: {
-      AccessKey: cfg.apiKey,
-      "Content-Type": contentType,
-    },
-    body: buffer as unknown as BodyInit,
-  });
+  // Bound the PUT so a stalled Bunny connection can't eat the whole request budget.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "PUT",
+      headers: {
+        AccessKey: cfg.apiKey,
+        "Content-Type": contentType,
+      },
+      body: buffer as unknown as BodyInit,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error(`Bunny Storage PUT timed out after ${timeoutMs}ms`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!res.ok) {
     throw new Error(`Bunny Storage PUT failed: ${res.status} ${await res.text()}`);

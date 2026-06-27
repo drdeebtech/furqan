@@ -156,8 +156,8 @@ function certTitle(cert: PublicCertificate): string {
 }
 
 function rangeDisplay(cert: PublicCertificate): string {
-  if (!cert.cited_range_start && !cert.cited_range_end) return "";
   if (cert.certificate_type === "course_completion") return "";
+  if (!cert.cited_range_start || !cert.cited_range_end) return "";
 
   const startSurah = cert.cited_start_surah_ar ?? cert.cited_range_start.split(":")[0];
   const endSurah = cert.cited_end_surah_ar ?? cert.cited_range_end.split(":")[0];

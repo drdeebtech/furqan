@@ -3,11 +3,16 @@
 // Auth: unguessable slug = capability URL. Unknown slug → 404.
 // noindex: share link is intentional, but we don't want search-engine enumeration.
 
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import QRCode from "qrcode";
 
-import { getPublicCertificate } from "@/lib/domains/certificates/view";
+import { getPublicCertificate as _getPublicCertificate } from "@/lib/domains/certificates/view";
+
+// Dedupe the service-role lookup within a single request: generateMetadata and
+// the page component both call it, but cache() collapses them to one query.
+const getPublicCertificate = cache(_getPublicCertificate);
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -126,13 +131,13 @@ function certTitle(
 
 function rangeDisplay(cert: {
   certificate_type: string;
-  cited_range_start: string;
-  cited_range_end: string;
+  cited_range_start: string | null;
+  cited_range_end: string | null;
   cited_start_surah_ar: string | null;
   cited_end_surah_ar: string | null;
 }): string | null {
   if (cert.certificate_type === "course_completion") return null;
-  if (!cert.cited_range_start && !cert.cited_range_end) return null;
+  if (!cert.cited_range_start || !cert.cited_range_end) return null;
 
   const startSurah = cert.cited_start_surah_ar ?? cert.cited_range_start.split(":")[0];
   const endSurah = cert.cited_end_surah_ar ?? cert.cited_range_end.split(":")[0];
