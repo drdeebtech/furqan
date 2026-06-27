@@ -23,6 +23,7 @@ import { WelcomeHeader } from "./welcome-header";
 import { TodaysPlan } from "./todays-plan";
 import { MurajaahCard } from "./murajaah-card";
 import { GoalCard } from "./goal-card";
+import { HonorBoardCard } from "./honor-board-card";
 import type { MurajaahDueItem } from "@/lib/dashboard-queries";
 import type { GoalDashboardData } from "@/lib/domains/goals/goals";
 
@@ -470,6 +471,9 @@ function StudentDashboardContentInner({ data }: { data: DashboardData }) {
                 title={t("الجلسات المباشرة", "Online Classes")}
                 ongoingCount={liveSessions.length}
               />
+            </SectionErrorBoundary>
+            <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل لوحة الشرف", "Couldn't load Honor Board")}>
+              <HonorBoardCard />
             </SectionErrorBoundary>
             <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل توزيع المتابعات", "Couldn't load follow-up breakdown")}>
               <BreakdownBar
