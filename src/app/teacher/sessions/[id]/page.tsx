@@ -286,14 +286,14 @@ export default async function TeacherSessionPage({ params }: Props) {
           {/* Riwaya badge — prominent so teacher never corrects a Warsh student
               using Hafs rules. Uses lastProgress.recitation_standard (already
               fetched); profiles.recitation_standard does not exist in schema. */}
-          {lastProgress?.recitation_standard && RECITATION_STANDARD_LABEL[lastProgress.recitation_standard] && (
+          {lastProgress?.recitation_standard && (
             <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5">
               <span className="text-xs font-medium text-muted">{t("رواية:", "Riwaya:")}</span>
               <span className="text-sm font-bold text-amber-300">
-                {t(
-                  RECITATION_STANDARD_LABEL[lastProgress.recitation_standard].ar,
-                  RECITATION_STANDARD_LABEL[lastProgress.recitation_standard].en,
-                )}
+                {(() => {
+                  const label = RECITATION_STANDARD_LABEL[lastProgress.recitation_standard];
+                  return label ? t(label.ar, label.en) : lastProgress.recitation_standard;
+                })()}
               </span>
             </div>
           )}
