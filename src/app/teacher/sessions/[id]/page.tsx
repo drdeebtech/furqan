@@ -7,6 +7,7 @@ import { SESSION_TYPE_AR } from "@/lib/constants";
 import { surahName } from "@/lib/quran/surahs";
 import { getT } from "@/lib/i18n/server";
 import { riskBadgeClass, riskLabel } from "@/lib/retention/ui";
+import { RECITATION_STANDARD_LABEL } from "@/lib/recitation-constants";
 import type { SessionType, SessionMode, HomeworkAssignment } from "@/types/database";
 import { SessionModeBadge } from "@/components/sessions/SessionModeBadge";
 
@@ -282,6 +283,20 @@ export default async function TeacherSessionPage({ params }: Props) {
             {lang === "ar" ? SESSION_TYPE_AR[booking.session_type] : SESSION_TYPE_EN[booking.session_type]}
             <span className="me-2 text-muted">· {booking.duration_min} {t("دقيقة", "min")}</span>
           </p>
+          {/* Riwaya badge — prominent so teacher never corrects a Warsh student
+              using Hafs rules. Uses lastProgress.recitation_standard (already
+              fetched); profiles.recitation_standard does not exist in schema. */}
+          {lastProgress?.recitation_standard && (
+            <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5">
+              <span className="text-xs font-medium text-muted">{t("رواية:", "Riwaya:")}</span>
+              <span className="text-sm font-bold text-amber-300">
+                {(() => {
+                  const label = RECITATION_STANDARD_LABEL[lastProgress.recitation_standard];
+                  return label ? t(label.ar, label.en) : lastProgress.recitation_standard;
+                })()}
+              </span>
+            </div>
+          )}
           <p dir="ltr" className="mt-1 text-left text-sm text-muted">
             {scheduledDate.toLocaleDateString(locale, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
             <span className="mx-2">·</span>
@@ -357,14 +372,7 @@ export default async function TeacherSessionPage({ params }: Props) {
                 {lastProgress.recitation_standard && (
                   <p className="mt-1 text-[11px] text-muted">
                     {(() => {
-                      const std: Record<string, { ar: string; en: string }> = {
-                        hafs: { ar: "حفص عن عاصم", en: "Hafs an Asim" },
-                        warsh: { ar: "ورش عن نافع", en: "Warsh an Nafi" },
-                        qalon: { ar: "قالون عن نافع", en: "Qalun an Nafi" },
-                        al_duri: { ar: "الدوري عن أبي عمرو", en: "Al-Duri an Abu Amr" },
-                        shu_ba: { ar: "شعبة عن عاصم", en: "Shu'ba an Asim" },
-                      };
-                      const label = std[lastProgress.recitation_standard];
+                      const label = RECITATION_STANDARD_LABEL[lastProgress.recitation_standard];
                       return label ? t(label.ar, label.en) : lastProgress.recitation_standard;
                     })()}
                   </p>
