@@ -6,14 +6,26 @@ import { useLang } from "@/lib/i18n/context";
 import { surahName } from "@/lib/quran/surahs";
 import { ActionFeedback } from "@/components/shared/action-feedback";
 import { markReviewComplete } from "./murajaah-actions";
+import { REVIEW_QUALITY_OPTIONS } from "@/lib/domains/murajaah/quality-options";
 import type { MurajaahDueItem } from "@/lib/dashboard-queries";
+
+// Per-option Tailwind tones: emerald = positive recall, amber = effortful but
+// passing, red = lapse. Tokens follow repo conventions (see
+// src/lib/retention/ui.ts, src/lib/constants.ts).
+const TONE_BY_QUALITY: Record<number, string> = {
+  5: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15",
+  3: "border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/15",
+  1: "border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/15",
+};
 
 /**
  * Daily Murajaah card (spec 001, SM-2 v1) — lists the portions due for review
- * today and lets the student mark each done. Marking pushes the item forward on
- * the SM-2 schedule (complete_review); "صعبة" records a lapse (shorter next
- * interval, lower easiness). Hides when nothing is due; congratulates quietly
- * when all are done.
+ * today and lets the student mark each done with an honest SM-2 recall quality.
+ * Three options map to the SM-2 quality scale: "حفظت" → 5 (good recall, grows
+ * the interval), "بجهد" → 3 (passing recall, still grows but lowers easiness),
+ * "لم أحفظ" → 1 (a lapse: complete_review resets the interval to 1 day and
+ * lowers easiness). Hides when nothing is due; congratulates quietly when all
+ * are done.
  *
  * Brand discipline (.impeccable.md): quiet, no gamification.
  */
@@ -81,23 +93,19 @@ export function MurajaahCard({ items }: { items: MurajaahDueItem[] }) {
           >
             <span className="text-sm text-foreground/90">{formatRange(item, lang === "ar" ? "ar" : "en", t)}</span>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={pendingIds.has(item.scheduleId)}
-                onClick={() => complete(item.scheduleId, 4)}
-                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-medium text-emerald-400 hover:bg-emerald-500/15 disabled:opacity-50 focus-ring"
-              >
-                <Check size={14} aria-hidden="true" />
-                {t("تمت", "Done")}
-              </button>
-              <button
-                type="button"
-                disabled={pendingIds.has(item.scheduleId)}
-                onClick={() => complete(item.scheduleId, 2)}
-                className="inline-flex min-h-[44px] items-center rounded-full border border-card-border px-3 py-1.5 text-sm font-medium text-muted hover:text-foreground disabled:opacity-50 focus-ring"
-              >
-                {t("صعبة", "Hard")}
-              </button>
+              {REVIEW_QUALITY_OPTIONS.map((opt) => (
+                <button
+                  key={opt.quality}
+                  type="button"
+                  disabled={pendingIds.has(item.scheduleId)}
+                  onClick={() => complete(item.scheduleId, opt.quality)}
+                  aria-label={t(opt.ar, opt.en)}
+                  className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium disabled:opacity-50 focus-ring ${TONE_BY_QUALITY[opt.quality]}`}
+                >
+                  {opt.quality === 5 && <Check size={14} aria-hidden="true" />}
+                  {t(opt.ar, opt.en)}
+                </button>
+              ))}
             </div>
           </li>
         ))}

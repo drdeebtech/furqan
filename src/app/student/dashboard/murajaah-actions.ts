@@ -58,8 +58,9 @@ const markReviewCompleteBase = loudAction<{ scheduleId: string; quality: number 
 });
 
 /**
- * @param quality SM-2 recall quality 0–5. The card maps "تمت" → 4 (good recall)
- *        and "صعبة" → 2 (a lapse: shortens the next interval and lowers EF).
+ * @param quality SM-2 recall quality 0–5. The card maps "حفظت" → 5 (good
+ *        recall), "بجهد" → 3 (effortful but passing), and "لم أحفظ" → 1 (a
+ *        lapse: resets the interval to 1 day and lowers EF). q ≥ 3 passes.
  */
 export async function markReviewComplete(
   scheduleId: string,
