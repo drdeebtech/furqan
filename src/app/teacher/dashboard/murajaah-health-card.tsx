@@ -27,9 +27,9 @@ const TREND_ICON: Record<MurajaahEaseTrend, typeof TrendingUp> = {
 };
 
 const TREND_CLASS: Record<MurajaahEaseTrend, string> = {
-  improving: "text-emerald-500",
+  improving: "text-success",
   stable: "text-muted",
-  declining: "text-amber-500",
+  declining: "text-warning",
 };
 
 function formatDate(iso: string | null, lang: string): string {
@@ -42,7 +42,7 @@ function formatDate(iso: string | null, lang: string): string {
 
 export async function MurajaahHealthCard({ teacherId }: { teacherId: string }) {
   const supabase = await createClient();
-  const { data } = await helperOrFail(
+  const { data, failed } = await helperOrFail(
     () => getTeacherMurajaahHealth(supabase, teacherId),
     [] as StudentMurajaahHealth[],
     { route: "teacher-dashboard", widget: "murajaah-health" },
@@ -52,6 +52,26 @@ export async function MurajaahHealthCard({ teacherId }: { teacherId: string }) {
 
   const sectionLabel = t("مراجعة الطلاب", "Student Murajaah Health");
 
+  // Backend error: show a neutral failure state, not the empty-state copy.
+  if (failed) {
+    return (
+      <section aria-label={sectionLabel} className="mt-4 glass-card p-4 sm:p-5">
+        <div className="flex items-center gap-3">
+          <BookOpen size={18} className="text-muted" aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted">{t("مراجعة الطلاب", sectionLabel)}</p>
+            <p className="text-sm text-error">
+              {t(
+                "تعذّر تحميل بيانات المراجعة. يُرجى تحديث الصفحة.",
+                "Could not load review data. Please refresh the page.",
+              )}
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   if (data.length === 0) {
     return (
       <section aria-label={sectionLabel} className="mt-4 glass-card p-4 sm:p-5">
@@ -59,7 +79,7 @@ export async function MurajaahHealthCard({ teacherId }: { teacherId: string }) {
           <BookOpen size={18} className="text-muted" aria-hidden="true" />
           <div className="min-w-0 flex-1">
             <p className="text-xs text-muted">
-              {t("مراجعة الطلاب / مراجعة الطلاب", sectionLabel)}
+              {t("مراجعة الطلاب", sectionLabel)}
             </p>
             <p className="text-sm text-muted">
               {t(
@@ -82,7 +102,7 @@ export async function MurajaahHealthCard({ teacherId }: { teacherId: string }) {
         </h3>
       </div>
 
-      <ul className="divide-y divide-foreground/5" role="list">
+      <ul className="divide-y divide-foreground/5">
         {data.map((s) => {
           const isOverdue = s.overdueCount > 0;
           const TrendIcon = TREND_ICON[s.easeTrend];
@@ -98,19 +118,19 @@ export async function MurajaahHealthCard({ teacherId }: { teacherId: string }) {
             <li
               key={s.studentId}
               className={`flex items-center justify-between gap-3 py-2.5 text-xs ${
-                isOverdue ? "text-red-500" : ""
+                isOverdue ? "text-error" : ""
               }`}
             >
               {/* Student name + overdue badge */}
               <span
                 className={`min-w-0 flex-1 truncate font-medium ${
-                  isOverdue ? "text-red-500" : ""
+                  isOverdue ? "text-error" : ""
                 }`}
               >
                 {s.studentName}
                 {isOverdue && (
                   <span
-                    className="ms-1.5 inline-flex items-center rounded px-1 py-0.5 text-[10px] font-semibold bg-red-500/10 text-red-500"
+                    className="ms-1.5 inline-flex items-center rounded px-1 py-0.5 text-[10px] font-semibold bg-error/10 text-error"
                     aria-label={t(
                       `${s.overdueCount} عنصر متأخر`,
                       `${s.overdueCount} overdue`,
@@ -123,7 +143,7 @@ export async function MurajaahHealthCard({ teacherId }: { teacherId: string }) {
 
               {/* Last reviewed date */}
               <span
-                className={`shrink-0 tabular-nums ${isOverdue ? "text-red-400" : "text-muted"}`}
+                className={`shrink-0 tabular-nums ${isOverdue ? "text-error" : "text-muted"}`}
                 aria-label={t("آخر مراجعة", "Last reviewed")}
               >
                 {formatDate(s.lastReviewedAt, lang)}

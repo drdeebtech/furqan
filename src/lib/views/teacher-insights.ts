@@ -231,5 +231,9 @@ export async function getTeacherMurajaahHealth(
         easeTrend,
       };
     })
-    .sort((a, b) => b.overdueCount - a.overdueCount); // worst-overdue first
+    // Worst-overdue first; stable tie-break on studentId for deterministic order.
+    .sort(
+      (a, b) =>
+        b.overdueCount - a.overdueCount || a.studentId.localeCompare(b.studentId),
+    );
 }

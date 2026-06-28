@@ -229,6 +229,41 @@ describe("getTeacherMurajaahHealth", () => {
     expect(trend("s-stable")).toBe("stable");
   });
 
+  it("does NOT count a student overdue at exactly the 3-day boundary", async () => {
+    // Frozen clock so the boundary is deterministic: overdue is strictly
+    // >3 days (next_review_at < now - 3d). At exactly 3 days it must NOT count.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-15T12:00:00.000Z"));
+    try {
+      const exactlyThreeDays = daysAgo(3);
+      mockMurajaahQueries(
+        [
+          { student_id: STUDENT_A, easiness_factor: 2.5, next_review_at: exactlyThreeDays, last_reviewed_at: null },
+        ],
+        [{ id: STUDENT_A, full_name: "Ahmed" }],
+      );
+      const [result] = await getTeacherMurajaahHealth(chain as never, TEACHER);
+      expect(result.overdueCount).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("breaks overdue ties deterministically by studentId ascending", async () => {
+    // Both students share the same overdueCount; insertion order is B before A.
+    // Without the studentId tie-break the result would echo insertion order (B, A).
+    mockMurajaahQueries(
+      [
+        { student_id: STUDENT_B, easiness_factor: 2.5, next_review_at: daysAgo(5), last_reviewed_at: null },
+        { student_id: STUDENT_A, easiness_factor: 2.5, next_review_at: daysAgo(5), last_reviewed_at: null },
+      ],
+      [],
+    );
+    const result = await getTeacherMurajaahHealth(chain as never, TEACHER);
+    expect(result[0].overdueCount).toBe(result[1].overdueCount); // tie
+    expect(result.map(r => r.studentId)).toEqual([STUDENT_A, STUDENT_B]);
+  });
+
   it("throws when the schedule query errors", async () => {
     chain.returns.mockResolvedValueOnce({ data: null, error: new Error("sched fail") });
     await expect(getTeacherMurajaahHealth(chain as never, TEACHER)).rejects.toThrow("sched fail");
