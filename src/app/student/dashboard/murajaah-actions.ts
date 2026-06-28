@@ -58,14 +58,20 @@ const markReviewCompleteBase = loudAction<{ scheduleId: string; quality: number 
 });
 
 /**
- * @param quality SM-2 recall quality 0–5. The card maps "تمت" → 4 (good recall)
- *        and "صعبة" → 2 (a lapse: shortens the next interval and lowers EF).
+ * @param quality SM-2 recall quality 0–5. The card maps "حفظت" → 5 (good
+ *        recall), "بجهد" → 3 (effortful but passing), and "لم أحفظ" → 1 (a
+ *        lapse: resets the interval to 1 day and lowers EF). q ≥ 3 passes.
+ *        Invalid input (non-integer or outside [0, 5]) is REJECTED — it does
+ *        not get defaulted/clamped to a passing quality.
  */
 export async function markReviewComplete(
   scheduleId: string,
   quality: number,
 ): Promise<{ success?: true; error?: string }> {
-  const q = Number.isInteger(quality) ? Math.max(0, Math.min(5, quality)) : 4;
+  if (!Number.isInteger(quality) || quality < 0 || quality > 5) {
+    return { error: "تعذر تسجيل المراجعة — قيمة غير صالحة" };
+  }
+  const q = Math.max(0, Math.min(5, quality));
   const result = await markReviewCompleteBase({ scheduleId, quality: q });
   return result.ok ? { success: true } : { error: result.error };
 }
