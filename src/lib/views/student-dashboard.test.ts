@@ -69,27 +69,26 @@ import { after } from "next/server";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const HW_STATUSES = [
-  "assigned",
-  "student_ready",
-  "completed_excellent",
-  "completed_good",
-  "completed_needs_work",
-  "completed_not_done",
-] as const;
-
-/** Build a minimal Supabase-like chain that resolves hwCount HEAD queries. */
-function makeSupabase(hwCountOverride = 0) {
-  const chain = {
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    // `.then()` makes the chain thenable — resolves with a count result
-    then: vi.fn((resolve: (v: { count: number | null }) => unknown) =>
-      Promise.resolve({ count: hwCountOverride }).then(resolve)
-    ),
-  };
+/**
+ * Build a minimal Supabase-like chain that resolves hwCount HEAD queries.
+ * Pass a single number to use it for all 6 queries, or an array of
+ * (number | null) to set per-query values — null simulates a failed query.
+ */
+function makeSupabase(hwCountsArg: number | (number | null)[] = 0) {
+  const counts = Array.isArray(hwCountsArg) ? hwCountsArg : Array(6).fill(hwCountsArg);
+  let callIndex = 0;
   return {
-    from: vi.fn().mockReturnValue(chain),
+    from: vi.fn(() => {
+      const thisCount = counts[callIndex++] ?? null;
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        // `.then()` makes the chain thenable — resolves with a count result
+        then: vi.fn((resolve: (v: { count: number | null }) => unknown) =>
+          Promise.resolve({ count: thisCount }).then(resolve)
+        ),
+      };
+    }),
   } as unknown as Parameters<typeof studentAnalyticsWidgetData>[0];
 }
 
@@ -210,7 +209,7 @@ describe("studentAnalyticsWidgetData", () => {
     const result = await studentAnalyticsWidgetData(makeSupabase(), STUDENT_ID);
 
     expect(result.continueIsLessons).toBe(false);
-    expect(result.watchingRows).toBe(recordings);
+    expect(result.watchingRows).toEqual(recordings);
   });
 
   it("sets continueIsLessons=true and uses continueWatching rows when non-empty", async () => {
@@ -229,18 +228,39 @@ describe("studentAnalyticsWidgetData", () => {
     expect(result.watchingRows).not.toBe(recordings);
   });
 
-  it("returns hwCounts with all 6 status keys", async () => {
+  it("maps each hw status to its distinct count", async () => {
     vi.mocked(getStudentStudyAnalytics).mockResolvedValue(EMPTY_ANALYTICS as never);
     vi.mocked(getStudentLiveSessions).mockResolvedValue([]);
     vi.mocked(getStudentContinueWatching).mockResolvedValue([]);
     vi.mocked(getStudentRecentRecordings).mockResolvedValue([]);
 
-    const result = await studentAnalyticsWidgetData(makeSupabase(3), STUDENT_ID);
+    // One distinct count per status so a miswired bucket would fail the assertion.
+    const distinctCounts = [1, 2, 3, 4, 5, 6] as const;
+    const result = await studentAnalyticsWidgetData(makeSupabase([...distinctCounts]), STUDENT_ID);
 
-    for (const status of HW_STATUSES) {
-      expect(result.hwCounts).toHaveProperty(status);
-      expect(typeof result.hwCounts[status]).toBe("number");
-    }
+    expect(result.hwCounts).toEqual({
+      assigned: 1,
+      student_ready: 2,
+      completed_excellent: 3,
+      completed_good: 4,
+      completed_needs_work: 5,
+      completed_not_done: 6,
+    });
+    expect(result.anyFailed).toBe(false);
+  });
+
+  it("sets anyFailed=true when any hw HEAD count query fails", async () => {
+    vi.mocked(getStudentStudyAnalytics).mockResolvedValue(EMPTY_ANALYTICS as never);
+    vi.mocked(getStudentLiveSessions).mockResolvedValue([]);
+    vi.mocked(getStudentContinueWatching).mockResolvedValue([]);
+    vi.mocked(getStudentRecentRecordings).mockResolvedValue([]);
+
+    // null in position 0 simulates a failed HEAD query for "assigned"
+    const result = await studentAnalyticsWidgetData(makeSupabase([null, 1, 1, 1, 1, 1]), STUDENT_ID);
+
+    expect(result.anyFailed).toBe(true);
+    // failed query falls back to 0, not a phantom non-zero count
+    expect(result.hwCounts.assigned).toBe(0);
   });
 
   it("passes studyAnalytics and liveSessions through from helpers", async () => {

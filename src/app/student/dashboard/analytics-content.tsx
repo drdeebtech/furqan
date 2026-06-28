@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Eye } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { WidgetCard } from "@/components/shared/widget-card";
@@ -18,7 +19,7 @@ interface Props extends StudentAnalyticsWidgetData {
 }
 
 export function StudentAnalyticsContent({
-  studyAnalytics, liveSessions, hwCounts, watchingRows, continueIsLessons,
+  studyAnalytics, liveSessions, hwCounts, watchingRows, continueIsLessons, anyFailed,
   weeklyMinutes, weeklyDelta,
 }: Props) {
   const { t } = useLang();
@@ -60,6 +61,11 @@ export function StudentAnalyticsContent({
             <HonorBoardCard />
           </SectionErrorBoundary>
           <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل توزيع المتابعات", "Couldn't load follow-up breakdown")}>
+            {anyFailed && (
+              <p className="mb-2 text-xs text-amber-500">
+                {t("تعذّر تحميل بعض الإحصاءات", "Some counts couldn't be loaded")}
+              </p>
+            )}
             <BreakdownBar
               title={t("توزيع المتابعات", "Follow-up Breakdown")}
               infoTooltip={t("توزيع حالة المتابعات", "Distribution of follow-up status")}
@@ -111,13 +117,13 @@ export function StudentAnalyticsContent({
               const href = (row._href as string | undefined) ?? "/student/courses";
               if (!lessonId) {
                 return (
-                  <a
+                  <Link
                     href={href}
                     aria-label={t("عرض", "View")}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded text-[var(--muted-light,#9CA3AF)] hover:text-foreground"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded text-[var(--muted-light,#9CA3AF)] hover:text-foreground"
                   >
                     <Eye size={14} aria-hidden="true" />
-                  </a>
+                  </Link>
                 );
               }
               return <LessonRowActions lessonId={lessonId} href={href} />;

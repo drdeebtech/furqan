@@ -19,10 +19,17 @@ export function StudentMurajaahSkeleton() {
 }
 
 export async function StudentMurajaahSection({ studentId }: { studentId: string }) {
-  const supabase = await createClient();
-  const items = await studentMurajaahWidgetData(supabase, studentId);
-  // MurajaahCard returns null when items is empty, so the skeleton disappears
-  // cleanly for students with no pending murajaah.
+  // Guard only the async data fetch — JSX must live outside the try block to
+  // satisfy react-hooks/error-boundaries.
+  let items: Awaited<ReturnType<typeof studentMurajaahWidgetData>>;
+  try {
+    const supabase = await createClient();
+    items = await studentMurajaahWidgetData(supabase, studentId);
+  } catch {
+    return null;
+  }
+
+  if (items.length === 0) return null;
   return (
     <div className="mt-6">
       <MurajaahCard items={items} />

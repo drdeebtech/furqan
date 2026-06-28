@@ -117,6 +117,8 @@ export interface StudentAnalyticsWidgetData {
   hwCounts: Record<string, number>;
   watchingRows: Record<string, unknown>[];
   continueIsLessons: boolean;
+  /** True when one or more homework HEAD-count queries failed — UI should show an inline warning instead of treating zeros as real. */
+  anyFailed: boolean;
 }
 
 const ROUTE = "student-dashboard";
@@ -448,13 +450,15 @@ export async function studentAnalyticsWidgetData(
   ]);
 
   const hwCounts: Record<string, number> = {};
+  let anyFailed = false;
   HW_STATUSES.forEach((s, i) => {
     const r = countOrFail(hwCountsRaw[i], { route: ROUTE, widget: `homework-${s}` });
     hwCounts[s] = r.count;
+    anyFailed ||= r.failed;
   });
 
   const continueIsLessons = continueWatching.length > 0;
   const watchingRows = continueIsLessons ? continueWatching : recentRecordings;
 
-  return { studyAnalytics, liveSessions, hwCounts, watchingRows, continueIsLessons };
+  return { studyAnalytics, liveSessions, hwCounts, watchingRows, continueIsLessons, anyFailed };
 }

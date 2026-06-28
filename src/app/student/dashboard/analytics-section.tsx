@@ -42,10 +42,17 @@ export async function StudentAnalyticsSection({
   weeklyMinutes: number;
   weeklyDelta: number;
 }) {
-  const supabase = await createClient();
-  const { studyAnalytics, liveSessions, hwCounts, watchingRows, continueIsLessons } =
-    await studentAnalyticsWidgetData(supabase, studentId);
+  // Guard only the async data fetch — JSX must live outside the try block to
+  // satisfy react-hooks/error-boundaries (render errors are caught by SectionErrorBoundary).
+  let data: Awaited<ReturnType<typeof studentAnalyticsWidgetData>>;
+  try {
+    const supabase = await createClient();
+    data = await studentAnalyticsWidgetData(supabase, studentId);
+  } catch {
+    return null;
+  }
 
+  const { studyAnalytics, liveSessions, hwCounts, watchingRows, continueIsLessons, anyFailed } = data;
   return (
     <StudentAnalyticsContent
       studyAnalytics={studyAnalytics}
@@ -53,6 +60,7 @@ export async function StudentAnalyticsSection({
       hwCounts={hwCounts}
       watchingRows={watchingRows}
       continueIsLessons={continueIsLessons}
+      anyFailed={anyFailed}
       weeklyMinutes={weeklyMinutes}
       weeklyDelta={weeklyDelta}
     />
