@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { StudentDashboardContent } from "./dashboard-content";
 import { DataLoadBanner } from "@/components/shared/data-load-banner";
 import { studentDashboardView } from "@/lib/views/student-dashboard";
+import { StudentAnalyticsSection, StudentAnalyticsSkeleton } from "./analytics-section";
+import { StudentMurajaahSection, StudentMurajaahSkeleton } from "./murajaah-section";
 
 export const metadata: Metadata = { title: "لوحتي" };
 
@@ -50,10 +53,26 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
     redirect("/student/teachers?new=1");
   }
 
+  const murajaahSlot = (
+    <Suspense fallback={<StudentMurajaahSkeleton />}>
+      <StudentMurajaahSection studentId={user.id} />
+    </Suspense>
+  );
+
+  const analyticsSlot = (
+    <Suspense fallback={<StudentAnalyticsSkeleton />}>
+      <StudentAnalyticsSection
+        studentId={user.id}
+        weeklyMinutes={data.streakInfo.weeklyMinutes}
+        weeklyDelta={data.streakInfo.weeklyDelta}
+      />
+    </Suspense>
+  );
+
   return (
     <>
       <DataLoadBanner failed={anyFailed} />
-      <StudentDashboardContent data={data} />
+      <StudentDashboardContent data={data} murajaahSlot={murajaahSlot} analyticsSlot={analyticsSlot} />
     </>
   );
 }
