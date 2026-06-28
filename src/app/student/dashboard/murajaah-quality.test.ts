@@ -33,14 +33,14 @@ describe("SM-2 pedagogy behind the 3 options (seed interval=6, easiness=2.5)", (
 
   const seed = { intervalDays: 6, easiness: 2.5 };
 
-  it("quality 5 (حفظت) grows the interval", () => {
+  it("quality 5 (حفظت) grows the interval (strict — catches a freeze regression)", () => {
     const next = reviewOutcome(seed, 5);
-    expect(next.intervalDays).toBeGreaterThanOrEqual(seed.intervalDays);
+    expect(next.intervalDays).toBeGreaterThan(seed.intervalDays);
   });
 
-  it("quality 3 (بجهد) still grows the interval — just above the lapse threshold", () => {
+  it("quality 3 (بجهد) still grows the interval (strict — catches a freeze regression)", () => {
     const next = reviewOutcome(seed, 3);
-    expect(next.intervalDays).toBeGreaterThanOrEqual(seed.intervalDays);
+    expect(next.intervalDays).toBeGreaterThan(seed.intervalDays);
   });
 
   it("quality 1 (لم أحفظ) resets the interval to 1 day", () => {

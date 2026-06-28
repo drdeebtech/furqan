@@ -99,7 +99,7 @@ export function MurajaahCard({ items }: { items: MurajaahDueItem[] }) {
                   type="button"
                   disabled={pendingIds.has(item.scheduleId)}
                   onClick={() => complete(item.scheduleId, opt.quality)}
-                  aria-label={t(opt.ar, opt.en)}
+                  aria-label={`${t(opt.ar, opt.en)} — ${formatRange(item, lang === "ar" ? "ar" : "en", t)}`}
                   className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium disabled:opacity-50 focus-ring ${TONE_BY_QUALITY[opt.quality]}`}
                 >
                   {opt.quality === 5 && <Check size={14} aria-hidden="true" />}
