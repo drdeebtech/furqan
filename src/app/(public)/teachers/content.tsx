@@ -19,6 +19,7 @@ interface Teacher {
   recitationStandards: string[];
   hourlyRate: number;
   ratingAvg: number;
+  ratingCount: number;
   totalSessions: number;
   gender: string | null;
 }
@@ -141,12 +142,16 @@ export function TeachersContent({
                     <p>{teacher.totalSessions} {t("جلسة مكتملة", "completed sessions")}</p>
                   </div>
 
-                  <div className="mt-2 flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map((i) => (
-                      <Star key={i} size={12} className={i <= Math.round(teacher.ratingAvg) ? "fill-gold text-gold" : "text-card-border"} />
-                    ))}
-                    {teacher.ratingAvg > 0 && <span className="me-1 text-xs text-muted">{teacher.ratingAvg.toFixed(1)}</span>}
-                  </div>
+                  {/* #542: only show the aggregate once a teacher has ≥3 ratings */}
+                  {teacher.ratingCount >= 3 && (
+                    <div className="mt-2 flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <Star key={i} size={12} className={i <= Math.round(teacher.ratingAvg) ? "fill-gold text-gold" : "text-card-border"} />
+                      ))}
+                      <span className="me-1 text-xs text-muted">{teacher.ratingAvg.toFixed(1)}</span>
+                      <span className="text-xs text-muted">({teacher.ratingCount})</span>
+                    </div>
+                  )}
 
                   <Link
                     href={`/contact?teacher=${encodeURIComponent(teacher.name)}`}

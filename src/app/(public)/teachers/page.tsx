@@ -41,6 +41,11 @@ const getPublicTeachers = unstable_cache(
     let nameArMap: Record<string, string | null> = {};
     let avatarMap: Record<string, string | null> = {};
     let validTeacherIds = new Set<string>();
+    // Per-teacher review count — gates the public rating display (#542: show
+    // the aggregate only once a teacher has ≥3 ratings, so a single early
+    // review can't define a teacher's public score). rating_avg itself is
+    // maintained by the t_update_teacher_rating trigger.
+    const ratingCountMap: Record<string, number> = {};
     if (teachers.length > 0) {
       const ids = teachers.map(t => t.teacher_id);
       const { data: profiles } = await supabase
@@ -55,6 +60,12 @@ const getPublicTeachers = unstable_cache(
         nameArMap = Object.fromEntries(profiles.map(p => [p.id, p.full_name_ar ?? null]));
         avatarMap = Object.fromEntries(profiles.map(p => [p.id, p.avatar_url ?? null]));
       }
+      const { data: revRows } = await supabase
+        .from("reviews")
+        .select("teacher_id")
+        .in("teacher_id", ids)
+        .returns<{ teacher_id: string }[]>();
+      for (const r of revRows ?? []) ratingCountMap[r.teacher_id] = (ratingCountMap[r.teacher_id] ?? 0) + 1;
     }
 
     const [specRes, recRes] = await Promise.all([
@@ -76,9 +87,22 @@ const getPublicTeachers = unstable_cache(
         recitationStandards: t.recitation_standards,
         hourlyRate: Number(t.hourly_rate),
         ratingAvg: Number(t.rating_avg),
+        ratingCount: ratingCountMap[t.teacher_id] ?? 0,
         totalSessions: t.total_sessions,
         gender: t.gender,
-      }));
+      }))
+      // #542: don't let a hidden rating influence ranking. The SQL `order by
+      // rating_avg` would float a teacher with one 5★ review above a veteran
+      // averaging 4.8 — yet the card hides that score below 3 ratings. So gate
+      // the ranking the same way as the display: teachers with ≥3 ratings rank
+      // first by rating, everyone else falls back to experience (sessions).
+      .sort((a, b) => {
+        const aQ = a.ratingCount >= 3;
+        const bQ = b.ratingCount >= 3;
+        if (aQ !== bQ) return aQ ? -1 : 1;
+        if (aQ && bQ) return b.ratingAvg - a.ratingAvg;
+        return b.totalSessions - a.totalSessions;
+      });
 
     return { teacherData, specialtyLabels, recitationLabels };
   },
