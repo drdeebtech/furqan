@@ -7,7 +7,7 @@ import { surahName } from "@/lib/quran/surahs";
 import { ActionFeedback } from "@/components/shared/action-feedback";
 import { markReviewComplete } from "./murajaah-actions";
 import { REVIEW_QUALITY_OPTIONS } from "@/lib/domains/murajaah/quality-options";
-import type { MurajaahDueItem } from "@/lib/dashboard-queries";
+import type { MurajaahDueItem } from "@/lib/domains/murajaah/batch";
 
 // Per-option Tailwind tones: emerald = positive recall, amber = effortful but
 // passing, red = lapse. Tokens follow repo conventions (see

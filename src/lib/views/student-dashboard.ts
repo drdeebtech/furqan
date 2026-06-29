@@ -15,7 +15,7 @@ import {
   getStudentHomeworkPulse,
   getTodaysMurajaahBatch,
   type MurajaahDueItem,
-} from "@/lib/dashboard-queries";
+} from "@/lib/views/student-dashboard-queries";
 
 /**
  * Deep read module for the student dashboard screen.
