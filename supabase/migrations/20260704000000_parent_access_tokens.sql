@@ -70,6 +70,11 @@ begin
      or new.expires_at is distinct from old.expires_at then
     raise exception 'parent_access_tokens: only revoked_at may be updated';
   end if;
+  -- Revocation is one-way: revoked_at may move NULL → timestamp once, but a
+  -- revoked token can never be un-revoked or re-stamped. (#563 CR)
+  if old.revoked_at is not null and new.revoked_at is distinct from old.revoked_at then
+    raise exception 'parent_access_tokens: revoked_at is immutable once set';
+  end if;
   return new;
 end;
 $$;

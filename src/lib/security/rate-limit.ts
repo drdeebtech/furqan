@@ -10,9 +10,14 @@ import { logError } from "@/lib/logger";
  * does NOT depend on the Vercel BotID/OIDC gate — so it still works on
  * self-hosted / CI / staging where BotID is bypassed or throws.
  *
- * Fail-open: a transient `automation_logs` outage never blocks a real
- * submission (the caller logs and admits). This matches the original
+ * Fail-open by default: a transient `automation_logs` outage never blocks a
+ * real submission (the caller logs and admits). This matches the original
  * `checkApplyRate` behaviour.
+ *
+ * Pass `{ failClosed: true }` for capability-token routes (e.g. the parent
+ * portal) where a rate-limit backend error must DENY rather than admit — the
+ * anti-enumeration guard is only meaningful if it can't be bypassed by
+ * knocking the counter table over.
  *
  * Mirrors the pattern first introduced in teach-with-us/apply/actions.ts
  * (MAX_APPLICATIONS_PER_HOUR); extracted here so every anonymous public
@@ -22,7 +27,9 @@ export async function checkRateLimit(
   ipKey: string,
   workflow: string,
   maxPerHour: number,
+  opts?: { failClosed?: boolean },
 ): Promise<boolean> {
+  const failClosed = opts?.failClosed ?? false;
   try {
     // admin: rate-limit check; IP-keyed automation_logs telemetry (issue #523)
     const supabase = createAdminClient();
@@ -32,13 +39,19 @@ export async function checkRateLimit(
     // every apply (JAVASCRIPT-NEXTJS-E4-25/26/29 in Sentry). The IP lives in
     // `payload_json` (jsonb) instead; `entity_id` stays NULL. The IP is
     // rate-limit metadata, not a domain entity.
-    const { count } = await supabase
+    const { count, error: countErr } = await supabase
       .from("automation_logs")
       .select("id", { count: "exact", head: true })
       .eq("workflow_name", workflow)
       .eq("payload_json->>ip", ipKey)
       .gte("started_at", oneHourAgo);
 
+    // A count-query error that doesn't reject: fail-closed routes must deny
+    // rather than silently admit on an unknown current count.
+    if (countErr && failClosed) {
+      logError(`rate-limit count failed — denying (${workflow})`, countErr, { tag: workflow });
+      return false;
+    }
     if ((count ?? 0) >= maxPerHour) return false;
 
     const now = new Date().toISOString();
@@ -56,8 +69,13 @@ export async function checkRateLimit(
     }
     return true;
   } catch (err) {
-    // Fail open — never block a real submission because the rate-limit table is down.
-    logError(`rate-limit check failed — allowing (${workflow})`, err, { tag: workflow });
-    return true;
+    // Fail-closed routes deny on backend error; everyone else fails open so a
+    // table outage never blocks a real submission.
+    logError(
+      `rate-limit check failed — ${failClosed ? "denying" : "allowing"} (${workflow})`,
+      err,
+      { tag: workflow },
+    );
+    return !failClosed;
   }
 }

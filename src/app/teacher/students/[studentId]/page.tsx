@@ -109,7 +109,14 @@ export default async function StudentDetailPage({ params }: Props) {
   if (!student) redirect("/teacher/students");
 
   // #563: active parent magic-links this teacher has minted for the student.
-  const parentTokens = await listActiveParentTokens({ studentId, teacherId: user.id });
+  // Isolated like the other optional widgets — a transient failure renders an
+  // empty manager, never 500s the whole student page.
+  const parentTokensLoad = await helperOrFail(
+    () => listActiveParentTokens({ studentId, teacherId: user.id }),
+    [] as { id: string; createdAt: string; expiresAt: string }[],
+    { route: "teacher-student-detail", widget: "parent-links", metadata: { studentId } },
+  );
+  const parentTokens = parentTokensLoad.data;
 
   const bookingsLoad = loadOrFail(bookingsRes, [] as BookingRow[], { route: "teacher-student-detail", widget: "bookings", metadata: { studentId } });
   const progressLoad = loadOrFail(progressRes, [] as ProgressRow[], { route: "teacher-student-detail", widget: "progress", metadata: { studentId } });

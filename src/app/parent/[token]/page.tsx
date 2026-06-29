@@ -9,6 +9,10 @@ import { SESSION_TYPE_AR } from "@/lib/constants";
 // Never index a private per-child link.
 export const metadata: Metadata = { title: "تقرير الطالب", robots: { index: false, follow: false } };
 
+// Platform display timezone — sessions are rendered server-side, so pin an
+// explicit zone instead of the server's default (matches teacher/admin dashboards).
+const PLATFORM_TZ = "Asia/Kuwait";
+
 const ERROR_TYPE_AR: Record<string, string> = { makharij: "مخارج", sifat: "صفات", madd: "مدّ", waqf: "وقف", ghunna: "غنّة", other: "أخرى" };
 const ERROR_TYPE_EN: Record<string, string> = { makharij: "Makharij", sifat: "Sifat", madd: "Madd", waqf: "Waqf", ghunna: "Ghunna", other: "Other" };
 
@@ -25,27 +29,37 @@ export default async function ParentPortalPage({ params }: Props) {
     h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     h.get("x-real-ip") ||
     "unknown";
-  const allowed = await checkRateLimit(ipKey, "parent-portal-view", 60);
+  // Fail-closed: a capability-token route's anti-enumeration guard must DENY on
+  // a rate-limit backend error, not admit. (#563 CR)
+  const allowed = await checkRateLimit(ipKey, "parent-portal-view", 60, { failClosed: true });
 
-  // Fail-closed: unknown / revoked / expired token, or rate-limited → friendly
-  // wall, never a hint about which condition failed.
+  // Friendly wall — never hints which condition failed (unknown / revoked /
+  // expired / rate-limited / transient read error).
+  const wall = (
+    <main dir={dir} className="mx-auto flex min-h-[60vh] max-w-md flex-col items-center justify-center px-6 text-center">
+      <WifiOff size={32} className="mb-4 text-muted" aria-hidden="true" />
+      <h1 className="text-lg font-semibold">{t("الرابط غير صالح", "Link not available")}</h1>
+      <p className="mt-2 text-sm text-muted">
+        {t(
+          "انتهت صلاحية هذا الرابط أو تم إلغاؤه. اطلب من المعلّم رابطًا جديدًا.",
+          "This link has expired or been revoked. Please ask the teacher for a new one.",
+        )}
+      </p>
+    </main>
+  );
+
+  // Fail-closed: unknown / revoked / expired token, or rate-limited → wall.
   const resolved = allowed ? await resolveParentToken(token) : null;
-  if (!resolved) {
-    return (
-      <main dir={dir} className="mx-auto flex min-h-[60vh] max-w-md flex-col items-center justify-center px-6 text-center">
-        <WifiOff size={32} className="mb-4 text-muted" aria-hidden="true" />
-        <h1 className="text-lg font-semibold">{t("الرابط غير صالح", "Link not available")}</h1>
-        <p className="mt-2 text-sm text-muted">
-          {t(
-            "انتهت صلاحية هذا الرابط أو تم إلغاؤه. اطلب من المعلّم رابطًا جديدًا.",
-            "This link has expired or been revoked. Please ask the teacher for a new one.",
-          )}
-        </p>
-      </main>
-    );
-  }
+  if (!resolved) return wall;
 
-  const view = await getParentPortalView(resolved.studentId);
+  // getParentPortalView fails closed on a real DB/RLS error (rather than
+  // rendering a misleading "no progress" state) — show the same wall.
+  let view: Awaited<ReturnType<typeof getParentPortalView>>;
+  try {
+    view = await getParentPortalView(resolved.studentId);
+  } catch {
+    return wall;
+  }
 
   return (
     <main dir={dir} className="mx-auto max-w-2xl px-4 py-10">
@@ -68,7 +82,7 @@ export default async function ParentPortalPage({ params }: Props) {
             {view.upcomingSessions.map((s, i) => (
               <li key={i} className="glass-card flex items-center justify-between rounded-xl p-3 text-sm">
                 <span>{(lang === "ar" ? SESSION_TYPE_AR[s.sessionType as keyof typeof SESSION_TYPE_AR] : null) ?? s.sessionType} · {s.durationMin} {t("د", "min")}</span>
-                <span className="text-xs text-muted">{new Date(s.scheduledAt).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" })}</span>
+                <span className="text-xs text-muted">{new Date(s.scheduledAt).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short", timeZone: PLATFORM_TZ })}</span>
               </li>
             ))}
           </ul>

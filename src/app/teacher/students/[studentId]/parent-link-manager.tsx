@@ -24,18 +24,25 @@ export function ParentLinkManager({ studentId, initialTokens }: { studentId: str
     setBusy(true);
     setError(null);
     setGeneratedUrl(null);
-    const res = await generateParentLink(studentId);
-    if (res.error || !res.url) {
-      setError(res.error ?? t("فشل إنشاء الرابط", "Failed to create link"));
-    } else {
-      setGeneratedUrl(res.url);
-      // Show the new link in the revocable list immediately (no reload needed).
-      if (res.id && res.expiresAt) {
-        const created = res.id, exp = res.expiresAt;
-        setTokens((prev) => [{ id: created, createdAt: new Date().toISOString(), expiresAt: exp }, ...prev]);
+    try {
+      const res = await generateParentLink(studentId);
+      if (res.error || !res.url) {
+        setError(res.error ?? t("فشل إنشاء الرابط", "Failed to create link"));
+      } else {
+        setGeneratedUrl(res.url);
+        // Show the new link in the revocable list immediately (no reload needed).
+        if (res.id && res.expiresAt) {
+          const created = res.id, exp = res.expiresAt;
+          setTokens((prev) => [{ id: created, createdAt: new Date().toISOString(), expiresAt: exp }, ...prev]);
+        }
       }
+    } catch {
+      // The server action promise itself rejected (transport/server crash) —
+      // surface a localized error instead of leaving the button stuck.
+      setError(t("فشل إنشاء الرابط", "Failed to create link"));
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   }
 
   async function handleCopy() {
@@ -51,9 +58,13 @@ export function ParentLinkManager({ studentId, initialTokens }: { studentId: str
 
   async function handleRevoke(tokenId: string) {
     setError(null);
-    const res = await revokeParentLink(tokenId);
-    if (res.error) setError(res.error);
-    else setTokens((prev) => prev.filter((tk) => tk.id !== tokenId));
+    try {
+      const res = await revokeParentLink(tokenId);
+      if (res.error) setError(res.error);
+      else setTokens((prev) => prev.filter((tk) => tk.id !== tokenId));
+    } catch {
+      setError(t("فشل إلغاء الرابط", "Failed to revoke link"));
+    }
   }
 
   return (
@@ -66,7 +77,7 @@ export function ParentLinkManager({ studentId, initialTokens }: { studentId: str
           type="button"
           onClick={handleGenerate}
           disabled={busy}
-          className="inline-flex items-center gap-1 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 text-xs font-medium text-gold hover:bg-gold/20 disabled:opacity-50 focus-ring"
+          className="inline-flex min-h-11 items-center gap-1 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-xs font-medium text-gold hover:bg-gold/20 disabled:opacity-50 focus-ring"
         >
           {busy ? <Loader2 size={12} className="animate-spin" aria-hidden="true" /> : <Link2 size={12} aria-hidden="true" />}
           {t("إنشاء رابط", "Generate link")}
@@ -92,7 +103,7 @@ export function ParentLinkManager({ studentId, initialTokens }: { studentId: str
           <button
             type="button"
             onClick={handleCopy}
-            className="inline-flex items-center gap-1 rounded-full border border-card-border bg-card/40 px-2 py-1 text-xs hover:bg-card/60 focus-ring"
+            className="inline-flex min-h-11 items-center gap-1 rounded-full border border-card-border bg-card/40 px-3 py-1 text-xs hover:bg-card/60 focus-ring"
           >
             {copied ? <Check size={12} className="text-success" aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}
             {copied ? t("نُسخ", "Copied") : t("نسخ", "Copy")}
@@ -110,7 +121,7 @@ export function ParentLinkManager({ studentId, initialTokens }: { studentId: str
               <button
                 type="button"
                 onClick={() => handleRevoke(tk.id)}
-                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-muted hover:text-error focus-ring"
+                className="inline-flex min-h-11 items-center gap-1 rounded-full px-2 py-0.5 text-muted hover:text-error focus-ring"
                 aria-label={t("إلغاء الرابط", "Revoke link")}
               >
                 <Trash2 size={12} aria-hidden="true" /> {t("إلغاء", "Revoke")}

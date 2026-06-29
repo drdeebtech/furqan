@@ -3,6 +3,7 @@ import "server-only";
 import { randomBytes, createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ayahCount } from "@/lib/quran/ayah-counts";
+import { logError } from "@/lib/logger";
 
 /** SHA-256 digest of a raw token — only the digest is ever stored/queried. */
 function hashToken(raw: string): string {
@@ -26,7 +27,9 @@ const TABLE = "parent_access_tokens" as never;
 
 export interface ParentTokenRow {
   id: string;
-  token: string;
+  // Only the SHA-256 digest is ever stored — the raw token is shown once at
+  // mint time and never persisted. (#563 CR)
+  token_hash: string;
   student_id: string;
   teacher_id: string;
   created_at: string;
@@ -189,19 +192,41 @@ export async function getParentPortalView(studentId: string): Promise<ParentPort
       .returns<{ id: string }[]>(),
   ]);
 
+  // Fail closed: a real DB/RLS/network error must surface as a "try again"
+  // wall, never a misleading "no progress" state for a parent. Each failure is
+  // logged for monitoring, then the read aborts. (#563 CR)
+  const ctx = { tag: "parent-portal", student_id: studentId } as const;
+  const failClosed = (label: string, err: unknown): never => {
+    logError(`parent-portal.${label} lookup failed`, err, ctx);
+    throw new Error("parent_portal_read_failed");
+  };
+  if (profileRes.error) failClosed("profile", profileRes.error);
+  if (progressRes.error) failClosed("progress", progressRes.error);
+  if (sessionsRes.error) failClosed("sessions", sessionsRes.error);
+  if (progressIdsRes.error) failClosed("progress-ids", progressIdsRes.error);
+
+  // Errors handled above; `?? []` is now only a type-narrowing fallback.
+  const { data: progressData } = progressRes;
+  const { data: sessionData } = sessionsRes;
+  const { data: progressIdData } = progressIdsRes;
+  const progressRows = progressData ?? [];
+  const sessionRows = sessionData ?? [];
+  const progressIdRows = progressIdData ?? [];
+
   const fullName = profileRes.data?.full_name?.trim() ?? "";
   const studentFirstName = fullName ? fullName.split(/\s+/)[0] : "الطالب";
 
   let recentErrors: ParentPortalView["recentErrors"] = [];
-  const progressIds = (progressIdsRes.data ?? []).map((p) => p.id);
+  const progressIds = progressIdRows.map((p) => p.id);
   if (progressIds.length > 0) {
-    const { data: errs } = await admin
+    const { data: errs, error: errsError } = await admin
       .from("recitation_errors")
       .select("error_type, surah_num, ayah_num, note")
       .in("progress_id", progressIds)
       .order("created_at", { ascending: false })
       .limit(20)
       .returns<{ error_type: string; surah_num: number | null; ayah_num: number; note: string | null }[]>();
+    if (errsError) failClosed("recitation-errors", errsError);
     recentErrors = (errs ?? [])
       // Drop the "no errors observed" sentinel rows. Filtering in JS (not via
       // `.neq`) keeps genuine errors whose note is NULL — `note <> 'x'` is NULL
@@ -214,12 +239,12 @@ export async function getParentPortalView(studentId: string): Promise<ParentPort
 
   return {
     studentFirstName,
-    progress: (progressRes.data ?? []).map((p) => ({
+    progress: progressRows.map((p) => ({
       range: formatRange(p.surah_from, p.ayah_from, p.surah_to, p.ayah_to),
       quality: p.quality_rating,
       date: p.created_at,
     })),
-    upcomingSessions: (sessionsRes.data ?? []).map((s) => ({
+    upcomingSessions: sessionRows.map((s) => ({
       scheduledAt: s.scheduled_at,
       sessionType: s.session_type,
       durationMin: s.duration_min,

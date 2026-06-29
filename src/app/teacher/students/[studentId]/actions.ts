@@ -20,8 +20,11 @@ async function teacherOrAboveActor(): Promise<{ id: string; isAdmin: boolean }> 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new UserError("غير مصرح");
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from("profiles").select("role").eq("id", user.id).single<{ role: string }>();
+  // Distinguish a real infra/RLS failure (surface with cause → loudAction
+  // escalates) from a genuine authorization denial (no cause).
+  if (error) throw new UserError("تعذّر التحقق من الصلاحية — حاول مرة أخرى", { cause: error });
   if (!profile || !["admin", "teacher"].includes(profile.role)) throw new UserError("غير مصرح");
   return { id: user.id, isAdmin: profile.role === "admin" };
 }
@@ -169,7 +172,16 @@ const revokeParentLinkBase = loudAction<{ tokenId: string }, { message: string }
   preflight: loggedInPreflight,
   handler: async ({ tokenId }) => {
     const actor = await teacherOrAboveActor();
-    await revokeParentToken({ tokenId, teacherId: actor.id, isAdmin: actor.isAdmin });
+    try {
+      await revokeParentToken({ tokenId, teacherId: actor.id, isAdmin: actor.isAdmin });
+    } catch (e) {
+      const err = e as Error;
+      // Stale / wrong-owner token → expected business denial (no cause, so
+      // loudAction doesn't escalate it as a system failure). Anything else
+      // (DB/RLS/network) propagates with its cause.
+      if (err.message === "not_found") throw new UserError("الرابط غير موجود أو تم إلغاؤه بالفعل");
+      throw new UserError("فشل إلغاء الرابط", { cause: err });
+    }
     revalidatePath("/teacher/students");
     return { message: "revoked" };
   },

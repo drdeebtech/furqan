@@ -28,6 +28,10 @@ export default defineConfig({
         // Public certificate page requires Next.js Server Component runtime
         // (notFound, generateMetadata) — same exclusion rationale as src/app/api/**
         "src/app/certificates/**",
+        // Public parent-portal page is a Server Component using headers()/getT()
+        // and generateMetadata — same Next-runtime exclusion as certificates.
+        // Its data layer (parent-portal/tokens.ts) IS unit-tested.
+        "src/app/parent/**",
         // Extracted body of the (already-excluded) Stripe webhook route. It
         // parses raw Stripe invoice/subscription event shapes and needs the
         // full Stripe runtime — same "no meaningful unit surface" property as
