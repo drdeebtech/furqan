@@ -90,7 +90,19 @@ const getPublicTeachers = unstable_cache(
         ratingCount: ratingCountMap[t.teacher_id] ?? 0,
         totalSessions: t.total_sessions,
         gender: t.gender,
-      }));
+      }))
+      // #542: don't let a hidden rating influence ranking. The SQL `order by
+      // rating_avg` would float a teacher with one 5★ review above a veteran
+      // averaging 4.8 — yet the card hides that score below 3 ratings. So gate
+      // the ranking the same way as the display: teachers with ≥3 ratings rank
+      // first by rating, everyone else falls back to experience (sessions).
+      .sort((a, b) => {
+        const aQ = a.ratingCount >= 3;
+        const bQ = b.ratingCount >= 3;
+        if (aQ !== bQ) return aQ ? -1 : 1;
+        if (aQ && bQ) return b.ratingAvg - a.ratingAvg;
+        return b.totalSessions - a.totalSessions;
+      });
 
     return { teacherData, specialtyLabels, recitationLabels };
   },
