@@ -99,6 +99,7 @@ function makeClient(scripts: Record<string, Script | Script[]>) {
     };
 
     b.single = vi.fn(async () => resolve());
+    b.maybeSingle = vi.fn(async () => resolve());
     b.then = (onF: (r: Result) => unknown) => Promise.resolve(resolve()).then(onF);
     void payload;
     return b;
@@ -390,6 +391,92 @@ describe("gradeFollowUp", () => {
     expect(calls.update).toHaveLength(1);
     expect(calls.insert).toHaveLength(1);
     expect(notifyParentMock).toHaveBeenCalledOnce();
+  });
+
+  it("persists Talqeen errors to recitation_errors, dropping out-of-range ayat (#541)", async () => {
+    const { client, calls } = makeClient({
+      homework_assignments: { select: { data: gradeRow(), error: null }, update: { data: null, error: null } },
+      student_progress: { select: { data: { id: "prog-1" }, error: null } },
+      recitation_errors: { insert: { data: null, error: null } },
+    });
+    await gradeFollowUp(client, TEACHER, {
+      followUpId: "hw-1",
+      grade: "completed_good",
+      teacherNotes: null,
+      // Al-Fatiha has 7 ayat: ayah 5 is valid, ayah 999 must be dropped.
+      errors: [
+        { surahNum: 1, ayahNum: 5, errorType: "madd", note: "@0:42" },
+        { surahNum: 1, ayahNum: 999, errorType: "waqf", note: null },
+      ],
+    });
+    const errInserts = (calls.insert as { table: string; payload: unknown }[]).filter(
+      (c) => c.table === "recitation_errors",
+    );
+    expect(errInserts).toHaveLength(1); // single insert, not duplicated
+    const rows = errInserts[0]!.payload as Record<string, unknown>[];
+    expect(rows).toHaveLength(1);
+    // The full row survives persistence — including the captured note/timestamp.
+    expect(rows[0]).toEqual({ progress_id: "prog-1", surah_num: 1, ayah_num: 5, error_type: "madd", note: "@0:42" });
+  });
+
+  it("drops errors outside the graded homework's passage (#541)", async () => {
+    const { client, calls } = makeClient({
+      // Homework is Al-Fatiha 1:1–7; an error tagged in surah 2 is a valid ayah
+      // but outside this passage and must not be stored.
+      homework_assignments: { select: { data: gradeRow(), error: null }, update: { data: null, error: null } },
+      student_progress: { select: { data: { id: "prog-1" }, error: null } },
+      recitation_errors: { insert: { data: null, error: null } },
+    });
+    await gradeFollowUp(client, TEACHER, {
+      followUpId: "hw-1",
+      grade: "completed_good",
+      teacherNotes: null,
+      errors: [
+        { surahNum: 1, ayahNum: 3, errorType: "madd", note: null },   // in passage → keep
+        { surahNum: 2, ayahNum: 3, errorType: "waqf", note: null },   // other surah → drop
+        { surahNum: 1, ayahNum: 99, errorType: "sifat", note: null }, // past ayah_end → drop
+      ],
+    });
+    const errInsert = (calls.insert as { table: string; payload: unknown }[]).find((c) => c.table === "recitation_errors");
+    const rows = errInsert!.payload as Record<string, unknown>[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ surah_num: 1, ayah_num: 3 });
+  });
+
+  it("still grades but logs when the progress read fails — errors not silently dropped (#541)", async () => {
+    const { client } = makeClient({
+      homework_assignments: { select: { data: gradeRow(), error: null }, update: { data: null, error: null } },
+      student_progress: { select: { data: null, error: { message: "rls denied" } } },
+    });
+    const out = await gradeFollowUp(client, TEACHER, {
+      followUpId: "hw-1",
+      grade: "completed_good",
+      teacherNotes: null,
+      errors: [{ surahNum: 1, ayahNum: 3, errorType: "madd", note: null }],
+    });
+    // Grade commits (best-effort persistence), but the read failure reached the
+    // logger rather than being treated as "no progress row".
+    expect(out).toMatchObject({ followUpId: "hw-1", grade: "completed_good" });
+    expect(logErrorMock).toHaveBeenCalledWith(
+      "talqeen error persist failed",
+      expect.anything(),
+      expect.objectContaining({ tag: "homework" }),
+    );
+  });
+
+  it("skips error persistence when the booking has no progress row (#541)", async () => {
+    const { client, calls } = makeClient({
+      homework_assignments: { select: { data: gradeRow(), error: null }, update: { data: null, error: null } },
+      student_progress: { select: { data: null, error: null } }, // no progress row
+    });
+    await gradeFollowUp(client, TEACHER, {
+      followUpId: "hw-1",
+      grade: "completed_good",
+      teacherNotes: null,
+      errors: [{ surahNum: 1, ayahNum: 3, errorType: "madd", note: null }],
+    });
+    const errInsert = (calls.insert as { table: string }[]).find((c) => c.table === "recitation_errors");
+    expect(errInsert).toBeUndefined();
   });
 
   it("rejects an invalid grade before any read", async () => {

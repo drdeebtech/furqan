@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { CheckCircle } from "lucide-react";
+import { useState, type Dispatch, type SetStateAction } from "react";
+import { CheckCircle, Plus, X } from "lucide-react";
 import { gradeFollowUp } from "@/lib/actions/follow-up";
 import { useLang } from "@/lib/i18n/context";
 import type { HomeworkStatus } from "@/types/database";
+import type { CapturedError, ErrorType } from "@/lib/domains/progress/types";
 
 const GRADES: { value: HomeworkStatus; ar: string; en: string; className: string }[] = [
   { value: "completed_excellent", ar: "ممتاز", en: "Excellent", className: "border-success/40 bg-success/10 text-success hover:bg-success/20" },
@@ -13,14 +14,38 @@ const GRADES: { value: HomeworkStatus; ar: string; en: string; className: string
   { value: "completed_not_done", ar: "لم يُنجز", en: "Not Done", className: "border-error/40 bg-error/10 text-red-400 hover:bg-error/20" },
 ];
 
+const ERROR_TYPES: { value: ErrorType; ar: string; en: string }[] = [
+  { value: "makharij", ar: "مخارج", en: "Makharij" },
+  { value: "sifat", ar: "صفات", en: "Sifat" },
+  { value: "madd", ar: "مدّ", en: "Madd" },
+  { value: "waqf", ar: "وقف", en: "Waqf" },
+  { value: "ghunna", ar: "غنّة", en: "Ghunna" },
+  { value: "other", ar: "أخرى", en: "Other" },
+];
+
+/** Talqeen error-capture context (#541): the captured-error list is owned by the
+ *  parent (TalqeenRow) so the audio player's "tag error" button can append to it
+ *  directly — controlled props, no effect. `defaults` pre-fills new rows. */
+export interface ErrorCaptureProps {
+  errors: CapturedError[];
+  // A state setter (not a value-only callback): updates use the functional form
+  // so a manual edit and the audio player's concurrent "tag error" append never
+  // overwrite each other from a stale snapshot. (#541 CR)
+  onErrorsChange: Dispatch<SetStateAction<CapturedError[]>>;
+  defaults: { surah: number | null; ayahStart: number | null };
+}
+
 export function GradeForm({
   homeworkId,
   homeworkTitle,
   onGraded,
+  errorCapture,
 }: {
   homeworkId: string;
   homeworkTitle: string;
   onGraded?: () => void;
+  /** When set, renders the tajweed error-capture section (Talqeen review). */
+  errorCapture?: ErrorCaptureProps;
 }) {
   const { t } = useLang();
   const [selectedGrade, setSelectedGrade] = useState<HomeworkStatus | null>(null);
@@ -29,9 +54,38 @@ export function GradeForm({
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const errors = errorCapture?.errors ?? [];
+
+  function updateError(idx: number, patch: Partial<CapturedError>) {
+    errorCapture?.onErrorsChange((prev) => prev.map((e, i) => (i === idx ? { ...e, ...patch } : e)));
+  }
+  function removeError(idx: number) {
+    errorCapture?.onErrorsChange((prev) => prev.filter((_, i) => i !== idx));
+  }
+  function addError() {
+    if (!errorCapture) return;
+    const { surah, ayahStart } = errorCapture.defaults;
+    errorCapture.onErrorsChange((prev) => [
+      ...prev,
+      { surahNum: surah ?? 1, ayahNum: ayahStart ?? 1, errorType: "madd", note: null },
+    ]);
+  }
+
+  // A captured error is valid only with an in-range surah (1–114) and a
+  // positive ayah; the server re-validates against canonical ayah counts, but
+  // gating here stops a cleared/NaN field from being saved as 1:1 or dropped
+  // silently by the best-effort persistence layer. (#541 CR)
+  const hasInvalidError = errors.some(
+    (e) => !Number.isInteger(e.surahNum) || e.surahNum < 1 || e.surahNum > 114 || !Number.isInteger(e.ayahNum) || e.ayahNum < 1,
+  );
+
   async function handleSubmit() {
     if (!selectedGrade) {
       setError(t("يرجى اختيار التقييم", "Please select a grade"));
+      return;
+    }
+    if (hasInvalidError) {
+      setError(t("راجع أرقام السورة/الآية في الأخطاء المحددة", "Check the surah/ayah numbers on the tagged errors"));
       return;
     }
     setSaving(true);
@@ -40,6 +94,7 @@ export function GradeForm({
     const fd = new FormData();
     fd.set("grade", selectedGrade);
     if (teacherNotes.trim()) fd.set("teacher_notes", teacherNotes.trim());
+    if (errors.length > 0) fd.set("errors", JSON.stringify(errors));
 
     const result = await gradeFollowUp(homeworkId, fd);
     if ("error" in result && result.error) {
@@ -96,6 +151,73 @@ export function GradeForm({
         className="glass-input w-full resize-none px-4 py-2 text-sm focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
         placeholder={t("ملاحظات للطالب (اختياري)…", "Feedback for student (optional)...")}
       />
+
+      {errorCapture && (
+        <fieldset className="rounded-xl border border-card-border bg-card/20 p-3">
+          <legend className="px-1 text-xs font-medium text-muted">{t("أخطاء التجويد", "Tajweed errors")}</legend>
+          {errors.length === 0 ? (
+            <p className="text-xs text-muted-light">{t("استمع وحدّد الأخطاء بزر «وسم خطأ هنا» أو أضِف يدويًا.", 'Listen and mark errors with "Tag error here", or add manually.')}</p>
+          ) : (
+            <ul className="space-y-2">
+              {errors.map((e, idx) => (
+                <li key={idx} className="flex flex-wrap items-center gap-1.5">
+                  <label className="sr-only" htmlFor={`err-surah-${idx}`}>{t("السورة", "Surah")}</label>
+                  <input
+                    id={`err-surah-${idx}`}
+                    type="number" min={1} max={114} inputMode="numeric"
+                    value={Number.isNaN(e.surahNum) ? "" : e.surahNum}
+                    onChange={(ev) => updateError(idx, { surahNum: ev.currentTarget.valueAsNumber })}
+                    className="glass-input w-16 px-2 py-1 text-xs"
+                    aria-label={t("رقم السورة", "Surah number")}
+                  />
+                  <label className="sr-only" htmlFor={`err-ayah-${idx}`}>{t("الآية", "Ayah")}</label>
+                  <input
+                    id={`err-ayah-${idx}`}
+                    type="number" min={1} inputMode="numeric"
+                    value={Number.isNaN(e.ayahNum) ? "" : e.ayahNum}
+                    onChange={(ev) => updateError(idx, { ayahNum: ev.currentTarget.valueAsNumber })}
+                    className="glass-input w-16 px-2 py-1 text-xs"
+                    aria-label={t("رقم الآية", "Ayah number")}
+                  />
+                  <select
+                    value={e.errorType}
+                    onChange={(ev) => updateError(idx, { errorType: ev.target.value as ErrorType })}
+                    className="glass-input px-2 py-1 text-xs"
+                    aria-label={t("نوع الخطأ", "Error type")}
+                  >
+                    {ERROR_TYPES.map((et) => (
+                      <option key={et.value} value={et.value}>{t(et.ar, et.en)}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    value={e.note ?? ""}
+                    onChange={(ev) => updateError(idx, { note: ev.target.value || null })}
+                    placeholder={t("ملاحظة…", "Note…")}
+                    className="glass-input min-w-[5rem] flex-1 px-2 py-1 text-xs"
+                    aria-label={t("ملاحظة الخطأ", "Error note")}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeError(idx)}
+                    className="focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-muted hover:text-error"
+                    aria-label={t("حذف الخطأ", "Remove error")}
+                  >
+                    <X size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <button
+            type="button"
+            onClick={addError}
+            className="focus-ring mt-2 inline-flex min-h-11 items-center gap-1 rounded-full border border-card-border bg-card/30 px-3 py-2 text-xs text-muted hover:bg-card/50"
+          >
+            <Plus size={12} aria-hidden="true" /> {t("أضف خطأ", "Add error")}
+          </button>
+        </fieldset>
+      )}
 
       <button
         type="button"

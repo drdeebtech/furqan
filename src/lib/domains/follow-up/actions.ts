@@ -7,6 +7,8 @@ import { dispatchEffects } from "@/lib/automation/effects";
 import { HOMEWORK_STATUS_AR } from "@/lib/constants";
 import { logError } from "@/lib/logger";
 import { validateRange } from "@/lib/domains/progress/validation";
+import { ayahCount } from "@/lib/quran/ayah-counts";
+import type { CapturedError } from "@/lib/domains/progress/types";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import type { HomeworkStatus, HomeworkAssignment } from "@/types/database";
 import { assertCanManage, type AdminClient } from "./shared";
@@ -311,6 +313,29 @@ export async function gradeFollowUp(
 
   if (error) throw new FollowUpUserError("فشل تقييم المتابعة", { cause: error });
 
+  // Talqeen review (#541): persist captured tajweed errors. Best-effort — a
+  // failure here must never fail the grade that already committed.
+  if (input.errors && input.errors.length > 0) {
+    try {
+      await persistTalqeenErrors(
+        admin,
+        hw.booking_id,
+        input.errors,
+        // Constrain tagged errors to the graded homework's own passage so a
+        // buggy/tampered client can't store errors against unrelated ayahs.
+        // (#541 CR)
+        hw.surah_number != null && hw.ayah_start != null && hw.ayah_end != null
+          ? { surahNum: hw.surah_number, ayahStart: hw.ayah_start, ayahEnd: hw.ayah_end }
+          : null,
+      );
+    } catch (err) {
+      logError("talqeen error persist failed", err, {
+        tag: "homework", severity: "warning",
+        metadata: { followUpId, bookingId: hw.booking_id, count: input.errors.length },
+      });
+    }
+  }
+
   const gradeLabel = HOMEWORK_STATUS_AR[grade];
 
   // Best-effort student notification.
@@ -420,4 +445,57 @@ export async function gradeFollowUp(
   );
 
   return { followUpId, studentId: hw.student_id, teacherId: hw.teacher_id, grade };
+}
+
+/**
+ * Persist Talqeen-captured tajweed errors to `recitation_errors` (#541).
+ *
+ * `recitation_errors.progress_id` is NOT NULL, so each error attaches to the
+ * most recent `student_progress` row for this homework's booking. If the
+ * session recorded no progress, there is nothing to attach to and we skip
+ * (the UI still kept the errors in the teacher's notes if they typed them).
+ * Every error is re-validated against canonical ayah counts so no out-of-range
+ * row reaches the DB (Quran integrity — CLAUDE.md §2).
+ */
+async function persistTalqeenErrors(
+  admin: AdminClient,
+  bookingId: string,
+  errors: CapturedError[],
+  homeworkRange: { surahNum: number; ayahStart: number; ayahEnd: number } | null,
+): Promise<void> {
+  const { data: progressRow, error: progressErr } = await admin
+    .from("student_progress")
+    .select("id")
+    .eq("booking_id", bookingId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string }>();
+
+  // Surface a real DB/RLS failure (the caller logs it) rather than treating it
+  // as "no progress row" and silently dropping every captured error. (#541 CR)
+  if (progressErr) throw progressErr;
+  if (!progressRow) return; // no progress row for this booking — nothing to attach to
+
+  const rows: TableInsert<"recitation_errors">[] = [];
+  for (const e of errors) {
+    const max = ayahCount(e.surahNum);
+    if (max === null || e.ayahNum < 1 || e.ayahNum > max) continue; // drop out-of-range
+    // When the homework has a known passage, only keep errors inside it — no
+    // storing errors against ayahs the student wasn't assigned. (#541 CR)
+    if (
+      homeworkRange &&
+      (e.surahNum !== homeworkRange.surahNum || e.ayahNum < homeworkRange.ayahStart || e.ayahNum > homeworkRange.ayahEnd)
+    ) continue;
+    rows.push({
+      progress_id: progressRow.id,
+      surah_num: e.surahNum,
+      ayah_num: e.ayahNum,
+      error_type: e.errorType,
+      note: e.note ?? null,
+    });
+  }
+  if (rows.length === 0) return;
+
+  const { error } = await admin.from("recitation_errors").insert(rows as never);
+  if (error) throw error;
 }
