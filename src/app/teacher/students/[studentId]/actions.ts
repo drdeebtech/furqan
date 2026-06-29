@@ -5,12 +5,24 @@ import { createClient } from "@/lib/supabase/server";
 import { loudAction } from "@/lib/actions/loud";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 import { UserError } from "@/lib/actions/user-error";
+import { createParentToken, revokeParentToken } from "@/lib/domains/parent-portal/tokens";
 
 async function loggedInPreflight(): Promise<{ actorId: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new UserError("غير مصرح");
   return { actorId: user.id };
+}
+
+/** Resolve the caller as a teacher/admin actor (parent-link actions, #563). */
+async function teacherOrAboveActor(): Promise<{ id: string; isAdmin: boolean }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new UserError("غير مصرح");
+  const { data: profile } = await supabase
+    .from("profiles").select("role").eq("id", user.id).single<{ role: string }>();
+  if (!profile || !["admin", "teacher"].includes(profile.role)) throw new UserError("غير مصرح");
+  return { id: user.id, isAdmin: profile.role === "admin" };
 }
 
 // ─── resolveRecitationError ─────────────────────────────────────────────────
@@ -91,6 +103,62 @@ export async function updateSessionNotes(
   notes: string,
 ): Promise<{ success?: true; error?: string }> {
   const result = await updateSessionNotesBase({ sessionId, notes });
+  if (!result.ok) return { error: result.error };
+  return { success: true };
+}
+
+// ─── generateParentLink (#563) ──────────────────────────────────────────────
+
+const generateParentLinkBase = loudAction<{ studentId: string }, { message: string }>({
+  name: "teacher.students.generate-parent-link",
+  severity: "info",
+  audit: {
+    table: "parent_access_tokens",
+    recordId: (i) => i.studentId,
+    action: "INSERT",
+    reasonPrefix: "generate parent portal link",
+  },
+  preflight: loggedInPreflight,
+  handler: async ({ studentId }) => {
+    const actor = await teacherOrAboveActor();
+    // createParentToken verifies the teacher actually teaches this student
+    // (a booking links them) unless admin — authorization never trusts studentId.
+    const { token } = await createParentToken({ studentId, teacherId: actor.id, isAdmin: actor.isAdmin })
+      .catch((e: Error) => { throw new UserError(e.message === "not_authorized" ? "ليس لديك صلاحية على هذا الطالب" : "فشل إنشاء الرابط", { cause: e }); });
+    const base = (process.env.NEXT_PUBLIC_APP_URL ?? "https://furqan.today").replace(/\/$/, "");
+    // The URL travels back to the client via the loud-result `message` field.
+    return { message: `${base}/parent/${token}` };
+  },
+});
+
+export async function generateParentLink(studentId: string): Promise<{ url?: string; error?: string }> {
+  const result = await generateParentLinkBase({ studentId });
+  if (!result.ok) return { error: result.error };
+  return { url: result.message };
+}
+
+// ─── revokeParentLink (#563) ────────────────────────────────────────────────
+
+const revokeParentLinkBase = loudAction<{ tokenId: string }, { message: string }>({
+  name: "teacher.students.revoke-parent-link",
+  severity: "info",
+  audit: {
+    table: "parent_access_tokens",
+    recordId: (i) => i.tokenId,
+    action: "UPDATE",
+    reasonPrefix: "revoke parent portal link",
+  },
+  preflight: loggedInPreflight,
+  handler: async ({ tokenId }) => {
+    const actor = await teacherOrAboveActor();
+    await revokeParentToken({ tokenId, teacherId: actor.id, isAdmin: actor.isAdmin });
+    revalidatePath("/teacher/students");
+    return { message: "revoked" };
+  },
+});
+
+export async function revokeParentLink(tokenId: string): Promise<{ success?: true; error?: string }> {
+  const result = await revokeParentLinkBase({ tokenId });
   if (!result.ok) return { error: result.error };
   return { success: true };
 }
