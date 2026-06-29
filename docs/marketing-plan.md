@@ -42,7 +42,7 @@
 
 - **Entry offer = a free 15-min placement call** (تقييم) — specialist-matched, framed as placement not a full lesson. Decided 2026-06-22 (DB seed $0); may revisit to a small paid fee once the funnel is proven.
 - **Family/sibling discount** (final % **TBD — awaiting owner decision**).
-- **Recommended NEW:** an **annual plan** (price anchor + cash flow + retention) — needs a Stripe annual price added.
+- **Recommended NEW (DEFERRED post-launch):** an **annual plan** (price anchor + cash flow + retention) — needs a Stripe annual price + tier added. Not in scope for launch; owner = founder.
 - **Do NOT** advertise free trial / money-back / cancel-anytime-self-serve unless the policy actually changes.
 
 ## 6. KPIs
@@ -64,4 +64,4 @@
 - [ ] Decide **self-serve cancel** + **missed-session makeup** (conversion + go-live).
 - [ ] Ship **social-proof strip + finalized FAQ** (PR #507 follow-up) once testimonials arrive.
 - [ ] Run an **SEO audit** of the public pages (`/`, `/pricing`, `/courses`, `/teach-with-us`).
-- [ ] Add an **annual plan** (Stripe price + tier) as a price anchor — decision needed.
+- [ ] ~~Add an **annual plan** (Stripe price + tier) as a price anchor~~ — **DEFERRED post-launch** (decided 2026-06-29; owner = founder).
