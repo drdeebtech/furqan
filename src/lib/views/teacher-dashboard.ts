@@ -243,11 +243,14 @@ export async function teacherDashboardView(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Migrated from src/lib/dashboard-queries.ts (issue #560). Each takes the
-// injected supabase client (the test seam) — query logic and return shapes
-// are byte-for-byte identical to the prior implementation. The private
-// helpers below are local copies of the ones that lived in dashboard-queries.ts
-// so this module is self-contained.
+// Relocated from src/lib/dashboard-queries.ts (issue #560). These are the
+// 4 teacher-facing reads the dashboard page calls; each takes the injected
+// supabase client (the test seam). The private helpers below are local
+// copies of the ones that lived in dashboard-queries.ts so this module is
+// self-contained. Query shapes are preserved; the relocation is NOT
+// byte-for-byte identical — getTeacherWeeklyHours now throws on DB error
+// (instead of silently returning an empty week) and getTeacherRecentStudents'
+// session count is no longer scaled ×10 (see the note in its return mapping).
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface ChartDataPoint {
@@ -281,10 +284,22 @@ function groupSessionsByDay(
 ): ChartDataPoint[] {
   const days = lang === "ar" ? AR_DAYS : EN_DAYS;
   const order = [1, 2, 3, 4, 5, 6, 0]; // Mon–Sun
+  // Bucket by Kuwait day-of-week (the page's TZ anchor) so a session
+  // starting near midnight doesn't hop into the previous/next server-local
+  // day. Mirrors the Intl.DateTimeFormat pattern used for "today"/"month"
+  // above: format the instant into Asia/Kuwait YYYY-MM-DD, then read the
+  // weekday in UTC off that constructed calendar date.
+  const tzDayFmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
   const buckets: Record<number, number> = {};
   for (const s of sessions) {
     if (!s.started_at) continue;
-    const dayIndex = new Date(s.started_at).getDay();
+    const dateStr = tzDayFmt.format(new Date(s.started_at));
+    const dayIndex = new Date(`${dateStr}T00:00:00Z`).getUTCDay();
     const hours = (s.actual_duration ?? 0) / 60;
     buckets[dayIndex] = (buckets[dayIndex] ?? 0) + hours;
   }
@@ -475,33 +490,50 @@ export async function getTeacherRecentStudents(
   teacherId: string,
   limit = 6
 ): Promise<{ id: string; [key: string]: unknown }[]> {
-  const bookingsRes = await supabase
-    .from("bookings")
-    .select("id, student_id, session_type, scheduled_at")
-    .eq("teacher_id", teacherId)
-    .eq("status", "completed")
-    .order("scheduled_at", { ascending: false })
-    .limit(limit * 3)
-    .returns<{
-      id: string;
-      student_id: string;
-      session_type: string;
-      scheduled_at: string;
-    }[]>();
-  if (bookingsRes.error) throw bookingsRes.error;
-  const bookings = bookingsRes.data;
+  // Page through recent completed bookings, de-duplicating by student, so a
+  // single student dominating the recent-booking feed can't starve the list
+  // below `limit` unique students. Bounded: PAGE_SIZE rows per round trip,
+  // at most MAX_PAGES round trips — never scans more than PAGE_SIZE*MAX_PAGES
+  // rows even in the pathological all-one-student case.
+  const PAGE_SIZE = Math.max(limit * 3, 1);
+  const MAX_PAGES = 5;
 
-  if (!bookings || bookings.length === 0) return [];
+  type RecentBooking = {
+    id: string;
+    student_id: string;
+    session_type: string;
+    scheduled_at: string;
+  };
 
   const seenStudents = new Set<string>();
-  const uniqueBookings: typeof bookings = [];
-  for (const b of bookings) {
-    if (!seenStudents.has(b.student_id)) {
-      seenStudents.add(b.student_id);
-      uniqueBookings.push(b);
-      if (uniqueBookings.length >= limit) break;
+  const uniqueBookings: RecentBooking[] = [];
+
+  for (let page = 0; page < MAX_PAGES && uniqueBookings.length < limit; page++) {
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    const bookingsRes = await supabase
+      .from("bookings")
+      .select("id, student_id, session_type, scheduled_at")
+      .eq("teacher_id", teacherId)
+      .eq("status", "completed")
+      .order("scheduled_at", { ascending: false })
+      .range(from, to)
+      .returns<RecentBooking[]>();
+    if (bookingsRes.error) throw bookingsRes.error;
+    const rows = bookingsRes.data ?? [];
+    if (rows.length === 0) break; // source exhausted
+
+    for (const b of rows) {
+      if (!seenStudents.has(b.student_id)) {
+        seenStudents.add(b.student_id);
+        uniqueBookings.push(b);
+        if (uniqueBookings.length >= limit) break;
+      }
     }
+    if (rows.length < PAGE_SIZE) break; // final page — source exhausted
   }
+
+  if (uniqueBookings.length === 0) return [];
 
   const studentIds = [...new Set(uniqueBookings.map((b) => b.student_id))];
 
