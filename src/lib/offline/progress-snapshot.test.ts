@@ -21,9 +21,8 @@ const snapshot: OfflineProgressSnapshot = {
   currentLevel: "intermediate",
   assignments: [{ title: "البقرة", surah: 2, ayahStart: 1, ayahEnd: 5, dueDate: null, status: "assigned" }],
   recentProgress: [
-    { surahFrom: 78, ayahFrom: 1, surahTo: 78, ayahTo: 20, type: "new", quality: 4, teacherNotes: "أحسنت", date: "2026-06-28T00:00:00.000Z" },
+    { surahFrom: 78, ayahFrom: 1, surahTo: 78, ayahTo: 20, type: "new", quality: 4, date: "2026-06-28T00:00:00.000Z" },
   ],
-  parentNote: "تقدم ممتاز",
 };
 
 beforeEach(() => mockLocalStorage.clear());
@@ -41,5 +40,21 @@ describe("progress snapshot", () => {
   it("returns null on corrupt JSON instead of throwing", () => {
     mockLocalStorage.setItem(PROGRESS_SNAPSHOT_KEY, "{not json");
     expect(readProgressSnapshot()).toBeNull();
+  });
+
+  it("returns null on a valid-JSON but wrong-shape snapshot (older format)", () => {
+    // Missing the arrays the /offline UI maps over → must fall back to null,
+    // not crash the reader. (#527 CR)
+    mockLocalStorage.setItem(PROGRESS_SNAPSHOT_KEY, JSON.stringify({ syncedAt: "x", currentLevel: "beginner" }));
+    expect(readProgressSnapshot()).toBeNull();
+    mockLocalStorage.setItem(PROGRESS_SNAPSHOT_KEY, JSON.stringify({}));
+    expect(readProgressSnapshot()).toBeNull();
+  });
+
+  it("does NOT persist teacher notes or parent reports (shared-device leak)", () => {
+    writeProgressSnapshot(snapshot);
+    const raw = mockLocalStorage.getItem(PROGRESS_SNAPSHOT_KEY) ?? "";
+    expect(raw).not.toContain("teacherNotes");
+    expect(raw).not.toContain("parentNote");
   });
 });

@@ -10,8 +10,9 @@ import { readProgressSnapshot, type OfflineProgressSnapshot } from "@/lib/offlin
  * Public offline fallback (#527). The service worker serves this page when a
  * student navigates while disconnected. It reads the last progress snapshot
  * from localStorage (written on every online visit to /student/progress) so the
- * student can still see their assigned ayahs, recent progress, and teacher's
- * note mid-memorization. No network, no auth round-trip, no Quran text cached.
+ * student can still see their assigned ayahs and recent progress mid-
+ * memorization. No teacher/parent notes are cached (shared-device leak, #527
+ * CR), no network, no auth round-trip, no Quran text cached.
  */
 export default function OfflinePage() {
   const { t, dir, lang } = useLang();
@@ -104,17 +105,9 @@ export default function OfflinePage() {
                       <p className="text-sm font-medium">{range(p.surahFrom, p.ayahFrom, p.surahTo, p.ayahTo)}</p>
                       <span className="text-xs text-muted">{new Date(p.date).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US")}</span>
                     </div>
-                    {p.teacherNotes && <p className="mt-1 text-xs text-muted">{p.teacherNotes}</p>}
                   </li>
                 ))}
               </ul>
-            </section>
-          )}
-
-          {snapshot.parentNote && (
-            <section>
-              <h2 className="mb-2 text-sm font-semibold text-gold">{t("ملاحظة المعلم", "Teacher's note")}</h2>
-              <p className="glass-card rounded-xl p-3 text-sm text-muted">{snapshot.parentNote}</p>
             </section>
           )}
         </div>

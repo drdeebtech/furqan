@@ -144,7 +144,7 @@ export default async function StudentProgressPage() {
 
   // Current assignments (#527) — active homework the student still owes, so the
   // offline snapshot can show "what to memorize next" with no network.
-  const { data: activeAssignments } = await supabase
+  const activeAssignmentsRes = await supabase
     .from("homework_assignments")
     .select("title, surah_number, ayah_start, ayah_end, due_date, status")
     .eq("student_id", user.id)
@@ -152,6 +152,9 @@ export default async function StudentProgressPage() {
     .order("assigned_at", { ascending: false })
     .limit(10)
     .returns<{ title: string; surah_number: number | null; ayah_start: number | null; ayah_end: number | null; due_date: string | null; status: string }[]>();
+  // Route through loadOrFail so a query error doesn't masquerade as "no
+  // assignments" and overwrite a good offline snapshot with an empty list. (#527 CR)
+  const activeAssignmentsLoad = loadOrFail(activeAssignmentsRes, [] as { title: string; surah_number: number | null; ayah_start: number | null; ayah_end: number | null; due_date: string | null; status: string }[], { route: "student-progress", widget: "active-assignments" });
 
   // Recitation error breakdown — last 30 days, grouped by error_type.
   // recitation_errors is keyed by progress_id (FK → student_progress), so we
@@ -202,12 +205,14 @@ export default async function StudentProgressPage() {
   ).length;
   const sessionsPerWeek = sessionsLast28d / 4;
 
-  // #527: compact snapshot for the offline page. Only ayah *references* and
-  // teacher notes — never Quran text (rendered from a verified source).
+  // #527: compact snapshot for the offline page. Only the student's own
+  // non-sensitive memorization data — ayah *references*, assignment titles,
+  // dates. No teacher notes / parent reports (shared-device localStorage leak,
+  // #527 CR) and never Quran text (rendered from a verified source).
   const offlineSnapshot: OfflineProgressSnapshot = {
     syncedAt: new Date().toISOString(),
     currentLevel,
-    assignments: (activeAssignments ?? []).map((a) => ({
+    assignments: activeAssignmentsLoad.data.map((a) => ({
       title: a.title,
       surah: a.surah_number,
       ayahStart: a.ayah_start,
@@ -222,10 +227,8 @@ export default async function StudentProgressPage() {
       ayahTo: p.ayah_to,
       type: p.progress_type,
       quality: p.quality_rating,
-      teacherNotes: p.teacher_notes,
       date: p.created_at,
     })),
-    parentNote: parentReport?.content ?? null,
   };
 
   return (
@@ -247,7 +250,7 @@ export default async function StudentProgressPage() {
         parentReport,
       }}
     />
-    <ProgressOfflineSync snapshot={offlineSnapshot} />
+    {!activeAssignmentsLoad.failed && <ProgressOfflineSync snapshot={offlineSnapshot} />}
     </>
   );
 }

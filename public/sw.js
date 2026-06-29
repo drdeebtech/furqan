@@ -50,10 +50,13 @@ self.addEventListener("fetch", (event) => {
   // Immutable build assets + static media — cache-first. Next.js fingerprints
   // everything under /_next/static, so a cached chunk is never stale; caching
   // the JS/CSS is what lets the offline page (/offline) hydrate and read its
-  // localStorage snapshot with no network.
+  // localStorage snapshot with no network. Scoped to /_next/static
+  // (fingerprinted) + media/fonts only — non-fingerprinted .js/.css served from
+  // /public are NOT cache-first (they would go stale until a CACHE_NAME bump);
+  // they fall through to the network below. (#527 CR)
   if (
     url.pathname.startsWith("/_next/static/") ||
-    url.pathname.match(/\.(png|jpg|jpeg|svg|webp|ico|woff2?|css|js)$/) ||
+    url.pathname.match(/\.(png|jpg|jpeg|svg|webp|ico|woff2?)$/) ||
     url.pathname.startsWith("/logo") ||
     url.pathname.startsWith("/favicon")
   ) {
