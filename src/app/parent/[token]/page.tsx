@@ -48,8 +48,16 @@ export default async function ParentPortalPage({ params }: Props) {
     </main>
   );
 
-  // Fail-closed: unknown / revoked / expired token, or rate-limited → wall.
-  const resolved = allowed ? await resolveParentToken(token) : null;
+  // Fail-closed: unknown / revoked / expired token, rate-limited, or a transient
+  // lookup failure → the same wall (resolveParentToken can reject on a DB blip).
+  let resolved: Awaited<ReturnType<typeof resolveParentToken>> = null;
+  if (allowed) {
+    try {
+      resolved = await resolveParentToken(token);
+    } catch {
+      return wall;
+    }
+  }
   if (!resolved) return wall;
 
   // getParentPortalView fails closed on a real DB/RLS error (rather than
