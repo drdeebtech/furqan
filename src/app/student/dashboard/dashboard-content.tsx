@@ -17,6 +17,7 @@ import { WelcomeHeader } from "./welcome-header";
 import { TodaysPlan } from "./todays-plan";
 import { GoalCard } from "./goal-card";
 import { AchievementShelf } from "./achievement-shelf";
+import { UpgradeNudgeCard } from "./upgrade-nudge-card";
 import type { GoalDashboardData } from "@/lib/domains/goals/goals";
 
 interface DashboardData {
@@ -378,6 +379,14 @@ function StudentDashboardContentInner({
             <div className="order-1 md:order-4">{kpi4}</div>
           </section>
         </SectionErrorBoundary>
+
+        {/* Issue #546 — upgrade nudge when exactly 1 session credit remains. */}
+        <div className="mt-8">
+          <UpgradeNudgeCard
+            remainingCredits={pkgRemaining}
+            packageId={primaryPackage ? primaryPackage.id : null}
+          />
+        </div>
 
         {/* Today's Plan — fast, above-fold, data from core view. */}
         <div className="mt-10">
