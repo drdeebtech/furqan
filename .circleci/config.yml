@@ -97,6 +97,31 @@ jobs:
           name: next build
           command: npm run build
 
+  # ── Playwright E2E collection gate ──────────────────────────
+  # No existing CI job runs the Playwright suite — the executor pins
+  # PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 and no live Supabase backend is
+  # available in CI, so a full `playwright test` run cannot execute here.
+  # As a baseline gate we run `--list`, which collects every spec (imports
+  # resolved, test() calls parsed, fixtures hydrated) without needing a
+  # browser or a running app. This catches the regression class that broke
+  # e2e/auth-smoke.spec.ts on 2026-05-04: a syntactically-invalid spec or
+  # a bad import that only surfaces at collection time. The full green run
+  # is the responsibility of local dev / preview-deploy smoke (see
+  # e2e/auth-smoke.spec.ts header for the preview-deploy flow).
+  #
+  # Non-blocking: listed in the workflow but NOT a requirement for `build`,
+  # so a collection failure surfaces loudly without gating merges until the
+  # full e2e pipeline is wired.
+  e2e-collect:
+    executor: node-24
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: playwright test --list (collect-only)
+          command: npx playwright test --list
+
 workflows:
   ci:
     jobs:
@@ -114,6 +139,11 @@ workflows:
 
       # unit tests after install (independent of typecheck)
       - unit-test:
+          requires:
+            - install
+
+      # e2e collection gate after install (non-blocking; see job comment)
+      - e2e-collect:
           requires:
             - install
 
