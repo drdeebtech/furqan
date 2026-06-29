@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { loadOrFail, countOrFail } from "@/lib/supabase/load-or-fail";
 import { ProgressContent } from "./progress-content";
+import { ProgressOfflineSync } from "./progress-offline-sync";
+import type { OfflineProgressSnapshot } from "@/lib/offline/progress-snapshot";
 import { DataLoadBanner } from "@/components/shared/data-load-banner";
 
 export const metadata: Metadata = { title: "تقدمي" };
@@ -140,6 +142,20 @@ export default async function StudentProgressPage() {
     .limit(1)
     .maybeSingle<{ content: string; report_type: string; sent_at: string | null; created_at: string }>();
 
+  // Current assignments (#527) — active homework the student still owes, so the
+  // offline snapshot can show "what to memorize next" with no network.
+  const activeAssignmentsRes = await supabase
+    .from("homework_assignments")
+    .select("title, surah_number, ayah_start, ayah_end, due_date, status")
+    .eq("student_id", user.id)
+    .in("status", ["assigned", "student_ready"])
+    .order("assigned_at", { ascending: false })
+    .limit(10)
+    .returns<{ title: string; surah_number: number | null; ayah_start: number | null; ayah_end: number | null; due_date: string | null; status: string }[]>();
+  // Route through loadOrFail so a query error doesn't masquerade as "no
+  // assignments" and overwrite a good offline snapshot with an empty list. (#527 CR)
+  const activeAssignmentsLoad = loadOrFail(activeAssignmentsRes, [] as { title: string; surah_number: number | null; ayah_start: number | null; ayah_end: number | null; due_date: string | null; status: string }[], { route: "student-progress", widget: "active-assignments" });
+
   // Recitation error breakdown — last 30 days, grouped by error_type.
   // recitation_errors is keyed by progress_id (FK → student_progress), so we
   // resolve via the student's progress IDs first. Empty buckets stay in the
@@ -189,6 +205,32 @@ export default async function StudentProgressPage() {
   ).length;
   const sessionsPerWeek = sessionsLast28d / 4;
 
+  // #527: compact snapshot for the offline page. Only the student's own
+  // non-sensitive memorization data — ayah *references*, assignment titles,
+  // dates. No teacher notes / parent reports (shared-device localStorage leak,
+  // #527 CR) and never Quran text (rendered from a verified source).
+  const offlineSnapshot: OfflineProgressSnapshot = {
+    syncedAt: new Date().toISOString(),
+    currentLevel,
+    assignments: activeAssignmentsLoad.data.map((a) => ({
+      title: a.title,
+      surah: a.surah_number,
+      ayahStart: a.ayah_start,
+      ayahEnd: a.ayah_end,
+      dueDate: a.due_date,
+      status: a.status,
+    })),
+    recentProgress: progressRecords.slice(0, 10).map((p) => ({
+      surahFrom: p.surah_from,
+      ayahFrom: p.ayah_from,
+      surahTo: p.surah_to,
+      ayahTo: p.ayah_to,
+      type: p.progress_type,
+      quality: p.quality_rating,
+      date: p.created_at,
+    })),
+  };
+
   return (
     <>
       <DataLoadBanner failed={anyFailed} />
@@ -208,6 +250,10 @@ export default async function StudentProgressPage() {
         parentReport,
       }}
     />
+    {/* Only persist a snapshot when every source loaded cleanly — a transient
+        failure in any of them would otherwise overwrite a good offline cache
+        with partial/empty data. (#527 CR) */}
+    {!anyFailed && !activeAssignmentsLoad.failed && <ProgressOfflineSync snapshot={offlineSnapshot} />}
     </>
   );
 }

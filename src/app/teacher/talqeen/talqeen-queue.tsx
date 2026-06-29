@@ -1,13 +1,64 @@
 "use client";
 
-import { Suspense, useTransition } from "react";
+import { Suspense, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, BookOpen, Clock } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { HomeworkAudioPlayer } from "@/components/shared/homework-audio-player";
 import { GradeForm } from "@/app/teacher/follow-up/grade-form";
+import type { CapturedError } from "@/lib/domains/progress/types";
 import type { TalqeenFilter, TalqeenQueueRow } from "@/lib/teacher-queries";
+
+function mmss(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/**
+ * One Talqeen review row. The captured-error list lives here so the audio
+ * player's "Tag error here" button can append a row stamped with the current
+ * playback time (#541), pre-filled with the homework's surah/ayah; the grade
+ * form edits and submits that same list.
+ */
+function TalqeenRow({ row }: { row: TalqeenQueueRow }) {
+  const [errors, setErrors] = useState<CapturedError[]>([]);
+  // Only enable tajweed error-capture when the homework has a real Qur'an
+  // location. Inventing 1:1 for a row with no surah/ayah would attach
+  // recitation errors to Al-Fatiha:1 — a Quran-integrity violation. (#541 CR)
+  const hasLocation = row.surahNumber !== null && row.ayahStart !== null;
+  return (
+    <>
+      <div className="mt-3">
+        <HomeworkAudioPlayer
+          homeworkId={row.id}
+          durationSeconds={row.audioDurationSeconds}
+          onTagError={
+            hasLocation
+              ? (sec) =>
+                  setErrors((prev) => [
+                    ...prev,
+                    { surahNum: row.surahNumber!, ayahNum: row.ayahStart!, errorType: "madd", note: `@${mmss(sec)}` },
+                  ])
+              : undefined
+          }
+        />
+      </div>
+      <div className="mt-3 border-t border-card-border pt-3">
+        <GradeForm
+          homeworkId={row.id}
+          homeworkTitle={row.title}
+          errorCapture={
+            hasLocation
+              ? { errors, onErrorsChange: setErrors, defaults: { surah: row.surahNumber, ayahStart: row.ayahStart } }
+              : undefined
+          }
+        />
+      </div>
+    </>
+  );
+}
 
 const FILTERS: { value: TalqeenFilter; ar: string; en: string }[] = [
   { value: "all", ar: "الكل", en: "All" },
@@ -170,19 +221,7 @@ function TalqeenQueueInner({
               </div>
             </div>
 
-            <div className="mt-3">
-              <HomeworkAudioPlayer
-                homeworkId={row.id}
-                durationSeconds={row.audioDurationSeconds}
-              />
-            </div>
-
-            <div className="mt-3 border-t border-card-border pt-3">
-              <GradeForm
-                homeworkId={row.id}
-                homeworkTitle={row.title}
-              />
-            </div>
+            <TalqeenRow row={row} />
           </li>
         ))}
       </ul>
