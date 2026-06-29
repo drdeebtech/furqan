@@ -14,8 +14,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({ after: vi.fn() }));
 
-// ── Mock dashboard-queries helpers ────────────────────────────────────────────
-vi.mock("@/lib/dashboard-queries", () => ({
+// ── Mock student-dashboard-queries helpers ───────────────────────────────────
+vi.mock("@/lib/views/student-dashboard-queries", () => ({
   getTodaysMurajaahBatch: vi.fn(),
   getStudentStudyAnalytics: vi.fn(),
   getStudentLiveSessions: vi.fn(),
@@ -63,7 +63,7 @@ import {
   getStudentNextQuiz,
   getStudentStreak,
   getStudentHomeworkPulse,
-} from "@/lib/dashboard-queries";
+} from "@/lib/views/student-dashboard-queries";
 import { logError } from "@/lib/logger";
 import { after } from "next/server";
 
