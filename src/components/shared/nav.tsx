@@ -9,7 +9,7 @@ import {
   MessageSquare, Clock, Users, ClipboardCheck, BookOpen, StickyNote, Mic, Award,
   Star, DollarSign, Briefcase, FileText, Mail, Bell, Settings, ScrollText,
   ChevronsUpDown, HelpCircle, ChevronRight, ChevronDown, CalendarDays, LogOut,
-  Network, Map, Activity,
+  Network, Map, Activity, BarChart3,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { LogoutButton } from "./logout-button";
@@ -74,6 +74,7 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/admin/dashboard", ar: "لوحة الإدارة", en: "Dashboard", icon: LayoutDashboard, group: { ar: "الرئيسية", en: "MAIN" } },
     { href: "/admin/control-tower", ar: "مركز التحكم", en: "Control Tower", icon: ClipboardCheck },
     { href: "/admin/retention", ar: "إشارات البقاء", en: "Retention", icon: TrendingDown },
+    { href: "/admin/analytics", ar: "التحليلات", en: "Analytics", icon: BarChart3 },
     { href: "/admin/users", ar: "المستخدمون", en: "Users", icon: Users, group: { ar: "المستخدمون", en: "USERS" } },
     { href: "/admin/teachers", ar: "المعلمون", en: "Teachers", icon: GraduationCap },
     { href: "/admin/bookings", ar: "الحجوزات", en: "Bookings", icon: BookOpen, group: { ar: "الجلسات", en: "SESSIONS" } },
