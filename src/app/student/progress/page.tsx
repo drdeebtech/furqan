@@ -250,7 +250,10 @@ export default async function StudentProgressPage() {
         parentReport,
       }}
     />
-    {!activeAssignmentsLoad.failed && <ProgressOfflineSync snapshot={offlineSnapshot} />}
+    {/* Only persist a snapshot when every source loaded cleanly — a transient
+        failure in any of them would otherwise overwrite a good offline cache
+        with partial/empty data. (#527 CR) */}
+    {!anyFailed && !activeAssignmentsLoad.failed && <ProgressOfflineSync snapshot={offlineSnapshot} />}
     </>
   );
 }
