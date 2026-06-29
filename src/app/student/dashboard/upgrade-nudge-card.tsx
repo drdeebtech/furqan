@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { ArrowUpCircle, X } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
@@ -42,6 +42,21 @@ export function readUpgradeNudgeDismissed(
   }
 }
 
+/** Event dispatched after a dismissal so the nudge re-reads sessionStorage. */
+const DISMISS_EVENT = "upgrade-nudge:dismissed";
+
+/**
+ * useSyncExternalStore subscriber. Dismissal only changes via this component's
+ * own handleDismiss (which dispatches DISMISS_EVENT after writing
+ * sessionStorage), so listening for that event is sufficient. No-op on the
+ * server keeps SSR inert.
+ */
+function subscribeDismissal(onChange: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener(DISMISS_EVENT, onChange);
+  return () => window.removeEventListener(DISMISS_EVENT, onChange);
+}
+
 /**
  * Issue #546 — Contextual upgrade nudge shown on the student dashboard when
  * the active package has EXACTLY 1 session credit remaining.
@@ -69,41 +84,31 @@ export function UpgradeNudgeCard({
   packageId: string | null;
 }) {
   const { t, dir } = useLang();
-  const [dismissed, setDismissed] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
-  const storageKey = dismissalKeyForPackage(packageId);
+  // Read the dismissal flag reactively from sessionStorage via
+  // useSyncExternalStore: hydration-safe (server snapshot = not dismissed) and
+  // free of setState-in-effect (which the React lint rule flags as a cascading
+  // render). The client snapshot reads THIS package's key, so switching to a
+  // different package naturally re-enables the nudge (issue #546). handleDismiss
+  // writes the key and dispatches DISMISS_EVENT to trigger a re-read.
+  const dismissed = useSyncExternalStore(
+    subscribeDismissal,
+    () => readUpgradeNudgeDismissed(window.sessionStorage, packageId),
+    () => false,
+  );
 
-  // Hydration-safe: server renders dismissed=false, client reconciles from
-  // sessionStorage on mount (matches the pwa-install-prompt pattern).
-  //
-  // Re-derive unconditionally from THIS package's key on every storageKey
-  // change. The previous implementation only set dismissed=true when the
-  // stored value was "1" and never reset it, so switching from a dismissed
-  // package A to a never-seen package B left dismissed stuck at true and the
-  // nudge wrongly hidden — breaking the "package change re-enables the
-  // nudge" contract (issue #546). Reading the new key and setting the result
-  // (true OR false) restores the contract.
-  useEffect(() => {
-    setMounted(true);
-    if (typeof window === "undefined") return;
-    setDismissed(readUpgradeNudgeDismissed(window.sessionStorage, packageId));
-  }, [packageId]);
-
-  // Gate on exactly 1 credit (per the issue). Don't render on the server when
-  // the dismissal state is unknown — wait for mount to avoid a flash.
+  // Gate on exactly 1 credit (per the issue).
   if (remainingCredits !== 1) return null;
-  if (!mounted) return null;
   if (dismissed) return null;
 
   function handleDismiss() {
-    setDismissed(true);
-    if (storageKey && typeof window !== "undefined") {
-      try {
-        window.sessionStorage.setItem(storageKey, "1");
-      } catch {
-        // private mode — dismissal only lasts for this render tree
-      }
+    const storageKey = dismissalKeyForPackage(packageId);
+    if (!storageKey || typeof window === "undefined") return;
+    try {
+      window.sessionStorage.setItem(storageKey, "1");
+      window.dispatchEvent(new Event(DISMISS_EVENT));
+    } catch {
+      // private mode — dismissal only lasts for this render tree
     }
   }
 
