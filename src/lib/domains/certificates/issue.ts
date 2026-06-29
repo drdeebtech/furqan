@@ -37,9 +37,11 @@ const EVENT_NAME = "certificate.earned";
  * Idempotent certificate issuance (T015, spec 023).
  *
  * Idempotency key: `cert:{studentId}:{type}:{milestoneKey}`
- * Uses automation_logs as a distributed lock:
+ * Uses automation_logs as a distributed lock. Since issue #491 the idempotency
+ * UNIQUE index is partial (WHERE status <> 'failed'), so failed attempts are
+ * retained as an audit trail and ignored by the lock query below:
  *   - 'started'/'succeeded'/'skipped' → cert already issued or in-flight; return idempotent
- *   - 'failed'   → delete old row, retry (T030 spec-local retry)
+ *   - 'failed'   → ignored; a fresh 'started' row is acquired (no delete)
  *   - no row     → acquire lock ('started'), issue, update to 'succeeded'
  *
  * Juz branch (appreciation_juz) is blocked on T014a; still issues the cert
