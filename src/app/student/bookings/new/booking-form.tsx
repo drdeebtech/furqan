@@ -239,6 +239,8 @@ export function BookingForm({
                 <button
                   key={s}
                   type="button"
+                  data-testid={`session-type-option-${s}`}
+                  aria-pressed={selectedType === s}
                   onClick={() => setSelectedType(s)}
                   className={`rounded-xl border px-3 py-3 text-sm transition-colors ${
                     selectedType === s ? "border-gold bg-gold/10 font-medium text-gold" : "glass-input hover:border-gold/50"

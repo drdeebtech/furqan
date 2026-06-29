@@ -3,23 +3,38 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
+import { logError } from "@/lib/logger";
 import { Skeleton } from "@/components/shared/skeleton";
 import { getActiveTeacherSpecialties } from "@/lib/site-content/queries";
 import { TeacherList } from "./teacher-list";
+import { OnboardingWizard, type OnboardingPlan } from "./onboarding-wizard";
+import { completeOnboarding } from "@/lib/actions/onboarding";
 import type { TeacherData } from "./types";
 
 export const metadata: Metadata = { title: "المعلمون" };
 
-export default async function TeachersPage() {
+interface PageProps {
+  searchParams: Promise<{ new?: string }>;
+}
+
+export default async function TeachersPage({ searchParams }: PageProps) {
   const { t, dir } = await getT();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const sp = await searchParams;
+  const isNew = sp.new === "1";
+
   // Pull the student's most-recent recitation_standard alongside the
   // teachers list so each teacher card can highlight matching standards.
   // Without this, the student has no signal that "Hafs an Asim" on a
   // teacher card is the standard they're already studying.
+  //
+  // `onboarding_completed` + `subscription_plans` are only needed when the
+  // dashboard guard sent us here for the 3-step wizard (new=1); fetching
+  // them unconditionally would add two queries to every teachers-page
+  // render for returning students.
   const [teachersRes, studentStandardRes, subscriptionRes] = await Promise.all([
     supabase
       .from("teacher_profiles")
@@ -45,6 +60,35 @@ export default async function TeachersPage() {
       .limit(1)
       .maybeSingle(),
   ]);
+
+  // Default: treat as already-onboarded so we never accidentally show the
+  // wizard to a returning student who browsed without ?new=1.
+  let onboardingCompleted = true;
+  let plans: OnboardingPlan[] = [];
+  if (isNew) {
+    const [profileRes, plansRes] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("onboarding_completed")
+        .eq("id", user.id)
+        .maybeSingle<{ onboarding_completed: boolean }>(),
+      // Same source/query the public /pricing page uses — real catalog rows,
+      // never fabricated tiers or prices.
+      supabase
+        .from("subscription_plans")
+        .select("id, plan_code, name, monthly_credit_count, price_cents")
+        .eq("is_active", true)
+        .order("price_cents", { ascending: true })
+        .returns<OnboardingPlan[]>(),
+    ]);
+    onboardingCompleted = !!profileRes.data?.onboarding_completed;
+    if (plansRes.error) {
+      logError("teachers page: subscription_plans fetch failed", plansRes.error, { tag: "onboarding" });
+    } else if (plansRes.data) {
+      plans = plansRes.data;
+    }
+  }
+
   const teachers = teachersRes.data;
   const studentStandard = studentStandardRes.data?.recitation_standard ?? null;
   const hasActiveSubscription = !!subscriptionRes.data;
@@ -75,6 +119,10 @@ export default async function TeachersPage() {
     nameAr: nameMap[r.teacher_id]?.nameAr ?? null,
   }));
 
+  // Returning students (onboarding already done) never see the wizard even
+  // if they hand-navigate to ?new=1 — they get the plain browsable list.
+  const showWizard = isNew && !onboardingCompleted;
+
   return (
     <Suspense
       fallback={
@@ -89,12 +137,23 @@ export default async function TeachersPage() {
         </div>
       }
     >
-      <TeacherList
-        teachers={teacherData}
-        specialtyLabels={specialtyLabels}
-        studentStandard={studentStandard}
-        hasActiveSubscription={hasActiveSubscription}
-      />
+      {showWizard ? (
+        <OnboardingWizard
+          teachers={teacherData}
+          specialtyLabels={specialtyLabels}
+          studentStandard={studentStandard}
+          hasActiveSubscription={hasActiveSubscription}
+          plans={plans}
+          completeAction={completeOnboarding}
+        />
+      ) : (
+        <TeacherList
+          teachers={teacherData}
+          specialtyLabels={specialtyLabels}
+          studentStandard={studentStandard}
+          hasActiveSubscription={hasActiveSubscription}
+        />
+      )}
     </Suspense>
   );
 }
