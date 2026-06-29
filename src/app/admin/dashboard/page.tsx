@@ -10,7 +10,7 @@ import {
   getAdminBookingStatusBreakdown,
   getAdminRecentBookings,
   getAdminMonthlyRevenueTrend,
-} from "@/lib/dashboard-queries";
+} from "@/lib/views/admin-dashboard";
 
 // Per-query timeout for the dashboard fan-out. If any single query hangs
 // (slow Postgres plan, RLS recursion, hot lock), the page renders with that

@@ -15,7 +15,7 @@ import {
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { WidgetCard } from "@/components/shared/widget-card";
-import type { CalendarEvent } from "@/lib/dashboard-queries";
+import type { CalendarEvent } from "@/lib/views/student-calendar";
 
 interface Props {
   monthIso: string;

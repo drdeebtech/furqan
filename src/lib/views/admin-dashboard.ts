@@ -1,5 +1,8 @@
+// Admin dashboard reads — migrated out of the legacy dashboard-queries.ts god
+// module (#613). These use createClient() internally (not an injected seam),
+// matching their original shape.
+
 import { createClient } from "@/lib/supabase/server";
-import type { ServerClient } from "@/lib/supabase/types";
 import type { Lang } from "@/lib/i18n/server";
 import { formatDate } from "@/lib/i18n/format-date";
 import { logError } from "@/lib/logger";
@@ -10,106 +13,6 @@ import {
   type ChartDataPoint,
 } from "@/lib/views/_shared/chart";
 import type { LiveSessionItem } from "@/lib/views/_shared/live-session";
-
-/**
- * Calendar events for /student/calendar — combines bookings, follow-up due
- * dates, package expiries, and evaluation periods into a single
- * date-keyed list scoped to a month window. Returns one row per event;
- * the calendar grid groups them by date client-side.
- */
-export type CalendarEvent = {
-  id: string;
-  date: string; // ISO yyyy-mm-dd
-  kind: "session" | "homework" | "package_expiry" | "evaluation";
-  title: string;
-  href: string;
-  color: string; // tailwind palette token (passed inline as hex)
-};
-
-
-export async function getStudentCalendarEvents(
-  supabase: ServerClient,
-  studentId: string,
-  monthStart: Date,
-  monthEnd: Date,
-): Promise<CalendarEvent[]> {
-  const startIso = monthStart.toISOString();
-  const endIso = monthEnd.toISOString();
-
-  const [bookingsRes, homeworkRes, packagesRes, evalsRes] = await Promise.all([
-    supabase.from("bookings")
-      .select("id, scheduled_at, session_type, status")
-      .eq("student_id", studentId)
-      .gte("scheduled_at", startIso).lte("scheduled_at", endIso)
-      .returns<{ id: string; scheduled_at: string; session_type: string; status: string }[]>(),
-    supabase.from("homework_assignments")
-      .select("id, due_date, status")
-      .eq("student_id", studentId)
-      .not("due_date", "is", null)
-      .gte("due_date", startIso).lte("due_date", endIso)
-      .returns<{ id: string; due_date: string | null; status: string }[]>(),
-    supabase.from("student_packages")
-      .select("id, expires_at, status")
-      .eq("student_id", studentId)
-      .not("expires_at", "is", null)
-      .gte("expires_at", startIso).lte("expires_at", endIso)
-      .returns<{ id: string; expires_at: string | null; status: string }[]>(),
-    supabase.from("session_evaluations")
-      .select("id, evaluation_date, evaluation_type")
-      .eq("student_id", studentId)
-      .gte("evaluation_date", startIso).lte("evaluation_date", endIso)
-      .returns<{ id: string; evaluation_date: string; evaluation_type: string }[]>(),
-  ]);
-
-  const events: CalendarEvent[] = [];
-  const day = (iso: string) => iso.slice(0, 10);
-
-  for (const b of bookingsRes.data ?? []) {
-    events.push({
-      id: `booking_${b.id}`,
-      date: day(b.scheduled_at),
-      kind: "session",
-      title: b.session_type,
-      href: `/student/sessions`,
-      color: b.status === "completed" ? "#10B981" : b.status === "no_show" ? "#EF4444" : "#3B82F6",
-    });
-  }
-  for (const h of homeworkRes.data ?? []) {
-    if (!h.due_date) continue;
-    events.push({
-      id: `hw_${h.id}`,
-      date: day(h.due_date),
-      kind: "homework",
-      title: h.status === "assigned" ? "Follow-up due" : `Follow-up (${h.status})`,
-      href: "/student/follow-up",
-      color: "#F59E0B",
-    });
-  }
-  for (const p of packagesRes.data ?? []) {
-    if (!p.expires_at) continue;
-    events.push({
-      id: `pkg_${p.id}`,
-      date: day(p.expires_at),
-      kind: "package_expiry",
-      title: "Package expires",
-      href: "/student/dashboard",
-      color: "#8B5CF6",
-    });
-  }
-  for (const e of evalsRes.data ?? []) {
-    events.push({
-      id: `eval_${e.id}`,
-      date: day(e.evaluation_date),
-      kind: "evaluation",
-      title: `Evaluation (${e.evaluation_type})`,
-      href: "/student/progress",
-      color: "#06B6D4",
-    });
-  }
-
-  return events;
-}
-
 
 /**
  * Month-over-month revenue for the admin MRR card.
@@ -358,60 +261,5 @@ export async function getAdminRecentBookings(
     assignee: b.student?.full_name ?? "—",
     view: "view",
   }));
-}
-
-
-/**
- * Recitation-standard roster summary for the teacher dashboard.
- *
- * Groups the teacher's students by the qira'a tradition each is
- * studying (hafs / warsh / qalon / al_duri / shu_ba). Source of
- * truth: the most recent student_progress.recitation_standard for
- * each student under this teacher.
- *
- * Returns one row per (standard, count). Students who don't have
- * a recitation_standard set anywhere in their progress show up
- * under "unspecified" — surfacing the gap so the teacher can
- * record it next session.
- *
- * For single-tradition teachers this validates ("all 5 students on
- * hafs"); for multi-tradition teachers this is the at-a-glance
- * split they need before context-switching between students.
- */
-export async function getTeacherRecitationStandardRoster(
-  supabase: ServerClient,
-  teacherId: string,
-): Promise<{ standard: string; count: number }[]> {
-  // Get the teacher's distinct students with the most recent
-  // recitation_standard per student. Two-step: fetch all progress
-  // rows for this teacher (sorted recent-first), then dedupe by
-  // student_id taking the first standard we see.
-  const result = await supabase
-    .from("student_progress")
-    .select("student_id, recitation_standard")
-    .eq("teacher_id", teacherId)
-    .order("created_at", { ascending: false })
-    .returns<{ student_id: string; recitation_standard: string | null }[]>();
-  if (result.error) throw result.error;
-
-  const rows = result.data ?? [];
-  if (rows.length === 0) return [];
-
-  const perStudent: Record<string, string | null> = {};
-  for (const r of rows) {
-    if (!(r.student_id in perStudent)) {
-      perStudent[r.student_id] = r.recitation_standard;
-    }
-  }
-
-  const counts: Record<string, number> = {};
-  for (const std of Object.values(perStudent)) {
-    const key = std ?? "unspecified";
-    counts[key] = (counts[key] ?? 0) + 1;
-  }
-
-  return Object.entries(counts)
-    .sort((a, b) => b[1] - a[1])
-    .map(([standard, count]) => ({ standard, count }));
 }
 
