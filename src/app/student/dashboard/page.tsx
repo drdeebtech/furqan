@@ -19,6 +19,24 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Issue #545 — onboarding guard. Brand-new students are routed to the
+  // 3-step wizard (/student/teachers?new=1) exactly once, until
+  // `profiles.onboarding_completed` is flipped to true by the
+  // `completeOnboarding` server action. This check runs BEFORE the heavy
+  // dashboard view so we don't pay for ~25 queries on a redirect.
+  //
+  // No redirect loop: the wizard lives at /student/teachers (not here),
+  // and step 3 → completeOnboarding sets the flag → routes back here →
+  // guard passes → dashboard renders.
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select("onboarding_completed")
+    .eq("id", user.id)
+    .maybeSingle<{ onboarding_completed: boolean }>();
+  if (!profileRow?.onboarding_completed) {
+    redirect("/student/teachers?new=1");
+  }
+
   const sp = await searchParams;
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -36,10 +54,17 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
 
   // All dashboard reads (the ~14 raw queries + 8 dashboard-queries helpers,
   // ~25-30 queries/render) live behind this one view module. The page is the
-  // HTTP boundary: auth + year-filter computation + the redirect decisions +
-  // render. loadOrFail error handling moved INTO the view alongside its reads
-  // and is surfaced back here as the single `anyFailed` flag (DataLoadBanner).
-  const { data, anyFailed, isNewStudent } = await studentDashboardView(supabase, user.id, {
+  // HTTP boundary: auth + onboarding guard + year-filter computation + render.
+  // loadOrFail error handling moved INTO the view alongside its reads and is
+  // surfaced back here as the single `anyFailed` flag (DataLoadBanner).
+  //
+  // `isNewStudent` (view-level short-circuit for zero-activity profiles) is
+  // intentionally NOT used as a redirect trigger anymore — the authoritative
+  // onboarding gate now lives at the top of this page via
+  // `profiles.onboarding_completed` (issue #545). A returning student who
+  // finished onboarding but has no sessions yet renders an empty dashboard,
+  // which is correct. The view still short-circuits to emptyData for perf.
+  const { data, anyFailed } = await studentDashboardView(supabase, user.id, {
     now,
     isCurrentYear,
     yearStart,
@@ -47,11 +72,6 @@ export default async function StudentDashboardPage({ searchParams }: PageProps) 
     monthStart,
     monthEnd,
   });
-
-  // New students with no activity → guide them to teachers page.
-  if (isNewStudent) {
-    redirect("/student/teachers?new=1");
-  }
 
   const murajaahSlot = (
     <Suspense fallback={<StudentMurajaahSkeleton />}>

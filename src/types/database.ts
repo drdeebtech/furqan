@@ -2998,6 +2998,7 @@ export type Database = {
           id: string
           is_active: boolean
           lang: string
+          onboarding_completed: boolean
           parent_email: string | null
           parent_name: string | null
           parent_phone: string | null
@@ -3018,6 +3019,7 @@ export type Database = {
           id: string
           is_active?: boolean
           lang?: string
+          onboarding_completed?: boolean
           parent_email?: string | null
           parent_name?: string | null
           parent_phone?: string | null
@@ -3038,6 +3040,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           lang?: string
+          onboarding_completed?: boolean
           parent_email?: string | null
           parent_name?: string | null
           parent_phone?: string | null
