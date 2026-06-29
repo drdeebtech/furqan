@@ -9,7 +9,6 @@ import { SESSION_TYPE_AR, RIWAYA_AR } from "@/lib/constants";
 import type { SessionType, RecitationStandard } from "@/types/database";
 import type { TeacherLanguage } from "@/lib/site-content/types";
 import type { TeacherData } from "./types";
-import { BookingSteps } from "@/components/shared/booking-steps";
 
 const SESSION_TYPE_EN: Record<SessionType, string> = {
   hifz: "Hifz", muraja: "Review", tajweed: "Tajweed", tilawa: "Tilawa",
@@ -70,7 +69,12 @@ export function TeacherList({
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [sortBy, setSortBy] = useState<"rating" | "sessions" | "price">(initialSort);
   const { t, dir, lang } = useLang();
-  const isNew = searchParams.get("new") === "1";
+
+  // NOTE (issue #545): the previous `new=1` banner + <BookingSteps/> were
+  // moved out of this component into <OnboardingWizard/>. This keeps
+  // TeacherList a pure browsable list reused both standalone and as the
+  // wizard's step-1 body. The booking-flow stepper still lives in
+  // booking-form.tsx where it belongs.
 
   // Picklist-driven specialty labels (memorization, murajaa, ijazah, women_only, …).
   // Falls back to SESSION_TYPE_AR for legacy enum values, then to the raw key.
@@ -107,24 +111,6 @@ export function TeacherList({
 
   return (
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-8">
-      {isNew && (
-        <>
-          <BookingSteps current={1} />
-          <div className="mb-6 glass-card p-5 text-center">
-            <p className="text-lg font-bold text-gold">{t("مرحباً! اختر معلمك لتبدأ رحلتك مع القرآن", "Welcome! Choose your teacher to begin your journey with the Qur'an")}</p>
-            {hasActiveSubscription ? (
-              <p className="mt-1 text-sm text-muted">{t("تصفح المعلمين واضغط \"احجز\" لحجز جلستك الأولى", "Browse teachers and press \"Book\" to schedule your first session")}</p>
-            ) : (
-              <p className="mt-1 text-sm text-muted">
-                {t("تحتاج إلى اشتراك للحجز — ", "You need a subscription to book — ")}
-                <Link href="/pricing" className="font-semibold text-gold underline underline-offset-2 hover:text-gold-light">
-                  {t("اشترك الآن", "Subscribe now")}
-                </Link>
-              </p>
-            )}
-          </div>
-        </>
-      )}
       <div className="mb-6">
         <h1 className="flex items-center gap-2 font-display text-2xl font-bold">
           <GraduationCap size={24} className="text-gold" />
