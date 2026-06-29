@@ -589,3 +589,61 @@ export async function getTeacherRecentStudents(
     view: "view",
   }));
 }
+
+
+// ── Migrated from dashboard-queries.ts (#613, teacher roster) ──
+
+/**
+ * Recitation-standard roster summary for the teacher dashboard.
+ *
+ * Groups the teacher's students by the qira'a tradition each is
+ * studying (hafs / warsh / qalon / al_duri / shu_ba). Source of
+ * truth: the most recent student_progress.recitation_standard for
+ * each student under this teacher.
+ *
+ * Returns one row per (standard, count). Students who don't have
+ * a recitation_standard set anywhere in their progress show up
+ * under "unspecified" — surfacing the gap so the teacher can
+ * record it next session.
+ *
+ * For single-tradition teachers this validates ("all 5 students on
+ * hafs"); for multi-tradition teachers this is the at-a-glance
+ * split they need before context-switching between students.
+ */
+export async function getTeacherRecitationStandardRoster(
+  supabase: ServerClient,
+  teacherId: string,
+): Promise<{ standard: string; count: number }[]> {
+  // Get the teacher's distinct students with the most recent
+  // recitation_standard per student. Two-step: fetch all progress
+  // rows for this teacher (sorted recent-first), then dedupe by
+  // student_id taking the first standard we see.
+  const result = await supabase
+    .from("student_progress")
+    .select("student_id, recitation_standard")
+    .eq("teacher_id", teacherId)
+    .order("created_at", { ascending: false })
+    .returns<{ student_id: string; recitation_standard: string | null }[]>();
+  if (result.error) throw result.error;
+
+  const rows = result.data ?? [];
+  if (rows.length === 0) return [];
+
+  const perStudent: Record<string, string | null> = {};
+  for (const r of rows) {
+    if (!(r.student_id in perStudent)) {
+      perStudent[r.student_id] = r.recitation_standard;
+    }
+  }
+
+  const counts: Record<string, number> = {};
+  for (const std of Object.values(perStudent)) {
+    const key = std ?? "unspecified";
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([standard, count]) => ({ standard, count }));
+}
+

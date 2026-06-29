@@ -1,7 +1,7 @@
 import { BookMarked } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
 import { helperOrFail } from "@/lib/supabase/load-or-fail";
-import { getTeacherRecitationStandardRoster } from "@/lib/dashboard-queries";
+import { getTeacherRecitationStandardRoster } from "@/lib/views/teacher-dashboard";
 import { createClient } from "@/lib/supabase/server";
 import { Skeleton } from "@/components/shared/skeleton";
 

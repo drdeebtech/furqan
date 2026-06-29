@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { startOfMonth, endOfMonth } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
-import { getStudentCalendarEvents } from "@/lib/dashboard-queries";
+import { getStudentCalendarEvents } from "@/lib/views/student-calendar";
 import { CalendarGrid } from "./calendar-grid";
 
 export const metadata: Metadata = { title: "التقويم" };
