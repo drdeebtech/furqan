@@ -10,6 +10,12 @@ import { getFollowUpAudioUrl } from "@/lib/actions/follow-up";
 const SPEEDS = [0.5, 0.75, 1] as const;
 const SKIP_SECONDS = 5;
 
+// The "active" player — the one the teacher last started. Tracked at module
+// scope so the keyboard shortcuts target a single player across the many rows
+// in the Talqeen queue, and so Space still resumes after a pause (gating on
+// isPlaying used to drop the listener on pause). (#541 CR)
+let activePlayer: HTMLAudioElement | null = null;
+
 interface HomeworkAudioPlayerProps {
   homeworkId: string;
   durationSeconds: number | null;
@@ -43,7 +49,6 @@ export function HomeworkAudioPlayer({ homeworkId, durationSeconds, label, onTagE
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [speed, setSpeed] = useState<number>(1);
-  const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   async function handleLoad() {
@@ -64,17 +69,19 @@ export function HomeworkAudioPlayer({ homeworkId, durationSeconds, label, onTagE
     if (audioRef.current) audioRef.current.playbackRate = rate;
   }, []);
 
-  // Keyboard shortcuts are only live while THIS player is playing, so multiple
-  // rows in the Talqeen queue never fight over the same keys. Ignore the keys
-  // when the teacher is typing in the notes/error fields (text-field guard).
+  // Keyboard shortcuts: bound for the lifetime of this loaded player, but only
+  // act when THIS audio is the active one (the last started). That keeps a
+  // single player in control across the queue AND lets Space resume after a
+  // pause. Ignore keys while typing in a field (text-field guard).
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!url) return;
+    const node = audioRef.current; // stable for this player's lifetime; used in cleanup
     function onKey(e: KeyboardEvent) {
+      const audio = audioRef.current;
+      if (!audio || audio !== activePlayer) return;
       const el = e.target as HTMLElement | null;
       const tag = el?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable) return;
-      const audio = audioRef.current;
-      if (!audio) return;
       if (e.code === "Space") {
         e.preventDefault();
         if (audio.paused) void audio.play(); else audio.pause();
@@ -87,8 +94,11 @@ export function HomeworkAudioPlayer({ homeworkId, durationSeconds, label, onTagE
       }
     }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isPlaying]);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      if (activePlayer === node) activePlayer = null;
+    };
+  }, [url]);
 
   const headerLabel = label
     ? t(label.ar, label.en)
@@ -106,13 +116,13 @@ export function HomeworkAudioPlayer({ homeworkId, durationSeconds, label, onTagE
         </p>
         <audio
           ref={audioRef}
+          aria-label={headerLabel}
           src={url}
           controls
           className="w-full"
           preload="metadata"
-          onPlay={() => { setIsPlaying(true); if (audioRef.current) audioRef.current.playbackRate = speed; }}
-          onPause={() => setIsPlaying(false)}
-          onEnded={() => setIsPlaying(false)}
+          onPlay={() => { activePlayer = audioRef.current; if (audioRef.current) audioRef.current.playbackRate = speed; }}
+          onEnded={() => { if (activePlayer === audioRef.current) activePlayer = null; }}
         />
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           <span className="text-xs text-muted">{t("السرعة", "Speed")}:</span>
@@ -122,7 +132,7 @@ export function HomeworkAudioPlayer({ homeworkId, durationSeconds, label, onTagE
               type="button"
               onClick={() => applySpeed(s)}
               aria-pressed={speed === s}
-              className={`min-h-[28px] rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors focus-ring ${
+              className={`min-h-11 min-w-11 rounded-full border px-3 py-2 text-xs font-medium transition-colors focus-ring ${
                 speed === s
                   ? "border-violet-400/60 bg-violet-500/20 text-violet-200"
                   : "border-card-border bg-card/30 text-muted hover:bg-card/50"
@@ -135,7 +145,7 @@ export function HomeworkAudioPlayer({ homeworkId, durationSeconds, label, onTagE
             <button
               type="button"
               onClick={() => onTagError(audioRef.current?.currentTime ?? 0)}
-              className="ms-auto inline-flex min-h-[28px] items-center gap-1 rounded-full border border-error/40 bg-error/10 px-2.5 py-0.5 text-xs font-medium text-red-300 hover:bg-error/20 focus-ring"
+              className="ms-auto inline-flex min-h-11 items-center gap-1 rounded-full border border-error/40 bg-error/10 px-4 py-2 text-xs font-medium text-red-300 hover:bg-error/20 focus-ring"
             >
               <Flag size={11} aria-hidden="true" />
               {t("وسم خطأ هنا", "Tag error here")}

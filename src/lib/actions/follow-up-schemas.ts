@@ -19,7 +19,9 @@ export const gradeFollowUpSchema = z.object({
     "completed_not_done",
   ]),
   teacher_notes: z.string().nullable(),
-  errors: z.array(capturedErrorSchema).max(50).optional(),
+  // `.nullable()` so callers following GradeFollowUpInput (errors?: … | null)
+  // validate cleanly instead of failing before the handler runs. (#541 CR)
+  errors: z.array(capturedErrorSchema).max(50).nullable().optional(),
 });
 
 export const editFollowUpUpdatesSchema = z

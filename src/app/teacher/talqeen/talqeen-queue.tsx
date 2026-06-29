@@ -24,17 +24,24 @@ function mmss(sec: number): string {
  */
 function TalqeenRow({ row }: { row: TalqeenQueueRow }) {
   const [errors, setErrors] = useState<CapturedError[]>([]);
+  // Only enable tajweed error-capture when the homework has a real Qur'an
+  // location. Inventing 1:1 for a row with no surah/ayah would attach
+  // recitation errors to Al-Fatiha:1 — a Quran-integrity violation. (#541 CR)
+  const hasLocation = row.surahNumber !== null && row.ayahStart !== null;
   return (
     <>
       <div className="mt-3">
         <HomeworkAudioPlayer
           homeworkId={row.id}
           durationSeconds={row.audioDurationSeconds}
-          onTagError={(sec) =>
-            setErrors((prev) => [
-              ...prev,
-              { surahNum: row.surahNumber ?? 1, ayahNum: row.ayahStart ?? 1, errorType: "madd", note: `@${mmss(sec)}` },
-            ])
+          onTagError={
+            hasLocation
+              ? (sec) =>
+                  setErrors((prev) => [
+                    ...prev,
+                    { surahNum: row.surahNumber!, ayahNum: row.ayahStart!, errorType: "madd", note: `@${mmss(sec)}` },
+                  ])
+              : undefined
           }
         />
       </div>
@@ -42,11 +49,11 @@ function TalqeenRow({ row }: { row: TalqeenQueueRow }) {
         <GradeForm
           homeworkId={row.id}
           homeworkTitle={row.title}
-          errorCapture={{
-            errors,
-            onErrorsChange: setErrors,
-            defaults: { surah: row.surahNumber, ayahStart: row.ayahStart },
-          }}
+          errorCapture={
+            hasLocation
+              ? { errors, onErrorsChange: setErrors, defaults: { surah: row.surahNumber, ayahStart: row.ayahStart } }
+              : undefined
+          }
         />
       </div>
     </>

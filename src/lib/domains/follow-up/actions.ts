@@ -317,7 +317,17 @@ export async function gradeFollowUp(
   // failure here must never fail the grade that already committed.
   if (input.errors && input.errors.length > 0) {
     try {
-      await persistTalqeenErrors(admin, hw.booking_id, input.errors);
+      await persistTalqeenErrors(
+        admin,
+        hw.booking_id,
+        input.errors,
+        // Constrain tagged errors to the graded homework's own passage so a
+        // buggy/tampered client can't store errors against unrelated ayahs.
+        // (#541 CR)
+        hw.surah_number != null && hw.ayah_start != null && hw.ayah_end != null
+          ? { surahNum: hw.surah_number, ayahStart: hw.ayah_start, ayahEnd: hw.ayah_end }
+          : null,
+      );
     } catch (err) {
       logError("talqeen error persist failed", err, {
         tag: "homework", severity: "warning",
@@ -451,8 +461,9 @@ async function persistTalqeenErrors(
   admin: AdminClient,
   bookingId: string,
   errors: CapturedError[],
+  homeworkRange: { surahNum: number; ayahStart: number; ayahEnd: number } | null,
 ): Promise<void> {
-  const { data: progressRow } = await admin
+  const { data: progressRow, error: progressErr } = await admin
     .from("student_progress")
     .select("id")
     .eq("booking_id", bookingId)
@@ -460,12 +471,21 @@ async function persistTalqeenErrors(
     .limit(1)
     .maybeSingle<{ id: string }>();
 
+  // Surface a real DB/RLS failure (the caller logs it) rather than treating it
+  // as "no progress row" and silently dropping every captured error. (#541 CR)
+  if (progressErr) throw progressErr;
   if (!progressRow) return; // no progress row for this booking — nothing to attach to
 
   const rows: TableInsert<"recitation_errors">[] = [];
   for (const e of errors) {
     const max = ayahCount(e.surahNum);
     if (max === null || e.ayahNum < 1 || e.ayahNum > max) continue; // drop out-of-range
+    // When the homework has a known passage, only keep errors inside it — no
+    // storing errors against ayahs the student wasn't assigned. (#541 CR)
+    if (
+      homeworkRange &&
+      (e.surahNum !== homeworkRange.surahNum || e.ayahNum < homeworkRange.ayahStart || e.ayahNum > homeworkRange.ayahEnd)
+    ) continue;
     rows.push({
       progress_id: progressRow.id,
       surah_num: e.surahNum,

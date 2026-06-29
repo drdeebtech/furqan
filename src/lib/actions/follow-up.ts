@@ -287,7 +287,11 @@ export async function gradeFollowUp(homeworkId: string, formData: FormData) {
   if (typeof rawErrors === "string" && rawErrors) {
     try {
       const parsed = JSON.parse(rawErrors);
-      if (Array.isArray(parsed)) errors = parsed as CapturedError[];
+      // Fail closed on a non-array payload: leaving `errors` undefined here would
+      // skip schema validation and commit the grade with the tagged errors
+      // silently lost. (#541 CR)
+      if (!Array.isArray(parsed)) return { error: "تعذّر قراءة الأخطاء" };
+      errors = parsed as CapturedError[];
     } catch {
       return { error: "تعذّر قراءة الأخطاء" };
     }
