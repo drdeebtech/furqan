@@ -384,7 +384,7 @@ function StudentDashboardContentInner({
         <div className="mt-8">
           <UpgradeNudgeCard
             remainingCredits={pkgRemaining}
-            packageId={primaryPackage?.id ?? null}
+            packageId={primaryPackage ? primaryPackage.id : null}
           />
         </div>
 

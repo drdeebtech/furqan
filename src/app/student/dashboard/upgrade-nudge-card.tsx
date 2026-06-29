@@ -5,6 +5,43 @@ import Link from "next/link";
 import { ArrowUpCircle, X } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 
+const DISMISS_KEY_PREFIX = "upgrade-nudge-dismissed:";
+
+/** Minimal sessionStorage surface — typed so the reader is DOM-independent. */
+type SessionStorageLike = {
+  getItem: (key: string) => string | null;
+};
+
+/**
+ * Storage key for a given package's dismissal. Null when there is no active
+ * package (no package → no key → reader returns false).
+ */
+export function dismissalKeyForPackage(packageId: string | null): string | null {
+  return packageId ? `${DISMISS_KEY_PREFIX}${packageId}` : null;
+}
+
+/**
+ * Pure reader for the dismissal flag. Extracted so the dismissal-key logic is
+ * unit-testable without a DOM (this repo's vitest config runs in the `node`
+ * environment, not jsdom — see vitest.config.ts; there is no
+ * @testing-library/react setup). Returns true ONLY when the stored flag for
+ * THIS package is exactly "1", so switching to a different package (different
+ * key with no stored value) correctly resets the nudge to visible.
+ */
+export function readUpgradeNudgeDismissed(
+  storage: SessionStorageLike | null,
+  packageId: string | null,
+): boolean {
+  const key = dismissalKeyForPackage(packageId);
+  if (!key || !storage) return false;
+  try {
+    return storage.getItem(key) === "1";
+  } catch {
+    // private mode / disabled storage — treat as not-dismissed
+    return false;
+  }
+}
+
 /**
  * Issue #546 — Contextual upgrade nudge shown on the student dashboard when
  * the active package has EXACTLY 1 session credit remaining.
@@ -35,22 +72,23 @@ export function UpgradeNudgeCard({
   const [dismissed, setDismissed] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  const storageKey = packageId ? `upgrade-nudge-dismissed:${packageId}` : null;
+  const storageKey = dismissalKeyForPackage(packageId);
 
   // Hydration-safe: server renders dismissed=false, client reconciles from
   // sessionStorage on mount (matches the pwa-install-prompt pattern).
+  //
+  // Re-derive unconditionally from THIS package's key on every storageKey
+  // change. The previous implementation only set dismissed=true when the
+  // stored value was "1" and never reset it, so switching from a dismissed
+  // package A to a never-seen package B left dismissed stuck at true and the
+  // nudge wrongly hidden — breaking the "package change re-enables the
+  // nudge" contract (issue #546). Reading the new key and setting the result
+  // (true OR false) restores the contract.
   useEffect(() => {
     setMounted(true);
-    if (storageKey && typeof window !== "undefined") {
-      try {
-        if (sessionStorage.getItem(storageKey) === "1") {
-          setDismissed(true);
-        }
-      } catch {
-        // private mode / disabled storage — leave dismissed=false
-      }
-    }
-  }, [storageKey]);
+    if (typeof window === "undefined") return;
+    setDismissed(readUpgradeNudgeDismissed(window.sessionStorage, packageId));
+  }, [packageId]);
 
   // Gate on exactly 1 credit (per the issue). Don't render on the server when
   // the dismissal state is unknown — wait for mount to avoid a flash.
@@ -60,9 +98,9 @@ export function UpgradeNudgeCard({
 
   function handleDismiss() {
     setDismissed(true);
-    if (storageKey) {
+    if (storageKey && typeof window !== "undefined") {
       try {
-        sessionStorage.setItem(storageKey, "1");
+        window.sessionStorage.setItem(storageKey, "1");
       } catch {
         // private mode — dismissal only lasts for this render tree
       }
@@ -73,17 +111,17 @@ export function UpgradeNudgeCard({
     <section
       dir={dir}
       aria-label={t("ترقية باقتك", "Upgrade your package")}
-      className="rounded-2xl border border-gold/30 bg-gold/5 p-5"
+      className="rounded-2xl border border-card-border bg-card p-5"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <ArrowUpCircle
             size={20}
-            className="mt-0.5 shrink-0 text-gold"
+            className="mt-0.5 shrink-0 text-foreground"
             aria-hidden="true"
           />
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-gold">
+            <h2 className="text-base font-semibold text-foreground">
               {t("باقية لديك جلسة واحدة فقط", "You have 1 session left")}
             </h2>
             <p className="mt-1 text-sm leading-relaxed text-foreground/90">
@@ -98,7 +136,7 @@ export function UpgradeNudgeCard({
           type="button"
           onClick={handleDismiss}
           aria-label={t("إغلاق", "Dismiss")}
-          className="shrink-0 rounded-full p-1 text-muted transition-colors hover:text-foreground focus-ring"
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-foreground/5 hover:text-foreground focus-ring"
         >
           <X size={16} aria-hidden="true" />
         </button>
