@@ -3,12 +3,13 @@
 
 // Bump this on any public asset change (logos, manifest, favicons) so installed
 // PWAs invalidate their precache on the next service-worker activation.
-const CACHE_NAME = "furqan-v3-2026-06-28";
-const _OFFLINE_URL = "/offline";
+const CACHE_NAME = "furqan-v4-2026-06-29";
+const OFFLINE_URL = "/offline";
 
 // Static assets to cache on install
 const PRECACHE_URLS = [
   "/",
+  OFFLINE_URL,
   "/manifest.json",
   "/favicon-32.png",
   "/favicon-16.png",
@@ -43,12 +44,16 @@ self.addEventListener("fetch", (event) => {
   // Skip non-GET and cross-origin requests
   if (request.method !== "GET" || url.origin !== self.location.origin) return;
 
-  // Skip API routes and Supabase calls
-  if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/_next/")) return;
+  // Skip API routes — always network (auth, mutations, Supabase proxy).
+  if (url.pathname.startsWith("/api/")) return;
 
-  // Static assets (images, fonts, CSS) — cache-first
+  // Immutable build assets + static media — cache-first. Next.js fingerprints
+  // everything under /_next/static, so a cached chunk is never stale; caching
+  // the JS/CSS is what lets the offline page (/offline) hydrate and read its
+  // localStorage snapshot with no network.
   if (
-    url.pathname.match(/\.(png|jpg|jpeg|svg|webp|ico|woff2?|css)$/) ||
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.match(/\.(png|jpg|jpeg|svg|webp|ico|woff2?|css|js)$/) ||
     url.pathname.startsWith("/logo") ||
     url.pathname.startsWith("/favicon")
   ) {
@@ -64,10 +69,16 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Pages — network-first with offline fallback
+  // Other /_next/ paths (data, RSC payloads) — always network, no offline cache.
+  if (url.pathname.startsWith("/_next/")) return;
+
+  // Pages — network-first, falling back to the cached page, then the offline
+  // shell (/offline) which renders the student's last cached progress snapshot.
   if (request.headers.get("accept")?.includes("text/html")) {
     event.respondWith(
-      fetch(request).catch(() => caches.match(request).then((cached) => cached || caches.match("/")))
+      fetch(request).catch(() =>
+        caches.match(request).then((cached) => cached || caches.match(OFFLINE_URL))
+      )
     );
   }
 });
