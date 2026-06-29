@@ -29,6 +29,11 @@ export function ParentLinkManager({ studentId, initialTokens }: { studentId: str
       setError(res.error ?? t("فشل إنشاء الرابط", "Failed to create link"));
     } else {
       setGeneratedUrl(res.url);
+      // Show the new link in the revocable list immediately (no reload needed).
+      if (res.id && res.expiresAt) {
+        const created = res.id, exp = res.expiresAt;
+        setTokens((prev) => [{ id: created, createdAt: new Date().toISOString(), expiresAt: exp }, ...prev]);
+      }
     }
     setBusy(false);
   }
@@ -78,6 +83,7 @@ export function ParentLinkManager({ studentId, initialTokens }: { studentId: str
         <div className="mt-2 flex items-center gap-1.5">
           <input
             readOnly
+            dir="ltr"
             value={generatedUrl}
             className="glass-input min-w-0 flex-1 px-2 py-1 text-xs"
             onFocus={(e) => e.currentTarget.select()}

@@ -1,8 +1,13 @@
 import "server-only";
 
-import { randomBytes } from "node:crypto";
+import { randomBytes, createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ayahCount } from "@/lib/quran/ayah-counts";
+
+/** SHA-256 digest of a raw token — only the digest is ever stored/queried. */
+function hashToken(raw: string): string {
+  return createHash("sha256").update(raw).digest("hex");
+}
 
 /**
  * Magic-link parent portal (#563) — token lifecycle + scoped read.
@@ -38,7 +43,7 @@ export async function createParentToken(input: {
   studentId: string;
   teacherId: string;
   isAdmin: boolean;
-}): Promise<{ token: string; expiresAt: string }> {
+}): Promise<{ token: string; id: string; expiresAt: string }> {
   const admin = createAdminClient();
 
   if (!input.isAdmin) {
@@ -55,15 +60,20 @@ export async function createParentToken(input: {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + TOKEN_TTL_DAYS * 86400_000).toISOString();
 
-  const { error } = await admin.from(TABLE).insert({
-    token,
-    student_id: input.studentId,
-    teacher_id: input.teacherId,
-    expires_at: expiresAt,
-  } as never);
-  if (error) throw new Error(error.message);
+  // Store only the digest; the raw token is returned once and never persisted.
+  const { data, error } = await admin
+    .from(TABLE)
+    .insert({
+      token_hash: hashToken(token),
+      student_id: input.studentId,
+      teacher_id: input.teacherId,
+      expires_at: expiresAt,
+    } as never)
+    .select("id")
+    .single<{ id: string }>();
+  if (error || !data) throw new Error(error?.message ?? "insert_failed");
 
-  return { token, expiresAt };
+  return { token, id: data.id, expiresAt };
 }
 
 /** Revoke a token. Scoped to the owning teacher unless admin. */
@@ -78,8 +88,11 @@ export async function revokeParentToken(input: {
     .update({ revoked_at: new Date().toISOString() } as never)
     .eq("id", input.tokenId);
   if (!input.isAdmin) q = q.eq("teacher_id", input.teacherId);
-  const { error } = await q.select("id");
+  // `.select()` surfaces RLS-denied / wrong-owner updates as 0 rows instead of
+  // a silent success — a teacher revoking someone else's token must fail loudly.
+  const { data, error } = await q.select("id");
   if (error) throw new Error(error.message);
+  if (!data || (data as unknown[]).length === 0) throw new Error("not_found");
 }
 
 /** Active (non-revoked, non-expired) tokens for a student, for the teacher UI. */
@@ -89,7 +102,7 @@ export async function listActiveParentTokens(input: {
 }): Promise<{ id: string; createdAt: string; expiresAt: string }[]> {
   const admin = createAdminClient();
   const nowIso = new Date().toISOString();
-  const { data } = await admin
+  const { data, error } = await admin
     .from(TABLE)
     .select("id, created_at, expires_at")
     .eq("student_id", input.studentId)
@@ -98,6 +111,8 @@ export async function listActiveParentTokens(input: {
     .gt("expires_at", nowIso)
     .order("created_at", { ascending: false })
     .returns<{ id: string; created_at: string; expires_at: string }[]>();
+  // Surface a real DB/RLS failure instead of silently showing "no links".
+  if (error) throw new Error(error.message);
   return (data ?? []).map((r) => ({ id: r.id, createdAt: r.created_at, expiresAt: r.expires_at }));
 }
 
@@ -112,7 +127,7 @@ export async function resolveParentToken(token: string): Promise<{ studentId: st
   const { data } = await admin
     .from(TABLE)
     .select("student_id, expires_at, revoked_at")
-    .eq("token", token)
+    .eq("token_hash", hashToken(token))
     .maybeSingle<{ student_id: string; expires_at: string; revoked_at: string | null }>();
   if (!data) return null;
   if (data.revoked_at) return null;
@@ -122,9 +137,12 @@ export async function resolveParentToken(token: string): Promise<{ studentId: st
 
 export interface ParentPortalView {
   studentFirstName: string;
-  progress: { range: string; quality: number | null; teacherNotes: string | null; date: string }[];
+  // Free-form teacher_notes are intentionally NOT exposed on this
+  // unauthenticated portal — they can contain PII beyond the child's first
+  // name (other names, contact details). Parents get structured progress only.
+  progress: { range: string; quality: number | null; date: string }[];
   upcomingSessions: { scheduledAt: string; sessionType: string; durationMin: number }[];
-  recentErrors: { errorType: string; surah: number | null; ayah: number; note: string | null }[];
+  recentErrors: { errorType: string; surah: number | null; ayah: number }[];
 }
 
 function formatRange(sf: number | null, af: number | null, st: number | null, at: number | null): string {
@@ -148,12 +166,12 @@ export async function getParentPortalView(studentId: string): Promise<ParentPort
     admin.from("profiles").select("full_name").eq("id", studentId).maybeSingle<{ full_name: string | null }>(),
     admin
       .from("student_progress")
-      .select("surah_from, ayah_from, surah_to, ayah_to, quality_rating, teacher_notes, created_at")
+      .select("surah_from, ayah_from, surah_to, ayah_to, quality_rating, created_at")
       .eq("student_id", studentId)
       .gte("created_at", sinceIso)
       .order("created_at", { ascending: false })
       .limit(20)
-      .returns<{ surah_from: number | null; ayah_from: number | null; surah_to: number | null; ayah_to: number | null; quality_rating: number | null; teacher_notes: string | null; created_at: string }[]>(),
+      .returns<{ surah_from: number | null; ayah_from: number | null; surah_to: number | null; ayah_to: number | null; quality_rating: number | null; created_at: string }[]>(),
     admin
       .from("bookings")
       .select("scheduled_at, session_type, duration_min")
@@ -181,14 +199,17 @@ export async function getParentPortalView(studentId: string): Promise<ParentPort
       .from("recitation_errors")
       .select("error_type, surah_num, ayah_num, note")
       .in("progress_id", progressIds)
-      .neq("note", "__no_errors_observed_sentinel__")
       .order("created_at", { ascending: false })
       .limit(20)
       .returns<{ error_type: string; surah_num: number | null; ayah_num: number; note: string | null }[]>();
     recentErrors = (errs ?? [])
-      // Defensive: never surface a row whose ayah is out of range for its surah.
-      .filter((e) => e.surah_num == null || (ayahCount(e.surah_num) ?? 0) >= e.ayah_num)
-      .map((e) => ({ errorType: e.error_type, surah: e.surah_num, ayah: e.ayah_num, note: e.note }));
+      // Drop the "no errors observed" sentinel rows. Filtering in JS (not via
+      // `.neq`) keeps genuine errors whose note is NULL — `note <> 'x'` is NULL
+      // for a NULL note in SQL, which would wrongly exclude them.
+      .filter((e) => e.note !== "__no_errors_observed_sentinel__")
+      // Defensive: only surface a valid positive ayah within its surah's range.
+      .filter((e) => e.ayah_num >= 1 && (e.surah_num == null || (ayahCount(e.surah_num) ?? 0) >= e.ayah_num))
+      .map((e) => ({ errorType: e.error_type, surah: e.surah_num, ayah: e.ayah_num }));
   }
 
   return {
@@ -196,7 +217,6 @@ export async function getParentPortalView(studentId: string): Promise<ParentPort
     progress: (progressRes.data ?? []).map((p) => ({
       range: formatRange(p.surah_from, p.ayah_from, p.surah_to, p.ayah_to),
       quality: p.quality_rating,
-      teacherNotes: p.teacher_notes,
       date: p.created_at,
     })),
     upcomingSessions: (sessionsRes.data ?? []).map((s) => ({

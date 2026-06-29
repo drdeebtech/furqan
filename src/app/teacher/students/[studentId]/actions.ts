@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
 import { loudAction } from "@/lib/actions/loud";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 import { UserError } from "@/lib/actions/user-error";
@@ -112,6 +113,7 @@ export async function updateSessionNotes(
 const generateParentLinkBase = loudAction<{ studentId: string }, { message: string }>({
   name: "teacher.students.generate-parent-link",
   severity: "info",
+  schema: z.object({ studentId: z.string().uuid() }) as unknown as z.ZodType<{ studentId: string }>,
   audit: {
     table: "parent_access_tokens",
     recordId: (i) => i.studentId,
@@ -123,18 +125,33 @@ const generateParentLinkBase = loudAction<{ studentId: string }, { message: stri
     const actor = await teacherOrAboveActor();
     // createParentToken verifies the teacher actually teaches this student
     // (a booking links them) unless admin — authorization never trusts studentId.
-    const { token } = await createParentToken({ studentId, teacherId: actor.id, isAdmin: actor.isAdmin })
-      .catch((e: Error) => { throw new UserError(e.message === "not_authorized" ? "ليس لديك صلاحية على هذا الطالب" : "فشل إنشاء الرابط", { cause: e }); });
+    let minted: { token: string; id: string; expiresAt: string };
+    try {
+      minted = await createParentToken({ studentId, teacherId: actor.id, isAdmin: actor.isAdmin });
+    } catch (e) {
+      const err = e as Error;
+      // not_authorized is an expected user error — no `cause`, so loudAction
+      // doesn't escalate it to Sentry/Telegram as a system failure.
+      if (err.message === "not_authorized") throw new UserError("ليس لديك صلاحية على هذا الطالب");
+      throw new UserError("فشل إنشاء الرابط", { cause: err });
+    }
     const base = (process.env.NEXT_PUBLIC_APP_URL ?? "https://furqan.today").replace(/\/$/, "");
-    // The URL travels back to the client via the loud-result `message` field.
-    return { message: `${base}/parent/${token}` };
+    // The link + its id/expiry travel back via the loud-result `message` field.
+    return { message: JSON.stringify({ url: `${base}/parent/${minted.token}`, id: minted.id, expiresAt: minted.expiresAt }) };
   },
 });
 
-export async function generateParentLink(studentId: string): Promise<{ url?: string; error?: string }> {
+export async function generateParentLink(
+  studentId: string,
+): Promise<{ url?: string; id?: string; expiresAt?: string; error?: string }> {
   const result = await generateParentLinkBase({ studentId });
   if (!result.ok) return { error: result.error };
-  return { url: result.message };
+  try {
+    const parsed = JSON.parse(result.message ?? "{}") as { url: string; id: string; expiresAt: string };
+    return { url: parsed.url, id: parsed.id, expiresAt: parsed.expiresAt };
+  } catch {
+    return { error: "فشل إنشاء الرابط" };
+  }
 }
 
 // ─── revokeParentLink (#563) ────────────────────────────────────────────────
@@ -142,6 +159,7 @@ export async function generateParentLink(studentId: string): Promise<{ url?: str
 const revokeParentLinkBase = loudAction<{ tokenId: string }, { message: string }>({
   name: "teacher.students.revoke-parent-link",
   severity: "info",
+  schema: z.object({ tokenId: z.string().uuid() }) as unknown as z.ZodType<{ tokenId: string }>,
   audit: {
     table: "parent_access_tokens",
     recordId: (i) => i.tokenId,

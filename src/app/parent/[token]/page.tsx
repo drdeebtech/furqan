@@ -92,7 +92,6 @@ export default async function ParentPortalPage({ params }: Props) {
                     {new Date(p.date).toLocaleDateString(locale)}
                   </span>
                 </div>
-                {p.teacherNotes && <p className="mt-1 text-xs text-muted">{p.teacherNotes}</p>}
               </li>
             ))}
           </ul>
