@@ -12,6 +12,8 @@ import { DataLoadBanner } from "@/components/shared/data-load-banner";
 import { EvalForm } from "./eval-form";
 import { ResolveErrorButton } from "./resolve-error-button";
 import { GoalSection } from "./goal-section";
+import { ParentLinkManager } from "./parent-link-manager";
+import { listActiveParentTokens } from "@/lib/domains/parent-portal/tokens";
 import { RECITATION_STANDARD_LABEL } from "@/lib/recitation-constants";
 import { getActiveGoal } from "@/lib/domains/goals/goals";
 
@@ -105,6 +107,16 @@ export default async function StudentDetailPage({ params }: Props) {
 
   const student = profileRes.data;
   if (!student) redirect("/teacher/students");
+
+  // #563: active parent magic-links this teacher has minted for the student.
+  // Isolated like the other optional widgets — a transient failure renders an
+  // empty manager, never 500s the whole student page.
+  const parentTokensLoad = await helperOrFail(
+    () => listActiveParentTokens({ studentId, teacherId: user.id }),
+    [] as { id: string; createdAt: string; expiresAt: string }[],
+    { route: "teacher-student-detail", widget: "parent-links", metadata: { studentId } },
+  );
+  const parentTokens = parentTokensLoad.data;
 
   const bookingsLoad = loadOrFail(bookingsRes, [] as BookingRow[], { route: "teacher-student-detail", widget: "bookings", metadata: { studentId } });
   const progressLoad = loadOrFail(progressRes, [] as ProgressRow[], { route: "teacher-student-detail", widget: "progress", metadata: { studentId } });
@@ -280,6 +292,16 @@ export default async function StudentDetailPage({ params }: Props) {
               <p className="flex items-center gap-2 text-sm"><Mail size={14} className="text-muted" /> <span dir="ltr">{student.parent_email}</span></p>
             )}
           </div>
+          <div className="mt-4">
+            <ParentLinkManager studentId={studentId} initialTokens={parentTokens} />
+          </div>
+        </div>
+      )}
+
+      {/* Parent link (when no parent contact is on file, still offer the link) */}
+      {!(student.parent_name || student.parent_phone || student.parent_email) && (
+        <div className="mb-6">
+          <ParentLinkManager studentId={studentId} initialTokens={parentTokens} />
         </div>
       )}
 
