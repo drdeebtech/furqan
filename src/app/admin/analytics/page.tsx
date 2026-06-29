@@ -27,7 +27,7 @@ function pct(rate: number | null): string {
 
 function rateTone(rate: number | null): string {
   if (rate == null) return "text-muted";
-  if (rate < 0.6) return "text-red-400";
+  if (rate < 0.6) return "text-error";
   if (rate < 0.8) return "text-warning";
   return "text-success";
 }
@@ -52,8 +52,8 @@ export default async function AdminAnalyticsPage() {
   const anyFailed = activeLoad.failed || completionLoad.failed;
 
   const activeRows: { label: string; icon: React.ReactNode; row: { dau: number; wau: number; mau: number } }[] = [
-    { label: t("الطلاب النشطون", "Active students"), icon: <Users size={18} className="text-gold" />, row: counts.students },
-    { label: t("المعلّمون النشطون", "Active teachers"), icon: <GraduationCap size={18} className="text-gold" />, row: counts.teachers },
+    { label: t("الطلاب النشطون", "Active students"), icon: <Users size={18} className="text-muted" />, row: counts.students },
+    { label: t("المعلّمون النشطون", "Active teachers"), icon: <GraduationCap size={18} className="text-muted" />, row: counts.teachers },
   ];
 
   return (
@@ -94,7 +94,7 @@ export default async function AdminAnalyticsPage() {
                   { k: t("شهري", "MAU"), v: row.mau },
                 ] as const).map(({ k, v }) => (
                   <div key={k}>
-                    <p className="text-2xl font-bold text-gold">{v}</p>
+                    <p className="text-2xl font-bold text-foreground">{v}</p>
                     <p className="text-xs text-muted">{k}</p>
                   </div>
                 ))}

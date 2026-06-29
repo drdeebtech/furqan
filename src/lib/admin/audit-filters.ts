@@ -35,23 +35,37 @@ export interface AuditFilters {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** True only for a real calendar date — rejects e.g. 2026-02-31, 2026-13-01. */
+function isRealDate(value: string): boolean {
+  if (!DATE_RE.test(value)) return false;
+  const d = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
+}
+
+/** Next.js searchParams give string[] for repeated keys — take the first. */
+function one(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
+}
+
 /**
  * Parse loose search params into a validated filter set. Anything malformed
- * is dropped (fail-safe to "no filter") rather than throwing.
+ * (including impossible dates and repeated-key arrays) is dropped (fail-safe
+ * to "no filter") rather than throwing.
  */
 export function parseAuditFilters(
-  sp: Record<string, string | undefined>,
+  sp: Record<string, string | string[] | undefined>,
 ): AuditFilters {
+  const type = one(sp.type);
   const action: AuditActionFilter =
-    sp.type === "mutations" || sp.type === "auth" || sp.type === "failures"
-      ? sp.type
-      : "all";
+    type === "mutations" || type === "auth" || type === "failures" ? type : "all";
 
-  const table = sp.table?.trim() || undefined;
-  const actor = sp.actor?.trim() || undefined;
+  const table = one(sp.table)?.trim() || undefined;
+  const actor = one(sp.actor)?.trim() || undefined;
 
-  const fromDate = sp.from && DATE_RE.test(sp.from) ? sp.from : undefined;
-  const toDate = sp.to && DATE_RE.test(sp.to) ? sp.to : undefined;
+  const fromRaw = one(sp.from);
+  const toRaw = one(sp.to);
+  const fromDate = fromRaw && isRealDate(fromRaw) ? fromRaw : undefined;
+  const toDate = toRaw && isRealDate(toRaw) ? toRaw : undefined;
 
   return {
     action,

@@ -10,6 +10,7 @@ const chain = vi.hoisted(() => ({
   in: vi.fn().mockReturnThis(),
   is: vi.fn().mockReturnThis(),
   gte: vi.fn().mockReturnThis(),
+  lte: vi.fn().mockReturnThis(),
   order: vi.fn().mockReturnThis(),
   limit: vi.fn().mockReturnThis(),
   returns: vi.fn(),
@@ -27,6 +28,7 @@ beforeEach(() => {
   chain.in.mockReturnThis();
   chain.is.mockReturnThis();
   chain.gte.mockReturnThis();
+  chain.lte.mockReturnThis();
   chain.order.mockReturnThis();
   chain.limit.mockReturnThis();
 });

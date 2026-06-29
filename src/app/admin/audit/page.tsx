@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { buildNameMap } from "@/lib/admin/name-map";
 import { getT } from "@/lib/i18n/server";
 import { EmptyState } from "@/components/shared/empty-state";
+import { logError } from "@/lib/logger";
 import {
   parseAuditFilters,
   hasActiveAuditFilters,
@@ -21,13 +22,14 @@ const PAGE_SIZE = 50;
 export default async function AdminAuditPage({
   searchParams,
 }: {
-  searchParams: Promise<Record<string, string | undefined>>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { t, dir, lang } = await getT();
   const sp = await searchParams;
   const f = parseAuditFilters(sp);
 
-  const page = Math.max(1, Number(sp.page) || 1);
+  const pageRaw = Array.isArray(sp.page) ? sp.page[0] : sp.page;
+  const page = Math.max(1, Number(pageRaw) || 1);
   const offset = (page - 1) * PAGE_SIZE;
 
   const supabase = await createClient();
@@ -45,7 +47,9 @@ export default async function AdminAuditPage({
   if (f.fromIso) query = query.gte("created_at", f.fromIso);
   if (f.toIso) query = query.lte("created_at", f.toIso);
 
-  const { data } = await query.returns<AuditRow[]>();
+  const { data, error } = await query.returns<AuditRow[]>();
+  const loadFailed = !!error;
+  if (error) logError("admin audit log load failed", error, { route: "admin-audit", severity: "warning" });
   const hasNextPage = (data?.length ?? 0) > PAGE_SIZE;
   const logs = (data ?? []).slice(0, PAGE_SIZE);
 
@@ -153,7 +157,11 @@ export default async function AdminAuditPage({
         </p>
       )}
 
-      {logs.length === 0 ? (
+      {loadFailed ? (
+        <div role="alert" className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+          {t("تعذّر تحميل السجلات. تحقّق من المرشّحات أو حاول لاحقًا.", "Failed to load records. Check the filters or try again later.")}
+        </div>
+      ) : logs.length === 0 ? (
         <EmptyState
           variant="glass-card"
           icon={<Inbox size={32} className="text-muted" aria-hidden="true" />}

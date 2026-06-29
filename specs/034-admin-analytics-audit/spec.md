@@ -27,7 +27,7 @@
 Give admins two read-only operational surfaces:
 
 - **`/admin/analytics`** — platform health: activity, session completion, revenue.
-- **`/admin/audit-log`** — a filterable, exportable view of the existing `audit_log` table.
+- **`/admin/audit`** — a filterable, exportable view of the existing `audit_log` table.
 
 Both gated by `requireAdmin()` (`src/lib/auth/require-admin.ts:110`). Server-rendered, consistent with the other `src/app/admin/**` pages.
 
@@ -71,7 +71,7 @@ New read-only query functions under `src/lib/domains/reports/analytics.ts` (serv
 
 All numbers are aggregates; no PII beyond names already visible to admins. Each query fail-closed and tagged via `logError({ route: "/admin/analytics", widget })` per the project's widget-tagging convention.
 
-### 3.2 · `/admin/audit-log` (new page)
+### 3.2 · `/admin/audit` (new page)
 Server-rendered table over `audit_log`, newest first (uses `idx_audit_created`):
 - **Filters:** actor (`changed_by`), `table_name`, `action` (INSERT/UPDATE/DELETE), date range.
 - **Pagination:** keyset on `(created_at, id)` — **not** `OFFSET` (unbounded table). Page size 50.
@@ -95,17 +95,18 @@ Server-rendered table over `audit_log`, newest first (uses `idx_audit_created`):
 
 ---
 
-## 6 · Open decisions (need owner/architect answer before tasks)
-- **D1 — activity source:** proxy (no schema) vs add `profiles.last_active_at` (accuracy). *Recommend: proxy from `sessions`/`student_progress` for v1; revisit if it's too coarse.*
-- **D2 — audit filters:** ship table_name+action+actor+date now (no schema) vs add `audit_log.action_name` first. *Recommend: ship now; add `action_name` later only if admins ask to filter by business action.*
-- **D3 — "revenue by cohort":** define cohort (signup month? plan tier? track?). *Recommend: by plan tier + by signup month, both cheap from billing tables.*
-- **D4 — verify billing source tables** for revenue (which table holds active-subscription + amount) before writing the revenue query.
+## 6 · Decisions (RESOLVED 2026-06-29 — historical record)
+All were open at draft; now resolved (see the status block at the top):
+- **D1 — activity source:** ✅ **proxy** — started `sessions` joined to `bookings`; no `last_active_at` column added.
+- **D2 — audit filters:** ✅ **ship now** — table_name + action + actor + date; no `audit_log.action_name` column.
+- **D3 — "revenue by cohort":** ✅ **moot** — revenue reused from `/admin/dashboard` + `/admin/payments`, not rebuilt here.
+- **D4 — billing source tables:** ✅ **moot** — no revenue query written here.
 
 ---
 
 ## 7 · Acceptance criteria (revised from issue)
 - [ ] `/admin/analytics` renders activity (per D1), completion-by-teacher, revenue (per D3) — fail-closed widgets, no crash on empty data.
-- [ ] `/admin/audit-log` table with actor / table_name / action / date filters, keyset pagination.
+- [ ] `/admin/audit` table with actor / table_name / action / date filters, keyset pagination.
 - [ ] CSV export with explicit truncation notice when capped.
 - [ ] Both pages `requireAdmin()`-gated; verified unauthenticated + non-admin both bounce.
 - [ ] No new DB tables **if D1=proxy and D2=now**; any schema add ships its RLS in the same migration.

@@ -16,7 +16,11 @@ const HEADER = [
 ];
 
 function csvCell(value: string | null): string {
-  const s = value ?? "";
+  let s = value ?? "";
+  // CSV formula injection: a cell starting with = + - @ (or tab/CR) executes as
+  // a formula in Excel/Sheets. actor_name and reason are user-controlled, so
+  // neutralize by prefixing a single quote before quoting.
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
@@ -47,8 +51,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from("audit_log")
     .select("id, changed_by, table_name, record_id, action, reason, ip_address, created_at")
-    .order("created_at", { ascending: false })
-    .limit(EXPORT_CAP);
+    .order("created_at", { ascending: false });
 
   const actions = AUDIT_ACTION_MAP[f.action];
   if (actions) query = query.in("action", actions);
@@ -58,6 +61,9 @@ export async function GET(req: NextRequest) {
   if (f.fromIso) query = query.gte("created_at", f.fromIso);
   if (f.toIso) query = query.lte("created_at", f.toIso);
 
+  // Fetch one sentinel row past the cap so we can tell "exactly CAP rows" from
+  // "more than CAP rows" — only the latter is a real truncation.
+  query = query.limit(EXPORT_CAP + 1);
   const { data, error } = await query.returns<AuditRow[]>();
   if (error) {
     logError("admin audit CSV export failed", error, {
@@ -66,7 +72,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Export failed" }, { status: 500 });
   }
 
-  const rows = data ?? [];
+  const fetched = data ?? [];
+  const truncated = fetched.length > EXPORT_CAP;
+  const rows = truncated ? fetched.slice(0, EXPORT_CAP) : fetched;
   const nameMap = await buildNameMap(
     supabase,
     [...new Set(rows.map((r) => r.changed_by).filter(Boolean) as string[])],
@@ -85,7 +93,7 @@ export async function GET(req: NextRequest) {
       r.ip_address,
     ].map(csvCell).join(","));
   }
-  if (rows.length >= EXPORT_CAP) {
+  if (truncated) {
     // Visible, never silent — the operator sees this row in any CSV reader.
     lines.push(csvCell(`# truncated at ${EXPORT_CAP} rows — narrow the date range or filters for the full set`));
   }

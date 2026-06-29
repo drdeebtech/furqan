@@ -55,7 +55,10 @@ export async function getActiveUserCounts(
 
   const { data, error } = await supabase
     .from("sessions")
-    .select("started_at, bookings!inner(student_id, teacher_id)")
+    // FK-qualified embed: the generated types expose more than one sessions↔
+    // bookings relationship, so an unqualified `bookings!inner` is ambiguous and
+    // 300s in PostgREST (known Sentry hits). Pin the sessions.booking_id FK.
+    .select("started_at, bookings!sessions_booking_id_fkey!inner(student_id, teacher_id)")
     .gte("started_at", monthStart)
     .order("started_at", { ascending: false })
     .limit(ROW_CAP)
@@ -115,6 +118,7 @@ export async function getTeacherCompletionRates(
     .from("bookings")
     .select("teacher_id, status")
     .gte("scheduled_at", since)
+    .lte("scheduled_at", now.toISOString()) // exclude future `confirmed` — only count sessions already due
     .is("deleted_at", null)
     .in("status", ["completed", "no_show", "confirmed"])
     .limit(ROW_CAP)
