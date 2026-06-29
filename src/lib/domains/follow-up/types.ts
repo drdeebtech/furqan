@@ -19,6 +19,7 @@
 import type { HomeworkStatus } from "@/types/database";
 import type { ReviewHorizon } from "@/lib/constants";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
+import type { CapturedError } from "@/lib/domains/progress/types";
 
 /**
  * The authenticated actor performing a follow-up write. The route adapter
@@ -92,6 +93,9 @@ export interface GradeFollowUpInput {
   followUpId: string;
   grade: HomeworkStatus;
   teacherNotes: string | null;
+  /** Talqeen review (#541): tajweed errors captured while grading the audio.
+   *  Persisted to `recitation_errors` against the booking's progress row. */
+  errors?: CapturedError[] | null;
 }
 
 /** Result of a successful `gradeFollowUp` — ids + grade for the event. */

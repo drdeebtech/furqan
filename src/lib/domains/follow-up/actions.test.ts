@@ -99,6 +99,7 @@ function makeClient(scripts: Record<string, Script | Script[]>) {
     };
 
     b.single = vi.fn(async () => resolve());
+    b.maybeSingle = vi.fn(async () => resolve());
     b.then = (onF: (r: Result) => unknown) => Promise.resolve(resolve()).then(onF);
     void payload;
     return b;
@@ -390,6 +391,46 @@ describe("gradeFollowUp", () => {
     expect(calls.update).toHaveLength(1);
     expect(calls.insert).toHaveLength(1);
     expect(notifyParentMock).toHaveBeenCalledOnce();
+  });
+
+  it("persists Talqeen errors to recitation_errors, dropping out-of-range ayat (#541)", async () => {
+    const { client, calls } = makeClient({
+      homework_assignments: { select: { data: gradeRow(), error: null }, update: { data: null, error: null } },
+      student_progress: { select: { data: { id: "prog-1" }, error: null } },
+      recitation_errors: { insert: { data: null, error: null } },
+    });
+    await gradeFollowUp(client, TEACHER, {
+      followUpId: "hw-1",
+      grade: "completed_good",
+      teacherNotes: null,
+      // Al-Fatiha has 7 ayat: ayah 5 is valid, ayah 999 must be dropped.
+      errors: [
+        { surahNum: 1, ayahNum: 5, errorType: "madd", note: "@0:42" },
+        { surahNum: 1, ayahNum: 999, errorType: "waqf", note: null },
+      ],
+    });
+    const errInsert = (calls.insert as { table: string; payload: unknown }[]).find(
+      (c) => c.table === "recitation_errors",
+    );
+    expect(errInsert).toBeDefined();
+    const rows = errInsert!.payload as Record<string, unknown>[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ progress_id: "prog-1", surah_num: 1, ayah_num: 5, error_type: "madd" });
+  });
+
+  it("skips error persistence when the booking has no progress row (#541)", async () => {
+    const { client, calls } = makeClient({
+      homework_assignments: { select: { data: gradeRow(), error: null }, update: { data: null, error: null } },
+      student_progress: { select: { data: null, error: null } }, // no progress row
+    });
+    await gradeFollowUp(client, TEACHER, {
+      followUpId: "hw-1",
+      grade: "completed_good",
+      teacherNotes: null,
+      errors: [{ surahNum: 1, ayahNum: 3, errorType: "madd", note: null }],
+    });
+    const errInsert = (calls.insert as { table: string }[]).find((c) => c.table === "recitation_errors");
+    expect(errInsert).toBeUndefined();
   });
 
   it("rejects an invalid grade before any read", async () => {

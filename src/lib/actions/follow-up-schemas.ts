@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+// Talqeen review (#541): tajweed errors captured while grading a homework
+// recitation. Mirrors the live-session `CapturedError` shape; surah/ayah are
+// re-validated against canonical ayah counts in the domain before insert.
+export const capturedErrorSchema = z.object({
+  surahNum: z.number().int().min(1).max(114),
+  ayahNum: z.number().int().min(1).max(286),
+  errorType: z.enum(["makharij", "sifat", "madd", "waqf", "ghunna", "other"]),
+  note: z.string().max(500).nullable().optional(),
+});
+
 export const gradeFollowUpSchema = z.object({
   homeworkId: z.string().uuid(),
   grade: z.enum([
@@ -9,6 +19,7 @@ export const gradeFollowUpSchema = z.object({
     "completed_not_done",
   ]),
   teacher_notes: z.string().nullable(),
+  errors: z.array(capturedErrorSchema).max(50).optional(),
 });
 
 export const editFollowUpUpdatesSchema = z
