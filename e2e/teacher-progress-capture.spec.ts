@@ -90,6 +90,13 @@ async function resolveBookingId(sessionId: string): Promise<string> {
   const res = await fetch(url, {
     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
   });
+  // Fail loudly on auth/PostgREST errors — otherwise the error payload
+  // ({ code, message }) reads as an empty result set and surfaces as a
+  // misleading "no booking_id" assertion.
+  expect(
+    res.ok,
+    `sessions lookup failed (${res.status}): ${await res.clone().text()}`,
+  ).toBe(true);
   const rows = (await res.json()) as { booking_id: string }[];
   const row = rows[0];
   expect(row?.booking_id, `session ${sessionId} has no booking_id`).toBeTruthy();
@@ -113,6 +120,13 @@ async function fetchProgressForBooking(bookingId: string): Promise<ProgressRow |
   const res = await fetch(url, {
     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
   });
+  // Fail loudly on auth/PostgREST errors — a non-2xx error payload would
+  // otherwise be coerced to an empty result set below, turning a real failure
+  // into a silent poll timeout.
+  expect(
+    res.ok,
+    `student_progress lookup failed (${res.status}): ${await res.clone().text()}`,
+  ).toBe(true);
   // Narrow the REST payload through `unknown` + Array.isArray so the cast to
   // ProgressRow[] is provably sound under TS strict (Supabase returns either
   // a row array on 2xx or a `{ code, message }` object on error; the type
