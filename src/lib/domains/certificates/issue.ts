@@ -37,9 +37,11 @@ const EVENT_NAME = "certificate.earned";
  * Idempotent certificate issuance (T015, spec 023).
  *
  * Idempotency key: `cert:{studentId}:{type}:{milestoneKey}`
- * Uses automation_logs as a distributed lock:
+ * Uses automation_logs as a distributed lock. Since issue #491 the idempotency
+ * UNIQUE index is partial (WHERE status <> 'failed'), so failed attempts are
+ * retained as an audit trail and ignored by the lock query below:
  *   - 'started'/'succeeded'/'skipped' → cert already issued or in-flight; return idempotent
- *   - 'failed'   → delete old row, retry (T030 spec-local retry)
+ *   - 'failed'   → ignored; a fresh 'started' row is acquired (no delete)
  *   - no row     → acquire lock ('started'), issue, update to 'succeeded'
  *
  * Juz branch (appreciation_juz) is blocked on T014a; still issues the cert
@@ -54,11 +56,17 @@ export async function issueCertificate(
   // admin: invoked from n8n webhook — no session; writes certificates + automation_logs (issue #523)
   const admin = createAdminClient();
 
-  // 1. Check existing automation_log row.
+  // 1. Check existing automation_log row. Ignore 'failed' rows: since issue #491
+  //    the idempotency UNIQUE index is partial (WHERE status <> 'failed'), so
+  //    failed attempts can accumulate as an audit trail and no longer hold the
+  //    lock — there is at most one non-failed row per key, keeping maybeSingle
+  //    safe. This also retires the spec-023 T030 delete-and-retry workaround:
+  //    a fresh 'started' insert below no longer collides with a stale failed row.
   const { data: existingLog, error: logQueryErr } = await admin
     .from("automation_logs")
     .select("id, status")
     .eq("idempotency_key", idempotencyKey)
+    .neq("status", "failed")
     .maybeSingle<{ id: string; status: string }>();
 
   if (logQueryErr) {
@@ -88,10 +96,6 @@ export async function issueCertificate(
       }
       if (existing) return { ok: true, certificate: existing, idempotent: true };
       return { ok: false, error: "idempotency log/certificate mismatch" };
-    }
-    if (existingLog.status === "failed") {
-      // Delete failed row so we can retry (T030 spec-local retry).
-      await admin.from("automation_logs").delete().eq("id", existingLog.id);
     }
   }
 
