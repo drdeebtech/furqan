@@ -490,11 +490,15 @@ export async function getTeacherRecentStudents(
   teacherId: string,
   limit = 6
 ): Promise<{ id: string; [key: string]: unknown }[]> {
-  // Page through recent completed bookings, de-duplicating by student, so a
-  // single student dominating the recent-booking feed can't starve the list
-  // below `limit` unique students. Bounded: PAGE_SIZE rows per round trip,
-  // at most MAX_PAGES round trips — never scans more than PAGE_SIZE*MAX_PAGES
-  // rows even in the pathological all-one-student case.
+  // Bounded best-effort scan: page through recent completed bookings,
+  // de-duplicating by student, so a single student dominating the recent-
+  // booking feed doesn't crowd others out of a short feed. Bounded means at
+  // most PAGE_SIZE rows per round trip and at most MAX_PAGES round trips
+  // (≤ PAGE_SIZE*MAX_PAGES rows total). Trade-off: in the pathological case
+  // where the first PAGE_SIZE*MAX_PAGES bookings are one student, this returns
+  // FEWER than `limit` unique students rather than scanning unboundedly. That
+  // is acceptable for a dashboard widget; raise MAX_PAGES if the contract ever
+  // needs to always fill `limit`.
   const PAGE_SIZE = Math.max(limit * 3, 1);
   const MAX_PAGES = 5;
 
