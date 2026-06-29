@@ -20,6 +20,7 @@ import {
 } from "@/lib/domains/follow-up/actions";
 import { editFollowUp as editFollowUpDomain, deleteFollowUp as deleteFollowUpDomain } from "@/lib/domains/follow-up/manage";
 import type { FollowUpActor } from "@/lib/domains/follow-up/types";
+import type { CapturedError } from "@/lib/domains/progress/types";
 import { validateHomeworkRange } from "@/lib/domains/progress/validation";
 import { UserError } from "@/lib/actions/user-error";
 
@@ -248,6 +249,7 @@ type GradeFollowUpInput = {
   homeworkId: string;
   grade: HomeworkStatus;
   teacher_notes: string | null;
+  errors?: CapturedError[];
 };
 
 const gradeFollowUpBase = loudAction<GradeFollowUpInput, { message: string }>({
@@ -261,13 +263,14 @@ const gradeFollowUpBase = loudAction<GradeFollowUpInput, { message: string }>({
     reasonPrefix: "teacher grade follow-up",
   },
   preflight: async () => ({ actorId: await requireUserId() }),
-  handler: async ({ homeworkId, grade, teacher_notes }) => {
+  handler: async ({ homeworkId, grade, teacher_notes, errors }) => {
     const actor = await teacherOrAboveActor();
     // admin: teacher/admin writes about a student's homework (cross-user) (issue #523)
     await gradeFollowUpDomain(createAdminClient(), actor, {
       followUpId: homeworkId,
       grade,
       teacherNotes: teacher_notes,
+      errors: errors ?? null,
     });
     revalidateFollowUpPaths();
     return { message: "graded" };
@@ -277,7 +280,23 @@ const gradeFollowUpBase = loudAction<GradeFollowUpInput, { message: string }>({
 export async function gradeFollowUp(homeworkId: string, formData: FormData) {
   const grade = formData.get("grade") as HomeworkStatus;
   const teacher_notes = (formData.get("teacher_notes") as string) || null;
-  const result = await gradeFollowUpBase({ homeworkId, grade, teacher_notes });
+  // Talqeen review (#541): tajweed errors arrive as a JSON blob. Parse loosely
+  // here; the schema in gradeFollowUpBase re-validates each error shape.
+  let errors: CapturedError[] | undefined;
+  const rawErrors = formData.get("errors");
+  if (typeof rawErrors === "string" && rawErrors) {
+    try {
+      const parsed = JSON.parse(rawErrors);
+      // Fail closed on a non-array payload: leaving `errors` undefined here would
+      // skip schema validation and commit the grade with the tagged errors
+      // silently lost. (#541 CR)
+      if (!Array.isArray(parsed)) return { error: "تعذّر قراءة الأخطاء" };
+      errors = parsed as CapturedError[];
+    } catch {
+      return { error: "تعذّر قراءة الأخطاء" };
+    }
+  }
+  const result = await gradeFollowUpBase({ homeworkId, grade, teacher_notes, errors });
   if (!result.ok) return { error: result.error };
   return { success: true };
 }
