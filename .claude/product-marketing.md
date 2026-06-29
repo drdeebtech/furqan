@@ -1,7 +1,7 @@
 # furqan.today — Product Marketing Context (source of truth)
 
 > Auto-read by CRO/marketing skills. Keep factual. Prices/policies cite specs + code; if you
-> change a plan or policy, update this file in the same PR. Last verified: 2026-06-22.
+> change a plan or policy, update this file in the same PR. Last verified: 2026-06-29.
 
 ## Product
 
@@ -15,7 +15,9 @@ Two sellable hifz tracks on the live pricing page:
 
 Rule: a student holds **at most one active hifz product** at a time (group OR individual OR a defined course).
 
-## Plans & prices (AUTHORITATIVE — live page, seed migration, and Stripe bootstrap all agree)
+## Plans & prices (AUTHORITATIVE, pre-go-live — live page, seed migration, and Stripe bootstrap all agree)
+
+> Prices are authoritative as live-page content. "Authoritative" here means the three sources agree — it does **not** mean go-live-ready: Stripe cutover and refund-ownership are still open (see "DO NOT market as live yet" below).
 
 All `recurring_monthly`, **USD only**, 60-min sessions, active. Middle tier of each track = "الأكثر طلباً / Most popular".
 
@@ -39,7 +41,7 @@ Individual basis = **$10/session-hour** (`hifz_individual_hourly_rate_usd=10`). 
 - **Upgrade** (same category, more sessions): immediate, prorated (`always_invoice`), delta credits added.
 - **Downgrade / type-change**: deferred to next renewal (`pending_tier_changes`, one pending per sub).
 - **Failed payment**: → `past_due`, no credits, seat kept, alert; canceled at period end only after Stripe retries exhausted (graceful dunning).
-- **Family discounts** (seeded **10%/10%**, NOT FINAL — admin must confirm): 2nd+ individual hifz per guardian; sibling group hifz. Don't stack.
+- **Family discounts** (seeded **10%/10%**, % NOT FINAL — admin-configurable, may be tiered by child count): (a) 2nd+ **individual** hifz subscription per guardian; (b) sibling **group** hifz. Applied **per subscription — at most one family discount per subscription, never compounded on one line**. The two rules cover different products, so a guardian may benefit from both across different children/subscriptions. **Promo/coupon codes are deferred post-launch** (pivot decision #36) — family discounts are the only discounts at launch, so nothing stacks with a promo code (none exist yet).
 - Checkout returns **409** if the student already has an active hifz subscription.
 
 ## Policies (current, public-facing — confirmed by owner 2026-06-22)
