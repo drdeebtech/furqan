@@ -520,8 +520,8 @@ export async function getTeacherRecentStudents(
       .range(from, to)
       .returns<RecentBooking[]>();
     if (bookingsRes.error) throw bookingsRes.error;
-    const rows = bookingsRes.data ?? [];
-    if (rows.length === 0) break; // source exhausted
+    const rows = bookingsRes.data;
+    if (!rows || rows.length === 0) break; // source exhausted
 
     for (const b of rows) {
       if (!seenStudents.has(b.student_id)) {
