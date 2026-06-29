@@ -121,14 +121,43 @@ test.describe("Student booking flow — /student/bookings/new", () => {
     await page.waitForLoadState("networkidle");
 
     // ── Session type ──
-    // First option is selected by default (useState(sessionTypes[0])). Click
-    // the first explicitly to exercise "select session type". Selector source:
-    // src/app/student/bookings/new/booking-form.tsx — data-testid added (the
-    // buttons had no per-row stable selector; labels are teacher-dependent).
-    const sessionTypeBtn = page.getByTestId("session-type-option").first();
+    // First option is selected by default (useState(sessionTypes[0])). When
+    // more than one session type is offered, click a NON-DEFAULT option so
+    // the aria-pressed assertion proves the selection wiring actually flips
+    // (the default already passes aria-pressed="true" even on regression),
+    // and the DB assertion proves the chosen session_type was persisted.
+    // Selector source: src/app/student/bookings/new/booking-form.tsx →
+    //   data-testid={`session-type-option-${s}`} where `s` is the SessionType
+    //   string value (hifz, tajweed, muraja, tilawa, qiraat, tafsir,
+    //   combined, other) — stable regardless of teacher-dependent labels.
+    const sessionTypeOptions = page.locator("[data-testid^='session-type-option-']");
+    const optionCount = await sessionTypeOptions.count();
+    expect(optionCount, "expected at least one session-type option").toBeGreaterThan(0);
+
+    // Pick the second option when available (non-default), else the only one.
+    const chosenIndex = optionCount > 1 ? 1 : 0;
+    const sessionTypeBtn = sessionTypeOptions.nth(chosenIndex);
     await expect(sessionTypeBtn).toBeVisible({ timeout: 10_000 });
+
+    // Derive the session_type value from the testid suffix so the DB
+    // assertion can compare against the exact value that was clicked.
+    const chosenTestId = await sessionTypeBtn.getAttribute("data-testid");
+    const chosenSessionType =
+      chosenTestId?.replace(/^session-type-option-/, "") ?? "";
+    expect(chosenSessionType, "could not derive session_type from testid").toBeTruthy();
+    if (optionCount > 1) {
+      const firstTestId = await sessionTypeOptions.nth(0).getAttribute("data-testid");
+      const firstSessionType = firstTestId?.replace(/^session-type-option-/, "") ?? "";
+      // Sanity: the chosen non-default option must differ from the default.
+      expect(chosenSessionType).not.toBe(firstSessionType);
+    }
+
     await sessionTypeBtn.click();
     await expect(sessionTypeBtn).toHaveAttribute("aria-pressed", "true");
+    if (optionCount > 1) {
+      // Default must release — proves aria-pressed flipped, not just stayed.
+      await expect(sessionTypeOptions.nth(0)).toHaveAttribute("aria-pressed", "false");
+    }
 
     // ── Date ──
     // Date buttons render client-side after the mount gate (useSyncExternalStore).
@@ -186,6 +215,7 @@ test.describe("Student booking flow — /student/bookings/new", () => {
     const row = await fetchLatestBookingForStudent(studentId);
     expect(row, "expected a bookings row for the test student+teacher").not.toBeNull();
     expect(row?.teacher_id).toBe(TEACHER_ID);
+    expect(row?.session_type, "persisted session_type must match the clicked option").toBe(chosenSessionType);
     expect(typeof row?.id).toBe("string");
   });
 });

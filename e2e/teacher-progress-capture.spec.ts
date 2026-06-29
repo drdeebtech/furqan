@@ -113,7 +113,14 @@ async function fetchProgressForBooking(bookingId: string): Promise<ProgressRow |
   const res = await fetch(url, {
     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
   });
-  const rows = (await res.json()) as ProgressRow[];
+  // Narrow the REST payload through `unknown` + Array.isArray so the cast to
+  // ProgressRow[] is provably sound under TS strict (Supabase returns either
+  // a row array on 2xx or a `{ code, message }` object on error; the type
+  // guard rejects the error shape before we treat it as rows).
+  const payload: unknown = await res.json();
+  const rows: ProgressRow[] = Array.isArray(payload)
+    ? (payload as ProgressRow[])
+    : [];
   return rows[0] ?? null;
 }
 
@@ -138,6 +145,13 @@ test.describe("Teacher progress capture — Al-Fātihah 1:1–1:7", () => {
     // page.tsx render <PostSessionForm>, which embeds <ProgressCaptureForm>.
     // Selector source: progress-capture-form.tsx → header span text.
     await expect(page.getByText("ماذا حفظ الطالب اليوم؟")).toBeVisible({ timeout: 10_000 });
+
+    // ── RTL assertion ──
+    // The completed-session flow is Arabic-first; the root <html> must carry
+    // dir="rtl" (matches public-smoke.spec.ts's RTL contract check). Guards
+    // against a lang/dir regression silently rendering the progress form LTR.
+    const dir = await page.locator("html").getAttribute("dir");
+    expect(dir, "completed-session page must render inside an RTL container").toBe("rtl");
 
     // The form defaults to progressType="new" (needsRange=true) with surahFrom
     // = ayahFrom = surahTo = ayahTo = 1, so the "From" end is already 1:1 and

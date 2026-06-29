@@ -239,7 +239,7 @@ export function BookingForm({
                 <button
                   key={s}
                   type="button"
-                  data-testid="session-type-option"
+                  data-testid={`session-type-option-${s}`}
                   aria-pressed={selectedType === s}
                   onClick={() => setSelectedType(s)}
                   className={`rounded-xl border px-3 py-3 text-sm transition-colors ${
