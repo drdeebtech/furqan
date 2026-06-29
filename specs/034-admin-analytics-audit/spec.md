@@ -1,8 +1,24 @@
 # Spec 034 — Admin analytics dashboard + audit-log viewer
 
 **Source issue:** #555
-**Status:** draft (spec only — not yet implemented)
+**Status:** ✅ implemented (reduced scope — 2026-06-29). D1–D4 resolved below.
 **Author lens check:** 🛠 engineer · 🎓 platform expert (no Quran-text surface here, 📖 lens N/A)
+
+> **Scope reduction (verified against code):** most of #555 already existed —
+> revenue on `/admin/dashboard` + `/admin/payments`, churn on `/admin/retention`,
+> an audit-log viewer on `/admin/audit`. Building duplicates was rejected. Only
+> the genuine gaps were built:
+> - **NEW `/admin/analytics`** — active-user counts (DAU/WAU/MAU, students+teachers)
+>   + cross-teacher completion rate; links out to existing revenue + churn.
+>   Queries in `src/lib/views/admin-analytics.ts` (+ unit tests).
+> - **Extended `/admin/audit`** — actor (clickable user), `table_name`, and
+>   from/to date filters + CSV export (`/admin/audit/export` route, `requireAdminForApi`-gated).
+>   Shared filter parsing in `src/lib/admin/audit-filters.ts`.
+>
+> **D1 → proxy** (no `last_active_at`): activity from started `sessions` joined to `bookings`.
+> **D2 → ship now**: audit filters by table+op+actor+date; no `action_name` column.
+> **D3 → tracks/tiers** noted, but revenue itself reused from existing dashboard (not rebuilt).
+> **D4 → moot**: revenue not rebuilt here (already on `/admin/dashboard`).
 
 ---
 
