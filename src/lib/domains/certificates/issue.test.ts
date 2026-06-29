@@ -23,10 +23,11 @@ const chain: Record<string, ReturnType<typeof vi.fn>> = {
   update: vi.fn(),
   delete: vi.fn(),
   eq: vi.fn(),
+  neq: vi.fn(),
   maybeSingle: vi.fn(),
   single: vi.fn(),
 };
-for (const key of ["from", "select", "insert", "update", "delete", "eq"]) {
+for (const key of ["from", "select", "insert", "update", "delete", "eq", "neq"]) {
   chain[key].mockReturnValue(chain);
 }
 
@@ -43,7 +44,7 @@ const MILESTONE = "78";
 beforeEach(() => {
   vi.clearAllMocks();
   // Re-wire chain after clearAllMocks (resets call counts but not mockReturnValue).
-  for (const key of ["from", "select", "insert", "update", "delete", "eq"]) {
+  for (const key of ["from", "select", "insert", "update", "delete", "eq", "neq"]) {
     chain[key].mockReturnValue(chain);
   }
 });
@@ -135,11 +136,14 @@ describe("issueCertificate", () => {
     expect(chain.insert).toHaveBeenCalledTimes(1);
   });
 
-  it("failed-row retry: existing log status='failed' → deletes old log row, then issues cert", async () => {
+  it("failed-row retry (#491): failed rows are invisible to the lock query → fresh issue, no delete", async () => {
+    // Since #491 the lock query is `.neq("status","failed")`, so accumulated
+    // failed rows never surface — maybeSingle returns null and the flow inserts
+    // a fresh 'started' row. The partial UNIQUE index lets the new row coexist
+    // with the stale failed rows, so the old delete-and-retry workaround is gone.
     chain.maybeSingle
-      .mockResolvedValueOnce({ data: { id: "log-failed", status: "failed" }, error: null }); // log query
+      .mockResolvedValueOnce({ data: null, error: null }); // log query (failed rows filtered out)
 
-    // Lock re-insert now uses insert().select("id").single() — one round-trip.
     const certRow = {
       id: "cert-retry",
       student_id: STUDENT,
@@ -161,7 +165,7 @@ describe("issueCertificate", () => {
       expect(result.idempotent).toBe(false);
       expect(result.certificate.id).toBe("cert-retry");
     }
-    // The delete must have been called to clear the failed log row.
-    expect(chain.delete).toHaveBeenCalled();
+    // No delete — failed rows are retained as an audit trail.
+    expect(chain.delete).not.toHaveBeenCalled();
   });
 });
