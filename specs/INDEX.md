@@ -41,6 +41,7 @@
 | [031-shareable-certificates](./031-shareable-certificates/spec.md) | Draft | _(unknown)_ | _(pending)_ |
 | [032-realtime-notifications](./032-realtime-notifications/spec.md) | Draft | _(unknown)_ | _(pending)_ |
 | [033-achievement-system](./033-achievement-system/spec.md) | Draft | _(unknown)_ | _(pending)_ |
+| [034-admin-analytics-audit](./034-admin-analytics-audit/spec.md) | Draft | _(unknown)_ | _(pending)_ |
 
 ## Abandoned (last 90 days)
 
