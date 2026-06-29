@@ -84,8 +84,9 @@ export default async function TeachersPage({ searchParams }: PageProps) {
     onboardingCompleted = !!profileRes.data?.onboarding_completed;
     if (plansRes.error) {
       logError("teachers page: subscription_plans fetch failed", plansRes.error, { tag: "onboarding" });
+    } else if (plansRes.data) {
+      plans = plansRes.data;
     }
-    plans = plansRes.data ?? [];
   }
 
   const teachers = teachersRes.data;
