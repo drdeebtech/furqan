@@ -92,11 +92,17 @@ function PrivacyAr() {
         السجلات المالية للمدة القانونية المطلوبة (عادة 7 سنوات).
       </p>
 
-      <h2>7. حقوق الأطفال</h2>
+      <h2 id="safeguarding">7. حماية الأطفال والضمانات</h2>
       <p>
-        خدماتنا متاحة للطلاب من جميع الأعمار، لكن يجب على ولي الأمر إنشاء الحساب للأطفال دون الثالثة عشر والإشراف على
+        خدماتنا متاحة للطلاب من جميع الأعمار، لكن يجب على ولي الأمر إنشاء الحساب للأطفال دون الثامنة عشر والإشراف على
         استخدامهم. لا نجمع بيانات طفل دون إذن ولي الأمر.
       </p>
+      <ul>
+        <li><strong>ضمانات الجلسات:</strong> جميع الجلسات تتم عبر منصتنا المسجّلة؛ لا يُسمح بالتواصل المباشر خارج المنصة.</li>
+        <li><strong>التحقق من المعلمين:</strong> جميع المعلمين يخضعون للفحص ويحملون إجازات موثّقة قبل قبولهم في الأكاديمية.</li>
+        <li><strong>سياسة عدم التسامح:</strong> نتبع سياسة صفر تسامح مع أي سلوك غير لائق؛ يُعلَّق الحساب فوراً عند الإبلاغ بانتظار التحقيق.</li>
+        <li><strong>الإبلاغ عن المخاوف:</strong> أرسل تقريراً فورياً إلى <a href="mailto:safeguarding@furqan.today" className="text-gold hover:text-gold-light">safeguarding@furqan.today</a>.</li>
+      </ul>
 
       <h2>8. ملفات تعريف الارتباط (Cookies)</h2>
       <p>
@@ -166,11 +172,17 @@ function PrivacyEn() {
         90 days. Financial records are retained for the legally required period (typically 7 years).
       </p>
 
-      <h2>7. Children&apos;s Privacy</h2>
+      <h2 id="safeguarding">7. Child Safeguarding &amp; Protection</h2>
       <p>
-        Our services are available to students of all ages, but a parent must create the account for children under 13
-        and supervise their use. We do not collect a child&apos;s data without parental consent.
+        Our services are available to students of all ages, but a parent or guardian must create the account for anyone
+        under 18 and supervise their use. We do not collect a child&apos;s data without parental consent.
       </p>
+      <ul>
+        <li><strong>Session safeguards:</strong> All sessions are conducted through our recorded platform; off-platform direct contact is not permitted.</li>
+        <li><strong>Teacher vetting:</strong> All teachers are background-checked and hold verified Ijazah credentials before joining the academy.</li>
+        <li><strong>Zero-tolerance policy:</strong> Any report of inappropriate conduct results in immediate account suspension pending investigation.</li>
+        <li><strong>Report a concern:</strong> Email <a href="mailto:safeguarding@furqan.today" className="text-gold hover:text-gold-light">safeguarding@furqan.today</a> — we respond within 24 hours.</li>
+      </ul>
 
       <h2>8. Cookies</h2>
       <p>

@@ -80,11 +80,11 @@ Legend: `[P]` = parallelizable (different files, no incomplete dependency). `[US
 
 **Independent test**: Home/teachers/about show several distinct, consistently-attributed testimonials; no garbled name; no conflicting attribution.
 
-- [ ] T020 [US3] Create migration via `./scripts/new-migration.sh testimonials`: `testimonials` table per `data-model.md` **with RLS in the same migration** (public `SELECT` only where `is_published = true`; `INSERT/UPDATE/DELETE` admin-only)
-- [ ] T021 [US3] Apply locally + `npm run db:types`; reconcile `src/types/database.ts` aliases for `testimonials`
-- [ ] T022 [P] [US3] Replace the hardcoded array in `src/components/public/testimonials.tsx` with a read of published testimonials (distinct set, consistent attribution); ensure a referenced `teacher_id` resolves to a listable teacher or the teacher is not surfaced
-- [ ] T023 [US3] Admin CRUD for testimonials wrapped in `loudAction` with `<ActionFeedback>` (under `src/app/admin/...` + `src/lib/actions` or `src/lib/domains`), `requireAdmin` at the boundary
-- [ ] T024 [US3] Seed a few business-verified testimonials (no fabricated names/locations); remove the garbled/conflicting entries
+- [X] T020 [US3] Create migration via `./scripts/new-migration.sh testimonials`: `testimonials` table per `data-model.md` **with RLS in the same migration** (public `SELECT` only where `is_published = true`; `INSERT/UPDATE/DELETE` admin-only)
+- [X] T021 [US3] Apply locally + `npm run db:types`; reconcile `src/types/database.ts` aliases for `testimonials`
+- [X] T022 [P] [US3] Replace the hardcoded array in `src/components/public/testimonials.tsx` with a read of published testimonials (distinct set, consistent attribution); ensure a referenced `teacher_id` resolves to a listable teacher or the teacher is not surfaced
+- [X] T023 [US3] Admin CRUD for testimonials wrapped in `loudAction` with `<ActionFeedback>` (under `src/app/admin/...` + `src/lib/actions` or `src/lib/domains`), `requireAdmin` at the boundary
+- [X] T024 [US3] Seed a few business-verified testimonials (no fabricated names/locations); remove the garbled/conflicting entries
 
 **Checkpoint**: social proof is believable and attributable (FR-007/FR-008).
 
@@ -124,10 +124,10 @@ Legend: `[P]` = parallelizable (different files, no incomplete dependency). `[US
 
 **Independent test**: From a cold visit, locate all five institutional signals + a partnerships contact route.
 
-- [ ] T031 [P] [US6] Add named leadership + organizational identity content to `src/app/(public)/about/content.tsx` (business-supplied copy)
-- [ ] T032 [P] [US6] Add a child-safeguarding statement and ensure the privacy posture is discoverable (extend `src/app/(public)/privacy/page.tsx` and link it prominently)
-- [ ] T033 [US6] Add a partnerships/institutional contact path (e.g. a `?type=partnership` mode on `src/app/(public)/contact/page.tsx` or a dedicated section) distinct from consumer contact (FR-013)
-- [ ] T034 [US6] Link the institutional surfaces from nav/footer so they are discoverable from a cold visit (SC-007)
+- [X] T031 [P] [US6] Add named leadership + organizational identity content to `src/app/(public)/about/content.tsx` (business-supplied copy)
+- [X] T032 [P] [US6] Add a child-safeguarding statement and ensure the privacy posture is discoverable (extend `src/app/(public)/privacy/page.tsx` and link it prominently)
+- [X] T033 [US6] Add a partnerships/institutional contact path (e.g. a `?type=partnership` mode on `src/app/(public)/contact/page.tsx` or a dedicated section) distinct from consumer contact (FR-013)
+- [X] T034 [US6] Link the institutional surfaces from nav/footer so they are discoverable from a cold visit (SC-007)
 
 **Checkpoint**: an institution can verify the org and start a conversation.
 
