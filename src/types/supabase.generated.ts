@@ -6599,6 +6599,50 @@ export type Database = {
         }
         Relationships: []
       }
+      testimonials: {
+        Row: {
+          author_location: string | null
+          author_name: string
+          created_at: string
+          display_order: number
+          id: string
+          is_published: boolean
+          quote_ar: string
+          quote_en: string | null
+          teacher_id: string | null
+        }
+        Insert: {
+          author_location?: string | null
+          author_name: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_published?: boolean
+          quote_ar: string
+          quote_en?: string | null
+          teacher_id?: string | null
+        }
+        Update: {
+          author_location?: string | null
+          author_name?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_published?: boolean
+          quote_ar?: string
+          quote_en?: string | null
+          teacher_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "testimonials_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       public_profiles: {

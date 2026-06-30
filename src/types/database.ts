@@ -5655,6 +5655,50 @@ export type Database = {
         }
         Relationships: []
       }
+      testimonials: {
+        Row: {
+          id: string
+          author_name: string
+          author_location: string | null
+          quote_ar: string
+          quote_en: string | null
+          teacher_id: string | null
+          is_published: boolean
+          display_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          author_name: string
+          author_location?: string | null
+          quote_ar: string
+          quote_en?: string | null
+          teacher_id?: string | null
+          is_published?: boolean
+          display_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          author_name?: string
+          author_location?: string | null
+          quote_ar?: string
+          quote_en?: string | null
+          teacher_id?: string | null
+          is_published?: boolean
+          display_order?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "testimonials_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       certificates: {
         Row: {
           id: string
@@ -6929,6 +6973,7 @@ export type MessageDeliveryLog = T["message_delivery_log"]["Row"];
 export type CommunicationPreference = T["communication_preferences"]["Row"];
 export type RetentionSignal = T["retention_signals"]["Row"];
 export type SiteAnnouncement = T["site_announcements"]["Row"];
+export type Testimonial = T["testimonials"]["Row"];
 export type AutomationDeadLetter = T["automation_dead_letter"]["Row"];
 export type SessionPresenceEvent = T["session_presence_events"]["Row"];
 // `Course` overrides the generated row to (a) make `teacher_id` nullable —

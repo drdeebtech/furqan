@@ -97,6 +97,7 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/admin/resources", ar: "المصادر", en: "Resources", icon: FileText },
     { href: "/admin/community", ar: "المجتمع", en: "Community", icon: Users },
     { href: "/admin/announcements", ar: "الإعلانات", en: "Announcements", icon: Bell },
+    { href: "/admin/testimonials", ar: "الشهادات", en: "Testimonials", icon: MessageSquare },
     { href: "/admin/contacts", ar: "رسائل التواصل", en: "Contacts", icon: Mail },
     { href: "/admin/notifications", ar: "الإشعارات", en: "Notifications", icon: Bell },
     { href: "/admin/n8n", ar: "تحكم n8n", en: "n8n Control", icon: Settings, group: { ar: "الإعدادات", en: "SETTINGS" } },

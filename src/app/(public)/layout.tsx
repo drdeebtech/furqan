@@ -7,6 +7,7 @@ import { SiteAnnouncementBanner } from "@/components/public/site-announcement-ba
 import { OrganizationSchema } from "@/components/seo/structured-data";
 import { PublicDirWrapper } from "./dir-wrapper";
 import { FeatureFlagsProvider } from "@/lib/feature-flags-context";
+import { TestimonialsProvider, type PublicTestimonial } from "@/lib/testimonials-context";
 import { getSettings } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -36,14 +37,47 @@ const getHasPublishedCourses = unstable_cache(
   { tags: ["courses-public"], revalidate: 300 },
 );
 
+// spec 035 US3 (FR-007/FR-008): admin-curated, vetted testimonials — never the
+// old hardcoded array. Reads ONLY published rows; the RLS policy enforces the
+// same boundary if anon ever reads directly. Cached (5-min) so this is not a
+// per-render query at scale; admin CRUD revalidates 'testimonials-public'.
+const getPublishedTestimonials = unstable_cache(
+  async (): Promise<PublicTestimonial[]> => {
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from("testimonials")
+      .select("id, author_name, author_location, quote_ar, quote_en")
+      .eq("is_published", true)
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true })
+      .returns<{
+        id: string;
+        author_name: string;
+        author_location: string | null;
+        quote_ar: string;
+        quote_en: string | null;
+      }[]>();
+    return (data ?? []).map((r) => ({
+      id: r.id,
+      authorName: r.author_name,
+      authorLocation: r.author_location,
+      quoteAr: r.quote_ar,
+      quoteEn: r.quote_en,
+    }));
+  },
+  ["public-published-testimonials"],
+  { tags: ["testimonials-public"], revalidate: 300 },
+);
+
 export default async function PublicLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [settings, hasPublishedCourses] = await Promise.all([
+  const [settings, hasPublishedCourses, testimonials] = await Promise.all([
     getSettings(),
     getHasPublishedCourses(),
+    getPublishedTestimonials(),
   ]);
   const flags = {
     hideReviews: settings["hide_reviews"] === "true",
@@ -67,16 +101,18 @@ export default async function PublicLayout({
 
   return (
     <FeatureFlagsProvider flags={flags}>
-      <OrganizationSchema />
-      <PublicDirWrapper>
-        <SiteAnnouncementBanner />
-        <PublicNav dashboardHref={dashboardHref} />
-        <main id="main-content" className="pb-20 lg:pb-0">{children}</main>
-        <PublicFooter />
-        <WhatsAppButton />
-        {!dashboardHref && <MobileRegisterBar />}
-        {!dashboardHref && <LazyWelcomePopup />}
-      </PublicDirWrapper>
+      <TestimonialsProvider items={testimonials}>
+        <OrganizationSchema />
+        <PublicDirWrapper>
+          <SiteAnnouncementBanner />
+          <PublicNav dashboardHref={dashboardHref} />
+          <main id="main-content" className="pb-20 lg:pb-0">{children}</main>
+          <PublicFooter />
+          <WhatsAppButton />
+          {!dashboardHref && <MobileRegisterBar />}
+          {!dashboardHref && <LazyWelcomePopup />}
+        </PublicDirWrapper>
+      </TestimonialsProvider>
     </FeatureFlagsProvider>
   );
 }
