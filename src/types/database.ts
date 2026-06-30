@@ -2997,6 +2997,7 @@ export type Database = {
           full_name_ar: string | null
           id: string
           is_active: boolean
+          is_test_account: boolean
           lang: string
           onboarding_completed: boolean
           parent_email: string | null
@@ -3018,6 +3019,7 @@ export type Database = {
           full_name_ar?: string | null
           id: string
           is_active?: boolean
+          is_test_account?: boolean
           lang?: string
           onboarding_completed?: boolean
           parent_email?: string | null
@@ -3039,6 +3041,7 @@ export type Database = {
           full_name_ar?: string | null
           id?: string
           is_active?: boolean
+          is_test_account?: boolean
           lang?: string
           onboarding_completed?: boolean
           parent_email?: string | null

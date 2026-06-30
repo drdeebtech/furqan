@@ -53,6 +53,10 @@ const getPublicTeachers = unstable_cache(
         .select("id, full_name, full_name_ar, avatar_url, role")
         .in("id", ids)
         .eq("role", "teacher")
+        // spec 035 US1: default-deny — never surface seed/E2E/test-fixture
+        // accounts on the public listing (FR-001). A profile excluded here
+        // drops out of validTeacherIds below, so the teacher is filtered out.
+        .eq("is_test_account", false)
         .returns<{ id: string; full_name: string | null; full_name_ar: string | null; avatar_url: string | null; role: string }[]>();
       if (profiles) {
         validTeacherIds = new Set(profiles.map(p => p.id));

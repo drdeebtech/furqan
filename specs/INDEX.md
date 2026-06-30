@@ -42,6 +42,7 @@
 | [032-realtime-notifications](./032-realtime-notifications/spec.md) | Draft | _(unknown)_ | _(pending)_ |
 | [033-achievement-system](./033-achievement-system/spec.md) | Draft | _(unknown)_ | _(pending)_ |
 | [034-admin-analytics-audit](./034-admin-analytics-audit/spec.md) | Draft | _(unknown)_ | _(pending)_ |
+| [035-website-trust-credibility](./035-website-trust-credibility/spec.md) | Tasks-ready | `035-website-trust-credibility` | _(pending)_ |
 
 ## Abandoned (last 90 days)
 

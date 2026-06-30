@@ -3415,6 +3415,7 @@ export type Database = {
           hourly_rate_usd: number | null
           id: string
           is_active: boolean
+          is_test_account: boolean
           lang: string
           parent_email: string | null
           parent_name: string | null
@@ -3436,6 +3437,7 @@ export type Database = {
           hourly_rate_usd?: number | null
           id: string
           is_active?: boolean
+          is_test_account?: boolean
           lang?: string
           parent_email?: string | null
           parent_name?: string | null
@@ -3457,6 +3459,7 @@ export type Database = {
           hourly_rate_usd?: number | null
           id?: string
           is_active?: boolean
+          is_test_account?: boolean
           lang?: string
           parent_email?: string | null
           parent_name?: string | null
