@@ -2,12 +2,24 @@
 -- LOCAL ONLY. Idempotent (fixed UUIDs + ON CONFLICT). Re-running is safe.
 -- Password for every seeded account: Password123!
 --
--- Run:  psql -v ON_ERROR_STOP=1 "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f scripts/seed_local_dev.sql
+-- Run:  psql -v ON_ERROR_STOP=1 -v allow_seed=1 "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f scripts/seed_local_dev.sql
 --
--- Scope: identities + profiles only. Transactional content (bookings, sessions,
--- payments, progress/SM-2) is intentionally NOT seeded here — that chain has
--- money + Quran-integrity constraints and should be created through the app's
--- own flows, not hand-written rows.
+-- Scope: auth.users + auth.identities + profiles only. Transactional content
+-- (bookings, sessions, payments, progress/SM-2) is intentionally NOT seeded
+-- here — that chain has money + Quran-integrity constraints and should be
+-- created through the app's own flows, not hand-written rows.
+
+-- Safety: this script plants known-password accounts into auth.*. It refuses to
+-- run unless the caller explicitly confirms a LOCAL target by passing
+-- -v allow_seed=1. (A loopback/IP check is unreliable here — local Supabase runs
+-- Postgres in Docker, so the backend reports a private container IP, not 127.x.)
+-- The flag forces a conscious "yes, this is local" before any write.
+\if :{?allow_seed}
+\else
+do $$ begin
+  raise exception 'seed_local_dev.sql aborted: pass  -v allow_seed=1  to confirm a LOCAL Postgres before seeding known-password auth.* accounts';
+end $$;
+\endif
 
 begin;
 
@@ -39,6 +51,7 @@ from seed s
 -- Reconcile mutable auth fields on rerun so a partially-seeded DB always lands
 -- in the documented Password123! login state.
 on conflict (id) do update set
+  email              = excluded.email,
   encrypted_password = excluded.encrypted_password,
   email_confirmed_at = excluded.email_confirmed_at,
   updated_at         = now(),
