@@ -5,11 +5,14 @@ name: Migration Safety
 # deploy run concurrently with no ordering gate — a breaking change can void the
 # still-running build. Deliberate contract-phase drops opt out with an
 # `-- expand-contract-ok: <reason>` marker in the migration.
+#
+# Runs on EVERY PR (no paths filter) so it can be a required status check: the
+# script no-ops (exit 0) when a PR changes no migration files, so the check
+# always reports. A path-filtered required check would deadlock non-migration
+# PRs — GitHub would wait forever for a status that never arrives.
 
 on:
   pull_request:
-    paths:
-      - "supabase/migrations/**"
 
 permissions:
   contents: read
@@ -20,7 +23,7 @@ concurrency:
 
 jobs:
   guard:
-    name: expand/contract guard
+    name: migration-safety
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
