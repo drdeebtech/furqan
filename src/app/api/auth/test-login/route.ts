@@ -78,8 +78,9 @@ export async function POST(request: NextRequest) {
       ? (body.role as TestRole)
       : "student";
 
+  // Only accept test domain emails to prevent overwriting real profiles.
   const email =
-    typeof body.email === "string" && body.email.includes("@")
+    typeof body.email === "string" && body.email.endsWith("@furqan.test")
       ? body.email.toLowerCase()
       : DEFAULT_EMAIL_BY_ROLE[role];
 

@@ -35,7 +35,8 @@ beforeAll(async () => {
   if (skip) return;
   admin = createClient(url!, serviceKey!, { auth: { persistSession: false } });
   const { data } = await admin.from("profiles").select("id").in("id", SEED_TEACHER_IDS);
-  seeded = (data?.length ?? 0) > 0;
+  // Verify all 3 seed teachers exist (not just some).
+  seeded = (data?.length ?? 0) === SEED_TEACHER_IDS.length;
 });
 
 describe.skipIf(skip)("public teacher listing — default-deny against test accounts", () => {

@@ -53,7 +53,7 @@ Source field: `teacher_profiles.total_sessions` (integer, default 0; maintained 
 
 **RLS**: anon/public `SELECT` allowed only where `is_published = true`; `INSERT/UPDATE/DELETE` admin-only (ships in the same migration, per security rule "new tables ship policies in the same migration"). Admin CRUD action wraps `loudAction`.
 
-**Integrity**: a published testimonial referencing a `teacher_id` must resolve to a real, listable teacher; if that teacher becomes non-listable, the testimonial must not surface the teacher (enforced in the render query / a view).
+**Integrity**: a published testimonial referencing a `teacher_id` must resolve to a real, listable teacher; if that teacher becomes non-listable, the testimonial must not surface the teacher. The render query must join against the full teacher-listing predicate (`is_archived = false AND is_accepting = true AND cv_status = 'approved' AND profiles.role = 'teacher' AND profiles.is_test_account = false`) so stale teacher associations can never leak — enforcement lives in the render layer, not RLS/policies, since the teacher-listability rules span multiple tables.
 
 ## 5. Language preference (P3) — no schema change
 

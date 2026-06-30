@@ -30,9 +30,9 @@ All "NEEDS CLARIFICATION" were resolved in `/speckit.clarify` (see spec `## Clar
 
 ## D4 — Courses-nav gating
 
-**Decision**: Compute a cached published-courses count (`status='published'`) in the public layout/server and pass a `hasCourses` signal to `public-nav.tsx`; hide the Courses link when zero. Reuse the existing feature-flag plumbing (`useFeatureFlags`) shape so the link's visibility is data-driven, not hardcoded.
+**Decision**: Compute a cached published-courses count (`status='published'`) in the public layout/server and pass a `hasCourses` signal to `public-nav.tsx`, `PublicFooter`, and any other component that promotes the courses link (hero CTAs, etc.). Hide the Courses link when zero. Reuse the existing feature-flag plumbing (`useFeatureFlags`) shape so the link's visibility is data-driven, not hardcoded, and propagate the flag through the same FeatureFlagsProvider so all surfaces stay consistent.
 
-**Rationale**: Stops advertising an empty room (FR-009) and auto-restores the link when content exists. Cached → no per-render query at 50k.
+**Rationale**: Stops advertising an empty room (FR-009) across all promoted surfaces and auto-restores the link when content exists. Cached → no per-render query at 50k. The hasCourses signal is computed once in the layout and shared with every consumer to avoid partial-surface exposure.
 
 ## D5 — EN-first detection (Bilingual-UX-safe)
 
