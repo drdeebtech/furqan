@@ -73,6 +73,7 @@ Every secret has a paired env var and is **never** `NEXT_PUBLIC_*` or logged. Se
 - Progress is **merged, never overwritten** — never silently lose, reset, or overstate memorization.
   Write tests for the scheduler.
 - Every component must render correctly in Arabic RTL — test it, don't assume.
+- **Migrations must be expand/contract (backward-compatible).** On a push to `main`, `supabase-migrate.yml` applies the migration and Vercel ships the new build **concurrently, with no ordering gate** — so for a brief window old code can hit the new schema, or new code the old schema. A migration must therefore never break the currently-running build: no `DROP`/`RENAME COLUMN`, no narrowing a type, no `SET NOT NULL` without a default, no removing a value still read by live code. Drop or rename in a **later** PR, after the code that used the old shape is gone from production (expand → migrate code → contract). Plan breaking changes across two deploys. The `migration-safety` CI guard (`scripts/check-migration-safety.sh`) mechanically blocks the **structural** breakers it can detect from DDL (drop/rename column/table, `SET NOT NULL`, `DROP DEFAULT`, `ALTER COLUMN … TYPE`); the **semantic** case — removing a value/row still read by live code — can't be linted and stays your responsibility. A deliberate contract-phase change opts out with `-- expand-contract-ok: <reason>` in that migration file.
 
 ## 5 · Commands
 
