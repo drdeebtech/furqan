@@ -65,10 +65,10 @@ Legend: `[P]` = parallelizable (different files, no incomplete dependency). `[US
 
 **Independent test**: Open three real teacher cards; all six presentation elements render (dignified placeholders where data is genuinely missing).
 
-- [ ] T016 [P] [US2] Surface any missing presentation fields (bio/bio_en, credential/riwayah, languages, availability, price) on the teacher card in `src/app/(public)/teachers/content.tsx`, with dignified placeholders for missing values (do not hide the teacher — FR-002/FR-004). Concrete placeholder defaults (resolves analyze A2): missing photo → initials avatar (first letters of `full_name`/`full_name_ar`); missing price → `—`; missing availability → "Schedule on request / حسب الاتفاق"; missing bio → omit the bio block (no filler); optional `bio_en` absent → fall back to Arabic bio.
-- [ ] T017 [P] [US2] Present the credential as a specific, checkable claim (named riwayah/sanad) rather than a generic "certified" tag, in `src/app/(public)/teachers/content.tsx`
-- [ ] T018 [US2] Confirm no ratings are fabricated: ratings render only when real review data exists (gate the rating block on review count), in `src/app/(public)/teachers/page.tsx` / `content.tsx`
-- [ ] T019 [US2] Verify RTL/Arabic rendering of all new card elements; run `npm run build` + visual check at 320/768/1440
+- [X] T016 [P] [US2] Surface any missing presentation fields (bio/bio_en, credential/riwayah, languages, availability, price) on the teacher card in `src/app/(public)/teachers/content.tsx`, with dignified placeholders for missing values (do not hide the teacher — FR-002/FR-004). Concrete placeholder defaults (resolves analyze A2): missing photo → initials avatar (first letters of `full_name`/`full_name_ar`); missing price → `—`; missing availability → "Schedule on request / حسب الاتفاق"; missing bio → omit the bio block (no filler); optional `bio_en` absent → fall back to Arabic bio.
+- [X] T017 [P] [US2] Present the credential as a specific, checkable claim (named riwayah/sanad) rather than a generic "certified" tag, in `src/app/(public)/teachers/content.tsx`
+- [X] T018 [US2] Confirm no ratings are fabricated: ratings render only when real review data exists (gate the rating block on review count), in `src/app/(public)/teachers/page.tsx` / `content.tsx`
+- [X] T019 [US2] Verify RTL/Arabic rendering of all new card elements; run `npm run build` + visual check at 320/768/1440
 
 **Checkpoint**: a visitor can pick a teacher from public info alone (SC-002/SC-003).
 

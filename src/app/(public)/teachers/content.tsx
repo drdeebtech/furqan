@@ -4,6 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { Award, GraduationCap, Star } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
+import { useFeatureFlags } from "@/lib/feature-flags-context";
+import { TEACHER_LANGUAGES } from "@/lib/constants";
 import { Testimonials } from "@/components/public/testimonials";
 import { RegisterBanner } from "@/components/public/register-banner";
 
@@ -15,6 +17,8 @@ interface Teacher {
   nameAr: string | null;
   avatarUrl: string | null;
   bio: string | null;
+  bioEn: string | null;
+  languages: string[];
   specialties: string[];
   recitationStandards: string[];
   hourlyRate: number;
@@ -34,6 +38,13 @@ export function TeachersContent({
   recitationLabels: LabelMap;
 }) {
   const { t, lang } = useLang();
+  const { hidePrices } = useFeatureFlags();
+
+  // Map a stored language code (ar/en/ur/…) to its bilingual label.
+  function languageLabel(code: string): string {
+    const m = TEACHER_LANGUAGES.find((l) => l.key === code);
+    return m ? t(m.ar, m.en) : code;
+  }
 
   // Decide which name to show on each card. Prefer the Arabic spelling for
   // Arabic visitors; fall back to the English name when the teacher hasn't
@@ -87,6 +98,10 @@ export function TeachersContent({
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {teachers.map((teacher) => {
                 const displayName = pickDisplayName(teacher);
+                // Prefer the English bio for English visitors; fall back to the
+                // Arabic bio when the teacher hasn't filled an English one.
+                const displayBio =
+                  lang === "en" ? teacher.bioEn?.trim() || teacher.bio : teacher.bio;
                 return (
                 <div
                   key={teacher.id}
@@ -109,9 +124,9 @@ export function TeachersContent({
                     </div>
                   )}
                   <h2 className="mt-4 text-lg font-bold">{displayName}</h2>
-                  {teacher.bio && (
+                  {displayBio && (
                     <p className="mt-1 text-sm text-muted">
-                      {teacher.bio.length > 100 ? teacher.bio.slice(0, 100) + "…" : teacher.bio}
+                      {displayBio.length > 100 ? displayBio.slice(0, 100) + "…" : displayBio}
                     </p>
                   )}
                   {teacher.gender === "female" && (
@@ -129,12 +144,21 @@ export function TeachersContent({
                   )}
 
                   {teacher.recitationStandards.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {[...new Set(teacher.recitationStandards)].map((r) => (
-                        <span key={r} className="glass-badge px-2 py-0.5 text-xs text-muted">
-                          {recitationLabels[r] ? t(recitationLabels[r].ar, recitationLabels[r].en) : r}
-                        </span>
-                      ))}
+                    <div className="mt-2">
+                      {/* spec 035 US2 (FR-005/T017): name the riwayah the teacher
+                          holds ijazah in — a specific, checkable claim, not a
+                          generic "certified" tag. */}
+                      <p className="flex items-center gap-1 text-xs font-medium text-gold">
+                        <Award size={12} aria-hidden="true" />
+                        {t("إجازة في الرواية", "Ijazah in riwayah")}
+                      </p>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {[...new Set(teacher.recitationStandards)].map((r) => (
+                          <span key={r} className="glass-badge px-2 py-0.5 text-xs text-muted">
+                            {recitationLabels[r] ? t(recitationLabels[r].ar, recitationLabels[r].en) : r}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -158,6 +182,29 @@ export function TeachersContent({
                       <span className="text-xs text-muted">({teacher.ratingCount})</span>
                     </div>
                   )}
+
+                  {/* spec 035 US2 (FR-002/T016): make the card a chooser, not a
+                      flat directory — show languages, availability, and (when
+                      the admin price toggle is off) a price preview. Dignified
+                      placeholders where data is genuinely absent. */}
+                  <dl className="mt-3 space-y-1 text-xs text-muted">
+                    {teacher.languages.length > 0 && (
+                      <div className="flex gap-1.5">
+                        <dt className="font-medium text-muted-light">{t("اللغات", "Languages")}:</dt>
+                        <dd>{teacher.languages.map(languageLabel).join(t("، ", ", "))}</dd>
+                      </div>
+                    )}
+                    <div className="flex gap-1.5">
+                      <dt className="font-medium text-muted-light">{t("التوفر", "Availability")}:</dt>
+                      <dd>{t("حسب الاتفاق", "Schedule on request")}</dd>
+                    </div>
+                    {!hidePrices && (
+                      <div className="flex gap-1.5">
+                        <dt className="font-medium text-muted-light">{t("السعر", "Price")}:</dt>
+                        <dd>{teacher.hourlyRate > 0 ? `$${teacher.hourlyRate} / ${t("ساعة", "hr")}` : "—"}</dd>
+                      </div>
+                    )}
+                  </dl>
 
                   <Link
                     href={`/contact?teacher=${encodeURIComponent(teacher.name)}`}

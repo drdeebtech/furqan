@@ -19,7 +19,7 @@ const getPublicTeachers = unstable_cache(
 
     const { data: teacherProfiles } = await supabase
       .from("teacher_profiles")
-      .select("teacher_id, bio, specialties, recitation_standards, hourly_rate, rating_avg, total_sessions, gender")
+      .select("teacher_id, bio, bio_en, languages, specialties, recitation_standards, hourly_rate, rating_avg, total_sessions, gender")
       .eq("is_archived", false)
       .eq("is_accepting", true)
       .eq("cv_status", "approved")
@@ -27,6 +27,8 @@ const getPublicTeachers = unstable_cache(
       .returns<{
         teacher_id: string;
         bio: string | null;
+        bio_en: string | null;
+        languages: string[];
         specialties: string[];
         recitation_standards: string[];
         hourly_rate: number;
@@ -87,6 +89,8 @@ const getPublicTeachers = unstable_cache(
         nameAr: nameArMap[t.teacher_id] ?? null,
         avatarUrl: avatarMap[t.teacher_id] ?? null,
         bio: t.bio,
+        bioEn: t.bio_en,
+        languages: t.languages,
         specialties: t.specialties,
         recitationStandards: t.recitation_standards,
         hourlyRate: Number(t.hourly_rate),
