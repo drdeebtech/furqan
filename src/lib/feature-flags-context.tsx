@@ -6,12 +6,14 @@ interface FeatureFlags {
   hideReviews: boolean;
   hidePrices: boolean;
   hideTeachersPage: boolean;
+  hideCourses: boolean;
 }
 
 const FeatureFlagsContext = createContext<FeatureFlags>({
   hideReviews: false,
   hidePrices: false,
   hideTeachersPage: false,
+  hideCourses: false,
 });
 
 export function FeatureFlagsProvider({

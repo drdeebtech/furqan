@@ -9,6 +9,8 @@ import { PublicDirWrapper } from "./dir-wrapper";
 import { FeatureFlagsProvider } from "@/lib/feature-flags-context";
 import { getSettings } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { unstable_cache } from "next/cache";
 
 const ROLE_HOME: Record<string, string> = {
   student: "/student/dashboard",
@@ -17,16 +19,38 @@ const ROLE_HOME: Record<string, string> = {
   moderator: "/moderator",
 };
 
+// spec 035 US4 (FR-009): don't promote an empty room. The Courses nav link is
+// hidden when zero courses are published, and reappears automatically once one
+// is. Cached (5-min) so this is not a per-render DB query at 50k users; admin
+// publish flows can revalidateTag('courses-public') for instant freshness.
+const getHasPublishedCourses = unstable_cache(
+  async (): Promise<boolean> => {
+    const supabase = createAdminClient();
+    const { count } = await supabase
+      .from("courses")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "published");
+    return (count ?? 0) > 0;
+  },
+  ["public-has-published-courses"],
+  { tags: ["courses-public"], revalidate: 300 },
+);
+
 export default async function PublicLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const settings = await getSettings();
+  const [settings, hasPublishedCourses] = await Promise.all([
+    getSettings(),
+    getHasPublishedCourses(),
+  ]);
   const flags = {
     hideReviews: settings["hide_reviews"] === "true",
     hidePrices: settings["hide_prices"] === "true",
     hideTeachersPage: settings["hide_teachers_page"] === "true",
+    // Hidden by admin toggle OR automatically while no course is published.
+    hideCourses: settings["hide_courses"] === "true" || !hasPublishedCourses,
   };
 
   // F3: when an authenticated user lands on a public route (e.g. /help),
