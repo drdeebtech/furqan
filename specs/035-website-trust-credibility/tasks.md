@@ -11,9 +11,9 @@ Legend: `[P]` = parallelizable (different files, no incomplete dependency). `[US
 
 ## Phase 1: Setup (branch hygiene — constitution NON-NEGOTIABLE)
 
-- [ ] T001 Run the retired/duplicate pre-work checks and record results in the PR description: `gh issue list --search "teacher trust"`, `gh pr list --search "teachers test"`, `git log --grep="is_test_account" --oneline`, and `git log --diff-filter=D --oneline -- "src/app/(public)/teachers/**"` (the `--diff-filter=D` check is the only one that catches a *retired* version of this work)
-- [ ] T002 Create the tracking issue (title: "Trust & credibility remediation — public test-teacher leak + follow-ups") capturing the 7-persona findings and the P1→P4 slices; note its number as `#<issue>`
-- [ ] T003 Open a **draft PR** the same day from `035-website-trust-credibility` → `main` with body containing `Closes #<issue>` and the slice checklist (draft until US1 is green)
+- [X] T001 Run the retired/duplicate pre-work checks and record results in the PR description: `gh issue list --search "teacher trust"`, `gh pr list --search "teachers test"`, `git log --grep="is_test_account" --oneline`, and `git log --diff-filter=D --oneline -- "src/app/(public)/teachers/**"` (the `--diff-filter=D` check is the only one that catches a *retired* version of this work)
+- [X] T002 Create the tracking issue (title: "Trust & credibility remediation — public test-teacher leak + follow-ups") capturing the 7-persona findings and the P1→P4 slices; note its number as `#<issue>`
+- [X] T003 Open a **draft PR** the same day from `035-website-trust-credibility` → `main` with body containing `Closes #<issue>` and the slice checklist (draft until US1 is green)
 
 **Checkpoint**: branch is tracked by an issue and a same-day draft PR before any production code edit.
 
@@ -33,9 +33,9 @@ Legend: `[P]` = parallelizable (different files, no incomplete dependency). `[US
 
 ### Tests first (red) — required by contract
 
-- [ ] T004 [P] [US1] Add failing unit test: `getPublicTeachers()` excludes a fixture teacher with `is_test_account = true` even when `cv_status='approved'` (INV-1/2/3), in `src/app/(public)/teachers/__tests__/get-public-teachers.test.ts`
-- [ ] T005 [P] [US1] Add failing unit test: a real teacher with `total_sessions = 0` is **included** and flagged "New" (INV-5), in the same test file
-- [ ] T006 [P] [US1] Add failing Playwright e2e: anonymous `/teachers` contains no `Test Teacher` / `DELETE ME` / `@furqan.test` text (INV-1/2/4), in `e2e/public-teachers-no-test-accounts.spec.ts`
+- [X] T004 [P] [US1] Add failing unit test: `getPublicTeachers()` excludes a fixture teacher with `is_test_account = true` even when `cv_status='approved'` (INV-1/2/3), in `src/app/(public)/teachers/__tests__/get-public-teachers.test.ts`
+- [X] T005 [P] [US1] Add failing unit test: a real teacher with `total_sessions = 0` is **included** and flagged "New" (INV-5), in the same test file
+- [X] T006 [P] [US1] Add failing Playwright e2e: anonymous `/teachers` contains no `Test Teacher` / `DELETE ME` / `@furqan.test` text (INV-1/2/4), in `e2e/public-teachers-no-test-accounts.spec.ts`
 
 ### Migration (expand — additive only)
 
@@ -48,11 +48,11 @@ Legend: `[P]` = parallelizable (different files, no incomplete dependency). `[US
 - [X] T010 [US1] Add `.eq("is_test_account", false)` to the `profiles` step of `getPublicTeachers()` in `src/app/(public)/teachers/page.tsx` (predicate per `contracts/public-teacher-listing.md`)
 - [X] T011 [P] [US1] Render the "New teacher / معلم جديد" badge when `total_sessions === 0` (replace the bare `0 جلسة مكتملة`) in `src/app/(public)/teachers/content.tsx:142`
 - [X] T012 [P] [US1] Forward-fix: set `is_test_account = true` on the profile upserted by `POST /api/auth/test-login` in `src/app/api/auth/test-login/route.ts` so future test users are flagged at birth
-- [ ] T013 [US1] Audit every other public surface that lists or links a teacher (home/featured, any `src/lib/views`/`src/lib/domains/teacher` read) and apply the same `is_test_account = false` predicate (INV-4); if none exist, record that in the PR
+- [X] T013 [US1] Audit every other public surface that lists or links a teacher (home/featured, any `src/lib/views`/`src/lib/domains/teacher` read) and apply the same `is_test_account = false` predicate (INV-4); if none exist, record that in the PR
 
 ### Verify
 
-- [ ] T014 [US1] Run `npm run test:unit`, `npm test` (the new e2e), `npx tsc --noEmit`, `npm run lint`, and `npm run build` — all green; confirm T004–T006 now pass
+- [X] T014 [US1] Run `npm run test:unit`, `npm test` (the new e2e), `npx tsc --noEmit`, `npm run lint`, and `npm run build` — all green; confirm T004–T006 now pass
 - [ ] T015 [US1] Mark the draft PR ready; confirm CI `migration-safety` and `trufflehog` checks pass on the additive migration
 
 **Checkpoint**: US1 is independently shippable — the live leak is closed and provably cannot recur.
@@ -145,7 +145,7 @@ Legend: `[P]` = parallelizable (different files, no incomplete dependency). `[US
 
 > Explicit, regression-failing checks for the constraints `/speckit.analyze` flagged as only indirectly covered. Each must FAIL if the invariant breaks — not a doc assertion.
 
-- [ ] T038 [P] Assert the public teachers response exposes **no new or sensitive fields** after the gate change: snapshot the public payload shape in `src/app/(public)/teachers/__tests__/get-public-teachers.test.ts` and fail if any column beyond the existing public set (incl. accidental email/`is_test_account` leakage) appears (FR-014). Cross-cutting verification; depends on US1 (run after T010–T013) — required for the US1 MVP.
+- [X] T038 [P] Assert the public teachers response exposes **no new or sensitive fields** after the gate change: snapshot the public payload shape in `src/app/(public)/teachers/__tests__/get-public-teachers.test.ts` and fail if any column beyond the existing public set (incl. accidental email/`is_test_account` leakage) appears (FR-014). Cross-cutting verification; depends on US1 (run after T010–T013) — required for the US1 MVP.
 - [ ] T039 Test `testimonials` RLS in `e2e/` or a DB test: an anonymous client SELECT returns **only** `is_published = true` rows, and anonymous `INSERT`/`UPDATE`/`DELETE` is **denied** (FR-014 — no new public-data exposure). Cross-cutting verification; depends on US3 (T020).
 - [ ] T040 Scope guard for Quran integrity (FR-014): confirm in the PR description, with the diff, that **no** Quran-domain table, ayah text, tashkeel/tajweed/waqf rendering, or `src/lib/quran/**` is touched by this feature; CI diff review backs the claim.
 - [ ] T041 SC-003 validation: during the SC-008 re-review (T036), explicitly time the "choose a teacher to contact from public info, without registering" flow on the deployed build and record that it completes in **under 3 minutes**.
