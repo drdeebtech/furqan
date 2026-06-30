@@ -3060,6 +3060,65 @@ export type Database = {
           },
         ]
       }
+      parent_access_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          revoked_at: string | null
+          student_id: string
+          teacher_id: string
+          token_hash: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          revoked_at?: string | null
+          student_id: string
+          teacher_id: string
+          token_hash: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          revoked_at?: string | null
+          student_id?: string
+          teacher_id?: string
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parent_access_tokens_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parent_access_tokens_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parent_access_tokens_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parent_access_tokens_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       parent_reports: {
         Row: {
           content: string
@@ -3415,7 +3474,9 @@ export type Database = {
           hourly_rate_usd: number | null
           id: string
           is_active: boolean
+          is_test_account: boolean
           lang: string
+          onboarding_completed: boolean
           parent_email: string | null
           parent_name: string | null
           parent_phone: string | null
@@ -3436,7 +3497,9 @@ export type Database = {
           hourly_rate_usd?: number | null
           id: string
           is_active?: boolean
+          is_test_account?: boolean
           lang?: string
+          onboarding_completed?: boolean
           parent_email?: string | null
           parent_name?: string | null
           parent_phone?: string | null
@@ -3457,7 +3520,9 @@ export type Database = {
           hourly_rate_usd?: number | null
           id?: string
           is_active?: boolean
+          is_test_account?: boolean
           lang?: string
+          onboarding_completed?: boolean
           parent_email?: string | null
           parent_name?: string | null
           parent_phone?: string | null

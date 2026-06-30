@@ -67,6 +67,8 @@ Architectural shifts ship as one feature pilot first, then generalize.
 
 All user-facing text is Arabic. The follow-up domain is named "follow-up" / "متابعة" in every interface, never "homework" / "واجب" — even though the underlying database column is `homework_assignments` for historical reasons (the column rename is not worth the blast radius; see ADR-0001 reasoning style).
 
+**Default-locale selection (amended 2026-06-30, v1.3.0):** Arabic remains the **canonical default** and every surface stays fully bilingual (AR/EN) — no user-facing text may be English-only. A surface MAY, on a visitor's **first** visit (no `furqan-lang` cookie set), follow the browser's `Accept-Language` and present English first when the top preference's primary subtag is not `ar`; an explicit language choice always overrides and persists, and Arabic is kept when the preference is Arabic or absent. This permits the diaspora-funnel improvement in `specs/035-website-trust-credibility` (US5) without weakening the Arabic-first rule: it changes only which existing translation renders first, never whether Arabic exists.
+
 ### Database migration discipline
 
 The Supabase Branching GitHub integration silently skips applies more than once a month. The `.github/workflows/supabase-migrate.yml` workflow is the source of truth for production schema. New migrations use `./scripts/new-migration.sh <name>` and land at `supabase/migrations/<UTC timestamp>_*.sql`. The legacy `src/lib/supabase/migrations/v*.sql` files stay where they are; they are already applied to production via the project's own `public.schema_migrations` tracker.
@@ -153,9 +155,10 @@ Version bumps follow semver on the constitution itself:
 
 `/speckit.plan` and `/speckit.analyze` consult this file by path. `/speckit.constitution` is the canonical editor; manual edits are allowed but should round-trip through `/speckit.constitution`'s validation before merge.
 
-**Version**: 1.2.0 | **Ratified**: 2026-05-08 | **Last Amended**: 2026-05-08
+**Version**: 1.3.0 | **Ratified**: 2026-05-08 | **Last Amended**: 2026-06-30
 
 **Changelog:**
+- **1.3.0** (2026-06-30) — Amended the "Bilingual UX" Additional Constraint with a **Default-locale selection** clause: Arabic stays the canonical default and all surfaces stay fully bilingual, but a first visit (no `furqan-lang` cookie) MAY follow `Accept-Language` and present English first for non-Arabic browsers. Approved by the constitution owner to unblock `specs/035-website-trust-credibility` US5; changes only render-order of existing translations, never whether Arabic exists.
 - **1.2.0** (2026-05-08) — Added "Branch hygiene" Additional Constraint mirroring the new `CLAUDE.md` § "Branch Hygiene Rule". Defines five CRITICAL flags for `/speckit.plan` and `/speckit.analyze`. Surfaced by the 2026-05-08 audit which found 33+ stale branches and 8 cases of re-fix-without-checking.
 - **1.1.0** (2026-05-08) — Added "50,000-user scale target" Additional Constraint mirroring the new `CLAUDE.md` § "Scale Target Rule"; defines the seven CRITICAL flags `/speckit.plan` and `/speckit.analyze` must surface.
 - **1.0.0** (2026-05-08) — Initial constitution: five core principles (Domain Ownership, Loud Failures, Atomic Critical Paths, Auth at the Boundary, Tracer-Bullet Adoption), three additional constraints, four-stage development workflow.

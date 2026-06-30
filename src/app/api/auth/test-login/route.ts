@@ -78,8 +78,9 @@ export async function POST(request: NextRequest) {
       ? (body.role as TestRole)
       : "student";
 
+  // Only accept test domain emails to prevent overwriting real profiles.
   const email =
-    typeof body.email === "string" && body.email.includes("@")
+    typeof body.email === "string" && body.email.endsWith("@furqan.test")
       ? body.email.toLowerCase()
       : DEFAULT_EMAIL_BY_ROLE[role];
 
@@ -121,10 +122,13 @@ export async function POST(request: NextRequest) {
   // 2. Upsert the profile row so the role gate (profiles.role) is satisfied.
   //    `profiles` has CHECK (role = ANY(roles)) — the singular active role must
   //    be a member of the roles array, so we set both together.
+  // spec 035 US1 (FR-001): every account this test-only route mints is a
+  // test fixture — flag it so it can never surface on any public listing.
   const profileRow: TableInsert<"profiles"> = {
     id: userId,
     role,
     roles: [role],
+    is_test_account: true,
   };
   const { error: profileErr } = await admin
     .from("profiles")

@@ -139,7 +139,13 @@ export function TeachersContent({
                   )}
 
                   <div className="mt-3 text-xs text-muted">
-                    <p>{teacher.totalSessions} {t("جلسة مكتملة", "completed sessions")}</p>
+                    {/* spec 035 US1 (FR-006): a real teacher with no completed
+                        sessions is shown as "New", not a bare 0-counter. */}
+                    {teacher.totalSessions > 0 ? (
+                      <p>{teacher.totalSessions} {t("جلسة مكتملة", "completed sessions")}</p>
+                    ) : (
+                      <p className="text-gold">{t("معلم جديد", "New teacher")}</p>
+                    )}
                   </div>
 
                   {/* #542: only show the aggregate once a teacher has ≥3 ratings */}
