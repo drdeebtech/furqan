@@ -96,9 +96,9 @@ Legend: `[P]` = parallelizable (different files, no incomplete dependency). `[US
 
 **Independent test**: With zero published courses the link is absent; publish one → it reappears.
 
-- [ ] T025 [US4] Compute a cached published-courses count (`courses.status='published'`) server-side via `unstable_cache` in the public layout, in `src/app/(public)/layout.tsx` (or the existing feature-flag provider)
-- [ ] T026 [US4] Gate the Courses link on that signal in `src/components/public/public-nav.tsx:18` and the footer; default-hidden when count is 0 (FR-009)
-- [ ] T027 [US4] Verify: zero published → no link in nav/footer; publish one → link returns; `npm run build` green
+- [X] T025 [US4] Compute a cached published-courses count (`courses.status='published'`) server-side via `unstable_cache` in the public layout, in `src/app/(public)/layout.tsx` (or the existing feature-flag provider)
+- [X] T026 [US4] Gate the Courses link on that signal in `src/components/public/public-nav.tsx:18` and the footer; default-hidden when count is 0 (FR-009)
+- [X] T027 [US4] Verify: zero published → no link in nav/footer; publish one → link returns; `npm run build` green
 
 **Checkpoint**: no promoted link reaches an empty page (SC-005).
 
@@ -110,9 +110,9 @@ Legend: `[P]` = parallelizable (different files, no incomplete dependency). `[US
 
 **Independent test**: Visit with a non-Arabic browser language and no `furqan-lang` cookie → English, no flash; toggle to Arabic persists on reload.
 
-- [ ] T028 [US5] On first visit (no `furqan-lang` cookie), read `Accept-Language` and set the initial lang + cookie server-side (non-Arabic top preference → `en`, else `ar`) in `src/lib/i18n/server.ts` and/or `middleware.ts` (set cookie to avoid hydration flash)
-- [ ] T029 [US5] Ensure the explicit toggle/cookie/localStorage choice overrides detection and persists (FR-011); Arabic remains the default when preference is Arabic or absent (Bilingual-UX constitution)
-- [ ] T030 [US5] Verify SSR `dir`/`lang` match the chosen locale with no hydration mismatch; `npm run build` green
+- [X] T028 [US5] On first visit (no `furqan-lang` cookie), read `Accept-Language` and set the initial lang + cookie server-side (non-Arabic top preference → `en`, else `ar`) in `src/lib/i18n/server.ts` and/or `middleware.ts` (set cookie to avoid hydration flash)
+- [X] T029 [US5] Ensure the explicit toggle/cookie/localStorage choice overrides detection and persists (FR-011); Arabic remains the default when preference is Arabic or absent (Bilingual-UX constitution)
+- [X] T030 [US5] Verify SSR `dir`/`lang` match the chosen locale with no hydration mismatch; `npm run build` green
 
 **Checkpoint**: diaspora funnel widened without demoting Arabic (SC-006).
 
