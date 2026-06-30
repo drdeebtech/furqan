@@ -1,0 +1,40 @@
+name: TruffleHog Secret Scan
+
+# Live-verify secret scan on every push to main and every PR. Complements
+# GitHub's built-in partner-pattern secret scanning (always on for public repos)
+# by actually testing key-shaped findings against their live service, and by
+# catching generic/non-provider secrets that partner patterns miss — the two
+# gaps GitHub only closes behind the paid Secret Protection product.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trufflehog-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    name: trufflehog
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Gates on --results=verified only: the job fails solely when TruffleHog
+      # proves a secret is live, so the check is high-signal and never blocks a
+      # PR on a false positive (e.g. a base64 blob). Unverified hits still print
+      # to the log for review without failing the build.
+      - name: TruffleHog
+        uses: trufflesecurity/trufflehog@f446421baf832d6356c42c1743d99abff52ff334 # v3.95.7
+        with:
+          extra_args: --results=verified
