@@ -119,27 +119,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "user_create_failed" }, { status: 500 });
   }
 
-  // 2. Upsert the profile row so the role gate (profiles.role) is satisfied.
-  //    `profiles` has CHECK (role = ANY(roles)) — the singular active role must
-  //    be a member of the roles array, so we set both together.
-  // spec 035 US1 (FR-001): every account this test-only route mints is a
-  // test fixture — flag it so it can never surface on any public listing.
+  // 2. Ensure the profile row exists with the correct role and is_test_account flag.
+  //    INSERT first so new accounts get is_test_account:true stamped at birth.
+  //    On conflict (existing account), only update role/roles — never overwrite
+  //    is_test_account on a row we didn't create, preserving its current flag.
+  //    `profiles` has CHECK (role = ANY(roles)) — both must be set together.
   const profileRow: TableInsert<"profiles"> = {
     id: userId,
     role,
     roles: [role],
     is_test_account: true,
   };
-  const { error: profileErr } = await admin
-    .from("profiles")
-    .upsert(profileRow, { onConflict: "id" });
-  if (profileErr) {
-    logError("test-login: profile upsert failed", profileErr, {
-      tag: "test-login",
-      userId,
-      role,
-    });
-    return NextResponse.json({ error: "profile_upsert_failed" }, { status: 500 });
+  const { error: insertErr } = await admin.from("profiles").insert(profileRow);
+  if (insertErr) {
+    if (insertErr.code !== "23505") {
+      logError("test-login: profile insert failed", insertErr, { tag: "test-login", userId, role });
+      return NextResponse.json({ error: "profile_upsert_failed" }, { status: 500 });
+    }
+    const { error: updateErr } = await admin
+      .from("profiles")
+      .update({ role, roles: [role] })
+      .eq("id", userId);
+    if (updateErr) {
+      logError("test-login: profile update failed", updateErr, { tag: "test-login", userId, role });
+      return NextResponse.json({ error: "profile_upsert_failed" }, { status: 500 });
+    }
   }
 
   // 3. Mint a magic-link token and verify it through the SSR client, which

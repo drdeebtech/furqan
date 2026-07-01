@@ -6,6 +6,7 @@ import { Testimonials } from "@/components/public/testimonials";
 import { RegisterBanner } from "@/components/public/register-banner";
 import { resolveIcon } from "@/lib/site-content/icon-map";
 import type { SiteFeature } from "@/lib/site-content/types";
+import { CONTACT } from "@/lib/contact";
 
 export function AboutContent({ values }: { values: SiteFeature[] }) {
   const { t } = useLang();
@@ -69,6 +70,38 @@ export function AboutContent({ values }: { values: SiteFeature[] }) {
                 <p className="mt-1 text-xs text-muted">{s.label}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* spec 035 US6 T031: org identity — leadership names must come from the business.
+          TODO(business): supply founder/director name(s) + brief bio for publication.
+          Until then, this section presents verifiable institutional facts only. */}
+      <section className="border-t border-white/10 bg-card/30 py-20">
+        <div className="mx-auto max-w-7xl px-6">
+          <p className="text-sm font-medium tracking-widest text-muted">❖ {t("هويتنا المؤسسية", "Our Organization")}</p>
+          <h2 className="font-display mt-3 text-3xl font-bold leading-tight">{t("كيان مستقل وشفاف", "Independent & Accountable")}</h2>
+          <div className="mt-8 max-w-2xl space-y-4 text-sm leading-relaxed text-muted">
+            <p>{t(
+              "أكاديمية فرقان كيان مستقل لا يتبع أي جهة دينية أو حكومية. تُدار من قِبل فريق من المختصين في تعليم القرآن الكريم والتكنولوجيا التعليمية.",
+              "FURQAN Academy is an independent institution, unaffiliated with any religious or governmental body. It is operated by a specialist team of Quran educators and educational technologists.",
+            )}</p>
+            <p>{t(
+              "نلتزم بمعايير حماية الأطفال — جميع الجلسات مع معلمين معتمدين تحت رقابة المنصة، ولا تتم بدون إذن ولي الأمر للقاصرين. اقرأ",
+              "We are committed to child-safeguarding standards — all sessions are with certified teachers under platform oversight, and no session proceeds for minors without parental consent. Read our",
+            )}{" "}
+            <a href="/privacy#safeguarding" className="text-gold hover:text-gold-light focus-ring">
+              {t("سياسة حماية الأطفال", "Child Safeguarding Policy")}
+            </a>.</p>
+            <p>{t(
+              "للاستفسارات المؤسسية والشراكات:",
+              "For institutional inquiries and partnerships:",
+            )}{" "}
+            <a href={CONTACT.partnershipsUrl} className="text-gold hover:text-gold-light focus-ring"><bdi dir="ltr">{CONTACT.partnerships}</bdi></a>
+            {" — "}{t("أو", "or")}{" "}
+            <a href="/contact#partnerships" className="text-gold hover:text-gold-light focus-ring">
+              {t("نموذج الشراكة", "partnership form")}
+            </a>.</p>
           </div>
         </div>
       </section>

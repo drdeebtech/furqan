@@ -15,9 +15,11 @@ const BASE_LINKS = [
   { href: "/", ar: "الرئيسية", en: "Home" },
   { href: "/about", ar: "من نحن", en: "About" },
   { href: "/services", ar: "خدماتنا", en: "Services" },
-  { href: "/courses", ar: "الدورات المسجلة", en: "Courses" },
 ];
 
+// spec 035 US4 (FR-009): Courses link only shows when courses are published
+// (gated by the hideCourses flag computed in the public layout).
+const COURSES_LINK = { href: "/courses", ar: "الدورات المسجلة", en: "Courses" };
 const TEACHERS_LINK = { href: "/teachers", ar: "المعلمون", en: "Teachers" };
 
 const TAIL_LINKS = [
@@ -30,8 +32,13 @@ const TAIL_LINKS = [
 export function PublicNav({ dashboardHref }: { dashboardHref?: string }) {
   const pathname = usePathname();
   const { t } = useLang();
-  const { hideTeachersPage } = useFeatureFlags();
-  const NAV_LINKS = [...BASE_LINKS, ...(!hideTeachersPage ? [TEACHERS_LINK] : []), ...TAIL_LINKS];
+  const { hideTeachersPage, hideCourses } = useFeatureFlags();
+  const NAV_LINKS = [
+    ...BASE_LINKS,
+    ...(!hideCourses ? [COURSES_LINK] : []),
+    ...(!hideTeachersPage ? [TEACHERS_LINK] : []),
+    ...TAIL_LINKS,
+  ];
   const [open, setOpen] = useState(false);
 
   return (

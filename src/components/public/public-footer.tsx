@@ -31,6 +31,7 @@ export function PublicFooter() {
               { href: "/services", ar: "خدماتنا", en: "Services" },
               { href: "/blog", ar: "المدونة", en: "Blog" },
               { href: "/contact", ar: "اتصل بنا", en: "Contact" },
+              { href: "/contact#partnerships", ar: "الشراكات", en: "Partnerships" },
             ].map((l) => (
               <li key={l.href}><Link href={l.href} className="inline-flex py-1.5 transition-all duration-200 hover:text-gold focus-ring">{t(l.ar, l.en)}</Link></li>
             ))}
@@ -65,6 +66,11 @@ export function PublicFooter() {
             <li><a href={CONTACT.whatsappUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 transition-all duration-200 hover:text-gold">{CONTACT.flag} {t("واتساب:", "WhatsApp:")} {CONTACT.whatsapp}</a></li>
             <li><a href={CONTACT.emailUrl} className="transition-all duration-200 hover:text-gold">{CONTACT.email}</a></li>
             <li className="text-xs">{t(CONTACT.availability.ar, CONTACT.availability.en)}</li>
+            <li className="pt-2">
+              <a href={CONTACT.partnershipsUrl} className="transition-all duration-200 hover:text-gold">
+                {t("شراكات:", "Partnerships:")} {CONTACT.partnerships}
+              </a>
+            </li>
           </ul>
         </div>
       </div>

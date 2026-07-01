@@ -71,6 +71,24 @@ export function ContactContent({ faqSlot }: { faqSlot?: ReactNode } = {}) {
         </div>
       </section>
 
+      {/* spec 035 US6 T033: partnerships/institutional contact — distinct from consumer WhatsApp/email */}
+      <section id="partnerships" className="scroll-mt-24 border-t border-white/10 bg-card/30 py-16">
+        <div className="mx-auto max-w-7xl px-6">
+          <p className="text-sm font-medium tracking-widest text-muted">❖ {t("الشراكات", "Partnerships")}</p>
+          <h2 className="font-display mt-3 text-2xl font-bold leading-tight">{t("الشراكات والمؤسسات", "Institutional & Partnership Inquiries")}</h2>
+          <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted">{t(
+            "مدارس، مساجد، مؤسسات تعليمية — تواصل معنا لاستكشاف برامج الشراكة، الترخيص، أو الدورات الجماعية.",
+            "Schools, mosques, educational foundations — reach out to explore partnership programmes, licensing, or group courses.",
+          )}</p>
+          <a
+            href={CONTACT.partnershipsUrl}
+            className="mt-6 inline-flex items-center gap-2 rounded-xl border border-gold/40 px-6 py-3 text-sm font-medium text-gold transition-colors hover:bg-gold/10 focus-ring"
+          >
+            {CONTACT.partnerships}
+          </a>
+        </div>
+      </section>
+
       {faqSlot && <div className="border-t border-[var(--surface-border)]">{faqSlot}</div>}
       <RegisterBanner />
     </div>

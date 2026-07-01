@@ -12,7 +12,7 @@ A teacher profile is PUBLICLY VISIBLE **iff ALL** hold:
 4. `teacher_profiles.is_accepting = true`
 5. `teacher_profiles.cv_status = 'approved'`
 
-Anything failing ≥1 condition is excluded. A newly created seed/test/fixture row defaults to `is_test_account = false` only if it is **not** a test account; the test-login route and the backfill set `true` for test accounts, so they fail rule (2) automatically — no manual cleanup.
+Anything failing ≥1 condition is excluded. The column defaults to `false`. The test-login route and the migration backfill set `true` for known test fixtures, so they fail rule (2) automatically — no manual cleanup needed.
 
 ## Display rule
 

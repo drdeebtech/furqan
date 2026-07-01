@@ -18,7 +18,7 @@ Only **additive** changes (expand phase). No existing column is dropped, renamed
 
 `getPublicTeachers()` (`src/app/(public)/teachers/page.tsx`) effective predicate becomes:
 
-```
+```sql
 teacher_profiles.is_archived = false
 AND teacher_profiles.is_accepting = true
 AND teacher_profiles.cv_status = 'approved'
