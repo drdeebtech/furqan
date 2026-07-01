@@ -6,6 +6,7 @@ import { Testimonials } from "@/components/public/testimonials";
 import { RegisterBanner } from "@/components/public/register-banner";
 import { resolveIcon } from "@/lib/site-content/icon-map";
 import type { SiteFeature } from "@/lib/site-content/types";
+import { CONTACT } from "@/lib/contact";
 
 export function AboutContent({ values }: { values: SiteFeature[] }) {
   const { t } = useLang();
@@ -96,7 +97,7 @@ export function AboutContent({ values }: { values: SiteFeature[] }) {
               "للاستفسارات المؤسسية والشراكات:",
               "For institutional inquiries and partnerships:",
             )}{" "}
-            <a href="mailto:partnerships@furqan.today" className="text-gold hover:text-gold-light focus-ring">partnerships@furqan.today</a>
+            <a href={CONTACT.partnershipsUrl} className="text-gold hover:text-gold-light focus-ring"><bdi dir="ltr">{CONTACT.partnerships}</bdi></a>
             {" — "}{t("أو", "or")}{" "}
             <a href="/contact#partnerships" className="text-gold hover:text-gold-light focus-ring">
               {t("نموذج الشراكة", "partnership form")}

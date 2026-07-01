@@ -67,8 +67,8 @@ export function PublicFooter() {
             <li><a href={CONTACT.emailUrl} className="transition-all duration-200 hover:text-gold">{CONTACT.email}</a></li>
             <li className="text-xs">{t(CONTACT.availability.ar, CONTACT.availability.en)}</li>
             <li className="pt-2">
-              <a href="mailto:partnerships@furqan.today" className="transition-all duration-200 hover:text-gold">
-                {t("شراكات:", "Partnerships:")} partnerships@furqan.today
+              <a href={CONTACT.partnershipsUrl} className="transition-all duration-200 hover:text-gold">
+                {t("شراكات:", "Partnerships:")} {CONTACT.partnerships}
               </a>
             </li>
           </ul>

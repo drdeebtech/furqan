@@ -81,10 +81,10 @@ export function ContactContent({ faqSlot }: { faqSlot?: ReactNode } = {}) {
             "Schools, mosques, educational foundations — reach out to explore partnership programmes, licensing, or group courses.",
           )}</p>
           <a
-            href="mailto:partnerships@furqan.today"
+            href={CONTACT.partnershipsUrl}
             className="mt-6 inline-flex items-center gap-2 rounded-xl border border-gold/40 px-6 py-3 text-sm font-medium text-gold transition-colors hover:bg-gold/10 focus-ring"
           >
-            partnerships@furqan.today
+            {CONTACT.partnerships}
           </a>
         </div>
       </section>
