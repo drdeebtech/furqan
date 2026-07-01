@@ -43,6 +43,7 @@
 | [033-achievement-system](./033-achievement-system/spec.md) | Draft | _(unknown)_ | _(pending)_ |
 | [034-admin-analytics-audit](./034-admin-analytics-audit/spec.md) | Draft | _(unknown)_ | _(pending)_ |
 | [035-website-trust-credibility](./035-website-trust-credibility/spec.md) | Shipped | `035-website-trust-credibility` | [#633](https://github.com/drdeebtech/furqan/pull/633) |
+| [036-teacher-marketplace](./036-teacher-marketplace/spec.md) | Tasks-ready | `feat/036-teacher-marketplace` | _(pending)_ |
 
 ## Abandoned (last 90 days)
 
