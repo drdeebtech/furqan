@@ -18,7 +18,7 @@ create table if not exists public.testimonials (
   -- teacher always resolves to a real profile (the render query further
   -- requires that teacher to be publicly listable). on delete set null keeps
   -- the quote but drops a stale credit.
-  teacher_id uuid references public.profiles(id) on delete set null,
+  teacher_id uuid references public.teacher_profiles(teacher_id) on delete set null,
   is_published boolean not null default false,
   display_order integer not null default 0,
   created_at timestamptz not null default now()

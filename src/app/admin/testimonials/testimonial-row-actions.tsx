@@ -40,17 +40,19 @@ export function TestimonialRowActions({
         <Pencil size={12} aria-hidden="true" /> {t("تعديل", "Edit")}
       </Link>
       <button
+        type="button"
         onClick={onToggle}
         disabled={pending}
-        className="flex items-center gap-1 rounded-lg border border-surface-border/60 px-2 py-1 text-xs text-muted hover:border-gold/40 hover:text-gold disabled:opacity-50"
+        className="flex min-h-[44px] items-center gap-1 rounded-lg border border-surface-border/60 px-2 py-1 text-xs text-muted hover:border-gold/40 hover:text-gold disabled:opacity-50"
       >
         {isPublished ? <EyeOff size={12} aria-hidden="true" /> : <Eye size={12} aria-hidden="true" />}
         {isPublished ? t("إلغاء النشر", "Unpublish") : t("نشر", "Publish")}
       </button>
       <button
+        type="button"
         onClick={onDelete}
         disabled={pending}
-        className="flex items-center gap-1 rounded-lg border border-error/30 bg-error/10 px-2 py-1 text-xs text-red-300 hover:bg-error/20 disabled:opacity-50"
+        className="flex min-h-[44px] items-center gap-1 rounded-lg border border-error/30 bg-error/10 px-2 py-1 text-xs text-red-300 hover:bg-error/20 disabled:opacity-50"
       >
         <Trash2 size={12} aria-hidden="true" /> {t("حذف", "Delete")}
       </button>

@@ -27,10 +27,11 @@ const ROLE_HOME: Record<string, string> = {
 const getHasPublishedCourses = unstable_cache(
   async (): Promise<boolean> => {
     const supabase = createAdminClient();
-    const { count } = await supabase
+    const { count, error } = await supabase
       .from("courses")
       .select("id", { count: "exact", head: true })
       .eq("status", "published");
+    if (error) throw error;
     return (count ?? 0) > 0;
   },
   ["public-has-published-courses"],
@@ -44,7 +45,7 @@ const getHasPublishedCourses = unstable_cache(
 const getPublishedTestimonials = unstable_cache(
   async (): Promise<PublicTestimonial[]> => {
     const supabase = createAdminClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("testimonials")
       .select("id, author_name, author_location, quote_ar, quote_en")
       .eq("is_published", true)
@@ -57,6 +58,7 @@ const getPublishedTestimonials = unstable_cache(
         quote_ar: string;
         quote_en: string | null;
       }[]>();
+    if (error) throw error;
     return (data ?? []).map((r) => ({
       id: r.id,
       authorName: r.author_name,

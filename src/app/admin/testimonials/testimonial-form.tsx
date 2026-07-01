@@ -25,7 +25,7 @@ export function TestimonialForm({
   const [state, formAction, pending] = useActionState(action, initialState);
 
   return (
-    <form action={formAction} className="space-y-5 rounded-2xl border border-surface-border/60 bg-surface/40 p-6">
+    <form action={formAction} className="space-y-5 rounded-2xl border border-card-border bg-card p-6">
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label htmlFor="author_name" className="mb-1 block text-xs font-medium text-muted">

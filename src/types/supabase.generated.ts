@@ -6638,8 +6638,8 @@ export type Database = {
             foreignKeyName: "testimonials_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedRelation: "teacher_profiles"
+            referencedColumns: ["teacher_id"]
           },
         ]
       }
