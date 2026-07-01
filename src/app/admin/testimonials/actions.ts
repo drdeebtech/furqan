@@ -48,7 +48,7 @@ function parseFormData(formData: FormData): TestimonialFields {
     quote_ar: String(formData.get("quote_ar") ?? "").trim(),
     quote_en: String(formData.get("quote_en") ?? "").trim() || null,
     is_published: formData.get("is_published") === "on",
-    display_order: Number.isFinite(order) ? order : 0,
+    display_order: order,
   };
 }
 
@@ -96,8 +96,9 @@ const updateTestimonialBase = loudAction<{ id: string } & TestimonialFields, { m
     }
     if (!UUID_RE.test(id)) throw new UserError("معرّف غير صالح");
     const admin = createAdminClient();
-    const { error } = await admin.from("testimonials").update(parsed.data).eq("id", id);
+    const { data: updated, error } = await admin.from("testimonials").update(parsed.data).eq("id", id).select("id").maybeSingle();
     if (error) throw error;
+    if (!updated) throw new UserError("لم يُعثر على الشهادة");
     revalidatePublic();
     return { message: "تم حفظ الشهادة" };
   },
@@ -121,8 +122,9 @@ const togglePublishBase = loudAction<{ id: string; publish: boolean }, { message
   preflight: adminPreflight,
   handler: async ({ id, publish }) => {
     const admin = createAdminClient();
-    const { error } = await admin.from("testimonials").update({ is_published: publish }).eq("id", id);
+    const { data: updated, error } = await admin.from("testimonials").update({ is_published: publish }).eq("id", id).select("id").maybeSingle();
     if (error) throw error;
+    if (!updated) throw new UserError("لم يُعثر على الشهادة");
     revalidatePublic();
     return { message: publish ? "تم النشر" : "تم إلغاء النشر" };
   },
@@ -145,8 +147,9 @@ const deleteTestimonialBase = loudAction<{ id: string }, { message: string }>({
   preflight: adminPreflight,
   handler: async ({ id }) => {
     const admin = createAdminClient();
-    const { error } = await admin.from("testimonials").delete().eq("id", id);
+    const { data: deleted, error } = await admin.from("testimonials").delete().eq("id", id).select("id").maybeSingle();
     if (error) throw error;
+    if (!deleted) throw new UserError("لم يُعثر على الشهادة");
     revalidatePublic();
     return { message: "تم الحذف" };
   },

@@ -201,7 +201,7 @@ export function TeachersContent({
                     {!hidePrices && (
                       <div className="flex gap-1.5">
                         <dt className="font-medium text-muted-light">{t("السعر", "Price")}:</dt>
-                        <dd>{teacher.hourlyRate > 0 ? `$${teacher.hourlyRate} / ${t("ساعة", "hr")}` : "—"}</dd>
+                        <dd><span dir="ltr">{teacher.hourlyRate > 0 ? `$${teacher.hourlyRate} / ${t("ساعة", "hr")}` : "—"}</span></dd>
                       </div>
                     )}
                   </dl>

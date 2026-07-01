@@ -18,12 +18,13 @@ export default async function EditTestimonialPage({
   const { t, dir } = await getT();
   // admin: read a single testimonial (incl. unpublished) for editing.
   const supabase = createAdminClient();
-  const { data: testimonial } = await supabase
+  const { data: testimonial, error } = await supabase
     .from("testimonials")
     .select("id, author_name, author_location, quote_ar, quote_en, teacher_id, is_published, display_order, created_at")
     .eq("id", id)
     .maybeSingle<Testimonial>();
 
+  if (error) throw error;
   if (!testimonial) notFound();
 
   return (

@@ -18,11 +18,9 @@ const LangContext = createContext<LangContextType>({
   dir: "rtl",
 });
 
-function hasStoredLang(): boolean {
+function hasCookieLang(): boolean {
   if (typeof window === "undefined") return false;
-  return /(?:^|; )furqan-lang=(ar|en)/.test(document.cookie) ||
-    localStorage.getItem("furqan-lang") === "ar" ||
-    localStorage.getItem("furqan-lang") === "en";
+  return /(?:^|; )furqan-lang=(ar|en)/.test(document.cookie);
 }
 
 function getStoredLang(): Lang {
@@ -60,7 +58,7 @@ export function LangProvider({ children }: { children: ReactNode }) {
     // spec 035 US5: on first visit (no stored choice) persist the detected
     // language so the server renders it on the next navigation (sets the
     // furqan-lang cookie) — making return visits flash-free and SSR-consistent.
-    if (!hasStoredLang()) persistLang(lang);
+    if (!hasCookieLang()) persistLang(lang);
     queueMicrotask(() => setMounted(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

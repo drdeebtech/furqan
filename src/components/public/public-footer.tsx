@@ -31,7 +31,7 @@ export function PublicFooter() {
               { href: "/services", ar: "خدماتنا", en: "Services" },
               { href: "/blog", ar: "المدونة", en: "Blog" },
               { href: "/contact", ar: "اتصل بنا", en: "Contact" },
-              { href: "/contact?type=partnership", ar: "الشراكات", en: "Partnerships" },
+              { href: "/contact#partnerships", ar: "الشراكات", en: "Partnerships" },
             ].map((l) => (
               <li key={l.href}><Link href={l.href} className="inline-flex py-1.5 transition-all duration-200 hover:text-gold focus-ring">{t(l.ar, l.en)}</Link></li>
             ))}

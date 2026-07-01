@@ -89,16 +89,16 @@ export function AboutContent({ values }: { values: SiteFeature[] }) {
               "نلتزم بمعايير حماية الأطفال — جميع الجلسات مع معلمين معتمدين تحت رقابة المنصة، ولا تتم بدون إذن ولي الأمر للقاصرين. اقرأ",
               "We are committed to child-safeguarding standards — all sessions are with certified teachers under platform oversight, and no session proceeds for minors without parental consent. Read our",
             )}{" "}
-            <a href="/privacy#safeguarding" className="text-gold hover:text-gold-light">
+            <a href="/privacy#safeguarding" className="text-gold hover:text-gold-light focus-ring">
               {t("سياسة حماية الأطفال", "Child Safeguarding Policy")}
             </a>.</p>
             <p>{t(
               "للاستفسارات المؤسسية والشراكات:",
               "For institutional inquiries and partnerships:",
             )}{" "}
-            <a href="mailto:partnerships@furqan.today" className="text-gold hover:text-gold-light">partnerships@furqan.today</a>
+            <a href="mailto:partnerships@furqan.today" className="text-gold hover:text-gold-light focus-ring">partnerships@furqan.today</a>
             {" — "}{t("أو", "or")}{" "}
-            <a href="/contact?type=partnership" className="text-gold hover:text-gold-light">
+            <a href="/contact#partnerships" className="text-gold hover:text-gold-light focus-ring">
               {t("نموذج الشراكة", "partnership form")}
             </a>.</p>
           </div>

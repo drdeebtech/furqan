@@ -29,7 +29,7 @@ const TestimonialsComponent = function Testimonials() {
             // fall back to the Arabic quote (every testimonial has quote_ar).
             const quote = t(r.quoteAr, r.quoteEn || r.quoteAr);
             return (
-              <figure key={r.id} className="rounded-2xl border border-surface-border/60 bg-surface/40 p-6 transition-colors duration-200 hover:border-gold/30">
+              <figure key={r.id} className="rounded-2xl border border-card-border bg-card p-6 transition-colors duration-200 hover:border-gold/30">
                 <blockquote className="text-sm leading-relaxed text-foreground">
                   {quote}
                 </blockquote>

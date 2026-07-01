@@ -72,7 +72,7 @@ export function ContactContent({ faqSlot }: { faqSlot?: ReactNode } = {}) {
       </section>
 
       {/* spec 035 US6 T033: partnerships/institutional contact — distinct from consumer WhatsApp/email */}
-      <section className="border-t border-white/10 bg-card/30 py-16">
+      <section id="partnerships" className="scroll-mt-24 border-t border-white/10 bg-card/30 py-16">
         <div className="mx-auto max-w-7xl px-6">
           <p className="text-sm font-medium tracking-widest text-muted">❖ {t("الشراكات", "Partnerships")}</p>
           <h2 className="font-display mt-3 text-2xl font-bold leading-tight">{t("الشراكات والمؤسسات", "Institutional & Partnership Inquiries")}</h2>

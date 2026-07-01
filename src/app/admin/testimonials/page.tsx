@@ -14,13 +14,14 @@ export default async function AdminTestimonialsPage() {
   // admin: full testimonial list incl. unpublished drafts (admin-only view).
   const supabase = createAdminClient();
 
-  const { data: rows } = await supabase
+  const { data: rows, error } = await supabase
     .from("testimonials")
     .select("id, author_name, author_location, quote_ar, quote_en, teacher_id, is_published, display_order, created_at")
     .order("is_published", { ascending: false })
     .order("display_order", { ascending: true })
     .returns<Testimonial[]>();
 
+  if (error) throw error;
   const all = rows ?? [];
   const published = all.filter((r) => r.is_published);
   const drafts = all.filter((r) => !r.is_published);
