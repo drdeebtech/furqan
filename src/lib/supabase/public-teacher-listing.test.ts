@@ -16,6 +16,7 @@
  */
 import { describe, it, expect, beforeAll } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -28,20 +29,20 @@ const SEED_TEACHER_IDS = [
   "11111111-0000-4000-8000-000000000003",
 ];
 
-let admin: SupabaseClient;
+let admin: SupabaseClient<Database>;
 let seeded = false;
 
 beforeAll(async () => {
   if (skip) return;
-  admin = createClient(url!, serviceKey!, { auth: { persistSession: false } });
+  admin = createClient<Database>(url!, serviceKey!, { auth: { persistSession: false } });
   const { data } = await admin.from("profiles").select("id").in("id", SEED_TEACHER_IDS);
   // Verify all 3 seed teachers exist (not just some).
   seeded = (data?.length ?? 0) === SEED_TEACHER_IDS.length;
 });
 
 describe.skipIf(skip)("public teacher listing — default-deny against test accounts", () => {
-  it("flags the seeded @furqan.test teachers as test accounts (backfill, INV-2)", async () => {
-    if (!seeded) return; // local DB not seeded — nothing to assert
+  it("flags the seeded @furqan.test teachers as test accounts (backfill, INV-2)", async (ctx) => {
+    if (!seeded) return ctx.skip();
     const { data, error } = await admin
       .from("profiles")
       .select("id, is_test_account")
@@ -52,8 +53,8 @@ describe.skipIf(skip)("public teacher listing — default-deny against test acco
     }
   });
 
-  it("the public profile gate excludes every test-flagged teacher (INV-1/3)", async () => {
-    if (!seeded) return;
+  it("the public profile gate excludes every test-flagged teacher (INV-1/3)", async (ctx) => {
+    if (!seeded) return ctx.skip();
     // This mirrors getPublicTeachers()' profiles step: role=teacher + the new
     // is_test_account=false predicate. No seed teacher may survive it.
     const { data, error } = await admin
@@ -66,8 +67,8 @@ describe.skipIf(skip)("public teacher listing — default-deny against test acco
     expect(data ?? []).toHaveLength(0);
   });
 
-  it("demotes the test accounts' teacher_profiles so the shared gate excludes them everywhere (INV-4)", async () => {
-    if (!seeded) return;
+  it("demotes the test accounts' teacher_profiles so the shared gate excludes them everywhere (INV-4)", async (ctx) => {
+    if (!seeded) return ctx.skip();
     // The shared teacher_profiles gate used by all listing surfaces.
     const { data, error } = await admin
       .from("teacher_profiles")
