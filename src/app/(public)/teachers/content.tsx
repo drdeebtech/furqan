@@ -6,6 +6,7 @@ import { Award, GraduationCap, Star } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useFeatureFlags } from "@/lib/feature-flags-context";
 import { TEACHER_LANGUAGES } from "@/lib/constants";
+import { PRICING_MODEL } from "@/lib/copy/policies";
 import { Testimonials } from "@/components/public/testimonials";
 import { RegisterBanner } from "@/components/public/register-banner";
 
@@ -199,9 +200,16 @@ export function TeachersContent({
                       <dd>{t("حسب الاتفاق", "Schedule on request")}</dd>
                     </div>
                     {!hidePrices && (
-                      <div className="flex gap-1.5">
-                        <dt className="font-medium text-muted-light">{t("السعر", "Price")}:</dt>
-                        <dd><span dir="ltr">{teacher.hourlyRate > 0 ? `$${teacher.hourlyRate} / ${t("ساعة", "hr")}` : "—"}</span></dd>
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex gap-1.5">
+                          <dt className="font-medium text-muted-light">{t("السعر", "Price")}:</dt>
+                          <dd><span dir="ltr">{teacher.hourlyRate > 0 ? `$${teacher.hourlyRate} / ${t("ساعة", "hr")}` : "—"}</span></dd>
+                        </div>
+                        {teacher.hourlyRate > 0 && (
+                          <span className="text-[11px] leading-snug text-muted">
+                            {t(PRICING_MODEL.teacherRateCaption.ar, PRICING_MODEL.teacherRateCaption.en)}
+                          </span>
+                        )}
                       </div>
                     )}
                   </dl>

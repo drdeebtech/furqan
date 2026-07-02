@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Award, CheckCircle, GraduationCap, Users, Video } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { CONTACT } from "@/lib/contact";
+import { PAY_CADENCE } from "@/lib/copy/policies";
 
 export default function TeachContent() {
   const { t } = useLang();
@@ -91,8 +92,8 @@ export default function TeachContent() {
                 icon: Award,
                 ar: "دفع عادل ومنتظم",
                 en: "Fair, regular payouts",
-                dAr: "دفعات أسبوعية واضحة ومباشرة.",
-                dEn: "Clear weekly payouts, direct to you.",
+                dAr: PAY_CADENCE.ar,
+                dEn: PAY_CADENCE.en,
               },
               {
                 icon: CheckCircle,
