@@ -185,25 +185,60 @@ export async function countStudentAssessmentsForSpecialty(
 ): Promise<number> {
   const trimmed = specialty.trim();
   if (!trimmed) return 0;
+  return countActiveAssessmentRows(
+    studentId,
+    trimmed,
+    "countStudentAssessmentsForSpecialty",
+  );
+}
 
-  // Own-row count: student_id is the authed student, counting their own
-  // bookings. RLS permits reading one's own bookings rows (issue #523 —
-  // swapped from admin).
+/**
+ * Count a student's active assessment bookings across ALL specialties.
+ * Trust roadmap E1 / decision 40: the free evaluation is ONE per student,
+ * not one per specialty. Same active-row predicate as the per-specialty
+ * count (cancelled / no_show don't consume the attempt — G5: re-booking
+ * allowed). The DB-level backstop is the partial unique index
+ * uniq_active_assessment_per_student (20260708000000).
+ */
+export async function countStudentActiveAssessments(
+  studentId: string,
+): Promise<number> {
+  return countActiveAssessmentRows(
+    studentId,
+    null,
+    "countStudentActiveAssessments",
+  );
+}
+
+/**
+ * Shared core for both counts. Active rows only — cancelled / no_show don't
+ * consume an assessment attempt. Own-row count: student_id is the authed
+ * student, counting their own bookings; RLS permits reading one's own rows
+ * (issue #523 — swapped from admin).
+ */
+async function countActiveAssessmentRows(
+  studentId: string,
+  specialty: string | null,
+  caller: string,
+): Promise<number> {
   const supabase = await createClient();
-  const { count, error } = await supabase
+  let query = supabase
     .from("bookings")
     .select("id", { count: "exact", head: true })
     .eq("student_id", studentId)
     .eq("booking_product_type", "assessment")
-    .eq("specialty", trimmed)
     .not("status", "in", '("cancelled","no_show")');
+  if (specialty !== null) {
+    query = query.eq("specialty", specialty);
+  }
+  const { count, error } = await query;
 
   if (error) {
-    logError(
-      "countStudentAssessmentsForSpecialty: count query failed",
-      error,
-      { tag: "single-sessions", student_id: studentId, specialty: trimmed },
-    );
+    logError(`${caller}: count query failed`, error, {
+      tag: "single-sessions",
+      student_id: studentId,
+      ...(specialty !== null ? { specialty } : {}),
+    });
     // Fail-closed: surface a high count so the route rejects rather than
     // allowing potential free-assessment farming. The platform setting
     // default is 1; returning Number.MAX_SAFE_INTEGER forces a 409.

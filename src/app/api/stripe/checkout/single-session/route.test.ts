@@ -20,12 +20,14 @@ const {
   mockGetSetting,
   mockSessionsCreate,
   mockAdminFrom,
+  mockCountActiveAssessments,
 } = vi.hoisted(() => ({
   mockRequireRole: vi.fn(),
   mockGetUser: vi.fn(),
   mockRpc: vi.fn(),
   mockFindSpecialist: vi.fn(),
   mockCountAssessments: vi.fn(),
+  mockCountActiveAssessments: vi.fn(),
   mockAssessmentPrice: vi.fn(),
   mockInstantPrice: vi.fn(),
   mockSpecializedPrice: vi.fn(),
@@ -58,6 +60,7 @@ vi.mock("@/lib/domains/single-sessions/specialist-matching", () => ({
   findAvailableSpecialist: mockFindSpecialist,
   listAvailableSpecialists: vi.fn(),
   countStudentAssessmentsForSpecialty: mockCountAssessments,
+  countStudentActiveAssessments: mockCountActiveAssessments,
 }));
 
 vi.mock("@/lib/domains/single-sessions/pricing", () => ({
@@ -95,6 +98,7 @@ beforeEach(() => {
   mockGetUser.mockResolvedValue({ data: { user: { email: "s@test.local" } } });
   mockGetSetting.mockResolvedValue("1");
   mockCountAssessments.mockResolvedValue(0);
+  mockCountActiveAssessments.mockResolvedValue(0);
   mockAssessmentPrice.mockResolvedValue(5);
   mockInstantPrice.mockResolvedValue(7);
   mockSpecializedPrice.mockResolvedValue(10);
@@ -180,6 +184,42 @@ describe("POST /api/stripe/checkout/single-session (spec 022)", () => {
     expect(res.status).toBe(409);
     // Must NOT have called Stripe (fail-before-charge).
     expect(mockSessionsCreate).not.toHaveBeenCalled();
+  });
+
+  // Trust roadmap E1 / decision 40: one active assessment per student
+  // across ALL specialties (the free evaluation is a single trial).
+  it("returns 409 when the student already has an active assessment in ANY specialty", async () => {
+    mockCountAssessments.mockResolvedValueOnce(0); // per-specialty OK (e.g. tajweed vs hifz)
+    mockCountActiveAssessments.mockResolvedValueOnce(1); // global cap reached
+    const res = await POST(makeReq({ productType: "assessment", specialty: "tajweed" }));
+    expect(res.status).toBe(409);
+    expect(mockSessionsCreate).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  // G5: cancelled/no_show rows don't consume the attempt — the count helper
+  // excludes them, so a 0 count here means re-booking proceeds.
+  it("allows booking again when prior assessments were cancelled (count 0)", async () => {
+    mockCountActiveAssessments.mockResolvedValueOnce(0);
+    mockAssessmentPrice.mockResolvedValueOnce(0);
+    mockRpc.mockResolvedValueOnce({ data: "booking-re", error: null });
+    const res = await POST(makeReq({ productType: "assessment", specialty: "hifz" }));
+    expect(res.status).toBe(200);
+  });
+
+  // Race window: both concurrent checkouts pass the pre-checks; the loser
+  // hits the uniq_active_assessment_per_student index → friendly 409, not 500.
+  it("maps the unique-index race on the zero-price path to 409", async () => {
+    mockAssessmentPrice.mockResolvedValueOnce(0);
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: {
+        message:
+          'duplicate key value violates unique constraint "uniq_active_assessment_per_student"',
+      },
+    });
+    const res = await POST(makeReq({ productType: "assessment", specialty: "hifz" }));
+    expect(res.status).toBe(409);
   });
 
   // CodeRabbit #3: Number(null)/Number("") === 0 previously collapsed the
