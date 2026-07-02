@@ -211,3 +211,33 @@ export async function countStudentAssessmentsForSpecialty(
   }
   return count ?? 0;
 }
+
+/**
+ * Count a student's active assessment bookings across ALL specialties.
+ * Trust roadmap E1 / decision 40: the free evaluation is ONE per student,
+ * not one per specialty. Same active-row predicate as the per-specialty
+ * count (cancelled / no_show don't consume the attempt — G5: re-booking
+ * allowed). The DB-level backstop is the partial unique index
+ * uniq_active_assessment_per_student (20260708000000).
+ */
+export async function countStudentActiveAssessments(
+  studentId: string,
+): Promise<number> {
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from("bookings")
+    .select("id", { count: "exact", head: true })
+    .eq("student_id", studentId)
+    .eq("booking_product_type", "assessment")
+    .not("status", "in", '("cancelled","no_show")');
+
+  if (error) {
+    logError("countStudentActiveAssessments: count query failed", error, {
+      tag: "single-sessions",
+      student_id: studentId,
+    });
+    // Fail-closed, same rationale as the per-specialty count above.
+    return Number.MAX_SAFE_INTEGER;
+  }
+  return count ?? 0;
+}
