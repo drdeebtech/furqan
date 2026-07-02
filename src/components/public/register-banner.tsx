@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { BookOpen, Check } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
+import { TRIAL_POLICY } from "@/lib/copy/policies";
 
 export function RegisterBanner() {
   const { t } = useLang();
@@ -43,7 +44,7 @@ export function RegisterBanner() {
             </li>
             <li className="inline-flex items-center gap-1.5">
               <Check size={12} className="text-success" aria-hidden="true" />
-              <span>{t("جلسة تجريبية متاحة", "Trial session available")}</span>
+              <span>{t(TRIAL_POLICY.short.ar, TRIAL_POLICY.short.en)}</span>
             </li>
           </ul>
         </div>

@@ -9,6 +9,7 @@ import { logError, logInfo } from "@/lib/logger";
 import { getSetting } from "@/lib/settings";
 import {
   findAvailableSpecialist,
+  countStudentActiveAssessments,
   countStudentAssessmentsForSpecialty,
 } from "@/lib/domains/single-sessions/specialist-matching";
 import {
@@ -99,6 +100,13 @@ const SingleSessionCheckoutSchema = z
   });
 
 type SingleSessionCheckout = z.infer<typeof SingleSessionCheckoutSchema>;
+
+/**
+ * Trust roadmap E1 / decision 40: one evaluation (assessment) per student
+ * across specialties. Changing this also requires changing the partial
+ * unique index uniq_active_assessment_per_student (it enforces exactly 1).
+ */
+const GLOBAL_ASSESSMENT_LIMIT_PER_STUDENT = 1;
 
 interface AssessmentLimitResult {
   ok: boolean;
@@ -211,6 +219,22 @@ export async function POST(request: Request) {
         {
           success: false,
           error: `Assessment limit reached for this specialty (${limitCheck.current}/${limitCheck.limit})`,
+        },
+        { status: 409 },
+      );
+    }
+
+    // Trust roadmap E1 / decision 40: ONE active assessment per student
+    // across ALL specialties — the free evaluation is a single trial, not
+    // one per specialty. Cancelled / no_show rows don't consume it (G5:
+    // re-booking allowed). DB backstop: uniq_active_assessment_per_student.
+    const activeAssessments = await countStudentActiveAssessments(studentId);
+    if (activeAssessments >= GLOBAL_ASSESSMENT_LIMIT_PER_STUDENT) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "You already have an evaluation session. Each student gets one evaluation — if yours was cancelled, you can book again.",
         },
         { status: 409 },
       );
@@ -362,6 +386,19 @@ export async function POST(request: Request) {
       },
     );
     if (rpcErr || !bookingId) {
+      // Race window: two concurrent free-evaluation checkouts can both pass
+      // the pre-checks; the loser hits the DB backstop index. Surface the
+      // same friendly 409 as the pre-check, not a 500.
+      if (rpcErr?.message?.includes("uniq_active_assessment_per_student")) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "You already have an evaluation session. Each student gets one evaluation — if yours was cancelled, you can book again.",
+          },
+          { status: 409 },
+        );
+      }
       logError("single-session: zero-price creator RPC failed", rpcErr ?? new Error("no id"), {
         tag: "single-sessions",
         student_id: studentId,
