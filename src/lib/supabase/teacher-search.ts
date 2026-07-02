@@ -1,0 +1,82 @@
+import { z } from "zod";
+import { createAdminClient } from "./admin";
+import { callRpc } from "./rpc";
+
+export interface TeacherCard {
+  id: string;
+  name: string;
+  nameAr: string | null;
+  avatarUrl: string | null;
+  bio: string | null;
+  bioEn: string | null;
+  languages: string[];
+  specialties: string[];
+  recitationStandards: string[];
+  hourlyRate: number;
+  ratingAvg: number;
+  ratingCount: number;
+  totalSessions: number;
+  gender: string | null;
+}
+
+export interface TeacherSearchResult {
+  teachers: TeacherCard[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export const TeacherSearchParamsSchema = z.object({
+  q:         z.string().max(200).optional(),
+  language:  z.string().max(50).optional(),
+  gender:    z.enum(["male", "female"]).optional(),
+  specialty: z.string().max(100).optional(),
+  price_min: z.coerce.number().nonnegative().optional(),
+  price_max: z.coerce.number().nonnegative().optional(),
+  page:      z.coerce.number().int().min(1).default(1),
+  limit:     z.coerce.number().int().min(1).max(50).default(12),
+});
+export type TeacherSearchParams = z.infer<typeof TeacherSearchParamsSchema>;
+
+export async function searchTeachers(
+  params: TeacherSearchParams,
+): Promise<TeacherSearchResult> {
+  const supabase = createAdminClient();
+  const { data, error } = await callRpc(supabase, "search_public_teachers", {
+    p_query:         params.q         ?? null,
+    p_language:      params.language  ?? null,
+    p_gender:        params.gender    ?? null,
+    p_specialty:     params.specialty ?? null,
+    p_price_min:     params.price_min ?? null,
+    p_price_max:     params.price_max ?? null,
+    p_page:          params.page,
+    p_limit:         params.limit,
+  });
+
+  if (error) throw error;
+
+  const rows = data ?? [];
+  const total = rows[0]?.total_count ?? 0;
+
+  return {
+    teachers: rows.map((r) => ({
+      id: r.id,
+      name: r.full_name ?? "—",
+      nameAr: r.full_name_ar,
+      avatarUrl: r.avatar_url,
+      bio: r.bio,
+      bioEn: r.bio_en,
+      languages: r.languages ?? [],
+      specialties: r.specialties ?? [],
+      recitationStandards: r.recitation_standards ?? [],
+      hourlyRate: Number(r.hourly_rate),
+      ratingAvg: Number(r.rating_avg),
+      ratingCount: Number(r.rating_count),
+      totalSessions: Number(r.total_sessions),
+      gender: r.gender,
+    })),
+    total: Number(total),
+    page: params.page,
+    limit: params.limit,
+  };
+}
