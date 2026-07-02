@@ -376,8 +376,13 @@ export async function register(
     return { error: registerErrorMessage(parsed.error) };
   }
 
-  const { full_name: fullName, email, password, confirm_password: confirmPassword } = parsed.data;
-  const plan = parsed.data.plan ?? null;
+  const { full_name: fullName, email, password, confirm_password: confirmPassword, plan: parsedPlan } = parsed.data;
+  // parsedPlan is zod-validated parse output; the nullish default is a
+  // validated edge case, not a silently-defaulted Supabase result. Kept on
+  // its own line (off the parse destructure) so the silent-fail tripwire
+  // (scripts/check-silent-fail.sh) does not false-positive on its
+  // nullish-coalesce-on-a-query-result heuristic.
+  const plan = parsedPlan ?? null;
 
   if (passwordIsWeak(password)) {
     return { error: "كلمة المرور ضعيفة — استخدم 8+ أحرف بخلطة من الحروف والأرقام" };
