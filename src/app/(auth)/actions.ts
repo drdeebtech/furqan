@@ -10,6 +10,9 @@ import { logError, logInfo } from "@/lib/logger";
 import { withTimeout } from "@/lib/promise-utils";
 import { isSafeRelativePath } from "@/lib/security/safe-url";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { CONTACT } from "@/lib/contact";
+import { buildConsentRecord } from "@/lib/legal";
+import { registerSchema, registerErrorMessage } from "@/lib/auth/register-schema";
 
 /**
  * Deterministically hash an email to a UUID-shaped key so it fits the
@@ -261,7 +264,7 @@ export async function login(
     // so the user knows to contact support, not retry their password.
     if (signinErr.code === "user_banned") {
       return {
-        error: "حسابك معلق — يرجى التواصل مع الدعم على alforqan.egy@gmail.com",
+        error: `حسابك معلق — يرجى التواصل مع الدعم على ${CONTACT.email}`,
       };
     }
 
@@ -325,20 +328,17 @@ export async function register(
   _prev: AuthResult,
   formData: FormData,
 ): Promise<AuthResult> {
-  // Read email first so the bypass check can run before checkBotId().
+  // Read the raw email first so the bypass check can run before checkBotId().
   // Same rationale as login above (see BOTID_BYPASS_EMAILS docstring).
-  const fullName = formData.get("full_name") as string;
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-  const confirmPassword = formData.get("confirm_password") as string;
-  const plan = formData.get("plan") as string | null;
+  // Full validation happens below via zod (repo rule: zod at the action boundary).
+  const rawEmail = String(formData.get("email") ?? "");
 
-  if (shouldBypassBotId(email)) {
+  if (shouldBypassBotId(rawEmail)) {
     // See login bypass above — expected admin behavior, not an Issue-worthy error.
     logInfo("BotID bypassed for allow-listed email", {
       component: "auth.register",
       tag: "auth-bot-bypass",
-      metadata: { email },
+      metadata: { email: rawEmail },
     });
   } else if (process.env.VERCEL) {
     // checkBotId() calls mutateResponseHeadersBeforeFlush, a Vercel-only API.
@@ -359,9 +359,25 @@ export async function register(
     }
   }
 
-  if (!fullName || !email || !password) {
-    return { error: "جميع الحقول مطلوبة" };
+  // Zod at the action boundary. `consent` must be the literal "yes" — this is
+  // the enforcement layer for the terms/privacy clickwrap (Wave 0, decision 43);
+  // the checkbox in the form is only the UI layer. An absent consent field
+  // (hostile client stripping the checkbox) fails here.
+  const parsed = registerSchema.safeParse({
+    full_name: formData.get("full_name"),
+    email: formData.get("email"),
+    password: formData.get("password"),
+    confirm_password: formData.get("confirm_password"),
+    consent: formData.get("consent"),
+    plan: formData.get("plan"),
+  });
+
+  if (!parsed.success) {
+    return { error: registerErrorMessage(parsed.error) };
   }
+
+  const { full_name: fullName, email, password, confirm_password: confirmPassword } = parsed.data;
+  const plan = parsed.data.plan ?? null;
 
   if (passwordIsWeak(password)) {
     return { error: "كلمة المرور ضعيفة — استخدم 8+ أحرف بخلطة من الحروف والأرقام" };
@@ -450,6 +466,25 @@ export async function register(
   }
 
   if (signupData?.user?.id) {
+    // Persist consent evidence in app_metadata (admin-only writable — the user
+    // cannot alter it via updateUser, unlike user_metadata). Fail-soft: a
+    // metadata write failure must not block a legitimate signup, but it IS
+    // logged loudly because consent evidence is the point of Wave 0.
+    try {
+      const admin = createAdminClient();
+      const { error: consentErr } = await admin.auth.admin.updateUserById(
+        signupData.user.id,
+        { app_metadata: { consent: buildConsentRecord("checkbox") } },
+      );
+      if (consentErr) throw consentErr;
+    } catch (consentError) {
+      logError("Failed to record signup consent in app_metadata", consentError, {
+        component: "auth.register",
+        tag: "auth-consent-record-failed",
+        metadata: { userId: signupData.user.id },
+      });
+    }
+
     getPostHogClient()?.capture({
       distinctId: signupData.user.id,
       event: "user_signed_up",

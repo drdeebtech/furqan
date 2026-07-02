@@ -1,5 +1,7 @@
 // JSON-LD structured data for SEO — static content only, no user input
 
+import { CONTACT } from "@/lib/contact";
+
 export function BreadcrumbSchema({ items }: { items: { name: string; url: string }[] }) {
   const schema = {
     "@context": "https://schema.org",
@@ -24,7 +26,7 @@ export function OrganizationSchema() {
     url: "https://www.furqan.today",
     logo: "https://www.furqan.today/logo-512.png",
     description: "Online Quran academy offering Hifz, Tajweed, and Tilawa with certified teachers holding Ijazah.",
-    email: "alforqan.egy@gmail.com",
+    email: CONTACT.email,
     telephone: "+96597795626",
     address: { "@type": "PostalAddress", addressCountry: "KW", addressLocality: "Kuwait" },
     // NOTE: no top-level `offers` here — a price:"0" "Free Registration" Offer is
