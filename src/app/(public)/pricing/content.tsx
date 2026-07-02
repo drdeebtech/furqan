@@ -5,6 +5,7 @@ import { CheckCircle, Users, User } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useFeatureFlags } from "@/lib/feature-flags-context";
 import { RegisterBanner } from "@/components/public/register-banner";
+import { TRIAL_POLICY, ABSENCE_POLICY, SESSION_DURATION, PRICING_MODEL } from "@/lib/copy/policies";
 
 interface Plan {
   id: string;
@@ -230,6 +231,15 @@ export function PricingContent({ plans }: { plans: Plan[] }) {
           {t("الخطط والأسعار", "Plans and pricing")}
         </h2>
         <div className="mx-auto max-w-5xl space-y-8 px-6">
+          {/* Disambiguator ABOVE the cards — the archetypal confused visitor
+              arrives from /teachers holding "$20-30/hr" and must meet the
+              subscriptions-vs-single-sessions distinction before the prices
+              (decision 42; 5/7-persona finding). */}
+          {!hidePrices && (
+            <p className="text-center text-sm text-muted">
+              {t(PRICING_MODEL.disambiguator.ar, PRICING_MODEL.disambiguator.en)}
+            </p>
+          )}
           {hidePrices ? (
             <div className="glass-card p-12 text-center">
               <p className="text-muted">
@@ -263,8 +273,8 @@ export function PricingContent({ plans }: { plans: Plan[] }) {
           {!hidePrices && plans.length > 0 && (
             <p className="text-center text-xs text-muted">
               {t(
-                "* جميع الخطط شهرية قابلة للإلغاء في أي وقت. الأسعار بالدولار الأمريكي.",
-                "* All plans are monthly and can be cancelled anytime. Prices in USD.",
+                `* جميع الخطط شهرية قابلة للإلغاء في أي وقت. الأسعار بالدولار الأمريكي. ${SESSION_DURATION.group.ar}.`,
+                `* All plans are monthly and can be cancelled anytime. Prices in USD. ${SESSION_DURATION.group.en}.`,
               )}
             </p>
           )}
@@ -291,10 +301,7 @@ export function PricingContent({ plans }: { plans: Plan[] }) {
               },
               {
                 q: t("هل توجد حصة تجريبية؟", "Is there a trial session?"),
-                a: t(
-                  "نعم، تتوفر حصة تجريبية مدفوعة لتجربة المعلم والأسلوب قبل الاشتراك الكامل.",
-                  "Yes — a paid trial session is available to try the teacher and approach before committing to a full subscription.",
-                ),
+                a: t(TRIAL_POLICY.long.ar, TRIAL_POLICY.long.en),
               },
               {
                 q: t("كيف ألغي اشتراكي؟", "How do I cancel my subscription?"),
@@ -312,10 +319,7 @@ export function PricingContent({ plans }: { plans: Plan[] }) {
               },
               {
                 q: t("ماذا لو فاتتني حصة؟", "What if I miss a session?"),
-                a: t(
-                  "ننصح بالحرص على موعدك؛ الحصة الفائتة تُحتسب ضمن باقتك ولا تُعوَّض، لذا اختر وقتاً يناسبك عند الحجز.",
-                  "Please attend on time — a missed session counts toward your plan and isn't made up, so choose a time that suits you when booking.",
-                ),
+                a: t(ABSENCE_POLICY.long.ar, ABSENCE_POLICY.long.en),
               },
             ].map((item) => (
               <details

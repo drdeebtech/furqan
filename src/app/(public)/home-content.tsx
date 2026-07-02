@@ -300,7 +300,7 @@ export default function HomePage({
       <RevealSection className="border-y border-surface-border/60 bg-surface/30 py-10">
         <div className="mx-auto max-w-5xl px-6">
           <p className="text-center text-xs font-medium uppercase tracking-[0.2em] text-muted">
-            {t("الاعتمادات العلمية", "Scholarly credentials")}
+            {t("مؤهلات معلمينا", "Our teachers' qualifications")}
           </p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-x-10 gap-y-4">
             {trustStrip.map((b) => {
