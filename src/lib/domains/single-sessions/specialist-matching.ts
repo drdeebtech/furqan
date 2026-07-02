@@ -185,31 +185,11 @@ export async function countStudentAssessmentsForSpecialty(
 ): Promise<number> {
   const trimmed = specialty.trim();
   if (!trimmed) return 0;
-
-  // Own-row count: student_id is the authed student, counting their own
-  // bookings. RLS permits reading one's own bookings rows (issue #523 —
-  // swapped from admin).
-  const supabase = await createClient();
-  const { count, error } = await supabase
-    .from("bookings")
-    .select("id", { count: "exact", head: true })
-    .eq("student_id", studentId)
-    .eq("booking_product_type", "assessment")
-    .eq("specialty", trimmed)
-    .not("status", "in", '("cancelled","no_show")');
-
-  if (error) {
-    logError(
-      "countStudentAssessmentsForSpecialty: count query failed",
-      error,
-      { tag: "single-sessions", student_id: studentId, specialty: trimmed },
-    );
-    // Fail-closed: surface a high count so the route rejects rather than
-    // allowing potential free-assessment farming. The platform setting
-    // default is 1; returning Number.MAX_SAFE_INTEGER forces a 409.
-    return Number.MAX_SAFE_INTEGER;
-  }
-  return count ?? 0;
+  return countActiveAssessmentRows(
+    studentId,
+    trimmed,
+    "countStudentAssessmentsForSpecialty",
+  );
 }
 
 /**
@@ -223,20 +203,45 @@ export async function countStudentAssessmentsForSpecialty(
 export async function countStudentActiveAssessments(
   studentId: string,
 ): Promise<number> {
+  return countActiveAssessmentRows(
+    studentId,
+    null,
+    "countStudentActiveAssessments",
+  );
+}
+
+/**
+ * Shared core for both counts. Active rows only — cancelled / no_show don't
+ * consume an assessment attempt. Own-row count: student_id is the authed
+ * student, counting their own bookings; RLS permits reading one's own rows
+ * (issue #523 — swapped from admin).
+ */
+async function countActiveAssessmentRows(
+  studentId: string,
+  specialty: string | null,
+  caller: string,
+): Promise<number> {
   const supabase = await createClient();
-  const { count, error } = await supabase
+  let query = supabase
     .from("bookings")
     .select("id", { count: "exact", head: true })
     .eq("student_id", studentId)
     .eq("booking_product_type", "assessment")
     .not("status", "in", '("cancelled","no_show")');
+  if (specialty !== null) {
+    query = query.eq("specialty", specialty);
+  }
+  const { count, error } = await query;
 
   if (error) {
-    logError("countStudentActiveAssessments: count query failed", error, {
+    logError(`${caller}: count query failed`, error, {
       tag: "single-sessions",
       student_id: studentId,
+      ...(specialty !== null ? { specialty } : {}),
     });
-    // Fail-closed, same rationale as the per-specialty count above.
+    // Fail-closed: surface a high count so the route rejects rather than
+    // allowing potential free-assessment farming. The platform setting
+    // default is 1; returning Number.MAX_SAFE_INTEGER forces a 409.
     return Number.MAX_SAFE_INTEGER;
   }
   return count ?? 0;
