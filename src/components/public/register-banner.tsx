@@ -31,6 +31,15 @@ export function RegisterBanner() {
             >
               {t("سجّل الآن", "Register Now")}
             </Link>
+            {/* Trust roadmap Wave 2 (decision 40): free-evaluation CTA on every
+                public surface. Logged-out visitors bounce through /login and
+                land back on the booking page. */}
+            <Link
+              href="/student/evaluation"
+              className="glass-pill inline-flex items-center gap-2 border border-gold/40 px-8 py-3 font-semibold text-gold transition-colors duration-200 hover:bg-gold/10 focus-ring"
+            >
+              {t("احجز جلسة تقييم مجانية", "Book a free evaluation")}
+            </Link>
           </div>
 
           <ul className="mx-auto mt-6 flex max-w-xl flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted">
