@@ -8,6 +8,7 @@ import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 
 export function RegisterForm({ initialPlan }: { initialPlan?: string }) {
   const [showPassword, setShowPassword] = useState(false);
+  const [consentChecked, setConsentChecked] = useState(false);
   const [state, formAction, pending] = useActionState<AuthResult, FormData>(
     register,
     {},
@@ -19,12 +20,49 @@ export function RegisterForm({ initialPlan }: { initialPlan?: string }) {
       <p className="mb-6 text-sm text-muted">انضم إلى أكاديمية فرقان</p>
 
       {state.error && (
-        <div className="mb-4 rounded-lg glass-danger p-3 text-sm text-error">
+        <div id="register-error" role="alert" className="mb-4 rounded-lg glass-danger p-3 text-sm text-error">
           {state.error}
         </div>
       )}
 
-      <GoogleSignInButton />
+      {/* Terms/privacy clickwrap — gates BOTH signup paths (decision 43).
+          Deliberately unchecked by default; the server action re-enforces it. */}
+      <div className="mb-4">
+        <label htmlFor="consent" className="flex items-start gap-2.5 text-sm">
+          <input
+            id="consent"
+            name="consent"
+            type="checkbox"
+            value="yes"
+            form="register-form"
+            required
+            checked={consentChecked}
+            onChange={(e) => setConsentChecked(e.target.checked)}
+            aria-describedby={state.error ? "register-error" : undefined}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-gold,#c8a24a)]"
+          />
+          <span>
+            <span className="block">
+              أوافق على{" "}
+              <Link href="/terms" className="text-gold hover:text-gold-hover underline">الشروط والأحكام</Link>
+              {" "}و{" "}
+              <Link href="/privacy" className="text-gold hover:text-gold-hover underline">سياسة الخصوصية</Link>
+            </span>
+            <span className="block text-[11px] text-muted-light">
+              I agree to the{" "}
+              <Link href="/terms" className="underline">Terms</Link> and{" "}
+              <Link href="/privacy" className="underline">Privacy Policy</Link>
+            </span>
+          </span>
+        </label>
+        {!consentChecked && (
+          <p className="mt-1.5 ps-6 text-[11px] text-muted">
+            يرجى الموافقة أولاً لتفعيل التسجيل · Agree first to enable sign-up
+          </p>
+        )}
+      </div>
+
+      <GoogleSignInButton disabled={!consentChecked} consentMethod="checkbox" />
 
       <div className="my-4 flex items-center gap-3">
         <hr className="flex-1 border-t border-white/20" />
@@ -32,7 +70,7 @@ export function RegisterForm({ initialPlan }: { initialPlan?: string }) {
         <hr className="flex-1 border-t border-white/20" />
       </div>
 
-      <form action={formAction} className="space-y-4">
+      <form id="register-form" action={formAction} className="space-y-4">
         {/* Full Name */}
         <div>
           <label htmlFor="full_name" className="mb-1.5 block">
@@ -123,7 +161,7 @@ export function RegisterForm({ initialPlan }: { initialPlan?: string }) {
         {/* Submit */}
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || !consentChecked}
           className="flex w-full items-center justify-center gap-2 rounded-full glass-gold glass-pill py-2.5 font-semibold text-background transition-colors hover:bg-primary-hover disabled:opacity-50"
         >
           {pending ? (
