@@ -5,15 +5,22 @@
 -- Required for diacritics-insensitive search (strips Arabic harakat + accent marks)
 CREATE EXTENSION IF NOT EXISTS unaccent;
 
+-- unaccent() is STABLE, not IMMUTABLE, so it cannot appear directly in a
+-- generated column expression or a functional index. This wrapper marks it
+-- IMMUTABLE so Postgres accepts it in both contexts.
+CREATE OR REPLACE FUNCTION public.immutable_unaccent(text)
+  RETURNS text LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS
+  $$ SELECT public.unaccent($1); $$;
+
 -- Stored generated tsvector column: materialised at write time, zero cost on read.
 -- 'simple' config: tokenises without language-specific stemming — correct for Arabic+English.
--- unaccent() strips harakat from stored content so حِفْظ and حفظ index identically.
+-- immutable_unaccent() strips harakat from stored content so حِفْظ and حفظ index identically.
 ALTER TABLE public.teacher_profiles
   ADD COLUMN IF NOT EXISTS search_vector tsvector
   GENERATED ALWAYS AS (
     to_tsvector('simple',
-      coalesce(unaccent(bio), '') || ' ' ||
-      coalesce(unaccent(bio_en), '')
+      coalesce(immutable_unaccent(bio), '') || ' ' ||
+      coalesce(immutable_unaccent(bio_en), '')
     )
   ) STORED;
 
@@ -24,7 +31,7 @@ CREATE INDEX IF NOT EXISTS teacher_profiles_search_vector_gin
 
 -- Functional index for name ILIKE search across both Arabic and English name columns.
 CREATE INDEX IF NOT EXISTS profiles_full_name_search_idx
-  ON public.profiles (lower(unaccent(coalesce(full_name, '') || ' ' || coalesce(full_name_ar, ''))));
+  ON public.profiles (lower(immutable_unaccent(coalesce(full_name, '') || ' ' || coalesce(full_name_ar, ''))));
 
 -- search_public_teachers: single entry-point for all teacher search + filter queries.
 -- SECURITY DEFINER: runs with definer rights; anon/authenticated REVOKED below.
@@ -77,7 +84,7 @@ AS $$
     tp.rating_avg,
     COALESCE(rv.cnt, 0)::int,
     tp.total_sessions,
-    tp.gender,
+    tp.gender::text,
     COUNT(*) OVER ()::bigint
   FROM teacher_profiles tp
   JOIN profiles p ON p.id = tp.teacher_id
@@ -93,7 +100,7 @@ AS $$
     AND p.is_test_account = false
     AND p.avatar_url IS NOT NULL
     AND (p_language  IS NULL OR tp.languages  @> ARRAY[p_language])
-    AND (p_gender    IS NULL OR tp.gender      = p_gender)
+    AND (p_gender    IS NULL OR tp.gender      = p_gender::gender_type)
     AND (p_specialty IS NULL OR tp.specialties @> ARRAY[p_specialty])
     AND (p_price_min IS NULL OR tp.hourly_rate >= p_price_min)
     AND (p_price_max IS NULL OR tp.hourly_rate <= p_price_max)
