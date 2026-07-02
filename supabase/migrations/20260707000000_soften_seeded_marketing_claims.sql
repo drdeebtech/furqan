@@ -13,12 +13,14 @@ set
   description_ar = 'جميع معلمينا حاصلون على إجازة مُدقَّقة',
   description_en = 'All our teachers hold a credential-checked Ijazah'
 where slot = 'home_why_us'
-  and description_ar = 'جميع معلمينا حاصلون على إجازة من كبار العلماء';
+  and description_ar = 'جميع معلمينا حاصلون على إجازة من كبار العلماء'
+  and description_en = 'All teachers hold Ijazah from senior scholars';
 
 update public.site_features
 set
   description_ar = 'مواعيد مرنة صباحاً ومساءً عبر المناطق الزمنية',
   description_en = 'Flexible times, morning or evening, across time zones'
 where slot = 'home_why_us'
-  and description_ar = 'احجز في أي وقت — صباحاً أو مساءً، ٧ أيام';
+  and description_ar = 'احجز في أي وقت — صباحاً أو مساءً، ٧ أيام'
+  and description_en = 'Book any time — morning or evening, 7 days a week';
 

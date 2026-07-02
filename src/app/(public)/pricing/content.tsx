@@ -235,7 +235,7 @@ export function PricingContent({ plans }: { plans: Plan[] }) {
               arrives from /teachers holding "$20-30/hr" and must meet the
               subscriptions-vs-single-sessions distinction before the prices
               (decision 42; 5/7-persona finding). */}
-          {!hidePrices && (
+          {!hidePrices && plans.length > 0 && (
             <p className="text-center text-sm text-muted">
               {t(PRICING_MODEL.disambiguator.ar, PRICING_MODEL.disambiguator.en)}
             </p>
