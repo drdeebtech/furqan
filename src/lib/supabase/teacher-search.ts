@@ -35,7 +35,10 @@ export const TeacherSearchParamsSchema = z.object({
   price_max: z.coerce.number().nonnegative().optional(),
   page:      z.coerce.number().int().min(1).default(1),
   limit:     z.coerce.number().int().min(1).max(50).default(12),
-});
+}).refine(
+  (v) => v.price_min === undefined || v.price_max === undefined || v.price_min <= v.price_max,
+  { message: "price_min must be less than or equal to price_max", path: ["price_min"] },
+);
 export type TeacherSearchParams = z.infer<typeof TeacherSearchParamsSchema>;
 
 export async function searchTeachers(

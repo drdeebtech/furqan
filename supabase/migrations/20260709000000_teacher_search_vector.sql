@@ -5,6 +5,9 @@
 -- Required for diacritics-insensitive search (strips Arabic harakat + accent marks)
 CREATE EXTENSION IF NOT EXISTS unaccent;
 
+-- Required for the trigram GIN index that serves the leading-wildcard name ILIKE.
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
 -- unaccent() is STABLE, not IMMUTABLE, so it cannot appear directly in a
 -- generated column expression or a functional index. This wrapper marks it
 -- IMMUTABLE so Postgres accepts it in both contexts.
@@ -20,7 +23,8 @@ ALTER TABLE public.teacher_profiles
   GENERATED ALWAYS AS (
     to_tsvector('simple',
       coalesce(immutable_unaccent(bio), '') || ' ' ||
-      coalesce(immutable_unaccent(bio_en), '')
+      coalesce(immutable_unaccent(bio_en), '') || ' ' ||
+      coalesce(immutable_unaccent(array_to_string(specialties, ' ')), '')
     )
   ) STORED;
 
@@ -29,9 +33,20 @@ ALTER TABLE public.teacher_profiles
 CREATE INDEX IF NOT EXISTS teacher_profiles_search_vector_gin
   ON public.teacher_profiles USING gin(search_vector);
 
--- Functional index for name ILIKE search across both Arabic and English name columns.
-CREATE INDEX IF NOT EXISTS profiles_full_name_search_idx
-  ON public.profiles (lower(immutable_unaccent(coalesce(full_name, '') || ' ' || coalesce(full_name_ar, ''))));
+-- Trigram GIN index for name search across both Arabic and English name columns.
+-- gin_trgm_ops (not btree): the RPC's name clause uses ILIKE '%…%' — a leading
+-- wildcard a btree can never serve. The indexed expression matches the RPC's
+-- left-hand ILIKE expression exactly (same immutable_unaccent + lower nesting).
+CREATE INDEX IF NOT EXISTS profiles_full_name_search_trgm_idx
+  ON public.profiles USING gin (
+    lower(immutable_unaccent(coalesce(full_name, '') || ' ' || coalesce(full_name_ar, ''))) gin_trgm_ops
+  );
+
+-- GIN indexes for the array-containment filters (languages @> / specialties @>).
+CREATE INDEX IF NOT EXISTS teacher_profiles_languages_gin
+  ON public.teacher_profiles USING gin (languages);
+CREATE INDEX IF NOT EXISTS teacher_profiles_specialties_gin
+  ON public.teacher_profiles USING gin (specialties);
 
 -- search_public_teachers: single entry-point for all teacher search + filter queries.
 -- SECURITY DEFINER: runs with definer rights; anon/authenticated REVOKED below.
@@ -107,7 +122,9 @@ AS $$
     AND (
       p_query IS NULL
       OR tp.search_vector @@ websearch_to_tsquery('simple', unaccent(p_query))
-      OR lower(unaccent(coalesce(p.full_name, '') || ' ' || coalesce(p.full_name_ar, '')))
+      -- immutable_unaccent (not unaccent) so the expression matches
+      -- profiles_full_name_search_trgm_idx and the planner can use it.
+      OR lower(immutable_unaccent(coalesce(p.full_name, '') || ' ' || coalesce(p.full_name_ar, '')))
            ILIKE '%' || lower(unaccent(p_query)) || '%'
     )
   ORDER BY
@@ -123,5 +140,8 @@ AS $$
 $$;
 
 -- Block direct REST/PostgREST calls from browser clients.
+-- PUBLIC too: CREATE FUNCTION grants EXECUTE to PUBLIC by default, so revoking
+-- only the named roles would leave the function reachable through that grant.
+REVOKE EXECUTE ON FUNCTION public.search_public_teachers FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.search_public_teachers FROM anon, authenticated;
 GRANT  EXECUTE ON FUNCTION public.search_public_teachers TO service_role;

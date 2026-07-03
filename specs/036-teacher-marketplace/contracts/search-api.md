@@ -54,13 +54,13 @@ All params are validated with zod. Invalid params return 400.
 ## Response: 400 Bad Request
 
 ```json
-{ "error": "Invalid search parameters", "details": { "gender": ["Invalid enum value"] } }
+{ "error": "Invalid search parameters" }
 ```
 
 ## Response: 500 Internal Server Error
 
 ```json
-{ "error": "Search temporarily unavailable" }
+{ "error": "Search failed" }
 ```
 
 The UI handles 500 by showing a visible error state (not a silent empty list). The existing teacher listing (from the Server Component initial render) remains visible as a fallback.

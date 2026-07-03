@@ -40,8 +40,9 @@ ALTER TABLE public.teacher_profiles
   ADD COLUMN search_vector tsvector
   GENERATED ALWAYS AS (
     to_tsvector('simple',
-      coalesce(unaccent(bio), '') || ' ' ||
-      coalesce(unaccent(bio_en), '')
+      coalesce(immutable_unaccent(bio), '') || ' ' ||
+      coalesce(immutable_unaccent(bio_en), '') || ' ' ||
+      coalesce(immutable_unaccent(array_to_string(specialties, ' ')), '')
     )
   ) STORED;
 ```
@@ -61,10 +62,14 @@ CREATE INDEX CONCURRENTLY teacher_profiles_search_vector_gin
 
 ### Index: functional unaccent index on `profiles.full_name` (name search)
 ```sql
-CREATE INDEX CONCURRENTLY profiles_full_name_search_idx
-  ON public.profiles (lower(unaccent(coalesce(full_name, '') || ' ' || coalesce(full_name_ar, ''))));
+CREATE INDEX profiles_full_name_search_trgm_idx
+  ON public.profiles USING gin (
+    lower(immutable_unaccent(coalesce(full_name, '') || ' ' || coalesce(full_name_ar, ''))) gin_trgm_ops
+  );
 ```
-Enables fast ILIKE on the teacher name field across both name columns.
+pg_trgm GIN (not btree): the RPC's name clause is a leading-wildcard `ILIKE '%…%'`,
+which a btree can never serve. The indexed expression matches the RPC's ILIKE
+left-hand expression exactly so the planner can use it.
 
 ### Function: `search_public_teachers`
 ```sql

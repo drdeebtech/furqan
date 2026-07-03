@@ -9,7 +9,7 @@ interface TeacherCard {
   id: string;           // teacher_profiles.teacher_id = profiles.id
   name: string;         // profiles.full_name (English)
   nameAr: string | null;// profiles.full_name_ar (Arabic)
-  avatarUrl: string;    // profiles.avatar_url — guaranteed non-null (SQL gate)
+  avatarUrl: string | null; // profiles.avatar_url — SQL gates avatar_url IS NOT NULL, but the TS mapper keeps the type nullable until tightened
   bio: string | null;   // teacher_profiles.bio (Arabic)
   bioEn: string | null; // teacher_profiles.bio_en (English)
   languages: string[];  // teacher_profiles.languages (codes: "ar", "en", "ur"…)

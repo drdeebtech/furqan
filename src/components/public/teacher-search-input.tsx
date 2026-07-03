@@ -30,7 +30,7 @@ export function TeacherSearchInput({ initialValue, onDebouncedChange }: Props) {
   }, [debounced]);
 
   return (
-    <div className="relative" role="search">
+    <search className="relative">
       <Search
         size={16}
         className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-muted"
@@ -49,6 +49,6 @@ export function TeacherSearchInput({ initialValue, onDebouncedChange }: Props) {
         dir="auto"
         minLength={2}
       />
-    </div>
+    </search>
   );
 }

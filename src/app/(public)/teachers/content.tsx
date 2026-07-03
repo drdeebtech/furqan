@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Award, ChevronLeft, ChevronRight, GraduationCap, Star } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
+import { logError } from "@/lib/logger";
 import { useFeatureFlags } from "@/lib/feature-flags-context";
 import { TEACHER_LANGUAGES } from "@/lib/constants";
 import { PRICING_MODEL } from "@/lib/copy/policies";
@@ -37,6 +38,8 @@ export function TeachersContent({
   // fetchedFor tracks which searchParams string was last resolved (enables derived isLoading)
   const [fetchedFor, setFetchedFor] = useState("");
   const [apiResult, setApiResult] = useState<{ teachers: TeacherCard[]; total: number } | null>(null);
+  const [fetchFailed, setFetchFailed] = useState(false);
+  const [retryTick, setRetryTick] = useState(0); // bumped by the error-state Retry button to re-run the fetch effect
 
   // Derived display values — no synchronous setState in the effect at all
   const q = searchParams.get("q") ?? "";
@@ -73,16 +76,31 @@ export function TeachersContent({
     const key = searchKey; // capture for closure
     const controller = new AbortController();
     fetch(`/api/teachers/search?${params.toString()}`, { signal: controller.signal })
-      .then((r) => r.json())
+      .then((r) => {
+        // A 4xx/5xx body ({ error: … }) must not be parsed as a result set —
+        // that would render a false "no teachers match" empty state.
+        if (!r.ok) throw new Error(`Search request failed: ${r.status}`);
+        return r.json();
+      })
       .then((data: TeacherSearchResult) => {
         setApiResult({ teachers: data.teachers ?? [], total: data.total ?? 0 });
+        setFetchFailed(false);
         setFetchedFor(key); // async — not flagged by set-state-in-effect
       })
-      .catch(() => {}); // silently ignore AbortError on dep change
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === "AbortError") return; // dep change — expected
+        logError("teacher search fetch failed", err, { route: "/teachers", widget: "teacher-search" });
+        setFetchFailed(true);
+        setFetchedFor(key); // resolve isLoading so the skeleton can't spin forever
+      });
     return () => controller.abort();
-  }, [searchParams, hasFilters, searchKey]);
+  }, [searchParams, hasFilters, searchKey, retryTick]);
 
   function setParam(key: string, value: string) {
+    // No-op when the value is already in the URL — the search input emits its
+    // initial value on mount, and without this guard that emission would
+    // delete `page` and rewrite /teachers?q=foo&page=3 back to page 1.
+    if ((searchParams.get(key) ?? "") === value) return;
     const p = new URLSearchParams(searchParams.toString());
     if (value) { p.set(key, value); } else { p.delete(key); }
     p.delete("page");
@@ -132,9 +150,11 @@ export function TeachersContent({
           </nav>
           <h1 className="font-display mt-4 text-4xl font-bold leading-tight sm:text-5xl">{t("معلمونا", "Our Teachers")}</h1>
           <p className="mt-3 text-sm text-muted">
-            {hasFilters
-              ? t(`${total} نتيجة`, `${total} results`)
-              : t(`${total} معلم معتمد`, `${total} certified teachers`)}
+            {isLoading
+              ? t("جارٍ البحث…", "Searching…")
+              : hasFilters
+                ? t(`${total} نتيجة`, `${total} results`)
+                : t(`${total} معلم معتمد`, `${total} certified teachers`)}
           </p>
         </div>
       </section>
@@ -180,6 +200,18 @@ export function TeachersContent({
             >
               {isLoading ? (
                 <TeacherGridSkeleton />
+              ) : fetchFailed && hasFilters ? (
+                <div className="glass-card p-12 text-center" role="alert">
+                  <GraduationCap size={32} className="mx-auto mb-3 text-muted" />
+                  <p className="text-muted">{t("تعذّر البحث مؤقتًا. حاول مرة أخرى.", "Search is temporarily unavailable. Please try again.")}</p>
+                  <button
+                    type="button"
+                    onClick={() => { setFetchedFor(""); setRetryTick((n) => n + 1); }}
+                    className="min-h-11 mt-3 text-sm text-gold underline underline-offset-2"
+                  >
+                    {t("إعادة المحاولة", "Retry")}
+                  </button>
+                </div>
               ) : teachers.length === 0 ? (
                 <div className="glass-card p-12 text-center">
                   <GraduationCap size={32} className="mx-auto mb-3 text-muted" />

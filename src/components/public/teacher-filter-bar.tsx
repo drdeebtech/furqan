@@ -30,17 +30,19 @@ export function TeacherFilterBar({ filters, specialtyLabels, onChange, onClear }
 
   const activeCount = Object.values(filters).filter(Boolean).length;
 
-  const panel = (
+  // Rendered twice (mobile + desktop are both in the DOM), so every control id
+  // is prefixed per instance to keep htmlFor/id pairs valid and unique.
+  const renderPanel = (idPrefix: string) => (
     <div className="space-y-4">
       <div>
-        <label className="mb-1 block text-xs font-medium text-muted-light">
+        <label htmlFor={`${idPrefix}-filter-language`} className="mb-1 block text-xs font-medium text-muted-light">
           {t("اللغة", "Language")}
         </label>
         <select
+          id={`${idPrefix}-filter-language`}
           value={filters.language}
           onChange={(e) => onChange("language", e.target.value)}
-          className="w-full rounded-lg border border-white/10 bg-card/50 px-3 py-2 text-sm text-foreground focus:border-gold/40 focus:outline-none"
-          aria-label={t("تصفية حسب اللغة", "Filter by language")}
+          className="min-h-11 w-full rounded-lg border border-white/10 bg-card/50 px-3 py-2 text-sm text-foreground focus:border-gold/40 focus:outline-none"
         >
           <option value="">{t("كل اللغات", "All languages")}</option>
           {TEACHER_LANGUAGES.map((l) => (
@@ -50,14 +52,14 @@ export function TeacherFilterBar({ filters, specialtyLabels, onChange, onClear }
       </div>
 
       <div>
-        <label className="mb-1 block text-xs font-medium text-muted-light">
+        <label htmlFor={`${idPrefix}-filter-gender`} className="mb-1 block text-xs font-medium text-muted-light">
           {t("الجنس", "Gender")}
         </label>
         <select
+          id={`${idPrefix}-filter-gender`}
           value={filters.gender}
           onChange={(e) => onChange("gender", e.target.value)}
-          className="w-full rounded-lg border border-white/10 bg-card/50 px-3 py-2 text-sm text-foreground focus:border-gold/40 focus:outline-none"
-          aria-label={t("تصفية حسب الجنس", "Filter by gender")}
+          className="min-h-11 w-full rounded-lg border border-white/10 bg-card/50 px-3 py-2 text-sm text-foreground focus:border-gold/40 focus:outline-none"
         >
           <option value="">{t("الكل", "All")}</option>
           <option value="male">{t("معلم", "Male teacher")}</option>
@@ -67,14 +69,14 @@ export function TeacherFilterBar({ filters, specialtyLabels, onChange, onClear }
 
       {Object.keys(specialtyLabels).length > 0 && (
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-light">
+          <label htmlFor={`${idPrefix}-filter-specialty`} className="mb-1 block text-xs font-medium text-muted-light">
             {t("التخصص", "Specialty")}
           </label>
           <select
+            id={`${idPrefix}-filter-specialty`}
             value={filters.specialty}
             onChange={(e) => onChange("specialty", e.target.value)}
-            className="w-full rounded-lg border border-white/10 bg-card/50 px-3 py-2 text-sm text-foreground focus:border-gold/40 focus:outline-none"
-            aria-label={t("تصفية حسب التخصص", "Filter by specialty")}
+            className="min-h-11 w-full rounded-lg border border-white/10 bg-card/50 px-3 py-2 text-sm text-foreground focus:border-gold/40 focus:outline-none"
           >
             <option value="">{t("كل التخصصات", "All specialties")}</option>
             {Object.entries(specialtyLabels).map(([key, label]) => (
@@ -86,28 +88,38 @@ export function TeacherFilterBar({ filters, specialtyLabels, onChange, onClear }
 
       {!hidePrices && (
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-light">
+          <span className="mb-1 block text-xs font-medium text-muted-light">
             {t("السعر $/ساعة", "Price $/hr")}
-          </label>
+          </span>
           <div className="flex gap-2">
-            <input
-              type="number"
-              value={filters.priceMin}
-              onChange={(e) => onChange("priceMin", e.target.value)}
-              placeholder={t("من", "Min")}
-              min={0}
-              className="w-1/2 rounded-lg border border-white/10 bg-card/50 px-3 py-2 text-sm text-foreground focus:border-gold/40 focus:outline-none"
-              aria-label={t("الحد الأدنى للسعر", "Minimum price")}
-            />
-            <input
-              type="number"
-              value={filters.priceMax}
-              onChange={(e) => onChange("priceMax", e.target.value)}
-              placeholder={t("إلى", "Max")}
-              min={0}
-              className="w-1/2 rounded-lg border border-white/10 bg-card/50 px-3 py-2 text-sm text-foreground focus:border-gold/40 focus:outline-none"
-              aria-label={t("الحد الأقصى للسعر", "Maximum price")}
-            />
+            <div className="w-1/2">
+              <label htmlFor={`${idPrefix}-filter-price-min`} className="sr-only">
+                {t("الحد الأدنى للسعر", "Minimum price")}
+              </label>
+              <input
+                id={`${idPrefix}-filter-price-min`}
+                type="number"
+                value={filters.priceMin}
+                onChange={(e) => onChange("priceMin", e.target.value)}
+                placeholder={t("من", "Min")}
+                min={0}
+                className="min-h-11 w-full rounded-lg border border-white/10 bg-card/50 px-3 py-2 text-sm text-foreground focus:border-gold/40 focus:outline-none"
+              />
+            </div>
+            <div className="w-1/2">
+              <label htmlFor={`${idPrefix}-filter-price-max`} className="sr-only">
+                {t("الحد الأقصى للسعر", "Maximum price")}
+              </label>
+              <input
+                id={`${idPrefix}-filter-price-max`}
+                type="number"
+                value={filters.priceMax}
+                onChange={(e) => onChange("priceMax", e.target.value)}
+                placeholder={t("إلى", "Max")}
+                min={0}
+                className="min-h-11 w-full rounded-lg border border-white/10 bg-card/50 px-3 py-2 text-sm text-foreground focus:border-gold/40 focus:outline-none"
+              />
+            </div>
           </div>
         </div>
       )}
@@ -116,7 +128,7 @@ export function TeacherFilterBar({ filters, specialtyLabels, onChange, onClear }
         <button
           type="button"
           onClick={onClear}
-          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-white/10 py-2 text-sm text-muted transition-colors hover:text-foreground"
+          className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-white/10 py-2 text-sm text-muted transition-colors hover:text-foreground"
         >
           <X size={14} aria-hidden="true" />
           {t("مسح التصفية", "Clear filters")}
@@ -132,7 +144,7 @@ export function TeacherFilterBar({ filters, specialtyLabels, onChange, onClear }
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 rounded-lg border border-white/10 bg-card/30 px-4 py-2 text-sm text-muted transition-colors hover:text-foreground"
+          className="flex min-h-11 items-center gap-2 rounded-lg border border-white/10 bg-card/30 px-4 py-2 text-sm text-muted transition-colors hover:text-foreground"
           aria-expanded={isOpen}
           aria-controls="teacher-filter-panel"
         >
@@ -146,7 +158,7 @@ export function TeacherFilterBar({ filters, specialtyLabels, onChange, onClear }
         </button>
         {isOpen && (
           <div id="teacher-filter-panel" className="mt-3 rounded-xl border border-white/10 bg-card/50 p-4">
-            {panel}
+            {renderPanel("m")}
           </div>
         )}
       </div>
@@ -160,7 +172,7 @@ export function TeacherFilterBar({ filters, specialtyLabels, onChange, onClear }
           <p className="mb-4 text-xs font-medium uppercase tracking-wider text-muted-light">
             {t("التصفية", "Filters")}
           </p>
-          {panel}
+          {renderPanel("d")}
         </div>
       </aside>
     </>

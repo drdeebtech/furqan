@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { logError } from "@/lib/logger";
 import {
   searchTeachers,
   TeacherSearchParamsSchema,
@@ -18,7 +19,8 @@ export async function GET(request: NextRequest) {
       headers: { "Cache-Control": "public, max-age=30, stale-while-revalidate=300" },
     });
   } catch (err) {
-    console.error("[/api/teachers/search]", err);
+    // Sentry-backed structured logging (route + widget tags) — not bare console
+    logError("teacher search RPC failed", err, { route: "/api/teachers/search", widget: "teacher-search" });
     return NextResponse.json({ error: "Search failed" }, { status: 500 });
   }
 }
