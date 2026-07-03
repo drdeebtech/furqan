@@ -5,7 +5,7 @@ import { CheckCircle, Users, User } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useFeatureFlags } from "@/lib/feature-flags-context";
 import { RegisterBanner } from "@/components/public/register-banner";
-import { TRIAL_POLICY, ABSENCE_POLICY, SESSION_DURATION, PRICING_MODEL } from "@/lib/copy/policies";
+import { TRIAL_POLICY, ABSENCE_POLICY, SESSION_DURATION, PRICING_MODEL, FAMILY_POLICY } from "@/lib/copy/policies";
 
 interface Plan {
   id: string;
@@ -137,7 +137,15 @@ function Tier({
   );
 }
 
-export function PricingContent({ plans }: { plans: Plan[] }) {
+interface Faq {
+  id: string;
+  question_ar: string;
+  question_en: string;
+  answer_ar: string;
+  answer_en: string;
+}
+
+export function PricingContent({ plans, faqs }: { plans: Plan[]; faqs: Faq[] }) {
   const { t } = useLang();
   const { hidePrices } = useFeatureFlags();
 
@@ -281,8 +289,56 @@ export function PricingContent({ plans }: { plans: Plan[] }) {
         </div>
       </section>
 
-      {/* FAQ */}
-      <section className="pb-16" aria-labelledby="faq-heading">
+      {/* Family concierge (A6) + institutional row (B3). Single column at
+          narrow widths, two columns from md up (T8 a11y/responsive). */}
+      <section className="pb-16" aria-labelledby="audiences-heading">
+        <div className="mx-auto max-w-5xl px-6">
+          <h2 id="audiences-heading" className="sr-only">
+            {t("للعائلات والمؤسسات", "For families and institutions")}
+          </h2>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="glass-card flex flex-col p-8">
+              <h3 className="font-display text-xl font-bold">
+                {t("للعائلات", "For families")}
+              </h3>
+              <p className="mt-3 flex-1 text-sm leading-relaxed text-muted">
+                {t(FAMILY_POLICY.long.ar, FAMILY_POLICY.long.en)}
+              </p>
+              <div className="mt-6">
+                <Link
+                  href="/contact"
+                  className="glass-gold glass-pill inline-flex min-h-11 items-center gap-2 px-6 py-2.5 text-sm font-semibold text-background hover:bg-gold-hover focus-ring"
+                >
+                  {t("تواصل معنا لإعداد عائلتك", "Contact us to set up your family")}
+                </Link>
+              </div>
+            </div>
+            <div className="glass-card flex flex-col p-8">
+              <h3 className="font-display text-xl font-bold">
+                {t("للمؤسسات والمدارس", "For institutions and schools")}
+              </h3>
+              <p className="mt-3 flex-1 text-sm leading-relaxed text-muted">
+                {t(
+                  "برامج جماعية بأسعار خاصة للمدارس والمراكز والجمعيات — نصمم البرنامج والجدول حسب احتياج مؤسستك.",
+                  "Group programs with custom pricing for schools, centers, and organizations — we tailor the program and schedule to your institution.",
+                )}
+              </p>
+              <div className="mt-6">
+                <Link
+                  href="/contact"
+                  className="glass-pill inline-flex min-h-11 items-center gap-2 border border-gold/40 px-6 py-2.5 text-sm font-semibold text-gold hover:bg-gold/10 focus-ring"
+                >
+                  {t("اطلب عرضاً مؤسسياً", "Request an institutional quote")}
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ — the CANONICAL FAQ surface (G2): policy-driven entries from
+          policies.ts first, then the admin-managed site_faqs rows. */}
+      <section id="faq" className="pb-16" aria-labelledby="faq-heading">
         <div className="mx-auto max-w-3xl px-6">
           <h2
             id="faq-heading"
@@ -321,7 +377,21 @@ export function PricingContent({ plans }: { plans: Plan[] }) {
                 q: t("ماذا لو فاتتني حصة؟", "What if I miss a session?"),
                 a: t(ABSENCE_POLICY.long.ar, ABSENCE_POLICY.long.en),
               },
-            ].map((item) => (
+              {
+                q: t("هل توجد خصومات للعائلات؟", "Are there family discounts?"),
+                a: t(FAMILY_POLICY.long.ar, FAMILY_POLICY.long.en),
+              },
+              // Admin-managed rows (site_faqs) — same source /contact renders,
+              // so admins edit once and both surfaces stay in sync (G2).
+              ...faqs.map((f) => ({
+                q: t(f.question_ar, f.question_en),
+                a: t(f.answer_ar, f.answer_en),
+              })),
+            ]
+              // Policy entries win over an admin row with the same question —
+              // prevents duplicate content and duplicate React keys (key=q).
+              .filter((item, i, arr) => arr.findIndex((o) => o.q === item.q) === i)
+              .map((item) => (
               <details
                 key={item.q}
                 className="glass-card group p-5 [&_summary::-webkit-details-marker]:hidden"
