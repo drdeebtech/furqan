@@ -15,6 +15,13 @@ CREATE OR REPLACE FUNCTION public.immutable_unaccent(text)
   RETURNS text LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS
   $$ SELECT public.unaccent($1); $$;
 
+-- array_to_string(anyarray, text) is STABLE (polymorphic output functions), so
+-- it cannot appear in a generated column either. For text[] it is genuinely
+-- immutable — this wrapper states that so Postgres accepts it.
+CREATE OR REPLACE FUNCTION public.immutable_array_to_string(text[], text)
+  RETURNS text LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS
+  $$ SELECT array_to_string($1, $2); $$;
+
 -- Stored generated tsvector column: materialised at write time, zero cost on read.
 -- 'simple' config: tokenises without language-specific stemming — correct for Arabic+English.
 -- immutable_unaccent() strips harakat from stored content so حِفْظ and حفظ index identically.
@@ -24,7 +31,7 @@ ALTER TABLE public.teacher_profiles
     to_tsvector('simple',
       coalesce(immutable_unaccent(bio), '') || ' ' ||
       coalesce(immutable_unaccent(bio_en), '') || ' ' ||
-      coalesce(immutable_unaccent(array_to_string(specialties, ' ')), '')
+      coalesce(immutable_unaccent(immutable_array_to_string(specialties, ' ')), '')
     )
   ) STORED;
 

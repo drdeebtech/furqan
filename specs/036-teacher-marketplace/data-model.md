@@ -42,7 +42,7 @@ ALTER TABLE public.teacher_profiles
     to_tsvector('simple',
       coalesce(immutable_unaccent(bio), '') || ' ' ||
       coalesce(immutable_unaccent(bio_en), '') || ' ' ||
-      coalesce(immutable_unaccent(array_to_string(specialties, ' ')), '')
+      coalesce(immutable_unaccent(immutable_array_to_string(specialties, ' ')), '')
     )
   ) STORED;
 ```
