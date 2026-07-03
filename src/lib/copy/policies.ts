@@ -65,6 +65,22 @@ export const SESSION_DURATION = {
   },
 } satisfies Record<string, PolicyCopy>;
 
+/** Family discounts (A6 / pivot decision 27): additional subscriptions under
+ *  the same guardian qualify; at most one family discount per subscription,
+ *  never compounded. The seeded percentage is a PLACEHOLDER pending owner
+ *  sign-off (.claude/product-marketing.md) — public copy must NEVER state a
+ *  number. The invariant test enforces digit-free copy here. */
+export const FAMILY_POLICY = {
+  short: {
+    ar: "خصومات عائلية على اشتراكات الأشقاء",
+    en: "Family discounts on sibling subscriptions",
+  },
+  long: {
+    ar: "عند اشتراك أكثر من ابنٍ لوليّ الأمر نفسه تتوفر خصومات عائلية — تُطبَّق على الاشتراكات الإضافية المؤهَّلة، وبحدّ أقصى خصم واحد لكل اشتراك. تواصل معنا ونساعدك في إعداد حسابات أبنائك خطوة بخطوة.",
+    en: "When more than one child subscribes under the same guardian, family discounts apply to the additional qualifying subscriptions — at most one discount per subscription. Contact us and we will set up your children's accounts step by step.",
+  },
+} satisfies Record<string, PolicyCopy>;
+
 /** Decision 42: two pricing systems stay public, explained honestly — plans
  *  are subscriptions; teacher hourly rates are on-demand single sessions for
  *  enrolled students (not directly purchasable online today). */

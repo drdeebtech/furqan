@@ -5,6 +5,7 @@ import {
   PAY_CADENCE,
   SESSION_DURATION,
   PRICING_MODEL,
+  FAMILY_POLICY,
 } from "./policies";
 
 /**
@@ -59,6 +60,17 @@ describe("policy copy — single source of truth invariants", () => {
   it("group session duration is 60 minutes (decision 10)", () => {
     expect(SESSION_DURATION.group.ar).toContain("٦٠");
     expect(SESSION_DURATION.group.en).toContain("60");
+  });
+
+  it("family policy never states a discount percentage — the seeded % is a placeholder (A6)", () => {
+    for (const v of [FAMILY_POLICY.short, FAMILY_POLICY.long]) {
+      // No % sign, no Western or Arabic-Indic digits anywhere: the number is
+      // admin-configurable and NOT owner-approved for public copy.
+      expect(v.ar).not.toMatch(/[%٪0-9٠-٩]/);
+      expect(v.en).not.toMatch(/[%0-9]/);
+    }
+    expect(FAMILY_POLICY.long.ar).toContain("خصم واحد");
+    expect(FAMILY_POLICY.long.en.toLowerCase()).toContain("one discount per subscription");
   });
 
   it("pricing disambiguator names both systems in both languages (decision 42)", () => {
