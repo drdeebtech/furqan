@@ -1,7 +1,63 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
 import { isSafeRelativePath } from "@/lib/security/safe-url";
+import { CONSENT_COOKIE, parseConsentCookie } from "@/lib/legal";
+
+/**
+ * Persist terms/privacy consent for OAuth-created sessions (Wave 0, decision 43).
+ *
+ * The initiating page (register checkbox / login notice) sets a short-lived
+ * cookie before the Google redirect; we copy it into app_metadata — which only
+ * the service role can write, so the record is tamper-resistant — exactly once.
+ * Fail-soft: consent bookkeeping must never break a login, but failures are
+ * logged loudly. The caller clears the cookie on the redirect response.
+ */
+async function recordOAuthConsent(
+  request: NextRequest,
+  userId: string,
+  existingConsent: unknown,
+): Promise<void> {
+  const cookieValue = request.cookies.get(CONSENT_COOKIE)?.value;
+  if (existingConsent) return; // already recorded at first signup — keep the original
+  const consent = parseConsentCookie(cookieValue);
+  if (!consent) {
+    // Gated buttons always set the cookie; absence means an unexpected entry
+    // path (deep link, cleared cookies). Log for visibility — never fabricate.
+    logError(
+      "OAuth signup completed without a consent cookie",
+      new Error("oauth.consent.cookie_missing"),
+      { tag: "auth-consent-record-failed", metadata: { userId } },
+    );
+    return;
+  }
+  // Fail-soft: createAdminClient() (missing env, etc.) or the update can throw;
+  // a consent-bookkeeping failure must never turn into a failed Google login.
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin.auth.admin.updateUserById(userId, {
+      app_metadata: { consent },
+    });
+    if (error) {
+      logError("Failed to record OAuth consent in app_metadata", error, {
+        tag: "auth-consent-record-failed",
+        metadata: { userId },
+      });
+    }
+  } catch (err) {
+    logError("Failed to record OAuth consent in app_metadata", err, {
+      tag: "auth-consent-record-failed",
+      metadata: { userId },
+    });
+  }
+}
+
+/** Clear the short-lived consent cookie on any redirect out of the callback. */
+function clearConsentCookie(res: NextResponse): NextResponse {
+  res.cookies.set(CONSENT_COOKIE, "", { path: "/", maxAge: 0 });
+  return res;
+}
 
 /**
  * Google OAuth callback handler.
@@ -24,7 +80,7 @@ export async function GET(request: NextRequest) {
       new Error("oauth.callback.missing_code"),
       { tag: "auth-google-callback" },
     );
-    return NextResponse.redirect(`${origin}/login?error=oauth_missing_code`);
+    return clearConsentCookie(NextResponse.redirect(`${origin}/login?error=oauth_missing_code`));
   }
 
   try {
@@ -40,7 +96,7 @@ export async function GET(request: NextRequest) {
           supabaseMessage: error.message,
         },
       });
-      return NextResponse.redirect(`${origin}/login?error=oauth_exchange_failed`);
+      return clearConsentCookie(NextResponse.redirect(`${origin}/login?error=oauth_exchange_failed`));
     }
 
     // Resolve role so we can redirect the user to the right dashboard.
@@ -49,14 +105,19 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.redirect(`${origin}/login?error=oauth_no_user`);
+      return clearConsentCookie(NextResponse.redirect(`${origin}/login?error=oauth_no_user`));
     }
+
+    // Consent bookkeeping (fail-soft, awaited so the record lands before the
+    // redirect; a failure only logs). app_metadata.consent survives from the
+    // first signup — never overwritten.
+    await recordOAuthConsent(request, user.id, user.app_metadata?.consent);
 
     // If the initiating page requested a specific redirect, honour it —
     // but only for safe relative paths (guards against open-redirect attacks,
     // including the `/\evil.com` backslash bypass).
     if (isSafeRelativePath(next)) {
-      return NextResponse.redirect(`${origin}${next}`);
+      return clearConsentCookie(NextResponse.redirect(`${origin}${next}`));
     }
 
     const { data: profile } = await supabase
@@ -67,11 +128,11 @@ export async function GET(request: NextRequest) {
 
     const role = profile?.role ?? "student";
 
-    return NextResponse.redirect(`${origin}/${role}/dashboard`);
+    return clearConsentCookie(NextResponse.redirect(`${origin}/${role}/dashboard`));
   } catch (err) {
     logError("Google OAuth callback unexpected error", err, {
       tag: "auth-google-callback",
     });
-    return NextResponse.redirect(`${origin}/login?error=oauth_unexpected`);
+    return clearConsentCookie(NextResponse.redirect(`${origin}/login?error=oauth_unexpected`));
   }
 }

@@ -4,20 +4,34 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useLang } from "@/lib/i18n/context";
 import { isSafeRelativePath } from "@/lib/security/safe-url";
+import { CONSENT_COOKIE, encodeConsentCookie, type ConsentMethod } from "@/lib/legal";
 
 type Props = {
   next?: string;
+  /** When true the button is inert — used by /register until the terms
+   *  checkbox is ticked (consent gates BOTH signup paths, decision 43). */
+  disabled?: boolean;
+  /** How consent is expressed on the page hosting this button:
+   *  "checkbox" (register clickwrap) or "notice" (login continue-implies-agreement).
+   *  Recorded server-side by the OAuth callback via a short-lived cookie. */
+  consentMethod?: ConsentMethod;
 };
 
-export function GoogleSignInButton({ next }: Props) {
+export function GoogleSignInButton({ next, disabled = false, consentMethod = "notice" }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { lang } = useLang();
   const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
 
   async function handleClick() {
+    if (disabled) return;
     setPending(true);
     setError(null);
+
+    // Carry consent through the OAuth round-trip. The callback route persists
+    // it into app_metadata (tamper-resistant) and clears the cookie.
+    const secure = window.location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = `${CONSENT_COOKIE}=${encodeConsentCookie(consentMethod)}; path=/; max-age=600; SameSite=Lax${secure}`;
 
     const callback = `${window.location.origin}/api/auth/callback/google`;
     const redirectTo = isSafeRelativePath(next)
@@ -57,7 +71,8 @@ export function GoogleSignInButton({ next }: Props) {
       <button
         type="button"
         onClick={handleClick}
-        disabled={pending}
+        disabled={pending || disabled}
+        aria-disabled={pending || disabled}
         className="flex w-full items-center justify-center gap-3 rounded-full glass-pill border border-white/40 bg-white py-2.5 font-semibold text-neutral-900 shadow-sm transition-colors hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
         aria-label={t("تسجيل الدخول بحساب جوجل", "Sign in with Google")}
       >

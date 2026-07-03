@@ -10,6 +10,9 @@ import { logError, logInfo } from "@/lib/logger";
 import { withTimeout } from "@/lib/promise-utils";
 import { isSafeRelativePath } from "@/lib/security/safe-url";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { CONTACT } from "@/lib/contact";
+import { buildConsentRecord } from "@/lib/legal";
+import { registerSchema, registerErrorMessage } from "@/lib/auth/register-schema";
 
 /**
  * Deterministically hash an email to a UUID-shaped key so it fits the
@@ -261,7 +264,7 @@ export async function login(
     // so the user knows to contact support, not retry their password.
     if (signinErr.code === "user_banned") {
       return {
-        error: "حسابك معلق — يرجى التواصل مع الدعم على alforqan.egy@gmail.com",
+        error: `حسابك معلق — يرجى التواصل مع الدعم على ${CONTACT.email}`,
       };
     }
 
@@ -325,20 +328,17 @@ export async function register(
   _prev: AuthResult,
   formData: FormData,
 ): Promise<AuthResult> {
-  // Read email first so the bypass check can run before checkBotId().
+  // Read the raw email first so the bypass check can run before checkBotId().
   // Same rationale as login above (see BOTID_BYPASS_EMAILS docstring).
-  const fullName = formData.get("full_name") as string;
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-  const confirmPassword = formData.get("confirm_password") as string;
-  const plan = formData.get("plan") as string | null;
+  // Full validation happens below via zod (repo rule: zod at the action boundary).
+  const rawEmail = String(formData.get("email") ?? "");
 
-  if (shouldBypassBotId(email)) {
+  if (shouldBypassBotId(rawEmail)) {
     // See login bypass above — expected admin behavior, not an Issue-worthy error.
     logInfo("BotID bypassed for allow-listed email", {
       component: "auth.register",
       tag: "auth-bot-bypass",
-      metadata: { email },
+      metadata: { email: rawEmail },
     });
   } else if (process.env.VERCEL) {
     // checkBotId() calls mutateResponseHeadersBeforeFlush, a Vercel-only API.
@@ -359,9 +359,30 @@ export async function register(
     }
   }
 
-  if (!fullName || !email || !password) {
-    return { error: "جميع الحقول مطلوبة" };
+  // Zod at the action boundary. `consent` must be the literal "yes" — this is
+  // the enforcement layer for the terms/privacy clickwrap (Wave 0, decision 43);
+  // the checkbox in the form is only the UI layer. An absent consent field
+  // (hostile client stripping the checkbox) fails here.
+  const parsed = registerSchema.safeParse({
+    full_name: formData.get("full_name"),
+    email: formData.get("email"),
+    password: formData.get("password"),
+    confirm_password: formData.get("confirm_password"),
+    consent: formData.get("consent"),
+    plan: formData.get("plan"),
+  });
+
+  if (!parsed.success) {
+    return { error: registerErrorMessage(parsed.error) };
   }
+
+  const { full_name: fullName, email, password, confirm_password: confirmPassword, plan: parsedPlan } = parsed.data;
+  // parsedPlan is zod-validated parse output; the nullish default is a
+  // validated edge case, not a silently-defaulted Supabase result. Kept on
+  // its own line (off the parse destructure) so the silent-fail tripwire
+  // (scripts/check-silent-fail.sh) does not false-positive on its
+  // nullish-coalesce-on-a-query-result heuristic.
+  const plan = parsedPlan ?? null;
 
   if (passwordIsWeak(password)) {
     return { error: "كلمة المرور ضعيفة — استخدم 8+ أحرف بخلطة من الحروف والأرقام" };
@@ -369,6 +390,22 @@ export async function register(
 
   if (password !== confirmPassword) {
     return { error: "كلمتا المرور غير متطابقتين" };
+  }
+
+  // Preflight the service-role client BEFORE creating the account. Consent
+  // evidence is release-blocking (Wave 0) and only the service role can write
+  // it; if the admin client can't be built (missing/invalid service-role env),
+  // fail here so we never leave a consent-less account behind. The dominant
+  // failure mode is configuration, which is identical for every request.
+  let admin: ReturnType<typeof createAdminClient>;
+  try {
+    admin = createAdminClient();
+  } catch (adminError) {
+    logError("Admin client unavailable — cannot record signup consent", adminError, {
+      component: "auth.register",
+      tag: "auth-consent-record-failed",
+    });
+    return { error: "حدث خطأ أثناء إنشاء الحساب" };
   }
 
   const supabase = await createClient();
@@ -450,6 +487,42 @@ export async function register(
   }
 
   if (signupData?.user?.id) {
+    const userId = signupData.user.id;
+    // Persist consent evidence in app_metadata (admin-only writable — the user
+    // cannot alter it via updateUser, unlike user_metadata). Release-blocking:
+    // if the write fails, roll the signup back by deleting the just-created,
+    // session-less user so no consent-less account lingers. A retry is then a
+    // clean fresh signup rather than the enumeration-obfuscated
+    // user_already_exists branch, which cannot safely re-attach consent.
+    try {
+      const { error: consentErr } = await admin.auth.admin.updateUserById(
+        userId,
+        { app_metadata: { consent: buildConsentRecord("checkbox") } },
+      );
+      if (consentErr) throw consentErr;
+    } catch (consentError) {
+      logError("Failed to record signup consent in app_metadata", consentError, {
+        component: "auth.register",
+        tag: "auth-consent-record-failed",
+        metadata: { userId },
+      });
+      // Best-effort rollback; if the delete also fails, the loud log above is
+      // the reconciliation signal for ops. deleteUser returns { error } rather
+      // than throwing, so surface it explicitly — otherwise a failed rollback
+      // would look successful and leave the consent-less account behind.
+      try {
+        const { error: deleteErr } = await admin.auth.admin.deleteUser(userId);
+        if (deleteErr) throw deleteErr;
+      } catch (rollbackError) {
+        logError("Failed to roll back consent-less signup", rollbackError, {
+          component: "auth.register",
+          tag: "auth-consent-rollback-failed",
+          metadata: { userId },
+        });
+      }
+      return { error: "تعذّر إتمام التسجيل — حاول مرة أخرى" };
+    }
+
     getPostHogClient()?.capture({
       distinctId: signupData.user.id,
       event: "user_signed_up",

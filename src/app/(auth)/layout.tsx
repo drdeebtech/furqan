@@ -15,7 +15,7 @@ export default async function AuthLayout({
 }) {
   const { t, dir, lang } = await getT();
   return (
-    <div dir={dir} className="flex min-h-screen">
+    <div dir={dir} data-testid="auth-shell" className="flex min-h-screen">
       {/* Branding panel — islamic-pattern background reads premium-traditional
           and matches the marketing-side hero treatment. */}
       <aside className="islamic-pattern relative hidden flex-col justify-center border-e border-[var(--surface-border)] p-12 md:flex md:w-1/2">
