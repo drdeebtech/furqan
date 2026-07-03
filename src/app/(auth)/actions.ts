@@ -507,9 +507,12 @@ export async function register(
         metadata: { userId },
       });
       // Best-effort rollback; if the delete also fails, the loud log above is
-      // the reconciliation signal for ops.
+      // the reconciliation signal for ops. deleteUser returns { error } rather
+      // than throwing, so surface it explicitly — otherwise a failed rollback
+      // would look successful and leave the consent-less account behind.
       try {
-        await admin.auth.admin.deleteUser(userId);
+        const { error: deleteErr } = await admin.auth.admin.deleteUser(userId);
+        if (deleteErr) throw deleteErr;
       } catch (rollbackError) {
         logError("Failed to roll back consent-less signup", rollbackError, {
           component: "auth.register",

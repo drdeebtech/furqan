@@ -52,14 +52,14 @@ export function RegisterForm({ initialPlan }: { initialPlan?: string }) {
             interactive content — clicking a nested link suppresses the
             checkbox toggle and muddles the control/label relationship for
             assistive tech. Kept as a separate, clearly-labelled line. */}
-        <p className="mt-1.5 ps-6 text-[11px]">
-          <Link href="/terms" className="text-gold hover:text-gold-hover underline focus-ring">الشروط والأحكام</Link>
-          {" · "}
-          <Link href="/privacy" className="text-gold hover:text-gold-hover underline focus-ring">سياسة الخصوصية</Link>
-          {"  ·  "}
-          <Link href="/terms" className="underline focus-ring">Terms</Link>
-          {" · "}
-          <Link href="/privacy" className="underline focus-ring">Privacy Policy</Link>
+        <p className="mt-1.5 flex flex-wrap items-center gap-x-1 ps-6 text-[11px]">
+          <Link href="/terms" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1 text-gold hover:text-gold-hover underline focus-ring">الشروط والأحكام</Link>
+          <span aria-hidden="true">·</span>
+          <Link href="/privacy" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1 text-gold hover:text-gold-hover underline focus-ring">سياسة الخصوصية</Link>
+          <span aria-hidden="true">·</span>
+          <Link href="/terms" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1 underline focus-ring">Terms</Link>
+          <span aria-hidden="true">·</span>
+          <Link href="/privacy" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1 underline focus-ring">Privacy Policy</Link>
         </p>
         {!consentChecked && (
           <p className="mt-1.5 ps-6 text-[11px] text-muted">

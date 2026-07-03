@@ -42,10 +42,17 @@ export function parseConsentCookie(value: string | undefined): ConsentRecord | n
   if (version !== TERMS_VERSION) return null;
   if (method !== "checkbox" && method !== "notice") return null;
   // Use the click-time stamp when present and sane; older cookies (no ts) or a
-  // tampered/non-numeric value fall back to now rather than fabricating a lie.
+  // tampered value fall back to now rather than fabricating a lie. The cookie
+  // is client-writeable and lives ~10min, so bound the stamp to a plausible
+  // window: reject the future (small clock skew allowed) and anything older
+  // than an hour. This also keeps out-of-Date-range values from throwing in
+  // toISOString().
+  const now = Date.now();
   const parsedTs = ts ? Number(ts) : NaN;
-  const accepted_at = Number.isFinite(parsedTs)
-    ? new Date(parsedTs).toISOString()
-    : new Date().toISOString();
+  const isSaneTs =
+    Number.isFinite(parsedTs) &&
+    parsedTs <= now + 5 * 60_000 &&
+    parsedTs >= now - 60 * 60_000;
+  const accepted_at = new Date(isSaneTs ? parsedTs : now).toISOString();
   return { version, accepted_at, method };
 }
