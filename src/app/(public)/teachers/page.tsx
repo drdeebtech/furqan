@@ -123,7 +123,7 @@ const getPublicTeachers = unstable_cache(
 const TEACHERS_URL = "https://www.furqan.today/teachers";
 const TEACHERS_TITLE = "معلمونا — معلمو القرآن المعتمدون";
 const TEACHERS_DESC =
-  "معلمو أكاديمية فرقان حاصلون على الإجازة من كبار العلماء. خريجو الأزهر. متاح معلمات للأخوات.";
+  "معلمو أكاديمية فرقان بإجازات مُدقَّقة، منهم خريجو الأزهر. متاح معلمات للأخوات والأطفال.";
 
 export const metadata: Metadata = {
   title: TEACHERS_TITLE,

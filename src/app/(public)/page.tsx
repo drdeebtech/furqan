@@ -3,7 +3,9 @@ import HomeContent from "./home-content";
 import { getFeaturesBySlot } from "@/lib/site-content/queries";
 
 export const metadata: Metadata = {
-  title: "فرقان — تعلم القرآن الكريم مع معلمين معتمدين",
+  // `absolute` opts out of the "%s | فرقان" template — the brand is already
+  // in the string, so the template produced "فرقان — … | فرقان" (B7 finding).
+  title: { absolute: "فرقان — تعلم القرآن الكريم مع معلمين معتمدين" },
   description: "أكاديمية فرقان لتعليم القرآن عبر الإنترنت. حفظ وتجويد وتلاوة مع معلمين حاصلين على الإجازة. سجّل الآن وابدأ.",
   alternates: { canonical: "https://www.furqan.today" },
 };

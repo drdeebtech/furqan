@@ -1,4 +1,4 @@
--- 20260701181630_teacher_search_vector.sql
+-- 20260709000000_teacher_search_vector.sql
 -- Spec 036: Full-text search infrastructure on teacher_profiles.
 -- Expand-only (additive): no DROP, no RENAME, no NOT NULL on existing columns.
 

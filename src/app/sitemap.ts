@@ -5,28 +5,27 @@ import { BASE_URL } from "@/lib/constants";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = BASE_URL;
 
-  const altLangs = (path: string) => ({
-    languages: {
-      ar: `${baseUrl}${path}?lang=ar`,
-      en: `${baseUrl}${path}?lang=en`,
-      "x-default": `${baseUrl}${path}`,
-    },
-  });
-
+  // B7 fixes (senior-dev persona findings, decisions in wave 1):
+  // - NO ?lang= alternates: the app never reads a lang query param (language is
+  //   the furqan-lang cookie), so those alternate URLs all rendered identical
+  //   content — invalid hreflang signals worse than none.
+  // - NO lastModified on static pages: `new Date()` regenerated per request, so
+  //   lastmod was always "now" and crawlers learn to distrust it. DB-backed
+  //   entries below keep their real updated_at.
   const staticPages: MetadataRoute.Sitemap = [
-    { url: baseUrl, lastModified: new Date(), changeFrequency: "weekly", priority: 1.0, alternates: altLangs("/") },
-    { url: `${baseUrl}/about`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8, alternates: altLangs("/about") },
-    { url: `${baseUrl}/services`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.9, alternates: altLangs("/services") },
-    { url: `${baseUrl}/pricing`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.9, alternates: altLangs("/pricing") },
-    { url: `${baseUrl}/teachers`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8, alternates: altLangs("/teachers") },
-    { url: `${baseUrl}/courses`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.8, alternates: altLangs("/courses") },
-    { url: `${baseUrl}/teach-with-us`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.8, alternates: altLangs("/teach-with-us") },
-    { url: `${baseUrl}/blog`, lastModified: new Date(), changeFrequency: "daily", priority: 0.9, alternates: altLangs("/blog") },
-    { url: `${baseUrl}/help`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5, alternates: altLangs("/help") },
-    { url: `${baseUrl}/contact`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7, alternates: altLangs("/contact") },
-    { url: `${baseUrl}/privacy`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
-    { url: `${baseUrl}/terms`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
-    { url: `${baseUrl}/cookies`, lastModified: new Date(), changeFrequency: "yearly", priority: 0.3 },
+    { url: baseUrl, changeFrequency: "weekly", priority: 1.0 },
+    { url: `${baseUrl}/about`, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${baseUrl}/services`, changeFrequency: "monthly", priority: 0.9 },
+    { url: `${baseUrl}/pricing`, changeFrequency: "monthly", priority: 0.9 },
+    { url: `${baseUrl}/teachers`, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${baseUrl}/courses`, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${baseUrl}/teach-with-us`, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${baseUrl}/blog`, changeFrequency: "daily", priority: 0.9 },
+    { url: `${baseUrl}/help`, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${baseUrl}/contact`, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${baseUrl}/privacy`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${baseUrl}/terms`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${baseUrl}/cookies`, changeFrequency: "yearly", priority: 0.3 },
   ];
 
   const supabase = await createClient();
