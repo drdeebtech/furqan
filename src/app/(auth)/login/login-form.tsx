@@ -77,13 +77,13 @@ export function LoginForm() {
           (Wave 0, decision 43). */}
       <p className="mt-2 text-center text-[11px] text-muted">
         بالمتابعة بحساب جوجل فأنت توافق على{" "}
-        <Link href="/terms" className="underline hover:text-foreground">الشروط</Link>
+        <Link href="/terms" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1 underline hover:text-foreground focus-ring">الشروط</Link>
         {" "}و{" "}
-        <Link href="/privacy" className="underline hover:text-foreground">سياسة الخصوصية</Link>
+        <Link href="/privacy" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1 underline hover:text-foreground focus-ring">سياسة الخصوصية</Link>
         <span className="block">
           By continuing with Google you agree to the{" "}
-          <Link href="/terms" className="underline">Terms</Link> &amp;{" "}
-          <Link href="/privacy" className="underline">Privacy Policy</Link>
+          <Link href="/terms" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1 underline focus-ring">Terms</Link> &amp;{" "}
+          <Link href="/privacy" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1 underline focus-ring">Privacy Policy</Link>
         </span>
       </p>
 

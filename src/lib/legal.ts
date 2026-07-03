@@ -24,14 +24,28 @@ export function buildConsentRecord(method: ConsentMethod): ConsentRecord {
   return { version: TERMS_VERSION, accepted_at: new Date().toISOString(), method };
 }
 
-/** Serialize/parse the consent cookie value ("<version>:<method>"). */
+/** Serialize/parse the consent cookie value ("<version>:<method>:<epoch-ms>").
+ *  The timestamp is stamped at click time and carried through the OAuth
+ *  round-trip so the recorded `accepted_at` reflects when the user actually
+ *  consented, not when the callback happens to process it. */
 export function encodeConsentCookie(method: ConsentMethod): string {
-  return `${TERMS_VERSION}:${method}`;
+  return `${TERMS_VERSION}:${method}:${Date.now()}`;
 }
 
 export function parseConsentCookie(value: string | undefined): ConsentRecord | null {
   if (!value) return null;
-  const [version, method] = value.split(":");
-  if (!version || (method !== "checkbox" && method !== "notice")) return null;
-  return { version, accepted_at: new Date().toISOString(), method };
+  const [version, method, ts] = value.split(":");
+  // The cookie is client-writeable, so treat it as untrusted: only accept the
+  // terms version we currently serve (the gated buttons always encode
+  // TERMS_VERSION and the cookie lives ~10min), and a known method. This keeps
+  // arbitrary/stale versions out of the tamper-resistant app_metadata record.
+  if (version !== TERMS_VERSION) return null;
+  if (method !== "checkbox" && method !== "notice") return null;
+  // Use the click-time stamp when present and sane; older cookies (no ts) or a
+  // tampered/non-numeric value fall back to now rather than fabricating a lie.
+  const parsedTs = ts ? Number(ts) : NaN;
+  const accepted_at = Number.isFinite(parsedTs)
+    ? new Date(parsedTs).toISOString()
+    : new Date().toISOString();
+  return { version, accepted_at, method };
 }

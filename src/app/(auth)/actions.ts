@@ -392,6 +392,22 @@ export async function register(
     return { error: "كلمتا المرور غير متطابقتين" };
   }
 
+  // Preflight the service-role client BEFORE creating the account. Consent
+  // evidence is release-blocking (Wave 0) and only the service role can write
+  // it; if the admin client can't be built (missing/invalid service-role env),
+  // fail here so we never leave a consent-less account behind. The dominant
+  // failure mode is configuration, which is identical for every request.
+  let admin: ReturnType<typeof createAdminClient>;
+  try {
+    admin = createAdminClient();
+  } catch (adminError) {
+    logError("Admin client unavailable — cannot record signup consent", adminError, {
+      component: "auth.register",
+      tag: "auth-consent-record-failed",
+    });
+    return { error: "حدث خطأ أثناء إنشاء الحساب" };
+  }
+
   const supabase = await createClient();
 
   const { data: signupData, error } = await supabase.auth.signUp({
@@ -471,14 +487,16 @@ export async function register(
   }
 
   if (signupData?.user?.id) {
+    const userId = signupData.user.id;
     // Persist consent evidence in app_metadata (admin-only writable — the user
-    // cannot alter it via updateUser, unlike user_metadata). Fail-soft: a
-    // metadata write failure must not block a legitimate signup, but it IS
-    // logged loudly because consent evidence is the point of Wave 0.
+    // cannot alter it via updateUser, unlike user_metadata). Release-blocking:
+    // if the write fails, roll the signup back by deleting the just-created,
+    // session-less user so no consent-less account lingers. A retry is then a
+    // clean fresh signup rather than the enumeration-obfuscated
+    // user_already_exists branch, which cannot safely re-attach consent.
     try {
-      const admin = createAdminClient();
       const { error: consentErr } = await admin.auth.admin.updateUserById(
-        signupData.user.id,
+        userId,
         { app_metadata: { consent: buildConsentRecord("checkbox") } },
       );
       if (consentErr) throw consentErr;
@@ -486,8 +504,20 @@ export async function register(
       logError("Failed to record signup consent in app_metadata", consentError, {
         component: "auth.register",
         tag: "auth-consent-record-failed",
-        metadata: { userId: signupData.user.id },
+        metadata: { userId },
       });
+      // Best-effort rollback; if the delete also fails, the loud log above is
+      // the reconciliation signal for ops.
+      try {
+        await admin.auth.admin.deleteUser(userId);
+      } catch (rollbackError) {
+        logError("Failed to roll back consent-less signup", rollbackError, {
+          component: "auth.register",
+          tag: "auth-consent-rollback-failed",
+          metadata: { userId },
+        });
+      }
+      return { error: "تعذّر إتمام التسجيل — حاول مرة أخرى" };
     }
 
     getPostHogClient()?.capture({

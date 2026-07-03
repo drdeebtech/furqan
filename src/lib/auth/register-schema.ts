@@ -11,7 +11,7 @@ import { z } from "zod";
  */
 export const registerSchema = z.object({
   full_name: z.string().trim().min(1).max(200),
-  email: z.email().trim().max(320),
+  email: z.string().trim().max(320).pipe(z.email()),
   password: z.string().min(8).max(200),
   confirm_password: z.string().min(1),
   consent: z.literal("yes"),

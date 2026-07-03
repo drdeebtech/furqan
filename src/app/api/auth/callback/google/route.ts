@@ -32,16 +32,31 @@ async function recordOAuthConsent(
     );
     return;
   }
-  const admin = createAdminClient();
-  const { error } = await admin.auth.admin.updateUserById(userId, {
-    app_metadata: { consent },
-  });
-  if (error) {
-    logError("Failed to record OAuth consent in app_metadata", error, {
+  // Fail-soft: createAdminClient() (missing env, etc.) or the update can throw;
+  // a consent-bookkeeping failure must never turn into a failed Google login.
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin.auth.admin.updateUserById(userId, {
+      app_metadata: { consent },
+    });
+    if (error) {
+      logError("Failed to record OAuth consent in app_metadata", error, {
+        tag: "auth-consent-record-failed",
+        metadata: { userId },
+      });
+    }
+  } catch (err) {
+    logError("Failed to record OAuth consent in app_metadata", err, {
       tag: "auth-consent-record-failed",
       metadata: { userId },
     });
   }
+}
+
+/** Clear the short-lived consent cookie on any redirect out of the callback. */
+function clearConsentCookie(res: NextResponse): NextResponse {
+  res.cookies.set(CONSENT_COOKIE, "", { path: "/", maxAge: 0 });
+  return res;
 }
 
 /**
@@ -65,7 +80,7 @@ export async function GET(request: NextRequest) {
       new Error("oauth.callback.missing_code"),
       { tag: "auth-google-callback" },
     );
-    return NextResponse.redirect(`${origin}/login?error=oauth_missing_code`);
+    return clearConsentCookie(NextResponse.redirect(`${origin}/login?error=oauth_missing_code`));
   }
 
   try {
@@ -81,7 +96,7 @@ export async function GET(request: NextRequest) {
           supabaseMessage: error.message,
         },
       });
-      return NextResponse.redirect(`${origin}/login?error=oauth_exchange_failed`);
+      return clearConsentCookie(NextResponse.redirect(`${origin}/login?error=oauth_exchange_failed`));
     }
 
     // Resolve role so we can redirect the user to the right dashboard.
@@ -90,18 +105,13 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.redirect(`${origin}/login?error=oauth_no_user`);
+      return clearConsentCookie(NextResponse.redirect(`${origin}/login?error=oauth_no_user`));
     }
 
     // Consent bookkeeping (fail-soft, awaited so the record lands before the
     // redirect; a failure only logs). app_metadata.consent survives from the
     // first signup — never overwritten.
     await recordOAuthConsent(request, user.id, user.app_metadata?.consent);
-
-    const clearConsentCookie = (res: NextResponse) => {
-      res.cookies.set(CONSENT_COOKIE, "", { path: "/", maxAge: 0 });
-      return res;
-    };
 
     // If the initiating page requested a specific redirect, honour it —
     // but only for safe relative paths (guards against open-redirect attacks,
@@ -123,6 +133,6 @@ export async function GET(request: NextRequest) {
     logError("Google OAuth callback unexpected error", err, {
       tag: "auth-google-callback",
     });
-    return NextResponse.redirect(`${origin}/login?error=oauth_unexpected`);
+    return clearConsentCookie(NextResponse.redirect(`${origin}/login?error=oauth_unexpected`));
   }
 }

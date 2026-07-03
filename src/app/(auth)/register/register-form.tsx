@@ -42,19 +42,25 @@ export function RegisterForm({ initialPlan }: { initialPlan?: string }) {
             className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-gold,#c8a24a)]"
           />
           <span>
-            <span className="block">
-              أوافق على{" "}
-              <Link href="/terms" className="text-gold hover:text-gold-hover underline">الشروط والأحكام</Link>
-              {" "}و{" "}
-              <Link href="/privacy" className="text-gold hover:text-gold-hover underline">سياسة الخصوصية</Link>
-            </span>
+            <span className="block">أوافق على الشروط والأحكام وسياسة الخصوصية</span>
             <span className="block text-[11px] text-muted-light">
-              I agree to the{" "}
-              <Link href="/terms" className="underline">Terms</Link> and{" "}
-              <Link href="/privacy" className="underline">Privacy Policy</Link>
+              I agree to the Terms and Privacy Policy
             </span>
           </span>
         </label>
+        {/* Policy links live OUTSIDE the label: a <label> must not wrap
+            interactive content — clicking a nested link suppresses the
+            checkbox toggle and muddles the control/label relationship for
+            assistive tech. Kept as a separate, clearly-labelled line. */}
+        <p className="mt-1.5 ps-6 text-[11px]">
+          <Link href="/terms" className="text-gold hover:text-gold-hover underline focus-ring">الشروط والأحكام</Link>
+          {" · "}
+          <Link href="/privacy" className="text-gold hover:text-gold-hover underline focus-ring">سياسة الخصوصية</Link>
+          {"  ·  "}
+          <Link href="/terms" className="underline focus-ring">Terms</Link>
+          {" · "}
+          <Link href="/privacy" className="underline focus-ring">Privacy Policy</Link>
+        </p>
         {!consentChecked && (
           <p className="mt-1.5 ps-6 text-[11px] text-muted">
             يرجى الموافقة أولاً لتفعيل التسجيل · Agree first to enable sign-up
