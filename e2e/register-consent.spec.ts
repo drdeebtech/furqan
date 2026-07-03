@@ -35,12 +35,26 @@ test.describe("register consent gate", () => {
     await expect(submitButton).toBeEnabled();
   });
 
-  test("register consent block renders in RTL with correct layout and links", async ({ page }) => {
-    await page.goto("/register");
-    await page.waitForLoadState("networkidle");
+  test("register consent block renders in RTL with correct layout and links", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    // Pin Arabic before hydration — Playwright's English browser locale would
+    // otherwise flip furqan-lang to en on first visit (spec 035 FR-010).
+    const { hostname } = new URL(baseURL ?? "http://localhost:3000");
+    await context.addCookies([
+      { name: "furqan-lang", value: "ar", domain: hostname, path: "/" },
+    ]);
 
+    await page.goto("/register");
+
+    // Readiness via a web-first, auto-retrying assertion — not networkidle,
+    // which is discouraged and can hang on noisy background requests.
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-    await expect(page.locator('div.flex.min-h-screen[dir="rtl"]')).toBeVisible();
+    // Target a stable hook (data-testid) rather than a Tailwind-class selector,
+    // and verify the auth shell itself renders RTL.
+    await expect(page.getByTestId("auth-shell")).toHaveAttribute("dir", "rtl");
 
     const consent = page.locator("#consent");
     const label = page.locator('label[for="consent"]');
@@ -61,12 +75,22 @@ test.describe("register consent gate", () => {
     const labelBox = await label.boundingBox();
     expect(checkboxBox).toBeTruthy();
     expect(labelBox).toBeTruthy();
-    expect(checkboxBox!.x + checkboxBox!.width).toBeGreaterThan(labelBox!.x + labelBox!.width * 0.6);
+    // RTL invariant: the checkbox is the label's flex first-child, so it renders
+    // at the inline-start = the RIGHT side. Its center must therefore sit to the
+    // right of the label's center (LTR would invert this). No magic ratio.
+    const checkboxCenterX = checkboxBox!.x + checkboxBox!.width / 2;
+    const labelCenterX = labelBox!.x + labelBox!.width / 2;
+    expect(checkboxCenterX).toBeGreaterThan(labelCenterX);
 
-    const paddingInlineStart = await legalLinks.evaluate((el) =>
-      getComputedStyle(el).paddingInlineStart,
-    );
-    expect(parseFloat(paddingInlineStart)).toBeGreaterThan(0);
+    // `ps-6` is a logical inline-start padding; under RTL it must resolve to the
+    // physical RIGHT side. Assert that mapping directly — a bare
+    // paddingInlineStart > 0 would pass in LTR too and prove nothing about RTL.
+    const { paddingLeft, paddingRight } = await legalLinks.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return { paddingLeft: parseFloat(s.paddingLeft), paddingRight: parseFloat(s.paddingRight) };
+    });
+    expect(paddingRight).toBeGreaterThan(0);
+    expect(paddingRight).toBeGreaterThan(paddingLeft);
 
     await expect(legalLinks.getByRole("link")).toHaveCount(4);
   });
@@ -74,6 +98,7 @@ test.describe("register consent gate", () => {
   test("login page shows the continue-implies-agreement notice for Google", async ({ page }) => {
     await page.goto("/login");
     await expect(page.getByText(/بالمتابعة بحساب جوجل/)).toBeVisible();
+    await expect(page.getByTestId("legal-links")).toBeVisible();
     // Login's Google button is NOT disabled — notice consent, not clickwrap.
     await expect(page.getByRole("button", { name: /جوجل|Google/ })).toBeEnabled();
   });

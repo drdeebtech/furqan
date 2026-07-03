@@ -7,6 +7,7 @@ import { Eye, EyeOff, LogIn } from "lucide-react";
 import { login } from "../actions";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { ActionFeedback } from "@/components/shared/action-feedback";
+import { LegalLinks } from "@/components/shared/legal-links";
 
 function oauthErrorMessage(code: string | null): string | null {
   if (!code) return null;
@@ -75,17 +76,15 @@ export function LoginForm() {
       {/* Google sign-in auto-creates an account for first-time users, so the
           continue-implies-agreement notice must sit at this entry point too
           (Wave 0, decision 43). */}
-      <p className="mt-2 text-center text-[11px] text-muted">
-        بالمتابعة بحساب جوجل فأنت توافق على{" "}
-        <Link href="/terms" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1 underline hover:text-foreground focus-ring">الشروط</Link>
-        {" "}و{" "}
-        <Link href="/privacy" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1 underline hover:text-foreground focus-ring">سياسة الخصوصية</Link>
-        <span className="block">
-          By continuing with Google you agree to the{" "}
-          <Link href="/terms" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1 underline focus-ring">Terms</Link> &amp;{" "}
-          <Link href="/privacy" className="inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1 underline focus-ring">Privacy Policy</Link>
-        </span>
-      </p>
+      <div className="mt-2 text-center text-[11px] text-muted">
+        <p>
+          <span className="block">بالمتابعة بحساب جوجل فأنت توافق على الشروط وسياسة الخصوصية</span>
+          <span className="block">
+            By continuing with Google you agree to the Terms &amp; Privacy Policy
+          </span>
+        </p>
+        <LegalLinks className="mt-1.5 justify-center" />
+      </div>
 
       <div className="my-4 flex items-center gap-3">
         <hr className="flex-1 border-t border-white/20" />

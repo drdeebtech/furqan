@@ -30,7 +30,8 @@ export function GoogleSignInButton({ next, disabled = false, consentMethod = "no
 
     // Carry consent through the OAuth round-trip. The callback route persists
     // it into app_metadata (tamper-resistant) and clears the cookie.
-    document.cookie = `${CONSENT_COOKIE}=${encodeConsentCookie(consentMethod)}; path=/; max-age=600; SameSite=Lax`;
+    const secure = window.location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = `${CONSENT_COOKIE}=${encodeConsentCookie(consentMethod)}; path=/; max-age=600; SameSite=Lax${secure}`;
 
     const callback = `${window.location.origin}/api/auth/callback/google`;
     const redirectTo = isSafeRelativePath(next)
