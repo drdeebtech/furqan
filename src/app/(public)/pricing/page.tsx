@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BreadcrumbSchema } from "@/components/seo/structured-data";
 import { BASE_URL } from "@/lib/constants";
 import { logError } from "@/lib/logger";
-import { PricingContent } from "./content";
+import { PricingContent, type Faq } from "./content";
 
 export const metadata: Metadata = {
   title: "الأسعار — اشتراكات حفظ القرآن",
@@ -38,15 +38,7 @@ export default async function PricingPage() {
       .select("id, question_ar, question_en, answer_ar, answer_en")
       .eq("is_active", true)
       .order("sort_order", { ascending: true })
-      .returns<
-        {
-          id: string;
-          question_ar: string;
-          question_en: string;
-          answer_ar: string;
-          answer_en: string;
-        }[]
-      >(),
+      .returns<Faq[]>(),
   ]);
 
   const { data, error } = plansRes;

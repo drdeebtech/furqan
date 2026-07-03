@@ -137,7 +137,7 @@ function Tier({
   );
 }
 
-interface Faq {
+export interface Faq {
   id: string;
   question_ar: string;
   question_en: string;
