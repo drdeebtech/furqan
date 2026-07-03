@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Filter, X } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useFeatureFlags } from "@/lib/feature-flags-context";
@@ -29,6 +29,32 @@ export function TeacherFilterBar({ filters, specialtyLabels, onChange, onClear }
   const [isOpen, setIsOpen] = useState(false);
 
   const activeCount = Object.values(filters).filter(Boolean).length;
+
+  // Price inputs are debounced like the search box: typing "25" must not fire
+  // two URL replacements + two fetches. Local raw state absorbs keystrokes;
+  // onChange fires 300ms after the last one. handleClear resets the raw state
+  // explicitly (a prop sync-back effect would trip the set-state-in-effect
+  // lint and can clobber in-flight typing).
+  // ponytail: raw state seeds from the URL at mount only — browser
+  // back/forward won't re-sync these two fields; wire a key-reset if that
+  // ever matters.
+  const [priceMinRaw, setPriceMinRaw] = useState(filters.priceMin);
+  const [priceMaxRaw, setPriceMaxRaw] = useState(filters.priceMax);
+  const handleClear = () => {
+    setPriceMinRaw("");
+    setPriceMaxRaw("");
+    onClear();
+  };
+  useEffect(() => {
+    const id = setTimeout(() => onChange("priceMin", priceMinRaw), 300);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [priceMinRaw]);
+  useEffect(() => {
+    const id = setTimeout(() => onChange("priceMax", priceMaxRaw), 300);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [priceMaxRaw]);
 
   // Rendered twice (mobile + desktop are both in the DOM), so every control id
   // is prefixed per instance to keep htmlFor/id pairs valid and unique.
@@ -99,8 +125,8 @@ export function TeacherFilterBar({ filters, specialtyLabels, onChange, onClear }
               <input
                 id={`${idPrefix}-filter-price-min`}
                 type="number"
-                value={filters.priceMin}
-                onChange={(e) => onChange("priceMin", e.target.value)}
+                value={priceMinRaw}
+                onChange={(e) => setPriceMinRaw(e.target.value)}
                 placeholder={t("من", "Min")}
                 min={0}
                 className="min-h-11 w-full rounded-lg border border-white/10 bg-card/50 px-3 py-2 text-sm text-foreground focus:border-gold/40 focus:outline-none"
@@ -113,8 +139,8 @@ export function TeacherFilterBar({ filters, specialtyLabels, onChange, onClear }
               <input
                 id={`${idPrefix}-filter-price-max`}
                 type="number"
-                value={filters.priceMax}
-                onChange={(e) => onChange("priceMax", e.target.value)}
+                value={priceMaxRaw}
+                onChange={(e) => setPriceMaxRaw(e.target.value)}
                 placeholder={t("إلى", "Max")}
                 min={0}
                 className="min-h-11 w-full rounded-lg border border-white/10 bg-card/50 px-3 py-2 text-sm text-foreground focus:border-gold/40 focus:outline-none"
@@ -127,7 +153,7 @@ export function TeacherFilterBar({ filters, specialtyLabels, onChange, onClear }
       {activeCount > 0 && (
         <button
           type="button"
-          onClick={onClear}
+          onClick={handleClear}
           className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-white/10 py-2 text-sm text-muted transition-colors hover:text-foreground"
         >
           <X size={14} aria-hidden="true" />
