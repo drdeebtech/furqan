@@ -1,8 +1,10 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
 import { addCacheTag } from "@vercel/functions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { TeachersContent } from "./content";
+import { TeacherGridSkeleton } from "@/components/public/teacher-card-skeleton";
 
 // Cache the public teacher listing (and reference labels) at the
 // Next.js Data Cache layer with a 5-min revalidate window. The
@@ -207,7 +209,9 @@ export default async function TeachersPage() {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(teachersJsonLd) }}
         />
       )}
-      <TeachersContent teachers={teacherData} specialtyLabels={specialtyLabels} recitationLabels={recitationLabels} />
+      <Suspense fallback={<TeacherGridSkeleton />}>
+        <TeachersContent initialTeachers={teacherData} specialtyLabels={specialtyLabels} recitationLabels={recitationLabels} />
+      </Suspense>
     </>
   );
 }
