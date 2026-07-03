@@ -6512,6 +6512,36 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      search_public_teachers: {
+        Args: {
+          p_gender?: string | null
+          p_language?: string | null
+          p_limit?: number | null
+          p_page?: number | null
+          p_price_max?: number | null
+          p_price_min?: number | null
+          p_query?: string | null
+          p_rating_weight?: number | null
+          p_specialty?: string | null
+        }
+        Returns: {
+          avatar_url: string | null
+          bio: string | null
+          bio_en: string | null
+          full_name: string | null
+          full_name_ar: string | null
+          gender: string | null
+          hourly_rate: number
+          id: string
+          languages: string[]
+          rating_avg: number
+          rating_count: number
+          recitation_standards: string[]
+          specialties: string[]
+          total_count: number
+          total_sessions: number
+        }[]
+      }
       search_teachers: {
         Args: { p_limit: number; p_needle: string; p_offset: number }
         Returns: {
