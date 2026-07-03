@@ -7,7 +7,10 @@ import { getT } from "@/lib/i18n/server";
 import { TRIAL_POLICY, SESSION_DURATION } from "@/lib/copy/policies";
 import { BookEvaluationForm } from "./book-evaluation-form";
 
-export const metadata: Metadata = { title: "جلسة التقييم المجانية" };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getT();
+  return { title: t("جلسة التقييم المجانية", "Free evaluation session") };
+}
 
 interface ActiveEvaluation {
   id: string;

@@ -21,11 +21,16 @@ export function BookEvaluationForm() {
   async function book() {
     setPhase("pending");
     setError(null);
+    // Guard against a hung checkout endpoint leaving the form stuck on
+    // "pending" forever (button + select disabled, no recovery but reload).
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
     try {
       const res = await fetch("/api/stripe/checkout/single-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ productType: "assessment", specialty }),
+        signal: controller.signal,
       });
       const json: { success?: boolean; data?: { bookingId?: string; checkoutUrl?: string }; error?: string } =
         await res.json().catch(() => ({}));
@@ -62,14 +67,17 @@ export function BookEvaluationForm() {
         ));
       }
     } catch {
+      // Includes AbortError from the timeout above.
       setPhase("idle");
       setError(t("تعذر الاتصال بالخادم — تحقق من اتصالك وحاول مجدداً.", "Could not reach the server — check your connection and retry."));
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
   if (phase === "booked") {
     return (
-      <div role="status" className="mt-8 rounded-2xl border border-gold/20 bg-surface/40 p-6">
+      <output className="mt-8 block rounded-2xl border border-gold/20 bg-surface/40 p-6">
         <div className="flex items-center gap-3">
           <CheckCircle2 className="text-success" size={22} aria-hidden="true" />
           <h2 className="font-semibold">{t("تم حجز جلسة التقييم!", "Evaluation session booked!")}</h2>
@@ -88,7 +96,7 @@ export function BookEvaluationForm() {
             {t("عرض حجوزاتي", "View my bookings")}
           </Link>
         </div>
-      </div>
+      </output>
     );
   }
 
@@ -119,10 +127,14 @@ export function BookEvaluationForm() {
         type="button"
         onClick={book}
         disabled={phase === "pending"}
+        aria-busy={phase === "pending"}
         className="mt-5 flex w-full items-center justify-center gap-2 rounded-full glass-gold glass-pill py-2.5 font-semibold text-background transition-colors hover:bg-gold-hover disabled:opacity-50 focus-ring"
       >
         {phase === "pending" ? (
-          <span className="h-5 w-5 animate-spin rounded-full border-2 border-background/30 border-t-background" aria-hidden="true" />
+          <>
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-background/30 border-t-background" aria-hidden="true" />
+            <span className="sr-only">{t("جارٍ الحجز...", "Booking...")}</span>
+          </>
         ) : (
           <>
             <Sparkles size={18} aria-hidden="true" />
