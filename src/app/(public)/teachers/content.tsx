@@ -138,6 +138,12 @@ export function TeachersContent({
     return teacher.name;
   }
 
+  // Pagination arrows follow reading direction: in Arabic RTL "previous" points
+  // right, in English LTR it points left (Bilingual-First rule). Label/aria stay
+  // per-language; only the glyph swaps.
+  const PrevIcon = lang === "ar" ? ChevronRight : ChevronLeft;
+  const NextIcon = lang === "ar" ? ChevronLeft : ChevronRight;
+
   return (
     <div>
       <section className="islamic-pattern relative overflow-hidden pt-24 pb-16 text-center">
@@ -162,8 +168,8 @@ export function TeachersContent({
       <section className="border-b border-white/10 py-8">
         <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-center gap-8 px-6">
           {[
-            { icon: Award, ar: "حاصلون على الإجازة", en: "Certified with Ijazah" },
-            { icon: GraduationCap, ar: "خريجو أفضل الجامعات الإسلامية", en: "Top Islamic University Graduates" },
+            { icon: Award, ar: "إجازات مُدقَّقة", en: "Verified Ijazah credentials" },
+            { icon: GraduationCap, ar: "منهم خريجو الأزهر", en: "Including Al-Azhar graduates" },
             { icon: Star, ar: "جلسات فيديو مباشرة", en: "Live Video Sessions" },
           ].map((b) => (
             <div key={b.en} className="flex items-center gap-2 text-sm text-muted">
@@ -302,7 +308,7 @@ export function TeachersContent({
                             {teacher.totalSessions > 0 ? (
                               <p>{teacher.totalSessions} {t("جلسة مكتملة", "completed sessions")}</p>
                             ) : (
-                              <p className="text-gold">{t("معلم جديد", "New teacher")}</p>
+                              <p className="text-muted">{t("معلم جديد", "New teacher")}</p>
                             )}
                           </div>
                           {teacher.ratingCount >= 3 && (
@@ -362,7 +368,7 @@ export function TeachersContent({
                         className="glass glass-pill flex items-center gap-1 px-4 py-2 text-sm text-muted disabled:opacity-40"
                         aria-label={t("الصفحة السابقة", "Previous page")}
                       >
-                        <ChevronRight size={14} aria-hidden="true" />
+                        <PrevIcon size={14} aria-hidden="true" />
                         {t("السابق", "Previous")}
                       </button>
                       <span className="text-sm text-muted" aria-current="page">
@@ -376,7 +382,7 @@ export function TeachersContent({
                         aria-label={t("الصفحة التالية", "Next page")}
                       >
                         {t("التالي", "Next")}
-                        <ChevronLeft size={14} aria-hidden="true" />
+                        <NextIcon size={14} aria-hidden="true" />
                       </button>
                     </nav>
                   )}

@@ -58,6 +58,12 @@ export function TeacherFilterBar({ filters, specialtyLabels, onChange, onClear }
 
   // Rendered twice (mobile + desktop are both in the DOM), so every control id
   // is prefixed per instance to keep htmlFor/id pairs valid and unique.
+  // Guard: both fields filled and min > max returns an empty grid with no
+  // visible cause. Show an inline hint instead of a silent blank. Both-non-empty
+  // check comes first — Number("") is 0, so an empty max would falsely flag min>0.
+  const priceRangeInvalid =
+    priceMinRaw !== "" && priceMaxRaw !== "" && Number(priceMinRaw) > Number(priceMaxRaw);
+
   const renderPanel = (idPrefix: string) => (
     <div className="space-y-4">
       <div>
@@ -147,6 +153,11 @@ export function TeacherFilterBar({ filters, specialtyLabels, onChange, onClear }
               />
             </div>
           </div>
+          {priceRangeInvalid && (
+            <p className="mt-1.5 text-xs text-error" role="alert">
+              {t("الحد الأدنى أكبر من الحد الأقصى", "Min price is higher than max")}
+            </p>
+          )}
         </div>
       )}
 
@@ -195,7 +206,7 @@ export function TeacherFilterBar({ filters, specialtyLabels, onChange, onClear }
         aria-label={t("لوحة التصفية", "Filter panel")}
       >
         <div className="sticky top-24 rounded-xl border border-white/10 bg-card/50 p-4">
-          <p className="mb-4 text-xs font-medium uppercase tracking-wider text-muted-light">
+          <p className="mb-4 text-xs font-medium text-muted-light">
             {t("التصفية", "Filters")}
           </p>
           {renderPanel("d")}
