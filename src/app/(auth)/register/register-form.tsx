@@ -126,7 +126,7 @@ export function RegisterForm({ initialPlan }: { initialPlan?: string }) {
               minLength={8}
               autoComplete="new-password"
               dir="ltr"
-              className="w-full rounded-xl glass-input px-4 py-2.5 ps-10 text-left text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
+              className="w-full rounded-xl glass-input px-4 py-2.5 ps-12 text-left text-foreground placeholder:text-muted/50 focus:border-input-focus focus:outline-none focus:ring-1 focus:ring-input-focus"
               placeholder="••••••••"
             />
             <button
