@@ -155,6 +155,11 @@ testsprite_tests/tmp/config.json
 .cursorrules
 .cursor/
 .codebuddy/
+.codex/
 .kiro/
 .hermes.md
 .env.local
+
+# Editor + local tool state (per-developer, not project source)
+.vscode/
+.chunk/
