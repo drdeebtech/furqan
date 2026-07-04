@@ -89,7 +89,7 @@
     ],
     "rules": [
       { "name": "The One Metal Rule", "body": "Gold is the only brand colour. It is never joined by a second decorative hue on the same surface; blue, emerald and violet are scoped functional accents (a skin, a data type), never co-stars.", "section": "colors" },
-      { "name": "The Gold-As-Text Rule", "body": "Brand gold #C8A652 is for backgrounds, borders and large accents. As body text it only appears on dark (>=4.5:1). On any light surface, gold text becomes Ink Gold #8A6D1A.", "section": "colors" },
+      { "name": "The Gold-As-Text Rule", "body": "Brand gold #C8A652 is the manuscript ground on the dark skin; on the light app-shell it is reserved for interactive and accent use (focus rings, links, primary actions, borders) and never a general background. As body text it only appears on dark (>=4.5:1); on any light surface gold text becomes Ink Gold #8A6D1A.", "section": "colors" },
       { "name": "The Bilingual-First Rule", "body": "Every type choice must render correctly in Arabic RTL and Latin LTR. A font or size that only works for one script is not shipped.", "section": "typography" },
       { "name": "The No-Kicker Rule", "body": "No tiny uppercase tracked eyebrow above every section, and no 01/02/03 numbered markers as default scaffolding. Hierarchy comes from the Rakkas display scale.", "section": "typography" },
       { "name": "The Glow-Not-Glare Rule", "body": "On dark, reach for tonal layering and the gold glow before a hard shadow. Heavy black drop-shadows on the manuscript ground read as cheap; the light does the lifting.", "section": "elevation" }

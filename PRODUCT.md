@@ -76,4 +76,8 @@ Explicitly avoid:
 - **Full RTL / Arabic** is a first-class requirement, not a translation layer —
   every surface must render correctly right-to-left with Arabic typography.
 - **Reduced motion**: every animation ships a `prefers-reduced-motion` fallback.
+- **Touch targets ≥44×44px** for every interactive control (WCAG 2.5.8), so
+  password toggles, icon buttons, and links stay comfortably tappable.
+- **Visible focus** on every focusable element — the branded gold `focus-ring`
+  utility (never `outline: none` without a replacement).
 - Reverent, family-safe tone for all ages and a global, multilingual audience.
