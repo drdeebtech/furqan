@@ -43,8 +43,8 @@ export function LoginForm() {
 
   return (
     <>
-      <h2 className="font-display mb-1 text-2xl font-bold leading-tight">تسجيل الدخول</h2>
-      <p className="mb-6 text-sm text-muted">Sign in to your account</p>
+      <h1 className="font-display mb-1 text-2xl font-bold leading-tight">تسجيل الدخول</h1>
+      <p lang="en" className="mb-6 text-sm text-muted">Sign in to your account</p>
 
       {/* Static URL-param-derived banners use direct role/aria so screen
           readers announce them on first paint. ActionFeedback handles the
@@ -79,7 +79,7 @@ export function LoginForm() {
       <div className="mt-2 text-center text-[11px] text-muted">
         <p>
           <span className="block">بالمتابعة بحساب جوجل فأنت توافق على الشروط وسياسة الخصوصية</span>
-          <span className="block">
+          <span lang="en" className="block">
             By continuing with Google you agree to the Terms &amp; Privacy Policy
           </span>
         </p>
@@ -99,7 +99,7 @@ export function LoginForm() {
         <div>
           <label htmlFor="email" className="mb-1.5 block">
             <span className="block text-sm font-medium">البريد الإلكتروني</span>
-            <span className="block text-[11px] uppercase tracking-wider text-muted-light">Email</span>
+            <span lang="en" className="block text-[11px] uppercase tracking-wider text-muted-light">Email</span>
           </label>
           <input
             id="email"
@@ -118,7 +118,7 @@ export function LoginForm() {
           <div className="mb-1.5 flex items-end justify-between gap-3">
             <label htmlFor="password" className="block">
               <span className="block text-sm font-medium">كلمة المرور</span>
-              <span className="block text-[11px] uppercase tracking-wider text-muted-light">Password</span>
+              <span lang="en" className="block text-[11px] uppercase tracking-wider text-muted-light">Password</span>
             </label>
             <Link
               href="/forgot-password"
@@ -142,7 +142,7 @@ export function LoginForm() {
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted transition-colors hover:text-foreground focus-ring"
+              className="absolute start-3 top-1/2 flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center text-muted transition-colors hover:text-foreground focus-ring"
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
@@ -153,7 +153,9 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={pending}
-          className="flex w-full items-center justify-center gap-2 rounded-full glass-gold glass-pill py-2.5 font-semibold text-background transition-colors hover:bg-primary-hover disabled:opacity-50"
+          aria-busy={pending}
+          aria-label="دخول"
+          className="flex w-full items-center justify-center gap-2 rounded-full glass-gold glass-pill py-2.5 font-semibold text-background transition-colors hover:bg-primary-hover disabled:opacity-50 focus-ring"
         >
           {pending ? (
             <span className="h-5 w-5 animate-spin rounded-full border-2 border-background/30 border-t-background" />

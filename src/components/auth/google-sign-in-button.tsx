@@ -15,9 +15,11 @@ type Props = {
    *  "checkbox" (register clickwrap) or "notice" (login continue-implies-agreement).
    *  Recorded server-side by the OAuth callback via a short-lived cookie. */
   consentMethod?: ConsentMethod;
+  /** id of an element describing why the button is disabled (consent gate). */
+  describedBy?: string;
 };
 
-export function GoogleSignInButton({ next, disabled = false, consentMethod = "notice" }: Props) {
+export function GoogleSignInButton({ next, disabled = false, consentMethod = "notice", describedBy }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { lang } = useLang();
@@ -73,7 +75,9 @@ export function GoogleSignInButton({ next, disabled = false, consentMethod = "no
         onClick={handleClick}
         disabled={pending || disabled}
         aria-disabled={pending || disabled}
-        className="flex w-full items-center justify-center gap-3 rounded-full glass-pill border border-white/40 bg-white py-2.5 font-semibold text-neutral-900 shadow-sm transition-colors hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        aria-busy={pending}
+        aria-describedby={describedBy}
+        className="flex w-full items-center justify-center gap-3 rounded-full glass-pill border border-white/40 bg-white py-2.5 font-semibold text-neutral-900 shadow-sm transition-colors hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed focus-ring"
         aria-label={t("تسجيل الدخول بحساب جوجل", "Sign in with Google")}
       >
         {pending ? (
@@ -83,7 +87,7 @@ export function GoogleSignInButton({ next, disabled = false, consentMethod = "no
             <GoogleLogo />
             <span className="leading-none">
               الدخول بحساب جوجل
-              <span className="ms-2 text-xs font-normal text-neutral-500">
+              <span lang="en" className="ms-2 text-xs font-normal text-neutral-500">
                 Continue with Google
               </span>
             </span>

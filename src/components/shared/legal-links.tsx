@@ -26,11 +26,11 @@ export function LegalLinks({ className }: LegalLinksProps) {
         سياسة الخصوصية
       </Link>
       <span aria-hidden="true">·</span>
-      <Link href="/terms" className={legalLinkClass}>
+      <Link href="/terms" lang="en" className={legalLinkClass}>
         Terms
       </Link>
       <span aria-hidden="true">·</span>
-      <Link href="/privacy" className={legalLinkClass}>
+      <Link href="/privacy" lang="en" className={legalLinkClass}>
         Privacy Policy
       </Link>
     </p>

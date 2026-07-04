@@ -17,7 +17,7 @@ export function RegisterForm({ initialPlan }: { initialPlan?: string }) {
 
   return (
     <>
-      <h2 className="font-display mb-1 text-2xl font-bold leading-tight">إنشاء حساب</h2>
+      <h1 className="font-display mb-1 text-2xl font-bold leading-tight">إنشاء حساب</h1>
       <p className="mb-6 text-sm text-muted">انضم إلى أكاديمية فرقان</p>
 
       {state.error && (
@@ -40,11 +40,11 @@ export function RegisterForm({ initialPlan }: { initialPlan?: string }) {
             checked={consentChecked}
             onChange={(e) => setConsentChecked(e.target.checked)}
             aria-describedby={state.error ? "register-error" : undefined}
-            className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-gold,#c8a24a)]"
+            className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-gold)]"
           />
           <span>
             <span className="block">أوافق على الشروط والأحكام وسياسة الخصوصية</span>
-            <span className="block text-[11px] text-muted-light">
+            <span lang="en" className="block text-[11px] text-muted-light">
               I agree to the Terms and Privacy Policy
             </span>
           </span>
@@ -55,13 +55,17 @@ export function RegisterForm({ initialPlan }: { initialPlan?: string }) {
             assistive tech. Kept as a separate, clearly-labelled line. */}
         <LegalLinks className="mt-1.5 ps-6" />
         {!consentChecked && (
-          <p className="mt-1.5 ps-6 text-[11px] text-muted">
+          <p id="consent-hint" className="mt-1.5 ps-6 text-[11px] text-muted">
             يرجى الموافقة أولاً لتفعيل التسجيل · Agree first to enable sign-up
           </p>
         )}
       </div>
 
-      <GoogleSignInButton disabled={!consentChecked} consentMethod="checkbox" />
+      <GoogleSignInButton
+        disabled={!consentChecked}
+        consentMethod="checkbox"
+        describedBy={!consentChecked ? "consent-hint" : undefined}
+      />
 
       <div className="my-4 flex items-center gap-3">
         <hr className="flex-1 border-t border-white/20" />
@@ -74,7 +78,7 @@ export function RegisterForm({ initialPlan }: { initialPlan?: string }) {
         <div>
           <label htmlFor="full_name" className="mb-1.5 block">
             <span className="block text-sm font-medium">الاسم الكامل</span>
-            <span className="block text-[11px] uppercase tracking-wider text-muted-light">Full name</span>
+            <span lang="en" className="block text-[11px] uppercase tracking-wider text-muted-light">Full name</span>
           </label>
           <input
             id="full_name"
@@ -91,7 +95,7 @@ export function RegisterForm({ initialPlan }: { initialPlan?: string }) {
         <div>
           <label htmlFor="email" className="mb-1.5 block">
             <span className="block text-sm font-medium">البريد الإلكتروني</span>
-            <span className="block text-[11px] uppercase tracking-wider text-muted-light">Email</span>
+            <span lang="en" className="block text-[11px] uppercase tracking-wider text-muted-light">Email</span>
           </label>
           <input
             id="email"
@@ -109,7 +113,7 @@ export function RegisterForm({ initialPlan }: { initialPlan?: string }) {
         <div>
           <label htmlFor="password" className="mb-1.5 block">
             <span className="block text-sm font-medium">كلمة المرور</span>
-            <span className="block text-[11px] uppercase tracking-wider text-muted-light">
+            <span lang="en" className="block text-[11px] uppercase tracking-wider text-muted-light">
               Password (min 8 characters)
             </span>
           </label>
@@ -129,7 +133,7 @@ export function RegisterForm({ initialPlan }: { initialPlan?: string }) {
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted transition-colors hover:text-foreground focus-ring"
+              className="absolute start-3 top-1/2 flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center text-muted transition-colors hover:text-foreground focus-ring"
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
@@ -140,7 +144,7 @@ export function RegisterForm({ initialPlan }: { initialPlan?: string }) {
         <div>
           <label htmlFor="confirm_password" className="mb-1.5 block">
             <span className="block text-sm font-medium">تأكيد كلمة المرور</span>
-            <span className="block text-[11px] uppercase tracking-wider text-muted-light">Confirm password</span>
+            <span lang="en" className="block text-[11px] uppercase tracking-wider text-muted-light">Confirm password</span>
           </label>
           <input
             id="confirm_password"
@@ -161,7 +165,10 @@ export function RegisterForm({ initialPlan }: { initialPlan?: string }) {
         <button
           type="submit"
           disabled={pending || !consentChecked}
-          className="flex w-full items-center justify-center gap-2 rounded-full glass-gold glass-pill py-2.5 font-semibold text-background transition-colors hover:bg-primary-hover disabled:opacity-50"
+          aria-busy={pending}
+          aria-label="إنشاء حساب"
+          aria-describedby={!consentChecked ? "consent-hint" : undefined}
+          className="flex w-full items-center justify-center gap-2 rounded-full glass-gold glass-pill py-2.5 font-semibold text-background transition-colors hover:bg-primary-hover disabled:opacity-50 focus-ring"
         >
           {pending ? (
             <span className="h-5 w-5 animate-spin rounded-full border-2 border-background/30 border-t-background" />
