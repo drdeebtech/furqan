@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-04T00:00:00Z",
+  "title": "Design System: furqan.today",
+  "extensions": {
+    "colorMeta": {
+      "gold": { "role": "primary", "displayName": "Manuscript Gold", "canonical": "#C8A652", "tonalRamp": ["#2A2310", "#4A3E1C", "#6B5A2A", "#8A6D1A", "#A08840", "#C8A652", "#D4B76A", "#E8DDBF"] },
+      "student-accent-blue": { "role": "secondary", "displayName": "Study Blue", "canonical": "#3B82F6", "tonalRamp": ["#0C1A38", "#14295C", "#1E3A8A", "#2563EB", "#3B82F6", "#60A5FA", "#93C5FD", "#DBEAFE"] },
+      "data-progress": { "role": "tertiary", "displayName": "Progress Emerald", "canonical": "#34D399", "tonalRamp": ["#08241A", "#0E3B2A", "#155C42", "#1C7A57", "#22C55E", "#34D399", "#6EE7B7", "#C7F5E3"] },
+      "background": { "role": "neutral", "displayName": "Near-Black Ground", "canonical": "#0F0F0F", "tonalRamp": ["#0F0F0F", "#1A1A1A", "#222222", "#2A2A2A", "#3A3A3A", "#5A5A54", "#9C9488", "#F5F0E8"] },
+      "foreground": { "role": "neutral", "displayName": "Vellum Ink", "canonical": "#F5F0E8", "tonalRamp": ["#3A362E", "#5A544A", "#7A7268", "#9C9488", "#BDB6AA", "#D8D2C6", "#F5F0E8", "#FFFFFF"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display (Rakkas)", "purpose": "Hero and section headlines on marketing surfaces. Ceiling ~4rem." },
+      "numeral": { "displayName": "Numeral (Inter)", "purpose": "KPI figures and progress counts. Always Inter, never the Arabic body face." },
+      "body": { "displayName": "Body (IBM Plex Sans Arabic)", "purpose": "Running text, bilingual RTL/LTR. Cap measure 65-75ch." }
+    },
+    "shadows": [
+      { "name": "elevation-1", "value": "0 2px 8px rgba(0,0,0,0.3)", "purpose": "Raised cards on the dark skin." },
+      { "name": "elevation-2", "value": "0 4px 16px rgba(0,0,0,0.35)", "purpose": "Dropdowns, popovers." },
+      { "name": "elevation-3", "value": "0 8px 24px rgba(0,0,0,0.4)", "purpose": "Modals." },
+      { "name": "elevation-4", "value": "0 16px 40px rgba(0,0,0,0.45)", "purpose": "Peak overlays." },
+      { "name": "app-rest", "value": "0 1px 2px rgba(17,24,39,0.04)", "purpose": "Light app-shell card at rest." },
+      { "name": "app-hover", "value": "0 2px 6px rgba(17,24,39,0.06), 0 8px 24px rgba(0,0,0,0.04)", "purpose": "Light app-shell card on hover." }
+    ],
+    "motion": [
+      { "name": "glass-spring", "value": "cubic-bezier(0.25, 1, 0.5, 1)", "purpose": "Default spring for hover lift and interactive transitions." },
+      { "name": "glass-ease", "value": "cubic-bezier(0.25, 0.46, 0.45, 0.94)", "purpose": "Softer ease for surface and opacity transitions." },
+      { "name": "gold-focus-pulse", "value": "box-shadow 0 0 0 0 -> 12px rgba(200,166,82,0.4->0)", "purpose": "Signature single-halo attention ring. No bounce. Reduced-motion: static ring." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Gold pill CTA on the dark marketing skin; tactile hover lift.",
+      "html": "<button class=\"ds-btn-primary\">Book a free evaluation</button>",
+      "css": ".ds-btn-primary { background: var(--gold, #C8A652); color: var(--background, #0F0F0F); font-family: Inter, system-ui, sans-serif; font-weight: 600; font-size: 1rem; min-height: 44px; padding: 0.875rem 1.5rem; border: none; border-radius: 9999px; cursor: pointer; transition: background 0.25s cubic-bezier(0.25,1,0.5,1), transform 0.25s cubic-bezier(0.25,1,0.5,1); } .ds-btn-primary:hover { background: var(--gold-hover, #B8963E); transform: translateY(-2px); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(200,166,82,0.5); } .ds-btn-primary:active { transform: translateY(0); }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action; raised surface with a hairline border.",
+      "html": "<button class=\"ds-btn-ghost\">Learn more</button>",
+      "css": ".ds-btn-ghost { background: var(--surface, #1A1A1A); color: var(--foreground, #F5F0E8); font-family: Inter, system-ui, sans-serif; font-weight: 500; font-size: 0.875rem; min-height: 44px; padding: 0.625rem 1rem; border: 1px solid var(--surface-border, #2A2A2A); border-radius: 9999px; cursor: pointer; transition: border-color 0.25s cubic-bezier(0.25,1,0.5,1), transform 0.25s cubic-bezier(0.25,1,0.5,1); } .ds-btn-ghost:hover { border-color: var(--gold, #C8A652); transform: translateY(-1px); } .ds-btn-ghost:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(200,166,82,0.4); }"
+    },
+    {
+      "name": "Glass Card",
+      "kind": "card",
+      "refersTo": "card-glass",
+      "description": "Raised content surface on the dark skin; tonal separation, hairline edge.",
+      "html": "<div class=\"ds-card\"><h3>Surah Al-Baqarah</h3><p>Ayah 1&ndash;5 &middot; reviewed today</p></div>",
+      "css": ".ds-card { background: var(--surface, #1A1A1A); color: var(--foreground, #F5F0E8); border: 1px solid var(--surface-border, #2A2A2A); border-radius: 16px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); transition: transform 0.25s cubic-bezier(0.25,1,0.5,1), box-shadow 0.25s cubic-bezier(0.25,1,0.5,1); } .ds-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); } .ds-card h3 { font-family: 'IBM Plex Sans Arabic', Inter, system-ui, sans-serif; font-weight: 600; font-size: 1.125rem; margin: 0 0 6px; } .ds-card p { color: var(--muted, #9C9488); font-size: 0.9rem; margin: 0; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Text field; gold focus border and ring.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Search teachers\" />",
+      "css": ".ds-input { background: var(--surface-light, #222222); color: var(--foreground, #F5F0E8); font-family: 'IBM Plex Sans Arabic', Inter, system-ui, sans-serif; font-size: 1rem; width: 100%; padding: 0.625rem 1rem; border: 1px solid var(--input-border, #333333); border-radius: 12px; transition: border-color 0.2s, box-shadow 0.2s; } .ds-input::placeholder { color: var(--muted, #9C9488); } .ds-input:focus-visible { outline: none; border-color: var(--gold, #C8A652); box-shadow: 0 0 0 3px rgba(200,166,82,0.25); }"
+    },
+    {
+      "name": "KPI Numeral",
+      "kind": "custom",
+      "refersTo": "numeral",
+      "description": "Progress figure; forced Inter so Latin digits stay crisp.",
+      "html": "<div class=\"ds-kpi\"><span class=\"ds-kpi-num\">248</span><span class=\"ds-kpi-label\">ayat memorized</span></div>",
+      "css": ".ds-kpi { display: flex; flex-direction: column; gap: 4px; } .ds-kpi-num { font-family: Inter, system-ui, sans-serif; font-weight: 700; font-size: 48px; line-height: 1; letter-spacing: -0.02em; color: var(--data-progress, #34D399); } .ds-kpi-label { font-family: Inter, system-ui, sans-serif; font-size: 0.875rem; color: var(--muted, #9C9488); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Gilded Manuscript",
+    "overview": "furqan is gold on near-black — brand gold (#C8A652) resting on a deep #0F0F0F ground, the way illuminated Qur'anic calligraphy sits on aged vellum. The system is reverent before it is anything else: the subject is sacred, so every choice favours the dignified over the clever. Warmth is carried by a single warm metal and a soft gold radial glow, never by bright colour or busy ornament — premium, refined, calm. It runs in two registers under one identity: a dark marketing skin (gold-on-black manuscript) and a light app-shell (white surfaces, gold darkened to #8A6D1A for AA, student dashboard repointed to a calm blue). It rejects the generic SaaS dashboard, childish gamified edtech, cold clinical fintech, and the cluttered ornate religious-web look.",
+    "keyCharacteristics": [
+      "Gold-on-near-black as the signature; one warm metal carries the identity.",
+      "Reverent and calm — dignity over decoration, space over density.",
+      "Bilingual by design: full RTL/Arabic is first-class, not a translation layer.",
+      "Contrast-tuned to WCAG AA across three skins (dark, light, student-blue).",
+      "Tactile, confident components on a Liquid-Glass surface vocabulary."
+    ],
+    "rules": [
+      { "name": "The One Metal Rule", "body": "Gold is the only brand colour. It is never joined by a second decorative hue on the same surface; blue, emerald and violet are scoped functional accents (a skin, a data type), never co-stars.", "section": "colors" },
+      { "name": "The Gold-As-Text Rule", "body": "Brand gold #C8A652 is the manuscript ground on the dark skin; on the light app-shell it is reserved for interactive and accent use (focus rings, links, primary actions, borders) and never a general background. As body text it only appears on dark (>=4.5:1); on any light surface gold text becomes Ink Gold #8A6D1A.", "section": "colors" },
+      { "name": "The Bilingual-First Rule", "body": "Every type choice must render correctly in Arabic RTL and Latin LTR. A font or size that only works for one script is not shipped.", "section": "typography" },
+      { "name": "The No-Kicker Rule", "body": "No tiny uppercase tracked eyebrow above every section, and no 01/02/03 numbered markers as default scaffolding. Hierarchy comes from the Rakkas display scale.", "section": "typography" },
+      { "name": "The Glow-Not-Glare Rule", "body": "On dark, reach for tonal layering and the gold glow before a hard shadow. Heavy black drop-shadows on the manuscript ground read as cheap; the light does the lifting.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep gold as the one brand metal; let blue, emerald, and violet stay scoped functional accents, never co-stars.",
+      "Do darken gold to Ink Gold #8A6D1A for any text on a light surface (AA).",
+      "Do pair the Rakkas display serif against the Plex/Inter sans on a real contrast axis; hold the display ceiling at ~4rem.",
+      "Do convey depth on dark with tonal steps and the gold glow first.",
+      "Do make every surface render correctly in Arabic RTL and Latin LTR.",
+      "Do ship a prefers-reduced-motion fallback for every animation, including the gold pulse (it becomes a static ring)."
+    ],
+    "donts": [
+      "Don't build the generic SaaS dashboard — no hero-metric templates, gradient blobs, or identical icon-heading-text card grids.",
+      "Don't drift childish / gamified — no mascots, confetti, or bright cartoon primaries.",
+      "Don't go cold / clinical / corporate — no sterile fintech navy or austere impersonal grids.",
+      "Don't clutter into a busy ornate religious site — no dense text walls or dated Islamic-web ornament.",
+      "Don't use gradient text, side-stripe borders (border-left >1px as a colored accent), or a tracked uppercase eyebrow above every section.",
+      "Don't put brand gold #C8A652 as text on white, or heavy black drop-shadows on the dark manuscript ground."
+    ]
+  }
+}

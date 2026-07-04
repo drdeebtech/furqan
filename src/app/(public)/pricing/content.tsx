@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle, Users, User } from "lucide-react";
+import { CheckCircle, Users, User, ChevronDown } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useFeatureFlags } from "@/lib/feature-flags-context";
 import { RegisterBanner } from "@/components/public/register-banner";
@@ -65,7 +65,7 @@ function PlanCard({
     // so the badge isn't clipped by glass-card's overflow:hidden backdrop-filter boundary.
     <div className={`relative ${highlight ? "pt-3" : ""}`}>
       {highlight && (
-        <span className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-muted/40 bg-surface px-3 py-0.5 text-xs font-semibold text-foreground">
+        <span className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-gold/50 bg-surface px-3 py-0.5 text-xs font-semibold text-foreground">
           {t("الأكثر طلباً", "Most popular")}
         </span>
       )}
@@ -75,7 +75,7 @@ function PlanCard({
         }`}
       >
         <div>
-          <p className="text-xs font-medium tracking-widest text-muted uppercase">
+          <p className="text-xs font-medium text-muted">
             {sessionLabel(plan, t)}
           </p>
           <p className="font-display mt-1 text-3xl font-bold" dir="ltr">
@@ -190,7 +190,7 @@ export function PricingContent({ plans, faqs }: { plans: Plan[]; faqs: Faq[] }) 
           >
             <Link
               href="/"
-              className="text-gold transition-colors hover:text-gold-light focus-ring"
+              className="text-gold transition-colors hover:text-foreground focus-ring"
             >
               {t("الرئيسية", "Home")}
             </Link>
@@ -227,7 +227,7 @@ export function PricingContent({ plans, faqs }: { plans: Plan[]; faqs: Faq[] }) 
               {t("اشتراك شهري بدون عقد", "Monthly — no long-term contract")}
             </span>
           </div>
-          <p className="font-display mt-4 text-base text-gold/70">
+          <p className="font-display mt-4 text-base text-gold-ink">
             ﴿ إِنَّا نَحْنُ نَزَّلْنَا الذِّكْرَ وَإِنَّا لَهُ لَحَافِظُونَ ﴾
           </p>
         </div>
@@ -398,12 +398,11 @@ export function PricingContent({ plans, faqs }: { plans: Plan[]; faqs: Faq[] }) 
               >
                 <summary className="flex cursor-pointer items-center justify-between gap-3 text-sm font-semibold focus-ring">
                   <span>{item.q}</span>
-                  <span
+                  <ChevronDown
+                    size={16}
                     aria-hidden="true"
-                    className="text-muted transition-transform group-open:rotate-180"
-                  >
-                    ⌄
-                  </span>
+                    className="shrink-0 text-muted transition-transform group-open:rotate-180"
+                  />
                 </summary>
                 <p className="mt-3 text-sm leading-relaxed text-muted">
                   {item.a}
