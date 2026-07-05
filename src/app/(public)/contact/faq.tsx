@@ -1,6 +1,7 @@
 import { ChevronDown } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
 import { getActiveFaqs } from "@/lib/site-content/queries";
+import { safeJsonLd } from "@/components/seo/structured-data";
 
 export async function FAQ() {
   const { t } = await getT();
@@ -25,7 +26,7 @@ export async function FAQ() {
     <section className="py-24">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(faqJsonLd) }}
       />
       <div className="mx-auto max-w-3xl px-6">
         <p className="text-sm font-medium tracking-widest text-muted">❖ {t("أسئلة شائعة", "FAQ")}</p>

@@ -1,6 +1,18 @@
-// JSON-LD structured data for SEO — static content only, no user input
+// JSON-LD structured data for SEO. Some schemas embed DB-sourced text
+// (article/course/teacher fields), so every block is serialized via
+// `safeJsonLd` — JSON.stringify alone does NOT escape `</script>`, which
+// would let stored content break out of the script tag (stored XSS).
 
 import { CONTACT } from "@/lib/contact";
+
+/**
+ * Serialize a JSON-LD object for safe embedding in a <script> tag.
+ * Escapes `<` to its unicode form so a `</script>` sequence inside any
+ * string value cannot terminate the block early and inject markup.
+ */
+export function safeJsonLd(schema: unknown): string {
+  return JSON.stringify(schema).replace(/</g, "\\u003c");
+}
 
 export function BreadcrumbSchema({ items }: { items: { name: string; url: string }[] }) {
   const schema = {
@@ -14,7 +26,7 @@ export function BreadcrumbSchema({ items }: { items: { name: string; url: string
     })),
   };
 
-  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />;
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }} />;
 }
 
 export function OrganizationSchema() {
@@ -44,7 +56,7 @@ export function OrganizationSchema() {
   };
 
   // Safe: schema is hardcoded static content, not user-generated
-  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />;
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }} />;
 }
 
 export function ArticleSchema({
@@ -84,7 +96,7 @@ export function ArticleSchema({
     },
   };
 
-  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />;
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }} />;
 }
 
 export function WebSiteSchema() {
@@ -102,7 +114,7 @@ export function WebSiteSchema() {
   };
 
   // Safe: schema is hardcoded static content, not user-generated.
-  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />;
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }} />;
 }
 
 // FAQSchema removed: it was rendered site-wide (every public page) with 5 hardcoded

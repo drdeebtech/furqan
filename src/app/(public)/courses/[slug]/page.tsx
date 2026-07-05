@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import type { Course, CourseLesson, CourseReview } from "@/types/database";
-import { BreadcrumbSchema } from "@/components/seo/structured-data";
+import { BreadcrumbSchema, safeJsonLd } from "@/components/seo/structured-data";
 import { EnrollButton } from "./enroll-button";
 
 interface PageProps {
@@ -162,7 +162,7 @@ export default async function CourseLandingPage({ params }: PageProps) {
     <div dir={dir} className="mx-auto max-w-5xl px-4 py-10">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(courseJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(courseJsonLd) }}
       />
       <BreadcrumbSchema
         items={[

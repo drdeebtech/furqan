@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { unstable_cache } from "next/cache";
 import { addCacheTag } from "@vercel/functions";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { safeJsonLd } from "@/components/seo/structured-data";
 import { TeachersContent } from "./content";
 import { TeacherGridSkeleton } from "@/components/public/teacher-card-skeleton";
 
@@ -206,7 +207,7 @@ export default async function TeachersPage() {
       {teachersJsonLd && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(teachersJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(teachersJsonLd) }}
         />
       )}
       <Suspense fallback={<TeacherGridSkeleton />}>

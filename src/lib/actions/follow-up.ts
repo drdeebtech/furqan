@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { type ReviewHorizon } from "@/lib/constants";
 import { logError } from "@/lib/logger";
-import type { HomeworkStatus } from "@/types/database";
 import { loudAction } from "@/lib/actions/loud";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
 import {
@@ -245,17 +244,15 @@ export async function markStudentReady(
 
 // ─── 3. Grade Follow-up ──────────────────────────────────────────────────────
 
-type GradeFollowUpInput = {
-  homeworkId: string;
-  grade: HomeworkStatus;
-  teacher_notes: string | null;
-  errors?: CapturedError[];
-};
+// Derive the input type from the schema so the two can't drift. `grade` is the
+// narrow 4-value enum (runtime-validated from FormData); `errors` is
+// CapturedError[] | null | undefined — matching the domain-layer type.
+type GradeFollowUpInput = z.infer<typeof gradeFollowUpSchema>;
 
 const gradeFollowUpBase = loudAction<GradeFollowUpInput, { message: string }>({
   name: "homework.grade",
   severity: "warning",
-  schema: gradeFollowUpSchema as unknown as z.ZodType<GradeFollowUpInput>,
+  schema: gradeFollowUpSchema,
   audit: {
     table: "homework_assignments",
     recordId: (i) => i.homeworkId,
@@ -278,7 +275,7 @@ const gradeFollowUpBase = loudAction<GradeFollowUpInput, { message: string }>({
 });
 
 export async function gradeFollowUp(homeworkId: string, formData: FormData) {
-  const grade = formData.get("grade") as HomeworkStatus;
+  const grade = formData.get("grade") as GradeFollowUpInput["grade"];
   const teacher_notes = (formData.get("teacher_notes") as string) || null;
   // Talqeen review (#541): tajweed errors arrive as a JSON blob. Parse loosely
   // here; the schema in gradeFollowUpBase re-validates each error shape.
