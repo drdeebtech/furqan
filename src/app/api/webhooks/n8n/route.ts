@@ -4,6 +4,36 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { notify } from "@/lib/notifications/dispatcher";
 import { safeCompareSecret } from "@/lib/security/secrets";
 import { logError } from "@/lib/logger";
+import type { Json, NotifType } from "@/types/database";
+
+const LogActionSchema = z.object({
+  workflow_name: z.string().min(1),
+  event_name: z.string().nullish(),
+  entity_type: z.string().nullish(),
+  entity_id: z.string().nullish(),
+  idempotency_key: z.string().nullish(),
+  status: z.string().nullish(),
+  channel: z.string().nullish(),
+  payload: z.unknown().optional(),
+  result: z.unknown().optional(),
+  error_message: z.string().nullish(),
+});
+
+const NotifyActionSchema = z.object({
+  user_id: z.string().uuid(),
+  title: z.string().min(1),
+  type: z.string().optional(),
+  body: z.string().nullish(),
+  entity_type: z.string().nullish(),
+  entity_id: z.string().nullish(),
+  template_name: z.string().nullish(),
+  urgent: z.boolean().optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
+});
+
+const CheckIdempotencySchema = z.object({
+  idempotency_key: z.string().min(1),
+});
 
 const MonthlyReportReadySchema = z.object({
   student_id: z.string().uuid(),
@@ -63,18 +93,26 @@ export async function POST(request: Request) {
 
   switch (action) {
     case "log": {
+      const logParsed = LogActionSchema.safeParse(data);
+      if (!logParsed.success) {
+        return NextResponse.json(
+          { error: "invalid payload", issues: logParsed.error.flatten() },
+          { status: 422 },
+        );
+      }
+      const logData = logParsed.data;
       // Write automation log entry
       const { error } = await supabase.from("automation_logs").insert({
-        workflow_name: data.workflow_name,
-        event_name: data.event_name ?? null,
-        entity_type: data.entity_type ?? null,
-        entity_id: data.entity_id ?? null,
-        idempotency_key: data.idempotency_key ?? null,
-        status: data.status ?? "succeeded",
-        channel: data.channel ?? null,
-        payload_json: data.payload ?? null,
-        result_json: data.result ?? null,
-        error_message: data.error_message ?? null,
+        workflow_name: logData.workflow_name,
+        event_name: logData.event_name ?? null,
+        entity_type: logData.entity_type ?? null,
+        entity_id: logData.entity_id ?? null,
+        idempotency_key: logData.idempotency_key ?? null,
+        status: logData.status ?? "succeeded",
+        channel: logData.channel ?? null,
+        payload_json: (logData.payload ?? null) as Json,
+        result_json: (logData.result ?? null) as Json,
+        error_message: logData.error_message ?? null,
         finished_at: new Date().toISOString(),
       });
       if (error) {
@@ -82,10 +120,10 @@ export async function POST(request: Request) {
           tag: "n8n-webhook",
           severity: "critical",
           metadata: {
-            workflow_name: data.workflow_name,
-            event_name: data.event_name ?? null,
-            entity_type: data.entity_type ?? null,
-            entity_id: data.entity_id ?? null,
+            workflow_name: logData.workflow_name,
+            event_name: logData.event_name ?? null,
+            entity_type: logData.entity_type ?? null,
+            entity_id: logData.entity_id ?? null,
           },
         });
         return NextResponse.json({ error: "Failed to log" }, { status: 500 });
@@ -94,6 +132,19 @@ export async function POST(request: Request) {
     }
 
     case "notify": {
+      // Validate the payload before any use — a malformed payload must not reach
+      // the throttle query or dispatch a notification with a missing recipient/
+      // title. (Replaces the earlier ad-hoc user_id/title guard; now 422 with the
+      // same error shape as the other validated actions.)
+      const notifyParsed = NotifyActionSchema.safeParse(data);
+      if (!notifyParsed.success) {
+        return NextResponse.json(
+          { error: "invalid payload", issues: notifyParsed.error.flatten() },
+          { status: 422 },
+        );
+      }
+      const notifyData = notifyParsed.data;
+
       // Per-user throttle: count in-app notifications delivered in the last
       // 60 seconds via this callback. If above the cap, drop with 429 so
       // the caller knows to back off — but still log the throttled attempt
@@ -102,17 +153,17 @@ export async function POST(request: Request) {
       const { count } = await supabase
         .from("message_delivery_log")
         .select("id", { count: "exact", head: true })
-        .eq("recipient_user_id", data.user_id)
+        .eq("recipient_user_id", notifyData.user_id)
         .eq("recipient_channel", "in_app")
         .gte("created_at", oneMinuteAgo);
 
       if ((count ?? 0) >= NOTIFY_PER_USER_PER_MINUTE) {
         const { error: throttleLogError } = await supabase.from("message_delivery_log").insert({
-          recipient_user_id: data.user_id,
+          recipient_user_id: notifyData.user_id,
           recipient_channel: "in_app",
-          template_name: data.template_name ?? null,
-          related_entity_type: data.entity_type ?? null,
-          related_entity_id: data.entity_id ?? null,
+          template_name: notifyData.template_name ?? null,
+          related_entity_type: notifyData.entity_type ?? null,
+          related_entity_id: notifyData.entity_id ?? null,
           status: "throttled",
         });
         if (throttleLogError) {
@@ -131,34 +182,26 @@ export async function POST(request: Request) {
       // notifications insert bypassed all of it — the "gating handled n8n-side"
       // claim was unsupported (n8n has no read access to communication_preferences).
       // notify() writes its own message_delivery_log, so no manual "sent" mirror.
-      // Validate required fields first (CodeRabbit) — a malformed payload should
-      // 400, not dispatch a notification with a missing recipient/title.
-      if (!data.user_id || !data.title) {
-        return NextResponse.json(
-          { error: "user_id and title are required" },
-          { status: 400 },
-        );
-      }
       try {
         await notify({
-          userId: data.user_id,
-          type: data.type ?? "system",
-          title: data.title,
-          body: data.body ?? undefined,
-          entityType: data.entity_type ?? undefined,
-          entityId: data.entity_id ?? undefined,
-          templateName: data.template_name ?? undefined,
-          urgent: data.urgent ?? undefined,
-          data: data.data ?? undefined,
+          userId: notifyData.user_id,
+          type: (notifyData.type ?? "system") as NotifType,
+          title: notifyData.title,
+          body: notifyData.body ?? undefined,
+          entityType: notifyData.entity_type ?? undefined,
+          entityId: notifyData.entity_id ?? undefined,
+          templateName: notifyData.template_name ?? undefined,
+          urgent: notifyData.urgent ?? undefined,
+          data: notifyData.data ?? undefined,
         });
       } catch (err) {
         logError("n8n webhook notify failed", err, {
           tag: "n8n-webhook",
           severity: "critical",
           metadata: {
-            user_id: data.user_id,
-            type: data.type ?? "system",
-            template_name: data.template_name ?? null,
+            user_id: notifyData.user_id,
+            type: notifyData.type ?? "system",
+            template_name: notifyData.template_name ?? null,
           },
         });
         return NextResponse.json({ error: "Failed to notify" }, { status: 500 });
@@ -168,11 +211,18 @@ export async function POST(request: Request) {
     }
 
     case "check_idempotency": {
+      const idemParsed = CheckIdempotencySchema.safeParse(data);
+      if (!idemParsed.success) {
+        return NextResponse.json(
+          { error: "invalid payload", issues: idemParsed.error.flatten() },
+          { status: 422 },
+        );
+      }
       // Check if an idempotency key already exists
       const { data: existing } = await supabase
         .from("automation_logs")
         .select("id")
-        .eq("idempotency_key", data.idempotency_key)
+        .eq("idempotency_key", idemParsed.data.idempotency_key)
         .eq("status", "succeeded")
         .returns<{ id: string }[]>()
         .single();

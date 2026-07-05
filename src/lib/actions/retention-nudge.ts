@@ -345,6 +345,11 @@ export async function nudgeOneStudent(
     studentId,
     { intervention_type: "reengagement_7d" },
     null,
+  ).catch((err) =>
+    logError("reengagement-nudge: emitEvent failed", err, {
+      tag: "retention-nudge",
+      studentId,
+    }),
   );
   return true;
 }
