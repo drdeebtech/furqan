@@ -119,10 +119,16 @@ const markNoErrorsObservedBase = loudAction<
     if (bookErr || !booking) throw notFoundOrInfra(bookErr, "تعذر العثور على الحجز");
     if (booking.teacher_id !== actorId) throw new UserError("ليس لديك صلاحية على هذه الجلسة");
 
-    // Find or create the student_progress row for this booking. The unique
-    // constraint on (student_id, booking_id) means upsert with onConflict
-    // returns the existing row id without inserting a duplicate.
-    const { data: progress, error: progErr } = await supabase
+    // Find or create the student_progress row for this booking. CRITICAL (F2):
+    // "no errors observed" must NEVER reclassify an existing row. A plain upsert
+    // here would overwrite progress_type with 'muraja' — silently downgrading a
+    // `new` (memorized) row, which drops that ḥifẓ item out of SM-2 review
+    // scheduling forever (compute_murajaah_batch_for_date seeds progress_type
+    // = 'new' only). So we insert-or-IGNORE: the row's progress_type is only set
+    // when the row is created fresh; if a row already exists it is left exactly
+    // as the teacher recorded it. `ignoreDuplicates` makes this race-safe (the
+    // (student_id, booking_id) unique constraint resolves concurrent inserts).
+    const { error: upsertErr } = await supabase
       .from("student_progress")
       .upsert({
         student_id: booking.student_id,
@@ -130,11 +136,24 @@ const markNoErrorsObservedBase = loudAction<
         booking_id: bookingId,
         progress_type: "muraja",
         teacher_notes: "no errors observed (sentinel)",
-      } satisfies TableInsert<"student_progress">, { onConflict: "student_id,booking_id" })
+      } satisfies TableInsert<"student_progress">, {
+        onConflict: "student_id,booking_id",
+        ignoreDuplicates: true,
+      });
+    if (upsertErr) {
+      throw new UserError("تعذر تسجيل الحالة — يرجى المحاولة مرة أخرى", { cause: upsertErr });
+    }
+
+    // Read back the row id (the insert-or-ignore above returns no row on
+    // conflict, so fetch it explicitly).
+    const { data: progress, error: progErr } = await supabase
+      .from("student_progress")
       .select("id")
+      .eq("student_id", booking.student_id)
+      .eq("booking_id", bookingId)
       .single<{ id: string }>();
     if (progErr || !progress) {
-      throw new UserError("تعذر تسجيل الحالة — يرجى المحاولة مرة أخرى", { cause: progErr ?? new Error("progress upsert returned no row") });
+      throw new UserError("تعذر تسجيل الحالة — يرجى المحاولة مرة أخرى", { cause: progErr ?? new Error("progress row not found after upsert") });
     }
 
     // Skip insert if a sentinel already exists for this progress row.

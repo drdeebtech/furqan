@@ -1,0 +1,19 @@
+-- F6: retire the legacy per-session credit deduct trigger.
+--
+-- `t_deduct_student_credit` (AFTER UPDATE on bookings, pending->confirmed)
+-- decrements public.student_credits — a table NO application code reads or
+-- writes anymore (superseded by student_packages + t_deduct_student_package;
+-- verified: the only src/ reference is a table-name string in rls.test.ts).
+-- It coexisted with the package deduct trigger, so a student holding BOTH a
+-- legacy student_credits row AND an active package was decremented from both
+-- on a single confirm. Because nothing consumes the student_credits balance,
+-- that decrement is dead weight — and a latent double-charge if any legacy
+-- rows remain in prod.
+--
+-- Drop ONLY the trigger. The table and its function are left in place so this
+-- stays a reversible, non-structural change; the table can be retired in a
+-- later contract-phase migration once confirmed empty in prod
+-- (`select count(*) from student_credits;`). Dropping a trigger that no live
+-- code path depends on is expand/contract-safe and is not a structural breaker
+-- the migration-safety guard blocks.
+drop trigger if exists t_deduct_student_credit on public.bookings;
