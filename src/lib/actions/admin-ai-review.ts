@@ -23,8 +23,7 @@ export async function approveReview(formData: FormData) {
   const { id } = ApproveSchema.parse({ id: formData.get("id") });
 
   const supabase = await createClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from("ai_output_review")
     .update({
       status: "approved",
@@ -41,8 +40,7 @@ export async function approveReview(formData: FormData) {
   // can't silently drop the bookings lookup / parent_reports + notifications inserts /
   // gate update. The status UPDATE above stays on the session client for the audit trail.
   // admin: requireAdmin; cross-user fan-out (parent_reports + notifications + bulk update) (issue #523)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = createAdminClient() as any;
+  const db = createAdminClient();
   try {
     const { data: row } = await db
       .from("ai_output_review")
@@ -135,8 +133,7 @@ export async function rejectReview(formData: FormData) {
   });
 
   const supabase = await createClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from("ai_output_review")
     .update({
       status: "rejected",
