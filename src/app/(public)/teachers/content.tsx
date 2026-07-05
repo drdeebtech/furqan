@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Award, ChevronLeft, ChevronRight, GraduationCap, Star } from "lucide-react";
+import { Award, GraduationCap, Star } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
+import { paginationIcons } from "@/lib/i18n/pagination-direction";
 import { logError } from "@/lib/logger";
 import { useFeatureFlags } from "@/lib/feature-flags-context";
 import { TEACHER_LANGUAGES } from "@/lib/constants";
@@ -141,8 +142,7 @@ export function TeachersContent({
   // Pagination arrows follow reading direction: in Arabic RTL "previous" points
   // right, in English LTR it points left (Bilingual-First rule). Label/aria stay
   // per-language; only the glyph swaps.
-  const PrevIcon = lang === "ar" ? ChevronRight : ChevronLeft;
-  const NextIcon = lang === "ar" ? ChevronLeft : ChevronRight;
+  const { PrevIcon, NextIcon } = paginationIcons(lang);
 
   return (
     <div>
