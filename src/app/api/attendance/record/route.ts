@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdminUser } from "@/app/api/scheduling/_adminAuth";
 import { finalizeAttendance, BookingNotFoundError, FinalizeAttendanceError, type AttendanceOutcome } from "@/lib/domains/attendance/finalize";
 import { logError } from "@/lib/logger";

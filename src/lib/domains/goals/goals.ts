@@ -65,7 +65,7 @@ export async function getActiveGoal(
   studentId: string,
 ): Promise<StudentGoalRow | null> {
   const { data, error } = await client
-    .from("student_goals" as never)
+    .from("student_goals")
     .select("id, student_id, surah_start, ayah_start, surah_end, ayah_end, target_date, created_at, updated_at")
     .eq("student_id", studentId)
     .order("created_at", { ascending: false })
@@ -80,8 +80,8 @@ export async function upsertGoal(
   input: Omit<StudentGoalRow, "id" | "created_at" | "updated_at">,
 ): Promise<void> {
   const { error } = await client
-    .from("student_goals" as never)
-    .upsert(input as never, { onConflict: "student_id" });
+    .from("student_goals")
+    .upsert(input, { onConflict: "student_id" });
   if (error) throw error;
 }
 

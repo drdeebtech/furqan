@@ -7,6 +7,7 @@ import { checkBotId } from "botid/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError, logInfo } from "@/lib/logger";
+import { getClientIp } from "@/lib/security/client-ip";
 import { withTimeout } from "@/lib/promise-utils";
 import { isSafeRelativePath } from "@/lib/security/safe-url";
 import { getPostHogClient } from "@/lib/posthog-server";
@@ -46,7 +47,7 @@ const AUDIT_LOG_TIMEOUT_MS = 2000;
 async function recordLogin(userId: string, email: string, role: string | null) {
   try {
     const h = await headers();
-    const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+    const ip = getClientIp(h);
     const userAgent = h.get("user-agent") ?? null;
     const admin = createAdminClient();
     await withTimeout(

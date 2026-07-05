@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
+import { getClientIp } from "@/lib/security/client-ip";
 
 export async function POST() {
   const supabase = await createClient();
@@ -13,7 +14,7 @@ export async function POST() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const h = await headers();
-      const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+      const ip = getClientIp(h);
       // admin: audit_log insert before signOut (can't use session client after) (issue #523)
       const admin = createAdminClient();
       await admin.from("audit_log").insert({

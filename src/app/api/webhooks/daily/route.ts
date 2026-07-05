@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
 import { emitEvent } from "@/lib/automation/emit";
@@ -19,6 +20,19 @@ import type { TableUpdate } from "@/lib/supabase/typed-helpers";
  */
 
 const SKEW_WINDOW_MS = 15 * 60 * 1000; // ±15 minutes (FR-001)
+
+// Runtime shape guard for the verified payload. `type` and `timestamp` MUST be
+// present and correctly typed: a missing/reshaped `timestamp` makes the skew
+// subtraction NaN, and `NaN > SKEW_WINDOW_MS` is false — silently passing a
+// malformed event through the stale-event guard. Passthrough keeps the many
+// vendor fields the handler reads by other means (id, room, data.*). Mirrors
+// the post-parse guard in the sibling bunny webhook route.
+const DailyPayloadSchema = z
+  .object({
+    type: z.string(),
+    timestamp: z.number(),
+  })
+  .passthrough();
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const rawBody = await request.text();
@@ -59,9 +73,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   }
 
+  // Validate shape before any field is trusted — fail closed on a payload
+  // missing/reshaping `type` or `timestamp` (see DailyPayloadSchema).
+  const parsed = DailyPayloadSchema.safeParse(payload);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
+  }
+
   // FR-001: reject events outside the ±15-min skew window.
   // Return 200 so Daily doesn't retry — this is a valid event, just too old/future.
-  const skewMs = Math.abs(Date.now() - payload.timestamp);
+  // parsed.data.timestamp is now guaranteed a number, so the subtraction is never NaN.
+  const skewMs = Math.abs(Date.now() - parsed.data.timestamp);
   if (skewMs > SKEW_WINDOW_MS) {
     logError(
       "daily-webhook: event outside ±15-min skew window",
