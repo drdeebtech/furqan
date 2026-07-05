@@ -65,6 +65,13 @@ begin
   returning id into v_progress_id;
   -- t_validate_student_progress_range fires here; an impossible range raises 23514.
 
+  -- Reject malformed p_errors: must be null or a JSON array, not an object/string/number.
+  -- A non-array value would silently fall through the array-based checks below, leaving
+  -- existing recitation_errors untouched and masking caller bugs.
+  if p_errors is not null and jsonb_typeof(p_errors) <> 'array' then
+    raise exception 'p_errors must be a JSON array' using errcode = '22023';
+  end if;
+
   if p_errors is not null and jsonb_typeof(p_errors) = 'array' and jsonb_array_length(p_errors) > 500 then
     raise exception 'too many recitation errors (max 500)' using errcode = '22023';
   end if;
@@ -72,7 +79,7 @@ begin
   -- Replace this booking's errors. When the teacher supplies real errors, clear
   -- ALL prior rows for this progress — including any "no errors observed"
   -- sentinel, which would otherwise coexist with real errors and leave a
-  -- contradictory state. When no errors are supplied (p_errors null/empty),
+  -- contradictory state. When no errors are supplied (p_errors null or empty array),
   -- leave existing rows untouched (preserves a prior sentinel set via
   -- markNoErrorsObserved).
   if p_errors is not null and jsonb_typeof(p_errors) = 'array' and jsonb_array_length(p_errors) > 0 then
