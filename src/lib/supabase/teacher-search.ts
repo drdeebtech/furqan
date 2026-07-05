@@ -83,3 +83,35 @@ export async function searchTeachers(
     limit: params.limit,
   };
 }
+
+export async function getPublicTeacher(
+  id: string,
+): Promise<TeacherCard | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await callRpc(supabase, "get_public_teacher", {
+    p_id: id,
+  });
+
+  if (error) throw error;
+
+  const rows = data ?? [];
+  const r = rows[0];
+  if (!r) return null;
+
+  return {
+    id: r.id,
+    name: r.full_name ?? "—",
+    nameAr: r.full_name_ar,
+    avatarUrl: r.avatar_url,
+    bio: r.bio,
+    bioEn: r.bio_en,
+    languages: r.languages ?? [],
+    specialties: r.specialties ?? [],
+    recitationStandards: r.recitation_standards ?? [],
+    hourlyRate: Number(r.hourly_rate),
+    ratingAvg: Number(r.rating_avg),
+    ratingCount: Number(r.rating_count),
+    totalSessions: Number(r.total_sessions),
+    gender: r.gender,
+  };
+}
