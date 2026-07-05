@@ -37,7 +37,7 @@ export const GET = withAuthedCronMonitor(
 
     const { data: sessions, error: sessionsErr } = await admin
       .from("sessions")
-      .select("id, booking_id, started_at")
+      .select("id, booking_id, started_at, teacher_joined")
       .not("started_at", "is", null)
       .is("ended_at", null);
 
@@ -45,7 +45,12 @@ export const GET = withAuthedCronMonitor(
       throw new Error(`auto-complete-sessions: select sessions: ${sessionsErr.message}`);
     }
 
-    const rows = (sessions ?? []) as { id: string; booking_id: string; started_at: string }[];
+    const rows = (sessions ?? []) as {
+      id: string;
+      booking_id: string;
+      started_at: string;
+      teacher_joined: boolean | null;
+    }[];
     if (rows.length === 0) {
       return NextResponse.json({ ok: true, ended: 0, scanned: 0, at: now.toISOString() });
     }
@@ -66,6 +71,7 @@ export const GET = withAuthedCronMonitor(
     );
 
     let ended = 0;
+    let closedNoTeacher = 0;
 
     for (const session of rows) {
       const booking = bookingMap[session.booking_id];
@@ -75,8 +81,10 @@ export const GET = withAuthedCronMonitor(
       if (elapsedMin <= booking.duration_min * 2) continue;
 
       const actualDuration = Math.round(elapsedMin);
+      const teacherAttended = session.teacher_joined === true;
 
       try {
+        // Always close the stranded session so the ghost timer clears.
         const { error: sessionUpdateErr } = await admin
           .from("sessions")
           .update({
@@ -86,6 +94,44 @@ export const GET = withAuthedCronMonitor(
           .eq("id", session.id)
           .is("ended_at", null);
         if (sessionUpdateErr) throw sessionUpdateErr;
+
+        if (!teacherAttended) {
+          // F3: the teacher never joined, so this is NOT a real completed
+          // lecture. Completing the booking would fire t_inc_teacher_sessions —
+          // recognizing revenue + a session count for a session that never
+          // happened, driven only by a student-settable `started_at`. Close the
+          // ghost, leave the booking status untouched, and log for ops review.
+          // A genuine teacher no-show is adjudicated out of band, never by
+          // silently marking the booking completed.
+          await admin
+            .from("audit_log")
+            .insert({
+              table_name: "sessions",
+              record_id: session.id,
+              action: "UPDATE",
+              old_data: { ended_at: null },
+              new_data: { ended_at: now.toISOString(), actual_duration: actualDuration },
+              reason: "إغلاق تلقائي — لم ينضم المعلّم؛ لم تُحتسب جلسة مكتملة",
+            } as never)
+            .then(({ error }) => {
+              if (error) {
+                logError("auto-complete-sessions: audit insert failed", error, {
+                  tag: "cron-auto-complete-sessions",
+                  metadata: { session_id: session.id },
+                });
+              }
+            });
+          logError(
+            "auto-complete-sessions: closed stranded session without teacher presence — booking NOT completed",
+            null,
+            {
+              tag: "cron-auto-complete-sessions",
+              metadata: { session_id: session.id, booking_id: session.booking_id },
+            },
+          );
+          closedNoTeacher++;
+          continue;
+        }
 
         const { error: bookingUpdateErr } = await admin
           .from("bookings")
@@ -165,6 +211,7 @@ export const GET = withAuthedCronMonitor(
     return NextResponse.json({
       ok: true,
       ended,
+      closedNoTeacher,
       scanned: rows.length,
       at: now.toISOString(),
     });
