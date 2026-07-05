@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { checkBotId } from "botid/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getClientIp } from "@/lib/security/client-ip";
 import { emitEvent } from "@/lib/automation/emit";
 import { sendTeacherWelcome, sendAdminTeacherApplicationAlert } from "@/lib/email";
 import { sendTelegramAlert } from "@/lib/n8n/client";
@@ -467,10 +468,7 @@ export async function submitTeacherApplication(
   }
 
   const hdrs = await headers();
-  const ipKey =
-    hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    hdrs.get("x-real-ip") ||
-    "unknown";
+  const ipKey = getClientIp(hdrs) ?? "unknown";
 
   const photoFile = formData.get("photo");
   const photo = photoFile instanceof File ? photoFile : null;

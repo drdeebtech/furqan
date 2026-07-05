@@ -23,7 +23,7 @@ function hashToken(raw: string): string {
  */
 
 const TOKEN_TTL_DAYS = 30;
-const TABLE = "parent_access_tokens" as never;
+const TABLE = "parent_access_tokens";
 
 export interface ParentTokenRow {
   id: string;
@@ -71,7 +71,7 @@ export async function createParentToken(input: {
       student_id: input.studentId,
       teacher_id: input.teacherId,
       expires_at: expiresAt,
-    } as never)
+    })
     .select("id")
     .single<{ id: string }>();
   if (error || !data) throw new Error(error?.message ?? "insert_failed");
@@ -88,7 +88,7 @@ export async function revokeParentToken(input: {
   const admin = createAdminClient();
   let q = admin
     .from(TABLE)
-    .update({ revoked_at: new Date().toISOString() } as never)
+    .update({ revoked_at: new Date().toISOString() })
     .eq("id", input.tokenId);
   if (!input.isAdmin) q = q.eq("teacher_id", input.teacherId);
   // `.select()` surfaces RLS-denied / wrong-owner updates as 0 rows instead of

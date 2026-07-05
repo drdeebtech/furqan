@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { consumeHandoff } from "@/lib/auth/remote-handoff";
+import { getClientIp } from "@/lib/security/client-ip";
 
 export const dynamic = "force-dynamic";
 
@@ -17,12 +18,7 @@ export async function GET(
 ) {
   const { code } = await params;
 
-  // Forwarded IP behind Vercel's edge proxy lives in `x-forwarded-for`;
-  // first comma-separated value is the original client.
-  const ip =
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    request.headers.get("x-real-ip") ||
-    null;
+  const ip = getClientIp(request.headers);
   const ua = request.headers.get("user-agent") || null;
 
   const result = await consumeHandoff(code, ip, ua);

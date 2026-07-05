@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { WifiOff, BookMarked, CalendarClock, AlertTriangle, GraduationCap } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
 import { checkRateLimit } from "@/lib/security/rate-limit";
+import { getClientIp } from "@/lib/security/client-ip";
 import { resolveParentToken, getParentPortalView } from "@/lib/domains/parent-portal/tokens";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 
@@ -25,10 +26,7 @@ export default async function ParentPortalPage({ params }: Props) {
 
   // Per-IP rate limit on this public, unauthenticated route — anti-enumeration.
   const h = await headers();
-  const ipKey =
-    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    h.get("x-real-ip") ||
-    "unknown";
+  const ipKey = getClientIp(h) ?? "unknown";
   // Fail-closed: a capability-token route's anti-enumeration guard must DENY on
   // a rate-limit backend error, not admit. (#563 CR)
   const allowed = await checkRateLimit(ipKey, "parent-portal-view", 60, { failClosed: true });
