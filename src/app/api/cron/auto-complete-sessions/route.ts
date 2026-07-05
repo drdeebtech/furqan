@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { withAuthedCronMonitor } from "@/lib/sentry/cron";
 import { emitEvent } from "@/lib/automation/emit";
 import { notify } from "@/lib/notifications/dispatcher";
+import { finalizeAttendance } from "@/lib/domains/attendance/finalize";
 import { logError } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +38,7 @@ export const GET = withAuthedCronMonitor(
 
     const { data: sessions, error: sessionsErr } = await admin
       .from("sessions")
-      .select("id, booking_id, started_at, teacher_joined")
+      .select("id, booking_id, started_at, teacher_joined, student_joined")
       .not("started_at", "is", null)
       .is("ended_at", null);
 
@@ -50,6 +51,7 @@ export const GET = withAuthedCronMonitor(
       booking_id: string;
       started_at: string;
       teacher_joined: boolean | null;
+      student_joined: boolean | null;
     }[];
     if (rows.length === 0) {
       return NextResponse.json({ ok: true, ended: 0, scanned: 0, at: now.toISOString() });
@@ -138,6 +140,23 @@ export const GET = withAuthedCronMonitor(
           .update({ status: "completed" })
           .eq("id", session.booking_id);
         if (bookingUpdateErr) throw bookingUpdateErr;
+
+        // F4: accrue teacher payroll (session_deliveries) for a genuinely
+        // attended session. Only when BOTH parties actually joined do we mark it
+        // 'present' — finalize_attendance pays the teacher only for a 'present'
+        // outcome, and this automated path has no human attestation, so we
+        // require positive attendance evidence rather than guess (a teacher-only
+        // presence is left for out-of-band admin adjudication). Idempotent (NOT
+        // EXISTS guard on session_deliveries) + best-effort: a payroll hiccup
+        // must never block the session cleanup above.
+        if (session.student_joined === true) {
+          await finalizeAttendance(admin, session.booking_id, "present").catch((err) =>
+            logError("auto-complete-sessions: finalizeAttendance(present) failed", err, {
+              tag: "cron-auto-complete-sessions",
+              metadata: { session_id: session.id, booking_id: session.booking_id },
+            }),
+          );
+        }
 
         // Route through the dispatcher (P3 #345) so preference / quiet-hours
         // gating + delivery logging apply — never a direct notifications insert.

@@ -15,6 +15,7 @@ import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import type { Database } from "@/types/supabase.generated";
 import { createRoom } from "@/lib/daily";
 import { awardAchievement } from "@/lib/domains/achievements/award";
+import { finalizeAttendance } from "@/lib/domains/attendance/finalize";
 import {
   SessionEndError,
   SessionNotFoundError,
@@ -203,6 +204,22 @@ export async function endSession(input: EndSessionInput): Promise<EndSessionResu
   await awardAchievement(booking.student_id, "first_session").catch((err) =>
     logError("endSession: first_session award failed", err, { tag: "achievements" }),
   );
+
+  // F4: accrue teacher payroll (session_deliveries) now that the booking is
+  // completed. A teacher/admin explicitly ending a STARTED session attests it
+  // was delivered → 'present'. `finalize_attendance` is idempotent (first-write
+  // wins on attendance_records + NOT EXISTS on the delivery) and service-role
+  // only; best-effort so a payroll hiccup never turns a successful end into a
+  // failure. `started_at` guards against accruing for a session that never began
+  // (a genuine no-show goes through recordNoShow → status='no_show', not here).
+  if (session.started_at) {
+    await finalizeAttendance(supabase, session.booking_id, "present").catch((err) =>
+      logError("endSession: finalizeAttendance(present) failed", err, {
+        component: "session.orchestrate.endSession",
+        metadata: { bookingId: session.booking_id, sessionId },
+      }),
+    );
+  }
 
   return {
     sessionId,

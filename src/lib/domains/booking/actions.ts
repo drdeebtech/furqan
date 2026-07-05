@@ -28,6 +28,13 @@ import { selectActivePackage } from "@/lib/domains/package/ledger";
 
 const THIRTY_MINUTES_MS = 30 * 60 * 1000;
 
+// F5: max concurrent pending (unconfirmed) bookings per student. The create-time
+// package check below is an existence check, not a hold — one credit otherwise
+// lets a student spawn unlimited pending bookings (teacher spam + a misleading
+// no_package_credit for whichever teacher confirms second). Generous cap: blocks
+// abuse without touching normal use (a student rarely has >1-2 pending).
+const MAX_PENDING_BOOKINGS_PER_STUDENT = 10;
+
 /**
  * Booking domain — write surface (Phase 5 pilot, ADR-0002).
  *
@@ -84,6 +91,27 @@ export async function createBooking(
     throw new BookingValidationError(
       "student_package",
       "لا توجد باقة نشطة — يرجى شراء أو تجديد باقة قبل الحجز",
+    );
+  }
+
+  // F5: cap concurrent pending bookings (see MAX_PENDING_BOOKINGS_PER_STUDENT).
+  const { count: pendingCount, error: pendingErr } = await supabase
+    .from("bookings")
+    .select("id", { count: "exact", head: true })
+    .eq("student_id", studentId)
+    .eq("status", "pending");
+  if (pendingErr) {
+    // Soft anti-abuse guard — fail OPEN on a transient count error (log, don't
+    // deny) so a DB blip never blocks legitimate bookings. The authoritative
+    // money guard is the confirm-time deduct trigger, unaffected by this.
+    logError("createBooking: pending-count check failed — allowing", pendingErr, {
+      tag: "booking",
+      metadata: { studentId },
+    });
+  } else if ((pendingCount ?? 0) >= MAX_PENDING_BOOKINGS_PER_STUDENT) {
+    throw new BookingValidationError(
+      "student_package",
+      "لديك عدد كبير من الحجوزات قيد الانتظار — يرجى انتظار تأكيدها قبل إنشاء حجز جديد",
     );
   }
 
