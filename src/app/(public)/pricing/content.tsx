@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { CheckCircle, Users, User, ChevronDown } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { useFeatureFlags } from "@/lib/feature-flags-context";
 import { RegisterBanner } from "@/components/public/register-banner";
-import { TRIAL_POLICY, ABSENCE_POLICY, SESSION_DURATION, PRICING_MODEL, FAMILY_POLICY } from "@/lib/copy/policies";
+import { TRIAL_POLICY, ABSENCE_POLICY, SESSION_DURATION, PRICING_MODEL, FAMILY_POLICY, PREPAID_HOURS_POLICY } from "@/lib/copy/policies";
 
 interface Plan {
   id: string;
@@ -145,7 +146,256 @@ export interface Faq {
   answer_en: string;
 }
 
-export function PricingContent({ plans, faqs }: { plans: Plan[]; faqs: Faq[] }) {
+/**
+ * Spec 038 — prepaid-hour wallet config passed SERVER-SIDE only (T6.1).
+ *
+ * `prepaid` is null when the `prepaid_hours_purchase_enabled` flag is off; when
+ * non-null, the "Pay as you go" card renders and the disambiguator line above
+ * the plans switches to `PRICING_MODEL.disambiguatorWithPrepaid` (names all
+ * three systems). All values come from platform_settings, parsed defensively
+ * in the server page module; the client never re-derives rate or bounds.
+ */
+export interface PrepaidConfig {
+  rateUsd: number;
+  presets: number[];
+  min: number;
+  max: number;
+}
+
+/**
+ * Spec 038 — "Pay as you go" prepaid-hours card (T6.1).
+ *
+ * Visual language mirrors PlanCard (glass-card, glass-gold CTA, min-h-[44px]
+ * tap targets, focus-ring). State is local: the selected hour count is the
+ * only piece of mutable state; presets are clamped into [min,max], the custom
+ * number input is clamped on blur, and the live total = hours × rateUsd.
+ *
+ * Checkout: POST `/api/stripe/checkout/prepaid-hours` with `{ hours }`. The
+ * route is the authority on rate/bounds (FR-002) — the client never sends a
+ * price. 401 → /login?next=/pricing; 404/422/500 → inline bilingual error.
+ * On success the browser is redirected to the Stripe Checkout URL.
+ */
+function PrepaidCard({
+  prepaid,
+  t,
+}: {
+  prepaid: PrepaidConfig;
+  t: (ar: string, en: string) => string;
+}) {
+  const presetValues = prepaid.presets
+    .map((n) => Math.max(prepaid.min, Math.min(prepaid.max, Math.floor(n))))
+    .filter((n, i, arr) => arr.indexOf(n) === i);
+
+  const [selectedHours, setSelectedHours] = useState<number>(
+    presetValues[0] ?? prepaid.min,
+  );
+  // Empty string = "no custom value typed"; presets set it back to "" so the
+  // preset button is the highlighted source of truth when active.
+  const [customInput, setCustomInput] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const clamp = (n: number) => Math.max(prepaid.min, Math.min(prepaid.max, n));
+  const presetSelected = customInput === "" && presetValues.includes(selectedHours);
+  const totalPrice = selectedHours * prepaid.rateUsd;
+
+  const handlePreset = (hours: number) => {
+    setError(null);
+    setCustomInput("");
+    setSelectedHours(hours);
+  };
+
+  const handleCustomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError(null);
+    const raw = e.target.value;
+    setCustomInput(raw);
+    if (raw === "") return;
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) {
+      setSelectedHours(clamp(Math.floor(n)));
+    }
+  };
+
+  const handleCustomBlur = () => {
+    if (customInput === "") return;
+    const n = Number(customInput);
+    if (!Number.isFinite(n) || n <= 0) {
+      setCustomInput("");
+      return;
+    }
+    const clamped = clamp(Math.floor(n));
+    setCustomInput(String(clamped));
+    setSelectedHours(clamped);
+  };
+
+  const handleBuy = async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/stripe/checkout/prepaid-hours", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hours: selectedHours }),
+      });
+      if (res.status === 401) {
+        // Not signed in → send to login with a return-to-pricing next hop.
+        window.location.href = "/login?next=/pricing";
+        return;
+      }
+      if (!res.ok) {
+        const fallback = t(
+          "تعذّر بدء عملية الدفع. حاول مرة أخرى.",
+          "Couldn't start checkout. Please try again.",
+        );
+        let msg = fallback;
+        try {
+          const body = await res.json();
+          if (body?.error && typeof body.error === "string") msg = body.error;
+        } catch {
+          // keep default
+        }
+        setError(msg);
+        setSubmitting(false);
+        return;
+      }
+      const body = await res.json();
+      const checkoutUrl: unknown = body?.data?.checkoutUrl;
+      if (typeof checkoutUrl !== "string" || checkoutUrl.length === 0) {
+        setError(
+          t(
+            "تعذّر بدء عملية الدفع. حاول مرة أخرى.",
+            "Couldn't start checkout. Please try again.",
+          ),
+        );
+        setSubmitting(false);
+        return;
+      }
+      window.location.href = checkoutUrl;
+    } catch {
+      setError(
+        t(
+          "تعذّر الاتصال بالخادم. حاول مرة أخرى.",
+          "Couldn't reach the server. Please try again.",
+        ),
+      );
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="glass-card flex flex-col gap-5 p-6 sm:p-8">
+      <div>
+        <h3 className="font-display text-2xl font-bold">
+          {t(PREPAID_HOURS_POLICY.short.ar, PREPAID_HOURS_POLICY.short.en)}
+        </h3>
+        <p className="mt-2 text-sm leading-relaxed text-muted">
+          {t(PREPAID_HOURS_POLICY.long.ar, PREPAID_HOURS_POLICY.long.en)}
+        </p>
+      </div>
+
+      <div>
+        <p className="text-xs font-medium text-muted">
+          {t("اختر عدد الساعات", "Choose hours")}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {presetValues.map((hours) => {
+            const active = presetSelected && selectedHours === hours;
+            return (
+              <button
+                key={hours}
+                type="button"
+                onClick={() => handlePreset(hours)}
+                aria-pressed={active}
+                className={[
+                  "glass-pill inline-flex min-h-[44px] items-center justify-center px-4 py-2 text-sm font-semibold transition-colors focus-ring",
+                  active
+                    ? "glass-gold text-background"
+                    : "border border-gold/40 text-gold hover:bg-gold/10",
+                ].join(" ")}
+              >
+                <span dir="ltr">{hours}</span>
+                <span className="mx-1" aria-hidden="true">·</span>
+                {t("ساعة", "hrs")}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <label
+          htmlFor="prepaid-custom-hours"
+          className="text-xs font-medium text-muted"
+        >
+          {t("أو أدخل عدداً مخصصاً", "Or enter a custom amount")}
+        </label>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <input
+            id="prepaid-custom-hours"
+            type="number"
+            inputMode="numeric"
+            min={prepaid.min}
+            max={prepaid.max}
+            step={1}
+            value={customInput}
+            onChange={handleCustomChange}
+            onBlur={handleCustomBlur}
+            placeholder={`${prepaid.min}–${prepaid.max}`}
+            className="min-h-[44px] w-32 rounded-lg border border-gold/30 bg-surface px-3 py-2 text-sm text-foreground focus-ring"
+            dir="ltr"
+          />
+          <span className="text-xs text-muted">
+            {t(
+              `الحد الأدنى ${prepaid.min}، الأقصى ${prepaid.max}`,
+              `Min ${prepaid.min}, max ${prepaid.max}`,
+            )}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+        <div>
+          <p className="text-xs text-muted">{t("الإجمالي", "Total")}</p>
+          <p className="font-display text-2xl font-bold" dir="ltr">
+            ${totalPrice.toFixed(0)}
+            <span className="ms-1 text-sm font-normal text-muted">
+              ({selectedHours} × ${prepaid.rateUsd})
+            </span>
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleBuy}
+          disabled={submitting}
+          className="glass-gold glass-pill inline-flex min-h-[44px] items-center justify-center px-6 py-3 text-sm font-semibold text-background transition-colors hover:bg-gold-hover focus-ring disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {submitting
+            ? t("جارٍ التوجيه…", "Redirecting…")
+            : t("اشترِ الساعات", "Buy hours")}
+        </button>
+      </div>
+
+      {error && (
+        <p
+          role="alert"
+          className="rounded-lg glass-danger p-3 text-sm text-error"
+        >
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function PricingContent({
+  plans,
+  faqs,
+  prepaid,
+}: {
+  plans: Plan[];
+  faqs: Faq[];
+  prepaid: PrepaidConfig | null;
+}) {
   const { t } = useLang();
   const { hidePrices } = useFeatureFlags();
 
@@ -242,10 +492,17 @@ export function PricingContent({ plans, faqs }: { plans: Plan[]; faqs: Faq[] }) 
           {/* Disambiguator ABOVE the cards — the archetypal confused visitor
               arrives from /teachers holding "$20-30/hr" and must meet the
               subscriptions-vs-single-sessions distinction before the prices
-              (decision 42; 5/7-persona finding). */}
+              (decision 42; 5/7-persona finding). When the prepaid-hours flag is
+              ON (spec 038), swap in disambiguatorWithPrepaid so all three
+              pricing systems are named and the visitor is never blindsided. */}
           {!hidePrices && plans.length > 0 && (
             <p className="text-center text-sm text-muted">
-              {t(PRICING_MODEL.disambiguator.ar, PRICING_MODEL.disambiguator.en)}
+              {prepaid
+                ? t(
+                    PRICING_MODEL.disambiguatorWithPrepaid.ar,
+                    PRICING_MODEL.disambiguatorWithPrepaid.en,
+                  )
+                : t(PRICING_MODEL.disambiguator.ar, PRICING_MODEL.disambiguator.en)}
             </p>
           )}
           {hidePrices ? (
@@ -277,6 +534,11 @@ export function PricingContent({ plans, faqs }: { plans: Plan[]; faqs: Faq[] }) 
               .filter((tier) => tier.plans.length > 0)
               .map((tier) => <Tier key={tier.labelEn} tier={tier} t={t} />)
           )}
+
+          {/* Spec 038 — "Pay as you go" prepaid-hours card. Rendered only when
+              the server gate passed a non-null `prepaid` config (flag ON). Sits
+              after the subscription tiers so the recurring plans stay primary. */}
+          {prepaid && !hidePrices && <PrepaidCard prepaid={prepaid} t={t} />}
 
           {!hidePrices && plans.length > 0 && (
             <p className="text-center text-xs text-muted">

@@ -18,6 +18,7 @@ import { TodaysPlan } from "./todays-plan";
 import { GoalCard } from "./goal-card";
 import { AchievementShelf } from "./achievement-shelf";
 import { UpgradeNudgeCard } from "./upgrade-nudge-card";
+import { PrepaidWalletCard, type PrepaidWalletData } from "./prepaid-wallet-card";
 import type { GoalDashboardData } from "@/lib/domains/goals/goals";
 
 interface DashboardData {
@@ -42,6 +43,9 @@ interface DashboardData {
   latestEvaluation: { next_goals: string | null; evaluation_type: string; created_at: string } | null;
   goal: GoalDashboardData | null;
   achievements: { type: string; metadata_json: Record<string, unknown>; unlocked_at: string }[];
+  // Spec 038 — null when the student has no active prepaid lots; subscription-
+  // only students never see the wallet widget.
+  prepaidWallet: PrepaidWalletData | null;
   renderedAtMs: number;
 }
 
@@ -78,11 +82,12 @@ function StudentDashboardContentInner({
     fullName, nextBooking, sessionId, totalSessions, monthSessions, pendingBookings, nameMap,
     activePackages, nextQuiz, lastProgress, resumeLesson, streakInfo,
     homeworkPulse, todaySessions, todayHomework, latestEvaluation,
-    goal, achievements, renderedAtMs,
+    goal, achievements, prepaidWallet, renderedAtMs,
   } = data;
 
   useEffect(() => {
     const sub = searchParams.get("subscription");
+    const prepaid = searchParams.get("prepaid_hours");
     if (searchParams.get("booked") === "1") {
       toast.success(t("تم الحجز بنجاح! سيتم تأكيده من المعلم", "Booking submitted! Teacher will confirm soon."));
       window.history.replaceState(null, "", "/student/dashboard");
@@ -91,6 +96,17 @@ function StudentDashboardContentInner({
       window.history.replaceState(null, "", "/student/dashboard");
     } else if (sub === "cancelled") {
       toast.info(t("تم إلغاء عملية الدفع", "Payment was cancelled."));
+      window.history.replaceState(null, "", "/student/dashboard");
+    } else if (prepaid === "success") {
+      // Spec 038 — Stripe success_url for the prepaid-hours checkout.
+      toast.success(
+        t("تم شراء الساعات بنجاح! رصيدك جاهز للاستخدام", "Hours purchased! Your balance is ready to use."),
+      );
+      window.history.replaceState(null, "", "/student/dashboard");
+    } else if (prepaid === "cancelled") {
+      toast.info(
+        t("تم إلغاء شراء الساعات", "Hours purchase was cancelled."),
+      );
       window.history.replaceState(null, "", "/student/dashboard");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -313,6 +329,16 @@ function StudentDashboardContentInner({
             <GoalCard goal={goal} />
           </SectionErrorBoundary>
         </div>
+
+        {/* Spec 038 — prepaid-hour wallet. Renders only when the student owns
+            active prepaid lots; subscription-only students never see it. */}
+        {prepaidWallet && (
+          <div className="mt-8">
+            <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل محفظة الساعات", "Couldn't load your hours wallet")}>
+              <PrepaidWalletCard wallet={prepaidWallet} />
+            </SectionErrorBoundary>
+          </div>
+        )}
 
         {latestEvaluation?.next_goals && (
           <SectionErrorBoundary fallbackLabel={t("تعذّر تحميل التركيز", "Couldn't load focus")}>
