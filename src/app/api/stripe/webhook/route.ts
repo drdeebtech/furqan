@@ -11,6 +11,8 @@ import {
   handleSubscriptionDeleted,
   handlePaymentIntentSucceeded,
   handlePrepaidHoursGrant,
+  handleChargeRefunded,
+  handleChargeDisputed,
   markEvent,
   type EventContext,
 } from "@/lib/domains/billing/webhook-handlers";
@@ -136,6 +138,18 @@ async function dispatch(ctx: EventContext): Promise<NextResponse> {
         } else {
           await handlePaymentIntentSucceeded(ctx);
         }
+        break;
+      case "charge.refunded":
+        // Spec 038 R8/H5: finalize the admin refund saga (when metadata carries
+        // a refund_request_id) OR reconcile an external Stripe-side refund by
+        // voiding the prepaid lot's remaining hours.
+        await handleChargeRefunded(ctx);
+        break;
+      case "charge.dispute.created":
+        // Spec 038 H5: chargeback voids the prepaid lot's remaining hours.
+        // Other dispute events (.updated/.closed/.funds_reinstated) are
+        // informational → default branch marks them ignored.
+        await handleChargeDisputed(ctx);
         break;
       default:
         await markEvent(ctx, "ignored");

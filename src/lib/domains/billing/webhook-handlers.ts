@@ -808,6 +808,149 @@ export async function handlePrepaidHoursGrant(ctx: EventContext): Promise<void> 
   await markEvent(ctx, "processed");
 }
 
+// ── charge.refunded → finalize admin refund saga OR reconcile external (spec 038 R8/H5) ──
+//
+// Two paths in one handler:
+//   • Admin saga: the refund object's metadata carries `refund_request_id` (set
+//     by the T5.4 admin action that called stripe.refunds.create with
+//     idempotency_key = refund_request_id). We finalize the pending
+//     prepaid_refund_requests row → status='succeeded' + 'refunded' ledger event.
+//     Hours were already voided at reserve; finalize is bookkeeping.
+//   • H5 external: no refund_request_id in metadata → a Stripe-dashboard refund
+//     or other out-of-band reversal. If the PI maps to a prepaid_hours lot, we
+//     void that lot's still-remaining hours via reconcile_external_prepaid_refund
+//     so the wallet cannot stay spendable after money is reversed.
+//
+// Idempotency: finalize is a no-op on already-succeeded requests; reconcile is a
+// no-op on lots with 0 remaining. The route-level billing_events UNIQUE on
+// event.id dedups exact redelivery.
+export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
+  const charge = ctx.event.data.object as Stripe.Charge;
+
+  // FR / Edge: USD only.
+  if (charge.currency !== "usd") {
+    logError("stripe-webhook: charge.refunded non-USD rejected", new Error("non-usd"), {
+      tag: "stripe-webhook",
+      event_id: ctx.event.id,
+      currency: charge.currency,
+    });
+    await markEvent(ctx, "failed", `non-usd currency: ${charge.currency}`);
+    return;
+  }
+
+  const piId = typeof charge.payment_intent === "string" ? charge.payment_intent : null;
+  const refunds = charge.refunds?.data ?? [];
+
+  if (refunds.length === 0) {
+    await markEvent(ctx, "ignored", "charge.refunded with no refund objects");
+    return;
+  }
+
+  // Walk every refund on this charge. Redelivery safety: finalize/reconcile are
+  // both idempotent, so processing a refund twice is a no-op.
+  for (const refund of refunds) {
+    const refundMd = (refund.metadata ?? {}) as Record<string, string | undefined>;
+    const requestId = refundMd.refund_request_id;
+
+    if (requestId) {
+      // Admin saga (T5.1/T5.2). Finalize.
+      const { error } = await ctx.admin.rpc("finalize_prepaid_refund", {
+        p_refund_request_id: requestId,
+        p_stripe_ref: refund.id,
+      });
+      if (error) {
+        logError("stripe-webhook: finalize_prepaid_refund failed", error, {
+          tag: "stripe-webhook",
+          refund_request_id: requestId,
+        });
+        await markEvent(ctx, "failed", `finalize ${requestId}: ${error.message}`);
+        return;
+      }
+      continue;
+    }
+
+    // H5 external: no refund_request_id. Reconcile only if this is a prepaid lot.
+    if (piId) {
+      const { data: lot } = await ctx.admin
+        .from("student_packages")
+        .select("id")
+        .eq("stripe_payment_intent_id", piId)
+        .eq("product_type", "prepaid_hours")
+        .maybeSingle<{ id: string }>();
+      if (lot) {
+        const { error } = await ctx.admin.rpc("reconcile_external_prepaid_refund", {
+          p_payment_intent: piId,
+        });
+        if (error) {
+          logError("stripe-webhook: reconcile_external_prepaid_refund failed", error, {
+            tag: "stripe-webhook",
+            pi_id: piId,
+          });
+          await markEvent(ctx, "failed", `reconcile external: ${error.message}`);
+          return;
+        }
+      }
+    }
+  }
+
+  await markEvent(ctx, "processed");
+}
+
+// ── charge.dispute.created → H5 external reversal (chargeback) ────────────────
+//
+// A dispute/chargeback reverses money (provisionally) outside our admin saga.
+// If the disputed PI maps to a prepaid_hours lot, void its remaining hours via
+// reconcile_external_prepaid_refund. We do NOT un-void if the dispute is later
+// won — the merchant would re-grant manually (out of scope here). Only
+// `charge.dispute.created` triggers the void; later dispute events
+// (.updated/.closed/.funds_reinstated) are informational and ignored.
+export async function handleChargeDisputed(ctx: EventContext): Promise<void> {
+  const dispute = ctx.event.data.object as Stripe.Dispute;
+
+  if (dispute.currency !== "usd") {
+    logError("stripe-webhook: charge.dispute non-USD ignored", new Error("non-usd"), {
+      tag: "stripe-webhook",
+      event_id: ctx.event.id,
+      currency: dispute.currency,
+    });
+    await markEvent(ctx, "ignored", `non-usd dispute: ${dispute.currency}`);
+    return;
+  }
+
+  const piId = typeof dispute.payment_intent === "string" ? dispute.payment_intent : null;
+  if (!piId) {
+    await markEvent(ctx, "ignored", "dispute has no payment_intent");
+    return;
+  }
+
+  // Only void if this is actually a prepaid lot — avoids a no-op RPC (and the
+  // log noise) for non-prepaid disputes that route through this handler.
+  const { data: lot } = await ctx.admin
+    .from("student_packages")
+    .select("id")
+    .eq("stripe_payment_intent_id", piId)
+    .eq("product_type", "prepaid_hours")
+    .maybeSingle<{ id: string }>();
+  if (!lot) {
+    await markEvent(ctx, "processed", "dispute not on a prepaid lot; ignored");
+    return;
+  }
+
+  const { error } = await ctx.admin.rpc("reconcile_external_prepaid_refund", {
+    p_payment_intent: piId,
+  });
+  if (error) {
+    logError("stripe-webhook: dispute reconcile failed", error, {
+      tag: "stripe-webhook",
+      pi_id: piId,
+    });
+    await markEvent(ctx, "failed", `dispute reconcile: ${error.message}`);
+    return;
+  }
+
+  await markEvent(ctx, "processed");
+}
+
 /**
  * Call the appropriate atomic creator to materialize the booking. The creator
  * also links `payments.booking_id` in the SAME transaction. Returns
