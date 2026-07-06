@@ -1,12 +1,15 @@
 # furqan.today — Product Marketing Context (source of truth)
 
 > Auto-read by CRO/marketing skills. Keep factual. Prices/policies cite specs + code; if you
-> change a plan or policy, update this file in the same PR. Last verified: 2026-06-29.
+> change a plan or policy, update this file in the same PR. Last verified: 2026-07-06.
 
 ## Product
 
 Online **Quran-memorization (hifz)** platform. Business model = **monthly recurring subscriptions**
-(Stripe) + one-time courses/single-sessions. Replaces the legacy per-session-booking model.
+(Stripe) + one-time courses/single-sessions. Subscriptions are the **primary** model, not a
+wholesale replacement: per-session / on-demand booking stays available for enrolled students and
+instant sessions (teacher hourly rate shown on cards) — **both pricing systems stay public** per
+pivot decision #42 (see `src/lib/copy/policies.ts` `PRICING_MODEL`).
 Delivery: **live video** sessions (Daily.co). Fully bilingual **Arabic/English, RTL-first**.
 
 Two sellable hifz tracks on the live pricing page:
@@ -46,10 +49,10 @@ Individual basis = **$10/session-hour** (`hifz_individual_hourly_rate_usd=10`). 
 
 ## Policies (current, public-facing — confirmed by owner 2026-06-22)
 
-- **Trial:** a **free 15-min placement/assessment call** (تقييم) — specialist-matched, framed as a short **placement, not a full lesson**. **No free subscription trial and no free teaching lessons** (live teacher time is never free). Decided 2026-06-22 (DB seed already $0); may revisit to a small paid fee once testimonials + funnel are proven.
+- **Trial:** a **free 30-min evaluation session** (تقييم) — specialist-matched, **one per student**, **booked and confirmed via WhatsApp**, framed as a **placement, not a full lesson**. **No free subscription trial and no free teaching lessons** (live teacher time is never free). Free + 30-min per pivot decision #40 (2026-07-02), which **supersedes** the earlier 15-min call (2026-06-22); DB seed $0, hardcoded 30-min duration. Source of truth: `src/lib/copy/policies.ts` (`TRIAL_POLICY`). May revisit to a small paid fee once testimonials + funnel are proven.
 - **Cancellation:** **via support** (no in-app self-cancel route exists yet; Stripe Customer Portal is the spec intent). Public copy: "Monthly, no long-term contract."
 - **Refunds:** **case-by-case via support** — no automated refund path. ⚠️ Single-session charge-but-unserved refund ownership is **undefined and BLOCKING for go-live** (spec 022).
-- **Missed session:** **counts toward the plan, not made up.** (Conversion-negative — consider a makeup/reschedule policy.)
+- **Missed session:** **excused** absence (≥2h notice, **teacher approves**) → **rescheduled at no cost**; **unexcused** (no adequate notice) → **counts toward the plan**; **teacher-absent / excused-carried** → **credit restored, not counted against the student** (enforced in `finalize_attendance`). Public copy must mirror `src/lib/copy/policies.ts` (`ABSENCE_POLICY`) — the flat "not made up" line was inaccurate. (Self-serve makeup/reschedule for the unexcused case is still a conversion consideration.)
 
 ## Positioning / trust
 
@@ -67,5 +70,5 @@ Individual basis = **$10/session-hour** (`hifz_individual_hourly_rate_usd=10`). 
 
 1. Real **testimonials / student count / teacher count** for social proof.
 2. Final **refund** policy + the single-session unserved-refund owner (go-live blocker).
-3. Final **family discount %**. (Assessment session = free 15-min placement — decided 2026-06-22.)
+3. Final **family discount %**. (Assessment session = **free 30-min evaluation**, one per student — pivot decision #40, 2026-07-02, supersedes the earlier 15-min call.)
 4. Whether to add **self-serve cancel** and **missed-session makeup** (both lift conversion).
