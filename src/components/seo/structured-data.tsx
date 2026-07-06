@@ -122,3 +122,46 @@ export function WebSiteSchema() {
 // The real visible FAQ on /contact is DB-driven from `site_faqs`. The correct
 // replacement is a DYNAMIC FAQPage schema generated from those same `site_faqs`
 // rows and rendered only on /contact. Tracked as a follow-up.
+
+export function PersonSchema({
+  name,
+  alternateName,
+  image,
+  knowsLanguage,
+  ratingAvg,
+  ratingCount,
+}: {
+  name: string;
+  alternateName?: string | null;
+  image?: string | null;
+  knowsLanguage?: string[];
+  ratingAvg?: number;
+  ratingCount?: number;
+}) {
+  // Public fields only — never email/phone/internal URLs (spec 037 T4).
+  // aggregateRating is emitted ONLY when ratingCount >= 3, mirroring the
+  // card/page rating gate (#542) so we never publish a score derived from
+  // fewer than three reviews.
+  const hasRating = typeof ratingCount === "number" && ratingCount >= 3 && typeof ratingAvg === "number";
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name,
+    jobTitle: "Quran Teacher",
+    ...(alternateName ? { alternateName } : {}),
+    ...(image ? { image } : {}),
+    ...(knowsLanguage && knowsLanguage.length > 0 ? { knowsLanguage } : {}),
+    ...(hasRating
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: ratingAvg!.toFixed(1),
+            ratingCount: ratingCount!,
+          },
+        }
+      : {}),
+  };
+
+  // Escaped via safeJsonLd — name/alternateName are teacher-editable.
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }} />;
+}

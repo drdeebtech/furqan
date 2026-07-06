@@ -6391,6 +6391,25 @@ export type Database = {
         Args: { p_actual_duration: number; p_session_id: string }
         Returns: string
       }
+      get_public_teacher: {
+        Args: { p_id: string }
+        Returns: {
+          avatar_url: string | null
+          bio: string | null
+          bio_en: string | null
+          full_name: string | null
+          full_name_ar: string | null
+          gender: string | null
+          hourly_rate: number
+          id: string
+          languages: string[]
+          rating_avg: number
+          rating_count: number
+          recitation_standards: string[]
+          specialties: string[]
+          total_sessions: number
+        }[]
+      }
       get_teacher_overdue_eval_count: {
         Args: { p_teacher_id: string }
         Returns: number

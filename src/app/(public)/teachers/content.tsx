@@ -256,22 +256,28 @@ export function TeachersContent({
                           id={`teacher-${teacher.id}`}
                           className="glass-card p-6 scroll-mt-24 target:ring-2 target:ring-gold"
                         >
-                          {teacher.avatarUrl ? (
-                            <Image
-                              src={teacher.avatarUrl}
-                              alt={displayName}
-                              width={80}
-                              height={80}
-                              className="h-20 w-20 rounded-full border-2 border-gold/40 object-cover"
-                              loading="lazy"
-                              unoptimized
-                            />
-                          ) : (
-                            <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-gold/30 bg-gold/10 font-display text-2xl font-bold text-gold">
-                              {displayName.charAt(0)}
-                            </div>
-                          )}
-                          <h2 className="mt-4 text-lg font-bold">{displayName}</h2>
+                          <Link
+                            href={`/teachers/${teacher.id}`}
+                            className="group focus-ring block rounded-xl"
+                            aria-label={t(`عرض ملف ${displayName}`, `View profile of ${displayName}`)}
+                          >
+                            {teacher.avatarUrl ? (
+                              <Image
+                                src={teacher.avatarUrl}
+                                alt={displayName}
+                                width={80}
+                                height={80}
+                                className="h-20 w-20 rounded-full border-2 border-gold/40 object-cover"
+                                loading="lazy"
+                                unoptimized
+                              />
+                            ) : (
+                              <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-gold/30 bg-gold/10 font-display text-2xl font-bold text-gold">
+                                {displayName.charAt(0)}
+                              </div>
+                            )}
+                            <h2 className="mt-4 text-lg font-bold transition-colors group-hover:text-gold">{displayName}</h2>
+                          </Link>
                           {displayBio && (
                             <p className="mt-1 text-sm text-muted">
                               {displayBio.length > 100 ? displayBio.slice(0, 100) + "…" : displayBio}

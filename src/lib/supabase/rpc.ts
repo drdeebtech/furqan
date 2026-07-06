@@ -72,10 +72,13 @@ export function callRpc<Name extends RpcName>(
 ): PromiseLike<PostgrestSingleResponse<RpcReturns<Name>>> {
   // The ONE place the cast lives. `.rpc()` on the generated-typed client can't
   // see these custom functions (#185); we re-assert the canonical result type.
-  const rpc = client.rpc as (
+  // `.bind(client)` preserves `this` — supabase-js `rpc()` reads `this.rest`,
+  // so a detached call crashes with "Cannot read properties of undefined
+  // (reading 'rest')".
+  const rpc = (client.rpc as (
     rpcName: string,
     rpcArgs?: unknown,
-  ) => PromiseLike<unknown>;
+  ) => PromiseLike<unknown>).bind(client);
   return rpc(name, args[0]) as PromiseLike<
     PostgrestSingleResponse<RpcReturns<Name>>
   >;

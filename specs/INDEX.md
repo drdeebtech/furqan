@@ -44,7 +44,7 @@
 | [034-admin-analytics-audit](./034-admin-analytics-audit/spec.md) | Draft | _(unknown)_ | _(pending)_ |
 | [035-website-trust-credibility](./035-website-trust-credibility/spec.md) | Shipped | `035-website-trust-credibility` | [#633](https://github.com/drdeebtech/furqan/pull/633) |
 | [036-teacher-marketplace](./036-teacher-marketplace/spec.md) | Shipped | `feat/036-teacher-marketplace` | [#636](https://github.com/drdeebtech/furqan/pull/636) |
-| [037-public-teacher-profile](./037-public-teacher-profile/spec.md) | Draft | _(unknown)_ | _(pending)_ |
+| [037-public-teacher-profile](./037-public-teacher-profile/spec.md) | Tasks-ready | _(unknown)_ | _(pending)_ |
 
 ## Abandoned (last 90 days)
 

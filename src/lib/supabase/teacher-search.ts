@@ -62,24 +62,68 @@ export async function searchTeachers(
   const total = rows[0]?.total_count ?? 0;
 
   return {
-    teachers: rows.map((r) => ({
-      id: r.id,
-      name: r.full_name ?? "—",
-      nameAr: r.full_name_ar,
-      avatarUrl: r.avatar_url,
-      bio: r.bio,
-      bioEn: r.bio_en,
-      languages: r.languages ?? [],
-      specialties: r.specialties ?? [],
-      recitationStandards: r.recitation_standards ?? [],
-      hourlyRate: Number(r.hourly_rate),
-      ratingAvg: Number(r.rating_avg),
-      ratingCount: Number(r.rating_count),
-      totalSessions: Number(r.total_sessions),
-      gender: r.gender,
-    })),
+    teachers: rows.map(rowToTeacherCard),
     total: Number(total),
     page: params.page,
     limit: params.limit,
   };
+}
+
+// Shared row → TeacherCard projection. Both search_public_teachers and
+// get_public_teacher return the same column set, so the mapping lives here.
+function rowToTeacherCard(r: {
+  id: string;
+  full_name: string | null;
+  full_name_ar: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  bio_en: string | null;
+  languages: string[];
+  specialties: string[];
+  recitation_standards: string[];
+  hourly_rate: number;
+  rating_avg: number;
+  rating_count: number;
+  total_sessions: number;
+  gender: string | null;
+}): TeacherCard {
+  return {
+    id: r.id,
+    name: r.full_name ?? "—",
+    nameAr: r.full_name_ar,
+    avatarUrl: r.avatar_url,
+    bio: r.bio,
+    bioEn: r.bio_en,
+    languages: r.languages ?? [],
+    specialties: r.specialties ?? [],
+    recitationStandards: r.recitation_standards ?? [],
+    hourlyRate: Number(r.hourly_rate),
+    ratingAvg: Number(r.rating_avg),
+    ratingCount: Number(r.rating_count),
+    totalSessions: Number(r.total_sessions),
+    gender: r.gender,
+  };
+}
+
+export async function getPublicTeacher(
+  id: string,
+): Promise<TeacherCard | null> {
+  // p_id is a Postgres `uuid`; a non-UUID slug would raise 22P02 at the DB.
+  // Treat a malformed id as "not found" so the route renders notFound() (404)
+  // instead of surfacing a DB error.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    return null;
+  }
+  const supabase = createAdminClient();
+  const { data, error } = await callRpc(supabase, "get_public_teacher", {
+    p_id: id,
+  });
+
+  if (error) throw error;
+
+  const rows = data ?? [];
+  const r = rows[0];
+  if (!r) return null;
+
+  return rowToTeacherCard(r);
 }
