@@ -157,3 +157,28 @@ Never silently spend a wallet hour when a subscription credit was available and 
 - Volume-discount pricing tiers (flat rate, D3).
 - Stripe live-key cutover / data migration (spec 024).
 - Coupon/promo codes (pivot decision #36, deferred).
+
+## Eng-review resolutions (2026-07-06, /plan-eng-review + Codex outside voice)
+
+These supersede any conflicting wording above. The builder implements THIS design.
+
+### Resolved decisions
+
+- **R1 — Data model / lots.** A wallet is one or more `student_packages` **lot** rows, each pointing at a single seeded `packages` catalog row (`product_type='prepaid_hours'`, `session_count=1`). **One immutable lot per purchase** (never top up an existing row). Each lot carries its own `rate_paid_usd` (frozen), `stripe_payment_intent_id` (**UNIQUE**), `expires_at`. Hours map to `sessions_total`; reuse `sessions_remaining`, `deduct_package_session`, restore, and `status='active'` selection. Wallet balance = `SUM(sessions_remaining)` over the student's active `prepaid_hours` lots.
+- **R2 — Drawdown order.** `selectActivePackage` (`src/lib/domains/package/ledger.ts`) and the confirm-time debit trigger rank **subscription packages ahead of `prepaid_hours`**, then soonest-expiry within each group. Booking UI exposes an explicit **"use a prepaid hour"** override (default = subscription credit). Subscription-only and wallet-only students see unchanged selection (regression-tested).
+- **R3 — Rolling expiry reset.** The `expires_at = now()+window` reset lives **inside `deduct_package_session`, gated to `product_type='prepaid_hours'`** so subscription packages are never extended.
+- **R4 — Discriminator.** `product_type` is **denormalized onto `student_packages`** (`text DEFAULT 'subscription'`; set `'prepaid_hours'` at grant) so selection and the debit kernel stay join-free. `packages.product_type` remains the catalog source of truth.
+- **R5 — Event ledger.** New **append-only `prepaid_hours_events`** table (`event_type`, `package_id`, `hours_delta`, `stripe_ref`, `created_at`, RLS: student reads own). All five money functions write via **one `record_prepaid_event(...)` helper**. Append-only is enforced by a **BEFORE UPDATE/DELETE trigger** that raises (RLS alone is insufficient — service-role bypasses it). Causation uniqueness: one grant per intent, one draw per booking, one restore per draw, one refund per refund-request (unique constraints).
+- **R6 — Expiry mechanism.** The sweep **flips `status='expired'`** (locks the row, rechecks `expires_at < now()` after locking) and appends an `'expired'` event. Because selection already filters `status='active'`, expired lots are auto-excluded (FR-008 free). Expired lots **stay expired** — a new purchase is a new lot (no resurrection).
+- **R7 — Units (honest hour).** Wallet hours are spendable **only on 60-minute 1:1 sessions** (booking precondition `duration_min = 60`); other durations remain subscription/one-time. The flat 1-session drawdown is then honest. Copy: "$10 buys one 60-minute session."
+- **R8 — Refund saga (Stripe + DB not atomic).** Admin approval **reserves** the lot's unused hours under row lock (mark `refund_pending`, unspendable) and calls Stripe refund with **`idempotency_key = refund_request_id`**. The `charge.refunded`/refund webhook is the source of truth that finalizes the void + `'refunded'` event. Stripe failure releases the reservation. Refund amount = `unused_hours × lot.rate_paid_usd` (per-lot frozen rate).
+- **R9 — Indexes.** Partial `student_packages(student_id, expires_at) WHERE status='active'` (selection); partial `student_packages(expires_at) WHERE product_type='prepaid_hours' AND status='active'` (sweep); `prepaid_hours_events(package_id, created_at)` (history).
+- **R10 — Deploy safety.** One PR, but new surfaces (buy-hours route, `/pricing` option, dashboard wallet, booking override) ship behind a **feature flag OFF by default**; flip on after the migration is confirmed applied. All schema changes are additive; modified functions use `CREATE OR REPLACE` preserving signature + old behavior for non-prepaid rows, so the old build is unaffected during the concurrent deploy window.
+
+### Folded hardening (Codex, additive — no separate decision)
+
+- **H1 — Grant idempotency** is a DB `UNIQUE(stripe_payment_intent_id)` claim inserted in the **same transaction** as the lot, not an app pre-check.
+- **H2 — Checkout reconciliation:** webhook verifies `payment_status`, currency, amount, quantity, customer, and pending-purchase ownership; handles delayed-payment events; never creates a grant without a matching pending row (fail-closed).
+- **H3 — Lock on every op:** grant/draw/restore/expire/refund all use `FOR UPDATE` + conditional state transition; the sweep re-checks `expires_at` after locking (never erase a concurrently renewed lot).
+- **H4 — Restore-after-expiry:** teacher no-show restore targets the **exact charged lot** even if it has since expired, reactivating that lot's hour (the student is not penalized for the teacher's absence); documented + tested.
+- **H5 — External money reversals:** `charge.refunded` / `charge.dispute` webhooks reconcile Stripe-side refunds, disputes, and chargebacks by voiding the corresponding lot's hours, so the wallet cannot stay spendable after money is reversed.
