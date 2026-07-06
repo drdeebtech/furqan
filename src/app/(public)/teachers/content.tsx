@@ -3,20 +3,18 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { Award, GraduationCap, Star } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { paginationIcons } from "@/lib/i18n/pagination-direction";
 import { logError } from "@/lib/logger";
 import { useFeatureFlags } from "@/lib/feature-flags-context";
-import { TEACHER_LANGUAGES } from "@/lib/constants";
-import { PRICING_MODEL } from "@/lib/copy/policies";
 import { Testimonials } from "@/components/public/testimonials";
 import { RegisterBanner } from "@/components/public/register-banner";
 import { TeacherSearchInput } from "@/components/public/teacher-search-input";
 import { TeacherFilterBar, type FilterState } from "@/components/public/teacher-filter-bar";
 import { TeacherGridSkeleton } from "@/components/public/teacher-card-skeleton";
-import type { TeacherCard, TeacherSearchResult } from "@/lib/supabase/teacher-search";
+import type { TeacherCard as TeacherCardData, TeacherSearchResult } from "@/lib/supabase/teacher-search";
+import { TeacherCard } from "./teacher-card";
 
 type LabelMap = Record<string, { ar: string; en: string }>;
 
@@ -27,7 +25,7 @@ export function TeachersContent({
   specialtyLabels,
   recitationLabels,
 }: {
-  initialTeachers: TeacherCard[];
+  initialTeachers: TeacherCardData[];
   specialtyLabels: LabelMap;
   recitationLabels: LabelMap;
 }) {
@@ -38,7 +36,7 @@ export function TeachersContent({
 
   // fetchedFor tracks which searchParams string was last resolved (enables derived isLoading)
   const [fetchedFor, setFetchedFor] = useState("");
-  const [apiResult, setApiResult] = useState<{ teachers: TeacherCard[]; total: number } | null>(null);
+  const [apiResult, setApiResult] = useState<{ teachers: TeacherCardData[]; total: number } | null>(null);
   const [fetchFailed, setFetchFailed] = useState(false);
   const [retryTick, setRetryTick] = useState(0); // bumped by the error-state Retry button to re-run the fetch effect
 
@@ -125,19 +123,6 @@ export function TeachersContent({
     priceMin: searchParams.get("price_min") ?? "",
     priceMax: searchParams.get("price_max") ?? "",
   };
-
-  function languageLabel(code: string): string {
-    const m = TEACHER_LANGUAGES.find((l) => l.key === code);
-    return m ? t(m.ar, m.en) : code;
-  }
-
-  function pickDisplayName(teacher: TeacherCard): string {
-    if (lang === "ar") {
-      const ar = teacher.nameAr?.trim();
-      if (ar) return ar;
-    }
-    return teacher.name;
-  }
 
   // Pagination arrows follow reading direction: in Arabic RTL "previous" points
   // right, in English LTR it points left (Bilingual-First rule). Label/aria stay
@@ -246,121 +231,93 @@ export function TeachersContent({
                 </div>
               ) : (
                 <>
-                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {teachers.map((teacher) => {
-                      const displayName = pickDisplayName(teacher);
-                      const displayBio = lang === "en" ? teacher.bioEn?.trim() || teacher.bio : teacher.bio;
+                  {(() => {
+                    // Featured-tier grid (spec 037 Feature 2). The RPC already
+                    // sorts by total_sessions DESC, so "featured" = first N items
+                    // = the most-experienced teachers. Only promoted on page 1
+                    // with healthy supply; pages 2+ and thin supply (≤3) render
+                    // the uniform default grid (today's look).
+                    const featuredCount = currentPage === 1
+                      ? (teachers.length >= 6 ? 3 : teachers.length >= 4 ? 1 : 0)
+                      : 0;
+                    const featured = teachers.slice(0, featuredCount);
+                    const rest = teachers.slice(featuredCount);
+
+                    if (featuredCount > 0) {
                       return (
-                        <div
-                          key={teacher.id}
-                          id={`teacher-${teacher.id}`}
-                          className="glass-card p-6 scroll-mt-24 target:ring-2 target:ring-gold"
-                        >
-                          <Link
-                            href={`/teachers/${teacher.id}`}
-                            className="group focus-ring block rounded-xl"
-                            aria-label={t(`عرض ملف ${displayName}`, `View profile of ${displayName}`)}
-                          >
-                            {teacher.avatarUrl ? (
-                              <Image
-                                src={teacher.avatarUrl}
-                                alt={displayName}
-                                width={80}
-                                height={80}
-                                className="h-20 w-20 rounded-full border-2 border-gold/40 object-cover"
-                                loading="lazy"
-                                unoptimized
-                              />
-                            ) : (
-                              <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-gold/30 bg-gold/10 font-display text-2xl font-bold text-gold">
-                                {displayName.charAt(0)}
-                              </div>
-                            )}
-                            <h2 className="mt-4 text-lg font-bold transition-colors group-hover:text-gold">{displayName}</h2>
-                          </Link>
-                          {displayBio && (
-                            <p className="mt-1 text-sm text-muted">
-                              {displayBio.length > 100 ? displayBio.slice(0, 100) + "…" : displayBio}
-                            </p>
-                          )}
-                          {teacher.gender === "female" && (
-                            <p className="mt-1 text-xs text-gold">({t("للأخوات والأطفال", "Sisters & children")})</p>
-                          )}
-                          {teacher.specialties.length > 0 && (
-                            <div className="mt-3 flex flex-wrap gap-1.5">
-                              {teacher.specialties.map((s) => (
-                                <span key={s} className="glass-badge px-2.5 py-0.5 text-xs text-muted">
-                                  {specialtyLabels[s] ? t(specialtyLabels[s].ar, specialtyLabels[s].en) : s}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                          {teacher.recitationStandards.length > 0 && (
-                            <div className="mt-2">
-                              <p className="flex items-center gap-1 text-xs font-medium text-gold">
-                                <Award size={12} aria-hidden="true" />
-                                {t("إجازة في الرواية", "Ijazah in riwayah")}
-                              </p>
-                              <div className="mt-1 flex flex-wrap gap-1.5">
-                                {[...new Set(teacher.recitationStandards)].map((r) => (
-                                  <span key={r} className="glass-badge px-2 py-0.5 text-xs text-muted">
-                                    {recitationLabels[r] ? t(recitationLabels[r].ar, recitationLabels[r].en) : r}
-                                  </span>
+                        <>
+                          <h2 className="font-display mb-6 text-2xl font-bold sm:text-3xl">
+                            {t("المعلمون البارزون", "Featured teachers")}
+                          </h2>
+                          <ul className="grid list-none gap-6 p-0 lg:grid-cols-3" aria-label={t("المعلمون البارزون", "Featured teachers")}>
+                            {featured.map((teacher) => (
+                              <li
+                                key={teacher.id}
+                                className={featuredCount === 1 ? "lg:col-span-2" : ""}
+                              >
+                                <TeacherCard
+                                  teacher={teacher}
+                                  variant="featured"
+                                  specialtyLabels={specialtyLabels}
+                                  recitationLabels={recitationLabels}
+                                  t={t}
+                                  lang={lang}
+                                  hidePrices={hidePrices}
+                                />
+                              </li>
+                            ))}
+                          </ul>
+
+                          {rest.length > 0 && (
+                            <>
+                              <h2 className="font-display mb-4 mt-12 text-2xl font-bold sm:text-3xl">
+                                {t("كل المعلمين", "All teachers")}
+                              </h2>
+                              <ul
+                                className="grid list-none gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                                aria-label={t("كل المعلمين", "All teachers")}
+                              >
+                                {rest.map((teacher) => (
+                                  <li key={teacher.id}>
+                                    <TeacherCard
+                                      teacher={teacher}
+                                      variant="compact"
+                                      specialtyLabels={specialtyLabels}
+                                      recitationLabels={recitationLabels}
+                                      t={t}
+                                      lang={lang}
+                                      hidePrices={hidePrices}
+                                    />
+                                  </li>
                                 ))}
-                              </div>
-                            </div>
+                              </ul>
+                            </>
                           )}
-                          <div className="mt-3 text-xs text-muted">
-                            {teacher.totalSessions > 0 ? (
-                              <p>{teacher.totalSessions} {t("جلسة مكتملة", "completed sessions")}</p>
-                            ) : (
-                              <p className="text-muted">{t("معلم جديد", "New teacher")}</p>
-                            )}
-                          </div>
-                          {teacher.ratingCount >= 3 && (
-                            <div className="mt-2 flex items-center gap-1">
-                              {[1, 2, 3, 4, 5].map((i) => (
-                                <Star key={i} size={12} className={i <= Math.round(teacher.ratingAvg) ? "fill-gold text-gold" : "text-card-border"} />
-                              ))}
-                              <span className="me-1 text-xs text-muted">{teacher.ratingAvg.toFixed(1)}</span>
-                              <span className="text-xs text-muted">({teacher.ratingCount})</span>
-                            </div>
-                          )}
-                          <dl className="mt-3 space-y-1 text-xs text-muted">
-                            {teacher.languages.length > 0 && (
-                              <div className="flex gap-1.5">
-                                <dt className="font-medium text-muted-light">{t("اللغات", "Languages")}:</dt>
-                                <dd>{teacher.languages.map(languageLabel).join(t("، ", ", "))}</dd>
-                              </div>
-                            )}
-                            <div className="flex gap-1.5">
-                              <dt className="font-medium text-muted-light">{t("التوفر", "Availability")}:</dt>
-                              <dd>{t("حسب الاتفاق", "Schedule on request")}</dd>
-                            </div>
-                            {!hidePrices && (
-                              <div className="flex flex-col gap-0.5">
-                                <div className="flex gap-1.5">
-                                  <dt className="font-medium text-muted-light">{t("السعر", "Price")}:</dt>
-                                  <dd><span dir="ltr">{teacher.hourlyRate > 0 ? `$${teacher.hourlyRate} / ${t("ساعة", "hr")}` : "—"}</span></dd>
-                                </div>
-                                {teacher.hourlyRate > 0 && (
-                                  <span className="text-[11px] leading-snug text-muted">
-                                    {t(PRICING_MODEL.teacherRateCaption.ar, PRICING_MODEL.teacherRateCaption.en)}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </dl>
-                          <Link
-                            href={`/contact?teacher=${encodeURIComponent(teacher.name)}`}
-                            className="glass glass-pill mt-4 block py-2 text-center text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background"
-                          >
-                            {t("احجز مع هذا المعلم", "Book with this Teacher")}
-                          </Link>
-                        </div>
+                        </>
                       );
-                    })}
-                  </div>
+                    }
+
+                    return (
+                      <ul
+                        className="grid list-none gap-6 p-0 md:grid-cols-2 lg:grid-cols-3"
+                        aria-label={t("كل المعلمين", "All teachers")}
+                      >
+                        {teachers.map((teacher) => (
+                          <li key={teacher.id}>
+                            <TeacherCard
+                              teacher={teacher}
+                              variant="default"
+                              specialtyLabels={specialtyLabels}
+                              recitationLabels={recitationLabels}
+                              t={t}
+                              lang={lang}
+                              hidePrices={hidePrices}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    );
+                  })()}
 
                   {totalPages > 1 && (
                     <nav
