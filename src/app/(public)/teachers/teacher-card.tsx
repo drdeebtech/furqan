@@ -214,7 +214,7 @@ export function TeacherCard({
 
         <Link
           href={`/contact?teacher=${encodeURIComponent(teacher.name)}`}
-          className="glass glass-pill min-h-11 mt-6 flex items-center justify-center py-2.5 text-center text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background"
+          className="glass glass-pill focus-ring min-h-11 mt-6 flex items-center justify-center py-2.5 text-center text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background"
         >
           {t("احجز مع هذا المعلم", "Book with this Teacher")}
         </Link>
@@ -278,7 +278,7 @@ export function TeacherCard({
         )}
         <Link
           href={`/contact?teacher=${encodeURIComponent(teacher.name)}`}
-          className="glass glass-pill min-h-11 mt-3 flex items-center justify-center py-1.5 text-center text-xs font-medium text-gold transition-colors hover:bg-gold hover:text-background"
+          className="glass glass-pill focus-ring min-h-11 mt-3 flex items-center justify-center py-1.5 text-center text-xs font-medium text-gold transition-colors hover:bg-gold hover:text-background"
         >
           {t("احجز", "Book")}
         </Link>
@@ -405,7 +405,7 @@ export function TeacherCard({
       </dl>
       <Link
         href={`/contact?teacher=${encodeURIComponent(teacher.name)}`}
-        className="glass glass-pill min-h-11 mt-4 flex items-center justify-center py-2 text-center text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background"
+        className="glass glass-pill focus-ring min-h-11 mt-4 flex items-center justify-center py-2 text-center text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background"
       >
         {t("احجز مع هذا المعلم", "Book with this Teacher")}
       </Link>
