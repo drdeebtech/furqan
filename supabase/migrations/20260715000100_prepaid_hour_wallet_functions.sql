@@ -413,10 +413,13 @@ BEGIN
     v_booking.teacher_id,
     v_booking.session_id,
     p_outcome,
-    CASE
-      WHEN p_outcome IN ('teacher_absent', 'excused_carried') THEN 'restored'
-      ELSE 'none'
-    END::credit_action,
+    -- Start at 'none'. Do NOT pre-stamp 'restored' here: the restore branch
+    -- below guards on `credit_action IS DISTINCT FROM 'restored'` and only flips
+    -- it to 'restored' AFTER actually restoring the credit. Pre-stamping made the
+    -- guard skip the restore work on the first (only) teacher_absent finalize
+    -- (pre-existing bug from 20260714000000 / #651 — also affects the
+    -- subscription restore path; see project_finalize_attendance_restore_guard).
+    'none'::credit_action,
     now()
   )
   ON CONFLICT (booking_id) DO NOTHING;
