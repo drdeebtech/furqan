@@ -13,7 +13,9 @@ import { PRICING_MODEL } from "@/lib/copy/policies";
 import { PersonSchema } from "@/components/seo/structured-data";
 import { logError } from "@/lib/logger";
 
-const SITE_URL = "https://www.furqan.today";
+// Env-driven so preview/staging emit their own canonical/OG origin rather than
+// production. Falls back to the production origin when unset.
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.furqan.today";
 const FALLBACK_TITLE = "معلم — فرقان | Teacher — Furqan";
 
 // React.cache dedupes the single-row RPC across generateMetadata + page render
