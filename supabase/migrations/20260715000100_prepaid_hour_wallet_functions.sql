@@ -395,7 +395,7 @@ BEGIN
   FROM bookings b
   LEFT JOIN public.student_packages sp ON sp.id = b.student_package_id
   WHERE b.id = p_booking_id
-  FOR UPDATE;
+  FOR UPDATE OF b;   -- lock only bookings; FOR UPDATE cannot lock the nullable side of the LEFT JOIN
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'finalize_attendance: booking % not found', p_booking_id
