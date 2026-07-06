@@ -622,6 +622,192 @@ export async function handlePaymentIntentSucceeded(ctx: EventContext): Promise<v
   await markEvent(ctx, "processed");
 }
 
+// ── payment_intent.succeeded with product_type='prepaid_hours' → grant wallet (spec 038) ──
+//
+// Dispatched from the webhook route ONLY when the PI metadata carries
+// `product_type=prepaid_hours` (set at /api/stripe/checkout/prepaid-hours).
+// The single-session handler above is bypassed for these PIs so the two
+// one-time-payment paths stay cleanly separated.
+//
+// H2 reconciliation — verify EVERY field that could drift between checkout and
+// success BEFORE granting:
+//   • currency = usd
+//   • payment_status / status = succeeded (delayed-payment methods that land as
+//     'processing' must NOT grant — they re-fire as 'succeeded' later)
+//   • amount_received = hours × metadata.rate_usd × 100 (client-tamper guard)
+//   • student_id is a valid UUID and the student profile exists (ownership)
+//   • metadata is complete (product_type, student_id, hours, rate_usd)
+//
+// H1 idempotency: `grant_prepaid_hours` itself is idempotent on the Stripe
+// PaymentIntent id (the DB UNIQUE partial index on student_packages.
+// stripe_payment_intent_id). The route-level billing_events UNIQUE on
+// event.id dedups exact redelivery; this handler does not need its own
+// sentinel.
+//
+// NEVER grants without a matching pending record. Here the "pending record" is
+// the Stripe Checkout Session + its server-stamped metadata (the same pattern
+// the single-session handler uses). If the metadata is absent or malformed,
+// the PI did not originate from our checkout route → fail-closed.
+export async function handlePrepaidHoursGrant(ctx: EventContext): Promise<void> {
+  const pi = ctx.event.data.object as Stripe.PaymentIntent;
+
+  // FR / Edge: USD only.
+  if (pi.currency !== "usd") {
+    logError("stripe-webhook: prepaid_hours non-USD PI rejected", new Error("non-usd"), {
+      tag: "stripe-webhook",
+      event_id: ctx.event.id,
+      currency: pi.currency,
+    });
+    await markEvent(ctx, "failed", `non-usd currency: ${pi.currency}`);
+    return;
+  }
+
+  // H2: only grant on a truly succeeded PI. A PI in `processing` (async method)
+  // must wait — Stripe re-fires payment_intent.succeeded when it settles.
+  if (pi.status !== "succeeded") {
+    await markEvent(ctx, "ignored", `pi status not succeeded: ${pi.status}`);
+    return;
+  }
+
+  const md = (pi.metadata ?? {}) as Record<string, string | undefined>;
+  const productType = md.product_type;
+  const studentIdRaw = md.student_id;
+  const hoursRaw = md.hours;
+  const rateUsdRaw = md.rate_usd;
+
+  if (productType !== "prepaid_hours") {
+    await markEvent(ctx, "failed", `prepaid handler called with wrong product_type: ${productType}`);
+    return;
+  }
+
+  // Metadata completeness (H2 pending-record shape).
+  if (!studentIdRaw || !hoursRaw || !rateUsdRaw) {
+    await markEvent(ctx, "failed", "prepaid_hours PI metadata incomplete");
+    return;
+  }
+
+  // student_id shape — fail fast on malformed.
+  const studentIdParsed = z.uuid().safeParse(studentIdRaw);
+  if (!studentIdParsed.success) {
+    await markEvent(ctx, "failed", `prepaid_hours PI metadata student_id not a uuid: ${studentIdRaw}`);
+    return;
+  }
+  const studentId = studentIdParsed.data;
+
+  const hours = Number(hoursRaw);
+  const rateUsd = Number(rateUsdRaw);
+  if (!Number.isInteger(hours) || hours <= 0 || !Number.isFinite(rateUsd) || rateUsd <= 0) {
+    await markEvent(ctx, "failed", `prepaid_hours PI metadata numeric fields invalid: hours=${hoursRaw}, rate=${rateUsdRaw}`);
+    return;
+  }
+
+  // H2 amount reconciliation (fail-closed on tampering). pi.amount_received is
+  // in cents; the expected total is hours × per-hour rate × 100. A 1-cent
+  // mismatch is rejected — the checkout route rounds cleanly so any drift is a
+  // real discrepancy, not a rounding artifact.
+  const expectedAmountCents = Math.round(hours * rateUsd * 100);
+  const receivedCents = pi.amount_received ?? 0;
+  if (receivedCents !== expectedAmountCents) {
+    logError(
+      "stripe-webhook: prepaid_hours amount mismatch (tamper/price-change)",
+      new Error("amount-mismatch"),
+      {
+        tag: "stripe-webhook",
+        event_id: ctx.event.id,
+        pi_id: pi.id,
+        expected_cents: expectedAmountCents,
+        received_cents: receivedCents,
+      },
+    );
+    await markEvent(
+      ctx,
+      "failed",
+      `amount mismatch: expected ${expectedAmountCents}, received ${receivedCents}`,
+    );
+    return;
+  }
+
+  // H2 ownership: the student_id stamped at checkout must resolve to a real
+  // profile. The metadata was set by OUR checkout route and signature-verified
+  // by Stripe, so a bogus id here means either a deleted account or a
+  // misconfiguration — fail-closed either way. We do NOT auto-create accounts.
+  const { data: profile, error: profileErr } = await ctx.admin
+    .from("profiles")
+    .select("id, role")
+    .eq("id", studentId)
+    .maybeSingle<{ id: string; role: string | null }>();
+  if (profileErr) {
+    logError("stripe-webhook: prepaid_hours profile lookup failed", profileErr, {
+      tag: "stripe-webhook",
+      pi_id: pi.id,
+      student_id: studentId,
+    });
+    await markEvent(ctx, "failed", "profile lookup failed");
+    return;
+  }
+  if (!profile) {
+    await markEvent(ctx, "failed", `no profile for student_id ${studentId} — cannot grant`);
+    return;
+  }
+  if (profile.role !== "student") {
+    await markEvent(ctx, "failed", `student_id ${studentId} role is ${profile.role}, not student`);
+    return;
+  }
+
+  // H1 idempotent grant: the DB function inserts a NEW lot keyed on
+  // stripe_payment_intent_id (UNIQUE); a redelivery returns the existing lot
+  // id without appending a duplicate grant event. We pass the FROZEN rate from
+  // metadata (R1) — never a re-read of the current setting.
+  const { data: lotId, error: grantErr } = await ctx.admin.rpc("grant_prepaid_hours", {
+    p_payment_intent: pi.id,
+    p_student: studentId,
+    p_hours: hours,
+    p_rate: rateUsd,
+  });
+
+  if (grantErr || !lotId) {
+    logError("stripe-webhook: grant_prepaid_hours RPC failed", grantErr ?? new Error("no id"), {
+      tag: "stripe-webhook",
+      pi_id: pi.id,
+      student_id: studentId,
+      hours,
+      rate_usd: rateUsd,
+    });
+    await markEvent(ctx, "failed", grantErr?.message ?? "grant_prepaid_hours returned no id");
+    return;
+  }
+
+  // Record the payment row for audit (mirrors single-session: payments is the
+  // money audit trail). Idempotent on stripe_payment_intent (UNIQUE) so a
+  // redelivery that re-runs this handler (rare — billing_events dedups first)
+  // is a no-op.
+  await ctx.admin.from("payments").upsert(
+    {
+      student_id: studentId,
+      amount_usd: receivedCents / 100,
+      amount_before_tax: receivedCents / 100,
+      tax_amount: 0,
+      tax_rate: 0,
+      provider: "stripe",
+      status: "succeeded",
+      stripe_payment_intent: pi.id,
+      paid_at: new Date(ctx.event.created * 1000).toISOString(),
+    },
+    { onConflict: "stripe_payment_intent", ignoreDuplicates: true },
+  );
+
+  logInfo("stripe-webhook: prepaid_hours granted", {
+    tag: "stripe-webhook",
+    pi_id: pi.id,
+    student_id: studentId,
+    lot_id: lotId as string,
+    hours,
+    rate_usd: rateUsd,
+  });
+
+  await markEvent(ctx, "processed");
+}
+
 /**
  * Call the appropriate atomic creator to materialize the booking. The creator
  * also links `payments.booking_id` in the SAME transaction. Returns

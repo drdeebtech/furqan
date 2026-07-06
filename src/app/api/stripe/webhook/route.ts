@@ -10,6 +10,7 @@ import {
   handleSubscriptionLifecycle,
   handleSubscriptionDeleted,
   handlePaymentIntentSucceeded,
+  handlePrepaidHoursGrant,
   markEvent,
   type EventContext,
 } from "@/lib/domains/billing/webhook-handlers";
@@ -125,7 +126,16 @@ async function dispatch(ctx: EventContext): Promise<NextResponse> {
         await handleSubscriptionDeleted(ctx);
         break;
       case "payment_intent.succeeded":
-        await handlePaymentIntentSucceeded(ctx);
+        // Spec 038: PI metadata routes one-time payments. `product_type=
+        // prepaid_hours` (set at /api/stripe/checkout/prepaid-hours) goes to
+        // the wallet grant path; everything else is the spec-022 single-session
+        // booking materializer. The peek is safe — unknown shapes fall through
+        // to handlePaymentIntentSucceeded which has its own metadata checks.
+        if (isPrepaidHoursPi(event)) {
+          await handlePrepaidHoursGrant(ctx);
+        } else {
+          await handlePaymentIntentSucceeded(ctx);
+        }
         break;
       default:
         await markEvent(ctx, "ignored");
@@ -141,4 +151,16 @@ async function dispatch(ctx: EventContext): Promise<NextResponse> {
     return NextResponse.json({ error: "Dispatch failed" }, { status: 500 });
   }
   return NextResponse.json({ received: true });
+}
+
+/**
+ * Spec 038: does this `payment_intent.succeeded` event carry prepaid-hours
+ * checkout metadata? The value is server-stamped at our checkout route and
+ * signature-verified by Stripe, so reading it here is safe. Returns false for
+ * any other PI shape (single-session bookings, subscription PI flows, etc.),
+ * which then route to the existing handler.
+ */
+function isPrepaidHoursPi(event: Stripe.Event): boolean {
+  const obj = event.data.object as { metadata?: Record<string, unknown> } | null;
+  return obj?.metadata?.product_type === "prepaid_hours";
 }
