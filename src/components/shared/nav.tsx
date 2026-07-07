@@ -14,6 +14,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { LogoutButton } from "./logout-button";
 import { useLang } from "@/lib/i18n/context";
+import { CONTACT } from "@/lib/contact";
 
 type Role = "student" | "teacher" | "admin";
 
@@ -322,7 +323,7 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
       {/* Bottom: Utility controls */}
       <div className="border-t border-[var(--surface-border)] px-3 py-4 space-y-1">
         <a
-          href="https://wa.me/201220210300"
+          href={CONTACT.whatsappUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="flex min-h-[40px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted transition-colors hover:text-foreground"

@@ -4,6 +4,7 @@ import { ChevronRight, BookOpen, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { isFeatureEnabled } from "@/lib/settings";
+import { CONTACT } from "@/lib/contact";
 import { notFound } from "next/navigation";
 
 export const metadata: Metadata = {
@@ -121,7 +122,7 @@ export default async function HelpCenterIndexPage() {
       <div className="mt-10 text-center text-sm text-muted">
         {t("لم تجد ما تبحث عنه؟", "Can't find what you're looking for?")}{" "}
         <a
-          href="https://wa.me/201220210300"
+          href={CONTACT.whatsappUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-gold hover:text-gold-hover"
