@@ -643,6 +643,20 @@ export function PricingContent({
                 q: t("هل توجد خصومات للعائلات؟", "Are there family discounts?"),
                 a: t(FAMILY_POLICY.long.ar, FAMILY_POLICY.long.en),
               },
+              // Spec 038 — only surfaced when the pay-as-you-go option is live
+              // (prepaid non-null, same gate as the card), so the FAQ never
+              // describes a feature the visitor can't use.
+              ...(prepaid
+                ? [
+                    {
+                      q: t(
+                        "هل يمكنني شراء ساعات بدل الاشتراك الشهري؟",
+                        "Can I buy hours instead of a monthly subscription?",
+                      ),
+                      a: t(PREPAID_HOURS_POLICY.long.ar, PREPAID_HOURS_POLICY.long.en),
+                    },
+                  ]
+                : []),
               // Admin-managed rows (site_faqs) — same source /contact renders,
               // so admins edit once and both surfaces stay in sync (G2).
               ...faqs.map((f) => ({
