@@ -40,7 +40,7 @@ export function OrganizationSchema() {
     description: "Online Quran academy offering Hifz, Tajweed, and Tilawa with certified teachers holding Ijazah.",
     email: CONTACT.email,
     telephone: "+201220210300",
-    address: { "@type": "PostalAddress", addressCountry: "KW", addressLocality: "Kuwait" },
+    address: { "@type": "PostalAddress", addressCountry: "US" },
     // NOTE: no top-level `offers` here — a price:"0" "Free Registration" Offer is
     // misleading (sessions are $12–$80/mo) and risks a Google rich-result penalty.
     // The hasOfferCatalog below lists the (non-priced) program catalog, which is valid.
