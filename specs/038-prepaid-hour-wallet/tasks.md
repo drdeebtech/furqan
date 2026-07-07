@@ -99,3 +99,28 @@ Legend: `[ ]` todo · each task notes its lens and the file(s) it owns.
 - **VERDICT:** ENG CLEARED (plan hardened, all decisions resolved) — ready to implement. Design review recommended before shipping Phases 6–7 (public RTL surfaces).
 
 NO UNRESOLVED DECISIONS
+
+## BUILD STATE (2026-07-07) — branch `feat/038-prepaid-hour-wallet`, pushed
+
+**Phases 1–7 + the Phase-8 review are DONE, verified, and backed up on origin. The feature is flag-OFF (`prepaid_hours_purchase_enabled` default false) and does NOT go live on merge — it stays dark until go-live (below).**
+
+- **Phase 1–5 (backend money path):** schema, functions, sweep, refund saga — each verified on local Postgres with rolled-back DO-block walks (money-chain, sweep 3-case, refund 6-case).
+- **Phase 6 (UI):** T6.1 /pricing "Pay as you go" card, T6.2 dashboard wallet, T6.3 "use my hours" booking picker — browser + vision gated (AR RTL + EN; picker locks to 60-min); T6.3's confirm-time debit verified by a 3-case walk (prepaid-debited / subscription-debited / fail-closed).
+- **Phase 7 (copy/docs):** PREPAID_HOURS_POLICY + invariant tests; product-marketing.md "Pay as you go" (supersedes decision #42); /pricing FAQ.
+- **Phase 8 review:** security-reviewer + database-reviewer ran on the full diff. **No CRITICAL/HIGH introduced by 038.** Migration ordering verified for both from-zero AND prod incremental-apply. Hardening applied: server-side 60-min guard in createBooking.
+- **Adjacent security find (NOT 038):** a pre-existing all-bookings "free session" hole (bookings_insert RLS didn't constrain status/student_package_id) was fixed + shipped to production standalone as **PR #664** (RLS role walk verified; migration `20260717000000`).
+
+### Why the branch is build-RED right now (EXPECTED — do not "fix" with casts)
+`webhook-handlers.ts` + `ledger.ts` reference prepaid RPCs/columns (grant_prepaid_hours, product_type, use_prepaid_hours, …) not yet in `src/types/supabase.generated.ts`. Per this repo's own convention, `supabase.generated.ts` is synced **after** migrations reach the live schema, via a standalone `chore(types): regen` commit (precedent: #655, #552, #544). `db-types-fresh` CI only runs when the generated file or `src/lib/supabase/migrations/**` changes — 038 touches neither — so it does not block. The 9 tsc errors self-resolve at go-live step 2. Forcing green early with throwaway casts on payment code is premature and NOT best practice.
+
+### GO-LIVE RUNBOOK (push-button; only when Manaracode EIN + Stripe are ready)
+Stripe is the ONLY external blocker (EIN pending → no Stripe account/keys). The DB + code below are Stripe-independent and can even land DARK before Stripe if desired.
+1. **Merge `feat/038` to main** → `supabase-migrate.yml` applies the 6 prepaid migrations to the live DB (safe: additive, expand/contract, from-zero CI green). Feature stays invisible (flag off).
+2. **Sync types:** `npm run db:types` (regenerates `supabase.generated.ts` from the now-migrated live schema) → commit as `chore(types): regen for prepaid hour wallet` → the 9 tsc errors clear, build green.
+3. **When Stripe is live** (EIN → Stripe account → `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` in Vercel env; register the `charge.refunded` + `charge.dispute.created` webhook events): flip `prepaid_hours_purchase_enabled='true'` in `platform_settings`. The /pricing card, checkout, and booking picker become visible.
+4. **Confirm live:** buy a small bundle via Stripe test→live, verify the wallet balance + a booking drawdown.
+
+### DEFERRED FOLLOW-UPS (logged — none are blockers; do when their path is wired)
+- **T5.4 admin refund action** (skeleton only; needs Stripe) — build when Stripe is live; then apply the two refund hardenings: (a) `reconcile_external_prepaid_refund` should void the REFUNDED slice proportionally, not all remaining hours; (b) `reserve_prepaid_refund` should RAISE on a `released`-status refund id.
+- **Cron sweep route** `src/app/api/cron/prepaid-hours-sweep/route.ts` (wraps `sweep_expired_prepaid_hours`; Stripe-independent) + n8n reminder against `prepaid_hours_reminder_lead_days`.
+- **LOW:** add `OR p_rate <= 0` guard in `grant_prepaid_hours` (defended downstream today).
