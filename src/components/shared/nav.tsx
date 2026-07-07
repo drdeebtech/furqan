@@ -322,7 +322,7 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
       {/* Bottom: Utility controls */}
       <div className="border-t border-[var(--surface-border)] px-3 py-4 space-y-1">
         <a
-          href="https://wa.me/96597795626"
+          href="https://wa.me/201220210300"
           target="_blank"
           rel="noopener noreferrer"
           className="flex min-h-[40px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted transition-colors hover:text-foreground"

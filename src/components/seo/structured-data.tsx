@@ -39,7 +39,7 @@ export function OrganizationSchema() {
     logo: "https://www.furqan.today/logo-512.png",
     description: "Online Quran academy offering Hifz, Tajweed, and Tilawa with certified teachers holding Ijazah.",
     email: CONTACT.email,
-    telephone: "+96597795626",
+    telephone: "+201220210300",
     address: { "@type": "PostalAddress", addressCountry: "KW", addressLocality: "Kuwait" },
     // NOTE: no top-level `offers` here — a price:"0" "Free Registration" Offer is
     // misleading (sessions are $12–$80/mo) and risks a Google rich-result penalty.

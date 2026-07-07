@@ -53,7 +53,7 @@ export function ContactForm() {
             name="whatsapp"
             type="tel"
             dir="ltr"
-            placeholder="+965 9779 5626"
+            placeholder="+20 122 021 0300"
             inputClassName={`${inputClass} text-left`}
           />
         </div>

@@ -121,7 +121,7 @@ export default async function HelpCenterIndexPage() {
       <div className="mt-10 text-center text-sm text-muted">
         {t("لم تجد ما تبحث عنه؟", "Can't find what you're looking for?")}{" "}
         <a
-          href="https://wa.me/96597795626"
+          href="https://wa.me/201220210300"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-gold hover:text-gold-hover"
