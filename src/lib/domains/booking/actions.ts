@@ -70,6 +70,19 @@ export async function createBooking(
   const { studentId, teacherId, sessionType, durationMin, scheduledAt, localDate, localTime, notes } =
     input;
 
+  // Spec 038 (T6.3) defense-in-depth: prepaid hours are 60-minute units. The
+  // booking form locks the duration to 60 when "use my hours" is selected, but
+  // that is a client control — enforce it server-side too (never trust the
+  // client) so a crafted request can never spend one wallet hour on a session
+  // of a different length. Not exploitable today (durations capped at 30/45/60),
+  // but this closes the ceiling if a >60-min option is ever added.
+  if (input.usePrepaidHours && durationMin !== 60) {
+    throw new BookingValidationError(
+      "duration_min",
+      "الساعات المدفوعة مسبقاً بحصص مدتها ٦٠ دقيقة فقط",
+    );
+  }
+
   // Use admin client: domain functions run after auth (route adapter has
   // already called `requireRole("student")`), so we don't need RLS to
   // re-prove identity. Matches what the route was using implicitly via
