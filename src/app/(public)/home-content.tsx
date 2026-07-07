@@ -127,8 +127,6 @@ export default function HomePage({
             </blockquote>
             <figcaption className="mt-3 flex items-center gap-2 text-xs text-muted">
               <span className="font-medium text-foreground">{t("فاطمة السيد", "Fatima Al-Sayed")}</span>
-              <span className="text-muted">·</span>
-              <span>{t("الكويت 🇰🇼", "Kuwait 🇰🇼")}</span>
             </figcaption>
           </figure>
         </div>

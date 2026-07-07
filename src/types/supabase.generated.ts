@@ -614,6 +614,7 @@ export type Database = {
           status: Database["public"]["Enums"]["booking_status"]
           student_id: string
           student_package_id: string | null
+          subscription_id: string | null
           target_scope: Json | null
           tax_amount: number
           tax_rate: number
@@ -653,6 +654,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["booking_status"]
           student_id: string
           student_package_id?: string | null
+          subscription_id?: string | null
           target_scope?: Json | null
           tax_amount?: number
           tax_rate?: number
@@ -692,6 +694,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["booking_status"]
           student_id?: string
           student_package_id?: string | null
+          subscription_id?: string | null
           target_scope?: Json | null
           tax_amount?: number
           tax_rate?: number
@@ -804,6 +807,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_student_packages"
             referencedColumns: ["student_package_id"]
+          },
+          {
+            foreignKeyName: "bookings_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "bookings_teacher_id_fkey"
@@ -5080,81 +5090,6 @@ export type Database = {
           },
         ]
       }
-      student_credits: {
-        Row: {
-          created_at: string
-          credit_value_usd: number | null
-          expires_at: string | null
-          id: string
-          payment_id: string | null
-          source: string
-          student_id: string
-          teacher_id: string | null
-          total: number
-          used: number
-        }
-        Insert: {
-          created_at?: string
-          credit_value_usd?: number | null
-          expires_at?: string | null
-          id?: string
-          payment_id?: string | null
-          source?: string
-          student_id: string
-          teacher_id?: string | null
-          total: number
-          used?: number
-        }
-        Update: {
-          created_at?: string
-          credit_value_usd?: number | null
-          expires_at?: string | null
-          id?: string
-          payment_id?: string | null
-          source?: string
-          student_id?: string
-          teacher_id?: string | null
-          total?: number
-          used?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "student_credits_payment_id_fkey"
-            columns: ["payment_id"]
-            isOneToOne: false
-            referencedRelation: "payments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_credits_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_credits_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "public_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_credits_teacher_id_fkey"
-            columns: ["teacher_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_credits_teacher_id_fkey"
-            columns: ["teacher_id"]
-            isOneToOne: false
-            referencedRelation: "public_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       student_goals: {
         Row: {
           ayah_end: number
@@ -6459,6 +6394,7 @@ export type Database = {
           max_active_students: number | null
           rating_avg: number
           recitation_standards: string[]
+          search_vector: unknown
           specialties: string[]
           teacher_id: string
           total_sessions: number
@@ -6484,6 +6420,7 @@ export type Database = {
           max_active_students?: number | null
           rating_avg?: number
           recitation_standards?: string[]
+          search_vector?: unknown
           specialties?: string[]
           teacher_id: string
           total_sessions?: number
@@ -6509,6 +6446,7 @@ export type Database = {
           max_active_students?: number | null
           rating_avg?: number
           recitation_standards?: string[]
+          search_vector?: unknown
           specialties?: string[]
           teacher_id?: string
           total_sessions?: number
@@ -6639,6 +6577,13 @@ export type Database = {
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "teacher_profiles"
+            referencedColumns: ["teacher_id"]
+          },
+          {
+            foreignKeyName: "testimonials_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "v_teachers"
             referencedColumns: ["teacher_id"]
           },
         ]
@@ -7231,6 +7176,25 @@ export type Database = {
         }
         Returns: undefined
       }
+      get_public_teacher: {
+        Args: { p_id: string }
+        Returns: {
+          avatar_url: string
+          bio: string
+          bio_en: string
+          full_name: string
+          full_name_ar: string
+          gender: string
+          hourly_rate: number
+          id: string
+          languages: string[]
+          rating_avg: number
+          rating_count: number
+          recitation_standards: string[]
+          specialties: string[]
+          total_sessions: number
+        }[]
+      }
       get_teacher_overdue_eval_count: {
         Args: { p_teacher_id: string }
         Returns: number
@@ -7259,6 +7223,7 @@ export type Database = {
         }
         Returns: string
       }
+      immutable_unaccent: { Args: { "": string }; Returns: string }
       increment_enrollment: {
         Args: { p_offering_id: string }
         Returns: undefined
@@ -7380,6 +7345,36 @@ export type Database = {
         }
       }
       run_monthly_payroll: { Args: { p_month: string }; Returns: number }
+      search_public_teachers: {
+        Args: {
+          p_gender?: string
+          p_language?: string
+          p_limit?: number
+          p_page?: number
+          p_price_max?: number
+          p_price_min?: number
+          p_query?: string
+          p_rating_weight?: number
+          p_specialty?: string
+        }
+        Returns: {
+          avatar_url: string
+          bio: string
+          bio_en: string
+          full_name: string
+          full_name_ar: string
+          gender: string
+          hourly_rate: number
+          id: string
+          languages: string[]
+          rating_avg: number
+          rating_count: number
+          recitation_standards: string[]
+          specialties: string[]
+          total_count: number
+          total_sessions: number
+        }[]
+      }
       search_teachers: {
         Args: { p_limit: number; p_needle: string; p_offset: number }
         Returns: {
@@ -7397,6 +7392,8 @@ export type Database = {
           total_sessions: number
         }[]
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       start_instant_session_booking:
         | {
             Args: {
@@ -7458,6 +7455,7 @@ export type Database = {
           total: number
         }[]
       }
+      unaccent: { Args: { "": string }; Returns: string }
       user_is_session_participant: { Args: { s_id: string }; Returns: boolean }
     }
     Enums: {

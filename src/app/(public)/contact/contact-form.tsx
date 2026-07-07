@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { useLang } from "@/lib/i18n/context";
 import { FormField } from "@/components/shared/form-field";
+import { COUNTRIES } from "@/lib/countries";
 import { submitContactForm } from "./actions";
 
 const inputClass = "glass-input w-full rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted/50 focus:border-gold focus:outline-none focus:ring-1 focus:ring-gold";
@@ -53,7 +54,7 @@ export function ContactForm() {
             name="whatsapp"
             type="tel"
             dir="ltr"
-            placeholder="+965 9779 5626"
+            placeholder="+20 122 021 0300"
             inputClassName={`${inputClass} text-left`}
           />
         </div>
@@ -62,17 +63,8 @@ export function ContactForm() {
           <FormField label={t("الدولة", "Country")} name="country">
             <select id="country" name="country" required className={inputClass}>
               <option value="">{t("اختر الدولة", "Select Country")}</option>
-              {[
-                { ar: "المملكة المتحدة", en: "United Kingdom" },
-                { ar: "الولايات المتحدة", en: "United States" },
-                { ar: "كندا", en: "Canada" },
-                { ar: "أستراليا", en: "Australia" },
-                { ar: "السعودية", en: "Saudi Arabia" },
-                { ar: "الإمارات", en: "UAE" },
-                { ar: "الكويت", en: "Kuwait" },
-                { ar: "مصر", en: "Egypt" },
-                { ar: "أخرى", en: "Other" },
-              ].map((c) => <option key={c.en} value={c.en}>{t(c.ar, c.en)}</option>)}
+              {COUNTRIES.map((c) => <option key={c.code} value={c.en}>{t(c.ar, c.en)}</option>)}
+              <option value="Other">{t("أخرى", "Other")}</option>
             </select>
           </FormField>
           <FormField label={t("عمر الطالب", "Student Age")} name="student_age">

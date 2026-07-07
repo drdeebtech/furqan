@@ -39,7 +39,7 @@ interface FormFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "id
  *   </FormField>
  *
  * Error / hint:
- *   <FormField label="..." name="..." error={state.error} hint="Format: +965 ..." />
+ *   <FormField label="..." name="..." error={state.error} hint="Format: +20 ..." />
  *
  * Replaces the inline `<div><label/><input/></div>` pattern that's
  * scattered across ~190 form sites. Migration is incremental — this
