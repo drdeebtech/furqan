@@ -69,7 +69,6 @@ export function ContactForm() {
                 { ar: "أستراليا", en: "Australia" },
                 { ar: "السعودية", en: "Saudi Arabia" },
                 { ar: "الإمارات", en: "UAE" },
-                { ar: "الكويت", en: "Kuwait" },
                 { ar: "مصر", en: "Egypt" },
                 { ar: "أخرى", en: "Other" },
               ].map((c) => <option key={c.en} value={c.en}>{t(c.ar, c.en)}</option>)}
