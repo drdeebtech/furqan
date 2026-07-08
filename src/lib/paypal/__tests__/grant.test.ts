@@ -27,6 +27,7 @@ const STUDENT_ID = "00000000-0000-1000-8000-000000000001";
 type MockAdmin = {
   from: ReturnType<typeof vi.fn>;
   rpc: ReturnType<typeof vi.fn>;
+  paymentsUpsert: ReturnType<typeof vi.fn>;
 };
 
 /**
@@ -39,6 +40,7 @@ function makeAdmin(opts: {
   grantLotId?: string | null;
   grantError?: { message: string } | null;
   profileError?: { message: string } | null;
+  paymentsError?: { message: string } | null;
 } = {}): MockAdmin {
   const profileMaybe = vi.fn().mockResolvedValue({
     data: opts.profile === undefined ? { id: STUDENT_ID, role: "student" } : opts.profile,
@@ -52,9 +54,13 @@ function makeAdmin(opts: {
     error: opts.grantError ?? null,
   });
 
+  const paymentsUpsert = vi.fn().mockResolvedValue({ error: opts.paymentsError ?? null });
+
   return {
     rpc,
+    paymentsUpsert,
     from: vi.fn((table: string) => {
+      if (table === "payments") return { upsert: paymentsUpsert };
       if (table === "profiles") return { select: profileSelect };
       return { select: profileSelect };
     }),
@@ -139,6 +145,54 @@ describe("grantPaypalPrepaidCapture (spec 039 Phase 2b)", () => {
       p_rate: 10,
       p_provider: "paypal",
     });
+  });
+
+  // ── Payments audit row (spec 039 — order id threaded) ──────────────────────
+  it("writes a best-effort payments audit row when orderId is provided", async () => {
+    const admin = makeAdmin();
+    const result = await grantPaypalPrepaidCapture(asAdmin(admin), {
+      captureId: "CAP-123",
+      amountUsd: 100,
+      customId: VALID_CUSTOM_ID,
+      orderId: "ORD-9",
+    });
+    expect(result).toEqual({ ok: true, lotId: "lot-1" });
+    expect(admin.paymentsUpsert).toHaveBeenCalledTimes(1);
+    const [row, options] = admin.paymentsUpsert.mock.calls[0];
+    expect(row).toMatchObject({
+      student_id: STUDENT_ID,
+      amount_usd: 100,
+      amount_before_tax: 100, // == amount_usd, satisfies the tax CHECK
+      tax_amount: 0,
+      provider: "paypal",
+      status: "succeeded",
+      paypal_order_id: "ORD-9",
+      paypal_capture_id: "CAP-123",
+    });
+    expect(options).toEqual({ onConflict: "paypal_capture_id", ignoreDuplicates: true });
+  });
+
+  it("skips the payments audit row when orderId is absent (grant still ok)", async () => {
+    const admin = makeAdmin();
+    const result = await grantPaypalPrepaidCapture(asAdmin(admin), {
+      captureId: "CAP-123",
+      amountUsd: 100,
+      customId: VALID_CUSTOM_ID,
+    });
+    expect(result).toEqual({ ok: true, lotId: "lot-1" });
+    expect(admin.paymentsUpsert).not.toHaveBeenCalled();
+  });
+
+  it("audit-row upsert failure is non-fatal — the grant still returns ok", async () => {
+    const admin = makeAdmin({ paymentsError: { message: "audit insert failed" } });
+    const result = await grantPaypalPrepaidCapture(asAdmin(admin), {
+      captureId: "CAP-123",
+      amountUsd: 100,
+      customId: VALID_CUSTOM_ID,
+      orderId: "ORD-9",
+    });
+    expect(result).toEqual({ ok: true, lotId: "lot-1" });
+    expect(admin.paymentsUpsert).toHaveBeenCalledTimes(1);
   });
 
   // ── Tamper guard runs BEFORE the rpc ───────────────────────────────────────
