@@ -147,7 +147,7 @@ export default async function AdminSettingsPage() {
     }
   };
 
-  const defaultCurrencies = ["USD", "KWD", "SAR", "EGP", "AED", "MAD", "QAR"];
+  const defaultCurrencies = ["USD"];
   const currenciesRaw = settingsMap["supported_currencies"];
   const currencies = currenciesRaw
     ? currenciesRaw.split(",").map(c => c.trim()).filter(Boolean)

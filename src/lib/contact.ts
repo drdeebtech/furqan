@@ -1,8 +1,8 @@
 export const CONTACT = {
-  whatsapp: "+965 9779 5626",
-  whatsappUrl: "https://wa.me/96597795626",
+  whatsapp: "+20 122 021 0300",
+  whatsappUrl: "https://wa.me/201220210300",
   whatsappUrlWithMessage:
-    "https://wa.me/96597795626?text=%D8%A3%D8%B1%D9%8A%D8%AF%20%D8%AC%D9%84%D8%B3%D8%A9%20%D8%AA%D8%AC%D8%B1%D9%8A%D8%A8%D9%8A%D8%A9%20%D9%85%D8%AC%D8%A7%D9%86%D9%8A%D8%A9",
+    "https://wa.me/201220210300?text=%D8%A3%D8%B1%D9%8A%D8%AF%20%D8%AC%D9%84%D8%B3%D8%A9%20%D8%AA%D8%AC%D8%B1%D9%8A%D8%A8%D9%8A%D8%A9%20%D9%85%D8%AC%D8%A7%D9%86%D9%8A%D8%A9",
   // support@ is the public support address (Wave 0 — decision 48). The mailbox
   // MUST be routed and a real send/receive verified BEFORE this merges.
   email: "support@furqan.today",
@@ -15,10 +15,10 @@ export const CONTACT = {
     ar: "مواعيد مرنة عبر المناطق الزمنية",
     en: "Flexible scheduling across time zones",
   },
-  flag: "🇰🇼",
+  flag: "🇪🇬",
   country: {
-    ar: "الكويت",
-    en: "Kuwait",
+    ar: "مصر",
+    en: "Egypt",
   },
 } as const;
 
