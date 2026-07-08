@@ -162,8 +162,10 @@ echo "    profiles authenticated SELECT grant = true"
 # Spec 038/039 gate: the prepaid catalog row must have seeded (it only can if the
 # prod-parity block above added packages.supports_session_modes) — otherwise
 # grant_prepaid_hours is silently broken locally for every prepaid/PayPal flow.
-CATALOG_ROW="$(psql "$DB_URL" -t -A -c "SELECT count(*) FROM public.packages WHERE id = 'c0ffee01-0000-4000-8000-000000038000';" 2>&1)" \
-  || { echo "FAILED: could not query prepaid catalog row"; echo "$CATALOG_ROW"; exit 1; }
+# stdout only — folding stderr (2>&1) into the value would let a benign psql
+# notice break the string compare below; the `||` still catches real failures.
+CATALOG_ROW="$(psql "$DB_URL" -t -A -c "SELECT count(*) FROM public.packages WHERE id = 'c0ffee01-0000-4000-8000-000000038000';")" \
+  || { echo "FAILED: could not query prepaid catalog row"; exit 1; }
 if [ "$CATALOG_ROW" != "1" ]; then
   echo "FAILED: prepaid catalog row count is '$CATALOG_ROW' (expected 1) — the 038 catalog seed did not land (prod-parity columns missing?)"
   exit 1
