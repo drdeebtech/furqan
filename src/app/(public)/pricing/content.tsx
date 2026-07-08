@@ -178,9 +178,11 @@ export interface PrepaidConfig {
 function PrepaidCard({
   prepaid,
   t,
+  paypalEnabled,
 }: {
   prepaid: PrepaidConfig;
   t: (ar: string, en: string) => string;
+  paypalEnabled?: boolean;
 }) {
   const presetValues = prepaid.presets
     .map((n) => Math.max(prepaid.min, Math.min(prepaid.max, Math.floor(n))))
@@ -271,6 +273,64 @@ function PrepaidCard({
         return;
       }
       window.location.href = checkoutUrl;
+    } catch {
+      setError(
+        t(
+          "تعذّر الاتصال بالخادم. حاول مرة أخرى.",
+          "Couldn't reach the server. Please try again.",
+        ),
+      );
+      setSubmitting(false);
+    }
+  };
+
+  // Spec 039 Phase 2c — PayPal checkout. Mirrors handleBuy but POSTs to the
+  // PayPal prepaid-hours route and redirects to `approveUrl` (not checkoutUrl).
+  // Same 401 → /login?next=/pricing, same loading/disabled state (shared
+  // `submitting` flag so both buttons lock during either checkout), same
+  // hours-only body — amount stays server-derived.
+  const handlePayPalBuy = async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/paypal/checkout/prepaid-hours", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hours: selectedHours }),
+      });
+      if (res.status === 401) {
+        window.location.href = "/login?next=/pricing";
+        return;
+      }
+      if (!res.ok) {
+        const fallback = t(
+          "تعذّر بدء عملية الدفع. حاول مرة أخرى.",
+          "Couldn't start checkout. Please try again.",
+        );
+        let msg = fallback;
+        try {
+          const body = await res.json();
+          if (body?.error && typeof body.error === "string") msg = body.error;
+        } catch {
+          // keep default
+        }
+        setError(msg);
+        setSubmitting(false);
+        return;
+      }
+      const body = await res.json();
+      const approveUrl: unknown = body?.data?.approveUrl;
+      if (typeof approveUrl !== "string" || approveUrl.length === 0) {
+        setError(
+          t(
+            "تعذّر بدء عملية الدفع. حاول مرة أخرى.",
+            "Couldn't start checkout. Please try again.",
+          ),
+        );
+        setSubmitting(false);
+        return;
+      }
+      window.location.href = approveUrl;
     } catch {
       setError(
         t(
@@ -373,6 +433,18 @@ function PrepaidCard({
             ? t("جارٍ التوجيه…", "Redirecting…")
             : t("اشترِ الساعات", "Buy hours")}
         </button>
+        {paypalEnabled && (
+          <button
+            type="button"
+            onClick={handlePayPalBuy}
+            disabled={submitting}
+            className="glass-pill inline-flex min-h-[44px] items-center justify-center border border-gold/40 px-6 py-3 text-sm font-semibold text-gold transition-colors hover:bg-gold/10 focus-ring disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {submitting
+              ? t("جارٍ التوجيه…", "Redirecting…")
+              : t("الدفع عبر باي بال", "Pay with PayPal")}
+          </button>
+        )}
       </div>
 
       {error && (
@@ -391,10 +463,12 @@ export function PricingContent({
   plans,
   faqs,
   prepaid,
+  paypalEnabled,
 }: {
   plans: Plan[];
   faqs: Faq[];
   prepaid: PrepaidConfig | null;
+  paypalEnabled?: boolean;
 }) {
   const { t } = useLang();
   const { hidePrices } = useFeatureFlags();
@@ -538,7 +612,9 @@ export function PricingContent({
           {/* Spec 038 — "Pay as you go" prepaid-hours card. Rendered only when
               the server gate passed a non-null `prepaid` config (flag ON). Sits
               after the subscription tiers so the recurring plans stay primary. */}
-          {prepaid && !hidePrices && <PrepaidCard prepaid={prepaid} t={t} />}
+          {prepaid && !hidePrices && (
+            <PrepaidCard prepaid={prepaid} t={t} paypalEnabled={paypalEnabled} />
+          )}
 
           {!hidePrices && plans.length > 0 && (
             <p className="text-center text-xs text-muted">

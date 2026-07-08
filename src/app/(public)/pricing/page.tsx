@@ -122,6 +122,13 @@ export default async function PricingPage() {
     prepaid = { rateUsd, presets, min, max };
   }
 
+  // Spec 039 Phase 2c — PayPal button on the prepaid-hours card. Same anon-safe
+  // getSettings() bulk read as `prepaid` above (NOT isFeatureEnabled/getSetting —
+  // those are RLS-scoped to `authenticated` and would hide the button from
+  // logged-out visitors, the exact bug that was fixed for the prepaid flag).
+  // Default OFF: missing/blank/non-'true' → false → button stays invisible.
+  const paypalEnabled = settings["paypal_purchase_enabled"] === "true";
+
   return (
     <>
       <BreadcrumbSchema
@@ -130,7 +137,12 @@ export default async function PricingPage() {
           { name: "الأسعار", url: `${BASE_URL}/pricing` },
         ]}
       />
-      <PricingContent plans={data ?? []} faqs={faqRows} prepaid={prepaid} />
+      <PricingContent
+        plans={data ?? []}
+        faqs={faqRows}
+        prepaid={prepaid}
+        paypalEnabled={paypalEnabled}
+      />
     </>
   );
 }
