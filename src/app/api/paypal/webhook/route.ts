@@ -49,6 +49,13 @@ const CaptureResourceSchema = z
     id: z.string(),
     amount: z.object({ value: z.string() }).optional(),
     custom_id: z.string().nullable().optional(),
+    // PayPal stamps the originating ORDER id here on a capture event; used only
+    // for the payments audit row (optional — absence just skips that row).
+    supplementary_data: z
+      .object({
+        related_ids: z.object({ order_id: z.string().optional() }).optional(),
+      })
+      .optional(),
   })
   .passthrough();
 
@@ -221,6 +228,7 @@ async function handleCaptureCompleted(
     captureId: capture.id,
     amountUsd,
     customId,
+    orderId: capture.supplementary_data?.related_ids?.order_id ?? null,
   });
 
   if (result.ok) {

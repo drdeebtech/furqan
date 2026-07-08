@@ -41,6 +41,15 @@ export interface GrantPaypalPrepaidCaptureArgs {
   captureId: string;
   amountUsd: number;
   customId: string | null;
+  /**
+   * PayPal ORDER id — from the return route's `?token`, or the capture's
+   * `supplementary_data.related_ids.order_id` in the webhook. Needed for the
+   * `payments` audit row (CHECK: a paypal row requires `paypal_order_id` NOT
+   * NULL). When absent (a rare webhook capture with no related order), the
+   * audit row is skipped and the grant + `prepaid_hours_events` ledger remain
+   * the audit source — the money grant is never affected either way.
+   */
+  orderId?: string | null;
 }
 
 // ── custom_id parser ─────────────────────────────────────────────────────────
@@ -124,7 +133,7 @@ export async function grantPaypalPrepaidCapture(
   admin: AdminClient,
   args: GrantPaypalPrepaidCaptureArgs,
 ): Promise<GrantPaypalPrepaidCaptureResult> {
-  const { captureId, amountUsd, customId } = args;
+  const { captureId, amountUsd, customId, orderId } = args;
 
   // 1. custom_id presence + shape.
   if (customId === null) {
@@ -203,14 +212,40 @@ export async function grantPaypalPrepaidCapture(
     return { ok: false, reason: "grant failed" };
   }
 
-  // ponytail: no neutral payment-ref column on payments; grant/ledger is the audit source. Add a paypal ref column in a later migration.
-  // (The `payments` table has provider-SPECIFIC columns — stripe_payment_intent,
-  // paypal_order_id, paypal_capture_id — and a CHECK requiring paypal_order_id
-  // NOT NULL for PayPal rows. We don't have the order id here (only the capture
-  // id), and there is no single provider-neutral ref column. Writing a fake
-  // stripe_payment_intent for a PayPal payment is forbidden. The grant +
-  // billing_events ledger is the audit source for PayPal until a neutral column
-  // is added.)
+  // 5. Best-effort payments audit row (mirrors the Stripe prepaid path in
+  //    webhook-handlers.ts — `payments` is the cross-provider money audit
+  //    trail). NON-FATAL: the money grant already succeeded above, so an
+  //    audit-write failure is logged and swallowed, never thrown, and never
+  //    rolls back the grant. Idempotent on the UNIQUE `paypal_capture_id`, so a
+  //    webhook + return-route double-fire writes at most one row. amount_usd ==
+  //    amount_before_tax + tax_amount satisfies the tax CHECK; provider='paypal'
+  //    + paypal_order_id NOT NULL satisfies the provider CHECK. Skipped when the
+  //    order id is absent (rare webhook capture with no related order) — the
+  //    grant + prepaid_hours_events ledger stay the audit source there.
+  if (orderId) {
+    const { error: payErr } = await admin.from("payments").upsert(
+      {
+        student_id: parsed.studentId,
+        amount_usd: amountUsd,
+        amount_before_tax: amountUsd,
+        tax_amount: 0,
+        tax_rate: 0,
+        provider: "paypal",
+        status: "succeeded",
+        paypal_order_id: orderId,
+        paypal_capture_id: captureId,
+        paid_at: new Date().toISOString(),
+      },
+      { onConflict: "paypal_capture_id", ignoreDuplicates: true },
+    );
+    if (payErr) {
+      logError("paypal-prepaid grant: payments audit upsert failed (non-fatal)", payErr, {
+        tag: "paypal-prepaid",
+        capture_id: captureId,
+        order_id: orderId,
+      });
+    }
+  }
 
   return { ok: true, lotId: lotId as string };
 }

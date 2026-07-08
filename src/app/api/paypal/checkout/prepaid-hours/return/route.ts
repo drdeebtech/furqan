@@ -142,6 +142,7 @@ export async function GET(request: Request) {
     captureId,
     amountUsd,
     customId,
+    orderId,
   });
 
   if (result.ok) {
