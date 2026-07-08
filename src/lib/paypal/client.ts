@@ -64,6 +64,16 @@ export interface CapturePayPalOrderResult {
   status: string;
   amountUsd: number;
   payerEmail: string | null;
+  /** FROZEN grant context stamped at checkout (`prepaid_hours:<uuid>:<h>:<rate>`). */
+  customId: string | null;
+}
+
+/** Shape returned by GET /v2/checkout/orders/{id} (idempotent re-entry lookup). */
+export interface GetPayPalOrderResult {
+  status: string;
+  captureId: string | null;
+  amountUsd: number | null;
+  customId: string | null;
 }
 
 // ── Token cache (module-level) ───────────────────────────────────────────────
@@ -256,10 +266,13 @@ export async function capturePayPalOrder(
 
   const json = (await res.json()) as {
     purchase_units?: Array<{
+      custom_id?: string;
+      amount?: { currency_code?: string; value?: string };
       payments?: {
         captures?: Array<{
           id?: string;
           status?: string;
+          custom_id?: string;
           amount?: { currency_code?: string; value?: string };
         }>;
       };
@@ -267,8 +280,8 @@ export async function capturePayPalOrder(
     payer?: { email_address?: string };
   };
 
-  const capture =
-    json.purchase_units?.[0]?.payments?.captures?.[0] ?? undefined;
+  const purchaseUnit = json.purchase_units?.[0] ?? undefined;
+  const capture = purchaseUnit?.payments?.captures?.[0] ?? undefined;
   if (!capture?.id || !capture.status) {
     throw new Error(
       `PayPal capture response missing capture id/status: ${JSON.stringify(json)}`,
@@ -288,5 +301,176 @@ export async function capturePayPalOrder(
     status: capture.status,
     amountUsd,
     payerEmail: json.payer?.email_address ?? null,
+    // FROZEN grant context — prefer the capture-level custom_id (set on the
+    // capture by PayPal when present), fall back to the purchase-unit level
+    // (where checkout stamped it). Null only if PayPal dropped it entirely.
+    customId: capture.custom_id ?? purchaseUnit?.custom_id ?? null,
   };
+}
+
+/**
+ * GET /v2/checkout/orders/{id} — idempotent order lookup.
+ *
+ * Used by the capture/grant return route to RECOVER the capture id when the
+ * order was ALREADY captured (a redelivery, or the buyer hit the return URL
+ * after the webhook already captured). `capturePayPalOrder` throws on an
+ * already-captured order; this GET reads the existing capture from
+ * `purchase_units[0].payments.captures[0]` without mutating anything.
+ *
+ * Returns `captureId: null` when the order has NOT yet been captured (no
+ * captures array) — the caller treats that as "pending, not recoverable".
+ */
+export async function getPayPalOrder(orderId: string): Promise<GetPayPalOrderResult> {
+  if (!PAYPAL_API_BASE) {
+    throw new Error(
+      "PayPal is not configured: PAYPAL_API_BASE is missing.",
+    );
+  }
+
+  const url = `${PAYPAL_API_BASE}/v2/checkout/orders/${encodeURIComponent(orderId)}`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: await authedJsonHeaders(),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "<no body>");
+    throw new Error(
+      `PayPal get-order request failed: ${res.status} ${res.statusText} — ${text}`,
+    );
+  }
+
+  const json = (await res.json()) as {
+    status?: string;
+    purchase_units?: Array<{
+      custom_id?: string;
+      amount?: { currency_code?: string; value?: string };
+      payments?: {
+        captures?: Array<{
+          id?: string;
+          status?: string;
+          custom_id?: string;
+          amount?: { currency_code?: string; value?: string };
+        }>;
+      };
+    }>;
+  };
+
+  const purchaseUnit = json.purchase_units?.[0] ?? undefined;
+  const capture = purchaseUnit?.payments?.captures?.[0] ?? undefined;
+
+  // Amount: prefer the capture-level amount (what was actually charged), fall
+  // back to the purchase-unit amount (the quoted amount). Null if neither is a
+  // finite number — the caller's tamper guard will fail-close.
+  const valueStr = capture?.amount?.value ?? purchaseUnit?.amount?.value;
+  const amountUsd = valueStr ? Number(valueStr) : NaN;
+
+  return {
+    status: json.status ?? "UNKNOWN",
+    captureId: capture?.id ?? null,
+    amountUsd: Number.isFinite(amountUsd) ? amountUsd : null,
+    customId: capture?.custom_id ?? purchaseUnit?.custom_id ?? null,
+  };
+}
+
+// ── Webhook verification ─────────────────────────────────────────────────────
+
+/**
+ * True iff `PAYPAL_WEBHOOK_ID` is set. The webhook route uses this to return a
+ * clean 503 ("not configured") instead of attempting signature verification
+ * with a missing webhook id (which would always fail). Mirrors the Stripe
+ * route's missing-config 503 gate.
+ */
+export function isPayPalWebhookConfigured(): boolean {
+  return Boolean(process.env.PAYPAL_WEBHOOK_ID);
+}
+
+/** PayPal-to-Node header name map for webhook signature verification. */
+const PAYPAL_WEBHOOK_HEADERS = {
+  authAlgo: "paypal-auth-algo",
+  certUrl: "paypal-cert-url",
+  transmissionId: "paypal-transmission-id",
+  transmissionSig: "paypal-transmission-sig",
+  transmissionTime: "paypal-transmission-time",
+} as const;
+
+/**
+ * Verifies a PayPal webhook signature via POST /v1/notifications/verify-webhook-signature.
+ *
+ * PayPal sends five transmission headers (algo, cert url, transmission id, sig,
+ * time) alongside the raw body. We forward ALL of them + the parsed body + the
+ * configured `PAYPAL_WEBHOOK_ID` to PayPal's verify endpoint and trust ONLY
+ * `verification_status === 'SUCCESS'`.
+ *
+ * Fail-closed posture (mirrors `stripe.webhooks.constructEvent`):
+ *   - If `PAYPAL_WEBHOOK_ID` is missing → THROW (the route maps this to 503,
+ *     same as Stripe's missing-secret gate). Never return false here — a false
+ *     return would let the route emit a 400 "invalid signature" which is the
+ *     WRONG signal for a config problem.
+ *   - If PayPal returns a non-SUCCESS status → return false (route emits 400
+ *     with ZERO side effects — NFR-001).
+ *   - Network/parse errors bubble up (route catches and 500s).
+ *
+ * Never logs secrets: the transmission_sig / cert_url are PayPal-provided
+ * verification material, not our credentials; we still avoid logging them.
+ */
+export async function verifyPayPalWebhookSignature(
+  headers: Headers,
+  rawBody: string,
+): Promise<boolean> {
+  const webhookId = process.env.PAYPAL_WEBHOOK_ID;
+  if (!webhookId) {
+    throw new Error(
+      "PayPal webhook verification failed: PAYPAL_WEBHOOK_ID is not set.",
+    );
+  }
+
+  if (!PAYPAL_API_BASE) {
+    throw new Error(
+      "PayPal webhook verification failed: PAYPAL_API_BASE is missing.",
+    );
+  }
+
+  const authAlgo = headers.get(PAYPAL_WEBHOOK_HEADERS.authAlgo);
+  const certUrl = headers.get(PAYPAL_WEBHOOK_HEADERS.certUrl);
+  const transmissionId = headers.get(PAYPAL_WEBHOOK_HEADERS.transmissionId);
+  const transmissionSig = headers.get(PAYPAL_WEBHOOK_HEADERS.transmissionSig);
+  const transmissionTime = headers.get(PAYPAL_WEBHOOK_HEADERS.transmissionTime);
+
+  // Any missing transmission header → cannot verify → fail-closed (false).
+  // (Distinct from a missing webhook_id, which is a config error → throw.)
+  if (!authAlgo || !certUrl || !transmissionId || !transmissionSig || !transmissionTime) {
+    return false;
+  }
+
+  let webhookEvent: unknown;
+  try {
+    webhookEvent = JSON.parse(rawBody);
+  } catch {
+    // Malformed body → cannot forward to PayPal → fail-closed.
+    return false;
+  }
+
+  const url = `${PAYPAL_API_BASE}/v1/notifications/verify-webhook-signature`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: await authedJsonHeaders(),
+    body: JSON.stringify({
+      auth_algo: authAlgo,
+      cert_url: certUrl,
+      transmission_id: transmissionId,
+      transmission_sig: transmissionSig,
+      transmission_time: transmissionTime,
+      webhook_id: webhookId,
+      webhook_event: webhookEvent,
+    }),
+  });
+
+  if (!res.ok) {
+    // PayPal verify endpoint returned non-2xx — treat as NOT verified.
+    return false;
+  }
+
+  const json = (await res.json()) as { verification_status?: string };
+  return json.verification_status === "SUCCESS";
 }

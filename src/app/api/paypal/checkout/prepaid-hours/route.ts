@@ -197,7 +197,7 @@ export async function POST(request: Request) {
       referenceId: studentId,
       customId,
       description,
-      returnUrl: `${appUrl}/student/dashboard?prepaid_hours=paypal_return`,
+      returnUrl: `${appUrl}/api/paypal/checkout/prepaid-hours/return`,
       cancelUrl: `${appUrl}/student/dashboard?prepaid_hours=cancelled`,
     });
 
