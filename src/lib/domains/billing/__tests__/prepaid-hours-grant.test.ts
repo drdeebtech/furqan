@@ -138,6 +138,7 @@ describe("handlePrepaidHoursGrant (spec 038 Phase 3)", () => {
       p_student: STUDENT_ID,
       p_hours: 10,
       p_rate: 10,
+      p_provider: "stripe",
     });
     // event marked processed.
     const update = (admin.from as unknown as ReturnType<typeof vi.fn>).mock.results.find(

@@ -763,6 +763,7 @@ export async function handlePrepaidHoursGrant(ctx: EventContext): Promise<void> 
     p_student: studentId,
     p_hours: hours,
     p_rate: rateUsd,
+    p_provider: "stripe",
   });
 
   if (grantErr || !lotId) {
