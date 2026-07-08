@@ -84,6 +84,28 @@ export function parsePrepaidCustomId(
   return { studentId: studentIdParsed.data, hours, rate };
 }
 
+// ── refund capture-id parser ─────────────────────────────────────────────────
+
+/**
+ * Extract the ORIGINAL capture id from a PayPal refund/reversal event's HATEOAS
+ * links (PAYMENT.CAPTURE.REFUNDED / .REVERSED). The refund resource's own `id`
+ * is the REFUND id — the capture id (our idempotency key / provider_payment_ref)
+ * lives on the link with `rel === "up"`, whose href ends `/captures/<id>`.
+ *
+ * Returns null if there is no `up` link or it doesn't match the captures path —
+ * the caller fail-closes (marks the event failed rather than voiding the wrong
+ * lot).
+ */
+export function parseRefundCaptureId(
+  links: ReadonlyArray<{ href: string; rel: string }> | undefined | null,
+): string | null {
+  if (!links) return null;
+  const up = links.find((l) => l.rel === "up");
+  if (!up) return null;
+  const match = up.href.match(/\/captures\/([^/?]+)/);
+  return match ? match[1] : null;
+}
+
 // ── grant ────────────────────────────────────────────────────────────────────
 
 /**

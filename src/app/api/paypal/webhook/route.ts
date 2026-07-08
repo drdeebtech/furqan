@@ -7,7 +7,7 @@ import {
   isPayPalWebhookConfigured,
   verifyPayPalWebhookSignature,
 } from "@/lib/paypal/client";
-import { grantPaypalPrepaidCapture } from "@/lib/paypal/grant";
+import { grantPaypalPrepaidCapture, parseRefundCaptureId } from "@/lib/paypal/grant";
 
 export const maxDuration = 60;
 
@@ -51,6 +51,19 @@ const CaptureResourceSchema = z
     custom_id: z.string().nullable().optional(),
   })
   .passthrough();
+
+/**
+ * Refund / reversal resource (PAYMENT.CAPTURE.REFUNDED / .REVERSED). `id` here
+ * is the REFUND id — the ORIGINAL capture id (our idempotency key /
+ * provider_payment_ref) lives on the `rel="up"` HATEOAS link.
+ */
+const RefundResourceSchema = z
+  .object({
+    id: z.string().optional(),
+    links: z.array(z.object({ href: z.string(), rel: z.string() })).optional(),
+  })
+  .passthrough();
+
 
 type BillingEventStatus = "received" | "processed" | "ignored" | "failed";
 
@@ -185,6 +198,95 @@ export async function POST(request: Request) {
   return dispatch(admin, event);
 }
 
+/** PAYMENT.CAPTURE.COMPLETED → tamper-guarded, idempotent prepaid-hours grant. */
+async function handleCaptureCompleted(
+  admin: ReturnType<typeof createAdminClient>,
+  event: z.infer<typeof PaypalEventSchema>,
+): Promise<void> {
+  const resourceParsed = CaptureResourceSchema.safeParse(event.resource);
+  if (!resourceParsed.success) {
+    logError(
+      "paypal-webhook: PAYMENT.CAPTURE.COMPLETED resource malformed",
+      new Error("bad-resource"),
+      { tag: "paypal-webhook", event_id: event.id, issues: resourceParsed.error.flatten() },
+    );
+    await markEvent(admin, event.id, "failed", "capture resource malformed");
+    return;
+  }
+  const capture = resourceParsed.data;
+  const amountUsd = capture.amount?.value ? Number(capture.amount.value) : NaN;
+  const customId = capture.custom_id ?? null;
+
+  const result = await grantPaypalPrepaidCapture(admin, {
+    captureId: capture.id,
+    amountUsd,
+    customId,
+  });
+
+  if (result.ok) {
+    logInfo("paypal-webhook: prepaid_hours granted", {
+      tag: "paypal-webhook",
+      event_id: event.id,
+      capture_id: capture.id,
+      lot_id: result.lotId,
+    });
+    await markEvent(admin, event.id, "processed");
+  } else {
+    logError("paypal-webhook: prepaid grant failed", new Error(result.reason), {
+      tag: "paypal-webhook",
+      event_id: event.id,
+      capture_id: capture.id,
+      reason: result.reason,
+    });
+    await markEvent(admin, event.id, "failed", result.reason);
+  }
+}
+
+/**
+ * PAYMENT.CAPTURE.REFUNDED / .REVERSED → void the funded lot's remaining hours.
+ *
+ * Money reversed OUTSIDE our saga (PayPal-side refund / dispute) must not leave
+ * a spendable wallet. reconcile_external_prepaid_refund is provider-neutral
+ * (keyed on provider_payment_ref = the capture id) and idempotent (0-remaining
+ * → no-op, no duplicate 'refunded' event).
+ */
+async function handleExternalRefund(
+  admin: ReturnType<typeof createAdminClient>,
+  event: z.infer<typeof PaypalEventSchema>,
+): Promise<void> {
+  const refundParsed = RefundResourceSchema.safeParse(event.resource);
+  const captureId = refundParsed.success
+    ? parseRefundCaptureId(refundParsed.data.links)
+    : null;
+  if (!captureId) {
+    logError(
+      "paypal-webhook: refund/reversal missing capture id (rel=up)",
+      new Error("no-capture-id"),
+      { tag: "paypal-webhook", event_id: event.id, event_type: event.event_type },
+    );
+    await markEvent(admin, event.id, "failed", "refund missing capture id");
+    return;
+  }
+  const { error: reconErr } = await admin.rpc("reconcile_external_prepaid_refund", {
+    p_payment_intent: captureId,
+  });
+  if (reconErr) {
+    logError("paypal-webhook: reconcile_external_prepaid_refund failed", reconErr, {
+      tag: "paypal-webhook",
+      event_id: event.id,
+      capture_id: captureId,
+    });
+    await markEvent(admin, event.id, "failed", reconErr.message);
+  } else {
+    logInfo("paypal-webhook: external refund reconciled (hours voided)", {
+      tag: "paypal-webhook",
+      event_id: event.id,
+      capture_id: captureId,
+    });
+    await markEvent(admin, event.id, "processed");
+  }
+}
+
 /** Route the event type to the appropriate handler. */
 async function dispatch(
   admin: ReturnType<typeof createAdminClient>,
@@ -192,61 +294,21 @@ async function dispatch(
 ): Promise<NextResponse> {
   try {
     switch (event.event_type) {
-      case "PAYMENT.CAPTURE.COMPLETED": {
-        const resourceParsed = CaptureResourceSchema.safeParse(event.resource);
-        if (!resourceParsed.success) {
-          logError(
-            "paypal-webhook: PAYMENT.CAPTURE.COMPLETED resource malformed",
-            new Error("bad-resource"),
-            { tag: "paypal-webhook", event_id: event.id, issues: resourceParsed.error.flatten() },
-          );
-          await markEvent(admin, event.id, "failed", "capture resource malformed");
-          break;
-        }
-        const capture = resourceParsed.data;
-        const amountUsd = capture.amount?.value ? Number(capture.amount.value) : NaN;
-        const customId = capture.custom_id ?? null;
-
-        const result = await grantPaypalPrepaidCapture(admin, {
-          captureId: capture.id,
-          amountUsd,
-          customId,
-        });
-
-        if (result.ok) {
-          logInfo("paypal-webhook: prepaid_hours granted", {
-            tag: "paypal-webhook",
-            event_id: event.id,
-            capture_id: capture.id,
-            lot_id: result.lotId,
-          });
-          await markEvent(admin, event.id, "processed");
-        } else {
-          logError(
-            "paypal-webhook: prepaid grant failed",
-            new Error(result.reason),
-            {
-              tag: "paypal-webhook",
-              event_id: event.id,
-              capture_id: capture.id,
-              reason: result.reason,
-            },
-          );
-          await markEvent(admin, event.id, "failed", result.reason);
-        }
+      case "PAYMENT.CAPTURE.COMPLETED":
+        await handleCaptureCompleted(admin, event);
         break;
-      }
 
       case "PAYMENT.CAPTURE.REFUNDED":
-      case "PAYMENT.CAPTURE.DENIED":
-      case "PAYMENT.CAPTURE.REVERSED": {
-        // Refund/reversal handling is a later phase — do NOT grant or mutate
-        // the wallet here. Mark ignored so PayPal stops retrying and ops has
-        // an audit row.
-        logInfo("paypal-webhook: capture event ignored (later phase)", {
+      case "PAYMENT.CAPTURE.REVERSED":
+        await handleExternalRefund(admin, event);
+        break;
+
+      case "PAYMENT.CAPTURE.DENIED": {
+        // The capture never completed → no lot was ever granted (grant fires
+        // only on PAYMENT.CAPTURE.COMPLETED). Nothing to void; audit + move on.
+        logInfo("paypal-webhook: capture denied (no grant existed)", {
           tag: "paypal-webhook",
           event_id: event.id,
-          event_type: event.event_type,
         });
         await markEvent(admin, event.id, "ignored", event.event_type);
         break;

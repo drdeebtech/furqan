@@ -11,7 +11,7 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: vi.fn(),
 }));
 
-import { parsePrepaidCustomId, grantPaypalPrepaidCapture } from "../grant";
+import { parsePrepaidCustomId, grantPaypalPrepaidCapture, parseRefundCaptureId } from "../grant";
 
 // Cast helper — the mock admin is a hand-rolled shape, not a real SupabaseClient.
 // The reference test (prepaid-hours-grant.test.ts) casts the same way via
@@ -260,5 +260,38 @@ describe("grantPaypalPrepaidCapture (spec 039 Phase 2b)", () => {
       p_payment_intent: "CAP-DUP",
       p_provider: "paypal",
     }));
+  });
+});
+
+// ─── parseRefundCaptureId (refund/reversal → capture id via rel="up") ─────────
+
+describe("parseRefundCaptureId", () => {
+  it("extracts the capture id from the rel='up' link", () => {
+    const links = [
+      { href: "https://api.sandbox.paypal.com/v2/payments/refunds/RE-1", rel: "self" },
+      { href: "https://api.sandbox.paypal.com/v2/payments/captures/CAP-XYZ", rel: "up" },
+    ];
+    expect(parseRefundCaptureId(links)).toBe("CAP-XYZ");
+  });
+
+  it("ignores query strings after the capture id", () => {
+    const links = [{ href: "https://x/v2/payments/captures/CAP-9?foo=bar", rel: "up" }];
+    expect(parseRefundCaptureId(links)).toBe("CAP-9");
+  });
+
+  it("returns null when there is no rel='up' link", () => {
+    const links = [{ href: "https://x/v2/payments/refunds/RE-1", rel: "self" }];
+    expect(parseRefundCaptureId(links)).toBeNull();
+  });
+
+  it("returns null when the up link is not a captures path", () => {
+    const links = [{ href: "https://x/v2/payments/authorizations/AUTH-1", rel: "up" }];
+    expect(parseRefundCaptureId(links)).toBeNull();
+  });
+
+  it("returns null for missing/empty links", () => {
+    expect(parseRefundCaptureId(undefined)).toBeNull();
+    expect(parseRefundCaptureId(null)).toBeNull();
+    expect(parseRefundCaptureId([])).toBeNull();
   });
 });
