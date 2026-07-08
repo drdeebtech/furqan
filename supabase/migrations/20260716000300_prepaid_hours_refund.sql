@@ -4,7 +4,7 @@
 -- Design authority: spec.md → "Eng-review resolutions" R8 (webhook-driven saga,
 -- reserve-voids-hours), H5 (external refunds/chargebacks), FR-011.
 -- Prerequisites:
---   • 20260715000000_prepaid_hour_wallet_schema.sql — student_packages columns
+--   • 20260715000050_prepaid_hour_wallet_schema.sql — student_packages columns
 --     (rate_paid_usd frozen, stripe_payment_intent_id), prepaid_hours_events.
 --   • 20260715000100_prepaid_hour_wallet_functions.sql — record_prepaid_event().
 --

@@ -1,4 +1,4 @@
--- 20260715000000_prepaid_hour_wallet_schema.sql
+-- 20260715000050_prepaid_hour_wallet_schema.sql
 --
 -- Spec 038 — Prepaid Hour Wallet, Phase 1 (data model + settings).
 -- Design authority: spec.md → "Eng-review resolutions (2026-07-06)" R1–R10, H1–H5.

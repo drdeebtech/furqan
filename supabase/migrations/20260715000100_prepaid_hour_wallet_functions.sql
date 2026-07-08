@@ -2,7 +2,7 @@
 --
 -- Spec 038 — Prepaid Hour Wallet, Phase 2 (money DB functions).
 -- Design authority: spec.md → "Eng-review resolutions (2026-07-06)" R1–R10, H1–H5.
--- Prerequisite: 20260715000000_prepaid_hour_wallet_schema.sql (Phase 1 — table,
+-- Prerequisite: 20260715000050_prepaid_hour_wallet_schema.sql (Phase 1 — table,
 -- catalog row, columns, settings seeds).
 --
 -- This migration adds the wallet money-path SECURITY DEFINER functions and

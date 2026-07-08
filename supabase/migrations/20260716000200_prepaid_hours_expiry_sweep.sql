@@ -3,7 +3,7 @@
 -- Spec 038 — Prepaid Hour Wallet, Phase 4 (expiry sweep). DB-only.
 -- Design authority: spec.md → "Eng-review resolutions" R5, R6, H3 + FR-008/009.
 -- Prerequisites:
---   • 20260715000000_prepaid_hour_wallet_schema.sql — prepaid_hours_events table,
+--   • 20260715000050_prepaid_hour_wallet_schema.sql — prepaid_hours_events table,
 --     the partial sweep index idx_student_packages_prepaid_active_expiry
 --     (expires_at WHERE product_type='prepaid_hours' AND status='active').
 --   • 20260715000100_prepaid_hour_wallet_functions.sql — record_prepaid_event().
