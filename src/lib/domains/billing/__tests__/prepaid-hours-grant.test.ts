@@ -97,25 +97,29 @@ function makeCtx(
     rate_usd: "10.00",
     ...metadataOverrides,
   };
-  return {
-    admin: admin as never,
-    stripe: {} as never,
-    event: {
-      id: "evt_test",
-      created: 1_700_000_000,
-      data: {
-        object: {
-          id: "pi_test",
-          currency: "usd",
-          status: "succeeded",
-          amount_received: 1000, // 10 hours × $10 × 100 = 10000 cents default
-          metadata: md,
-          ...piOverrides,
+    return {
+      admin: admin as never,
+      stripe: {} as never,
+      event: {
+        id: "evt_test",
+        created: 1_700_000_000,
+        data: {
+          object: {
+            id: "pi_test",
+            currency: "usd",
+            status: "succeeded",
+            // Default = the happy-path amount (10 hours × $10 × 100 = 10000
+            // cents) so the H2 tamper guard PASSES and downstream branches
+            // (profile lookup, rpc, payments audit) are actually exercised.
+            // Tests that want to assert the tamper guard itself override this.
+            amount_received: 10000,
+            metadata: md,
+            ...piOverrides,
+          },
         },
-      },
-    } as never,
-    billingEventId: "evt-1",
-  };
+      } as never,
+      billingEventId: "evt-1",
+    };
 }
 
 beforeEach(() => {
@@ -203,6 +207,9 @@ describe("handlePrepaidHoursGrant (spec 038 Phase 3)", () => {
 
     await handlePrepaidHoursGrant(ctx);
 
+    // The tamper guard must PASS (default amount_received matches the rate)
+    // so the profile-lookup branch is actually exercised — assert it ran.
+    expect(admin.from).toHaveBeenCalledWith("profiles");
     expect(admin.rpc).not.toHaveBeenCalled();
   });
 
@@ -212,6 +219,9 @@ describe("handlePrepaidHoursGrant (spec 038 Phase 3)", () => {
 
     await handlePrepaidHoursGrant(ctx);
 
+    // Same as above — the profile lookup must actually run for this test to
+    // assert the branch it names (role !== student).
+    expect(admin.from).toHaveBeenCalledWith("profiles");
     expect(admin.rpc).not.toHaveBeenCalled();
   });
 

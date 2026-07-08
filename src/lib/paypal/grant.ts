@@ -83,10 +83,16 @@ export function parsePrepaidCustomId(
 
   // hours: integer string, positive. Number('10') === 10, Number.isInteger.
   // Reject '0', negatives, floats, NaN, empty, non-numeric.
+  // Regex first: Number() accepts '1e6', '0x10', ' 5 ' — none are canonical
+  // grant-context integers, so reject before the coercion.
+  if (!/^[1-9]\d*$/.test(hoursRaw)) return null;
   const hours = Number(hoursRaw);
   if (!Number.isInteger(hours) || hours <= 0) return null;
 
   // rate: finite positive number. Reject '0', negatives, NaN, empty.
+  // Regex first: Number() accepts '1e6', '0x10', ' 5 ' — none are canonical
+  // grant-context rates, so reject before the coercion.
+  if (!/^(?:[1-9]\d*)(?:\.\d+)?$/.test(rateRaw)) return null;
   const rate = Number(rateRaw);
   if (!Number.isFinite(rate) || rate <= 0) return null;
 

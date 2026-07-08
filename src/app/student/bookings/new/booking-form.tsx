@@ -348,7 +348,15 @@ export function BookingForm({
                   aria-pressed={duration === d.value}
                   aria-disabled={usePrepaidHours}
                   disabled={usePrepaidHours}
-                  onClick={() => !usePrepaidHours && setDuration(d.value)}
+                  onClick={() => {
+                    if (usePrepaidHours) return;
+                    // A slot valid for 30 min may not exist/be valid for 60 min
+                    // (or vice-versa) — clear the selected time so the user
+                    // re-picks from the freshly-computed availability grid
+                    // rather than submitting a stale, mismatched slot.
+                    setSelectedTime("");
+                    setDuration(d.value);
+                  }}
                   className={`focus-ring min-h-[44px] rounded-xl border px-3 py-3 text-sm transition-colors ${
                     duration === d.value ? "border-gold bg-gold/10 font-medium text-gold" : "glass-input hover:border-gold/50"
                   } ${usePrepaidHours ? "cursor-not-allowed opacity-70" : ""}`}

@@ -30,22 +30,34 @@ export function RefundPrepaidHoursForm() {
   const submit = () => {
     if (!canSubmit) return;
     start(async () => {
-      const res = await approvePrepaidRefund({ lotId: lotId.trim(), hours: parsedHours });
-      if (res.ok) {
-        toast.success(t(`تم استرداد ${res.amountUsd}$`, `Refunded $${res.amountUsd}`));
-        setLastResult(
-          t(
-            `تم — استرداد ${res.amountUsd}$ (طلب ${res.refundRequestId})`,
-            `Done — refunded $${res.amountUsd} (request ${res.refundRequestId})`,
-          ),
-        );
-        setLotId("");
-        setHours("");
-      } else {
-        toast.error(res.error);
-        setLastResult(t(`فشل: ${res.error}`, `Failed: ${res.error}`));
+      // `finally` guarantees the confirmation/submitting UI never gets stuck
+      // — even if the server action THROWS (network drop, RLS denial, an
+      // unhandled server error). The success path keeps its existing
+      // behavior; the catch surfaces a thrown error to the user via the same
+      // toast + lastResult channel as a returned {ok:false}.
+      try {
+        const res = await approvePrepaidRefund({ lotId: lotId.trim(), hours: parsedHours });
+        if (res.ok) {
+          toast.success(t(`تم استرداد ${res.amountUsd}$`, `Refunded $${res.amountUsd}`));
+          setLastResult(
+            t(
+              `تم — استرداد ${res.amountUsd}$ (طلب ${res.refundRequestId})`,
+              `Done — refunded $${res.amountUsd} (request ${res.refundRequestId})`,
+            ),
+          );
+          setLotId("");
+          setHours("");
+        } else {
+          toast.error(res.error);
+          setLastResult(t(`فشل: ${res.error}`, `Failed: ${res.error}`));
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "error";
+        toast.error(msg);
+        setLastResult(t(`فشل: ${msg}`, `Failed: ${msg}`));
+      } finally {
+        setConfirming(false);
       }
-      setConfirming(false);
     });
   };
 

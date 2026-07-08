@@ -44,6 +44,21 @@ function formatPrice(priceCents: number): string {
   return `$${(priceCents / 100).toFixed(0)}`;
 }
 
+/**
+ * 2-decimal USD formatter for prepaid pricing. The prepaid rate ($10.25) and
+ * its computed totals are real currency values, not rounded display tiers —
+ * truncating to `toFixed(0)` showed "$10" while checkout charged $10.25.
+ * Uses Intl with en-US currency so the digits/decimal are always correct;
+ * the surrounding layout already wraps numeric spans with `dir="ltr"`.
+ */
+const formatUsd = (n: number) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n);
+
 function sessionLabel(plan: Plan, t: (ar: string, en: string) => string): string {
   const n = plan.monthly_credit_count;
   if (plan.plan_code.startsWith("hifz_individual")) {
@@ -417,9 +432,9 @@ function PrepaidCard({
         <div>
           <p className="text-xs text-muted">{t("الإجمالي", "Total")}</p>
           <p className="font-display text-2xl font-bold" dir="ltr">
-            ${totalPrice.toFixed(0)}
+            {formatUsd(totalPrice)}
             <span className="ms-1 text-sm font-normal text-muted">
-              ({selectedHours} × ${prepaid.rateUsd})
+              ({selectedHours} × {formatUsd(prepaid.rateUsd)})
             </span>
           </p>
         </div>

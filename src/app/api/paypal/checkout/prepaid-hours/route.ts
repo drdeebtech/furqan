@@ -72,6 +72,11 @@ async function readCustomBounds(): Promise<{ min: number; max: number }> {
     if (!Number.isFinite(n) || n < min) return DEFAULT_CUSTOM_MAX;
     return Math.floor(n);
   })();
+  // Admin can set min > 100 while max is missing/invalid → the IIFE above
+  // would yield max=DEFAULT_CUSTOM_MAX=100 < min, rejecting every request
+  // ("between 200 and 100"). Reset both to defaults if the final range is
+  // inverted, so checkout never hard-fails on a misconfigured bound.
+  if (max < min) return { min: DEFAULT_CUSTOM_MIN, max: DEFAULT_CUSTOM_MAX };
   return { min, max };
 }
 

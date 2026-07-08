@@ -93,6 +93,29 @@ interface CachedToken {
 const REFRESH_MARGIN_MS = 60_000;
 let cachedToken: CachedToken | null = null;
 
+// ── Network timeout ──────────────────────────────────────────────────────────
+// PayPal fetches (token, create-order, capture, get-order, verify-webhook) all
+// run through this wrapper so a hung TCP connection cannot stall a serverless
+// invocation past its maxDuration. 10s is well above PayPal's p99 latency but
+// well below the 60s route budget, leaving room for retry inside the same
+// request if the caller chooses to.
+const PAYPAL_FETCH_TIMEOUT_MS = 10_000;
+
+/**
+ * `fetch` with an AbortController-driven timeout. Aborts (→ throws an
+ * AbortError) after PAYPAL_FETCH_TIMEOUT_MS of inactivity. The timer is
+ * cleared in `finally` so a fast response never holds the timer open.
+ */
+async function fetchPayPal(input: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PAYPAL_FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Returns a valid bearer token, refreshing on demand. Throws a clear Error
  * (surfaces as 500 via logError) on any PayPal auth failure.
@@ -118,7 +141,7 @@ export async function getPayPalAccessToken(): Promise<string> {
   ).toString("base64");
 
   const url = `${PAYPAL_API_BASE}/v1/oauth2/token`;
-  const res = await fetch(url, {
+  const res = await fetchPayPal(url, {
     method: "POST",
     headers: {
       Authorization: `Basic ${basicAuth}`,
@@ -128,17 +151,14 @@ export async function getPayPalAccessToken(): Promise<string> {
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "<no body>");
     throw new Error(
-      `PayPal token request failed: ${res.status} ${res.statusText} — ${text}`,
+      `PayPal token request failed: ${res.status} ${res.statusText}`,
     );
   }
 
   const json = (await res.json()) as PayPalTokenResponse;
   if (!json.access_token || typeof json.expires_in !== "number") {
-    throw new Error(
-      `PayPal token response missing access_token / expires_in: ${JSON.stringify(json)}`,
-    );
+    throw new Error(`PayPal token response missing access_token / expires_in`);
   }
 
   cachedToken = {
@@ -201,16 +221,15 @@ export async function createPayPalOrder(
   };
 
   const url = `${PAYPAL_API_BASE}/v2/checkout/orders`;
-  const res = await fetch(url, {
+  const res = await fetchPayPal(url, {
     method: "POST",
     headers: await authedJsonHeaders(),
     body: JSON.stringify(body),
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "<no body>");
     throw new Error(
-      `PayPal create-order request failed: ${res.status} ${res.statusText} — ${text}`,
+      `PayPal create-order request failed: ${res.status} ${res.statusText}`,
     );
   }
 
@@ -220,18 +239,14 @@ export async function createPayPalOrder(
   };
 
   if (!json.id) {
-    throw new Error(
-      `PayPal create-order response missing id: ${JSON.stringify(json)}`,
-    );
+    throw new Error(`PayPal create-order response missing id`);
   }
 
   const approveLink =
     json.links?.find((l) => l.rel === "approve") ??
     json.links?.find((l) => l.rel === "payer-action");
   if (!approveLink?.href) {
-    throw new Error(
-      `PayPal create-order response missing approve link: ${JSON.stringify(json)}`,
-    );
+    throw new Error(`PayPal create-order response missing approve link`);
   }
 
   return { orderId: json.id, approveUrl: approveLink.href };
@@ -251,16 +266,15 @@ export async function capturePayPalOrder(
   }
 
   const url = `${PAYPAL_API_BASE}/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`;
-  const res = await fetch(url, {
+  const res = await fetchPayPal(url, {
     method: "POST",
     headers: await authedJsonHeaders(),
     body: "{}",
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "<no body>");
     throw new Error(
-      `PayPal capture-order request failed: ${res.status} ${res.statusText} — ${text}`,
+      `PayPal capture-order request failed: ${res.status} ${res.statusText}`,
     );
   }
 
@@ -283,17 +297,13 @@ export async function capturePayPalOrder(
   const purchaseUnit = json.purchase_units?.[0] ?? undefined;
   const capture = purchaseUnit?.payments?.captures?.[0] ?? undefined;
   if (!capture?.id || !capture.status) {
-    throw new Error(
-      `PayPal capture response missing capture id/status: ${JSON.stringify(json)}`,
-    );
+    throw new Error(`PayPal capture response missing capture id/status`);
   }
 
   const valueStr = capture.amount?.value;
   const amountUsd = valueStr ? Number(valueStr) : NaN;
   if (!Number.isFinite(amountUsd)) {
-    throw new Error(
-      `PayPal capture response missing/invalid amount.value: ${JSON.stringify(json)}`,
-    );
+    throw new Error(`PayPal capture response missing/invalid amount.value`);
   }
 
   return {
@@ -328,15 +338,14 @@ export async function getPayPalOrder(orderId: string): Promise<GetPayPalOrderRes
   }
 
   const url = `${PAYPAL_API_BASE}/v2/checkout/orders/${encodeURIComponent(orderId)}`;
-  const res = await fetch(url, {
+  const res = await fetchPayPal(url, {
     method: "GET",
     headers: await authedJsonHeaders(),
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "<no body>");
     throw new Error(
-      `PayPal get-order request failed: ${res.status} ${res.statusText} — ${text}`,
+      `PayPal get-order request failed: ${res.status} ${res.statusText}`,
     );
   }
 
@@ -452,7 +461,7 @@ export async function verifyPayPalWebhookSignature(
   }
 
   const url = `${PAYPAL_API_BASE}/v1/notifications/verify-webhook-signature`;
-  const res = await fetch(url, {
+  const res = await fetchPayPal(url, {
     method: "POST",
     headers: await authedJsonHeaders(),
     body: JSON.stringify({

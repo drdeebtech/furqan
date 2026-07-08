@@ -781,8 +781,10 @@ export async function handlePrepaidHoursGrant(ctx: EventContext): Promise<void> 
   // Record the payment row for audit (mirrors single-session: payments is the
   // money audit trail). Idempotent on stripe_payment_intent (UNIQUE) so a
   // redelivery that re-runs this handler (rare — billing_events dedups first)
-  // is a no-op.
-  await ctx.admin.from("payments").upsert(
+  // is a no-op. A failure here is NOT silently swallowed: if the audit row
+  // can't be written, the event is marked failed so Stripe retries — losing
+  // the audit trail is worse than a retry.
+  const { error: payErr } = await ctx.admin.from("payments").upsert(
     {
       student_id: studentId,
       amount_usd: receivedCents / 100,
@@ -796,6 +798,15 @@ export async function handlePrepaidHoursGrant(ctx: EventContext): Promise<void> 
     },
     { onConflict: "stripe_payment_intent", ignoreDuplicates: true },
   );
+  if (payErr) {
+    logError("stripe-webhook: prepaid_hours payments audit upsert failed", payErr, {
+      tag: "stripe-webhook",
+      pi_id: pi.id,
+      student_id: studentId,
+    });
+    await markEvent(ctx, "failed", `payments upsert failed: ${payErr.message}`);
+    return;
+  }
 
   logInfo("stripe-webhook: prepaid_hours granted", {
     tag: "stripe-webhook",
@@ -872,12 +883,23 @@ export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
 
     // H5 external: no refund_request_id. Reconcile only if this is a prepaid lot.
     if (piId) {
-      const { data: lot } = await ctx.admin
+      const { data: lot, error: lotErr } = await ctx.admin
         .from("student_packages")
         .select("id")
         .eq("stripe_payment_intent_id", piId)
         .eq("product_type", "prepaid_hours")
         .maybeSingle<{ id: string }>();
+      if (lotErr) {
+        // Transient lookup failure must NOT be treated as "no lot" — that
+        // would mark the event processed while the wallet stays spendable.
+        // Fail-closed so Stripe retries.
+        logError("stripe-webhook: charge.refunded prepaid-lot lookup failed", lotErr, {
+          tag: "stripe-webhook",
+          pi_id: piId,
+        });
+        await markEvent(ctx, "failed", `prepaid lot lookup: ${lotErr.message}`);
+        return;
+      }
       if (lot) {
         const { error } = await ctx.admin.rpc("reconcile_external_prepaid_refund", {
           p_payment_intent: piId,
@@ -926,12 +948,23 @@ export async function handleChargeDisputed(ctx: EventContext): Promise<void> {
 
   // Only void if this is actually a prepaid lot — avoids a no-op RPC (and the
   // log noise) for non-prepaid disputes that route through this handler.
-  const { data: lot } = await ctx.admin
+  const { data: lot, error: lotErr } = await ctx.admin
     .from("student_packages")
     .select("id")
     .eq("stripe_payment_intent_id", piId)
     .eq("product_type", "prepaid_hours")
     .maybeSingle<{ id: string }>();
+  if (lotErr) {
+    // Transient lookup failure must NOT be treated as "no lot" — that would
+    // leave the wallet spendable through the dispute. Fail-closed so Stripe
+    // retries.
+    logError("stripe-webhook: dispute prepaid-lot lookup failed", lotErr, {
+      tag: "stripe-webhook",
+      pi_id: piId,
+    });
+    await markEvent(ctx, "failed", `dispute lot lookup: ${lotErr.message}`);
+    return;
+  }
   if (!lot) {
     await markEvent(ctx, "processed", "dispute not on a prepaid lot; ignored");
     return;
