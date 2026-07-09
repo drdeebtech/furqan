@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -472,6 +467,7 @@ export type Database = {
           event_type: string
           id: string
           payload: Json
+          provider: string
           status: Database["public"]["Enums"]["billing_event_status"]
           stripe_customer_id: string | null
           stripe_event_created: string
@@ -484,6 +480,7 @@ export type Database = {
           event_type: string
           id?: string
           payload: Json
+          provider?: string
           status?: Database["public"]["Enums"]["billing_event_status"]
           stripe_customer_id?: string | null
           stripe_event_created: string
@@ -496,6 +493,7 @@ export type Database = {
           event_type?: string
           id?: string
           payload?: Json
+          provider?: string
           status?: Database["public"]["Enums"]["billing_event_status"]
           stripe_customer_id?: string | null
           stripe_event_created?: string
@@ -621,6 +619,7 @@ export type Database = {
           teacher_confirmed: boolean
           teacher_confirmed_at: string | null
           teacher_id: string
+          use_prepaid_hours: boolean
         }
         Insert: {
           amount_local?: number | null
@@ -661,6 +660,7 @@ export type Database = {
           teacher_confirmed?: boolean
           teacher_confirmed_at?: string | null
           teacher_id: string
+          use_prepaid_hours?: boolean
         }
         Update: {
           amount_local?: number | null
@@ -701,6 +701,7 @@ export type Database = {
           teacher_confirmed?: boolean
           teacher_confirmed_at?: string | null
           teacher_id?: string
+          use_prepaid_hours?: boolean
         }
         Relationships: [
           {
@@ -3472,6 +3473,113 @@ export type Database = {
           },
         ]
       }
+      prepaid_hours_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          hours_delta: number
+          id: string
+          package_id: string
+          stripe_ref: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          hours_delta: number
+          id?: string
+          package_id: string
+          stripe_ref?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          hours_delta?: number
+          id?: string
+          package_id?: string
+          stripe_ref?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prepaid_hours_events_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "student_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prepaid_hours_events_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_effective_status"
+            referencedColumns: ["student_package_id"]
+          },
+          {
+            foreignKeyName: "prepaid_hours_events_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_student_packages"
+            referencedColumns: ["student_package_id"]
+          },
+        ]
+      }
+      prepaid_refund_requests: {
+        Row: {
+          amount_usd: number
+          created_at: string
+          hours: number
+          id: string
+          package_id: string
+          resolved_at: string | null
+          status: string
+          stripe_payment_intent_id: string
+          stripe_refund_id: string | null
+        }
+        Insert: {
+          amount_usd: number
+          created_at?: string
+          hours: number
+          id: string
+          package_id: string
+          resolved_at?: string | null
+          status?: string
+          stripe_payment_intent_id: string
+          stripe_refund_id?: string | null
+        }
+        Update: {
+          amount_usd?: number
+          created_at?: string
+          hours?: number
+          id?: string
+          package_id?: string
+          resolved_at?: string | null
+          status?: string
+          stripe_payment_intent_id?: string
+          stripe_refund_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prepaid_refund_requests_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "student_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prepaid_refund_requests_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_effective_status"
+            referencedColumns: ["student_package_id"]
+          },
+          {
+            foreignKeyName: "prepaid_refund_requests_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_student_packages"
+            referencedColumns: ["student_package_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -5278,12 +5386,17 @@ export type Database = {
           id: string
           package_id: string | null
           payment_id: string | null
+          payment_provider: string
+          product_type: string
+          provider_payment_ref: string | null
           purchased_at: string
+          rate_paid_usd: number | null
           session_mode_used: Json
           sessions_remaining: number | null
           sessions_total: number
           sessions_used: number
           status: string
+          stripe_payment_intent_id: string | null
           student_id: string
           subscription_id: string | null
         }
@@ -5298,12 +5411,17 @@ export type Database = {
           id?: string
           package_id?: string | null
           payment_id?: string | null
+          payment_provider?: string
+          product_type?: string
+          provider_payment_ref?: string | null
           purchased_at?: string
+          rate_paid_usd?: number | null
           session_mode_used?: Json
           sessions_remaining?: number | null
           sessions_total: number
           sessions_used?: number
           status?: string
+          stripe_payment_intent_id?: string | null
           student_id: string
           subscription_id?: string | null
         }
@@ -5318,12 +5436,17 @@ export type Database = {
           id?: string
           package_id?: string | null
           payment_id?: string | null
+          payment_provider?: string
+          product_type?: string
+          provider_payment_ref?: string | null
           purchased_at?: string
+          rate_paid_usd?: number | null
           session_mode_used?: Json
           sessions_remaining?: number | null
           sessions_total?: number
           sessions_used?: number
           status?: string
+          stripe_payment_intent_id?: string | null
           student_id?: string
           subscription_id?: string | null
         }
@@ -7176,6 +7299,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      finalize_prepaid_refund: {
+        Args: { p_refund_request_id: string; p_stripe_ref?: string }
+        Returns: undefined
+      }
       get_public_teacher: {
         Args: { p_id: string }
         Returns: {
@@ -7206,6 +7333,16 @@ export type Database = {
           p_plan_id: string
           p_session_count?: number
           p_subscription_id: string
+        }
+        Returns: string
+      }
+      grant_prepaid_hours: {
+        Args: {
+          p_hours: number
+          p_payment_intent: string
+          p_provider?: string
+          p_rate: number
+          p_student: string
         }
         Returns: string
       }
@@ -7271,6 +7408,19 @@ export type Database = {
         Args: { p_course_id: string }
         Returns: undefined
       }
+      reconcile_external_prepaid_refund: {
+        Args: { p_payment_intent: string }
+        Returns: undefined
+      }
+      record_prepaid_event: {
+        Args: {
+          p_event_type: string
+          p_hours_delta: number
+          p_package: string
+          p_stripe_ref: string
+        }
+        Returns: undefined
+      }
       record_student_progress: {
         Args: {
           p_ayah_from: number
@@ -7291,6 +7441,18 @@ export type Database = {
       refund_package_session: {
         Args: { p_package_id: string }
         Returns: boolean
+      }
+      release_prepaid_refund: {
+        Args: { p_refund_request_id: string }
+        Returns: undefined
+      }
+      reserve_prepaid_refund: {
+        Args: { p_hours: number; p_lot: string; p_refund_request_id: string }
+        Returns: number
+      }
+      restore_student_package: {
+        Args: { p_booking_id: string }
+        Returns: undefined
       }
       roster_recent_evaluations: {
         Args: { p_student_ids: string[]; p_teacher_id: string }
@@ -7430,6 +7592,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      sweep_expired_prepaid_hours: { Args: never; Returns: number }
       teacher_at_risk_students: {
         Args: { p_limit?: number; p_teacher_id: string }
         Returns: {
@@ -7788,3 +7951,4 @@ export const Constants = {
     },
   },
 } as const
+
