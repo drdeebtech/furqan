@@ -9,7 +9,7 @@ import Stripe from "stripe";
  * (constitution: loud failures). The key is NEVER exposed to the client:
  * `server-only` blocks any client import, and there is no `NEXT_PUBLIC_*` alias.
  *
- * API version is pinned to the SDK's latest (`2026-05-27.dahlia`) so typed
+ * API version is pinned to the SDK's latest (`2026-06-24.dahlia`) so typed
  * events match `Stripe.Event` exactly. Mode (test vs live) is purely env-driven
  * (research R10 / FR-019): swap `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET`
  * to go live — no code branch.
@@ -34,7 +34,7 @@ export function getStripe(): Stripe {
   }
   cached = new Stripe(STRIPE_SECRET_KEY, {
     // Pin to the SDK's pinned version so Stripe.Event types are authoritative.
-    apiVersion: "2026-05-27.dahlia",
+    apiVersion: "2026-06-24.dahlia",
     // Modest retry with idempotency keys (SDK adds them automatically) so a
     // transient blip on checkout/portal creation self-heals.
     maxNetworkRetries: 2,
