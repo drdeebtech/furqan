@@ -6,7 +6,7 @@
 ## 0. Reality gates (read first)
 
 - **Stripe is still test/cutover** (spec 024). Do **not** run paid acquisition at scale until the live key flip + the single-session refund-ownership decision are done. → **organic/pre-launch now; paid after go-live.**
-- **Three conversion-negative policies**: no free *service* trial (only a free 15-min placement call), support-only cancel, missed-session-lost. Fixing the *policy* (self-serve cancel + a makeup/reschedule rule) will lift conversion more than any copy. Prioritize before heavy spend.
+- **Three conversion-negative policies**: no free *service* trial (only a free 30-min evaluation session), support-only cancel, unexcused-missed-session-lost (excused ≥2h → rescheduled; teacher-absent → credit restored). Fixing the *policy* (self-serve cancel + a makeup/reschedule rule for the unexcused case) will lift conversion more than any copy. Prioritize before heavy spend.
 - **No social proof exists yet** — start collecting testimonials + counts from day one (it's the biggest trust lever after certification).
 
 ## 1. Positioning
@@ -27,7 +27,7 @@
 ## 3. Funnel
 
 - **Acquire:** SEO ("learn Quran online", hifz, tajweed), short-form video (recitation/teacher clips), referrals, mosque/community + influencer partnerships.
-- **Convert:** `/pricing` (now CRO'd) → **free 15-min placement call as the "try" step** (specialist-matched, framed as placement not a lesson — the low-commitment entry; no free subscription or free lessons) → checkout (409 guard if already subscribed).
+- **Convert:** `/pricing` (now CRO'd) → **free 30-min evaluation session as the "try" step** (specialist-matched, framed as placement not a lesson — the low-commitment entry; no free subscription or free lessons) → checkout (409 guard if already subscribed).
 - **Activate:** first session booked + attended; teacher selection onboarding.
 - **Retain:** additive monthly credits, progress tracking, murajaah scheduler; recover `past_due` via dunning.
 - **Refer/expand:** sibling discount, guardian multi-child, track upgrade (group → individual).
@@ -40,7 +40,7 @@
 
 ## 5. Offers (only within real policy — no fabrication)
 
-- **Entry offer = a free 15-min placement call** (تقييم) — specialist-matched, framed as placement not a full lesson. Decided 2026-06-22 (DB seed $0); may revisit to a small paid fee once the funnel is proven.
+- **Entry offer = a free 30-min evaluation session** (تقييم) — specialist-matched, one per student, framed as placement not a full lesson. Free + 30-min per pivot decision #40 (2026-07-02, supersedes the earlier 15-min call); DB seed $0. May revisit to a small paid fee once the funnel is proven.
 - **Family/sibling discount** (final % **TBD — awaiting owner decision**).
 - **Recommended NEW (DEFERRED post-launch):** an **annual plan** (price anchor + cash flow + retention) — needs a Stripe annual price + tier added. Not in scope for launch; owner = founder.
 - **Do NOT** advertise free trial / money-back / cancel-anytime-self-serve unless the policy actually changes.
@@ -60,7 +60,7 @@
 
 ## 8. This-week actions (concrete)
 
-- [ ] Owner provides the **3 open decisions** (testimonials, refund policy, discount %) — see `.claude/product-marketing.md`. (Assessment price resolved: free 15-min placement.)
+- [ ] Owner provides the **3 open decisions** (testimonials, refund policy, discount %) — see `.claude/product-marketing.md`. (Assessment resolved: free 30-min evaluation session — decision #40, 2026-07-02.)
 - [ ] Decide **self-serve cancel** + **missed-session makeup** (conversion + go-live).
 - [ ] Ship **social-proof strip + finalized FAQ** (PR #507 follow-up) once testimonials arrive.
 - [ ] Run an **SEO audit** of the public pages (`/`, `/pricing`, `/courses`, `/teach-with-us`).
