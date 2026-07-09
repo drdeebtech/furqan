@@ -33,6 +33,15 @@ All `recurring_monthly`, **USD only**, 60-min sessions, active. Middle tier of e
 Individual basis = **$10/session-hour** (`hifz_individual_hourly_rate_usd=10`). Group prices are settings too.
 ⚠️ Individual is sold as "N hours/month" but modeled as **discrete 60-min sessions** (bundles of 4/6/8), not continuous hours — keep copy honest.
 
+### Pay as you go — prepaid hours (spec 038; supersedes "hourly not directly purchasable", decision #42)
+
+A **third** purchase option alongside monthly plans and teacher hourly rates: a student buys a bundle of **60-minute individual-session hours** as a one-time Stripe payment and draws them down as they book — no subscription.
+- Rate `prepaid_hours_rate_usd` (**$10/hr** seed); presets `prepaid_hours_preset_sizes` (**[5,10,20]**) + a clamped custom amount (`prepaid_hours_custom_min`/`_max`, **1–100**). Amount is **server-computed** — the client never sends price.
+- Stored as an immutable `student_packages` lot (`product_type='prepaid_hours'`), one per purchase; balance = `sessions_remaining`; append-only `prepaid_hours_events` ledger.
+- **Expiry** `prepaid_hours_expiry_months` (**12mo** seed) — copy never hardcodes the window; the wallet shows the exact per-lot date.
+- **Drawdown** is subscription-first by default (R2); the student may pick **"use my hours"** per booking (`bookings.use_prepaid_hours`), which charges prepaid **only** (or fails closed — never a silent subscription charge). 60-min unit only.
+- **Feature-flagged** `prepaid_hours_purchase_enabled` (default **OFF** — the /pricing card and checkout are invisible until an admin flips it). Flag + knobs read anon-safe via `getSettings()` on the public page.
+
 ## Billing model
 
 - Monthly Stripe subscription; first `invoice.paid` activates, later ones renew.

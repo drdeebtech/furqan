@@ -81,16 +81,44 @@ export const FAMILY_POLICY = {
   },
 } satisfies Record<string, PolicyCopy>;
 
-/** Decision 42: two pricing systems stay public, explained honestly — plans
- *  are subscriptions; teacher hourly rates are on-demand single sessions for
- *  enrolled students (not directly purchasable online today). */
+/** Decision 42 (as amended by spec 038): pricing systems stay public, explained
+ *  honestly. Plans are monthly subscriptions; teacher hourly rates are on-demand
+ *  single sessions. Spec 038 adds a THIRD, directly-purchasable option — prepaid
+ *  hours (pay-as-you-go) — which supersedes the old "hours not directly
+ *  purchasable" clause. The base `disambiguator` still names the two always-on
+ *  systems; `disambiguatorWithPrepaid` names all three and is shown on /pricing
+ *  only when the pay-as-you-go option is live (flag prepaid_hours_purchase_enabled),
+ *  so the confused visitor is never blindsided. */
 export const PRICING_MODEL = {
   disambiguator: {
     ar: "الباقات أدناه اشتراكات شهرية. أسعار الساعة الظاهرة على صفحات المعلمين خاصة بالحصص المفردة عند الطلب للطلاب المسجّلين.",
     en: "The plans below are monthly subscriptions. Hourly rates on teacher pages apply to on-demand single sessions for enrolled students.",
   },
+  disambiguatorWithPrepaid: {
+    ar: "الباقات الشهرية اشتراكات متكررة. يمكنك أيضاً شراء ساعات مدفوعة مسبقاً والدفع حسب الاستخدام. أسعار الساعة على صفحات المعلمين للحصص المفردة عند الطلب.",
+    en: "The monthly plans are recurring subscriptions. You can also buy prepaid hours and pay as you go. Hourly rates on teacher pages are for on-demand single sessions.",
+  },
   teacherRateCaption: {
     ar: "للحصص المفردة عند الطلب — الاشتراكات الشهرية حسب الباقات",
     en: "For on-demand single sessions — monthly subscriptions are priced by plan",
+  },
+} satisfies Record<string, PolicyCopy>;
+
+/** Spec 038: prepaid hour wallet — pay-as-you-go blocks of 60-minute individual
+ *  sessions, an alternative to a monthly subscription. Hours are drawn AFTER any
+ *  active subscription unless the student explicitly chooses "use my hours"
+ *  (R2 drawdown ranking). Expiry is governed by the `prepaid_hours_expiry_months`
+ *  platform setting and surfaced per-purchase in the wallet — copy states the
+ *  RULE ("hours expire; the wallet shows the date"), never a hardcoded window,
+ *  so it can never drift from the money knob (the policies.ts anti-contradiction
+ *  contract). 60-minute unit only — never advertise other lengths. */
+export const PREPAID_HOURS_POLICY = {
+  short: {
+    ar: "ساعات مدفوعة مسبقاً — ادفع حسب الاستخدام",
+    en: "Prepaid hours — pay as you go",
+  },
+  long: {
+    ar: "اشترِ رصيداً من الساعات (حصص فردية مدتها ٦٠ دقيقة) وادفع حسب الاستخدام دون اشتراك شهري. تُخصم ساعاتك بعد أي اشتراك نشط ما لم تختر استخدامها أولاً. الساعات صالحة لمدة محدودة وتنتهي إن لم تُستخدم — تعرض محفظتك تاريخ الانتهاء لكل عملية شراء.",
+    en: "Buy a balance of hours (60-minute individual sessions) and pay as you go — no monthly subscription. Your hours are used after any active subscription unless you choose to use them first. Hours are valid for a limited period and expire if unused — your wallet shows the exact expiry date for each purchase.",
   },
 } satisfies Record<string, PolicyCopy>;

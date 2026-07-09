@@ -35,23 +35,56 @@ export interface ActivePackage {
 }
 
 /**
- * The student's soonest-expiry active package that still has credit, or null
- * when they have none. Single definition of "which package gets charged" for
- * the explicit debit paths (the trigger applies the same ordering in SQL).
+ * The student's active package that should be charged next, or null when they
+ * have none. Single definition of "which package gets charged" for the explicit
+ * debit paths (the confirm-time trigger applies the same ordering in SQL).
+ *
+ * R2 ranking (spec 038): subscription packages rank AHEAD of prepaid_hours,
+ * then soonest-expiry. A student holding both a subscription with credit and a
+ * wallet is NEVER silently drained of a wallet hour — the subscription is
+ * charged first. Wallet-only and subscription-only students see unchanged
+ * selection (within a single product_type the soonest-expiry order is the same
+ * as before).
+ *
+ * Pass `{ usePrepaidHours: true }` for the explicit "use my hours" override
+ * (R2): restricts the candidate set to prepaid_hours lots and picks the
+ * soonest-expiry one. The caller then stamps the chosen id onto the booking so
+ * the confirm-time trigger's early-return guard (`student_package_id IS NOT
+ * NULL`) honors the explicit choice instead of re-applying the default ranking.
  */
 export async function selectActivePackage(
   admin: AdminClient,
   studentId: string,
+  options?: { usePrepaidHours?: boolean },
 ): Promise<ActivePackage | null> {
-  const { data, error } = await admin
+  let query = admin
     .from("student_packages")
     .select("id, sessions_remaining")
     .eq("student_id", studentId)
     .eq("status", "active")
-    .gt("sessions_remaining", 0)
+    .gt("sessions_remaining", 0);
+
+  if (options?.usePrepaidHours) {
+    // R2 override — wallet lots only. Wallet hours are spendable on individual
+    // 1:1 sessions only (D2/R7); the booking flow gates this upstream.
+    query = query.eq("product_type", "prepaid_hours");
+  } else {
+    // R2 default — subscription ahead of prepaid_hours. Mirrors the confirm-time
+    // trigger's `ORDER BY (product_type='prepaid_hours') ASC` exactly. ASC on
+    // the boolean would be ideal, but postgrest-js exposes column ordering, not
+    // expression ordering; lexicographic DESC on the text achieves the same
+    // total order because 'subscription' > 'prepaid_hours' alphabetically.
+    query = query.order("product_type", { ascending: false });
+  }
+
+  query = query
     .order("expires_at", { ascending: true, nullsFirst: false })
-    .limit(1)
-    .maybeSingle<{ id: string; sessions_remaining: number }>();
+    .limit(1);
+
+  const { data, error } = await query.maybeSingle<{
+    id: string;
+    sessions_remaining: number;
+  }>();
 
   // No Silent Failures policy: a query error must surface in Sentry, not be
   // swallowed as "no active package". We still fail closed (return null → the

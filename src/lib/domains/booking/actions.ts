@@ -70,6 +70,19 @@ export async function createBooking(
   const { studentId, teacherId, sessionType, durationMin, scheduledAt, localDate, localTime, notes } =
     input;
 
+  // Spec 038 (T6.3) defense-in-depth: prepaid hours are 60-minute units. The
+  // booking form locks the duration to 60 when "use my hours" is selected, but
+  // that is a client control — enforce it server-side too (never trust the
+  // client) so a crafted request can never spend one wallet hour on a session
+  // of a different length. Not exploitable today (durations capped at 30/45/60),
+  // but this closes the ceiling if a >60-min option is ever added.
+  if (input.usePrepaidHours && durationMin !== 60) {
+    throw new BookingValidationError(
+      "duration_min",
+      "الساعات المدفوعة مسبقاً بحصص مدتها ٦٠ دقيقة فقط",
+    );
+  }
+
   // Use admin client: domain functions run after auth (route adapter has
   // already called `requireRole("student")`), so we don't need RLS to
   // re-prove identity. Matches what the route was using implicitly via
@@ -86,11 +99,20 @@ export async function createBooking(
   // (see migration 20260626000000_deduct_trigger_fail_closed.sql / issue #531)
   // if no chargeable package exists when the booking confirms — the whole
   // confirm rolls back. Best-practice: deny by default.
-  const activePackage = await selectActivePackage(supabase, studentId);
+  //
+  // Spec 038 (T6.3): `usePrepaidHours` routes the precondition to prepaid_hours
+  // lots only (R2 override). A student who picked "use my hours" but has no
+  // valid prepaid lot fails here with a distinct, bilingual message — never
+  // silently falling back to charging the subscription.
+  const activePackage = await selectActivePackage(supabase, studentId, {
+    usePrepaidHours: input.usePrepaidHours,
+  });
   if (!activePackage) {
     throw new BookingValidationError(
       "student_package",
-      "لا توجد باقة نشطة — يرجى شراء أو تجديد باقة قبل الحجز",
+      input.usePrepaidHours
+        ? "لا يوجد رصيد ساعات كافٍ — اختر باقتك أو اشترِ ساعات"
+        : "لا توجد باقة نشطة — يرجى شراء أو تجديد باقة قبل الحجز",
     );
   }
 
@@ -210,7 +232,15 @@ export async function createBooking(
   // 7. Insert. Typed via `TableInsert<"bookings">` per Phase 4 lessons —
   // surfaces a compile error if the column shape drifts (e.g. a future
   // migration adds a NOT-NULL column or renames an existing one).
-  const insertPayload: TableInsert<"bookings"> = {
+  //
+  // Spec 038 (T6.3): `use_prepaid_hours` is stamped on the row so the
+  // confirm-time `deduct_student_package` trigger honors the student's
+  // explicit "use my hours" choice instead of re-applying the default
+  // subscription-first ranking. The column is not yet in the hand-corrected
+  // `database.ts` / generated types, so the payload is widened with the
+  // `as TableInsert<"bookings">` escape hatch already used for the group-
+  // session booking insert (same category as the count:"exact" retention).
+  const insertPayload = {
     student_id: studentId,
     teacher_id: teacherId,
     session_type: sessionType,
@@ -219,7 +249,8 @@ export async function createBooking(
     amount_usd: amountUsd,
     scheduled_at: scheduledAt.toISOString(),
     notes,
-  };
+    use_prepaid_hours: input.usePrepaidHours ?? false,
+  } as TableInsert<"bookings">;
   const { data: newBooking, error } = await supabase
     .from("bookings")
     .insert(insertPayload)

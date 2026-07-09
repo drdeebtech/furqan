@@ -97,6 +97,37 @@ for f in $(ls src/lib/supabase/migrations/*.sql | sort -V); do
     || { echo "FAILED: Layer 2 psql process error in: $f"; tail -30 /tmp/furqan_layer2.log; exit 1; }
 done
 
+echo "==> Spec 038/039 prod-parity columns the V8 baseline lags (local-only)"
+# WHY: the V8/legacy layers predate prod columns that later pre-v9 migrations added.
+# The Layer-3 baseline replay is error-ignored, so its fuller CREATE TABLE defs are
+# skipped (the tables already exist) — the missing columns never get added. Without
+# them: the spec-038 catalog seed (needs packages.supports_session_modes) FAILS, so
+# grant_prepaid_hours is broken locally for BOTH processors; and the spec-039 PayPal
+# payments audit row (needs provider/paypal_* columns, a nullable stripe_payment_intent,
+# and the provider CHECKs) cannot insert. Every column/constraint below ALREADY exists
+# in prod (baseline 20260428000000) — local-only parity, NOT a prod/behavior change.
+# Runs AFTER Layer 2 (which creates `packages`/`payments`) and BEFORE Layer 3 so the
+# 038 catalog INSERT finds supports_session_modes. Idempotent → an enforced gate.
+psql "$DB_URL" -q -v ON_ERROR_STOP=1 <<'SQL' > /tmp/furqan_parity.log 2>&1 \
+  || { echo "FAILED: 038/039 prod-parity"; tail -20 /tmp/furqan_parity.log; exit 1; }
+ALTER TABLE public.packages ADD COLUMN IF NOT EXISTS supports_session_modes text[] NOT NULL DEFAULT array['private'];
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS provider text NOT NULL DEFAULT 'stripe';
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS paypal_order_id text;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS paypal_capture_id text;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS paid_at timestamptz;
+ALTER TABLE public.payments ALTER COLUMN stripe_payment_intent DROP NOT NULL;
+ALTER TABLE public.payments DROP CONSTRAINT IF EXISTS payments_provider_check;
+ALTER TABLE public.payments ADD CONSTRAINT payments_provider_check
+  CHECK (provider IN ('stripe','paypal','manual'));
+ALTER TABLE public.payments DROP CONSTRAINT IF EXISTS payments_provider_id_check;
+ALTER TABLE public.payments ADD CONSTRAINT payments_provider_id_check CHECK (
+  (provider = 'paypal' AND paypal_order_id IS NOT NULL) OR
+  (provider = 'stripe' AND stripe_payment_intent IS NOT NULL) OR
+  (provider = 'manual'));
+CREATE UNIQUE INDEX IF NOT EXISTS payments_paypal_capture_id_key ON public.payments (paypal_capture_id);
+CREATE UNIQUE INDEX IF NOT EXISTS payments_paypal_order_id_key   ON public.payments (paypal_order_id);
+SQL
+
 echo "==> Layer 3: timestamped migrations"
 # Same rationale: 20260428000000_remote_baseline.sql is a full prod snapshot
 # that produces ~300 "already exists" conflicts atop Layers 1+2.
@@ -127,4 +158,17 @@ if [ "$PROFILE_GRANT" != "t" ]; then
   exit 1
 fi
 echo "    profiles authenticated SELECT grant = true"
+
+# Spec 038/039 gate: the prepaid catalog row must have seeded (it only can if the
+# prod-parity block above added packages.supports_session_modes) — otherwise
+# grant_prepaid_hours is silently broken locally for every prepaid/PayPal flow.
+# stdout only — folding stderr (2>&1) into the value would let a benign psql
+# notice break the string compare below; the `||` still catches real failures.
+CATALOG_ROW="$(psql "$DB_URL" -t -A -c "SELECT count(*) FROM public.packages WHERE id = 'c0ffee01-0000-4000-8000-000000038000';")" \
+  || { echo "FAILED: could not query prepaid catalog row"; exit 1; }
+if [ "$CATALOG_ROW" != "1" ]; then
+  echo "FAILED: prepaid catalog row count is '$CATALOG_ROW' (expected 1) — the 038 catalog seed did not land (prod-parity columns missing?)"
+  exit 1
+fi
+echo "    prepaid catalog row (c0ffee01) seeded = true"
 echo "==> Done. Logs: /tmp/furqan_layer{1,2,3}.log"

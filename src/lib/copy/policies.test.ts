@@ -6,6 +6,7 @@ import {
   SESSION_DURATION,
   PRICING_MODEL,
   FAMILY_POLICY,
+  PREPAID_HOURS_POLICY,
 } from "./policies";
 
 /**
@@ -80,5 +81,30 @@ describe("policy copy — single source of truth invariants", () => {
     }
     expect(PRICING_MODEL.disambiguator.ar).toContain("اشتراكات");
     expect(PRICING_MODEL.disambiguator.en.toLowerCase()).toContain("subscription");
+  });
+
+  it("prepaid-aware disambiguator names all THREE systems (spec 038, decision 42 amended)", () => {
+    const v = PRICING_MODEL.disambiguatorWithPrepaid;
+    // Still a subscription (keeps the base contract token) …
+    expect(v.ar).toContain("اشتراك");
+    expect(v.en.toLowerCase()).toContain("subscription");
+    // … and now names the prepaid / pay-as-you-go option too.
+    expect(v.ar).toContain("مدفوعة مسبقاً");
+    expect(v.en.toLowerCase()).toContain("prepaid");
+  });
+
+  it("prepaid hours policy: 60-minute unit stated, pay-as-you-go framing (spec 038)", () => {
+    expect(PREPAID_HOURS_POLICY.long.ar).toContain("٦٠");
+    expect(PREPAID_HOURS_POLICY.long.en).toContain("60");
+    expect(PREPAID_HOURS_POLICY.short.en.toLowerCase()).toContain("pay as you go");
+    expect(PREPAID_HOURS_POLICY.short.ar).toContain("مدفوعة مسبقاً");
+    // Expiry is stated as a RULE in both variants…
+    expect(PREPAID_HOURS_POLICY.long.ar).toMatch(/تنتهي|الانتهاء/);
+    expect(PREPAID_HOURS_POLICY.long.en.toLowerCase()).toContain("expire");
+    // …but the window is DRIFT-PROOF: copy must never hardcode a month count
+    // (the authoritative window is the prepaid_hours_expiry_months setting,
+    // shown per-lot in the wallet). Guard against "12 month(s)" / "١٢ شهر".
+    expect(PREPAID_HOURS_POLICY.long.en.toLowerCase()).not.toMatch(/\d+\s*month/);
+    expect(PREPAID_HOURS_POLICY.long.ar).not.toMatch(/[٠-٩]+\s*شهر/);
   });
 });

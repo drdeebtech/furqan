@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { logError } from "@/lib/logger";
 import { getT } from "@/lib/i18n/server";
 import { getActiveTeacherSpecialties } from "@/lib/site-content/queries";
 import { BookingForm } from "./booking-form";
@@ -27,7 +28,7 @@ export default async function NewBookingPage({ searchParams }: Props) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [tpRes, profileRes, availRes, specialtyLabels] = await Promise.all([
+  const [tpRes, profileRes, availRes, specialtyLabels, activeSubRes, prepaidRes] = await Promise.all([
     supabase
       .from("teacher_profiles")
       .select("teacher_id, hourly_rate, specialties, recitation_standards, bio")
@@ -53,6 +54,40 @@ export default async function NewBookingPage({ searchParams }: Props) {
       .eq("is_active", true)
       .returns<AvailSlot[]>(),
     getActiveTeacherSpecialties(),
+    // Spec 038 (T6.3) — the source picker only makes sense when the student
+    // has BOTH a spendable subscription and a spendable prepaid wallet. Head
+    // count of active subscriptions is enough; the row itself isn't needed.
+    supabase
+      .from("subscriptions")
+      .select("id", { count: "exact", head: true })
+      .eq("student_id", user.id)
+      .eq("status", "active")
+      .limit(1),
+    // Active prepaid_hours lots with remaining credit. `product_type` isn't in
+    // the hand-corrected database.ts / generated types yet — localized cast
+    // (same shape as src/lib/views/student-dashboard.ts) loosens column-name
+    // checking without touching the types files. `sessions_remaining` is a
+    // GENERATED column, so remaining = sessions_total − sessions_used is
+    // computed in TS (matches the dashboard precedent).
+    (supabase as unknown as {
+      from(t: string): {
+        select(c: string): {
+          eq(c: string, v: string): {
+            eq(c: string, v: string): {
+              eq(c: string, v: string): Promise<{
+                data: { sessions_total: number; sessions_used: number }[] | null;
+                error: { message: string; code?: string } | null;
+              }>;
+            };
+          };
+        };
+      };
+    })
+      .from("student_packages")
+      .select("sessions_total, sessions_used")
+      .eq("student_id", user.id)
+      .eq("product_type", "prepaid_hours")
+      .eq("status", "active"),
   ]);
 
   if (!tpRes.data) redirect("/student/teachers");
@@ -75,9 +110,27 @@ export default async function NewBookingPage({ searchParams }: Props) {
     slotDuration: s.slot_duration,
   }));
 
+  const hasActiveSubscription = (activeSubRes.count ?? 0) > 0;
+  const { data: prepaidRows, error: prepaidError } = prepaidRes;
+  if (prepaidError) {
+    logError("student booking: prepaid-hours lookup failed", prepaidError, {
+      route: "/student/bookings/new",
+      widget: "prepaid-source-picker",
+    });
+  }
+  const hasPrepaidHours = (prepaidRows ?? []).some(
+    (p) => p.sessions_total - p.sessions_used > 0,
+  );
+  const canChoosePrepaid = hasActiveSubscription && hasPrepaidHours;
+
   return (
     <div dir={dir} className="mx-auto max-w-2xl px-4 py-8">
-      <BookingForm teacher={teacher} availability={availability} specialtyLabels={specialtyLabels} />
+      <BookingForm
+        teacher={teacher}
+        availability={availability}
+        specialtyLabels={specialtyLabels}
+        canChoosePrepaid={canChoosePrepaid}
+      />
     </div>
   );
 }
