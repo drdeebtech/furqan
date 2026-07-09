@@ -2,10 +2,11 @@
 
 import { useActionState, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { ArrowRight, CalendarPlus, Clock, AlertCircle, ChevronDown } from "lucide-react";
+import { ArrowRight, CalendarPlus, Clock, AlertCircle, ChevronDown, Wallet } from "lucide-react";
 import { createBooking, type BookingResult } from "./actions";
 import { SESSION_TYPE_AR } from "@/lib/constants";
 import { useLang } from "@/lib/i18n/context";
+import { PREPAID_HOURS_POLICY } from "@/lib/copy/policies";
 import type { SessionType } from "@/types/database";
 import type { TeacherLanguage } from "@/lib/site-content/types";
 import { BookingSteps } from "@/components/shared/booking-steps";
@@ -47,10 +48,12 @@ export function BookingForm({
   teacher,
   availability,
   specialtyLabels,
+  canChoosePrepaid,
 }: {
   teacher: TeacherData;
   availability: AvailSlot[];
   specialtyLabels: TeacherLanguage[];
+  canChoosePrepaid: boolean;
 }) {
   const { t, lang } = useLang();
   const teacherName =
@@ -97,6 +100,11 @@ export function BookingForm({
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  // Spec 038 (T6.3) — "use my hours" source choice. Only shown when the
+  // student has BOTH an active subscription and a prepaid wallet balance
+  // (canChoosePrepaid, computed in the server page). Default false preserves
+  // the subscription-first billing behaviour for everyone else.
+  const [usePrepaidHours, setUsePrepaidHours] = useState(false);
   const [state, formAction, pending] = useActionState<BookingResult, FormData>(createBooking, {});
 
   // Mount gate — defers any clock-dependent rendering to the client. SSR
@@ -146,6 +154,29 @@ export function BookingForm({
     }
   }
   const canLoadMoreDates = dateRangeDays < 56;
+
+  // Spec 038 (T6.3) — 60-MINUTE CONSTRAINT. Prepaid hours are 60-minute units,
+  // so when "use my prepaid hours" is selected the duration is locked to 60
+  // and the other durations are hidden (the server-side booking validation and
+  // the confirm-time deduct trigger assume exactly one 60-min lot per debit).
+  // If the teacher doesn't offer 60-min slots at all (maxSlotDuration < 60),
+  // the prepaid option is disabled — the student can't spend a wallet hour on
+  // a teacher who can't fit it.
+  const offers60Min = ALL_DURATIONS.some((d) => d.value === 60 && d.value <= maxSlotDuration);
+  const canPickPrepaid = canChoosePrepaid && offers60Min;
+  const effectiveDurations = usePrepaidHours
+    ? ALL_DURATIONS.filter((d) => d.value === 60)
+    : durations;
+
+  function handleSourceChange(next: boolean) {
+    if (next) {
+      setUsePrepaidHours(true);
+      setDuration(60);
+    } else {
+      setUsePrepaidHours(false);
+      setDuration(defaultDuration);
+    }
+  }
 
   // Check if form is complete for confirmation
   const isComplete = selectedType && duration && selectedDate && selectedTime;
@@ -201,6 +232,8 @@ export function BookingForm({
             <input type="hidden" name="session_type" value={selectedType} />
             <input type="hidden" name="date" value={selectedDate} />
             <input type="hidden" name="time" value={selectedTime} />
+            {/* Spec 038 (T6.3) — source choice: literal "true"/"false" parsed by the zod schema */}
+            <input type="hidden" name="use_prepaid_hours" value={usePrepaidHours ? "true" : "false"} />
             {/* Client-computed ISO-8601 so the server uses the student's local timezone */}
             <input
               type="hidden"
@@ -252,23 +285,95 @@ export function BookingForm({
             </div>
           </div>
 
+          {/* Spec 038 (T6.3) — billing source picker. Only rendered when the
+              student has both a spendable subscription and a prepaid wallet
+              balance (canChoosePrepaid, from the server page). Default is the
+              subscription; the alternative spends a 60-min wallet lot. */}
+          {canChoosePrepaid && (
+            <div role="radiogroup" aria-label={t("مصدر الدفع", "Billing source")}>
+              <label className="mb-2 block text-sm font-medium">
+                <Wallet size={14} className="ms-1 inline text-gold" /> {t("مصرف الحجز", "Billing source")}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={!usePrepaidHours}
+                  data-testid="billing-source-subscription"
+                  onClick={() => handleSourceChange(false)}
+                  className={`focus-ring min-h-[44px] rounded-xl border px-3 py-3 text-sm transition-colors ${
+                    !usePrepaidHours ? "border-gold bg-gold/10 font-medium text-gold" : "glass-input hover:border-gold/50"
+                  }`}
+                >
+                  {t("استخدم اشتراكي", "Use my subscription")}
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={usePrepaidHours}
+                  aria-disabled={!canPickPrepaid}
+                  disabled={!canPickPrepaid}
+                  data-testid="billing-source-prepaid"
+                  onClick={() => canPickPrepaid && handleSourceChange(true)}
+                  className={`focus-ring min-h-[44px] rounded-xl border px-3 py-3 text-sm transition-colors ${
+                    usePrepaidHours ? "border-gold bg-gold/10 font-medium text-gold" : "glass-input hover:border-gold/50"
+                  } ${!canPickPrepaid ? "cursor-not-allowed opacity-50" : ""}`}
+                >
+                  {t("استخدم ساعاتي المدفوعة مسبقاً", "Use my prepaid hours")}
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-muted">
+                {lang === "ar" ? PREPAID_HOURS_POLICY.short.ar : PREPAID_HOURS_POLICY.short.en}
+              </p>
+              {!offers60Min && (
+                <p className="mt-1 text-xs text-warning">
+                  <AlertCircle size={12} className="inline" />{" "}
+                  {t(
+                    "هذا المعلم لا يقدّم حصصاً مدتها ٦٠ دقيقة — لا يمكن استخدام الساعات المدفوعة مسبقاً",
+                    "This teacher doesn't offer 60-minute sessions — prepaid hours can't be used",
+                  )}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Duration */}
           <div>
             <label className="mb-2 block text-sm font-medium"><Clock size={14} className="ms-1 inline text-gold" /> المدة</label>
-            <div className={`grid gap-2 ${durations.length === 1 ? "grid-cols-1" : durations.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
-              {durations.map((d) => (
+            <div className={`grid gap-2 ${effectiveDurations.length === 1 ? "grid-cols-1" : effectiveDurations.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+              {effectiveDurations.map((d) => (
                 <button
                   key={d.value}
                   type="button"
-                  onClick={() => setDuration(d.value)}
-                  className={`rounded-xl border px-3 py-3 text-sm transition-colors ${
+                  aria-pressed={duration === d.value}
+                  aria-disabled={usePrepaidHours}
+                  disabled={usePrepaidHours}
+                  onClick={() => {
+                    if (usePrepaidHours) return;
+                    // A slot valid for 30 min may not exist/be valid for 60 min
+                    // (or vice-versa) — clear the selected time so the user
+                    // re-picks from the freshly-computed availability grid
+                    // rather than submitting a stale, mismatched slot.
+                    setSelectedTime("");
+                    setDuration(d.value);
+                  }}
+                  className={`focus-ring min-h-[44px] rounded-xl border px-3 py-3 text-sm transition-colors ${
                     duration === d.value ? "border-gold bg-gold/10 font-medium text-gold" : "glass-input hover:border-gold/50"
-                  }`}
+                  } ${usePrepaidHours ? "cursor-not-allowed opacity-70" : ""}`}
                 >
                   {d.label}
                 </button>
               ))}
             </div>
+            {usePrepaidHours && (
+              <p className="mt-2 text-xs text-muted">
+                <Clock size={12} className="inline" />{" "}
+                {t(
+                  "الساعات المدفوعة مسبقاً بحصص مدتها ٦٠ دقيقة",
+                  "Prepaid hours are 60-minute sessions",
+                )}
+              </p>
+            )}
           </div>
 
           {/* Date — tappable day buttons */}

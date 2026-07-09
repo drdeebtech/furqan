@@ -44,6 +44,13 @@ const BookingSchema = z.object({
     .nullable()
     .optional()
     .transform((v) => (v && v.length > 0 ? v : null)),
+  // Spec 038 (T6.3) — "use my hours" source choice. Hidden input sends the
+  // literal strings "true"/"false"; transform to a boolean so the domain
+  // gets a clean type. Default "false" preserves subscription-first behavior.
+  use_prepaid_hours: z
+    .string()
+    .default("false")
+    .transform((v) => v === "true"),
 });
 
 const MAX_BOOKINGS_PER_HOUR = 10;
@@ -127,7 +134,7 @@ export async function createBooking(
     const field = firstIssue?.path[0]?.toString() ?? "";
     return { error: msgMap[field] ?? firstIssue?.message ?? "جميع الحقول مطلوبة" };
   }
-  const { teacher_id: teacherId, session_type: sessionType, duration_min: durationMin, date, time, notes, scheduled_at: scheduledAtIso } = parsed.data;
+  const { teacher_id: teacherId, session_type: sessionType, duration_min: durationMin, date, time, notes, scheduled_at: scheduledAtIso, use_prepaid_hours: usePrepaidHours } = parsed.data;
 
   // Auth: ADR-0002 §3 (and the route-adapter shape in CONTEXT.md).
   // requireRole("student") enforces both authentication AND the student
@@ -186,6 +193,7 @@ export async function createBooking(
       localDate: date,
       localTime: time,
       notes,
+      usePrepaidHours,
     });
   } catch (err) {
     if (err instanceof BookingValidationError || err instanceof BookingConflictError) {

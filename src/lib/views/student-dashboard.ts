@@ -99,6 +99,28 @@ export interface StudentDashboardData {
   goal: GoalDashboardData | null;
   /** Earned achievement badges (spec 033). Empty array when none earned yet. */
   achievements: { type: string; metadata_json: Record<string, unknown>; unlocked_at: string }[];
+  /**
+   * Spec 038 — prepaid-hour wallet summary. Null when the student has NO
+   * active prepaid lots (subscription-only students never see the widget).
+   * Reads are RLS `.from()` selects only (no RPC — the local RPC seam is
+   * broken). sessions_remaining is GENERATED in DB → computed in TS here as
+   * sessions_total - sessions_used so the column doesn't need to be in the
+   * generated types yet.
+   */
+  prepaidWallet: {
+    balanceHours: number;
+    nearestExpiry: string | null;
+    lots: {
+      id: string;
+      sessionsTotal: number;
+      sessionsUsed: number;
+      remaining: number;
+      expiresAt: string | null;
+      ratePaidUsd: number | null;
+      purchasedAt: string;
+    }[];
+    history: { eventType: string; hoursDelta: number; createdAt: string }[];
+  } | null;
   renderedAtMs: number;
 }
 
@@ -162,7 +184,7 @@ export async function studentDashboardView(
     .eq("student_id", studentId).eq("status", "completed").gte("created_at", monthStart);
   if (monthEnd) monthQ = monthQ.lte("created_at", monthEnd);
 
-  const [profileRes, nextBookingRes, totalRes, monthRes, pendingRes, activeSubRes] = await Promise.all([
+  const [profileRes, nextBookingRes, totalRes, monthRes, pendingRes, activeSubRes, prepaidCountRes] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", studentId).single<{ full_name: string | null }>(),
     supabase.from("bookings")
       .select("id, teacher_id, scheduled_at, duration_min, session_type, status")
@@ -174,6 +196,27 @@ export async function studentDashboardView(
     monthQ,
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("student_id", studentId).eq("status", "pending"),
     supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("student_id", studentId).eq("status", "active").limit(1),
+    // Spec 038 — a student whose ONLY activity is a prepaid-hours purchase must
+    // NOT be treated as "new": isNewStudent below short-circuits to emptyData
+    // (prepaidWallet:null) BEFORE the wallet read in Batch 3, which would hide
+    // the wallet from exactly the users who own hours. Cheap head-count feeds
+    // the guard. Inline cast: product_type isn't in the generated types yet.
+    (supabase as unknown as {
+      from(t: string): {
+        select(c: string, o: { count: "exact"; head: true }): {
+          eq(c: string, v: string): {
+            eq(c: string, v: string): {
+              eq(c: string, v: string): Promise<{ count: number | null; error: unknown }>;
+            };
+          };
+        };
+      };
+    })
+      .from("student_packages")
+      .select("id", { count: "exact", head: true })
+      .eq("student_id", studentId)
+      .eq("product_type", "prepaid_hours")
+      .eq("status", "active"),
   ]);
 
   const profileLoad = loadOrFail(profileRes, { full_name: null }, { route: ROUTE, widget: "profile" });
@@ -189,8 +232,11 @@ export async function studentDashboardView(
   const monthSessions = monthLoad.count;
   const pendingBookings = pendingLoad.count;
   const hasActiveSub = (activeSubRes.count ?? 0) > 0;
+  // Spec 038 — owning prepaid hours is real activity; such a student sees the
+  // full dashboard (incl. the wallet widget), never the "new student" state.
+  const hasPrepaidHours = (prepaidCountRes.count ?? 0) > 0;
 
-  const isNewStudent = !anyFailed && totalSessions === 0 && pendingBookings === 0 && !nextBooking && !hasActiveSub;
+  const isNewStudent = !anyFailed && totalSessions === 0 && pendingBookings === 0 && !nextBooking && !hasActiveSub && !hasPrepaidHours;
   if (isNewStudent) {
     return {
       data: emptyData(fullName, now),
@@ -218,14 +264,55 @@ export async function studentDashboardView(
   // recentRecordings) have been moved to the streaming widget functions below.
   // continueWatching stays here so resumeLesson (NextActionBanner priority 6)
   // is available above-fold without waiting for the analytics slot.
+  //
+  // Spec 038 — the existing `student_packages` select now also reads
+  // `product_type` (denormalized in Phase 1). The new column is not yet in the
+  // generated types, so the localized-cast pattern (same shape used for
+  // `achievements` below) loosens column-name checking without touching
+  // database.ts. The new prepaid lots + ledger reads share widget tag
+  // "prepaid-wallet" and rely on RLS for ownership (prepaid_hours_events has
+  // no student_id column — see migration 20260715000000 — and the table's RLS
+  // policy already restricts SELECT to rows whose package_id belongs to
+  // auth.uid(); no `.in('package_id', lotIds)` filter is needed and that
+  // avoids a chicken-and-egg with the lots query in the same batch).
+  type PackagesRow = { id: string; sessions_total: number; sessions_used: number; status: string; expires_at: string | null };
+  type PrepaidLotRow = {
+    id: string; sessions_total: number; sessions_used: number;
+    status: string; expires_at: string | null;
+    rate_paid_usd: number | null; purchased_at: string;
+  };
+  type PrepaidEventRow = { event_type: string; hours_delta: number; created_at: string };
+
+  const looseFrom = supabase as unknown as {
+    from(table: string): {
+      select(columns: string): {
+        eq(col: string, val: string | number | boolean): {
+          eq(col: string, val: string | number | boolean): {
+            eq(col: string, val: string | number | boolean): {
+              returns<T>(): Promise<{ data: T | null; error: { message: string; code?: string } | null }>;
+            };
+            returns<T>(): Promise<{ data: T | null; error: { message: string; code?: string } | null }>;
+          };
+          returns<T>(): Promise<{ data: T | null; error: { message: string; code?: string } | null }>;
+        };
+        order(col: string, opts: { ascending: boolean }): {
+          limit(n: number): {
+            returns<T>(): Promise<{ data: T | null; error: { message: string; code?: string } | null }>;
+          };
+        };
+        returns<T>(): Promise<{ data: T | null; error: { message: string; code?: string } | null }>;
+      };
+    };
+  };
+
   const [
     packagesRes, continueWatching, nextQuiz, lastProgressRes, streakInfo, homeworkPulse,
-    latestEvalRes, goalLoad, achievementsRes,
+    latestEvalRes, goalLoad, achievementsRes, prepaidLotsRes, prepaidEventsRes,
   ] = await Promise.all([
-    supabase.from("student_packages")
-      .select("id, sessions_total, sessions_used, status, expires_at")
+    looseFrom.from("student_packages")
+      .select("id, sessions_total, sessions_used, status, expires_at, product_type")
       .eq("student_id", studentId).eq("status", "active")
-      .returns<{ id: string; sessions_total: number; sessions_used: number; status: string; expires_at: string | null }[]>(),
+      .returns<PackagesRow[]>(),
     getStudentContinueWatching(supabase, studentId),
     getStudentNextQuiz(supabase, studentId),
     supabase.from("student_progress")
@@ -248,19 +335,38 @@ export async function studentDashboardView(
       null,
       { route: ROUTE, widget: "goal" },
     ),
-    (supabase as unknown as { from(t: string): {
-      select(cols: string): { eq(col: string, val: string): {
-        returns<T>(): Promise<{ data: T | null; error: unknown }>;
-      } };
-    } }).from("achievements").select("type, metadata_json, unlocked_at").eq("student_id", studentId)
+    looseFrom.from("achievements").select("type, metadata_json, unlocked_at").eq("student_id", studentId)
       .returns<{ type: string; metadata_json: Record<string, unknown>; unlocked_at: string }[]>(),
+    // Spec 038 — active prepaid-hour lots (immutable, one row per purchase).
+    looseFrom.from("student_packages")
+      .select("id, sessions_total, sessions_used, status, expires_at, rate_paid_usd, purchased_at")
+      .eq("student_id", studentId)
+      .eq("product_type", "prepaid_hours")
+      .eq("status", "active")
+      .returns<PrepaidLotRow[]>(),
+    // Spec 038 — append-only ledger. RLS restricts to the student's own lots
+    // via the package_id → student_packages.student_id = auth.uid() join, so a
+    // bare ordered SELECT returns only their events (no student_id column).
+    looseFrom.from("prepaid_hours_events")
+      .select("event_type, hours_delta, created_at")
+      .order("created_at", { ascending: false })
+      .limit(20)
+      .returns<PrepaidEventRow[]>(),
   ]);
 
   const packagesLoad = loadOrFail(packagesRes, [], { route: ROUTE, widget: "active-packages" });
   const lastProgressLoad = loadOrFail(lastProgressRes, null, { route: ROUTE, widget: "last-progress" });
   const latestEvalLoad = loadOrFail(latestEvalRes, null, { route: ROUTE, widget: "latest-evaluation" });
+  const prepaidLotsLoad = loadOrFail(prepaidLotsRes, [], { route: ROUTE, widget: "prepaid-wallet" });
+  const prepaidEventsLoad = loadOrFail(prepaidEventsRes, [], { route: ROUTE, widget: "prepaid-wallet" });
 
-  anyFailed = anyFailed || packagesLoad.failed || lastProgressLoad.failed || latestEvalLoad.failed || goalLoad.failed;
+  anyFailed = anyFailed
+    || packagesLoad.failed
+    || lastProgressLoad.failed
+    || latestEvalLoad.failed
+    || goalLoad.failed
+    || prepaidLotsLoad.failed
+    || prepaidEventsLoad.failed;
 
   // Spec 033: award streak badges (idempotent, never blocks render).
   if (streakInfo.streak >= 30) {
@@ -350,6 +456,50 @@ export async function studentDashboardView(
     }
   }
 
+  // Spec 038 — derive the prepaid-hour wallet summary from the active lots +
+  // ledger. Null when the student has NO active prepaid lots, so the widget
+  // stays hidden for subscription-only students. sessions_remaining is a
+  // GENERATED column in DB; computed in TS here as (sessions_total −
+  // sessions_used) so the column need not be in generated types yet.
+  const prepaidLots = prepaidLotsLoad.data ?? [];
+  const prepaidEvents = prepaidEventsLoad.data ?? [];
+  const prepaidWallet = prepaidLots.length > 0
+    ? (() => {
+        const lotsWithRemaining = prepaidLots.map((lot) => {
+          const remaining = Math.max(0, lot.sessions_total - lot.sessions_used);
+          return { lot, remaining };
+        });
+        const balanceHours = lotsWithRemaining.reduce((sum, l) => sum + l.remaining, 0);
+        // Earliest expiry among lots that still have hours left — expired-but-
+        // unbilled lots with remaining=0 should not pin the "nearest expiry".
+        const futureExpiries = lotsWithRemaining
+          .filter((l) => l.remaining > 0 && l.lot.expires_at)
+          .map((l) => l.lot.expires_at as string)
+          .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+        return {
+          balanceHours,
+          nearestExpiry: futureExpiries[0] ?? null,
+          lots: lotsWithRemaining
+            .map((l) => ({
+              id: l.lot.id,
+              sessionsTotal: l.lot.sessions_total,
+              sessionsUsed: l.lot.sessions_used,
+              remaining: l.remaining,
+              expiresAt: l.lot.expires_at,
+              ratePaidUsd: l.lot.rate_paid_usd,
+              purchasedAt: l.lot.purchased_at,
+            }))
+            // Show the most recently purchased lots first.
+            .sort((a, b) => new Date(b.purchasedAt).getTime() - new Date(a.purchasedAt).getTime()),
+          history: prepaidEvents.map((ev) => ({
+            eventType: ev.event_type,
+            hoursDelta: ev.hours_delta,
+            createdAt: ev.created_at,
+          })),
+        };
+      })()
+    : null;
+
   return {
     data: {
       fullName,
@@ -370,6 +520,7 @@ export async function studentDashboardView(
       latestEvaluation: latestEvalLoad.data,
       goal: goalLoad.data,
       achievements,
+      prepaidWallet,
       renderedAtMs: now.getTime(),
     },
     anyFailed,
@@ -400,6 +551,7 @@ function emptyData(fullName: string | null, now: Date): StudentDashboardData {
     latestEvaluation: null,
     goal: null,
     achievements: [],
+    prepaidWallet: null,
     renderedAtMs: now.getTime(),
   };
 }

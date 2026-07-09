@@ -29,6 +29,14 @@ export interface CreateBookingInput {
   /** Student's local clock time "HH:MM" — used for availability/exception matching. */
   localTime: string;
   notes: string | null;
+  /**
+   * Spec 038 (T6.3) — "use my hours" booking choice. When true, the create-time
+   * package precondition is restricted to prepaid_hours lots (R2 override), and
+   * the column is stamped on the booking row so the confirm-time deduct trigger
+   * charges the wallet instead of the default subscription-first ranking.
+   * Default false preserves the existing behaviour.
+   */
+  usePrepaidHours?: boolean;
 }
 
 /**

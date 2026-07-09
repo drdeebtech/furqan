@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -472,6 +467,7 @@ export type Database = {
           event_type: string
           id: string
           payload: Json
+          provider: string
           status: Database["public"]["Enums"]["billing_event_status"]
           stripe_customer_id: string | null
           stripe_event_created: string
@@ -484,6 +480,7 @@ export type Database = {
           event_type: string
           id?: string
           payload: Json
+          provider?: string
           status?: Database["public"]["Enums"]["billing_event_status"]
           stripe_customer_id?: string | null
           stripe_event_created: string
@@ -496,6 +493,7 @@ export type Database = {
           event_type?: string
           id?: string
           payload?: Json
+          provider?: string
           status?: Database["public"]["Enums"]["billing_event_status"]
           stripe_customer_id?: string | null
           stripe_event_created?: string
@@ -614,12 +612,14 @@ export type Database = {
           status: Database["public"]["Enums"]["booking_status"]
           student_id: string
           student_package_id: string | null
+          subscription_id: string | null
           target_scope: Json | null
           tax_amount: number
           tax_rate: number
           teacher_confirmed: boolean
           teacher_confirmed_at: string | null
           teacher_id: string
+          use_prepaid_hours: boolean
         }
         Insert: {
           amount_local?: number | null
@@ -653,12 +653,14 @@ export type Database = {
           status?: Database["public"]["Enums"]["booking_status"]
           student_id: string
           student_package_id?: string | null
+          subscription_id?: string | null
           target_scope?: Json | null
           tax_amount?: number
           tax_rate?: number
           teacher_confirmed?: boolean
           teacher_confirmed_at?: string | null
           teacher_id: string
+          use_prepaid_hours?: boolean
         }
         Update: {
           amount_local?: number | null
@@ -692,12 +694,14 @@ export type Database = {
           status?: Database["public"]["Enums"]["booking_status"]
           student_id?: string
           student_package_id?: string | null
+          subscription_id?: string | null
           target_scope?: Json | null
           tax_amount?: number
           tax_rate?: number
           teacher_confirmed?: boolean
           teacher_confirmed_at?: string | null
           teacher_id?: string
+          use_prepaid_hours?: boolean
         }
         Relationships: [
           {
@@ -804,6 +808,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_student_packages"
             referencedColumns: ["student_package_id"]
+          },
+          {
+            foreignKeyName: "bookings_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "bookings_teacher_id_fkey"
@@ -3462,6 +3473,113 @@ export type Database = {
           },
         ]
       }
+      prepaid_hours_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          hours_delta: number
+          id: string
+          package_id: string
+          stripe_ref: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          hours_delta: number
+          id?: string
+          package_id: string
+          stripe_ref?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          hours_delta?: number
+          id?: string
+          package_id?: string
+          stripe_ref?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prepaid_hours_events_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "student_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prepaid_hours_events_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_effective_status"
+            referencedColumns: ["student_package_id"]
+          },
+          {
+            foreignKeyName: "prepaid_hours_events_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_student_packages"
+            referencedColumns: ["student_package_id"]
+          },
+        ]
+      }
+      prepaid_refund_requests: {
+        Row: {
+          amount_usd: number
+          created_at: string
+          hours: number
+          id: string
+          package_id: string
+          resolved_at: string | null
+          status: string
+          stripe_payment_intent_id: string
+          stripe_refund_id: string | null
+        }
+        Insert: {
+          amount_usd: number
+          created_at?: string
+          hours: number
+          id: string
+          package_id: string
+          resolved_at?: string | null
+          status?: string
+          stripe_payment_intent_id: string
+          stripe_refund_id?: string | null
+        }
+        Update: {
+          amount_usd?: number
+          created_at?: string
+          hours?: number
+          id?: string
+          package_id?: string
+          resolved_at?: string | null
+          status?: string
+          stripe_payment_intent_id?: string
+          stripe_refund_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prepaid_refund_requests_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "student_packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prepaid_refund_requests_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_package_effective_status"
+            referencedColumns: ["student_package_id"]
+          },
+          {
+            foreignKeyName: "prepaid_refund_requests_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "v_student_packages"
+            referencedColumns: ["student_package_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -5080,81 +5198,6 @@ export type Database = {
           },
         ]
       }
-      student_credits: {
-        Row: {
-          created_at: string
-          credit_value_usd: number | null
-          expires_at: string | null
-          id: string
-          payment_id: string | null
-          source: string
-          student_id: string
-          teacher_id: string | null
-          total: number
-          used: number
-        }
-        Insert: {
-          created_at?: string
-          credit_value_usd?: number | null
-          expires_at?: string | null
-          id?: string
-          payment_id?: string | null
-          source?: string
-          student_id: string
-          teacher_id?: string | null
-          total: number
-          used?: number
-        }
-        Update: {
-          created_at?: string
-          credit_value_usd?: number | null
-          expires_at?: string | null
-          id?: string
-          payment_id?: string | null
-          source?: string
-          student_id?: string
-          teacher_id?: string | null
-          total?: number
-          used?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "student_credits_payment_id_fkey"
-            columns: ["payment_id"]
-            isOneToOne: false
-            referencedRelation: "payments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_credits_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_credits_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "public_profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_credits_teacher_id_fkey"
-            columns: ["teacher_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "student_credits_teacher_id_fkey"
-            columns: ["teacher_id"]
-            isOneToOne: false
-            referencedRelation: "public_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       student_goals: {
         Row: {
           ayah_end: number
@@ -5343,12 +5386,17 @@ export type Database = {
           id: string
           package_id: string | null
           payment_id: string | null
+          payment_provider: string
+          product_type: string
+          provider_payment_ref: string | null
           purchased_at: string
+          rate_paid_usd: number | null
           session_mode_used: Json
           sessions_remaining: number | null
           sessions_total: number
           sessions_used: number
           status: string
+          stripe_payment_intent_id: string | null
           student_id: string
           subscription_id: string | null
         }
@@ -5363,12 +5411,17 @@ export type Database = {
           id?: string
           package_id?: string | null
           payment_id?: string | null
+          payment_provider?: string
+          product_type?: string
+          provider_payment_ref?: string | null
           purchased_at?: string
+          rate_paid_usd?: number | null
           session_mode_used?: Json
           sessions_remaining?: number | null
           sessions_total: number
           sessions_used?: number
           status?: string
+          stripe_payment_intent_id?: string | null
           student_id: string
           subscription_id?: string | null
         }
@@ -5383,12 +5436,17 @@ export type Database = {
           id?: string
           package_id?: string | null
           payment_id?: string | null
+          payment_provider?: string
+          product_type?: string
+          provider_payment_ref?: string | null
           purchased_at?: string
+          rate_paid_usd?: number | null
           session_mode_used?: Json
           sessions_remaining?: number | null
           sessions_total?: number
           sessions_used?: number
           status?: string
+          stripe_payment_intent_id?: string | null
           student_id?: string
           subscription_id?: string | null
         }
@@ -6459,6 +6517,7 @@ export type Database = {
           max_active_students: number | null
           rating_avg: number
           recitation_standards: string[]
+          search_vector: unknown
           specialties: string[]
           teacher_id: string
           total_sessions: number
@@ -6484,6 +6543,7 @@ export type Database = {
           max_active_students?: number | null
           rating_avg?: number
           recitation_standards?: string[]
+          search_vector?: unknown
           specialties?: string[]
           teacher_id: string
           total_sessions?: number
@@ -6509,6 +6569,7 @@ export type Database = {
           max_active_students?: number | null
           rating_avg?: number
           recitation_standards?: string[]
+          search_vector?: unknown
           specialties?: string[]
           teacher_id?: string
           total_sessions?: number
@@ -6639,6 +6700,13 @@ export type Database = {
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "teacher_profiles"
+            referencedColumns: ["teacher_id"]
+          },
+          {
+            foreignKeyName: "testimonials_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "v_teachers"
             referencedColumns: ["teacher_id"]
           },
         ]
@@ -7231,6 +7299,29 @@ export type Database = {
         }
         Returns: undefined
       }
+      finalize_prepaid_refund: {
+        Args: { p_refund_request_id: string; p_stripe_ref?: string }
+        Returns: undefined
+      }
+      get_public_teacher: {
+        Args: { p_id: string }
+        Returns: {
+          avatar_url: string
+          bio: string
+          bio_en: string
+          full_name: string
+          full_name_ar: string
+          gender: string
+          hourly_rate: number
+          id: string
+          languages: string[]
+          rating_avg: number
+          rating_count: number
+          recitation_standards: string[]
+          specialties: string[]
+          total_sessions: number
+        }[]
+      }
       get_teacher_overdue_eval_count: {
         Args: { p_teacher_id: string }
         Returns: number
@@ -7242,6 +7333,16 @@ export type Database = {
           p_plan_id: string
           p_session_count?: number
           p_subscription_id: string
+        }
+        Returns: string
+      }
+      grant_prepaid_hours: {
+        Args: {
+          p_hours: number
+          p_payment_intent: string
+          p_provider?: string
+          p_rate: number
+          p_student: string
         }
         Returns: string
       }
@@ -7259,6 +7360,7 @@ export type Database = {
         }
         Returns: string
       }
+      immutable_unaccent: { Args: { "": string }; Returns: string }
       increment_enrollment: {
         Args: { p_offering_id: string }
         Returns: undefined
@@ -7306,6 +7408,19 @@ export type Database = {
         Args: { p_course_id: string }
         Returns: undefined
       }
+      reconcile_external_prepaid_refund: {
+        Args: { p_payment_intent: string }
+        Returns: undefined
+      }
+      record_prepaid_event: {
+        Args: {
+          p_event_type: string
+          p_hours_delta: number
+          p_package: string
+          p_stripe_ref: string
+        }
+        Returns: undefined
+      }
       record_student_progress: {
         Args: {
           p_ayah_from: number
@@ -7326,6 +7441,18 @@ export type Database = {
       refund_package_session: {
         Args: { p_package_id: string }
         Returns: boolean
+      }
+      release_prepaid_refund: {
+        Args: { p_refund_request_id: string }
+        Returns: undefined
+      }
+      reserve_prepaid_refund: {
+        Args: { p_hours: number; p_lot: string; p_refund_request_id: string }
+        Returns: number
+      }
+      restore_student_package: {
+        Args: { p_booking_id: string }
+        Returns: undefined
       }
       roster_recent_evaluations: {
         Args: { p_student_ids: string[]; p_teacher_id: string }
@@ -7380,6 +7507,36 @@ export type Database = {
         }
       }
       run_monthly_payroll: { Args: { p_month: string }; Returns: number }
+      search_public_teachers: {
+        Args: {
+          p_gender?: string
+          p_language?: string
+          p_limit?: number
+          p_page?: number
+          p_price_max?: number
+          p_price_min?: number
+          p_query?: string
+          p_rating_weight?: number
+          p_specialty?: string
+        }
+        Returns: {
+          avatar_url: string
+          bio: string
+          bio_en: string
+          full_name: string
+          full_name_ar: string
+          gender: string
+          hourly_rate: number
+          id: string
+          languages: string[]
+          rating_avg: number
+          rating_count: number
+          recitation_standards: string[]
+          specialties: string[]
+          total_count: number
+          total_sessions: number
+        }[]
+      }
       search_teachers: {
         Args: { p_limit: number; p_needle: string; p_offset: number }
         Returns: {
@@ -7397,6 +7554,8 @@ export type Database = {
           total_sessions: number
         }[]
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       start_instant_session_booking:
         | {
             Args: {
@@ -7433,6 +7592,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      sweep_expired_prepaid_hours: { Args: never; Returns: number }
       teacher_at_risk_students: {
         Args: { p_limit?: number; p_teacher_id: string }
         Returns: {
@@ -7458,6 +7618,7 @@ export type Database = {
           total: number
         }[]
       }
+      unaccent: { Args: { "": string }; Returns: string }
       user_is_session_participant: { Args: { s_id: string }; Returns: boolean }
     }
     Enums: {
@@ -7790,3 +7951,4 @@ export const Constants = {
     },
   },
 } as const
+
