@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { logError } from "@/lib/logger";
 import { getT } from "@/lib/i18n/server";
 import { getActiveTeacherSpecialties } from "@/lib/site-content/queries";
 import { BookingForm } from "./booking-form";
@@ -110,7 +111,14 @@ export default async function NewBookingPage({ searchParams }: Props) {
   }));
 
   const hasActiveSubscription = (activeSubRes.count ?? 0) > 0;
-  const hasPrepaidHours = (prepaidRes.data ?? []).some(
+  const { data: prepaidRows, error: prepaidError } = prepaidRes;
+  if (prepaidError) {
+    logError("student booking: prepaid-hours lookup failed", prepaidError, {
+      route: "/student/bookings/new",
+      widget: "prepaid-source-picker",
+    });
+  }
+  const hasPrepaidHours = (prepaidRows ?? []).some(
     (p) => p.sessions_total - p.sessions_used > 0,
   );
   const canChoosePrepaid = hasActiveSubscription && hasPrepaidHours;
