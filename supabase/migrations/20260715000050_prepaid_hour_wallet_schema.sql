@@ -193,10 +193,12 @@ language plpgsql
 as $$
 begin
   if tg_op = 'DELETE' then
-    raise exception 'prepaid_hours_events is append-only: DELETE blocked (package_id=%, event_type=%)'
+    raise exception 'prepaid_hours_events is append-only: DELETE blocked (package_id=%, event_type=%)',
+      old.package_id, old.event_type
       using errcode = 'P0001', detail = old.event_type::text || ' on ' || old.package_id::text;
   else
-    raise exception 'prepaid_hours_events is append-only: UPDATE blocked (package_id=%, event_type=%)'
+    raise exception 'prepaid_hours_events is append-only: UPDATE blocked (package_id=%, event_type=%)',
+      new.package_id, new.event_type
       using errcode = 'P0001', detail = new.event_type::text || ' on ' || new.package_id::text;
   end if;
 end;
