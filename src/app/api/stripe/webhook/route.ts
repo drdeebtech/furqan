@@ -28,7 +28,7 @@ export const maxDuration = 60;
  * (`stripe_event_id` UNIQUE) is the idempotency ledger — a duplicate delivery
  * is a 200 no-op. See contracts/webhook.contract.md.
  *
- * NOTE: API version `2026-05-27.dahlia` restructured several fields off the
+ * NOTE: API version `2026-06-24.dahlia` restructured several fields off the
  * Invoice/Subscription top level: the subscription id lives on
  * `invoice.parent.subscription_details.subscription` (or the line item), the
  * payment intent on `invoice.payments[].payment.payment_intent`, and the
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   // ── Gate 1: raw body + signature verification (fail-closed 400) ───────────
   // Webhook route builds its own Stripe instance so a bad key returns a clean
   // 400 here instead of throwing at import time (see stripe/client.ts).
-  const stripe = new StripeSdk(apiKey, { apiVersion: "2026-05-27.dahlia" });
+  const stripe = new StripeSdk(apiKey, { apiVersion: "2026-06-24.dahlia" });
   const rawBody = await request.text();
   let event: Stripe.Event;
   try {

@@ -196,7 +196,7 @@ async function main(): Promise<void> {
     );
   }
 
-  const stripe = new Stripe(key, { apiVersion: "2026-05-27.dahlia" });
+  const stripe = new Stripe(key, { apiVersion: "2026-06-24.dahlia" });
 
   console.log(
     `\nResolving ${PLANS.length} hifz plans against Stripe ` +
