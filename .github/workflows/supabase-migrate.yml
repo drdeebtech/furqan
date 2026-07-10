@@ -38,7 +38,8 @@ name: Supabase Migrate
 
 on:
   workflow_dispatch:
-  pull_request:  # No paths filter — job skips internally when no migration files changed
+  pull_request:
+    branches: [main, staging]  # only PRs targeting a deploy branch; PR runs are non-credentialed
   push:
     branches: [main, staging]
     paths:
