@@ -277,6 +277,7 @@ export async function getStudentStudyAnalytics(
   const [bookingsRes, studyLogRes] = await Promise.all([bookingsP, studyLogP]);
 
   if (bookingsRes.error) logError("dashboard-queries: study analytics bookings fetch failed", bookingsRes.error, { tag: "dashboard-queries" });
+  if (studyLogRes.error) logError("dashboard-queries: study analytics study_log fetch failed", studyLogRes.error, { tag: "dashboard-queries" });
   const bookings = bookingsRes.data;
 
   const empty = {
