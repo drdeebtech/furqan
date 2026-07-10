@@ -49,6 +49,7 @@ const LINKS: Record<Role, NavLink[]> = {
     { href: "/student/quizzes", ar: "الاختبارات", en: "Quizzes", icon: ClipboardCheck },
     { href: "/student/resources", ar: "المصادر", en: "Resources", icon: FileText },
     // SUPPORT — bottom-anchored utility links (no group label)
+    { href: "/student/billing", ar: "الفواتير", en: "Billing", icon: DollarSign },
     { href: "/student/settings", ar: "الإعدادات", en: "Settings", icon: Settings },
     { href: "/help", ar: "المساعدة", en: "Help Center", icon: HelpCircle },
   ],
