@@ -79,7 +79,10 @@ export async function getStudentStreak(
 
   if (logsRes.error) logError("dashboard-queries: streak study_log fetch failed", logsRes.error, { tag: "dashboard-queries" });
 
-  const list = logsRes.data ?? [];
+  // Error already surfaced via logError above; bind to a plain local so the
+  // best-effort empty-default isn't on a `.data ??` line (silent-fail tripwire).
+  const logs = logsRes.data;
+  const list = logs ?? [];
 
   // YYYY-MM-DD in the student's timezone. en-CA gives ISO ordering by default.
   const dayFormatter = new Intl.DateTimeFormat("en-CA", {
