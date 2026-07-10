@@ -245,21 +245,17 @@ export async function studentDashboardView(
     };
   }
 
-  // ── Batch 2: next-booking-dependent fan-out (teacher name + sessionId) ──
+  // ── Batches 2+3+4 merged: all reads depending only on Batch-1 results ────
+  // Batch 2 (next-booking teacher name + sessionId) needs only `nextBooking`
+  // from Batch 1; Batch 3 (fast widget data) and Batch 4 (today's plan) need
+  // only studentId/now. They're mutually independent, so a single Promise.all
+  // fans them all out instead of three sequential awaits. The nextBooking-
+  // dependent reads become conditional promises that no-op when there is no
+  // next booking — preserving the original `if (nextBooking)` short-circuit
+  // (no query fires, nameMap/sessionId stay empty/null).
   const nameMap: Record<string, string> = {};
   let sessionId: string | null = null;
-  if (nextBooking) {
-    const [teacherProfile, session] = await Promise.all([
-      supabase.from("profiles")
-        .select("full_name").eq("id", nextBooking.teacher_id)
-        .single<{ full_name: string | null }>(),
-      supabase.from("sessions").select("id").eq("booking_id", nextBooking.id).maybeSingle<{ id: string }>(),
-    ]);
-    if (teacherProfile.data?.full_name) nameMap[nextBooking.teacher_id] = teacherProfile.data.full_name;
-    sessionId = session.data?.id ?? null;
-  }
 
-  // ── Batch 3: fast widget data ───────────────────────────────────────────
   // Slow queries (analytics chart, live sessions, hwCounts, murajaah,
   // recentRecordings) have been moved to the streaming widget functions below.
   // continueWatching stays here so resumeLesson (NextActionBanner priority 6)
@@ -305,10 +301,27 @@ export async function studentDashboardView(
     };
   };
 
+  // Batch 4's today window — pure date math, hoisted out of the old Batch 4 so
+  // its queries can join the merged Promise.all.
+  const todayStart = new Date(now); todayStart.setUTCHours(0, 0, 0, 0); todayStart.setUTCDate(todayStart.getUTCDate() - 1);
+  const todayEnd = new Date(now); todayEnd.setUTCHours(23, 59, 59, 999); todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
+
   const [
+    teacherProfileRes, sessionRes,
     packagesRes, continueWatching, nextQuiz, lastProgressRes, streakInfo, homeworkPulse,
     latestEvalRes, goalLoad, achievementsRes, prepaidLotsRes, prepaidEventsRes,
+    todaySessionsRes, todayHomeworkRes,
   ] = await Promise.all([
+    // Batch 2: next-booking teacher name + sessionId (no-op without nextBooking).
+    nextBooking
+      ? supabase.from("profiles")
+        .select("full_name").eq("id", nextBooking.teacher_id)
+        .single<{ full_name: string | null }>()
+      : Promise.resolve({ data: null as { full_name: string | null } | null, error: null }),
+    nextBooking
+      ? supabase.from("sessions").select("id").eq("booking_id", nextBooking.id).maybeSingle<{ id: string }>()
+      : Promise.resolve({ data: null as { id: string } | null, error: null }),
+    // Batch 3: fast widget data.
     looseFrom.from("student_packages")
       .select("id, sessions_total, sessions_used, status, expires_at, product_type")
       .eq("student_id", studentId).eq("status", "active")
@@ -352,7 +365,27 @@ export async function studentDashboardView(
       .order("created_at", { ascending: false })
       .limit(20)
       .returns<PrepaidEventRow[]>(),
+    // Batch 4: today's plan (kept in core so TodaysPlan renders above-fold).
+    supabase.from("bookings")
+      .select("id, teacher_id, scheduled_at, duration_min, session_type, status")
+      .eq("student_id", studentId).eq("status", "confirmed")
+      .gte("scheduled_at", todayStart.toISOString()).lte("scheduled_at", todayEnd.toISOString())
+      .order("scheduled_at", { ascending: true })
+      .returns<{ id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: string; status: string }[]>(),
+    supabase.from("homework_assignments")
+      .select("id, description, due_date, homework_type, status")
+      .eq("student_id", studentId)
+      .in("status", ["assigned", "completed_needs_work"])
+      .gte("due_date", todayStart.toISOString()).lte("due_date", todayEnd.toISOString())
+      .order("due_date", { ascending: true })
+      .returns<{ id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[]>(),
   ]);
+
+  // Batch 2 post-process: only touch nameMap/sessionId when nextBooking exists.
+  if (nextBooking) {
+    if (teacherProfileRes.data?.full_name) nameMap[nextBooking.teacher_id] = teacherProfileRes.data.full_name;
+    sessionId = sessionRes.data?.id ?? null;
+  }
 
   const packagesLoad = loadOrFail(packagesRes, [], { route: ROUTE, widget: "active-packages" });
   const lastProgressLoad = loadOrFail(lastProgressRes, null, { route: ROUTE, widget: "last-progress" });
@@ -414,27 +447,6 @@ export async function studentDashboardView(
         progressPct: Math.round(resumeLessonRow.progress),
       }
     : null;
-
-  // ── Batch 4: today's plan ───────────────────────────────────────────────
-  // Kept in core (fast pair of queries) so TodaysPlan renders above-fold.
-  const todayStart = new Date(now); todayStart.setUTCHours(0, 0, 0, 0); todayStart.setUTCDate(todayStart.getUTCDate() - 1);
-  const todayEnd = new Date(now); todayEnd.setUTCHours(23, 59, 59, 999); todayEnd.setUTCDate(todayEnd.getUTCDate() + 1);
-
-  const [todaySessionsRes, todayHomeworkRes] = await Promise.all([
-    supabase.from("bookings")
-      .select("id, teacher_id, scheduled_at, duration_min, session_type, status")
-      .eq("student_id", studentId).eq("status", "confirmed")
-      .gte("scheduled_at", todayStart.toISOString()).lte("scheduled_at", todayEnd.toISOString())
-      .order("scheduled_at", { ascending: true })
-      .returns<{ id: string; teacher_id: string; scheduled_at: string; duration_min: number; session_type: string; status: string }[]>(),
-    supabase.from("homework_assignments")
-      .select("id, description, due_date, homework_type, status")
-      .eq("student_id", studentId)
-      .in("status", ["assigned", "completed_needs_work"])
-      .gte("due_date", todayStart.toISOString()).lte("due_date", todayEnd.toISOString())
-      .order("due_date", { ascending: true })
-      .returns<{ id: string; description: string | null; due_date: string | null; homework_type: string; status: string }[]>(),
-  ]);
 
   const todaySessionsLoad = loadOrFail(todaySessionsRes, [], { route: ROUTE, widget: "today-sessions" });
   const todayHomeworkLoad = loadOrFail(todayHomeworkRes, [], { route: ROUTE, widget: "today-homework" });
