@@ -46,35 +46,40 @@ export async function getStudentStreak(
   supabase: ServerClient,
   studentId: string,
 ): Promise<{ streak: number; weeklyMinutes: number; weeklyDelta: number; loggedToday: boolean }> {
-  // Resolve the student's preferred timezone — defaults to UTC if missing or
-  // if Intl rejects the value. Using the student's tz aligns "today" with
-  // their local midnight, not the Vercel region's.
-  const { data: prof, error: profErr } = await supabase
-    .from("profiles")
-    .select("timezone")
-    .eq("id", studentId)
-    .single<{ timezone: string | null }>();
-  if (profErr) logError("dashboard-queries: streak profile timezone fetch failed", profErr, { tag: "dashboard-queries" });
-  let tz = prof?.timezone ?? "UTC";
+  // `now` anchors both the study_log cutoff and the JS-side streak walk; hoist
+  // it ahead of the queries so they can fan out together.
+  const now = new Date();
+  const fortyNineDaysAgo = new Date(now.getTime() - 49 * 24 * 60 * 60 * 1000);
+
+  // The profile-timezone read and the study_log read are independent — tz is
+  // only consulted during JS-side bucketing after both return — so run them
+  // concurrently instead of sequentially.
+  const [profileRes, logsRes] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("timezone")
+      .eq("id", studentId)
+      .single<{ timezone: string | null }>(),
+    supabase
+      .from("study_log")
+      .select("started_at, duration_seconds")
+      .eq("student_id", studentId)
+      .gte("started_at", fortyNineDaysAgo.toISOString())
+      .order("started_at", { ascending: false })
+      .returns<{ started_at: string; duration_seconds: number }[]>(),
+  ]);
+
+  if (profileRes.error) logError("dashboard-queries: streak profile timezone fetch failed", profileRes.error, { tag: "dashboard-queries" });
+  let tz = profileRes.data?.timezone ?? "UTC";
   try {
     new Intl.DateTimeFormat("en-CA", { timeZone: tz });
   } catch {
     tz = "UTC";
   }
 
-  const now = new Date();
-  const fortyNineDaysAgo = new Date(now.getTime() - 49 * 24 * 60 * 60 * 1000);
+  if (logsRes.error) logError("dashboard-queries: streak study_log fetch failed", logsRes.error, { tag: "dashboard-queries" });
 
-  const { data: logs, error: logsErr } = await supabase
-    .from("study_log")
-    .select("started_at, duration_seconds")
-    .eq("student_id", studentId)
-    .gte("started_at", fortyNineDaysAgo.toISOString())
-    .order("started_at", { ascending: false })
-    .returns<{ started_at: string; duration_seconds: number }[]>();
-  if (logsErr) logError("dashboard-queries: streak study_log fetch failed", logsErr, { tag: "dashboard-queries" });
-
-  const list = logs ?? [];
+  const list = logsRes.data ?? [];
 
   // YYYY-MM-DD in the student's timezone. en-CA gives ISO ordering by default.
   const dayFormatter = new Intl.DateTimeFormat("en-CA", {
@@ -247,13 +252,29 @@ export async function getStudentStudyAnalytics(
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const { data: bookings, error: bookingsErr } = await supabase
+  // study_log depends only on studentId + the 30-day cutoff — NOT on the
+  // bookings result — so start it concurrently with the bookings query instead
+  // of after it. The sessions read still depends on bookings IDs and stays
+  // sequential after bookings resolves.
+  const bookingsP = supabase
     .from("bookings")
     .select("id")
     .eq("student_id", studentId)
     .gte("scheduled_at", thirtyDaysAgo.toISOString())
     .returns<{ id: string }[]>();
-  if (bookingsErr) logError("dashboard-queries: study analytics bookings fetch failed", bookingsErr, { tag: "dashboard-queries" });
+
+  const studyLogP = supabase
+    .from("study_log")
+    .select("duration_seconds, started_at")
+    .eq("student_id", studentId)
+    .gte("started_at", thirtyDaysAgo.toISOString())
+    .not("ended_at", "is", null)
+    .returns<{ duration_seconds: number; started_at: string }[]>();
+
+  const [bookingsRes, studyLogRes] = await Promise.all([bookingsP, studyLogP]);
+
+  if (bookingsRes.error) logError("dashboard-queries: study analytics bookings fetch failed", bookingsRes.error, { tag: "dashboard-queries" });
+  const bookings = bookingsRes.data;
 
   const empty = {
     daily: generateEmptyDay(),
@@ -262,8 +283,9 @@ export async function getStudentStudyAnalytics(
   };
 
   // Pull live-session minutes (from sessions joined to bookings) AND
-  // self-reported study time (from study_log) in parallel; UNION them
-  // into one row list keyed by `started_at + duration`.
+  // self-reported study time (from study_log); UNION them into one row list
+  // keyed by `started_at + duration`. studyLog already ran above; sessions
+  // still waits on bookings IDs.
   const sessionsP = bookings && bookings.length > 0
     ? supabase
         .from("sessions")
@@ -274,15 +296,7 @@ export async function getStudentStudyAnalytics(
         .returns<{ actual_duration: number | null; started_at: string | null }[]>()
     : Promise.resolve({ data: [] as { actual_duration: number | null; started_at: string | null }[] });
 
-  const studyLogP = supabase
-    .from("study_log")
-    .select("duration_seconds, started_at")
-    .eq("student_id", studentId)
-    .gte("started_at", thirtyDaysAgo.toISOString())
-    .not("ended_at", "is", null)
-    .returns<{ duration_seconds: number; started_at: string }[]>();
-
-  const [sessionsRes, studyLogRes] = await Promise.all([sessionsP, studyLogP]);
+  const sessionsRes = await sessionsP;
 
   const sessionRows = (sessionsRes.data ?? []).map((s) => ({
     actual_duration: s.actual_duration,
