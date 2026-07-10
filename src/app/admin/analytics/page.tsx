@@ -36,16 +36,21 @@ export default async function AdminAnalyticsPage() {
   const { t, dir } = await getT();
   const supabase = await createClient();
 
-  const activeLoad = await helperOrFail(
-    () => getActiveUserCounts(supabase),
-    EMPTY_COUNTS,
-    { route: ROUTE, widget: "active-users" },
-  );
-  const completionLoad = await helperOrFail(
-    () => getTeacherCompletionRates(supabase),
-    [],
-    { route: ROUTE, widget: "completion-rates" },
-  );
+  // The two metric reads are independent — run them concurrently so the
+  // slower one doesn't gate the other. Each keeps its own helperOrFail
+  // wrapper/fallback/widget tag, so downstream `.data`/`.failed` shapes match.
+  const [activeLoad, completionLoad] = await Promise.all([
+    helperOrFail(
+      () => getActiveUserCounts(supabase),
+      EMPTY_COUNTS,
+      { route: ROUTE, widget: "active-users" },
+    ),
+    helperOrFail(
+      () => getTeacherCompletionRates(supabase),
+      [],
+      { route: ROUTE, widget: "completion-rates" },
+    ),
+  ]);
 
   const counts = activeLoad.data;
   const completion = completionLoad.data;

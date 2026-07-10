@@ -183,7 +183,13 @@ export async function teacherDashboardView(
   // ── Batch 2: reads that depend on batch-1 results ──────────────────────
   const convIds = convosLoad.data.map(c => c.id);
   const todayBookingIds = todayLoad.data.map(b => b.id);
-  const [messagesRes, sessionsRes] = await Promise.all([
+  // `pending`/`todaySessions` alias Batch-1 results; `allStudentIds` derives
+  // purely from them, so buildNameMap can fan out alongside messages/sessions
+  // in this same Promise.all instead of as its own sequential round trip.
+  const pending = pendingLoad.data;
+  const todaySessions = todayLoad.data;
+  const allStudentIds = [...new Set([...pending.map(b => b.student_id), ...todaySessions.map(b => b.student_id)])];
+  const [messagesRes, sessionsRes, nameMap] = await Promise.all([
     supabase.from("messages").select("id", { count: "exact", head: true })
       .in("conversation_id", convIds)
       .neq("sender_id", teacherId)
@@ -192,6 +198,7 @@ export async function teacherDashboardView(
       .select("id, booking_id, room_url, expires_at, started_at, ended_at")
       .in("booking_id", todayBookingIds)
       .returns<SessionRow[]>(),
+    buildNameMap(supabase, allStudentIds),
   ]);
 
   const messagesLoad = countOrFail(messagesRes, { route: ROUTE, widget: "unread-messages" });
@@ -199,16 +206,11 @@ export async function teacherDashboardView(
   anyFailed = anyFailed || messagesLoad.failed || sessionsLoad.failed;
 
   // ── Derived values ──────────────────────────────────────────────────────
-  const pending = pendingLoad.data;
-  const todaySessions = todayLoad.data;
   const hasAvailability = availLoad.count > 0;
 
   const sessionDataMap: Record<string, SessionData> = sessionsLoad.data.length > 0
     ? Object.fromEntries(sessionsLoad.data.map(({ booking_id, ...rest }) => [booking_id, rest]))
     : {};
-
-  const allStudentIds = [...new Set([...pending.map(b => b.student_id), ...todaySessions.map(b => b.student_id)])];
-  const nameMap = await buildNameMap(supabase, allStudentIds);
 
   return {
     data: {
@@ -397,6 +399,8 @@ export async function getTeacherLiveSessions(
   if (sessionsRes.error) throw sessionsRes.error;
   const sessions = sessionsRes.data;
 
+  // Return before fetching profiles — live sessions are rare, so the common
+  // case (no active session) must not pay for a profiles read it won't use.
   if (!sessions || sessions.length === 0) return [];
 
   const studentIds = [...new Set(bookings.map((b) => b.student_id))];
