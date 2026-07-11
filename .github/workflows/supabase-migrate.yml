@@ -108,6 +108,21 @@ jobs:
             exit 1
           fi
 
+      - name: Guard — staging branch must resolve the staging project
+        # Fail-closed: if the `staging` GitHub Environment is missing or lacks
+        # SUPABASE_PROJECT_REF, vars fall back to the repo-level (PRODUCTION)
+        # values — a staging push would silently migrate prod. The project ref
+        # is public (it's in the site's client bundle), so pinning it here
+        # leaks nothing.
+        if: github.ref == 'refs/heads/staging' && github.event_name != 'pull_request'
+        env:
+          RESOLVED_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: |
+          if [ "$RESOLVED_REF" != "cbavvgjupcinmtwsmwlo" ]; then
+            echo "::error::Staging push resolved SUPABASE_PROJECT_REF='$RESOLVED_REF', expected the staging project (cbavvgjupcinmtwsmwlo). The 'staging' GitHub Environment is missing or misconfigured — refusing to apply staging migrations to the production database. Create the environment per the header comment."
+            exit 1
+          fi
+
       - name: Apply migrations (push to main / manual dispatch)
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:
