@@ -99,7 +99,8 @@ The full variable → purpose table is in [`docs/agents/env-vars.md`](docs/agent
 
 ```bash
 npm run build      # production build
-npm test           # unit + integration (Vitest)
+npm run test:unit  # unit + integration (Vitest, fast)
+npm test           # end-to-end (Playwright, slower — needs browsers)
 npm run lint       # ESLint
 ```
 
