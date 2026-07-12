@@ -8,6 +8,7 @@ import { buildRoleTag, type RoleState } from "@/lib/auth/role-cache";
 import { withTimeout } from "@/lib/promise-utils";
 import type { UserRole } from "@/types/database";
 import { buildContentSecurityPolicy } from "@/lib/csp";
+import { isAuthorizedForStaging } from "@/lib/security/staging-gate";
 
 // Per-request timeout for the role-state lookup (Supabase admin query, cached
 // via unstable_cache). Hangs here block every protected-route request before
@@ -112,6 +113,22 @@ async function getUserRoleState(
 }
 
 export async function proxy(request: NextRequest) {
+  // Staging access gate: active only where STAGING_PASSWORD is set (the
+  // furqan-staging Vercel project). Runs before anything else — unauthorized
+  // visitors and crawlers get a 401 + noindex and never touch auth or the DB.
+  const stagingPassword = process.env.STAGING_PASSWORD;
+  if (
+    stagingPassword &&
+    !isAuthorizedForStaging(request.headers.get("authorization"), stagingPassword)
+  ) {
+    return new NextResponse("Staging access requires a password.", {
+      status: 401,
+      headers: {
+        "WWW-Authenticate": 'Basic realm="furqan staging", charset="UTF-8"',
+        "X-Robots-Tag": "noindex, nofollow",
+      },
+    });
+  }
   // Apply legacy rename redirects before auth — a 301 here is cheaper than
   // running the full auth/role pipeline only to redirect at the route layer.
   for (const [from, to] of RENAMED_ROUTES) {
