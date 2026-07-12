@@ -44,9 +44,13 @@ export default async function NewBookingPage({ searchParams }: Props) {
       }>(),
     supabase
       .from("profiles")
+      // maybeSingle: RLS often hides another user's profiles row from a student,
+      // so 0 rows is an EXPECTED outcome here — the teacher name falls back to a
+      // localized placeholder below. .single() turned that into a spurious 406
+      // that the silent-fail detector reported to Sentry (issue FURQAN-4B).
       .select("full_name, full_name_ar")
       .eq("id", teacherId)
-      .single<{ full_name: string | null; full_name_ar: string | null }>(),
+      .maybeSingle<{ full_name: string | null; full_name_ar: string | null }>(),
     supabase
       .from("teacher_availability")
       .select("day_of_week, start_time, end_time, slot_duration")

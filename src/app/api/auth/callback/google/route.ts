@@ -75,11 +75,11 @@ export async function GET(request: NextRequest) {
   const next = searchParams.get("next");
 
   if (!code) {
-    logError(
-      "Google OAuth callback missing code param",
-      new Error("oauth.callback.missing_code"),
-      { tag: "auth-google-callback" },
-    );
+    // A bare callback with no `code` is an expected non-event, not an app error:
+    // a user who cancelled the Google consent screen, or a bot/link-prefetcher
+    // (often Google's own crawler) hitting the URL directly. Redirect gracefully
+    // WITHOUT reporting to Sentry — this was 10 spurious captures (FURQAN-2V).
+    // Genuine exchange failures are still logged loudly in the try block below.
     return clearConsentCookie(NextResponse.redirect(`${origin}/login?error=oauth_missing_code`));
   }
 
