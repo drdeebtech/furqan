@@ -35,6 +35,13 @@ describe("isAuthorizedForStaging", () => {
     expect(isAuthorizedForStaging(basic(`:${PASSWORD}`), PASSWORD)).toBe(true);
   });
 
+  test("accepts a non-ASCII password sent UTF-8-encoded, as browsers do", () => {
+    // Buffer encodes UTF-8 by default — the same bytes a browser puts in the
+    // Basic credentials when the realm advertises charset="UTF-8".
+    const arabicPassword = "سر-التجربة";
+    expect(isAuthorizedForStaging(basic(`user:${arabicPassword}`), arabicPassword)).toBe(true);
+  });
+
   test("accepts a password that itself contains colons (split on FIRST colon only)", () => {
     const colonPassword = "pa:ss:word";
     expect(isAuthorizedForStaging(basic(`user:${colonPassword}`), colonPassword)).toBe(true);
