@@ -1,13 +1,16 @@
 # AGENTS.md — furqan.today
 
 Quran-memorization platform. This file is the contract for every AI agent (Claude Code, opencode/GLM)
-in this repo. Read it before any change. `CLAUDE.md` symlinks here, so both tools share one source of truth.
+in this repo; `CLAUDE.md` symlinks here. It stays lean on purpose: general context, key guidelines,
+and the agent's role. Deep reference lives in `docs/agents/`; task-specific instructions belong in
+the task, not here.
 
 **Stack:** Next.js App Router · TypeScript (strict) · Tailwind · Supabase (Postgres/Auth/RLS/Storage) ·
 Stripe · Daily.co · Bunny CDN · Sentry · n8n · PWA · full RTL/Arabic · Vercel.
 
-**Heads-up:** this repo runs a modified/canary Next.js — APIs may differ from your training data.
-Check `node_modules/next/dist/docs/` before using an unfamiliar Next API.
+**Heads-up:** this repo runs a modified/canary Next.js — check `node_modules/next/dist/docs/` before
+using an unfamiliar Next API. Running in Cursor Cloud? Read `docs/agents/cursor-cloud.md` first
+(local Supabase bootstrap, Docker, gotchas).
 
 ---
 
@@ -25,10 +28,14 @@ Name the lens behind each non-trivial decision in plans and PRs.
 
 ## 2 · Quran integrity — highest priority
 
-- Quran text and surah/ayah facts are **never generated, edited, or "corrected"** by a model. The canonical structural reference is `src/lib/quran/` (`surahs.ts`, `ayah-counts.ts`), mirrored to the `quran_surahs_reference` table — read from there; never hardcode counts elsewhere. Any rendered ayah text must come only from a verified source, never a model.
-- `surah:ayah` must be exact; validate ranges against `src/lib/quran/ayah-counts.ts` — already enforced by the `student_progress_ayah_range_guard` migration. Never bypass that guard.
+- Quran text and surah/ayah facts are **never generated, edited, or "corrected"** by a model.
+  Rendered ayah text comes only from a verified source. Canonical structure: `src/lib/quran/`
+  (`surahs.ts`, `ayah-counts.ts`), mirrored to `quran_surahs_reference` — read from there;
+  never hardcode counts.
+- `surah:ayah` must be exact; ranges validate against `ayah-counts.ts` (DB-enforced by the
+  `student_progress_ayah_range_guard` migration — never bypass it).
 - Preserve tashkeel, tajweed marks, and waqf signs byte-for-byte.
-- Speech→text checks compare *against* canonical text; ASR output is never stored as a Quran source.
+- ASR output is only compared *against* canonical text — never stored as a Quran source.
 - Unsure on a fiqh/tajweed point → flag for human review, don't guess.
 
 ## 3 · Security — hard lines
@@ -39,6 +46,9 @@ Name the lens behind each non-trivial decision in plans and PRs.
 - Validate every external input with zod at route handlers, server actions, and webhooks.
 - n8n webhooks handle non-2xx, timeouts, and retries explicitly.
 - Keep CSP tight; never leak the internal vendor map in headers. No secrets in git (`.env*` untracked).
+- Env vars: `docs/agents/env-vars.md` is the source of truth — add `process.env.X` to code and to
+  that table **in the same PR**. The Stripe webhook verifies the **raw** body before any DB access
+  (fail-closed 400).
 
 ```ts
 // ✗ trusts the client, bypasses RLS
@@ -47,33 +57,21 @@ const { userId } = input
 const { data: { user } } = await supabase.auth.getUser()
 ```
 
-### 3.1 · Server-only secrets (env-var table)
-
-Every secret has a paired env var and is **never** `NEXT_PUBLIC_*` or logged. Secrets live in `.env.local` (gitignored) for local dev and in the Vercel project env for deploy.
-
-| Env var | Scope | Notes |
-|---|---|---|
-| `SUPABASE_SERVICE_ROLE_KEY` | server-only | bypasses RLS — never in a client component |
-| `STRIPE_SECRET_KEY` | server-only | Stripe SDK key (`sk_test_…` / `sk_live_…`). Read by `src/lib/stripe/client.ts`. Mode is purely env-driven (FR-019) — no `if (test)` branch. |
-| `STRIPE_WEBHOOK_SECRET` | server-only | `whsec_…` signing secret; used by `src/app/api/stripe/webhook/route.ts` to verify the **raw** body before any DB read/write (fail-closed 400). Get it from `stripe listen --forward-to localhost:3000/api/stripe/webhook` locally. |
-| `NEXT_PUBLIC_SUPABASE_URL` | public | Supabase project URL |
-| `NEXT_PUBLIC_APP_URL` | public | app origin (checkout/portal return URLs) |
-
 ## 4 · Code conventions
 
 - TypeScript strict; no `any`; no `@ts-ignore` without a one-line reason.
 - Prefer Server Components; reach for Client Components only when interactivity needs it.
-- **Typed event names only** — `FurqanEvent` (from `src/lib/automation/emit.ts`), no raw strings:
-
-```ts
-// ✗ emitEvent('progress.recorded' as any, ...)      // bypasses type check
-// ✓ emitEvent('progress.recorded', ...)             // FurqanEvent = keyof WEBHOOK_ROUTES
-```
-
+- **Typed event names only** — `FurqanEvent` (from `src/lib/automation/emit.ts`), no raw strings.
 - Progress is **merged, never overwritten** — never silently lose, reset, or overstate memorization.
   Write tests for the scheduler.
 - Every component must render correctly in Arabic RTL — test it, don't assume.
-- **Migrations must be expand/contract (backward-compatible).** On a push to `main`, `supabase-migrate.yml` applies the migration and Vercel ships the new build **concurrently, with no ordering gate** — so for a brief window old code can hit the new schema, or new code the old schema. A migration must therefore never break the currently-running build: no `DROP`/`RENAME COLUMN`, no narrowing a type, no `SET NOT NULL` without a default, no removing a value still read by live code. Drop or rename in a **later** PR, after the code that used the old shape is gone from production (expand → migrate code → contract). Plan breaking changes across two deploys. The `migration-safety` CI guard (`scripts/check-migration-safety.sh`) mechanically blocks the **structural** breakers it can detect from DDL (drop/rename column/table, `SET NOT NULL`, `DROP DEFAULT`, `ALTER COLUMN … TYPE`); the **semantic** case — removing a value/row still read by live code — can't be linted and stays your responsibility. A deliberate contract-phase change opts out with `-- expand-contract-ok: <reason>` in that migration file.
+- **Migrations are expand/contract (backward-compatible).** On a push to `main` the migration and the
+  Vercel build deploy **concurrently, with no ordering gate**, so a migration must never break the
+  running build: no `DROP`/`RENAME COLUMN`, no narrowing a type, no `SET NOT NULL` without a default,
+  no removing a value still read by live code. Contract in a **later** PR, after the old shape is gone
+  from production. CI (`scripts/check-migration-safety.sh`) blocks the structural breakers it can
+  detect; the semantic case — removing a value still read by live code — stays your responsibility.
+  Deliberate contract-phase opt-out: `-- expand-contract-ok: <reason>` in that migration file.
 
 ## 5 · Commands
 
@@ -113,133 +111,54 @@ e2e/, **/*.test.ts               tests
 
 ## 6.1 · Agent navigation & token efficiency
 
-Read this before exploring — it saves humans and agents from re-deriving the map.
-
 **Large files — never read wholesale (query a symbol or a narrow range instead):**
-- `src/types/database.ts` (~6.8k lines) — a **hand-corrected** types layer, NOT a stale dup of the generated file. Read only the alias section at the end (`SessionType`, `Profile`, …). Never collapse/blind-regen it — see `specs/026-database-types-drift-guard/spec.md`.
-- `src/types/supabase.generated.ts` (~7.4k lines) — raw codegen; only the client reads it as `{ Database }`.
-- `src/lib/dashboard-queries.ts` (~1.7k lines) — legacy god module; the per-screen read bundles live in `src/lib/views/{student,teacher}-dashboard.ts` (injected client = test seam).
+- `src/types/database.ts` (~6.8k lines) — a **hand-corrected** types layer, NOT a stale dup of the
+  generated file. Read only the alias section at the end. Never collapse/blind-regen it — see
+  `specs/026-database-types-drift-guard/spec.md`.
+- `src/types/supabase.generated.ts` (~7.4k lines) — raw codegen; only the client reads it.
+- `src/lib/dashboard-queries.ts` (~1.7k lines) — legacy god module; per-screen read bundles live in
+  `src/lib/views/{student,teacher}-dashboard.ts` (injected client = test seam).
 
 **Symptom → where to look:**
-- billing / checkout / subscription → `src/lib/domains/billing/**`. The webhook route (`src/app/api/stripe/webhook/route.ts`) is a thin verify+dispatch shell; handlers are in `webhook-handlers.ts`.
-- booking allowed? credits/paywall? → `src/lib/domains/booking/actions.ts` — fail-closed active-package precondition (a subscription grants the package; UI paywall is a UX layer over this).
+- billing / checkout / subscription → `src/lib/domains/billing/**` (the webhook route is a thin
+  verify+dispatch shell; handlers in `webhook-handlers.ts`).
+- booking allowed? credits/paywall? → `src/lib/domains/booking/actions.ts` — fail-closed
+  active-package precondition.
 - a dashboard read → `src/lib/views/*-dashboard.ts`.
-- teacher-dashboard server actions → `src/lib/actions/teacher-{booking,session}.ts`, re-exported via the `app/teacher/dashboard/actions.ts` barrel (the barrel carries **no** `"use server"` — leaf files own it; see below).
+- teacher-dashboard server actions → `src/lib/actions/teacher-{booking,session}.ts`, re-exported via
+  the `app/teacher/dashboard/actions.ts` barrel (the barrel carries **no** `"use server"` — leaf
+  files own it).
 - why did a widget fail? → `logError` tags every failure with `route` + `widget`; grep the tag.
 
-**Verify before "done":** run `npm run build`, not just `tsc`. `tsc` does not model the server/client boundary, so it passes while Turbopack fails (e.g. a `"use server"` re-export barrel dropping a client reference). CI's coverage gate also excludes `src/app/api/**` — relocating code into `src/lib` can drop coverage below threshold.
+**Verify before "done":** run `npm run build`, not just `tsc` — `tsc` doesn't model the server/client
+boundary, so it can pass while Turbopack fails. CI's coverage gate excludes `src/app/api/**`, so
+relocating code into `src/lib` can drop coverage below threshold.
 
-## 7 · Code intelligence (GitNexus)
-
-GitNexus is the canonical navigation layer (MCP tools). **Required:**
-
-- Before editing a symbol → `gitnexus_impact({target, direction:"upstream"})`; report blast radius;
-  **stop and warn** on HIGH/CRITICAL risk.
-- Explore with `gitnexus_query` instead of grep; full symbol context via `gitnexus_context`.
-- Rename only with `gitnexus_rename` (never find-and-replace).
-- Before commit → `gitnexus_detect_changes()`. If the index is stale → `npx gitnexus analyze`.
-- Deep guides live in `.claude/skills/gitnexus/`.
-
-## 8 · Dual-agent workflow (speckit)
+## 7 · Dual-agent workflow (speckit)
 
 Handoff lives in `specs/<NNN>-<feature>/` (`spec.md` → `plan.md` → `tasks.md`).
+**Architect (Claude)** writes spec/plan/tasks through the three lenses — no code.
+**Builder (opencode/GLM)** executes `tasks.md` in order, typecheck + lint + tests per task — no scope
+expansion; stop and list any deviation. **Reviewer (Claude)** diffs against `tasks.md` + the three
+lenses → fix checklist, no edits. Commit the plan first; commit between handoffs; one agent edits at
+a time. (GitNexus usage rules live in the tool-managed block below.)
 
-1. **Architect (Claude):** write/refine spec → plan → tasks through the three lenses. No code.
-2. **Builder (opencode/GLM):** execute `tasks.md` in order; `gitnexus_impact` before edits; run
-   typecheck + lint + tests per task; don't expand scope — stop and list any deviation.
-3. **Reviewer (Claude):** diff vs `tasks.md` + the three lenses → return a fix checklist. No edits.
-
-Commit the plan first; commit between handoffs; one agent edits at a time.
-
-## 9 · Never
+## 8 · Never
 
 Modify Quran text · disable or bypass RLS · expose the service-role key client-side · trust `userId`
 from input · commit secrets or `.env*` · edit a symbol without `gitnexus_impact` · mark work "done"
 with a failing typecheck, lint, or test.
 
----
+## 9 · PR workflow
 
-## 10 · PR workflow rules
-
-These apply every time an agent creates or prepares a PR:
-
-1. **Always branch from `origin/main`, never local `main`.**
-   ```bash
-   git fetch origin
-   git checkout -b <branch-name> origin/main
-   ```
-   Branching from local `main` risks creating a PR that is already behind `origin/main`, forcing a mandatory update before merge.
-
-2. **Always rebase onto `origin/main` before pushing.**
-   ```bash
-   git fetch origin
-   git rebase origin/main
-   ```
-   Run this immediately before `git push` (and before `gh pr create`). This ensures the branch includes the latest `origin/main` commits and satisfies GitHub's "require branch to be up to date" protection rule — avoiding a blocked merge after CI has already run.
+1. **Branch from `origin/main`, never local `main`:** `git fetch origin && git checkout -b <name> origin/main`.
+2. **Rebase onto `origin/main` immediately before every push and `gh pr create`** — satisfies the
+   "branch up to date" protection rule *before* CI runs instead of discovering a blocked merge after.
 
 ---
 <!-- Tool-managed blocks regenerate below this line — keep everything above intact. -->
 <!-- BEGIN:nextjs-agent-rules --><!-- END:nextjs-agent-rules -->
-<!-- gitnexus:start --><!-- gitnexus:end -->
 <!-- SPECKIT START -->Current plan: specs/036-teacher-marketplace/plan.md<!-- SPECKIT END -->
-
-## Cursor Cloud specific instructions
-
-This environment runs the app in **development mode** against a **local Supabase
-stack** (Docker). The update script only runs `npm install`; everything below is
-started/applied manually per session and is **not** in the update script.
-
-### Toolchain
-- **Node 24** is required (`package.json` `engines`). The VM's daemon node is v22
-  and sits first in a fresh shell's `PATH`; the agent's `~/.bashrc` prepends the
-  nvm Node 24 bin so interactive shells get the right version. If `node -v` shows
-  v22, run `export PATH="$HOME/.nvm/versions/node/v24.16.0/bin:$PATH"`.
-- Docker, the `supabase` CLI, and `psql` are installed in the VM image (not via
-  npm). Docker has no systemd here — start the daemon manually if it is not
-  running: `sudo bash -c 'nohup dockerd >/var/log/dockerd.log 2>&1 &'` then
-  `sudo chown "$USER" /var/run/docker.sock` (daemon uses the `fuse-overlayfs`
-  storage driver with the containerd snapshotter disabled — see
-  `/etc/docker/daemon.json`).
-
-### Start the backend + DB (per session)
-1. `export SUPABASE_AUTH_SMTP_PASS=dummy` (config.toml interpolates this; the
-   value is unused locally — local mail goes to Mailpit at `http://127.0.0.1:54324`).
-2. `supabase start` — boots Postgres/Auth/Storage. Studio: `http://127.0.0.1:54323`.
-3. `bash scripts/dev-local-db-bootstrap.sh` — builds the **full schema**. This is
-   required: the repo has **no single replayable baseline**, so plain
-   `supabase db reset` / `supabase db push` fails on a fresh DB with
-   `function is_admin() does not exist`. The script layers
-   `src/lib/supabase/schema.sql` (V8 baseline) → `src/lib/supabase/migrations/v9..v16`
-   (legacy) → `supabase/migrations/*` (timestamped). It is safe to re-run (it
-   resets the DB). See the script header for the local-only workarounds it applies.
-
-### Env + run the app
-- `.env.local` points at the local stack (URL `http://127.0.0.1:54321`, plus the
-  static local anon/service_role JWT keys, which are the same on every local
-  Supabase install). It is gitignored; recreate it from `supabase status` if missing.
-- `npm run dev` → `http://localhost:3000` (Turbopack).
-
-### Standard commands (already documented; see `package.json` / `README.md`)
-- Lint: `npm run lint` · Unit tests: `npm run test:unit` (Vitest, ~510 pass).
-- E2E (`npm test`, Playwright) needs browsers first: `npx playwright install`
-  (skipped at install time via `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`).
-
-### Gotchas / known non-issues
-- **BotID & auth rate limiting are skipped** unless `process.env.VERCEL` is set,
-  so local register/login works without bot tokens. Email confirmation is off
-  (`config.toml`), so new accounts can log in immediately.
-- **New students are intentionally redirected** from `/student/dashboard` to the
-  onboarding teacher-selection page (`/student/teachers?new=1`) until they pick a
-  teacher. This is by design, not a bug.
-- The DB starts with **no seeded teachers/content**, so browse/list pages show
-  empty states. Tables like `blog_posts` / `contact_submissions` are not created
-  locally (they came from pre-v9 originals absent from the repo); the blog/contact
-  marketing pages are not exercisable locally but core flows are unaffected.
-- A pre-existing client-side React warning ("Rendered more hooks than during the
-  previous render") can appear on some `/student/*` pages; pages still render and
-  return 200. This is app code, unrelated to environment setup.
-- First request to a route compiles on demand (dev mode) and can take several
-  seconds; this can briefly show a browser "page couldn't load" before it loads.
 
 <!-- lean-ctx -->
 ## lean-ctx
