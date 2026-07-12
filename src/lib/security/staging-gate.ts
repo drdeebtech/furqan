@@ -41,7 +41,9 @@ export function isAuthorizedForStaging(
       atob(authorizationHeader.slice("Basic ".length).trim()),
       (c) => c.charCodeAt(0),
     );
-    decoded = new TextDecoder().decode(bytes);
+    // fatal: reject malformed UTF-8 outright (throws → caught below) instead
+    // of silently substituting U+FFFD replacement characters.
+    decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch {
     return false;
   }

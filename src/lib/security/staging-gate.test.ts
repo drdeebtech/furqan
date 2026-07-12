@@ -35,6 +35,15 @@ describe("isAuthorizedForStaging", () => {
     expect(isAuthorizedForStaging(basic(`:${PASSWORD}`), PASSWORD)).toBe(true);
   });
 
+  test("rejects credentials whose bytes are not valid UTF-8", () => {
+    // 0xff is never valid in UTF-8 — the fatal decoder must throw, not
+    // silently substitute U+FFFD.
+    const invalidUtf8 = Buffer.concat([Buffer.from("user:"), Buffer.from([0xff, 0xfe])]);
+    expect(
+      isAuthorizedForStaging(`Basic ${invalidUtf8.toString("base64")}`, PASSWORD),
+    ).toBe(false);
+  });
+
   test("accepts a non-ASCII password sent UTF-8-encoded, as browsers do", () => {
     // Buffer encodes UTF-8 by default — the same bytes a browser puts in the
     // Basic credentials when the realm advertises charset="UTF-8".
