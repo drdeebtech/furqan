@@ -34,7 +34,14 @@ export function isAuthorizedForStaging(
   if (!authorizationHeader?.startsWith("Basic ")) return false;
   let decoded: string;
   try {
-    decoded = atob(authorizationHeader.slice("Basic ".length).trim());
+    // atob yields one char per BYTE (Latin-1), but browsers send Basic
+    // credentials UTF-8-encoded (we advertise charset="UTF-8"). Re-decode the
+    // bytes as UTF-8 so non-ASCII passwords compare correctly.
+    const bytes = Uint8Array.from(
+      atob(authorizationHeader.slice("Basic ".length).trim()),
+      (c) => c.charCodeAt(0),
+    );
+    decoded = new TextDecoder().decode(bytes);
   } catch {
     return false;
   }
