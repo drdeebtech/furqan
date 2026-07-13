@@ -211,3 +211,37 @@ This project is indexed by GitNexus as **furqan** (9520 symbols, 19059 relations
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+## GBrain Search Guidance (configured by /sync-gbrain)
+<!-- gstack-gbrain-search-guidance:start -->
+
+GBrain is set up and synced on this machine. The agent should prefer gbrain
+over Grep when the question is semantic or when you don't know the exact
+identifier yet.
+
+**This worktree is pinned to a worktree-scoped code source** via the
+`.gbrain-source` file in the repo root (machine-local, git-ignored via
+`.git/info/exclude`). `gbrain code-def`, `code-refs`, `search`, and `query`
+from anywhere under this worktree route to that source by default.
+
+Call-graph queries (`code-callers`/`code-callees`) need a built graph
+(`/sync-gbrain --dream`) — but in THIS repo prefer GitNexus `impact`/`context`
+for who-calls-what; it is already indexed and richer.
+
+Prefer gbrain when:
+- "Where is X handled?" / semantic intent, no exact string yet:
+    `gbrain search "<terms>"` or `gbrain query "<question>"`
+- "Where is symbol Y defined?" / symbol-based code questions:
+    `gbrain code-def <symbol>` or `gbrain code-refs <symbol>`
+- "What did we decide last time?" / past plans, retros, learnings:
+    `gbrain search "<terms>"` (curated memory lives in the default source)
+
+Grep is still right for known exact strings, regex, multiline patterns, and
+file globs. Run `/sync-gbrain` after meaningful code changes; a machine-wide
+`gbrain autopilot` daemon also refreshes indexes on a schedule.
+
+Safety: don't run `/sync-gbrain` while `gbrain autopilot` is active — the
+orchestrator refuses destructive source ops when it detects a running
+autopilot to avoid racing it.
+
+<!-- gstack-gbrain-search-guidance:end -->
