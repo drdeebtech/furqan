@@ -1,3 +1,4 @@
+set -e
 npx lint-staged
 
 # Secret scan on staged changes — blocks a leak before it enters history.
