@@ -34,8 +34,10 @@ export function isSafePushEndpoint(endpoint: string): boolean {
 
   if (url.protocol !== "https:") return false;
 
-  // new URL keeps IPv6 literals bracketed ("[::1]"); strip for net.isIP.
-  const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  // Strip IPv6 brackets ("[::1]" → "::1") and any trailing FQDN root dot(s):
+  // "cache.internal." resolves like "cache.internal" but would slip past the
+  // `.endsWith(".internal")` suffix checks below (CodeRabbit SSRF bypass).
+  const host = url.hostname.replace(/^\[|\]$/g, "").replace(/\.+$/, "").toLowerCase();
 
   // Raw IP literal (v4/v6) → not a real push host. Kills 169.254.169.254 / 127.0.0.1 / ::1.
   if (net.isIP(host) !== 0) return false;

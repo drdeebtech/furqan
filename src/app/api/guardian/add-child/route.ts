@@ -71,7 +71,7 @@ export async function POST(request: Request) {
   } catch (e) {
     logError("add-child: invalid request body", e, { tag: "guardian", guardian_id: userId });
     return NextResponse.json(
-      { error: "Invalid body: { childEmail: string } required" },
+      { error: "Invalid body: { childEmail: string, guardianCode: string } required" },
       { status: 400 },
     );
   }

@@ -1,4 +1,4 @@
-# Spec 037 — Shannon Security-Audit Remediation
+# Spec 039 — Shannon Security-Audit Remediation
 
 **Status:** all confirmed findings fixed (backlog items noted) · **Date:** 2026-07-13
 **Source:** Shannon (KeygraphHQ AI pentester) v1.9.0 run against a **local** dev
@@ -31,6 +31,7 @@ Shannon is an AI and its claims were treated as leads, not gospel.
 ## Remediated
 
 ### SSRF-VULN-01 — commit `57f0e440`
+
 `/api/push/subscribe` and `src/lib/push/send.ts` validated push endpoints only
 as `https://` URLs, so `https://169.254.169.254/` and `https://127.0.0.1:8443/`
 were accepted and stored; the cron push-sender then POSTed to them.
@@ -44,6 +45,7 @@ were accepted and stored; the cron push-sender then POSTed to them.
 - Verified: unit test (4/4, both live exploit URLs blocked) + `tsc` + build.
 
 ### AUTHZ-VULN-01 — commit `fc2dbe4b`
+
 `/api/guardian/add-child` linked a guardian to any `role='student'` account
 knowing only the email — exposing minors' teacher notes, monthly reports, and
 certificates. (Shannon's "email enumeration" sub-claim was already mitigated:
@@ -84,6 +86,7 @@ Verified: `tsc` clean + full production build green + existing `safeHref` suite
 ## Backlog (deferred, low priority)
 
 ## Notes / non-actions
+
 - HttpOnly/Secure (AUTH-VULN-01/05): inherent to `@supabase/ssr`'s hybrid auth;
   the CSP (no `unsafe-inline`) is the real XSS defense. Do not flip without
   leaving `@supabase/ssr`.

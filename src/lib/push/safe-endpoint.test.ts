@@ -37,8 +37,10 @@ describe("isSafePushEndpoint (SSRF-VULN-01)", () => {
     for (const bad of [
       "http://fcm.googleapis.com/x", // plaintext
       "https://localhost/x",
+      "https://localhost./x", // trailing FQDN root dot — must not bypass
       "https://metadata/x", // single-label
       "https://cache.internal/x",
+      "https://cache.internal./x", // trailing-dot bypass of the suffix check
       "https://foo.local/x",
       "ftp://fcm.googleapis.com/x",
       "not a url",

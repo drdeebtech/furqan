@@ -76,7 +76,7 @@ export default async function StudentSettingsPage() {
           dir="ltr"
           className="inline-block rounded-lg border border-[var(--surface-border)] bg-foreground/5 px-4 py-2 font-mono text-lg tracking-[0.3em]"
         >
-          {profile.guardian_link_code ?? t("غير متاح", "unavailable")}
+          {profile.guardian_link_code?.trim() || t("غير متاح", "unavailable")}
         </code>
       </section>
 

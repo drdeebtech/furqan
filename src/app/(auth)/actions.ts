@@ -397,6 +397,10 @@ export async function register(
   // Per-IP rate limit (AUTH-VULN-02) — caps account-creation spam from one IP.
   const isTestAccount = rawEmail.toLowerCase().endsWith("@furqan.test");
   if (!isTestAccount && !(await checkAuthRateByIp("register-attempt-ip", MAX_REGISTER_IP_PER_HOUR))) {
+    logError("Register IP rate limit exceeded", new Error("register.ip_rate_limited"), {
+      component: "auth.register",
+      tag: "auth-rate-limited-ip",
+    });
     return { error: "تم تجاوز المحاولات المسموحة — حاول خلال ساعة" };
   }
 
@@ -592,6 +596,10 @@ export async function forgotPassword(
   // Per-IP layer (AUTH-VULN-02) — cross-account reset-spam from one IP.
   const isTestAccount = email.toLowerCase().endsWith("@furqan.test");
   if (!isTestAccount && !(await checkAuthRateByIp("forgot-password-attempt-ip", MAX_FORGOT_PASSWORD_IP_PER_HOUR))) {
+    logError("Forgot-password IP rate limit exceeded", new Error("forgot.ip_rate_limited"), {
+      component: "auth.forgotPassword",
+      tag: "auth-rate-limited-ip",
+    });
     return { error: "تم تجاوز المحاولات المسموحة — حاول خلال ساعة" };
   }
 
