@@ -1,6 +1,6 @@
 # Spec 037 — Shannon Security-Audit Remediation
 
-**Status:** in progress · **Date:** 2026-07-13
+**Status:** all confirmed findings fixed (backlog items noted) · **Date:** 2026-07-13
 **Source:** Shannon (KeygraphHQ AI pentester) v1.9.0 run against a **local** dev
 instance (`exploit: false` — recon + white-box source analysis + vuln
 identification, no live exploitation). 8 agents, 154 min, ~$37, 11 findings.
@@ -17,9 +17,9 @@ Shannon is an AI and its claims were treated as leads, not gospel.
 |----|-------|---------|--------|
 | SSRF-VULN-01 | Blind SSRF via Web Push endpoint (no IP/host allowlist) | **Confirmed — code bug** | ✅ Fixed (commit `57f0e440`) |
 | AUTHZ-VULN-01 | Guardian links to any student by email, no relationship proof | **Confirmed — product gap** | ✅ Fixed via claim-code (commit `fc2dbe4b`) |
-| AUTH-VULN-02 | No per-IP rate limit on auth → cross-account spraying | **Confirmed** | ⏳ Open (#3) |
-| AUTHZ-VULN-02 | Student server actions lack `requireRole`, write via admin client | **Confirmed — defense-in-depth** | ⏳ Open (#4) |
-| XSS-VULN-01 | `cta_href` announcement banner not protocol-validated | Real but runtime-mitigated (React 19 + CSP) | ⏳ Open (apply existing `safeHref()`) |
+| AUTH-VULN-02 | No per-IP rate limit on auth → cross-account spraying | **Confirmed** | ✅ Fixed (commit `6043a6de`) |
+| AUTHZ-VULN-02 | Student server actions lack `requireRole`, write via admin client | **Confirmed — defense-in-depth** | ✅ Fixed (commit `87dc64b6`) |
+| XSS-VULN-01 | `cta_href` announcement banner not protocol-validated | Real but runtime-mitigated (React 19 + CSP) | ✅ Fixed (commit `dabfe608`) |
 | AUTH-VULN-01/05 | Session cookies lack HttpOnly / Secure | By design (`@supabase/ssr`); CSP is the real defense; prod has HSTS | Documented, no code change |
 | AUTH-VULN-06 | BotID disabled off-Vercel | Expected (runs in prod); sub-point: fails *open* on ambiguous → review | Backlog |
 | AUTH-VULN-03 | Distinct errors for banned/unconfirmed accounts | Minor enum vs. UX tradeoff | Backlog (low) |
@@ -64,18 +64,24 @@ the endpoint returns a uniform 422.)
 
 ---
 
-## Remaining (recommended order)
+## Remediated — round 2 (commits on branch)
 
-1. **AUTH-VULN-02** — wire the *already-present but unused*
-   `src/lib/security/rate-limit.ts` (IP-keyed) into the login/register/
-   forgot-password server actions. Honor `X-Forwarded-For` only from a trusted
-   proxy (per hardening notes) so the per-IP bucket is genuinely per-client.
-2. **AUTHZ-VULN-02** — add `requireRole('student')` inside
-   `requestJoinGroupSession`, `enrollInHalaqa`, `joinHalaqaWaitingList`
-   (`src/app/student/{group-sessions,halaqas}/actions.ts`). They write via the
-   admin client (RLS bypassed) and rely solely on edge middleware today.
-3. **XSS-VULN-01** — apply the existing `safeHref()` (or a `z….url().refine`
-   protocol check) to `cta_href` at the admin announcement write boundary.
+1. **AUTH-VULN-02** (`6043a6de`) — per-IP rate limit wired into login (50/hr),
+   register (20/hr), forgot-password (20/hr) via the previously-unused IP-keyed
+   `checkRateLimit`. Trusted-proxy IP (spoof-proof on Vercel); fail-open with the
+   per-email limit as backstop; dev + `@furqan.test` accounts exempt.
+2. **AUTHZ-VULN-02** (`87dc64b6`) — in-action `role === 'student'` guard added to
+   `requestJoinGroupSession`, `enrollInHalaqa`, `joinHalaqaWaitingList`. Own-row
+   cancel/leave paths left as-is (out of scope, lower risk).
+3. **XSS-VULN-01** (`dabfe608`) — `safeHref()` render backstop applied to the
+   announcement `cta_href`.
+
+Verified: `tsc` clean + full production build green + existing `safeHref` suite
+(44 tests) passing. No new unit tests: the role guard mirrors the existing
+`login()`/`add-child` pattern and the IP layer wraps the already-tested
+`checkRateLimit` — consistent with how the codebase treats these infra paths.
+
+## Backlog (deferred, low priority)
 
 ## Notes / non-actions
 - HttpOnly/Secure (AUTH-VULN-01/05): inherent to `@supabase/ssr`'s hybrid auth;
