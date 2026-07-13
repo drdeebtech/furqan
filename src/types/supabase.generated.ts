@@ -3589,6 +3589,7 @@ export type Database = {
           deleted_at: string | null
           full_name: string | null
           full_name_ar: string | null
+          guardian_link_code: string | null
           hourly_rate_usd: number | null
           id: string
           is_active: boolean
@@ -3612,6 +3613,7 @@ export type Database = {
           deleted_at?: string | null
           full_name?: string | null
           full_name_ar?: string | null
+          guardian_link_code?: string | null
           hourly_rate_usd?: number | null
           id: string
           is_active?: boolean
@@ -3635,6 +3637,7 @@ export type Database = {
           deleted_at?: string | null
           full_name?: string | null
           full_name_ar?: string | null
+          guardian_link_code?: string | null
           hourly_rate_usd?: number | null
           id?: string
           is_active?: boolean
