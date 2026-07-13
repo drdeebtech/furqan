@@ -1,15 +1,21 @@
 name: TruffleHog Secret Scan
 
-# Live-verify secret scan on every push to main and every PR. Complements
-# GitHub's built-in partner-pattern secret scanning (always on for public repos)
-# by actually testing key-shaped findings against their live service, and by
-# catching generic/non-provider secrets that partner patterns miss — the two
-# gaps GitHub only closes behind the paid Secret Protection product.
+# Live-verify secret scan on every push to main and every PR, plus a weekly
+# full-history rescan. Complements GitHub's built-in partner-pattern secret
+# scanning (always on for public repos) by actually testing key-shaped findings
+# against their live service, and by catching generic/non-provider secrets that
+# partner patterns miss — the two gaps GitHub only closes behind the paid
+# Secret Protection product. The weekly run re-checks the ENTIRE history: a
+# secret that went live after being committed, or that a newly added detector
+# now recognizes, only surfaces on a rescan.
 
 on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: '17 3 * * 1' # Mondays 03:17 UTC — full-history rescan
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -30,11 +36,16 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # Gates on --results=verified only: the job fails solely when TruffleHog
-      # proves a secret is live, so the check is high-signal and never blocks a
-      # PR on a false positive (e.g. a base64 blob). Unverified hits still print
-      # to the log for review without failing the build.
+      # Push/PR runs gate on --results=verified only: the job fails solely when
+      # TruffleHog proves a secret is live, so the check is high-signal and never
+      # blocks a PR on a false positive (e.g. a base64 blob). Unverified hits
+      # still print to the log for review without failing the build.
+      # Scheduled/manual runs also fail on "unknown" (verification inconclusive —
+      # provider unreachable): async, blocks nobody, and an inconclusive check on
+      # a key-shaped string deserves a human look rather than silence.
+      # On schedule/dispatch the action has no base/head, so it scans the entire
+      # repo history instead of the push/PR diff range.
       - name: TruffleHog
         uses: trufflesecurity/trufflehog@00155c9dc586f34d189adc83d3ac2698c2ec551f # v3.95.8
         with:
-          extra_args: --results=verified
+          extra_args: ${{ (github.event_name == 'push' || github.event_name == 'pull_request') && '--results=verified' || '--results=verified,unknown' }}
