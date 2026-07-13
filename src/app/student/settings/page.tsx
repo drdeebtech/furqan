@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Settings, User, KeyRound, Mail, Calendar, BookOpen } from "lucide-react";
+import { Settings, User, KeyRound, Mail, Calendar, BookOpen, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
 import { AccountForm } from "./account-form";
@@ -22,6 +22,7 @@ interface ProfileRow {
   parent_name: string | null;
   parent_phone: string | null;
   parent_email: string | null;
+  guardian_link_code: string | null;
 }
 
 export default async function StudentSettingsPage() {
@@ -35,7 +36,7 @@ export default async function StudentSettingsPage() {
   const { data: profile } = await supabase
     .from("profiles")
     .select(
-      "full_name, full_name_ar, phone, country, timezone, lang, date_of_birth, parent_name, parent_phone, parent_email",
+      "full_name, full_name_ar, phone, country, timezone, lang, date_of_birth, parent_name, parent_phone, parent_email, guardian_link_code",
     )
     .eq("id", user.id)
     .single<ProfileRow>();
@@ -58,6 +59,25 @@ export default async function StudentSettingsPage() {
           {t("الحساب الشخصي", "Personal Info")}
         </h2>
         <AccountForm profile={profile} />
+      </section>
+
+      <section className="glass-card mb-6 p-6">
+        <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold">
+          <Users size={18} className="text-gold" aria-hidden="true" />
+          {t("رمز ربط ولي الأمر", "Guardian Link Code")}
+        </h2>
+        <p className="mb-3 text-sm text-foreground/70">
+          {t(
+            "شارك هذا الرمز مع ولي أمرك فقط. يحتاجه—مع بريدك الإلكتروني—لربط حسابه بحسابك ومتابعة تقدّمك. لا تشاركه مع أي شخص آخر.",
+            "Share this code with your guardian only. They need it — together with your email — to link to your account and follow your progress. Do not share it with anyone else.",
+          )}
+        </p>
+        <code
+          dir="ltr"
+          className="inline-block rounded-lg border border-[var(--surface-border)] bg-foreground/5 px-4 py-2 font-mono text-lg tracking-[0.3em]"
+        >
+          {profile.guardian_link_code?.trim() || t("غير متاح", "unavailable")}
+        </code>
       </section>
 
       <section className="glass-card mb-6 p-6">

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth/require-admin";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
+import { guardianCodeMatches } from "@/lib/auth/guardian-link-code";
 import { logError } from "@/lib/logger";
 
 /**
@@ -17,6 +18,9 @@ import { logError } from "@/lib/logger";
 
 const Body = z.object({
   childEmail: z.email(),
+  // AUTHZ-VULN-01: the student's out-of-band link code. Without it, knowing an
+  // email is enough to attach to any student's records.
+  guardianCode: z.string().trim().min(1),
 });
 
 export async function POST(request: Request) {
@@ -67,7 +71,7 @@ export async function POST(request: Request) {
   } catch (e) {
     logError("add-child: invalid request body", e, { tag: "guardian", guardian_id: userId });
     return NextResponse.json(
-      { error: "Invalid body: { childEmail: string } required" },
+      { error: "Invalid body: { childEmail: string, guardianCode: string } required" },
       { status: 400 },
     );
   }
@@ -93,10 +97,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Cannot add yourself as a child" }, { status: 422 });
   }
 
-  // Verify the resolved account is a student (prevents linking teacher/admin accounts).
+  // Verify the resolved account is a student (prevents linking teacher/admin
+  // accounts) AND holds the matching link code (AUTHZ-VULN-01).
   const { data: childProfile, error: childProfileErr } = await admin
     .from("profiles")
-    .select("role")
+    .select("role, guardian_link_code")
     .eq("id", childId as string)
     .maybeSingle();
 
@@ -110,6 +115,13 @@ export async function POST(request: Request) {
   }
 
   if (childProfile?.role !== "student") {
+    return NextResponse.json({ error: "Invalid child account" }, { status: 422 });
+  }
+
+  // Require the student's link code. Uniform 422 (same as wrong-role / no-such
+  // -account) so a wrong code reveals nothing — no enumeration. Fail-closed:
+  // guardianCodeMatches rejects a null/absent stored code.
+  if (!guardianCodeMatches(childProfile.guardian_link_code, parsed.guardianCode)) {
     return NextResponse.json({ error: "Invalid child account" }, { status: 422 });
   }
 
