@@ -1,1 +1,12 @@
+set -e
 npx lint-staged
+
+# Secret scan on staged changes — blocks a leak before it enters history.
+# CI (trufflehog.yml) still scans on push; a missing local binary only loses
+# the pre-commit layer, not all scanning.
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --pre-commit --staged --no-banner --redact
+else
+  echo "warning: gitleaks not installed — skipping local secret scan (CI still scans on push)."
+  echo "install: https://github.com/gitleaks/gitleaks#installing"
+fi
