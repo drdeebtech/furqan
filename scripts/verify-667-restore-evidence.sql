@@ -75,6 +75,40 @@ BEGIN
     RAISE EXCEPTION 'INV-3 FAIL: normal path restored % times, want exactly 1 (sessions_used=%, want 1)', 2 - v_used, v_used;
   END IF;
   RAISE NOTICE 'INV-3 PASS: normal path restores exactly once (2 -> 1, idempotent re-run)';
+
+  -- INV-4: a NO-OP subscription restore (package already at sessions_used=0)
+  -- must NOT stamp evidence — the row stays repairable, and once credit
+  -- exists again a re-finalize completes the restore exactly once.
+  INSERT INTO student_packages (student_id, sessions_total, sessions_used)
+  VALUES (v_student, 8, 0)
+  RETURNING id INTO v_pkg;
+  INSERT INTO bookings (student_id, teacher_id, duration_min, rate_snapshot, amount_usd, student_package_id)
+  VALUES (v_student, v_teacher, 60, 10, 10, v_pkg)
+  RETURNING id INTO v_booking;
+
+  PERFORM finalize_attendance(v_booking, 'teacher_absent'::attendance_outcome, NULL::uuid);
+  SELECT sessions_used INTO v_used FROM student_packages WHERE id = v_pkg;
+  IF v_used <> 0 THEN
+    RAISE EXCEPTION 'INV-4 FAIL: no-op restore changed sessions_used (%, want 0)', v_used;
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM attendance_records
+    WHERE booking_id = v_booking AND credit_restored_at IS NOT NULL
+  ) THEN
+    RAISE EXCEPTION 'INV-4 FAIL: no-op subscription restore stamped evidence — masks a later repair';
+  END IF;
+
+  -- Credit accrues (a session is consumed) → the pending restore completes.
+  UPDATE student_packages SET sessions_used = 1 WHERE id = v_pkg;
+  PERFORM finalize_attendance(v_booking, 'teacher_absent'::attendance_outcome, NULL::uuid);
+  SELECT sessions_used INTO v_used FROM student_packages WHERE id = v_pkg;
+  IF v_used <> 0 OR NOT EXISTS (
+    SELECT 1 FROM attendance_records
+    WHERE booking_id = v_booking AND credit_restored_at IS NOT NULL
+  ) THEN
+    RAISE EXCEPTION 'INV-4 FAIL: pending restore did not complete once credit existed (sessions_used=%, want 0)', v_used;
+  END IF;
+  RAISE NOTICE 'INV-4 PASS: no-op restore stays repairable; completes once, later';
 END
 $walk$;
 

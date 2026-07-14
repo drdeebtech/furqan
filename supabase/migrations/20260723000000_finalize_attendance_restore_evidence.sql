@@ -58,6 +58,7 @@ DECLARE
   v_duration_min integer;
   v_prepaid_window_months int;
   v_restored_lot_id uuid;
+  v_restored_pkg_id uuid;  -- #667: subscription-branch decrement evidence
 BEGIN
   -- 1. Fetch booking + charged-lot product_type (LEFT JOIN → FOR UPDATE OF b only,
   --    since FOR UPDATE cannot lock the nullable side of an outer join). BUG 3 fix
@@ -130,22 +131,35 @@ BEGIN
         PERFORM public.record_prepaid_event(v_restored_lot_id, 'restore', 1, NULL);
       END IF;
     ELSE
-      -- Subscription / legacy restore: restore_student_package(uuid) (added #661)
-      -- credits the exact charged package (bookings.student_package_id), clamp >=0,
-      -- NULL-stamp no-op. With #662 this branch now actually runs and restores.
-      PERFORM restore_student_package(p_booking_id);
+      -- Subscription / legacy restore, inlined from restore_student_package(uuid)
+      -- (#661) so the decrement reports whether a row actually changed (the
+      -- helper returns void and its signature cannot change expand-only — #667
+      -- CodeRabbit follow-up): credit the exact charged package
+      -- (bookings.student_package_id), clamp via sessions_used > 0, NULL stamp
+      -- restores nothing (never re-derive a package — the #363 guard).
+      WITH restored_pkg AS (
+        UPDATE public.student_packages sp
+          SET sessions_used = GREATEST(sp.sessions_used - 1, 0)
+          FROM bookings b
+          WHERE b.id = p_booking_id
+            AND sp.id = b.student_package_id
+            AND sp.sessions_used > 0
+        RETURNING sp.id
+      )
+      SELECT id INTO v_restored_pkg_id FROM restored_pkg;
     END IF;
 
     -- Stamp credit_action='restored' AND the evidence timestamp together, only
-    -- when a credit was actually restored. Subscription branch:
-    -- restore_student_package already ran → stamp. Prepaid branch: only when a
-    -- lot row was actually decremented (v_restored_lot_id IS NOT NULL); a lot
-    -- with sessions_used=0 restores nothing and must NOT be marked (else a
-    -- later idempotent re-finalize would skip the work but still claim it
-    -- happened). WHERE keys off the evidence (#667) so a wrongly pre-stamped
-    -- row still gains its evidence once repaired.
-    IF (v_booking.student_package_id IS NULL
-        OR v_booking.charged_product_type <> 'prepaid_hours')
+    -- when the restore is actually complete: a package/lot row was decremented
+    -- (v_restored_pkg_id / v_restored_lot_id), or no package was ever debited
+    -- (student_package_id IS NULL — nothing to restore, vacuously complete).
+    -- A charged row whose package/lot had sessions_used=0 restores nothing and
+    -- must NOT be stamped (else a later re-finalize would skip the work but
+    -- still claim it happened — both branches now symmetric, #667). WHERE keys
+    -- off the evidence so a wrongly pre-stamped row still gains its evidence
+    -- once repaired.
+    IF v_booking.student_package_id IS NULL
+       OR v_restored_pkg_id IS NOT NULL
        OR v_restored_lot_id IS NOT NULL THEN
       UPDATE attendance_records
         SET credit_action = 'restored', credit_restored_at = now(), finalized_at = now()
