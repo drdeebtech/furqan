@@ -17,6 +17,21 @@ import { isAuthorizedForStaging } from "@/lib/security/staging-gate";
 // well above any healthy lookup (~30ms cached / ~100ms cold) and well below
 // the layout/page timeouts so we fail fast at the upstream-most boundary.
 const ROLE_STATE_TIMEOUT_MS = 3000;
+const SECURITY_HEADERS = {
+  "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy":
+    'camera=(self "https://daily.co" "https://*.daily.co"), microphone=(self "https://daily.co" "https://*.daily.co"), geolocation=(), payment=(self "https://js.stripe.com")',
+} as const;
+
+function applySecurityHeaders(response: NextResponse): NextResponse {
+  for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+    response.headers.set(key, value);
+  }
+  return response;
+}
 
 /**
  * Per-user role-state cache, backed by Next's `unstable_cache` so it
@@ -121,13 +136,13 @@ export async function proxy(request: NextRequest) {
     stagingPassword &&
     !isAuthorizedForStaging(request.headers.get("authorization"), stagingPassword)
   ) {
-    return new NextResponse("Staging access requires a password.", {
+    return applySecurityHeaders(new NextResponse("Staging access requires a password.", {
       status: 401,
       headers: {
         "WWW-Authenticate": 'Basic realm="furqan staging", charset="UTF-8"',
         "X-Robots-Tag": "noindex, nofollow",
       },
-    });
+    }));
   }
   // Apply legacy rename redirects before auth — a 301 here is cheaper than
   // running the full auth/role pipeline only to redirect at the route layer.
@@ -135,7 +150,7 @@ export async function proxy(request: NextRequest) {
     if (request.nextUrl.pathname === from || request.nextUrl.pathname.startsWith(`${from}/`)) {
       const url = request.nextUrl.clone();
       url.pathname = request.nextUrl.pathname.replace(from, to);
-      return NextResponse.redirect(url, 301);
+      return applySecurityHeaders(NextResponse.redirect(url, 301));
     }
   }
 
@@ -169,10 +184,10 @@ export async function proxy(request: NextRequest) {
       if (state) {
         setSentryUser(user.id, state.active);
         const dashboard = `/${state.active}/dashboard`;
-        return NextResponse.redirect(new URL(dashboard, request.url));
+        return applySecurityHeaders(NextResponse.redirect(new URL(dashboard, request.url)));
       }
     }
-    return supabaseResponse;
+    return applySecurityHeaders(supabaseResponse);
   }
 
   // Check protected routes
@@ -183,7 +198,7 @@ export async function proxy(request: NextRequest) {
     if (!user) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("redirect", pathname);
-      return NextResponse.redirect(loginUrl);
+      return applySecurityHeaders(NextResponse.redirect(loginUrl));
     }
 
     // Fetch user role state (active role + full roles[] set).
@@ -204,7 +219,7 @@ export async function proxy(request: NextRequest) {
       // topbar dropdown lets them switch deliberately. If they don't hold
       // it at all, same redirect (their own dashboard or login).
       const home = state?.active ? `/${state.active}/dashboard` : "/login";
-      return NextResponse.redirect(new URL(home, request.url));
+      return applySecurityHeaders(NextResponse.redirect(new URL(home, request.url)));
     }
 
     break;
@@ -219,13 +234,13 @@ export async function proxy(request: NextRequest) {
       "proxy.roleState",
     );
     if (state) {
-      return NextResponse.redirect(
+      return applySecurityHeaders(NextResponse.redirect(
         new URL(`/${state.active}/dashboard`, request.url),
-      );
+      ));
     }
   }
 
-  return supabaseResponse;
+  return applySecurityHeaders(supabaseResponse);
 }
 
 export const config = {

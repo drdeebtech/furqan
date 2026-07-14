@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Json } from "@/types/supabase.generated";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError, logInfo } from "@/lib/logger";
+import { recordSecurityAlert } from "@/lib/security/audit-logger";
 import {
   isPayPalWebhookConfigured,
   verifyPayPalWebhookSignature,
@@ -130,6 +131,11 @@ export async function POST(request: Request) {
   }
   if (!verified) {
     // Forged or malformed → 400, ZERO side effects (NFR-001).
+    await recordSecurityAlert({
+      attemptedAction: "paypal.webhook.bad_signature",
+      alertLevel: "warning",
+      metadata: { route: "/api/paypal/webhook" },
+    });
     logError(
       "paypal-webhook: signature verification failed",
       new Error("bad-sig"),

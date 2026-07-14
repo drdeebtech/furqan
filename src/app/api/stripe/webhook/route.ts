@@ -4,6 +4,7 @@ import StripeSdk from "stripe";
 import type { Json } from "@/types/supabase.generated";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
+import { recordSecurityAlert } from "@/lib/security/audit-logger";
 import {
   handleInvoicePaid,
   handlePaymentFailed,
@@ -61,6 +62,11 @@ export async function POST(request: Request) {
     event = stripe.webhooks.constructEvent(rawBody, sig, secret);
   } catch (err) {
     // Forged or malformed → 400, ZERO side effects (NFR-001).
+    await recordSecurityAlert({
+      attemptedAction: "stripe.webhook.bad_signature",
+      alertLevel: "warning",
+      metadata: { route: "/api/stripe/webhook" },
+    });
     logError("stripe-webhook: signature verification failed", err, {
       tag: "stripe-webhook", kind: "bad-sig",
     });

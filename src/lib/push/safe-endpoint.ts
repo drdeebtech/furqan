@@ -1,4 +1,5 @@
 import net from "node:net";
+import { lookup } from "node:dns/promises";
 
 /**
  * SSRF guard for Web Push endpoints (audit SSRF-VULN-01).
@@ -18,11 +19,8 @@ import net from "node:net";
  * This blocks every IP-based SSRF (including the two confirmed live) without
  * rejecting any real push service, because those are all normal FQDNs.
  *
- * ponytail: hostname-based, no DNS resolution — it cannot stop a public name
- * that later resolves to a private IP (DNS rebinding). Full protection needs a
- * resolve-then-pin check or an SSRF-safe HTTP agent inside web-push; upgrade
- * there if the threat model warrants. Given the push body is encrypted and the
- * channel is blind, closing the IP-literal hole is the high-value fix.
+ * The async resolved variant also checks every DNS answer and rejects private,
+ * loopback, and link-local IPs to close DNS rebinding.
  */
 export function isSafePushEndpoint(endpoint: string): boolean {
   let url: URL;
@@ -60,4 +58,44 @@ export function isSafePushEndpoint(endpoint: string): boolean {
   }
 
   return true;
+}
+
+function isUnsafeResolvedIp(address: string): boolean {
+  if (net.isIP(address) === 4) {
+    const parts = address.split(".").map((part) => Number.parseInt(part, 10));
+    const [a, b] = parts;
+    if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part))) return true;
+    if (a === 10) return true;
+    if (a === 127) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 0) return true;
+    if (a >= 224) return true;
+    return false;
+  }
+
+  if (net.isIP(address) === 6) {
+    const normalized = address.toLowerCase();
+    if (normalized === "::1" || normalized === "::") return true;
+    if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true;
+    if (normalized.startsWith("fe8") || normalized.startsWith("fe9") || normalized.startsWith("fea") || normalized.startsWith("feb")) return true;
+    if (normalized.startsWith("::ffff:")) return isUnsafeResolvedIp(normalized.slice("::ffff:".length));
+    return false;
+  }
+
+  return true;
+}
+
+export async function isSafePushEndpointResolved(endpoint: string): Promise<boolean> {
+  if (!isSafePushEndpoint(endpoint)) return false;
+
+  const url = new URL(endpoint);
+  const host = url.hostname.replace(/^\[|\]$/g, "").replace(/\.+$/, "").toLowerCase();
+  try {
+    const addresses = await lookup(host, { all: true, verbatim: true });
+    return addresses.length > 0 && addresses.every(({ address }) => !isUnsafeResolvedIp(address));
+  } catch {
+    return false;
+  }
 }

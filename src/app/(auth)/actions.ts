@@ -15,6 +15,7 @@ import { getPostHogClient } from "@/lib/posthog-server";
 import { CONTACT } from "@/lib/contact";
 import { buildConsentRecord } from "@/lib/legal";
 import { registerSchema, registerErrorMessage } from "@/lib/auth/register-schema";
+import { recordSecurityAlert } from "@/lib/security/audit-logger";
 
 /**
  * Deterministically hash an email to a UUID-shaped key so it fits the
@@ -77,6 +78,7 @@ export type AuthResult = {
 };
 
 const MAX_LOGIN_ATTEMPTS_PER_HOUR = 10;
+const MAX_REGISTER_ATTEMPTS_PER_HOUR = 10;
 const MAX_FORGOT_PASSWORD_PER_HOUR = 5;
 
 // Emergency-glass for known administrator emails when BotID's client SDK
@@ -107,7 +109,7 @@ function shouldBypassBotId(email: string | null | undefined): boolean {
  * Fails open on DB errors so infra issues don't lock legitimate users out.
  */
 async function checkAuthRate(
-  workflow: "login-attempt" | "forgot-password-attempt",
+  workflow: "login-attempt" | "register-attempt" | "forgot-password-attempt",
   email: string,
   max: number,
 ): Promise<boolean> {
@@ -256,6 +258,12 @@ export async function login(
   // Bypass for @furqan.test accounts so CI/TestSprite runs are never blocked.
   const isTestAccount = email.toLowerCase().endsWith("@furqan.test");
   if (!isTestAccount && !(await checkAuthRate("login-attempt", email, MAX_LOGIN_ATTEMPTS_PER_HOUR))) {
+    await recordSecurityAlert({
+      email,
+      attemptedAction: "auth.login.rate_limited",
+      alertLevel: "warning",
+      metadata: { workflow: "login-attempt" },
+    });
     logError("Login rate limit exceeded", new Error("login.rate_limited"), {
       component: "auth.login",
       tag: "auth-rate-limited",
@@ -267,6 +275,12 @@ export async function login(
   // Per-IP layer (AUTH-VULN-02): stops cross-account spraying from one IP that
   // per-email limits (one bucket per address) can't see.
   if (!isTestAccount && !(await checkAuthRateByIp("login-attempt-ip", MAX_LOGIN_IP_PER_HOUR))) {
+    await recordSecurityAlert({
+      email,
+      attemptedAction: "auth.login.ip_rate_limited",
+      alertLevel: "warning",
+      metadata: { workflow: "login-attempt-ip" },
+    });
     logError("Login IP rate limit exceeded", new Error("login.ip_rate_limited"), {
       component: "auth.login",
       tag: "auth-rate-limited-ip",
@@ -396,7 +410,27 @@ export async function register(
 
   // Per-IP rate limit (AUTH-VULN-02) — caps account-creation spam from one IP.
   const isTestAccount = rawEmail.toLowerCase().endsWith("@furqan.test");
+  if (!isTestAccount && !(await checkAuthRate("register-attempt", rawEmail, MAX_REGISTER_ATTEMPTS_PER_HOUR))) {
+    await recordSecurityAlert({
+      email: rawEmail,
+      attemptedAction: "auth.register.rate_limited",
+      alertLevel: "warning",
+      metadata: { workflow: "register-attempt" },
+    });
+    logError("Register rate limit exceeded", new Error("register.rate_limited"), {
+      component: "auth.register",
+      tag: "auth-rate-limited",
+      metadata: { email: rawEmail },
+    });
+    return { error: "تم تجاوز المحاولات المسموحة — حاول خلال ساعة" };
+  }
   if (!isTestAccount && !(await checkAuthRateByIp("register-attempt-ip", MAX_REGISTER_IP_PER_HOUR))) {
+    await recordSecurityAlert({
+      email: rawEmail,
+      attemptedAction: "auth.register.ip_rate_limited",
+      alertLevel: "warning",
+      metadata: { workflow: "register-attempt-ip" },
+    });
     logError("Register IP rate limit exceeded", new Error("register.ip_rate_limited"), {
       component: "auth.register",
       tag: "auth-rate-limited-ip",
@@ -590,12 +624,24 @@ export async function forgotPassword(
 
   // Per-email rate limit — prevents password reset spam abuse
   if (!(await checkAuthRate("forgot-password-attempt", email, MAX_FORGOT_PASSWORD_PER_HOUR))) {
+    await recordSecurityAlert({
+      email,
+      attemptedAction: "auth.forgot_password.rate_limited",
+      alertLevel: "warning",
+      metadata: { workflow: "forgot-password-attempt" },
+    });
     return { error: "تم تجاوز المحاولات المسموحة — حاول خلال ساعة" };
   }
 
   // Per-IP layer (AUTH-VULN-02) — cross-account reset-spam from one IP.
   const isTestAccount = email.toLowerCase().endsWith("@furqan.test");
   if (!isTestAccount && !(await checkAuthRateByIp("forgot-password-attempt-ip", MAX_FORGOT_PASSWORD_IP_PER_HOUR))) {
+    await recordSecurityAlert({
+      email,
+      attemptedAction: "auth.forgot_password.ip_rate_limited",
+      alertLevel: "warning",
+      metadata: { workflow: "forgot-password-attempt-ip" },
+    });
     logError("Forgot-password IP rate limit exceeded", new Error("forgot.ip_rate_limited"), {
       component: "auth.forgotPassword",
       tag: "auth-rate-limited-ip",

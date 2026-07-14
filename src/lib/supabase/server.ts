@@ -17,7 +17,10 @@ export async function createClient() {
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
+              // SameSite=Lax: blocks CSRF on cross-site POST while still sending
+              // the cookie on the top-level GET OAuth callback (Strict would drop
+              // the PKCE code-verifier on Google's redirect and break login).
+              cookieStore.set(name, value, { ...options, sameSite: "lax" }),
             );
           } catch {
             // setAll can fail when called from a Server Component.

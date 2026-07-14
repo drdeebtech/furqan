@@ -5,6 +5,7 @@ import { withTimeout } from "@/lib/promise-utils";
 import type { UserRole } from "@/types/database";
 import { ForbiddenError, UnauthenticatedError } from "./errors";
 import { assertRole } from "./role-check";
+import { recordSecurityAlert } from "@/lib/security/audit-logger";
 
 // Re-export so existing importers (`@/lib/auth/require-admin`) keep working
 // unchanged. The classes themselves live in `./errors` so tests can import
@@ -100,7 +101,19 @@ export async function requireRole(
   // Pure decision delegated to ./role-check so the logic is unit-tested
   // without the server-only barrier on this file. assertRole throws
   // ForbiddenError if role is null or not in allowed.
-  assertRole(role, allowed);
+  try {
+    assertRole(role, allowed);
+  } catch (err) {
+    if (err instanceof ForbiddenError) {
+      await recordSecurityAlert({
+        userId: id,
+        attemptedAction: "auth.require_role.forbidden",
+        alertLevel: "warning",
+        metadata: { actualRole: role, allowedRoles: allowed },
+      });
+    }
+    throw err;
+  }
   return Array.isArray(roleOrRoles) ? { id, role: role as UserRole } : { id };
 }
 

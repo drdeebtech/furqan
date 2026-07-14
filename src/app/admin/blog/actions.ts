@@ -10,8 +10,12 @@ import { requireAdmin, ForbiddenError } from "@/lib/auth/require-admin";
 import { loudAction } from "@/lib/actions/loud";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import { UserError } from "@/lib/actions/user-error";
+import { assertAllowedUpload, type AllowedFileType } from "@/lib/security/file-signature";
+import { recordSecurityAlert } from "@/lib/security/audit-logger";
 
 type ActionResult = { error?: string; success?: boolean };
+const MAX_COVER_IMAGE_BYTES = 2 * 1024 * 1024;
+const BLOG_IMAGE_TYPES = ["jpeg", "png", "webp", "gif"] as const satisfies readonly AllowedFileType[];
 
 async function adminPreflight(): Promise<{ actorId: string }> {
   try {
@@ -103,11 +107,30 @@ const savePostBase = loudAction<
 
     // Cover image upload — optional. Path: blog-images/{post_id}/cover.{ext}
     if (input.coverFile && input.coverFile.size > 0) {
-      const ext = (input.coverFile.name.split(".").pop() ?? "jpg").toLowerCase();
-      const path = `${postId}/cover.${ext}`;
+      if (input.coverFile.size > MAX_COVER_IMAGE_BYTES) {
+        throw new UserError("صورة الغلاف كبيرة جدًا — الحد الأقصى 2 ميغابايت");
+      }
+      let safeUpload: Awaited<ReturnType<typeof assertAllowedUpload>>;
+      try {
+        safeUpload = await assertAllowedUpload(input.coverFile, BLOG_IMAGE_TYPES);
+      } catch (err) {
+        await recordSecurityAlert({
+          attemptedAction: "admin.blog.cover_upload.rejected",
+          alertLevel: "warning",
+          metadata: {
+            postId,
+            fileName: input.coverFile.name,
+            claimedType: input.coverFile.type,
+            size: input.coverFile.size,
+            reason: err instanceof Error ? err.message : String(err),
+          },
+        });
+        throw new UserError("نوع صورة الغلاف غير مدعوم أو غير آمن");
+      }
+      const path = `${postId}/cover.${safeUpload.ext}`;
       const { error: upErr } = await supabase.storage
         .from("blog-images")
-        .upload(path, input.coverFile, { upsert: true, contentType: input.coverFile.type });
+        .upload(path, input.coverFile, { upsert: true, contentType: safeUpload.contentType });
       if (upErr) throw new Error("فشل رفع صورة الغلاف");
       const { error: pathErr } = await supabase
         .from("blog_posts")

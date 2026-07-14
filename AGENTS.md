@@ -1,6 +1,6 @@
 # AGENTS.md — furqan.today
 
-Quran-memorization platform. This file is the contract for every AI agent (Claude Code, opencode/GLM)
+Quran-memorization platform. This file is the contract for every AI agent (Claude Code, Codex)
 in this repo; `CLAUDE.md` symlinks here. It stays lean on purpose: general context, key guidelines,
 and the agent's role. Deep reference lives in `docs/agents/`; task-specific instructions belong in
 the task, not here.
@@ -138,8 +138,8 @@ relocating code into `src/lib` can drop coverage below threshold.
 
 Handoff lives in `specs/<NNN>-<feature>/` (`spec.md` → `plan.md` → `tasks.md`).
 **Architect (Claude)** writes spec/plan/tasks through the three lenses — no code.
-**Builder (opencode/GLM)** executes `tasks.md` in order, typecheck + lint + tests per task — no scope
-expansion; stop and list any deviation. **Reviewer (Claude)** diffs against `tasks.md` + the three
+**Builder (Codex — OpenAI `gpt-5.5`)** executes `tasks.md` in order, typecheck + lint + tests per
+task — no scope expansion; stop and list any deviation. **Reviewer (Claude)** diffs against `tasks.md` + the three
 lenses → fix checklist, no edits. Commit the plan first; commit between handoffs; one agent edits at
 a time. (GitNexus usage rules live in the tool-managed block below.)
 
