@@ -6,7 +6,6 @@ import { emitEvent } from "@/lib/automation/emit";
 import { verifyDailySignature } from "@/lib/daily/webhook-verify";
 import { dispatchDailyEvent, type DailyPayload } from "@/lib/daily/webhook-handler";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
-import { recordSecurityAlert } from "@/lib/security/audit-logger";
 
 /**
  * Daily.co webhook receiver — session lifecycle source of truth.
@@ -57,11 +56,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     (!!prevSecret && verifyDailySignature(rawBody, sig, prevSecret, timestampHeader));
 
   if (!validSig) {
-    await recordSecurityAlert({
-      attemptedAction: "daily.webhook.bad_signature",
-      alertLevel: "warning",
-      metadata: { route: "/api/webhooks/daily" },
-    });
+    // no security-alert here: unauthenticated path, flood vector (see PR #686 review)
     logError("daily-webhook: invalid HMAC signature", new Error("hmac-fail"), {
       tag: "daily-webhook",
       severity: "warning",

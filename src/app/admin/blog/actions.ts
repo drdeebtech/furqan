@@ -66,7 +66,7 @@ const savePostBase = loudAction<
   severity: "warning",
   audit: { table: "blog_posts", recordId: (i) => i.id ?? "new", action: "UPDATE" },
   preflight: adminPreflight,
-  handler: async (input) => {
+  handler: async (input, { actorId }) => {
     const supabase = await createClient();
     const cat = CATEGORIES[input.categoryEn];
     if (!cat) throw new UserError("اختر التصنيف");
@@ -115,6 +115,7 @@ const savePostBase = loudAction<
         safeUpload = await assertAllowedUpload(input.coverFile, BLOG_IMAGE_TYPES);
       } catch (err) {
         await recordSecurityAlert({
+          userId: actorId,
           attemptedAction: "admin.blog.cover_upload.rejected",
           alertLevel: "warning",
           metadata: {

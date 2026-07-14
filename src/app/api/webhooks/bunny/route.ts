@@ -9,7 +9,6 @@ import {
 } from "@/lib/bunny/client";
 import { logError, logWarn } from "@/lib/logger";
 import type { TableUpdate } from "@/lib/supabase/typed-helpers";
-import { recordSecurityAlert } from "@/lib/security/audit-logger";
 
 // One-shot helper: write the outcome of a webhook delivery to automation_logs
 // so "did Bunny call us, and what happened" is answerable without log-diving.
@@ -76,11 +75,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   const supabase = createAdminClient();
 
   if (!signature) {
-    await recordSecurityAlert({
-      attemptedAction: "bunny.webhook.missing_signature",
-      alertLevel: "warning",
-      metadata: { route: "/api/webhooks/bunny" },
-    });
+    // no security-alert here: unauthenticated path, flood vector (see PR #686 review)
     await logBunnyWebhook(supabase, {
       status: "failed",
       eventName: "bunny.webhook.rejected",
@@ -118,11 +113,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   if (!valid) {
-    await recordSecurityAlert({
-      attemptedAction: "bunny.webhook.bad_signature",
-      alertLevel: "warning",
-      metadata: { route: "/api/webhooks/bunny" },
-    });
+    // no security-alert here: unauthenticated path, flood vector (see PR #686 review)
     await logBunnyWebhook(supabase, {
       status: "failed",
       eventName: "bunny.webhook.rejected",

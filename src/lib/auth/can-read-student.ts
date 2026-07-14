@@ -30,6 +30,7 @@ export async function canReadStudent(
     .select("id")
     .eq("teacher_id", viewerId)
     .eq("student_id", studentId)
+    .in("status", ["confirmed", "completed"])
     .limit(1)
     .maybeSingle<{ id: string }>();
   if (teacherError) return false;

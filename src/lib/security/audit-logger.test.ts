@@ -53,7 +53,6 @@ describe("recordSecurityAlert", () => {
       },
       extra: {
         user_id: "user-1",
-        email: "ali@example.com",
         attempted_action: "login.rate_limited",
         alert_level: "critical",
         metadata: { route: "/login" },
@@ -76,6 +75,25 @@ describe("recordSecurityAlert", () => {
       attemptedAction: "webhook.bad_sig",
       alertLevel: "warning",
       error: "db down",
+    });
+    expect(mockCaptureMessage).not.toHaveBeenCalled();
+  });
+
+  it("fails soft when the insert resolves with an error", async () => {
+    mockInsert.mockResolvedValueOnce({ error: { message: "boom" } });
+
+    await expect(
+      recordSecurityAlert({
+        attemptedAction: "upload.rejected",
+        alertLevel: "warning",
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(mockLogWarn).toHaveBeenCalledWith("recordSecurityAlert failed", {
+      tag: "security-alert",
+      attemptedAction: "upload.rejected",
+      alertLevel: "warning",
+      error: "boom",
     });
     expect(mockCaptureMessage).not.toHaveBeenCalled();
   });

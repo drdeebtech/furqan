@@ -69,6 +69,20 @@ describe("isSafePushEndpoint (SSRF-VULN-01)", () => {
     await expect(isSafePushEndpointResolved("https://push.example.com/sub")).resolves.toBe(false);
   });
 
+  it("blocks public hostnames that resolve to IPv6 ULA addresses", async () => {
+    mocks.lookup.mockResolvedValue([{ address: "fd00::1", family: 6 }]);
+
+    await expect(isSafePushEndpointResolved("https://push.example.com/sub")).resolves.toBe(false);
+  });
+
+  it("treats DNS failures or empty answers as unsafe", async () => {
+    mocks.lookup.mockRejectedValueOnce(new Error("dns down"));
+    await expect(isSafePushEndpointResolved("https://push.example.com/sub")).resolves.toBe(false);
+
+    mocks.lookup.mockResolvedValueOnce([]);
+    await expect(isSafePushEndpointResolved("https://push.example.com/sub")).resolves.toBe(false);
+  });
+
   it("allows public hostnames when every DNS answer is public", async () => {
     mocks.lookup.mockResolvedValue([
       { address: "8.8.8.8", family: 4 },

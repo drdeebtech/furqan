@@ -5,7 +5,6 @@ import { notify } from "@/lib/notifications/dispatcher";
 import { safeCompareSecret } from "@/lib/security/secrets";
 import { logError } from "@/lib/logger";
 import type { Json, NotifType } from "@/types/database";
-import { recordSecurityAlert } from "@/lib/security/audit-logger";
 
 const LogActionSchema = z.object({
   workflow_name: z.string().min(1),
@@ -83,11 +82,7 @@ export async function POST(request: Request) {
   // Validate shared secret with constant-time comparison (timing-attack safe)
   const secret = request.headers.get("X-N8N-Secret");
   if (!safeCompareSecret(secret, process.env.N8N_WEBHOOK_SECRET)) {
-    await recordSecurityAlert({
-      attemptedAction: "n8n.webhook.bad_secret",
-      alertLevel: "warning",
-      metadata: { route: "/api/webhooks/n8n" },
-    });
+    // no security-alert here: unauthenticated path, flood vector (see PR #686 review)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
