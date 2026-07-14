@@ -33,6 +33,13 @@ export async function requestJoinGroupSession(sessionId: string): Promise<Action
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "غير مسجل الدخول" };
 
+  // AUTHZ-VULN-02: enforce the student role in-action. Writes below go through
+  // the admin client (RLS bypassed); edge middleware is the only other guard,
+  // so a middleware bypass must not let a non-student consume student capacity.
+  const { data: actorProfile } = await supabase
+    .from("profiles").select("role").eq("id", user.id).maybeSingle<{ role: string }>();
+  if (actorProfile?.role !== "student") return { ok: false, error: "هذا الإجراء متاح للطلاب فقط" };
+
   // Look up the session: must exist, must be group, must be in the
   // future, must have seats remaining.
   const { data: session } = await supabase
