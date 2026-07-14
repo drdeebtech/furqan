@@ -70,6 +70,8 @@ describe("sendPushToUser", () => {
         body: "بقي ١٥ دقيقة على جلستك",
         url: "/student/bookings",
       }),
+      // issue #687: every send must carry the DNS-pinning agent
+      expect.objectContaining({ agent: expect.anything() }),
     );
   });
 

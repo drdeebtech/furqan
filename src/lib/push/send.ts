@@ -4,7 +4,7 @@ import type { PushSubscription } from "web-push";
 import { logError } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { configuredWebpush } from "./vapid";
-import { isSafePushEndpointResolved } from "./safe-endpoint";
+import { isSafePushEndpointResolved, pinnedPushAgent } from "./safe-endpoint";
 
 export type PushPayload = {
   title: string;
@@ -72,6 +72,10 @@ export async function sendPushToUser(
           await client.sendNotification(
             pushSubscription,
             JSON.stringify(payload),
+            // Connect-time DNS pin (issue #687): the agent's lookup validates
+            // the exact addresses this request connects to — a hostname that
+            // rebinds to a private IP after the pre-send check fails here.
+            { agent: pinnedPushAgent },
           );
           result.sent += 1;
         } catch (error) {
