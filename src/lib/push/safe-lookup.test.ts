@@ -4,8 +4,9 @@ import { makeSafePushLookup, pinnedPushAgent } from "./safe-endpoint";
 
 type LookupResult = dns.LookupAddress[];
 
-function fakeResolver(answers: LookupResult | Error) {
-  return ((_host: string, _opts: unknown, cb: (err: Error | null, addresses?: LookupResult) => void) => {
+function fakeResolver(answers: LookupResult | Error, onOptions?: (opts: unknown) => void) {
+  return ((_host: string, opts: unknown, cb: (err: Error | null, addresses?: LookupResult) => void) => {
+    onOptions?.(opts);
     if (answers instanceof Error) return cb(answers);
     cb(null, answers);
   }) as unknown as typeof dns.lookup;
@@ -22,14 +23,19 @@ function callLookup(
 }
 
 describe("makeSafePushLookup (issue #687 — connect-time DNS pin)", () => {
-  it("returns the resolved address for a public answer", async () => {
-    const lookup = makeSafePushLookup(fakeResolver([{ address: "142.250.180.10", family: 4 }]));
+  it("resolves ALL answers (forces { all: true }) then returns the address", async () => {
+    let seenOpts: unknown;
+    const lookup = makeSafePushLookup(
+      fakeResolver([{ address: "142.250.180.10", family: 4 }], (o) => (seenOpts = o)),
+    );
 
     const { err, address, family } = await callLookup(lookup, "fcm.googleapis.com");
 
     expect(err).toBeNull();
     expect(address).toBe("142.250.180.10");
     expect(family).toBe(4);
+    // Dual-answer protection depends on fetching every record — never a single answer.
+    expect(seenOpts).toMatchObject({ all: true });
   });
 
   it("refuses to connect when the answer is private (rebinding at connect time)", async () => {
