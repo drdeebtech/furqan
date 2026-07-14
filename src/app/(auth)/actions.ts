@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError, logInfo } from "@/lib/logger";
 import { getClientIp } from "@/lib/security/client-ip";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import { withTimeout } from "@/lib/promise-utils";
 import { isSafeRelativePath } from "@/lib/security/safe-url";
 import { getPostHogClient } from "@/lib/posthog-server";
@@ -165,6 +166,29 @@ async function checkAuthRate(
   }
 }
 
+// Per-IP caps (AUTH-VULN-02): the cross-account layer the per-email limits
+// can't cover. Generous so shared IPs (schools/families behind NAT) aren't
+// locked out, while mass cross-account spraying from one IP is stopped.
+const MAX_LOGIN_IP_PER_HOUR = 50;
+const MAX_REGISTER_IP_PER_HOUR = 20;
+const MAX_FORGOT_PASSWORD_IP_PER_HOUR = 20;
+
+/**
+ * Per-IP rate limit for auth flows (AUTH-VULN-02) — the cross-account layer the
+ * per-email limiter can't see. Uses the trusted-proxy client IP (spoof-proof on
+ * Vercel; see client-ip.ts). Fail-open: no resolvable IP, dev, or a limiter
+ * backend error never blocks a real user — the per-email limit is the backstop.
+ */
+async function checkAuthRateByIp(
+  workflow: "login-attempt-ip" | "register-attempt-ip" | "forgot-password-attempt-ip",
+  max: number,
+): Promise<boolean> {
+  if (process.env.NODE_ENV === "development") return true;
+  const ip = getClientIp(await headers());
+  if (!ip) return true;
+  return checkRateLimit(ip, workflow, max);
+}
+
 /**
  * Rejects the obvious weak passwords without harassing users.
  * Requires 8+ chars and at least 2 of {lowercase, uppercase, digit}.
@@ -236,6 +260,16 @@ export async function login(
       component: "auth.login",
       tag: "auth-rate-limited",
       metadata: { email },
+    });
+    return { error: "تم تجاوز المحاولات المسموحة — حاول خلال ساعة" };
+  }
+
+  // Per-IP layer (AUTH-VULN-02): stops cross-account spraying from one IP that
+  // per-email limits (one bucket per address) can't see.
+  if (!isTestAccount && !(await checkAuthRateByIp("login-attempt-ip", MAX_LOGIN_IP_PER_HOUR))) {
+    logError("Login IP rate limit exceeded", new Error("login.ip_rate_limited"), {
+      component: "auth.login",
+      tag: "auth-rate-limited-ip",
     });
     return { error: "تم تجاوز المحاولات المسموحة — حاول خلال ساعة" };
   }
@@ -358,6 +392,16 @@ export async function register(
         tag: "auth-bot-ambiguous",
       });
     }
+  }
+
+  // Per-IP rate limit (AUTH-VULN-02) — caps account-creation spam from one IP.
+  const isTestAccount = rawEmail.toLowerCase().endsWith("@furqan.test");
+  if (!isTestAccount && !(await checkAuthRateByIp("register-attempt-ip", MAX_REGISTER_IP_PER_HOUR))) {
+    logError("Register IP rate limit exceeded", new Error("register.ip_rate_limited"), {
+      component: "auth.register",
+      tag: "auth-rate-limited-ip",
+    });
+    return { error: "تم تجاوز المحاولات المسموحة — حاول خلال ساعة" };
   }
 
   // Zod at the action boundary. `consent` must be the literal "yes" — this is
@@ -546,6 +590,16 @@ export async function forgotPassword(
 
   // Per-email rate limit — prevents password reset spam abuse
   if (!(await checkAuthRate("forgot-password-attempt", email, MAX_FORGOT_PASSWORD_PER_HOUR))) {
+    return { error: "تم تجاوز المحاولات المسموحة — حاول خلال ساعة" };
+  }
+
+  // Per-IP layer (AUTH-VULN-02) — cross-account reset-spam from one IP.
+  const isTestAccount = email.toLowerCase().endsWith("@furqan.test");
+  if (!isTestAccount && !(await checkAuthRateByIp("forgot-password-attempt-ip", MAX_FORGOT_PASSWORD_IP_PER_HOUR))) {
+    logError("Forgot-password IP rate limit exceeded", new Error("forgot.ip_rate_limited"), {
+      component: "auth.forgotPassword",
+      tag: "auth-rate-limited-ip",
+    });
     return { error: "تم تجاوز المحاولات المسموحة — حاول خلال ساعة" };
   }
 
