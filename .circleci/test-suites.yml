@@ -1,6 +1,11 @@
 ---
 name: ci tests
 discover: npx vitest list --filesOnly
-run: npx vitest run --reporter=junit --outputFile="<< outputs.junit >>" --bail 0 << test.atoms >>
+# Atoms go through quoted-echo + xargs, NOT bare interpolation: test paths
+# with shell metacharacters (e.g. src/app/(auth)/*.test.ts — parentheses are
+# a bash syntax error unquoted) must reach vitest as plain args. xargs splits
+# on whitespace without shell interpretation; -r skips the run on an empty
+# shard instead of running the entire suite.
+run: echo '<< test.atoms >>' | xargs -r npx vitest run --reporter=junit --outputFile="<< outputs.junit >>" --bail 0
 outputs:
   junit: test-reports/tests.xml
