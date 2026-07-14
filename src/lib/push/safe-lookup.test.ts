@@ -89,5 +89,7 @@ describe("pinnedPushAgent", () => {
   it("is an https agent wired to the safe lookup", () => {
     expect(pinnedPushAgent).toBeDefined();
     expect(pinnedPushAgent.options.lookup).toBeTypeOf("function");
+    // keepAlive must stay off — a reused socket skips the lookup and the pin (#687).
+    expect(pinnedPushAgent.options.keepAlive).toBe(false);
   });
 });
