@@ -73,6 +73,18 @@ describe("checkRateLimit (issue #688 — atomic + fail-closed)", () => {
     expect(mockLogError).toHaveBeenCalled();
   });
 
+  it("fail-closed: a hung RPC is bounded by the timeout and denied", async () => {
+    vi.useFakeTimers();
+    try {
+      mockRpc.mockReturnValue(new Promise(() => {})); // never settles
+      const pending = checkRateLimit("1.2.3.4", "login-attempt-ip", 50, { failClosed: true });
+      await vi.advanceTimersByTimeAsync(3001);
+      await expect(pending).resolves.toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("default (public forms) stays fail-open when the RPC call throws", async () => {
     mockRpc.mockRejectedValue(new Error("network"));
 

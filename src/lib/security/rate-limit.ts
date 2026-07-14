@@ -1,5 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
+import { withTimeout } from "@/lib/promise-utils";
+
+// A hung limiter RPC must not stall credential routes: bound it and treat a
+// timeout exactly like a backend error (deny on fail-closed routes). Well
+// above a healthy RPC (~30ms), well below a user-visible hang.
+const RATE_LIMIT_RPC_TIMEOUT_MS = 3000;
 
 /**
  * Per-identifier rate limit backed by the atomic
@@ -31,12 +37,23 @@ export async function checkRateLimit(
     // admin: the RPC is granted to service_role only; callers are
     // pre-authentication so the SSR client can't execute it (issue #523).
     const supabase = createAdminClient();
-    const { data: allowed, error } = await supabase.rpc("check_and_increment_rate_limit", {
-      p_bucket: workflow,
-      p_identifier: ipKey,
-      p_max: maxPerHour,
-      p_window_seconds: 3600,
-    });
+    const { data: allowed, error } = await withTimeout<{
+      data: boolean | null;
+      error: { message: string } | null;
+    }>(
+      supabase.rpc("check_and_increment_rate_limit", {
+        p_bucket: workflow,
+        p_identifier: ipKey,
+        p_max: maxPerHour,
+        p_window_seconds: 3600,
+      }),
+      RATE_LIMIT_RPC_TIMEOUT_MS,
+      {
+        data: null,
+        error: { message: `rate-limit rpc timed out or rejected (${RATE_LIMIT_RPC_TIMEOUT_MS}ms cap)` },
+      },
+      `rate-limit-rpc:${workflow}`,
+    );
     if (error) {
       logError(
         `rate-limit rpc failed — ${failClosed ? "denying" : "allowing"} (${workflow})`,
