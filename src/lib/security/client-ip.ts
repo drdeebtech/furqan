@@ -1,24 +1,49 @@
 /**
- * Resolve the originating client IP from request headers.
+ * Resolve the originating client IP from request headers — but only when a
+ * trusted proxy vouches for them (issue #691).
  *
- * Trust model: this app runs behind Vercel's edge, which sets `x-forwarded-for`
- * (leftmost entry = the real client) and `x-real-ip`, and overwrites any
- * client-supplied values at the edge — so on Vercel these headers are
- * authoritative and cannot be spoofed to forge a fresh per-IP rate-limit bucket.
+ * Trust model:
+ * - On Vercel (`VERCEL` env set) the edge overwrites `x-forwarded-for` and
+ *   `x-real-ip`, so they are authoritative and cannot be spoofed to forge a
+ *   fresh per-IP rate-limit bucket.
+ * - Anywhere else the headers are client-controlled bytes: honoring them
+ *   would let one attacker mint unlimited per-IP buckets. Without explicit
+ *   trusted-proxy configuration we return null (fail-safe: per-IP limiters
+ *   fall back to their per-email/shared-bucket backstops).
  *
- * Off Vercel (self-hosted behind an untrusted multi-hop proxy) neither header is
- * trustworthy on its own; if this app is ever deployed that way, key rate limits
- * off the trusted proxy's connection IP instead. Centralizing the extraction
- * here keeps that single assumption in one auditable place rather than duplicated
- * across every public action and auth route.
- *
- * Returns null when no IP header is present; callers apply their own fallback
- * (e.g. `?? "unknown"` for a rate-limit key, `?? null` for an audit record).
+ * Returns null when no trustworthy IP can be derived; callers apply their own
+ * fallback (`?? "unknown"` for a rate-limit key, `?? null` for an audit record).
  */
-export function getClientIp(requestHeaders: Headers): string | null {
-  return (
-    requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    requestHeaders.get("x-real-ip")?.trim() ||
-    null
-  );
+type ClientIpEnv = {
+  VERCEL?: string;
+  TRUSTED_PROXY_HOPS?: string;
+  // Index signature so process.env (NodeJS.ProcessEnv) stays assignable.
+  [key: string]: string | undefined;
+};
+export function getClientIp(
+  requestHeaders: Headers,
+  env: ClientIpEnv = process.env,
+): string | null {
+  if (env.VERCEL) {
+    return (
+      requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      requestHeaders.get("x-real-ip")?.trim() ||
+      null
+    );
+  }
+
+  // Self-hosted behind N declared trusted proxies: each trusted hop appended
+  // one entry to x-forwarded-for, so the real client is the Nth entry from
+  // the right. Anything left of that is client-supplied and ignored.
+  const hops = Number(env.TRUSTED_PROXY_HOPS);
+  if (Number.isInteger(hops) && hops >= 1) {
+    const chain = requestHeaders
+      .get("x-forwarded-for")
+      ?.split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    return chain?.[chain.length - hops] ?? null;
+  }
+
+  return null;
 }
