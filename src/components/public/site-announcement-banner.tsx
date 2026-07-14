@@ -2,6 +2,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { Info, AlertTriangle, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { safeHref } from "@/lib/security/safe-url";
 import type { SiteAnnouncement } from "@/types/database";
 import { SiteAnnouncementDismiss } from "./site-announcement-dismiss";
 
@@ -67,7 +68,7 @@ export async function SiteAnnouncementBanner() {
         <p className={`flex-1 ${styles.text}`}>{message}</p>
         {ctaLabel && chosen.cta_href && (
           <Link
-            href={chosen.cta_href}
+            href={safeHref(chosen.cta_href)}
             className={`rounded-lg border px-3 py-1 text-xs font-medium transition-colors ${styles.text} hover:bg-white/5`}
           >
             {ctaLabel}
