@@ -63,7 +63,7 @@ export default async function SessionDetailPage({
   const { t, dir, lang } = await getT();
   const locale = lang === "ar" ? "ar-EG" : "en-US";
   const supabase = await createClient();
-  const { id: adminId } = await requireAdmin();
+  await requireAdmin(); // page gate — the send action re-checks on invocation
 
   /* Fetch session */
   const { data: session } = await supabase
@@ -170,7 +170,7 @@ export default async function SessionDetailPage({
           isActive={isActive}
           isExpired={!!isExpired}
         />
-        {session.ended_at && <SendReportButton sessionId={session.id} actorId={adminId} />}
+        {session.ended_at && <SendReportButton sessionId={session.id} />}
       </div>
 
       {/* Session info card */}

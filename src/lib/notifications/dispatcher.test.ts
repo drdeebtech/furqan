@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("server-only", () => ({}));
+
 // ─── Hoisted mock state ───────────────────────────────────────────────────────
 // vi.mock factories are hoisted above imports, so any variables they close over
 // must be declared with vi.hoisted() to be available at hoist time.
