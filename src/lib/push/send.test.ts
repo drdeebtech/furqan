@@ -24,6 +24,7 @@ vi.mock("./vapid", () => ({
 }));
 
 import { sendPushToUser } from "./send";
+import { pinnedPushAgent } from "./safe-endpoint";
 
 function adminClient() {
   return {
@@ -70,6 +71,8 @@ describe("sendPushToUser", () => {
         body: "بقي ١٥ دقيقة على جلستك",
         url: "/student/bookings",
       }),
+      // issue #687: every send must carry the DNS-pinning agent
+      expect.objectContaining({ agent: pinnedPushAgent }),
     );
   });
 

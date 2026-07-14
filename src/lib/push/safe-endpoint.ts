@@ -1,4 +1,6 @@
 import net from "node:net";
+import https from "node:https";
+import dns from "node:dns";
 import { lookup } from "node:dns/promises";
 
 /**
@@ -100,3 +102,60 @@ export async function isSafePushEndpointResolved(endpoint: string): Promise<bool
     return false;
   }
 }
+
+/**
+ * Connect-time DNS pin (issue #687 — closes the DNS-rebinding TOCTOU).
+ *
+ * `isSafePushEndpointResolved` validates a resolution the HTTP client does
+ * NOT reuse — web-push re-resolves at send time, so a hostname can answer a
+ * public IP to the guard and a private IP to the actual socket. This lookup
+ * runs INSIDE the socket's own resolution path: the addresses it validates
+ * are exactly the addresses the connection uses, so there is no gap to race.
+ *
+ * Every answer in the set must be safe (a resolver can interleave public and
+ * private records — dual-answer rebinding); an empty or unsafe answer fails
+ * the connection with ERR_PUSH_UNSAFE_ADDRESS.
+ */
+type LookupCallback = (
+  err: NodeJS.ErrnoException | null,
+  address: string | dns.LookupAddress[],
+  family?: number,
+) => void;
+
+export function makeSafePushLookup(baseLookup: typeof dns.lookup = dns.lookup) {
+  return function safePushLookup(
+    hostname: string,
+    options: dns.LookupOptions | LookupCallback,
+    callback?: LookupCallback,
+  ): void {
+    const cb = (typeof options === "function" ? options : callback) as LookupCallback;
+    const opts: dns.LookupOptions = typeof options === "function" ? {} : options;
+
+    (baseLookup as unknown as (
+      host: string,
+      o: dns.LookupOptions,
+      c: (err: NodeJS.ErrnoException | null, addresses: dns.LookupAddress[]) => void,
+    ) => void)(hostname, { ...opts, all: true }, (err, addresses) => {
+      if (err) return cb(err, "", 0);
+      if (addresses.length === 0 || addresses.some((a) => isUnsafeResolvedIp(a.address))) {
+        const unsafe: NodeJS.ErrnoException = new Error(
+          `push: unsafe DNS answer for ${hostname} — refusing to connect`,
+        );
+        unsafe.code = "ERR_PUSH_UNSAFE_ADDRESS";
+        return cb(unsafe, "", 0);
+      }
+      if (opts.all) return cb(null, addresses);
+      const first = addresses[0];
+      cb(null, first.address, first.family);
+    });
+  };
+}
+
+/**
+ * Agent for ALL web-push sends. keepAlive stays off: connection reuse across
+ * sends would skip the lookup (and thus the pin) on a reused socket.
+ */
+export const pinnedPushAgent = new https.Agent({
+  lookup: makeSafePushLookup(),
+  keepAlive: false,
+});
