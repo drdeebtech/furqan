@@ -91,6 +91,7 @@ describe("auth actions fail closed when the rate-limiter backend errors (#688)",
   beforeEach(() => {
     vi.clearAllMocks();
     requestHeaders = {};
+    vi.unstubAllEnvs();
     mockInsert.mockResolvedValue({ error: null });
   });
 
@@ -201,6 +202,9 @@ describe("auth actions fail closed when the rate-limiter backend errors (#688)",
 
   it("login consults both the per-email and per-IP limiter layers when an IP is present", async () => {
     requestHeaders = { "x-forwarded-for": "203.0.113.9" };
+    // getClientIp (#691) only trusts forwarding headers behind a trusted
+    // proxy; model the production (Vercel) deployment.
+    vi.stubEnv("VERCEL", "1");
     mockRpc.mockResolvedValue({ data: true, error: null });
     mockSignInWithPassword.mockResolvedValueOnce({
       data: { user: null },
@@ -324,6 +328,7 @@ describe("auth actions fail closed when the rate-limiter backend errors (#688)",
 
   it("login is denied when only the per-IP limiter backend errors (per-email healthy)", async () => {
     requestHeaders = { "x-forwarded-for": "203.0.113.7" };
+    vi.stubEnv("VERCEL", "1");
     mockRpc.mockImplementation(async (_fn: string, args: { p_bucket: string }) => {
       if (args.p_bucket === "login-attempt-ip") throw new Error("limiter db down");
       return { data: true, error: null };
