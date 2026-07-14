@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   createAdminClient: vi.fn(),
   deleteEq: vi.fn(),
   logError: vi.fn(),
+  lookup: vi.fn(),
   selectEq: vi.fn(),
   sendNotification: vi.fn(),
 }));
@@ -14,6 +15,9 @@ vi.mock("@/lib/logger", () => ({
 }));
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => mocks.createAdminClient(),
+}));
+vi.mock("node:dns/promises", () => ({
+  lookup: (...args: unknown[]) => mocks.lookup(...args),
 }));
 vi.mock("./vapid", () => ({
   configuredWebpush: { sendNotification: mocks.sendNotification },
@@ -34,6 +38,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.createAdminClient.mockReturnValue(adminClient());
   mocks.deleteEq.mockResolvedValue({ error: null });
+  mocks.lookup.mockResolvedValue([{ address: "8.8.8.8", family: 4 }]);
 });
 
 describe("sendPushToUser", () => {

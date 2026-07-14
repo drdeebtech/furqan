@@ -1,5 +1,18 @@
-import { describe, it, expect } from "vitest";
-import { isSafePushEndpoint } from "./safe-endpoint";
+import { beforeEach, describe, it, expect, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  lookup: vi.fn(),
+}));
+
+vi.mock("node:dns/promises", () => ({
+  lookup: (...args: unknown[]) => mocks.lookup(...args),
+}));
+
+import { isSafePushEndpoint, isSafePushEndpointResolved } from "./safe-endpoint";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("isSafePushEndpoint (SSRF-VULN-01)", () => {
   it("allows real push-service endpoints", () => {
@@ -48,5 +61,34 @@ describe("isSafePushEndpoint (SSRF-VULN-01)", () => {
     ]) {
       expect(isSafePushEndpoint(bad), bad).toBe(false);
     }
+  });
+
+  it("blocks public hostnames that resolve to private IPs", async () => {
+    mocks.lookup.mockResolvedValue([{ address: "10.0.0.5", family: 4 }]);
+
+    await expect(isSafePushEndpointResolved("https://push.example.com/sub")).resolves.toBe(false);
+  });
+
+  it("blocks public hostnames that resolve to IPv6 ULA addresses", async () => {
+    mocks.lookup.mockResolvedValue([{ address: "fd00::1", family: 6 }]);
+
+    await expect(isSafePushEndpointResolved("https://push.example.com/sub")).resolves.toBe(false);
+  });
+
+  it("treats DNS failures or empty answers as unsafe", async () => {
+    mocks.lookup.mockRejectedValueOnce(new Error("dns down"));
+    await expect(isSafePushEndpointResolved("https://push.example.com/sub")).resolves.toBe(false);
+
+    mocks.lookup.mockResolvedValueOnce([]);
+    await expect(isSafePushEndpointResolved("https://push.example.com/sub")).resolves.toBe(false);
+  });
+
+  it("allows public hostnames when every DNS answer is public", async () => {
+    mocks.lookup.mockResolvedValue([
+      { address: "8.8.8.8", family: 4 },
+      { address: "2001:4860:4860::8888", family: 6 },
+    ]);
+
+    await expect(isSafePushEndpointResolved("https://push.example.com/sub")).resolves.toBe(true);
   });
 });

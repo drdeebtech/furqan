@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   adminDeleteEq: vi.fn(),
   getUser: vi.fn(),
   insert: vi.fn(),
+  lookup: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -13,6 +14,9 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => mocks.createAdminClient(),
+}));
+vi.mock("node:dns/promises", () => ({
+  lookup: (...args: unknown[]) => mocks.lookup(...args),
 }));
 
 import { POST } from "./route";
@@ -49,6 +53,7 @@ beforeEach(() => {
   mocks.getUser.mockResolvedValue({ data: { user: { id: "session-user" } } });
   mocks.adminDeleteEq.mockResolvedValue({ error: null });
   mocks.insert.mockResolvedValue({ error: null });
+  mocks.lookup.mockResolvedValue([{ address: "8.8.8.8", family: 4 }]);
 });
 
 describe("POST /api/push/subscribe", () => {

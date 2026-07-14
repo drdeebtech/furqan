@@ -4,7 +4,7 @@ import type { PushSubscription } from "web-push";
 import { logError } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { configuredWebpush } from "./vapid";
-import { isSafePushEndpoint } from "./safe-endpoint";
+import { isSafePushEndpointResolved } from "./safe-endpoint";
 
 export type PushPayload = {
   title: string;
@@ -48,9 +48,9 @@ export async function sendPushToUser(
       subscriptions.map(async (subscription) => {
         // Defence-in-depth (SSRF-VULN-01): re-validate at send time so a row
         // stored before the subscribe-boundary guard existed can't turn the
-        // cron sender into an SSRF primitive. isSafePushEndpoint rejects
-        // non-HTTPS, IP-literals, and internal hosts.
-        if (!isSafePushEndpoint(subscription.endpoint)) {
+        // cron sender into an SSRF primitive. This rejects non-HTTPS,
+        // IP-literals, internal hosts, and private DNS answers.
+        if (!(await isSafePushEndpointResolved(subscription.endpoint))) {
           result.failed += 1;
           logError("push: skipped unsafe endpoint", null, {
             tag: "push",

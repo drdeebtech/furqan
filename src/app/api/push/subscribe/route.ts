@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isSafePushEndpoint } from "@/lib/push/safe-endpoint";
+import { isSafePushEndpoint, isSafePushEndpointResolved } from "@/lib/push/safe-endpoint";
 
 const subscriptionSchema = z.object({
   // SSRF guard (SSRF-VULN-01): a real push endpoint is a public HTTPS FQDN.
@@ -35,6 +35,9 @@ export async function POST(request: Request) {
   }
 
   const { endpoint, keys } = parsed.data;
+  if (!(await isSafePushEndpointResolved(endpoint))) {
+    return NextResponse.json({ error: "Invalid subscription" }, { status: 400 });
+  }
 
   // An endpoint identifies one browser. A fresh subscription proves the current
   // session controls that browser now, so transfer ownership atomically: clear

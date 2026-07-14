@@ -61,6 +61,7 @@ export async function POST(request: Request) {
     event = stripe.webhooks.constructEvent(rawBody, sig, secret);
   } catch (err) {
     // Forged or malformed → 400, ZERO side effects (NFR-001).
+    // no security-alert here: unauthenticated path, flood vector (see PR #686 review)
     logError("stripe-webhook: signature verification failed", err, {
       tag: "stripe-webhook", kind: "bad-sig",
     });

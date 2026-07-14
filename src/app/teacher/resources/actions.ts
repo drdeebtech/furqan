@@ -7,11 +7,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { notify } from "@/lib/notifications/dispatcher";
 import { logError } from "@/lib/logger";
 import type { TableInsert } from "@/lib/supabase/typed-helpers";
+import { assertAllowedUpload, type AllowedFileType } from "@/lib/security/file-signature";
+import { recordSecurityAlert } from "@/lib/security/audit-logger";
 
 const VALID_TYPES = ["pdf", "audio", "link", "video", "image"] as const;
 type ResourceType = (typeof VALID_TYPES)[number];
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50 MB cap, matches admin path
+const RESOURCE_UPLOAD_TYPES = ["jpeg", "png", "webp", "gif", "pdf"] as const satisfies readonly AllowedFileType[];
 
 export interface TeacherResourceFormState {
   ok?: boolean;
@@ -82,14 +85,31 @@ export async function uploadTeacherResourceAction(
     if (fileEntry.size > MAX_UPLOAD_BYTES) {
       return { error: "الملف كبير جدًا — الحد الأقصى 50 ميغابايت" };
     }
+    let safeUpload: Awaited<ReturnType<typeof assertAllowedUpload>>;
+    try {
+      safeUpload = await assertAllowedUpload(fileEntry, RESOURCE_UPLOAD_TYPES);
+    } catch (err) {
+      await recordSecurityAlert({
+        userId: user.id,
+        attemptedAction: "teacher.resources.upload.rejected",
+        alertLevel: "warning",
+        metadata: {
+          fileName: fileEntry.name,
+          claimedType: fileEntry.type,
+          size: fileEntry.size,
+          reason: err instanceof Error ? err.message : String(err),
+        },
+      });
+      return { error: "نوع الملف غير مدعوم أو غير آمن" };
+    }
     // admin: upload to 'resources' storage bucket (INSERT policy is admin-only) (issue #523)
     const adminClient = createAdminClient();
-    const ext = fileEntry.name.split(".").pop()?.toLowerCase() ?? "bin";
-    const path = `teacher/${user.id}/${resource_type}/${Date.now()}_${crypto.randomUUID()}.${ext}`;
+    const path = `teacher/${user.id}/${resource_type}/${Date.now()}_${crypto.randomUUID()}.${safeUpload.ext}`;
     const { error: upErr } = await adminClient.storage
       .from("resources")
       .upload(path, fileEntry, {
-        contentType: fileEntry.type || "application/octet-stream",
+        contentType: safeUpload.contentType,
+        headers: safeUpload.type === "pdf" ? { "Content-Disposition": "attachment" } : undefined,
         upsert: false,
       });
     if (upErr) {

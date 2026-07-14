@@ -106,7 +106,10 @@ export async function updateSession(request: NextRequest, cspNonce?: string) {
           // Re-apply the nonce to the new response object created in setAll.
           if (cspNonce) supabaseResponse.headers.set("x-nonce", cspNonce);
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options),
+            // SameSite=Lax: blocks CSRF on cross-site POST while still sending
+            // the cookie on the top-level GET OAuth callback (Strict would drop
+            // the PKCE code-verifier on Google's redirect and break login).
+            supabaseResponse.cookies.set(name, value, { ...options, sameSite: "lax" }),
           );
         },
       },

@@ -6,6 +6,7 @@
  * enough. Kept as a tiny pure helper so the security-critical comparison is
  * unit-testable without standing up Supabase.
  */
+import { safeCompareSecret } from "@/lib/security/secrets";
 
 /** Trim + uppercase so the human-shared code matches regardless of casing/spaces. */
 export function normalizeGuardianCode(code: string): string {
@@ -24,5 +25,5 @@ export function guardianCodeMatches(
   if (!stored) return false;
   const normalizedSubmitted = normalizeGuardianCode(submitted);
   if (normalizedSubmitted.length === 0) return false;
-  return normalizeGuardianCode(stored) === normalizedSubmitted;
+  return safeCompareSecret(normalizeGuardianCode(stored), normalizedSubmitted);
 }

@@ -30,6 +30,6 @@ export function buildContentSecurityPolicy(nonce: string): string {
     // Clickjacking guard that rides on the per-request CSP header, so it holds
     // on every deployment surface (Vercel AND any VPS/self-hosted build where
     // vercel.json's X-Frame-Options is inert). Modern replacement for XFO.
-    "frame-ancestors 'self'",
+    "frame-ancestors 'none'",
   ].join("; ");
 }

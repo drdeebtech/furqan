@@ -56,6 +56,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     (!!prevSecret && verifyDailySignature(rawBody, sig, prevSecret, timestampHeader));
 
   if (!validSig) {
+    // no security-alert here: unauthenticated path, flood vector (see PR #686 review)
     logError("daily-webhook: invalid HMAC signature", new Error("hmac-fail"), {
       tag: "daily-webhook",
       severity: "warning",
