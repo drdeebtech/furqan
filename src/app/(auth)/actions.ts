@@ -105,8 +105,11 @@ function shouldBypassBotId(email: string | null | undefined): boolean {
 
 /**
  * DB-backed per-identifier rate limiter for auth flows.
- * Keys on the email (lowercased) — IP rotation doesn't bypass it.
- * Fails open on DB errors so infra issues don't lock legitimate users out.
+ * Keys on the email (lowercased + hashed via emailToUuidKey — no raw PII in
+ * the counter table) so IP rotation doesn't bypass it. Delegates to the
+ * shared atomic limiter and FAILS CLOSED (issue #688): a limiter backend
+ * error denies the attempt rather than waving credential traffic through —
+ * availability cost is acceptable on login/register/forgot-password.
  */
 async function checkAuthRate(
   workflow: "login-attempt" | "register-attempt" | "forgot-password-attempt",
@@ -116,56 +119,7 @@ async function checkAuthRate(
   // Skip rate limiting in dev (local) and for CI test accounts.
   if (process.env.NODE_ENV === "development") return true;
   if (email.toLowerCase().endsWith("@furqan.test")) return true;
-  try {
-    // Service-role client. The rate-limit check runs PRE-AUTHENTICATION
-    // (the user has no session yet on POST /login or /forgot-password),
-    // so the regular SSR client carries only the anon key. RLS on
-    // automation_logs allows anon SELECT but not anon INSERT — the INSERT
-    // was returning 401 and tripping the silent_fail observability hook
-    // (Sentry JAVASCRIPT-NEXTJS-E4-1M). Service-role bypasses RLS for
-    // both the count check and the row insert; the rate limiter is purely
-    // server-side bookkeeping so privilege escalation is not a concern.
-    const supabase = createAdminClient();
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    // automation_logs.entity_id is UUID-typed in production despite the
-    // generated .ts declaring it `string | null`. Passing the raw email
-    // tripped 22P02 (invalid input syntax for type uuid) on every login
-    // attempt — the rate limiter has been silently fail-open since shipped.
-    // (Sentry JAVASCRIPT-NEXTJS-E4-14.)
-    //
-    // Fix: deterministically hash the email to a UUID-shaped key via
-    // SHA-256 + UUIDv5-style nibble formatting. Same email → same UUID,
-    // type-correct on insert + lookup, no schema migration needed,
-    // idempotency_key (UNIQUE text) stays free for n8n use.
-    const entityId = emailToUuidKey(email);
-    const { count } = await supabase
-      .from("automation_logs")
-      .select("id", { count: "exact", head: true })
-      .eq("workflow_name", workflow)
-      .eq("entity_id", entityId)
-      .gte("started_at", oneHourAgo);
-
-    if ((count ?? 0) >= max) return false;
-
-    const now = new Date().toISOString();
-    const { error: autoLogError } = await supabase.from("automation_logs").insert({
-      workflow_name: workflow,
-      entity_type: "email",
-      entity_id: entityId,
-      status: "succeeded",
-      started_at: now,
-      finished_at: now,
-    });
-    if (autoLogError) {
-      logError(`${workflow} rate-limit log insert failed`, autoLogError, {
-        tag: "auth-rate", workflow, entityId,
-      });
-    }
-    return true;
-  } catch (err) {
-    logError(`${workflow} rate check failed — allowing request`, err, { tag: "auth-rate" });
-    return true;
-  }
+  return checkRateLimit(emailToUuidKey(email), workflow, max, { failClosed: true });
 }
 
 // Per-IP caps (AUTH-VULN-02): the cross-account layer the per-email limits
@@ -178,8 +132,8 @@ const MAX_FORGOT_PASSWORD_IP_PER_HOUR = 20;
 /**
  * Per-IP rate limit for auth flows (AUTH-VULN-02) — the cross-account layer the
  * per-email limiter can't see. Uses the trusted-proxy client IP (spoof-proof on
- * Vercel; see client-ip.ts). Fail-open: no resolvable IP, dev, or a limiter
- * backend error never blocks a real user — the per-email limit is the backstop.
+ * Vercel; see client-ip.ts). No resolvable IP or dev → allow (the per-email
+ * limit is the backstop); a limiter backend error FAILS CLOSED (issue #688).
  */
 async function checkAuthRateByIp(
   workflow: "login-attempt-ip" | "register-attempt-ip" | "forgot-password-attempt-ip",
@@ -188,7 +142,7 @@ async function checkAuthRateByIp(
   if (process.env.NODE_ENV === "development") return true;
   const ip = getClientIp(await headers());
   if (!ip) return true;
-  return checkRateLimit(ip, workflow, max);
+  return checkRateLimit(ip, workflow, max, { failClosed: true });
 }
 
 /**
