@@ -27,7 +27,7 @@ describe("internal helper trust boundary (issue #689)", () => {
     });
 
     it(`${relPath} is poisoned against client imports (server-only)`, () => {
-      expect(source).toMatch(/import ["']server-only["']/);
+      expect(source).toMatch(/^\s*import\s+["']server-only["'];?\s*$/m);
     });
   }
 });
