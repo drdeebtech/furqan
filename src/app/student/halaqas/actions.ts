@@ -60,6 +60,12 @@ export async function enrollInHalaqa(
   } = await supabase.auth.getUser();
   if (!user) return { error: "غير مسجل الدخول" };
 
+  // AUTHZ-VULN-02: enforce the student role in-action (writes below bypass RLS
+  // via the admin client; edge middleware is the only other guard).
+  const { data: actorProfile } = await supabase
+    .from("profiles").select("role").eq("id", user.id).maybeSingle<{ role: string }>();
+  if (actorProfile?.role !== "student") return { error: "هذا الإجراء متاح للطلاب فقط" };
+
   // admin: halaqa enrollment flows update the shared sessions.current_enrollment counter (student isn't the booking owner) and session_participants DELETE is admin-only (issue #523)
   const admin = createAdminClient();
 
@@ -260,6 +266,12 @@ export async function joinHalaqaWaitingList(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "غير مسجل الدخول" };
+
+  // AUTHZ-VULN-02: enforce the student role in-action (waitlist insert bypasses
+  // RLS via the admin client; edge middleware is the only other guard).
+  const { data: actorProfile } = await supabase
+    .from("profiles").select("role").eq("id", user.id).maybeSingle<{ role: string }>();
+  if (actorProfile?.role !== "student") return { error: "هذا الإجراء متاح للطلاب فقط" };
 
   // admin: joinHalaqaWaitingList reads the max position across ALL waiters'
   // rows (RLS only shows the student their own), so the cross-student read

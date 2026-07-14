@@ -46,6 +46,7 @@
 | [036-teacher-marketplace](./036-teacher-marketplace/spec.md) | Shipped | `feat/036-teacher-marketplace` | [#636](https://github.com/drdeebtech/furqan/pull/636) |
 | [037-public-teacher-profile](./037-public-teacher-profile/spec.md) | Tasks-ready | _(unknown)_ | _(pending)_ |
 | [038-prepaid-hour-wallet](./038-prepaid-hour-wallet/spec.md) | Tasks-ready | _(unknown)_ | _(pending)_ |
+| [039-shannon-audit-remediation](./039-shannon-audit-remediation/spec.md) | Draft | _(unknown)_ | _(pending)_ |
 
 ## Abandoned (last 90 days)
 
