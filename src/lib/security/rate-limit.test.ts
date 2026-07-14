@@ -38,10 +38,20 @@ describe("checkRateLimit (issue #688 — atomic + fail-closed)", () => {
     expect(await checkRateLimit("1.2.3.4", "login-attempt-ip", 50)).toBe(false);
   });
 
-  it("denies on a non-boolean RPC payload (never admits on unknown state)", async () => {
+  it("treats a non-boolean RPC payload as limiter-unavailable: fail-closed denies", async () => {
     mockRpc.mockResolvedValue({ data: null, error: null });
 
-    expect(await checkRateLimit("1.2.3.4", "login-attempt-ip", 50)).toBe(false);
+    expect(await checkRateLimit("1.2.3.4", "login-attempt-ip", 50, { failClosed: true })).toBe(
+      false,
+    );
+    expect(mockLogError).toHaveBeenCalled();
+  });
+
+  it("treats a non-boolean RPC payload as limiter-unavailable: public forms stay fail-open", async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    expect(await checkRateLimit("1.2.3.4", "contact-attempt", 5)).toBe(true);
+    expect(mockLogError).toHaveBeenCalled();
   });
 
   it("fail-closed: denies when the RPC returns an error", async () => {

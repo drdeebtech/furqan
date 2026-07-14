@@ -1,11 +1,15 @@
 ---
 name: ci tests
 discover: npx vitest list --filesOnly
-# Atoms go through quoted-echo + xargs, NOT bare interpolation: test paths
-# with shell metacharacters (e.g. src/app/(auth)/*.test.ts — parentheses are
-# a bash syntax error unquoted) must reach vitest as plain args. xargs splits
-# on whitespace without shell interpretation; -r skips the run on an empty
-# shard instead of running the entire suite.
-run: echo '<< test.atoms >>' | xargs -r npx vitest run --reporter=junit --outputFile="<< outputs.junit >>" --bail 0
+# Atoms go through quoted-echo + tr + NUL-delimited xargs, NOT bare
+# interpolation: test paths with shell metacharacters (e.g.
+# src/app/(auth)/*.test.ts — parentheses are a bash syntax error unquoted)
+# must reach vitest as plain args. tr splits on the spaces CircleCI itself
+# uses to delimit atoms (so paths can't contain spaces regardless of
+# transport); xargs -0 does no quote/backslash processing. -x fails loudly
+# if the list ever exceeds one exec (a silent second batch would overwrite
+# the shared --outputFile); -r skips the run on an empty shard instead of
+# running the entire suite.
+run: printf '%s' '<< test.atoms >>' | tr ' ' '\0' | xargs -0 -r -x npx vitest run --reporter=junit --outputFile="<< outputs.junit >>" --bail 0
 outputs:
   junit: test-reports/tests.xml

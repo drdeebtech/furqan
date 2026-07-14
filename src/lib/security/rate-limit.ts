@@ -54,15 +54,18 @@ export async function checkRateLimit(
       },
       `rate-limit-rpc:${workflow}`,
     );
-    if (error) {
+    // Error OR malformed payload: both are "limiter unavailable" — the
+    // route's declared policy decides (fail-closed denies, public forms
+    // stay fail-open). Never treat an unknown state as a verdict.
+    if (error || typeof allowed !== "boolean") {
       logError(
-        `rate-limit rpc failed — ${failClosed ? "denying" : "allowing"} (${workflow})`,
-        error,
+        `rate-limit rpc ${error ? "failed" : "returned non-boolean"} — ${failClosed ? "denying" : "allowing"} (${workflow})`,
+        error ?? new Error(`unexpected rpc payload: ${String(allowed)}`),
         { tag: workflow },
       );
       return !failClosed;
     }
-    return allowed === true;
+    return allowed;
   } catch (err) {
     // Fail-closed routes deny on backend error; everyone else fails open so a
     // limiter outage never blocks a real submission.
