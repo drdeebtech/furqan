@@ -43,6 +43,15 @@ create index if not exists idx_pending_upgrade_grants_sub_pending
   on public.pending_upgrade_grants (subscription_id, created_at desc)
   where status = 'pending';
 
+-- DB-level invariant (review round): at most ONE in-flight upgrade per
+-- subscription, mirroring idx_pending_changes_subscription on
+-- pending_tier_changes. recordPendingUpgradeGrant cancels stale intents
+-- before inserting; under a concurrent double-submit the loser hits this
+-- index and the request fails cleanly instead of leaving two pendings.
+create unique index if not exists uix_pending_upgrade_grants_one_pending
+  on public.pending_upgrade_grants (subscription_id)
+  where status = 'pending';
+
 -- ── RLS — enabled + policies in the SAME migration (AGENTS.md §3) ────────────
 alter table public.pending_upgrade_grants enable row level security;
 
