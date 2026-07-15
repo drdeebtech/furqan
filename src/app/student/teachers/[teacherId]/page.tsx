@@ -9,7 +9,9 @@ import {
   RIWAYA_AR,
 } from "@/lib/constants";
 import { getActiveTeacherSpecialties } from "@/lib/site-content/queries";
+import { getInstantPrice } from "@/lib/domains/single-sessions/pricing";
 import type { GenderType, SessionType, RecitationStandard } from "@/types/database";
+import { SingleSessionPurchase } from "./single-session-purchase";
 
 const RIWAYA_EN: Record<RecitationStandard, string> = {
   hafs: "Hafs", warsh: "Warsh", qalon: "Qalon", al_duri: "Al-Duri", shu_ba: "Shu'ba",
@@ -33,7 +35,7 @@ export default async function TeacherDetailPage({ params }: PageProps) {
   if (!user) redirect(`/login?next=/student/teachers/${teacherId}`);
 
   // Pull profile + teacher_profiles + availability + specialty picklist in parallel.
-  const [{ data: profile }, { data: tp }, { data: availability }, specialtyLabels] = await Promise.all([
+  const [{ data: profile }, { data: tp }, { data: availability }, specialtyLabels, instantPrice] = await Promise.all([
     supabase
       .from("public_profiles" as "profiles")
       .select("full_name, full_name_ar, avatar_url")
@@ -58,6 +60,7 @@ export default async function TeacherDetailPage({ params }: PageProps) {
       .order("day_of_week", { ascending: true })
       .returns<{ day_of_week: number; start_time: string; end_time: string }[]>(),
     getActiveTeacherSpecialties(),
+    getInstantPrice(),
   ]);
 
   if (!profile || !tp || tp.is_archived || !tp.is_accepting || tp.cv_status !== "approved") {
@@ -209,6 +212,12 @@ export default async function TeacherDetailPage({ params }: PageProps) {
           {t("احجز جلسة", "Book a session")}
         </Link>
       </div>
+      <SingleSessionPurchase
+        teacherId={tp.teacher_id}
+        availability={availability ?? []}
+        priceUsd={instantPrice}
+        lang={lang}
+      />
     </div>
   );
 }

@@ -18,6 +18,7 @@ import { z } from "zod";
 import type { Json } from "@/types/supabase.generated";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError, logInfo } from "@/lib/logger";
+import { dispatchEffects } from "@/lib/automation/effects";
 import { emitEvent } from "@/lib/automation/emit";
 import { getPostHogClient } from "@/lib/posthog-server";
 import {
@@ -443,6 +444,7 @@ export async function handlePaymentIntentSucceeded(ctx: EventContext): Promise<v
   const specialty = md.specialty;
   const purpose = md.purpose;
   const targetScopeRaw = md.target_scope;
+  const scheduledAt = md.scheduled_at ?? null;
 
   if (!bookingType || !studentId || !teacherId) {
     await markEvent(
@@ -583,6 +585,7 @@ export async function handlePaymentIntentSucceeded(ctx: EventContext): Promise<v
         specialty: specialty ?? null,
         purpose: (purpose as "review" | "consolidate_surah" | "memorize_mutoon" | "test_juz_mutashabihat" | null) ?? null,
         targetScopeRaw: targetScopeRaw ?? null,
+        scheduledAt,
       });
       if (!conflictResult.ok) {
         // Release the sentinel so a future retry can re-attempt (CodeRabbit #1).
@@ -608,6 +611,7 @@ export async function handlePaymentIntentSucceeded(ctx: EventContext): Promise<v
     specialty: specialty ?? null,
     purpose: (purpose as "review" | "consolidate_surah" | "memorize_mutoon" | "test_juz_mutashabihat" | null) ?? null,
     targetScopeRaw: targetScopeRaw ?? null,
+    scheduledAt,
   });
   if (!result.ok) {
     // Release the sentinel so a future retry of this PI can re-attempt
@@ -1001,12 +1005,14 @@ async function materializeBooking(
     specialty: string | null;
     purpose: "review" | "consolidate_surah" | "memorize_mutoon" | "test_juz_mutashabihat" | null;
     targetScopeRaw: string | null;
+    scheduledAt: string | null;
   },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const admin = ctx.admin;
 
   if (args.bookingType === "instant") {
     // Instant path: adapted start_instant_session_booking with p_payment_id.
+    const effectiveScheduledAt = args.scheduledAt ?? new Date().toISOString();
     const { data: bookingId, error: rpcErr } = await admin.rpc(
       "start_instant_session_booking",
       {
@@ -1016,7 +1022,7 @@ async function materializeBooking(
         p_duration_min: 30,
         p_rate_snapshot: 0,
         p_amount_usd: 0,
-        p_scheduled_at: new Date().toISOString(),
+        p_scheduled_at: effectiveScheduledAt,
         p_payment_id: args.paymentId,
       },
     );
@@ -1026,6 +1032,24 @@ async function materializeBooking(
       });
       return { ok: false, error: rpcErr?.message ?? "instant creator returned no id" };
     }
+    const dateLabel = new Date(effectiveScheduledAt).toLocaleDateString("ar");
+    await Promise.allSettled([
+      dispatchEffects("booking.created", {
+        teacherId: args.teacherId,
+        entityId: bookingId as string,
+        dateLabel,
+      }),
+      emitEvent("booking.created", "booking", bookingId as string, {
+        student_id: args.studentId,
+        teacher_id: args.teacherId,
+        session_type: "hifz",
+        scheduled_at: effectiveScheduledAt,
+      }).catch((err) =>
+        logError("single-session webhook: emit booking.created failed", err, {
+          tag: "stripe-webhook", booking_type: "instant",
+        }),
+      ),
+    ]);
     return { ok: true };
   }
 

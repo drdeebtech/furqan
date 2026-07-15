@@ -23,6 +23,7 @@ import {
   validateTargetScope,
   type TargetScope,
 } from "@/lib/domains/single-sessions/quran-validation";
+import { validateInstantSlot } from "@/lib/domains/single-sessions/instant-slot";
 
 export const maxDuration = 60;
 
@@ -56,6 +57,20 @@ const SingleSessionCheckoutSchema = z
     purpose: z.enum(SPECIALIZED_PURPOSES).optional(),
     targetScope: TargetScopeSchema.optional(),
     teacherId: z.string().uuid().optional(),
+    scheduledAt: z.string().datetime().optional(),
+    // Student-local wall-clock of the selected slot — required with
+    // scheduledAt for instant bookings. Availability is validated against
+    // these (teacher_availability stores app-local wall-clock strings), never
+    // against wall-clock re-derived from the UTC instant in the server's tz.
+    dayOfWeek: z.number().int().min(0).max(6).optional(),
+    localDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    localTime: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+      .optional(),
     currency: z.literal("usd").default("usd"),
   })
   .strict()
@@ -73,6 +88,16 @@ const SingleSessionCheckoutSchema = z
         message: "teacherId is required for instant bookings",
         path: ["teacherId"],
       });
+    }
+    if (val.productType === "instant" && val.scheduledAt) {
+      if (val.dayOfWeek === undefined || !val.localDate || !val.localTime) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "dayOfWeek, localDate and localTime (student-local wall-clock) are required with scheduledAt",
+          path: ["localTime"],
+        });
+      }
     }
     if (val.productType === "specialized") {
       if (!val.teacherId) {
@@ -297,6 +322,7 @@ export async function POST(request: Request) {
       booking_type: "instant",
       student_id: studentId,
       teacher_id: teacherId,
+      ...(body.scheduledAt ? { scheduled_at: body.scheduledAt } : {}),
     };
   } else {
     // specialized
@@ -361,6 +387,38 @@ export async function POST(request: Request) {
         { status: 422 },
       );
     }
+
+    if (body.productType === "instant" && body.scheduledAt) {
+      // zod superRefine guarantees these; keep a fail-closed runtime narrow so
+      // slot validation can never silently run without client wall-clock.
+      if (body.dayOfWeek === undefined || !body.localDate || !body.localTime) {
+        return NextResponse.json(
+          { success: false, error: "Missing student-local time fields for the selected slot" },
+          { status: 400 },
+        );
+      }
+      const slot = await validateInstantSlot(admin, {
+        teacherId,
+        scheduledAt: new Date(body.scheduledAt),
+        dayOfWeek: body.dayOfWeek,
+        localDate: body.localDate,
+        localTime: body.localTime,
+        durationMin: 30,
+      });
+      if (!slot.ok) {
+        const msg = {
+          past: "Selected time is in the past",
+          unavailable: "Teacher is not available at the selected time",
+          blocked: "Selected time is unavailable",
+          overlap: "Selected time is already booked",
+          lookup_failed: "Could not verify the selected time",
+        }[slot.reason];
+        return NextResponse.json(
+          { success: false, error: msg },
+          { status: slot.reason === "lookup_failed" ? 500 : 422 },
+        );
+      }
+    }
   }
 
   // ── Zero-price path: create the booking directly via the atomic creator ──
@@ -378,7 +436,7 @@ export async function POST(request: Request) {
           p_duration_min: 30,
           p_rate_snapshot: 0,
           p_amount_usd: 0,
-          p_scheduled_at: new Date().toISOString(),
+          p_scheduled_at: body.scheduledAt ?? new Date().toISOString(),
           p_payment_id: undefined,
         },
       );
