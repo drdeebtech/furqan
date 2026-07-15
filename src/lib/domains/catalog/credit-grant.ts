@@ -260,6 +260,15 @@ export async function recordPendingUpgradeGrant(
     stripeInvoiceId: string;
   },
 ): Promise<RecordPendingUpgradeResult | GrantHifzFailure> {
+  // At most one upgrade may be in flight per subscription. Cancel stale
+  // pending intents first (best-effort) so the webhook's newest-pending
+  // fallback can never pick up an orphaned earlier attempt.
+  await admin
+    .from("pending_upgrade_grants")
+    .update({ status: "cancelled" })
+    .eq("subscription_id", args.subscriptionId)
+    .eq("status", "pending");
+
   const { data, error } = await admin
     .from("pending_upgrade_grants")
     .insert({
@@ -274,13 +283,19 @@ export async function recordPendingUpgradeGrant(
 
   if (error?.code === "23505") {
     // Duplicate submission for the same proration invoice — idempotent no-op.
-    const { data: winner } = await admin
+    const { data: winner, error: reselectErr } = await admin
       .from("pending_upgrade_grants")
       .select("id")
       .eq("stripe_invoice_id", args.stripeInvoiceId)
       .maybeSingle<{ id: string }>();
     if (winner) return { ok: true, id: winner.id };
-    return { ok: false, error: "unique conflict but winner not found" };
+    // Billing-critical path: keep BOTH diagnostics, not a generic shrug.
+    return {
+      ok: false,
+      error: `unique conflict but winner not found (insert: ${error.message}${
+        reselectErr ? `; re-select: ${reselectErr.message}` : ""
+      })`,
+    };
   }
   if (error || !data) {
     logError("catalog.recordPendingUpgradeGrant failed", error ?? new Error("no row"), {
@@ -406,4 +421,46 @@ export async function applyImmediateUpgradeGrant(
     deltaSessions: pending.delta_sessions,
     grant,
   };
+}
+
+/**
+ * Point an intent-keyed pending row at the real proration invoice id once
+ * Stripe has created it. Failure is survivable: applyImmediateUpgradeGrant
+ * falls back to the subscription's newest pending row, so the grant still
+ * lands keyed to the real invoice — but log loudly.
+ */
+export async function attachInvoiceToPendingUpgrade(
+  admin: SupabaseClient<Database>,
+  pendingId: string,
+  stripeInvoiceId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await admin
+    .from("pending_upgrade_grants")
+    .update({ stripe_invoice_id: stripeInvoiceId })
+    .eq("id", pendingId)
+    .eq("status", "pending");
+  if (error) {
+    logError("catalog.attachInvoiceToPendingUpgrade failed", error, {
+      tag: "billing", pending_id: pendingId, invoice_id: stripeInvoiceId,
+    });
+    return { ok: false, error: error.message };
+  }
+  return { ok: true };
+}
+
+/** Cancel a pending upgrade intent (e.g. the Stripe update itself failed). */
+export async function cancelPendingUpgradeGrant(
+  admin: SupabaseClient<Database>,
+  pendingId: string,
+): Promise<void> {
+  const { error } = await admin
+    .from("pending_upgrade_grants")
+    .update({ status: "cancelled" })
+    .eq("id", pendingId)
+    .eq("status", "pending");
+  if (error) {
+    logError("catalog.cancelPendingUpgradeGrant failed", error, {
+      tag: "billing", pending_id: pendingId,
+    });
+  }
 }

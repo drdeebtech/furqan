@@ -5,7 +5,11 @@ import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/client";
 import { canUpgradeImmediately, scheduleRenewalChange } from "@/lib/domains/catalog/tier-changes";
-import { recordPendingUpgradeGrant } from "@/lib/domains/catalog/credit-grant";
+import {
+  attachInvoiceToPendingUpgrade,
+  cancelPendingUpgradeGrant,
+  recordPendingUpgradeGrant,
+} from "@/lib/domains/catalog/credit-grant";
 import { logError, logInfo } from "@/lib/logger";
 
 export const maxDuration = 60;
@@ -186,6 +190,28 @@ export async function POST(request: Request) {
 
   const stripe = getStripe();
 
+  // ── Record the delta-grant INTENT before any Stripe mutation ──────────────
+  // Review round (#704): recording after the Stripe update left a window where
+  // an insert failure stranded a paid proration invoice with no pending row —
+  // a retry then short-circuits at "Already on this tier" and the webhook
+  // treats no-row as benign. Intent-first closes it: if Stripe fails we cancel
+  // the intent; if attaching the real invoice id fails, the webhook's
+  // newest-pending-by-subscription fallback still grants.
+  const pendingGrant = await recordPendingUpgradeGrant(admin, {
+    subscriptionId: sub.id,
+    studentId: userId,
+    planId: newPlan.id,
+    deltaSessions: eligibility.deltaSessions,
+    stripeInvoiceId: `intent_${sub.id}_${crypto.randomUUID()}`,
+  });
+  if (!pendingGrant.ok) {
+    logError("upgrade-tier: pending grant intent failed", new Error(pendingGrant.error), {
+      tag: "billing",
+      subscription_id: sub.id,
+    });
+    return NextResponse.json({ error: "Could not start the upgrade — try again" }, { status: 500 });
+  }
+
   let invoiceId: string;
   try {
     // Expand items in retrieve; expand latest_invoice in update so we read the
@@ -213,6 +239,7 @@ export async function POST(request: Request) {
       tag: "billing",
       subscription_id: sub.id,
     });
+    await cancelPendingUpgradeGrant(admin, pendingGrant.id);
     return NextResponse.json({ error: "Stripe upgrade failed" }, { status: 502 });
   }
 
@@ -237,29 +264,13 @@ export async function POST(request: Request) {
     );
   }
 
-  // ── Record the delta grant, gated on the proration invoice being PAID ─────
-  // (audit 2026-07-15). handleInvoicePaid grants it when Stripe confirms
-  // payment (billing_reason='subscription_update') — never at request time.
-  // A declined/abandoned proration invoice therefore never yields credits.
-  const pendingGrant = await recordPendingUpgradeGrant(admin, {
-    subscriptionId: sub.id,
-    studentId: userId,
-    planId: newPlan.id,
-    deltaSessions: eligibility.deltaSessions,
-    stripeInvoiceId: invoiceId,
-  });
-
-  if (!pendingGrant.ok) {
-    logError("upgrade-tier: pending grant record failed", new Error(pendingGrant.error), {
-      tag: "billing",
-      subscription_id: sub.id,
-      invoice_id: invoiceId,
-    });
-    return NextResponse.json(
-      { error: "Upgrade applied in Stripe but credit scheduling failed — contact support" },
-      { status: 500 },
-    );
-  }
+  // ── Point the intent at the real proration invoice ────────────────────────
+  // Credits are granted by handleInvoicePaid when Stripe confirms payment
+  // (billing_reason='subscription_update') — never at request time. A
+  // declined/abandoned proration invoice therefore never yields credits.
+  // If this attach fails the webhook falls back to the subscription's newest
+  // pending row and still grants keyed to the real invoice id.
+  await attachInvoiceToPendingUpgrade(admin, pendingGrant.id, invoiceId);
 
   logInfo("upgrade-tier: immediate upgrade applied, delta grant pending invoice payment", {
     tag: "billing",

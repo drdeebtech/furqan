@@ -6,6 +6,8 @@ vi.mock("@/lib/logger", () => ({ logError: vi.fn() }));
 import {
   recordPendingUpgradeGrant,
   applyImmediateUpgradeGrant,
+  attachInvoiceToPendingUpgrade,
+  cancelPendingUpgradeGrant,
 } from "./credit-grant";
 
 /**
@@ -119,6 +121,37 @@ describe("recordPendingUpgradeGrant", () => {
     const result = await recordPendingUpgradeGrant(admin, ARGS);
     expect(result).toEqual({ ok: true, id: "pug-winner" });
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("cancels stale pending intents BEFORE inserting the new one (single in-flight upgrade)", async () => {
+    const { admin, ops } = makeAdmin({
+      tables: {
+        pending_upgrade_grants: { insert: { data: { id: "pug-2" }, error: null }, update: OK },
+      },
+    });
+    const result = await recordPendingUpgradeGrant(admin, ARGS);
+    expect(result.ok).toBe(true);
+    const updateIdx = ops.indexOf("pending_upgrade_grants.update");
+    const insertIdx = ops.indexOf("pending_upgrade_grants.insert");
+    expect(updateIdx).toBeGreaterThanOrEqual(0);
+    expect(updateIdx).toBeLessThan(insertIdx);
+  });
+
+  it("keeps BOTH diagnostics when the 23505 re-select also fails (billing-critical path)", async () => {
+    const { admin } = makeAdmin({
+      tables: {
+        pending_upgrade_grants: {
+          insert: { data: null, error: { code: "23505", message: "duplicate key" } },
+          select: { data: null, error: { message: "reselect down" } },
+        },
+      },
+    });
+    const result = await recordPendingUpgradeGrant(admin, ARGS);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("insert: duplicate key");
+      expect(result.error).toContain("re-select: reselect down");
+    }
   });
 
   it("fails closed on any other insert error", async () => {
@@ -244,5 +277,34 @@ describe("applyImmediateUpgradeGrant", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe("lookup_failed");
     expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+
+// ─── attachInvoiceToPendingUpgrade / cancelPendingUpgradeGrant ───────────────
+
+describe("intent lifecycle helpers", () => {
+  it("attachInvoiceToPendingUpgrade succeeds and touches only the pending row", async () => {
+    const { admin, ops } = makeAdmin({
+      tables: { pending_upgrade_grants: { update: OK } },
+    });
+    const res = await attachInvoiceToPendingUpgrade(admin, "pug-1", "in_real");
+    expect(res.ok).toBe(true);
+    expect(ops).toEqual(["pending_upgrade_grants.update"]);
+  });
+
+  it("attachInvoiceToPendingUpgrade surfaces update errors (webhook fallback still covers)", async () => {
+    const { admin } = makeAdmin({
+      tables: { pending_upgrade_grants: { update: { data: null, error: { message: "db down" } } } },
+    });
+    const res = await attachInvoiceToPendingUpgrade(admin, "pug-1", "in_real");
+    expect(res).toEqual({ ok: false, error: "db down" });
+  });
+
+  it("cancelPendingUpgradeGrant never throws, even on update errors", async () => {
+    const { admin } = makeAdmin({
+      tables: { pending_upgrade_grants: { update: { data: null, error: { message: "db down" } } } },
+    });
+    await expect(cancelPendingUpgradeGrant(admin, "pug-1")).resolves.toBeUndefined();
   });
 });
