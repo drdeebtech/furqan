@@ -67,9 +67,10 @@ describe("generateInstantSlotOptions", () => {
       [{ day_of_week: DOW, start_time: "15:00:00", end_time: "16:00:00" }],
       { now: NOW, horizonDays: 0, slotMinutes: 30, lang: "en" },
     );
-    expect(options[0]?.label).toMatch(
-      /^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday) 15:00$/,
-    );
+    const EN_WEEKDAYS = [
+      "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+    ];
+    expect(options[0]?.label).toBe(`${EN_WEEKDAYS[DOW]} 15:00`);
   });
 
   it("excludes a window entirely in the past (today, earlier than now)", () => {
