@@ -49,6 +49,29 @@ describe("generateInstantSlotOptions", () => {
     }
   });
 
+  it("pins wall-clock to the availability window (known-good values, no accessor round-trip)", () => {
+    // The generator builds wall-clock FROM the window, so these exact values
+    // are the ground truth — unlike decoding o.iso back through the same Date
+    // accessors the source uses. Afternoon window keeps the test valid across
+    // runner timezones (CI=UTC, dev machines within a few hours of it).
+    const options = generateInstantSlotOptions(
+      [{ day_of_week: DOW, start_time: "15:00:00", end_time: "17:00:00" }],
+      { now: NOW, horizonDays: 0, slotMinutes: 30 },
+    );
+    expect(options.map((o) => o.localTime)).toEqual(["15:00", "15:30", "16:00", "16:30"]);
+    expect(new Set(options.map((o) => o.dayOfWeek))).toEqual(new Set([DOW]));
+  });
+
+  it("localizes weekday labels when lang='en' (bilingual UI)", () => {
+    const options = generateInstantSlotOptions(
+      [{ day_of_week: DOW, start_time: "15:00:00", end_time: "16:00:00" }],
+      { now: NOW, horizonDays: 0, slotMinutes: 30, lang: "en" },
+    );
+    expect(options[0]?.label).toMatch(
+      /^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday) 15:00$/,
+    );
+  });
+
   it("excludes a window entirely in the past (today, earlier than now)", () => {
     const options = generateInstantSlotOptions(
       [{ day_of_week: DOW, start_time: "06:00:00", end_time: "07:30:00" }],

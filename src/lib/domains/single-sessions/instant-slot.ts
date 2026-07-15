@@ -71,12 +71,24 @@ export async function validateInstantSlot(
     return { ok: false, reason: "blocked" };
   }
 
+  // Overlap window: a booking can only overlap the slot if it starts before
+  // the slot ends and within MAX_BOOKING_MS before the slot starts — bound the
+  // query instead of scanning the teacher's full historical backlog.
+  const MAX_BOOKING_MS = 24 * 60 * 60 * 1000;
+  const windowStartIso = new Date(
+    args.scheduledAt.getTime() - MAX_BOOKING_MS,
+  ).toISOString();
+  const windowEndIso = new Date(
+    args.scheduledAt.getTime() + args.durationMin * 60000,
+  ).toISOString();
   const { data: bookings, error: bookingsError } = await admin
     .from("bookings")
     .select("scheduled_at, duration_min")
     .eq("teacher_id", args.teacherId)
     .in("status", ["pending", "confirmed"])
     .not("scheduled_at", "is", null)
+    .gte("scheduled_at", windowStartIso)
+    .lt("scheduled_at", windowEndIso)
     .returns<{ scheduled_at: string | null; duration_min: number | null }[]>();
   if (bookingsError) return { ok: false, reason: "lookup_failed" };
 

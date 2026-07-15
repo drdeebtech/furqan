@@ -230,6 +230,23 @@ describe("POST /api/stripe/checkout/single-session (spec 022)", () => {
     expect(mockSessionsCreate).not.toHaveBeenCalled();
   });
 
+  it("maps a past instant slot to 422 with the mapped message (fail-before-charge)", async () => {
+    const res = await POST(
+      makeReq({
+        productType: "instant",
+        teacherId: TEACHER_ID,
+        scheduledAt: "2020-01-01T10:00:00.000Z",
+        dayOfWeek: 3,
+        localDate: "2020-01-01",
+        localTime: "10:00",
+      }),
+    );
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.error).toBe("Selected time is in the past");
+    expect(mockSessionsCreate).not.toHaveBeenCalled();
+  });
+
   // ── Fail-before-charge: assessment ────────────────────────────────────────
   it("returns 409 when per-specialty assessment limit reached (FR-014)", async () => {
     mockCountAssessments.mockResolvedValueOnce(1); // limit default 1 → reached

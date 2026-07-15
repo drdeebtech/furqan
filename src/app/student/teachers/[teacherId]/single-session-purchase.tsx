@@ -44,8 +44,8 @@ export function SingleSessionPurchase({
   const mounted = useSyncExternalStore(subscribeNoop, getSnapshotClient, getSnapshotServer);
 
   const options = useMemo(
-    () => (mounted ? generateInstantSlotOptions(availability, { now: new Date() }) : []),
-    [availability, mounted],
+    () => (mounted ? generateInstantSlotOptions(availability, { now: new Date(), lang }) : []),
+    [availability, mounted, lang],
   );
 
   // Derive the effective selection (first slot until the student picks one) —

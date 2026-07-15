@@ -13,14 +13,25 @@ export interface InstantSlotOption {
   localTime: string;
 }
 
-const ARABIC_WEEKDAYS: Record<number, string> = {
-  0: "الأحد",
-  1: "الإثنين",
-  2: "الثلاثاء",
-  3: "الأربعاء",
-  4: "الخميس",
-  5: "الجمعة",
-  6: "السبت",
+const WEEKDAYS: Record<"ar" | "en", Record<number, string>> = {
+  ar: {
+    0: "الأحد",
+    1: "الإثنين",
+    2: "الثلاثاء",
+    3: "الأربعاء",
+    4: "الخميس",
+    5: "الجمعة",
+    6: "السبت",
+  },
+  en: {
+    0: "Sunday",
+    1: "Monday",
+    2: "Tuesday",
+    3: "Wednesday",
+    4: "Thursday",
+    5: "Friday",
+    6: "Saturday",
+  },
 };
 
 function parseTime(time: string): number {
@@ -36,6 +47,8 @@ export function generateInstantSlotOptions(
   }[],
   opts: {
     now: Date;
+    /** Weekday-label language; defaults to Arabic (the platform default). */
+    lang?: "ar" | "en";
     horizonDays?: number;
     slotMinutes?: number;
     max?: number;
@@ -44,6 +57,7 @@ export function generateInstantSlotOptions(
   const horizonDays = opts.horizonDays ?? 14;
   const slotMinutes = opts.slotMinutes ?? 30;
   const max = opts.max ?? 20;
+  const weekdays = WEEKDAYS[opts.lang ?? "ar"];
   const options: InstantSlotOption[] = [];
 
   for (let offset = 0; offset <= horizonDays; offset += 1) {
@@ -76,7 +90,7 @@ export function generateInstantSlotOptions(
         const localDate = `${slot.getFullYear()}-${String(slot.getMonth() + 1).padStart(2, "0")}-${String(slot.getDate()).padStart(2, "0")}`;
         options.push({
           iso: slot.toISOString(),
-          label: `${ARABIC_WEEKDAYS[day.getDay()]} ${timeLabel}`,
+          label: `${weekdays[day.getDay()]} ${timeLabel}`,
           dayOfWeek: slot.getDay(),
           localDate,
           localTime: timeLabel,
