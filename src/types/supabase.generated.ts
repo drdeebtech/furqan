@@ -4469,6 +4469,36 @@ export type Database = {
         }
         Relationships: []
       }
+      security_alerts: {
+        Row: {
+          alert_level: string
+          attempted_action: string
+          created_at: string
+          email: string | null
+          id: string
+          metadata: Json
+          user_id: string | null
+        }
+        Insert: {
+          alert_level: string
+          attempted_action: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          metadata?: Json
+          user_id?: string | null
+        }
+        Update: {
+          alert_level?: string
+          attempted_action?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          metadata?: Json
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       services: {
         Row: {
           created_at: string | null
