@@ -60,17 +60,33 @@ describe("class_offerings RLS role gate (PR #702)", () => {
       `latest "${POLICY_NAME}" definition (${latest.file}) lost the teacher_id = auth.uid() ownership check`,
     ).toBe(true);
 
-    // The role predicate must gate WRITES, not just reads: a `with check`
-    // clause must exist and carry it too.
+    // BOTH predicates (role + ownership) must appear in BOTH clauses.
+    // USING alone gates reads/updates-of-existing-rows; WITH CHECK gates the
+    // written row — dropping either predicate from either clause re-opens a
+    // hole (e.g. WITH CHECK without ownership lets a teacher forge teacher_id).
+    const usingClause = latest.body.match(/using\s*\(([\s\S]*?)\)\s*with\s+check/i);
+    expect(
+      usingClause,
+      `latest "${POLICY_NAME}" definition (${latest.file}) has no USING clause before WITH CHECK`,
+    ).not.toBeNull();
     const withCheck = latest.body.match(/with\s+check\s*\(([\s\S]*)\)\s*;?\s*$/i);
     expect(
       withCheck,
       `latest "${POLICY_NAME}" definition (${latest.file}) has no WITH CHECK clause — INSERT/UPDATE writes are ungated`,
     ).not.toBeNull();
-    expect(
-      rolePredicateRe.test(withCheck?.[1] ?? ""),
-      `WITH CHECK of "${POLICY_NAME}" (${latest.file}) lost the 'teacher' role predicate`,
-    ).toBe(true);
+    for (const [name, clause] of [
+      ["USING", usingClause?.[1] ?? ""],
+      ["WITH CHECK", withCheck?.[1] ?? ""],
+    ] as const) {
+      expect(
+        rolePredicateRe.test(clause),
+        `${name} of "${POLICY_NAME}" (${latest.file}) lost the 'teacher' role predicate`,
+      ).toBe(true);
+      expect(
+        ownershipRe.test(clause),
+        `${name} of "${POLICY_NAME}" (${latest.file}) lost the teacher_id = auth.uid() ownership check`,
+      ).toBe(true);
+    }
   });
 
   it("no migration drops the policy without recreating it in the same file", () => {
@@ -81,10 +97,17 @@ describe("class_offerings RLS role gate (PR #702)", () => {
     const offenders: string[] = [];
     for (const file of migrationFiles) {
       const sql = readFileSync(file, "utf8");
-      policyBlockRe.lastIndex = 0;
-      if (dropRe.test(sql) && !policyBlockRe.test(sql)) {
-        offenders.push(file);
-      }
+      const dropIdx = sql.search(dropRe);
+      if (dropIdx === -1) continue;
+      // The recreation must come AFTER the (last) drop — a file that creates
+      // then drops would replay from zero with no policy at all.
+      let lastDropIdx = dropIdx;
+      const dropAll = new RegExp(dropRe.source, "gi");
+      let dm: RegExpExecArray | null;
+      while ((dm = dropAll.exec(sql)) !== null) lastDropIdx = dm.index;
+      policyBlockRe.lastIndex = lastDropIdx;
+      const recreated = policyBlockRe.exec(sql);
+      if (!recreated) offenders.push(file);
     }
     expect(
       offenders,
