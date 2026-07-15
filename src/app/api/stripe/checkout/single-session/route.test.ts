@@ -192,6 +192,29 @@ describe("POST /api/stripe/checkout/single-session (spec 022)", () => {
     expect(mockSessionsCreate).not.toHaveBeenCalled();
   });
 
+  it("returns the same generic 500 when the assessment price is corrupt", async () => {
+    mockAssessmentPrice.mockRejectedValueOnce(new Error("corrupt setting"));
+    const res = await POST(makeReq({ productType: "assessment", specialty: "hifz" }));
+    expect(res.status).toBe(500);
+    expect((await res.json()).error).toBe("Pricing is temporarily unavailable");
+    expect(mockSessionsCreate).not.toHaveBeenCalled();
+  });
+
+  it("returns the same generic 500 when the specialized price is corrupt", async () => {
+    mockSpecializedPrice.mockRejectedValueOnce(new Error("corrupt setting"));
+    const res = await POST(
+      makeReq({
+        productType: "specialized",
+        teacherId: TEACHER_ID,
+        purpose: "consolidate_surah",
+        targetScope: { surah: 36 },
+      }),
+    );
+    expect(res.status).toBe(500);
+    expect((await res.json()).error).toBe("Pricing is temporarily unavailable");
+    expect(mockSessionsCreate).not.toHaveBeenCalled();
+  });
+
   // ── Fail-before-charge: assessment ────────────────────────────────────────
   it("returns 409 when per-specialty assessment limit reached (FR-014)", async () => {
     mockCountAssessments.mockResolvedValueOnce(1); // limit default 1 → reached
