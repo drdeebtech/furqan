@@ -23,6 +23,7 @@ import {
   validateTargetScope,
   type TargetScope,
 } from "@/lib/domains/single-sessions/quran-validation";
+import { validateInstantSlot } from "@/lib/domains/single-sessions/instant-slot";
 
 export const maxDuration = 60;
 
@@ -56,6 +57,7 @@ const SingleSessionCheckoutSchema = z
     purpose: z.enum(SPECIALIZED_PURPOSES).optional(),
     targetScope: TargetScopeSchema.optional(),
     teacherId: z.string().uuid().optional(),
+    scheduledAt: z.string().datetime().optional(),
     currency: z.literal("usd").default("usd"),
   })
   .strict()
@@ -297,6 +299,7 @@ export async function POST(request: Request) {
       booking_type: "instant",
       student_id: studentId,
       teacher_id: teacherId,
+      ...(body.scheduledAt ? { scheduled_at: body.scheduledAt } : {}),
     };
   } else {
     // specialized
@@ -361,6 +364,27 @@ export async function POST(request: Request) {
         { status: 422 },
       );
     }
+
+    if (body.productType === "instant" && body.scheduledAt) {
+      const slot = await validateInstantSlot(admin, {
+        teacherId,
+        scheduledAt: new Date(body.scheduledAt),
+        durationMin: 30,
+      });
+      if (!slot.ok) {
+        const msg = {
+          past: "Selected time is in the past",
+          unavailable: "Teacher is not available at the selected time",
+          blocked: "Selected time is unavailable",
+          overlap: "Selected time is already booked",
+          lookup_failed: "Could not verify the selected time",
+        }[slot.reason];
+        return NextResponse.json(
+          { success: false, error: msg },
+          { status: slot.reason === "lookup_failed" ? 500 : 422 },
+        );
+      }
+    }
   }
 
   // ── Zero-price path: create the booking directly via the atomic creator ──
@@ -378,7 +402,7 @@ export async function POST(request: Request) {
           p_duration_min: 30,
           p_rate_snapshot: 0,
           p_amount_usd: 0,
-          p_scheduled_at: new Date().toISOString(),
+          p_scheduled_at: body.scheduledAt ?? new Date().toISOString(),
           p_payment_id: undefined,
         },
       );

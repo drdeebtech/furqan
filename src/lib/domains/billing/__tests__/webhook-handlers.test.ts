@@ -422,3 +422,78 @@ describe("handlePaymentIntentSucceeded", () => {
     expect(grantCycle).not.toHaveBeenCalled();
   });
 });
+
+// ── handlePaymentIntentSucceeded — instant scheduled_at threading (spec 022 slice 2) ──
+
+describe("handlePaymentIntentSucceeded — instant scheduled_at (spec 022 slice 2)", () => {
+  function makeHappyInstantAdmin(): { admin: MockAdmin; rpc: ReturnType<typeof vi.fn> } {
+    const rpc = vi.fn().mockResolvedValue({ data: "booking-1", error: null });
+    const from = vi.fn((table: string) => {
+      if (table === "payments") {
+        return {
+          insert: vi.fn(() => ({
+            select: vi.fn(() => ({
+              maybeSingle: vi.fn().mockResolvedValue({ data: { id: "pay-1" }, error: null }),
+            })),
+          })),
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+            })),
+          })),
+        };
+      }
+      // billing_events: sentinel select/insert + markEvent update + delete
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          })),
+        })),
+        insert: vi.fn().mockResolvedValue({ error: null }),
+        update: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) })),
+        delete: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) })),
+      };
+    });
+    return { admin: { from, rpc }, rpc };
+  }
+
+  it("threads scheduled_at from PI metadata into start_instant_session_booking (p_scheduled_at)", async () => {
+    const { admin, rpc } = makeHappyInstantAdmin();
+    const chosen = "2026-08-01T09:00:00.000Z";
+    const ctx = makeEventCtx(admin, "evt-1", {
+      id: "pi_instant_1",
+      currency: "usd",
+      amount_received: 700,
+      metadata: {
+        booking_type: "instant",
+        student_id: "stu-1",
+        teacher_id: "t-1",
+        scheduled_at: chosen,
+      },
+    });
+
+    await handlePaymentIntentSucceeded(ctx);
+
+    expect(rpc).toHaveBeenCalledWith(
+      "start_instant_session_booking",
+      expect.objectContaining({ p_scheduled_at: chosen }),
+    );
+  });
+
+  it("falls back to a generated timestamp when scheduled_at metadata is absent", async () => {
+    const { admin, rpc } = makeHappyInstantAdmin();
+    const ctx = makeEventCtx(admin, "evt-1", {
+      id: "pi_instant_2",
+      currency: "usd",
+      amount_received: 700,
+      metadata: { booking_type: "instant", student_id: "stu-1", teacher_id: "t-1" },
+    });
+
+    await handlePaymentIntentSucceeded(ctx);
+
+    const call = rpc.mock.calls.find((c) => c[0] === "start_instant_session_booking");
+    expect(call).toBeTruthy();
+    expect(typeof (call![1] as { p_scheduled_at: unknown }).p_scheduled_at).toBe("string");
+  });
+});
