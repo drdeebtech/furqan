@@ -18,6 +18,7 @@ import { z } from "zod";
 import type { Json } from "@/types/supabase.generated";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError, logInfo } from "@/lib/logger";
+import { dispatchEffects } from "@/lib/automation/effects";
 import { emitEvent } from "@/lib/automation/emit";
 import { getPostHogClient } from "@/lib/posthog-server";
 import {
@@ -1011,6 +1012,7 @@ async function materializeBooking(
 
   if (args.bookingType === "instant") {
     // Instant path: adapted start_instant_session_booking with p_payment_id.
+    const effectiveScheduledAt = args.scheduledAt ?? new Date().toISOString();
     const { data: bookingId, error: rpcErr } = await admin.rpc(
       "start_instant_session_booking",
       {
@@ -1020,7 +1022,7 @@ async function materializeBooking(
         p_duration_min: 30,
         p_rate_snapshot: 0,
         p_amount_usd: 0,
-        p_scheduled_at: args.scheduledAt ?? new Date().toISOString(),
+        p_scheduled_at: effectiveScheduledAt,
         p_payment_id: args.paymentId,
       },
     );
@@ -1030,6 +1032,24 @@ async function materializeBooking(
       });
       return { ok: false, error: rpcErr?.message ?? "instant creator returned no id" };
     }
+    const dateLabel = new Date(effectiveScheduledAt).toLocaleDateString("ar");
+    await Promise.allSettled([
+      dispatchEffects("booking.created", {
+        teacherId: args.teacherId,
+        entityId: bookingId as string,
+        dateLabel,
+      }),
+      emitEvent("booking.created", "booking", bookingId as string, {
+        student_id: args.studentId,
+        teacher_id: args.teacherId,
+        session_type: "hifz",
+        scheduled_at: effectiveScheduledAt,
+      }).catch((err) =>
+        logError("single-session webhook: emit booking.created failed", err, {
+          tag: "stripe-webhook", booking_type: "instant",
+        }),
+      ),
+    ]);
     return { ok: true };
   }
 
