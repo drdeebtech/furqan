@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import {
+  ForbiddenError,
+  UnauthenticatedError,
+  requireRole,
+} from "@/lib/auth/require-admin";
 import { getPayouts } from "@/lib/domains/attendance/payroll";
 import { logError } from "@/lib/logger";
 
@@ -13,12 +18,21 @@ const querySchema = z.object({
 /**
  * GET /api/payroll/payouts — list payouts (RLS-enforced).
  * Teachers see only their own; admins can filter by teacherId.
+ * The role gate is defense-in-depth on top of RLS: students/guardians get an
+ * explicit 403 instead of a probing-friendly empty 200.
  */
 export async function GET(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let userId: string;
+  try {
+    ({ id: userId } = await requireRole(["teacher", "admin"]));
+  } catch (e) {
+    if (e instanceof UnauthenticatedError) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (e instanceof ForbiddenError) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    throw e;
   }
 
   const { searchParams } = new URL(request.url);
@@ -28,12 +42,13 @@ export async function GET(request: Request) {
   }
 
   try {
+    const supabase = await createClient();
     const payouts = await getPayouts(supabase, result.data);
     return NextResponse.json({ payouts });
   } catch (err) {
     logError("api/payroll/payouts: failed", err, {
       tag: "payroll",
-      user_id: user.id,
+      user_id: userId,
     });
     return NextResponse.json({ error: "Failed to fetch payouts" }, { status: 500 });
   }
