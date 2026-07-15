@@ -2944,6 +2944,71 @@ export type Database = {
           },
         ]
       }
+      pending_upgrade_grants: {
+        Row: {
+          applied_at: string | null
+          created_at: string
+          delta_sessions: number
+          id: string
+          plan_id: string
+          status: string
+          stripe_invoice_id: string
+          student_id: string
+          subscription_id: string
+        }
+        Insert: {
+          applied_at?: string | null
+          created_at?: string
+          delta_sessions: number
+          id?: string
+          plan_id: string
+          status?: string
+          stripe_invoice_id: string
+          student_id: string
+          subscription_id: string
+        }
+        Update: {
+          applied_at?: string | null
+          created_at?: string
+          delta_sessions?: number
+          id?: string
+          plan_id?: string
+          status?: string
+          stripe_invoice_id?: string
+          student_id?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_upgrade_grants_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_upgrade_grants_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_upgrade_grants_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_upgrade_grants_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_settings: {
         Row: {
           description: string | null
@@ -3766,6 +3831,36 @@ export type Database = {
           applied_by?: string | null
           description?: string | null
           version?: string
+        }
+        Relationships: []
+      }
+      security_alerts: {
+        Row: {
+          alert_level: string
+          attempted_action: string
+          created_at: string
+          email: string | null
+          id: string
+          metadata: Json
+          user_id: string | null
+        }
+        Insert: {
+          alert_level: string
+          attempted_action: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          metadata?: Json
+          user_id?: string | null
+        }
+        Update: {
+          alert_level?: string
+          attempted_action?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          metadata?: Json
+          user_id?: string | null
         }
         Relationships: []
       }
