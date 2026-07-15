@@ -108,6 +108,30 @@ type SingleSessionCheckout = z.infer<typeof SingleSessionCheckoutSchema>;
  */
 const GLOBAL_ASSESSMENT_LIMIT_PER_STUDENT = 1;
 
+/**
+ * Load a price getter fail-closed. The pricing module throws on a CONFIGURED
+ * but corrupt platform_settings value (PR #703); map that to null so the
+ * route can return a generic 500 without leaking setting internals — an
+ * unhandled throw here would escape the handler's JSON error contract.
+ */
+async function tryLoadPrice(load: () => Promise<number>): Promise<number | null> {
+  try {
+    return await load();
+  } catch (err) {
+    logError("single-session checkout: price load failed (corrupt setting?)", err, {
+      tag: "single-sessions",
+    });
+    return null;
+  }
+}
+
+function priceUnavailable(): NextResponse {
+  return NextResponse.json(
+    { success: false, error: "Pricing is temporarily unavailable" },
+    { status: 500 },
+  );
+}
+
 interface AssessmentLimitResult {
   ok: boolean;
   limit: number;
@@ -249,7 +273,9 @@ export async function POST(request: Request) {
       );
     }
     teacherId = specialist.teacherId;
-    priceUsd = await getAssessmentPrice();
+    const assessmentPrice = await tryLoadPrice(getAssessmentPrice);
+    if (assessmentPrice === null) return priceUnavailable();
+    priceUsd = assessmentPrice;
     stripeMetadata = {
       booking_type: "assessment",
       student_id: studentId,
@@ -264,7 +290,9 @@ export async function POST(request: Request) {
     };
   } else if (body.productType === "instant") {
     teacherId = body.teacherId as string;
-    priceUsd = await getInstantPrice();
+    const instantPrice = await tryLoadPrice(getInstantPrice);
+    if (instantPrice === null) return priceUnavailable();
+    priceUsd = instantPrice;
     stripeMetadata = {
       booking_type: "instant",
       student_id: studentId,
@@ -285,7 +313,9 @@ export async function POST(request: Request) {
       );
     }
 
-    priceUsd = await getSpecializedPrice(purpose);
+    const specializedPrice = await tryLoadPrice(() => getSpecializedPrice(purpose));
+    if (specializedPrice === null) return priceUnavailable();
+    priceUsd = specializedPrice;
     stripeMetadata = {
       booking_type: "specialized",
       student_id: studentId,
