@@ -1,4 +1,4 @@
-"use server";
+import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError, logWarn } from "@/lib/logger";

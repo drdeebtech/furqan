@@ -2,17 +2,16 @@
 
 import { useActionState } from "react";
 import { Mail } from "lucide-react";
-import { sendSessionNarrative } from "@/lib/reports/send-narrative";
+import { sendSessionReport } from "./actions";
 import { ActionFeedback } from "@/components/shared/action-feedback";
 
 interface Props {
   sessionId: string;
-  actorId: string;
 }
 
-export function SendReportButton({ sessionId, actorId }: Props) {
+export function SendReportButton({ sessionId }: Props) {
   const [state, formAction, pending] = useActionState(
-    async () => await sendSessionNarrative({ sessionId, actorId }),
+    async () => await sendSessionReport(sessionId),
     null,
   );
 

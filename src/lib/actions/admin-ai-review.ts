@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { logError } from "@/lib/logger";
 
 const ApproveSchema = z.object({
   id: z.string().uuid(),
@@ -72,14 +73,18 @@ export async function approveReview(formData: FormData) {
             sent_at: new Date().toISOString(),
           });
           if (prError) {
-            console.error("approveReview: parent_reports insert failed:", prError.message);
+            logError("approveReview: parent_reports insert failed", prError, {
+              tag: "admin-ai-review",
+              workflow: row.workflow_name,
+              student_id: row.entity_id,
+            });
           }
         } else {
-          console.error(
-            "approveReview: no completed teacher found for student",
-            row.entity_id,
-            "— parent_report skipped",
-          );
+          logError("approveReview: no completed teacher found for student", new Error("teacher-not-found"), {
+            tag: "admin-ai-review",
+            workflow: row.workflow_name,
+            student_id: row.entity_id,
+          });
         }
       } else if (row.workflow_name === "curriculum-advisor") {
         // notifications.type is the notif_type enum (no 'curriculum_advice' value),
@@ -92,7 +97,11 @@ export async function approveReview(formData: FormData) {
           is_read: false,
         });
         if (nError) {
-          console.error("approveReview: notifications insert failed:", nError.message);
+          logError("approveReview: notifications insert failed", nError, {
+            tag: "admin-ai-review",
+            workflow: row.workflow_name,
+            user_id: row.entity_id,
+          });
         }
       }
 
@@ -111,12 +120,18 @@ export async function approveReview(formData: FormData) {
           .eq("workflow_name", row.workflow_name)
           .eq("status", "pending_review");
         if (gateError) {
-          console.error("approveReview: auto_send_eligible gate failed:", gateError.message);
+          logError("approveReview: auto_send_eligible gate failed", gateError, {
+            tag: "admin-ai-review",
+            workflow: row.workflow_name,
+          });
         }
       }
     }
   } catch (e) {
-    console.error("approveReview: downstream delivery failed:", e);
+    logError("approveReview: downstream delivery failed", e, {
+      tag: "admin-ai-review",
+      review_id: id,
+    });
   }
 
   revalidatePath("/admin/ai-review");

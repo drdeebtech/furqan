@@ -8,12 +8,14 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError, logInfo } from "@/lib/logger";
 import { getClientIp } from "@/lib/security/client-ip";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import { withTimeout } from "@/lib/promise-utils";
 import { isSafeRelativePath } from "@/lib/security/safe-url";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { CONTACT } from "@/lib/contact";
 import { buildConsentRecord } from "@/lib/legal";
 import { registerSchema, registerErrorMessage } from "@/lib/auth/register-schema";
+import { recordSecurityAlert } from "@/lib/security/audit-logger";
 
 /**
  * Deterministically hash an email to a UUID-shaped key so it fits the
@@ -76,6 +78,7 @@ export type AuthResult = {
 };
 
 const MAX_LOGIN_ATTEMPTS_PER_HOUR = 10;
+const MAX_REGISTER_ATTEMPTS_PER_HOUR = 10;
 const MAX_FORGOT_PASSWORD_PER_HOUR = 5;
 
 // Emergency-glass for known administrator emails when BotID's client SDK
@@ -102,67 +105,44 @@ function shouldBypassBotId(email: string | null | undefined): boolean {
 
 /**
  * DB-backed per-identifier rate limiter for auth flows.
- * Keys on the email (lowercased) — IP rotation doesn't bypass it.
- * Fails open on DB errors so infra issues don't lock legitimate users out.
+ * Keys on the email (lowercased + hashed via emailToUuidKey — no raw PII in
+ * the counter table) so IP rotation doesn't bypass it. Delegates to the
+ * shared atomic limiter and FAILS CLOSED (issue #688): a limiter backend
+ * error denies the attempt rather than waving credential traffic through —
+ * availability cost is acceptable on login/register/forgot-password.
  */
 async function checkAuthRate(
-  workflow: "login-attempt" | "forgot-password-attempt",
+  workflow: "login-attempt" | "register-attempt" | "forgot-password-attempt",
   email: string,
   max: number,
 ): Promise<boolean> {
   // Skip rate limiting in dev (local) and for CI test accounts.
   if (process.env.NODE_ENV === "development") return true;
   if (email.toLowerCase().endsWith("@furqan.test")) return true;
-  try {
-    // Service-role client. The rate-limit check runs PRE-AUTHENTICATION
-    // (the user has no session yet on POST /login or /forgot-password),
-    // so the regular SSR client carries only the anon key. RLS on
-    // automation_logs allows anon SELECT but not anon INSERT — the INSERT
-    // was returning 401 and tripping the silent_fail observability hook
-    // (Sentry JAVASCRIPT-NEXTJS-E4-1M). Service-role bypasses RLS for
-    // both the count check and the row insert; the rate limiter is purely
-    // server-side bookkeeping so privilege escalation is not a concern.
-    const supabase = createAdminClient();
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    // automation_logs.entity_id is UUID-typed in production despite the
-    // generated .ts declaring it `string | null`. Passing the raw email
-    // tripped 22P02 (invalid input syntax for type uuid) on every login
-    // attempt — the rate limiter has been silently fail-open since shipped.
-    // (Sentry JAVASCRIPT-NEXTJS-E4-14.)
-    //
-    // Fix: deterministically hash the email to a UUID-shaped key via
-    // SHA-256 + UUIDv5-style nibble formatting. Same email → same UUID,
-    // type-correct on insert + lookup, no schema migration needed,
-    // idempotency_key (UNIQUE text) stays free for n8n use.
-    const entityId = emailToUuidKey(email);
-    const { count } = await supabase
-      .from("automation_logs")
-      .select("id", { count: "exact", head: true })
-      .eq("workflow_name", workflow)
-      .eq("entity_id", entityId)
-      .gte("started_at", oneHourAgo);
+  return checkRateLimit(emailToUuidKey(email), workflow, max, { failClosed: true });
+}
 
-    if ((count ?? 0) >= max) return false;
+// Per-IP caps (AUTH-VULN-02): the cross-account layer the per-email limits
+// can't cover. Generous so shared IPs (schools/families behind NAT) aren't
+// locked out, while mass cross-account spraying from one IP is stopped.
+const MAX_LOGIN_IP_PER_HOUR = 50;
+const MAX_REGISTER_IP_PER_HOUR = 20;
+const MAX_FORGOT_PASSWORD_IP_PER_HOUR = 20;
 
-    const now = new Date().toISOString();
-    const { error: autoLogError } = await supabase.from("automation_logs").insert({
-      workflow_name: workflow,
-      entity_type: "email",
-      entity_id: entityId,
-      status: "succeeded",
-      started_at: now,
-      finished_at: now,
-    });
-    if (autoLogError) {
-      logError(`${workflow} rate-limit log insert failed`, autoLogError, {
-        tag: "auth-rate", workflow, entityId,
-      });
-    }
-    return true;
-  } catch (err) {
-    logError(`${workflow} rate check failed — allowing request`, err, { tag: "auth-rate" });
-    return true;
-  }
+/**
+ * Per-IP rate limit for auth flows (AUTH-VULN-02) — the cross-account layer the
+ * per-email limiter can't see. Uses the trusted-proxy client IP (spoof-proof on
+ * Vercel; see client-ip.ts). No resolvable IP or dev → allow (the per-email
+ * limit is the backstop); a limiter backend error FAILS CLOSED (issue #688).
+ */
+async function checkAuthRateByIp(
+  workflow: "login-attempt-ip" | "register-attempt-ip" | "forgot-password-attempt-ip",
+  max: number,
+): Promise<boolean> {
+  if (process.env.NODE_ENV === "development") return true;
+  const ip = getClientIp(await headers());
+  if (!ip) return true;
+  return checkRateLimit(ip, workflow, max, { failClosed: true });
 }
 
 /**
@@ -232,10 +212,32 @@ export async function login(
   // Bypass for @furqan.test accounts so CI/TestSprite runs are never blocked.
   const isTestAccount = email.toLowerCase().endsWith("@furqan.test");
   if (!isTestAccount && !(await checkAuthRate("login-attempt", email, MAX_LOGIN_ATTEMPTS_PER_HOUR))) {
+    await recordSecurityAlert({
+      email,
+      attemptedAction: "auth.login.rate_limited",
+      alertLevel: "warning",
+      metadata: { workflow: "login-attempt" },
+    });
     logError("Login rate limit exceeded", new Error("login.rate_limited"), {
       component: "auth.login",
       tag: "auth-rate-limited",
       metadata: { email },
+    });
+    return { error: "تم تجاوز المحاولات المسموحة — حاول خلال ساعة" };
+  }
+
+  // Per-IP layer (AUTH-VULN-02): stops cross-account spraying from one IP that
+  // per-email limits (one bucket per address) can't see.
+  if (!isTestAccount && !(await checkAuthRateByIp("login-attempt-ip", MAX_LOGIN_IP_PER_HOUR))) {
+    await recordSecurityAlert({
+      email,
+      attemptedAction: "auth.login.ip_rate_limited",
+      alertLevel: "warning",
+      metadata: { workflow: "login-attempt-ip" },
+    });
+    logError("Login IP rate limit exceeded", new Error("login.ip_rate_limited"), {
+      component: "auth.login",
+      tag: "auth-rate-limited-ip",
     });
     return { error: "تم تجاوز المحاولات المسموحة — حاول خلال ساعة" };
   }
@@ -358,6 +360,36 @@ export async function register(
         tag: "auth-bot-ambiguous",
       });
     }
+  }
+
+  // Per-IP rate limit (AUTH-VULN-02) — caps account-creation spam from one IP.
+  const isTestAccount = rawEmail.toLowerCase().endsWith("@furqan.test");
+  if (!isTestAccount && !(await checkAuthRate("register-attempt", rawEmail, MAX_REGISTER_ATTEMPTS_PER_HOUR))) {
+    await recordSecurityAlert({
+      email: rawEmail,
+      attemptedAction: "auth.register.rate_limited",
+      alertLevel: "warning",
+      metadata: { workflow: "register-attempt" },
+    });
+    logError("Register rate limit exceeded", new Error("register.rate_limited"), {
+      component: "auth.register",
+      tag: "auth-rate-limited",
+      metadata: { email: rawEmail },
+    });
+    return { error: "تم تجاوز المحاولات المسموحة — حاول خلال ساعة" };
+  }
+  if (!isTestAccount && !(await checkAuthRateByIp("register-attempt-ip", MAX_REGISTER_IP_PER_HOUR))) {
+    await recordSecurityAlert({
+      email: rawEmail,
+      attemptedAction: "auth.register.ip_rate_limited",
+      alertLevel: "warning",
+      metadata: { workflow: "register-attempt-ip" },
+    });
+    logError("Register IP rate limit exceeded", new Error("register.ip_rate_limited"), {
+      component: "auth.register",
+      tag: "auth-rate-limited-ip",
+    });
+    return { error: "تم تجاوز المحاولات المسموحة — حاول خلال ساعة" };
   }
 
   // Zod at the action boundary. `consent` must be the literal "yes" — this is
@@ -546,6 +578,28 @@ export async function forgotPassword(
 
   // Per-email rate limit — prevents password reset spam abuse
   if (!(await checkAuthRate("forgot-password-attempt", email, MAX_FORGOT_PASSWORD_PER_HOUR))) {
+    await recordSecurityAlert({
+      email,
+      attemptedAction: "auth.forgot_password.rate_limited",
+      alertLevel: "warning",
+      metadata: { workflow: "forgot-password-attempt" },
+    });
+    return { error: "تم تجاوز المحاولات المسموحة — حاول خلال ساعة" };
+  }
+
+  // Per-IP layer (AUTH-VULN-02) — cross-account reset-spam from one IP.
+  const isTestAccount = email.toLowerCase().endsWith("@furqan.test");
+  if (!isTestAccount && !(await checkAuthRateByIp("forgot-password-attempt-ip", MAX_FORGOT_PASSWORD_IP_PER_HOUR))) {
+    await recordSecurityAlert({
+      email,
+      attemptedAction: "auth.forgot_password.ip_rate_limited",
+      alertLevel: "warning",
+      metadata: { workflow: "forgot-password-attempt-ip" },
+    });
+    logError("Forgot-password IP rate limit exceeded", new Error("forgot.ip_rate_limited"), {
+      component: "auth.forgotPassword",
+      tag: "auth-rate-limited-ip",
+    });
     return { error: "تم تجاوز المحاولات المسموحة — حاول خلال ساعة" };
   }
 

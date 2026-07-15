@@ -75,6 +75,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   const supabase = createAdminClient();
 
   if (!signature) {
+    // no security-alert here: unauthenticated path, flood vector (see PR #686 review)
     await logBunnyWebhook(supabase, {
       status: "failed",
       eventName: "bunny.webhook.rejected",
@@ -112,6 +113,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   if (!valid) {
+    // no security-alert here: unauthenticated path, flood vector (see PR #686 review)
     await logBunnyWebhook(supabase, {
       status: "failed",
       eventName: "bunny.webhook.rejected",

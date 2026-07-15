@@ -2,10 +2,15 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { logError } from "@/lib/logger";
+import { canReadStudent } from "@/lib/auth/can-read-student";
 
 const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   cursor: z.string().uuid().optional(),
+});
+
+const paramsSchema = z.object({
+  studentId: z.string().uuid(),
 });
 
 /**
@@ -24,17 +29,25 @@ export async function GET(
   }
 
   const { studentId } = await params;
+  const parsedParams = paramsSchema.safeParse({ studentId });
+  if (!parsedParams.success) {
+    return NextResponse.json({ error: "Invalid path parameters", details: parsedParams.error.format() }, { status: 400 });
+  }
   const { searchParams } = new URL(request.url);
   const result = querySchema.safeParse(Object.fromEntries(searchParams));
   if (!result.success) {
     return NextResponse.json({ error: "Invalid query parameters", details: result.error.format() }, { status: 400 });
   }
 
+  if (!(await canReadStudent(supabase, user.id, parsedParams.data.studentId))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const { limit, cursor } = result.data;
   let q = supabase
     .from("attendance_records")
-    .select("*")
-    .eq("student_id", studentId)
+    .select("id, booking_id, student_id, teacher_id, session_id, outcome, credit_action, finalized_at, created_at, updated_at")
+    .eq("student_id", parsedParams.data.studentId)
     .order("finalized_at", { ascending: false, nullsFirst: false })
     .limit(limit + 1);
   if (cursor) q = q.lt("id", cursor);
@@ -52,7 +65,7 @@ export async function GET(
     logError("api/attendance/list: failed", err, {
       tag: "attendance",
       user_id: user.id,
-      student_id: studentId,
+      student_id: parsedParams.data.studentId,
     });
     return NextResponse.json({ error: "Failed to fetch attendance" }, { status: 500 });
   }

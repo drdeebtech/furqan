@@ -82,6 +82,7 @@ export async function POST(request: Request) {
   // Validate shared secret with constant-time comparison (timing-attack safe)
   const secret = request.headers.get("X-N8N-Secret");
   if (!safeCompareSecret(secret, process.env.N8N_WEBHOOK_SECRET)) {
+    // no security-alert here: unauthenticated path, flood vector (see PR #686 review)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

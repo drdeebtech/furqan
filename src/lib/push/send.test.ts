@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   createAdminClient: vi.fn(),
   deleteEq: vi.fn(),
   logError: vi.fn(),
+  lookup: vi.fn(),
   selectEq: vi.fn(),
   sendNotification: vi.fn(),
 }));
@@ -15,11 +16,15 @@ vi.mock("@/lib/logger", () => ({
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => mocks.createAdminClient(),
 }));
+vi.mock("node:dns/promises", () => ({
+  lookup: (...args: unknown[]) => mocks.lookup(...args),
+}));
 vi.mock("./vapid", () => ({
   configuredWebpush: { sendNotification: mocks.sendNotification },
 }));
 
 import { sendPushToUser } from "./send";
+import { pinnedPushAgent } from "./safe-endpoint";
 
 function adminClient() {
   return {
@@ -34,6 +39,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.createAdminClient.mockReturnValue(adminClient());
   mocks.deleteEq.mockResolvedValue({ error: null });
+  mocks.lookup.mockResolvedValue([{ address: "8.8.8.8", family: 4 }]);
 });
 
 describe("sendPushToUser", () => {
@@ -65,6 +71,8 @@ describe("sendPushToUser", () => {
         body: "بقي ١٥ دقيقة على جلستك",
         url: "/student/bookings",
       }),
+      // issue #687: every send must carry the DNS-pinning agent
+      expect.objectContaining({ agent: pinnedPushAgent }),
     );
   });
 

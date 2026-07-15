@@ -4,6 +4,7 @@ import type { PushSubscription } from "web-push";
 import { logError } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { configuredWebpush } from "./vapid";
+import { isSafePushEndpointResolved, pinnedPushAgent } from "./safe-endpoint";
 
 export type PushPayload = {
   title: string;
@@ -45,11 +46,13 @@ export async function sendPushToUser(
 
     await Promise.all(
       subscriptions.map(async (subscription) => {
-        // Defence-in-depth: never POST to a non-HTTPS endpoint. Real push
-        // services are always HTTPS; a plaintext/internal URL is an SSRF risk.
-        if (!subscription.endpoint.startsWith("https://")) {
+        // Defence-in-depth (SSRF-VULN-01): re-validate at send time so a row
+        // stored before the subscribe-boundary guard existed can't turn the
+        // cron sender into an SSRF primitive. This rejects non-HTTPS,
+        // IP-literals, internal hosts, and private DNS answers.
+        if (!(await isSafePushEndpointResolved(subscription.endpoint))) {
           result.failed += 1;
-          logError("push: skipped non-https endpoint", null, {
+          logError("push: skipped unsafe endpoint", null, {
             tag: "push",
             userId,
             subscriptionId: subscription.id,
@@ -69,6 +72,10 @@ export async function sendPushToUser(
           await client.sendNotification(
             pushSubscription,
             JSON.stringify(payload),
+            // Connect-time DNS pin (issue #687): the agent's lookup validates
+            // the exact addresses this request connects to — a hostname that
+            // rebinds to a private IP after the pre-send check fails here.
+            { agent: pinnedPushAgent },
           );
           result.sent += 1;
         } catch (error) {

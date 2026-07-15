@@ -6324,6 +6324,17 @@ export type Database = {
       }
     }
     Functions: {
+      // hand-added (issue #688): atomic limiter RPC from 20260621000000_rate_limits.sql;
+      // mirrors supabase.generated.ts so admin.rpc() calls type-check.
+      check_and_increment_rate_limit: {
+        Args: {
+          p_bucket: string
+          p_identifier: string
+          p_max: number
+          p_window_seconds: number
+        }
+        Returns: boolean
+      }
       complete_review: {
         Args: {
           p_easiness: number

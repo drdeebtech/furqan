@@ -28,6 +28,7 @@
 | `RESEND_FROM_EMAIL` | "From" header for transactional email |
 | `N8N_HEALTHCHECK_URL` | Endpoint hit by `/api/cron/n8n-healthcheck` |
 | `NEXT_PUBLIC_N8N_UI_URL` | Link target from `/admin/n8n` to the n8n UI |
+| `TRUSTED_PROXY_HOPS` | Self-hosted only (#691): number of trusted reverse proxies appending to `x-forwarded-for`; client IP = Nth entry from the right. Unset on Vercel (edge headers already authoritative via `VERCEL`); unset + off-Vercel = no client IP (fail-safe). |
 | `CALLMEBOT_KEY_EG` | CallMeBot API key (Egypt WhatsApp routing) |
 | `CALLMEBOT_KEY_KW` | CallMeBot API key (Kuwait WhatsApp routing) |
 | `CALLMEBOT_PHONE_EG` | CallMeBot recipient phone (Egypt) |

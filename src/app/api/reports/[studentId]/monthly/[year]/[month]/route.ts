@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { canReadStudent } from "@/lib/auth/can-read-student";
 
 const ParamsSchema = z.object({
   studentId: z.string().uuid(),
@@ -34,6 +35,9 @@ export async function GET(_request: Request, { params }: RouteParams) {
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
   if (authErr || !user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (!(await canReadStudent(supabase, user.id, studentId))) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
   const { data: report, error } = await supabase

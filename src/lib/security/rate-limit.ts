@@ -1,27 +1,30 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError } from "@/lib/logger";
+import { withTimeout } from "@/lib/promise-utils";
+
+// A hung limiter RPC must not stall credential routes: bound it and treat a
+// timeout exactly like a backend error (deny on fail-closed routes). Well
+// above a healthy RPC (~30ms), well below a user-visible hang.
+const RATE_LIMIT_RPC_TIMEOUT_MS = 3000;
 
 /**
- * Per-IP rate limit using the `automation_logs` table as a counter.
+ * Per-identifier rate limit backed by the atomic
+ * `check_and_increment_rate_limit` RPC (`rate_limits` table,
+ * `INSERT ... ON CONFLICT DO UPDATE ... RETURNING count`) — one statement, so
+ * concurrent bursts can't each read a sub-cap count and all slip through
+ * (issue #688; replaces the old two-step count-then-insert on
+ * `automation_logs`). Fixed one-hour window. Blocked attempts still increment
+ * the counter, so post-cap hammering stays visible in the ledger.
  *
- * Each call counts rows with a given `workflow_name` + `payload_json->>ip`
- * in the last hour; if under the cap it inserts a fresh row (the "attempt"
- * ledger) and returns true, otherwise returns false. Defence-in-depth that
- * does NOT depend on the Vercel BotID/OIDC gate — so it still works on
- * self-hosted / CI / staging where BotID is bypassed or throws.
+ * Defence-in-depth that does NOT depend on the Vercel BotID/OIDC gate — so it
+ * still works on self-hosted / CI / staging where BotID is bypassed or throws.
  *
- * Fail-open by default: a transient `automation_logs` outage never blocks a
- * real submission (the caller logs and admits). This matches the original
- * `checkApplyRate` behaviour.
- *
- * Pass `{ failClosed: true }` for capability-token routes (e.g. the parent
- * portal) where a rate-limit backend error must DENY rather than admit — the
- * anti-enumeration guard is only meaningful if it can't be bypassed by
- * knocking the counter table over.
- *
- * Mirrors the pattern first introduced in teach-with-us/apply/actions.ts
- * (MAX_APPLICATIONS_PER_HOUR); extracted here so every anonymous public
- * action (teacher application, contact form, …) shares one counter rule.
+ * Fail-open by default: a transient limiter outage never blocks a real
+ * submission on public forms (contact, teacher application). Pass
+ * `{ failClosed: true }` for credential and capability-token routes
+ * (login/register/forgot-password, parent portal) where a limiter backend
+ * error must DENY rather than admit — the guard is only meaningful if it
+ * can't be bypassed by knocking the counter table over.
  */
 export async function checkRateLimit(
   ipKey: string,
@@ -31,46 +34,41 @@ export async function checkRateLimit(
 ): Promise<boolean> {
   const failClosed = opts?.failClosed ?? false;
   try {
-    // admin: rate-limit check; IP-keyed automation_logs telemetry (issue #523)
+    // admin: the RPC is granted to service_role only; callers are
+    // pre-authentication so the SSR client can't execute it (issue #523).
     const supabase = createAdminClient();
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    // `automation_logs.entity_id` is a UUID column. Storing the raw IP string
-    // there caused Postgres 22P02 (`invalid input syntax for type uuid`) on
-    // every apply (JAVASCRIPT-NEXTJS-E4-25/26/29 in Sentry). The IP lives in
-    // `payload_json` (jsonb) instead; `entity_id` stays NULL. The IP is
-    // rate-limit metadata, not a domain entity.
-    const { count, error: countErr } = await supabase
-      .from("automation_logs")
-      .select("id", { count: "exact", head: true })
-      .eq("workflow_name", workflow)
-      .eq("payload_json->>ip", ipKey)
-      .gte("started_at", oneHourAgo);
-
-    // A count-query error that doesn't reject: fail-closed routes must deny
-    // rather than silently admit on an unknown current count.
-    if (countErr && failClosed) {
-      logError(`rate-limit count failed — denying (${workflow})`, countErr, { tag: workflow });
-      return false;
+    const { data: allowed, error } = await withTimeout<{
+      data: boolean | null;
+      error: { message: string } | null;
+    }>(
+      supabase.rpc("check_and_increment_rate_limit", {
+        p_bucket: workflow,
+        p_identifier: ipKey,
+        p_max: maxPerHour,
+        p_window_seconds: 3600,
+      }),
+      RATE_LIMIT_RPC_TIMEOUT_MS,
+      {
+        data: null,
+        error: { message: `rate-limit rpc timed out or rejected (${RATE_LIMIT_RPC_TIMEOUT_MS}ms cap)` },
+      },
+      `rate-limit-rpc:${workflow}`,
+    );
+    // Error OR malformed payload: both are "limiter unavailable" — the
+    // route's declared policy decides (fail-closed denies, public forms
+    // stay fail-open). Never treat an unknown state as a verdict.
+    if (error || typeof allowed !== "boolean") {
+      logError(
+        `rate-limit rpc ${error ? "failed" : "returned non-boolean"} — ${failClosed ? "denying" : "allowing"} (${workflow})`,
+        error ?? new Error(`unexpected rpc payload: ${String(allowed)}`),
+        { tag: workflow },
+      );
+      return !failClosed;
     }
-    if ((count ?? 0) >= maxPerHour) return false;
-
-    const now = new Date().toISOString();
-    const { error: autoLogError } = await supabase.from("automation_logs").insert({
-      workflow_name: workflow,
-      entity_type: "ip",
-      entity_id: null,
-      payload_json: { ip: ipKey },
-      status: "succeeded",
-      started_at: now,
-      finished_at: now,
-    });
-    if (autoLogError) {
-      logError(`rate-limit log insert failed (${workflow})`, autoLogError, { tag: workflow });
-    }
-    return true;
+    return allowed;
   } catch (err) {
     // Fail-closed routes deny on backend error; everyone else fails open so a
-    // table outage never blocks a real submission.
+    // limiter outage never blocks a real submission.
     logError(
       `rate-limit check failed — ${failClosed ? "denying" : "allowing"} (${workflow})`,
       err,

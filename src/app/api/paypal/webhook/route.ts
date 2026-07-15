@@ -130,6 +130,7 @@ export async function POST(request: Request) {
   }
   if (!verified) {
     // Forged or malformed → 400, ZERO side effects (NFR-001).
+    // no security-alert here: unauthenticated path, flood vector (see PR #686 review)
     logError(
       "paypal-webhook: signature verification failed",
       new Error("bad-sig"),
