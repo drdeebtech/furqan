@@ -215,6 +215,21 @@ describe("POST /api/stripe/checkout/single-session (spec 022)", () => {
     expect(mockSessionsCreate).not.toHaveBeenCalled();
   });
 
+  // PR #701 tz contract: a scheduled instant slot must carry the student's
+  // local wall-clock — without it the server would have to re-derive
+  // wall-clock from the UTC instant in its own timezone (the original bug).
+  it("returns 400 when instant scheduledAt lacks student-local wall-clock fields", async () => {
+    const res = await POST(
+      makeReq({
+        productType: "instant",
+        teacherId: TEACHER_ID,
+        scheduledAt: "2026-07-20T13:00:00.000Z",
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(mockSessionsCreate).not.toHaveBeenCalled();
+  });
+
   // ── Fail-before-charge: assessment ────────────────────────────────────────
   it("returns 409 when per-specialty assessment limit reached (FR-014)", async () => {
     mockCountAssessments.mockResolvedValueOnce(1); // limit default 1 → reached

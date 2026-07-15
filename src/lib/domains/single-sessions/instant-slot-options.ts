@@ -1,6 +1,16 @@
 export interface InstantSlotOption {
+  /** Absolute instant (UTC ISO) — what gets stored/charged against. */
   iso: string;
   label: string;
+  /**
+   * Student-local wall-clock of the same slot. The server validates
+   * availability with THESE (teacher_availability stores app-local wall-clock
+   * strings), never by re-deriving wall-clock from `iso` in its own timezone
+   * — mirrors the subscription booking-form contract.
+   */
+  dayOfWeek: number;
+  localDate: string;
+  localTime: string;
 }
 
 const ARABIC_WEEKDAYS: Record<number, string> = {
@@ -63,9 +73,13 @@ export function generateInstantSlotOptions(
         if (slot.getTime() <= opts.now.getTime()) continue;
 
         const timeLabel = `${String(hours).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+        const localDate = `${slot.getFullYear()}-${String(slot.getMonth() + 1).padStart(2, "0")}-${String(slot.getDate()).padStart(2, "0")}`;
         options.push({
           iso: slot.toISOString(),
           label: `${ARABIC_WEEKDAYS[day.getDay()]} ${timeLabel}`,
+          dayOfWeek: slot.getDay(),
+          localDate,
+          localTime: timeLabel,
         });
       }
     }

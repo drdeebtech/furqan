@@ -58,6 +58,19 @@ const SingleSessionCheckoutSchema = z
     targetScope: TargetScopeSchema.optional(),
     teacherId: z.string().uuid().optional(),
     scheduledAt: z.string().datetime().optional(),
+    // Student-local wall-clock of the selected slot — required with
+    // scheduledAt for instant bookings. Availability is validated against
+    // these (teacher_availability stores app-local wall-clock strings), never
+    // against wall-clock re-derived from the UTC instant in the server's tz.
+    dayOfWeek: z.number().int().min(0).max(6).optional(),
+    localDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    localTime: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+      .optional(),
     currency: z.literal("usd").default("usd"),
   })
   .strict()
@@ -75,6 +88,16 @@ const SingleSessionCheckoutSchema = z
         message: "teacherId is required for instant bookings",
         path: ["teacherId"],
       });
+    }
+    if (val.productType === "instant" && val.scheduledAt) {
+      if (val.dayOfWeek === undefined || !val.localDate || !val.localTime) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            "dayOfWeek, localDate and localTime (student-local wall-clock) are required with scheduledAt",
+          path: ["localTime"],
+        });
+      }
     }
     if (val.productType === "specialized") {
       if (!val.teacherId) {
@@ -366,9 +389,20 @@ export async function POST(request: Request) {
     }
 
     if (body.productType === "instant" && body.scheduledAt) {
+      // zod superRefine guarantees these; keep a fail-closed runtime narrow so
+      // slot validation can never silently run without client wall-clock.
+      if (body.dayOfWeek === undefined || !body.localDate || !body.localTime) {
+        return NextResponse.json(
+          { success: false, error: "Missing student-local time fields for the selected slot" },
+          { status: 400 },
+        );
+      }
       const slot = await validateInstantSlot(admin, {
         teacherId,
         scheduledAt: new Date(body.scheduledAt),
+        dayOfWeek: body.dayOfWeek,
+        localDate: body.localDate,
+        localTime: body.localTime,
         durationMin: 30,
       });
       if (!slot.ok) {

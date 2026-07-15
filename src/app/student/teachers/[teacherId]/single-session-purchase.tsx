@@ -52,13 +52,14 @@ export function SingleSessionPurchase({
   // no effect syncing, so no stale-selection or set-state-in-effect issues.
   const [picked, setPicked] = useState("");
   const selectedIso = picked || options[0]?.iso || "";
+  const selected = options.find((option) => option.iso === selectedIso);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedIso) return;
+    if (!selected) return;
     setIsLoading(true);
     setError(null);
 
@@ -69,7 +70,13 @@ export function SingleSessionPurchase({
         body: JSON.stringify({
           productType: "instant",
           teacherId,
-          scheduledAt: selectedIso,
+          scheduledAt: selected.iso,
+          // Student-local wall-clock — the server validates availability with
+          // these (never by re-deriving wall-clock from the UTC instant in its
+          // own timezone). Mirrors the subscription booking-form contract.
+          dayOfWeek: selected.dayOfWeek,
+          localDate: selected.localDate,
+          localTime: selected.localTime,
         }),
       });
       const parsed: unknown = await response.json();

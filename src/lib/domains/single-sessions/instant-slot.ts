@@ -1,13 +1,18 @@
-/** Fail-closed, fail-before-charge instant-slot validation (principle 11). */
+/**
+ * Fail-closed, fail-before-charge instant-slot validation (principle 11).
+ *
+ * Timezone contract (mirrors the subscription flow, booking/actions.ts):
+ * `teacher_availability` / `availability_exceptions` store app-local
+ * wall-clock strings, so ALL availability comparisons use the CLIENT-provided
+ * wall-clock fields (`dayOfWeek`/`localDate`/`localTime`). The absolute
+ * instant `scheduledAt` is used ONLY for past/overlap checks. Never re-derive
+ * wall-clock from `scheduledAt` on the server — the server tz (Vercel = UTC)
+ * differs from the student's, shifting every comparison.
+ */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase.generated";
-import {
-  dateToYYYYMMDD,
-  fitsAnySlot,
-  isBlockedByException,
-  timeToHHMM,
-} from "../booking/validation";
+import { fitsAnySlot, isBlockedByException } from "../booking/validation";
 
 export type InstantSlotRejection =
   | "past"
@@ -22,7 +27,19 @@ export type InstantSlotResult =
 
 export async function validateInstantSlot(
   admin: SupabaseClient<Database>,
-  args: { teacherId: string; scheduledAt: Date; durationMin: number; now?: Date },
+  args: {
+    teacherId: string;
+    /** Absolute instant (UTC) — past/overlap checks only. */
+    scheduledAt: Date;
+    /** Student-local weekday (0–6) of the slot — availability lookup. */
+    dayOfWeek: number;
+    /** Student-local "YYYY-MM-DD" of the slot — exception-date lookup. */
+    localDate: string;
+    /** Student-local "HH:MM" of the slot — window/exception comparison. */
+    localTime: string;
+    durationMin: number;
+    now?: Date;
+  },
 ): Promise<InstantSlotResult> {
   const now = args.now ?? new Date();
   if (args.scheduledAt.getTime() <= now.getTime()) {
@@ -33,11 +50,11 @@ export async function validateInstantSlot(
     .from("teacher_availability")
     .select("start_time, end_time, slot_duration")
     .eq("teacher_id", args.teacherId)
-    .eq("day_of_week", args.scheduledAt.getDay())
+    .eq("day_of_week", args.dayOfWeek)
     .eq("is_active", true)
     .returns<{ start_time: string; end_time: string; slot_duration: number }[]>();
   if (availabilityError) return { ok: false, reason: "lookup_failed" };
-  if (!fitsAnySlot(timeToHHMM(args.scheduledAt), availability ?? [])) {
+  if (!fitsAnySlot(args.localTime, availability ?? [])) {
     return { ok: false, reason: "unavailable" };
   }
 
@@ -45,12 +62,12 @@ export async function validateInstantSlot(
     .from("availability_exceptions")
     .select("is_blocked, start_time, end_time")
     .eq("teacher_id", args.teacherId)
-    .eq("date", dateToYYYYMMDD(args.scheduledAt))
+    .eq("date", args.localDate)
     .returns<
       { is_blocked: boolean; start_time: string | null; end_time: string | null }[]
     >();
   if (exceptionsError) return { ok: false, reason: "lookup_failed" };
-  if (isBlockedByException(timeToHHMM(args.scheduledAt), exceptions ?? [])) {
+  if (isBlockedByException(args.localTime, exceptions ?? [])) {
     return { ok: false, reason: "blocked" };
   }
 

@@ -29,6 +29,26 @@ describe("generateInstantSlotOptions", () => {
     expect(times).toEqual([...times].sort((a, b) => a - b));
   });
 
+  it("exposes student-local wall-clock fields consistent with the iso instant (PR #701 tz contract)", () => {
+    const options = generateInstantSlotOptions(
+      [{ day_of_week: DOW, start_time: "09:00:00", end_time: "11:00:00" }],
+      { now: NOW, horizonDays: 1, slotMinutes: 30 },
+    );
+    expect(options.length).toBeGreaterThan(0);
+    for (const o of options) {
+      const d = new Date(o.iso); // same runtime tz as the generating client
+      expect(o.dayOfWeek).toBe(d.getDay());
+      expect(o.localDate).toBe(
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+      );
+      expect(o.localTime).toBe(
+        `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
+      );
+      // Wall-clock sits inside the window it was generated from.
+      expect(o.localTime >= "09:00" && o.localTime < "11:00").toBe(true);
+    }
+  });
+
   it("excludes a window entirely in the past (today, earlier than now)", () => {
     const options = generateInstantSlotOptions(
       [{ day_of_week: DOW, start_time: "06:00:00", end_time: "07:30:00" }],
