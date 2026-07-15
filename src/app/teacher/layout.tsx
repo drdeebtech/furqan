@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { DashboardLayout } from "@/components/shared/dashboard-layout";
 import { requireRole, ForbiddenError } from "@/lib/auth/require-admin";
-import { PostHogIdentify } from "@/components/shared/posthog-identify";
+import { AnalyticsIdentify } from "@/components/shared/analytics-identify";
 
 export default async function TeacherLayout({ children }: { children: React.ReactNode }) {
   // Defense-in-depth: the edge middleware (src/proxy.ts) already gates the
@@ -16,7 +16,7 @@ export default async function TeacherLayout({ children }: { children: React.Reac
   }
   return (
     <>
-      <PostHogIdentify userId={userId} />
+      <AnalyticsIdentify userId={userId} />
       <DashboardLayout role="teacher">{children}</DashboardLayout>
     </>
   );

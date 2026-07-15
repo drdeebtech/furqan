@@ -12,6 +12,7 @@ import { checkRateLimit } from "@/lib/security/rate-limit";
 import { withTimeout } from "@/lib/promise-utils";
 import { isSafeRelativePath } from "@/lib/security/safe-url";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { MIXPANEL_EVENTS, trackMixpanel } from "@/lib/mixpanel-server";
 import { CONTACT } from "@/lib/contact";
 import { buildConsentRecord } from "@/lib/legal";
 import { registerSchema, registerErrorMessage } from "@/lib/auth/register-schema";
@@ -560,6 +561,13 @@ export async function register(
       distinctId: signupData.user.id,
       event: "user_signed_up",
       properties: { method: "email", has_plan: !!plan },
+    });
+    // Mixpanel mirror of the same success moment — server-side because the
+    // post-register redirect is enumeration-safe (identical for duplicate
+    // emails), so a client-side track would over-count. Fail-soft + bounded.
+    await trackMixpanel(signupData.user.id, MIXPANEL_EVENTS.SIGN_UP_COMPLETED, {
+      method: "email",
+      has_plan: !!plan,
     });
   }
 

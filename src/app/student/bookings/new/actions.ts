@@ -11,6 +11,7 @@ import { emitEvent } from "@/lib/automation/emit";
 import { dispatchEffects } from "@/lib/automation/effects";
 import { logError } from "@/lib/logger";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { MIXPANEL_EVENTS, trackMixpanel } from "@/lib/mixpanel-server";
 import { createBooking as createBookingDomain } from "@/lib/domains/booking/actions";
 import {
   BookingValidationError,
@@ -215,6 +216,15 @@ export async function createBooking(
       duration_min: durationMin,
       teacher_id: teacherId,
     },
+  });
+
+  // Mixpanel Value Moment (booking confirmed) — server-side so it fires
+  // exactly once per real booking, never on client refresh/back-nav.
+  // Fail-soft + bounded; must not delay or break the booking redirect.
+  await trackMixpanel(studentId, MIXPANEL_EVENTS.BOOKING_CONFIRMED, {
+    session_type: sessionType,
+    duration_min: durationMin,
+    teacher_id: teacherId,
   });
 
   // Cross-domain choreography stays at the route adapter (per ADR-0002 §1

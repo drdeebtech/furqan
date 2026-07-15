@@ -6,6 +6,7 @@
 
 import * as Sentry from "@sentry/nextjs";
 import posthog from "posthog-js";
+import { initMixpanel } from "@/lib/mixpanel-client";
 import { initBotId } from "botid/client/core";
 import { beforeSend, CLIENT_IGNORE_ERRORS } from "@/lib/sentry/before-send";
 
@@ -118,5 +119,11 @@ if (posthogKey) {
     person_profiles: "identified_only",
   });
 }
+
+// Mixpanel product analytics — same fail-soft + privacy stance as PostHog
+// above (no token → no init; autocapture OFF, no session recording; students
+// may be minors). Init/config live in src/lib/mixpanel-client.ts so identify
+// (analytics-identify.tsx) and reset (logout forms) share one guarded module.
+initMixpanel();
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
