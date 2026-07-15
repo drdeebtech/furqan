@@ -142,14 +142,20 @@ export default async function CourseLandingPage({ params }: PageProps) {
           },
         }
       : {}),
-    offers: {
-      "@type": "Offer",
-      category: isFree ? "Free" : "Paid",
-      price: isFree ? 0 : (course.price_cents ?? 0) / 100,
-      priceCurrency: (course.currency ?? "USD").toUpperCase(),
-      availability: "https://schema.org/InStock",
-      url: canonicalUrl,
-    },
+    // A paid course with checkout disabled must not advertise a purchasable
+    // offer to search engines (the page itself says payments are coming soon).
+    ...(isFree || paidCoursesEnabled
+      ? {
+          offers: {
+            "@type": "Offer",
+            category: isFree ? "Free" : "Paid",
+            price: isFree ? 0 : (course.price_cents ?? 0) / 100,
+            priceCurrency: (course.currency ?? "USD").toUpperCase(),
+            availability: "https://schema.org/InStock",
+            url: canonicalUrl,
+          },
+        }
+      : {}),
     hasCourseInstance: {
       "@type": "CourseInstance",
       courseMode: "Online",
