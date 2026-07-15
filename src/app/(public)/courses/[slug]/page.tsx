@@ -6,6 +6,7 @@ import { Building2, GraduationCap, PlayCircle, Lock, Star, Clock } from "lucide-
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getT } from "@/lib/i18n/server";
+import { isFeatureEnabled } from "@/lib/settings";
 import type { Course, CourseLesson, CourseReview } from "@/types/database";
 import { BreadcrumbSchema, safeJsonLd } from "@/components/seo/structured-data";
 import { EnrollButton } from "./enroll-button";
@@ -54,6 +55,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function CourseLandingPage({ params }: PageProps) {
   const { slug } = await params;
   const { t, dir, lang } = await getT();
+  const paidCoursesEnabled = await isFeatureEnabled("paid_courses_enabled");
   // admin: public anonymous read; reads course + teacher profile (issue #523)
   const adminSupabase = createAdminClient();
 
@@ -313,6 +315,7 @@ export default async function CourseLandingPage({ params }: PageProps) {
             <EnrollButton
               courseId={course.id}
               isFree={course.pricing_type === "free"}
+              purchasable={course.pricing_type === "free" || paidCoursesEnabled}
               isEnrolled={isEnrolled}
               isLoggedIn={!!user}
               labels={{

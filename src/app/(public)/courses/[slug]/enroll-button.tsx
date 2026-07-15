@@ -11,6 +11,8 @@ interface Props {
   isFree: boolean;
   isEnrolled: boolean;
   isLoggedIn: boolean;
+  /** false = paid checkout has not launched (paid_courses_enabled off). */
+  purchasable?: boolean;
   labels: {
     enroll: string;
     buy: string;
@@ -25,6 +27,7 @@ export function EnrollButton({
   isFree,
   isEnrolled,
   isLoggedIn,
+  purchasable = true,
   labels,
 }: Props) {
   const router = useRouter();
@@ -40,6 +43,17 @@ export function EnrollButton({
         {labels.go}
         <ArrowRight size={14} />
       </Link>
+    );
+  }
+
+  if (!isFree && !purchasable) {
+    // Paid checkout hasn't launched — show the coming-soon state up front
+    // instead of an error after a hopeful click (and before the login CTA:
+    // signing in wouldn't make the course buyable).
+    return (
+      <p className="rounded-lg border border-gold/40 bg-gold/10 px-4 py-2.5 text-center text-sm font-medium text-gold">
+        {labels.soon}
+      </p>
     );
   }
 

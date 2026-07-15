@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Building2, GraduationCap, Inbox, Star } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getT } from "@/lib/i18n/server";
+import { isFeatureEnabled } from "@/lib/settings";
 import type { Course } from "@/types/database";
 import { BreadcrumbSchema } from "@/components/seo/structured-data";
 
@@ -29,6 +30,7 @@ export default async function PublicCoursesPage({
 }) {
   const sp = await searchParams;
   const { t, dir } = await getT();
+  const paidCoursesEnabled = await isFeatureEnabled("paid_courses_enabled");
   // Use admin client for SSR public catalog so we don't depend on a session.
   // RLS still permits anon SELECT on status='published'.
   // admin: public anonymous read of published courses (issue #523)
@@ -254,6 +256,7 @@ export default async function PublicCoursesPage({
                   ) : (
                     <span className="rounded-full bg-gold/20 px-3 py-1 text-xs font-semibold text-gold">
                       {(c.price_cents / 100).toFixed(2)} {c.currency}
+                      {!paidCoursesEnabled && ` · ${t("قريباً", "Coming soon")}`}
                     </span>
                   )}
                 </div>
