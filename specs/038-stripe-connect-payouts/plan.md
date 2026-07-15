@@ -52,10 +52,10 @@ src/app/api/admin/payouts/sweep/route.ts                 Phase 4 (admin/cron tri
 
 **Deliverables**
 1. `stripe_connect_accounts`: `teacher_id uuid UNIQUE FK profiles`, `stripe_account_id text UNIQUE`, `charges_enabled bool`, `payouts_enabled bool`, `details_submitted bool`, `requirements jsonb`, `last_event_at timestamptz`. RLS: teacher select own, admin select, service_role write.
-2. `teacher_earning_entries`: source keys (`session_delivery_id uuid UNIQUE where kind='session'`, `payment_id` for course purchases), `teacher_id`, `amount_cents int` (negative allowed only for `kind='clawback'`), `funding_charge_id text NULL`, `transfer_group text`, `status` enum `pending|held|transferred|voided`, `hold_reason`, timestamps. Financial-columns immutable trigger (copy `guard_teacher_payouts_financials` idiom); status transitions constrained by trigger (e.g. `transferred` is terminal except clawback rows).
-3. `teacher_transfers`: `entry_id FK`, `stripe_transfer_id text UNIQUE`, `idempotency_key text UNIQUE`, `amount_cents`, `kind transfer|reversal`, `status`, `error_detail`, partial `UNIQUE(entry_id) WHERE kind='transfer'`.
+2. `teacher_earning_entries`: **one canonical source-key model — every payable unit has exactly one unique source key**: partial `UNIQUE(session_delivery_id) WHERE kind='session'` **and** partial `UNIQUE(payment_id) WHERE kind='course'`, so re-running materialization can never duplicate an earning from either source (FR-008 alignment). Plus `teacher_id`, `amount_cents int` (negative allowed only for `kind='clawback'`), `funding_charge_id text NULL`, `transfer_group text`, `status` enum `pending|processing|held|transferred|voided|manual_paid`, `hold_reason`, `claimed_at timestamptz NULL` (sweep lease — Phase 1), timestamps. Financial-columns immutable trigger (copy `guard_teacher_payouts_financials` idiom); status transitions constrained by trigger (e.g. `transferred` and `manual_paid` are terminal except clawback rows).
+3. `teacher_transfers`: `entry_id FK`, denormalized `session_delivery_id uuid NULL`, `stripe_transfer_id text UNIQUE`, `idempotency_key text UNIQUE`, `amount_cents`, `kind transfer|reversal`, `status`, `error_detail`. Uniqueness backstops match FR-008 exactly: partial `UNIQUE(entry_id) WHERE kind='transfer'` **and** partial `UNIQUE(session_delivery_id) WHERE kind='transfer' AND session_delivery_id IS NOT NULL` — the spec's `teacher_transfers(session_delivery_id)` backstop, not `entry_id` alone; tests assert both constraints.
 4. `payout_holds`: `teacher_id`, `source` `admin|dispute`, `reason text NOT NULL`, `created_by`, `released_at NULL`.
-5. platform_settings keys: `connect_payout_hold_days` (default 7 — ⚠ pending human sign-off), `connect_cutover_date` (NULL = new path disabled).
+5. platform_settings keys: `connect_payout_hold_days` (default 7 — ⚠ pending human sign-off), `connect_cutover_date` (NULL = new path disabled; **write-once** — DB trigger allows only the single NULL → value transition, service-role only, and audit-logs the write and every rejected mutation attempt, per FR-021).
 6. Entry materialization trigger or sweep-side backfill from `session_deliveries` rows with `delivered_at >= connect_cutover_date` (decision: **sweep-side derivation, no trigger on the hot finalize path** — keeps `finalize_attendance` untouched, which has a history of P0s).
 
 **Verification gate**
@@ -67,7 +67,7 @@ src/app/api/admin/payouts/sweep/route.ts                 Phase 4 (admin/cron tri
 
 **Deliverables**
 1. `earnings.ts`: `deriveEarningCents(delivery)` (integer cents, FR-006), exception surfacing for zero/missing rate (FR-007), cutover partition (FR-021).
-2. `transfer-sweep.ts`: single idempotent function — claim eligible entries (`pending`, hold window elapsed, teacher `payouts_enabled`, no active hold — hold check inside the claiming transaction, FR-023) → `stripe.transfers.create` with `idempotencyKey: transfer:{session_delivery_id}`, `transfer_group` per FR-009 → write `teacher_transfers` row. Failure path: record error, leave `pending` (FR-011).
+2. `transfer-sweep.ts`: single idempotent function with an **explicit claim/lease state** so two concurrent sweeps can never process the same entry. Step 1 (atomic claim): one `UPDATE … SET status='processing', claimed_at=now() WHERE status='pending' AND <eligible> RETURNING *` — eligibility (hold window elapsed, teacher `payouts_enabled`, no active hold, FR-023) evaluated inside this same claiming statement, so a concurrent sweep finds no `pending` row and claims nothing. Step 2 (outside any DB transaction — never hold one open across the external call): only the claimant calls `stripe.transfers.create` with `idempotencyKey: transfer:{session_delivery_id}`, `transfer_group` per FR-009. Step 3: write the `teacher_transfers` row and flip the entry `processing → transferred`. Failure path: record error, flip back `processing → pending` (FR-011). Crash recovery: a `processing` entry whose `claimed_at` lease has expired (e.g. > 15 min) is returned to `pending` at the start of the next run — safe because the Stripe idempotency key replays the original Transfer and the FR-008 uniques block a duplicate row.
 3. `clawback.ts`: pure `computeClawbackCents(refundedFraction, transferredCents)` (proportional, floor, capped) + orchestration for reversal/debt/void per FR-013/014, US3-AS4.
 4. Typed events: `payout.transfer_created`, `payout.transfer_failed`, `payout.clawback` via `FurqanEvent` + Mixpanel constants.
 
@@ -91,12 +91,14 @@ src/app/api/admin/payouts/sweep/route.ts                 Phase 4 (admin/cron tri
 
 **Deliverables**
 1. `src/app/api/stripe/connect-webhook/route.ts`: thin shell — verify raw body against `STRIPE_CONNECT_WEBHOOK_SECRET` (fail-closed 400), `billing_events` UNIQUE insert, dispatch. Add the env var to `docs/agents/env-vars.md` in the same PR (FR-020).
-2. Handlers in `connect-webhook-handlers.ts` (reusing `EventContext`/`markEvent`):
+2. Handlers in `connect-webhook-handlers.ts` (reusing `EventContext`/`markEvent`) — the Connect endpoint receives **connected-account events only**:
    - `account.updated` → recency-guarded mirror update (FR-003).
    - `transfer.created` / `transfer.reversed` → reconcile status only (rows are created synchronously by the sweep — webhooks never create money rows).
    - `payout.paid` / `payout.failed` (teacher's bank payout on the connected account) → informational status + ops alert on failure.
-   - `charge.refunded` → extend the existing handler chain: after the prepaid path, run teacher clawback (FR-013/014) — one shared root-cause path, not a parallel handler.
-   - `charge.dispute.created` / `charge.dispute.closed` → hold/release/void per FR-015; prepaid behavior in the existing `handleChargeDisputed` unchanged.
+3. Platform-webhook extensions — refund/dispute events are charges on the platform account, so they are processed **only** by the existing `src/app/api/stripe/webhook/route.ts` (one authoritative path; the Connect endpoint is NOT subscribed to `charge.*`, so the shared `billing_events (stripe_event_id UNIQUE)` ledger can never see a two-endpoint race where the losing insert skips teacher clawback):
+   - `charge.refunded` → stays on the existing `handleChargeRefunded` chain in `webhook-handlers.ts`: after the prepaid path, append teacher clawback (FR-013/014) — one shared root-cause path, not a parallel handler.
+   - `charge.dispute.created` → extend the existing `handleChargeDisputed` with the FR-015 hold; prepaid behavior unchanged.
+   - `charge.dispute.closed` → **new case added to the dispatch map in `src/app/api/stripe/webhook/route.ts`** (today the dispatcher routes only `charge.dispute.created`; unknown types fall to the ignored path, so without this explicit case won/lost disputes would never release, void, or claw back) → new `handleChargeDisputeClosed`: release (won) / void + clawback (lost) per FR-015.
 
 **Verification gate**
 - `stripe listen`/`stripe trigger` fixture run for each event type against local dev; assert DB effects per event, then **replay each event** and assert zero additional effect (SC-003/US3-AS5).
