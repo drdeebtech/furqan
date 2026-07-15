@@ -27,7 +27,10 @@ import {
 } from "@/lib/domains/billing/subscriptions";
 import { grantCycle, buildCycleKey } from "@/lib/domains/billing/orchestrate";
 import { BillingEvents } from "@/lib/domains/billing/events";
-import { applyPendingTierChangeAtRenewal } from "@/lib/domains/catalog/credit-grant";
+import {
+  applyImmediateUpgradeGrant,
+  applyPendingTierChangeAtRenewal,
+} from "@/lib/domains/catalog/credit-grant";
 
 // ── Shared context ────────────────────────────────────────────────────────────
 
@@ -93,6 +96,58 @@ export async function handleInvoicePaid(ctx: EventContext): Promise<void> {
   const subscriptionId = invoiceSubscriptionId(invoice);
   if (!subscriptionId) {
     await markEvent(ctx, "failed", "invoice has no subscription id");
+    return;
+  }
+
+  // ── Proration invoice from an immediate tier upgrade ────────────────────
+  // billing_reason 'subscription_update' = the always_invoice proration created
+  // by upgrade-tier. Grant ONLY the pending delta recorded by the route (and
+  // only now that the invoice is PAID) — running the full monthly grantCycle on
+  // these invoices double-granted (delta at request time + a full month here,
+  // distinct cycle keys). Audit 2026-07-15. Placed before the payment_intent
+  // guard: proration invoices can settle from customer balance without a PI,
+  // and the delta grant doesn't record one.
+  if (invoice.billing_reason === "subscription_update") {
+    const resolvedUpgrade = await resolveSubscription(ctx, subscriptionId, invoice);
+    if (!resolvedUpgrade.mirrorId) {
+      await markEvent(ctx, "failed", "could not resolve mirror for subscription_update invoice");
+      return;
+    }
+    const upgrade = await applyImmediateUpgradeGrant(ctx.admin, resolvedUpgrade.mirrorId, invoice.id);
+    if (!upgrade.ok && upgrade.reason !== "no_pending") {
+      await markEvent(ctx, "failed", `immediate upgrade grant failed: ${upgrade.reason}`);
+      return;
+    }
+    await ctx.admin
+      .from("billing_events")
+      .update({ subscription_id: resolvedUpgrade.mirrorId })
+      .eq("id", ctx.billingEventId!);
+    if (upgrade.ok) {
+      logInfo("stripe-webhook: immediate-upgrade delta granted on paid proration invoice", {
+        tag: "billing",
+        subscription_id: resolvedUpgrade.mirrorId,
+        pending_id: upgrade.pendingId,
+        delta_sessions: upgrade.deltaSessions,
+      });
+      getPostHogClient()?.capture({
+        distinctId: upgrade.studentId,
+        event: "subscription_tier_upgraded",
+        properties: {
+          subscription_id: resolvedUpgrade.mirrorId,
+          new_plan_id: upgrade.planId,
+          delta_sessions: upgrade.deltaSessions,
+        },
+      });
+    } else {
+      // subscription_update invoice with no pending row — e.g. a price change
+      // made directly in the Stripe dashboard. Nothing to grant; benign.
+      logInfo("stripe-webhook: subscription_update invoice with no pending upgrade grant", {
+        tag: "billing",
+        subscription_id: resolvedUpgrade.mirrorId,
+        invoice_id: invoice.id,
+      });
+    }
+    await markEvent(ctx, "processed");
     return;
   }
 

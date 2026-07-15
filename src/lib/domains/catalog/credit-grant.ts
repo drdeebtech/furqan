@@ -226,3 +226,184 @@ export async function applyPendingTierChangeAtRenewal(
     regrant,
   };
 }
+
+// ─── Immediate-upgrade grant, payment-gated (audit 2026-07-15) ───────────────
+
+export interface PendingUpgradeGrantRow {
+  id: string;
+  subscription_id: string;
+  student_id: string;
+  plan_id: string;
+  delta_sessions: number;
+  stripe_invoice_id: string;
+  status: string;
+}
+
+export interface RecordPendingUpgradeResult {
+  ok: true;
+  id: string;
+}
+
+/**
+ * Record the delta grant for an immediate tier upgrade WITHOUT granting it.
+ * Credits are granted by handleInvoicePaid when the proration invoice
+ * (billing_reason = 'subscription_update') is confirmed paid — never before.
+ * Idempotent on stripe_invoice_id (UNIQUE): a duplicate re-reads the winner.
+ */
+export async function recordPendingUpgradeGrant(
+  admin: SupabaseClient<Database>,
+  args: {
+    subscriptionId: string;
+    studentId: string;
+    planId: string;
+    deltaSessions: number;
+    stripeInvoiceId: string;
+  },
+): Promise<RecordPendingUpgradeResult | GrantHifzFailure> {
+  const { data, error } = await admin
+    .from("pending_upgrade_grants")
+    .insert({
+      subscription_id: args.subscriptionId,
+      student_id: args.studentId,
+      plan_id: args.planId,
+      delta_sessions: args.deltaSessions,
+      stripe_invoice_id: args.stripeInvoiceId,
+    })
+    .select("id")
+    .maybeSingle<{ id: string }>();
+
+  if (error?.code === "23505") {
+    // Duplicate submission for the same proration invoice — idempotent no-op.
+    const { data: winner } = await admin
+      .from("pending_upgrade_grants")
+      .select("id")
+      .eq("stripe_invoice_id", args.stripeInvoiceId)
+      .maybeSingle<{ id: string }>();
+    if (winner) return { ok: true, id: winner.id };
+    return { ok: false, error: "unique conflict but winner not found" };
+  }
+  if (error || !data) {
+    logError("catalog.recordPendingUpgradeGrant failed", error ?? new Error("no row"), {
+      tag: "billing",
+      subscription_id: args.subscriptionId,
+      invoice_id: args.stripeInvoiceId,
+    });
+    return { ok: false, error: error?.message ?? "insert returned no row" };
+  }
+  return { ok: true, id: data.id };
+}
+
+export interface AppliedUpgradeGrantResult {
+  ok: true;
+  pendingId: string;
+  planId: string;
+  studentId: string;
+  deltaSessions: number;
+  grant: GrantHifzResult;
+}
+
+export interface AppliedUpgradeGrantFailure {
+  ok: false;
+  reason: "no_pending" | "lookup_failed" | "update_failed";
+  error?: string;
+}
+
+/**
+ * Apply the pending delta grant for a PAID proration invoice
+ * (invoice.paid, billing_reason = 'subscription_update').
+ *
+ * Mirrors applyPendingTierChangeAtRenewal:
+ *   1. Look up the pending row by stripe_invoice_id; fall back to the
+ *      subscription's newest pending row (covers the route's defensive
+ *      synthetic-invoice-id path — at most one upgrade is in flight).
+ *   2. Grant the delta via grant_hifz_cycle_credits with key
+ *      `upgrade_${invoiceId}` (idempotent via billing_cycle_key UNIQUE).
+ *   3. Transition pending → applied (WHERE status='pending' = replay-safe).
+ *
+ * Payment failure → this never runs → credits never granted. Fail-closed.
+ */
+export async function applyImmediateUpgradeGrant(
+  admin: SupabaseClient<Database>,
+  subscriptionId: string,
+  invoiceId: string,
+): Promise<AppliedUpgradeGrantResult | AppliedUpgradeGrantFailure> {
+  const { data: byInvoice, error: lookupErr } = await admin
+    .from("pending_upgrade_grants")
+    .select("id, subscription_id, student_id, plan_id, delta_sessions, stripe_invoice_id, status")
+    .eq("stripe_invoice_id", invoiceId)
+    .eq("status", "pending")
+    .maybeSingle<PendingUpgradeGrantRow>();
+
+  if (lookupErr) {
+    logError("applyImmediateUpgradeGrant: lookup failed", lookupErr, {
+      tag: "billing", subscription_id: subscriptionId, invoice_id: invoiceId,
+    });
+    return { ok: false, reason: "lookup_failed", error: lookupErr.message };
+  }
+
+  let pending = byInvoice;
+  if (!pending) {
+    // Fallback: the route couldn't read the invoice id off the Stripe update
+    // response and stored a synthetic key. At most one upgrade is in flight
+    // per subscription, so its newest pending row is it.
+    const { data: bySub, error: subLookupErr } = await admin
+      .from("pending_upgrade_grants")
+      .select("id, subscription_id, student_id, plan_id, delta_sessions, stripe_invoice_id, status")
+      .eq("subscription_id", subscriptionId)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<PendingUpgradeGrantRow>();
+    if (subLookupErr) {
+      return { ok: false, reason: "lookup_failed", error: subLookupErr.message };
+    }
+    pending = bySub;
+  }
+
+  if (!pending) return { ok: false, reason: "no_pending" };
+
+  if (pending.subscription_id !== subscriptionId) {
+    // Should be impossible (invoice → subscription mapping); refuse rather
+    // than grant against the wrong subscription.
+    return {
+      ok: false,
+      reason: "lookup_failed",
+      error: "pending row belongs to a different subscription",
+    };
+  }
+
+  const grant = await grantHifzCycleCredits(
+    admin,
+    pending.subscription_id,
+    pending.plan_id,
+    `upgrade_${invoiceId}`,
+    pending.delta_sessions,
+  );
+  if (!grant.ok) {
+    logError("applyImmediateUpgradeGrant: delta grant failed", new Error(grant.error), {
+      tag: "billing", subscription_id: subscriptionId, invoice_id: invoiceId,
+    });
+    return { ok: false, reason: "update_failed", error: grant.error };
+  }
+
+  const { error: statusErr } = await admin
+    .from("pending_upgrade_grants")
+    .update({ status: "applied", applied_at: new Date().toISOString() })
+    .eq("id", pending.id)
+    .eq("status", "pending");
+  if (statusErr) {
+    logError("applyImmediateUpgradeGrant: status transition failed", statusErr, {
+      tag: "billing", pending_id: pending.id,
+    });
+    return { ok: false, reason: "update_failed", error: statusErr.message };
+  }
+
+  return {
+    ok: true,
+    pendingId: pending.id,
+    planId: pending.plan_id,
+    studentId: pending.student_id,
+    deltaSessions: pending.delta_sessions,
+    grant,
+  };
+}

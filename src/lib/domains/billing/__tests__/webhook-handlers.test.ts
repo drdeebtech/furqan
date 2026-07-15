@@ -28,6 +28,7 @@ vi.mock("@/lib/domains/billing/events", () => ({
 }));
 vi.mock("@/lib/domains/catalog/credit-grant", () => ({
   applyPendingTierChangeAtRenewal: vi.fn().mockResolvedValue({ ok: false, reason: "no_pending" }),
+  applyImmediateUpgradeGrant: vi.fn().mockResolvedValue({ ok: false, reason: "no_pending" }),
 }));
 
 vi.mock("@/lib/posthog-server", () => ({
@@ -44,7 +45,10 @@ import {
 } from "../webhook-handlers";
 import { upsertMirror } from "@/lib/domains/billing/subscriptions";
 import { grantCycle } from "@/lib/domains/billing/orchestrate";
-import { applyPendingTierChangeAtRenewal } from "@/lib/domains/catalog/credit-grant";
+import {
+  applyImmediateUpgradeGrant,
+  applyPendingTierChangeAtRenewal,
+} from "@/lib/domains/catalog/credit-grant";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -325,6 +329,93 @@ describe("handleInvoicePaid", () => {
     await handleInvoicePaid(ctx);
 
     expect(grantCycle).not.toHaveBeenCalled();
+  });
+
+  // ── billing_reason=subscription_update (immediate tier upgrade proration) ──
+  // Payment-gating audit 2026-07-15: these invoices must grant ONLY the pending
+  // delta (applyImmediateUpgradeGrant) — never the full monthly grantCycle,
+  // which double-granted before this branch existed.
+  describe("subscription_update proration invoices", () => {
+    function makeUpgradeAdmin(opts: { mirror?: object | null } = {}) {
+      const beEq = vi.fn().mockResolvedValue({ error: null });
+      const beUpdate = vi.fn().mockReturnValue({ eq: beEq });
+      const subMaybe = vi.fn().mockResolvedValue({
+        data:
+          opts.mirror === undefined
+            ? { id: "mirror-1", student_id: "stu-1", plan_id: "plan-1" }
+            : opts.mirror,
+        error: null,
+      });
+      const subEq = vi.fn(() => ({ maybeSingle: subMaybe }));
+      const subSelect = vi.fn(() => ({ eq: subEq }));
+      const admin: MockAdmin = {
+        from: vi.fn((table: string) => {
+          if (table === "billing_events") return { update: beUpdate };
+          return { select: subSelect };
+        }),
+      };
+      return { admin, beUpdate };
+    }
+
+    it("grants ONLY the pending delta — no full grantCycle, no renewal tier change", async () => {
+      vi.mocked(applyImmediateUpgradeGrant).mockResolvedValue({
+        ok: true,
+        pendingId: "pug-1",
+        planId: "plan-2",
+        studentId: "stu-1",
+        deltaSessions: 4,
+        grant: { ok: true, grantId: "grant-1", created: true },
+      } as never);
+      const { admin, beUpdate } = makeUpgradeAdmin();
+      const ctx = makeEventCtx(admin, "evt-1", invoiceObject({ billing_reason: "subscription_update" }));
+
+      await handleInvoicePaid(ctx);
+
+      expect(applyImmediateUpgradeGrant).toHaveBeenCalledWith(expect.anything(), "mirror-1", "in_1");
+      expect(grantCycle).not.toHaveBeenCalled();
+      expect(applyPendingTierChangeAtRenewal).not.toHaveBeenCalled();
+      expect(beUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: "processed" }));
+    });
+
+    it("is benign (processed, nothing granted) when no pending upgrade row exists", async () => {
+      vi.mocked(applyImmediateUpgradeGrant).mockResolvedValue({
+        ok: false,
+        reason: "no_pending",
+      } as never);
+      const { admin, beUpdate } = makeUpgradeAdmin();
+      const ctx = makeEventCtx(admin, "evt-1", invoiceObject({ billing_reason: "subscription_update" }));
+
+      await handleInvoicePaid(ctx);
+
+      expect(grantCycle).not.toHaveBeenCalled();
+      expect(beUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: "processed" }));
+    });
+
+    it("marks the event failed when the delta grant fails (Stripe will retry)", async () => {
+      vi.mocked(applyImmediateUpgradeGrant).mockResolvedValue({
+        ok: false,
+        reason: "update_failed",
+        error: "rpc down",
+      } as never);
+      const { admin, beUpdate } = makeUpgradeAdmin();
+      const ctx = makeEventCtx(admin, "evt-1", invoiceObject({ billing_reason: "subscription_update" }));
+
+      await handleInvoicePaid(ctx);
+
+      expect(grantCycle).not.toHaveBeenCalled();
+      expect(beUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: "failed" }));
+    });
+
+    it("leaves normal cycle invoices on the full-grant path (regression)", async () => {
+      vi.mocked(grantCycle).mockResolvedValue({ ok: false, error: "stub" } as never);
+      const { admin } = makeUpgradeAdmin();
+      const ctx = makeEventCtx(admin, "evt-1", invoiceObject({ billing_reason: "subscription_cycle" }));
+
+      await handleInvoicePaid(ctx);
+
+      expect(applyImmediateUpgradeGrant).not.toHaveBeenCalled();
+      expect(grantCycle).toHaveBeenCalled();
+    });
   });
 
   it("does not throw on a well-formed USD invoice (happy-path smoke)", async () => {

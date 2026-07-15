@@ -5,9 +5,8 @@ import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/client";
 import { canUpgradeImmediately, scheduleRenewalChange } from "@/lib/domains/catalog/tier-changes";
-import { grantHifzCycleCredits } from "@/lib/domains/catalog/credit-grant";
+import { recordPendingUpgradeGrant } from "@/lib/domains/catalog/credit-grant";
 import { logError, logInfo } from "@/lib/logger";
-import { getPostHogClient } from "@/lib/posthog-server";
 
 export const maxDuration = 60;
 
@@ -21,7 +20,10 @@ const Body = z.object({
  *
  * Immediate upgrade (same product_category, sessions increasing):
  *   - stripe.subscriptions.update with proration_behavior:'always_invoice'
- *   - grantHifzCycleCredits for delta sessions with 'upgrade_'+invoice.id key
+ *   - records a pending_upgrade_grants row keyed to the proration invoice;
+ *     the delta credits are granted by the invoice.paid webhook
+ *     (billing_reason='subscription_update') ONLY once payment is confirmed
+ *     (audit 2026-07-15 — previously granted here, before/regardless of payment).
  *
  * Deferred (type mismatch or not an upgrade):
  *   - scheduleRenewalChange inserts pending_tier_changes
@@ -235,42 +237,42 @@ export async function POST(request: Request) {
     );
   }
 
-  // ── Grant delta credits for the remainder of this cycle ────────────────────
-  const billingCycleKey = `upgrade_${invoiceId}`;
-  const grantResult = await grantHifzCycleCredits(admin, sub.id, newPlan.id, billingCycleKey, eligibility.deltaSessions);
+  // ── Record the delta grant, gated on the proration invoice being PAID ─────
+  // (audit 2026-07-15). handleInvoicePaid grants it when Stripe confirms
+  // payment (billing_reason='subscription_update') — never at request time.
+  // A declined/abandoned proration invoice therefore never yields credits.
+  const pendingGrant = await recordPendingUpgradeGrant(admin, {
+    subscriptionId: sub.id,
+    studentId: userId,
+    planId: newPlan.id,
+    deltaSessions: eligibility.deltaSessions,
+    stripeInvoiceId: invoiceId,
+  });
 
-  if (!grantResult.ok) {
-    logError("upgrade-tier: delta credit grant failed", new Error(grantResult.error), {
+  if (!pendingGrant.ok) {
+    logError("upgrade-tier: pending grant record failed", new Error(pendingGrant.error), {
       tag: "billing",
       subscription_id: sub.id,
       invoice_id: invoiceId,
     });
     return NextResponse.json(
-      { error: "Upgrade applied in Stripe but credit grant failed — contact support" },
+      { error: "Upgrade applied in Stripe but credit scheduling failed — contact support" },
       { status: 500 },
     );
   }
 
-  logInfo("upgrade-tier: immediate upgrade applied", {
+  logInfo("upgrade-tier: immediate upgrade applied, delta grant pending invoice payment", {
     tag: "billing",
     subscription_id: sub.id,
     new_plan_id: newPlan.id,
     delta_sessions: eligibility.deltaSessions,
-  });
-
-  getPostHogClient()?.capture({
-    distinctId: userId,
-    event: "subscription_tier_upgraded",
-    properties: {
-      subscription_id: sub.id,
-      new_plan_id: newPlan.id,
-      delta_sessions: eligibility.deltaSessions,
-    },
+    invoice_id: invoiceId,
   });
 
   return NextResponse.json({
     result: "upgraded",
     newPlanId: newPlan.id,
     deltaSessions: eligibility.deltaSessions,
+    creditsPendingInvoiceId: invoiceId,
   });
 }
