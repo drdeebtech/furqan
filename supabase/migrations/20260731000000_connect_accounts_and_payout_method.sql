@@ -350,3 +350,17 @@ CREATE TRIGGER connect_cutover_sole_writer_delete_guard
   FOR EACH ROW
   WHEN (OLD.key = 'connect_cutover_date')
   EXECUTE FUNCTION guard_connect_cutover_sole_writer();
+
+-- Defence-in-depth for FR-021 "service-role only". The sole-writer flag above is
+-- a plain GUC any caller can set, and settings_update (USING private.is_admin())
+-- otherwise lets an ADMIN session UPDATE this row directly — so an admin could
+-- forge the flag and flip the irreversible payout cutover, which FR-021 forbids.
+-- This RESTRICTIVE policy removes the connect_cutover_date row from EVERY
+-- authenticated UPDATE (AND-ed with settings_update), so only service_role
+-- (RLS-exempt) and the postgres-owned setter (platform_settings has FORCE ROW
+-- LEVEL SECURITY off, so the owner bypasses RLS) can ever write it. An admin
+-- session cannot, forged flag or not. Other settings rows are unaffected.
+CREATE POLICY "settings_cutover_no_authenticated_write" ON platform_settings
+  AS RESTRICTIVE FOR UPDATE TO authenticated
+  USING (key <> 'connect_cutover_date')
+  WITH CHECK (key <> 'connect_cutover_date');

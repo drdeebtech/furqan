@@ -392,4 +392,32 @@ BEGIN
   RAISE NOTICE 'ASSERT OK  [5h] unrelated platform_settings row still updatable (trigger is key-scoped)';
 END $$;
 
+-- ── 5i. FR-021 defence-in-depth: an ADMIN session cannot set the cutover even
+--        by forging the sole-writer GUC — the RESTRICTIVE policy removes the row
+--        from every authenticated UPDATE (0 rows, value unchanged). Without the
+--        policy the forged flag would let settings_update (is_admin) write it. ──
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims',
+  json_build_object('role','authenticated','sub','00000000-0000-4000-9000-0000000000ad')::text, true);
+DO $$
+DECLARE v_before text; v_after text; n integer;
+BEGIN
+  SELECT value INTO v_before FROM public.platform_settings WHERE key = 'connect_cutover_date';
+  PERFORM set_config('app.connect_cutover_writer', 'on', true);  -- forge the sole-writer flag
+  BEGIN
+    UPDATE public.platform_settings SET value = '2026-12-31' WHERE key = 'connect_cutover_date';
+    GET DIAGNOSTICS n = ROW_COUNT;
+    SELECT value INTO v_after FROM public.platform_settings WHERE key = 'connect_cutover_date';
+    IF n <> 0 OR v_after IS DISTINCT FROM v_before THEN
+      RAISE EXCEPTION 'ASSERT FAILED: admin forged the flag and wrote cutover (rows=%, %->%)', n, v_before, v_after;
+    END IF;
+    RAISE NOTICE 'ASSERT OK  [5i] admin cannot set cutover even with a forged writer flag (restrictive RLS, 0 rows)';
+  EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE 'ASSERT OK  [5i] admin cannot set cutover even with a forged writer flag (denied)';
+  END;
+END $$;
+
+RESET ROLE;
+SELECT set_config('request.jwt.claims', '', true);
+
 ROLLBACK;
