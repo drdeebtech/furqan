@@ -15,7 +15,13 @@ import {
 // (plan Phase 1 item 2 / FR-010/021/023) — that SQL is verified at the DB level
 // in the wiring slice. This fake mirrors that predicate so these unit tests prove
 // the ENGINE never acts on anything the claim did not hand it, and that the
-// per-entry money decisions (debt netting, manual rail, failure) are correct.
+// per-entry money decisions (debt netting, manual rail, failure, lease fence)
+// are correct.
+//
+// LEASE FENCE: every settlement method here enforces the same
+// `status='processing' AND claimed_at=$lease` guard the real SQL will — a write
+// whose lease no longer matches the stored `claimed_at` hits 0 rows and returns
+// false (the entry was reclaimed by another sweep).
 // ─────────────────────────────────────────────────────────────────────────
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -84,6 +90,20 @@ class FakeStore implements SweepStore {
     return this.teachers.get(teacherId)?.outstandingDebtCents ?? 0;
   }
 
+  totalRecovered(): number {
+    return this.transfers.reduce((acc, t) => acc + t.recoveredCents, 0);
+  }
+
+  // The lease fence: the write only lands if the entry is still `processing` and
+  // still carries the exact `claimed_at` this run leased. Returns rows-affected>0.
+  private fenced(entryId: string, lease: Date): EntryState | null {
+    const entry = this.entries.get(entryId);
+    if (!entry) return null;
+    if (entry.status !== "processing") return null;
+    if (entry.claimedAt === null || entry.claimedAt.getTime() !== lease.getTime()) return null;
+    return entry;
+  }
+
   async reclaimExpiredLeases(leaseCutoff: Date): Promise<number> {
     let n = 0;
     for (const entry of this.entries.values()) {
@@ -111,8 +131,11 @@ class FakeStore implements SweepStore {
       // Stripe rail requires payouts_enabled; the manual rail never does (FR-026).
       if (t.payoutMethod === "stripe_connect" && !t.payoutsEnabled) continue;
 
+      // Lease the row. `new Date(now)` so the token is a distinct object we can
+      // later mutate away from (simulating a stolen lease) without touching this.
+      const lease = new Date(now.getTime());
       entry.status = "processing";
-      entry.claimedAt = now;
+      entry.claimedAt = lease;
       claimed.push({
         entryId: entry.entryId,
         teacherId: entry.teacherId,
@@ -122,23 +145,36 @@ class FakeStore implements SweepStore {
         destinationAccountId: t.destinationAccountId,
         transferGroup: entry.transferGroup,
         currency: entry.currency,
+        claimedAt: lease,
       });
     }
     return claimed;
   }
 
-  async recordDebtRecovered(input: { entryId: string; teacherId: string; recoveredCents: number }): Promise<void> {
-    const entry = this.entries.get(input.entryId)!;
+  async recordDebtRecovered(input: {
+    entryId: string;
+    teacherId: string;
+    recoveredCents: number;
+    claimedAt: Date;
+  }): Promise<boolean> {
+    const entry = this.fenced(input.entryId, input.claimedAt);
+    if (!entry) return false;
     entry.status = "debt_recovered";
-    const t = this.teachers.get(input.teacherId)!;
-    t.outstandingDebtCents -= input.recoveredCents;
+    this.teachers.get(input.teacherId)!.outstandingDebtCents -= input.recoveredCents;
+    return true;
   }
 
-  async recordManualDue(input: { entryId: string; teacherId: string; recoveredCents: number }): Promise<void> {
-    const entry = this.entries.get(input.entryId)!;
+  async recordManualDue(input: {
+    entryId: string;
+    teacherId: string;
+    recoveredCents: number;
+    claimedAt: Date;
+  }): Promise<boolean> {
+    const entry = this.fenced(input.entryId, input.claimedAt);
+    if (!entry) return false;
     entry.status = "manual_due";
-    const t = this.teachers.get(input.teacherId)!;
-    t.outstandingDebtCents -= input.recoveredCents;
+    this.teachers.get(input.teacherId)!.outstandingDebtCents -= input.recoveredCents;
+    return true;
   }
 
   async recordTransferSucceeded(input: {
@@ -149,11 +185,12 @@ class FakeStore implements SweepStore {
     recoveredCents: number;
     transferGroup: string | null;
     idempotencyKey: string;
-  }): Promise<void> {
-    const entry = this.entries.get(input.entryId)!;
+    claimedAt: Date;
+  }): Promise<boolean> {
+    const entry = this.fenced(input.entryId, input.claimedAt);
+    if (!entry) return false;
     entry.status = "transferred";
-    const t = this.teachers.get(input.teacherId)!;
-    t.outstandingDebtCents -= input.recoveredCents;
+    this.teachers.get(input.teacherId)!.outstandingDebtCents -= input.recoveredCents;
     this.transfers.push({
       entryId: input.entryId,
       teacherId: input.teacherId,
@@ -162,13 +199,20 @@ class FakeStore implements SweepStore {
       recoveredCents: input.recoveredCents,
       idempotencyKey: input.idempotencyKey,
     });
+    return true;
   }
 
-  async recordTransferFailed(input: { entryId: string; errorDetail: string }): Promise<void> {
-    const entry = this.entries.get(input.entryId)!;
+  async recordTransferFailed(input: {
+    entryId: string;
+    errorDetail: string;
+    claimedAt: Date;
+  }): Promise<boolean> {
+    const entry = this.fenced(input.entryId, input.claimedAt);
+    if (!entry) return false;
     entry.status = "pending";
     entry.claimedAt = null;
     entry.errorDetail = input.errorDetail;
+    return true;
   }
 }
 
@@ -288,6 +332,40 @@ describe("runTransferSweep", () => {
     });
   });
 
+  describe("per-teacher running balance within a batch (no double-recovery)", () => {
+    it("partial: two entries for one teacher net against a running balance — the debt is recovered once, not per-entry", async () => {
+      store.seedTeacher("t1", { outstandingDebtCents: 2000 });
+      store.seedEntry({ entryId: "e1", teacherId: "t1", amountCents: 3000 });
+      store.seedEntry({ entryId: "e2", teacherId: "t1", amountCents: 3000 });
+
+      const r = await runTransferSweep({ store, stripe, now: NOW });
+
+      // e1 nets against 2000 (recover 2000, transfer 1000); e2 nets against the
+      // now-zero running balance (recover 0, transfer 3000).
+      expect(r.transferred).toBe(2);
+      const amounts = stripe.create.mock.calls.map((c) => c[0].amount).sort((a, b) => a - b);
+      expect(amounts).toEqual([1000, 3000]);
+      expect(store.totalRecovered()).toBe(2000); // NOT 4000 — recovered once
+      expect(store.outstandingDebt("t1")).toBe(0);
+    });
+
+    it("full consumption: two entries for one teacher each recover part of the running balance, both debt_recovered, zero Stripe", async () => {
+      store.seedTeacher("t1", { outstandingDebtCents: 5000 });
+      store.seedEntry({ entryId: "e1", teacherId: "t1", amountCents: 2000 });
+      store.seedEntry({ entryId: "e2", teacherId: "t1", amountCents: 2000 });
+
+      const r = await runTransferSweep({ store, stripe, now: NOW });
+
+      expect(stripe.create).not.toHaveBeenCalled();
+      expect(r.debtRecovered).toBe(2);
+      expect(store.entries.get("e1")!.status).toBe("debt_recovered");
+      expect(store.entries.get("e2")!.status).toBe("debt_recovered");
+      // 5000 - 2000 - 2000 = 1000 carried forward (each recovered against the
+      // running balance, never both against the original 5000).
+      expect(store.outstandingDebt("t1")).toBe(1000);
+    });
+  });
+
   describe("manual rail (FR-026)", () => {
     it("routes to manual_due with zero Stripe calls", async () => {
       store.seedTeacher("t1", { payoutMethod: "manual", payoutsEnabled: false, destinationAccountId: null });
@@ -352,7 +430,7 @@ describe("runTransferSweep", () => {
       expect(logError).toHaveBeenCalled();
     });
 
-    it("isolates a per-entry failure so other entries still settle", async () => {
+    it("isolates a per-entry failure so other entries still settle, and counts each entry exactly once", async () => {
       store.seedTeacher("t1");
       store.seedTeacher("t2");
       store.seedEntry({ entryId: "e1", teacherId: "t1", amountCents: 5000 });
@@ -364,6 +442,36 @@ describe("runTransferSweep", () => {
 
       expect(r.failed).toBe(1);
       expect(r.transferred).toBe(1);
+      // Exactly one outcome per entry — no double counting across branches.
+      expect(r.failed + r.transferred + r.debtRecovered + r.manualDue + r.abandoned).toBe(r.claimed);
+    });
+  });
+
+  describe("lease fencing (a stolen lease can never double-settle)", () => {
+    it("if the entry is reclaimed mid-transfer (claimed_at changes), the original worker's fenced write is rejected — no transfer row, no recovery, no double count", async () => {
+      store.seedTeacher("t1", { outstandingDebtCents: 2000 });
+      store.seedEntry({ entryId: "e1", teacherId: "t1", amountCents: 5000 });
+      const debtBefore = store.outstandingDebt("t1");
+
+      // Simulate another sweep stealing the lease WHILE this worker is inside the
+      // Stripe network call (between claim and the fenced settlement write).
+      stripe.create.mockImplementationOnce(async (_p, o) => {
+        store.entries.get("e1")!.claimedAt = new Date("2026-07-16T00:09:00Z"); // new owner's lease
+        return { id: `tr_${o.idempotencyKey}` };
+      });
+
+      const r = await runTransferSweep({ store, stripe, now: NOW });
+
+      // The Stripe transfer happened (idempotency key covers the new owner's
+      // replay), but our fenced DB write hit 0 rows → abandoned.
+      expect(stripe.create).toHaveBeenCalledTimes(1);
+      expect(r.abandoned).toBe(1);
+      expect(r.transferred).toBe(0);
+      expect(r.failed).toBe(0);
+      expect(store.transfers).toHaveLength(0); // no transfer row written by the loser
+      expect(store.outstandingDebt("t1")).toBe(debtBefore); // no recovery written
+      // Exactly one outcome per claimed entry.
+      expect(r.failed + r.transferred + r.debtRecovered + r.manualDue + r.abandoned).toBe(r.claimed);
     });
   });
 

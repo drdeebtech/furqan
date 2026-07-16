@@ -22,17 +22,37 @@
 // (FR-008), so even a crash-retry replays the SAME Stripe Transfer, and the
 // teacher_transfers UNIQUE(entry_id) backstops a duplicate row.
 //
+// ── Lease fencing (every settlement write is conditional) ───────────────────
+// Claiming a row leases it (`claimed_at` = this run's timestamp). BUT the
+// process can stall: another sweep may reclaim an expired lease and re-claim the
+// row (new `claimed_at`) while THIS run is still mid-flight. So every settlement
+// write is FENCED to the exact lease this run holds — each port method runs
+// `… WHERE entry_id=$1 AND status='processing' AND claimed_at=$lease` and reports
+// whether it hit a row. 0 rows ⇒ the lease was lost to another owner ⇒ we ABANDON
+// the entry: no DB side effect, and it is NOT counted as transferred/failed. The
+// new owner settles it. The Stripe `transfers.create` deliberately happens BEFORE
+// the fenced write; that is safe because the idempotency key `transfer:{entryId}`
+// makes the new owner's replay return the SAME Transfer — the fence protects the
+// DB writes, Stripe idempotency covers the external call.
+//
 // ── Debt-recovery timing (fail-closed, re-derivable) ────────────────────────
-// The `debt_recovery` ledger row is written ONLY when the transfer succeeds
-// (inside `recordTransferSucceeded`, atomically with the transfer row and the
-// status flip). On a Stripe failure NO recovery is written, so the teacher's
-// outstanding balance is untouched and the next sweep re-derives an identical
-// net from `netEarningAgainstDebt` (FR-011). This is the plan's explicitly
-// permitted "otherwise re-derivable" path: it reaches the same guarantee as
-// write-then-reverse (a debt consumed by a failed transfer never vanishes and is
-// never double-paid) with strictly fewer moving parts — no compensating
-// debt_recovery_reversal is needed on the transfer-failure path at all.
+// The `debt_recovery` ledger row is written ONLY when the settlement succeeds
+// (inside recordTransferSucceeded / recordDebtRecovered / recordManualDue,
+// atomically with the status flip, under the lease fence). On a Stripe failure
+// (or a lost lease) NO recovery is written, so the teacher's outstanding balance
+// is untouched and the next sweep re-derives an identical net (FR-011). This is
+// the plan's explicitly permitted "otherwise re-derivable" path: same guarantee
+// as write-then-reverse (a debt consumed by a failed transfer never vanishes and
+// is never double-paid) with strictly fewer moving parts.
 // ponytail: write-on-success over write-then-reverse — same invariant, less state.
+//
+// ── Per-teacher running balance (no double-recovery within a batch) ─────────
+// Two entries for the SAME teacher share one claim-time `outstandingDebtCents`
+// snapshot. Netting both against that snapshot would recover the debt twice. So
+// the run keeps a per-teacher RUNNING balance: seeded from the snapshot, then
+// decremented by each recovery actually committed, so the second entry nets
+// against the debt the first already paid down. A teacher's entries are processed
+// sequentially against that running balance.
 
 import { netEarningAgainstDebt } from "./debt";
 
@@ -43,6 +63,8 @@ export type PayoutMethod = "stripe_connect" | "manual";
  * One entry handed back by the atomic claim — already leased (`processing`),
  * with the snapshot the settlement decision needs. `outstandingDebtCents` is
  * read inside the claim transaction so netting is consistent for this run.
+ * `claimedAt` is the lease token: the `claimed_at` this run's claim set, threaded
+ * into every settlement write so a stolen lease cannot double-settle the entry.
  */
 export interface ClaimedEntry {
   entryId: string;
@@ -58,6 +80,8 @@ export interface ClaimedEntry {
   transferGroup: string | null;
   /** Settlement currency. USD only (FR-012); anything else fails closed. */
   currency: string;
+  /** Lease token — the `claimed_at` this run set. Fences every settlement write. */
+  claimedAt: Date;
 }
 
 /**
@@ -65,6 +89,11 @@ export interface ClaimedEntry {
  * The production implementation is RPC-backed (each method one atomic SQL
  * statement / function); unit tests inject an in-memory fake. Every method that
  * moves money is a single transaction on the DB side.
+ *
+ * Every settlement method is LEASE-FENCED: its SQL carries
+ * `… WHERE entry_id=$1 AND status='processing' AND claimed_at=$lease` and returns
+ * `true` iff it updated a row. `false` ⇒ the lease was reclaimed by another sweep
+ * ⇒ the caller must perform no side effect and not count the entry.
  */
 export interface SweepStore {
   /** Step 6 crash recovery: expired-lease `processing` rows → `pending`. Count. */
@@ -76,13 +105,15 @@ export interface SweepStore {
     entryId: string;
     teacherId: string;
     recoveredCents: number;
-  }): Promise<void>;
+    claimedAt: Date;
+  }): Promise<boolean>;
   /** Step 2b (manual rail): write debt_recovery if any, then → `manual_due`. */
   recordManualDue(input: {
     entryId: string;
     teacherId: string;
     recoveredCents: number;
-  }): Promise<void>;
+    claimedAt: Date;
+  }): Promise<boolean>;
   /** Step 4 (success): write teacher_transfers (+debt_recovery if any) → `transferred`. */
   recordTransferSucceeded(input: {
     entryId: string;
@@ -92,9 +123,14 @@ export interface SweepStore {
     recoveredCents: number;
     transferGroup: string | null;
     idempotencyKey: string;
-  }): Promise<void>;
+    claimedAt: Date;
+  }): Promise<boolean>;
   /** Step 5 (failure): `processing` → `pending`, record the error. No debt change. */
-  recordTransferFailed(input: { entryId: string; errorDetail: string }): Promise<void>;
+  recordTransferFailed(input: {
+    entryId: string;
+    errorDetail: string;
+    claimedAt: Date;
+  }): Promise<boolean>;
 }
 
 /** The single Stripe surface the sweep touches — structurally typed so tests mock it. */
@@ -130,7 +166,12 @@ export interface SweepResult {
   debtRecovered: number;
   manualDue: number;
   failed: number;
+  /** Entries whose lease was lost mid-run (fence rejected the write). Not paid. */
+  abandoned: number;
 }
+
+/** The single terminal outcome of settling one claimed entry. Counted once. */
+type SettleOutcome = "transferred" | "debtRecovered" | "manualDue" | "failed" | "abandoned";
 
 const DEFAULT_LEASE_TTL_MS = 15 * 60 * 1000;
 
@@ -145,8 +186,9 @@ function describeError(error: unknown): string {
 
 /**
  * Run one idempotent transfer sweep. Safe to run concurrently (the claim leases
- * each entry exactly once) and repeatedly (settled entries are never re-claimed).
- * Per-entry failures are isolated — one bad entry never aborts the batch.
+ * each entry exactly once and every settlement is lease-fenced) and repeatedly
+ * (settled entries are never re-claimed). Per-entry failures are isolated — one
+ * bad entry never aborts the batch — and each entry is counted exactly once.
  */
 export async function runTransferSweep(deps: SweepDeps): Promise<SweepResult> {
   const { store, stripe } = deps;
@@ -161,6 +203,7 @@ export async function runTransferSweep(deps: SweepDeps): Promise<SweepResult> {
     debtRecovered: 0,
     manualDue: 0,
     failed: 0,
+    abandoned: 0,
   };
 
   // Step 6: return orphaned leases to `pending` before claiming, so a crashed
@@ -172,26 +215,41 @@ export async function runTransferSweep(deps: SweepDeps): Promise<SweepResult> {
   const claimed = await store.claimEligibleEntries(now());
   result.claimed = claimed.length;
 
+  // Per-teacher running debt so two entries for one teacher don't both net
+  // against the same claim-time snapshot (double-recovery). Seeded lazily from
+  // the first entry's snapshot; decremented only when a recovery is committed.
+  const runningDebtCents = new Map<string, number>();
+
   for (const entry of claimed) {
+    let outcome: SettleOutcome;
     try {
-      await settleEntry({ entry, store, stripe, logError, result });
+      outcome = await settleEntry({ entry, store, stripe, logError, runningDebtCents });
     } catch (error) {
-      // Defensive backstop: a store/record error must not abort the batch or
-      // leave the entry silently leased — fail the entry closed and continue.
-      result.failed += 1;
+      // Defensive backstop: an unexpected store/record error must not abort the
+      // batch or leave the entry silently leased — fail the entry closed (fenced)
+      // and continue. If the fence rejects (lease lost), abandon instead.
       logError("transfer-sweep: entry settlement failed (fail-closed → pending)", error, {
         tag: "connect",
         metadata: { entryId: entry.entryId, teacherId: entry.teacherId },
       });
-      await store
-        .recordTransferFailed({ entryId: entry.entryId, errorDetail: describeError(error) })
+      const reverted = await store
+        .recordTransferFailed({
+          entryId: entry.entryId,
+          errorDetail: describeError(error),
+          claimedAt: entry.claimedAt,
+        })
         .catch((revertError) => {
           logError("transfer-sweep: could not revert leased entry to pending", revertError, {
             tag: "connect",
             metadata: { entryId: entry.entryId },
           });
+          return false;
         });
+      outcome = reverted ? "failed" : "abandoned";
     }
+
+    // Exactly one increment per entry.
+    result[outcome] += 1;
   }
 
   return result;
@@ -202,74 +260,84 @@ async function settleEntry(args: {
   store: SweepStore;
   stripe: StripeTransfersApi;
   logError: NonNullable<SweepDeps["logError"]>;
-  result: SweepResult;
-}): Promise<void> {
-  const { entry, store, stripe, logError, result } = args;
+  runningDebtCents: Map<string, number>;
+}): Promise<SettleOutcome> {
+  const { entry, store, stripe, logError, runningDebtCents } = args;
 
-  // Step 2: net the teacher's outstanding debt against this earning (FR-014).
+  // Step 2: net against the teacher's RUNNING debt (seeded from the claim-time
+  // snapshot the first time we touch this teacher this run), so a sibling entry
+  // for the same teacher nets against the debt already paid down (FR-014).
+  const debtNow = runningDebtCents.has(entry.teacherId)
+    ? runningDebtCents.get(entry.teacherId)!
+    : entry.outstandingDebtCents;
   const plan = netEarningAgainstDebt({
     earningCents: entry.amountCents,
-    outstandingDebtCents: entry.outstandingDebtCents,
+    outstandingDebtCents: debtNow,
   });
 
   // Fully consumed by debt → terminal, no settlement of either rail (FR-014).
   if (plan.closesAsDebtRecovered) {
-    await store.recordDebtRecovered({
+    const applied = await store.recordDebtRecovered({
       entryId: entry.entryId,
       teacherId: entry.teacherId,
       recoveredCents: plan.recoveredCents,
+      claimedAt: entry.claimedAt,
     });
-    result.debtRecovered += 1;
-    return;
+    if (!applied) return "abandoned";
+    runningDebtCents.set(entry.teacherId, plan.remainingDebtCents);
+    return "debtRecovered";
   }
 
   // Step 2b: manual rail settles off-Stripe — same hold + debt netting already
   // applied, only the settlement differs. No Stripe call, no payouts_enabled or
   // destination needed (FR-026).
   if (entry.payoutMethod === "manual") {
-    await store.recordManualDue({
+    const applied = await store.recordManualDue({
       entryId: entry.entryId,
       teacherId: entry.teacherId,
       recoveredCents: plan.recoveredCents,
+      claimedAt: entry.claimedAt,
     });
-    result.manualDue += 1;
-    return;
+    if (!applied) return "abandoned";
+    runningDebtCents.set(entry.teacherId, plan.remainingDebtCents);
+    return "manualDue";
   }
 
   // ── Stripe rail ──
   // FR-012: USD only. A non-USD entry must never hit Stripe — fail closed.
   if (entry.currency !== "usd") {
-    result.failed += 1;
     logError("transfer-sweep: non-USD entry rejected (fail-closed, FR-012)", null, {
       tag: "connect",
       metadata: { entryId: entry.entryId, currency: entry.currency },
     });
-    await store.recordTransferFailed({
+    const applied = await store.recordTransferFailed({
       entryId: entry.entryId,
       errorDetail: `non-USD currency '${entry.currency}' rejected (FR-012)`,
+      claimedAt: entry.claimedAt,
     });
-    return;
+    return applied ? "failed" : "abandoned";
   }
 
   // A Stripe-rail entry that reached the claim without a destination is a data
   // fault (payouts_enabled true but no acct id) — fail closed rather than throw.
   if (!entry.destinationAccountId) {
-    result.failed += 1;
     logError("transfer-sweep: Stripe-rail entry has no destination account (fail-closed)", null, {
       tag: "connect",
       metadata: { entryId: entry.entryId, teacherId: entry.teacherId },
     });
-    await store.recordTransferFailed({
+    const applied = await store.recordTransferFailed({
       entryId: entry.entryId,
       errorDetail: "missing destination Connect account",
+      claimedAt: entry.claimedAt,
     });
-    return;
+    return applied ? "failed" : "abandoned";
   }
 
   const idempotencyKey = `transfer:${entry.entryId}`;
 
-  // Step 3: the Stripe Transfer — OUTSIDE any DB transaction. The idempotency
-  // key replays the same Transfer on any retry (FR-008).
+  // Step 3: the Stripe Transfer — OUTSIDE any DB transaction, BEFORE the fenced
+  // write. The idempotency key replays the same Transfer on any retry (FR-008),
+  // so even if our lease was stolen the new owner's replay returns this Transfer.
   let stripeTransferId: string;
   try {
     const transfer = await stripe.transfers.create(
@@ -283,21 +351,26 @@ async function settleEntry(args: {
     );
     stripeTransferId = transfer.id;
   } catch (error) {
-    // Step 5 (FR-011): record the error, return the entry to `pending`. No
-    // recovery was written, so the balance is unchanged and the next sweep nets
-    // identically. Never mark paid, never drop.
-    result.failed += 1;
+    // Step 5 (FR-011): record the error, return the entry to `pending` (fenced).
+    // No recovery was written, so the balance is unchanged and the next sweep
+    // nets identically. Never mark paid, never drop.
     logError("transfer-sweep: stripe transfer failed (fail-closed → pending)", error, {
       tag: "connect",
       metadata: { entryId: entry.entryId, teacherId: entry.teacherId },
     });
-    await store.recordTransferFailed({ entryId: entry.entryId, errorDetail: describeError(error) });
-    return;
+    const applied = await store.recordTransferFailed({
+      entryId: entry.entryId,
+      errorDetail: describeError(error),
+      claimedAt: entry.claimedAt,
+    });
+    return applied ? "failed" : "abandoned";
   }
 
   // Step 4: persist the transfer row + any debt_recovery row + flip to
-  // `transferred`, atomically on the DB side.
-  await store.recordTransferSucceeded({
+  // `transferred`, atomically and lease-fenced on the DB side. A lost lease here
+  // means another owner already owns the entry — abandon (Stripe idempotency
+  // guarantees their replay reuses this same Transfer, no double pay).
+  const applied = await store.recordTransferSucceeded({
     entryId: entry.entryId,
     teacherId: entry.teacherId,
     stripeTransferId,
@@ -305,6 +378,9 @@ async function settleEntry(args: {
     recoveredCents: plan.recoveredCents,
     transferGroup: entry.transferGroup,
     idempotencyKey,
+    claimedAt: entry.claimedAt,
   });
-  result.transferred += 1;
+  if (!applied) return "abandoned";
+  runningDebtCents.set(entry.teacherId, plan.remainingDebtCents);
+  return "transferred";
 }
