@@ -647,11 +647,17 @@ UPDATE public.payout_holds
    SET released_at = now(), released_by = '00000000-0000-4000-9000-00000000000b'
  WHERE id = '00000000-0000-4000-9000-00000000001c';
 DO $$
-DECLARE rel timestamptz;
+DECLARE rel timestamptz; rel_by uuid;
 BEGIN
-  SELECT released_at INTO rel FROM public.payout_holds WHERE id = '00000000-0000-4000-9000-00000000001c';
+  SELECT released_at, released_by INTO rel, rel_by
+    FROM public.payout_holds WHERE id = '00000000-0000-4000-9000-00000000001c';
   IF rel IS NULL THEN RAISE EXCEPTION 'ASSERT FAILED: fully-attributed release was rejected (legal-hold lifecycle broken)'; END IF;
-  RAISE NOTICE 'ASSERT OK  [9k] release with both released_at + released_by accepted';
+  -- The actor attribution must persist exactly (auditable hold releases):
+  -- a release that loses or rewrites released_by must fail the walk.
+  IF rel_by IS DISTINCT FROM '00000000-0000-4000-9000-00000000000b'::uuid THEN
+    RAISE EXCEPTION 'ASSERT FAILED: release lost/rewrote its actor attribution (released_by=%, want ...000b)', rel_by;
+  END IF;
+  RAISE NOTICE 'ASSERT OK  [9k] release persisted released_at + exact released_by attribution';
 END $$;
 
 -- ── 10. Dormancy: the Connect path is inert until cutover ───────────────
