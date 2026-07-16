@@ -91,6 +91,13 @@ COMMENT ON COLUMN teacher_profiles.agreement_grace_until IS
 -- One-time backfill: every teacher who already has a confirmed booking at
 -- rollout gets 30 days from now. now() is the rollout moment. New teachers get
 -- no stamp, so the gate applies to them immediately once enabled.
+--
+-- Cohort = teachers with a confirmed booking (deliberate, owner-confirmed
+-- 2026-07-16). This dormant backfill is only a head-start; the AUTHORITATIVE
+-- rollout-cohort snapshot (which teachers are active at enable-time) plus the
+-- append-only audit rows belong to the ENABLEMENT procedure (a later slice run
+-- when the gate is turned on), not to this migrate-time UPDATE. The full-cohort
+-- stamp (all non-archived active teachers) is deferred to that step.
 UPDATE teacher_profiles tp
    SET agreement_grace_until = now() + interval '30 days'
  WHERE tp.agreement_grace_until IS NULL
