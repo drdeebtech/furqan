@@ -147,9 +147,12 @@ export async function initiateEnrollmentCheckout(courseId: string) {
   //    fields { amount_paid_cents, platform_fee_cents, teacher_earnings_cents,
   //    currency, source: 'purchase', payment_id }.
   // 5. return checkout_url.
+  // Flag is ON but the Stripe integration has not landed (Stage 11). Same
+  // friendly copy as the flag-off branch — a raw internal stub string must
+  // never reach a student because an admin flipped a flag early.
   return {
     ok: false as const,
-    error: "Stripe checkout will land in Stage 11",
+    error: "الدفع قيد التحضير — قريباً نتيح شراء الدورات المدفوعة",
     courseId,
   };
 }

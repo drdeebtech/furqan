@@ -9,6 +9,7 @@ import { emitEvent } from "@/lib/automation/emit";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import type { SessionType } from "@/types/database";
 import { UserError } from "@/lib/actions/user-error";
+import { requireRole } from "@/lib/auth/require-admin";
 
 const VALID_TYPES: ReadonlySet<SessionType> = new Set([
   "hifz", "muraja", "tajweed", "tilawa", "qiraat", "tafsir", "combined", "other",
@@ -31,6 +32,7 @@ interface CreateInput {
  * Returns extra `id` field — kept as manual pattern with logError.
  */
 export async function createOffering(input: CreateInput) {
+  await requireRole(["teacher", "admin"]);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "غير مصرح" };

@@ -28,6 +28,7 @@ vi.mock("@/lib/domains/billing/events", () => ({
 }));
 vi.mock("@/lib/domains/catalog/credit-grant", () => ({
   applyPendingTierChangeAtRenewal: vi.fn().mockResolvedValue({ ok: false, reason: "no_pending" }),
+  applyImmediateUpgradeGrant: vi.fn().mockResolvedValue({ ok: false, reason: "no_pending" }),
 }));
 
 vi.mock("@/lib/posthog-server", () => ({
@@ -44,7 +45,10 @@ import {
 } from "../webhook-handlers";
 import { upsertMirror } from "@/lib/domains/billing/subscriptions";
 import { grantCycle } from "@/lib/domains/billing/orchestrate";
-import { applyPendingTierChangeAtRenewal } from "@/lib/domains/catalog/credit-grant";
+import {
+  applyImmediateUpgradeGrant,
+  applyPendingTierChangeAtRenewal,
+} from "@/lib/domains/catalog/credit-grant";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -327,6 +331,93 @@ describe("handleInvoicePaid", () => {
     expect(grantCycle).not.toHaveBeenCalled();
   });
 
+  // ── billing_reason=subscription_update (immediate tier upgrade proration) ──
+  // Payment-gating audit 2026-07-15: these invoices must grant ONLY the pending
+  // delta (applyImmediateUpgradeGrant) — never the full monthly grantCycle,
+  // which double-granted before this branch existed.
+  describe("subscription_update proration invoices", () => {
+    function makeUpgradeAdmin(opts: { mirror?: object | null } = {}) {
+      const beEq = vi.fn().mockResolvedValue({ error: null });
+      const beUpdate = vi.fn().mockReturnValue({ eq: beEq });
+      const subMaybe = vi.fn().mockResolvedValue({
+        data:
+          opts.mirror === undefined
+            ? { id: "mirror-1", student_id: "stu-1", plan_id: "plan-1" }
+            : opts.mirror,
+        error: null,
+      });
+      const subEq = vi.fn(() => ({ maybeSingle: subMaybe }));
+      const subSelect = vi.fn(() => ({ eq: subEq }));
+      const admin: MockAdmin = {
+        from: vi.fn((table: string) => {
+          if (table === "billing_events") return { update: beUpdate };
+          return { select: subSelect };
+        }),
+      };
+      return { admin, beUpdate };
+    }
+
+    it("grants ONLY the pending delta — no full grantCycle, no renewal tier change", async () => {
+      vi.mocked(applyImmediateUpgradeGrant).mockResolvedValue({
+        ok: true,
+        pendingId: "pug-1",
+        planId: "plan-2",
+        studentId: "stu-1",
+        deltaSessions: 4,
+        grant: { ok: true, grantId: "grant-1", created: true },
+      } as never);
+      const { admin, beUpdate } = makeUpgradeAdmin();
+      const ctx = makeEventCtx(admin, "evt-1", invoiceObject({ billing_reason: "subscription_update" }));
+
+      await handleInvoicePaid(ctx);
+
+      expect(applyImmediateUpgradeGrant).toHaveBeenCalledWith(expect.anything(), "mirror-1", "in_1");
+      expect(grantCycle).not.toHaveBeenCalled();
+      expect(applyPendingTierChangeAtRenewal).not.toHaveBeenCalled();
+      expect(beUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: "processed" }));
+    });
+
+    it("is benign (processed, nothing granted) when no pending upgrade row exists", async () => {
+      vi.mocked(applyImmediateUpgradeGrant).mockResolvedValue({
+        ok: false,
+        reason: "no_pending",
+      } as never);
+      const { admin, beUpdate } = makeUpgradeAdmin();
+      const ctx = makeEventCtx(admin, "evt-1", invoiceObject({ billing_reason: "subscription_update" }));
+
+      await handleInvoicePaid(ctx);
+
+      expect(grantCycle).not.toHaveBeenCalled();
+      expect(beUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: "processed" }));
+    });
+
+    it("marks the event failed when the delta grant fails (Stripe will retry)", async () => {
+      vi.mocked(applyImmediateUpgradeGrant).mockResolvedValue({
+        ok: false,
+        reason: "update_failed",
+        error: "rpc down",
+      } as never);
+      const { admin, beUpdate } = makeUpgradeAdmin();
+      const ctx = makeEventCtx(admin, "evt-1", invoiceObject({ billing_reason: "subscription_update" }));
+
+      await handleInvoicePaid(ctx);
+
+      expect(grantCycle).not.toHaveBeenCalled();
+      expect(beUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: "failed" }));
+    });
+
+    it("leaves normal cycle invoices on the full-grant path (regression)", async () => {
+      vi.mocked(grantCycle).mockResolvedValue({ ok: false, error: "stub" } as never);
+      const { admin } = makeUpgradeAdmin();
+      const ctx = makeEventCtx(admin, "evt-1", invoiceObject({ billing_reason: "subscription_cycle" }));
+
+      await handleInvoicePaid(ctx);
+
+      expect(applyImmediateUpgradeGrant).not.toHaveBeenCalled();
+      expect(grantCycle).toHaveBeenCalled();
+    });
+  });
+
   it("does not throw on a well-formed USD invoice (happy-path smoke)", async () => {
     vi.mocked(grantCycle).mockResolvedValue({ ok: true, grantIds: ["g-1"] } as never);
     const admin = makeInvoiceAdmin();
@@ -420,5 +511,80 @@ describe("handlePaymentIntentSucceeded", () => {
     await handlePaymentIntentSucceeded(ctx);
 
     expect(grantCycle).not.toHaveBeenCalled();
+  });
+});
+
+// ── handlePaymentIntentSucceeded — instant scheduled_at threading (spec 022 slice 2) ──
+
+describe("handlePaymentIntentSucceeded — instant scheduled_at (spec 022 slice 2)", () => {
+  function makeHappyInstantAdmin(): { admin: MockAdmin; rpc: ReturnType<typeof vi.fn> } {
+    const rpc = vi.fn().mockResolvedValue({ data: "booking-1", error: null });
+    const from = vi.fn((table: string) => {
+      if (table === "payments") {
+        return {
+          insert: vi.fn(() => ({
+            select: vi.fn(() => ({
+              maybeSingle: vi.fn().mockResolvedValue({ data: { id: "pay-1" }, error: null }),
+            })),
+          })),
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+            })),
+          })),
+        };
+      }
+      // billing_events: sentinel select/insert + markEvent update + delete
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          })),
+        })),
+        insert: vi.fn().mockResolvedValue({ error: null }),
+        update: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) })),
+        delete: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) })),
+      };
+    });
+    return { admin: { from, rpc }, rpc };
+  }
+
+  it("threads scheduled_at from PI metadata into start_instant_session_booking (p_scheduled_at)", async () => {
+    const { admin, rpc } = makeHappyInstantAdmin();
+    const chosen = "2026-08-01T09:00:00.000Z";
+    const ctx = makeEventCtx(admin, "evt-1", {
+      id: "pi_instant_1",
+      currency: "usd",
+      amount_received: 700,
+      metadata: {
+        booking_type: "instant",
+        student_id: "stu-1",
+        teacher_id: "t-1",
+        scheduled_at: chosen,
+      },
+    });
+
+    await handlePaymentIntentSucceeded(ctx);
+
+    expect(rpc).toHaveBeenCalledWith(
+      "start_instant_session_booking",
+      expect.objectContaining({ p_scheduled_at: chosen }),
+    );
+  });
+
+  it("falls back to a generated timestamp when scheduled_at metadata is absent", async () => {
+    const { admin, rpc } = makeHappyInstantAdmin();
+    const ctx = makeEventCtx(admin, "evt-1", {
+      id: "pi_instant_2",
+      currency: "usd",
+      amount_received: 700,
+      metadata: { booking_type: "instant", student_id: "stu-1", teacher_id: "t-1" },
+    });
+
+    await handlePaymentIntentSucceeded(ctx);
+
+    const call = rpc.mock.calls.find((c) => c[0] === "start_instant_session_booking");
+    expect(call).toBeTruthy();
+    expect(typeof (call![1] as { p_scheduled_at: unknown }).p_scheduled_at).toBe("string");
   });
 });

@@ -18,6 +18,7 @@ import { z } from "zod";
 import type { Json } from "@/types/supabase.generated";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError, logInfo } from "@/lib/logger";
+import { dispatchEffects } from "@/lib/automation/effects";
 import { emitEvent } from "@/lib/automation/emit";
 import { getPostHogClient } from "@/lib/posthog-server";
 import {
@@ -26,7 +27,10 @@ import {
 } from "@/lib/domains/billing/subscriptions";
 import { grantCycle, buildCycleKey } from "@/lib/domains/billing/orchestrate";
 import { BillingEvents } from "@/lib/domains/billing/events";
-import { applyPendingTierChangeAtRenewal } from "@/lib/domains/catalog/credit-grant";
+import {
+  applyImmediateUpgradeGrant,
+  applyPendingTierChangeAtRenewal,
+} from "@/lib/domains/catalog/credit-grant";
 
 // ── Shared context ────────────────────────────────────────────────────────────
 
@@ -92,6 +96,58 @@ export async function handleInvoicePaid(ctx: EventContext): Promise<void> {
   const subscriptionId = invoiceSubscriptionId(invoice);
   if (!subscriptionId) {
     await markEvent(ctx, "failed", "invoice has no subscription id");
+    return;
+  }
+
+  // ── Proration invoice from an immediate tier upgrade ────────────────────
+  // billing_reason 'subscription_update' = the always_invoice proration created
+  // by upgrade-tier. Grant ONLY the pending delta recorded by the route (and
+  // only now that the invoice is PAID) — running the full monthly grantCycle on
+  // these invoices double-granted (delta at request time + a full month here,
+  // distinct cycle keys). Audit 2026-07-15. Placed before the payment_intent
+  // guard: proration invoices can settle from customer balance without a PI,
+  // and the delta grant doesn't record one.
+  if (invoice.billing_reason === "subscription_update") {
+    const resolvedUpgrade = await resolveSubscription(ctx, subscriptionId, invoice);
+    if (!resolvedUpgrade.mirrorId) {
+      await markEvent(ctx, "failed", "could not resolve mirror for subscription_update invoice");
+      return;
+    }
+    const upgrade = await applyImmediateUpgradeGrant(ctx.admin, resolvedUpgrade.mirrorId, invoice.id);
+    if (!upgrade.ok && upgrade.reason !== "no_pending") {
+      await markEvent(ctx, "failed", `immediate upgrade grant failed: ${upgrade.reason}`);
+      return;
+    }
+    await ctx.admin
+      .from("billing_events")
+      .update({ subscription_id: resolvedUpgrade.mirrorId })
+      .eq("id", ctx.billingEventId!);
+    if (upgrade.ok) {
+      logInfo("stripe-webhook: immediate-upgrade delta granted on paid proration invoice", {
+        tag: "billing",
+        subscription_id: resolvedUpgrade.mirrorId,
+        pending_id: upgrade.pendingId,
+        delta_sessions: upgrade.deltaSessions,
+      });
+      getPostHogClient()?.capture({
+        distinctId: upgrade.studentId,
+        event: "subscription_tier_upgraded",
+        properties: {
+          subscription_id: resolvedUpgrade.mirrorId,
+          new_plan_id: upgrade.planId,
+          delta_sessions: upgrade.deltaSessions,
+        },
+      });
+    } else {
+      // subscription_update invoice with no pending row — e.g. a price change
+      // made directly in the Stripe dashboard. Nothing to grant; benign.
+      logInfo("stripe-webhook: subscription_update invoice with no pending upgrade grant", {
+        tag: "billing",
+        subscription_id: resolvedUpgrade.mirrorId,
+        invoice_id: invoice.id,
+      });
+    }
+    await markEvent(ctx, "processed");
     return;
   }
 
@@ -443,6 +499,7 @@ export async function handlePaymentIntentSucceeded(ctx: EventContext): Promise<v
   const specialty = md.specialty;
   const purpose = md.purpose;
   const targetScopeRaw = md.target_scope;
+  const scheduledAt = md.scheduled_at ?? null;
 
   if (!bookingType || !studentId || !teacherId) {
     await markEvent(
@@ -583,6 +640,7 @@ export async function handlePaymentIntentSucceeded(ctx: EventContext): Promise<v
         specialty: specialty ?? null,
         purpose: (purpose as "review" | "consolidate_surah" | "memorize_mutoon" | "test_juz_mutashabihat" | null) ?? null,
         targetScopeRaw: targetScopeRaw ?? null,
+        scheduledAt,
       });
       if (!conflictResult.ok) {
         // Release the sentinel so a future retry can re-attempt (CodeRabbit #1).
@@ -608,6 +666,7 @@ export async function handlePaymentIntentSucceeded(ctx: EventContext): Promise<v
     specialty: specialty ?? null,
     purpose: (purpose as "review" | "consolidate_surah" | "memorize_mutoon" | "test_juz_mutashabihat" | null) ?? null,
     targetScopeRaw: targetScopeRaw ?? null,
+    scheduledAt,
   });
   if (!result.ok) {
     // Release the sentinel so a future retry of this PI can re-attempt
@@ -1001,12 +1060,14 @@ async function materializeBooking(
     specialty: string | null;
     purpose: "review" | "consolidate_surah" | "memorize_mutoon" | "test_juz_mutashabihat" | null;
     targetScopeRaw: string | null;
+    scheduledAt: string | null;
   },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const admin = ctx.admin;
 
   if (args.bookingType === "instant") {
     // Instant path: adapted start_instant_session_booking with p_payment_id.
+    const effectiveScheduledAt = args.scheduledAt ?? new Date().toISOString();
     const { data: bookingId, error: rpcErr } = await admin.rpc(
       "start_instant_session_booking",
       {
@@ -1016,7 +1077,7 @@ async function materializeBooking(
         p_duration_min: 30,
         p_rate_snapshot: 0,
         p_amount_usd: 0,
-        p_scheduled_at: new Date().toISOString(),
+        p_scheduled_at: effectiveScheduledAt,
         p_payment_id: args.paymentId,
       },
     );
@@ -1026,6 +1087,24 @@ async function materializeBooking(
       });
       return { ok: false, error: rpcErr?.message ?? "instant creator returned no id" };
     }
+    const dateLabel = new Date(effectiveScheduledAt).toLocaleDateString("ar");
+    await Promise.allSettled([
+      dispatchEffects("booking.created", {
+        teacherId: args.teacherId,
+        entityId: bookingId as string,
+        dateLabel,
+      }),
+      emitEvent("booking.created", "booking", bookingId as string, {
+        student_id: args.studentId,
+        teacher_id: args.teacherId,
+        session_type: "hifz",
+        scheduled_at: effectiveScheduledAt,
+      }).catch((err) =>
+        logError("single-session webhook: emit booking.created failed", err, {
+          tag: "stripe-webhook", booking_type: "instant",
+        }),
+      ),
+    ]);
     return { ok: true };
   }
 
