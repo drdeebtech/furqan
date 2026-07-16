@@ -25,6 +25,13 @@
 -- row that already passed the column CHECKs (duration_minutes > 0,
 -- hourly_rate_usd >= 0, numeric(10,2)). STRICT: a NULL input yields NULL, never
 -- a silent 0.
+--
+-- Overflow: the canonical rule (deriveEarningCents) rejects any input whose
+-- duration_minutes * rate_cents leaves 2^53 (its "amount_out_of_range" guard),
+-- which is FAR below where the products below could exceed bigint — so the sweep
+-- never passes this function a value that would overflow. Even if it somehow did,
+-- bigint arithmetic RAISES on overflow (never wraps silently), so the two sides
+-- can only ever agree or both fail loud — never diverge into a wrong number.
 
 CREATE OR REPLACE FUNCTION connect_earning_cents(
   p_duration_minutes integer,

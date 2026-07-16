@@ -14,7 +14,8 @@
 export type ConnectEarningErrorReason =
   | "missing_or_zero_rate"
   | "rate_precision_exceeded"
-  | "invalid_duration";
+  | "invalid_duration"
+  | "amount_out_of_range";
 
 // Extends the PayrollException posture in src/lib/domains/attendance/payroll.ts:
 // a rate problem is a structured, catchable exception — never a silent $0.
@@ -64,6 +65,20 @@ export function deriveEarningCents(input: DeriveEarningInput): number {
     );
   }
 
+  // Reject inputs whose product leaves exact-integer range. This is the SHARED
+  // domain bound with the SQL twin (connect_earning_cents): keeping
+  // durationMinutes * rateCents within 2^53 means the TS side stays exact, and
+  // it is far below the point where the SQL side's bigint would overflow (and
+  // Postgres raises rather than wrapping) — so the two can never diverge on a
+  // large input. The sweep validates the same session_deliveries domain.
+  const product = durationMinutes * rateCents;
+  if (!Number.isSafeInteger(product)) {
+    throw new ConnectEarningError(
+      "amount_out_of_range",
+      `durationMinutes * rate exceeds safe integer range (${durationMinutes} min @ ${hourlyRateUsd})`,
+    );
+  }
+
   // Integer division only — no float on the payable value.
-  return Math.trunc((durationMinutes * rateCents + 30) / 60);
+  return Math.trunc((product + 30) / 60);
 }

@@ -21,6 +21,20 @@ import { deriveEarningCents } from "../src/lib/domains/connect/earnings";
 const DB_URL =
   process.env.LOCAL_DB_URL ?? "postgres://postgres:postgres@127.0.0.1:54322/postgres";
 
+// Parse the connection string into PG* env vars so the password never lands in
+// argv (where `ps` / CI logs could capture it). psql reads these from the env.
+function pgEnv(): NodeJS.ProcessEnv {
+  const u = new URL(DB_URL);
+  return {
+    ...process.env,
+    PGHOST: u.hostname,
+    PGPORT: u.port || "5432",
+    PGUSER: decodeURIComponent(u.username) || "postgres",
+    PGPASSWORD: decodeURIComponent(u.password),
+    PGDATABASE: u.pathname.replace(/^\//, "") || "postgres",
+  };
+}
+
 // 2-decimal rates (what numeric(10,2) can hold), including the float-hostile
 // ones (0.07, 29.99, 33.33) and boundaries (0.01, min; 150.00, a high rate).
 const RATES = [0.01, 0.07, 0.1, 0.25, 1, 12.5, 20, 25, 29.99, 33.33, 99.99, 150] as const;
@@ -28,13 +42,18 @@ const RATES = [0.01, 0.07, 0.1, 0.25, 1, 12.5, 20, 25, 29.99, 33.33, 99.99, 150]
 const DURATIONS = [1, 3, 7, 9, 15, 25, 30, 37, 45, 59, 60, 61, 90, 119, 120] as const;
 
 function psqlRows(sql: string): string[] {
-  const out = execFileSync("psql", [DB_URL, "-t", "-A", "-F", ",", "-c", sql], {
-    encoding: "utf8",
-  });
+  // -X ignore ~/.psqlrc, -w never prompt for a password (fail fast instead of
+  // hanging), -v ON_ERROR_STOP=1 abort on the first SQL error, -tA tuples-only
+  // unaligned. 30s cap so a stuck connection dies rather than hanging the gate.
+  const out = execFileSync(
+    "psql",
+    ["-X", "-w", "-v", "ON_ERROR_STOP=1", "-t", "-A", "-F", ",", "-c", sql],
+    { encoding: "utf8", env: pgEnv(), timeout: 30_000 },
+  );
   return out
     .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
+    .map((l: string) => l.trim())
+    .filter((l: string) => l.length > 0);
 }
 
 function runGridParity(): number {
@@ -46,13 +65,29 @@ function runGridParity(): number {
     `SELECT d, r, connect_earning_cents(d, r) FROM (VALUES ${values}) AS g(d, r) ORDER BY d, r;`,
   );
 
+  // Refuse to report parity on a partial result set: a zero/short return would
+  // otherwise leave mismatches === 0 and falsely pass without checking all points.
+  const expected = DURATIONS.length * RATES.length;
+  if (rows.length !== expected) {
+    throw new Error(
+      `parity grid incomplete: got ${rows.length} rows, expected ${expected} — refusing to report parity on a partial result set`,
+    );
+  }
+
   let checked = 0;
   let mismatches = 0;
   for (const line of rows) {
-    const [dStr, rStr, sqlStr] = line.split(",");
+    const parts = line.split(",");
+    if (parts.length !== 3) {
+      throw new Error(`malformed parity row (expected 3 columns): "${line}"`);
+    }
+    const [dStr, rStr, sqlStr] = parts;
     const durationMinutes = Number(dStr);
     const hourlyRateUsd = Number(rStr);
     const sqlCents = Number(sqlStr);
+    if (![durationMinutes, hourlyRateUsd, sqlCents].every(Number.isFinite)) {
+      throw new Error(`non-numeric parity row: "${line}"`);
+    }
     const jsCents = deriveEarningCents({ durationMinutes, hourlyRateUsd });
     checked += 1;
     if (jsCents !== sqlCents) {

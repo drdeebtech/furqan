@@ -25,6 +25,21 @@ export interface DebtLedgerRow {
   amountCents: number;
 }
 
+export type ConnectDebtErrorReason = "invalid_earning" | "invalid_debt";
+
+// Mirrors ConnectEarningError's posture (src/lib/domains/connect/earnings.ts):
+// an invalid input is a structured, reason-coded exception the Slice-3 sweep can
+// branch on — never a silent miscalculation.
+export class ConnectDebtError extends Error {
+  readonly reason: ConnectDebtErrorReason;
+
+  constructor(reason: ConnectDebtErrorReason, message: string) {
+    super(message);
+    this.name = "ConnectDebtError";
+    this.reason = reason;
+  }
+}
+
 // The three kinds that move debt. Earnings (session/course) are excluded — they
 // are what PAYS debt via netEarningAgainstDebt, not the debt itself.
 const DEBT_KINDS: ReadonlySet<DebtLedgerKind> = new Set([
@@ -56,8 +71,10 @@ export interface NetEarningPlan {
   recoveredCents: number;
   /** Debt still owed after this offset, carried forward. */
   remainingDebtCents: number;
-  /** True ⇒ the earning was (partly or wholly) consumed by debt; the entry
-   *  closes as `debt_recovered` (terminal, non-paying). */
+  /** True ⇒ the earning was consumed ENTIRELY by debt (`transferCents === 0`),
+   *  so the entry closes as `debt_recovered` (terminal, non-paying). A PARTIAL
+   *  offset still transfers the remainder and closes as `transferred`, so this
+   *  stays `false` there. */
   closesAsDebtRecovered: boolean;
 }
 
@@ -70,10 +87,14 @@ export function netEarningAgainstDebt(input: NetEarningInput): NetEarningPlan {
   const { earningCents, outstandingDebtCents } = input;
 
   if (!Number.isInteger(earningCents) || earningCents < 0) {
-    throw new Error(`earningCents must be a non-negative integer, got ${earningCents}`);
+    throw new ConnectDebtError(
+      "invalid_earning",
+      `earningCents must be a non-negative integer, got ${earningCents}`,
+    );
   }
   if (!Number.isInteger(outstandingDebtCents) || outstandingDebtCents < 0) {
-    throw new Error(
+    throw new ConnectDebtError(
+      "invalid_debt",
       `outstandingDebtCents must be a non-negative integer, got ${outstandingDebtCents}`,
     );
   }
