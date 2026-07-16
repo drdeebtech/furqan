@@ -61,6 +61,25 @@ describe("trackMixpanel (fail-soft server-side ingestion)", () => {
     expect(mockLogError).toHaveBeenCalled();
   });
 
+  it("the hung request itself is aborted at the timeout boundary (real timers)", async () => {
+    // Real timers on purpose: AbortSignal.timeout() runs on Node-internal
+    // timers that vitest's fake timers do not fake — advancing fake time
+    // would never fire the abort. Costs ~2s wall time, guards the actual
+    // cancellation (withTimeout alone only stops waiting).
+    let capturedSignal: AbortSignal | undefined;
+    mockFetch.mockImplementation((_url: string, init: RequestInit) => {
+      capturedSignal = init.signal as AbortSignal;
+      return new Promise(() => {}); // never settles
+    });
+
+    await expect(
+      trackMixpanel("user-1", MIXPANEL_EVENTS.SIGN_UP_COMPLETED),
+    ).resolves.toBeUndefined();
+    expect(capturedSignal).toBeDefined();
+    // The race and the abort share the same deadline; allow a tick of jitter.
+    await vi.waitFor(() => expect(capturedSignal?.aborted).toBe(true), { timeout: 1000 });
+  }, 10_000);
+
   it("a hung fetch resolves within the timeout bound instead of stalling the action", async () => {
     vi.useFakeTimers();
     try {
