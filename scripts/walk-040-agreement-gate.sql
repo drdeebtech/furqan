@@ -153,6 +153,19 @@ BEGIN
   END;
 END $$;
 
+-- ── 5b. Append-only: an acceptance cannot be DELETED (FR-028 evidence) ────
+DO $$
+BEGIN
+  BEGIN
+    DELETE FROM public.teacher_agreement_acceptances
+     WHERE teacher_id = '00000000-0000-4000-9000-00000000000b';
+    RAISE EXCEPTION 'ASSERT FAILED: acceptance row was deletable (consent evidence erasable)';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM LIKE 'ASSERT FAILED%' THEN RAISE; END IF;
+    RAISE NOTICE 'ASSERT OK  [5b] acceptance DELETE raises (append-only consent evidence)';
+  END;
+END $$;
+
 -- ── 6. RLS: owner reads own acceptance, non-owner and anon read none ──────
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims',

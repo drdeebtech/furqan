@@ -84,17 +84,20 @@ describe("createBooking", () => {
 
   it("throws BookingValidationError(teacher_id) when the agreement gate denies (fail-closed)", async () => {
     vi.mocked(teacherAgreementOk).mockResolvedValue(false as never);
-    vi.mocked(createAdminClient).mockReturnValue(
-      makeAdmin({
-        teacher_profiles: { data: { hourly_rate: 10, specialties: ["memorization"] } },
-      }) as never,
-    );
+    const admin = makeAdmin({
+      teacher_profiles: { data: { hourly_rate: 10, specialties: ["memorization"] } },
+    });
+    vi.mocked(createAdminClient).mockReturnValue(admin as never);
     await expect(createBooking(baseInput())).rejects.toMatchObject({
       name: "BookingValidationError",
       field: "teacher_id",
     });
     // Gate consulted for the SAME teacher the booking targets (no IDOR drift).
     expect(teacherAgreementOk).toHaveBeenCalledWith(expect.anything(), "tch-1");
+    // Denied before any booking-creation step: the flow never advanced past the
+    // gate to availability lookup or the bookings insert (both come after it).
+    expect(admin.from).not.toHaveBeenCalledWith("teacher_availability");
+    expect(admin.from).not.toHaveBeenCalledWith("availability_exceptions");
   });
 
   it("throws BookingValidationError(session_type) when type not in specialties", async () => {

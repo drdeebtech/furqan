@@ -73,7 +73,7 @@ END;
 $$;
 
 CREATE TRIGGER agreement_acceptance_immutable
-  BEFORE UPDATE ON teacher_agreement_acceptances
+  BEFORE UPDATE OR DELETE ON teacher_agreement_acceptances
   FOR EACH ROW EXECUTE FUNCTION guard_agreement_acceptance_immutable();
 
 -- ─────────────────────────────────────────────────────────────────────────

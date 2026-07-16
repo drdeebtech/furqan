@@ -155,8 +155,9 @@ describe("createConstrainedBooking", () => {
     ).rejects.toThrow(TeacherUnavailableError);
 
     // Gate consulted the server-resolved slot teacher (no IDOR), and we bailed
-    // before reserving/inserting anything.
+    // before reserving/inserting anything — no slot lock, no booking insert.
     expect(teacherAgreementOk).toHaveBeenCalledWith(mockAdmin, teacherId);
+    expect(availability.lockSlot).not.toHaveBeenCalled();
     expect(mockSupabase.insert).not.toHaveBeenCalled();
   });
 
