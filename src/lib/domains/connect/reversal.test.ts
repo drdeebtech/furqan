@@ -155,5 +155,30 @@ describe("computeProportionalReversalCents", () => {
         }),
       ).toThrow();
     });
+
+    it("throws on an unsafe-integer input (beyond 2^53, would mis-round)", () => {
+      expect(() =>
+        computeProportionalReversalCents({
+          teacherShareCents: Number.MAX_SAFE_INTEGER + 2,
+          refundedAmountCents: 100,
+          chargeAmountCents: 4900,
+          reversibleBalanceCents: 1000,
+        }),
+      ).toThrow();
+    });
+
+    it("throws when the intermediate product overflows safe-integer range (no silent over-reversal)", () => {
+      // Each input is individually a safe integer, but their product is not, so
+      // the floor could round up by a cent — must fail loud instead.
+      const big = 2 ** 47; // safe on its own; big*big = 2^94 ≫ 2^53
+      expect(() =>
+        computeProportionalReversalCents({
+          teacherShareCents: big,
+          refundedAmountCents: big,
+          chargeAmountCents: big,
+          reversibleBalanceCents: big,
+        }),
+      ).toThrow(/overflow/);
+    });
   });
 });

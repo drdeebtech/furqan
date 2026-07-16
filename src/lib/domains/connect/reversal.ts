@@ -34,8 +34,11 @@ export interface ReversalPlan {
 }
 
 function assertNonNegativeInt(value: number, name: string): void {
-  if (!Number.isInteger(value) || value < 0) {
-    throw new Error(`${name} must be a non-negative integer, got ${value}`);
+  // isSafeInteger (not isInteger): the clawback multiplies two of these, so an
+  // input beyond 2^53 would make the product imprecise and Math.floor could
+  // over-reverse by a cent. Reject unsafe magnitudes at the boundary.
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error(`${name} must be a non-negative safe integer, got ${value}`);
   }
 }
 
@@ -56,9 +59,17 @@ export function computeProportionalReversalCents(input: ReversalInput): Reversal
   }
 
   // Proportional clawback, rounded DOWN — the platform absorbs the sub-cent.
-  const rawClawbackCents = Math.floor(
-    (teacherShareCents * refundedAmountCents) / chargeAmountCents,
-  );
+  // Guard the intermediate product: two safe integers can still multiply past
+  // 2^53, where float imprecision would let Math.floor over-reverse by a cent.
+  // A session whose share*refund exceeds this is absurd — fail loud, never
+  // silently claw back more than the teacher received.
+  const product = teacherShareCents * refundedAmountCents;
+  if (!Number.isSafeInteger(product)) {
+    throw new Error(
+      `reversal overflow: teacherShareCents*refundedAmountCents (${product}) exceeds safe integer range`,
+    );
+  }
+  const rawClawbackCents = Math.floor(product / chargeAmountCents);
 
   const reversalCents = Math.min(rawClawbackCents, reversibleBalanceCents);
   const shortfallDebtCents = rawClawbackCents - reversalCents;
