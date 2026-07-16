@@ -13,9 +13,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { LogoutButton } from "./logout-button";
-import posthog from "posthog-js";
 import { useLang } from "@/lib/i18n/context";
-import { mixpanelClient } from "@/lib/mixpanel-client";
+import { resetAnalyticsIdentities } from "@/lib/analytics-identity";
 import { CONTACT } from "@/lib/contact";
 
 type Role = "student" | "teacher" | "admin";
@@ -259,8 +258,7 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
                   method="POST"
                   // Analytics identity reset on logout — see logout-button.tsx.
                   onSubmit={() => {
-                    posthog.reset();
-                    mixpanelClient()?.reset();
+                    resetAnalyticsIdentities();
                   }}
                 >
               <button

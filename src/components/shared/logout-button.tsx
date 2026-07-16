@@ -1,9 +1,8 @@
 "use client";
 
 import { LogOut } from "lucide-react";
-import posthog from "posthog-js";
 import { useLang } from "@/lib/i18n/context";
-import { mixpanelClient } from "@/lib/mixpanel-client";
+import { resetAnalyticsIdentities } from "@/lib/analytics-identity";
 
 export function LogoutButton() {
   const { t } = useLang();
@@ -11,13 +10,12 @@ export function LogoutButton() {
     <form
       action="/api/auth/logout"
       method="POST"
-      // Identity hygiene on shared devices: clear both analytics identities
+      // Identity hygiene on shared devices: clear all analytics identities
       // before the POST navigates away, so the next user on this browser
       // doesn't inherit this distinct_id. Does not preventDefault — the form
       // still submits.
       onSubmit={() => {
-        posthog.reset();
-        mixpanelClient()?.reset();
+        resetAnalyticsIdentities();
       }}
     >
       <button

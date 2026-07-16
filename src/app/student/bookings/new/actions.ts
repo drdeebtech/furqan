@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { checkBotId } from "botid/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -220,12 +221,15 @@ export async function createBooking(
 
   // Mixpanel Value Moment (booking confirmed) — server-side so it fires
   // exactly once per real booking, never on client refresh/back-nav.
-  // Fail-soft + bounded; must not delay or break the booking redirect.
-  await trackMixpanel(studentId, MIXPANEL_EVENTS.BOOKING_CONFIRMED, {
-    session_type: sessionType,
-    duration_min: durationMin,
-    teacher_id: teacherId,
-  });
+  // Fail-soft + bounded, and off the request path: after() runs it once the
+  // response has flushed, so it can never delay the booking redirect.
+  after(() =>
+    trackMixpanel(studentId, MIXPANEL_EVENTS.BOOKING_CONFIRMED, {
+      session_type: sessionType,
+      duration_min: durationMin,
+      teacher_id: teacherId,
+    }),
+  );
 
   // Cross-domain choreography stays at the route adapter (per ADR-0002 §1
   // — orchestration is a separate later conversation). Send notifications

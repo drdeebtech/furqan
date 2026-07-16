@@ -1,19 +1,17 @@
 "use client";
 
 import { useEffect } from "react";
-import posthog from "posthog-js";
-import { mixpanelClient } from "@/lib/mixpanel-client";
+import { identifyAnalytics } from "@/lib/analytics-identity";
 
 /**
- * Links the browser to the authenticated user for both analytics tools.
+ * Links the browser to the authenticated user for every analytics tool.
  * Rendered by authenticated layouts with the server-resolved userId — never
  * a client-supplied value. (Renamed from PostHogIdentify when Mixpanel was
- * added.) Counterpart: both tools reset() in logout-button.tsx.
+ * added.) Counterpart: resetAnalyticsIdentities() in the logout forms.
  */
 export function AnalyticsIdentify({ userId }: { userId: string }) {
   useEffect(() => {
-    posthog.identify(userId);
-    mixpanelClient()?.identify(userId);
+    identifyAnalytics(userId);
   }, [userId]);
 
   return null;

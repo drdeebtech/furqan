@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { checkBotId } from "botid/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -564,11 +565,14 @@ export async function register(
     });
     // Mixpanel mirror of the same success moment — server-side because the
     // post-register redirect is enumeration-safe (identical for duplicate
-    // emails), so a client-side track would over-count. Fail-soft + bounded.
-    await trackMixpanel(signupData.user.id, MIXPANEL_EVENTS.SIGN_UP_COMPLETED, {
-      method: "email",
-      has_plan: !!plan,
-    });
+    // emails), so a client-side track would over-count. Fail-soft, bounded, and
+    // off the request path: after() runs it once the response has flushed.
+    after(() =>
+      trackMixpanel(userId, MIXPANEL_EVENTS.SIGN_UP_COMPLETED, {
+        method: "email",
+        has_plan: !!plan,
+      }),
+    );
   }
 
   redirect(plan ? `/login?registered=true&redirect=/subscribe?plan=${encodeURIComponent(plan)}` : "/login?registered=true");

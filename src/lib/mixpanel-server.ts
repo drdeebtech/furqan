@@ -1,4 +1,3 @@
-import { logError } from "@/lib/logger";
 import { withTimeout } from "@/lib/promise-utils";
 
 /**
@@ -7,9 +6,11 @@ import { withTimeout } from "@/lib/promise-utils";
  * ambiguous (register's enumeration-safe redirect) or server-authoritative
  * (booking confirmation), so counts stay accurate.
  *
- * Fail-soft: missing token → no-op; network errors are logged, never thrown —
- * analytics must not break auth or booking flows. The call is bounded so a
- * slow ingest endpoint can't hold a Server Action's response.
+ * Fail-soft: missing token → no-op. All network/timeout failures are logged
+ * (searchable under the `mixpanel:<event>` label) and swallowed by
+ * withTimeout — this function never throws, and analytics can never break
+ * auth or booking flows. Callers run it off the request path via next/server
+ * `after()`, so the 2s bound only caps background work, not responses.
  *
  * `?ip=0` stops Mixpanel geolocating events from the server's IP.
  */
@@ -32,29 +33,25 @@ export async function trackMixpanel(
 ): Promise<void> {
   const token = process.env.NEXT_PUBLIC_MIXPANEL_TOKEN?.trim();
   if (!token) return;
-  try {
-    await withTimeout(
-      fetch(MIXPANEL_TRACK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "text/plain" },
-        body: JSON.stringify([
-          {
-            event,
-            properties: {
-              token,
-              distinct_id: distinctId,
-              time: Date.now(),
-              $insert_id: crypto.randomUUID(),
-              ...properties,
-            },
+  await withTimeout(
+    fetch(MIXPANEL_TRACK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "text/plain" },
+      body: JSON.stringify([
+        {
+          event,
+          properties: {
+            token,
+            distinct_id: distinctId,
+            time: Date.now(),
+            $insert_id: crypto.randomUUID(),
+            ...properties,
           },
-        ]),
-      }),
-      TRACK_TIMEOUT_MS,
-      null as never,
-      `mixpanel:${event}`,
-    );
-  } catch (err) {
-    logError(`mixpanel track failed (${event})`, err, { tag: "analytics" });
-  }
+        },
+      ]),
+    }),
+    TRACK_TIMEOUT_MS,
+    null as never,
+    `mixpanel:${event}`,
+  );
 }
