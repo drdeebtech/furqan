@@ -319,6 +319,31 @@ BEGIN
   RAISE NOTICE 'ASSERT OK  [6a3] owner reads own payout_holds (1 row) — the table is NOT empty';
 END $$;
 
+-- Owner cannot WRITE their own transfer or hold: there is no authenticated
+-- UPDATE policy on these tables, so the write matches 0 rows. Without this a
+-- policy regression could let a teacher self-mark a transfer succeeded or
+-- release their own payout hold while the walk stayed green. Both writes below
+-- supply otherwise-valid values, so only RLS (not a CHECK) can reject them.
+DO $$
+DECLARE affected integer; tr_status public.teacher_transfer_status; rel timestamptz;
+BEGIN
+  UPDATE public.teacher_transfers SET status = 'succeeded'
+   WHERE id = '00000000-0000-4000-9000-00000000001a';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected <> 0 THEN RAISE EXCEPTION 'ASSERT FAILED: teacher self-marked a transfer succeeded (% rows)', affected; END IF;
+  SELECT status INTO tr_status FROM public.teacher_transfers WHERE id = '00000000-0000-4000-9000-00000000001a';
+  IF tr_status IS DISTINCT FROM 'pending' THEN RAISE EXCEPTION 'ASSERT FAILED: transfer status changed despite 0 rows (now %)', tr_status; END IF;
+  RAISE NOTICE 'ASSERT OK  [6b2] teacher UPDATE on own transfer matches 0 rows AND value unchanged';
+
+  UPDATE public.payout_holds SET released_at = now(), released_by = '00000000-0000-4000-9000-00000000000a'
+   WHERE id = '00000000-0000-4000-9000-00000000001b';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected <> 0 THEN RAISE EXCEPTION 'ASSERT FAILED: teacher released own payout hold (% rows)', affected; END IF;
+  SELECT released_at INTO rel FROM public.payout_holds WHERE id = '00000000-0000-4000-9000-00000000001b';
+  IF rel IS NOT NULL THEN RAISE EXCEPTION 'ASSERT FAILED: hold released despite 0 rows (released_at %)', rel; END IF;
+  RAISE NOTICE 'ASSERT OK  [6b3] teacher UPDATE on own payout hold matches 0 rows AND value unchanged';
+END $$;
+
 DO $$
 DECLARE affected integer; still_pending public.earning_entry_status;
 BEGIN
@@ -481,14 +506,16 @@ UPDATE public.teacher_transfers
    SET status = 'succeeded', stripe_transfer_id = 'tr_walk_040'
  WHERE id = '00000000-0000-4000-9000-00000000001a';
 DO $$
-DECLARE st public.teacher_transfer_status;
+DECLARE st public.teacher_transfer_status; transfer_id text;
 BEGIN
-  SELECT status INTO st FROM public.teacher_transfers
+  SELECT status, stripe_transfer_id INTO st, transfer_id FROM public.teacher_transfers
    WHERE id = '00000000-0000-4000-9000-00000000001a';
-  IF st IS DISTINCT FROM 'succeeded' THEN
-    RAISE EXCEPTION 'ASSERT FAILED: transfer status not updatable (webhook reconciliation impossible), got %', st;
+  -- Assert BOTH reconciliation fields: the message names status/stripe_transfer_id,
+  -- so a regression that drops the transfer id must fail here, not slip through.
+  IF st IS DISTINCT FROM 'succeeded' OR transfer_id IS DISTINCT FROM 'tr_walk_040' THEN
+    RAISE EXCEPTION 'ASSERT FAILED: reconciliation fields not persisted (status %, transfer %)', st, transfer_id;
   END IF;
-  RAISE NOTICE 'ASSERT OK  [8g] transfer status/stripe_transfer_id remain updatable (reconciliation works)';
+  RAISE NOTICE 'ASSERT OK  [8g] transfer status + stripe_transfer_id both persist (reconciliation works)';
 END $$;
 
 -- ── 9. Manual settlement evidence is all-or-nothing ─────────────────────
@@ -574,9 +601,18 @@ BEGIN
   BEGIN
     UPDATE public.payout_holds SET released_at = now()
      WHERE id = '00000000-0000-4000-9000-00000000001b';
-    RAISE EXCEPTION 'ASSERT FAILED: hold released with no releaser named';
+    RAISE EXCEPTION 'ASSERT FAILED: hold released_at set with no releaser named';
   EXCEPTION WHEN check_violation THEN
-    RAISE NOTICE 'ASSERT OK  [9h] release requires released_by (paired attribution)';
+    RAISE NOTICE 'ASSERT OK  [9h] released_at without released_by rejected (paired attribution)';
+  END;
+  -- The symmetric half: released_by set without released_at must fail too, or
+  -- the pairing is only half-enforced.
+  BEGIN
+    UPDATE public.payout_holds SET released_by = '00000000-0000-4000-9000-00000000000a'
+     WHERE id = '00000000-0000-4000-9000-00000000001b';
+    RAISE EXCEPTION 'ASSERT FAILED: hold released_by set with no released_at';
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'ASSERT OK  [9h2] released_by without released_at rejected (paired attribution)';
   END;
 END $$;
 
@@ -591,6 +627,31 @@ BEGIN
    WHERE teacher_id = '00000000-0000-4000-9000-00000000000a' AND source = 'dispute';
   IF n <> 2 THEN RAISE EXCEPTION 'ASSERT FAILED: dispute hold without created_by rejected (webhook path broken), n=%', n; END IF;
   RAISE NOTICE 'ASSERT OK  [9i] dispute hold without created_by accepted (webhook has no human actor)';
+END $$;
+
+-- Positive paths: the constraints must ACCEPT a well-formed admin hold and a
+-- fully-attributed release. An over-restrictive constraint that blocked ALL
+-- admin holds or releases would pass every rejection assertion above.
+INSERT INTO public.payout_holds (id, teacher_id, source, reason, created_by)
+VALUES ('00000000-0000-4000-9000-00000000001c', '00000000-0000-4000-9000-00000000000a',
+        'admin', 'walk-test admin hold', '00000000-0000-4000-9000-00000000000b');
+DO $$
+DECLARE n integer;
+BEGIN
+  SELECT count(*) INTO n FROM public.payout_holds WHERE id = '00000000-0000-4000-9000-00000000001c';
+  IF n <> 1 THEN RAISE EXCEPTION 'ASSERT FAILED: valid admin hold WITH created_by was rejected'; END IF;
+  RAISE NOTICE 'ASSERT OK  [9j] admin hold WITH created_by accepted';
+END $$;
+
+UPDATE public.payout_holds
+   SET released_at = now(), released_by = '00000000-0000-4000-9000-00000000000b'
+ WHERE id = '00000000-0000-4000-9000-00000000001c';
+DO $$
+DECLARE rel timestamptz;
+BEGIN
+  SELECT released_at INTO rel FROM public.payout_holds WHERE id = '00000000-0000-4000-9000-00000000001c';
+  IF rel IS NULL THEN RAISE EXCEPTION 'ASSERT FAILED: fully-attributed release was rejected (legal-hold lifecycle broken)'; END IF;
+  RAISE NOTICE 'ASSERT OK  [9k] release with both released_at + released_by accepted';
 END $$;
 
 -- ── 10. Dormancy: the Connect path is inert until cutover ───────────────
