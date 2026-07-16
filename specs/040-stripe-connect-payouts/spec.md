@@ -206,6 +206,8 @@ An admin sees, per teacher: Connect status, pending/held/transferred earnings, f
   3. the **14-day hold window** (FR-010) and why it exists;
   4. explicit consent to the **negative-balance / debt-deduction policy** (FR-014), including that refunds and chargebacks on already-paid sessions are recovered from future earnings.
   ⚠ **The agreement's legal wording is out of scope for engineering and MUST be produced/reviewed by a qualified professional before enablement** — this spec fixes the required clauses, the consent mechanism, and the evidence trail, not the prose.
+- **FR-028a**: The acceptance **evidence** fields (`ip`, `user_agent`) MUST be privacy-controlled: minimized (those two only — no fingerprinting/geolocation; `user_agent` truncated), purpose-limited to consent evidence (never read by a feature, never exported, never sent to any analytics sink — assert with a static guard test), excluded from the teacher's own and the admin's SELECT lists (raw access is service-role only, for a documented legal request), retained for a configurable `agreement_evidence_retention_days` then purged by a scheduled job, and **nulled on account deletion unless an active dispute/legal hold is flagged** (destroying consent evidence mid-dispute would remove the platform's own defence). ⚠ The retention **period** is a legal/owner input — engineering pins the mechanism and the setting, not the number.
+
 - **FR-029**: Acceptance MUST be obtained **before any earnings can be paid**, enforced as a gate on **accepting bookings** (Milestone A / plan Phase 2). **DECIDED 2026-07-16 (owner): two populations, two rules.**
   - **New teachers** (onboarding on/after the enablement date): a **hard, immediate pre-booking gate** — no current-version acceptance ⇒ not assignable to any new booking, no grace, no exception.
   - **Existing active teachers** (the population at enablement): a **30-day grace period**. They keep taking bookings during grace. The set MUST be **snapshotted at enablement** — each existing active teacher is stamped `agreement_grace_until = enablement_ts + 30 days`; everyone else is NULL (⇒ hard gate). A snapshot, not a dynamic `created_at < X` predicate: the latter silently hands the grace to anyone who signs up during the window, which would defeat the hard gate for new teachers.
@@ -265,6 +267,7 @@ An admin sees, per teacher: Connect status, pending/held/transferred earnings, f
 - Subscription revenue is pooled (credits), so most session transfers are funded from platform balance without `source_transaction`; the platform accepts the resulting balance-timing requirement (charge settles before transfer — the hold window more than covers Stripe's settlement time).
 - n8n may later trigger the sweep on a schedule; the sweep itself is an idempotent server-side function, so the trigger mechanism (cron route, n8n, admin button) is interchangeable.
 - ✅ **Decisions Register — CLOSED 2026-07-16 (owner, Principal Payments Architect brief).** All four items previously flagged for human review are decided and encoded above:
+
   | # | Question | Decision | Encoded in |
   |---|---|---|---|
   | (a) | Hold-window length | **14 days**, measured from session **completion** (`delivered_at`), DB-configurable, fail-closed | FR-010, SC-009 |
@@ -273,6 +276,7 @@ An admin sees, per teacher: Connect status, pending/held/transferred earnings, f
   | (d) | Teacher agreement terms | **Required**, pre-booking: Independent Contractor, source-deducted commission, 14-day hold, negative-balance consent | FR-028–FR-030a, SC-012 |
   | (e) | Student refund window | **7 days** from session completion — the 14-day hold is derived from it (7 + 7 buffer) | FR-031, FR-010, SC-015 |
   | (f) | Agreement rollout | **30-day grace** for the snapshotted set of existing active teachers; **hard immediate gate** for every new teacher; earnings accrue `held` while unsigned | FR-029, SC-013, SC-014 |
+
 - **Blocking prerequisites before enablement** (decided in policy, not yet real in product — none are engineering decisions):
   1. **Publish FR-031** in the student-facing Terms (`src/app/(public)/terms/terms-content.tsx`) and reconcile it with the existing 24-hour cancellation clause; update `.claude/product-marketing.md`, which still records refund ownership as an open go-live blocker. A hold justified by an unpublished policy is justified by nothing.
   2. **Teacher Agreement legal text** produced/reviewed by a qualified professional; engineering pins the version string (FR-028).
