@@ -1,6 +1,6 @@
 -- Rolled-back verification walk for
 -- 20260731000000_connect_accounts_and_payout_method.sql
--- (spec 040 Phase 0 — FR-003 / FR-025 / FR-021). Run:
+-- (spec 040 Phase 0 — FR-003 / FR-025 / FR-021 / FR-017). Run:
 --   psql "$LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f scripts/walk-040-phase0-connect-accounts.sql
 -- Every assertion RAISEs on failure; the whole walk rolls back (BEGIN…ROLLBACK).
 --
@@ -15,7 +15,14 @@
 --     what denies it).
 --   * stripe_connect_accounts is RLS-protected for reads => non-owner/anon SELECT
 --     returns 0 rows (no raise).
---   * connect_cutover_date is write-once via trigger => the second write RAISES.
+--   * connect_cutover_date is write-once via a sole-writer SECURITY DEFINER
+--     setter => a rejected attempt is DURABLY audited (not just logged).
+--
+-- NOTE on the single walk transaction: set_config('app.connect_cutover_writer',
+-- …, true) is txn-local, so once the setter applies, the flag stays 'on' for the
+-- rest of THIS transaction. Section 5 therefore runs the "direct write RAISES"
+-- checks BEFORE the first successful setter call (flag still unset), matching how
+-- production behaves where each setter call is its own transaction.
 
 BEGIN;
 
@@ -67,7 +74,6 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN
     RAISE NOTICE 'ASSERT OK  [2a] teacher payout_method UPDATE RAISES 42501';
   END;
-  -- Value must be UNCHANGED.
   SELECT payout_method INTO m FROM public.teacher_profiles
    WHERE teacher_id = '00000000-0000-4000-9000-0000000000a1';
   IF m IS DISTINCT FROM 'stripe_connect' THEN
@@ -127,8 +133,6 @@ BEGIN
 END $$;
 
 -- ── 3b. The PROD write path: an ADMIN session may change payout_method ──────
--- This is the real production write (admin switches a teacher to manual). The
--- guard's is_admin() branch must ALLOW it and stamp the admin as the actor.
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims',
   '{"sub":"00000000-0000-4000-9000-0000000000ad","role":"authenticated"}', true);
@@ -151,14 +155,30 @@ BEGIN
   END IF;
   RAISE NOTICE 'ASSERT OK  [3b] admin session changes payout_method + audit records the admin actor';
 END $$;
+
+-- ── 3c. FR-017: a teacher reads OWN audit rows only ─────────────────────────
+SELECT set_config('request.jwt.claims',
+  '{"sub":"00000000-0000-4000-9000-0000000000a1","role":"authenticated"}', true);
+DO $$
+DECLARE own integer; others integer;
+BEGIN
+  SELECT count(*) INTO own FROM public.connect_payout_audit;                       -- RLS-filtered
+  SELECT count(*) INTO others FROM public.connect_payout_audit
+   WHERE subject_teacher_id = '00000000-0000-4000-9000-0000000000a2';
+  IF own <> 1 THEN RAISE EXCEPTION 'ASSERT FAILED: teacher A saw % audit rows (want 1 own)', own; END IF;
+  IF others <> 0 THEN RAISE EXCEPTION 'ASSERT FAILED: teacher A saw % of teacher B''s audit rows (want 0)', others; END IF;
+  RAISE NOTICE 'ASSERT OK  [3c] teacher reads own audit row (1) and none of another teacher''s (FR-017)';
+END $$;
+
 RESET ROLE;
 SELECT set_config('request.jwt.claims', '', true);
 
 -- ── 4. FR-003 stripe_connect_accounts RLS ──────────────────────────────────
-INSERT INTO public.stripe_connect_accounts (teacher_id, stripe_account_id, charges_enabled)
-VALUES ('00000000-0000-4000-9000-0000000000a1', 'acct_walk_A', false);
+-- Insert with NULL stripe_account_id: a row is often created before Stripe
+-- returns the acct_… id (drives the one-time-link test in 4d).
+INSERT INTO public.stripe_connect_accounts (teacher_id, charges_enabled)
+VALUES ('00000000-0000-4000-9000-0000000000a1', false);
 
--- Owner reads own row.
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims',
   '{"sub":"00000000-0000-4000-9000-0000000000a1","role":"authenticated"}', true);
@@ -170,7 +190,6 @@ BEGIN
   RAISE NOTICE 'ASSERT OK  [4a] owner reads own stripe_connect_accounts row (1)';
 END $$;
 
--- Non-owner reads none.
 SELECT set_config('request.jwt.claims',
   '{"sub":"00000000-0000-4000-9000-0000000000a2","role":"authenticated"}', true);
 DO $$
@@ -184,7 +203,6 @@ END $$;
 RESET ROLE;
 SELECT set_config('request.jwt.claims', '', true);
 
--- Anon reads none.
 SET LOCAL ROLE anon;
 DO $$
 DECLARE n integer;
@@ -195,12 +213,41 @@ BEGIN
 END $$;
 RESET ROLE;
 
--- ── 4d. Identity freeze: status column mutable, identity immutable ──────────
+-- ── 4d. stripe_account_id one-time link + identity/status rules ─────────────
 DO $$
+DECLARE acct text; ce boolean;
 BEGIN
+  -- NULL -> value: the one-time link SUCCEEDS.
+  UPDATE public.stripe_connect_accounts SET stripe_account_id = 'acct_x'
+   WHERE teacher_id = '00000000-0000-4000-9000-0000000000a1';
+  SELECT stripe_account_id INTO acct FROM public.stripe_connect_accounts
+   WHERE teacher_id = '00000000-0000-4000-9000-0000000000a1';
+  IF acct IS DISTINCT FROM 'acct_x' THEN
+    RAISE EXCEPTION 'ASSERT FAILED: NULL->acct_x link did not apply (got %)', acct;
+  END IF;
+  RAISE NOTICE 'ASSERT OK  [4d-i] stripe_account_id NULL->value link succeeds (one-time)';
+
+  -- value -> other value: RAISES (never re-pointed).
+  BEGIN
+    UPDATE public.stripe_connect_accounts SET stripe_account_id = 'acct_y'
+     WHERE teacher_id = '00000000-0000-4000-9000-0000000000a1';
+    RAISE EXCEPTION 'ASSERT FAILED: stripe_account_id was re-pointable acct_x->acct_y';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM LIKE 'ASSERT FAILED%' THEN RAISE; END IF;
+    RAISE NOTICE 'ASSERT OK  [4d-ii] stripe_account_id value->other RAISES (link is one-time)';
+  END;
+
+  -- status column mutable — and actually applied.
   UPDATE public.stripe_connect_accounts SET charges_enabled = true
    WHERE teacher_id = '00000000-0000-4000-9000-0000000000a1';
-  RAISE NOTICE 'ASSERT OK  [4d-i] status column (charges_enabled) is mutable';
+  SELECT charges_enabled INTO ce FROM public.stripe_connect_accounts
+   WHERE teacher_id = '00000000-0000-4000-9000-0000000000a1';
+  IF ce IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'ASSERT FAILED: charges_enabled did not update to true (got %)', ce;
+  END IF;
+  RAISE NOTICE 'ASSERT OK  [4d-iii] status column (charges_enabled) is mutable and applied (=true)';
+
+  -- teacher_id immutable: RAISES.
   BEGIN
     UPDATE public.stripe_connect_accounts
        SET teacher_id = '00000000-0000-4000-9000-0000000000a2'
@@ -208,74 +255,131 @@ BEGIN
     RAISE EXCEPTION 'ASSERT FAILED: stripe_connect_accounts.teacher_id was re-pointable';
   EXCEPTION WHEN raise_exception THEN
     IF SQLERRM LIKE 'ASSERT FAILED%' THEN RAISE; END IF;
-    RAISE NOTICE 'ASSERT OK  [4d-ii] identity column (teacher_id) is immutable';
+    RAISE NOTICE 'ASSERT OK  [4d-iv] identity column (teacher_id) is immutable';
   END;
 END $$;
 
--- ── 5. FR-021 connect_cutover_date write-once ──────────────────────────────
--- 5a. Cannot blank the still-empty row (NEW empty rejected).
+-- ── 4e. connect_payout_audit is append-only (UPDATE + DELETE both RAISE) ────
 DO $$
 BEGIN
   BEGIN
-    UPDATE public.platform_settings SET value = '' WHERE key = 'connect_cutover_date';
-    RAISE EXCEPTION 'ASSERT FAILED: blanking the empty cutover value was allowed';
-  EXCEPTION WHEN insufficient_privilege THEN
-    RAISE NOTICE 'ASSERT OK  [5a] blanking connect_cutover_date rejected';
+    UPDATE public.connect_payout_audit SET event = 'tampered';
+    RAISE EXCEPTION 'ASSERT FAILED: audit row was UPDATE-able (not append-only)';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM LIKE 'ASSERT FAILED%' THEN RAISE; END IF;
+    RAISE NOTICE 'ASSERT OK  [4e-i] audit UPDATE RAISES (append-only)';
+  END;
+  BEGIN
+    DELETE FROM public.connect_payout_audit;
+    RAISE EXCEPTION 'ASSERT FAILED: audit row was DELETE-able (not append-only)';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM LIKE 'ASSERT FAILED%' THEN RAISE; END IF;
+    RAISE NOTICE 'ASSERT OK  [4e-ii] audit DELETE RAISES (append-only)';
   END;
 END $$;
 
--- 5b. The single legitimate unlock '' -> value SUCCEEDS + audits.
-DO $$
-DECLARE v text; n integer;
-BEGIN
-  UPDATE public.platform_settings SET value = '2026-08-01'
-   WHERE key = 'connect_cutover_date';
-  SELECT value INTO v FROM public.platform_settings WHERE key = 'connect_cutover_date';
-  IF v IS DISTINCT FROM '2026-08-01' THEN
-    RAISE EXCEPTION 'ASSERT FAILED: cutover unlock did not apply (got %)', v;
-  END IF;
-  SELECT count(*) INTO n FROM public.connect_payout_audit
-   WHERE event = 'connect_cutover_set' AND detail->>'value' = '2026-08-01';
-  IF n <> 1 THEN RAISE EXCEPTION 'ASSERT FAILED: expected 1 cutover audit row, got %', n; END IF;
-  RAISE NOTICE 'ASSERT OK  [5b] single empty->value cutover write applies + audits';
-END $$;
-
--- 5c. A second write RAISES (already set).
+-- ── 5. FR-021 connect_cutover_date sole-writer setter ───────────────────────
+-- 5a/5b/5c FIRST (writer flag still unset): any DIRECT write is rejected.
 DO $$
 BEGIN
   BEGIN
-    UPDATE public.platform_settings SET value = '2026-09-01'
-     WHERE key = 'connect_cutover_date';
-    RAISE EXCEPTION 'ASSERT FAILED: cutover value was changed after being set (not write-once)';
+    UPDATE public.platform_settings SET value = '2030-01-01' WHERE key = 'connect_cutover_date';
+    RAISE EXCEPTION 'ASSERT FAILED: direct UPDATE of cutover value was allowed (bypassed the setter)';
   EXCEPTION WHEN insufficient_privilege THEN
-    RAISE NOTICE 'ASSERT OK  [5c] second cutover write RAISES (write-once)';
+    RAISE NOTICE 'ASSERT OK  [5a] direct UPDATE RAISES (setter is the only path)';
   END;
-END $$;
-
--- 5d. DELETE RAISES.
-DO $$
-BEGIN
   BEGIN
     DELETE FROM public.platform_settings WHERE key = 'connect_cutover_date';
-    RAISE EXCEPTION 'ASSERT FAILED: cutover row was deletable';
+    RAISE EXCEPTION 'ASSERT FAILED: cutover row was directly deletable';
   EXCEPTION WHEN insufficient_privilege THEN
-    RAISE NOTICE 'ASSERT OK  [5d] cutover DELETE RAISES';
+    RAISE NOTICE 'ASSERT OK  [5b] direct DELETE RAISES';
   END;
-END $$;
-
--- 5e. Key-RENAME away from the target RAISES (FR-021: reject ANY later mutation).
-DO $$
-BEGIN
   BEGIN
     UPDATE public.platform_settings SET key = 'connect_cutover_date_moved'
      WHERE key = 'connect_cutover_date';
     RAISE EXCEPTION 'ASSERT FAILED: cutover key was renamable (partition could be re-armed)';
   EXCEPTION WHEN insufficient_privilege THEN
-    RAISE NOTICE 'ASSERT OK  [5e] cutover key-rename RAISES (write-once covers renames)';
+    RAISE NOTICE 'ASSERT OK  [5c] direct key-rename RAISES';
   END;
 END $$;
 
--- 5f. Scoping: an UNRELATED setting is still freely updatable.
+-- 5d. Invalid date on the fresh empty row → soft-refuse + DURABLE audit.
+DO $$
+DECLARE r text; v text; n integer;
+BEGIN
+  r := public.set_connect_cutover_date('not-a-date');
+  IF r IS DISTINCT FROM 'rejected: invalid date' THEN
+    RAISE EXCEPTION 'ASSERT FAILED: invalid date returned "%" (want rejected: invalid date)', r;
+  END IF;
+  SELECT value INTO v FROM public.platform_settings WHERE key = 'connect_cutover_date';
+  IF COALESCE(btrim(v), '') <> '' THEN
+    RAISE EXCEPTION 'ASSERT FAILED: invalid attempt changed the value to "%"', v;
+  END IF;
+  SELECT count(*) INTO n FROM public.connect_payout_audit
+   WHERE event = 'connect_cutover_rejected' AND detail->>'reason' = 'invalid_date'
+     AND detail->>'attempted' = 'not-a-date';
+  IF n <> 1 THEN RAISE EXCEPTION 'ASSERT FAILED: expected 1 invalid_date reject audit row, got %', n; END IF;
+  RAISE NOTICE 'ASSERT OK  [5d] invalid date soft-refused, value unchanged, rejection durably audited';
+END $$;
+
+-- 5e. The single legitimate unlock via the setter → applied + audit.
+DO $$
+DECLARE r text; v text; n integer;
+BEGIN
+  r := public.set_connect_cutover_date('2026-09-01');
+  IF r IS DISTINCT FROM 'applied' THEN
+    RAISE EXCEPTION 'ASSERT FAILED: setter returned "%" (want applied)', r;
+  END IF;
+  SELECT value INTO v FROM public.platform_settings WHERE key = 'connect_cutover_date';
+  IF v IS DISTINCT FROM '2026-09-01' THEN
+    RAISE EXCEPTION 'ASSERT FAILED: cutover value is "%" after applied (want 2026-09-01)', v;
+  END IF;
+  SELECT count(*) INTO n FROM public.connect_payout_audit
+   WHERE event = 'connect_cutover_set' AND detail->>'value' = '2026-09-01';
+  IF n <> 1 THEN RAISE EXCEPTION 'ASSERT FAILED: expected 1 cutover_set audit row, got %', n; END IF;
+  RAISE NOTICE 'ASSERT OK  [5e] setter applies the one-time cutover + audits';
+END $$;
+
+-- 5f. A second call → soft-refuse (already set) + DURABLE rejected audit.
+--     This is the KEY FR-021 assertion: the rejected attempt PERSISTS.
+DO $$
+DECLARE r text; v text; n integer;
+BEGIN
+  r := public.set_connect_cutover_date('2026-10-01');
+  IF r IS DISTINCT FROM 'rejected: already set' THEN
+    RAISE EXCEPTION 'ASSERT FAILED: second setter call returned "%" (want rejected: already set)', r;
+  END IF;
+  SELECT value INTO v FROM public.platform_settings WHERE key = 'connect_cutover_date';
+  IF v IS DISTINCT FROM '2026-09-01' THEN
+    RAISE EXCEPTION 'ASSERT FAILED: second call changed value to "%" (write-once broken)', v;
+  END IF;
+  SELECT count(*) INTO n FROM public.connect_payout_audit
+   WHERE event = 'connect_cutover_rejected' AND detail->>'reason' = 'already_set'
+     AND detail->>'attempted' = '2026-10-01';
+  IF n <> 1 THEN
+    RAISE EXCEPTION 'ASSERT FAILED: rejected attempt was NOT durably audited (got % rows)', n;
+  END IF;
+  RAISE NOTICE 'ASSERT OK  [5f] second call refused + rejected attempt DURABLY audited (FR-021)';
+END $$;
+
+-- 5g. An authenticated (non-service) caller cannot EXECUTE the setter.
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims',
+  '{"sub":"00000000-0000-4000-9000-0000000000ad","role":"authenticated"}', true);
+DO $$
+DECLARE r text;
+BEGIN
+  BEGIN
+    r := public.set_connect_cutover_date('2026-12-01');
+    RAISE EXCEPTION 'ASSERT FAILED: authenticated/admin EXECUTE of setter was allowed (returned %)', r;
+  EXCEPTION WHEN insufficient_privilege THEN
+    RAISE NOTICE 'ASSERT OK  [5g] authenticated EXECUTE of setter denied (service-role only)';
+  END;
+END $$;
+RESET ROLE;
+SELECT set_config('request.jwt.claims', '', true);
+
+-- 5h. Scoping: an UNRELATED setting is still freely updatable.
 DO $$
 DECLARE v text;
 BEGIN
@@ -283,9 +387,9 @@ BEGIN
    WHERE key = 'teacher_agreement_gate_enabled';
   SELECT value INTO v FROM public.platform_settings WHERE key = 'teacher_agreement_gate_enabled';
   IF v IS DISTINCT FROM 'true' THEN
-    RAISE EXCEPTION 'ASSERT FAILED: write-once trigger leaked onto an unrelated setting';
+    RAISE EXCEPTION 'ASSERT FAILED: sole-writer trigger leaked onto an unrelated setting';
   END IF;
-  RAISE NOTICE 'ASSERT OK  [5f] unrelated platform_settings row still updatable (trigger is key-scoped)';
+  RAISE NOTICE 'ASSERT OK  [5h] unrelated platform_settings row still updatable (trigger is key-scoped)';
 END $$;
 
 ROLLBACK;

@@ -1,11 +1,12 @@
 -- 20260731000000_connect_accounts_and_payout_method.sql
 --
 -- Spec 040 (Stripe Connect teacher payouts) — Phase 0 data-model gaps
--- (plan Phase 0 items 1, 2, 8 / spec FR-003, FR-025, FR-021).
+-- (plan Phase 0 items 1, 2, 8 / spec FR-003, FR-025, FR-021, FR-017).
 --
 -- Scope: data model ONLY. No sweep, no Stripe call, no UI, no app code reads
 -- any of this yet. DORMANT in production: the whole Connect path stays inert
--- until `connect_cutover_date` is set (a later, deliberate owner action).
+-- until `connect_cutover_date` is set (a later, deliberate owner action via
+-- set_connect_cutover_date()).
 --
 -- Pure EXPAND (backward-compatible, CLAUDE.md §4):
 --   * one new table (stripe_connect_accounts) + its RLS in the same migration,
@@ -13,7 +14,7 @@
 --   * one new NOT NULL column on teacher_profiles WITH a DEFAULT (so it is
 --     expand-safe — every existing row is populated by the default, the live
 --     build never sees a NULL),
---   * two column-guard triggers, one write-once trigger, one settings row.
+--   * column-guard triggers, a sole-writer cutover setter + guard, one setting.
 -- Nothing is dropped, renamed, narrowed, or SET NOT NULL without a default.
 -- The legacy payroll path (session_deliveries / teacher_payouts /
 -- run_monthly_payroll) is untouched.
@@ -22,34 +23,15 @@
 -- 20260617000000_catalog_credit_redesign.sql:
 --   * RLS teacher-select-own + admin-select + service_role write/insert
 --     (20260728000000_connect_earnings_ledger.sql).
---   * platform_settings INSERT ... ON CONFLICT DO NOTHING (same file).
---   * JWT-role column guard: NULL jwt => direct DB / migration (trusted),
---     'service_role' => trusted server action, private.is_admin() => admin
---     session, everything else rejected with 42501
---     (guard_subscription_identity_change in catalog_credit_redesign).
---   * Full-immutability write-once trigger that RAISEs on any disallowed
---     mutation (guard_discount_record_immutable, same file).
+--   * Append-only immutability trigger (guard_agreement_acceptance_immutable).
+--   * JWT-role column guard (guard_subscription_identity_change): NULL jwt =>
+--     direct DB / migration (trusted), 'service_role' => trusted server action,
+--     private.is_admin() => admin session, else 42501.
+--   * SECURITY DEFINER lockdown REVOKE public,anon,authenticated / GRANT
+--     service_role (spec-016 lesson — name anon+authenticated explicitly).
 --
 -- FK target = profiles(id): matches teacher_earning_entries.teacher_id and
 -- teacher_profiles.teacher_id — the canonical teacher identity across spec 040.
---
--- ── KNOWN, DELIBERATE LIMITATION (owner/reviewer call — see PR body) ──
--- FR-021 asks that BOTH the initial cutover write AND every rejected mutation
--- attempt leave a durable audit row. In Postgres a BEFORE-UPDATE trigger that
--- RAISEs aborts the transaction and rolls back ANY audit row written in that
--- same transaction, so "reject the write" and "commit an audit row for the
--- rejection" are mutually exclusive without an autonomous transaction
--- (dblink / pg_background). This repo uses neither (verified), and introducing
--- a loopback DB connection with credentials inside a money-path trigger is a
--- worse trade than the gap it closes. Resolution taken here:
---   * value-protection (the money-critical property) is FULLY guaranteed —
---     the second write always RAISEs and the value never changes;
---   * the SUCCESSFUL initial write IS durably audited (it commits fine);
---   * a rejected attempt is recorded in the Postgres server log via the RAISE,
---     but NOT as a durable audit row.
--- Upgrade path (later slice, no dblink): route the one legitimate write
--- through a sole-writer SECURITY DEFINER setter that records the attempt and
--- refuses soft (returns a status instead of raising). Not built here.
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- 1. stripe_connect_accounts — Stripe Connect status mirror (spec FR-003)
@@ -95,16 +77,20 @@ CREATE POLICY "sca_service_update" ON stripe_connect_accounts
 
 -- No DELETE policy and no authenticated write: the mirror is service-role only.
 
--- Identity freeze: once an account is linked, teacher_id / stripe_account_id
--- must never be re-pointed by a webhook bug; only the status columns change.
--- Parity with the Slice-1 financial guards.
+-- Identity guard: teacher_id / created_at are frozen after insert. The Stripe
+-- account id may be linked EXACTLY ONCE (NULL -> value): a row is often created
+-- before Stripe returns the acct_… id, so NULL->value must be allowed; but once
+-- set it can never be re-pointed (value->other or value->NULL both rejected).
+-- Only the status columns (charges/payouts/details/requirements/last_event_at)
+-- change freely thereafter.
 CREATE OR REPLACE FUNCTION guard_stripe_connect_accounts_identity()
 RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN
   IF OLD.teacher_id IS DISTINCT FROM NEW.teacher_id
-  OR OLD.stripe_account_id IS DISTINCT FROM NEW.stripe_account_id
-  OR OLD.created_at IS DISTINCT FROM NEW.created_at THEN
-    RAISE EXCEPTION 'stripe_connect_accounts: teacher_id/stripe_account_id are immutable after insert (only status columns may change)';
+  OR OLD.created_at IS DISTINCT FROM NEW.created_at
+  OR (OLD.stripe_account_id IS NOT NULL
+      AND NEW.stripe_account_id IS DISTINCT FROM OLD.stripe_account_id) THEN
+    RAISE EXCEPTION 'stripe_connect_accounts: teacher_id/created_at immutable, and stripe_account_id is one-time (NULL->value only)';
   END IF;
   NEW.updated_at := now();
   RETURN NEW;
@@ -116,32 +102,39 @@ CREATE TRIGGER stripe_connect_accounts_identity_guard
   FOR EACH ROW EXECUTE FUNCTION guard_stripe_connect_accounts_identity();
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 2. connect_payout_audit — append-only audit trail (FR-025 / FR-021)
+-- 2. connect_payout_audit — append-only audit trail (FR-025 / FR-021 / FR-017)
 -- ─────────────────────────────────────────────────────────────────────────
 -- A dedicated table rather than the shared public.audit_log: audit_log has a
--- restrictive action CHECK, and broadening a shared constraint to fit two new
--- event shapes drags every other writer into this migration.
+-- restrictive action CHECK, and broadening a shared constraint to fit new event
+-- shapes drags every other writer into this migration.
 CREATE TABLE connect_payout_audit (
   id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  -- 'payout_method_change' | 'agreement_grace_change' | 'connect_cutover_set'
+  -- 'payout_method_change' | 'agreement_grace_change'
+  -- | 'connect_cutover_set' | 'connect_cutover_rejected'
   event              text NOT NULL CHECK (btrim(event) <> ''),
   -- The actor, from the JWT 'sub' when present (admin session). NULL for a
   -- direct-DB / migration / service_role write with no user subject.
   actor              uuid,
   -- The teacher whose column changed (NULL for a settings-level event).
   subject_teacher_id uuid REFERENCES profiles(id),
-  -- {"old": …, "new": …} for a column change, {"value": …} for the cutover write.
+  -- {"old":…,"new":…} for a column change; {"value":…} or {"attempted":…,
+  -- "reason":…} for the cutover events.
   detail             jsonb NOT NULL,
   created_at         timestamptz NOT NULL DEFAULT now()
 );
 
 COMMENT ON TABLE connect_payout_audit IS
-  'Spec 040 FR-025/FR-021: append-only audit of payout_method / agreement_grace_until changes and the one-time connect_cutover_date write. See migration header for the rejected-attempt limitation.';
+  'Spec 040 FR-025/FR-021: append-only audit of payout_method / agreement_grace_until changes and connect_cutover_date writes AND rejected attempts (durably persisted via the soft-refuse setter).';
 
 CREATE INDEX idx_connect_payout_audit_teacher
   ON connect_payout_audit (subject_teacher_id);
 
 ALTER TABLE connect_payout_audit ENABLE ROW LEVEL SECURITY;
+
+-- FR-017: a teacher may read their own audit rows; admins read all.
+CREATE POLICY "cpa_teacher_select" ON connect_payout_audit
+  FOR SELECT TO authenticated
+  USING (subject_teacher_id = (SELECT auth.uid()));
 
 CREATE POLICY "cpa_admin_select" ON connect_payout_audit
   FOR SELECT TO authenticated
@@ -150,8 +143,20 @@ CREATE POLICY "cpa_admin_select" ON connect_payout_audit
 CREATE POLICY "cpa_service_insert" ON connect_payout_audit
   FOR INSERT TO service_role WITH CHECK (true);
 
--- No UPDATE/DELETE policy anywhere: append-only. The guard triggers below are
--- SECURITY DEFINER (owned by postgres) so their inserts bypass RLS.
+-- Append-only: no UPDATE/DELETE policy AND a trigger that rejects both (missing
+-- policies alone are not enough — the SECURITY DEFINER writers below would
+-- otherwise be able to mutate it). Same idiom as guard_agreement_acceptance_immutable.
+CREATE OR REPLACE FUNCTION guard_connect_payout_audit_immutable()
+RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  RAISE EXCEPTION 'connect_payout_audit is append-only: audit rows cannot be modified or deleted';
+  RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER connect_payout_audit_immutable
+  BEFORE UPDATE OR DELETE ON connect_payout_audit
+  FOR EACH ROW EXECUTE FUNCTION guard_connect_payout_audit_immutable();
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- 3. teacher_profiles.payout_method (spec FR-025)
@@ -230,76 +235,118 @@ CREATE TRIGGER teacher_profiles_payout_columns_guard
   FOR EACH ROW EXECUTE FUNCTION guard_teacher_profiles_payout_columns();
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 4. connect_cutover_date setting + write-once enforcement (spec FR-021)
+-- 4. connect_cutover_date: setting + sole-writer setter (spec FR-021)
 -- ─────────────────────────────────────────────────────────────────────────
--- platform_settings.value is NOT NULL, so the "unset / new path disabled"
--- state is the EMPTY STRING (not SQL NULL). The Connect path partitions
--- history on this value; moving it after payouts begin could make the same
--- delivery payable by both paths or by neither — hence write-once.
+-- platform_settings.value is NOT NULL, so the "unset / new path disabled" state
+-- is the EMPTY STRING (not SQL NULL). The Connect path partitions history on
+-- this value; moving it after payouts begin could make the same delivery
+-- payable by both paths or by neither — hence write-once.
 INSERT INTO platform_settings (key, value, description) VALUES
   ('connect_cutover_date', '',
-   'Spec 040 FR-021: date partitioning legacy payroll from Connect transfers. Empty = Connect path DISABLED (dormant). DB-enforced write-once: only the single empty -> value transition is permitted (later, deliberate owner action); any later change or delete is rejected.')
+   'Spec 040 FR-021: date partitioning legacy payroll from Connect transfers. Empty = Connect path DISABLED (dormant). Written ONCE, service-role only, via set_connect_cutover_date(); any direct write/delete/rename is rejected.')
 ON CONFLICT (key) DO NOTHING;
 
--- Write-once trigger, scoped to THIS ONE key so it never touches any other
--- platform_settings row (the agreement gate / feature toggles are updated
--- freely). Allows exactly one '' -> non-empty transition; rejects a second
--- write, a blanking, and a delete. Actor-independent: the write-once property
--- must hold even for an admin (settings_update RLS lets admins UPDATE).
-CREATE OR REPLACE FUNCTION guard_connect_cutover_write_once()
-RETURNS trigger
+-- Never silently preserve an already-enabled value at migrate time: on a fresh
+-- install the row is seeded empty above; if some earlier state left it non-blank,
+-- fail the migration loudly rather than inherit an armed partition.
+DO $$
+DECLARE v text;
+BEGIN
+  SELECT value INTO v FROM platform_settings WHERE key = 'connect_cutover_date';
+  IF COALESCE(btrim(v), '') <> '' THEN
+    RAISE EXCEPTION 'connect_cutover_date already set to "%" before this migration — refusing to inherit an enabled partition', v;
+  END IF;
+END $$;
+
+-- Sole-writer setter (FR-021). SECURITY DEFINER + REVOKE-from-clients is what
+-- enforces "service-role only": an authenticated admin cannot EXECUTE it.
+-- SOFT-REFUSE: business rejections (invalid date / already set) do NOT raise —
+-- they persist a durable connect_payout_audit row and return a status string,
+-- so every attempt is auditable (the FR-021 requirement a raising trigger
+-- cannot meet, because a RAISE rolls back its own audit row).
+CREATE OR REPLACE FUNCTION set_connect_cutover_date(p_value text)
+RETURNS text
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_actor uuid := nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub';
+  v_actor   uuid := nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub';
+  v_current text;
+  v_valid   boolean := false;
 BEGIN
-  IF TG_OP = 'DELETE' THEN
-    RAISE EXCEPTION 'connect_cutover_date is write-once and cannot be deleted (spec FR-021)'
-      USING errcode = '42501';
+  -- Canonical YYYY-MM-DD that also casts to a real calendar date.
+  IF p_value ~ '^\d{4}-\d{2}-\d{2}$' THEN
+    BEGIN
+      PERFORM p_value::date;
+      v_valid := true;
+    EXCEPTION WHEN others THEN
+      v_valid := false;
+    END;
   END IF;
 
-  -- UPDATE. The only permitted mutation is the single unlock: '' -> non-empty.
-  -- A key-rename away from connect_cutover_date is caught here too: the trigger
-  -- also fires when OLD.key is the target (see WHEN below), and OLD.value is
-  -- then either already-set (first branch RAISEs) or empty (blank branch RAISEs).
-  IF COALESCE(btrim(OLD.value), '') <> '' THEN
-    RAISE EXCEPTION 'connect_cutover_date is write-once: already set to %, cannot change (spec FR-021)', OLD.value
-      USING errcode = '42501';
-  END IF;
-  IF COALESCE(btrim(NEW.value), '') = '' THEN
-    RAISE EXCEPTION 'connect_cutover_date cannot be blanked (spec FR-021)'
-      USING errcode = '42501';
+  IF NOT v_valid THEN
+    INSERT INTO connect_payout_audit (event, actor, subject_teacher_id, detail)
+    VALUES ('connect_cutover_rejected', v_actor, NULL,
+            jsonb_build_object('attempted', p_value, 'reason', 'invalid_date'));
+    RETURN 'rejected: invalid date';
   END IF;
 
-  -- Sole legitimate write: durably audited (commits with the change).
+  SELECT value INTO v_current FROM platform_settings WHERE key = 'connect_cutover_date';
+  IF COALESCE(btrim(v_current), '') <> '' THEN
+    INSERT INTO connect_payout_audit (event, actor, subject_teacher_id, detail)
+    VALUES ('connect_cutover_rejected', v_actor, NULL,
+            jsonb_build_object('attempted', p_value, 'reason', 'already_set'));
+    RETURN 'rejected: already set';
+  END IF;
+
+  -- Txn-local writer flag: the ONLY way the sole-writer guard permits the write.
+  PERFORM set_config('app.connect_cutover_writer', 'on', true);
+  UPDATE platform_settings SET value = p_value WHERE key = 'connect_cutover_date';
   INSERT INTO connect_payout_audit (event, actor, subject_teacher_id, detail)
-  VALUES ('connect_cutover_set', v_actor, NULL,
-          jsonb_build_object('value', NEW.value));
+  VALUES ('connect_cutover_set', v_actor, NULL, jsonb_build_object('value', p_value));
+  RETURN 'applied';
+END;
+$$;
 
+ALTER FUNCTION set_connect_cutover_date(text) OWNER TO postgres;
+REVOKE EXECUTE ON FUNCTION set_connect_cutover_date(text) FROM public, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION set_connect_cutover_date(text) TO service_role;
+
+COMMENT ON FUNCTION set_connect_cutover_date(text) IS
+  'Spec 040 FR-021: the ONE sanctioned path to arm the Connect cutover. Service-role only. Soft-refuses (audits + returns status) on invalid/already-set so every attempt is durably recorded.';
+
+-- Sole-writer guard: the setter above is the only path that may UPDATE (or the
+-- migration seed INSERT, which this BEFORE UPDATE/DELETE trigger does not cover).
+-- Any direct UPDATE / DELETE / key-rename lacks the txn-local writer flag and is
+-- rejected. Two triggers because Postgres forbids NEW in a DELETE trigger's WHEN.
+-- ponytail: the writer flag is a plain GUC, so a caller who can already UPDATE
+-- the row (admins, per settings_update RLS) could in theory forge it. Accepted
+-- ceiling — admins are trusted operators and the sanctioned setter is
+-- service-role-locked; tighten with a signed token only if admin-forge is a
+-- real threat.
+CREATE OR REPLACE FUNCTION guard_connect_cutover_sole_writer()
+RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  IF current_setting('app.connect_cutover_writer', true) IS DISTINCT FROM 'on' THEN
+    RAISE EXCEPTION 'connect_cutover_date may only be changed via set_connect_cutover_date() (spec FR-021)'
+      USING errcode = '42501';
+  END IF;
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
   RETURN NEW;
 END;
 $$;
 
-ALTER FUNCTION guard_connect_cutover_write_once() OWNER TO postgres;
-
--- WHEN (…) keeps every other platform_settings row completely untouched.
--- Two triggers, not one: Postgres forbids referencing NEW in a DELETE trigger's
--- WHEN clause (even under COALESCE), so UPDATE keys off NEW/OLD.key and DELETE
--- keys off OLD.key. Both dispatch to the same function.
---
--- The UPDATE WHEN checks BOTH NEW.key and OLD.key so a privileged key-RENAME
--- out of the target ('… SET key=''x'' WHERE key=''connect_cutover_date''') still
--- fires the guard (FR-021: reject ANY later mutation, not just value changes).
-CREATE TRIGGER connect_cutover_write_once_update_guard
+CREATE TRIGGER connect_cutover_sole_writer_update_guard
   BEFORE UPDATE ON platform_settings
   FOR EACH ROW
   WHEN (NEW.key = 'connect_cutover_date' OR OLD.key = 'connect_cutover_date')
-  EXECUTE FUNCTION guard_connect_cutover_write_once();
+  EXECUTE FUNCTION guard_connect_cutover_sole_writer();
 
-CREATE TRIGGER connect_cutover_write_once_delete_guard
+CREATE TRIGGER connect_cutover_sole_writer_delete_guard
   BEFORE DELETE ON platform_settings
   FOR EACH ROW
   WHEN (OLD.key = 'connect_cutover_date')
-  EXECUTE FUNCTION guard_connect_cutover_write_once();
+  EXECUTE FUNCTION guard_connect_cutover_sole_writer();
