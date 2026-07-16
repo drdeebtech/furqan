@@ -6735,6 +6735,7 @@ export type Database = {
           student_id: string
         }[]
       }
+      teacher_agreement_gate_ok: { Args: { p_teacher_id: string }; Returns: boolean }
       user_is_session_participant: { Args: { s_id: string }; Returns: boolean }
     }
     Enums: {

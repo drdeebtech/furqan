@@ -13,6 +13,10 @@ import * as availability from "./availability";
 
 vi.mock("./assignments");
 vi.mock("./availability");
+vi.mock("@/lib/domains/booking/agreement-gate", () => ({ teacherAgreementOk: vi.fn() }));
+
+import { teacherAgreementOk } from "@/lib/domains/booking/agreement-gate";
+import { TeacherUnavailableError } from "./bookings";
 
 describe("createConstrainedBooking", () => {
   // Mocks imitate a chainable Supabase query builder. The literal is inferred
@@ -52,6 +56,9 @@ describe("createConstrainedBooking", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Spec 040 gate is dormant by default in these tests (returns ok); a
+    // dedicated test flips it to deny. Keeps the pre-existing cases green.
+    vi.mocked(teacherAgreementOk).mockResolvedValue(true as never);
   });
 
   it("should create a booking with scheduled_at derived from the slot instance", async () => {
@@ -131,6 +138,26 @@ describe("createConstrainedBooking", () => {
         slotInstanceId,
       ),
     ).rejects.toThrow(AssignmentNotFoundError);
+  });
+
+  it("throws TeacherUnavailableError when the agreement gate denies (fail-closed) and never inserts", async () => {
+    vi.spyOn(assignments, "getMyAssignment").mockResolvedValue({ teacher_id: teacherId } as never);
+    mockAdmin.single.mockResolvedValueOnce({ data: slotRow(), error: null });
+    vi.mocked(teacherAgreementOk).mockResolvedValue(false as never);
+
+    await expect(
+      createConstrainedBooking(
+        mockSupabase as unknown as SupabaseClient<Database>,
+        mockAdmin as unknown as SupabaseClient<Database>,
+        userId,
+        slotInstanceId,
+      ),
+    ).rejects.toThrow(TeacherUnavailableError);
+
+    // Gate consulted the server-resolved slot teacher (no IDOR), and we bailed
+    // before reserving/inserting anything.
+    expect(teacherAgreementOk).toHaveBeenCalledWith(mockAdmin, teacherId);
+    expect(mockSupabase.insert).not.toHaveBeenCalled();
   });
 
   it("should throw TeacherMismatchError when teacher does not match", async () => {

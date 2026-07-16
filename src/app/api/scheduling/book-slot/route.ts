@@ -8,6 +8,7 @@ import {
   TeacherMismatchError,
   SlotAlreadyBookedError,
   SlotInstanceNotFoundError,
+  TeacherUnavailableError,
 } from "@/lib/domains/scheduling/bookings";
 import { logError } from "@/lib/logger";
 
@@ -65,6 +66,10 @@ export async function POST(request: Request) {
     }
     if (err instanceof SlotInstanceNotFoundError) {
       return NextResponse.json({ error: err.message }, { status: 404 });
+    }
+    if (err instanceof TeacherUnavailableError) {
+      // Spec 040 FR-029 dormant agreement gate — business rejection, not a 500.
+      return NextResponse.json({ error: err.message }, { status: 403 });
     }
 
     logError("api/scheduling/book-slot: failed", err, {

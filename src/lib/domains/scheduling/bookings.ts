@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase.generated";
 import type { TableInsert } from "@/lib/supabase/typed-helpers";
 import { getMyAssignment } from "./assignments";
+import { teacherAgreementOk } from "@/lib/domains/booking/agreement-gate";
 import { lockSlot, unlockSlot } from "./availability";
 import { emitEvent } from "@/lib/automation/emit";
 import { logError } from "@/lib/logger";
@@ -39,6 +40,18 @@ export class SlotInstanceNotFoundError extends Error {
   constructor() {
     super("Slot instance not found.");
     this.name = "SlotInstanceNotFoundError";
+  }
+}
+
+/**
+ * Spec 040 FR-029: the assigned teacher has not accepted the current Teacher
+ * Agreement (and is outside any grace window). Dormant until the owner enables
+ * the gate — see {@link teacherAgreementOk}.
+ */
+export class TeacherUnavailableError extends Error {
+  constructor() {
+    super("المعلم غير متاح للحجز حالياً");
+    this.name = "TeacherUnavailableError";
   }
 }
 
@@ -86,6 +99,14 @@ export async function createConstrainedBooking(
 
   if (slot.is_booked) {
     throw new SlotAlreadyBookedError();
+  }
+
+  // Spec 040 FR-029: the assigned teacher must have accepted the current
+  // Teacher Agreement (or be within grace) before we reserve a slot that will
+  // confirm + earn for them. Dormant until the owner enables the gate; fails
+  // closed when enabled — checked before the atomic slot lock and insert.
+  if (!(await teacherAgreementOk(admin, slot.teacher_id))) {
+    throw new TeacherUnavailableError();
   }
 
   // Derive canonical scheduled_at from the slot row. ISO 8601 UTC.

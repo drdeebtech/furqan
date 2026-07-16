@@ -4,9 +4,11 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/logger", () => ({ logError: vi.fn(), logInfo: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
 vi.mock("@/lib/domains/package/ledger", () => ({ selectActivePackage: vi.fn() }));
+vi.mock("../agreement-gate", () => ({ teacherAgreementOk: vi.fn() }));
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { selectActivePackage } from "@/lib/domains/package/ledger";
+import { teacherAgreementOk } from "../agreement-gate";
 import { createBooking, updateBookingStatus } from "../actions";
 import {
   BookingConflictError,
@@ -58,6 +60,7 @@ const baseInput = (over: Partial<CreateBookingInput> = {}): CreateBookingInput =
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(selectActivePackage).mockResolvedValue({ id: "pkg-1" } as never);
+  vi.mocked(teacherAgreementOk).mockResolvedValue(true as never);
 });
 
 describe("createBooking", () => {
@@ -77,6 +80,21 @@ describe("createBooking", () => {
     await expect(createBooking(baseInput())).rejects.toMatchObject({
       field: "teacher_id",
     });
+  });
+
+  it("throws BookingValidationError(teacher_id) when the agreement gate denies (fail-closed)", async () => {
+    vi.mocked(teacherAgreementOk).mockResolvedValue(false as never);
+    vi.mocked(createAdminClient).mockReturnValue(
+      makeAdmin({
+        teacher_profiles: { data: { hourly_rate: 10, specialties: ["memorization"] } },
+      }) as never,
+    );
+    await expect(createBooking(baseInput())).rejects.toMatchObject({
+      name: "BookingValidationError",
+      field: "teacher_id",
+    });
+    // Gate consulted for the SAME teacher the booking targets (no IDOR drift).
+    expect(teacherAgreementOk).toHaveBeenCalledWith(expect.anything(), "tch-1");
   });
 
   it("throws BookingValidationError(session_type) when type not in specialties", async () => {

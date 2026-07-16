@@ -9,6 +9,7 @@ import { emitEvent } from "@/lib/automation/emit";
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import type { SessionType } from "@/types/database";
 import { UserError } from "@/lib/actions/user-error";
+import { teacherAgreementOk } from "@/lib/domains/booking/agreement-gate";
 import { requireRole } from "@/lib/auth/require-admin";
 
 const VALID_TYPES: ReadonlySet<SessionType> = new Set([
@@ -223,6 +224,14 @@ export async function enrollInOffering(
     // Flip the offering to 'full' so the next reader sees it correctly.
     await admin.from("class_offerings").update({ status: "full" } satisfies TableUpdate<"class_offerings">).eq("id", offeringId);
     return { error: "وصلت الجلسة للحد الأقصى — حاول التسجيل في جلسة أخرى" };
+  }
+
+  // Spec 040 FR-029: the teacher must have accepted the current Teacher
+  // Agreement (or be within grace) before enrolling a student into a session
+  // that mints an earning for them. Dormant until the owner enables the gate;
+  // fails closed when enabled — checked before any package debit.
+  if (!(await teacherAgreementOk(admin, offering.teacher_id))) {
+    return { error: "المعلم غير متاح للحجز حالياً" };
   }
 
   // Try to deduct a package credit; same pattern as addStudentToSession.
