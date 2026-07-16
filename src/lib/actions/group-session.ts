@@ -9,6 +9,7 @@ import { selectActivePackage, debitPackage } from "@/lib/domains/package/ledger"
 import type { TableInsert, TableUpdate } from "@/lib/supabase/typed-helpers";
 import type { SessionType, BookingStatus } from "@/types/database";
 import { UserError } from "@/lib/actions/user-error";
+import { teacherAgreementOk } from "@/lib/domains/booking/agreement-gate";
 
 /**
  * Phase 1 of group lessons — ad-hoc add-student.
@@ -144,6 +145,14 @@ const addStudentToSessionBase = loudAction<AddStudentInput, { message: string }>
     }
     if (currentEnrolled >= session.capacity) {
       throw new UserError("وصلت الجلسة لسعتها المحددة");
+    }
+
+    // Spec 040 FR-029: the owning teacher must have accepted the current
+    // Teacher Agreement (or be within grace) before we confirm + deduct a
+    // session that mints an earning for them. Dormant until the owner enables
+    // the gate; fails closed when enabled — checked before any money moves.
+    if (!(await teacherAgreementOk(admin, primary.teacher_id))) {
+      throw new UserError("المعلم غير متاح للحجز حالياً");
     }
 
     // Deduct a package credit before creating the booking. A null return from
