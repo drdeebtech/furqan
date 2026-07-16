@@ -49,8 +49,8 @@ export function computeProportionalReversalCents(input: ReversalInput): Reversal
   assertNonNegativeInt(teacherShareCents, "teacherShareCents");
   assertNonNegativeInt(refundedAmountCents, "refundedAmountCents");
   assertNonNegativeInt(reversibleBalanceCents, "reversibleBalanceCents");
-  if (!Number.isInteger(chargeAmountCents) || chargeAmountCents <= 0) {
-    throw new Error(`chargeAmountCents must be a positive integer, got ${chargeAmountCents}`);
+  if (!Number.isSafeInteger(chargeAmountCents) || chargeAmountCents <= 0) {
+    throw new Error(`chargeAmountCents must be a positive safe integer, got ${chargeAmountCents}`);
   }
   if (refundedAmountCents > chargeAmountCents) {
     throw new Error(

@@ -167,6 +167,21 @@ describe("computeProportionalReversalCents", () => {
       ).toThrow();
     });
 
+    it("throws on an unsafe-integer CHARGE amount (denominator beyond 2^53)", () => {
+      // The denominator must be safe-integer-guarded like every other input:
+      // MAX_SAFE_INTEGER + 1 is an integer but NOT a safe integer, so a weaker
+      // Number.isInteger check would let a malformed charge reach the division
+      // and yield an invalid reversal plan instead of rejecting it.
+      expect(() =>
+        computeProportionalReversalCents({
+          teacherShareCents: 100,
+          refundedAmountCents: 100,
+          chargeAmountCents: Number.MAX_SAFE_INTEGER + 1,
+          reversibleBalanceCents: 1000,
+        }),
+      ).toThrow();
+    });
+
     it("throws when the intermediate product overflows safe-integer range (no silent over-reversal)", () => {
       // Each input is individually a safe integer, but their product is not, so
       // the floor could round up by a cent — must fail loud instead.
