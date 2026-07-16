@@ -113,10 +113,13 @@ describe("materializeSessionEarning", () => {
       },
     );
 
-    it("throws when there is no current agreement version to stamp", () => {
-      expect(() =>
-        materializeSessionEarning({ ...base(), currentAgreementVersion: "" }),
-      ).toThrow(MaterializeEarningError);
-    });
+    it.each(["", "   ", "\t\n"])(
+      "throws when the current agreement version is blank (%j) — never stamp whitespace as evidence",
+      (blank) => {
+        expect(() =>
+          materializeSessionEarning({ ...base(), currentAgreementVersion: blank }),
+        ).toThrow(MaterializeEarningError);
+      },
+    );
   });
 });

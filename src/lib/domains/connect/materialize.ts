@@ -89,12 +89,13 @@ export function materializeSessionEarning(
     );
   }
 
-  // A version MUST be present to stamp — an unstamped entry makes FR-028a's
-  // evidence-retention predicate unanswerable (it keys on agreement_version).
-  if (!input.currentAgreementVersion) {
+  // A non-blank version MUST be present to stamp — an unstamped (or whitespace)
+  // entry makes FR-028a's evidence-retention predicate unanswerable (it keys on
+  // agreement_version). Trim so "   " can never masquerade as consent evidence.
+  if (input.currentAgreementVersion.trim().length === 0) {
     throw new MaterializeEarningError(
       "missing_agreement_version",
-      "currentAgreementVersion is required to stamp the entry",
+      "currentAgreementVersion must be a non-blank string to stamp the entry",
     );
   }
 
