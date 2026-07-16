@@ -6736,6 +6736,62 @@ export type Database = {
         }[]
       }
       teacher_agreement_gate_ok: { Args: { p_teacher_id: string }; Returns: boolean }
+      // Spec 040 Phase 1.2 — transfer-sweep SweepStore RPCs (custom fns absent
+      // from the generated map; minimal canonical signatures per the #185 seam).
+      connect_sweep_reclaim_expired_leases: {
+        Args: { p_lease_cutoff: string }
+        Returns: number
+      }
+      connect_sweep_claim_eligible: {
+        Args: { p_now: string }
+        Returns: {
+          entry_id: string
+          teacher_id: string
+          amount_cents: number
+          kind: string
+          payout_method: string
+          destination_account_id: string | null
+          transfer_group: string | null
+          currency: string
+          claimed_at: string
+          outstanding_debt_cents: number
+        }[]
+      }
+      connect_sweep_record_transfer_succeeded: {
+        Args: {
+          p_entry_id: string
+          p_teacher_id: string
+          p_stripe_transfer_id: string
+          p_amount_cents: number
+          p_recovered_cents: number
+          p_transfer_group: string | null
+          p_idempotency_key: string
+          p_claimed_at: string
+        }
+        Returns: boolean
+      }
+      connect_sweep_record_transfer_failed: {
+        Args: { p_entry_id: string; p_claimed_at: string }
+        Returns: boolean
+      }
+      connect_sweep_record_debt_recovered: {
+        Args: {
+          p_entry_id: string
+          p_teacher_id: string
+          p_recovered_cents: number
+          p_claimed_at: string
+        }
+        Returns: boolean
+      }
+      connect_sweep_record_manual_due: {
+        Args: {
+          p_entry_id: string
+          p_teacher_id: string
+          p_recovered_cents: number
+          p_claimed_at: string
+        }
+        Returns: boolean
+      }
       user_is_session_participant: { Args: { s_id: string }; Returns: boolean }
     }
     Enums: {
