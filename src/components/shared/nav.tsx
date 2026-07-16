@@ -14,6 +14,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { LogoutButton } from "./logout-button";
 import { useLang } from "@/lib/i18n/context";
+import { resetAnalyticsIdentities } from "@/lib/analytics-identity";
 import { CONTACT } from "@/lib/contact";
 
 type Role = "student" | "teacher" | "admin";
@@ -252,7 +253,14 @@ export function Nav({ role, userName }: { role: Role; userName?: string }) {
               <Settings size={14} className="text-muted" aria-hidden="true" />
               {t("الإعدادات", "Settings")}
             </Link>
-            <form action="/api/auth/logout" method="POST">
+                <form
+                  action="/api/auth/logout"
+                  method="POST"
+                  // Analytics identity reset on logout — see logout-button.tsx.
+                  onSubmit={() => {
+                    resetAnalyticsIdentities();
+                  }}
+                >
               <button
                 type="submit"
                 role="menuitem"
