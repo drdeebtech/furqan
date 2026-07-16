@@ -79,9 +79,43 @@ src/app/api/admin/payouts/sweep/route.ts                 Phase 4 (admin/cron tri
    - *Minimization*: these two fields are the **only** evidence captured — no device fingerprint, no geolocation, no session replay. `user_agent` truncated to 255 chars.
    - *Purpose limitation*: consent evidence only. They MUST NOT be read by any feature, exported to any admin CSV, or sent to any analytics sink (PostHog/Mixpanel/Sentry) — assert with a static test in the same PR (the `no-debit-invariant.test.ts` grep-guard idiom).
    - *Access is COLUMN-level, and RLS cannot do it*: RLS filters rows, not columns — a row-readable acceptance would expose `ip`/`user_agent` to the teacher and admin SELECTs. Enforce with privileges: `REVOKE SELECT (ip, user_agent) ON teacher_agreement_acceptances FROM authenticated, anon;` and read the table in-product **only** through a `security_invoker` view (`teacher_agreement_acceptances_safe`) that omits both columns. In-product code never selects the base table's evidence columns; raw access is service-role only, for a documented legal request (and per the owner-rights lesson, the view is `security_invoker` so it can never become an RLS bypass).
-   - *Retention*: kept while the acceptance governs money (i.e. while any earning accrued under that version is unsettled) **plus the statutory contract-record period**, then purged by the scheduled erasure function below. The exact period is a **legal/owner input** (⚠ same review gate as the agreement text — engineering pins the mechanism and a configurable `agreement_evidence_retention_days`, not the number).
-   - *Erasure vs append-only — the contradiction, resolved explicitly*: "append-only" and "null the evidence on deletion" cannot both be enforced by a blanket no-UPDATE rule. The resolution: the immutability trigger REJECTS every UPDATE **except** a single narrow, privileged exception — an UPDATE that (a) is executed by `private.erase_agreement_evidence(teacher_id)`, a `SECURITY DEFINER` function owned by the service role, (b) touches **only** `ip` and `user_agent`, setting both to NULL (every other column byte-identical — assert with `to_jsonb(OLD) - 'ip' - 'user_agent' = to_jsonb(NEW) - 'ip' - 'user_agent'`), and (c) passes the legal-hold predicate. Consent itself (`teacher_id`, `agreement_version`, `accepted_at`, `accepted_by`) is **never** erasable by any path — the platform must always be able to prove *that* consent existed, even after the evidence *of how* it was captured is purged.
-   - *Legal-hold predicate*: erasure is refused (function raises, audit row written) while the teacher has an active dispute/hold — concretely `EXISTS (SELECT 1 FROM payout_holds WHERE teacher_id = $1 AND released_at IS NULL)` OR an explicit `legal_hold_until > now()` flag on the profile. Destroying consent evidence mid-dispute would remove the platform's own defence.
+   - *Retention — ONE executable predicate, defined here and cited (never restated) by spec FR-028a*. First, the canonical association: the earning entry **stamps** `agreement_version` at materialization (FR-030a resolves to stamping, not deriving-by-timestamp — a timestamp derivation is ambiguous exactly at a version boundary, which is when it matters). Then evidence for an acceptance row is erasable **only when every condition holds**:
+
+     ```sql
+     -- private.agreement_evidence_erasable(p_acceptance_id) → boolean
+     -- ALL of:
+     --  1. no earning accrued under that version is still in flight
+     NOT EXISTS (SELECT 1 FROM teacher_earning_entries e
+                  WHERE e.teacher_id = a.teacher_id
+                    AND e.agreement_version = a.agreement_version
+                    AND e.status NOT IN ('transferred','manual_paid','voided','debt_recovered'))
+     --  2. no debt is outstanding (we are still deducting under these terms,
+     --     so the consent evidence for them must survive)
+     AND private.outstanding_debt_cents(a.teacher_id) = 0
+     --  3. the retention period has expired
+     AND a.accepted_at + (private.setting_int('agreement_evidence_retention_days') || ' days')::interval < now()
+     --  4. no legal hold
+     AND NOT EXISTS (SELECT 1 FROM payout_holds h
+                      WHERE h.teacher_id = a.teacher_id AND h.released_at IS NULL)
+     AND COALESCE((SELECT legal_hold_until FROM profiles p WHERE p.id = a.teacher_id), '-infinity') < now()
+     ```
+
+     The scheduled purge job and any ad-hoc erasure both call the same function, which calls this same predicate — there is exactly **one** path and **one** predicate, so "is this erasable?" can never be answered two ways.
+     The **period** itself is a legal/owner input (⚠ same review gate as the agreement text) — engineering pins the predicate and the setting, not the number.
+   - *Erasure vs append-only — the contradiction, resolved explicitly*: "append-only" and "null the evidence on deletion" cannot both be enforced by a blanket no-UPDATE rule. The resolution: the immutability trigger REJECTS every UPDATE **except** a single narrow, privileged exception — an UPDATE that (a) is executed by `private.erase_agreement_evidence(p_teacher_id uuid)`, (b) touches **only** `ip` and `user_agent`, setting both to NULL (every other column byte-identical — assert with `to_jsonb(OLD) - 'ip' - 'user_agent' = to_jsonb(NEW) - 'ip' - 'user_agent'`), and (c) passes the erasure predicate above. Consent itself (`teacher_id`, `agreement_version`, `accepted_at`, `accepted_by`) is **never** erasable by any path — the platform must always be able to prove *that* consent existed, even after the evidence *of how* it was captured is purged.
+   - *SECURITY DEFINER lockdown (this repo's own spec-016 lesson — a `SECURITY DEFINER` function is public-executable by default)*: the erasure function MUST ship, **in the same migration**, with:
+     ```sql
+     CREATE OR REPLACE FUNCTION private.erase_agreement_evidence(p_teacher_id uuid)
+       RETURNS integer
+       LANGUAGE plpgsql
+       SECURITY DEFINER
+       SET search_path = pg_catalog, public, private;   -- pinned; never mutable
+     ...
+     REVOKE EXECUTE ON FUNCTION private.erase_agreement_evidence(uuid) FROM public, anon, authenticated;
+     GRANT  EXECUTE ON FUNCTION private.erase_agreement_evidence(uuid) TO service_role;
+     ```
+     Revoking from `public` alone is **not** sufficient — `anon` and `authenticated` must be named explicitly (the systemic finding from spec 016). A negative test MUST assert an `authenticated` caller gets `insufficient_privilege`, and `npm run sb:advisors` MUST report no new findings.
+   - *Refusal path*: when the predicate fails the function raises and writes an append-only audit row (actor, teacher, timestamp, failing condition) — a refusal is as auditable as an erasure. Destroying consent evidence mid-dispute would remove the platform's own defence.
    - *Audit*: both branches (erased / refused-for-hold) write an append-only audit row (actor, teacher, timestamp, reason). The scheduled retention job uses the same function, so there is exactly **one** erasure path to review.
 
 5. `teacher_earning_entries`: **one canonical source-key model — every payable unit has exactly one unique source key**: partial `UNIQUE(session_delivery_id) WHERE kind='session'` **and** partial `UNIQUE(payment_id) WHERE kind='course'`, so re-running materialization can never duplicate an earning from either source (FR-008 alignment). Plus `teacher_id`, `amount_cents int` (negative allowed only for `kind='clawback'`), `funding_charge_id text NULL`, `transfer_group text`, `status` enum `pending|processing|held|transferred|voided|debt_recovered|manual_due|manual_paid`, `hold_reason`, `claimed_at timestamptz NULL` (sweep lease — Phase 1), `external_reference_id text NULL` + `settled_by uuid NULL` + `settled_at timestamptz NULL` (manual rail, spec FR-027; partial `UNIQUE(teacher_id, external_reference_id)` to catch a pasted-twice reference), timestamps.
