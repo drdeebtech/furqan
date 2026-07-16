@@ -2,7 +2,7 @@
 
 **Spec**: `specs/040-stripe-connect-payouts/spec.md`
 **Created**: 2026-07-15
-**Updated**: 2026-07-16 — finalized business rules (14-day hold, auto debt offset, manual rail, Teacher Agreement gate); Decisions Register CLOSED.
+**Updated**: 2026-07-16 — finalized business rules (14-day hold derived from a 7-day refund window, auto debt offset, manual rail, Teacher Agreement gate with a 30-day grace for existing teachers); Decisions Register CLOSED.
 **Status**: Draft — business rules final, awaiting implementation
 
 > Renumbered 038 → **040** (collision with the pre-existing `specs/038-prepaid-hour-wallet`, merged 2026-07-09).
@@ -20,15 +20,25 @@
 
 ## Constitution Check
 
-| Rule | How this plan complies |
+Checked against the **five** principles in `.specify/memory/constitution.md` (the authoritative list — there is no separate "20 principles" document) plus the security hard lines in `CLAUDE.md` §3.
+
+| Constitution principle | How this plan complies |
 |---|---|
-| RLS on every table, same migration | Phase 0 migrations include policies + advisors gate |
-| Service-role server-only | Connect calls in `src/lib/domains/payouts/**` behind `import "server-only"`; onboarding is a server action |
-| userId from session | Onboarding action reads `supabase.auth.getUser()`; ignores body ids |
-| zod at boundaries | Webhook payload fields + admin action inputs zod-validated |
-| Expand/contract migrations | Additive only; legacy payroll untouched; `check-migration-safety.sh` in gate |
-| Typed events | New `FurqanEvent`/analytics names added via `emit.ts` / `MIXPANEL_EVENTS`, no raw strings |
-| Verify with `npm run build` | Every phase gate includes it (server/client boundary risk in dashboard code) |
+| **I. Domain Ownership** (NON-NEGOTIABLE) | All payout logic lives in `src/lib/domains/payouts/**`; routes/actions are thin shells. The manual rail does **not** spawn a second ledger — one earnings domain, two settlement methods (FR-026). Legacy payroll stays in its own domain, untouched (FR-019). |
+| **II. Loud Failures** (NON-NEGOTIABLE) | Zero-rate delivery → structured exception (FR-007); failed transfer → recorded error + retry, never silently paid (FR-011); corrupt `connect_payout_hold_days` → no transfer (FR-010); bad webhook signature → 400, no DB write (FR-018). No silent catch anywhere in the money path. |
+| **III. Atomic Critical Paths, Best-Effort Side Effects** | The claim → debt-net → settle sequence is atomic per entry (single conditional UPDATE + lease); Stripe is called **outside** the transaction with a dual idempotency lock (FR-008/014). Notifications/analytics are best-effort and can never fail a payout. |
+| **IV. Auth at the Boundary** | Onboarding + agreement actions take identity from `auth.getUser()`, never the body (FR-001/028); `payout_method` and manual settlement are admin/service-role only (FR-025/027); RLS in the same migration for every new table (FR-017); zod at every boundary. |
+| **V. Tracer-Bullet Adoption** | Phases 0→6 are a working thin thread widened progressively (ledger → sweep → UI → webhooks → ops → live), each with its own gate; the whole path is dormant in production (`connect_cutover_date` NULL) until Phase 6. |
+
+| `CLAUDE.md` §3 security hard line | Compliance |
+|---|---|
+| RLS on every table, same migration | Phase 0 migrations ship policies + `sb:advisors` gate |
+| Service-role key server-only | Connect calls behind `import "server-only"` |
+| `userId` from session, never input | Onboarding/agreement/settle actions all session-derived |
+| zod at every boundary | Webhook fields + admin action inputs |
+| Expand/contract migrations | Additive only; `check-migration-safety.sh` in gate |
+| Typed events only | New `FurqanEvent` / `MIXPANEL_EVENTS` constants, no raw strings |
+| Verify with `npm run build` | Every phase gate includes it |
 
 ## New Project Structure
 
@@ -57,6 +67,8 @@ src/app/api/admin/payouts/sweep/route.ts                 Phase 4 (admin/cron tri
 1. `stripe_connect_accounts`: `teacher_id uuid UNIQUE FK profiles`, `stripe_account_id text UNIQUE`, `charges_enabled bool`, `payouts_enabled bool`, `details_submitted bool`, `requirements jsonb`, `last_event_at timestamptz`. RLS: teacher select own, admin select, service_role write.
 2a. `teacher_profiles.payout_method` (`stripe_connect` | `manual`, NOT NULL DEFAULT `'stripe_connect'`, additive nullable-safe rollout per expand/contract) + RLS/trigger ensuring **only** service_role/admin can write it (spec FR-025 — a teacher self-switching to `manual` would route around Stripe into the human-paid queue). Change audit row (actor, old → new).
 
+2a-ii. `teacher_profiles.agreement_grace_until timestamptz NULL` (spec FR-029) — stamped once, at enablement, for the **snapshotted** set of then-active teachers; NULL ⇒ hard gate. Service-role write only; extensions are an audited admin action. The enablement runbook MUST stamp this in the **same operation** that sets `connect_cutover_date`.
+
 2b. `teacher_agreement_acceptances`: `teacher_id`, `agreement_version text`, `accepted_at`, `accepted_by`, `ip inet NULL`, `user_agent text NULL`; append-only (no UPDATE/DELETE policy at all), service_role insert, teacher SELECT own, admin SELECT (spec FR-028). Unique on `(teacher_id, agreement_version)`.
 
 2. `teacher_earning_entries`: **one canonical source-key model — every payable unit has exactly one unique source key**: partial `UNIQUE(session_delivery_id) WHERE kind='session'` **and** partial `UNIQUE(payment_id) WHERE kind='course'`, so re-running materialization can never duplicate an earning from either source (FR-008 alignment). Plus `teacher_id`, `amount_cents int` (negative allowed only for `kind='clawback'`), `funding_charge_id text NULL`, `transfer_group text`, `status` enum `pending|processing|held|transferred|voided|debt_recovered|manual_due|manual_paid`, `hold_reason`, `claimed_at timestamptz NULL` (sweep lease — Phase 1), `external_reference_id text NULL` + `settled_by uuid NULL` + `settled_at timestamptz NULL` (manual rail, spec FR-027; partial `UNIQUE(teacher_id, external_reference_id)` to catch a pasted-twice reference), timestamps.
@@ -64,7 +76,7 @@ src/app/api/admin/payouts/sweep/route.ts                 Phase 4 (admin/cron tri
 3. `teacher_transfers`: `entry_id FK`, denormalized `session_delivery_id uuid NULL`, `stripe_transfer_id text UNIQUE`, `idempotency_key text UNIQUE`, `amount_cents`, `kind transfer|reversal`, `status`, `error_detail`. Uniqueness backstops match FR-008 exactly: partial `UNIQUE(entry_id) WHERE kind='transfer'` **and** partial `UNIQUE(session_delivery_id) WHERE kind='transfer' AND session_delivery_id IS NOT NULL` — the spec's `teacher_transfers(session_delivery_id)` backstop, not `entry_id` alone; tests assert both constraints.
 4. `payout_holds`: `teacher_id`, `source` `admin|dispute`, `reason text NOT NULL`, `created_by`, `released_at NULL`.
 5. platform_settings keys: `connect_payout_hold_days` (**default 14** — decided 2026-07-16, spec FR-010; DB-only, no env twin; corrupt/missing value fails closed = no transfer, never 0 days), `connect_cutover_date` (NULL = new path disabled; **write-once** — DB trigger allows only the single NULL → value transition, service-role only, and audit-logs the write and every rejected mutation attempt, per FR-021).
-6. Hold-window eligibility is expressed **only** as `delivered_at + (connect_payout_hold_days || ' days')::interval <= now()` in UTC (spec FR-010) — never against a payment/charge timestamp; the condition lives inside the Phase 1 claiming statement, not in application code.
+6. Hold-window eligibility is expressed **only** as `delivered_at + (connect_payout_hold_days || ' days')::interval <= now()` in UTC (spec FR-010) — never against a payment/charge timestamp; the condition lives inside the Phase 1 claiming statement, not in application code. Add `refund_window_days` (default **7**, spec FR-031) as a sibling platform_settings key and assert `connect_payout_hold_days >= refund_window_days + 7` in tests (SC-015) — the hold is *derived* from the refund window, never independently hard-coded.
 7. Entry materialization trigger or sweep-side backfill from `session_deliveries` rows with `delivered_at >= connect_cutover_date` (decision: **sweep-side derivation, no trigger on the hot finalize path** — keeps `finalize_attendance` untouched, which has a history of P0s).
 
 **Verification gate**
@@ -93,7 +105,8 @@ src/app/api/admin/payouts/sweep/route.ts                 Phase 4 (admin/cron tri
 1. **Teacher Agreement acceptance (blocking, FR-028/FR-029)** — ships *before* the Connect card, because consent is the precondition for earnings, the 14-day hold and debt deduction:
    - Agreement screen (AR/EN, RTL-correct) rendering the versioned text; explicit affirmative action (checkbox + submit, no pre-ticked box, no implied consent by browsing); server action records `(teacher_id, agreement_version, accepted_at, accepted_by, ip, user_agent)` append-only, identity from session only.
    - **Booking gate**: a teacher without a current-version acceptance cannot be assigned a **new** booking. Enumerate and gate **every** booking-creation path in this same PR (`src/lib/domains/booking/actions.ts`, class-offering enrollment `src/lib/actions/class-offerings.ts`, instant/single-session checkout `src/app/api/stripe/checkout/single-session/route.ts`, any admin-created booking) — a gate on some paths is a false guarantee. Marketplace **visibility** is untouched (spec 036).
-   - **Rollout backfill (mandatory, FR-029)**: production has **5 active teachers / 7 live bookings** (2026-07-16). Ship with either a grace date (prompt now, block new bookings after date D) or out-of-band recorded acceptances — enabling the gate cold would freeze all bookings. The chosen option is an owner call; the PR must state which and prove it with a test.
+   - **Rollout — DECIDED (FR-029)**: **30-day grace** for the snapshotted set of existing active teachers (5 in prod as of 2026-07-16), **hard immediate gate** for every new teacher. The snapshot is stamped at enablement (`agreement_grace_until`), never computed dynamically from `created_at` (which would leak the grace to new signups). In-grace teachers get dashboard + notification warnings on a defined cadence; expiry blocks new bookings.
+   - **Consent invariant under grace (FR-029/SC-014)**: an unsigned grace teacher keeps booking and teaching, but their entries materialize `held` with `hold_reason='agreement_pending'` — never transferred, never manually settled, never debt-offset — and release to `pending` at full value on acceptance. This is the linchpin that lets us avoid a platform freeze **without** ever moving money or deducting debt under unaccepted terms.
    - ⚠ The agreement **text** is legal work, not engineering — the screen renders whatever version the owner's professional supplies; the version string is what engineering pins.
 2. Server action `startConnectOnboarding()`: session user only, role=teacher check, create-or-reuse account (FR-001), mint Account Link, redirect. Return/refresh routes handle expired links (edge case). Manual-rail teachers (FR-025) see a "payouts handled manually by the academy" state instead of the Connect card — never a broken onboarding link.
 3. Dashboard payout-status card (4 states + manual, FR-004) + teacher earnings page (FR-024, incl. outstanding negative balance and each debt-recovery deduction with its cause), both AR/EN + RTL.
@@ -103,7 +116,7 @@ src/app/api/admin/payouts/sweep/route.ts                 Phase 4 (admin/cron tri
 - Browser screenshot + vision check of the agreement screen, the card and the earnings page **in Arabic RTL** (agent-browser; accessibility-tree pass alone is forbidden for this visual gate). ⚠ Known constraint: automated image vision is currently blocked by the local `Read` deny — the screenshots go to the owner for the human look until that is narrowed.
 - Negative test: POSTing a foreign `teacher_id` in the action body changes nothing (session identity wins) — for both the agreement action and onboarding.
 - SC-012 parametrized negative test: unsigned teacher blocked on **every** booking path; still visible in `/teachers` search.
-- Backfill proof: the 5 existing production teachers can still take bookings on enablement day (test against seeded equivalents).
+- Grace proof (SC-013/SC-014): snapshotted teacher books on day 1 and day 29 unsigned, blocked on day 31; a teacher created during the window gets **no** grace; an unsigned grace teacher's delivered session produces a `held/agreement_pending` entry that no sweep will pay, and that releases to full value on acceptance.
 
 ## Phase 3 — Webhook Events (Stripe CLI fixtures, test mode)
 
@@ -152,7 +165,10 @@ src/app/api/admin/payouts/sweep/route.ts                 Phase 4 (admin/cron tri
 1. Stripe live account activated (EIN arrives) — per the existing go-live runbook.
 2. Enable **Connect** on the live account; complete the platform Connect profile/branding (Stripe dashboard, human-only).
 3. Create the live Connect webhook endpoint → set `STRIPE_CONNECT_WEBHOOK_SECRET` (live) in Vercel env (owner; secrets never inline).
-4. ✅ **Decisions Register CLOSED 2026-07-16** (hold = 14 days, auto debt offset, manual rail, agreement required). Two review triggers remain before enablement: (a) re-check the 14-day hold against the **finalized refund policy** (still an open go-live blocker per `.claude/product-marketing.md`); (b) obtain the professionally drafted/reviewed **Teacher Agreement text** and pin its version string.
+4. ✅ **Decisions Register CLOSED 2026-07-16** (hold = 14 days derived from a 7-day refund window, auto debt offset, manual rail, agreement required with a 30-day grace). Three **blocking prerequisites** remain — all owner/product, none engineering:
+   - **Publish the 7-day refund window** (FR-031) in the student Terms (`src/app/(public)/terms/terms-content.tsx`, reconciling it with the existing 24-hour cancellation clause) and in `.claude/product-marketing.md`. The 14-day hold is justified *by* this policy; unpublished, it justifies nothing.
+   - **Teacher Agreement legal text**, professionally drafted/reviewed; engineering pins the version string.
+   - **Stamp `agreement_grace_until`** for the snapshotted active-teacher set in the **same operation** that sets `connect_cutover_date` — the grace clock and the payout clock must start together.
 5. Set `connect_cutover_date` in platform_settings (this is the enable switch — NULL until now means the entire new path was dormant in production, which is why Phases 0–5 can merge to main safely before the account exists).
 
 **Engineering actions**
@@ -179,4 +195,8 @@ src/app/api/admin/payouts/sweep/route.ts                 Phase 4 (admin/cron tri
 | **Agreement gate freezes live bookings** (5 teachers / 7 bookings in prod) | FR-029 mandates a backfill or grace date + a test proving existing teachers keep booking; gate ships with every booking path enumerated in one PR |
 | **Debt consumed by a transfer that then fails** → earning lost | Phase 1 failure path must reverse or re-derive the `debt_recovery` row; explicit test (a debt must never be silently paid twice or vanish) |
 | **Teacher self-switches to the manual rail** to bypass Stripe | `payout_method` is service-role/admin-write only (FR-025), RLS-enforced + audited; negative test in the Phase 0 walk |
-| 14-day hold shorter than the (undefined) refund window | Accepted and documented: FR-014 negative-balance recovery covers the tail; FR-010 carries a re-check trigger once the refund policy lands |
+| Hold decoupled from the refund window (someone edits one, not the other) | `connect_payout_hold_days >= refund_window_days + 7` asserted in tests (SC-015); the hold is derived, never independently hard-coded |
+| **Chargebacks exceed any hold** (~120 days under card-scheme rules) | Unavoidable by design — FR-014 negative-balance recovery is the tail cover, FR-015 holds not-yet-transferred money. FR-031 closes the *refund* half only; do not read it as closing the exposure |
+| Grace leaks to new signups (dynamic `created_at` predicate) | Grace is a **stamped snapshot** at enablement, never computed (FR-029); test asserts a mid-window signup gets the hard gate |
+| Unsigned grace teacher's money moved under unaccepted terms | Entries materialize `held/agreement_pending`; no transfer, no manual settle, no debt offset until acceptance (SC-014) |
+| Grace expiry silently blocks a working teacher | Warning cadence (dashboard + notification) mandated in Phase 2; expiry is loud, not silent |
