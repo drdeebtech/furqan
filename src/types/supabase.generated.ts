@@ -3250,6 +3250,82 @@ export type Database = {
           },
         ]
       }
+      payout_holds: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          reason: string
+          released_at: string | null
+          released_by: string | null
+          source: Database["public"]["Enums"]["payout_hold_source"]
+          teacher_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          reason: string
+          released_at?: string | null
+          released_by?: string | null
+          source: Database["public"]["Enums"]["payout_hold_source"]
+          teacher_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          reason?: string
+          released_at?: string | null
+          released_by?: string | null
+          source?: Database["public"]["Enums"]["payout_hold_source"]
+          teacher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payout_holds_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payout_holds_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payout_holds_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payout_holds_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payout_holds_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payout_holds_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount_before_tax: number
@@ -6548,6 +6624,139 @@ export type Database = {
           },
         ]
       }
+      teacher_earning_entries: {
+        Row: {
+          agreement_version: string | null
+          amount_cents: number
+          claimed_at: string | null
+          consuming_entry_id: string | null
+          created_at: string
+          external_reference_id: string | null
+          funding_charge_id: string | null
+          hold_reason: string | null
+          id: string
+          kind: Database["public"]["Enums"]["earning_entry_kind"]
+          payment_id: string | null
+          recovered_against_entry_id: string | null
+          reverses_recovery_id: string | null
+          session_delivery_id: string | null
+          settled_at: string | null
+          settled_by: string | null
+          status: Database["public"]["Enums"]["earning_entry_status"]
+          teacher_id: string
+          transfer_group: string | null
+          updated_at: string
+        }
+        Insert: {
+          agreement_version?: string | null
+          amount_cents: number
+          claimed_at?: string | null
+          consuming_entry_id?: string | null
+          created_at?: string
+          external_reference_id?: string | null
+          funding_charge_id?: string | null
+          hold_reason?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["earning_entry_kind"]
+          payment_id?: string | null
+          recovered_against_entry_id?: string | null
+          reverses_recovery_id?: string | null
+          session_delivery_id?: string | null
+          settled_at?: string | null
+          settled_by?: string | null
+          status?: Database["public"]["Enums"]["earning_entry_status"]
+          teacher_id: string
+          transfer_group?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agreement_version?: string | null
+          amount_cents?: number
+          claimed_at?: string | null
+          consuming_entry_id?: string | null
+          created_at?: string
+          external_reference_id?: string | null
+          funding_charge_id?: string | null
+          hold_reason?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["earning_entry_kind"]
+          payment_id?: string | null
+          recovered_against_entry_id?: string | null
+          reverses_recovery_id?: string | null
+          session_delivery_id?: string | null
+          settled_at?: string | null
+          settled_by?: string | null
+          status?: Database["public"]["Enums"]["earning_entry_status"]
+          teacher_id?: string
+          transfer_group?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_earning_entries_consuming_entry_id_fkey"
+            columns: ["consuming_entry_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_earning_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_earning_entries_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_earning_entries_recovered_against_entry_id_fkey"
+            columns: ["recovered_against_entry_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_earning_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_earning_entries_reverses_recovery_id_fkey"
+            columns: ["reverses_recovery_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_earning_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_earning_entries_session_delivery_id_fkey"
+            columns: ["session_delivery_id"]
+            isOneToOne: false
+            referencedRelation: "session_deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_earning_entries_settled_by_fkey"
+            columns: ["settled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_earning_entries_settled_by_fkey"
+            columns: ["settled_by"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_earning_entries_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_earning_entries_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teacher_payouts: {
         Row: {
           created_at: string
@@ -6592,6 +6801,83 @@ export type Database = {
           },
           {
             foreignKeyName: "teacher_payouts_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_transfers: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          entry_id: string
+          error_detail: string | null
+          id: string
+          idempotency_key: string
+          kind: Database["public"]["Enums"]["teacher_transfer_kind"]
+          session_delivery_id: string | null
+          status: Database["public"]["Enums"]["teacher_transfer_status"]
+          stripe_transfer_id: string | null
+          teacher_id: string
+          transfer_group: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          entry_id: string
+          error_detail?: string | null
+          id?: string
+          idempotency_key: string
+          kind: Database["public"]["Enums"]["teacher_transfer_kind"]
+          session_delivery_id?: string | null
+          status?: Database["public"]["Enums"]["teacher_transfer_status"]
+          stripe_transfer_id?: string | null
+          teacher_id: string
+          transfer_group?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          entry_id?: string
+          error_detail?: string | null
+          id?: string
+          idempotency_key?: string
+          kind?: Database["public"]["Enums"]["teacher_transfer_kind"]
+          session_delivery_id?: string | null
+          status?: Database["public"]["Enums"]["teacher_transfer_status"]
+          stripe_transfer_id?: string | null
+          teacher_id?: string
+          transfer_group?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_transfers_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_earning_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_transfers_session_delivery_id_fkey"
+            columns: ["session_delivery_id"]
+            isOneToOne: false
+            referencedRelation: "session_deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_transfers_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_transfers_teacher_id_fkey"
             columns: ["teacher_id"]
             isOneToOne: false
             referencedRelation: "public_profiles"
@@ -7786,7 +8072,25 @@ export type Database = {
         | "course"
       participant_role: "teacher" | "student"
       payment_status: "pending" | "succeeded" | "failed" | "refunded"
+      earning_entry_kind:
+        | "session"
+        | "course"
+        | "clawback"
+        | "debt_recovery"
+        | "debt_recovery_reversal"
+      earning_entry_status:
+        | "pending"
+        | "processing"
+        | "held"
+        | "transferred"
+        | "voided"
+        | "debt_recovered"
+        | "manual_due"
+        | "manual_paid"
+      payout_hold_source: "admin" | "dispute"
       payout_status: "pending" | "paid" | "failed"
+      teacher_transfer_kind: "transfer" | "reversal"
+      teacher_transfer_status: "pending" | "succeeded" | "failed"
       report_type:
         | "session_summary"
         | "evaluation"
@@ -8016,7 +8320,27 @@ export const Constants = {
       ],
       participant_role: ["teacher", "student"],
       payment_status: ["pending", "succeeded", "failed", "refunded"],
+      earning_entry_kind: [
+        "session",
+        "course",
+        "clawback",
+        "debt_recovery",
+        "debt_recovery_reversal",
+      ],
+      earning_entry_status: [
+        "pending",
+        "processing",
+        "held",
+        "transferred",
+        "voided",
+        "debt_recovered",
+        "manual_due",
+        "manual_paid",
+      ],
+      payout_hold_source: ["admin", "dispute"],
       payout_status: ["pending", "paid", "failed"],
+      teacher_transfer_kind: ["transfer", "reversal"],
+      teacher_transfer_status: ["pending", "succeeded", "failed"],
       report_type: [
         "session_summary",
         "evaluation",
