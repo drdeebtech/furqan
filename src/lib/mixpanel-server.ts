@@ -36,6 +36,9 @@ export async function trackMixpanel(
   await withTimeout(
     fetch(MIXPANEL_TRACK_URL, {
       method: "POST",
+      // Actually cancels the socket at the deadline; withTimeout alone only
+      // stops waiting (its race does not abort the loser).
+      signal: AbortSignal.timeout(TRACK_TIMEOUT_MS),
       headers: { "Content-Type": "application/json", Accept: "text/plain" },
       body: JSON.stringify([
         {
