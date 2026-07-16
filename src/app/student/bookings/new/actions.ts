@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { checkBotId } from "botid/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -11,6 +12,7 @@ import { emitEvent } from "@/lib/automation/emit";
 import { dispatchEffects } from "@/lib/automation/effects";
 import { logError } from "@/lib/logger";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { MIXPANEL_EVENTS, trackMixpanel } from "@/lib/mixpanel-server";
 import { createBooking as createBookingDomain } from "@/lib/domains/booking/actions";
 import {
   BookingValidationError,
@@ -216,6 +218,18 @@ export async function createBooking(
       teacher_id: teacherId,
     },
   });
+
+  // Mixpanel Value Moment (booking confirmed) — server-side so it fires
+  // exactly once per real booking, never on client refresh/back-nav.
+  // Fail-soft + bounded, and off the request path: after() runs it once the
+  // response has flushed, so it can never delay the booking redirect.
+  after(() =>
+    trackMixpanel(studentId, MIXPANEL_EVENTS.BOOKING_CONFIRMED, {
+      session_type: sessionType,
+      duration_min: durationMin,
+      teacher_id: teacherId,
+    }),
+  );
 
   // Cross-domain choreography stays at the route adapter (per ADR-0002 §1
   // — orchestration is a separate later conversation). Send notifications

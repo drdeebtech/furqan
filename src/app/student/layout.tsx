@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { DashboardLayout } from "@/components/shared/dashboard-layout";
 import { requireRole, ForbiddenError } from "@/lib/auth/require-admin";
-import { PostHogIdentify } from "@/components/shared/posthog-identify";
+import { AnalyticsIdentify } from "@/components/shared/analytics-identify";
 import { PushOptIn } from "@/components/shared/push-optin";
 import { RealtimeProvider } from "@/components/realtime/realtime-provider";
 import { JuzCelebration } from "@/components/student/juz-celebration";
@@ -19,7 +19,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
   }
   return (
     <RealtimeProvider userId={userId}>
-      <PostHogIdentify userId={userId} />
+      <AnalyticsIdentify userId={userId} />
       <PushOptIn />
       <JuzCelebration />
       <DashboardLayout role="student">{children}</DashboardLayout>

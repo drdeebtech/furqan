@@ -62,6 +62,9 @@ const { data: { user } } = await supabase.auth.getUser()
 - TypeScript strict; no `any`; no `@ts-ignore` without a one-line reason.
 - Prefer Server Components; reach for Client Components only when interactivity needs it.
 - **Typed event names only** — `FurqanEvent` (from `src/lib/automation/emit.ts`), no raw strings.
+  Same for analytics: PostHog + Mixpanel both run (fail-soft, env-gated); Mixpanel events come from
+  `MIXPANEL_EVENTS` (`src/lib/mixpanel-server.ts` server-side, `src/lib/mixpanel-client.ts` client),
+  autocapture/session-recording stay OFF (students may be minors).
 - Progress is **merged, never overwritten** — never silently lose, reset, or overstate memorization.
   Write tests for the scheduler.
 - Every component must render correctly in Arabic RTL — test it, don't assume.
