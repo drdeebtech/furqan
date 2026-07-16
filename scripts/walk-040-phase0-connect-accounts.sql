@@ -21,8 +21,9 @@
 -- NOTE on the single walk transaction: set_config('app.connect_cutover_writer',
 -- …, true) is txn-local, so once the setter applies, the flag stays 'on' for the
 -- rest of THIS transaction. Section 5 therefore runs the "direct write RAISES"
--- checks BEFORE the first successful setter call (flag still unset), matching how
--- production behaves where each setter call is its own transaction.
+-- checks AND the unrelated-setting check [5h] BEFORE the first successful setter
+-- call (flag still unset), matching how production behaves where each setter
+-- call is its own transaction.
 
 BEGIN;
 
@@ -213,9 +214,9 @@ BEGIN
 END $$;
 RESET ROLE;
 
--- ── 4d. stripe_account_id one-time link + identity/status rules ─────────────
+-- ── 4d. stripe_account_id one-time link + identity/status/recency rules ─────
 DO $$
-DECLARE acct text; ce boolean;
+DECLARE acct text; ce boolean; le timestamptz;
 BEGIN
   -- NULL -> value: the one-time link SUCCEEDS.
   UPDATE public.stripe_connect_accounts SET stripe_account_id = 'acct_x'
@@ -257,24 +258,68 @@ BEGIN
     IF SQLERRM LIKE 'ASSERT FAILED%' THEN RAISE; END IF;
     RAISE NOTICE 'ASSERT OK  [4d-iv] identity column (teacher_id) is immutable';
   END;
+
+  -- last_event_at recency floor (FR-003). OLD is NULL here, so NULL->value ok.
+  UPDATE public.stripe_connect_accounts SET last_event_at = '2026-07-01T00:00:00Z'
+   WHERE teacher_id = '00000000-0000-4000-9000-0000000000a1';
+  SELECT last_event_at INTO le FROM public.stripe_connect_accounts
+   WHERE teacher_id = '00000000-0000-4000-9000-0000000000a1';
+  IF le IS DISTINCT FROM '2026-07-01T00:00:00Z'::timestamptz THEN
+    RAISE EXCEPTION 'ASSERT FAILED: first last_event_at did not apply (got %)', le;
+  END IF;
+  RAISE NOTICE 'ASSERT OK  [4d-v] last_event_at NULL->value applies (first event)';
+
+  -- Older timestamp (out-of-order webhook): RAISES.
+  BEGIN
+    UPDATE public.stripe_connect_accounts SET last_event_at = '2026-06-01T00:00:00Z'
+     WHERE teacher_id = '00000000-0000-4000-9000-0000000000a1';
+    RAISE EXCEPTION 'ASSERT FAILED: stale (older) last_event_at was accepted';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM LIKE 'ASSERT FAILED%' THEN RAISE; END IF;
+    RAISE NOTICE 'ASSERT OK  [4d-vi] older last_event_at RAISES (no backwards overwrite)';
+  END;
+
+  -- Regress to NULL: RAISES.
+  BEGIN
+    UPDATE public.stripe_connect_accounts SET last_event_at = NULL
+     WHERE teacher_id = '00000000-0000-4000-9000-0000000000a1';
+    RAISE EXCEPTION 'ASSERT FAILED: last_event_at NULL regression was accepted';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM LIKE 'ASSERT FAILED%' THEN RAISE; END IF;
+    RAISE NOTICE 'ASSERT OK  [4d-vii] last_event_at ->NULL regression RAISES';
+  END;
+
+  -- Newer timestamp: applies (moves forward).
+  UPDATE public.stripe_connect_accounts SET last_event_at = '2026-08-01T00:00:00Z'
+   WHERE teacher_id = '00000000-0000-4000-9000-0000000000a1';
+  SELECT last_event_at INTO le FROM public.stripe_connect_accounts
+   WHERE teacher_id = '00000000-0000-4000-9000-0000000000a1';
+  IF le IS DISTINCT FROM '2026-08-01T00:00:00Z'::timestamptz THEN
+    RAISE EXCEPTION 'ASSERT FAILED: newer last_event_at did not apply (got %)', le;
+  END IF;
+  RAISE NOTICE 'ASSERT OK  [4d-viii] newer last_event_at applies (recency floor moves forward)';
 END $$;
 
--- ── 4e. connect_payout_audit is append-only (UPDATE + DELETE both RAISE) ────
+-- ── 4e. connect_payout_audit is append-only, PROVEN AS THE TABLE OWNER ───────
+-- The trigger (unlike RLS) fires for the table owner / BYPASSRLS roles too, so
+-- running this with no SET ROLE (i.e. as the migration/owner role) directly
+-- answers the "owner could rewrite history" concern: both UPDATE and DELETE RAISE.
+RESET ROLE;
 DO $$
 BEGIN
   BEGIN
     UPDATE public.connect_payout_audit SET event = 'tampered';
-    RAISE EXCEPTION 'ASSERT FAILED: audit row was UPDATE-able (not append-only)';
+    RAISE EXCEPTION 'ASSERT FAILED: audit row was UPDATE-able by the owner (not append-only)';
   EXCEPTION WHEN raise_exception THEN
     IF SQLERRM LIKE 'ASSERT FAILED%' THEN RAISE; END IF;
-    RAISE NOTICE 'ASSERT OK  [4e-i] audit UPDATE RAISES (append-only)';
+    RAISE NOTICE 'ASSERT OK  [4e-i] audit UPDATE RAISES even as table owner (append-only)';
   END;
   BEGIN
     DELETE FROM public.connect_payout_audit;
-    RAISE EXCEPTION 'ASSERT FAILED: audit row was DELETE-able (not append-only)';
+    RAISE EXCEPTION 'ASSERT FAILED: audit row was DELETE-able by the owner (not append-only)';
   EXCEPTION WHEN raise_exception THEN
     IF SQLERRM LIKE 'ASSERT FAILED%' THEN RAISE; END IF;
-    RAISE NOTICE 'ASSERT OK  [4e-ii] audit DELETE RAISES (append-only)';
+    RAISE NOTICE 'ASSERT OK  [4e-ii] audit DELETE RAISES even as table owner (append-only)';
   END;
 END $$;
 
@@ -303,6 +348,21 @@ BEGIN
   END;
 END $$;
 
+-- 5h (MOVED here, BEFORE the first successful setter call): with the writer flag
+-- still OFF, an unrelated setting must still be updatable — a mistakenly-global
+-- sole-writer guard would RAISE here and fail the assertion.
+DO $$
+DECLARE v text;
+BEGIN
+  UPDATE public.platform_settings SET value = 'true'
+   WHERE key = 'teacher_agreement_gate_enabled';
+  SELECT value INTO v FROM public.platform_settings WHERE key = 'teacher_agreement_gate_enabled';
+  IF v IS DISTINCT FROM 'true' THEN
+    RAISE EXCEPTION 'ASSERT FAILED: sole-writer trigger leaked onto an unrelated setting';
+  END IF;
+  RAISE NOTICE 'ASSERT OK  [5h] unrelated platform_settings row still updatable with flag OFF (key-scoped)';
+END $$;
+
 -- 5d. Invalid date on the fresh empty row → soft-refuse + DURABLE audit.
 DO $$
 DECLARE r text; v text; n integer;
@@ -322,13 +382,16 @@ BEGIN
   RAISE NOTICE 'ASSERT OK  [5d] invalid date soft-refused, value unchanged, rejection durably audited';
 END $$;
 
--- 5e. The single legitimate unlock via the setter → applied + audit.
+-- 5e. The single legitimate unlock — exercised AS service_role (proves the
+-- GRANT ... TO service_role is real; the owner could execute regardless).
+SET LOCAL ROLE service_role;
+SELECT set_config('request.jwt.claims', '{"role":"service_role"}', true);
 DO $$
 DECLARE r text; v text; n integer;
 BEGIN
   r := public.set_connect_cutover_date('2026-09-01');
   IF r IS DISTINCT FROM 'applied' THEN
-    RAISE EXCEPTION 'ASSERT FAILED: setter returned "%" (want applied)', r;
+    RAISE EXCEPTION 'ASSERT FAILED: service_role setter returned "%" (want applied)', r;
   END IF;
   SELECT value INTO v FROM public.platform_settings WHERE key = 'connect_cutover_date';
   IF v IS DISTINCT FROM '2026-09-01' THEN
@@ -337,8 +400,10 @@ BEGIN
   SELECT count(*) INTO n FROM public.connect_payout_audit
    WHERE event = 'connect_cutover_set' AND detail->>'value' = '2026-09-01';
   IF n <> 1 THEN RAISE EXCEPTION 'ASSERT FAILED: expected 1 cutover_set audit row, got %', n; END IF;
-  RAISE NOTICE 'ASSERT OK  [5e] setter applies the one-time cutover + audits';
+  RAISE NOTICE 'ASSERT OK  [5e] setter applies the one-time cutover as service_role + audits';
 END $$;
+RESET ROLE;
+SELECT set_config('request.jwt.claims', '', true);
 
 -- 5f. A second call → soft-refuse (already set) + DURABLE rejected audit.
 --     This is the KEY FR-021 assertion: the rejected attempt PERSISTS.
@@ -378,19 +443,6 @@ BEGIN
 END $$;
 RESET ROLE;
 SELECT set_config('request.jwt.claims', '', true);
-
--- 5h. Scoping: an UNRELATED setting is still freely updatable.
-DO $$
-DECLARE v text;
-BEGIN
-  UPDATE public.platform_settings SET value = 'true'
-   WHERE key = 'teacher_agreement_gate_enabled';
-  SELECT value INTO v FROM public.platform_settings WHERE key = 'teacher_agreement_gate_enabled';
-  IF v IS DISTINCT FROM 'true' THEN
-    RAISE EXCEPTION 'ASSERT FAILED: sole-writer trigger leaked onto an unrelated setting';
-  END IF;
-  RAISE NOTICE 'ASSERT OK  [5h] unrelated platform_settings row still updatable (trigger is key-scoped)';
-END $$;
 
 -- ── 5i. FR-021 defence-in-depth: an ADMIN session cannot set the cutover even
 --        by forging the sole-writer GUC — the RESTRICTIVE policy removes the row

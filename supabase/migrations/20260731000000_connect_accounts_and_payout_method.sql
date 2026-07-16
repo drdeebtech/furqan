@@ -77,12 +77,18 @@ CREATE POLICY "sca_service_update" ON stripe_connect_accounts
 
 -- No DELETE policy and no authenticated write: the mirror is service-role only.
 
--- Identity guard: teacher_id / created_at are frozen after insert. The Stripe
--- account id may be linked EXACTLY ONCE (NULL -> value): a row is often created
--- before Stripe returns the acct_… id, so NULL->value must be allowed; but once
--- set it can never be re-pointed (value->other or value->NULL both rejected).
--- Only the status columns (charges/payouts/details/requirements/last_event_at)
--- change freely thereafter.
+-- Identity + recency guard:
+--   * teacher_id / created_at are frozen after insert.
+--   * stripe_account_id may be linked EXACTLY ONCE (NULL -> value): a row is
+--     often created before Stripe returns the acct_… id, so NULL->value must be
+--     allowed; but once set it can never be re-pointed (value->other or
+--     value->NULL both rejected).
+--   * last_event_at is a monotonic recency floor (spec FR-003): once set it may
+--     only move FORWARD. An out-of-order account.updated carrying an older (or
+--     NULL) timestamp is rejected so it cannot overwrite newer Stripe state.
+--     Equal is allowed — an idempotent replay of the same event is a no-op.
+--     Mirrors the handlePaymentFailed last_event_at guard cited above.
+-- Only the status columns (charges/payouts/details/requirements) change freely.
 CREATE OR REPLACE FUNCTION guard_stripe_connect_accounts_identity()
 RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN
@@ -92,6 +98,13 @@ BEGIN
       AND NEW.stripe_account_id IS DISTINCT FROM OLD.stripe_account_id) THEN
     RAISE EXCEPTION 'stripe_connect_accounts: teacher_id/created_at immutable, and stripe_account_id is one-time (NULL->value only)';
   END IF;
+
+  IF OLD.last_event_at IS NOT NULL
+     AND (NEW.last_event_at IS NULL OR NEW.last_event_at < OLD.last_event_at) THEN
+    RAISE EXCEPTION 'stripe_connect_accounts: last_event_at may not move backwards (stale/out-of-order account.updated: % < %)',
+      NEW.last_event_at, OLD.last_event_at;
+  END IF;
+
   NEW.updated_at := now();
   RETURN NEW;
 END;
@@ -292,7 +305,11 @@ BEGIN
     RETURN 'rejected: invalid date';
   END IF;
 
-  SELECT value INTO v_current FROM platform_settings WHERE key = 'connect_cutover_date';
+  -- Serialize the once-only transition: FOR UPDATE takes a row lock so two
+  -- concurrent calls cannot both read the empty value and both write. The
+  -- second call blocks here, then sees the set value and soft-refuses below.
+  SELECT value INTO v_current FROM platform_settings
+   WHERE key = 'connect_cutover_date' FOR UPDATE;
   IF COALESCE(btrim(v_current), '') <> '' THEN
     INSERT INTO connect_payout_audit (event, actor, subject_teacher_id, detail)
     VALUES ('connect_cutover_rejected', v_actor, NULL,
@@ -321,10 +338,9 @@ COMMENT ON FUNCTION set_connect_cutover_date(text) IS
 -- Any direct UPDATE / DELETE / key-rename lacks the txn-local writer flag and is
 -- rejected. Two triggers because Postgres forbids NEW in a DELETE trigger's WHEN.
 -- ponytail: the writer flag is a plain GUC, so a caller who can already UPDATE
--- the row (admins, per settings_update RLS) could in theory forge it. Accepted
--- ceiling — admins are trusted operators and the sanctioned setter is
--- service-role-locked; tighten with a signed token only if admin-forge is a
--- real threat.
+-- the row could in theory forge it — the RESTRICTIVE policy below closes that
+-- for authenticated/admin sessions; service_role and the postgres-owned setter
+-- remain the only writers.
 CREATE OR REPLACE FUNCTION guard_connect_cutover_sole_writer()
 RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN
