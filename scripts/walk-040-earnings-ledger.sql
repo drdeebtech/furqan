@@ -56,6 +56,39 @@ INSERT INTO public.teacher_earning_entries (id, teacher_id, kind, amount_cents, 
   ('00000000-0000-4000-9000-0000000000e1', '00000000-0000-4000-9000-00000000000a', 'session', 1000, '00000000-0000-4000-9000-0000000000d1'),
   ('00000000-0000-4000-9000-0000000000e2', '00000000-0000-4000-9000-00000000000a', 'session', 1000, '00000000-0000-4000-9000-0000000000d2');
 
+-- A third delivery, deliberately left WITHOUT an earning entry. Assertion [2a]
+-- needs a fixture that violates ONLY the sign constraint: a NULL
+-- session_delivery_id also trips chk_entry_session_key, so [2a] would stay green
+-- with the sign CHECK deleted — an assertion that cannot fail.
+INSERT INTO public.bookings (id, student_id, teacher_id, duration_min, rate_snapshot, amount_usd, scheduled_at, status) VALUES
+  ('00000000-0000-4000-9000-0000000000b3', '00000000-0000-4000-9000-00000000000b',
+   '00000000-0000-4000-9000-00000000000a', 30, 20.00, 10.00, now() - interval '20 days', 'confirmed');
+
+INSERT INTO public.sessions (id, booking_id, room_name, room_url, scheduled_at) VALUES
+  ('00000000-0000-4000-9000-0000000000c3', '00000000-0000-4000-9000-0000000000b3', 'walk-room-3', 'https://walk.test/r3', now() - interval '20 days');
+
+INSERT INTO public.session_deliveries
+  (id, session_id, teacher_id, duration_minutes, hourly_rate_usd, delivered_at, payroll_period_month) VALUES
+  ('00000000-0000-4000-9000-0000000000d3', '00000000-0000-4000-9000-0000000000c3',
+   '00000000-0000-4000-9000-00000000000a', 30, 20.00, now() - interval '20 days', date_trunc('month', now())::date);
+
+-- Transfer and hold rows are seeded HERE, before any role switch, on purpose:
+-- a "non-owner reads 0 rows" assertion against an EMPTY table passes no matter
+-- what the policy says. Every table the RLS section asserts on must hold an
+-- owner row first, or the assertion proves nothing.
+INSERT INTO public.teacher_transfers
+  (id, entry_id, teacher_id, session_delivery_id, kind, amount_cents, idempotency_key, transfer_group)
+VALUES ('00000000-0000-4000-9000-00000000001a',
+        '00000000-0000-4000-9000-0000000000e2', '00000000-0000-4000-9000-00000000000a',
+        '00000000-0000-4000-9000-0000000000d2', 'transfer', 1000,
+        'transfer:00000000-0000-4000-9000-0000000000e2', 'tg_walk_e2');
+
+-- source='dispute': created by the Stripe webhook, which has no human actor to
+-- attribute — the deliberate exemption in chk_payout_hold_admin_creator.
+INSERT INTO public.payout_holds (id, teacher_id, source, reason)
+VALUES ('00000000-0000-4000-9000-00000000001b', '00000000-0000-4000-9000-00000000000a',
+        'dispute', 'walk-test dispute hold');
+
 -- ── 1. Financial columns are IMMUTABLE (trigger ⇒ must RAISE) ───────────
 DO $$
 BEGIN
@@ -81,6 +114,27 @@ BEGIN
   END;
 END $$;
 
+-- The Stripe linkage columns the guard's own error message claims to protect.
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.teacher_earning_entries SET funding_charge_id = 'ch_tampered'
+     WHERE id = '00000000-0000-4000-9000-0000000000e1';
+    RAISE EXCEPTION 'ASSERT FAILED: funding_charge_id was mutable (Stripe audit trail forgeable)';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM LIKE 'ASSERT FAILED%' THEN RAISE; END IF;
+    RAISE NOTICE 'ASSERT OK  [1d] funding_charge_id UPDATE raises (Stripe linkage frozen)';
+  END;
+  BEGIN
+    UPDATE public.teacher_earning_entries SET transfer_group = 'tg_tampered'
+     WHERE id = '00000000-0000-4000-9000-0000000000e1';
+    RAISE EXCEPTION 'ASSERT FAILED: transfer_group was mutable (Stripe audit trail forgeable)';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM LIKE 'ASSERT FAILED%' THEN RAISE; END IF;
+    RAISE NOTICE 'ASSERT OK  [1e] transfer_group UPDATE raises (Stripe linkage frozen)';
+  END;
+END $$;
+
 -- Lifecycle columns MUST still be updatable (else the sweep cannot work).
 UPDATE public.teacher_earning_entries SET status = 'held', hold_reason = 'walk-test'
  WHERE id = '00000000-0000-4000-9000-0000000000e1';
@@ -99,7 +153,8 @@ DO $$
 BEGIN
   BEGIN
     INSERT INTO public.teacher_earning_entries (teacher_id, kind, amount_cents, session_delivery_id)
-    VALUES ('00000000-0000-4000-9000-00000000000a', 'session', -500, NULL);
+    VALUES ('00000000-0000-4000-9000-00000000000a', 'session', -500,
+            '00000000-0000-4000-9000-0000000000d3');
     RAISE EXCEPTION 'ASSERT FAILED: negative session earning accepted';
   EXCEPTION WHEN check_violation THEN
     RAISE NOTICE 'ASSERT OK  [2a] negative session earning rejected';
@@ -111,6 +166,22 @@ BEGIN
   EXCEPTION WHEN check_violation THEN
     RAISE NOTICE 'ASSERT OK  [2b] positive clawback rejected (clawback must be negative)';
   END;
+END $$;
+
+-- The CASE has an ELSE false so it fails CLOSED. Prove the sign rule is what
+-- rejects the row above by showing the same delivery accepts a POSITIVE amount.
+DO $$
+DECLARE ok_id uuid;
+BEGIN
+  INSERT INTO public.teacher_earning_entries (teacher_id, kind, amount_cents, session_delivery_id)
+  VALUES ('00000000-0000-4000-9000-00000000000a', 'session', 500,
+          '00000000-0000-4000-9000-0000000000d3')
+  RETURNING id INTO ok_id;
+  IF ok_id IS NULL THEN
+    RAISE EXCEPTION 'ASSERT FAILED: a VALID positive session earning was rejected';
+  END IF;
+  DELETE FROM public.teacher_earning_entries WHERE id = ok_id;
+  RAISE NOTICE 'ASSERT OK  [2c] same fixture accepts +500 — [2a] failed on the SIGN, not another constraint';
 END $$;
 
 -- ── 3. Idempotency backstops (UNIQUE ⇒ must RAISE) ──────────────────────
@@ -192,7 +263,9 @@ DO $$
 DECLARE hold_days integer; n13 integer; n14 integer;
 BEGIN
   SELECT value::integer INTO hold_days FROM public.platform_settings WHERE key = 'connect_payout_hold_days';
-  IF hold_days <> 14 THEN RAISE EXCEPTION 'ASSERT FAILED: connect_payout_hold_days = % (want 14)', hold_days; END IF;
+  -- IS DISTINCT FROM, not <>: `NULL <> 14` is NULL, the IF body is skipped, and
+  -- a MISSING setting would pass the assertion that exists to catch it.
+  IF hold_days IS DISTINCT FROM 14 THEN RAISE EXCEPTION 'ASSERT FAILED: connect_payout_hold_days = % (want 14)', hold_days; END IF;
 
   SELECT count(*) INTO n13 FROM public.teacher_earning_entries e
     JOIN public.session_deliveries d ON d.id = e.session_delivery_id
@@ -215,7 +288,8 @@ DECLARE hold_days integer; refund_days integer;
 BEGIN
   SELECT value::integer INTO hold_days   FROM public.platform_settings WHERE key = 'connect_payout_hold_days';
   SELECT value::integer INTO refund_days FROM public.platform_settings WHERE key = 'refund_window_days';
-  IF refund_days <> 7 THEN RAISE EXCEPTION 'ASSERT FAILED: refund_window_days = % (want 7)', refund_days; END IF;
+  IF refund_days IS DISTINCT FROM 7 THEN RAISE EXCEPTION 'ASSERT FAILED: refund_window_days = % (want 7)', refund_days; END IF;
+  IF hold_days IS NULL THEN RAISE EXCEPTION 'ASSERT FAILED: connect_payout_hold_days missing — sweep would have no window'; END IF;
   IF hold_days < refund_days + 7 THEN
     RAISE EXCEPTION 'ASSERT FAILED: hold (%) < refund window (%) + 7 buffer', hold_days, refund_days;
   END IF;
@@ -235,6 +309,14 @@ BEGIN
   SELECT count(*) INTO n FROM public.teacher_earning_entries;
   IF n < 1 THEN RAISE EXCEPTION 'ASSERT FAILED: owner cannot read own entries'; END IF;
   RAISE NOTICE 'ASSERT OK  [6a] owner reads own entries (% rows)', n;
+
+  SELECT count(*) INTO n FROM public.teacher_transfers;
+  IF n <> 1 THEN RAISE EXCEPTION 'ASSERT FAILED: owner read % transfer rows (want 1) — [6d] below would be vacuous', n; END IF;
+  RAISE NOTICE 'ASSERT OK  [6a2] owner reads own transfers (1 row) — the table is NOT empty';
+
+  SELECT count(*) INTO n FROM public.payout_holds;
+  IF n <> 1 THEN RAISE EXCEPTION 'ASSERT FAILED: owner read % hold rows (want 1) — [6e] below would be vacuous', n; END IF;
+  RAISE NOTICE 'ASSERT OK  [6a3] owner reads own payout_holds (1 row) — the table is NOT empty';
 END $$;
 
 DO $$
@@ -299,15 +381,21 @@ BEGIN
   SELECT count(*) INTO n FROM public.teacher_earning_entries;
   IF n <> 0 THEN RAISE EXCEPTION 'ASSERT FAILED: anon read % entry rows (want 0)', n; END IF;
   RAISE NOTICE 'ASSERT OK  [7] anonymous reads 0 entries';
+
+  SELECT count(*) INTO n FROM public.teacher_transfers;
+  IF n <> 0 THEN RAISE EXCEPTION 'ASSERT FAILED: anon read % transfer rows (want 0)', n; END IF;
+  RAISE NOTICE 'ASSERT OK  [7b] anonymous reads 0 transfers';
+
+  SELECT count(*) INTO n FROM public.payout_holds;
+  IF n <> 0 THEN RAISE EXCEPTION 'ASSERT FAILED: anon read % hold rows (want 0)', n; END IF;
+  RAISE NOTICE 'ASSERT OK  [7c] anonymous reads 0 payout_holds';
 END $$;
 RESET ROLE;
 
 -- ── 8. Transfer identity is entry-scoped (covers course earnings) ───────
-INSERT INTO public.teacher_transfers (entry_id, teacher_id, session_delivery_id, kind, amount_cents, idempotency_key)
-VALUES ('00000000-0000-4000-9000-0000000000e2', '00000000-0000-4000-9000-00000000000a',
-        '00000000-0000-4000-9000-0000000000d2', 'transfer', 1000,
-        'transfer:00000000-0000-4000-9000-0000000000e2');
-
+-- The transfer for e2 (id t1) is seeded at the top of this walk — the RLS
+-- section needs the table non-empty before any role switch. These assertions
+-- build on that row.
 DO $$
 BEGIN
   BEGIN
@@ -357,16 +445,152 @@ BEGIN
   END;
 END $$;
 
+-- ── 8d. The transfer immutability trigger must BITE (mutation-tested) ───
+-- Uniqueness (8a–8c) says nothing about immutability. Mutate each protected
+-- column and require a RAISE; then prove the lifecycle columns still move.
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.teacher_transfers SET amount_cents = 999999
+     WHERE id = '00000000-0000-4000-9000-00000000001a';
+    RAISE EXCEPTION 'ASSERT FAILED: transfer amount_cents was mutable';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM LIKE 'ASSERT FAILED%' THEN RAISE; END IF;
+    RAISE NOTICE 'ASSERT OK  [8d] transfer amount_cents UPDATE raises';
+  END;
+  BEGIN
+    UPDATE public.teacher_transfers SET entry_id = '00000000-0000-4000-9000-0000000000e1'
+     WHERE id = '00000000-0000-4000-9000-00000000001a';
+    RAISE EXCEPTION 'ASSERT FAILED: transfer entry_id was mutable (transfer could be re-pointed)';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM LIKE 'ASSERT FAILED%' THEN RAISE; END IF;
+    RAISE NOTICE 'ASSERT OK  [8e] transfer entry_id UPDATE raises (cannot be re-pointed)';
+  END;
+  BEGIN
+    UPDATE public.teacher_transfers SET transfer_group = 'tg_tampered'
+     WHERE id = '00000000-0000-4000-9000-00000000001a';
+    RAISE EXCEPTION 'ASSERT FAILED: transfer transfer_group was mutable (Stripe trace forgeable)';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM LIKE 'ASSERT FAILED%' THEN RAISE; END IF;
+    RAISE NOTICE 'ASSERT OK  [8f] transfer transfer_group UPDATE raises (Stripe trace frozen)';
+  END;
+END $$;
+
+-- Reconciliation must still work: the transfer.* webhook writes exactly these.
+UPDATE public.teacher_transfers
+   SET status = 'succeeded', stripe_transfer_id = 'tr_walk_040'
+ WHERE id = '00000000-0000-4000-9000-00000000001a';
+DO $$
+DECLARE st public.teacher_transfer_status;
+BEGIN
+  SELECT status INTO st FROM public.teacher_transfers
+   WHERE id = '00000000-0000-4000-9000-00000000001a';
+  IF st IS DISTINCT FROM 'succeeded' THEN
+    RAISE EXCEPTION 'ASSERT FAILED: transfer status not updatable (webhook reconciliation impossible), got %', st;
+  END IF;
+  RAISE NOTICE 'ASSERT OK  [8g] transfer status/stripe_transfer_id remain updatable (reconciliation works)';
+END $$;
+
 -- ── 9. Manual settlement evidence is all-or-nothing ─────────────────────
+-- Rejecting the no-evidence case alone does not prove the three columns are
+-- JOINTLY required. Each partial combination must also be rejected, and the
+-- complete one accepted — otherwise a half-evidenced payout could be recorded.
 DO $$
 BEGIN
   BEGIN
     UPDATE public.teacher_earning_entries SET status = 'manual_paid'
      WHERE id = '00000000-0000-4000-9000-0000000000e1';
+    RAISE EXCEPTION 'ASSERT FAILED: manual_paid with NO evidence accepted';
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'ASSERT OK  [9a] manual_paid with no evidence rejected';
+  END;
+  BEGIN
+    UPDATE public.teacher_earning_entries
+       SET status = 'manual_paid', external_reference_id = 'WIRE-1'
+     WHERE id = '00000000-0000-4000-9000-0000000000e1';
+    RAISE EXCEPTION 'ASSERT FAILED: manual_paid with reference only accepted (no settler, no timestamp)';
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'ASSERT OK  [9b] manual_paid with reference ONLY rejected';
+  END;
+  BEGIN
+    UPDATE public.teacher_earning_entries
+       SET status = 'manual_paid', external_reference_id = 'WIRE-1',
+           settled_by = '00000000-0000-4000-9000-00000000000b'
+     WHERE id = '00000000-0000-4000-9000-0000000000e1';
+    RAISE EXCEPTION 'ASSERT FAILED: manual_paid without settled_at accepted';
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'ASSERT OK  [9c] manual_paid with reference + settler but NO timestamp rejected';
+  END;
+  BEGIN
+    UPDATE public.teacher_earning_entries
+       SET status = 'manual_paid', settled_by = '00000000-0000-4000-9000-00000000000b',
+           settled_at = now()
+     WHERE id = '00000000-0000-4000-9000-0000000000e1';
     RAISE EXCEPTION 'ASSERT FAILED: manual_paid without a reference accepted';
   EXCEPTION WHEN check_violation THEN
-    RAISE NOTICE 'ASSERT OK  [9] manual_paid requires reference + settler + timestamp';
+    RAISE NOTICE 'ASSERT OK  [9d] manual_paid with settler + timestamp but NO reference rejected';
   END;
+  -- Every OTHER column is valid here on purpose, so chk_entry_manual_settlement
+  -- is SATISFIED and only chk_entry_reference_nonblank can reject the row.
+  -- Omitting settled_by would trip both, and the assertion would survive the
+  -- blank-check being deleted.
+  BEGIN
+    UPDATE public.teacher_earning_entries
+       SET status = 'manual_paid', external_reference_id = '   ',
+           settled_by = '00000000-0000-4000-9000-00000000000b', settled_at = now()
+     WHERE id = '00000000-0000-4000-9000-0000000000e1';
+    RAISE EXCEPTION 'ASSERT FAILED: blank external_reference_id accepted (unauditable settlement)';
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'ASSERT OK  [9e] whitespace-only reference rejected (only the blank-check can fire here)';
+  END;
+END $$;
+
+-- The complete evidence set MUST be accepted, or the manual rail is unusable.
+UPDATE public.teacher_earning_entries
+   SET status = 'manual_paid', external_reference_id = 'WIRE-1',
+       settled_by = '00000000-0000-4000-9000-00000000000b', settled_at = now()
+ WHERE id = '00000000-0000-4000-9000-0000000000e1';
+DO $$
+DECLARE st public.earning_entry_status;
+BEGIN
+  SELECT status INTO st FROM public.teacher_earning_entries
+   WHERE id = '00000000-0000-4000-9000-0000000000e1';
+  IF st IS DISTINCT FROM 'manual_paid' THEN
+    RAISE EXCEPTION 'ASSERT FAILED: complete evidence set was rejected (manual rail unusable), status %', st;
+  END IF;
+  RAISE NOTICE 'ASSERT OK  [9f] reference + settler + timestamp together ACCEPTED (manual rail works)';
+END $$;
+
+-- ── 9g. payout_holds attribution (audit trail for the legal-hold predicate) ──
+DO $$
+BEGIN
+  BEGIN
+    INSERT INTO public.payout_holds (teacher_id, source, reason)
+    VALUES ('00000000-0000-4000-9000-00000000000a', 'admin', 'no creator named');
+    RAISE EXCEPTION 'ASSERT FAILED: admin hold without created_by accepted (unattributable)';
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'ASSERT OK  [9g] admin hold requires created_by';
+  END;
+  BEGIN
+    UPDATE public.payout_holds SET released_at = now()
+     WHERE id = '00000000-0000-4000-9000-00000000001b';
+    RAISE EXCEPTION 'ASSERT FAILED: hold released with no releaser named';
+  EXCEPTION WHEN check_violation THEN
+    RAISE NOTICE 'ASSERT OK  [9h] release requires released_by (paired attribution)';
+  END;
+END $$;
+
+-- A dispute hold (webhook-created, no human actor) must still be insertable —
+-- the deliberate exemption in chk_payout_hold_admin_creator.
+INSERT INTO public.payout_holds (teacher_id, source, reason)
+VALUES ('00000000-0000-4000-9000-00000000000a', 'dispute', 'chargeback opened');
+DO $$
+DECLARE n integer;
+BEGIN
+  SELECT count(*) INTO n FROM public.payout_holds
+   WHERE teacher_id = '00000000-0000-4000-9000-00000000000a' AND source = 'dispute';
+  IF n <> 2 THEN RAISE EXCEPTION 'ASSERT FAILED: dispute hold without created_by rejected (webhook path broken), n=%', n; END IF;
+  RAISE NOTICE 'ASSERT OK  [9i] dispute hold without created_by accepted (webhook has no human actor)';
 END $$;
 
 -- ── 10. Dormancy: the Connect path is inert until cutover ───────────────

@@ -61,9 +61,11 @@ CREATE TABLE teacher_earning_entries (
   id                        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   teacher_id                uuid NOT NULL REFERENCES profiles(id),
   kind                      earning_entry_kind NOT NULL,
-  -- Signed integer cents. Sign is constrained per kind below; the CHECK is the
+  -- Signed cents. Sign is constrained per kind below; the CHECK is the
   -- enforcement of the convention documented at the top of this file.
-  amount_cents              integer NOT NULL,
+  -- bigint, not integer: widening a money column on a populated ledger needs an
+  -- ACCESS EXCLUSIVE lock and a rewrite. The table is empty exactly once.
+  amount_cents              bigint NOT NULL,
   status                    earning_entry_status NOT NULL DEFAULT 'pending',
 
   -- Canonical source keys (spec FR-008): exactly one per earning kind.
@@ -95,6 +97,9 @@ CREATE TABLE teacher_earning_entries (
   updated_at                timestamptz NOT NULL DEFAULT now(),
 
   -- ── Sign convention, enforced ──
+  -- ELSE false is load-bearing: an unmatched CASE yields NULL, and a NULL CHECK
+  -- SATISFIES the constraint. Without it, adding a 6th earning_entry_kind would
+  -- silently disable sign enforcement for that kind instead of rejecting it.
   CONSTRAINT chk_entry_amount_sign CHECK (
     CASE kind
       WHEN 'session'                THEN amount_cents > 0
@@ -102,6 +107,7 @@ CREATE TABLE teacher_earning_entries (
       WHEN 'clawback'               THEN amount_cents < 0
       WHEN 'debt_recovery'          THEN amount_cents > 0
       WHEN 'debt_recovery_reversal' THEN amount_cents < 0
+      ELSE false
     END
   ),
 
@@ -207,6 +213,8 @@ BEGIN
   OR OLD.recovered_against_entry_id IS DISTINCT FROM NEW.recovered_against_entry_id
   OR OLD.reverses_recovery_id IS DISTINCT FROM NEW.reverses_recovery_id
   OR OLD.agreement_version IS DISTINCT FROM NEW.agreement_version
+  OR OLD.funding_charge_id IS DISTINCT FROM NEW.funding_charge_id
+  OR OLD.transfer_group IS DISTINCT FROM NEW.transfer_group
   OR OLD.created_at IS DISTINCT FROM NEW.created_at THEN
     RAISE EXCEPTION 'teacher_earning_entries: financial columns are immutable after insert (only status/hold_reason/claimed_at/settlement columns may change)';
   END IF;
@@ -229,8 +237,9 @@ CREATE TABLE teacher_transfers (
   -- Denormalized for the defence-in-depth backstop below.
   session_delivery_id uuid REFERENCES session_deliveries(id),
   kind                teacher_transfer_kind NOT NULL,
-  -- Signed: positive for a transfer, negative for a reversal.
-  amount_cents        integer NOT NULL,
+  -- Signed: positive for a transfer, negative for a reversal. bigint to match
+  -- teacher_earning_entries.amount_cents — a transfer can never exceed its entry.
+  amount_cents        bigint NOT NULL,
   -- Canonical identity is ENTRY-scoped so it covers every earning kind
   -- (spec FR-008, corrected 2026-07-16: a session_delivery_id-only identity is
   -- undefined for course earnings, whose source key is payment_id).
@@ -289,6 +298,7 @@ BEGIN
   OR OLD.kind IS DISTINCT FROM NEW.kind
   OR OLD.amount_cents IS DISTINCT FROM NEW.amount_cents
   OR OLD.idempotency_key IS DISTINCT FROM NEW.idempotency_key
+  OR OLD.transfer_group IS DISTINCT FROM NEW.transfer_group
   OR OLD.created_at IS DISTINCT FROM NEW.created_at THEN
     RAISE EXCEPTION 'teacher_transfers: financial columns are immutable after insert (only status/stripe_transfer_id/error_detail may change)';
   END IF;
@@ -312,7 +322,19 @@ CREATE TABLE payout_holds (
   created_by   uuid REFERENCES profiles(id),
   created_at   timestamptz NOT NULL DEFAULT now(),
   released_at  timestamptz,
-  released_by  uuid REFERENCES profiles(id)
+  released_by  uuid REFERENCES profiles(id),
+
+  -- Attribution, matching the all-or-nothing idiom used by
+  -- chk_entry_manual_settlement: an admin hold names the admin who placed it.
+  -- 'dispute' holds are deliberately exempt — they are created by the Stripe
+  -- webhook, which has no human actor to attribute.
+  CONSTRAINT chk_payout_hold_admin_creator CHECK (
+    source <> 'admin' OR created_by IS NOT NULL
+  ),
+  -- A release is only a release if we know who released it, and vice versa.
+  CONSTRAINT chk_payout_hold_release_attribution CHECK (
+    (released_at IS NOT NULL) = (released_by IS NOT NULL)
+  )
 );
 
 COMMENT ON TABLE payout_holds IS
