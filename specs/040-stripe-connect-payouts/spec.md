@@ -1,9 +1,15 @@
 # Feature Specification: Stripe Connect Teacher Payouts
 
-**Feature Branch**: `feat/038-stripe-connect-payouts`
+**Feature Branch**: `feat/040-stripe-connect-payouts`
 **Created**: 2026-07-15
-**Status**: Draft
+**Updated**: 2026-07-16 — business rules finalized by the owner (Principal Payments Architect brief); the HUMAN REVIEW register is now **CLOSED** (see Decisions Register).
+**Status**: Draft — business rules final, awaiting implementation
 **Replaces**: manual monthly payroll flip (`teacher_payouts.status` pending → paid, done by hand today)
+
+> **Numbering note**: this spec was briefly filed as `038-stripe-connect-payouts`, which collided with the
+> pre-existing `specs/038-prepaid-hour-wallet` (merged 2026-07-09, PR #660). Renumbered to **040**
+> (`037-public-teacher-profile`, `038-prepaid-hour-wallet` and `039-shannon-audit-remediation` are all taken).
+> No code referenced the old path.
 
 ## Current State (as-built references — read before building)
 
@@ -44,10 +50,10 @@ After a teacher delivers a session and attendance is finalized, the platform aut
 
 **Acceptance Scenarios**:
 
-1. **Given** a `session_deliveries` row exists (attendance finalized = CONFIRMED) and the teacher has `payouts_enabled=true` and no active hold, **When** the transfer sweep runs after the hold window elapses, **Then** exactly one Transfer is created for `duration_minutes / 60 × hourly_rate_usd`, converted to integer cents (📖 lens: pay only for sessions actually taught).
+1. **Given** a `session_deliveries` row exists (attendance finalized = CONFIRMED) and the teacher has `payouts_enabled=true` and no active hold, **When** the transfer sweep runs after the 14-day hold window elapses (measured from session completion, FR-010), **Then** exactly one Transfer is created for `duration_minutes / 60 × hourly_rate_usd`, converted to integer cents (📖 lens: pay only for sessions actually taught).
 2. **Given** a session was cancelled or marked no-show, **Then** no `session_deliveries` row exists and **no transfer is ever attempted** — eligibility is derived from the delivery ledger, not from bookings.
 3. **Given** the sweep crashes after calling Stripe but before writing its DB row, **When** it re-runs, **Then** the Stripe idempotency key (`transfer:{session_delivery_id}`) returns the original Transfer and the DB `UNIQUE(session_delivery_id)` backstop prevents a duplicate row — mirroring the `billing_cycle_key` pattern in `src/lib/domains/billing/orchestrate.ts`.
-4. **Given** a teacher has `hourly_rate_usd` missing or 0, **Then** no transfer is created and a structured exception surfaces to ops (same fail-closed posture as FR-030 in the existing payroll RPC — never a $0 payout, never a guessed rate).
+4. **Given** a teacher has `hourly_rate_usd` missing or 0, **Then** no transfer is created and a structured exception surfaces to ops (same fail-closed posture as spec 021's FR-030 in the existing payroll RPC — never a $0 payout, never a guessed rate).
 5. **Given** the originating charge is identifiable (single-session or course purchase), **Then** the charge and its transfer share a `transfer_group` so the money is traceable end to end; **Given** the session was funded by pooled subscription credits, **Then** the transfer carries a `transfer_group` of the delivery id and is funded from platform balance (no `source_transaction`).
 6. **Given** the platform's available Stripe balance cannot cover a transfer, **Then** the transfer attempt fails closed, the entry stays `pending` with the error recorded, and it is retried on the next sweep — earnings are never silently dropped or double-sent.
 
@@ -59,13 +65,13 @@ A student is refunded for a charge whose session(s) already paid the teacher. Th
 
 **Why this priority**: Without clawback, every refund is a direct platform loss and an accounting hole; with wrong clawback, teachers are underpaid — both are money-integrity failures.
 
-**Independent Test**: Stripe test mode: create charge → transfer → refund the charge via Stripe CLI; assert a Transfer Reversal is created for exactly the transferred amount tied to that charge's `transfer_group`, and a negative clawback row appears in the ledger summing the teacher's net to the correct value.
+**Independent Test**: Stripe test mode: create charge → transfer → refund the charge via Stripe CLI; assert a Transfer Reversal is created for exactly the transferred amount tied to that charge's `transfer_group`, and a negative clawback row appears in the ledger summing the teacher's net to the correct value. Then seed a second delivery for the same teacher and run the sweep: assert the new earning is reduced by the outstanding debt (or fully consumed with the debt carried forward) **before** `stripe.transfers.create` is called.
 
 **Acceptance Scenarios**:
 
 1. **Given** a full refund on a charge with one linked transfer, **When** `charge.refunded` arrives, **Then** a Transfer Reversal for the full transfer amount is created (idempotent on `reversal:{refund_id}:{transfer_id}`), and a negative `teacher_transfers` clawback entry records it.
 2. **Given** a partial refund, **Then** the reversal is proportional to the refunded fraction of the teacher's share, computed in integer cents with the platform absorbing the sub-cent remainder (inverse of the rounding rule in `src/lib/courses/revenue-split.ts` — never claw back more than the teacher received).
-3. **Given** the transfer's reversible balance is smaller than the clawback owed (teacher already paid out), **Then** the reversal is capped at the reversible amount and the shortfall is recorded as a **teacher balance debt** to be offset against future transfers. ⚠ **HUMAN REVIEW (fiqh/policy)**: whether and how debt may be deducted from future earnings, and whether the teacher must consent, is a compensation-fairness ruling — the spec records the mechanism, a human decides the policy before enablement.
+3. **Given** the transfer's reversible balance is smaller than the clawback owed (teacher already paid out), **Then** the reversal is capped at the reversible amount and the shortfall is recorded as a **teacher balance debt (negative balance)** which is **automatically offset against future earnings before any subsequent transfer** (FR-014). **DECIDED 2026-07-16 (owner)**: the platform does not absorb instructor-fault chargebacks or late refunds. The 📖 fairness requirement is met by *informed consent*, not by absorbing the loss: no earnings may accrue until the teacher has explicitly accepted the Teacher Agreement, which defines the debt-deduction policy in plain terms (FR-028/FR-029). A teacher who never consented can never be auto-deducted, because they can never have accrued earnings.
 4. **Given** a refund on a charge with no linked transfer (e.g. refunded before the hold window elapsed), **Then** the pending earning entry is voided instead — no reversal call is made.
 5. **Given** the same `charge.refunded` event is redelivered, **Then** no second reversal or debt row is created (billing_events ledger + reversal unique key).
 
@@ -108,12 +114,14 @@ An admin sees, per teacher: Connect status, pending/held/transferred earnings, f
 
 - **Onboarding link expired / reused** → Account Links are minted fresh on every click; a stale link error page routes back to the dashboard card.
 - **`account.updated` flips `payouts_enabled` back to false** (Stripe re-verification) → status mirror updates; sweep skips the teacher; teacher dashboard shows "action required" with a fresh onboarding link.
-- **Teacher's Connect account is rejected/disabled by Stripe** → entries stay `pending` indefinitely; ops alert. If the human-approved policy (below) permits settling such an entry off-Stripe, an admin records it as terminal **`manual_paid`** (service-role write only, audit-logged: who, when, evidence reference) — a state the transfer sweep excludes at the DB level, so a manually settled entry can never later be transferred or paid twice. Until that policy is approved, entries simply stay `pending`.
+- **Teacher's Connect account is rejected/disabled by Stripe** → entries stay `pending`; ops alert. An admin may switch the teacher to the manual rail (`payout_method='manual'`, FR-025), after which the sweep routes their entries to `manual_due` for off-Stripe settlement (FR-026/FR-027) instead of leaving them stranded.
 - **Transfer succeeds at Stripe but our webhook confirming it is delayed/lost** → the DB row was written synchronously at creation; `transfer.*` webhooks only reconcile status, never create rows.
 - **Refund arrives for a charge spanning multiple sessions/entries** → clawback distributes proportionally across that charge's entries, oldest first, integer cents, remainder to platform.
 - **Duplicate webhook delivery (any event)** → `billing_events` UNIQUE + per-object unique keys make every handler a no-op on replay.
-- **Teacher in a country Stripe Connect doesn't support** → onboarding fails at Stripe's hosted page; status stays `onboarding_incomplete`; entries accrue as `pending`; ops sees it. Post-cutover, the only safe settlement mechanism for these entries is the same terminal `manual_paid` state above (excluded from sweep eligibility, audit-logged) — never a re-widening of FR-021. ⚠ **HUMAN REVIEW (policy)**: **whether** these teachers are paid off-Stripe at all (and on what rail) is out of scope here and must be decided before the manual process is retired; this spec fixes only the mechanism that makes any approved answer double-pay-proof.
-- **Clock/timezone on hold window** → hold elapse is computed in UTC from `session_deliveries.delivered_at`, never from client time.
+- **Teacher in a country Stripe Connect doesn't support** → **DECIDED 2026-07-16 (owner)**: they are accounted for automatically and paid manually. An admin sets `payout_method='manual'` (FR-025); earnings materialize and accrue exactly as for any other teacher, the sweep skips the Stripe API call and marks them `manual_due` (FR-026), and an admin settles off-platform (bank transfer / Wise) and records the settlement with an external `reference_id` (FR-027). Every guarantee still holds: one earning per delivery, no double pay, full audit trail, cutover partition (FR-021) unaffected — the manual rail is a *settlement method*, never a second earnings ledger.
+- **Clock/timezone on hold window** → hold elapse is computed in UTC from `session_deliveries.delivered_at` (the session **completion** timestamp), never from client time and never from the payment/charge date (FR-010).
+- **Teacher has not accepted the Teacher Agreement** → they cannot accept bookings (FR-029), so no delivery and therefore no earning can exist for them. Existing teachers at rollout are handled by the backfill in FR-029 — the gate must never silently freeze live bookings.
+- **Refund/chargeback lands after the 14-day hold, when the teacher is already paid** → clawback caps at the reversible amount and the remainder becomes a negative balance auto-offset against future earnings (FR-014). This is the designed tail-cover: the hold shortens exposure, it does not eliminate it (see FR-010 rationale).
 - **Legacy months** already aggregated into `teacher_payouts` → never re-paid by the new system (cutover date boundary, FR-021).
 
 ## Requirements *(mandatory)*
@@ -134,14 +142,23 @@ An admin sees, per teacher: Connect status, pending/held/transferred earnings, f
 - **FR-007**: A delivery with missing/zero snapshotted rate MUST NOT produce a transfer; it MUST surface as a structured exception (extending the `PayrollException` shape in `src/lib/domains/attendance/payroll.ts`).
 - **FR-008**: Transfers MUST be created with Stripe idempotency key `transfer:{session_delivery_id}` AND backstopped by a DB `UNIQUE` on `teacher_transfers(session_delivery_id)` (partial, on non-clawback rows) — the dual-lock `billing_cycle_key` pattern. Re-running any sweep MUST create zero duplicates (provable by assertion).
 - **FR-009**: Where the funding charge is identifiable, the Transfer MUST carry a `transfer_group` shared with that charge (checkout routes stamp `transfer_group` at PaymentIntent creation). Subscription-credit-funded deliveries use `delivery_{id}` as the group with no `source_transaction`.
-- **FR-010**: Transfers MUST NOT be attempted before a configurable hold window (platform_settings key, default 7 days after `delivered_at`) has elapsed. ⚠ **HUMAN REVIEW (fiqh)**: the hold length delays wages already earned; a scholar/owner must approve the default and its justification (dispute protection) before live enablement — the spec does not decide this.
+- **FR-010**: **Time-based eligibility — DECIDED 2026-07-16 (owner): 14 days.** Transfers MUST NOT be attempted until `session_deliveries.delivered_at + connect_payout_hold_days <= NOW()` (UTC), where `connect_payout_hold_days` is a `platform_settings` key with default **14**. The window MUST be measured from the session's **completion** timestamp (`delivered_at`), **never** from the payment/charge date — a session paid for in advance (subscription credit, prepaid hours) must not start its hold before it is taught. The sweep MUST apply this condition inside the same atomic claiming statement that selects the entry (no TOCTOU).
+  - **Configurability**: the value lives in `platform_settings` (DB), consistent with `connect_cutover_date` and the single-session price keys — **not** an env var, so there is exactly one source of truth and an admin change takes effect on the next sweep without a deploy. A corrupt/missing value MUST fail closed (no transfer), never default to 0 days.
+  - **Rationale, stated accurately**: the intent is to outlast the student refund window. As of 2026-07-16 furqan has **no defined refund period** — refunds are case-by-case via support, and refund ownership is itself an open go-live blocker (`.claude/product-marketing.md`). 14 days therefore **reduces** exposure; it does not structurally outlast an undefined window. The tail is covered by the negative-balance mechanism (FR-014). ⚠ **Re-check required**: when the refund policy is finalized, this number MUST be re-evaluated against it — if the refund window exceeds 14 days, either raise the hold or accept that the difference is carried by FR-014 debt recovery. This is a review trigger, not an open decision.
+  - 📖 lens: a hold delays wages already earned, which requires justification and disclosure. Both are satisfied: the justification is dispute/refund exposure, and FR-028 requires the 14-day hold to be explained in the Teacher Agreement the teacher accepts *before* any earnings accrue.
 - **FR-011**: A failed transfer MUST leave the entry in `pending` with the Stripe error recorded and be retried by subsequent sweeps with capped backoff; it MUST never be silently marked paid or dropped (fail-closed).
 - **FR-012**: USD only, matching every existing handler; a non-USD amount anywhere in the pipeline fails closed with a logged error.
 
 **Refunds, disputes, clawback**
 
 - **FR-013**: On `charge.refunded` for a linked charge, the system MUST reverse the teacher's share proportionally (integer cents, never exceeding what was transferred), idempotent on `reversal:{refund_id}:{transfer_id}` plus a DB unique backstop.
-- **FR-014**: If the reversible amount is insufficient, the shortfall MUST be recorded as teacher debt and offset against future transfers only per the human-approved policy (see US3-AS3 ⚠); until that policy is approved, debt rows accrue but are never auto-deducted.
+- **FR-014**: **Debt-deduction / negative balances — DECIDED 2026-07-16 (owner): automatic offset.** If the reversible amount is insufficient (or the session was already paid out), the shortfall MUST be recorded as a negative ledger entry, and the teacher's balance MUST be allowed to go negative (**negative carryover**). Before **every** `stripe.transfers.create`, the sweep MUST net the teacher's outstanding negative balance against the claimed earning:
+  - `transfer_cents = max(0, earning_cents − outstanding_debt_cents)`; the consumed amount reduces the debt.
+  - If `transfer_cents == 0`, **no Stripe call is made** — the earning is consumed entirely by debt recovery and the entry closes as `debt_recovered` (a terminal, non-paying state) with the remaining debt carried forward.
+  - Recovery MUST be recorded as its own append-only ledger row (`kind='debt_recovery'`, linked to both the consuming entry and the debt it offsets) so the netting is **idempotent on replay** — a retried sweep must never double-recover, and the arithmetic must be reconstructable from the ledger alone.
+  - Netting MUST occur inside the same atomic claim that selects the entry (FR-016 immutability + no TOCTOU), and in integer cents only.
+  - Debt MUST NOT be collected by any other means (no invoicing a teacher, no charging a card) — recovery is exclusively by offsetting future earnings. A teacher who stops teaching simply retains an uncollected balance; writing it off is an admin action, audit-logged.
+  - **Consent precondition**: auto-deduction is only lawful/ethical here because FR-028/FR-029 guarantee no earning can exist without a prior, explicit acceptance of the Teacher Agreement that discloses this policy.
 - **FR-015**: On `charge.dispute.created` for a linked charge, all pending entries funded by that charge MUST move to `held` before any subsequent sweep; on `charge.dispute.closed` they MUST release (won) or void/claw back (lost). Dispute handling for prepaid lots in `handleChargeDisputed` is unchanged.
 - **FR-016**: Every state transition on earnings/transfers MUST be an append-style, audited change: financial columns immutable after insert, status-only updates, enforced by trigger (same guard idiom as `guard_teacher_payouts_financials`).
 
@@ -160,14 +177,41 @@ An admin sees, per teacher: Connect status, pending/held/transferred earnings, f
 **Admin & teacher visibility**
 
 - **FR-023**: Admins MUST be able to place/lift a per-teacher payout hold with a required reason; both actions audit-logged. The sweep MUST check holds inside the same transaction that claims an entry (no TOCTOU pay-during-hold).
-- **FR-024**: Teachers MUST see their own earnings ledger (pending/held/paid/clawed-back, with amounts and session references) — transparency of wages is itself a trust requirement (🎓 lens).
+- **FR-024**: Teachers MUST see their own earnings ledger (pending/held/paid/clawed-back, with amounts and session references) — transparency of wages is itself a trust requirement (🎓 lens). The ledger MUST also surface any outstanding negative balance and each debt-recovery deduction with its cause (which refund/chargeback), so a deduction is never a silent surprise.
+
+**Alternative payouts — manual rail (Connect-unsupported countries)**
+
+- **FR-025**: `teacher_profiles` MUST carry `payout_method` (`stripe_connect` | `manual`, NOT NULL, default `stripe_connect`). It is **admin/service-role-writable only** — RLS MUST forbid a teacher from setting or changing their own `payout_method` (🛠 security: a self-served switch to `manual` would let a teacher route around Stripe into the human-paid export queue). Every change MUST be audit-logged (actor, timestamp, old → new).
+- **FR-026**: The sweep MUST treat the manual rail as a *settlement method*, not a separate ledger: earning entries materialize, accrue, hold, clawback and debt-offset **identically** for both rails (same table, same FR-005/006/010/014 rules). Where `payout_method='manual'`, the sweep MUST claim the entry, apply the hold-window and debt-offset rules as usual, and then **SKIP the Stripe API call**, moving the entry to `manual_due` instead of `transferred`. No Connect account, no `stripe_connect_accounts` row, and no `payouts_enabled` check is required for a manual-rail teacher (FR-003's gate applies to the Stripe rail only).
+- **FR-027**: Admins MUST be able to export `manual_due` entries (teacher, amount, session references, period) and then record settlement via a **secure server action**: admin-only (`requireRole`), zod-validated, requiring a non-empty external `reference_id` (bank/Wise reference) and recording actor + timestamp. The action MUST be:
+  - **fail-closed and atomic** — a single conditional update (`WHERE status='manual_due' AND payout_method='manual'`) so it can never settle a Stripe-rail entry, never settle an entry twice (replay is a no-op returning the existing settlement), and never settle an entry that is `held`, `voided` or already `transferred`;
+  - **idempotent** on `(entry_id)`, with `external_reference_id` UNIQUE per teacher to catch a pasted-twice reference;
+  - terminal — `manual_paid` is final; financial columns remain immutable (FR-016).
+- **FR-027a**: A teacher on the manual rail MUST NOT be exempt from any money-integrity rule: cutover partition (FR-021), no-double-pay, dispute holds (FR-015) and debt offset (FR-014) all apply. Tests MUST assert that an entry can never be both `manual_paid` and `transferred`, and that a `payout_method` flip mid-flight cannot double-settle an in-flight entry (the claim state in the sweep is the serialization point).
+
+**Teacher Agreement (consent before earnings)**
+
+- **FR-028**: The platform MUST record explicit, versioned acceptance of the **Teacher Agreement** per teacher: `agreement_version`, `accepted_at`, `accepted_by` (session user), and evidence fields (IP, user-agent) — append-only, service-role write, never editable. The agreement text MUST legally establish:
+  1. the teacher is an **Independent Contractor**, not an employee;
+  2. explicit authorization of **source-deducted platform commission** (the platform's share is deducted at source; the teacher receives the net);
+  3. the **14-day hold window** (FR-010) and why it exists;
+  4. explicit consent to the **negative-balance / debt-deduction policy** (FR-014), including that refunds and chargebacks on already-paid sessions are recovered from future earnings.
+  ⚠ **The agreement's legal wording is out of scope for engineering and MUST be produced/reviewed by a qualified professional before enablement** — this spec fixes the required clauses, the consent mechanism, and the evidence trail, not the prose.
+- **FR-029**: Acceptance MUST be obtained **before any earnings can accrue**, enforced as a gate on **accepting bookings** (Milestone A / plan Phase 2): a teacher without a current-version acceptance MUST NOT be assignable to a new booking. Because this is a gate on a **shared, live path** (`src/lib/domains/booking/actions.ts` and every other booking writer), it MUST ship with:
+  - an enumeration of every booking-creation path in the same PR (booking actions, class-offering enrollment, instant/single-session checkout, admin-created bookings) — a gate applied to only some paths is a false guarantee;
+  - a **rollout backfill**: production currently has **5 active teachers and 7 live bookings** (checked 2026-07-16). Existing teachers MUST be either (a) prompted and blocked only for *new* bookings after a stated grace date, or (b) recorded as accepted out-of-band with evidence. Enabling the gate without one of these silently freezes all bookings platform-wide — fail-closed must not mean fail-visible-to-nobody;
+  - no coupling to marketplace **visibility**: an unsigned teacher may still appear in `/teachers` search (spec 036's publish gate is unchanged, per Current State); they simply cannot take a new booking. Payout-readiness (Connect status) remains explicitly **not** a booking gate — only agreement acceptance is.
+- **FR-030a**: A new agreement **version** MUST require re-acceptance before the teacher's next booking, and MUST NOT retroactively alter already-accrued earnings or already-settled transfers (the accepted version at accrual time is the governing one — record `agreement_version` on the earning entry or derive it by timestamp, and assert it in tests).
 
 ### Key Entities
 
 - **Connect Account Mirror** (`stripe_connect_accounts`): one row per teacher; local truth for payouts_enabled/charges_enabled/requirements, updated only via `account.updated` with recency guard.
-- **Earning Entry** (`teacher_earning_entries`): one row per payable unit — one canonical unique source key per kind (`session_delivery_id` UNIQUE for sessions; `payment_id` UNIQUE for course purchases). Amount in integer cents, snapshotted. States: `pending → held → transferred | voided`, plus a sweep-internal `processing` claim state (lease held while a sweep calls Stripe — see plan Phase 1) and a terminal `manual_paid` state (admin-recorded off-Stripe settlement, excluded from sweep eligibility — edge cases); plus negative `clawback` rows. Financial columns trigger-immutable.
+- **Earning Entry** (`teacher_earning_entries`): one row per payable unit — one canonical unique source key per kind (`session_delivery_id` UNIQUE for sessions; `payment_id` UNIQUE for course purchases). Amount in integer cents, snapshotted. States: `pending → held → transferred | voided`, plus a sweep-internal `processing` claim state (lease held while a sweep calls Stripe — see plan Phase 1), a terminal `debt_recovered` state (earning fully consumed by negative balance, FR-014 — no Stripe call), and the manual-rail path `manual_due → manual_paid` (FR-026/FR-027, excluded from Stripe sweep eligibility at the DB level); plus negative `clawback` and `debt_recovery` rows. Financial columns trigger-immutable.
+- **Teacher Payout Method** (`teacher_profiles.payout_method`): `stripe_connect` (default) | `manual`. Admin/service-role-writable only (FR-025); selects the settlement rail, never the earnings rules.
+- **Manual Settlement**: the `manual_paid` transition plus `external_reference_id`, settling admin, and timestamp (FR-027) — the off-Stripe analogue of a Transfer Record, and the only evidence that money left the building on the manual rail.
+- **Teacher Agreement Acceptance**: append-only record of `(teacher_id, agreement_version, accepted_at, accepted_by, ip, user_agent)` (FR-028); the consent precondition for FR-010's hold and FR-014's auto-deduction.
 - **Transfer Record** (`teacher_transfers`): one row per Stripe Transfer or Reversal; stores stripe_transfer_id, idempotency key, transfer_group, amount_cents (negative for reversals), status, error detail.
-- **Teacher Debt**: derivable balance (sum of un-recovered clawbacks); no auto-deduction until policy approval (FR-014).
+- **Teacher Debt / Negative Balance**: the teacher's running balance MAY be negative (negative carryover). Derived from the ledger as `sum(clawback rows) − sum(debt_recovery rows)`; automatically offset against future earnings before any transfer (FR-014), never collected by any other means, and always reconstructable from append-only rows.
 - **Payout Hold**: per-teacher (admin/manual or dispute-driven) with reason + actor; blocks the sweep.
 - **Transfer Group**: Stripe-side string linking a charge to its teacher transfers; stamped at checkout when the funding charge maps to one teacher.
 
@@ -176,7 +220,9 @@ An admin sees, per teacher: Connect status, pending/held/transferred earnings, f
 - Retiring/contracting the legacy payroll tables or RPC (later PR, after production proof — FR-019/022).
 - Stripe **destination charges** / application-fee model (we keep separate charges & transfers; revisit only if Connect fees force it).
 - Teacher-facing tax documents (1099/DAC7) — Stripe Express dashboard covers the teacher's own view; platform tax ops is a separate effort.
-- Alternative payout rails for Connect-unsupported countries (flagged for human decision, edge case above).
+- Drafting the **legal text** of the Teacher Agreement (engineering owns the mechanism, required clauses, gate and evidence trail — FR-028; a qualified professional owns the wording).
+- Collecting teacher debt by any means other than offsetting future earnings (FR-014) — no invoicing, no card-on-file for teachers.
+- Automating the manual rail's outbound payment (bank/Wise API). FR-026/FR-027 automate the *accounting*; the payment itself stays a human step by design.
 - Any change to spec 036 marketplace search/rank/publish gates.
 - Multi-currency.
 
@@ -190,6 +236,10 @@ An admin sees, per teacher: Connect status, pending/held/transferred earnings, f
 - **SC-006**: No cancelled or no-show session ever produces an earning entry (negative test at the DB level).
 - **SC-007**: RLS proof: an authenticated non-owner teacher and an anonymous client each read zero rows from every new table; `npm run sb:advisors` reports no new findings.
 - **SC-008**: All gates green: `npx tsc --noEmit`, `npm run lint`, `npm run test:unit`, `npm run build`, and `scripts/check-migration-safety.sh` passes on every migration.
+- **SC-009**: A delivery completed 13 days ago produces no transfer; the same delivery at 14 days + 1 minute produces exactly one — and a session **paid for** 30 days before it was taught still starts its hold at completion, not at payment (asserted at the DB level, UTC).
+- **SC-010**: Negative carryover round trip: teacher paid out → late refund creates a debt exceeding the reversible amount → next earning is netted (or fully consumed with the remainder carried) **before** any Stripe call; running the sweep N times recovers the debt exactly once (idempotency of `debt_recovery` rows), and the teacher's balance reconstructed from the ledger equals the expected cents.
+- **SC-011**: A `payout_method='manual'` teacher's entries reach `manual_due` with **zero** Stripe API calls (asserted against a mocked client), are exported, and settle to `manual_paid` exactly once with a required `reference_id`; replaying the settle action is a no-op; the action refuses a `stripe_connect` entry.
+- **SC-012**: A teacher without a current-version agreement acceptance cannot be assigned a new booking through **any** booking-creation path (parametrized negative test across every enumerated writer), while an unsigned teacher still appears in `/teachers` search (spec 036 unchanged) — and the rollout backfill leaves the 5 existing production teachers able to take bookings on enablement day.
 
 ## Assumptions
 
@@ -197,4 +247,11 @@ An admin sees, per teacher: Connect status, pending/held/transferred earnings, f
 - `profiles.hourly_rate_usd` (`20260619000000_profiles_hourly_rate.sql`) remains the per-session rate source, snapshotted into `session_deliveries` at finalize time; this spec adds no new rate fields.
 - Subscription revenue is pooled (credits), so most session transfers are funded from platform balance without `source_transaction`; the platform accepts the resulting balance-timing requirement (charge settles before transfer — the hold window more than covers Stripe's settlement time).
 - n8n may later trigger the sweep on a schedule; the sweep itself is an idempotent server-side function, so the trigger mechanism (cron route, n8n, admin button) is interchangeable.
-- ⚠ **HUMAN REVIEW register (must be signed off before live enablement, none decided by this spec)**: (a) hold-window length (FR-010); (b) debt deduction policy and teacher consent (FR-014); (c) unsupported-country fallback; (d) whether teacher compensation timing/terms need updating in the teacher agreement.
+- ✅ **Decisions Register — CLOSED 2026-07-16 (owner, Principal Payments Architect brief).** All four items previously flagged for human review are decided and encoded above:
+  | # | Question | Decision | Encoded in |
+  |---|---|---|---|
+  | (a) | Hold-window length | **14 days**, measured from session **completion** (`delivered_at`), DB-configurable, fail-closed | FR-010, SC-009 |
+  | (b) | Debt deduction & consent | **Automatic offset** of negative balances against future earnings before any transfer; consent secured up-front via the Teacher Agreement | FR-014, FR-028, SC-010 |
+  | (c) | Unsupported-country fallback | **Manual rail**: `payout_method='manual'` → accrue automatically, skip Stripe, admin settles with an external reference | FR-025–FR-027a, SC-011 |
+  | (d) | Teacher agreement terms | **Required**, pre-booking: Independent Contractor, source-deducted commission, 14-day hold, negative-balance consent | FR-028–FR-030a, SC-012 |
+- Two **review triggers** remain (not open decisions, but must be revisited when their inputs land): (1) the 14-day hold MUST be re-checked once the refund policy is finalized (FR-010 rationale); (2) the Teacher Agreement's legal wording MUST be produced/reviewed by a qualified professional before enablement (FR-028).
