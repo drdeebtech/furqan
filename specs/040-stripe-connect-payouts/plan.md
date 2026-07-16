@@ -42,7 +42,7 @@ Checked against the **five** principles in `.specify/memory/constitution.md` (th
 
 ## New Project Structure
 
-```
+```text
 supabase/migrations/2026XXXX_connect_accounts.sql        Phase 0
 supabase/migrations/2026XXXX_earning_entries_transfers.sql
 supabase/migrations/2026XXXX_payout_holds_settings.sql
@@ -104,6 +104,7 @@ src/app/api/admin/payouts/sweep/route.ts                 Phase 4 (admin/cron tri
      The **period** itself is a legal/owner input (⚠ same review gate as the agreement text) — engineering pins the predicate and the setting, not the number.
    - *Erasure vs append-only — the contradiction, resolved explicitly*: "append-only" and "null the evidence on deletion" cannot both be enforced by a blanket no-UPDATE rule. The resolution: the immutability trigger REJECTS every UPDATE **except** a single narrow, privileged exception — an UPDATE that (a) is executed by `private.erase_agreement_evidence(p_teacher_id uuid)`, (b) touches **only** `ip` and `user_agent`, setting both to NULL (every other column byte-identical — assert with `to_jsonb(OLD) - 'ip' - 'user_agent' = to_jsonb(NEW) - 'ip' - 'user_agent'`), and (c) passes the erasure predicate above. Consent itself (`teacher_id`, `agreement_version`, `accepted_at`, `accepted_by`) is **never** erasable by any path — the platform must always be able to prove *that* consent existed, even after the evidence *of how* it was captured is purged.
    - *SECURITY DEFINER lockdown (this repo's own spec-016 lesson — a `SECURITY DEFINER` function is public-executable by default)*: the erasure function MUST ship, **in the same migration**, with:
+
      ```sql
      CREATE OR REPLACE FUNCTION private.erase_agreement_evidence(p_teacher_id uuid)
        RETURNS integer
@@ -114,6 +115,7 @@ src/app/api/admin/payouts/sweep/route.ts                 Phase 4 (admin/cron tri
      REVOKE EXECUTE ON FUNCTION private.erase_agreement_evidence(uuid) FROM public, anon, authenticated;
      GRANT  EXECUTE ON FUNCTION private.erase_agreement_evidence(uuid) TO service_role;
      ```
+
      Revoking from `public` alone is **not** sufficient — `anon` and `authenticated` must be named explicitly (the systemic finding from spec 016). A negative test MUST assert an `authenticated` caller gets `insufficient_privilege`, and `npm run sb:advisors` MUST report no new findings.
    - *Refusal path*: when the predicate fails the function raises and writes an append-only audit row (actor, teacher, timestamp, failing condition) — a refusal is as auditable as an erasure. Destroying consent evidence mid-dispute would remove the platform's own defence.
    - *Audit*: both branches (erased / refused-for-hold) write an append-only audit row (actor, teacher, timestamp, reason). The scheduled retention job uses the same function, so there is exactly **one** erasure path to review.
