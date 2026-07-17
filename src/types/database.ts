@@ -6792,6 +6792,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      connect_settle_manual_due: {
+        Args: {
+          p_entry_id: string
+          p_reference_id: string
+          p_settling_admin: string
+        }
+        Returns: boolean
+      }
       user_is_session_participant: { Args: { s_id: string }; Returns: boolean }
     }
     Enums: {
