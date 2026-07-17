@@ -6831,6 +6831,18 @@ export type Database = {
       }
       // Spec 040 Phase 2 — atomic agreement acceptance + SC-014 release
       // (20260804000000_connect_accept_agreement.sql; #185 seam).
+      // Spec 040 Phase 2 UI — payouts-page read model
+      // (20260805000000_connect_payout_overview.sql; #185 seam).
+      connect_teacher_payout_overview: {
+        Args: { p_teacher_id: string }
+        Returns: {
+          current_version: string | null
+          accepted_current: boolean
+          grace_until: string | null
+          outstanding_debt_cents: number
+          entries: Json
+        }[]
+      }
       connect_accept_agreement: {
         Args: {
           p_teacher_id: string
