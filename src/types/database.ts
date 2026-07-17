@@ -6886,6 +6886,28 @@ export type Database = {
         Args: { p_dispute_id: string }
         Returns: number
       }
+      // Spec 040 Phase 4 — admin payouts ops surface
+      // (20260808000000_connect_admin_payouts.sql; #185 seam).
+      connect_admin_payouts_overview: {
+        Args: Record<string, never>
+        Returns: Json
+      }
+      connect_admin_set_payout_method: {
+        Args: { p_teacher_id: string; p_method: string; p_actor: string }
+        Returns: { outcome: string; rerouted_entries: number }[]
+      }
+      connect_admin_place_hold: {
+        Args: { p_teacher_id: string; p_reason: string; p_actor: string }
+        Returns: string
+      }
+      connect_admin_lift_hold: {
+        Args: { p_hold_id: string; p_actor: string }
+        Returns: string
+      }
+      connect_admin_log_export: {
+        Args: { p_actor: string; p_rows: number }
+        Returns: undefined
+      }
       // Spec 040 Phase 2 UI — payouts-page read model
       // (20260805000000_connect_payout_overview.sql; #185 seam).
       connect_teacher_payout_overview: {
