@@ -6829,6 +6829,23 @@ export type Database = {
         }
         Returns: string
       }
+      // Spec 040 Phase 2 — atomic agreement acceptance + SC-014 release
+      // (20260804000000_connect_accept_agreement.sql; #185 seam).
+      connect_accept_agreement: {
+        Args: {
+          p_teacher_id: string
+          p_accepted_by: string
+          p_ip: string | null
+          p_user_agent: string | null
+          p_expected_version?: string | null
+        }
+        Returns: {
+          outcome: string
+          agreement_version: string
+          newly_accepted: boolean
+          released_entries: number
+        }[]
+      }
       user_is_session_participant: { Args: { s_id: string }; Returns: boolean }
     }
     Enums: {
