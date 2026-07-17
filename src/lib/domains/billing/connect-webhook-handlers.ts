@@ -18,6 +18,11 @@ import {
   applyAccountUpdate,
   type ConnectAccountsStore,
 } from "@/lib/domains/connect/connect-accounts";
+import {
+  applyChargeClawbacks,
+  disputeChargeId,
+  releaseDisputedEntries,
+} from "@/lib/domains/connect/clawback";
 import { markEvent, type EventContext } from "./webhook-handlers";
 import type { Json } from "@/types/database";
 
@@ -142,4 +147,68 @@ function accountSnapshot(account: Stripe.Account, eventAt: Date) {
     requirements,
     eventAt,
   };
+}
+
+
+// ── charge.dispute.closed (dispatched from the PLATFORM webhook route) ───────
+//
+// FR-015 resolution: won (or an inquiry closed without a dispute) releases
+// this dispute's own holds back to pending; lost claws back FIRST — while the
+// entries are still held, so no sweep window opens between resolution and
+// clawback — and only then releases whatever partial remainder survives to
+// the FR-014 netting rail. The prepaid-lot student side is deliberately
+// untouched here (handleChargeDisputed's created-time void is final; "We do
+// NOT un-void if the dispute is later won" — see that handler).
+export async function handleChargeDisputeClosed(ctx: EventContext): Promise<void> {
+  const dispute = ctx.event.data.object as Stripe.Dispute;
+  // USD-only platform (FR-012), same guard as handleChargeDisputed: a
+  // foreign-currency dispute.amount must never meet the USD ledger. No holds
+  // can exist for such a dispute either (created-time guard runs first).
+  if (dispute.currency !== "usd") {
+    logError("stripe-webhook: charge.dispute.closed non-USD ignored", new Error("non-usd"), {
+      tag: "stripe-webhook",
+      event_id: ctx.event.id,
+      currency: dispute.currency,
+    });
+    await markEvent(ctx, "ignored", `non-usd dispute: ${dispute.currency}`);
+    return;
+  }
+  const chargeId = disputeChargeId(dispute);
+  if (!chargeId) {
+    await markEvent(ctx, "ignored", "dispute.closed without a charge id");
+    return;
+  }
+
+  if (dispute.status === "won" || dispute.status === "warning_closed") {
+    const released = await releaseDisputedEntries(ctx, dispute.id); // throws → dispatch marks failed, Stripe retries
+    await markEvent(ctx, "processed", `dispute won/closed: released ${released} entries`);
+    return;
+  }
+
+  if (dispute.status === "lost") {
+    // Charge total is needed for the proportional split and is not on the
+    // Dispute object — fetch it (read-only; a transport failure throws and
+    // the event retries before any write).
+    const charge = await ctx.stripe.charges.retrieve(chargeId);
+    await applyChargeClawbacks(ctx, {
+      chargeId,
+      sourceReferenceId: dispute.id,
+      reclaimedCents: dispute.amount,
+      chargeAmountCents: charge.amount,
+      source: "dispute",
+    });
+    const released = await releaseDisputedEntries(ctx, dispute.id);
+    await markEvent(ctx, "processed", `dispute lost: clawed back; released ${released} residual entries`);
+    return;
+  }
+
+  // Unexpected status on a .closed event — leave the holds in place
+  // (fail-safe: held money cannot move) and surface for ops.
+  logError("stripe-webhook: dispute.closed with unexpected status; holds left in place", null, {
+    tag: "stripe-webhook",
+    event_id: ctx.event.id,
+    dispute_id: dispute.id,
+    dispute_status: dispute.status,
+  });
+  await markEvent(ctx, "processed", `dispute.closed status ${dispute.status}; holds kept`);
 }

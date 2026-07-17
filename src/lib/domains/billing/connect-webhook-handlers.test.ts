@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 
 vi.mock("server-only", () => ({}));
 import {
+  handleChargeDisputeClosed,
   handleConnectAccountUpdated,
   handleConnectPayoutEvent,
   handleConnectTransferEvent,
@@ -15,6 +16,21 @@ import type {
 
 vi.mock("@/lib/logger", () => ({ logError: vi.fn() }));
 import { logError } from "@/lib/logger";
+
+const clawbackCalls: string[] = [];
+vi.mock("@/lib/domains/connect/clawback", () => ({
+  applyChargeClawbacks: vi.fn(async () => {
+    clawbackCalls.push("claw");
+    return { entriesTouched: 1, reversedCents: 0, clawbackCents: 100 };
+  }),
+  releaseDisputedEntries: vi.fn(async () => {
+    clawbackCalls.push("release");
+    return 1;
+  }),
+  disputeChargeId: (d: { charge?: unknown }) =>
+    typeof d.charge === "string" ? d.charge : null,
+}));
+import { applyChargeClawbacks, releaseDisputedEntries } from "@/lib/domains/connect/clawback";
 
 // Minimal EventContext stub: markEvent needs .from().update().eq(); the
 // transfer handler needs .rpc(). Both recorded for assertions.
@@ -227,5 +243,110 @@ describe("handleConnectPayoutEvent", () => {
 
     expect(logError).not.toHaveBeenCalled();
     expect(marked).toEqual(["processed"]);
+  });
+});
+
+
+describe("handleChargeDisputeClosed (spec 040 FR-015)", () => {
+  it("won: releases this dispute's holds and processes", async () => {
+    clawbackCalls.length = 0;
+    const { ctx, marked } = makeCtx({
+      type: "charge.dispute.closed",
+      data: { object: { id: "dp_1", currency: "usd", charge: "ch_1", status: "won", amount: 10_000 } },
+    });
+
+    await handleChargeDisputeClosed(ctx);
+
+    expect(releaseDisputedEntries).toHaveBeenCalledWith(ctx, "dp_1");
+    expect(applyChargeClawbacks).not.toHaveBeenCalled();
+    expect(marked).toEqual(["processed"]);
+  });
+
+  it("warning_closed (inquiry ended without a dispute) releases like a win", async () => {
+    clawbackCalls.length = 0;
+    vi.mocked(releaseDisputedEntries).mockClear();
+    const { ctx, marked } = makeCtx({
+      type: "charge.dispute.closed",
+      data: { object: { id: "dp_2", currency: "usd", charge: "ch_1", status: "warning_closed", amount: 10_000 } },
+    });
+
+    await handleChargeDisputeClosed(ctx);
+
+    expect(releaseDisputedEntries).toHaveBeenCalledWith(ctx, "dp_2");
+    expect(marked).toEqual(["processed"]);
+  });
+
+  it("lost: claws back BEFORE releasing (no sweep window), using the charge total", async () => {
+    clawbackCalls.length = 0;
+    vi.mocked(applyChargeClawbacks).mockClear();
+    const { ctx, marked } = makeCtx({
+      type: "charge.dispute.closed",
+      data: { object: { id: "dp_3", currency: "usd", charge: "ch_1", status: "lost", amount: 7_500 } },
+    });
+    const chargesRetrieve = vi.fn(async () => ({ id: "ch_1", amount: 10_000 }));
+    (ctx.stripe as unknown as { charges: { retrieve: typeof chargesRetrieve } }).charges = {
+      retrieve: chargesRetrieve,
+    };
+
+    await handleChargeDisputeClosed(ctx);
+
+    expect(chargesRetrieve).toHaveBeenCalledWith("ch_1");
+    expect(applyChargeClawbacks).toHaveBeenCalledWith(ctx, {
+      chargeId: "ch_1",
+      sourceReferenceId: "dp_3",
+      reclaimedCents: 7_500,
+      chargeAmountCents: 10_000,
+      source: "dispute",
+    });
+    // Order is load-bearing: claw while held, release the residue after.
+    expect(clawbackCalls).toEqual(["claw", "release"]);
+    expect(marked).toEqual(["processed"]);
+  });
+
+  it("unexpected status keeps the holds (fail-safe) and surfaces to ops", async () => {
+    clawbackCalls.length = 0;
+    vi.mocked(applyChargeClawbacks).mockClear();
+    vi.mocked(releaseDisputedEntries).mockClear();
+    const { ctx, marked } = makeCtx({
+      type: "charge.dispute.closed",
+      data: { object: { id: "dp_4", currency: "usd", charge: "ch_1", status: "needs_response", amount: 10_000 } },
+    });
+
+    await handleChargeDisputeClosed(ctx);
+
+    expect(applyChargeClawbacks).not.toHaveBeenCalled();
+    expect(releaseDisputedEntries).not.toHaveBeenCalled();
+    expect(logError).toHaveBeenCalledWith(
+      expect.stringContaining("unexpected status"),
+      null,
+      expect.objectContaining({ dispute_id: "dp_4" }),
+    );
+    expect(marked).toEqual(["processed"]);
+  });
+
+  it("non-USD dispute closures are ignored before any release/clawback (FR-012)", async () => {
+    vi.mocked(releaseDisputedEntries).mockClear();
+    vi.mocked(applyChargeClawbacks).mockClear();
+    const { ctx, marked } = makeCtx({
+      type: "charge.dispute.closed",
+      data: { object: { id: "dp_9", currency: "eur", charge: "ch_1", status: "lost", amount: 10_000 } },
+    });
+
+    await handleChargeDisputeClosed(ctx);
+
+    expect(releaseDisputedEntries).not.toHaveBeenCalled();
+    expect(applyChargeClawbacks).not.toHaveBeenCalled();
+    expect(marked).toEqual(["ignored"]);
+  });
+
+  it("missing charge id is ignored", async () => {
+    const { ctx, marked } = makeCtx({
+      type: "charge.dispute.closed",
+      data: { object: { id: "dp_5", currency: "usd", status: "won", amount: 10_000 } },
+    });
+
+    await handleChargeDisputeClosed(ctx);
+
+    expect(marked).toEqual(["ignored"]);
   });
 });

@@ -6837,6 +6837,55 @@ export type Database = {
         Args: { p_stripe_transfer_id: string; p_reversed: boolean }
         Returns: string
       }
+      // Spec 040 Phase 3b — refund/dispute clawback + dispute holds
+      // (20260807000000_connect_clawback.sql; #185 seam).
+      connect_clawback_list_entries: {
+        Args: { p_funding_charge_id: string; p_source_reference_id: string }
+        Returns: {
+          entry_id: string
+          teacher_id: string
+          status: string
+          amount_cents: number
+          remaining_cap_cents: number
+          stripe_transfer_id: string | null
+          source_already_applied: boolean
+        }[]
+      }
+      connect_clawback_apply: {
+        Args: {
+          p_entry_id: string
+          p_source_reference_id: string
+          p_clawback_cents: number
+        }
+        Returns: { outcome: string; applied_cents: number }[]
+      }
+      connect_clawback_reserve_reversal: {
+        Args: {
+          p_entry_id: string
+          p_source_reference_id: string
+          p_stripe_transfer_id: string
+          p_reversed_cents: number
+          p_shortfall_cents: number
+        }
+        Returns: {
+          outcome: string
+          reversed_cents: number
+          shortfall_cents: number
+          already_confirmed: boolean
+        }[]
+      }
+      connect_clawback_confirm_reversal: {
+        Args: { p_idempotency_key: string; p_stripe_reversal_id: string }
+        Returns: string
+      }
+      connect_dispute_hold: {
+        Args: { p_funding_charge_id: string; p_dispute_id: string }
+        Returns: number
+      }
+      connect_dispute_release: {
+        Args: { p_dispute_id: string }
+        Returns: number
+      }
       // Spec 040 Phase 2 UI — payouts-page read model
       // (20260805000000_connect_payout_overview.sql; #185 seam).
       connect_teacher_payout_overview: {
