@@ -21,7 +21,7 @@ export function RegisterBanner() {
             {t("ابدأ رحلتك مع القرآن اليوم", "Start Your Quran Journey Today")}
           </h2>
           <p className="font-display mt-4 text-lg text-gold/70 sm:text-xl">
-            ﴿ وَرَتِّلِ الْقُرْآنَ تَرْتِيلًا ﴾
+            ﴿ وَرَتِّلِ ٱلْقُرْءَانَ تَرْتِيلًا ﴾
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">

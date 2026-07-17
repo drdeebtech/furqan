@@ -47,7 +47,7 @@ export default async function AuthLayout({
           </ul>
 
           <p className="mt-12 font-display text-sm leading-relaxed text-gold/70">
-            ﴿ وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مَخْرَجًا ﴾
+            ﴿ وَمَن يَتَّقِ ٱللَّهَ يَجْعَل لَّهُۥ مَخْرَجًا ﴾
           </p>
         </div>
       </aside>

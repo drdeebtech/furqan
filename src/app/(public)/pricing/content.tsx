@@ -567,7 +567,7 @@ export function PricingContent({
             </span>
           </div>
           <p className="font-display mt-4 text-base text-gold-ink">
-            ﴿ إِنَّا نَحْنُ نَزَّلْنَا الذِّكْرَ وَإِنَّا لَهُ لَحَافِظُونَ ﴾
+            ﴿ إِنَّا نَحْنُ نَزَّلْنَا ٱلذِّكْرَ وَإِنَّا لَهُۥ لَحَـٰفِظُونَ ﴾
           </p>
         </div>
       </section>

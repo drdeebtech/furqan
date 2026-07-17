@@ -45,7 +45,7 @@ export default function NotFound() {
         </div>
 
         <p className="mt-12 max-w-sm font-display text-sm leading-relaxed text-gold/60">
-          ﴿ وَمَن يَتَوَكَّلْ عَلَى اللَّهِ فَهُوَ حَسْبُهُ ﴾
+          ﴿ وَمَن يَتَوَكَّلْ عَلَى ٱللَّهِ فَهُوَ حَسْبُهُۥٓ ﴾
         </p>
       </div>
     </div>

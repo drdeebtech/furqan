@@ -327,7 +327,7 @@ export function ProgressContent({ data }: { data: ProgressData }) {
 
       {/* Quran verse */}
       <div className="mb-8 glass-card p-6 text-center">
-        <p className="font-display text-sm text-gold/50">﴿ وَرَتِّلِ الْقُرْآنَ تَرْتِيلًا ﴾</p>
+        <p className="font-display text-sm text-gold/50">﴿ وَرَتِّلِ ٱلْقُرْءَانَ تَرْتِيلًا ﴾</p>
         {avgQuality && (
           <p className="mt-2 text-sm text-muted">
             {t("متوسط جودة الأداء", "Avg quality rating")}: <span className="font-bold text-gold">{avgQuality.toFixed(1)}/5</span>
