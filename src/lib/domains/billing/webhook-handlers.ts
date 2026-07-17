@@ -19,6 +19,11 @@ import type { Json } from "@/types/supabase.generated";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError, logInfo } from "@/lib/logger";
 import { dispatchEffects } from "@/lib/automation/effects";
+import {
+  applyChargeClawbacks,
+  disputeChargeId,
+  holdDisputedEntries,
+} from "@/lib/domains/connect/clawback";
 import { emitEvent } from "@/lib/automation/emit";
 import { getPostHogClient } from "@/lib/posthog-server";
 import {
@@ -975,6 +980,36 @@ export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
     }
   }
 
+  // ── Spec 040 FR-013/014: teacher clawback (Connect ledger) ────────────────
+  // After the student-side prepaid path, reverse the teacher's share of each
+  // refund proportionally. One shared root-cause path (plan Phase 3): the
+  // clawback module is idempotent per (refund, entry) in the DB, so walking
+  // the cumulative refunds list Stripe re-delivers on every charge.refunded
+  // is replay-safe. Dormant until entries carry funding_charge_id (FR-021).
+  for (const refund of refunds) {
+    try {
+      await applyChargeClawbacks(ctx, {
+        chargeId: charge.id,
+        sourceReferenceId: refund.id,
+        reclaimedCents: refund.amount,
+        chargeAmountCents: charge.amount,
+        source: "refund",
+      });
+    } catch (err) {
+      logError("stripe-webhook: teacher clawback failed", err, {
+        tag: "stripe-webhook",
+        charge_id: charge.id,
+        refund_id: refund.id,
+      });
+      await markEvent(
+        ctx,
+        "failed",
+        `teacher clawback ${refund.id}: ${err instanceof Error ? err.message : "unknown"}`,
+      );
+      return;
+    }
+  }
+
   await markEvent(ctx, "processed");
 }
 
@@ -984,8 +1019,14 @@ export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
 // If the disputed PI maps to a prepaid_hours lot, void its remaining hours via
 // reconcile_external_prepaid_refund. We do NOT un-void if the dispute is later
 // won — the merchant would re-grant manually (out of scope here). Only
-// `charge.dispute.created` triggers the void; later dispute events
-// (.updated/.closed/.funds_reinstated) are informational and ignored.
+// `charge.dispute.created` triggers the void; `.updated`/`.funds_reinstated`
+// stay informational/ignored, while `.closed` now routes to
+// handleChargeDisputeClosed (spec 040 FR-015 — teacher side only).
+//
+// Spec 040 FR-015 (teacher side): before any student-side logic, every
+// pending/manual_due Connect entry funded by the disputed charge moves to
+// held — SC-005's one-webhook-delivery latency — so no sweep can pay a
+// disputed entry. Dormant until entries carry funding_charge_id (FR-021).
 export async function handleChargeDisputed(ctx: EventContext): Promise<void> {
   const dispute = ctx.event.data.object as Stripe.Dispute;
 
@@ -999,8 +1040,29 @@ export async function handleChargeDisputed(ctx: EventContext): Promise<void> {
     return;
   }
 
+  const disputedChargeId = disputeChargeId(dispute);
+  if (disputedChargeId) {
+    try {
+      await holdDisputedEntries(ctx, disputedChargeId, dispute.id);
+    } catch (err) {
+      logError("stripe-webhook: dispute hold failed", err, {
+        tag: "stripe-webhook",
+        charge_id: disputedChargeId,
+        dispute_id: dispute.id,
+      });
+      await markEvent(
+        ctx,
+        "failed",
+        `dispute hold ${dispute.id}: ${err instanceof Error ? err.message : "unknown"}`,
+      );
+      return;
+    }
+  }
+
   const piId = typeof dispute.payment_intent === "string" ? dispute.payment_intent : null;
   if (!piId) {
+    // The FR-015 hold above already ran; 'ignored' describes the student-side
+    // prepaid outcome only.
     await markEvent(ctx, "ignored", "dispute has no payment_intent");
     return;
   }
