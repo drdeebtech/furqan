@@ -4,6 +4,7 @@ import Link from "next/link";
 import { BookOpen, Check } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
 import { TRIAL_POLICY } from "@/lib/copy/policies";
+import { AyahQuote } from "@/components/quran/ayah-quote";
 
 export function RegisterBanner() {
   const { t } = useLang();
@@ -21,7 +22,7 @@ export function RegisterBanner() {
             {t("ابدأ رحلتك مع القرآن اليوم", "Start Your Quran Journey Today")}
           </h2>
           <p className="font-display mt-4 text-lg text-gold/70 sm:text-xl">
-            ﴿ وَرَتِّلِ الْقُرْآنَ تَرْتِيلًا ﴾
+            <AyahQuote name="reciteWithMeasure" />
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
