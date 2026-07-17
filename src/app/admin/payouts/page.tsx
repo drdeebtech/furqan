@@ -68,13 +68,22 @@ export default async function AdminPayoutsPage() {
   const { t, dir } = await getT();
   const { id: adminId } = await requireAdmin();
 
-  const { data, error } = await callRpc(createAdminClient(), "connect_admin_payouts_overview", {});
-  if (error || data == null) {
-    // Never render a failed financial read as an EMPTY queue (CodeRabbit
-    // major): show an explicit unavailable state and no controls.
-    logError("admin payouts page: overview failed", error ?? new Error("null overview"), {
+  // Never render a failed financial read as an EMPTY queue (CodeRabbit
+  // major): returned errors, null data AND rejected loads all land on the
+  // same explicit unavailable state with no controls.
+  let snapshot: unknown = null;
+  let loadFailed = false;
+  try {
+    const { data, error } = await callRpc(createAdminClient(), "connect_admin_payouts_overview", {});
+    if (error || data == null) throw error ?? new Error("null overview");
+    snapshot = data;
+  } catch (e) {
+    loadFailed = true;
+    logError("admin payouts page: overview failed", e, {
       tag: "admin-payouts", route: "/admin/payouts", widget: "overview", userId: adminId,
     });
+  }
+  if (loadFailed) {
     return (
       <div dir={dir} className="space-y-6">
         <PageHeader
@@ -90,7 +99,7 @@ export default async function AdminPayoutsPage() {
       </div>
     );
   }
-  const overview = data as unknown as Overview;
+  const overview = snapshot as Overview;
   const live = overview.cutover_date.trim() !== "";
 
   return (
