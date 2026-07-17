@@ -16,6 +16,7 @@ import {
   markEvent,
   type EventContext,
 } from "@/lib/domains/billing/webhook-handlers";
+import { handleConnectTransferEvent } from "@/lib/domains/billing/connect-webhook-handlers";
 
 export const maxDuration = 60;
 
@@ -145,6 +146,15 @@ async function dispatch(ctx: EventContext): Promise<NextResponse> {
         // a refund_request_id) OR reconcile an external Stripe-side refund by
         // voiding the prepaid lot's remaining hours.
         await handleChargeRefunded(ctx);
+        break;
+      case "transfer.created":
+      case "transfer.reversed":
+        // Spec 040 Phase 3: Transfer objects live on the PLATFORM account, so
+        // transfer.* fires here, not on the Connect endpoint (adversarial-
+        // review finding). Reconciliation only — money rows are written
+        // synchronously by the sweep. Previously fell to default→ignored, so
+        // this case is purely additive.
+        await handleConnectTransferEvent(ctx);
         break;
       case "charge.dispute.created":
         // Spec 038 H5: chargeback voids the prepaid lot's remaining hours.

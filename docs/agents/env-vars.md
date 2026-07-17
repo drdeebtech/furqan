@@ -22,6 +22,7 @@
 | `STRIPE_SECRET_KEY` | Stripe payments (deferred) |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe client (deferred) |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook (deferred) |
+| `STRIPE_CONNECT_WEBHOOK_SECRET` | Stripe Connect webhook — connected-account events (spec 040 Phase 3; set at Phase 6 go-live) |
 | `SENTRY_DSN` | Sentry server/edge ingest (DE region) |
 | `NEXT_PUBLIC_SENTRY_DSN` | Sentry browser ingest (publicly bundled) |
 | `CRON_SECRET` | Bearer token gating `/api/cron/*` against unauthenticated hits |
