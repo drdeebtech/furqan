@@ -66,8 +66,9 @@ export class PostgresConnectAccountsStore implements ConnectAccountsStore {
       p_charges_enabled: input.chargesEnabled,
       p_payouts_enabled: input.payoutsEnabled,
       p_details_submitted: input.detailsSubmitted,
-      // ?? null: supabase-js silently DROPS a named arg whose value is
-      // undefined, which would fail the RPC with a signature mismatch.
+      // Coalesced to null because the JS client silently DROPS a named arg
+      // whose value is undefined, which would fail the RPC with a
+      // signature mismatch.
       p_requirements: input.requirements ?? null,
       p_event_at: input.eventAt.toISOString(),
     });
