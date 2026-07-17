@@ -8,6 +8,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { startConnectOnboarding } from "@/lib/actions/teacher-payouts";
+import { localizePayoutError } from "./error-copy";
 import type { ConnectAccountStatus } from "@/lib/domains/connect/connect-accounts";
 
 interface PayoutStatusCardProps {
@@ -56,7 +57,7 @@ export function PayoutStatusCard({ status, payoutMethod, connectLive, lang }: Pa
     startTransition(async () => {
       const result = await startConnectOnboarding();
       if (!result.ok) {
-        setError(result.error);
+        setError(localizePayoutError(result.errorCode, result.error, lang));
         return;
       }
       if (result.kind === "stripe") {
@@ -89,7 +90,7 @@ export function PayoutStatusCard({ status, payoutMethod, connectLive, lang }: Pa
     copy.tone === "ok"
       ? "border-success/30 bg-success/10 text-success"
       : copy.tone === "pending"
-        ? "border-yellow-500/30 bg-yellow-500/10 text-yellow-400"
+        ? "border-warning/30 bg-warning/10 text-warning"
         : "border-white/10 bg-black/20 text-muted";
 
   return (
@@ -102,7 +103,7 @@ export function PayoutStatusCard({ status, payoutMethod, connectLive, lang }: Pa
       </p>
 
       {error ? (
-        <p role="alert" className="mb-3 text-sm text-red-400">
+        <p role="alert" className="mb-3 text-sm text-error">
           {error}
         </p>
       ) : null}

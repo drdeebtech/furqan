@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { callRpc } from "@/lib/supabase/rpc";
 import { getClientIp } from "@/lib/security/client-ip";
+import { getSettings } from "@/lib/settings";
 import { logError } from "@/lib/logger";
 import { getStripe } from "@/lib/stripe/client";
 import { deriveAccountStatus, mintOnboardingLink } from "@/lib/domains/connect/connect-accounts";
@@ -23,11 +24,25 @@ import {
 import { AGREEMENT_TEXT_IS_PLACEHOLDER } from "@/lib/connect/agreement-content";
 import type { PayoutMethod } from "@/lib/domains/connect/transfer-sweep";
 
+/** Stable, client-localizable failure codes (CodeRabbit: Arabic-only server
+ *  strings rendered untranslated in English mode). `error` stays the Arabic
+ *  fallback for callers that don't map codes. */
+export type PayoutActionErrorCode =
+  | "unauthorized"
+  | "retry"
+  | "not_teacher"
+  | "not_approved"
+  | "agreement_draft"
+  | "version_changed"
+  | "not_live"
+  | "unavailable";
+
 type AcceptResult =
   | { ok: true; version: string; newlyAccepted: boolean; releasedEntries: number }
   | {
       ok: false;
       error: string;
+      errorCode: PayoutActionErrorCode;
       /** The agreement changed between render and click — re-render this version. */
       versionChanged?: true;
       currentVersion?: string;
@@ -37,7 +52,7 @@ type OnboardingResult =
   | { ok: true; kind: "stripe"; url: string }
   | { ok: true; kind: "manual" }
   | { ok: true; kind: "already_enabled" }
-  | { ok: false; error: string };
+  | { ok: false; error: string; errorCode: PayoutActionErrorCode };
 
 interface TeacherFactsRow {
   teacher_id: string;
@@ -90,7 +105,11 @@ export async function acceptTeacherAgreement(expectedVersion?: string): Promise<
   // accept while the text is a placeholder, but a crafted client call must
   // not be able to record consent to unreviewed text either.
   if (AGREEMENT_TEXT_IS_PLACEHOLDER) {
-    return { ok: false, error: "الاتفاقية غير متاحة للموافقة بعد — النص النهائي قيد المراجعة" };
+    return {
+      ok: false,
+      errorCode: "agreement_draft",
+      error: "الاتفاقية غير متاحة للموافقة بعد — النص النهائي قيد المراجعة",
+    };
   }
   // Boundary validation for the one client-supplied value (no zod dep needed
   // for a single bounded string): non-string / oversized → ignore it, which
@@ -105,12 +124,12 @@ export async function acceptTeacherAgreement(expectedVersion?: string): Promise<
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "غير مصرح — يرجى تسجيل الدخول" };
+  if (!user) return { ok: false, errorCode: "unauthorized", error: "غير مصرح — يرجى تسجيل الدخول" };
 
   const read = await readTeacherFacts(supabase, user.id);
-  if ("readError" in read) return { ok: false, error: "تعذر التحقق من الحساب — حاول مجددًا" };
+  if ("readError" in read) return { ok: false, errorCode: "retry", error: "تعذر التحقق من الحساب — حاول مجددًا" };
   if (!read.facts.hasTeacherProfile) {
-    return { ok: false, error: "هذه الصفحة مخصصة للمعلمين فقط" };
+    return { ok: false, errorCode: "not_teacher", error: "هذه الصفحة مخصصة للمعلمين فقط" };
   }
 
   // Consent evidence (FR-028a, minimized): trusted-proxy IP or null, UA ≤255.
@@ -130,7 +149,7 @@ export async function acceptTeacherAgreement(expectedVersion?: string): Promise<
       tag: "connect",
       metadata: { actionName: "acceptTeacherAgreement", teacherId: user.id },
     });
-    return { ok: false, error: "تعذر تسجيل الموافقة — حاول مجددًا" };
+    return { ok: false, errorCode: "retry", error: "تعذر تسجيل الموافقة — حاول مجددًا" };
   }
   const row = data?.[0];
   if (!row) {
@@ -138,11 +157,12 @@ export async function acceptTeacherAgreement(expectedVersion?: string): Promise<
       tag: "connect",
       metadata: { actionName: "acceptTeacherAgreement", teacherId: user.id },
     });
-    return { ok: false, error: "تعذر تسجيل الموافقة — حاول مجددًا" };
+    return { ok: false, errorCode: "retry", error: "تعذر تسجيل الموافقة — حاول مجددًا" };
   }
   if (row.outcome === "version_changed") {
     return {
       ok: false,
+      errorCode: "version_changed",
       error: "تم تحديث الاتفاقية — يرجى قراءة النسخة الجديدة والموافقة عليها",
       versionChanged: true,
       currentVersion: row.agreement_version,
@@ -168,17 +188,33 @@ export async function startConnectOnboarding(): Promise<OnboardingResult> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "غير مصرح — يرجى تسجيل الدخول" };
+  if (!user) return { ok: false, errorCode: "unauthorized", error: "غير مصرح — يرجى تسجيل الدخول" };
 
   const read = await readTeacherFacts(supabase, user.id);
-  if ("readError" in read) return { ok: false, error: "تعذر التحقق من الحساب — حاول مجددًا" };
+  if ("readError" in read) return { ok: false, errorCode: "retry", error: "تعذر التحقق من الحساب — حاول مجددًا" };
 
   const route = decideOnboardingRoute(read.facts);
-  if (route === "not_teacher") return { ok: false, error: "هذه الصفحة مخصصة للمعلمين فقط" };
+  if (route === "not_teacher") {
+    return { ok: false, errorCode: "not_teacher", error: "هذه الصفحة مخصصة للمعلمين فقط" };
+  }
   if (route === "not_approved") {
-    return { ok: false, error: "يتاح إعداد المدفوعات بعد اعتماد ملفك التعليمي" };
+    return { ok: false, errorCode: "not_approved", error: "يتاح إعداد المدفوعات بعد اعتماد ملفك التعليمي" };
   }
   if (route === "manual_rail") return { ok: true, kind: "manual" };
+
+  // FR-021 dormancy enforced SERVER-SIDE (CodeRabbit security finding — the
+  // page's coming-soon branch is only a client gate): an unarmed (blank)
+  // connect_cutover_date refuses onboarding here too, so a crafted call
+  // cannot mint a test-mode Stripe account before go-live. Fail-closed on a
+  // settings outage ({} reads as not-live).
+  const settings = await getSettings().catch(() => ({}) as Record<string, string>);
+  if ((settings["connect_cutover_date"] ?? "").trim() === "") {
+    return {
+      ok: false,
+      errorCode: "not_live",
+      error: "سيتاح إعداد المدفوعات قريبًا",
+    };
+  }
 
   // Loud failure on missing base URL (review finding — the portal route's
   // idiom): a silently minted localhost return URL would strand a teacher
@@ -189,7 +225,7 @@ export async function startConnectOnboarding(): Promise<OnboardingResult> {
       tag: "connect",
       metadata: { actionName: "startConnectOnboarding" },
     });
-    return { ok: false, error: "الخدمة غير متاحة حاليًا — حاول لاحقًا" };
+    return { ok: false, errorCode: "unavailable", error: "الخدمة غير متاحة حاليًا — حاول لاحقًا" };
   }
   const base = rawBase.replace(/\/$/, "");
   try {
@@ -219,6 +255,6 @@ export async function startConnectOnboarding(): Promise<OnboardingResult> {
       tag: "connect",
       metadata: { actionName: "startConnectOnboarding", teacherId: user.id },
     });
-    return { ok: false, error: "تعذر بدء إعداد المدفوعات — حاول مجددًا" };
+    return { ok: false, errorCode: "retry", error: "تعذر بدء إعداد المدفوعات — حاول مجددًا" };
   }
 }

@@ -8,6 +8,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { acceptTeacherAgreement } from "@/lib/actions/teacher-payouts";
+import { localizePayoutError } from "./error-copy";
 import {
   AGREEMENT_BODY_AR,
   AGREEMENT_BODY_EN,
@@ -32,7 +33,7 @@ export function AgreementCard({ version, lang }: AgreementCardProps) {
     startTransition(async () => {
       const result = await acceptTeacherAgreement(version);
       if (!result.ok) {
-        setError(result.error);
+        setError(localizePayoutError(result.errorCode, result.error, lang));
         if (result.versionChanged) router.refresh(); // re-render the new version
         return;
       }
@@ -64,7 +65,7 @@ export function AgreementCard({ version, lang }: AgreementCardProps) {
       </div>
 
       {AGREEMENT_TEXT_IS_PLACEHOLDER ? (
-        <p className="mb-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-400">
+        <p className="mb-4 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
           {t(
             "النص أعلاه مسودة قيد المراجعة القانونية — تُفعَّل الموافقة عند اعتماد النص النهائي.",
             "The text above is a draft pending legal review — acceptance is enabled once the final text is approved.",
@@ -89,7 +90,7 @@ export function AgreementCard({ version, lang }: AgreementCardProps) {
       </label>
 
       {error ? (
-        <p role="alert" className="mb-3 text-sm text-red-400">
+        <p role="alert" className="mb-3 text-sm text-error">
           {error}
         </p>
       ) : null}

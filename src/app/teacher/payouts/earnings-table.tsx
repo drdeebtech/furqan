@@ -67,7 +67,7 @@ export function EarningsTable({
       </h2>
 
       {outstandingDebtCents > 0 ? (
-        <p className="mb-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-400">
+        <p className="mb-4 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
           {t(
             `رصيد مستحق للمنصة قدره ${formatUsd(outstandingDebtCents)} (بسبب استردادات أو نزاعات) — يُخصم تلقائيًا من أرباحك القادمة قبل أي تحويل.`,
             `An outstanding balance of ${formatUsd(outstandingDebtCents)} (from refunds or disputes) is owed to the platform — it is offset automatically against your next earnings before any transfer.`,
@@ -83,7 +83,14 @@ export function EarningsTable({
           )}
         </p>
       ) : (
-        <div className="overflow-x-auto">
+        <div
+          // Keyboard-reachable horizontal scroll (CodeRabbit): arrow-key
+          // scrolling for keyboard-only users, visible focus ring.
+          tabIndex={0}
+          role="region"
+          aria-label={t("جدول سجل الأرباح", "Earnings ledger table")}
+          className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded-md"
+        >
           <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="border-b border-white/10 text-start text-xs text-muted">
@@ -97,7 +104,9 @@ export function EarningsTable({
               {entries.map((entry) => {
                 const kind = KIND_COPY[entry.kind] ?? { ar: entry.kind, en: entry.kind };
                 const status = STATUS_COPY[entry.status] ?? { ar: entry.status, en: entry.status };
-                const hold = entry.hold_reason ? HOLD_COPY[entry.hold_reason] : null;
+                const hold = entry.hold_reason
+                  ? (HOLD_COPY[entry.hold_reason] ?? { ar: entry.hold_reason, en: entry.hold_reason })
+                  : null;
                 const negative = entry.amount_cents < 0;
                 return (
                   <tr key={entry.id} className="border-b border-white/5">
@@ -120,7 +129,7 @@ export function EarningsTable({
                       ) : null}
                     </td>
                     <td
-                      className={`py-2 whitespace-nowrap font-semibold ${negative ? "text-red-400" : ""}`}
+                      className={`py-2 whitespace-nowrap font-semibold ${negative ? "text-error" : ""}`}
                       dir="ltr"
                     >
                       {formatUsd(entry.amount_cents)}
@@ -128,7 +137,7 @@ export function EarningsTable({
                     <td className="py-2">
                       {t(status.ar, status.en)}
                       {hold ? (
-                        <span className="block text-xs text-yellow-400">{t(hold.ar, hold.en)}</span>
+                        <span className="block text-xs text-warning">{t(hold.ar, hold.en)}</span>
                       ) : null}
                     </td>
                   </tr>

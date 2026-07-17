@@ -89,7 +89,7 @@ export default async function TeacherPayoutsPage() {
   const status: ConnectAccountStatus = deriveAccountStatus(accountRow);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-6">
+    <div dir={lang === "ar" ? "rtl" : "ltr"} className="mx-auto max-w-4xl space-y-6 p-4 md:p-6">
       <header>
         <h1 className="text-2xl font-bold">{t("المدفوعات والأرباح", "Payouts & earnings")}</h1>
         <p className="mt-1 text-sm text-muted">
