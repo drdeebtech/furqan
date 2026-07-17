@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, Home, Search } from "lucide-react";
+import { AyahQuote } from "@/components/quran/ayah-quote";
 
 export default function NotFound() {
   return (
@@ -45,7 +46,7 @@ export default function NotFound() {
         </div>
 
         <p className="mt-12 max-w-sm font-display text-sm leading-relaxed text-gold/60">
-          ﴿ وَمَن يَتَوَكَّلْ عَلَى اللَّهِ فَهُوَ حَسْبُهُ ﴾
+          <AyahQuote name="sufficiencyInReliance" />
         </p>
       </div>
     </div>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { CheckCircle } from "lucide-react";
 import { getT } from "@/lib/i18n/server";
+import { AyahQuote } from "@/components/quran/ayah-quote";
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
@@ -47,7 +48,7 @@ export default async function AuthLayout({
           </ul>
 
           <p className="mt-12 font-display text-sm leading-relaxed text-gold/70">
-            ﴿ وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مَخْرَجًا ﴾
+            <AyahQuote name="wayOutForThePious" />
           </p>
         </div>
       </aside>
