@@ -203,11 +203,13 @@ $$;
 -- 3. connect_clawback_apply — write a capped clawback row (or void)
 -- ─────────────────────────────────────────────────────────────────────────
 -- For entries NOT settled through a reversible Stripe transfer (pending /
--- held / manual_due / manual_paid / debt_recovered / processing). Outcomes:
---   'voided'            → clean full reclaim of an unsettled entry
---   'clawback_recorded' → negative ledger row written (FR-014 netting pays it)
---   'already_applied'   → replay (this source already clawed this entry)
---   'nothing_to_apply'  → cap exhausted or amount rounds to zero
+-- held / manual_due / manual_paid / debt_recovered / processing). Returns the
+-- outcome AND the cents actually committed under the lock (which may be less
+-- than requested — the caller must report applied_cents, never its plan):
+--   'voided'            → clean full reclaim; applied_cents = entry amount
+--   'clawback_recorded' → negative ledger row written; applied_cents as clamped
+--   'already_applied'   → replay (this source already clawed); applied_cents 0
+--   'nothing_to_apply'  → cap exhausted / rounds to zero; applied_cents 0
 --
 -- 'processing' entries (sweep lease in flight) are NEVER voided — the fenced
 -- sweep owns their status; the clawback row is still written and nets later.
@@ -220,7 +222,7 @@ CREATE OR REPLACE FUNCTION connect_clawback_apply(
   p_source_reference_id text,
   p_clawback_cents      bigint
 )
-RETURNS text
+RETURNS TABLE (outcome text, applied_cents bigint)
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
@@ -236,7 +238,7 @@ BEGIN
     RAISE EXCEPTION 'connect_clawback_apply: source_reference_id must be non-empty';
   END IF;
   IF p_clawback_cents IS NULL OR p_clawback_cents <= 0 THEN
-    RETURN 'nothing_to_apply';
+    RETURN QUERY SELECT 'nothing_to_apply'::text, 0::bigint; RETURN;
   END IF;
 
   SELECT * INTO v_entry FROM teacher_earning_entries
@@ -246,7 +248,8 @@ BEGIN
     RAISE EXCEPTION 'connect_clawback_apply: entry % not found or not an earning', p_entry_id;
   END IF;
   IF v_entry.status = 'voided' THEN
-    RETURN 'nothing_to_apply'; -- already never-pays; replay after a void lands here
+    -- already never-pays; replay after a void lands here
+    RETURN QUERY SELECT 'nothing_to_apply'::text, 0::bigint; RETURN;
   END IF;
   IF v_entry.status = 'transferred'
      OR EXISTS (SELECT 1 FROM teacher_transfers tt
@@ -260,7 +263,7 @@ BEGIN
               WHERE cb.clawback_of_entry_id = p_entry_id
                 AND cb.source_reference_id = btrim(p_source_reference_id)
                 AND cb.kind = 'clawback') THEN
-    RETURN 'already_applied';
+    RETURN QUERY SELECT 'already_applied'::text, 0::bigint; RETURN;
   END IF;
 
   SELECT COALESCE(-1 * SUM(cb.amount_cents), 0)
@@ -273,7 +276,7 @@ BEGIN
   v_remaining := GREATEST(0, v_entry.amount_cents - v_reclaimed);
   v_apply := LEAST(p_clawback_cents, v_remaining);
   IF v_apply <= 0 THEN
-    RETURN 'nothing_to_apply';
+    RETURN QUERY SELECT 'nothing_to_apply'::text, 0::bigint; RETURN;
   END IF;
 
   -- Clean full reclaim of an unsettled entry → void (FR-013/FR-015 "void"):
@@ -286,7 +289,7 @@ BEGIN
     UPDATE teacher_earning_entries
        SET status = 'voided', hold_reason = NULL
      WHERE id = p_entry_id;
-    RETURN 'voided';
+    RETURN QUERY SELECT 'voided'::text, v_entry.amount_cents; RETURN;
   END IF;
 
   -- Negative debt row (sign convention: clawback < 0). status 'voided' is the
@@ -304,10 +307,11 @@ BEGIN
   DO NOTHING;
   GET DIAGNOSTICS v_ins = ROW_COUNT;
   IF v_ins = 0 THEN
-    RETURN 'already_applied'; -- defence in depth if a future path skips the lock
+    -- defence in depth if a future path skips the lock
+    RETURN QUERY SELECT 'already_applied'::text, 0::bigint; RETURN;
   END IF;
 
-  RETURN 'clawback_recorded';
+  RETURN QUERY SELECT 'clawback_recorded'::text, v_apply;
 END;
 $$;
 

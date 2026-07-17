@@ -59,6 +59,11 @@ interface ClawbackEntryRow {
   source_already_applied: boolean;
 }
 
+interface ApplyOutcome {
+  outcome: string;
+  applied_cents: number;
+}
+
 interface ReversalReservation {
   outcome: string;
   reversed_cents: number;
@@ -115,28 +120,37 @@ export async function applyChargeClawbacks(
 
     // Not settled via Stripe (pending/held/manual/processing/debt_recovered):
     // reversibleBalanceCents=0 puts the full proportional share in
-    // shortfallDebtCents; the RPC clamps again and voids a clean full reclaim.
+    // shortfallDebtCents; the RPC clamps again (its applied_cents — not our
+    // plan — is what actually committed) and voids a clean full reclaim.
     const plan = computeProportionalReversalCents({
       teacherShareCents: row.amount_cents,
       refundedAmountCents: input.reclaimedCents,
       chargeAmountCents: input.chargeAmountCents,
       reversibleBalanceCents: 0,
     });
-    const clawbackCents = Math.min(plan.shortfallDebtCents, row.remaining_cap_cents);
-    if (clawbackCents <= 0) continue;
-    const { error: applyErr } = await callRpc(ctx.admin, "connect_clawback_apply", {
+    const requestedCents = Math.min(plan.shortfallDebtCents, row.remaining_cap_cents);
+    if (requestedCents <= 0) continue;
+    const { data: applyData, error: applyErr } = await callRpc(ctx.admin, "connect_clawback_apply", {
       p_entry_id: row.entry_id,
       p_source_reference_id: input.sourceReferenceId,
-      p_clawback_cents: clawbackCents,
+      p_clawback_cents: requestedCents,
     });
     if (applyErr) {
       // Includes the deliberate settled-entry refusal (DB TOCTOU guard): the
       // event fails, Stripe redelivers, the fresh snapshot re-routes here.
       throw new Error(`clawback: apply failed for entry ${row.entry_id}: ${applyErr.message}`);
     }
+    const applied = (applyData as ApplyOutcome[] | null)?.[0];
+    if (
+      !applied ||
+      (applied.outcome !== "voided" && applied.outcome !== "clawback_recorded") ||
+      applied.applied_cents <= 0
+    ) {
+      continue; // replay ('already_applied') or concurrent-clamp no-op
+    }
     result.entriesTouched += 1;
-    result.clawbackCents += clawbackCents;
-    emitClawbackEvent(row, input, 0, clawbackCents);
+    result.clawbackCents += applied.applied_cents;
+    emitClawbackEvent(row, input, 0, applied.applied_cents);
   }
 
   return result;

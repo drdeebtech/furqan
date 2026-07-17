@@ -252,7 +252,7 @@ describe("handleChargeDisputeClosed (spec 040 FR-015)", () => {
     clawbackCalls.length = 0;
     const { ctx, marked } = makeCtx({
       type: "charge.dispute.closed",
-      data: { object: { id: "dp_1", charge: "ch_1", status: "won", amount: 10_000 } },
+      data: { object: { id: "dp_1", currency: "usd", charge: "ch_1", status: "won", amount: 10_000 } },
     });
 
     await handleChargeDisputeClosed(ctx);
@@ -267,7 +267,7 @@ describe("handleChargeDisputeClosed (spec 040 FR-015)", () => {
     vi.mocked(releaseDisputedEntries).mockClear();
     const { ctx, marked } = makeCtx({
       type: "charge.dispute.closed",
-      data: { object: { id: "dp_2", charge: "ch_1", status: "warning_closed", amount: 10_000 } },
+      data: { object: { id: "dp_2", currency: "usd", charge: "ch_1", status: "warning_closed", amount: 10_000 } },
     });
 
     await handleChargeDisputeClosed(ctx);
@@ -281,7 +281,7 @@ describe("handleChargeDisputeClosed (spec 040 FR-015)", () => {
     vi.mocked(applyChargeClawbacks).mockClear();
     const { ctx, marked } = makeCtx({
       type: "charge.dispute.closed",
-      data: { object: { id: "dp_3", charge: "ch_1", status: "lost", amount: 7_500 } },
+      data: { object: { id: "dp_3", currency: "usd", charge: "ch_1", status: "lost", amount: 7_500 } },
     });
     const chargesRetrieve = vi.fn(async () => ({ id: "ch_1", amount: 10_000 }));
     (ctx.stripe as unknown as { charges: { retrieve: typeof chargesRetrieve } }).charges = {
@@ -309,7 +309,7 @@ describe("handleChargeDisputeClosed (spec 040 FR-015)", () => {
     vi.mocked(releaseDisputedEntries).mockClear();
     const { ctx, marked } = makeCtx({
       type: "charge.dispute.closed",
-      data: { object: { id: "dp_4", charge: "ch_1", status: "needs_response", amount: 10_000 } },
+      data: { object: { id: "dp_4", currency: "usd", charge: "ch_1", status: "needs_response", amount: 10_000 } },
     });
 
     await handleChargeDisputeClosed(ctx);
@@ -324,10 +324,25 @@ describe("handleChargeDisputeClosed (spec 040 FR-015)", () => {
     expect(marked).toEqual(["processed"]);
   });
 
+  it("non-USD dispute closures are ignored before any release/clawback (FR-012)", async () => {
+    vi.mocked(releaseDisputedEntries).mockClear();
+    vi.mocked(applyChargeClawbacks).mockClear();
+    const { ctx, marked } = makeCtx({
+      type: "charge.dispute.closed",
+      data: { object: { id: "dp_9", currency: "eur", charge: "ch_1", status: "lost", amount: 10_000 } },
+    });
+
+    await handleChargeDisputeClosed(ctx);
+
+    expect(releaseDisputedEntries).not.toHaveBeenCalled();
+    expect(applyChargeClawbacks).not.toHaveBeenCalled();
+    expect(marked).toEqual(["ignored"]);
+  });
+
   it("missing charge id is ignored", async () => {
     const { ctx, marked } = makeCtx({
       type: "charge.dispute.closed",
-      data: { object: { id: "dp_5", status: "won", amount: 10_000 } },
+      data: { object: { id: "dp_5", currency: "usd", status: "won", amount: 10_000 } },
     });
 
     await handleChargeDisputeClosed(ctx);

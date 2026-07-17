@@ -81,7 +81,10 @@ const BASE_INPUT = {
 beforeEach(() => {
   rpcCalls.length = 0;
   rpcResults.clear();
-  rpcResults.set("connect_clawback_apply", { data: "clawback_recorded", error: null });
+  rpcResults.set("connect_clawback_apply", {
+    data: [{ outcome: "clawback_recorded", applied_cents: 1_250 }],
+    error: null,
+  });
   rpcResults.set("connect_clawback_confirm_reversal", { data: "confirmed", error: null });
   vi.mocked(emitEvent).mockClear();
 });
@@ -103,14 +106,42 @@ describe("applyChargeClawbacks — unsettled entries (FR-013 → FR-014 netting)
     expect(result).toEqual({ entriesTouched: 1, reversedCents: 0, clawbackCents: 1_250 });
   });
 
-  it("caps the clawback at the entry's remaining reclaimable amount", async () => {
+  it("caps the request at the entry's remaining amount and reports the DB-committed cents", async () => {
     const { ctx } = makeCtx();
     seedList([{ entry_id: "e1", amount_cents: 5_000, remaining_cap_cents: 800 }]);
+    // DB clamps further under the lock (concurrent source landed first)
+    rpcResults.set("connect_clawback_apply", {
+      data: [{ outcome: "clawback_recorded", applied_cents: 500 }],
+      error: null,
+    });
 
-    await applyChargeClawbacks(ctx, BASE_INPUT);
+    const result = await applyChargeClawbacks(ctx, BASE_INPUT);
 
     const apply = rpcCalls.find((c) => c.name === "connect_clawback_apply");
     expect(apply?.args.p_clawback_cents).toBe(800);
+    // committed, not requested — the ledger is the truth, not the plan
+    expect(result.clawbackCents).toBe(500);
+  });
+
+  it("'already_applied' and 'nothing_to_apply' outcomes count nothing and emit nothing", async () => {
+    const { ctx } = makeCtx();
+    seedList([{ entry_id: "e1", amount_cents: 5_000, remaining_cap_cents: 5_000 }]);
+    rpcResults.set("connect_clawback_apply", {
+      data: [{ outcome: "already_applied", applied_cents: 0 }],
+      error: null,
+    });
+
+    let result = await applyChargeClawbacks(ctx, BASE_INPUT);
+    expect(result.entriesTouched).toBe(0);
+    expect(emitEvent).not.toHaveBeenCalled();
+
+    rpcResults.set("connect_clawback_apply", {
+      data: [{ outcome: "nothing_to_apply", applied_cents: 0 }],
+      error: null,
+    });
+    result = await applyChargeClawbacks(ctx, BASE_INPUT);
+    expect(result.entriesTouched).toBe(0);
+    expect(emitEvent).not.toHaveBeenCalled();
   });
 
   it("skips an unsettled entry this source already clawed (cumulative-refund-list replay)", async () => {

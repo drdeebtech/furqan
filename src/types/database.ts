@@ -6857,7 +6857,7 @@ export type Database = {
           p_source_reference_id: string
           p_clawback_cents: number
         }
-        Returns: string
+        Returns: { outcome: string; applied_cents: number }[]
       }
       connect_clawback_reserve_reversal: {
         Args: {

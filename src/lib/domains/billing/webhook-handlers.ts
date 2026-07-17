@@ -996,17 +996,15 @@ export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
         source: "refund",
       });
     } catch (err) {
+      // RETHROW (CodeRabbit critical): marking failed and returning would let
+      // the dispatcher 200 and Stripe would never redeliver — a dead-ended
+      // money path. The dispatch catch marks the event failed and 500s.
       logError("stripe-webhook: teacher clawback failed", err, {
         tag: "stripe-webhook",
         charge_id: charge.id,
         refund_id: refund.id,
       });
-      await markEvent(
-        ctx,
-        "failed",
-        `teacher clawback ${refund.id}: ${err instanceof Error ? err.message : "unknown"}`,
-      );
-      return;
+      throw err;
     }
   }
 
@@ -1045,17 +1043,14 @@ export async function handleChargeDisputed(ctx: EventContext): Promise<void> {
     try {
       await holdDisputedEntries(ctx, disputedChargeId, dispute.id);
     } catch (err) {
+      // RETHROW — same money-path rule as the refund clawback above: the
+      // dispatch catch marks failed + 500 so Stripe redelivers the hold.
       logError("stripe-webhook: dispute hold failed", err, {
         tag: "stripe-webhook",
         charge_id: disputedChargeId,
         dispute_id: dispute.id,
       });
-      await markEvent(
-        ctx,
-        "failed",
-        `dispute hold ${dispute.id}: ${err instanceof Error ? err.message : "unknown"}`,
-      );
-      return;
+      throw err;
     }
   }
 

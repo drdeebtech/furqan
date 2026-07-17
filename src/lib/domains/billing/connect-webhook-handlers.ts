@@ -161,6 +161,18 @@ function accountSnapshot(account: Stripe.Account, eventAt: Date) {
 // NOT un-void if the dispute is later won" — see that handler).
 export async function handleChargeDisputeClosed(ctx: EventContext): Promise<void> {
   const dispute = ctx.event.data.object as Stripe.Dispute;
+  // USD-only platform (FR-012), same guard as handleChargeDisputed: a
+  // foreign-currency dispute.amount must never meet the USD ledger. No holds
+  // can exist for such a dispute either (created-time guard runs first).
+  if (dispute.currency !== "usd") {
+    logError("stripe-webhook: charge.dispute.closed non-USD ignored", new Error("non-usd"), {
+      tag: "stripe-webhook",
+      event_id: ctx.event.id,
+      currency: dispute.currency,
+    });
+    await markEvent(ctx, "ignored", `non-usd dispute: ${dispute.currency}`);
+    return;
+  }
   const chargeId = disputeChargeId(dispute);
   if (!chargeId) {
     await markEvent(ctx, "ignored", "dispute.closed without a charge id");
