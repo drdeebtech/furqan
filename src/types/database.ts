@@ -6831,6 +6831,12 @@ export type Database = {
       }
       // Spec 040 Phase 2 — atomic agreement acceptance + SC-014 release
       // (20260804000000_connect_accept_agreement.sql; #185 seam).
+      // Spec 040 Phase 3 — Connect webhook transfer reconciliation
+      // (20260806000000_connect_reconcile_transfer.sql; #185 seam).
+      connect_reconcile_transfer: {
+        Args: { p_stripe_transfer_id: string; p_reversed: boolean }
+        Returns: string
+      }
       // Spec 040 Phase 2 UI — payouts-page read model
       // (20260805000000_connect_payout_overview.sql; #185 seam).
       connect_teacher_payout_overview: {
