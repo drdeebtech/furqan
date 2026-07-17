@@ -89,7 +89,7 @@ export function EarningsTable({
           tabIndex={0}
           role="region"
           aria-label={t("جدول سجل الأرباح", "Earnings ledger table")}
-          className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded-md"
+          className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 rounded-md"
         >
           <table className="w-full min-w-[560px] text-sm">
             <thead>
