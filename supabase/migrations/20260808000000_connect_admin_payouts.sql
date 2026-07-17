@@ -256,7 +256,10 @@ BEGIN
 
   -- Replay-safe (DB-review P2): a double-click/retry with the same reason
   -- returns the existing ACTIVE hold instead of stacking a duplicate an
-  -- admin would have to discover and lift separately.
+  -- admin would have to discover and lift separately. The advisory xact lock
+  -- serializes concurrent retries so the SELECT/INSERT pair cannot race
+  -- (same idiom as connect_link_account, #720).
+  PERFORM pg_advisory_xact_lock(hashtext('connect_admin_place_hold:' || p_teacher_id::text));
   SELECT ph.id INTO v_id FROM payout_holds ph
    WHERE ph.teacher_id = p_teacher_id AND ph.source = 'admin'
      AND ph.reason = btrim(p_reason) AND ph.released_at IS NULL

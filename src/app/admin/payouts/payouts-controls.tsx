@@ -32,10 +32,11 @@ function useAct() {
   return { pending, msg, run };
 }
 
+// min-h-11 = 44px minimum touch target (coding guidelines).
 const inputCls =
-  "rounded-md border border-white/10 bg-white/5 px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold";
+  "min-h-11 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold";
 const btnCls =
-  "rounded-md border border-white/10 bg-white/10 px-2 py-1 text-xs hover:bg-white/20 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold";
+  "min-h-11 rounded-md border border-white/10 bg-white/10 px-3 py-2 text-sm hover:bg-white/20 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold";
 
 export function PlaceHoldForm({ teacherId, label }: { teacherId: string; label: string }) {
   const { pending, msg, run } = useAct();
@@ -109,7 +110,15 @@ export function MethodSwitch({
   );
 }
 
-export function SettleForm({ entryId, label }: { entryId: string; label: string }) {
+export function SettleForm({
+  entryId,
+  label,
+  confirmText,
+}: {
+  entryId: string;
+  label: string;
+  confirmText: string;
+}) {
   const { pending, msg, run } = useAct();
   const [reference, setReference] = useState("");
   return (
@@ -117,6 +126,8 @@ export function SettleForm({ entryId, label }: { entryId: string; label: string 
       className="flex items-center gap-1"
       onSubmit={(e) => {
         e.preventDefault();
+        // An audited financial settlement — confirm like the rail switch does.
+        if (!window.confirm(confirmText)) return;
         run(() => settleManualDueEntry({ entryId, referenceId: reference }));
       }}
     >

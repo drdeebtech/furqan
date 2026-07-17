@@ -44,6 +44,7 @@ describe("emitPayoutSweepEvent", () => {
 
   it("maps payout.transfer_failed and TRUNCATES error_detail to 500 chars", async () => {
     vi.mocked(emitEvent).mockClear();
+    vi.mocked(trackMixpanel).mockClear();
     await emitPayoutSweepEvent({
       type: "payout.transfer_failed",
       entryId: "e2",

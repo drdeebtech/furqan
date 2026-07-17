@@ -51,13 +51,17 @@ export async function placePayoutHold(input: z.input<typeof holdSchema>): Promis
   const parsed = holdSchema.safeParse(input);
   if (!parsed.success) return failure("invalid_input");
 
-  const { error } = await callRpc(createAdminClient(), "connect_admin_place_hold", {
-    p_teacher_id: parsed.data.teacherId,
-    p_reason: parsed.data.reason,
-    p_actor: admin.id,
-  });
-  if (error) {
-    logError("admin payouts: place hold failed", error, {
+  try {
+    const { error } = await callRpc(createAdminClient(), "connect_admin_place_hold", {
+      p_teacher_id: parsed.data.teacherId,
+      p_reason: parsed.data.reason,
+      p_actor: admin.id,
+    });
+    if (error) throw error;
+  } catch (e) {
+    // Rejected transport AND returned PostgREST errors both normalize to the
+    // generic result — a server action must never throw at the client.
+    logError("admin payouts: place hold failed", e, {
       tag: "admin-payouts", route: "/admin/payouts", widget: "hold-place", userId: admin.id,
     });
     return failure("unavailable");
@@ -79,17 +83,21 @@ export async function liftPayoutHold(input: z.input<typeof liftSchema>): Promise
   const parsed = liftSchema.safeParse(input);
   if (!parsed.success) return failure("invalid_input");
 
-  const { data, error } = await callRpc(createAdminClient(), "connect_admin_lift_hold", {
-    p_hold_id: parsed.data.holdId,
-    p_actor: admin.id,
-  });
-  if (error) {
-    logError("admin payouts: lift hold failed", error, {
+  let lifted: unknown;
+  try {
+    const { data, error } = await callRpc(createAdminClient(), "connect_admin_lift_hold", {
+      p_hold_id: parsed.data.holdId,
+      p_actor: admin.id,
+    });
+    if (error) throw error;
+    lifted = data;
+  } catch (e) {
+    logError("admin payouts: lift hold failed", e, {
       tag: "admin-payouts", route: "/admin/payouts", widget: "hold-lift", userId: admin.id,
     });
     return failure("unavailable");
   }
-  if (data !== "lifted") return failure("not_found"); // already released / unknown id
+  if (lifted !== "lifted") return failure("not_found"); // already released / unknown id
   revalidatePath("/admin/payouts");
   return { ok: true };
 }
@@ -106,18 +114,24 @@ export async function setPayoutMethod(input: z.input<typeof methodSchema>): Prom
   const parsed = methodSchema.safeParse(input);
   if (!parsed.success) return failure("invalid_input");
 
-  const { data, error } = await callRpc(createAdminClient(), "connect_admin_set_payout_method", {
-    p_teacher_id: parsed.data.teacherId,
-    p_method: parsed.data.method,
-    p_actor: admin.id,
-  });
-  if (error) {
-    logError("admin payouts: set payout method failed", error, {
+  let result: unknown;
+  try {
+    const { data, error } = await callRpc(createAdminClient(), "connect_admin_set_payout_method", {
+      p_teacher_id: parsed.data.teacherId,
+      p_method: parsed.data.method,
+      p_actor: admin.id,
+    });
+    if (error) throw error;
+    result = data;
+  } catch (e) {
+    logError("admin payouts: set payout method failed", e, {
       tag: "admin-payouts", route: "/admin/payouts", widget: "method-switch", userId: admin.id,
     });
     return failure("unavailable");
   }
-  const outcome = Array.isArray(data) ? data[0] : null;
+  const outcome = (Array.isArray(result) ? result[0] : null) as
+    | { outcome: string; rerouted_entries: number }
+    | null;
   revalidatePath("/admin/payouts");
   return {
     ok: true,
@@ -185,15 +199,19 @@ export async function exportManualDueCsv(): Promise<
   const adminUser = admin as { id: string };
 
   const client = createAdminClient();
-  const { data, error } = await callRpc(client, "connect_admin_payouts_overview", {});
-  if (error) {
-    logError("admin payouts: export overview failed", error, {
+  let snapshot: unknown;
+  try {
+    const { data, error } = await callRpc(client, "connect_admin_payouts_overview", {});
+    if (error) throw error;
+    snapshot = data;
+  } catch (e) {
+    logError("admin payouts: export overview failed", e, {
       tag: "admin-payouts", route: "/admin/payouts", widget: "manual-export", userId: adminUser.id,
     });
     return failure("unavailable") as Extract<PayoutAdminResult, { ok: false }>;
   }
   const manualDue =
-    ((data as { manual_due?: ManualDueCsvRow[] } | null)?.manual_due ?? []) as ManualDueCsvRow[];
+    ((snapshot as { manual_due?: ManualDueCsvRow[] } | null)?.manual_due ?? []) as ManualDueCsvRow[];
 
   // Quote-double for CSV, and neutralize spreadsheet formula injection
   // (security review P2): a teacher-controlled full_name starting with
@@ -217,12 +235,14 @@ export async function exportManualDueCsv(): Promise<
 
   // The export is REFUSED if it cannot be audited (fail-closed: an unlogged
   // export of payable amounts is what the audit exists to prevent).
-  const { error: auditErr } = await callRpc(client, "connect_admin_log_export", {
-    p_actor: adminUser.id,
-    p_rows: manualDue.length,
-  });
-  if (auditErr) {
-    logError("admin payouts: export audit write failed", auditErr, {
+  try {
+    const { error: auditErr } = await callRpc(client, "connect_admin_log_export", {
+      p_actor: adminUser.id,
+      p_rows: manualDue.length,
+    });
+    if (auditErr) throw auditErr;
+  } catch (e) {
+    logError("admin payouts: export audit write failed", e, {
       tag: "admin-payouts", route: "/admin/payouts", widget: "manual-export", userId: adminUser.id,
     });
     return failure("unavailable") as Extract<PayoutAdminResult, { ok: false }>;

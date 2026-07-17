@@ -146,4 +146,35 @@ describe("admin payout actions — behavior", () => {
     const refused = await exportManualDueCsv();
     expect(refused).toEqual({ ok: false, error: "unavailable" });
   });
+
+  it("export neutralizes spreadsheet formula cells (= and @ leading)", async () => {
+    rpcResults.set("connect_admin_payouts_overview", {
+      data: {
+        cutover_date: "",
+        teachers: [],
+        manual_due: [
+          { entry_id: E, teacher_id: T, full_name: '=HYPERLINK("http://evil")', amount_cents: 100,
+            session_delivery_id: null, delivered_at: null, created_at: "2026-07-01T00:00:00Z" },
+          { entry_id: H, teacher_id: T, full_name: "@cmd", amount_cents: 100,
+            session_delivery_id: null, delivered_at: null, created_at: "2026-07-01T00:00:00Z" },
+        ],
+      },
+      error: null,
+    });
+
+    const res = await exportManualDueCsv();
+    if (!res.ok) throw new Error("expected ok");
+    expect(res.csv).toContain("\"'=HYPERLINK");
+    expect(res.csv).toContain("\"'@cmd\"");
+    expect(res.csv).not.toContain('"=HYPERLINK');
+  });
+
+  it("a REJECTED rpc (transport crash) normalizes to unavailable, never throws", async () => {
+    const { callRpc } = await import("@/lib/supabase/rpc");
+    vi.mocked(callRpc).mockRejectedValueOnce(new Error("fetch failed"));
+    expect(await placePayoutHold({ teacherId: T, reason: "x" })).toEqual({
+      ok: false,
+      error: "unavailable",
+    });
+  });
 });

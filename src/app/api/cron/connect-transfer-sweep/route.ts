@@ -3,6 +3,7 @@ import { withAuthedCronMonitor } from "@/lib/sentry/cron";
 import { runConnectTransferSweepOnce } from "@/lib/domains/connect/sweep-runner";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 /**
  * Spec 040 Phase 1.2 / Phase 4 — the Stripe Connect transfer sweep trigger.

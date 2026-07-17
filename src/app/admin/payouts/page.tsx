@@ -69,12 +69,28 @@ export default async function AdminPayoutsPage() {
   const { id: adminId } = await requireAdmin();
 
   const { data, error } = await callRpc(createAdminClient(), "connect_admin_payouts_overview", {});
-  if (error) {
-    logError("admin payouts page: overview failed", error, {
+  if (error || data == null) {
+    // Never render a failed financial read as an EMPTY queue (CodeRabbit
+    // major): show an explicit unavailable state and no controls.
+    logError("admin payouts page: overview failed", error ?? new Error("null overview"), {
       tag: "admin-payouts", route: "/admin/payouts", widget: "overview", userId: adminId,
     });
+    return (
+      <div dir={dir} className="space-y-6">
+        <PageHeader
+          title={t("مدفوعات المعلمين (Stripe Connect)", "Teacher payouts (Stripe Connect)")}
+          icon={<Wallet size={24} className="text-gold" />}
+        />
+        <div className="glass-card rounded-xl p-4 text-sm text-error" role="alert">
+          {t(
+            "تعذّر تحميل بيانات المدفوعات. لا يعني هذا أن القائمة فارغة — أعد المحاولة أو راجع السجلات.",
+            "Could not load payout data. This does NOT mean the queue is empty — retry or check the logs.",
+          )}
+        </div>
+      </div>
+    );
   }
-  const overview = (data ?? { cutover_date: "", teachers: [], manual_due: [] }) as unknown as Overview;
+  const overview = data as unknown as Overview;
   const live = overview.cutover_date.trim() !== "";
 
   return (
@@ -243,7 +259,14 @@ export default async function AdminPayoutsPage() {
                     <td className="p-2" dir="ltr">{usd(row.amount_cents)}</td>
                     <td className="p-2" dir="ltr">{utcDate(row.delivered_at)}</td>
                     <td className="p-2">
-                      <SettleForm entryId={row.entry_id} label={t("تسوية", "Settle")} />
+                      <SettleForm
+                        entryId={row.entry_id}
+                        label={t("تسوية", "Settle")}
+                        confirmText={t(
+                          "تأكيد تسوية هذا المبلغ يدويًا؟ (يُسجَّل في سجل التدقيق)",
+                          "Confirm settling this amount off-Stripe? (audit-logged, irreversible)",
+                        )}
+                      />
                     </td>
                   </tr>
                 ))}
