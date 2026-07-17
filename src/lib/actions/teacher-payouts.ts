@@ -20,6 +20,7 @@ import {
   decideOnboardingRoute,
   type OnboardingFacts,
 } from "@/lib/domains/connect/onboarding-policy";
+import { AGREEMENT_TEXT_IS_PLACEHOLDER } from "@/lib/connect/agreement-content";
 import type { PayoutMethod } from "@/lib/domains/connect/transfer-sweep";
 
 type AcceptResult =
@@ -85,6 +86,12 @@ async function readTeacherFacts(
  * it can only cause a refusal.
  */
 export async function acceptTeacherAgreement(expectedVersion?: string): Promise<AcceptResult> {
+  // Server-side draft guard (review P4 — defense in depth): the UI disables
+  // accept while the text is a placeholder, but a crafted client call must
+  // not be able to record consent to unreviewed text either.
+  if (AGREEMENT_TEXT_IS_PLACEHOLDER) {
+    return { ok: false, error: "الاتفاقية غير متاحة للموافقة بعد — النص النهائي قيد المراجعة" };
+  }
   // Boundary validation for the one client-supplied value (no zod dep needed
   // for a single bounded string): non-string / oversized → ignore it, which
   // degrades to the version-unchecked path, never a crash.
