@@ -6800,6 +6800,35 @@ export type Database = {
         }
         Returns: boolean
       }
+      // Spec 040 Phase 1 tail — ConnectAccountsStore RPCs
+      // (20260803000000_connect_account_functions.sql; #185 seam).
+      connect_get_account: {
+        Args: { p_teacher_id: string }
+        Returns: {
+          teacher_id: string
+          stripe_account_id: string | null
+          charges_enabled: boolean
+          payouts_enabled: boolean
+          details_submitted: boolean
+          requirements: Json | null
+          last_event_at: string | null
+        }[]
+      }
+      connect_link_account: {
+        Args: { p_teacher_id: string; p_stripe_account_id: string }
+        Returns: undefined
+      }
+      connect_apply_account_status: {
+        Args: {
+          p_stripe_account_id: string
+          p_charges_enabled: boolean
+          p_payouts_enabled: boolean
+          p_details_submitted: boolean
+          p_requirements: Json | null
+          p_event_at: string
+        }
+        Returns: string
+      }
       user_is_session_participant: { Args: { s_id: string }; Returns: boolean }
     }
     Enums: {
