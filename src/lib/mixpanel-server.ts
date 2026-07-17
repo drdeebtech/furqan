@@ -22,6 +22,10 @@ const TRACK_TIMEOUT_MS = 2000;
 export const MIXPANEL_EVENTS = {
   SIGN_UP_COMPLETED: "sign_up_completed",
   BOOKING_CONFIRMED: "booking_confirmed",
+  // Spec 040 — Stripe Connect payout lifecycle (plan Phase 1 item 6).
+  PAYOUT_TRANSFER_CREATED: "payout_transfer_created",
+  PAYOUT_TRANSFER_FAILED: "payout_transfer_failed",
+  PAYOUT_CLAWBACK: "payout_clawback",
 } as const;
 
 export type MixpanelEvent = (typeof MIXPANEL_EVENTS)[keyof typeof MIXPANEL_EVENTS];

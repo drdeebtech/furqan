@@ -4,6 +4,7 @@ import {
   type ClaimedEntry,
   type SweepStore,
   type StripeTransfersApi,
+  type PayoutSweepEvent,
 } from "./transfer-sweep";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -511,5 +512,142 @@ describe("runTransferSweep", () => {
       expect(stripe.create).not.toHaveBeenCalled();
       expect(store.entries.get("e1")!.status).toBe("processing");
     });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Typed payout events (plan Phase 1 item 6) — best-effort, never load-bearing.
+// ─────────────────────────────────────────────────────────────────────────
+describe("runTransferSweep — emitPayoutEvent hook", () => {
+  let store: FakeStore;
+  let stripe: StripeTransfersApi & { create: ReturnType<typeof vi.fn> };
+
+  beforeEach(() => {
+    store = new FakeStore();
+    stripe = makeStripe();
+  });
+
+  it("emits payout.transfer_created with the NET amount after a successful settlement", async () => {
+    store.seedTeacher("t1", { outstandingDebtCents: 1000 });
+    store.seedEntry({ entryId: "e1", teacherId: "t1", amountCents: 5000 });
+    const events: PayoutSweepEvent[] = [];
+
+    await runTransferSweep({ store, stripe, now: NOW, emitPayoutEvent: (e) => void events.push(e) });
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      type: "payout.transfer_created",
+      entryId: "e1",
+      teacherId: "t1",
+      transferCents: 4000, // 5000 earning − 1000 debt netted (FR-014)
+      recoveredCents: 1000,
+    });
+  });
+
+  it("emits payout.transfer_failed when the Stripe call fails (entry back to pending, FR-011)", async () => {
+    store.seedTeacher("t1");
+    store.seedEntry({ entryId: "e1", teacherId: "t1", amountCents: 5000 });
+    stripe.create.mockRejectedValueOnce(new Error("insufficient platform balance"));
+    const events: PayoutSweepEvent[] = [];
+
+    const r = await runTransferSweep({
+      store,
+      stripe,
+      now: NOW,
+      emitPayoutEvent: (e) => void events.push(e),
+    });
+
+    expect(r.failed).toBe(1);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      type: "payout.transfer_failed",
+      entryId: "e1",
+      teacherId: "t1",
+      errorDetail: "insufficient platform balance",
+    });
+  });
+
+  it("emits nothing for manual-rail or debt-recovered settlements (no transfer happened)", async () => {
+    store.seedTeacher("mt", { payoutMethod: "manual", payoutsEnabled: false, destinationAccountId: null });
+    store.seedEntry({ entryId: "m1", teacherId: "mt", amountCents: 3000 });
+    store.seedTeacher("dt", { outstandingDebtCents: 10000 });
+    store.seedEntry({ entryId: "d1", teacherId: "dt", amountCents: 3000 });
+    const events: PayoutSweepEvent[] = [];
+
+    const r = await runTransferSweep({
+      store,
+      stripe,
+      now: NOW,
+      emitPayoutEvent: (e) => void events.push(e),
+    });
+
+    expect(r.manualDue).toBe(1);
+    expect(r.debtRecovered).toBe(1);
+    expect(events).toHaveLength(0);
+  });
+
+  it("emits nothing for an abandoned entry (the lease's new owner emits instead)", async () => {
+    store.seedTeacher("t1");
+    store.seedEntry({ entryId: "e1", teacherId: "t1", amountCents: 5000 });
+    stripe.create.mockImplementationOnce(async (_p, o) => {
+      store.entries.get("e1")!.claimedAt = new Date("2026-07-16T00:09:00Z"); // lease stolen
+      return { id: `tr_${o.idempotencyKey}` };
+    });
+    const events: PayoutSweepEvent[] = [];
+
+    const r = await runTransferSweep({
+      store,
+      stripe,
+      now: NOW,
+      emitPayoutEvent: (e) => void events.push(e),
+    });
+
+    expect(r.abandoned).toBe(1);
+    expect(events).toHaveLength(0);
+  });
+
+  it("a manual-rail settlement error emits NO transfer_failed (no Stripe call was intended)", async () => {
+    store.seedTeacher("mt", { payoutMethod: "manual", payoutsEnabled: false, destinationAccountId: null });
+    store.seedEntry({ entryId: "m1", teacherId: "mt", amountCents: 3000 });
+    store.recordManualDue = async () => {
+      throw new Error("db hiccup");
+    };
+    const events: PayoutSweepEvent[] = [];
+    const logError = vi.fn();
+
+    const r = await runTransferSweep({
+      store,
+      stripe,
+      now: NOW,
+      logError,
+      emitPayoutEvent: (e) => void events.push(e),
+    });
+
+    expect(r.failed).toBe(1); // fail-closed: entry back to pending
+    expect(events).toHaveLength(0); // but no "your transfer failed" event
+  });
+
+  it("a throwing event sink never affects the settlement result (Principle III)", async () => {
+    store.seedTeacher("t1");
+    store.seedEntry({ entryId: "e1", teacherId: "t1", amountCents: 5000 });
+    const logError = vi.fn();
+
+    const r = await runTransferSweep({
+      store,
+      stripe,
+      now: NOW,
+      logError,
+      emitPayoutEvent: () => {
+        throw new Error("analytics down");
+      },
+    });
+
+    expect(r.transferred).toBe(1);
+    expect(store.entries.get("e1")!.status).toBe("transferred");
+    expect(logError).toHaveBeenCalledWith(
+      "transfer-sweep: payout event emit failed (best-effort)",
+      expect.any(Error),
+      expect.objectContaining({ tag: "connect" }),
+    );
   });
 });

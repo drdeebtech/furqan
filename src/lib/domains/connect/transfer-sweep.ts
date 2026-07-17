@@ -157,6 +157,14 @@ export interface SweepDeps {
   leaseTtlMs?: number;
   /** Structured error sink; defaults to console.error. Production passes logError. */
   logError?: (message: string, error: unknown, context?: Record<string, unknown>) => void;
+  /**
+   * Best-effort typed payout event sink (plan Phase 1 item 6): called after a
+   * settlement write LANDS (fenced write returned true) — transferred and
+   * failed outcomes only. A throw is logged and swallowed (safeEmit); it can
+   * never fail or delay a settlement decision. Production wires this to
+   * emitEvent + trackMixpanel; tests inject a recorder.
+   */
+  emitPayoutEvent?: (event: PayoutSweepEvent) => Promise<void> | void;
 }
 
 export interface SweepResult {
@@ -173,7 +181,33 @@ export interface SweepResult {
 /** The single terminal outcome of settling one claimed entry. Counted once. */
 type SettleOutcome = "transferred" | "debtRecovered" | "manualDue" | "failed" | "abandoned";
 
-const DEFAULT_LEASE_TTL_MS = 15 * 60 * 1000;
+/**
+ * Typed payout lifecycle events (spec 040 plan Phase 1 item 6), surfaced
+ * best-effort AFTER a settlement write lands — never for an abandoned entry
+ * (the lease's new owner emits when they settle). `payout.clawback` is emitted
+ * by the refund/dispute webhook path (Phase 3), not the sweep.
+ */
+export type PayoutSweepEvent =
+  | {
+      type: "payout.transfer_created";
+      entryId: string;
+      teacherId: string;
+      /** The NET amount actually transferred (post debt netting). */
+      transferCents: number;
+      recoveredCents: number;
+      stripeTransferId: string;
+    }
+  | {
+      type: "payout.transfer_failed";
+      entryId: string;
+      teacherId: string;
+      errorDetail: string;
+    };
+
+// 2× the suggested 15-min cron cadence: a run slower than one interval must
+// NOT have its unprocessed leases deterministically stolen by the next run
+// (review finding — TTL == cadence leaves zero headroom).
+const DEFAULT_LEASE_TTL_MS = 30 * 60 * 1000;
 
 function defaultLogError(message: string, error: unknown, context?: Record<string, unknown>): void {
   console.error(message, error, context);
@@ -182,6 +216,25 @@ function defaultLogError(message: string, error: unknown, context?: Record<strin
 function describeError(error: unknown): string {
   if (error instanceof Error) return error.message;
   return typeof error === "string" ? error : JSON.stringify(error);
+}
+
+/** Best-effort emit: a throwing event sink must never affect settlement
+ *  (constitution Principle III — notifications/analytics can never fail a
+ *  payout). A throw is logged and swallowed HERE, the one sanctioned place. */
+async function safeEmit(
+  emit: SweepDeps["emitPayoutEvent"],
+  logError: NonNullable<SweepDeps["logError"]>,
+  event: PayoutSweepEvent,
+): Promise<void> {
+  if (!emit) return;
+  try {
+    await emit(event);
+  } catch (error) {
+    logError("transfer-sweep: payout event emit failed (best-effort)", error, {
+      tag: "connect",
+      metadata: { entryId: event.entryId, type: event.type },
+    });
+  }
 }
 
 /**
@@ -223,7 +276,14 @@ export async function runTransferSweep(deps: SweepDeps): Promise<SweepResult> {
   for (const entry of claimed) {
     let outcome: SettleOutcome;
     try {
-      outcome = await settleEntry({ entry, store, stripe, logError, runningDebtCents });
+      outcome = await settleEntry({
+        entry,
+        store,
+        stripe,
+        logError,
+        runningDebtCents,
+        emit: deps.emitPayoutEvent,
+      });
     } catch (error) {
       // Defensive backstop: an unexpected store/record error must not abort the
       // batch or leave the entry silently leased — fail the entry closed (fenced)
@@ -245,6 +305,18 @@ export async function runTransferSweep(deps: SweepDeps): Promise<SweepResult> {
           });
           return false;
         });
+      // Only the Stripe rail means "a transfer failed" — a manual-rail entry's
+      // settlement error must not surface as payout.transfer_failed (review
+      // finding: n8n would tell a manual-rail teacher their transfer failed
+      // when no Stripe call was ever intended).
+      if (reverted && entry.payoutMethod === "stripe_connect") {
+        await safeEmit(deps.emitPayoutEvent, logError, {
+          type: "payout.transfer_failed",
+          entryId: entry.entryId,
+          teacherId: entry.teacherId,
+          errorDetail: describeError(error),
+        });
+      }
       outcome = reverted ? "failed" : "abandoned";
     }
 
@@ -261,8 +333,9 @@ async function settleEntry(args: {
   stripe: StripeTransfersApi;
   logError: NonNullable<SweepDeps["logError"]>;
   runningDebtCents: Map<string, number>;
+  emit: SweepDeps["emitPayoutEvent"];
 }): Promise<SettleOutcome> {
-  const { entry, store, stripe, logError, runningDebtCents } = args;
+  const { entry, store, stripe, logError, runningDebtCents, emit } = args;
 
   // Step 2: net against the teacher's RUNNING debt (seeded from the claim-time
   // snapshot the first time we touch this teacher this run), so a sibling entry
@@ -315,6 +388,14 @@ async function settleEntry(args: {
       errorDetail: `non-USD currency '${entry.currency}' rejected (FR-012)`,
       claimedAt: entry.claimedAt,
     });
+    if (applied) {
+      await safeEmit(emit, logError, {
+        type: "payout.transfer_failed",
+        entryId: entry.entryId,
+        teacherId: entry.teacherId,
+        errorDetail: `non-USD currency '${entry.currency}' rejected (FR-012)`,
+      });
+    }
     return applied ? "failed" : "abandoned";
   }
 
@@ -330,6 +411,14 @@ async function settleEntry(args: {
       errorDetail: "missing destination Connect account",
       claimedAt: entry.claimedAt,
     });
+    if (applied) {
+      await safeEmit(emit, logError, {
+        type: "payout.transfer_failed",
+        entryId: entry.entryId,
+        teacherId: entry.teacherId,
+        errorDetail: "missing destination Connect account",
+      });
+    }
     return applied ? "failed" : "abandoned";
   }
 
@@ -363,6 +452,14 @@ async function settleEntry(args: {
       errorDetail: describeError(error),
       claimedAt: entry.claimedAt,
     });
+    if (applied) {
+      await safeEmit(emit, logError, {
+        type: "payout.transfer_failed",
+        entryId: entry.entryId,
+        teacherId: entry.teacherId,
+        errorDetail: describeError(error),
+      });
+    }
     return applied ? "failed" : "abandoned";
   }
 
@@ -382,5 +479,13 @@ async function settleEntry(args: {
   });
   if (!applied) return "abandoned";
   runningDebtCents.set(entry.teacherId, plan.remainingDebtCents);
+  await safeEmit(emit, logError, {
+    type: "payout.transfer_created",
+    entryId: entry.entryId,
+    teacherId: entry.teacherId,
+    transferCents: plan.transferCents,
+    recoveredCents: plan.recoveredCents,
+    stripeTransferId,
+  });
   return "transferred";
 }

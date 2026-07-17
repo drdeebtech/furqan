@@ -152,6 +152,15 @@ export const WEBHOOK_ROUTES = {
   // NOTE: n8n workflow for this route must be created to consume the event (e.g. parent report,
   // push notification). Until then dispatch logs a non-fatal failed-delivery automation_log entry.
   "achievement.unlocked": "/webhook/furqan-achievement-unlocked",
+  // Spec 040 — Stripe Connect payout lifecycle (plan Phase 1 item 6). All three
+  // share one webhook route; the n8n workflow branches on event_type (same
+  // pattern as halaqa/cv events). NOTE: the n8n workflow must be created when
+  // payout notifications are built; until then dispatch logs a non-fatal
+  // failed-delivery automation_log entry. DORMANT until the sweep goes live
+  // (connect_cutover_date, FR-021).
+  "payout.transfer_created": "/webhook/furqan-payout-event",
+  "payout.transfer_failed": "/webhook/furqan-payout-event",
+  "payout.clawback": "/webhook/furqan-payout-event",
 } as const satisfies Record<string, string>;
 
 /**
