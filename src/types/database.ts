@@ -6742,6 +6742,15 @@ export type Database = {
         Args: { p_lease_cutoff: string }
         Returns: number
       }
+      connect_materialize_session_earnings: {
+        Args: Record<string, never>
+        Returns: {
+          inserted_pending: number
+          inserted_held: number
+          skipped_invalid_amount: number
+          released_stuck_holds: number
+        }[]
+      }
       connect_sweep_claim_eligible: {
         Args: { p_now: string }
         Returns: {
