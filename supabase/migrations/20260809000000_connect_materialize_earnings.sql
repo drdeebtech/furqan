@@ -20,10 +20,10 @@
 --                         that remains is healed by the reconciliation pass
 --                         below. connect_accept_agreement releases these holds.
 --   * agreement_version — STAMPED from platform_settings at materialization
---                         (FR-030a; never timestamp-derived). If the setting is
---                         missing/blank the function materializes NOTHING —
---                         an unstamped entry would make the FR-028a retention
---                         predicate unanswerable, so we fail closed.
+--                         (FR-030a; never timestamp-derived). A missing/blank
+--                         setting while the system is armed RAISES (config
+--                         bug) — an unstamped entry would make the FR-028a
+--                         retention predicate unanswerable.
 --   * funding_charge_id — the Stripe **PaymentIntent id** (`pi_…`) of the
 --                         charge-funded payment, resolved via
 --                         sessions.booking_id → payments.booking_id.
@@ -124,31 +124,40 @@ DECLARE
   v_skipped     bigint := 0;
   v_released    bigint := 0;
 BEGIN
-  -- Dormancy / fail-closed cutover read: same parsing as the claim function
-  -- (connect_sweep_claim_eligible) so the two can never disagree on the
-  -- partition boundary. Unset/blank/corrupt ⇒ materialize nothing (FR-021).
+  -- Dormancy vs misconfiguration (CodeRabbit review):
+  --   * UNSET/blank cutover = the system is DORMANT (FR-021) → silent zeros;
+  --     the webhook path calls this on every refund pre-cutover, so dormancy
+  --     must never raise.
+  --   * ARMED but corrupt (bad format, impossible date, blank agreement
+  --     version) = a configuration BUG → RAISE, so the sweep logs it every run
+  --     and a webhook event fails-and-redelivers loudly, instead of the
+  --     stalled queue masquerading as a normal empty run.
+  -- The boundary parse (regex + ::date + UTC midnight) matches the claim
+  -- function so the two can never disagree on the partition.
   SELECT value INTO v_cutover_txt FROM platform_settings WHERE key = 'connect_cutover_date';
-  IF v_cutover_txt IS NULL OR btrim(v_cutover_txt) = ''
-     OR btrim(v_cutover_txt) !~ '^\d{4}-\d{2}-\d{2}$' THEN
+  IF v_cutover_txt IS NULL OR btrim(v_cutover_txt) = '' THEN
     RETURN QUERY SELECT 0::bigint, 0::bigint, 0::bigint, 0::bigint;
     RETURN;
   END IF;
-  -- The regex admits impossible dates (2026-02-31); the cast would RAISE and
-  -- abort the caller (sweep run / refund webhook) instead of the documented
-  -- fail-closed empty result. Trap it (review P3).
+  IF btrim(v_cutover_txt) !~ '^\d{4}-\d{2}-\d{2}$' THEN
+    RAISE EXCEPTION 'connect materialization: connect_cutover_date is set but not YYYY-MM-DD (%). Fix platform_settings.', v_cutover_txt
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
   BEGIN
     v_cutover_ts := (btrim(v_cutover_txt)::date)::timestamp AT TIME ZONE 'UTC';
   EXCEPTION WHEN others THEN
-    RETURN QUERY SELECT 0::bigint, 0::bigint, 0::bigint, 0::bigint;
-    RETURN;
+    -- Regex-passing impossible date (2026-02-31): still a config bug.
+    RAISE EXCEPTION 'connect materialization: connect_cutover_date is not a real date (%). Fix platform_settings.', v_cutover_txt
+      USING ERRCODE = 'invalid_parameter_value';
   END;
 
-  -- Fail closed on a missing/blank current version: every entry must be
-  -- STAMPED at materialization (FR-030a) — inserting unstamped is not an option.
+  -- The system is ARMED past this point: a missing/blank current version is a
+  -- config bug, not an idle run — every entry must be STAMPED (FR-030a) and
+  -- inserting unstamped is not an option, so refuse loudly.
   SELECT value INTO v_version FROM platform_settings WHERE key = 'teacher_agreement_current_version';
   IF v_version IS NULL OR btrim(v_version) = '' THEN
-    RETURN QUERY SELECT 0::bigint, 0::bigint, 0::bigint, 0::bigint;
-    RETURN;
+    RAISE EXCEPTION 'connect materialization: teacher_agreement_current_version is missing/blank while connect_cutover_date is armed. Fix platform_settings.'
+      USING ERRCODE = 'invalid_parameter_value';
   END IF;
   v_version := btrim(v_version);
 
