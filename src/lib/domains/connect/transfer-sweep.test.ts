@@ -65,6 +65,24 @@ class FakeStore implements SweepStore {
   holdDays = 14;
   cutoverDate: Date | null = new Date("2026-01-01T00:00:00Z");
 
+  // Step 0 (materialization) knobs: what the RPC would report, whether it
+  // should crash, and an order probe (claim must run after materialize).
+  materializeResult = {
+    insertedPending: 0,
+    insertedHeld: 0,
+    skippedInvalidAmount: 0,
+    releasedStuckHolds: 0,
+  };
+  materializeError: Error | null = null;
+  materializeCalls = 0;
+  claimCalledBeforeMaterialize = false;
+
+  async materializeSessionEarnings() {
+    this.materializeCalls += 1;
+    if (this.materializeError) throw this.materializeError;
+    return this.materializeResult;
+  }
+
   seedTeacher(id: string, s: Partial<TeacherState> = {}): void {
     this.teachers.set(id, {
       outstandingDebtCents: 0,
@@ -118,6 +136,7 @@ class FakeStore implements SweepStore {
   }
 
   async claimEligibleEntries(now: Date): Promise<ClaimedEntry[]> {
+    if (this.materializeCalls === 0) this.claimCalledBeforeMaterialize = true;
     const claimed: ClaimedEntry[] = [];
     for (const entry of this.entries.values()) {
       if (entry.status !== "pending") continue;
@@ -263,6 +282,56 @@ describe("runTransferSweep", () => {
       { amount: 5000, currency: "usd", destination: "acct_x", transfer_group: "tg_charge_1" },
       { idempotencyKey: "transfer:e1" },
     );
+  });
+
+  describe("materialization step 0 (spec 040 wiring slice)", () => {
+    it("runs materialization BEFORE the claim and reports the derived count", async () => {
+      store.materializeResult = {
+        insertedPending: 2,
+        insertedHeld: 1,
+        skippedInvalidAmount: 0,
+        releasedStuckHolds: 0,
+      };
+      const r = await runTransferSweep({ store, stripe, now: NOW });
+      expect(store.materializeCalls).toBe(1);
+      expect(store.claimCalledBeforeMaterialize).toBe(false);
+      expect(r.materialized).toBe(3);
+      expect(r.materializationFailed).toBe(false);
+    });
+
+    it("a materialization crash is isolated: logged, flagged, and the run still settles existing entries", async () => {
+      const logError = vi.fn();
+      store.materializeError = new Error("db down");
+      store.seedTeacher("t1");
+      store.seedEntry({ entryId: "e1", teacherId: "t1", amountCents: 5000 });
+
+      const r = await runTransferSweep({ store, stripe, now: NOW, logError });
+
+      expect(r.materializationFailed).toBe(true);
+      expect(r.materialized).toBe(0);
+      expect(r.transferred).toBe(1); // pre-existing entry still paid
+      expect(logError).toHaveBeenCalledWith(
+        expect.stringContaining("materialization failed"),
+        store.materializeError,
+        expect.anything(),
+      );
+    });
+
+    it("skipped invalid-amount deliveries are surfaced loudly via logError (never a silent $0)", async () => {
+      const logError = vi.fn();
+      store.materializeResult = {
+        insertedPending: 0,
+        insertedHeld: 0,
+        skippedInvalidAmount: 2,
+        releasedStuckHolds: 0,
+      };
+      await runTransferSweep({ store, stripe, now: NOW, logError });
+      expect(logError).toHaveBeenCalledWith(
+        expect.stringContaining("invalid derived amount"),
+        expect.any(Error),
+        expect.objectContaining({ metadata: { skippedInvalidAmount: 2 } }),
+      );
+    });
   });
 
   describe("eligibility negatives — each produces no transfer and leaves the entry pending", () => {

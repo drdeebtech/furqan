@@ -96,6 +96,13 @@ export interface ClaimedEntry {
  * ⇒ the caller must perform no side effect and not count the entry.
  */
 export interface SweepStore {
+  /**
+   * Step 0: derive kind='session' ledger rows from post-cutover
+   * session_deliveries (idempotent SQL — one entry per delivery, agreement
+   * gate → pending/held, stamped version, funding ref). Runs before the claim
+   * so this run can pay what this run derived (hold window permitting).
+   */
+  materializeSessionEarnings(): Promise<MaterializationCounts>;
   /** Step 6 crash recovery: expired-lease `processing` rows → `pending`. Count. */
   reclaimExpiredLeases(leaseCutoff: Date): Promise<number>;
   /** Step 1: the atomic claim — lease eligible `pending` rows, return them. */
@@ -148,6 +155,19 @@ export interface StripeTransfersApi {
   };
 }
 
+/** What one materialization pass inserted (and loudly skipped). */
+export interface MaterializationCounts {
+  insertedPending: number;
+  insertedHeld: number;
+  /** Post-cutover deliveries whose derived amount was not a positive integer
+   *  (rate snapshotted 0 / rounds to 0 cents). A data bug — logged loudly,
+   *  never a silent $0 and never allowed to poison the batch. */
+  skippedInvalidAmount: number;
+  /** held/agreement_pending entries self-healed because the teacher HAS
+   *  accepted the stamped version (commit-order race or version bump). */
+  releasedStuckHolds: number;
+}
+
 export interface SweepDeps {
   store: SweepStore;
   stripe: StripeTransfersApi;
@@ -168,6 +188,11 @@ export interface SweepDeps {
 }
 
 export interface SweepResult {
+  /** Entries derived from deliveries this run (pending + held). */
+  materialized: number;
+  /** True when the materialization step threw — the run continued with
+   *  already-materialized entries; the error went to logError. */
+  materializationFailed: boolean;
   reclaimed: number;
   claimed: number;
   transferred: number;
@@ -250,6 +275,8 @@ export async function runTransferSweep(deps: SweepDeps): Promise<SweepResult> {
   const logError = deps.logError ?? defaultLogError;
 
   const result: SweepResult = {
+    materialized: 0,
+    materializationFailed: false,
     reclaimed: 0,
     claimed: 0,
     transferred: 0,
@@ -258,6 +285,26 @@ export async function runTransferSweep(deps: SweepDeps): Promise<SweepResult> {
     failed: 0,
     abandoned: 0,
   };
+
+  // Step 0: materialize new entries from delivered sessions. A failure here
+  // must not stop the run — already-materialized entries can still settle, and
+  // the next run (or the webhook path) retries the idempotent derivation.
+  try {
+    const counts = await store.materializeSessionEarnings();
+    result.materialized = counts.insertedPending + counts.insertedHeld;
+    if (counts.skippedInvalidAmount > 0) {
+      logError(
+        "transfer-sweep: deliveries skipped with invalid derived amount (data bug — fix the delivery rows)",
+        new Error(`skipped_invalid_amount=${counts.skippedInvalidAmount}`),
+        { tag: "connect", metadata: { skippedInvalidAmount: counts.skippedInvalidAmount } },
+      );
+    }
+  } catch (error) {
+    result.materializationFailed = true;
+    logError("transfer-sweep: materialization failed (continuing with existing entries)", error, {
+      tag: "connect",
+    });
+  }
 
   // Step 6: return orphaned leases to `pending` before claiming, so a crashed
   // prior run's entries become eligible again this run.

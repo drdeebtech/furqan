@@ -23,6 +23,7 @@ import {
   applyChargeClawbacks,
   disputeChargeId,
   holdDisputedEntries,
+  paymentIntentIdOf,
 } from "@/lib/domains/connect/clawback";
 import { emitEvent } from "@/lib/automation/emit";
 import { getPostHogClient } from "@/lib/posthog-server";
@@ -990,6 +991,7 @@ export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
     try {
       await applyChargeClawbacks(ctx, {
         chargeId: charge.id,
+        paymentIntentId: paymentIntentIdOf(charge.payment_intent),
         sourceReferenceId: refund.id,
         reclaimedCents: refund.amount,
         chargeAmountCents: charge.amount,
@@ -1039,9 +1041,12 @@ export async function handleChargeDisputed(ctx: EventContext): Promise<void> {
   }
 
   const disputedChargeId = disputeChargeId(dispute);
-  if (disputedChargeId) {
+  const disputedPaymentIntentId = paymentIntentIdOf(dispute.payment_intent);
+  // Entries stamp pi_ refs (materialization migration 20260809), so a dispute
+  // resolving ONLY a payment_intent must still place the hold (review P3).
+  if (disputedChargeId || disputedPaymentIntentId) {
     try {
-      await holdDisputedEntries(ctx, disputedChargeId, dispute.id);
+      await holdDisputedEntries(ctx, disputedChargeId, disputedPaymentIntentId, dispute.id);
     } catch (err) {
       // RETHROW — same money-path rule as the refund clawback above: the
       // dispatch catch marks failed + 500 so Stripe redelivers the hold.

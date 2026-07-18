@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { callRpc } from "@/lib/supabase/rpc";
 import type {
   ClaimedEntry,
+  MaterializationCounts,
   PayoutMethod,
   SweepStore,
 } from "./transfer-sweep";
@@ -33,6 +34,18 @@ type AdminClient = ReturnType<typeof createAdminClient>;
  */
 export class ConnectSweepStore implements SweepStore {
   constructor(private readonly admin: AdminClient) {}
+
+  async materializeSessionEarnings(): Promise<MaterializationCounts> {
+    const { data, error } = await callRpc(this.admin, "connect_materialize_session_earnings", {});
+    if (error) throw sweepRpcError("materializeSessionEarnings", error);
+    const row = (data ?? [])[0];
+    return {
+      insertedPending: row?.inserted_pending ?? 0,
+      insertedHeld: row?.inserted_held ?? 0,
+      skippedInvalidAmount: row?.skipped_invalid_amount ?? 0,
+      releasedStuckHolds: row?.released_stuck_holds ?? 0,
+    };
+  }
 
   async reclaimExpiredLeases(leaseCutoff: Date): Promise<number> {
     const { data, error } = await callRpc(this.admin, "connect_sweep_reclaim_expired_leases", {

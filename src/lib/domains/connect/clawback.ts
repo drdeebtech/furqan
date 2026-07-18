@@ -32,8 +32,15 @@ import { MIXPANEL_EVENTS, trackMixpanel } from "@/lib/mixpanel-server";
 import { logError } from "@/lib/logger";
 
 export interface ChargeClawbackInput {
-  /** Stripe charge id the entries were funded by (funding_charge_id). */
+  /** Stripe charge id (`ch_…`) of the refunded/disputed charge. */
   chargeId: string;
+  /**
+   * The charge's PaymentIntent id (`pi_…`), when present. Entries stamp
+   * `funding_charge_id` from `payments.stripe_payment_intent` (the DB never
+   * stores a `ch_…` id — materialization migration 20260809), so matching must
+   * try BOTH identifiers.
+   */
+  paymentIntentId: string | null;
   /** Stripe refund (re_*) or dispute (dp_*) id — the per-source idempotency key. */
   sourceReferenceId: string;
   /** This refund's own amount (NOT cumulative), or dispute.amount. Cents. */
@@ -86,14 +93,15 @@ export async function applyChargeClawbacks(
     return result;
   }
 
-  const { data, error } = await callRpc(ctx.admin, "connect_clawback_list_entries", {
-    p_funding_charge_id: input.chargeId,
-    p_source_reference_id: input.sourceReferenceId,
-  });
-  if (error) {
-    throw new Error(`clawback: list entries failed for ${input.chargeId}: ${error.message}`);
-  }
-  const rows = (data as ClawbackEntryRow[] | null) ?? [];
+  // Materialize first: a refund landing between delivery and the first sweep
+  // must still find its entry (idempotent, cheap when there is nothing to do).
+  await materializeLinkedEntries(ctx);
+
+  const rows = await listEntriesForRefs(
+    ctx,
+    fundingRefs(input.chargeId, input.paymentIntentId),
+    input.sourceReferenceId,
+  );
 
   for (const row of rows) {
     // A source we have never touched with an exhausted cap has nothing left.
@@ -264,25 +272,73 @@ function emitClawbackEvent(
   }
 }
 
+/** Candidate funding_charge_id values for one charge, deduped, no nulls. */
+function fundingRefs(chargeId: string | null, paymentIntentId: string | null): string[] {
+  return [...new Set([chargeId, paymentIntentId].filter((r): r is string => Boolean(r)))];
+}
+
+/** Run the idempotent materialization so webhook matching never races the
+ *  first sweep. Throws on failure — the event fails and redelivers. */
+async function materializeLinkedEntries(ctx: EventContext): Promise<void> {
+  const { error } = await callRpc(ctx.admin, "connect_materialize_session_earnings", {});
+  if (error) {
+    throw new Error(`clawback: materialization failed: ${error.message}`);
+  }
+}
+
+/** List this source's entries across every candidate funding ref. An entry
+ *  stores exactly one ref, so the per-ref result sets are disjoint; the id
+ *  dedupe is belt-and-braces. */
+async function listEntriesForRefs(
+  ctx: EventContext,
+  refs: string[],
+  sourceReferenceId: string,
+): Promise<ClawbackEntryRow[]> {
+  const seen = new Set<string>();
+  const rows: ClawbackEntryRow[] = [];
+  for (const ref of refs) {
+    const { data, error } = await callRpc(ctx.admin, "connect_clawback_list_entries", {
+      p_funding_charge_id: ref,
+      p_source_reference_id: sourceReferenceId,
+    });
+    if (error) {
+      throw new Error(`clawback: list entries failed for ${ref}: ${error.message}`);
+    }
+    for (const row of (data as ClawbackEntryRow[] | null) ?? []) {
+      if (seen.has(row.entry_id)) continue;
+      seen.add(row.entry_id);
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
 /**
  * FR-015: move every pending/manual_due entry funded by the disputed charge
  * to held (`dispute:{id}`), and place a teacher-level payout_holds row so a
  * processing entry falling back to pending mid-dispute stays unclaimable.
+ * Matching tries every candidate funding ref (charge id + payment intent id).
  * Idempotent; throws on RPC failure (event retries).
  */
 export async function holdDisputedEntries(
   ctx: EventContext,
-  chargeId: string,
+  chargeId: string | null,
+  paymentIntentId: string | null,
   disputeId: string,
 ): Promise<number> {
-  const { data, error } = await callRpc(ctx.admin, "connect_dispute_hold", {
-    p_funding_charge_id: chargeId,
-    p_dispute_id: disputeId,
-  });
-  if (error) {
-    throw new Error(`clawback: dispute hold failed for ${disputeId}: ${error.message}`);
+  await materializeLinkedEntries(ctx);
+  let held = 0;
+  for (const ref of fundingRefs(chargeId, paymentIntentId)) {
+    const { data, error } = await callRpc(ctx.admin, "connect_dispute_hold", {
+      p_funding_charge_id: ref,
+      p_dispute_id: disputeId,
+    });
+    if (error) {
+      throw new Error(`clawback: dispute hold failed for ${disputeId}: ${error.message}`);
+    }
+    held += typeof data === "number" ? data : 0;
   }
-  return typeof data === "number" ? data : 0;
+  return held;
 }
 
 /** FR-015: release this dispute's own holds back to pending (won / closed-clean). */
@@ -303,4 +359,12 @@ export async function releaseDisputedEntries(
 export function disputeChargeId(dispute: Stripe.Dispute): string | null {
   if (typeof dispute.charge === "string") return dispute.charge;
   return dispute.charge?.id ?? null;
+}
+
+/** Resolve a payment_intent reference (string or expanded object) to its id. */
+export function paymentIntentIdOf(
+  paymentIntent: string | { id: string } | null | undefined,
+): string | null {
+  if (typeof paymentIntent === "string") return paymentIntent;
+  return paymentIntent?.id ?? null;
 }

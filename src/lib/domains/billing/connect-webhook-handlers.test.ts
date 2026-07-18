@@ -29,6 +29,8 @@ vi.mock("@/lib/domains/connect/clawback", () => ({
   }),
   disputeChargeId: (d: { charge?: unknown }) =>
     typeof d.charge === "string" ? d.charge : null,
+  paymentIntentIdOf: (pi: unknown) =>
+    typeof pi === "string" ? pi : ((pi as { id?: string } | null)?.id ?? null),
 }));
 import { applyChargeClawbacks, releaseDisputedEntries } from "@/lib/domains/connect/clawback";
 
@@ -293,6 +295,7 @@ describe("handleChargeDisputeClosed (spec 040 FR-015)", () => {
     expect(chargesRetrieve).toHaveBeenCalledWith("ch_1");
     expect(applyChargeClawbacks).toHaveBeenCalledWith(ctx, {
       chargeId: "ch_1",
+      paymentIntentId: null,
       sourceReferenceId: "dp_3",
       reclaimedCents: 7_500,
       chargeAmountCents: 10_000,
@@ -301,6 +304,29 @@ describe("handleChargeDisputeClosed (spec 040 FR-015)", () => {
     // Order is load-bearing: claw while held, release the residue after.
     expect(clawbackCalls).toEqual(["claw", "release"]);
     expect(marked).toEqual(["processed"]);
+  });
+
+  it("lost: the retrieved charge's payment_intent reaches the clawback as a funding ref", async () => {
+    vi.mocked(applyChargeClawbacks).mockClear();
+    const { ctx } = makeCtx({
+      type: "charge.dispute.closed",
+      data: { object: { id: "dp_pi", currency: "usd", charge: "ch_1", status: "lost", amount: 1_000 } },
+    });
+    const chargesRetrieve = vi.fn(async () => ({
+      id: "ch_1",
+      amount: 10_000,
+      payment_intent: "pi_x",
+    }));
+    (ctx.stripe as unknown as { charges: { retrieve: typeof chargesRetrieve } }).charges = {
+      retrieve: chargesRetrieve,
+    };
+
+    await handleChargeDisputeClosed(ctx);
+
+    expect(applyChargeClawbacks).toHaveBeenCalledWith(
+      ctx,
+      expect.objectContaining({ chargeId: "ch_1", paymentIntentId: "pi_x" }),
+    );
   });
 
   it("unexpected status keeps the holds (fail-safe) and surfaces to ops", async () => {

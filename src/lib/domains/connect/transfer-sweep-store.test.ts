@@ -30,6 +30,43 @@ describe("ConnectSweepStore — RPC mapping", () => {
     });
   });
 
+  it("materializeSessionEarnings → connect_materialize_session_earnings, maps the counts row", async () => {
+    const { admin, rpc } = makeAdmin({
+      data: [
+        { inserted_pending: 2, inserted_held: 1, skipped_invalid_amount: 4, released_stuck_holds: 1 },
+      ],
+      error: null,
+    });
+    const store = new ConnectSweepStore(admin);
+
+    const counts = await store.materializeSessionEarnings();
+
+    expect(rpc).toHaveBeenCalledWith("connect_materialize_session_earnings", {});
+    expect(counts).toEqual({
+      insertedPending: 2,
+      insertedHeld: 1,
+      skippedInvalidAmount: 4,
+      releasedStuckHolds: 1,
+    });
+  });
+
+  it("materializeSessionEarnings coerces a missing row to zeros and THROWS on rpc error", async () => {
+    const empty = new ConnectSweepStore(makeAdmin({ data: [], error: null }).admin);
+    expect(await empty.materializeSessionEarnings()).toEqual({
+      insertedPending: 0,
+      insertedHeld: 0,
+      skippedInvalidAmount: 0,
+      releasedStuckHolds: 0,
+    });
+
+    const failing = new ConnectSweepStore(
+      makeAdmin({ data: null, error: { message: "boom", code: "XX000" } }).admin,
+    );
+    await expect(failing.materializeSessionEarnings()).rejects.toThrow(
+      /materializeSessionEarnings: rpc failed/,
+    );
+  });
+
   it("reclaimExpiredLeases coerces a null count to 0", async () => {
     const { admin } = makeAdmin({ data: null, error: null });
     const store = new ConnectSweepStore(admin);

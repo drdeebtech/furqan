@@ -21,6 +21,7 @@ import {
 import {
   applyChargeClawbacks,
   disputeChargeId,
+  paymentIntentIdOf,
   releaseDisputedEntries,
 } from "@/lib/domains/connect/clawback";
 import { markEvent, type EventContext } from "./webhook-handlers";
@@ -192,6 +193,7 @@ export async function handleChargeDisputeClosed(ctx: EventContext): Promise<void
     const charge = await ctx.stripe.charges.retrieve(chargeId);
     await applyChargeClawbacks(ctx, {
       chargeId,
+      paymentIntentId: paymentIntentIdOf(charge.payment_intent),
       sourceReferenceId: dispute.id,
       reclaimedCents: dispute.amount,
       chargeAmountCents: charge.amount,

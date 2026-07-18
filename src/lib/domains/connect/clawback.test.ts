@@ -72,6 +72,7 @@ function makeCtx() {
 
 const BASE_INPUT = {
   chargeId: "ch_1",
+  paymentIntentId: null,
   sourceReferenceId: "re_1",
   reclaimedCents: 2_500,
   chargeAmountCents: 10_000,
@@ -157,7 +158,10 @@ describe("applyChargeClawbacks — unsettled entries (FR-013 → FR-014 netting)
 
     const result = await applyChargeClawbacks(ctx, BASE_INPUT);
 
-    expect(rpcCalls.map((c) => c.name)).toEqual(["connect_clawback_list_entries"]);
+    expect(rpcCalls.map((c) => c.name)).toEqual([
+      "connect_materialize_session_earnings",
+      "connect_clawback_list_entries",
+    ]);
     expect(result.entriesTouched).toBe(0);
   });
 
@@ -171,7 +175,10 @@ describe("applyChargeClawbacks — unsettled entries (FR-013 → FR-014 netting)
 
     const result = await applyChargeClawbacks(ctx, BASE_INPUT);
 
-    expect(rpcCalls.map((c) => c.name)).toEqual(["connect_clawback_list_entries"]);
+    expect(rpcCalls.map((c) => c.name)).toEqual([
+      "connect_materialize_session_earnings",
+      "connect_clawback_list_entries",
+    ]);
     expect(result.entriesTouched).toBe(0);
   });
 });
@@ -191,11 +198,12 @@ describe("applyChargeClawbacks — settled entries (reserve → Stripe → confi
     const names = rpcCalls.map((c) => c.name);
     // reserve strictly precedes the Stripe call's confirm
     expect(names).toEqual([
+      "connect_materialize_session_earnings",
       "connect_clawback_list_entries",
       "connect_clawback_reserve_reversal",
       "connect_clawback_confirm_reversal",
     ]);
-    const reserve = rpcCalls[1];
+    const reserve = rpcCalls[2];
     expect(reserve.args).toEqual({
       p_entry_id: "e1",
       p_source_reference_id: "re_1",
@@ -208,7 +216,7 @@ describe("applyChargeClawbacks — settled entries (reserve → Stripe → confi
       expect.objectContaining({ amount: 1_250 }),
       { idempotencyKey: "reversal:re_1:tr_1" },
     );
-    expect(rpcCalls[2].args).toEqual({
+    expect(rpcCalls[3].args).toEqual({
       p_idempotency_key: "reversal:re_1:tr_1",
       p_stripe_reversal_id: "trr_1",
     });
@@ -226,8 +234,8 @@ describe("applyChargeClawbacks — settled entries (reserve → Stripe → confi
 
     const result = await applyChargeClawbacks(ctx, BASE_INPUT); // C = 1250 → 800 + 450
 
-    expect(rpcCalls[1].args.p_reversed_cents).toBe(800);
-    expect(rpcCalls[1].args.p_shortfall_cents).toBe(450);
+    expect(rpcCalls[2].args.p_reversed_cents).toBe(800);
+    expect(rpcCalls[2].args.p_shortfall_cents).toBe(450);
     expect(createReversal).toHaveBeenCalledWith(
       "tr_1",
       expect.objectContaining({ amount: 800 }),
@@ -268,7 +276,7 @@ describe("applyChargeClawbacks — settled entries (reserve → Stripe → confi
     const result = await applyChargeClawbacks(ctx, BASE_INPUT);
 
     expect(retrieve).not.toHaveBeenCalled(); // no re-planning — DB amounts are authoritative
-    expect(rpcCalls[1].args.p_reversed_cents).toBe(0); // plan inputs unused on resume
+    expect(rpcCalls[2].args.p_reversed_cents).toBe(0); // plan inputs unused on resume
     expect(createReversal).toHaveBeenCalledWith(
       "tr_1",
       expect.objectContaining({ amount: 1_250 }),
@@ -322,7 +330,7 @@ describe("applyChargeClawbacks — guards and emission", () => {
 
     const zero = await applyChargeClawbacks(ctx, { ...BASE_INPUT, reclaimedCents: 0 });
     expect(zero.entriesTouched).toBe(0);
-    expect(rpcCalls).toHaveLength(0); // guard fires before the list RPC
+    expect(rpcCalls).toHaveLength(0); // guard fires before ANY RPC (incl. materialize)
 
     const unlinked = await applyChargeClawbacks(ctx, BASE_INPUT);
     expect(unlinked.entriesTouched).toBe(0);
@@ -353,18 +361,68 @@ describe("applyChargeClawbacks — guards and emission", () => {
   });
 });
 
+describe("applyChargeClawbacks — materialization + funding-ref matching", () => {
+  it("materializes before listing, and lists BOTH refs when a payment intent id is present", async () => {
+    const { ctx } = makeCtx();
+    seedList([{ entry_id: "e1", amount_cents: 5_000, remaining_cap_cents: 5_000 }]);
+
+    await applyChargeClawbacks(ctx, { ...BASE_INPUT, paymentIntentId: "pi_1" });
+
+    expect(rpcCalls[0]!.name).toBe("connect_materialize_session_earnings");
+    const lists = rpcCalls.filter((c) => c.name === "connect_clawback_list_entries");
+    expect(lists.map((c) => c.args.p_funding_charge_id)).toEqual(["ch_1", "pi_1"]);
+    // same entry returned by both listings is processed exactly ONCE
+    const applies = rpcCalls.filter((c) => c.name === "connect_clawback_apply");
+    expect(applies).toHaveLength(1);
+  });
+
+  it("throws when materialization fails (event fails → Stripe redelivers)", async () => {
+    const { ctx } = makeCtx();
+    rpcResults.set("connect_materialize_session_earnings", {
+      data: null,
+      error: { message: "db down" },
+    });
+    await expect(applyChargeClawbacks(ctx, BASE_INPUT)).rejects.toThrow(/materialization failed/);
+  });
+});
+
 describe("dispute hold / release (FR-015)", () => {
   it("holdDisputedEntries passes charge + dispute ids and returns the count", async () => {
     const { ctx } = makeCtx();
     rpcResults.set("connect_dispute_hold", { data: 3, error: null });
 
-    const held = await holdDisputedEntries(ctx, "ch_1", "dp_1");
+    const held = await holdDisputedEntries(ctx, "ch_1", null, "dp_1");
 
-    expect(rpcCalls[0]).toEqual({
-      name: "connect_dispute_hold",
-      args: { p_funding_charge_id: "ch_1", p_dispute_id: "dp_1" },
-    });
+    // Materialization runs FIRST so a dispute racing the first sweep still
+    // finds its entries; the hold RPC follows.
+    expect(rpcCalls.map((c) => c.name)).toEqual([
+      "connect_materialize_session_earnings",
+      "connect_dispute_hold",
+    ]);
+    expect(rpcCalls[1]!.args).toEqual({ p_funding_charge_id: "ch_1", p_dispute_id: "dp_1" });
     expect(held).toBe(3);
+  });
+
+  it("holdDisputedEntries tries BOTH funding refs (charge id + payment intent id) and sums", async () => {
+    const { ctx } = makeCtx();
+    rpcResults.set("connect_dispute_hold", { data: 2, error: null });
+
+    const held = await holdDisputedEntries(ctx, "ch_1", "pi_1", "dp_1");
+
+    const holdCalls = rpcCalls.filter((c) => c.name === "connect_dispute_hold");
+    expect(holdCalls.map((c) => c.args.p_funding_charge_id)).toEqual(["ch_1", "pi_1"]);
+    expect(held).toBe(4);
+  });
+
+  it("holdDisputedEntries throws when materialization fails (event retries)", async () => {
+    const { ctx } = makeCtx();
+    rpcResults.set("connect_materialize_session_earnings", {
+      data: null,
+      error: { message: "db down" },
+    });
+    await expect(holdDisputedEntries(ctx, "ch_1", null, "dp_1")).rejects.toThrow(
+      /materialization failed/,
+    );
   });
 
   it("releaseDisputedEntries passes the dispute id; both throw on RPC failure", async () => {
@@ -375,6 +433,6 @@ describe("dispute hold / release (FR-015)", () => {
     rpcResults.set("connect_dispute_release", { data: null, error: { message: "down" } });
     await expect(releaseDisputedEntries(ctx, "dp_1")).rejects.toThrow(/release failed/);
     rpcResults.set("connect_dispute_hold", { data: null, error: { message: "down" } });
-    await expect(holdDisputedEntries(ctx, "ch_1", "dp_1")).rejects.toThrow(/hold failed/);
+    await expect(holdDisputedEntries(ctx, "ch_1", null, "dp_1")).rejects.toThrow(/hold failed/);
   });
 });
