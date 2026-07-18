@@ -266,22 +266,21 @@ describe("handlePrepaidHoursGrant (spec 038 Phase 3)", () => {
   });
 
   // ── Grant failure surfaces loudly (fail-closed retry) ──────────────────────
-  it("marks 'failed' when the RPC errors (Stripe will retry, billing_events dedups)", async () => {
+  it("THROWS when the RPC errors (dispatch marks failed + 500 so Stripe truly retries)", async () => {
     const admin = makeAdmin({ grantError: { message: "db down" } });
     const ctx = makeCtx(admin, { amount_received: 10000 });
 
-    await handlePrepaidHoursGrant(ctx);
-
-    // RPC was attempted; event marked failed so Stripe retries the webhook.
+    // Phase 5 security pass P1: the old markEvent(failed)+return answered 200,
+    // which dead-ended the event — Stripe only redelivers on non-2xx.
+    await expect(handlePrepaidHoursGrant(ctx)).rejects.toThrow("db down");
     expect(admin.rpc).toHaveBeenCalledTimes(1);
   });
 
-  it("marks 'failed' when grant_prepaid_hours returns no id", async () => {
+  it("THROWS when grant_prepaid_hours returns no id", async () => {
     const admin = makeAdmin({ grantLotId: null });
     const ctx = makeCtx(admin, { amount_received: 10000 });
 
-    await handlePrepaidHoursGrant(ctx);
-
+    await expect(handlePrepaidHoursGrant(ctx)).rejects.toThrow(/returned no id/);
     expect(admin.rpc).toHaveBeenCalledTimes(1);
   });
 });

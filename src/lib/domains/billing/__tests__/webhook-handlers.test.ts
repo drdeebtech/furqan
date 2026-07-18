@@ -267,19 +267,24 @@ describe("handleInvoicePaid", () => {
       data: opts.plan === undefined ? { id: "plan-1", monthly_credit_count: 4, price_cents: 4000, session_metadata: {}, is_hifz_product: false } : opts.plan,
       error: null,
     });
+    // A RESOLVABLE mirror (student_id + plan_id) — the old shape returned the
+    // plan row for subscriptions reads, so resolveSubscription always failed
+    // and the "happy path" test never actually reached the grant step.
     const mirrorMaybe = vi.fn().mockResolvedValue({
-      data: opts.mirror === undefined ? { id: "mirror-1", student_id: "stu-1" } : opts.mirror,
+      data: opts.mirror === undefined ? { id: "mirror-1", student_id: "stu-1", plan_id: "plan-1" } : opts.mirror,
       error: null,
     });
-    const eq = vi.fn(() => ({ maybeSingle: planMaybe }));
-    const select = vi.fn(() => ({ eq }));
+    const planEq = vi.fn(() => ({ maybeSingle: planMaybe }));
+    const planSelect = vi.fn(() => ({ eq: planEq }));
+    const subEq = vi.fn(() => ({ maybeSingle: mirrorMaybe }));
+    const subSelect = vi.fn(() => ({ eq: subEq }));
     const upsertEq = vi.fn(() => ({ maybeSingle: mirrorMaybe, select: vi.fn(() => ({ maybeSingle: mirrorMaybe })) }));
     const upsert = vi.fn(() => ({ eq: upsertEq }));
     return {
       from: vi.fn((table: string) => {
         if (table === "billing_events") return { update };
-        if (table === "subscriptions") return { select, upsert };
-        return { select };
+        if (table === "subscriptions") return { select: subSelect, upsert };
+        return { select: planSelect };
       }),
     };
   }
@@ -391,19 +396,19 @@ describe("handleInvoicePaid", () => {
       expect(beUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: "processed" }));
     });
 
-    it("marks the event failed when the delta grant fails (Stripe will retry)", async () => {
+    it("THROWS when the delta grant fails (dispatch marks failed + 500 so Stripe truly retries)", async () => {
       vi.mocked(applyImmediateUpgradeGrant).mockResolvedValue({
         ok: false,
         reason: "update_failed",
         error: "rpc down",
       } as never);
-      const { admin, beUpdate } = makeUpgradeAdmin();
+      const { admin } = makeUpgradeAdmin();
       const ctx = makeEventCtx(admin, "evt-1", invoiceObject({ billing_reason: "subscription_update" }));
 
-      await handleInvoicePaid(ctx);
-
+      // Phase 5 security pass P1: markEvent(failed)+return answered 200 and
+      // dead-ended the event (Stripe only redelivers on non-2xx).
+      await expect(handleInvoicePaid(ctx)).rejects.toThrow(/immediate upgrade grant failed/);
       expect(grantCycle).not.toHaveBeenCalled();
-      expect(beUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: "failed" }));
     });
 
     it("leaves normal cycle invoices on the full-grant path (regression)", async () => {
@@ -411,8 +416,9 @@ describe("handleInvoicePaid", () => {
       const { admin } = makeUpgradeAdmin();
       const ctx = makeEventCtx(admin, "evt-1", invoiceObject({ billing_reason: "subscription_cycle" }));
 
-      await handleInvoicePaid(ctx);
-
+      // The failing stubbed grant now THROWS (transient posture) — the routing
+      // is still what this regression pins: full grantCycle, no upgrade grant.
+      await expect(handleInvoicePaid(ctx)).rejects.toThrow("stub");
       expect(applyImmediateUpgradeGrant).not.toHaveBeenCalled();
       expect(grantCycle).toHaveBeenCalled();
     });
@@ -427,6 +433,7 @@ describe("handleInvoicePaid", () => {
     // we assert the handler doesn't throw on a well-formed invoice and reaches
     // the grant step (grantCycle is mocked at the module boundary).
     await expect(handleInvoicePaid(ctx)).resolves.toBeUndefined();
+    expect(grantCycle).toHaveBeenCalled();
   });
 });
 
