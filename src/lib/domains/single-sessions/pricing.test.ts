@@ -90,14 +90,19 @@ describe("single-session pricing (spec 022 / T014)", () => {
     expect(await getAssessmentPrice()).toBe(0);
   });
 
-  it("treats invalid (non-numeric) values as free (fail-safe, not fail-closed)", async () => {
+  it("throws on a configured non-numeric value (fail-closed — never silently free)", async () => {
     mockGetSetting.mockResolvedValueOnce("not-a-number");
-    expect(await getAssessmentPrice()).toBe(0);
+    await expect(getAssessmentPrice()).rejects.toThrow(/corrupt/);
   });
 
-  it("clamps negative prices to 0 (never refund-on-creation)", async () => {
+  it("throws on a configured empty-string value (fail-closed)", async () => {
+    mockGetSetting.mockResolvedValueOnce("  ");
+    await expect(getAssessmentPrice()).rejects.toThrow(/corrupt/);
+  });
+
+  it("throws on a configured negative price (fail-closed — never refund-on-creation)", async () => {
     mockGetSetting.mockResolvedValueOnce("-5.00");
-    expect(await getInstantPrice()).toBe(0);
+    await expect(getInstantPrice()).rejects.toThrow(/corrupt/);
   });
 
   it("throws on an unknown specialized purpose (defense in depth)", async () => {

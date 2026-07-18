@@ -22,12 +22,14 @@
 | `STRIPE_SECRET_KEY` | Stripe payments (deferred) |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe client (deferred) |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook (deferred) |
+| `STRIPE_CONNECT_WEBHOOK_SECRET` | Stripe Connect webhook — connected-account events (spec 040 Phase 3; set at Phase 6 go-live) |
 | `SENTRY_DSN` | Sentry server/edge ingest (DE region) |
 | `NEXT_PUBLIC_SENTRY_DSN` | Sentry browser ingest (publicly bundled) |
 | `CRON_SECRET` | Bearer token gating `/api/cron/*` against unauthenticated hits |
 | `RESEND_FROM_EMAIL` | "From" header for transactional email |
 | `N8N_HEALTHCHECK_URL` | Endpoint hit by `/api/cron/n8n-healthcheck` |
 | `NEXT_PUBLIC_N8N_UI_URL` | Link target from `/admin/n8n` to the n8n UI |
+| `NEXT_PUBLIC_MIXPANEL_TOKEN` | Mixpanel project token (client-public by design). Unset = Mixpanel disabled fail-soft. Client init in `src/lib/mixpanel-client.ts`; server events via `src/lib/mixpanel-server.ts`. |
 | `TRUSTED_PROXY_HOPS` | Self-hosted only (#691): number of trusted reverse proxies appending to `x-forwarded-for`; client IP = Nth entry from the right. Unset on Vercel (edge headers already authoritative via `VERCEL`); unset + off-Vercel = no client IP (fail-safe). |
 | `CALLMEBOT_KEY_EG` | CallMeBot API key (Egypt WhatsApp routing) |
 | `CALLMEBOT_KEY_KW` | CallMeBot API key (Kuwait WhatsApp routing) |

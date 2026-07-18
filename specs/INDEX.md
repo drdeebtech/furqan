@@ -47,6 +47,7 @@
 | [037-public-teacher-profile](./037-public-teacher-profile/spec.md) | Tasks-ready | _(unknown)_ | _(pending)_ |
 | [038-prepaid-hour-wallet](./038-prepaid-hour-wallet/spec.md) | Tasks-ready | _(unknown)_ | _(pending)_ |
 | [039-shannon-audit-remediation](./039-shannon-audit-remediation/spec.md) | Draft | _(unknown)_ | _(pending)_ |
+| [040-stripe-connect-payouts](./040-stripe-connect-payouts/spec.md) | Planned | `feat/040-stripe-connect-payouts` | _(pending)_ |
 
 ## Abandoned (last 90 days)
 

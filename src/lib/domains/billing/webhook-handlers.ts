@@ -18,6 +18,13 @@ import { z } from "zod";
 import type { Json } from "@/types/supabase.generated";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logError, logInfo } from "@/lib/logger";
+import { dispatchEffects } from "@/lib/automation/effects";
+import {
+  applyChargeClawbacks,
+  disputeChargeId,
+  holdDisputedEntries,
+  paymentIntentIdOf,
+} from "@/lib/domains/connect/clawback";
 import { emitEvent } from "@/lib/automation/emit";
 import { getPostHogClient } from "@/lib/posthog-server";
 import {
@@ -26,7 +33,10 @@ import {
 } from "@/lib/domains/billing/subscriptions";
 import { grantCycle, buildCycleKey } from "@/lib/domains/billing/orchestrate";
 import { BillingEvents } from "@/lib/domains/billing/events";
-import { applyPendingTierChangeAtRenewal } from "@/lib/domains/catalog/credit-grant";
+import {
+  applyImmediateUpgradeGrant,
+  applyPendingTierChangeAtRenewal,
+} from "@/lib/domains/catalog/credit-grant";
 
 // ── Shared context ────────────────────────────────────────────────────────────
 
@@ -40,6 +50,22 @@ export interface EventContext {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Update the billing_events row status (best-effort, never throws). */
+/**
+ * Transient infrastructure/RPC failure on a money path: THROWN so the dispatch
+ * catch marks the event failed and answers 500 — Stripe redelivers and the
+ * billing_events non-terminal status admits the retry. markEvent(failed)+return
+ * would answer 200 and dead-end the event (Stripe only retries non-2xx);
+ * that posture is reserved for DETERMINISTIC un-retryables. (Phase 5 security
+ * pass P1 — the spec-040 clawback/hold paths already rethrow; this aligns the
+ * older spec-018/038 paths.)
+ */
+export class WebhookTransientError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "WebhookTransientError";
+  }
+}
+
 export async function markEvent(
   ctx: EventContext,
   status: "processed" | "ignored" | "failed",
@@ -48,7 +74,7 @@ export async function markEvent(
   if (!ctx.billingEventId) return;
   const { error } = await ctx.admin
     .from("billing_events")
-    .update({ status, ...(errorDetail ? { error_detail: errorDetail } : {}) })
+    .update({ status, ...(errorDetail ? { error_detail: errorDetail.slice(0, 500) } : {}) })
     .eq("id", ctx.billingEventId);
   if (error) {
     logError("stripe-webhook: markEvent failed", error, {
@@ -95,6 +121,58 @@ export async function handleInvoicePaid(ctx: EventContext): Promise<void> {
     return;
   }
 
+  // ── Proration invoice from an immediate tier upgrade ────────────────────
+  // billing_reason 'subscription_update' = the always_invoice proration created
+  // by upgrade-tier. Grant ONLY the pending delta recorded by the route (and
+  // only now that the invoice is PAID) — running the full monthly grantCycle on
+  // these invoices double-granted (delta at request time + a full month here,
+  // distinct cycle keys). Audit 2026-07-15. Placed before the payment_intent
+  // guard: proration invoices can settle from customer balance without a PI,
+  // and the delta grant doesn't record one.
+  if (invoice.billing_reason === "subscription_update") {
+    const resolvedUpgrade = await resolveSubscription(ctx, subscriptionId, invoice);
+    if (!resolvedUpgrade.mirrorId) {
+      // Can be a transient subscriptions.retrieve/DB outage — retryable.
+      throw new WebhookTransientError("could not resolve mirror for subscription_update invoice");
+    }
+    const upgrade = await applyImmediateUpgradeGrant(ctx.admin, resolvedUpgrade.mirrorId, invoice.id);
+    if (!upgrade.ok && upgrade.reason !== "no_pending") {
+      // RPC/DB failure while granting a PAID upgrade — must retry, never 200.
+      throw new WebhookTransientError(`immediate upgrade grant failed: ${upgrade.reason}`);
+    }
+    await ctx.admin
+      .from("billing_events")
+      .update({ subscription_id: resolvedUpgrade.mirrorId })
+      .eq("id", ctx.billingEventId!);
+    if (upgrade.ok) {
+      logInfo("stripe-webhook: immediate-upgrade delta granted on paid proration invoice", {
+        tag: "billing",
+        subscription_id: resolvedUpgrade.mirrorId,
+        pending_id: upgrade.pendingId,
+        delta_sessions: upgrade.deltaSessions,
+      });
+      getPostHogClient()?.capture({
+        distinctId: upgrade.studentId,
+        event: "subscription_tier_upgraded",
+        properties: {
+          subscription_id: resolvedUpgrade.mirrorId,
+          new_plan_id: upgrade.planId,
+          delta_sessions: upgrade.deltaSessions,
+        },
+      });
+    } else {
+      // subscription_update invoice with no pending row — e.g. a price change
+      // made directly in the Stripe dashboard. Nothing to grant; benign.
+      logInfo("stripe-webhook: subscription_update invoice with no pending upgrade grant", {
+        tag: "billing",
+        subscription_id: resolvedUpgrade.mirrorId,
+        invoice_id: invoice.id,
+      });
+    }
+    await markEvent(ctx, "processed");
+    return;
+  }
+
   const paymentIntent = invoicePaymentIntentId(invoice);
   if (!paymentIntent) {
     await markEvent(ctx, "failed", "invoice has no payment_intent");
@@ -107,13 +185,14 @@ export async function handleInvoicePaid(ctx: EventContext): Promise<void> {
   // via the stripe_subscription_id UNIQUE.
   const resolved = await resolveSubscription(ctx, subscriptionId, invoice);
   if (!resolved.studentId || !resolved.planId || !resolved.mirrorId) {
-    await markEvent(ctx, "failed", "could not resolve student_id/plan_id or create mirror");
-    return;
+    // Can be a transient subscriptions.retrieve/mirror-insert outage on a PAID
+    // invoice — a 200 here would silently never grant the credits.
+    throw new WebhookTransientError("could not resolve student_id/plan_id or create mirror");
   }
   const { studentId, mirrorId } = resolved;
 
   // Plan catalog row (binding source of credit count + price).
-  const { data: plan } = await ctx.admin
+  const { data: plan, error: planErr } = await ctx.admin
     .from("subscription_plans")
     .select("id, monthly_credit_count, price_cents, session_metadata, is_hifz_product")
     .eq("id", resolved.planId)
@@ -124,7 +203,14 @@ export async function handleInvoicePaid(ctx: EventContext): Promise<void> {
       session_metadata: unknown;
       is_hifz_product: boolean | null;
     }>();
+  if (planErr) {
+    // Transient catalog lookup failure previously masqueraded as "plan not
+    // found" (the error was silently discarded) — retry instead.
+    throw new WebhookTransientError(`plan lookup failed: ${planErr.message}`);
+  }
   if (!plan) {
+    // Deterministic: the catalog genuinely has no such plan — retrying cannot
+    // fix data, so record and stop.
     await markEvent(ctx, "failed", `plan not found: ${resolved.planId}`);
     return;
   }
@@ -146,8 +232,9 @@ export async function handleInvoicePaid(ctx: EventContext): Promise<void> {
   });
 
   if (!result.ok) {
-    await markEvent(ctx, "failed", result.error);
-    return;
+    // grantCycle failures are RPC/DB-transient; the cycle key makes the
+    // redelivered grant idempotent.
+    throw new WebhookTransientError(result.error);
   }
 
   await ctx.admin.from("billing_events").update({ subscription_id: mirrorId }).eq("id", ctx.billingEventId!);
@@ -443,6 +530,7 @@ export async function handlePaymentIntentSucceeded(ctx: EventContext): Promise<v
   const specialty = md.specialty;
   const purpose = md.purpose;
   const targetScopeRaw = md.target_scope;
+  const scheduledAt = md.scheduled_at ?? null;
 
   if (!bookingType || !studentId || !teacherId) {
     await markEvent(
@@ -583,6 +671,7 @@ export async function handlePaymentIntentSucceeded(ctx: EventContext): Promise<v
         specialty: specialty ?? null,
         purpose: (purpose as "review" | "consolidate_surah" | "memorize_mutoon" | "test_juz_mutashabihat" | null) ?? null,
         targetScopeRaw: targetScopeRaw ?? null,
+        scheduledAt,
       });
       if (!conflictResult.ok) {
         // Release the sentinel so a future retry can re-attempt (CodeRabbit #1).
@@ -608,6 +697,7 @@ export async function handlePaymentIntentSucceeded(ctx: EventContext): Promise<v
     specialty: specialty ?? null,
     purpose: (purpose as "review" | "consolidate_surah" | "memorize_mutoon" | "test_juz_mutashabihat" | null) ?? null,
     targetScopeRaw: targetScopeRaw ?? null,
+    scheduledAt,
   });
   if (!result.ok) {
     // Release the sentinel so a future retry of this PI can re-attempt
@@ -774,8 +864,9 @@ export async function handlePrepaidHoursGrant(ctx: EventContext): Promise<void> 
       hours,
       rate_usd: rateUsd,
     });
-    await markEvent(ctx, "failed", grantErr?.message ?? "grant_prepaid_hours returned no id");
-    return;
+    throw new WebhookTransientError(
+      grantErr?.message ?? "grant_prepaid_hours returned no id",
+    );
   }
 
   // Record the payment row for audit (mirrors single-session: payments is the
@@ -804,8 +895,7 @@ export async function handlePrepaidHoursGrant(ctx: EventContext): Promise<void> 
       pi_id: pi.id,
       student_id: studentId,
     });
-    await markEvent(ctx, "failed", `payments upsert failed: ${payErr.message}`);
-    return;
+    throw new WebhookTransientError(`payments upsert failed: ${payErr.message}`);
   }
 
   logInfo("stripe-webhook: prepaid_hours granted", {
@@ -875,8 +965,7 @@ export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
           tag: "stripe-webhook",
           refund_request_id: requestId,
         });
-        await markEvent(ctx, "failed", `finalize ${requestId}: ${error.message}`);
-        return;
+        throw new WebhookTransientError(`finalize ${requestId}: ${error.message}`);
       }
       continue;
     }
@@ -891,14 +980,13 @@ export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
         .maybeSingle<{ id: string }>();
       if (lotErr) {
         // Transient lookup failure must NOT be treated as "no lot" — that
-        // would mark the event processed while the wallet stays spendable.
-        // Fail-closed so Stripe retries.
+        // would leave the wallet spendable. THROW so the dispatch 500s and
+        // Stripe actually redelivers (a 200 would dead-end the event).
         logError("stripe-webhook: charge.refunded prepaid-lot lookup failed", lotErr, {
           tag: "stripe-webhook",
           pi_id: piId,
         });
-        await markEvent(ctx, "failed", `prepaid lot lookup: ${lotErr.message}`);
-        return;
+        throw new WebhookTransientError(`prepaid lot lookup: ${lotErr.message}`);
       }
       if (lot) {
         const { error } = await ctx.admin.rpc("reconcile_external_prepaid_refund", {
@@ -909,10 +997,38 @@ export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
             tag: "stripe-webhook",
             pi_id: piId,
           });
-          await markEvent(ctx, "failed", `reconcile external: ${error.message}`);
-          return;
+          throw new WebhookTransientError(`reconcile external: ${error.message}`);
         }
       }
+    }
+  }
+
+  // ── Spec 040 FR-013/014: teacher clawback (Connect ledger) ────────────────
+  // After the student-side prepaid path, reverse the teacher's share of each
+  // refund proportionally. One shared root-cause path (plan Phase 3): the
+  // clawback module is idempotent per (refund, entry) in the DB, so walking
+  // the cumulative refunds list Stripe re-delivers on every charge.refunded
+  // is replay-safe. Dormant until entries carry funding_charge_id (FR-021).
+  for (const refund of refunds) {
+    try {
+      await applyChargeClawbacks(ctx, {
+        chargeId: charge.id,
+        paymentIntentId: paymentIntentIdOf(charge.payment_intent),
+        sourceReferenceId: refund.id,
+        reclaimedCents: refund.amount,
+        chargeAmountCents: charge.amount,
+        source: "refund",
+      });
+    } catch (err) {
+      // RETHROW (CodeRabbit critical): marking failed and returning would let
+      // the dispatcher 200 and Stripe would never redeliver — a dead-ended
+      // money path. The dispatch catch marks the event failed and 500s.
+      logError("stripe-webhook: teacher clawback failed", err, {
+        tag: "stripe-webhook",
+        charge_id: charge.id,
+        refund_id: refund.id,
+      });
+      throw err;
     }
   }
 
@@ -925,8 +1041,14 @@ export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
 // If the disputed PI maps to a prepaid_hours lot, void its remaining hours via
 // reconcile_external_prepaid_refund. We do NOT un-void if the dispute is later
 // won — the merchant would re-grant manually (out of scope here). Only
-// `charge.dispute.created` triggers the void; later dispute events
-// (.updated/.closed/.funds_reinstated) are informational and ignored.
+// `charge.dispute.created` triggers the void; `.updated`/`.funds_reinstated`
+// stay informational/ignored, while `.closed` now routes to
+// handleChargeDisputeClosed (spec 040 FR-015 — teacher side only).
+//
+// Spec 040 FR-015 (teacher side): before any student-side logic, every
+// pending/manual_due Connect entry funded by the disputed charge moves to
+// held — SC-005's one-webhook-delivery latency — so no sweep can pay a
+// disputed entry. Dormant until entries carry funding_charge_id (FR-021).
 export async function handleChargeDisputed(ctx: EventContext): Promise<void> {
   const dispute = ctx.event.data.object as Stripe.Dispute;
 
@@ -940,8 +1062,29 @@ export async function handleChargeDisputed(ctx: EventContext): Promise<void> {
     return;
   }
 
+  const disputedChargeId = disputeChargeId(dispute);
+  const disputedPaymentIntentId = paymentIntentIdOf(dispute.payment_intent);
+  // Entries stamp pi_ refs (materialization migration 20260809), so a dispute
+  // resolving ONLY a payment_intent must still place the hold (review P3).
+  if (disputedChargeId || disputedPaymentIntentId) {
+    try {
+      await holdDisputedEntries(ctx, disputedChargeId, disputedPaymentIntentId, dispute.id);
+    } catch (err) {
+      // RETHROW — same money-path rule as the refund clawback above: the
+      // dispatch catch marks failed + 500 so Stripe redelivers the hold.
+      logError("stripe-webhook: dispute hold failed", err, {
+        tag: "stripe-webhook",
+        charge_id: disputedChargeId,
+        dispute_id: dispute.id,
+      });
+      throw err;
+    }
+  }
+
   const piId = typeof dispute.payment_intent === "string" ? dispute.payment_intent : null;
   if (!piId) {
+    // The FR-015 hold above already ran; 'ignored' describes the student-side
+    // prepaid outcome only.
     await markEvent(ctx, "ignored", "dispute has no payment_intent");
     return;
   }
@@ -956,14 +1099,13 @@ export async function handleChargeDisputed(ctx: EventContext): Promise<void> {
     .maybeSingle<{ id: string }>();
   if (lotErr) {
     // Transient lookup failure must NOT be treated as "no lot" — that would
-    // leave the wallet spendable through the dispute. Fail-closed so Stripe
-    // retries.
+    // leave the wallet spendable through the dispute. THROW so the dispatch
+    // 500s and Stripe actually redelivers.
     logError("stripe-webhook: dispute prepaid-lot lookup failed", lotErr, {
       tag: "stripe-webhook",
       pi_id: piId,
     });
-    await markEvent(ctx, "failed", `dispute lot lookup: ${lotErr.message}`);
-    return;
+    throw new WebhookTransientError(`dispute lot lookup: ${lotErr.message}`);
   }
   if (!lot) {
     await markEvent(ctx, "processed", "dispute not on a prepaid lot; ignored");
@@ -978,8 +1120,7 @@ export async function handleChargeDisputed(ctx: EventContext): Promise<void> {
       tag: "stripe-webhook",
       pi_id: piId,
     });
-    await markEvent(ctx, "failed", `dispute reconcile: ${error.message}`);
-    return;
+    throw new WebhookTransientError(`dispute reconcile: ${error.message}`);
   }
 
   await markEvent(ctx, "processed");
@@ -1001,12 +1142,14 @@ async function materializeBooking(
     specialty: string | null;
     purpose: "review" | "consolidate_surah" | "memorize_mutoon" | "test_juz_mutashabihat" | null;
     targetScopeRaw: string | null;
+    scheduledAt: string | null;
   },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const admin = ctx.admin;
 
   if (args.bookingType === "instant") {
     // Instant path: adapted start_instant_session_booking with p_payment_id.
+    const effectiveScheduledAt = args.scheduledAt ?? new Date().toISOString();
     const { data: bookingId, error: rpcErr } = await admin.rpc(
       "start_instant_session_booking",
       {
@@ -1016,7 +1159,7 @@ async function materializeBooking(
         p_duration_min: 30,
         p_rate_snapshot: 0,
         p_amount_usd: 0,
-        p_scheduled_at: new Date().toISOString(),
+        p_scheduled_at: effectiveScheduledAt,
         p_payment_id: args.paymentId,
       },
     );
@@ -1026,6 +1169,24 @@ async function materializeBooking(
       });
       return { ok: false, error: rpcErr?.message ?? "instant creator returned no id" };
     }
+    const dateLabel = new Date(effectiveScheduledAt).toLocaleDateString("ar");
+    await Promise.allSettled([
+      dispatchEffects("booking.created", {
+        teacherId: args.teacherId,
+        entityId: bookingId as string,
+        dateLabel,
+      }),
+      emitEvent("booking.created", "booking", bookingId as string, {
+        student_id: args.studentId,
+        teacher_id: args.teacherId,
+        session_type: "hifz",
+        scheduled_at: effectiveScheduledAt,
+      }).catch((err) =>
+        logError("single-session webhook: emit booking.created failed", err, {
+          tag: "stripe-webhook", booking_type: "instant",
+        }),
+      ),
+    ]);
     return { ok: true };
   }
 

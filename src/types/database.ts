@@ -2944,6 +2944,71 @@ export type Database = {
           },
         ]
       }
+      pending_upgrade_grants: {
+        Row: {
+          applied_at: string | null
+          created_at: string
+          delta_sessions: number
+          id: string
+          plan_id: string
+          status: string
+          stripe_invoice_id: string
+          student_id: string
+          subscription_id: string
+        }
+        Insert: {
+          applied_at?: string | null
+          created_at?: string
+          delta_sessions: number
+          id?: string
+          plan_id: string
+          status?: string
+          stripe_invoice_id: string
+          student_id: string
+          subscription_id: string
+        }
+        Update: {
+          applied_at?: string | null
+          created_at?: string
+          delta_sessions?: number
+          id?: string
+          plan_id?: string
+          status?: string
+          stripe_invoice_id?: string
+          student_id?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_upgrade_grants_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_upgrade_grants_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_upgrade_grants_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "public_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_upgrade_grants_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_settings: {
         Row: {
           description: string | null
@@ -3766,6 +3831,36 @@ export type Database = {
           applied_by?: string | null
           description?: string | null
           version?: string
+        }
+        Relationships: []
+      }
+      security_alerts: {
+        Row: {
+          alert_level: string
+          attempted_action: string
+          created_at: string
+          email: string | null
+          id: string
+          metadata: Json
+          user_id: string | null
+        }
+        Insert: {
+          alert_level: string
+          attempted_action: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          metadata?: Json
+          user_id?: string | null
+        }
+        Update: {
+          alert_level?: string
+          attempted_action?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          metadata?: Json
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -6638,6 +6733,215 @@ export type Database = {
         Args: { p_teacher_id: string }
         Returns: {
           student_id: string
+        }[]
+      }
+      teacher_agreement_gate_ok: { Args: { p_teacher_id: string }; Returns: boolean }
+      // Spec 040 Phase 1.2 — transfer-sweep SweepStore RPCs (custom fns absent
+      // from the generated map; minimal canonical signatures per the #185 seam).
+      connect_sweep_reclaim_expired_leases: {
+        Args: { p_lease_cutoff: string }
+        Returns: number
+      }
+      connect_materialize_session_earnings: {
+        Args: Record<string, never>
+        Returns: {
+          inserted_pending: number
+          inserted_held: number
+          skipped_invalid_amount: number
+          released_stuck_holds: number
+        }[]
+      }
+      connect_sweep_claim_eligible: {
+        Args: { p_now: string }
+        Returns: {
+          entry_id: string
+          teacher_id: string
+          amount_cents: number
+          kind: string
+          payout_method: string
+          destination_account_id: string | null
+          transfer_group: string | null
+          currency: string
+          claimed_at: string
+          outstanding_debt_cents: number
+        }[]
+      }
+      connect_sweep_record_transfer_succeeded: {
+        Args: {
+          p_entry_id: string
+          p_teacher_id: string
+          p_stripe_transfer_id: string
+          p_amount_cents: number
+          p_recovered_cents: number
+          p_transfer_group: string | null
+          p_idempotency_key: string
+          p_claimed_at: string
+        }
+        Returns: boolean
+      }
+      connect_sweep_record_transfer_failed: {
+        Args: { p_entry_id: string; p_claimed_at: string }
+        Returns: boolean
+      }
+      connect_sweep_record_debt_recovered: {
+        Args: {
+          p_entry_id: string
+          p_teacher_id: string
+          p_recovered_cents: number
+          p_claimed_at: string
+        }
+        Returns: boolean
+      }
+      connect_sweep_record_manual_due: {
+        Args: {
+          p_entry_id: string
+          p_teacher_id: string
+          p_recovered_cents: number
+          p_claimed_at: string
+        }
+        Returns: boolean
+      }
+      connect_settle_manual_due: {
+        Args: {
+          p_entry_id: string
+          p_reference_id: string
+          p_settling_admin: string
+        }
+        Returns: boolean
+      }
+      // Spec 040 Phase 1 tail — ConnectAccountsStore RPCs
+      // (20260803000000_connect_account_functions.sql; #185 seam).
+      connect_get_account: {
+        Args: { p_teacher_id: string }
+        Returns: {
+          teacher_id: string
+          stripe_account_id: string | null
+          charges_enabled: boolean
+          payouts_enabled: boolean
+          details_submitted: boolean
+          requirements: Json | null
+          last_event_at: string | null
+        }[]
+      }
+      connect_link_account: {
+        Args: { p_teacher_id: string; p_stripe_account_id: string }
+        Returns: undefined
+      }
+      connect_apply_account_status: {
+        Args: {
+          p_stripe_account_id: string
+          p_charges_enabled: boolean
+          p_payouts_enabled: boolean
+          p_details_submitted: boolean
+          p_requirements: Json | null
+          p_event_at: string
+        }
+        Returns: string
+      }
+      // Spec 040 Phase 2 — atomic agreement acceptance + SC-014 release
+      // (20260804000000_connect_accept_agreement.sql; #185 seam).
+      // Spec 040 Phase 3 — Connect webhook transfer reconciliation
+      // (20260806000000_connect_reconcile_transfer.sql; #185 seam).
+      connect_reconcile_transfer: {
+        Args: { p_stripe_transfer_id: string; p_reversed: boolean }
+        Returns: string
+      }
+      // Spec 040 Phase 3b — refund/dispute clawback + dispute holds
+      // (20260807000000_connect_clawback.sql; #185 seam).
+      connect_clawback_list_entries: {
+        Args: { p_funding_charge_id: string; p_source_reference_id: string }
+        Returns: {
+          entry_id: string
+          teacher_id: string
+          status: string
+          amount_cents: number
+          remaining_cap_cents: number
+          stripe_transfer_id: string | null
+          source_already_applied: boolean
+        }[]
+      }
+      connect_clawback_apply: {
+        Args: {
+          p_entry_id: string
+          p_source_reference_id: string
+          p_clawback_cents: number
+        }
+        Returns: { outcome: string; applied_cents: number }[]
+      }
+      connect_clawback_reserve_reversal: {
+        Args: {
+          p_entry_id: string
+          p_source_reference_id: string
+          p_stripe_transfer_id: string
+          p_reversed_cents: number
+          p_shortfall_cents: number
+        }
+        Returns: {
+          outcome: string
+          reversed_cents: number
+          shortfall_cents: number
+          already_confirmed: boolean
+        }[]
+      }
+      connect_clawback_confirm_reversal: {
+        Args: { p_idempotency_key: string; p_stripe_reversal_id: string }
+        Returns: string
+      }
+      connect_dispute_hold: {
+        Args: { p_funding_charge_id: string; p_dispute_id: string }
+        Returns: number
+      }
+      connect_dispute_release: {
+        Args: { p_dispute_id: string }
+        Returns: number
+      }
+      // Spec 040 Phase 4 — admin payouts ops surface
+      // (20260808000000_connect_admin_payouts.sql; #185 seam).
+      connect_admin_payouts_overview: {
+        Args: Record<string, never>
+        Returns: Json
+      }
+      connect_admin_set_payout_method: {
+        Args: { p_teacher_id: string; p_method: string; p_actor: string }
+        Returns: { outcome: string; rerouted_entries: number }[]
+      }
+      connect_admin_place_hold: {
+        Args: { p_teacher_id: string; p_reason: string; p_actor: string }
+        Returns: string
+      }
+      connect_admin_lift_hold: {
+        Args: { p_hold_id: string; p_actor: string }
+        Returns: string
+      }
+      connect_admin_log_export: {
+        Args: { p_actor: string; p_rows: number }
+        Returns: undefined
+      }
+      // Spec 040 Phase 2 UI — payouts-page read model
+      // (20260805000000_connect_payout_overview.sql; #185 seam).
+      connect_teacher_payout_overview: {
+        Args: { p_teacher_id: string }
+        Returns: {
+          current_version: string | null
+          accepted_current: boolean
+          grace_until: string | null
+          outstanding_debt_cents: number
+          entries: Json
+        }[]
+      }
+      connect_accept_agreement: {
+        Args: {
+          p_teacher_id: string
+          p_accepted_by: string
+          p_ip: string | null
+          p_user_agent: string | null
+          p_expected_version?: string | null
+        }
+        Returns: {
+          outcome: string
+          agreement_version: string
+          newly_accepted: boolean
+          released_entries: number
         }[]
       }
       user_is_session_participant: { Args: { s_id: string }; Returns: boolean }

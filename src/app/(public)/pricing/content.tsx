@@ -7,6 +7,7 @@ import { useLang } from "@/lib/i18n/context";
 import { useFeatureFlags } from "@/lib/feature-flags-context";
 import { RegisterBanner } from "@/components/public/register-banner";
 import { TRIAL_POLICY, ABSENCE_POLICY, SESSION_DURATION, PRICING_MODEL, FAMILY_POLICY, PREPAID_HOURS_POLICY } from "@/lib/copy/policies";
+import { AyahQuote } from "@/components/quran/ayah-quote";
 
 interface Plan {
   id: string;
@@ -567,7 +568,7 @@ export function PricingContent({
             </span>
           </div>
           <p className="font-display mt-4 text-base text-gold-ink">
-            ﴿ إِنَّا نَحْنُ نَزَّلْنَا الذِّكْرَ وَإِنَّا لَهُ لَحَافِظُونَ ﴾
+            <AyahQuote name="guardianshipOfRevelation" />
           </p>
         </div>
       </section>

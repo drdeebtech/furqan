@@ -25,6 +25,7 @@ import {
   isMoreThanWindowInPast,
 } from "./validation";
 import { selectActivePackage } from "@/lib/domains/package/ledger";
+import { teacherAgreementOk } from "./agreement-gate";
 
 const THIRTY_MINUTES_MS = 30 * 60 * 1000;
 
@@ -154,6 +155,15 @@ export async function createBooking(
       "teacher_id",
       "المعلم غير متاح حالياً",
     );
+  }
+
+  // 1b. Spec 040 FR-029: teacher must have accepted the current Teacher
+  // Agreement (or be within their grace window) before a booking that will
+  // mint an earning entry. DORMANT until the owner enables the gate; fails
+  // closed when enabled. Same "teacher not available" shape as above so the
+  // student sees one coherent message, not an internal consent detail.
+  if (!(await teacherAgreementOk(supabase, teacherId))) {
+    throw new BookingValidationError("teacher_id", "المعلم غير متاح حالياً");
   }
 
   // 2. Validate session type is in teacher's specialties (skip if teacher

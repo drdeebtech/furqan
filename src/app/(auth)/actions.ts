@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { checkBotId } from "botid/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -12,6 +13,7 @@ import { checkRateLimit } from "@/lib/security/rate-limit";
 import { withTimeout } from "@/lib/promise-utils";
 import { isSafeRelativePath } from "@/lib/security/safe-url";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { MIXPANEL_EVENTS, trackMixpanel } from "@/lib/mixpanel-server";
 import { CONTACT } from "@/lib/contact";
 import { buildConsentRecord } from "@/lib/legal";
 import { registerSchema, registerErrorMessage } from "@/lib/auth/register-schema";
@@ -561,6 +563,16 @@ export async function register(
       event: "user_signed_up",
       properties: { method: "email", has_plan: !!plan },
     });
+    // Mixpanel mirror of the same success moment — server-side because the
+    // post-register redirect is enumeration-safe (identical for duplicate
+    // emails), so a client-side track would over-count. Fail-soft, bounded, and
+    // off the request path: after() runs it once the response has flushed.
+    after(() =>
+      trackMixpanel(userId, MIXPANEL_EVENTS.SIGN_UP_COMPLETED, {
+        method: "email",
+        has_plan: !!plan,
+      }),
+    );
   }
 
   redirect(plan ? `/login?registered=true&redirect=/subscribe?plan=${encodeURIComponent(plan)}` : "/login?registered=true");

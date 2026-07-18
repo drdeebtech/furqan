@@ -33,17 +33,29 @@ const PURPOSE_TO_SETTING_KEY: Record<SpecializedPurpose, string> = {
 };
 
 /**
- * Parse a stored price string ('5.00', '0', '12.5') into a number, treating
- * invalid / missing values as **0** (free-by-default). An unconfigured key
- * must never block a booking — it must default to free, the seeded value.
+ * Parse a stored price string ('5.00', '0', '12.5') into a number.
  *
- * Negative values are clamped to 0 (never refund-on-creation).
+ * - Unconfigured (`null`) → **0** (free): the seeded default. An
+ *   unconfigured key must never block a booking (FR-002).
+ * - Configured but corrupt ('abc', '', negative) → **throws** (fail-closed).
+ *   A corrupt configured price must block the booking rather than silently
+ *   sell a paid session for free.
  */
-function parsePrice(raw: string | null): number {
+function parsePrice(key: string, raw: string | null): number {
   if (raw == null) return 0;
-  const n = Number(raw);
-  if (!Number.isFinite(n) || n < 0) return 0;
+  const trimmed = raw.trim();
+  const n = trimmed === "" ? Number.NaN : Number(trimmed);
+  if (!Number.isFinite(n) || n < 0) {
+    throw new Error(
+      `single-session price setting ${key} is corrupt (${JSON.stringify(raw)}) — refusing to price the booking`,
+    );
+  }
   return n;
+}
+
+/** Read + parse one price setting (fail-closed on corrupt values). */
+async function priceFromSetting(key: string): Promise<number> {
+  return parsePrice(key, await getSetting(key));
 }
 
 /**
@@ -51,14 +63,14 @@ function parsePrice(raw: string | null): number {
  * Returns 0 when free (admin configured `single_session_assessment_price_usd = '0.00'`).
  */
 export async function getAssessmentPrice(): Promise<number> {
-  return parsePrice(await getSetting("single_session_assessment_price_usd"));
+  return priceFromSetting("single_session_assessment_price_usd");
 }
 
 /**
  * Look up the one-time price (USD) for an instant session.
  */
 export async function getInstantPrice(): Promise<number> {
-  return parsePrice(await getSetting("single_session_instant_price_usd"));
+  return priceFromSetting("single_session_instant_price_usd");
 }
 
 /**
@@ -73,5 +85,5 @@ export async function getSpecializedPrice(
   if (!key) {
     throw new Error(`unknown specialized purpose: ${purpose}`);
   }
-  return parsePrice(await getSetting(key));
+  return priceFromSetting(key);
 }

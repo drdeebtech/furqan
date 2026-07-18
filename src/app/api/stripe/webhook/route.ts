@@ -16,6 +16,10 @@ import {
   markEvent,
   type EventContext,
 } from "@/lib/domains/billing/webhook-handlers";
+import {
+  handleChargeDisputeClosed,
+  handleConnectTransferEvent,
+} from "@/lib/domains/billing/connect-webhook-handlers";
 
 export const maxDuration = 60;
 
@@ -146,11 +150,27 @@ async function dispatch(ctx: EventContext): Promise<NextResponse> {
         // voiding the prepaid lot's remaining hours.
         await handleChargeRefunded(ctx);
         break;
+      case "transfer.created":
+      case "transfer.reversed":
+        // Spec 040 Phase 3: Transfer objects live on the PLATFORM account, so
+        // transfer.* fires here, not on the Connect endpoint (adversarial-
+        // review finding). Reconciliation only — money rows are written
+        // synchronously by the sweep. Previously fell to default→ignored, so
+        // this case is purely additive.
+        await handleConnectTransferEvent(ctx);
+        break;
       case "charge.dispute.created":
-        // Spec 038 H5: chargeback voids the prepaid lot's remaining hours.
-        // Other dispute events (.updated/.closed/.funds_reinstated) are
-        // informational → default branch marks them ignored.
+        // Spec 038 H5: chargeback voids the prepaid lot's remaining hours;
+        // spec 040 FR-015 also holds the Connect entries the charge funded.
+        // .updated/.funds_reinstated stay informational → default→ignored.
         await handleChargeDisputed(ctx);
+        break;
+      case "charge.dispute.closed":
+        // Spec 040 FR-015: without this explicit case, won/lost disputes fall
+        // to default→ignored and Connect entries would stay held forever.
+        // Won → release this dispute's holds; lost → claw back, then release
+        // the residue to the FR-014 netting rail.
+        await handleChargeDisputeClosed(ctx);
         break;
       default:
         await markEvent(ctx, "ignored");

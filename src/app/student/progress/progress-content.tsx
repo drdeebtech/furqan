@@ -4,6 +4,7 @@ import { startTransition, useEffect, useState } from "react";
 import Link from "next/link";
 import { TrendingUp, BookOpen, CheckCircle, Clock, Star, Award, Target, MessageSquareQuote, Sparkles, AlertCircle, Mail } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
+import { AyahQuote } from "@/components/quran/ayah-quote";
 
 const ARABIC_NUMS = ["","١","٢","٣","٤","٥","٦","٧","٨","٩","١٠","١١","١٢","١٣","١٤","١٥","١٦","١٧","١٨","١٩","٢٠","٢١","٢٢","٢٣","٢٤","٢٥","٢٦","٢٧","٢٨","٢٩","٣٠"];
 
@@ -327,7 +328,7 @@ export function ProgressContent({ data }: { data: ProgressData }) {
 
       {/* Quran verse */}
       <div className="mb-8 glass-card p-6 text-center">
-        <p className="font-display text-sm text-gold/50">﴿ وَرَتِّلِ الْقُرْآنَ تَرْتِيلًا ﴾</p>
+        <p className="font-display text-sm text-gold/50"><AyahQuote name="reciteWithMeasure" /></p>
         {avgQuality && (
           <p className="mt-2 text-sm text-muted">
             {t("متوسط جودة الأداء", "Avg quality rating")}: <span className="font-bold text-gold">{avgQuality.toFixed(1)}/5</span>
