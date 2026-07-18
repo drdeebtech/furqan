@@ -160,8 +160,12 @@ BEGIN
     RAISE NOTICE 'ASSERT OK  [2a] negative session earning rejected';
   END;
   BEGIN
-    INSERT INTO public.teacher_earning_entries (teacher_id, kind, amount_cents)
-    VALUES ('00000000-0000-4000-9000-00000000000a', 'clawback', 500);
+    -- Provenance links supplied (chk_entry_clawback_links, 20260807) so the
+    -- ONLY violated constraint is the sign — the assertion stays about the sign.
+    INSERT INTO public.teacher_earning_entries
+      (teacher_id, kind, amount_cents, clawback_of_entry_id, source_reference_id)
+    VALUES ('00000000-0000-4000-9000-00000000000a', 'clawback', 500,
+            '00000000-0000-4000-9000-0000000000e1', 'walk-sign-probe');
     RAISE EXCEPTION 'ASSERT FAILED: positive clawback accepted (sign convention broken)';
   EXCEPTION WHEN check_violation THEN
     RAISE NOTICE 'ASSERT OK  [2b] positive clawback rejected (clawback must be negative)';
@@ -173,15 +177,21 @@ END $$;
 DO $$
 DECLARE ok_id uuid;
 BEGIN
-  INSERT INTO public.teacher_earning_entries (teacher_id, kind, amount_cents, session_delivery_id)
-  VALUES ('00000000-0000-4000-9000-00000000000a', 'session', 500,
-          '00000000-0000-4000-9000-0000000000d3')
-  RETURNING id INTO ok_id;
-  IF ok_id IS NULL THEN
-    RAISE EXCEPTION 'ASSERT FAILED: a VALID positive session earning was rejected';
-  END IF;
-  DELETE FROM public.teacher_earning_entries WHERE id = ok_id;
-  RAISE NOTICE 'ASSERT OK  [2c] same fixture accepts +500 — [2a] failed on the SIGN, not another constraint';
+  -- Probe insert proven inside a sub-transaction, then rolled back via a
+  -- sentinel RAISE — the ledger's no-delete guard (append-only) forbids the
+  -- old DELETE-cleanup, and the probe row must not leak into later blocks.
+  BEGIN
+    INSERT INTO public.teacher_earning_entries (teacher_id, kind, amount_cents, session_delivery_id)
+    VALUES ('00000000-0000-4000-9000-00000000000a', 'session', 500,
+            '00000000-0000-4000-9000-0000000000d3')
+    RETURNING id INTO ok_id;
+    IF ok_id IS NULL THEN
+      RAISE EXCEPTION 'ASSERT FAILED: a VALID positive session earning was rejected';
+    END IF;
+    RAISE EXCEPTION 'probe rollback' USING ERRCODE = 'WK001';
+  EXCEPTION WHEN SQLSTATE 'WK001' THEN
+    RAISE NOTICE 'ASSERT OK  [2c] same fixture accepts +500 — [2a] failed on the SIGN, not another constraint';
+  END;
 END $$;
 
 -- ── 3. Idempotency backstops (UNIQUE ⇒ must RAISE) ──────────────────────
@@ -197,8 +207,10 @@ BEGIN
 END $$;
 
 -- Debt rows: recovery must link both FKs; reversal must link the recovery.
-INSERT INTO public.teacher_earning_entries (id, teacher_id, kind, amount_cents)
-VALUES ('00000000-0000-4000-9000-0000000000f1', '00000000-0000-4000-9000-00000000000a', 'clawback', -600);
+INSERT INTO public.teacher_earning_entries
+  (id, teacher_id, kind, amount_cents, clawback_of_entry_id, source_reference_id)
+VALUES ('00000000-0000-4000-9000-0000000000f1', '00000000-0000-4000-9000-00000000000a', 'clawback', -600,
+        '00000000-0000-4000-9000-0000000000e2', 'walk-ledger-claw-1');
 
 DO $$
 BEGIN
@@ -219,13 +231,18 @@ VALUES ('00000000-0000-4000-9000-0000000000f2', '00000000-0000-4000-9000-0000000
 DO $$
 BEGIN
   BEGIN
+    -- Cap trigger (20260811, replaces UNIQUE(consuming_entry_id)): e2 is worth
+    -- 1000 and already funded a 400 recovery — +700 would exceed its value.
+    -- (A second recovery WITHIN the cap is now legal — the requeue fix — and is
+    -- proven in walk-040-manual-net-settlement.sql [4].)
     INSERT INTO public.teacher_earning_entries
       (teacher_id, kind, amount_cents, consuming_entry_id, recovered_against_entry_id)
-    VALUES ('00000000-0000-4000-9000-00000000000a', 'debt_recovery', 100,
+    VALUES ('00000000-0000-4000-9000-00000000000a', 'debt_recovery', 700,
             '00000000-0000-4000-9000-0000000000e2', '00000000-0000-4000-9000-0000000000f1');
-    RAISE EXCEPTION 'ASSERT FAILED: second recovery for the same consuming entry accepted (double recovery)';
-  EXCEPTION WHEN unique_violation THEN
-    RAISE NOTICE 'ASSERT OK  [3c] second debt_recovery for one entry rejected (replay-safe)';
+    RAISE EXCEPTION 'ASSERT FAILED: over-cap recovery accepted (entry can fund more debt than its value)';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM NOT LIKE '%recovery cap%' THEN RAISE; END IF;
+    RAISE NOTICE 'ASSERT OK  [3c] recovery beyond the consuming entry''s value rejected (cap trigger)';
   END;
 END $$;
 
@@ -598,22 +615,33 @@ BEGIN
   EXCEPTION WHEN check_violation THEN
     RAISE NOTICE 'ASSERT OK  [9g] admin hold requires created_by';
   END;
+  -- Phase 3b (20260807) softened the release-attribution pairing to exempt
+  -- source='dispute' (webhook releases have no human actor), so the pairing is
+  -- proven on an ADMIN hold and the dispute exemption is proven separately.
+  INSERT INTO public.payout_holds (id, teacher_id, source, reason, created_by)
+  VALUES ('00000000-0000-4000-9000-000000000b9a', '00000000-0000-4000-9000-00000000000a',
+          'admin', 'walk attribution probe', '00000000-0000-4000-9000-00000000000a');
   BEGIN
     UPDATE public.payout_holds SET released_at = now()
-     WHERE id = '00000000-0000-4000-9000-00000000001b';
-    RAISE EXCEPTION 'ASSERT FAILED: hold released_at set with no releaser named';
+     WHERE id = '00000000-0000-4000-9000-000000000b9a';
+    RAISE EXCEPTION 'ASSERT FAILED: admin hold released_at set with no releaser named';
   EXCEPTION WHEN check_violation THEN
-    RAISE NOTICE 'ASSERT OK  [9h] released_at without released_by rejected (paired attribution)';
+    RAISE NOTICE 'ASSERT OK  [9h] admin released_at without released_by rejected (paired attribution)';
   END;
   -- The symmetric half: released_by set without released_at must fail too, or
   -- the pairing is only half-enforced.
   BEGIN
     UPDATE public.payout_holds SET released_by = '00000000-0000-4000-9000-00000000000a'
-     WHERE id = '00000000-0000-4000-9000-00000000001b';
-    RAISE EXCEPTION 'ASSERT FAILED: hold released_by set with no released_at';
+     WHERE id = '00000000-0000-4000-9000-000000000b9a';
+    RAISE EXCEPTION 'ASSERT FAILED: admin hold released_by set with no released_at';
   EXCEPTION WHEN check_violation THEN
-    RAISE NOTICE 'ASSERT OK  [9h2] released_by without released_at rejected (paired attribution)';
+    RAISE NOTICE 'ASSERT OK  [9h2] admin released_by without released_at rejected (paired attribution)';
   END;
+  -- The deliberate 3b exemption: a dispute hold may be released with no human
+  -- actor (charge.dispute.closed is the releaser).
+  UPDATE public.payout_holds SET released_at = now()
+   WHERE id = '00000000-0000-4000-9000-00000000001b';
+  RAISE NOTICE 'ASSERT OK  [9h3] dispute hold releasable without released_by (webhook has no human actor)';
 END $$;
 
 -- A dispute hold (webhook-created, no human actor) must still be insertable —
