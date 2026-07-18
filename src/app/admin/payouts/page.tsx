@@ -50,6 +50,9 @@ interface ManualDueRow {
   teacher_id: string;
   full_name: string;
   amount_cents: number;
+  /** FR-027a: the payable net (remaining value minus FIFO debt share). */
+  net_due_cents: number;
+  recovered_cents: number;
   session_delivery_id: string | null;
   delivered_at: string | null;
   created_at: string;
@@ -256,7 +259,8 @@ export default async function AdminPayoutsPage() {
               <thead>
                 <tr className="border-b border-white/10 text-muted-foreground">
                   <th scope="col" className="p-2 text-start">{t("المعلم", "Teacher")}</th>
-                  <th scope="col" className="p-2 text-start">{t("المبلغ", "Amount")}</th>
+                  <th scope="col" className="p-2 text-start">{t("الإجمالي", "Gross")}</th>
+                  <th scope="col" className="p-2 text-start">{t("الصافي المستحق", "Net due")}</th>
                   <th scope="col" className="p-2 text-start">{t("تاريخ الجلسة", "Delivered")}</th>
                   <th scope="col" className="p-2 text-start">{t("تسوية (مرجع إلزامي)", "Settle (reference required)")}</th>
                 </tr>
@@ -266,14 +270,26 @@ export default async function AdminPayoutsPage() {
                   <tr key={row.entry_id} className="border-b border-white/5">
                     <td className="p-2">{row.full_name || row.teacher_id.slice(0, 8)}</td>
                     <td className="p-2" dir="ltr">{usd(row.amount_cents)}</td>
+                    {/* FR-027a: the NET is what the admin pays; a difference from
+                        gross means debt was (or will be) netted against it. */}
+                    <td className="p-2 font-semibold" dir="ltr">
+                      {usd(row.net_due_cents)}
+                      {row.net_due_cents !== row.amount_cents ? (
+                        <span className="ms-1 text-xs font-normal text-warning">
+                          {t("(بعد خصم الدين)", "(after debt)")}
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="p-2" dir="ltr">{utcDate(row.delivered_at)}</td>
                     <td className="p-2">
                       <SettleForm
                         entryId={row.entry_id}
+                        netDueCents={row.net_due_cents}
                         label={t("تسوية", "Settle")}
+                        closeLabel={t("إغلاق (مستهلك بالدين)", "Close (consumed by debt)")}
                         confirmText={t(
-                          "تأكيد تسوية هذا المبلغ يدويًا؟ (يُسجَّل في سجل التدقيق)",
-                          "Confirm settling this amount off-Stripe? (audit-logged, irreversible)",
+                          `تأكيد تسوية ${usd(row.net_due_cents)} يدويًا؟ (يُسجَّل في سجل التدقيق)`,
+                          `Confirm settling ${usd(row.net_due_cents)} off-Stripe? (audit-logged, irreversible)`,
                         )}
                       />
                     </td>

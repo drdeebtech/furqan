@@ -6804,10 +6804,11 @@ export type Database = {
       connect_settle_manual_due: {
         Args: {
           p_entry_id: string
-          p_reference_id: string
+          p_reference_id: string | null
           p_settling_admin: string
+          p_expected_net_cents: number
         }
-        Returns: boolean
+        Returns: Json
       }
       // Spec 040 Phase 1 tail — ConnectAccountsStore RPCs
       // (20260803000000_connect_account_functions.sql; #185 seam).

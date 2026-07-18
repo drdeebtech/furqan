@@ -24,7 +24,11 @@ vi.mock("@/lib/supabase/rpc", () => ({
   }),
 }));
 
-const settleMock = vi.fn(async () => true);
+const settleMock = vi.fn(async (): Promise<Record<string, unknown>> => ({
+  outcome: "settled",
+  netPaidCents: 100,
+  recoveredCents: 0,
+}));
 vi.mock("@/lib/domains/connect/manual-settlement-store", () => ({
   createConnectManualSettlementStore: () => ({ settleManualDue: settleMock }),
 }));
@@ -47,7 +51,7 @@ beforeEach(() => {
   requireAdmin.mockClear();
   requireAdmin.mockResolvedValue({ id: "99999999-9999-4999-8999-999999999999" });
   settleMock.mockClear();
-  settleMock.mockResolvedValue(true);
+  settleMock.mockResolvedValue({ outcome: "settled", netPaidCents: 100, recoveredCents: 0 });
 });
 
 describe("admin payout actions — auth + input boundaries", () => {
@@ -57,7 +61,7 @@ describe("admin payout actions — auth + input boundaries", () => {
       placePayoutHold({ teacherId: T, reason: "x" }),
       liftPayoutHold({ holdId: H }),
       setPayoutMethod({ teacherId: T, method: "manual" }),
-      settleManualDueEntry({ entryId: E, referenceId: "r" }),
+      settleManualDueEntry({ entryId: E, referenceId: "r", expectedNetCents: 100 }),
       exportManualDueCsv(),
     ]);
     for (const r of results) {
@@ -108,15 +112,48 @@ describe("admin payout actions — behavior", () => {
   });
 
   it("settleManualDueEntry maps the fenced no-op to not_found (replay-safe)", async () => {
-    settleMock.mockResolvedValue(false);
-    expect(await settleManualDueEntry({ entryId: E, referenceId: "bank-42" })).toEqual({
-      ok: false,
-      error: "not_found",
-    });
+    settleMock.mockResolvedValue({ outcome: "not_found" });
+    expect(
+      await settleManualDueEntry({ entryId: E, referenceId: "bank-42", expectedNetCents: 700 }),
+    ).toEqual({ ok: false, error: "not_found" });
     expect(settleMock).toHaveBeenCalledWith({
       entryId: E,
       referenceId: "bank-42",
       settlingAdmin: "99999999-9999-4999-8999-999999999999",
+      expectedNetCents: 700,
+    });
+  });
+
+  it("settleManualDueEntry surfaces the net split when debt was netted (FR-027a)", async () => {
+    settleMock.mockResolvedValue({ outcome: "settled", netPaidCents: 700, recoveredCents: 300 });
+    expect(
+      await settleManualDueEntry({ entryId: E, referenceId: "bank-42", expectedNetCents: 700 }),
+    ).toEqual({ ok: true, note: "paid $7.00 net of $3.00 debt" });
+  });
+
+  it("settleManualDueEntry maps stale_net to a refusal carrying the fresh amount", async () => {
+    settleMock.mockResolvedValue({ outcome: "stale_net", netDueCents: 450 });
+    expect(
+      await settleManualDueEntry({ entryId: E, referenceId: "bank-42", expectedNetCents: 700 }),
+    ).toEqual({ ok: false, error: "stale_net", note: "net is now $4.50 — re-check and retry" });
+  });
+
+  it("settleManualDueEntry maps teacher_on_hold to its own refusal (FR-027a)", async () => {
+    settleMock.mockResolvedValue({ outcome: "teacher_on_hold" });
+    expect(
+      await settleManualDueEntry({ entryId: E, referenceId: "bank-42", expectedNetCents: 700 }),
+    ).toEqual({ ok: false, error: "teacher_on_hold" });
+  });
+
+  it("settleManualDueEntry accepts the zero-net close with NO reference", async () => {
+    settleMock.mockResolvedValue({ outcome: "closed_debt_recovered", recoveredCents: 1000 });
+    const res = await settleManualDueEntry({ entryId: E, expectedNetCents: 0 });
+    expect(res.ok).toBe(true);
+    expect(settleMock).toHaveBeenCalledWith({
+      entryId: E,
+      referenceId: null,
+      settlingAdmin: "99999999-9999-4999-8999-999999999999",
+      expectedNetCents: 0,
     });
   });
 
@@ -128,6 +165,7 @@ describe("admin payout actions — behavior", () => {
         manual_due: [
           {
             entry_id: E, teacher_id: T, full_name: 'A "Q" Teacher', amount_cents: 12345,
+            net_due_cents: 12000, recovered_cents: 345,
             session_delivery_id: null, delivered_at: null, created_at: "2026-07-01T00:00:00Z",
           },
         ],
@@ -140,6 +178,10 @@ describe("admin payout actions — behavior", () => {
     expect(ok.rows).toBe(1);
     expect(ok.csv).toContain('"A ""Q"" Teacher"');
     expect(ok.csv).toContain('"123.45"');
+    // FR-027a: the payable NET and the already-recovered explanation columns.
+    expect(ok.csv).toContain("net_due_usd,already_recovered_usd");
+    expect(ok.csv).toContain('"120.00"');
+    expect(ok.csv).toContain('"3.45"');
     expect(rpcCalls.map((c) => c.name)).toContain("connect_admin_log_export");
 
     rpcResults.set("connect_admin_log_export", { data: null, error: { message: "down" } });
@@ -154,8 +196,10 @@ describe("admin payout actions — behavior", () => {
         teachers: [],
         manual_due: [
           { entry_id: E, teacher_id: T, full_name: '=HYPERLINK("http://evil")', amount_cents: 100,
+            net_due_cents: 100, recovered_cents: 0,
             session_delivery_id: null, delivered_at: null, created_at: "2026-07-01T00:00:00Z" },
           { entry_id: H, teacher_id: T, full_name: "@cmd", amount_cents: 100,
+            net_due_cents: 100, recovered_cents: 0,
             session_delivery_id: null, delivered_at: null, created_at: "2026-07-01T00:00:00Z" },
         ],
       },
