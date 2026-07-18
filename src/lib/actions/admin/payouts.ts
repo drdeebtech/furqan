@@ -211,6 +211,38 @@ export async function settleManualDueEntry(input: z.input<typeof settleSchema>):
   }
 }
 
+const requeueSchema = z.object({ entryId: z.uuid() });
+
+/**
+ * FR-011: audited recovery for an entry parked held/transfer_failed after
+ * exhausting its retry budget — back to `pending` with counters reset; the
+ * next sweep re-attempts it (Stripe idempotency replays the same Transfer).
+ */
+export async function requeueFailedEntry(input: z.input<typeof requeueSchema>): Promise<PayoutAdminResult> {
+  const admin = await adminOr();
+  if ("ok" in admin) return admin;
+  const parsed = requeueSchema.safeParse(input);
+  if (!parsed.success) return failure("invalid_input");
+
+  let result: unknown;
+  try {
+    const { data, error } = await callRpc(createAdminClient(), "connect_admin_requeue_failed_entry", {
+      p_entry_id: parsed.data.entryId,
+      p_actor: admin.id,
+    });
+    if (error) throw error;
+    result = data;
+  } catch (e) {
+    logError("admin payouts: requeue failed entry failed", e, {
+      tag: "admin-payouts", route: "/admin/payouts", widget: "failed-requeue", userId: admin.id,
+    });
+    return failure("unavailable");
+  }
+  if (result !== "requeued") return failure("not_found"); // not terminal-failed — legit no-op
+  revalidatePath("/admin/payouts");
+  return { ok: true };
+}
+
 interface ManualDueCsvRow {
   entry_id: string;
   teacher_id: string;

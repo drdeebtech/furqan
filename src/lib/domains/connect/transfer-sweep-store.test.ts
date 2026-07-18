@@ -160,7 +160,7 @@ describe("ConnectSweepStore — RPC mapping", () => {
     ).toBe(false);
   });
 
-  it("recordTransferFailed → connect_sweep_record_transfer_failed and drops errorDetail (logged upstream, not persisted)", async () => {
+  it("recordTransferFailed → connect_sweep_record_transfer_failed WITH the error detail (FR-011: persisted on the entry)", async () => {
     const { admin, rpc } = makeAdmin({ data: true, error: null });
     const store = new ConnectSweepStore(admin);
 
@@ -174,9 +174,8 @@ describe("ConnectSweepStore — RPC mapping", () => {
     expect(rpc).toHaveBeenCalledWith("connect_sweep_record_transfer_failed", {
       p_entry_id: "e1",
       p_claimed_at: "2026-07-16T00:00:00.000Z",
+      p_error_detail: "stripe: card_declined",
     });
-    // errorDetail must NOT be forwarded to the RPC.
-    expect(rpc.mock.calls[0]?.[1]).not.toHaveProperty("p_error_detail");
   });
 
   it("recordDebtRecovered → connect_sweep_record_debt_recovered", async () => {

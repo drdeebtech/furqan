@@ -11,6 +11,7 @@ import {
   LiftHoldButton,
   MethodSwitch,
   PlaceHoldForm,
+  RequeueButton,
   SettleForm,
   SweepButton,
 } from "./payouts-controls";
@@ -57,10 +58,20 @@ interface ManualDueRow {
   delivered_at: string | null;
   created_at: string;
 }
+interface FailedEntryRow {
+  entry_id: string;
+  teacher_id: string;
+  full_name: string;
+  amount_cents: number;
+  attempt_count: number;
+  last_error_detail: string | null;
+  updated_at: string;
+}
 interface Overview {
   cutover_date: string;
   teachers: TeacherRow[];
   manual_due: ManualDueRow[];
+  failed_entries: FailedEntryRow[];
 }
 
 const usd = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -290,6 +301,55 @@ export default async function AdminPayoutsPage() {
                         confirmText={t(
                           `تأكيد تسوية ${usd(row.net_due_cents)} يدويًا؟ (يُسجَّل في سجل التدقيق)`,
                           `Confirm settling ${usd(row.net_due_cents)} off-Stripe? (audit-logged, irreversible)`,
+                        )}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Terminal-failed transfers (FR-011): retries exhausted, parked loud. */}
+      <section aria-labelledby="failed-h" className="glass-card rounded-xl p-4">
+        <h2 id="failed-h" className="mb-3 text-lg font-semibold">
+          {t("تحويلات فاشلة (تحتاج تدخّل)", "Failed transfers (need attention)")}
+        </h2>
+        {overview.failed_entries.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t("لا توجد تحويلات فاشلة.", "No terminally-failed transfers.")}
+          </p>
+        ) : (
+          <div tabIndex={0} role="region" aria-label={t("جدول التحويلات الفاشلة", "Failed transfers table")}
+            className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2">
+            <table className="w-full min-w-[700px] text-sm">
+              <thead>
+                <tr className="border-b border-white/10 text-muted-foreground">
+                  <th scope="col" className="p-2 text-start">{t("المعلم", "Teacher")}</th>
+                  <th scope="col" className="p-2 text-start">{t("المبلغ", "Amount")}</th>
+                  <th scope="col" className="p-2 text-start">{t("المحاولات", "Attempts")}</th>
+                  <th scope="col" className="p-2 text-start">{t("آخر خطأ", "Last error")}</th>
+                  <th scope="col" className="p-2 text-start">{t("إجراء", "Action")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {overview.failed_entries.map((row) => (
+                  <tr key={row.entry_id} className="border-b border-white/5">
+                    <td className="p-2">{row.full_name || row.teacher_id.slice(0, 8)}</td>
+                    <td className="p-2" dir="ltr">{usd(row.amount_cents)}</td>
+                    <td className="p-2" dir="ltr">{row.attempt_count}</td>
+                    <td className="max-w-80 truncate p-2 text-xs text-error" dir="ltr" title={row.last_error_detail ?? undefined}>
+                      {row.last_error_detail ?? "—"}
+                    </td>
+                    <td className="p-2">
+                      <RequeueButton
+                        entryId={row.entry_id}
+                        label={t("إعادة للطابور", "Requeue")}
+                        confirmText={t(
+                          "إعادة هذا التحويل الفاشل إلى الطابور؟ (سيُعاد تنفيذه في المسح التالي)",
+                          "Requeue this failed transfer? The next sweep retries it (idempotent — Stripe replays the same transfer).",
                         )}
                       />
                     </td>

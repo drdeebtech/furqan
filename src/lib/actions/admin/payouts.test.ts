@@ -37,6 +37,7 @@ import {
   exportManualDueCsv,
   liftPayoutHold,
   placePayoutHold,
+  requeueFailedEntry,
   setPayoutMethod,
   settleManualDueEntry,
 } from "./payouts";
@@ -62,6 +63,7 @@ describe("admin payout actions — auth + input boundaries", () => {
       liftPayoutHold({ holdId: H }),
       setPayoutMethod({ teacherId: T, method: "manual" }),
       settleManualDueEntry({ entryId: E, referenceId: "r", expectedNetCents: 100 }),
+      requeueFailedEntry({ entryId: E }),
       exportManualDueCsv(),
     ]);
     for (const r of results) {
@@ -109,6 +111,17 @@ describe("admin payout actions — behavior", () => {
     });
     const res = await setPayoutMethod({ teacherId: T, method: "stripe_connect" });
     expect(res).toEqual({ ok: true, note: "rerouted 3 stuck manual entries to the Stripe rail" });
+  });
+
+  it("requeueFailedEntry stamps the SESSION admin and maps outcomes (FR-011)", async () => {
+    rpcResults.set("connect_admin_requeue_failed_entry", { data: "requeued", error: null });
+    expect((await requeueFailedEntry({ entryId: E })).ok).toBe(true);
+    expect(rpcCalls[0]).toEqual({
+      name: "connect_admin_requeue_failed_entry",
+      args: { p_entry_id: E, p_actor: "99999999-9999-4999-8999-999999999999" },
+    });
+    rpcResults.set("connect_admin_requeue_failed_entry", { data: "not_found", error: null });
+    expect(await requeueFailedEntry({ entryId: E })).toEqual({ ok: false, error: "not_found" });
   });
 
   it("settleManualDueEntry maps the fenced no-op to not_found (replay-safe)", async () => {
