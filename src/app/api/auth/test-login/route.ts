@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * TEST-ONLY login endpoint. Mints a real Supabase session cookie for a seeded
- * test user so black-box API test runners (TestSprite, Playwright) can exercise
+ * test user so black-box API test runners (Playwright, CI) can exercise
  * authenticated routes.
  *
  * ──────────────────────────────────────────────────────────────────────────

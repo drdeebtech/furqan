@@ -2,7 +2,7 @@
 
 **TL;DR — never run write-path tests against the production Supabase project.**
 
-During a TestSprite API testing session, two live `pending` payment rows were accidentally inserted into the production `payments` table because `.env.local` pointed at the production project. This guide documents how to prevent that from recurring.
+During an automated API testing session, two live `pending` payment rows were accidentally inserted into the production `payments` table because `.env.local` pointed at the production project. This guide documents how to prevent that from recurring.
 
 ## The guard
 
