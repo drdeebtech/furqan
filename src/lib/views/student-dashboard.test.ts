@@ -113,7 +113,7 @@ const EMPTY_ANALYTICS = {
 function makeChain(result: unknown): any {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chain: Record<string, any> = {};
-  for (const m of ["select", "eq", "gte", "lte", "gt", "in", "not", "order", "limit"]) {
+  for (const m of ["select", "eq", "neq", "gte", "lte", "gt", "in", "not", "order", "limit"]) {
     chain[m] = vi.fn().mockReturnValue(chain);
   }
   chain.returns = vi.fn().mockResolvedValue(result);
@@ -475,5 +475,71 @@ describe("studentDashboardView", () => {
     // streak_7 fires, streak_30 does not
     expect(vi.mocked(after)).toHaveBeenCalledTimes(1);
     expect(result.data.streakInfo.streak).toBe(10);
+  });
+
+  it("surfaces subscription summary, unread messages, and rich evaluation (S1/S2/S3)", async () => {
+    stubCoreHelpers();
+
+    const supabase = makeFlexSupabase({
+      // [0]=totalQ [1]=monthQ [2]=nextBooking [3]=pending [4]=todaySessions
+      bookings: [
+        { count: 12, error: null },
+        { count: 3, error: null },
+        { data: [], error: null },
+        { count: 0, error: null },
+        { data: [], error: null },
+      ],
+      profiles: [{ data: { full_name: "Fatima" }, error: null }],
+      // [0]=Batch-1 active-sub count  [1]=Batch-3 subscription row
+      subscriptions: [
+        { count: 1, error: null },
+        {
+          data: {
+            plan_id: "plan-9",
+            status: "active",
+            current_period_end: "2026-08-01T00:00:00Z",
+            cancel_at_period_end: false,
+          },
+          error: null,
+        },
+      ],
+      subscription_plans: [{ data: { name: "Hifz Premium" }, error: null }],
+      conversations: [{ data: [{ id: "c1" }, { id: "c2" }], error: null }],
+      messages: [{ count: 4, error: null }],
+      student_packages: [{ data: [], error: null }],
+      student_progress: [{ data: null, error: null }],
+      session_evaluations: [{
+        data: {
+          overall_score: 8,
+          strengths: "Strong tajweed",
+          next_goals: "Finish Juz 3",
+          evaluation_type: "weekly",
+          created_at: "2026-06-20T00:00:00Z",
+        },
+        error: null,
+      }],
+      achievements: [{ data: [], error: null }],
+      homework_assignments: [{ data: [], error: null }],
+    });
+
+    const result = await studentDashboardView(supabase, STUDENT_ID, BASE_OPTS);
+
+    // S1 — active subscription summarized with the resolved plan name.
+    expect(result.data.subscription).toEqual({
+      planName: "Hifz Premium",
+      status: "active",
+      currentPeriodEnd: "2026-08-01T00:00:00Z",
+      cancelAtPeriodEnd: false,
+    });
+    // S2 — unread count derived from the student's conversations.
+    expect(result.data.unreadMessages).toBe(4);
+    // S3 — evaluation now carries rating + strengths, not only next_goals.
+    expect(result.data.latestEvaluation).toEqual({
+      overall_score: 8,
+      strengths: "Strong tajweed",
+      next_goals: "Finish Juz 3",
+      evaluation_type: "weekly",
+      created_at: "2026-06-20T00:00:00Z",
+    });
   });
 });

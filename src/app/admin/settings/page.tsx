@@ -226,6 +226,12 @@ export default async function AdminSettingsPage() {
             description={t("إخفاء صفحة /admin/retention والودجات أثناء فترة تسخين البيانات. الحسابات في الخلفية تستمر.", "Hide /admin/retention + widgets during data warmup. Background scoring continues.")}
             initialValue={settingsMap["retention_ui_disabled"] === "true"}
           />
+          <FeatureToggle
+            settingKey="paypal_purchase_enabled"
+            label={t("تفعيل الدفع عبر PayPal", "Enable PayPal Checkout")}
+            description={t("تفعيل مسار الدفع المسبق عبر PayPal — يتطلب أيضاً ضبط متغيرات PAYPAL_* في البيئة", "Prepaid PayPal payment rail — also requires PAYPAL_* env vars set")}
+            initialValue={settingsMap["paypal_purchase_enabled"] === "true"}
+          />
         </div>
       </div>
 
