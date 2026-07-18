@@ -55,7 +55,12 @@ export async function DashboardLayout({
   let showAiReview = false;
   if (role === "admin" || role === "teacher") {
     const settings = await getSettings();
-    showConnectPayouts = (settings["connect_cutover_date"] ?? "").trim() !== "";
+    // Payouts appear only AFTER a valid cutover date has actually passed — a
+    // future or malformed value must NOT expose /teacher/payouts or
+    // /admin/payouts early (spec 040 stays dormant until go-live). UTC compare.
+    const cutoverDate = (settings["connect_cutover_date"] ?? "").trim();
+    const today = new Date().toISOString().slice(0, 10);
+    showConnectPayouts = /^\d{4}-\d{2}-\d{2}$/.test(cutoverDate) && cutoverDate <= today;
     showAiReview = role === "admin" && AI_FLAGS.some((k) => settings[k] === "true");
   }
 

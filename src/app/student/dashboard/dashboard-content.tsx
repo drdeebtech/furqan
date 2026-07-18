@@ -310,7 +310,7 @@ function StudentDashboardContentInner({
           <div className="mb-6">
             <Link
               href="/student/messages"
-              className="inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/5 px-4 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold/10 focus-ring"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-gold/30 bg-gold/5 px-4 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold/10 focus-ring"
             >
               <MessageSquare size={16} aria-hidden="true" />
               {t(`${unreadMessages} رسائل غير مقروءة`, `${unreadMessages} unread message${unreadMessages === 1 ? "" : "s"}`)}
@@ -377,7 +377,7 @@ function StudentDashboardContentInner({
                   <p className="mt-3 text-sm text-muted">
                     {subscription.cancelAtPeriodEnd ? t("ينتهي في", "Ends on") : t("يتجدد في", "Renews on")}{" "}
                     <span className="font-medium text-foreground">
-                      {new Date(subscription.currentPeriodEnd).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "long", day: "numeric" })}
+                      {new Date(subscription.currentPeriodEnd).toLocaleDateString(lang === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" })}
                     </span>
                   </p>
                 )}
