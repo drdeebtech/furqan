@@ -10,6 +10,7 @@ import {
   exportManualDueCsv,
   liftPayoutHold,
   placePayoutHold,
+  requeueFailedEntry,
   setPayoutMethod,
   settleManualDueEntry,
   type PayoutAdminResult,
@@ -178,6 +179,32 @@ export function SettleForm({
       </button>
       {msg ? <span className="text-xs text-muted-foreground">{msg}</span> : null}
     </form>
+  );
+}
+
+/** FR-011: send a terminal-failed entry back to `pending` (audited). */
+export function RequeueButton({ entryId, label, confirmText }: {
+  entryId: string;
+  label: string;
+  confirmText: string;
+}) {
+  const { pending, msg, run } = useAct();
+  return (
+    <span className="inline-flex items-center gap-1">
+      <button
+        type="button"
+        disabled={pending}
+        className={btnCls}
+        onClick={() => {
+          if (!window.confirm(confirmText)) return;
+          run(() => requeueFailedEntry({ entryId }));
+        }}
+      >
+        {label}
+      </button>
+      {/* role=status ⇒ polite live region: the async result is announced. */}
+      {msg ? <span role="status" className="text-xs text-muted-foreground">{msg}</span> : null}
+    </span>
   );
 }
 

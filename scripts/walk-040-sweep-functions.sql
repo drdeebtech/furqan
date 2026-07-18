@@ -204,7 +204,7 @@ DO $$
 DECLARE ok boolean; v_status text;
 BEGIN
   -- Wrong lease on EC.
-  ok := connect_sweep_record_transfer_failed('00000000-0000-4000-9000-0000000000ec', now() - interval '1 second');
+  ok := connect_sweep_record_transfer_failed('00000000-0000-4000-9000-0000000000ec', now() - interval '1 second', 'walk: stale lease probe');
   IF ok THEN RAISE EXCEPTION '[fence] wrong lease must return false'; END IF;
   SELECT status INTO v_status FROM teacher_earning_entries WHERE id='00000000-0000-4000-9000-0000000000ec';
   IF v_status <> 'processing' THEN RAISE EXCEPTION '[fence] EC must stay processing after a rejected fence, got %', v_status; END IF;
@@ -268,7 +268,7 @@ END $$;
 DO $$
 DECLARE ok boolean; v int; v_claim timestamptz;
 BEGIN
-  ok := connect_sweep_record_transfer_failed('00000000-0000-4000-9000-0000000000ec', now());
+  ok := connect_sweep_record_transfer_failed('00000000-0000-4000-9000-0000000000ec', now(), 'walk: stripe failure probe');
   IF NOT ok THEN RAISE EXCEPTION '[fail] recordTransferFailed should return true'; END IF;
 
   IF (SELECT status FROM teacher_earning_entries WHERE id='00000000-0000-4000-9000-0000000000ec') <> 'pending'

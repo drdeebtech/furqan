@@ -6780,7 +6780,7 @@ export type Database = {
         Returns: boolean
       }
       connect_sweep_record_transfer_failed: {
-        Args: { p_entry_id: string; p_claimed_at: string }
+        Args: { p_entry_id: string; p_claimed_at: string; p_error_detail: string }
         Returns: boolean
       }
       connect_sweep_record_debt_recovered: {
@@ -6800,6 +6800,13 @@ export type Database = {
           p_claimed_at: string
         }
         Returns: boolean
+      }
+      connect_admin_requeue_failed_entry: {
+        Args: {
+          p_entry_id: string
+          p_actor: string
+        }
+        Returns: string
       }
       connect_settle_manual_due: {
         Args: {
