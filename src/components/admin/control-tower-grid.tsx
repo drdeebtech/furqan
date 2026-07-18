@@ -26,7 +26,7 @@ type Widget = {
 const WIDGETS: Widget[] = [
   { key: "pending-cvs", labelAr: "سير ذاتية بانتظار المراجعة", labelEn: "Pending CVs", icon: Users, tier: "warning", href: "/admin/teachers/cv", threshold: 0 },
   { key: "failed-auto", labelAr: "أتمتة فاشلة (24 ساعة)", labelEn: "Failed Automations (24h)", icon: XCircle, tier: "error", href: "/admin/automation", threshold: 0 },
-  { key: "dead-letter", labelAr: "مهام فاشلة نهائياً", labelEn: "Dead-Letter Queue", icon: XCircle, tier: "error", href: "/admin/automation", threshold: 0 },
+  { key: "dead-letter", labelAr: "مهام فاشلة نهائياً", labelEn: "Dead-Letter Queue", icon: XCircle, tier: "error", href: "/admin/automation/replay", threshold: 0 },
   { key: "stuck", labelAr: "جلسات متوقفة", labelEn: "Stuck Sessions (>15m)", icon: Timer, tier: "error", href: "/admin/sessions/live", threshold: 0 },
   { key: "no-show", labelAr: "غياب اليوم", labelEn: "No-Shows Today", icon: AlertTriangle, tier: "warning", href: "/admin/sessions", threshold: 0 },
   { key: "new-signups", labelAr: "مسجلون جدد (7 أيام)", labelEn: "New Signups (7d)", icon: Users, tier: "success", href: "/admin/users", threshold: -1 },
