@@ -242,10 +242,13 @@ export async function studentDashboardView(
   // full dashboard (incl. the wallet widget), never the "new student" state.
   const hasPrepaidHours = (prepaidCountRes.count ?? 0) > 0;
   // S2 — the student's conversation ids feed the unread-messages count in
-  // Batch 3. Empty/failed read ⇒ no unread badge (a non-critical widget).
-  const convIds = (convosRes.data ?? []).map((c) => c.id);
+  // Batch 3. Routed through loadOrFail so a failed read is logged and flips
+  // anyFailed (no silent `?? []` default — silent-fail policy).
+  const convosLoad = loadOrFail(convosRes, [] as { id: string }[], { route: ROUTE, widget: "conversations" });
+  anyFailed = anyFailed || convosLoad.failed;
+  const convIds = convosLoad.data.map((c) => c.id);
 
-  const isNewStudent = !anyFailed && totalSessions === 0 && pendingBookings === 0 && !nextBooking && !hasActiveSub && !hasPrepaidHours;
+  const isNewStudent = !anyFailed && totalSessions === 0 && pendingBookings === 0 && !nextBooking && !hasActiveSub && !hasPrepaidHours && convIds.length === 0;
   if (isNewStudent) {
     return {
       data: emptyData(fullName, now),
@@ -488,11 +491,13 @@ export async function studentDashboardView(
   } | null = null;
   if (subscriptionLoad.data) {
     const sub = subscriptionLoad.data;
-    const { data: plan } = await supabase
+    const planRes = await supabase
       .from("subscription_plans").select("name").eq("id", sub.plan_id)
       .maybeSingle<{ name: string }>();
+    const planLoad = loadOrFail(planRes, null, { route: ROUTE, widget: "subscription-plan" });
+    anyFailed = anyFailed || planLoad.failed;
     subscription = {
-      planName: plan?.name ?? null,
+      planName: planLoad.data ? planLoad.data.name : null,
       status: sub.status,
       currentPeriodEnd: sub.current_period_end,
       cancelAtPeriodEnd: sub.cancel_at_period_end,

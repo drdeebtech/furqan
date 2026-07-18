@@ -303,6 +303,7 @@ describe("studentDashboardView", () => {
       ],
       profiles: [{ data: { full_name: "Ali Hassan" }, error: null }],
       subscriptions: [{ count: 0, error: null }],
+      conversations: [{ data: [], error: null }],
     });
 
     const result = await studentDashboardView(supabase, STUDENT_ID, BASE_OPTS);
@@ -339,6 +340,7 @@ describe("studentDashboardView", () => {
       ],
       profiles: [{ data: { full_name: "Ali Hassan" }, error: null }],
       subscriptions: [{ count: 0, error: null }],
+      conversations: [{ data: [], error: null }],
       student_packages: [{ data: [], error: null }],
       student_progress: [{ data: null, error: null }],
       session_evaluations: [{ data: null, error: null }],
@@ -409,6 +411,7 @@ describe("studentDashboardView", () => {
         { data: [{ id: "t2", full_name: "Sheikh Omar" }], error: null },
       ],
       subscriptions: [{ count: 1, error: null }],
+      conversations: [{ data: [], error: null }],
       sessions: [{ data: { id: "session-1" }, error: null }],
       student_packages: [{ data: [], error: null }],
       student_progress: [{ data: null, error: null }],
@@ -463,6 +466,7 @@ describe("studentDashboardView", () => {
       ],
       profiles: [{ data: { full_name: "Student B" }, error: null }],
       subscriptions: [{ count: 0, error: null }],
+      conversations: [{ data: [], error: null }],
       student_packages: [{ data: [], error: null }],
       student_progress: [{ data: null, error: null }],
       session_evaluations: [{ data: null, error: null }],
