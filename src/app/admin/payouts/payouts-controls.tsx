@@ -202,7 +202,8 @@ export function RequeueButton({ entryId, label, confirmText }: {
       >
         {label}
       </button>
-      {msg ? <span className="text-xs text-muted-foreground">{msg}</span> : null}
+      {/* role=status ⇒ polite live region: the async result is announced. */}
+      {msg ? <span role="status" className="text-xs text-muted-foreground">{msg}</span> : null}
     </span>
   );
 }

@@ -340,7 +340,9 @@ export default async function AdminPayoutsPage() {
                     <td className="p-2">{row.full_name || row.teacher_id.slice(0, 8)}</td>
                     <td className="p-2" dir="ltr">{usd(row.amount_cents)}</td>
                     <td className="p-2" dir="ltr">{row.attempt_count}</td>
-                    <td className="max-w-80 truncate p-2 text-xs text-error" dir="ltr" title={row.last_error_detail ?? undefined}>
+                    {/* Full text rendered (wrapped) — a hover-only tooltip would
+                        hide the operational detail from touch/keyboard users. */}
+                    <td className="max-w-80 whitespace-pre-wrap break-words p-2 text-xs text-error" dir="ltr">
                       {row.last_error_detail ?? "—"}
                     </td>
                     <td className="p-2">

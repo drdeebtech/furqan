@@ -99,6 +99,34 @@ GRANT  EXECUTE ON FUNCTION connect_sweep_record_transfer_failed(uuid, timestampt
 COMMENT ON FUNCTION connect_sweep_record_transfer_failed(uuid, timestamptz, text) IS
   'Spec 040 FR-011: fenced failure path — record the error on the entry, back off exponentially (15min·2^(n-1) ≤ 24h), and park the entry held/transfer_failed after 8 attempts (loud terminal; admin requeue is the recovery). Service-role only.';
 
+-- Deploy-window compatibility wrapper (review finding): builds deploy
+-- concurrently with migrations, so an in-flight OLD app instance still calls
+-- the 2-arg form. Without this it would error and leave the entry leased for
+-- the whole 30-min lease TTL; with it, the legacy caller gets the full FR-011
+-- contract (counter, backoff, terminal parking) with a placeholder error.
+-- Contract-phase removal in a later PR once no old instances remain.
+CREATE FUNCTION connect_sweep_record_transfer_failed(
+  p_entry_id   uuid,
+  p_claimed_at timestamptz
+)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT connect_sweep_record_transfer_failed(
+           p_entry_id, p_claimed_at, 'unknown error (legacy 2-arg caller)');
+$$;
+
+ALTER FUNCTION connect_sweep_record_transfer_failed(uuid, timestamptz) OWNER TO postgres;
+REVOKE EXECUTE ON FUNCTION connect_sweep_record_transfer_failed(uuid, timestamptz)
+  FROM public, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION connect_sweep_record_transfer_failed(uuid, timestamptz)
+  TO service_role;
+
+COMMENT ON FUNCTION connect_sweep_record_transfer_failed(uuid, timestamptz) IS
+  'Spec 040 FR-011 deploy-window compatibility wrapper — delegates to the 3-arg form with a placeholder error. Remove in a later contract-phase PR.';
+
 -- ─────────────────────────────────────────────────────────────────────────
 -- 3. Claim respects the backoff gate.
 -- ─────────────────────────────────────────────────────────────────────────
@@ -285,8 +313,12 @@ AS $$
           'failed_transfers', (SELECT count(*) FROM teacher_earning_entries e
             WHERE e.teacher_id = tp.teacher_id AND e.attempt_count > 0
               AND (e.status = 'pending' OR (e.status = 'held' AND e.hold_reason = 'transfer_failed'))),
+          -- Same predicate as the count above (review finding): a recovered or
+          -- requeued entry's stale error must not display beside an active one.
           'last_transfer_error', (SELECT e.last_error_detail FROM teacher_earning_entries e
             WHERE e.teacher_id = tp.teacher_id AND e.last_error_detail IS NOT NULL
+              AND e.attempt_count > 0
+              AND (e.status = 'pending' OR (e.status = 'held' AND e.hold_reason = 'transfer_failed'))
             ORDER BY e.updated_at DESC LIMIT 1),
           'active_holds', COALESCE((SELECT jsonb_agg(jsonb_build_object(
               'id', ph.id, 'source', ph.source, 'reason', ph.reason,

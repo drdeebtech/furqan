@@ -78,10 +78,9 @@ BEGIN
   IF e.attempt_count <> 1 THEN RAISE EXCEPTION '[1] attempt_count must be 1, got %', e.attempt_count; END IF;
   IF e.last_error_detail <> 'stripe: balance_insufficient' THEN RAISE EXCEPTION '[1] error must be recorded, got %', e.last_error_detail; END IF;
   IF e.claimed_at IS NOT NULL THEN RAISE EXCEPTION '[1] lease must be cleared'; END IF;
-  IF e.next_attempt_at IS NULL
-     OR e.next_attempt_at < now() + interval '14 minutes'
-     OR e.next_attempt_at > now() + interval '16 minutes' THEN
-    RAISE EXCEPTION '[1] next_attempt_at must be ~now+15min, got %', e.next_attempt_at;
+  -- now() is txn-frozen, so the schedule is EXACT: attempt 1 ⇒ +15 min.
+  IF e.next_attempt_at IS DISTINCT FROM now() + interval '15 minutes' THEN
+    RAISE EXCEPTION '[1] next_attempt_at must be exactly now+15min, got %', e.next_attempt_at;
   END IF;
 END $$;
 
@@ -110,16 +109,17 @@ END $$;
 --     failures out to attempt 7 and assert the 24 h cap is respected.
 -- ════════════════════════════════════════════════════════════════════════
 DO $$
-DECLARE e record; v_claimed timestamptz; ok boolean; i int;
+DECLARE e record; v_claimed timestamptz; ok boolean; i int; v_expected interval;
 BEGIN
   SELECT * INTO e FROM teacher_earning_entries WHERE id='00000000-0000-4000-9000-0000000000f1';
   IF e.attempt_count <> 2 THEN RAISE EXCEPTION '[3] attempt_count must be 2, got %', e.attempt_count; END IF;
-  IF e.next_attempt_at < now() + interval '29 minutes'
-     OR e.next_attempt_at > now() + interval '31 minutes' THEN
-    RAISE EXCEPTION '[3] second delay must be ~30min, got %', e.next_attempt_at;
+  IF e.next_attempt_at IS DISTINCT FROM now() + interval '30 minutes' THEN
+    RAISE EXCEPTION '[3] second delay must be exactly 30min, got %', e.next_attempt_at;
   END IF;
 
-  -- Attempts 3..7: claim far in the future (always past any backoff), fail.
+  -- Attempts 3..7: claim far in the future (always past any backoff), fail,
+  -- and assert the EXACT doubled delay after every failure: 60, 120, 240,
+  -- 480, 960 minutes (now() is txn-frozen, so equality is deterministic).
   FOR i IN 3..7 LOOP
     SELECT c.claimed_at INTO v_claimed
       FROM connect_sweep_claim_eligible(now() + (i || ' days')::interval) c
@@ -128,15 +128,20 @@ BEGIN
     ok := connect_sweep_record_transfer_failed(
             '00000000-0000-4000-9000-0000000000f1', v_claimed, 'stripe: attempt ' || i);
     IF NOT ok THEN RAISE EXCEPTION '[3] attempt % failure write must hit', i; END IF;
+
+    v_expected := make_interval(mins => LEAST(15 * (2 ^ (i - 1))::integer, 1440));
+    SELECT * INTO e FROM teacher_earning_entries WHERE id='00000000-0000-4000-9000-0000000000f1';
+    IF e.attempt_count <> i THEN RAISE EXCEPTION '[3] attempt_count must be %, got %', i, e.attempt_count; END IF;
+    IF e.next_attempt_at IS DISTINCT FROM now() + v_expected THEN
+      RAISE EXCEPTION '[3] delay after attempt % must be exactly % (got %)', i, v_expected, e.next_attempt_at;
+    END IF;
   END LOOP;
 
   SELECT * INTO e FROM teacher_earning_entries WHERE id='00000000-0000-4000-9000-0000000000f1';
-  IF e.attempt_count <> 7 THEN RAISE EXCEPTION '[3] attempt_count must be 7, got %', e.attempt_count; END IF;
   IF e.status <> 'pending' THEN RAISE EXCEPTION '[3] must still be pending at attempt 7'; END IF;
-  -- 15·2^6 = 960 min < 1440 cap; the delay is measured from the failure time.
-  IF e.next_attempt_at > now() + interval '25 hours' THEN
-    RAISE EXCEPTION '[3] delay must never exceed the 24h cap, got %', e.next_attempt_at;
-  END IF;
+  -- Note: at MAX_ATTEMPTS=8 the largest scheduled delay is 15·2^6 = 960 min,
+  -- so the 1440-min cap is a guard for future constant changes, not a state
+  -- reachable today — the exact-schedule assertions above are the real proof.
 END $$;
 
 -- ════════════════════════════════════════════════════════════════════════
@@ -236,13 +241,48 @@ BEGIN
 END $$;
 
 -- ════════════════════════════════════════════════════════════════════════
--- [7] Lockdown.
+-- [6b] Deploy-window compatibility: the legacy 2-arg form still exists but
+--      DELEGATES — an old app instance's failure write gets the full FR-011
+--      contract (counter + backoff + placeholder error), never a lost lease.
+-- ════════════════════════════════════════════════════════════════════════
+DO $$
+DECLARE v_claimed timestamptz; ok boolean; e record;
+BEGIN
+  -- [6] left the entry leased ('processing'); reuse its live lease token.
+  SELECT te.claimed_at INTO v_claimed FROM teacher_earning_entries te
+   WHERE te.id='00000000-0000-4000-9000-0000000000f1';
+  IF v_claimed IS NULL THEN RAISE EXCEPTION '[6b] expected a live lease from [6]'; END IF;
+
+  ok := connect_sweep_record_transfer_failed(
+          '00000000-0000-4000-9000-0000000000f1', v_claimed);
+  IF NOT ok THEN RAISE EXCEPTION '[6b] legacy wrapper write must hit'; END IF;
+
+  SELECT * INTO e FROM teacher_earning_entries WHERE id='00000000-0000-4000-9000-0000000000f1';
+  IF e.status <> 'pending' THEN RAISE EXCEPTION '[6b] wrapper must return the entry to pending'; END IF;
+  IF e.attempt_count <> 1 THEN RAISE EXCEPTION '[6b] wrapper must count the attempt, got %', e.attempt_count; END IF;
+  IF e.last_error_detail <> 'unknown error (legacy 2-arg caller)' THEN
+    RAISE EXCEPTION '[6b] wrapper must record the placeholder error, got %', e.last_error_detail;
+  END IF;
+  IF e.next_attempt_at IS DISTINCT FROM now() + interval '15 minutes' THEN
+    RAISE EXCEPTION '[6b] wrapper must schedule the backoff, got %', e.next_attempt_at;
+  END IF;
+END $$;
+
+-- ════════════════════════════════════════════════════════════════════════
+-- [7] Lockdown (both signatures + the requeue).
 -- ════════════════════════════════════════════════════════════════════════
 DO $$
 BEGIN
   IF has_function_privilege('anon', 'connect_sweep_record_transfer_failed(uuid, timestamptz, text)', 'EXECUTE')
   OR has_function_privilege('authenticated', 'connect_sweep_record_transfer_failed(uuid, timestamptz, text)', 'EXECUTE') THEN
     RAISE EXCEPTION '[lockdown] record_transfer_failed must not be client-executable';
+  END IF;
+  IF has_function_privilege('anon', 'connect_sweep_record_transfer_failed(uuid, timestamptz)', 'EXECUTE')
+  OR has_function_privilege('authenticated', 'connect_sweep_record_transfer_failed(uuid, timestamptz)', 'EXECUTE') THEN
+    RAISE EXCEPTION '[lockdown] the legacy wrapper must not be client-executable';
+  END IF;
+  IF NOT has_function_privilege('service_role', 'connect_sweep_record_transfer_failed(uuid, timestamptz)', 'EXECUTE') THEN
+    RAISE EXCEPTION '[lockdown] service_role MUST have EXECUTE on the legacy wrapper';
   END IF;
   IF NOT has_function_privilege('service_role', 'connect_sweep_record_transfer_failed(uuid, timestamptz, text)', 'EXECUTE') THEN
     RAISE EXCEPTION '[lockdown] service_role MUST have EXECUTE on record_transfer_failed';
