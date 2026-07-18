@@ -50,6 +50,22 @@ export interface EventContext {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Update the billing_events row status (best-effort, never throws). */
+/**
+ * Transient infrastructure/RPC failure on a money path: THROWN so the dispatch
+ * catch marks the event failed and answers 500 — Stripe redelivers and the
+ * billing_events non-terminal status admits the retry. markEvent(failed)+return
+ * would answer 200 and dead-end the event (Stripe only retries non-2xx);
+ * that posture is reserved for DETERMINISTIC un-retryables. (Phase 5 security
+ * pass P1 — the spec-040 clawback/hold paths already rethrow; this aligns the
+ * older spec-018/038 paths.)
+ */
+export class WebhookTransientError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "WebhookTransientError";
+  }
+}
+
 export async function markEvent(
   ctx: EventContext,
   status: "processed" | "ignored" | "failed",
@@ -58,7 +74,7 @@ export async function markEvent(
   if (!ctx.billingEventId) return;
   const { error } = await ctx.admin
     .from("billing_events")
-    .update({ status, ...(errorDetail ? { error_detail: errorDetail } : {}) })
+    .update({ status, ...(errorDetail ? { error_detail: errorDetail.slice(0, 500) } : {}) })
     .eq("id", ctx.billingEventId);
   if (error) {
     logError("stripe-webhook: markEvent failed", error, {
@@ -116,13 +132,13 @@ export async function handleInvoicePaid(ctx: EventContext): Promise<void> {
   if (invoice.billing_reason === "subscription_update") {
     const resolvedUpgrade = await resolveSubscription(ctx, subscriptionId, invoice);
     if (!resolvedUpgrade.mirrorId) {
-      await markEvent(ctx, "failed", "could not resolve mirror for subscription_update invoice");
-      return;
+      // Can be a transient subscriptions.retrieve/DB outage — retryable.
+      throw new WebhookTransientError("could not resolve mirror for subscription_update invoice");
     }
     const upgrade = await applyImmediateUpgradeGrant(ctx.admin, resolvedUpgrade.mirrorId, invoice.id);
     if (!upgrade.ok && upgrade.reason !== "no_pending") {
-      await markEvent(ctx, "failed", `immediate upgrade grant failed: ${upgrade.reason}`);
-      return;
+      // RPC/DB failure while granting a PAID upgrade — must retry, never 200.
+      throw new WebhookTransientError(`immediate upgrade grant failed: ${upgrade.reason}`);
     }
     await ctx.admin
       .from("billing_events")
@@ -169,13 +185,14 @@ export async function handleInvoicePaid(ctx: EventContext): Promise<void> {
   // via the stripe_subscription_id UNIQUE.
   const resolved = await resolveSubscription(ctx, subscriptionId, invoice);
   if (!resolved.studentId || !resolved.planId || !resolved.mirrorId) {
-    await markEvent(ctx, "failed", "could not resolve student_id/plan_id or create mirror");
-    return;
+    // Can be a transient subscriptions.retrieve/mirror-insert outage on a PAID
+    // invoice — a 200 here would silently never grant the credits.
+    throw new WebhookTransientError("could not resolve student_id/plan_id or create mirror");
   }
   const { studentId, mirrorId } = resolved;
 
   // Plan catalog row (binding source of credit count + price).
-  const { data: plan } = await ctx.admin
+  const { data: plan, error: planErr } = await ctx.admin
     .from("subscription_plans")
     .select("id, monthly_credit_count, price_cents, session_metadata, is_hifz_product")
     .eq("id", resolved.planId)
@@ -186,7 +203,14 @@ export async function handleInvoicePaid(ctx: EventContext): Promise<void> {
       session_metadata: unknown;
       is_hifz_product: boolean | null;
     }>();
+  if (planErr) {
+    // Transient catalog lookup failure previously masqueraded as "plan not
+    // found" (the error was silently discarded) — retry instead.
+    throw new WebhookTransientError(`plan lookup failed: ${planErr.message}`);
+  }
   if (!plan) {
+    // Deterministic: the catalog genuinely has no such plan — retrying cannot
+    // fix data, so record and stop.
     await markEvent(ctx, "failed", `plan not found: ${resolved.planId}`);
     return;
   }
@@ -208,8 +232,9 @@ export async function handleInvoicePaid(ctx: EventContext): Promise<void> {
   });
 
   if (!result.ok) {
-    await markEvent(ctx, "failed", result.error);
-    return;
+    // grantCycle failures are RPC/DB-transient; the cycle key makes the
+    // redelivered grant idempotent.
+    throw new WebhookTransientError(result.error);
   }
 
   await ctx.admin.from("billing_events").update({ subscription_id: mirrorId }).eq("id", ctx.billingEventId!);
@@ -839,8 +864,9 @@ export async function handlePrepaidHoursGrant(ctx: EventContext): Promise<void> 
       hours,
       rate_usd: rateUsd,
     });
-    await markEvent(ctx, "failed", grantErr?.message ?? "grant_prepaid_hours returned no id");
-    return;
+    throw new WebhookTransientError(
+      grantErr?.message ?? "grant_prepaid_hours returned no id",
+    );
   }
 
   // Record the payment row for audit (mirrors single-session: payments is the
@@ -869,8 +895,7 @@ export async function handlePrepaidHoursGrant(ctx: EventContext): Promise<void> 
       pi_id: pi.id,
       student_id: studentId,
     });
-    await markEvent(ctx, "failed", `payments upsert failed: ${payErr.message}`);
-    return;
+    throw new WebhookTransientError(`payments upsert failed: ${payErr.message}`);
   }
 
   logInfo("stripe-webhook: prepaid_hours granted", {
@@ -940,8 +965,7 @@ export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
           tag: "stripe-webhook",
           refund_request_id: requestId,
         });
-        await markEvent(ctx, "failed", `finalize ${requestId}: ${error.message}`);
-        return;
+        throw new WebhookTransientError(`finalize ${requestId}: ${error.message}`);
       }
       continue;
     }
@@ -956,14 +980,13 @@ export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
         .maybeSingle<{ id: string }>();
       if (lotErr) {
         // Transient lookup failure must NOT be treated as "no lot" — that
-        // would mark the event processed while the wallet stays spendable.
-        // Fail-closed so Stripe retries.
+        // would leave the wallet spendable. THROW so the dispatch 500s and
+        // Stripe actually redelivers (a 200 would dead-end the event).
         logError("stripe-webhook: charge.refunded prepaid-lot lookup failed", lotErr, {
           tag: "stripe-webhook",
           pi_id: piId,
         });
-        await markEvent(ctx, "failed", `prepaid lot lookup: ${lotErr.message}`);
-        return;
+        throw new WebhookTransientError(`prepaid lot lookup: ${lotErr.message}`);
       }
       if (lot) {
         const { error } = await ctx.admin.rpc("reconcile_external_prepaid_refund", {
@@ -974,8 +997,7 @@ export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
             tag: "stripe-webhook",
             pi_id: piId,
           });
-          await markEvent(ctx, "failed", `reconcile external: ${error.message}`);
-          return;
+          throw new WebhookTransientError(`reconcile external: ${error.message}`);
         }
       }
     }
@@ -1077,14 +1099,13 @@ export async function handleChargeDisputed(ctx: EventContext): Promise<void> {
     .maybeSingle<{ id: string }>();
   if (lotErr) {
     // Transient lookup failure must NOT be treated as "no lot" — that would
-    // leave the wallet spendable through the dispute. Fail-closed so Stripe
-    // retries.
+    // leave the wallet spendable through the dispute. THROW so the dispatch
+    // 500s and Stripe actually redelivers.
     logError("stripe-webhook: dispute prepaid-lot lookup failed", lotErr, {
       tag: "stripe-webhook",
       pi_id: piId,
     });
-    await markEvent(ctx, "failed", `dispute lot lookup: ${lotErr.message}`);
-    return;
+    throw new WebhookTransientError(`dispute lot lookup: ${lotErr.message}`);
   }
   if (!lot) {
     await markEvent(ctx, "processed", "dispute not on a prepaid lot; ignored");
@@ -1099,8 +1120,7 @@ export async function handleChargeDisputed(ctx: EventContext): Promise<void> {
       tag: "stripe-webhook",
       pi_id: piId,
     });
-    await markEvent(ctx, "failed", `dispute reconcile: ${error.message}`);
-    return;
+    throw new WebhookTransientError(`dispute reconcile: ${error.message}`);
   }
 
   await markEvent(ctx, "processed");
