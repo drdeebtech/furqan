@@ -17,7 +17,8 @@ vi.mock("@/lib/domains/billing/events", () => ({
   BillingEvents: { Activated: "", Renewed: "", Canceled: "", PastDue: "" },
 }));
 vi.mock("@/lib/domains/catalog/credit-grant", () => ({
-  applyPendingTierChangeAtRenewal: vi.fn().mockResolvedValue({ ok: false, reason: "no_pending" }),
+  resolvePendingTierChange: vi.fn().mockResolvedValue({ ok: true, pending: null }),
+  finalizePendingTierChange: vi.fn().mockResolvedValue({ ok: true }),
 }));
 vi.mock("@/lib/posthog-server", () => ({ getPostHogClient: () => ({ capture: vi.fn() }) }));
 
