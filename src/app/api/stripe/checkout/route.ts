@@ -10,6 +10,10 @@ import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { assertNoActiveHifz, HifzAlreadyActiveError, isPlanHifzProduct, resolveStudentFamilyDiscount } from "@/lib/actions/subscriptions/create-hifz-subscription";
 import { logError } from "@/lib/logger";
 import { getPostHogClient } from "@/lib/posthog-server";
+import {
+  PAYMENTS_UNAVAILABLE_MESSAGE,
+  PAYMENTS_UNAVAILABLE_STATUS,
+} from "@/lib/payments/provider-unavailable";
 
 export const maxDuration = 60;
 
@@ -62,22 +66,15 @@ export async function POST(request: Request) {
   // produced an UNHANDLED throw -> Next's HTML 500 -> the client's `res.json()`
   // rejected -> the student was shown "check your internet" while the real
   // cause was an unconfigured server (Sentry FURQAN-4C, production 2026-07-09).
-  // Gate here, before any DB work, exactly as the single-session and
-  // prepaid-hours checkout routes already do.
-  //
-  // 503 (not 500): the server is healthy and the request well-formed — the
-  // payment provider simply is not wired up yet, so "retry later" is honest.
+  // Gate here, before any DB work, exactly as the sibling checkout routes do.
   if (!isStripeConfigured()) {
     logError("checkout: STRIPE_SECRET_KEY not configured", new Error("no-stripe-key"), {
       tag: "billing",
       user_id: userId,
     });
     return NextResponse.json(
-      {
-        error:
-          "الدفع غير متاح حالياً — يرجى المحاولة لاحقاً. Payments are temporarily unavailable, please try again later.",
-      },
-      { status: 503 },
+      { error: PAYMENTS_UNAVAILABLE_MESSAGE },
+      { status: PAYMENTS_UNAVAILABLE_STATUS },
     );
   }
 

@@ -25,6 +25,10 @@ import {
   type TargetScope,
 } from "@/lib/domains/single-sessions/quran-validation";
 import { validateInstantSlot } from "@/lib/domains/single-sessions/instant-slot";
+import {
+  PAYMENTS_UNAVAILABLE_MESSAGE,
+  PAYMENTS_UNAVAILABLE_STATUS,
+} from "@/lib/payments/provider-unavailable";
 
 export const maxDuration = 60;
 
@@ -520,12 +524,16 @@ export async function POST(request: Request) {
 
   // ── Non-zero price: Stripe Checkout (payment mode) ────────────────────────
   if (!isStripeConfigured()) {
+    // The student reaches this from the teacher page's pay-per-session form,
+    // which renders regardless of provider config. "Server misconfigured" (the
+    // old copy) was English-only and meaningless to an Arabic-first audience;
+    // clients render `error` verbatim, so it has to be real user copy.
     logError("single-session: Stripe not configured but price > 0", new Error("no-stripe-key"), {
       tag: "single-sessions",
     });
     return NextResponse.json(
-      { success: false, error: "Server misconfigured" },
-      { status: 500 },
+      { success: false, error: PAYMENTS_UNAVAILABLE_MESSAGE },
+      { status: PAYMENTS_UNAVAILABLE_STATUS },
     );
   }
 

@@ -21,28 +21,17 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
  * service-role REST call. Skips when the local Supabase env is absent.
  */
 
-// Use the URL the APP itself reads, NOT `SUPABASE_URL`. In a normal .env.local
-// those are DIFFERENT projects: NEXT_PUBLIC_SUPABASE_URL is the local stack the
-// dev server talks to, while SUPABASE_URL can still hold the hosted project
-// (it does today). Seeding through the hosted one would both write to a real
-// database and leave the page under test reading rows that were never created.
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
-const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+// Local-only creds + the loopback guard live in one place so the two
+// write-capable specs cannot drift apart on this safety rule.
+import {
+  APP_SUPABASE_URL as SUPABASE_URL,
+  SERVICE_ROLE_KEY as SERVICE_KEY,
+  ANON_KEY,
+  hasLocalSupabaseEnv,
+  LOCAL_ONLY_SKIP_REASON,
+} from "./helpers/local-supabase";
 
-// Hard stop: this spec CREATES users and seeds packages. It may only ever run
-// against a loopback Supabase. If the env points anywhere else we refuse to
-// run rather than risk writing to a real project.
-function isLoopback(url: string): boolean {
-  try {
-    const { hostname } = new URL(url);
-    return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "[::1]";
-  } catch {
-    return false;
-  }
-}
-
-const hasEnv = !!SUPABASE_URL && !!SERVICE_KEY && !!ANON_KEY && isLoopback(SUPABASE_URL);
+const hasEnv = hasLocalSupabaseEnv();
 
 const EMAIL = "booking-paywall-visual@furqan.test";
 const PASSWORD = "Test-Passw0rd!23";
@@ -85,7 +74,7 @@ async function firstVisibleTeacherId(api: APIRequestContext): Promise<string> {
 test.describe("booking paywall parity (list + detail)", () => {
   test.skip(
     !hasEnv,
-    "requires a LOOPBACK NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY + NEXT_PUBLIC_SUPABASE_ANON_KEY (this spec writes data, so it never runs against a remote project)",
+    LOCAL_ONLY_SKIP_REASON,
   );
 
   test("list and detail agree, with and without a spendable credit", async ({ page, request }) => {

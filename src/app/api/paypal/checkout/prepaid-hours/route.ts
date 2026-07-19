@@ -5,6 +5,10 @@ import { requireRole } from "@/lib/auth/require-admin";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { logError, logInfo } from "@/lib/logger";
 import { getSetting, isFeatureEnabled } from "@/lib/settings";
+import {
+  PAYMENTS_UNAVAILABLE_MESSAGE,
+  PAYMENTS_UNAVAILABLE_STATUS,
+} from "@/lib/payments/provider-unavailable";
 
 export const maxDuration = 60;
 
@@ -154,8 +158,8 @@ export async function POST(request: Request) {
       { tag: "paypal-prepaid" },
     );
     return NextResponse.json(
-      { success: false, error: "Server misconfigured" },
-      { status: 500 },
+      { success: false, error: PAYMENTS_UNAVAILABLE_MESSAGE },
+      { status: PAYMENTS_UNAVAILABLE_STATUS },
     );
   }
 
