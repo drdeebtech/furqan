@@ -10,6 +10,7 @@ import {
 } from "@/lib/constants";
 import { getActiveTeacherSpecialties } from "@/lib/site-content/queries";
 import { getInstantPrice } from "@/lib/domains/single-sessions/pricing";
+import { hasBookableCredit } from "@/lib/domains/package/ledger";
 import type { GenderType, SessionType, RecitationStandard } from "@/types/database";
 import { SingleSessionPurchase } from "./single-session-purchase";
 
@@ -35,7 +36,7 @@ export default async function TeacherDetailPage({ params }: PageProps) {
   if (!user) redirect(`/login?next=/student/teachers/${teacherId}`);
 
   // Pull profile + teacher_profiles + availability + specialty picklist in parallel.
-  const [{ data: profile }, { data: tp }, { data: availability }, specialtyLabels, instantPrice] = await Promise.all([
+  const [{ data: profile }, { data: tp }, { data: availability }, specialtyLabels, instantPrice, canBook] = await Promise.all([
     supabase
       .from("public_profiles" as "profiles")
       .select("full_name, full_name_ar, avatar_url")
@@ -61,6 +62,12 @@ export default async function TeacherDetailPage({ params }: PageProps) {
       .returns<{ day_of_week: number; start_time: string; end_time: string }[]>(),
     getActiveTeacherSpecialties(),
     getInstantPrice(),
+    // Same predicate the teachers LIST uses. Before this the list paywalled the
+    // Book button while this page's CTA did not, so a student with no credit was
+    // walked into the booking form only to be rejected at submit. One rule, both
+    // surfaces. The pay-per-session form below stays visible either way — it is
+    // precisely the path for a student who holds no package.
+    hasBookableCredit(supabase, user.id),
   ]);
 
   if (!profile || !tp || tp.is_archived || !tp.is_accepting || tp.cv_status !== "approved") {
@@ -202,15 +209,24 @@ export default async function TeacherDetailPage({ params }: PageProps) {
         </div>
       )}
 
-      {/* Primary CTA */}
+      {/* Primary CTA — gated on a spendable credit, mirroring the list. */}
       <div className="mt-6">
-        <Link
-          href={`/student/bookings/new?teacher=${tp.teacher_id}`}
-          className="focus-ring flex w-full items-center justify-center gap-2 rounded-xl glass-gold py-4 text-base font-bold text-white transition-colors"
-          aria-label={t(`احجز جلسة مع ${name}`, `Book a session with ${name}`)}
-        >
-          {t("احجز جلسة", "Book a session")}
-        </Link>
+        {canBook ? (
+          <Link
+            href={`/student/bookings/new?teacher=${tp.teacher_id}`}
+            className="focus-ring flex w-full items-center justify-center gap-2 rounded-xl glass-gold py-4 text-base font-bold text-white transition-colors"
+            aria-label={t(`احجز جلسة مع ${name}`, `Book a session with ${name}`)}
+          >
+            {t("احجز جلسة", "Book a session")}
+          </Link>
+        ) : (
+          <Link
+            href="/pricing"
+            className="focus-ring flex w-full items-center justify-center gap-2 rounded-xl border border-gold/40 py-4 text-base font-bold text-gold transition-colors hover:border-gold/70"
+          >
+            🔒 {t("اشترك للحجز", "Subscribe to Book")}
+          </Link>
+        )}
       </div>
       <SingleSessionPurchase
         teacherId={tp.teacher_id}

@@ -40,7 +40,7 @@ interface WizardProps {
   teachers: TeacherData[];
   specialtyLabels: TeacherLanguage[];
   studentStandard: string | null;
-  hasActiveSubscription: boolean;
+  canBook: boolean;
   plans: OnboardingPlan[];
   /** Server action reference (serializable) — flips onboarding_completed. */
   completeAction: () => Promise<LoudResult>;
@@ -73,7 +73,7 @@ export function OnboardingWizard({
   teachers,
   specialtyLabels,
   studentStandard,
-  hasActiveSubscription,
+  canBook,
   plans,
   completeAction,
 }: WizardProps) {
@@ -158,7 +158,7 @@ export function OnboardingWizard({
             teachers={teachers}
             specialtyLabels={specialtyLabels}
             studentStandard={studentStandard}
-            hasActiveSubscription={hasActiveSubscription}
+            canBook={canBook}
           />
           <div dir={dir} className="mx-auto mb-10 flex max-w-5xl items-center justify-between gap-3 px-4">
             <span className="text-xs text-muted">

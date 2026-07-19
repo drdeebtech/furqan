@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getStripe } from "@/lib/stripe/client";
+import { getStripe, isStripeConfigured } from "@/lib/stripe/client";
 import { getActivePlanByCode } from "@/lib/domains/billing";
 import { requireRole } from "@/lib/auth/require-admin";
 import { checkRateLimit } from "@/lib/security/rate-limit";
@@ -55,6 +55,30 @@ export async function POST(request: Request) {
     parsed = Body.parse(await request.json());
   } catch {
     return NextResponse.json({ error: "Invalid body: { planCode: string } required" }, { status: 400 });
+  }
+
+  // ── Payment-provider configuration gate ───────────────────────────────────
+  // `getStripe()` throws when STRIPE_SECRET_KEY is unset. Reaching it unguarded
+  // produced an UNHANDLED throw -> Next's HTML 500 -> the client's `res.json()`
+  // rejected -> the student was shown "check your internet" while the real
+  // cause was an unconfigured server (Sentry FURQAN-4C, production 2026-07-09).
+  // Gate here, before any DB work, exactly as the single-session and
+  // prepaid-hours checkout routes already do.
+  //
+  // 503 (not 500): the server is healthy and the request well-formed — the
+  // payment provider simply is not wired up yet, so "retry later" is honest.
+  if (!isStripeConfigured()) {
+    logError("checkout: STRIPE_SECRET_KEY not configured", new Error("no-stripe-key"), {
+      tag: "billing",
+      user_id: userId,
+    });
+    return NextResponse.json(
+      {
+        error:
+          "الدفع غير متاح حالياً — يرجى المحاولة لاحقاً. Payments are temporarily unavailable, please try again later.",
+      },
+      { status: 503 },
+    );
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;

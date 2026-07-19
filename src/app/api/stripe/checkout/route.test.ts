@@ -16,6 +16,7 @@ const {
   mockGetPlan,
   mockIsPlanHifz,
   mockAssertNoActive,
+  mockIsStripeConfigured,
 } = vi.hoisted(() => ({
   mockRequireRole: vi.fn(),
   mockGetUser: vi.fn(),
@@ -25,6 +26,7 @@ const {
   mockGetPlan: vi.fn(),
   mockIsPlanHifz: vi.fn(),
   mockAssertNoActive: vi.fn(),
+  mockIsStripeConfigured: vi.fn(),
 }));
 
 // Real error classes so the route's `instanceof` checks work.
@@ -39,13 +41,21 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: vi.fn(() => ({ from: mockAdminFrom })),
 }));
 
+// Faithful to the real module: `getStripe()` THROWS when the secret key is
+// absent (src/lib/stripe/client.ts). Mocking it as always-succeeding would hide
+// the very failure mode this route has to defend against (FURQAN-4C).
 vi.mock("@/lib/stripe/client", () => ({
-  getStripe: vi.fn(() => ({
-    customers: { create: vi.fn() },
-    checkout: { sessions: { create: mockSessionsCreate } },
-    coupons: { create: mockCouponsCreate },
-  })),
-  isStripeConfigured: () => true,
+  getStripe: vi.fn(() => {
+    if (!mockIsStripeConfigured()) {
+      throw new Error("STRIPE_SECRET_KEY is not configured.");
+    }
+    return {
+      customers: { create: vi.fn() },
+      checkout: { sessions: { create: mockSessionsCreate } },
+      coupons: { create: mockCouponsCreate },
+    };
+  }),
+  isStripeConfigured: mockIsStripeConfigured,
 }));
 
 vi.mock("@/lib/domains/billing", () => ({ getActivePlanByCode: mockGetPlan }));
@@ -90,6 +100,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   process.env.NEXT_PUBLIC_APP_URL = "https://app.test";
   process.env.STRIPE_SECRET_KEY = "sk_test_x";
+  mockIsStripeConfigured.mockReturnValue(true);
   mockRequireRole.mockResolvedValue({ id: STUDENT_ID });
   mockGetUser.mockResolvedValue({ data: { user: { email: "s@test.local" } } });
   mockGetPlan.mockResolvedValue(PLAN);
@@ -200,6 +211,23 @@ describe("POST /api/stripe/checkout — subscription mode (spec 018)", () => {
     delete process.env.NEXT_PUBLIC_APP_URL;
     const res = await POST(makeReq({ planCode: "MONTHLY" }));
     expect(res.status).toBe(500);
+  });
+
+  // Regression: Sentry FURQAN-4C. With no STRIPE_SECRET_KEY, `getStripe()` threw
+  // an UNHANDLED error, so Next returned an HTML 500 page. The client does
+  // `res.json()` on that HTML, which rejects, and the student was shown
+  // "connection failed — check your internet" for a server misconfiguration.
+  // The route must answer with parseable JSON so the real reason reaches them.
+  it("returns a parseable 503 (not an unhandled throw) when Stripe is unconfigured", async () => {
+    mockIsStripeConfigured.mockReturnValue(false);
+
+    const res = await POST(makeReq({ planCode: "MONTHLY" }));
+
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toBeTruthy();
+    // Never reach Stripe when it is unconfigured.
+    expect(mockSessionsCreate).not.toHaveBeenCalled();
   });
 
   it("passes discount coupon to Stripe when family discount applies", async () => {

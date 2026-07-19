@@ -39,7 +39,7 @@ export function TeacherList({
   teachers,
   specialtyLabels,
   studentStandard,
-  hasActiveSubscription = false,
+  canBook = false,
 }: {
   teachers: TeacherData[];
   specialtyLabels: TeacherLanguage[];
@@ -47,9 +47,11 @@ export function TeacherList({
    *  who teach in the same tradition with a "matches your standard"
    *  badge. Null for brand-new students or when no standard is set. */
   studentStandard?: string | null;
-  /** Whether the student has an active subscription. Book buttons are
-   *  locked behind a paywall when false. */
-  hasActiveSubscription?: boolean;
+  /** Whether the student holds a credit they can spend on a booking (an active
+   *  subscription grant, a prepaid-hours wallet, or a single-session lot).
+   *  Mirrors createBooking's package precondition — see hasBookableCredit.
+   *  Book buttons fall back to the paywall when false. */
+  canBook?: boolean;
 }) {
   // Read initial filter values from URL on mount, so deep links like
   // /student/teachers?q=aisha&specialty=hifz&gender=female open in the
@@ -227,7 +229,7 @@ export function TeacherList({
                     </div>
                   </Link>
                   {/* Mobile: inline book button */}
-                  {hasActiveSubscription ? (
+                  {canBook ? (
                     <Link
                       href={`/student/bookings/new?teacher=${teacher.teacher_id}`}
                       className="inline-flex min-h-[44px] shrink-0 items-center justify-center rounded-lg glass-gold px-4 py-2 text-sm font-bold text-white transition-colors md:hidden"
@@ -312,7 +314,7 @@ export function TeacherList({
                 )}
 
                 {/* Desktop: full-width book button */}
-                {hasActiveSubscription ? (
+                {canBook ? (
                   <Link
                     href={`/student/bookings/new?teacher=${teacher.teacher_id}`}
                     className="mt-4 hidden min-h-[44px] w-full items-center justify-center gap-2 rounded-lg glass-gold py-2.5 font-semibold text-white transition-colors md:flex"
