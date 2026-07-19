@@ -209,6 +209,9 @@ export async function POST(request: Request) {
   };
 
   const stripe = getStripe();
+  // 10-min double-submit window: a repeated click reuses the SAME Stripe key,
+  // so Stripe returns the first session instead of charging the wallet twice.
+  const idemBucket = Math.floor(Date.now() / 600_000);
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -231,7 +234,7 @@ export async function POST(request: Request) {
       payment_intent_data: { metadata: stripeMetadata },
       success_url: `${appUrl}/student/dashboard?prepaid_hours=success`,
       cancel_url: `${appUrl}/student/dashboard?prepaid_hours=cancelled`,
-    });
+    }, { idempotencyKey: `prepaid:${studentId}:${body.hours}:${idemBucket}` });
 
     if (!session.url) {
       logError(

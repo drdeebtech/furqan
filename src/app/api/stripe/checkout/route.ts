@@ -80,6 +80,13 @@ export async function POST(request: Request) {
   const stripe = getStripe();
   const admin = createAdminClient();
 
+  // Idempotency window (R6): a double-click / retry within the same ~10-min
+  // bucket reuses the SAME Stripe key → Stripe returns the first Checkout
+  // Session instead of creating a second one, so the student is never
+  // double-charged. The coupon below shares this bucket so an idempotent
+  // replay sends identical params (a fresh coupon id would break the key).
+  const idemBucket = Math.floor(Date.now() / 600_000);
+
   // ── Single-active-hifz guard (spec 019 US2 / FR-007) ──────────────────────
   // A student may hold at most one active hifz subscription. Check BEFORE the
   // Stripe call so we don't waste a checkout session the user can't complete.
@@ -118,14 +125,17 @@ export async function POST(request: Request) {
       const discountRes = await resolveStudentFamilyDiscount(admin, userId, productCategory);
       if (discountRes.applies) {
         try {
-          const coupon = await stripe.coupons.create({
-            percent_off: discountRes.discountPct,
-            duration: "once",
-            metadata: {
-              discount_type: discountRes.discountType,
-              setting_key: discountRes.settingKey,
+          const coupon = await stripe.coupons.create(
+            {
+              percent_off: discountRes.discountPct,
+              duration: "once",
+              metadata: {
+                discount_type: discountRes.discountType,
+                setting_key: discountRes.settingKey,
+              },
             },
-          });
+            { idempotencyKey: `coupon:${userId}:${discountRes.discountType}:${idemBucket}` },
+          );
           stripeCouponId = coupon.id;
         } catch (err) {
           logError("checkout: guardian discount coupon creation failed", err, {
@@ -165,7 +175,7 @@ export async function POST(request: Request) {
       subscription_data: { metadata: { student_id: userId, plan_code: plan.planCode } },
       success_url: `${appUrl}/student/dashboard?subscription=success`,
       cancel_url: `${appUrl}/student/dashboard?subscription=cancelled`,
-    });
+    }, { idempotencyKey: `sub-checkout:${userId}:${plan.planCode}:${idemBucket}` });
 
     if (!session.url) {
       logError("checkout: Stripe returned no url", new Error("no url"), {

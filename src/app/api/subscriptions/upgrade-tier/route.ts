@@ -234,11 +234,17 @@ export async function POST(request: Request) {
     const itemId = stripeSub.items.data[0]?.id;
     if (!itemId) throw new Error("subscription has no items");
 
-    const updatedSub = await stripe.subscriptions.update(sub.stripe_subscription_id, {
-      items: [{ id: itemId, price: newPlan.stripe_price_id }],
-      proration_behavior: "always_invoice",
-      expand: ["latest_invoice"],
-    });
+    const updatedSub = await stripe.subscriptions.update(
+      sub.stripe_subscription_id,
+      {
+        items: [{ id: itemId, price: newPlan.stripe_price_id }],
+        proration_behavior: "always_invoice",
+        expand: ["latest_invoice"],
+      },
+      // 10-min double-submit window: a repeated upgrade click reuses the SAME
+      // Stripe key so no second always_invoice proration is charged.
+      { idempotencyKey: `upgrade:${userId}:${sub.id}:${newPlan.id}:${Math.floor(Date.now() / 600_000)}` },
+    );
 
     const latestInvoice = updatedSub.latest_invoice;
     invoiceId =

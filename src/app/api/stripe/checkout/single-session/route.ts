@@ -551,6 +551,15 @@ export async function POST(request: Request) {
 
   const stripe = getStripe();
   const amountCents = Math.round(priceUsd * 100);
+  // 10-min double-submit window keyed on the FULL booking metadata (sorted), so
+  // ANY distinguishing field — purpose, target_scope, specialty, teacher, slot —
+  // yields a distinct key: two genuinely-identical submissions dedupe to the
+  // first session, while distinct bookings never collide on a shared key.
+  const idemBucket = Math.floor(Date.now() / 600_000);
+  const idemKey = `single:${Object.entries(stripeMetadata)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join("|")}:${idemBucket}`;
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -573,7 +582,7 @@ export async function POST(request: Request) {
       payment_intent_data: { metadata: stripeMetadata },
       success_url: `${appUrl}/student/dashboard?single_session=success`,
       cancel_url: `${appUrl}/student/dashboard?single_session=cancelled`,
-    });
+    }, { idempotencyKey: idemKey });
 
     if (!session.url) {
       logError("single-session: Stripe returned no url", new Error("no url"), {
