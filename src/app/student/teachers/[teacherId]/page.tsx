@@ -209,7 +209,14 @@ export default async function TeacherDetailPage({ params }: PageProps) {
         </div>
       )}
 
-      {/* Primary CTA — gated on a spendable credit, mirroring the list. */}
+      {/* Primary CTA — gated on a spendable credit, mirroring the list.
+          When the student has no credit this page offers TWO real routes: a
+          subscription (below) and the pay-per-session form under it. So the
+          locked state must not say "subscribe to book" the way the list does —
+          on this page that would contradict the working single-session form
+          sitting directly beneath it. It states where the link goes instead,
+          and drops the 🔒 (booking is not actually blocked here). No pricing or
+          positioning claim is invented — see .claude/product-marketing.md. */}
       <div className="mt-6">
         {canBook ? (
           <Link
@@ -224,8 +231,13 @@ export default async function TeacherDetailPage({ params }: PageProps) {
             href="/pricing"
             className="focus-ring flex w-full items-center justify-center gap-2 rounded-xl border border-gold/40 py-4 text-base font-bold text-gold transition-colors hover:border-gold/70"
           >
-            🔒 {t("اشترك للحجز", "Subscribe to Book")}
+            {t("عرض باقات الاشتراك", "View subscription plans")}
           </Link>
+        )}
+        {!canBook && (
+          <p className="mt-2 text-center text-xs text-muted">
+            {t("أو ادفع مقابل جلسة واحدة فقط:", "Or pay for a single session:")}
+          </p>
         )}
       </div>
       <SingleSessionPurchase
