@@ -5,7 +5,8 @@ vi.mock("@/lib/logger", () => ({ logError: vi.fn() }));
 
 import {
   grantHifzCycleCredits,
-  applyPendingTierChangeAtRenewal,
+  resolvePendingTierChange,
+  finalizePendingTierChange,
 } from "./credit-grant";
 
 // ─── Mock builders ──────────────────────────────────────────────────────────
@@ -143,30 +144,24 @@ describe("grantHifzCycleCredits", () => {
   });
 });
 
-// ─── applyPendingTierChangeAtRenewal ────────────────────────────────────────
+// ─── resolvePendingTierChange ───────────────────────────────────────────────
 
-describe("applyPendingTierChangeAtRenewal", () => {
-  it("returns no_pending when no pending change exists (common case)", async () => {
+describe("resolvePendingTierChange", () => {
+  it("returns pending=null when no pending change exists (common case)", async () => {
     const admin = mockAdmin({ pendingChange: null });
-    const result = await applyPendingTierChangeAtRenewal(admin, "sub-1", "inv-1");
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toBe("no_pending");
-    }
+    const result = await resolvePendingTierChange(admin, "sub-1");
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.pending).toBeNull();
   });
 
-  it("returns lookup_failed on query error", async () => {
-    const admin = mockAdmin({
-      pendingLookupError: { message: "connection lost" },
-    });
-    const result = await applyPendingTierChangeAtRenewal(admin, "sub-1", "inv-1");
+  it("returns ok=false on lookup query error", async () => {
+    const admin = mockAdmin({ pendingLookupError: { message: "connection lost" } });
+    const result = await resolvePendingTierChange(admin, "sub-1");
     expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toBe("lookup_failed");
-    }
+    if (!result.ok) expect(result.error).toContain("connection lost");
   });
 
-  it("applies pending change: transitions status, switches plan, re-grants", async () => {
+  it("resolves a pending change to its new plan id (read-only, no grant)", async () => {
     const admin = mockAdmin({
       pendingChange: {
         id: "ptc-1",
@@ -178,21 +173,18 @@ describe("applyPendingTierChangeAtRenewal", () => {
         status: "pending",
       },
       targetPackage: { subscription_plan_id: "plan-new-tier" },
-      rpcResult: "regrant-id",
     });
-
-    const result = await applyPendingTierChangeAtRenewal(admin, "sub-1", "inv-1");
+    const rpc = (admin as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc;
+    const result = await resolvePendingTierChange(admin, "sub-1");
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.pendingId).toBe("ptc-1");
-      expect(result.newPlanId).toBe("plan-new-tier");
-      expect(result.regrant.ok).toBe(true);
-      // Re-grant uses distinct billing_cycle_key: {subscriptionId}:tier-change-{pendingId}
-      expect(result.regrant).toHaveProperty("grantId", "regrant-id");
+      expect(result.pending).toEqual({ pendingId: "ptc-1", newPlanId: "plan-new-tier" });
     }
+    // Read-only: resolution must never issue a credit-grant RPC.
+    expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("returns lookup_failed when to_package has no subscription_plan_id", async () => {
+  it("returns ok=false when to_package has no subscription_plan_id", async () => {
     const admin = mockAdmin({
       pendingChange: {
         id: "ptc-1",
@@ -205,73 +197,36 @@ describe("applyPendingTierChangeAtRenewal", () => {
       },
       targetPackage: { subscription_plan_id: null },
     });
-
-    const result = await applyPendingTierChangeAtRenewal(admin, "sub-1", "inv-1");
+    const result = await resolvePendingTierChange(admin, "sub-1");
     expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toBe("lookup_failed");
-    }
+    if (!result.ok) expect(result.error).toContain("no subscription_plan_id");
+  });
+});
+
+// ─── finalizePendingTierChange ──────────────────────────────────────────────
+
+describe("finalizePendingTierChange", () => {
+  it("switches the subscription plan + marks pending applied, issuing NO grant", async () => {
+    const admin = mockAdmin({});
+    const rpc = (admin as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc;
+    const result = await finalizePendingTierChange(admin, "sub-1", "ptc-1", "plan-new");
+    expect(result.ok).toBe(true);
+    // The single cycle grant already ran via grantCycle; finalize must not
+    // grant again — this is the double-grant regression guard.
+    expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("returns update_failed when status transition errors", async () => {
-    const admin = mockAdmin({
-      pendingChange: {
-        id: "ptc-1",
-        subscription_id: "sub-1",
-        student_id: "stu-1",
-        from_package_id: "pkg-old",
-        to_package_id: "pkg-new",
-        change_reason: "type_change",
-        status: "pending",
-      },
-      targetPackage: { subscription_plan_id: "plan-new" },
-      pendingUpdateError: { message: "RLS blocked" },
-    });
-
-    const result = await applyPendingTierChangeAtRenewal(admin, "sub-1", "inv-1");
+  it("returns ok=false when the subscription plan switch fails", async () => {
+    const admin = mockAdmin({ subUpdateError: { message: "write failed" } });
+    const result = await finalizePendingTierChange(admin, "sub-1", "ptc-1", "plan-new");
     expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toBe("update_failed");
-    }
+    if (!result.ok) expect(result.error).toContain("write failed");
   });
 
-  it("returns update_failed when subscription plan update fails", async () => {
-    const admin = mockAdmin({
-      pendingChange: {
-        id: "ptc-1",
-        subscription_id: "sub-1",
-        student_id: "stu-1",
-        from_package_id: "pkg-old",
-        to_package_id: "pkg-new",
-        change_reason: "type_change",
-        status: "pending",
-      },
-      targetPackage: { subscription_plan_id: "plan-new" },
-      subUpdateError: { message: "write failed" },
-    });
-
-    const result = await applyPendingTierChangeAtRenewal(admin, "sub-1", "inv-1");
+  it("returns ok=false when the status transition errors", async () => {
+    const admin = mockAdmin({ pendingUpdateError: { message: "RLS blocked" } });
+    const result = await finalizePendingTierChange(admin, "sub-1", "ptc-1", "plan-new");
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toBe("update_failed");
-  });
-
-  it("returns update_failed when regrant RPC fails", async () => {
-    const admin = mockAdmin({
-      pendingChange: {
-        id: "ptc-1",
-        subscription_id: "sub-1",
-        student_id: "stu-1",
-        from_package_id: "pkg-old",
-        to_package_id: "pkg-new",
-        change_reason: "type_change",
-        status: "pending",
-      },
-      targetPackage: { subscription_plan_id: "plan-new" },
-      rpcError: { message: "grant failed" },
-    });
-
-    const result = await applyPendingTierChangeAtRenewal(admin, "sub-1", "inv-1");
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toBe("update_failed");
+    if (!result.ok) expect(result.error).toContain("RLS blocked");
   });
 });
