@@ -103,6 +103,36 @@ function invoicePaymentIntentId(invoice: Stripe.Invoice): string | null {
   return null;
 }
 
+/**
+ * Resolve the invoice's payment intent id, re-fetching the invoice with the
+ * expandable `payments` list when the webhook payload omits it. Webhook event
+ * payloads never include expandable lists on the dahlia API — proven live
+ * 2026-07-19: every real subscription `invoice.paid` arrived without
+ * `payments`, so the grant dead-ended as "failed" and paid subscribers got
+ * zero credits. A retrieve failure throws transient (non-2xx → Stripe
+ * redelivers) because a PAID invoice must never silently skip its grant.
+ */
+async function resolveInvoicePaymentIntentId(
+  ctx: EventContext,
+  invoice: Stripe.Invoice,
+): Promise<string | null> {
+  const fromEvent = invoicePaymentIntentId(invoice);
+  if (fromEvent) return fromEvent;
+  // List present in the payload (even empty) but carrying no PI → genuinely
+  // PI-less; only an ABSENT list warrants the expanded re-fetch.
+  if (Array.isArray(invoice.payments?.data) || !invoice.id) return null;
+  let expanded: Stripe.Invoice;
+  try {
+    expanded = await ctx.stripe.invoices.retrieve(invoice.id, { expand: ["payments"] });
+  } catch (err) {
+    logError("stripe-webhook: invoice payments retrieve failed", err, {
+      tag: "stripe-webhook", invoice_id: invoice.id,
+    });
+    throw new WebhookTransientError(`invoice payments retrieve failed: ${invoice.id}`);
+  }
+  return invoicePaymentIntentId(expanded);
+}
+
 // ── invoice.paid → grant one cycle (idempotent on cycle_key) ─────────────────
 
 export async function handleInvoicePaid(ctx: EventContext): Promise<void> {
@@ -175,7 +205,7 @@ export async function handleInvoicePaid(ctx: EventContext): Promise<void> {
     return;
   }
 
-  const paymentIntent = invoicePaymentIntentId(invoice);
+  const paymentIntent = await resolveInvoicePaymentIntentId(ctx, invoice);
   if (!paymentIntent) {
     await markEvent(ctx, "failed", "invoice has no payment_intent");
     return;
