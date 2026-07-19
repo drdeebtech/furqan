@@ -193,20 +193,19 @@ backstop. The DB uniqueness is authoritative; the idempotency key is not.
   `scheduled_at = NULL`; the slot unique index ignores NULLs, so "frees the slot" only applies
   once a time is chosen. Cancel is still correct.
 
-## 6. Credit-system interaction (informational — no work here)
+## 6. Credit-system interaction — none (system retired)
 
-Cancelling a `confirmed` booking fires `t_restore_student_credit`. Paired with
-`t_deduct_student_credit` (fires at `pending→confirmed`), the two form a **symmetric floating
-counter**: a single session that went `confirmed` already had a credit deducted at confirm, so
-the restore at cancel nets to **zero**. **This refund path is credit-neutral in the normal
-path** — no fix needed here.
+There is **no** credit interaction. The legacy `student_credits` system — the
+`t_deduct_student_credit` / `t_restore_student_credit` triggers, both trigger functions, and the
+`student_credits` table — was **retired on 2026-07-12** (migrations
+`20260712000001_retire_legacy_student_credit_trigger.sql` and
+`20260712000002_retire_student_credits_system.sql`). Cancelling a booking fires no credit trigger,
+so this refund has zero credit-side effects.
 
-A *pre-existing, narrow* leak exists in that floating-counter design (restore can over-credit
-when no matching deduct occurred — e.g. confirmed with zero credits, credits acquired later,
-then refunded). It affects **every** confirmed-booking cancellation, not this feature, and its
-correct fix (per-booking credit stamp + symmetric guard on both deduct and restore, across all
-confirm/cancel paths: `class-offerings.ts`, `teacher-booking.ts`, `retention-batch.ts`, the
-webhook, group/class inserts) is **split to its own spec** by owner decision.
+> Correction (2026-07-19): an earlier draft of this section reasoned about those triggers as live
+> and proposed a follow-up "credit floating-counter guard" spec. That was based on the baseline
+> schema (`20260428`) and missed the later retirement migrations — it is superseded. There is no
+> bug to guard and no follow-up spec.
 
 ## 7. Verification
 
