@@ -118,6 +118,68 @@ export async function selectActivePackage(
   return { id: data.id, sessionsRemaining: data.sessions_remaining };
 }
 
+/**
+ * Does this student hold a credit they could actually spend on a 1:1 booking?
+ *
+ * UI-AFFORDANCE PREDICATE ONLY — it grants nothing and charges nothing. Its job
+ * is to make the "Book" button appear exactly when `createBooking`'s fail-closed
+ * package precondition would let the booking through, so the student is never
+ * offered a button that leads to a dead end, nor hidden a button they have paid
+ * for. The authoritative guards are unchanged: `createBooking` at create time
+ * and the `deduct_student_package` trigger at confirm time.
+ *
+ * Mirrors `selectActivePackage`'s candidate rules deliberately (active lot with
+ * remaining credit; a subscription-funded lot counts only while its subscription
+ * is active). It intentionally does NOT apply the R2 *ranking* — ranking picks
+ * WHICH lot pays, which is irrelevant to "is there any".
+ *
+ * Takes the caller's RLS-scoped client rather than a service-role one: the
+ * `student_read_own_packages` and `subscriptions_read_own_or_admin` policies
+ * already let a student read exactly their own rows, so a self-check needs no
+ * elevated privilege (least privilege).
+ *
+ * Fails OPEN (returns true) on a query error. This is a display decision, not a
+ * money decision: on a transient DB blip a paying student must not be shown a
+ * paywall, and the worst case for a non-paying one is reaching the booking form
+ * and getting createBooking's precise "no active package" message instead of
+ * the paywall. No credit can be spent on a false positive.
+ */
+export async function hasBookableCredit(
+  client: SupabaseClient<Database>,
+  studentId: string,
+): Promise<boolean> {
+  const { data, error } = await client
+    .from("student_packages")
+    .select("id, subscription_id, subscriptions(status)")
+    .eq("student_id", studentId)
+    .eq("status", "active")
+    .gt("sessions_remaining", 0)
+    .returns<
+      {
+        id: string;
+        subscription_id: string | null;
+        subscriptions: { status: string } | { status: string }[] | null;
+      }[]
+    >();
+
+  if (error) {
+    logError("hasBookableCredit query failed — showing the booking affordance", error, {
+      tag: "package-ledger",
+      metadata: { studentId },
+    });
+    return true;
+  }
+
+  return (data ?? []).some((lot) => {
+    // Prepaid-hours / single-session lots carry no subscription_id and are
+    // always spendable while active.
+    if (!lot.subscription_id) return true;
+    const sub = lot.subscriptions;
+    const status = Array.isArray(sub) ? sub[0]?.status : sub?.status;
+    return status === "active";
+  });
+}
+
 export type DebitOutcome =
   | { ok: true }
   | { ok: false; reason: "exhausted" }

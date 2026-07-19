@@ -13,7 +13,7 @@ vi.mock("server-only", () => ({}));
 const mockLogError = vi.fn();
 vi.mock("@/lib/logger", () => ({ logError: (...a: unknown[]) => mockLogError(...a) }));
 
-import { selectActivePackage, debitPackage } from "./ledger";
+import { selectActivePackage, debitPackage, hasBookableCredit } from "./ledger";
 
 // Minimal fake of the admin client's fluent query builder for selectActivePackage.
 function fakeSelectClient(result: { data: unknown; error?: unknown }) {
@@ -32,6 +32,19 @@ function fakeSelectClient(result: { data: unknown; error?: unknown }) {
 function fakeRpcClient(result: { data?: unknown; error?: unknown }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return { rpc: vi.fn().mockResolvedValue(result) } as any;
+}
+
+// hasBookableCredit reads a LIST (no .limit/.maybeSingle) and terminates on
+// .returns(), so it needs its own fluent fake.
+function fakeListClient(result: { data: unknown; error?: unknown }) {
+  const chain = {
+    select: () => chain,
+    eq: () => chain,
+    gt: () => chain,
+    returns: () => Promise.resolve(result),
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return { from: () => chain } as any;
 }
 
 describe("selectActivePackage", () => {
@@ -109,5 +122,65 @@ describe("debitPackage", () => {
       reason: "error",
       message: "boom",
     });
+  });
+});
+
+describe("hasBookableCredit", () => {
+  it("is false when the student holds no active lot (the paywall case)", async () => {
+    expect(await hasBookableCredit(fakeListClient({ data: [] }), "student-1")).toBe(false);
+  });
+
+  // The bug this predicate replaced: the teachers list gated the Book button on
+  // "has an active SUBSCRIPTION", so a student who paid for a single session or
+  // a prepaid-hours wallet was shown a subscribe paywall despite holding credit.
+  it("is true for a prepaid/single-session lot with no subscription", async () => {
+    const client = fakeListClient({
+      data: [{ id: "wallet-lot", subscription_id: null, subscriptions: null }],
+    });
+    expect(await hasBookableCredit(client, "student-1")).toBe(true);
+  });
+
+  it("is true for a subscription-funded lot while the subscription is active", async () => {
+    const client = fakeListClient({
+      data: [{ id: "sub-pkg", subscription_id: "sub-1", subscriptions: { status: "active" } }],
+    });
+    expect(await hasBookableCredit(client, "student-1")).toBe(true);
+  });
+
+  it("is false when the only lot is funded by a past_due subscription", async () => {
+    const client = fakeListClient({
+      data: [{ id: "sub-pkg", subscription_id: "sub-1", subscriptions: { status: "past_due" } }],
+    });
+    expect(await hasBookableCredit(client, "student-1")).toBe(false);
+  });
+
+  it("handles the PostgREST array-shaped embed (still blocks past_due)", async () => {
+    const client = fakeListClient({
+      data: [{ id: "sub-pkg", subscription_id: "sub-1", subscriptions: [{ status: "unpaid" }] }],
+    });
+    expect(await hasBookableCredit(client, "student-1")).toBe(false);
+  });
+
+  it("is true when a frozen subscription lot sits beside a usable wallet lot", async () => {
+    const client = fakeListClient({
+      data: [
+        { id: "sub-pkg", subscription_id: "sub-1", subscriptions: { status: "past_due" } },
+        { id: "wallet-lot", subscription_id: null, subscriptions: null },
+      ],
+    });
+    expect(await hasBookableCredit(client, "student-1")).toBe(true);
+  });
+
+  // Display decision, not a money decision: a DB blip must not paywall a paying
+  // student. createBooking still fail-closes, so nothing can be spent for free.
+  it("fails OPEN and logs when the query errors", async () => {
+    mockLogError.mockClear();
+    const client = fakeListClient({ data: null, error: { message: "db down" } });
+    expect(await hasBookableCredit(client, "student-1")).toBe(true);
+    expect(mockLogError).toHaveBeenCalledWith(
+      "hasBookableCredit query failed — showing the booking affordance",
+      expect.objectContaining({ message: "db down" }),
+      expect.objectContaining({ tag: "package-ledger" }),
+    );
   });
 });

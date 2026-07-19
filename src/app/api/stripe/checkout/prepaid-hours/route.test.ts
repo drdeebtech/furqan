@@ -220,10 +220,17 @@ describe("POST /api/stripe/checkout/prepaid-hours (spec 038)", () => {
   });
 
   // ── Config gates ───────────────────────────────────────────────────────────
-  it("returns 500 when Stripe is not configured", async () => {
+  // 503, not 500: the server is healthy and the request well-formed — the
+  // payment provider is simply unconfigured, which is a "try later" state. The
+  // body must also be real bilingual user copy, because the client renders
+  // `error` verbatim (it used to read "Server misconfigured" in English).
+  it("returns a bilingual 503 when Stripe is not configured", async () => {
     mockIsStripeConfigured.mockReturnValueOnce(false);
     const res = await POST(makeReq({ hours: 10 }));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(503);
+    const json = await res.json();
+    expect(json.error).toMatch(/[؀-ۿ]/);
+    expect(json.error).not.toMatch(/misconfigur/i);
     expect(mockSessionsCreate).not.toHaveBeenCalled();
   });
 

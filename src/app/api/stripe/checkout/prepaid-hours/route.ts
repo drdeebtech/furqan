@@ -7,6 +7,10 @@ import { checkRateLimit } from "@/lib/security/rate-limit";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { logError, logInfo } from "@/lib/logger";
 import { getSetting, isFeatureEnabled } from "@/lib/settings";
+import {
+  PAYMENTS_UNAVAILABLE_MESSAGE,
+  PAYMENTS_UNAVAILABLE_STATUS,
+} from "@/lib/payments/provider-unavailable";
 
 export const maxDuration = 60;
 
@@ -167,8 +171,8 @@ export async function POST(request: Request) {
       { tag: "prepaid-hours" },
     );
     return NextResponse.json(
-      { success: false, error: "Server misconfigured" },
-      { status: 500 },
+      { success: false, error: PAYMENTS_UNAVAILABLE_MESSAGE },
+      { status: PAYMENTS_UNAVAILABLE_STATUS },
     );
   }
 
