@@ -27,7 +27,8 @@ vi.mock("@/lib/domains/billing/events", () => ({
   },
 }));
 vi.mock("@/lib/domains/catalog/credit-grant", () => ({
-  applyPendingTierChangeAtRenewal: vi.fn().mockResolvedValue({ ok: false, reason: "no_pending" }),
+  resolvePendingTierChange: vi.fn().mockResolvedValue({ ok: true, pending: null }),
+  finalizePendingTierChange: vi.fn().mockResolvedValue({ ok: true }),
   applyImmediateUpgradeGrant: vi.fn().mockResolvedValue({ ok: false, reason: "no_pending" }),
 }));
 
@@ -47,7 +48,8 @@ import { upsertMirror } from "@/lib/domains/billing/subscriptions";
 import { grantCycle } from "@/lib/domains/billing/orchestrate";
 import {
   applyImmediateUpgradeGrant,
-  applyPendingTierChangeAtRenewal,
+  resolvePendingTierChange,
+  finalizePendingTierChange,
 } from "@/lib/domains/catalog/credit-grant";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -378,7 +380,7 @@ describe("handleInvoicePaid", () => {
 
       expect(applyImmediateUpgradeGrant).toHaveBeenCalledWith(expect.anything(), "mirror-1", "in_1");
       expect(grantCycle).not.toHaveBeenCalled();
-      expect(applyPendingTierChangeAtRenewal).not.toHaveBeenCalled();
+      expect(resolvePendingTierChange).not.toHaveBeenCalled();
       expect(beUpdate).toHaveBeenCalledWith(expect.objectContaining({ status: "processed" }));
     });
 
@@ -434,6 +436,31 @@ describe("handleInvoicePaid", () => {
     // the grant step (grantCycle is mocked at the module boundary).
     await expect(handleInvoicePaid(ctx)).resolves.toBeUndefined();
     expect(grantCycle).toHaveBeenCalled();
+  });
+
+  it("routes a hifz renewal with a pending tier change through ONE new-tier grant + finalize", async () => {
+    vi.mocked(grantCycle).mockResolvedValue({ ok: true, grantId: "g-1", created: false } as never);
+    vi.mocked(resolvePendingTierChange).mockResolvedValue({
+      ok: true,
+      pending: { pendingId: "ptc-1", newPlanId: "plan-new-tier" },
+    } as never);
+    const admin = makeInvoiceAdmin({
+      plan: { id: "plan-hifz", monthly_credit_count: 8, price_cents: 8000, session_metadata: {}, is_hifz_product: true },
+    });
+    const ctx = makeEventCtx(admin, "evt-1", invoiceObject({ billing_reason: "subscription_cycle" }));
+
+    await handleInvoicePaid(ctx);
+
+    // Exactly ONE cycle grant — never the old tier's cycle plus a second
+    // full new-tier regrant (the double-grant bug; audit 2026-07-18).
+    expect(grantCycle).toHaveBeenCalledTimes(1);
+    // The tier switch is finalized with the resolved new plan (no regrant path).
+    expect(finalizePendingTierChange).toHaveBeenCalledWith(
+      expect.anything(),
+      "mirror-1",
+      "ptc-1",
+      "plan-new-tier",
+    );
   });
 });
 

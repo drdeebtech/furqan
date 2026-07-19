@@ -97,41 +97,48 @@ export interface PendingTierChangeRow {
   status: string;
 }
 
-export interface AppliedTierChangeResult {
-  ok: true;
+/** A pending renewal tier change resolved to its target plan. */
+export interface ResolvedPendingTierChange {
   pendingId: string;
   newPlanId: string;
-  regrant: GrantHifzResult | GrantHifzFailure;
 }
 
-export interface AppliedTierChangeFailure {
+export interface ResolvePendingTierChangeResult {
+  ok: true;
+  /** null = no pending change this cycle (the common case). */
+  pending: ResolvedPendingTierChange | null;
+}
+
+export interface ResolvePendingTierChangeFailure {
   ok: false;
-  reason: "no_pending" | "lookup_failed" | "update_failed";
-  error?: string;
+  error: string;
+}
+
+export interface FinalizeTierChangeResult {
+  ok: true;
+}
+
+export interface FinalizeTierChangeFailure {
+  ok: false;
+  error: string;
 }
 
 /**
- * Apply a pending tier change at renewal (FR-019 / T014a).
+ * Resolve a subscription's pending renewal tier change to its target plan —
+ * READ ONLY, no writes, no credit grant (FR-019 / T014a).
  *
- * Steps (service-role only):
- * 1. Look up the subscription's pending `pending_tier_changes` row (at most one,
- *    guaranteed by partial unique index).
- * 2. Resolve the new plan from `to_package_id → packages.subscription_plan_id`.
- * 3. Re-grant credits at the NEW tier's `sessions_per_month` using a distinct
- *    billing_cycle_key (`{subscriptionId}:tier-change-{pendingId}`) so it is
- *    stable across monthly renewals and idempotent across webhook retries.
- * 4. Switch the subscription to the new plan.
- * 5. Transition `pending → applied` (WHERE status = 'pending' guard
- *    makes this replay-safe).
+ * At most one pending row exists per subscription (partial unique index).
+ * Returns `{ pending: null }` when nothing is scheduled — the common case.
  *
- * Returns `{ ok: false, reason: 'no_pending' }` when there's nothing to apply
- * (the common case — most renewals have no pending change).
+ * The renewal cycle is then granted exactly ONCE by the caller through
+ * `grantCycle` at the resolved new plan. The old design granted the old tier's
+ * cycle here AND a second full new-tier cycle via `grant_hifz_cycle_credits`,
+ * double-granting a whole extra month per tier-change renewal (audit 2026-07-18).
  */
-export async function applyPendingTierChangeAtRenewal(
+export async function resolvePendingTierChange(
   admin: SupabaseClient<Database>,
   subscriptionId: string,
-  invoiceId: string,
-): Promise<AppliedTierChangeResult | AppliedTierChangeFailure> {
+): Promise<ResolvePendingTierChangeResult | ResolvePendingTierChangeFailure> {
   // 1. Look up pending change (partial unique index → at most one).
   const { data: pending, error: lookupErr } = await admin
     .from("pending_tier_changes")
@@ -141,40 +148,59 @@ export async function applyPendingTierChangeAtRenewal(
     .maybeSingle<PendingTierChangeRow>();
 
   if (lookupErr) {
-    logError("applyPendingTierChange: lookup failed", lookupErr, {
-      tag: "billing", subscription_id: subscriptionId, invoice_id: invoiceId,
+    logError("resolvePendingTierChange: lookup failed", lookupErr, {
+      tag: "billing", subscription_id: subscriptionId,
     });
-    return { ok: false, reason: "lookup_failed", error: lookupErr.message };
+    return { ok: false, error: lookupErr.message };
   }
 
-  // No pending change → normal renewal, nothing to do.
+  // No pending change → normal renewal, nothing to resolve.
   if (!pending) {
-    return { ok: false, reason: "no_pending" };
+    return { ok: true, pending: null };
   }
 
   // 2. Resolve new plan_id from to_package_id.
-  const { data: pkg } = await admin
+  const { data: pkg, error: pkgErr } = await admin
     .from("packages")
     .select("subscription_plan_id")
     .eq("id", pending.to_package_id)
     .maybeSingle<{ subscription_plan_id: string | null }>();
 
-  if (!pkg?.subscription_plan_id) {
-    logError("applyPendingTierChange: to_package has no subscription_plan_id", new Error("missing plan"), {
+  if (pkgErr) {
+    logError("resolvePendingTierChange: plan resolve failed", pkgErr, {
       tag: "billing", subscription_id: subscriptionId, to_package_id: pending.to_package_id,
     });
-    return { ok: false, reason: "lookup_failed", error: "to_package has no subscription_plan_id" };
+    return { ok: false, error: pkgErr.message };
+  }
+  if (!pkg?.subscription_plan_id) {
+    // Surface as an error (not a silent skip): the webhook must fail loudly
+    // rather than grant nothing / the wrong tier for a scheduled change.
+    logError("resolvePendingTierChange: to_package has no subscription_plan_id", new Error("missing plan"), {
+      tag: "billing", subscription_id: subscriptionId, to_package_id: pending.to_package_id,
+    });
+    return { ok: false, error: "to_package has no subscription_plan_id" };
   }
 
-  const newPlanId = pkg.subscription_plan_id;
+  return { ok: true, pending: { pendingId: pending.id, newPlanId: pkg.subscription_plan_id } };
+}
 
-  // 3. Switch subscription.plan_id FIRST so the grant SQL validation passes.
-  //    The grant function asserts s.plan_id = p_plan_id; subscription must already
-  //    reflect the new plan before we call it.
-  //    Partial-failure: if grant (step 4) fails after this update, subscription.plan_id
-  //    is already newPlanId but credits haven't been issued. The webhook marks the event
-  //    failed and Stripe retries; on retry applyPendingTierChangeAtRenewal runs again —
-  //    pending is still 'pending', plan switch is a no-op, grant key is idempotent.
+/**
+ * Finalize a resolved pending tier change AFTER its cycle has been granted:
+ * switch the subscription to the new plan and transition pending → applied.
+ * Issues NO credit grant — the single cycle grant already flowed through
+ * `grantCycle` at the new plan.
+ *
+ * Both writes are replay-safe: the plan switch sets a value (idempotent) and
+ * the status transition carries a `WHERE status = 'pending'` guard. On any
+ * partial failure the caller throws and Stripe retries the whole cycle; the
+ * invoice-scoped grant key keeps the re-grant a no-op, so no double grant.
+ */
+export async function finalizePendingTierChange(
+  admin: SupabaseClient<Database>,
+  subscriptionId: string,
+  pendingId: string,
+  newPlanId: string,
+): Promise<FinalizeTierChangeResult | FinalizeTierChangeFailure> {
   const { data: updatedSub, error: subErr } = await admin
     .from("subscriptions")
     .update({ plan_id: newPlanId })
@@ -183,48 +209,26 @@ export async function applyPendingTierChangeAtRenewal(
     .maybeSingle<{ id: string }>();
 
   if (subErr || !updatedSub) {
-    logError("applyPendingTierChange: subscription plan switch failed", subErr, {
+    logError("finalizePendingTierChange: subscription plan switch failed", subErr, {
       tag: "billing", subscription_id: subscriptionId, new_plan_id: newPlanId,
     });
-    return { ok: false, reason: "update_failed", error: subErr?.message ?? "subscription update matched no rows" };
+    return { ok: false, error: subErr?.message ?? "subscription update matched no rows" };
   }
 
-  // 4. Re-grant at the new tier's sessions_per_month (idempotent via billing_cycle_key).
-  //    Subscription-scoped key: stable across monthly renewals and webhook retries.
-  //    An invoice-scoped key (invoiceId:tier-applied) would create duplicate grants
-  //    if plan switch succeeds but grant fails → pending stays 'pending' → next
-  //    month produces a new invoiceId and a second grant for the same tier change.
-  const regrantKey = `${subscriptionId}:tier-change-${pending.id}`;
-  const regrant = await grantHifzCycleCredits(admin, subscriptionId, newPlanId, regrantKey);
-
-  if (!regrant.ok) {
-    logError("applyPendingTierChange: credit regrant failed", new Error(regrant.error), {
-      tag: "billing", subscription_id: subscriptionId, new_plan_id: newPlanId,
-    });
-    return { ok: false, reason: "update_failed", error: regrant.error };
-  }
-
-  // 5. Transition pending → applied only after regrant + sub switch both succeed
-  //    (WHERE status = 'pending' = replay-safe).
   const { error: statusErr } = await admin
     .from("pending_tier_changes")
     .update({ status: "applied", applied_at: new Date().toISOString() })
-    .eq("id", pending.id)
+    .eq("id", pendingId)
     .eq("status", "pending");
 
   if (statusErr) {
-    logError("applyPendingTierChange: status transition failed", statusErr, {
-      tag: "billing", subscription_id: subscriptionId, pending_id: pending.id,
+    logError("finalizePendingTierChange: status transition failed", statusErr, {
+      tag: "billing", subscription_id: subscriptionId, pending_id: pendingId,
     });
-    return { ok: false, reason: "update_failed", error: statusErr.message };
+    return { ok: false, error: statusErr.message };
   }
 
-  return {
-    ok: true,
-    pendingId: pending.id,
-    newPlanId,
-    regrant,
-  };
+  return { ok: true };
 }
 
 // ─── Immediate-upgrade grant, payment-gated (audit 2026-07-15) ───────────────
