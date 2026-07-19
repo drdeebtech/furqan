@@ -71,4 +71,17 @@ describe("approveSingleSessionRefund", () => {
     const res = await approveSingleSessionRefund({ bookingId: "not-a-uuid" });
     expect(res).toMatchObject({ ok: false, error: "invalid input" });
   });
+
+  it("releases the reservation when the PI lookup fails after reserve", async () => {
+    rpc.mockResolvedValueOnce({ data: 20, error: null }); // reserve → amount
+    single.mockResolvedValueOnce({ data: null, error: { message: "pi lookup failed" } });
+    rpc.mockResolvedValueOnce({ data: null, error: null }); // release
+    const res = await approveSingleSessionRefund({
+      bookingId: "11111111-1111-4111-8111-111111111111",
+    });
+    expect(res).toMatchObject({ ok: false });
+    expect(rpc).toHaveBeenCalledWith("release_single_session_refund", expect.any(Object));
+    expect(refundsCreate).not.toHaveBeenCalled();
+  });
+
 });

@@ -116,7 +116,7 @@ CREATE POLICY ssrr_select_own ON public.single_session_refund_requests
 - Insert `'pending'` row with frozen PI + `amount_usd` (from the payments row).
 - Return `amount_usd` (audit/UI only — not sent to Stripe).
 
-**`finalize_single_session_refund(p_refund_request_id uuid, p_stripe_ref text) RETURNS void`**
+**`finalize_single_session_refund(p_refund_request_id uuid, p_stripe_ref text) RETURNS jsonb`** (`{did_cancel, booking_id, student_id, teacher_id}`)
 - Look up request `FOR UPDATE`; **RAISE** if not found (matches `finalize_prepaid_refund`);
   return early if already `'succeeded'` (webhook redelivery); RAISE if `'released'`.
 - Call `_cancel_single_session_for_refund(request.booking_id)` (shared step).
@@ -132,7 +132,7 @@ fallback. Resolve `p_payment_intent → payments.booking_id`; if the booking is 
 `_cancel_single_session_for_refund(booking_id)`. Idempotent; no-op when no matching
 single-session booking (so prepaid/subscription PIs are never touched). Writes no saga row.
 
-**`_cancel_single_session_for_refund(p_booking uuid) RETURNS void`** — shared internal.
+**`_cancel_single_session_for_refund(p_booking uuid) RETURNS jsonb`** (`{did_cancel, booking_id, student_id, teacher_id}`) — shared internal.
 `SELECT booking FOR UPDATE`: if `status IN ('pending','confirmed')` → `status='cancelled'`
 (frees the slot via `bookings_teacher_slot_unique_idx`, which excludes `cancelled`) and emit
 `booking.cancelled` (fail-soft). **Else** (`completed`/`no_show`/`cancelled` — the in-flight

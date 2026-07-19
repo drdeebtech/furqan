@@ -12,13 +12,15 @@ import { logError } from "@/lib/logger";
  * Admin "refund single session" — a thin, fail-closed wrapper over the refund
  * saga DB functions plus ONE Stripe refund (mirrors approvePrepaidRefund):
  *   1. reserve_single_session_refund — opens a `pending` saga row (idempotent
- *      on refundRequestId; guards status pending/confirmed + a Stripe payment).
- *      Does NOT cancel the booking — the webhook does, on Stripe success.
+ *      on refundRequestId; guards status pending/confirmed, single-session-only,
+ *      + a Stripe payment). Does NOT cancel the booking — the webhook does.
  *   2. stripe.refunds.create — idempotencyKey = refundRequestId; NO `amount`
  *      → full-charge refund; metadata.refund_kind='single_session' lets the
  *      charge.refunded webhook correlate and call finalize_single_session_refund.
- *   3. On Stripe failure — release_single_session_refund closes the row; the
- *      booking was never touched, so nothing to restore.
+ *   3. On ANY failure after a successful reserve — release_single_session_refund
+ *      closes the pending row. Skipping this would leave a live `pending` row
+ *      that the unique index turns into a permanent block on future refunds for
+ *      the booking. Fail-closed: log if release itself errors.
  */
 const Input = z.object({ bookingId: z.uuid() });
 
@@ -38,6 +40,20 @@ export async function approveSingleSessionRefund(raw: {
   const admin = createAdminClient();
   const refundRequestId = randomUUID();
 
+  // Release a reservation opened above; called on every post-reserve failure so
+  // no orphaned `pending` row blocks future refunds for this booking.
+  const release = async (): Promise<void> => {
+    const { error: releaseErr } = await admin.rpc("release_single_session_refund", {
+      p_refund_request_id: refundRequestId,
+    });
+    if (releaseErr) {
+      logError("approveSingleSessionRefund: release failed", releaseErr, {
+        tag: "refund",
+        refund_request_id: refundRequestId,
+      });
+    }
+  };
+
   try {
     const { data: amountUsd, error: reserveErr } = await admin.rpc(
       "reserve_single_session_refund",
@@ -47,10 +63,11 @@ export async function approveSingleSessionRefund(raw: {
       },
     );
     if (reserveErr || amountUsd == null) {
+      // Nothing to release — reserve did not open a row on failure.
       return { ok: false, error: reserveErr?.message ?? "reserve failed" };
     }
 
-    const stripe = getStripe();
+    // From here a `pending` row exists: every failure path must release.
     try {
       const { data: reqRow, error: piErr } = await admin
         .from("single_session_refund_requests")
@@ -58,9 +75,11 @@ export async function approveSingleSessionRefund(raw: {
         .eq("id", refundRequestId)
         .single();
       if (piErr || !reqRow) {
+        await release();
         return { ok: false, error: piErr?.message ?? "request row missing" };
       }
 
+      const stripe = getStripe();
       await stripe.refunds.create(
         {
           payment_intent: reqRow.stripe_payment_intent,
@@ -73,19 +92,14 @@ export async function approveSingleSessionRefund(raw: {
       );
       revalidatePath("/admin");
       return { ok: true, amountUsd: Number(amountUsd), refundRequestId };
-    } catch (stripeErr) {
-      const { error: releaseErr } = await admin.rpc("release_single_session_refund", {
-        p_refund_request_id: refundRequestId,
-      });
-      if (releaseErr) {
-        logError("approveSingleSessionRefund: release failed after Stripe error", releaseErr, {
-          tag: "refund",
-          refund_request_id: refundRequestId,
-        });
-      }
+    } catch (postReserveErr) {
+      // PI lookup throw, getStripe() throw, or the Stripe refund throw — all
+      // leave a live reservation. Release it, then surface the error.
+      await release();
       return {
         ok: false,
-        error: stripeErr instanceof Error ? stripeErr.message : "stripe refund failed",
+        error:
+          postReserveErr instanceof Error ? postReserveErr.message : "stripe refund failed",
       };
     }
   } catch (err) {

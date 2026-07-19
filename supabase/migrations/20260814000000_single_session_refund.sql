@@ -38,7 +38,8 @@ CREATE POLICY ssrr_select_own ON public.single_session_refund_requests
 
 -- 2. Shared cancel step. Cancels iff still pending/confirmed; never throws
 --    (a throw in the webhook path wedges it with money already refunded).
---    Returns the ids the TS webhook needs to emit booking.cancelled.
+--    Returns jsonb { did_cancel, booking_id, student_id, teacher_id } for the
+--    TS webhook to emit booking.cancelled.
 CREATE OR REPLACE FUNCTION public._cancel_single_session_for_refund(p_booking uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_status booking_status; v_student uuid; v_teacher uuid;
@@ -62,19 +63,24 @@ END; $$;
 CREATE OR REPLACE FUNCTION public.reserve_single_session_refund(
   p_booking uuid, p_refund_request_id uuid
 ) RETURNS numeric LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE v_existing numeric(10,2); v_status booking_status;
+DECLARE v_existing numeric(10,2); v_status booking_status; v_pkg uuid;
         v_pi text; v_amount numeric(10,2); v_provider text;
 BEGIN
   PERFORM pg_advisory_xact_lock(hashtext(p_refund_request_id::text));
   SELECT amount_usd INTO v_existing FROM single_session_refund_requests WHERE id = p_refund_request_id;
   IF FOUND THEN RETURN v_existing; END IF;                      -- idempotent on request id
 
-  SELECT status INTO v_status FROM bookings WHERE id = p_booking FOR UPDATE;
+  SELECT status, student_package_id INTO v_status, v_pkg FROM bookings WHERE id = p_booking FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'reserve_single_session_refund: booking % not found', p_booking USING errcode='P0002';
   END IF;
   IF v_status NOT IN ('pending','confirmed') THEN
     RAISE EXCEPTION 'reserve_single_session_refund: booking % not refundable (status=%)', p_booking, v_status USING errcode='P0001';
+  END IF;
+  -- Single-session predicate (CodeRabbit): this saga refunds ONLY cash single
+  -- sessions. A package-funded booking must never be refunded/cancelled here.
+  IF v_pkg IS NOT NULL THEN
+    RAISE EXCEPTION 'reserve_single_session_refund: booking % is package-funded — not a single session', p_booking USING errcode='P0001';
   END IF;
 
   SELECT stripe_payment_intent, amount_usd, provider INTO v_pi, v_amount, v_provider
@@ -83,12 +89,20 @@ BEGIN
     RAISE EXCEPTION 'reserve_single_session_refund: booking % has no Stripe payment (provider=%) — refund via that provider', p_booking, coalesce(v_provider,'none') USING errcode='P0001';
   END IF;
 
+  -- Clean "already pending" error before the unique-index violation surfaces a
+  -- raw duplicate-key to the admin UI (the partial unique index is the backstop).
+  IF EXISTS (SELECT 1 FROM single_session_refund_requests
+             WHERE booking_id = p_booking AND status <> 'released') THEN
+    RAISE EXCEPTION 'reserve_single_session_refund: refund already pending for booking %', p_booking USING errcode='P0001';
+  END IF;
+
   INSERT INTO single_session_refund_requests (id, booking_id, stripe_payment_intent, amount_usd, status)
   VALUES (p_refund_request_id, p_booking, v_pi, v_amount, 'pending');
   RETURN v_amount;
 END; $$;
 
 -- 4. finalize — webhook path (charge.refunded, refund_kind='single_session').
+--    Returns jsonb { did_cancel, booking_id, student_id, teacher_id }.
 CREATE OR REPLACE FUNCTION public.finalize_single_session_refund(
   p_refund_request_id uuid, p_stripe_ref text
 ) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$

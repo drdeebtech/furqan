@@ -1148,10 +1148,9 @@ export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
         teacher_id?: string;
       } | null;
       if (error) {
-        logError("stripe-webhook: finalize_single_session_refund failed", error, {
-          tag: "refund",
-          refund_request_id: requestId,
-        });
+        // Match the sibling prepaid paths: a 500 makes Stripe redeliver so the
+        // refund is finalized. Swallowing + markEvent("processed") would strand it.
+        throw new WebhookTransientError(`finalize single-session: ${error.message}`);
       } else if (result?.did_cancel && result.booking_id) {
         emitEvent("booking.cancelled", "booking", result.booking_id, {
           student_id: result.student_id,
@@ -1221,10 +1220,7 @@ export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
         teacher_id?: string;
       } | null;
       if (error) {
-        logError("stripe-webhook: reconcile_external_single_session_refund failed", error, {
-          tag: "refund",
-          payment_intent: charge.payment_intent,
-        });
+        throw new WebhookTransientError(`reconcile external single-session: ${error.message}`);
       } else if (result?.did_cancel && result.booking_id) {
         emitEvent("booking.cancelled", "booking", result.booking_id, {
           student_id: result.student_id,

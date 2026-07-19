@@ -45,7 +45,7 @@ export function RefundSingleSessionForm() {
   };
 
   const inputClass =
-    "w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gold/40";
+    "min-h-11 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gold/40";
 
   return (
     <section className="glass-card rounded-xl p-4" aria-labelledby="refund-single-session-heading">
@@ -79,7 +79,7 @@ export function RefundSingleSessionForm() {
         {!confirming ? (
           <button
             type="button"
-            className="self-start rounded-md border border-gold/30 bg-gold/15 px-4 py-2 text-sm font-medium text-gold hover:bg-gold/25 disabled:opacity-50"
+            className="min-h-11 self-start rounded-md border border-gold/30 bg-gold/15 px-4 py-2 text-sm font-medium text-gold hover:bg-gold/25 disabled:opacity-50"
             disabled={!canSubmit}
             onClick={() => setConfirming(true)}
           >
@@ -95,7 +95,7 @@ export function RefundSingleSessionForm() {
             </span>
             <button
               type="button"
-              className="rounded-md border border-error/30 bg-error/10 px-3 py-1.5 text-sm font-medium text-red-400 hover:bg-error/20 disabled:opacity-50"
+              className="min-h-11 rounded-md border border-error/30 bg-error/10 px-3 py-1.5 text-sm font-medium text-red-400 hover:bg-error/20 disabled:opacity-50"
               disabled={!canSubmit}
               onClick={submit}
             >
@@ -103,7 +103,7 @@ export function RefundSingleSessionForm() {
             </button>
             <button
               type="button"
-              className="rounded-md border border-white/10 px-3 py-1.5 text-sm hover:bg-white/5 disabled:opacity-50"
+              className="min-h-11 rounded-md border border-white/10 px-3 py-1.5 text-sm hover:bg-white/5 disabled:opacity-50"
               disabled={pending}
               onClick={() => setConfirming(false)}
             >
