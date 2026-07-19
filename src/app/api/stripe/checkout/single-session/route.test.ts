@@ -46,6 +46,11 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: vi.fn(() => ({ rpc: mockRpc, from: mockAdminFrom })),
 }));
+// Rate limiting is exercised in its own suite; here it must always allow so the
+// limiter's admin.rpc call never pollutes these routes' rpc-sequence mocks.
+vi.mock("@/lib/security/rate-limit", () => ({
+  checkRateLimit: vi.fn().mockResolvedValue(true),
+}));
 
 vi.mock("@/lib/stripe/client", () => ({
   getStripe: vi.fn(() => ({
@@ -132,6 +137,7 @@ afterEach(() => {
 });
 
 import { POST } from "./route";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -147,6 +153,15 @@ describe("POST /api/stripe/checkout/single-session (spec 022)", () => {
     mockRequireRole.mockRejectedValue(new ForbiddenError());
     const res = await POST(makeReq({ productType: "instant", teacherId: TEACHER_ID }));
     expect(res.status).toBe(403);
+  });
+
+  // ── Rate limit (fix #4) ───────────────────────────────────────────────────
+  it("returns 429 when the per-user rate limit is exceeded (before body parse)", async () => {
+    vi.mocked(checkRateLimit).mockResolvedValueOnce(false);
+    // An empty body would 400 on validation — a 429 here proves the limiter
+    // short-circuits BEFORE body parsing.
+    const res = await POST(makeReq({}));
+    expect(res.status).toBe(429);
   });
 
   // ── Schema validation (FR-016) ────────────────────────────────────────────
