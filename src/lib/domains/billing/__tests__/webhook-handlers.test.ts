@@ -360,7 +360,7 @@ describe("handleInvoicePaid", () => {
   // webhook payloads), so the handler must re-fetch the invoice with the list
   // expanded instead of dead-ending a PAID invoice's grant as "failed".
   it("re-fetches the invoice with expanded payments when the event omits the list, then grants", async () => {
-    vi.mocked(grantCycle).mockResolvedValue({ ok: true, grantIds: ["g-1"] } as never);
+    vi.mocked(grantCycle).mockResolvedValue({ ok: true, grantId: "g-1", created: true } as never);
     const admin = makeInvoiceAdmin();
     const bare = invoiceObject();
     delete (bare as Record<string, unknown>).payments;
@@ -371,7 +371,23 @@ describe("handleInvoicePaid", () => {
     await expect(handleInvoicePaid(ctx)).resolves.toBeUndefined();
 
     expect(retrieve).toHaveBeenCalledWith("in_1", { expand: ["payments"] });
-    expect(grantCycle).toHaveBeenCalled();
+    // The recovered PI must actually reach the grant — that flow IS the fix.
+    expect(grantCycle).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ stripePaymentIntent: "pi_1" }),
+    );
+  });
+
+  it("does not re-fetch when the payload includes an explicitly empty payments list", async () => {
+    const admin = makeInvoiceAdmin();
+    const ctx = makeEventCtx(admin, "evt-1", invoiceObject({ payments: { data: [] } }));
+    const retrieve = vi.fn();
+    (ctx as { stripe: unknown }).stripe = { invoices: { retrieve } };
+
+    await handleInvoicePaid(ctx);
+
+    expect(retrieve).not.toHaveBeenCalled();
+    expect(grantCycle).not.toHaveBeenCalled();
   });
 
   it("throws transient (retryable) when the expanded-payments re-fetch fails", async () => {
