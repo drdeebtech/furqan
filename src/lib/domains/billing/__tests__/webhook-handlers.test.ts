@@ -261,14 +261,19 @@ describe("handleInvoicePaid", () => {
   /** Admin that serves a billing_events update + a maybeSingle read (plan/mirror). */
   function makeInvoiceAdmin(opts: {
     plan?: object | null;
+    newPlan?: object | null;
     mirror?: object | null;
   } = {}): MockAdmin {
     const eqFn = vi.fn().mockResolvedValue({ error: null });
     const update = vi.fn().mockReturnValue({ eq: eqFn });
-    const planMaybe = vi.fn().mockResolvedValue({
-      data: opts.plan === undefined ? { id: "plan-1", monthly_credit_count: 4, price_cents: 4000, session_metadata: {}, is_hifz_product: false } : opts.plan,
-      error: null,
-    });
+    const defaultPlan = { id: "plan-1", monthly_credit_count: 4, price_cents: 4000, session_metadata: {}, is_hifz_product: false };
+    // id-aware: the renewal path looks up the current plan, then (on a pending
+    // tier change) the NEW plan by its id — return newPlan for that id so tests
+    // can assert grantCycle received the new tier's values, not just the count.
+    const planFor = (id: unknown) =>
+      opts.newPlan && id === (opts.newPlan as { id: string }).id
+        ? opts.newPlan
+        : opts.plan === undefined ? defaultPlan : opts.plan;
     // A RESOLVABLE mirror (student_id + plan_id) — the old shape returned the
     // plan row for subscriptions reads, so resolveSubscription always failed
     // and the "happy path" test never actually reached the grant step.
@@ -276,7 +281,9 @@ describe("handleInvoicePaid", () => {
       data: opts.mirror === undefined ? { id: "mirror-1", student_id: "stu-1", plan_id: "plan-1" } : opts.mirror,
       error: null,
     });
-    const planEq = vi.fn(() => ({ maybeSingle: planMaybe }));
+    const planEq = vi.fn((_col: string, id: unknown) => ({
+      maybeSingle: vi.fn().mockResolvedValue({ data: planFor(id), error: null }),
+    }));
     const planSelect = vi.fn(() => ({ eq: planEq }));
     const subEq = vi.fn(() => ({ maybeSingle: mirrorMaybe }));
     const subSelect = vi.fn(() => ({ eq: subEq }));
@@ -445,7 +452,8 @@ describe("handleInvoicePaid", () => {
       pending: { pendingId: "ptc-1", newPlanId: "plan-new-tier" },
     } as never);
     const admin = makeInvoiceAdmin({
-      plan: { id: "plan-hifz", monthly_credit_count: 8, price_cents: 8000, session_metadata: {}, is_hifz_product: true },
+      plan: { id: "plan-hifz", monthly_credit_count: 4, price_cents: 4000, session_metadata: {}, is_hifz_product: true },
+      newPlan: { id: "plan-new-tier", monthly_credit_count: 8, price_cents: 8000, session_metadata: {} },
     });
     const ctx = makeEventCtx(admin, "evt-1", invoiceObject({ billing_reason: "subscription_cycle" }));
 
@@ -454,6 +462,11 @@ describe("handleInvoicePaid", () => {
     // Exactly ONE cycle grant — never the old tier's cycle plus a second
     // full new-tier regrant (the double-grant bug; audit 2026-07-18).
     expect(grantCycle).toHaveBeenCalledTimes(1);
+    // And it grants the NEW tier's plan + credit count, not the old tier's.
+    expect(grantCycle).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ planId: "plan-new-tier", creditCount: 8 }),
+    );
     // The tier switch is finalized with the resolved new plan (no regrant path).
     expect(finalizePendingTierChange).toHaveBeenCalledWith(
       expect.anything(),

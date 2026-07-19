@@ -37,6 +37,7 @@ import {
   applyImmediateUpgradeGrant,
   resolvePendingTierChange,
   finalizePendingTierChange,
+  type ResolvedPendingTierChange,
 } from "@/lib/domains/catalog/credit-grant";
 
 // ── Shared context ────────────────────────────────────────────────────────────
@@ -229,7 +230,7 @@ export async function handleInvoicePaid(ctx: EventContext): Promise<void> {
   // grant_hifz_cycle_credits — double-granting a whole month per tier-change
   // renewal (audit 2026-07-18).
   let effectivePlan = plan;
-  let pendingTier: { pendingId: string; newPlanId: string } | null = null;
+  let pendingTier: ResolvedPendingTierChange | null = null;
   if (plan.is_hifz_product) {
     const resolvedTier = await resolvePendingTierChange(ctx.admin, mirrorId);
     if (!resolvedTier.ok) {
