@@ -967,28 +967,9 @@ export async function revokeAndCancelOnSubscriptionRefund(
   if (!grant?.subscription_id) return; // not a subscription charge we granted
   const subscriptionId = grant.subscription_id;
 
-  // Mirror row — for the Stripe subscription id to cancel + the status flip.
-  const { data: mirror, error: mirrorErr } = await ctx.admin
-    .from("subscriptions")
-    .select("stripe_subscription_id, status")
-    .eq("id", subscriptionId)
-    .maybeSingle<{ stripe_subscription_id: string; status: string }>();
-  if (mirrorErr) {
-    throw new WebhookTransientError(`refund: subscription mirror lookup failed: ${mirrorErr.message}`);
-  }
-  if (!mirror?.stripe_subscription_id) {
-    // Can't map the refund to a Stripe subscription — don't block the event, but
-    // log loudly so the reversal isn't silently dropped.
-    logError("stripe-webhook: refunded subscription grant has no mirror row", new Error("no mirror"), {
-      tag: "billing",
-      subscription_id: subscriptionId,
-      charge_id: charge.id,
-    });
-    return;
-  }
-  const stripeSubId = mirror.stripe_subscription_id;
-
   // 1. Flip the payment to refunded (idempotent on the PI; piId is non-null here).
+  //    Independent of the mirror: a fully-refunded charge must reconcile locally
+  //    even when the subscription can't be mapped to a Stripe id.
   const { error: payErr } = await ctx.admin
     .from("payments")
     .update({ status: "refunded" })
@@ -1005,9 +986,29 @@ export async function revokeAndCancelOnSubscriptionRefund(
     .eq("status", "active");
   if (revokeErr) throw new WebhookTransientError(`refund: session revoke failed: ${revokeErr.message}`);
 
-  // 3. Cancel the subscription in Stripe (stop future billing). Idempotent: an
-  //    already-cancelled sub (e.g. the admin cancelled in the dashboard first)
-  //    is treated as success, never a permanent 500.
+  // 3. Cancel the subscription in Stripe. Needs the mirror's stripe_subscription_id;
+  //    if the mirror can't be mapped, local records are ALREADY reconciled above —
+  //    log and stop rather than silently drop the reversal.
+  const { data: mirror, error: mirrorErr } = await ctx.admin
+    .from("subscriptions")
+    .select("stripe_subscription_id, status")
+    .eq("id", subscriptionId)
+    .maybeSingle<{ stripe_subscription_id: string; status: string }>();
+  if (mirrorErr) {
+    throw new WebhookTransientError(`refund: subscription mirror lookup failed: ${mirrorErr.message}`);
+  }
+  if (!mirror?.stripe_subscription_id) {
+    logError("stripe-webhook: refunded subscription grant has no mirror — reconciled locally, not cancelled at Stripe", new Error("no mirror"), {
+      tag: "billing",
+      subscription_id: subscriptionId,
+      charge_id: charge.id,
+    });
+    return;
+  }
+  const stripeSubId = mirror.stripe_subscription_id;
+
+  //    Idempotent: an already-cancelled sub (e.g. the admin cancelled in the
+  //    dashboard first) is treated as success, never a permanent 500.
   try {
     await ctx.stripe.subscriptions.cancel(stripeSubId);
   } catch (err) {

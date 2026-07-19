@@ -704,4 +704,21 @@ describe("revokeAndCancelOnSubscriptionRefund", () => {
     await expect(revokeAndCancelOnSubscriptionRefund(ctx, fullRefund)).resolves.toBeUndefined();
     expect(subFlipNeq).toHaveBeenCalled();
   });
+
+  it("reconciles locally (payment + revoke) but skips Stripe cancel when the mirror lacks a stripe id", async () => {
+    const { ctx, cancel, payUpdateEq, revokeEq2, subFlipNeq } = makeRefundCtx({
+      grant: { subscription_id: "sub-1" },
+      mirror: null,
+    });
+    await revokeAndCancelOnSubscriptionRefund(ctx, fullRefund);
+    expect(payUpdateEq).toHaveBeenCalled();   // payment STILL flipped
+    expect(revokeEq2).toHaveBeenCalled();      // sessions STILL revoked
+    expect(cancel).not.toHaveBeenCalled();     // no Stripe id → cannot cancel there
+    expect(subFlipNeq).not.toHaveBeenCalled();
+  });
+
+  it("throws WebhookTransientError on a grant-lookup DB error (fail-closed → Stripe retries)", async () => {
+    const { ctx } = makeRefundCtx({ grantErr: { message: "db down" } });
+    await expect(revokeAndCancelOnSubscriptionRefund(ctx, fullRefund)).rejects.toThrow(/db down/);
+  });
 });
