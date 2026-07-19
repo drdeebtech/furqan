@@ -59,7 +59,7 @@ export async function selectActivePackage(
 ): Promise<ActivePackage | null> {
   let query = admin
     .from("student_packages")
-    .select("id, sessions_remaining")
+    .select("id, sessions_remaining, subscription_id, subscriptions(status)")
     .eq("student_id", studentId)
     .eq("status", "active")
     .gt("sessions_remaining", 0);
@@ -84,6 +84,8 @@ export async function selectActivePackage(
   const { data, error } = await query.maybeSingle<{
     id: string;
     sessions_remaining: number;
+    subscription_id: string | null;
+    subscriptions: { status: string } | { status: string }[] | null;
   }>();
 
   // No Silent Failures policy: a query error must surface in Sentry, not be
@@ -98,6 +100,21 @@ export async function selectActivePackage(
   }
 
   if (!data) return null;
+
+  // Fix #6 — past-due booking gate. A subscription grant is chargeable only
+  // while its subscription is active. The confirm-time deduct trigger charges
+  // subscription-first WITHOUT a status check, so letting a booking through when
+  // the top candidate is a past_due / unpaid subscription grant would drain that
+  // frozen subscription's sessions. Deny by default. Prepaid_hours / single-
+  // session lots carry no subscription_id and are never blocked; a student with
+  // wallet hours can still book via the explicit "use my hours" path (which
+  // restricts the candidate set to prepaid lots).
+  if (data.subscription_id) {
+    const sub = data.subscriptions;
+    const status = Array.isArray(sub) ? sub[0]?.status : sub?.status;
+    if (status !== "active") return null;
+  }
+
   return { id: data.id, sessionsRemaining: data.sessions_remaining };
 }
 
