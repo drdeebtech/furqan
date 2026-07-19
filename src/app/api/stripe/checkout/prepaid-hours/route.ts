@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/client";
 import { requireRole } from "@/lib/auth/require-admin";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { logError, logInfo } from "@/lib/logger";
 import { getSetting, isFeatureEnabled } from "@/lib/settings";
@@ -113,6 +114,15 @@ export async function POST(request: Request) {
       );
     }
     throw e;
+  }
+
+  // Per-user rate limit (fix #4): cap Checkout-session creation. Fail-open so a
+  // limiter outage never blocks a real purchase.
+  if (!(await checkRateLimit(studentId, "checkout-prepaid-hours", 20))) {
+    return NextResponse.json(
+      { error: "Too many attempts — please wait a moment and try again." },
+      { status: 429 },
+    );
   }
 
   // ── Body validation ────────────────────────────────────────────────────────

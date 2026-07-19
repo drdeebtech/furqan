@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole } from "@/lib/auth/require-admin";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/client";
@@ -46,6 +47,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     throw e;
+  }
+
+  // Per-user rate limit (fix #4): cap upgrade attempts so a script cannot spam
+  // always_invoice proration invoices. Fail-open — a limiter outage must never
+  // block a legitimate upgrade.
+  if (!(await checkRateLimit(userId, "subscription-upgrade-tier", 20))) {
+    return NextResponse.json(
+      { error: "Too many upgrade attempts — please wait a moment and try again." },
+      { status: 429 },
+    );
   }
 
   let parsed: z.infer<typeof Body>;

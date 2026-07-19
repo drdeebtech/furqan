@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/client";
 import { requireRole } from "@/lib/auth/require-admin";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { logError, logInfo } from "@/lib/logger";
 import { getSetting } from "@/lib/settings";
@@ -212,6 +213,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Only students may book single sessions" }, { status: 403 });
     }
     throw e;
+  }
+
+  // Per-user rate limit (fix #4): cap Checkout-session creation. Fail-open so a
+  // limiter outage never blocks a real booking.
+  if (!(await checkRateLimit(studentId, "checkout-single-session", 20))) {
+    return NextResponse.json(
+      { success: false, error: "Too many attempts — please wait a moment and try again." },
+      { status: 429 },
+    );
   }
 
   // ── Body validation (FR-016: zod at the boundary) ─────────────────────────
