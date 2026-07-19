@@ -14,7 +14,6 @@
 /coverage
 /test-results/
 /playwright-report/
-testsprite_tests/
 
 # next.js
 /.next/
@@ -62,9 +61,6 @@ supabase/.branches/
 
 # local tooling symlinks (ruflo ADR detection — not project source)
 docs/adrs
-
-# Jules AI agent tracking files (machine-generated, not source)
-.Jules/
 
 # Sentry Config File
 .env.sentry-build-plugin
@@ -140,8 +136,6 @@ ECC/
 /lint_output.txt
 /*_head.txt
 /*_output.txt
-
-testsprite_tests/tmp/config.json
 
 # Backup/temp copies — git is the backup; these are how secrets leak.
 # (.env.local.prod.bak + settings.local.json.bak both carried live keys.)
