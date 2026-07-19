@@ -58,6 +58,35 @@ describe("selectActivePackage", () => {
     const admin = fakeSelectClient({ data: null });
     expect(await selectActivePackage(admin, "student-1")).toBeNull();
   });
+
+  // ── Fix #6: past-due booking gate ──────────────────────────────────────────
+  it("BLOCKS a subscription grant whose subscription is past_due", async () => {
+    const admin = fakeSelectClient({
+      data: { id: "sub-pkg", sessions_remaining: 4, subscription_id: "sub-1", subscriptions: { status: "past_due" } },
+    });
+    expect(await selectActivePackage(admin, "student-1")).toBeNull();
+  });
+
+  it("allows a subscription grant whose subscription is active", async () => {
+    const admin = fakeSelectClient({
+      data: { id: "sub-pkg", sessions_remaining: 4, subscription_id: "sub-1", subscriptions: { status: "active" } },
+    });
+    expect(await selectActivePackage(admin, "student-1")).toEqual({ id: "sub-pkg", sessionsRemaining: 4 });
+  });
+
+  it("NEVER blocks a prepaid/single-session lot (no subscription_id)", async () => {
+    const admin = fakeSelectClient({
+      data: { id: "wallet-lot", sessions_remaining: 2, subscription_id: null, subscriptions: null },
+    });
+    expect(await selectActivePackage(admin, "student-1")).toEqual({ id: "wallet-lot", sessionsRemaining: 2 });
+  });
+
+  it("handles a PostgREST array-shaped embed defensively (still blocks past_due)", async () => {
+    const admin = fakeSelectClient({
+      data: { id: "sub-pkg", sessions_remaining: 4, subscription_id: "sub-1", subscriptions: [{ status: "unpaid" }] },
+    });
+    expect(await selectActivePackage(admin, "student-1")).toBeNull();
+  });
 });
 
 describe("debitPackage", () => {

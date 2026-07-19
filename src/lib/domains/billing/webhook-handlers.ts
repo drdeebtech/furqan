@@ -35,7 +35,9 @@ import { grantCycle, buildCycleKey } from "@/lib/domains/billing/orchestrate";
 import { BillingEvents } from "@/lib/domains/billing/events";
 import {
   applyImmediateUpgradeGrant,
-  applyPendingTierChangeAtRenewal,
+  resolvePendingTierChange,
+  finalizePendingTierChange,
+  type ResolvedPendingTierChange,
 } from "@/lib/domains/catalog/credit-grant";
 
 // ── Shared context ────────────────────────────────────────────────────────────
@@ -219,16 +221,58 @@ export async function handleInvoicePaid(ctx: EventContext): Promise<void> {
   const periodEndSec = invoice.period_end ?? ctx.event.created;
   const cycleKey = buildCycleKey({ invoiceId: invoice.id, subscriptionId, periodStartIso });
 
+  // ── T014a: pending tier change at renewal (FR-019) ───────────────────────
+  // A hifz subscription can have a tier change scheduled for renewal. When one
+  // applies THIS cycle, the cycle must be granted exactly once — at the NEW
+  // tier — and the payment recorded once. Routing that single grant through
+  // grantCycle (below) at the resolved new plan replaces the old flow, which
+  // granted the old tier here AND a second full new-tier cycle via
+  // grant_hifz_cycle_credits — double-granting a whole month per tier-change
+  // renewal (audit 2026-07-18).
+  let effectivePlan = plan;
+  let pendingTier: ResolvedPendingTierChange | null = null;
+  if (plan.is_hifz_product) {
+    const resolvedTier = await resolvePendingTierChange(ctx.admin, mirrorId);
+    if (!resolvedTier.ok) {
+      // Lookup/plan-resolve failure on a PAID invoice — retry, never 200.
+      throw new WebhookTransientError(`pending tier change resolve failed: ${resolvedTier.error}`);
+    }
+    if (resolvedTier.pending) {
+      pendingTier = resolvedTier.pending;
+      const { data: newPlan, error: newPlanErr } = await ctx.admin
+        .from("subscription_plans")
+        .select("id, monthly_credit_count, price_cents, session_metadata")
+        .eq("id", resolvedTier.pending.newPlanId)
+        .maybeSingle<{
+          id: string;
+          monthly_credit_count: number;
+          price_cents: number;
+          session_metadata: unknown;
+        }>();
+      if (newPlanErr) {
+        throw new WebhookTransientError(`new-tier plan lookup failed: ${newPlanErr.message}`);
+      }
+      if (!newPlan) {
+        // Deterministic: the scheduled change points at a plan that no longer
+        // exists — retrying cannot fix data.
+        await markEvent(ctx, "failed", `new-tier plan not found: ${resolvedTier.pending.newPlanId}`);
+        return;
+      }
+      // Grant + record the payment at the NEW tier (keep is_hifz_product).
+      effectivePlan = { ...plan, ...newPlan };
+    }
+  }
+
   const result = await grantCycle(ctx.admin, {
     subscriptionId: mirrorId,
     studentId,
-    planId: plan.id,
+    planId: effectivePlan.id,
     cycleKey,
     stripePaymentIntent: paymentIntent,
-    amountCents: invoice.total ?? plan.price_cents,
-    creditCount: plan.monthly_credit_count,
+    amountCents: invoice.total ?? effectivePlan.price_cents,
+    creditCount: effectivePlan.monthly_credit_count,
     expiresAt: new Date(periodEndSec * 1000).toISOString(),
-    sessionMetadata: (plan.session_metadata ?? {}) as Record<string, unknown>,
+    sessionMetadata: (effectivePlan.session_metadata ?? {}) as Record<string, unknown>,
   });
 
   if (!result.ok) {
@@ -239,29 +283,29 @@ export async function handleInvoicePaid(ctx: EventContext): Promise<void> {
 
   await ctx.admin.from("billing_events").update({ subscription_id: mirrorId }).eq("id", ctx.billingEventId!);
 
-  // ── T014a: Apply pending tier change at renewal (FR-019) ─────────────────
-  // If this is a hifz product and there's a pending tier change, apply it now:
-  // transition pending→applied, switch subscription to new plan, re-grant credits.
-  // The WHERE status='pending' guard makes this replay-safe.
+  // Finalize the tier change only AFTER its cycle was granted at the new tier:
+  // switch the subscription to the new plan + mark pending→applied. No regrant —
+  // the single cycle already went through grantCycle above at the new tier.
   let activePlanId = plan.id;
-  if (plan.is_hifz_product) {
-    const tierResult = await applyPendingTierChangeAtRenewal(ctx.admin, mirrorId, invoice.id);
-    if (tierResult.ok) {
-      activePlanId = tierResult.newPlanId;
-      logInfo("stripe-webhook: pending tier change applied", {
-        tag: "billing",
-        subscription_id: mirrorId,
-        pending_id: tierResult.pendingId,
-        new_plan_id: tierResult.newPlanId,
-      });
-    } else if (tierResult.reason !== "no_pending") {
-      logError("stripe-webhook: pending tier change failed", new Error(tierResult.reason), {
-        tag: "billing",
-        subscription_id: mirrorId,
-        error: tierResult.error,
-      });
-      throw new Error(`pending tier change failed: ${tierResult.reason}`);
+  if (pendingTier) {
+    const fin = await finalizePendingTierChange(
+      ctx.admin,
+      mirrorId,
+      pendingTier.pendingId,
+      pendingTier.newPlanId,
+    );
+    if (!fin.ok) {
+      // Grant already landed (idempotent on cycleKey); retry to complete the
+      // plan switch rather than 200 with a half-applied tier change.
+      throw new WebhookTransientError(`pending tier change finalize failed: ${fin.error}`);
     }
+    activePlanId = pendingTier.newPlanId;
+    logInfo("stripe-webhook: pending tier change applied", {
+      tag: "billing",
+      subscription_id: mirrorId,
+      pending_id: pendingTier.pendingId,
+      new_plan_id: pendingTier.newPlanId,
+    });
   }
 
   await markEvent(ctx, "processed");
