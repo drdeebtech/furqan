@@ -42,6 +42,7 @@ import {
   handleInvoicePaid,
   handlePaymentFailed,
   handlePaymentIntentSucceeded,
+  revokeAndCancelOnSubscriptionRefund,
 } from "../webhook-handlers";
 import { upsertMirror } from "@/lib/domains/billing/subscriptions";
 import { grantCycle } from "@/lib/domains/billing/orchestrate";
@@ -593,5 +594,114 @@ describe("handlePaymentIntentSucceeded — instant scheduled_at (spec 022 slice 
     const call = rpc.mock.calls.find((c) => c[0] === "start_instant_session_booking");
     expect(call).toBeTruthy();
     expect(typeof (call![1] as { p_scheduled_at: unknown }).p_scheduled_at).toBe("string");
+  });
+});
+
+// ── charge.refunded → subscription refund revocation (fix #2) ─────────────────
+describe("revokeAndCancelOnSubscriptionRefund", () => {
+  function makeRefundCtx(opts: {
+    grant?: { subscription_id: string | null } | null;
+    grantErr?: { message: string } | null;
+    mirror?: { stripe_subscription_id: string; status: string } | null;
+    cancelImpl?: () => Promise<unknown>;
+  }) {
+    const payUpdateEq = vi.fn().mockResolvedValue({ error: null });
+    const revokeEq2 = vi.fn().mockResolvedValue({ error: null });
+    const subFlipNeq = vi.fn().mockResolvedValue({ error: null });
+    const cancel = vi.fn(opts.cancelImpl ?? (async () => ({})));
+
+    const from = vi.fn((table: string) => {
+      if (table === "student_packages") {
+        return {
+          // grant lookup: select().eq().not().limit().maybeSingle()
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              not: vi.fn(() => ({
+                limit: vi.fn(() => ({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: opts.grant ?? null,
+                    error: opts.grantErr ?? null,
+                  }),
+                })),
+              })),
+            })),
+          })),
+          // revoke: update().eq().eq()
+          update: vi.fn(() => ({ eq: vi.fn(() => ({ eq: revokeEq2 })) })),
+        };
+      }
+      if (table === "subscriptions") {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: vi.fn().mockResolvedValue({ data: opts.mirror ?? null, error: null }),
+            })),
+          })),
+          update: vi.fn(() => ({ eq: vi.fn(() => ({ neq: subFlipNeq })) })),
+        };
+      }
+      if (table === "payments") {
+        return { update: vi.fn(() => ({ eq: payUpdateEq })) };
+      }
+      return {};
+    });
+
+    const ctx = {
+      admin: { from },
+      stripe: { subscriptions: { cancel } },
+      event: { id: "evt-r", created: 1, data: { object: {} } },
+      billingEventId: "be-r",
+    } as never;
+    return { ctx, cancel, payUpdateEq, revokeEq2, subFlipNeq };
+  }
+
+  const fullRefund = {
+    id: "ch_1", currency: "usd", refunded: true,
+    payment_intent: "pi_ref_1", amount: 1200, amount_refunded: 1200,
+  } as never;
+
+  it("full subscription refund: flips payment, revokes grants, cancels Stripe sub + mirror", async () => {
+    const { ctx, cancel, payUpdateEq, revokeEq2, subFlipNeq } = makeRefundCtx({
+      grant: { subscription_id: "sub-1" },
+      mirror: { stripe_subscription_id: "sub_stripe_1", status: "active" },
+    });
+    await revokeAndCancelOnSubscriptionRefund(ctx, fullRefund);
+    expect(payUpdateEq).toHaveBeenCalled();
+    expect(revokeEq2).toHaveBeenCalled();
+    expect(cancel).toHaveBeenCalledWith("sub_stripe_1");
+    expect(subFlipNeq).toHaveBeenCalled();
+  });
+
+  it("partial refund is a no-op (owner decision: full-refund-only)", async () => {
+    const { ctx, cancel, payUpdateEq } = makeRefundCtx({
+      grant: { subscription_id: "sub-1" },
+      mirror: { stripe_subscription_id: "sub_stripe_1", status: "active" },
+    });
+    const partial = {
+      id: "ch_1", currency: "usd", refunded: false,
+      payment_intent: "pi_ref_1", amount: 1200, amount_refunded: 600,
+    } as never;
+    await revokeAndCancelOnSubscriptionRefund(ctx, partial);
+    expect(payUpdateEq).not.toHaveBeenCalled();
+    expect(cancel).not.toHaveBeenCalled();
+  });
+
+  it("non-subscription charge (no matching subscription grant) does nothing", async () => {
+    const { ctx, cancel, payUpdateEq } = makeRefundCtx({ grant: null });
+    await revokeAndCancelOnSubscriptionRefund(ctx, fullRefund);
+    expect(payUpdateEq).not.toHaveBeenCalled();
+    expect(cancel).not.toHaveBeenCalled();
+  });
+
+  it("an already-cancelled Stripe sub does NOT throw (idempotent) and still flips the mirror", async () => {
+    const { ctx, subFlipNeq } = makeRefundCtx({
+      grant: { subscription_id: "sub-1" },
+      mirror: { stripe_subscription_id: "sub_stripe_1", status: "active" },
+      cancelImpl: async () => {
+        throw Object.assign(new Error("No such subscription: sub_stripe_1"), { code: "resource_missing" });
+      },
+    });
+    await expect(revokeAndCancelOnSubscriptionRefund(ctx, fullRefund)).resolves.toBeUndefined();
+    expect(subFlipNeq).toHaveBeenCalled();
   });
 });
