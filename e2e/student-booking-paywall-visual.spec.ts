@@ -121,9 +121,16 @@ test.describe("booking paywall parity (list + detail)", () => {
 
     await page.goto(`/student/teachers/${teacherId}`);
     // The regression: this CTA used to be an ungated link into the booking form.
-    const lockedCta = page.getByRole("link", { name: /اشترك للحجز|Subscribe to Book/ });
+    // Its locked wording deliberately differs from the LIST's "subscribe to book":
+    // this page also shows a working pay-per-session form, so claiming a
+    // subscription is required would contradict what is on screen.
+    const lockedCta = page.getByRole("link", { name: /عرض باقات الاشتراك|View subscription plans/ });
     await expect(lockedCta.first()).toBeVisible();
     await expect(lockedCta.first()).toHaveAttribute("href", "/pricing");
+    // ...and it must NOT tell the student subscribing is the only way to book.
+    await expect(page.getByRole("link", { name: /اشترك للحجز|Subscribe to Book/ })).toHaveCount(0);
+    // The alternative is stated explicitly, right above the single-session form.
+    await expect(page.getByText(/أو ادفع مقابل جلسة واحدة|Or pay for a single session/)).toBeVisible();
     await page.screenshot({
       path: "e2e/__screenshots__/booking-paywall-detail-locked.png",
       fullPage: true,
