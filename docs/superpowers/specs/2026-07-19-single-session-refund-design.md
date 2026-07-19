@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-19
 **Status:** design, pending review
-**Owner decisions captured:** admin-initiated · mirror prepaid saga · not-yet-delivered only · full refund
+**Owner decisions captured:** admin-initiated · mirror prepaid saga · not-yet-delivered only · full refund · dashboard-refund fallback included
 **Origin:** last unshipped item of the 2026-07-18 student payment-path audit (`project_payment_audit_fixes`).
 
 ---
@@ -16,7 +16,8 @@ the `bookings` row has `student_package_id = NULL` and the money lives on a `pay
 
 Today there is **no way to refund it**. The subscription refund (#736) and the prepaid-hour
 refund saga (spec 038) both exist; single-session is the gap. This spec adds an
-**admin-initiated** refund that returns the money and cancels the booking.
+**admin-initiated** refund that returns the money and cancels the booking, plus a fallback that
+keeps the booking honest when a refund is issued directly in the Stripe dashboard.
 
 ## 2. Scope (owner decisions)
 
@@ -26,9 +27,10 @@ refund saga (spec 038) both exist; single-session is the gap. This spec adds an
 | Eligibility | **Only not-yet-delivered** bookings (`status IN ('pending','confirmed')`). Completed / `no_show` are **not** refundable via this action. |
 | Effect | Full money-back + booking `→ cancelled` (frees the slot) + notify student & teacher. |
 | Amount | **Full charge only** (a single session is indivisible — no partial). |
+| Dashboard refunds | **Fallback included** — a refund issued in the Stripe dashboard reconciles the booking (§3.5). |
 
 Out of scope: self-serve student/teacher cancellation-with-refund; completed-session
-(dispute/goodwill) refunds; the credit-system trigger fix (see §7, split to its own spec).
+(dispute/goodwill) refunds; the credit-system trigger fix (see §6, split to its own spec).
 
 ## 3. Architecture — cancel-at-finalize saga
 
@@ -44,18 +46,28 @@ admin clicks Refund
        ├─ stripe.refunds.create(pi, meta, {idempotencyKey: reqId})   [NO amount → full charge]
        │     success → return ok
        │     failure → release_single_session_refund(reqId)  ['released'; booking untouched]
-       └─ (later) charge.refunded webhook
+       └─ (later) charge.refunded webhook, refund_kind='single_session'
              └─ finalize_single_session_refund(reqId, refundId)
-                  ├─ booking pending/confirmed → status='cancelled'  [frees slot]
-                  │  else (completed/no_show/cancelled) → reconcile + log, DO NOT throw
-                  ├─ emit booking.cancelled (fail-soft)
+                  ├─ [shared] cancel booking if pending/confirmed → 'cancelled' (frees slot) + emit
+                  │           else (completed/no_show/cancelled) → reconcile + log, DO NOT throw
                   └─ close saga row 'succeeded'
+
+Stripe-dashboard refund (no refund_request_id / refund_kind)
+  └─ charge.refunded webhook
+       └─ reconcile_external_single_session_refund(payment_intent)   [FALLBACK, §3.5]
+            └─ [shared] cancel booking if pending/confirmed → 'cancelled' (frees slot) + emit
+                        else → no-op + log. No saga row (external, no admin request).
 ```
+
+Both the admin finalize and the external reconcile delegate the booking side to **one shared
+internal step** (`_cancel_single_session_for_refund(p_booking)`): cancel iff still
+`pending`/`confirmed`, emit `booking.cancelled`, otherwise reconcile + log. One cancel path, so
+the two entrypoints can never drift.
 
 ### 3.1 New table `single_session_refund_requests`
 
 Mutable saga ledger (append-only ledgers can't do `pending → succeeded`). Mirrors
-`prepaid_refund_requests`.
+`prepaid_refund_requests`. **Admin path only** — the dashboard fallback writes no request row.
 
 ```sql
 CREATE TABLE public.single_session_refund_requests (
@@ -107,15 +119,25 @@ CREATE POLICY ssrr_select_own ON public.single_session_refund_requests
 **`finalize_single_session_refund(p_refund_request_id uuid, p_stripe_ref text) RETURNS void`**
 - Look up request `FOR UPDATE`; **RAISE** if not found (matches `finalize_prepaid_refund`);
   return early if already `'succeeded'` (webhook redelivery); RAISE if `'released'`.
-- `SELECT booking FOR UPDATE`: if `status IN ('pending','confirmed')` → `status='cancelled'`
-  (frees slot via the `bookings_teacher_slot_unique_idx` which excludes `cancelled`).
-  **Else** (`completed`/`no_show`/`cancelled` — the in-flight window, §6) → **do not update**,
-  log a reconcile warning. Never throw here, or the webhook wedges with money already refunded.
+- Call `_cancel_single_session_for_refund(request.booking_id)` (shared step).
 - Close request `'succeeded'`, set `stripe_refund_id`, `resolved_at`.
 
 **`release_single_session_refund(p_refund_request_id uuid) RETURNS void`**
 - Close request `'released'`, `resolved_at`. Booking is never touched (never cancelled at
   reserve), so there is no slot-restore problem.
+
+**`reconcile_external_single_session_refund(p_payment_intent text) RETURNS void`** — the §3.5
+fallback. Resolve `p_payment_intent → payments.booking_id`; if the booking is a **single-session,
+`stripe`-provider** booking (`student_package_id IS NULL`), call
+`_cancel_single_session_for_refund(booking_id)`. Idempotent; no-op when no matching
+single-session booking (so prepaid/subscription PIs are never touched). Writes no saga row.
+
+**`_cancel_single_session_for_refund(p_booking uuid) RETURNS void`** — shared internal.
+`SELECT booking FOR UPDATE`: if `status IN ('pending','confirmed')` → `status='cancelled'`
+(frees the slot via `bookings_teacher_slot_unique_idx`, which excludes `cancelled`) and emit
+`booking.cancelled` (fail-soft). **Else** (`completed`/`no_show`/`cancelled` — the in-flight
+window, §5) → **do not update**, log a reconcile warning. Never throws (a throw in the webpath
+wedges the webhook with money already refunded).
 
 ### 3.3 Server action `approveSingleSessionRefund({ bookingId })`
 
@@ -127,14 +149,27 @@ log if release itself fails) → `revalidatePath('/admin')`.
 
 ### 3.4 Webhook wiring (`handleChargeRefunded`, `webhook-handlers.ts`)
 
-In the existing per-refund loop, branch on `refund.metadata.refund_kind`:
-- `'single_session'` → `finalize_single_session_refund(refund_request_id, refund.id)`.
-- else → existing prepaid finalize / H5 reconcile path (unchanged).
+In the existing per-refund loop, branch on `refund.metadata.refund_kind` /
+`refund.metadata.refund_request_id`:
+- `refund_kind === 'single_session'` → `finalize_single_session_refund(refund_request_id, refund.id)`.
+- has a `refund_request_id` but not single-session → existing prepaid finalize (unchanged).
+- **no `refund_request_id`** (external/dashboard) → existing prepaid H5 reconcile **and** the new
+  `reconcile_external_single_session_refund(charge.payment_intent)` (§3.5). The two are disjoint by
+  construction (prepaid PIs map to `student_packages`; single-session PIs map to a NULL-package
+  booking), so calling both is safe.
 
 The `refund_kind` discriminator is **required** because `finalize_prepaid_refund` RAISES on an
 id it doesn't own — the two saga tables cannot share a blind finalize call.
 
-### 3.5 Admin surface
+### 3.5 Dashboard-refund fallback (external reconcile)
+
+A refund issued directly in the Stripe dashboard emits `charge.refunded` with **no**
+`refund_request_id`/`refund_kind`. Without this fallback the money leaves but the booking stays
+`confirmed` with the slot held — a zombie. The fallback (`reconcile_external_single_session_refund`,
+above) maps the refunded PI to its single-session booking and runs the same shared cancel step,
+so a dashboard refund is as honest as an in-app one. Redelivery-safe (status-guarded no-op).
+
+### 3.6 Admin surface
 
 A "Refund" control on the admin single-session/booking view, calling the action. Exact
 component located during planning (reuse the prepaid refund button's pattern).
@@ -148,7 +183,17 @@ two `stripe.refunds.create` on the same charge. Guard = **`SELECT booking FOR UP
 reserve** + the **`UNIQUE (booking_id) WHERE status <> 'released'`** partial index as the atomic
 backstop. The DB uniqueness is authoritative; the idempotency key is not.
 
-## 5. Credit-system interaction (informational — no work here)
+## 5. Known limitations
+
+- **In-flight window:** between a successful Stripe refund and the `charge.refunded` webhook, a
+  teacher could theoretically deliver the session. The shared cancel step tolerates it
+  (reconcile + log, no throw); money is already refunded — an operator reconciles. Low risk
+  (admin refunds a session that isn't happening).
+- **Unscheduled bookings hold no slot:** `assessment`/`specialized` are created `pending` with
+  `scheduled_at = NULL`; the slot unique index ignores NULLs, so "frees the slot" only applies
+  once a time is chosen. Cancel is still correct.
+
+## 6. Credit-system interaction (informational — no work here)
 
 Cancelling a `confirmed` booking fires `t_restore_student_credit`. Paired with
 `t_deduct_student_credit` (fires at `pending→confirmed`), the two form a **symmetric floating
@@ -163,48 +208,30 @@ correct fix (per-booking credit stamp + symmetric guard on both deduct and resto
 confirm/cancel paths: `class-offerings.ts`, `teacher-booking.ts`, `retention-batch.ts`, the
 webhook, group/class inserts) is **split to its own spec** by owner decision.
 
-## 6. Known limitations
-
-- **In-flight window:** between a successful Stripe refund and the `charge.refunded` webhook, a
-  teacher could theoretically deliver the session. Finalize tolerates it (reconcile + log, no
-  throw); money is already refunded — an operator reconciles. Low risk (admin refunds a session
-  that isn't happening).
-- **Unscheduled bookings hold no slot:** `assessment`/`specialized` are created `pending` with
-  `scheduled_at = NULL`; the slot unique index ignores NULLs, so "frees the slot" only applies
-  once a time is chosen. Cancel is still correct.
-- **External (Stripe-dashboard) refunds — OPEN, see §8:** a dashboard refund carries no
-  `refund_kind` metadata, so §3.4's branch never fires and the booking would stay `confirmed`
-  with the slot held while money went out. Decision pending (§8).
-
 ## 7. Verification
 
 - **DB rolled-back walk** (BEGIN..ROLLBACK, local 127.0.0.1:54322): reserve→finalize cancels
   the booking + frees the slot; a second reserve for the same booking is blocked by the unique
   index; release leaves the booking intact; finalize on an already-`completed` booking is a
-  no-throw reconcile.
+  no-throw reconcile; **external reconcile** cancels a dashboard-refunded single session and is a
+  no-op for a prepaid/subscription PI and on redelivery.
 - **From-zero `supabase db reset`** replays the new migration clean (exit 0).
 - **Unit tests:** the action (Stripe success / failure→release), the webhook `refund_kind`
-  dispatch, and the reserve guards (PayPal reject, wrong-status reject, double-request reject).
-- Migration is **expand/contract-safe** (purely additive: one table, three functions, RLS in
+  dispatch + external-reconcile branch, and the reserve guards (PayPal reject, wrong-status
+  reject, double-request reject).
+- Migration is **expand/contract-safe** (purely additive: one table, five functions, RLS in
   the same migration — no breaker for `check-migration-safety.sh`).
 
-## 8. Open decision
-
-**HIGH-2 — external/dashboard refunds.** Include a small H5-style fallback (on
-`charge.refunded` with no `refund_request_id`, map PI → a `stripe`-provider single-session
-booking still `pending/confirmed` → cancel it + emit), or declare dashboard refunds out of
-scope with a documented "in-app button only" ops constraint? Recommendation: **include the
-fallback** — a routine dashboard refund otherwise leaves a zombie booking. To confirm at spec
-review.
-
-## 9. Three-lens sign-off
+## 8. Three-lens sign-off
 
 - 🛠 **Full-stack:** money op is `FOR UPDATE` + unique-index guarded; SECURITY DEFINER with the
   standard lockdown; RLS ships in-migration; full-charge refund sidesteps amount/tax; webhook is
-  the single source of truth (no non-atomic Stripe/DB window); finalize is redelivery-idempotent
-  and wedge-proof.
+  the single source of truth (no non-atomic Stripe/DB window); finalize + external reconcile are
+  redelivery-idempotent and wedge-proof; one shared cancel step so admin and dashboard paths
+  can't diverge.
 - 📖 **Quran:** n/a — single sessions are Quran recitation bookings, but a refund touches only
   money + booking status; no ayah text, tajweed, or `surah:ayah` data.
-- 🎓 **Teaching-platform:** refund is honest (money back + booking cancelled), and finalize emits
-  `booking.cancelled` so the student sees a cancelled+refunded session and the teacher learns
-  the slot reopened — not a silent disappearance.
+- 🎓 **Teaching-platform:** refund is honest (money back + booking cancelled), whether issued
+  in-app or via the dashboard, and cancellation emits `booking.cancelled` so the student sees a
+  cancelled+refunded session and the teacher learns the slot reopened — not a silent
+  disappearance.
