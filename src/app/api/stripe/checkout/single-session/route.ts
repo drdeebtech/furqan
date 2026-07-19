@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/client";
 import { requireRole } from "@/lib/auth/require-admin";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { logError, logInfo } from "@/lib/logger";
 import { getSetting } from "@/lib/settings";
@@ -212,6 +213,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Only students may book single sessions" }, { status: 403 });
     }
     throw e;
+  }
+
+  // Per-user rate limit (fix #4): cap Checkout-session creation. Fail-open so a
+  // limiter outage never blocks a real booking.
+  if (!(await checkRateLimit(studentId, "checkout-single-session", 20))) {
+    return NextResponse.json(
+      { success: false, error: "Too many attempts — please wait a moment and try again." },
+      { status: 429 },
+    );
   }
 
   // ── Body validation (FR-016: zod at the boundary) ─────────────────────────
@@ -541,6 +551,15 @@ export async function POST(request: Request) {
 
   const stripe = getStripe();
   const amountCents = Math.round(priceUsd * 100);
+  // 10-min double-submit window keyed on the FULL booking metadata (sorted), so
+  // ANY distinguishing field — purpose, target_scope, specialty, teacher, slot —
+  // yields a distinct key: two genuinely-identical submissions dedupe to the
+  // first session, while distinct bookings never collide on a shared key.
+  const idemBucket = Math.floor(Date.now() / 600_000);
+  const idemKey = `single:${Object.entries(stripeMetadata)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join("|")}:${idemBucket}`;
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -563,7 +582,7 @@ export async function POST(request: Request) {
       payment_intent_data: { metadata: stripeMetadata },
       success_url: `${appUrl}/student/dashboard?single_session=success`,
       cancel_url: `${appUrl}/student/dashboard?single_session=cancelled`,
-    });
+    }, { idempotencyKey: idemKey });
 
     if (!session.url) {
       logError("single-session: Stripe returned no url", new Error("no url"), {

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getStripe, isStripeConfigured } from "@/lib/stripe/client";
 import { requireRole } from "@/lib/auth/require-admin";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { logError, logInfo } from "@/lib/logger";
 import { getSetting, isFeatureEnabled } from "@/lib/settings";
@@ -115,6 +116,15 @@ export async function POST(request: Request) {
     throw e;
   }
 
+  // Per-user rate limit (fix #4): cap Checkout-session creation. Fail-open so a
+  // limiter outage never blocks a real purchase.
+  if (!(await checkRateLimit(studentId, "checkout-prepaid-hours", 20))) {
+    return NextResponse.json(
+      { error: "Too many attempts — please wait a moment and try again." },
+      { status: 429 },
+    );
+  }
+
   // ── Body validation ────────────────────────────────────────────────────────
   let body: PrepaidCheckout;
   try {
@@ -199,6 +209,9 @@ export async function POST(request: Request) {
   };
 
   const stripe = getStripe();
+  // 10-min double-submit window: a repeated click reuses the SAME Stripe key,
+  // so Stripe returns the first session instead of charging the wallet twice.
+  const idemBucket = Math.floor(Date.now() / 600_000);
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -221,7 +234,7 @@ export async function POST(request: Request) {
       payment_intent_data: { metadata: stripeMetadata },
       success_url: `${appUrl}/student/dashboard?prepaid_hours=success`,
       cancel_url: `${appUrl}/student/dashboard?prepaid_hours=cancelled`,
-    });
+    }, { idempotencyKey: `prepaid:${studentId}:${body.hours}:${idemBucket}` });
 
     if (!session.url) {
       logError(

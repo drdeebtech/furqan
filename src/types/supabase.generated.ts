@@ -6142,6 +6142,54 @@ export type Database = {
           },
         ]
       }
+      single_session_refund_requests: {
+        Row: {
+          amount_usd: number
+          booking_id: string
+          created_at: string
+          id: string
+          resolved_at: string | null
+          status: string
+          stripe_payment_intent: string
+          stripe_refund_id: string | null
+        }
+        Insert: {
+          amount_usd: number
+          booking_id: string
+          created_at?: string
+          id: string
+          resolved_at?: string | null
+          status?: string
+          stripe_payment_intent: string
+          stripe_refund_id?: string | null
+        }
+        Update: {
+          amount_usd?: number
+          booking_id?: string
+          created_at?: string
+          id?: string
+          resolved_at?: string | null
+          status?: string
+          stripe_payment_intent?: string
+          stripe_refund_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "single_session_refund_requests_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "single_session_refund_requests_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "v_bookings"
+            referencedColumns: ["booking_id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           cancel_at_period_end: boolean
@@ -7623,6 +7671,22 @@ export type Database = {
           rows_scheduled: number
           students_processed: number
         }[]
+      }
+      finalize_single_session_refund: {
+        Args: { p_refund_request_id: string; p_stripe_ref: string }
+        Returns: Json
+      }
+      reconcile_external_single_session_refund: {
+        Args: { p_payment_intent: string }
+        Returns: Json
+      }
+      release_single_session_refund: {
+        Args: { p_refund_request_id: string }
+        Returns: undefined
+      }
+      reserve_single_session_refund: {
+        Args: { p_booking: string; p_refund_request_id: string }
+        Returns: number
       }
       confirm_booking_with_session: {
         Args: {

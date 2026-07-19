@@ -172,12 +172,15 @@ describe("POST /api/stripe/checkout — subscription mode (spec 018)", () => {
     const res = await POST(makeReq({ planCode: "MONTHLY" }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ url: "https://checkout.stripe.com/c/session" });
-    expect(mockSessionsCreate).toHaveBeenCalledWith(expect.objectContaining({
-      mode: "subscription",
-      customer: "cus_existing",
-      line_items: [{ price: "price_1", quantity: 1 }],
-      client_reference_id: STUDENT_ID,
-    }));
+    expect(mockSessionsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: "subscription",
+        customer: "cus_existing",
+        line_items: [{ price: "price_1", quantity: 1 }],
+        client_reference_id: STUDENT_ID,
+      }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    );
   });
 
   it("stamps student_id in metadata + client_reference (identity from session)", async () => {
@@ -216,8 +219,16 @@ describe("POST /api/stripe/checkout — subscription mode (spec 018)", () => {
     const res = await POST(makeReq({ planCode: "MONTHLY" }));
     expect(res.status).toBe(200);
 
-    expect(mockSessionsCreate).toHaveBeenCalledWith(expect.objectContaining({
-      discounts: [{ coupon: "coupon_123" }],
-    }));
+    expect(mockSessionsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        discounts: [{ coupon: "coupon_123" }],
+      }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    );
+    // Coupon creation is also idempotent within the same submit window.
+    expect(mockCouponsCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ percent_off: 10 }),
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    );
   });
 });

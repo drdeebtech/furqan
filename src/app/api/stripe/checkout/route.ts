@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/client";
 import { getActivePlanByCode } from "@/lib/domains/billing";
 import { requireRole } from "@/lib/auth/require-admin";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { assertNoActiveHifz, HifzAlreadyActiveError, isPlanHifzProduct, resolveStudentFamilyDiscount } from "@/lib/actions/subscriptions/create-hifz-subscription";
 import { logError } from "@/lib/logger";
@@ -38,6 +39,16 @@ export async function POST(request: Request) {
     throw e;
   }
 
+  // Per-user rate limit (fix #4): cap Checkout-session creation so a script
+  // cannot spam Stripe object creation. Fail-open — a limiter outage must never
+  // block a real purchase.
+  if (!(await checkRateLimit(userId, "checkout-subscription", 20))) {
+    return NextResponse.json(
+      { error: "Too many checkout attempts — please wait a moment and try again." },
+      { status: 429 },
+    );
+  }
+
   // ── Validate body ─────────────────────────────────────────────────────────
   let parsed: z.infer<typeof Body>;
   try {
@@ -68,6 +79,13 @@ export async function POST(request: Request) {
 
   const stripe = getStripe();
   const admin = createAdminClient();
+
+  // Idempotency window (R6): a double-click / retry within the same ~10-min
+  // bucket reuses the SAME Stripe key → Stripe returns the first Checkout
+  // Session instead of creating a second one, so the student is never
+  // double-charged. The coupon below shares this bucket so an idempotent
+  // replay sends identical params (a fresh coupon id would break the key).
+  const idemBucket = Math.floor(Date.now() / 600_000);
 
   // ── Single-active-hifz guard (spec 019 US2 / FR-007) ──────────────────────
   // A student may hold at most one active hifz subscription. Check BEFORE the
@@ -107,14 +125,17 @@ export async function POST(request: Request) {
       const discountRes = await resolveStudentFamilyDiscount(admin, userId, productCategory);
       if (discountRes.applies) {
         try {
-          const coupon = await stripe.coupons.create({
-            percent_off: discountRes.discountPct,
-            duration: "once",
-            metadata: {
-              discount_type: discountRes.discountType,
-              setting_key: discountRes.settingKey,
+          const coupon = await stripe.coupons.create(
+            {
+              percent_off: discountRes.discountPct,
+              duration: "once",
+              metadata: {
+                discount_type: discountRes.discountType,
+                setting_key: discountRes.settingKey,
+              },
             },
-          });
+            { idempotencyKey: `coupon:${userId}:${discountRes.discountType}:${idemBucket}` },
+          );
           stripeCouponId = coupon.id;
         } catch (err) {
           logError("checkout: guardian discount coupon creation failed", err, {
@@ -154,7 +175,7 @@ export async function POST(request: Request) {
       subscription_data: { metadata: { student_id: userId, plan_code: plan.planCode } },
       success_url: `${appUrl}/student/dashboard?subscription=success`,
       cancel_url: `${appUrl}/student/dashboard?subscription=cancelled`,
-    });
+    }, { idempotencyKey: `sub-checkout:${userId}:${plan.planCode}:${idemBucket}` });
 
     if (!session.url) {
       logError("checkout: Stripe returned no url", new Error("no url"), {

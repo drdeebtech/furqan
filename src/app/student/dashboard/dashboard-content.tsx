@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, type ReactNode } from "react";
+import { Suspense, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Calendar, CheckCircle, Clock, Briefcase, Keyboard, MessageSquare, RefreshCw, Sparkles } from "lucide-react";
 import { useLang } from "@/lib/i18n/context";
@@ -87,30 +87,53 @@ function StudentDashboardContentInner({
     goal, achievements, prepaidWallet, subscription, unreadMessages, renderedAtMs,
   } = data;
 
+  const paymentToastShownRef = useRef(false);
   useEffect(() => {
+    // StrictMode (dev) invokes mount effects twice; guard so the toast fires once.
+    if (paymentToastShownRef.current) return;
+    paymentToastShownRef.current = true;
+
     const sub = searchParams.get("subscription");
     const prepaid = searchParams.get("prepaid_hours");
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    // The grant is webhook-driven and async — it may not have landed by the time
+    // Stripe redirects back. Re-fetch on a capped backoff (up to ~30s) so the
+    // newly-granted access appears even on a slower webhook retry — without an
+    // infinite poll and without the student reloading manually.
+    const pollForGrant = () => {
+      for (const delay of [2000, 4000, 8000, 15000, 30000]) {
+        timers.push(setTimeout(() => router.refresh(), delay));
+      }
+    };
+    // Clear the query params without dropping existing history state.
+    const clearQuery = () =>
+      window.history.replaceState(window.history.state, "", "/student/dashboard");
+
     if (searchParams.get("booked") === "1") {
       toast.success(t("تم الحجز بنجاح! سيتم تأكيده من المعلم", "Booking submitted! Teacher will confirm soon."));
-      window.history.replaceState(null, "", "/student/dashboard");
+      clearQuery();
     } else if (sub === "success") {
-      toast.success(t("تم تفعيل اشتراكك! يمكنك الآن حجز جلساتك", "Subscription activated! You can now book sessions."));
-      window.history.replaceState(null, "", "/student/dashboard");
+      // Honest copy: the grant is async, so say "activating", not "activated".
+      toast.success(t("تم استلام الدفع — يتم تفعيل وصولك الآن", "Payment received — activating your access now."));
+      clearQuery();
+      pollForGrant();
     } else if (sub === "cancelled") {
       toast.info(t("تم إلغاء عملية الدفع", "Payment was cancelled."));
-      window.history.replaceState(null, "", "/student/dashboard");
+      clearQuery();
     } else if (prepaid === "success") {
       // Spec 038 — Stripe success_url for the prepaid-hours checkout.
       toast.success(
-        t("تم شراء الساعات بنجاح! رصيدك جاهز للاستخدام", "Hours purchased! Your balance is ready to use."),
+        t("تم استلام الدفع — يتم إضافة ساعاتك الآن", "Payment received — adding your hours now."),
       );
-      window.history.replaceState(null, "", "/student/dashboard");
+      clearQuery();
+      pollForGrant();
     } else if (prepaid === "cancelled") {
       toast.info(
         t("تم إلغاء شراء الساعات", "Hours purchase was cancelled."),
       );
-      window.history.replaceState(null, "", "/student/dashboard");
+      clearQuery();
     }
+    return () => timers.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

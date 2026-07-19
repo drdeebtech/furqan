@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole } from "@/lib/auth/require-admin";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/client";
@@ -46,6 +47,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     throw e;
+  }
+
+  // Per-user rate limit (fix #4): cap upgrade attempts so a script cannot spam
+  // always_invoice proration invoices. Fail-open — a limiter outage must never
+  // block a legitimate upgrade.
+  if (!(await checkRateLimit(userId, "subscription-upgrade-tier", 20))) {
+    return NextResponse.json(
+      { error: "Too many upgrade attempts — please wait a moment and try again." },
+      { status: 429 },
+    );
   }
 
   let parsed: z.infer<typeof Body>;
@@ -223,11 +234,17 @@ export async function POST(request: Request) {
     const itemId = stripeSub.items.data[0]?.id;
     if (!itemId) throw new Error("subscription has no items");
 
-    const updatedSub = await stripe.subscriptions.update(sub.stripe_subscription_id, {
-      items: [{ id: itemId, price: newPlan.stripe_price_id }],
-      proration_behavior: "always_invoice",
-      expand: ["latest_invoice"],
-    });
+    const updatedSub = await stripe.subscriptions.update(
+      sub.stripe_subscription_id,
+      {
+        items: [{ id: itemId, price: newPlan.stripe_price_id }],
+        proration_behavior: "always_invoice",
+        expand: ["latest_invoice"],
+      },
+      // 10-min double-submit window: a repeated upgrade click reuses the SAME
+      // Stripe key so no second always_invoice proration is charged.
+      { idempotencyKey: `upgrade:${userId}:${sub.id}:${newPlan.id}:${Math.floor(Date.now() / 600_000)}` },
+    );
 
     const latestInvoice = updatedSub.latest_invoice;
     invoiceId =

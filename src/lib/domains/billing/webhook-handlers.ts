@@ -35,7 +35,9 @@ import { grantCycle, buildCycleKey } from "@/lib/domains/billing/orchestrate";
 import { BillingEvents } from "@/lib/domains/billing/events";
 import {
   applyImmediateUpgradeGrant,
-  applyPendingTierChangeAtRenewal,
+  resolvePendingTierChange,
+  finalizePendingTierChange,
+  type ResolvedPendingTierChange,
 } from "@/lib/domains/catalog/credit-grant";
 
 // ── Shared context ────────────────────────────────────────────────────────────
@@ -219,16 +221,58 @@ export async function handleInvoicePaid(ctx: EventContext): Promise<void> {
   const periodEndSec = invoice.period_end ?? ctx.event.created;
   const cycleKey = buildCycleKey({ invoiceId: invoice.id, subscriptionId, periodStartIso });
 
+  // ── T014a: pending tier change at renewal (FR-019) ───────────────────────
+  // A hifz subscription can have a tier change scheduled for renewal. When one
+  // applies THIS cycle, the cycle must be granted exactly once — at the NEW
+  // tier — and the payment recorded once. Routing that single grant through
+  // grantCycle (below) at the resolved new plan replaces the old flow, which
+  // granted the old tier here AND a second full new-tier cycle via
+  // grant_hifz_cycle_credits — double-granting a whole month per tier-change
+  // renewal (audit 2026-07-18).
+  let effectivePlan = plan;
+  let pendingTier: ResolvedPendingTierChange | null = null;
+  if (plan.is_hifz_product) {
+    const resolvedTier = await resolvePendingTierChange(ctx.admin, mirrorId);
+    if (!resolvedTier.ok) {
+      // Lookup/plan-resolve failure on a PAID invoice — retry, never 200.
+      throw new WebhookTransientError(`pending tier change resolve failed: ${resolvedTier.error}`);
+    }
+    if (resolvedTier.pending) {
+      pendingTier = resolvedTier.pending;
+      const { data: newPlan, error: newPlanErr } = await ctx.admin
+        .from("subscription_plans")
+        .select("id, monthly_credit_count, price_cents, session_metadata")
+        .eq("id", resolvedTier.pending.newPlanId)
+        .maybeSingle<{
+          id: string;
+          monthly_credit_count: number;
+          price_cents: number;
+          session_metadata: unknown;
+        }>();
+      if (newPlanErr) {
+        throw new WebhookTransientError(`new-tier plan lookup failed: ${newPlanErr.message}`);
+      }
+      if (!newPlan) {
+        // Deterministic: the scheduled change points at a plan that no longer
+        // exists — retrying cannot fix data.
+        await markEvent(ctx, "failed", `new-tier plan not found: ${resolvedTier.pending.newPlanId}`);
+        return;
+      }
+      // Grant + record the payment at the NEW tier (keep is_hifz_product).
+      effectivePlan = { ...plan, ...newPlan };
+    }
+  }
+
   const result = await grantCycle(ctx.admin, {
     subscriptionId: mirrorId,
     studentId,
-    planId: plan.id,
+    planId: effectivePlan.id,
     cycleKey,
     stripePaymentIntent: paymentIntent,
-    amountCents: invoice.total ?? plan.price_cents,
-    creditCount: plan.monthly_credit_count,
+    amountCents: invoice.total ?? effectivePlan.price_cents,
+    creditCount: effectivePlan.monthly_credit_count,
     expiresAt: new Date(periodEndSec * 1000).toISOString(),
-    sessionMetadata: (plan.session_metadata ?? {}) as Record<string, unknown>,
+    sessionMetadata: (effectivePlan.session_metadata ?? {}) as Record<string, unknown>,
   });
 
   if (!result.ok) {
@@ -239,29 +283,29 @@ export async function handleInvoicePaid(ctx: EventContext): Promise<void> {
 
   await ctx.admin.from("billing_events").update({ subscription_id: mirrorId }).eq("id", ctx.billingEventId!);
 
-  // ── T014a: Apply pending tier change at renewal (FR-019) ─────────────────
-  // If this is a hifz product and there's a pending tier change, apply it now:
-  // transition pending→applied, switch subscription to new plan, re-grant credits.
-  // The WHERE status='pending' guard makes this replay-safe.
+  // Finalize the tier change only AFTER its cycle was granted at the new tier:
+  // switch the subscription to the new plan + mark pending→applied. No regrant —
+  // the single cycle already went through grantCycle above at the new tier.
   let activePlanId = plan.id;
-  if (plan.is_hifz_product) {
-    const tierResult = await applyPendingTierChangeAtRenewal(ctx.admin, mirrorId, invoice.id);
-    if (tierResult.ok) {
-      activePlanId = tierResult.newPlanId;
-      logInfo("stripe-webhook: pending tier change applied", {
-        tag: "billing",
-        subscription_id: mirrorId,
-        pending_id: tierResult.pendingId,
-        new_plan_id: tierResult.newPlanId,
-      });
-    } else if (tierResult.reason !== "no_pending") {
-      logError("stripe-webhook: pending tier change failed", new Error(tierResult.reason), {
-        tag: "billing",
-        subscription_id: mirrorId,
-        error: tierResult.error,
-      });
-      throw new Error(`pending tier change failed: ${tierResult.reason}`);
+  if (pendingTier) {
+    const fin = await finalizePendingTierChange(
+      ctx.admin,
+      mirrorId,
+      pendingTier.pendingId,
+      pendingTier.newPlanId,
+    );
+    if (!fin.ok) {
+      // Grant already landed (idempotent on cycleKey); retry to complete the
+      // plan switch rather than 200 with a half-applied tier change.
+      throw new WebhookTransientError(`pending tier change finalize failed: ${fin.error}`);
     }
+    activePlanId = pendingTier.newPlanId;
+    logInfo("stripe-webhook: pending tier change applied", {
+      tag: "billing",
+      subscription_id: mirrorId,
+      pending_id: pendingTier.pendingId,
+      new_plan_id: pendingTier.newPlanId,
+    });
   }
 
   await markEvent(ctx, "processed");
@@ -910,6 +954,142 @@ export async function handlePrepaidHoursGrant(ctx: EventContext): Promise<void> 
   await markEvent(ctx, "processed");
 }
 
+// ── Fix #2: subscription refund → revoke unused sessions + cancel the plan ───
+//
+// A FULLY-refunded subscription invoice charge means the student's money was
+// returned, so per owner decision we take back their UNUSED sessions and cancel
+// the subscription ("we're done here"). Attended sessions are untouched:
+// `sessions_used` and the confirmed bookings are history; we only flip the
+// still-`active` grants to `cancelled` so their remaining capacity can no longer
+// be booked or debited (both selectActivePackage and the confirm-time deduct
+// trigger filter status='active').
+//
+// Scope guards:
+//   • Only subscription charges (charge.invoice present) — prepaid one-time
+//     charges carry no invoice and are handled by the reconcile path.
+//   • Only FULL refunds (charge.refunded) — a partial refund leaves sessions +
+//     plan intact and is logged.
+//
+// Redelivery-safe: charge.refunded re-delivers the cumulative refunds list, and
+// every step converges to the same end state — the payment flip is by-PI, the
+// revoke carries `WHERE status='active'`, the mirror flip carries
+// `WHERE status != 'canceled'`, and the Stripe cancel treats an already-cancelled
+// subscription as success.
+export async function revokeAndCancelOnSubscriptionRefund(
+  ctx: EventContext,
+  charge: Stripe.Charge,
+): Promise<void> {
+  if (!charge.refunded) {
+    // Partial refund — owner decision is full-refund-only. Leave everything
+    // intact; surface it so a partial refund is never silently a no-op.
+    logInfo("stripe-webhook: partial refund — subscription sessions + plan left intact", {
+      tag: "billing",
+      charge_id: charge.id,
+      amount: charge.amount,
+      amount_refunded: charge.amount_refunded,
+    });
+    return;
+  }
+
+  const piId = typeof charge.payment_intent === "string" ? charge.payment_intent : null;
+  if (!piId) return;
+
+  // Route locally by the charge's payment intent — dahlia charges carry no
+  // invoice link. The subscription cycle grant records the PI on
+  // `stripe_payment_intent_id` (and, unlike prepaid lots, a `subscription_id`);
+  // prepaid one-off refunds are handled by the reconcile path above.
+  const { data: grant, error: grantErr } = await ctx.admin
+    .from("student_packages")
+    .select("subscription_id")
+    .eq("stripe_payment_intent_id", piId)
+    .not("subscription_id", "is", null)
+    .limit(1)
+    .maybeSingle<{ subscription_id: string | null }>();
+  if (grantErr) {
+    throw new WebhookTransientError(`refund: subscription grant lookup failed: ${grantErr.message}`);
+  }
+  if (!grant?.subscription_id) return; // not a subscription charge we granted
+  const subscriptionId = grant.subscription_id;
+
+  // 1. Flip the payment to refunded (idempotent on the PI; piId is non-null here).
+  //    Independent of the mirror: a fully-refunded charge must reconcile locally
+  //    even when the subscription can't be mapped to a Stripe id.
+  const { error: payErr } = await ctx.admin
+    .from("payments")
+    .update({ status: "refunded" })
+    .eq("stripe_payment_intent", piId);
+  if (payErr) throw new WebhookTransientError(`refund: payment flip failed: ${payErr.message}`);
+
+  // 2. Revoke UNUSED capacity: flip this subscription's still-active grants to
+  //    'cancelled'. sessions_used + confirmed bookings (attended lessons) are
+  //    untouched. WHERE status='active' makes this a no-op on redelivery.
+  const { error: revokeErr } = await ctx.admin
+    .from("student_packages")
+    .update({ status: "cancelled" })
+    .eq("subscription_id", subscriptionId)
+    .eq("status", "active");
+  if (revokeErr) throw new WebhookTransientError(`refund: session revoke failed: ${revokeErr.message}`);
+
+  // 3. Cancel the subscription in Stripe. Needs the mirror's stripe_subscription_id;
+  //    if the mirror can't be mapped, local records are ALREADY reconciled above —
+  //    log and stop rather than silently drop the reversal.
+  const { data: mirror, error: mirrorErr } = await ctx.admin
+    .from("subscriptions")
+    .select("stripe_subscription_id, status")
+    .eq("id", subscriptionId)
+    .maybeSingle<{ stripe_subscription_id: string; status: string }>();
+  if (mirrorErr) {
+    throw new WebhookTransientError(`refund: subscription mirror lookup failed: ${mirrorErr.message}`);
+  }
+  if (!mirror?.stripe_subscription_id) {
+    logError("stripe-webhook: refunded subscription grant has no mirror — reconciled locally, not cancelled at Stripe", new Error("no mirror"), {
+      tag: "billing",
+      subscription_id: subscriptionId,
+      charge_id: charge.id,
+    });
+    return;
+  }
+  const stripeSubId = mirror.stripe_subscription_id;
+
+  //    Idempotent: an already-cancelled sub (e.g. the admin cancelled in the
+  //    dashboard first) is treated as success, never a permanent 500.
+  try {
+    await ctx.stripe.subscriptions.cancel(stripeSubId);
+  } catch (err) {
+    const code = (err as { code?: string; statusCode?: number })?.code;
+    const status = (err as { statusCode?: number })?.statusCode;
+    const alreadyGone =
+      code === "resource_missing" ||
+      status === 404 ||
+      /no such subscription|already canceled/i.test(err instanceof Error ? err.message : "");
+    if (!alreadyGone) {
+      throw new WebhookTransientError(
+        `refund: stripe subscription cancel failed: ${err instanceof Error ? err.message : "unknown"}`,
+      );
+    }
+    logInfo("stripe-webhook: refund cancel — subscription already cancelled at Stripe", {
+      tag: "billing",
+      stripe_subscription_id: stripeSubId,
+    });
+  }
+
+  // 4. Reflect the cancellation on the mirror immediately (the async
+  //    customer.subscription.deleted will also land, idempotently).
+  const { error: subFlipErr } = await ctx.admin
+    .from("subscriptions")
+    .update({ status: "canceled" })
+    .eq("id", subscriptionId)
+    .neq("status", "canceled");
+  if (subFlipErr) throw new WebhookTransientError(`refund: mirror status flip failed: ${subFlipErr.message}`);
+
+  logInfo("stripe-webhook: subscription refund processed — sessions revoked + plan cancelled", {
+    tag: "billing",
+    subscription_id: subscriptionId,
+    stripe_subscription_id: stripeSubId,
+    charge_id: charge.id,
+  });
+}
+
 // ── charge.refunded → finalize admin refund saga OR reconcile external (spec 038 R8/H5) ──
 //
 // Two paths in one handler:
@@ -953,6 +1133,32 @@ export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
   for (const refund of refunds) {
     const refundMd = (refund.metadata ?? {}) as Record<string, string | undefined>;
     const requestId = refundMd.refund_request_id;
+
+    // Single-session admin refund: correlate via refund_kind + finalize, then
+    // emit booking.cancelled (post-commit, fail-soft) if the booking was cancelled.
+    if (refundMd.refund_kind === "single_session" && requestId) {
+      const { data, error } = await ctx.admin.rpc("finalize_single_session_refund", {
+        p_refund_request_id: requestId,
+        p_stripe_ref: refund.id,
+      });
+      const result = data as {
+        did_cancel?: boolean;
+        booking_id?: string;
+        student_id?: string;
+        teacher_id?: string;
+      } | null;
+      if (error) {
+        // Match the sibling prepaid paths: a 500 makes Stripe redeliver so the
+        // refund is finalized. Swallowing + markEvent("processed") would strand it.
+        throw new WebhookTransientError(`finalize single-session: ${error.message}`);
+      } else if (result?.did_cancel && result.booking_id) {
+        emitEvent("booking.cancelled", "booking", result.booking_id, {
+          student_id: result.student_id,
+          teacher_id: result.teacher_id,
+        }).catch((e) => logError("emit booking.cancelled failed", e, { tag: "billing" }));
+      }
+      continue; // handled — do not fall through to prepaid/H5
+    }
 
     if (requestId) {
       // Admin saga (T5.1/T5.2). Finalize.
@@ -1000,8 +1206,35 @@ export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
           throw new WebhookTransientError(`reconcile external: ${error.message}`);
         }
       }
+
+      // H5 (single-session): a Stripe-dashboard refund carries no request id.
+      // reconcile_external_single_session_refund no-ops unless the PI maps to a
+      // single-session (student_package_id IS NULL) stripe booking.
+      const { data, error } = await ctx.admin.rpc("reconcile_external_single_session_refund", {
+        p_payment_intent: piId,
+      });
+      const result = data as {
+        did_cancel?: boolean;
+        booking_id?: string;
+        student_id?: string;
+        teacher_id?: string;
+      } | null;
+      if (error) {
+        throw new WebhookTransientError(`reconcile external single-session: ${error.message}`);
+      } else if (result?.did_cancel && result.booking_id) {
+        emitEvent("booking.cancelled", "booking", result.booking_id, {
+          student_id: result.student_id,
+          teacher_id: result.teacher_id,
+        }).catch((e) => logError("emit booking.cancelled failed", e, { tag: "billing" }));
+      }
     }
   }
+
+  // ── Fix #2: subscription-side revocation (student) ────────────────────────
+  // A full refund of a subscription invoice charge revokes the student's unused
+  // sessions and cancels the plan. No-op for prepaid/one-off charges (no invoice)
+  // and for partial refunds. Fail-closed: throws → dispatch 500s → Stripe retries.
+  await revokeAndCancelOnSubscriptionRefund(ctx, charge);
 
   // ── Spec 040 FR-013/014: teacher clawback (Connect ledger) ────────────────
   // After the student-side prepaid path, reverse the teacher's share of each
