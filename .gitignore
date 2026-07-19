@@ -161,3 +161,4 @@ ECC/
 # Editor + local tool state (per-developer, not project source)
 .vscode/
 .chunk/
+.gbrain-source
