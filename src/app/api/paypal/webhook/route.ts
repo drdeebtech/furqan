@@ -111,6 +111,22 @@ export async function POST(request: Request) {
     );
   }
 
+  // ── Gate 1.5: require PayPal transmission headers BEFORE the outbound verify ─
+  // verifyPayPalWebhookSignature makes an OUTBOUND call to PayPal on every
+  // request. A flood of header-less POSTs would each burn an outbound call (and
+  // fail anyway). Reject up front when any transmission header is absent — zero
+  // outbound, zero side effects (fix #4).
+  const requiredPayPalHeaders = [
+    "paypal-auth-algo",
+    "paypal-cert-url",
+    "paypal-transmission-id",
+    "paypal-transmission-sig",
+    "paypal-transmission-time",
+  ];
+  if (requiredPayPalHeaders.some((h) => !request.headers.get(h))) {
+    return NextResponse.json({ error: "Missing PayPal signature headers" }, { status: 400 });
+  }
+
   // ── Gate 2: raw body + signature verification ──────────────────────────────
   const rawBody = await request.text();
   let verified: boolean;
