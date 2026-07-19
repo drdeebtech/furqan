@@ -541,10 +541,15 @@ export async function POST(request: Request) {
 
   const stripe = getStripe();
   const amountCents = Math.round(priceUsd * 100);
-  // 10-min double-submit window keyed to the specific booking (teacher + slot)
-  // so a repeated click reuses the first session; distinct slots stay distinct.
+  // 10-min double-submit window keyed on the FULL booking metadata (sorted), so
+  // ANY distinguishing field — purpose, target_scope, specialty, teacher, slot —
+  // yields a distinct key: two genuinely-identical submissions dedupe to the
+  // first session, while distinct bookings never collide on a shared key.
   const idemBucket = Math.floor(Date.now() / 600_000);
-  const idemKey = `single:${studentId}:${body.productType}:${stripeMetadata.teacher_id ?? ""}:${stripeMetadata.scheduled_at ?? stripeMetadata.specialty ?? ""}:${idemBucket}`;
+  const idemKey = `single:${Object.entries(stripeMetadata)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join("|")}:${idemBucket}`;
 
   try {
     const session = await stripe.checkout.sessions.create({
