@@ -90,27 +90,39 @@ function StudentDashboardContentInner({
   useEffect(() => {
     const sub = searchParams.get("subscription");
     const prepaid = searchParams.get("prepaid_hours");
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    // The grant is webhook-driven and async — it may not have landed by the time
+    // Stripe redirects back. Re-fetch shortly after so the newly-granted access
+    // (subscription / wallet) appears without the student reloading manually.
+    const pollForGrant = () => {
+      timers.push(setTimeout(() => router.refresh(), 2500));
+      timers.push(setTimeout(() => router.refresh(), 6000));
+    };
     if (searchParams.get("booked") === "1") {
       toast.success(t("تم الحجز بنجاح! سيتم تأكيده من المعلم", "Booking submitted! Teacher will confirm soon."));
       window.history.replaceState(null, "", "/student/dashboard");
     } else if (sub === "success") {
-      toast.success(t("تم تفعيل اشتراكك! يمكنك الآن حجز جلساتك", "Subscription activated! You can now book sessions."));
+      // Honest copy: the grant is async, so say "activating", not "activated".
+      toast.success(t("تم استلام الدفع — يتم تفعيل وصولك الآن", "Payment received — activating your access now."));
       window.history.replaceState(null, "", "/student/dashboard");
+      pollForGrant();
     } else if (sub === "cancelled") {
       toast.info(t("تم إلغاء عملية الدفع", "Payment was cancelled."));
       window.history.replaceState(null, "", "/student/dashboard");
     } else if (prepaid === "success") {
       // Spec 038 — Stripe success_url for the prepaid-hours checkout.
       toast.success(
-        t("تم شراء الساعات بنجاح! رصيدك جاهز للاستخدام", "Hours purchased! Your balance is ready to use."),
+        t("تم استلام الدفع — يتم إضافة ساعاتك الآن", "Payment received — adding your hours now."),
       );
       window.history.replaceState(null, "", "/student/dashboard");
+      pollForGrant();
     } else if (prepaid === "cancelled") {
       toast.info(
         t("تم إلغاء شراء الساعات", "Hours purchase was cancelled."),
       );
       window.history.replaceState(null, "", "/student/dashboard");
     }
+    return () => timers.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
