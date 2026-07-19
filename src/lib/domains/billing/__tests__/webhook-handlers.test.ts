@@ -11,6 +11,12 @@ vi.mock("@/lib/supabase/admin", () => ({
 vi.mock("@/lib/automation/emit", () => ({
   emitEvent: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("@/lib/domains/connect/clawback", () => ({
+  applyChargeClawbacks: vi.fn().mockResolvedValue(undefined),
+  disputeChargeId: vi.fn().mockReturnValue(null),
+  holdDisputedEntries: vi.fn().mockResolvedValue(undefined),
+  paymentIntentIdOf: vi.fn((value: unknown) => (typeof value === "string" ? value : null)),
+}));
 vi.mock("@/lib/domains/billing/subscriptions", () => ({
   upsertMirror: vi.fn(),
 }));
@@ -43,8 +49,10 @@ import {
   handleInvoicePaid,
   handlePaymentFailed,
   handlePaymentIntentSucceeded,
+  handleChargeRefunded,
   revokeAndCancelOnSubscriptionRefund,
 } from "../webhook-handlers";
+import { emitEvent } from "@/lib/automation/emit";
 import { upsertMirror } from "@/lib/domains/billing/subscriptions";
 import { grantCycle } from "@/lib/domains/billing/orchestrate";
 import {
@@ -760,5 +768,103 @@ describe("revokeAndCancelOnSubscriptionRefund", () => {
   it("throws WebhookTransientError on a grant-lookup DB error (fail-closed → Stripe retries)", async () => {
     const { ctx } = makeRefundCtx({ grantErr: { message: "db down" } });
     await expect(revokeAndCancelOnSubscriptionRefund(ctx, fullRefund)).rejects.toThrow(/db down/);
+  });
+});
+
+describe("handleChargeRefunded — single session", () => {
+  function makeSingleSessionRefundCtx(
+    charge: Record<string, unknown>,
+    rpc: ReturnType<typeof vi.fn>,
+  ) {
+    const from = vi.fn((table: string) => {
+      if (table === "student_packages") {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+              })),
+            })),
+          })),
+        };
+      }
+      if (table === "billing_events") {
+        return {
+          update: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) })),
+        };
+      }
+      return {};
+    });
+
+    return makeEventCtx({ from, rpc }, "be-refund", charge);
+  }
+
+  it("refund_kind=single_session → finalize + emit booking.cancelled on cancel", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: {
+        did_cancel: true,
+        booking_id: "b1",
+        student_id: "s1",
+        teacher_id: "t1",
+      },
+      error: null,
+    });
+    const ctx = makeSingleSessionRefundCtx(
+      {
+        id: "ch_1",
+        amount: 2000,
+        currency: "usd",
+        payment_intent: "pi_1",
+        refunds: {
+          data: [
+            {
+              id: "re_1",
+              amount: 2000,
+              metadata: {
+                refund_request_id: "req_1",
+                refund_kind: "single_session",
+              },
+            },
+          ],
+        },
+      },
+      rpc,
+    );
+
+    await handleChargeRefunded(ctx);
+
+    expect(rpc).toHaveBeenCalledWith("finalize_single_session_refund", {
+      p_refund_request_id: "req_1",
+      p_stripe_ref: "re_1",
+    });
+    expect(emitEvent).toHaveBeenCalledWith(
+      "booking.cancelled",
+      "booking",
+      "b1",
+      expect.objectContaining({ student_id: "s1", teacher_id: "t1" }),
+    );
+  });
+
+  it("external dashboard refund (no metadata) → reconcile_external_single_session_refund", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: { did_cancel: false, matched: false },
+      error: null,
+    });
+    const ctx = makeSingleSessionRefundCtx(
+      {
+        id: "ch_2",
+        amount: 1500,
+        currency: "usd",
+        payment_intent: "pi_x",
+        refunds: { data: [{ id: "re_2", amount: 1500, metadata: {} }] },
+      },
+      rpc,
+    );
+
+    await handleChargeRefunded(ctx);
+
+    expect(rpc).toHaveBeenCalledWith("reconcile_external_single_session_refund", {
+      p_payment_intent: "pi_x",
+    });
   });
 });

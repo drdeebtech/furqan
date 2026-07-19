@@ -7,6 +7,7 @@ import { buildNameMap } from "@/lib/admin/name-map";
 import { getT } from "@/lib/i18n/server";
 import { PageHeader } from "@/components/shared/page-header";
 import { RefundPrepaidHoursForm } from "./refund-prepaid-hours-form";
+import { RefundSingleSessionForm } from "./refund-single-session-form";
 
 export const metadata: Metadata = { title: "المالية" };
 
@@ -90,9 +91,10 @@ export default async function AdminPaymentsPage() {
         </div>
       )}
 
-      {/* Prepaid-hour refund (admin action, T5.4) */}
-      <div className="mb-8">
+      {/* Admin refund actions */}
+      <div className="mb-8 grid gap-4 lg:grid-cols-2">
         <RefundPrepaidHoursForm />
+        <RefundSingleSessionForm />
       </div>
 
       {/* Invoices */}

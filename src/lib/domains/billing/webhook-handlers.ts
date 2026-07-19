@@ -1134,6 +1134,32 @@ export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
     const refundMd = (refund.metadata ?? {}) as Record<string, string | undefined>;
     const requestId = refundMd.refund_request_id;
 
+    // Single-session admin refund: correlate via refund_kind + finalize, then
+    // emit booking.cancelled (post-commit, fail-soft) if the booking was cancelled.
+    if (refundMd.refund_kind === "single_session" && requestId) {
+      const { data, error } = await ctx.admin.rpc("finalize_single_session_refund", {
+        p_refund_request_id: requestId,
+        p_stripe_ref: refund.id,
+      });
+      const result = data as {
+        did_cancel?: boolean;
+        booking_id?: string;
+        student_id?: string;
+        teacher_id?: string;
+      } | null;
+      if (error) {
+        // Match the sibling prepaid paths: a 500 makes Stripe redeliver so the
+        // refund is finalized. Swallowing + markEvent("processed") would strand it.
+        throw new WebhookTransientError(`finalize single-session: ${error.message}`);
+      } else if (result?.did_cancel && result.booking_id) {
+        emitEvent("booking.cancelled", "booking", result.booking_id, {
+          student_id: result.student_id,
+          teacher_id: result.teacher_id,
+        }).catch((e) => logError("emit booking.cancelled failed", e, { tag: "billing" }));
+      }
+      continue; // handled — do not fall through to prepaid/H5
+    }
+
     if (requestId) {
       // Admin saga (T5.1/T5.2). Finalize.
       const { error } = await ctx.admin.rpc("finalize_prepaid_refund", {
@@ -1179,6 +1205,27 @@ export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
           });
           throw new WebhookTransientError(`reconcile external: ${error.message}`);
         }
+      }
+
+      // H5 (single-session): a Stripe-dashboard refund carries no request id.
+      // reconcile_external_single_session_refund no-ops unless the PI maps to a
+      // single-session (student_package_id IS NULL) stripe booking.
+      const { data, error } = await ctx.admin.rpc("reconcile_external_single_session_refund", {
+        p_payment_intent: piId,
+      });
+      const result = data as {
+        did_cancel?: boolean;
+        booking_id?: string;
+        student_id?: string;
+        teacher_id?: string;
+      } | null;
+      if (error) {
+        throw new WebhookTransientError(`reconcile external single-session: ${error.message}`);
+      } else if (result?.did_cancel && result.booking_id) {
+        emitEvent("booking.cancelled", "booking", result.booking_id, {
+          student_id: result.student_id,
+          teacher_id: result.teacher_id,
+        }).catch((e) => logError("emit booking.cancelled failed", e, { tag: "billing" }));
       }
     }
   }
