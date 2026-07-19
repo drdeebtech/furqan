@@ -606,6 +606,16 @@ export async function handlePaymentIntentSucceeded(ctx: EventContext): Promise<v
   const targetScopeRaw = md.target_scope;
   const scheduledAt = md.scheduled_at ?? null;
 
+  // Not a single-session payment at all: subscription-invoice PIs arrive here
+  // with EMPTY metadata on every purchase (proven live 2026-07-19) and were
+  // tainting the ledger as "failed". No booking key present → nothing of ours
+  // to materialize → ignored. Partial metadata still fails loud below: that IS
+  // a malformed single-session payment someone must look at.
+  if (!bookingType && !studentId && !teacherId) {
+    await markEvent(ctx, "ignored", "PI carries no single-session metadata (e.g. subscription invoice PI)");
+    return;
+  }
+
   if (!bookingType || !studentId || !teacherId) {
     await markEvent(
       ctx,

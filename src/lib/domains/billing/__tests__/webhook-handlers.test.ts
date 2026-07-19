@@ -605,6 +605,37 @@ describe("handlePaymentIntentSucceeded", () => {
     expect(grantCycle).not.toHaveBeenCalled();
   });
 
+  // Subscription-invoice PIs carry NO single-session metadata at all — proven
+  // live 2026-07-19: every subscription purchase tainted the ledger with a
+  // "failed" row. Not ours → ignored; partial metadata still fails loud.
+  it("marks 'ignored' (not 'failed') when the PI carries no single-session metadata at all", async () => {
+    const eqFn = vi.fn().mockResolvedValue({ error: null });
+    const update = vi.fn().mockReturnValue({ eq: eqFn });
+    const admin = { from: vi.fn(() => ({ update })) } as unknown as MockAdmin;
+    const ctx = makeEventCtx(admin, "evt-1", { id: "pi_1", currency: "usd", metadata: {} });
+
+    await handlePaymentIntentSucceeded(ctx);
+
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "ignored" }));
+    expect(grantCycle).not.toHaveBeenCalled();
+  });
+
+  it("still marks 'failed' on PARTIAL metadata (a malformed single-session payment)", async () => {
+    const eqFn = vi.fn().mockResolvedValue({ error: null });
+    const update = vi.fn().mockReturnValue({ eq: eqFn });
+    const admin = { from: vi.fn(() => ({ update })) } as unknown as MockAdmin;
+    const ctx = makeEventCtx(admin, "evt-1", {
+      id: "pi_1",
+      currency: "usd",
+      metadata: { booking_type: "instant" }, // ids missing — ours, but broken
+    });
+
+    await handlePaymentIntentSucceeded(ctx);
+
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "failed" }));
+    expect(grantCycle).not.toHaveBeenCalled();
+  });
+
   it("marks 'failed' when booking_type is unknown", async () => {
     const admin = makeUpdateAdmin();
     const ctx = makeEventCtx(admin, "evt-1", {
