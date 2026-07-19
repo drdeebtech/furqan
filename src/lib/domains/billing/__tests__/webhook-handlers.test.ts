@@ -354,6 +354,55 @@ describe("handleInvoicePaid", () => {
     expect(grantCycle).not.toHaveBeenCalled();
   });
 
+  // ── Webhook payloads omit expandable lists (dahlia) ────────────────────────
+  // Proven live 2026-07-19: every real subscription `invoice.paid` event
+  // arrives WITHOUT `payments` (it is an expandable list, never included in
+  // webhook payloads), so the handler must re-fetch the invoice with the list
+  // expanded instead of dead-ending a PAID invoice's grant as "failed".
+  it("re-fetches the invoice with expanded payments when the event omits the list, then grants", async () => {
+    vi.mocked(grantCycle).mockResolvedValue({ ok: true, grantId: "g-1", created: true } as never);
+    const admin = makeInvoiceAdmin();
+    const bare = invoiceObject();
+    delete (bare as Record<string, unknown>).payments;
+    const ctx = makeEventCtx(admin, "evt-1", bare);
+    const retrieve = vi.fn().mockResolvedValue(invoiceObject());
+    (ctx as { stripe: unknown }).stripe = { invoices: { retrieve } };
+
+    await expect(handleInvoicePaid(ctx)).resolves.toBeUndefined();
+
+    expect(retrieve).toHaveBeenCalledWith("in_1", { expand: ["payments"] });
+    // The recovered PI must actually reach the grant — that flow IS the fix.
+    expect(grantCycle).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ stripePaymentIntent: "pi_1" }),
+    );
+  });
+
+  it("does not re-fetch when the payload includes an explicitly empty payments list", async () => {
+    const admin = makeInvoiceAdmin();
+    const ctx = makeEventCtx(admin, "evt-1", invoiceObject({ payments: { data: [] } }));
+    const retrieve = vi.fn();
+    (ctx as { stripe: unknown }).stripe = { invoices: { retrieve } };
+
+    await handleInvoicePaid(ctx);
+
+    expect(retrieve).not.toHaveBeenCalled();
+    expect(grantCycle).not.toHaveBeenCalled();
+  });
+
+  it("throws transient (retryable) when the expanded-payments re-fetch fails", async () => {
+    const admin = makeInvoiceAdmin();
+    const bare = invoiceObject();
+    delete (bare as Record<string, unknown>).payments;
+    const ctx = makeEventCtx(admin, "evt-1", bare);
+    (ctx as { stripe: unknown }).stripe = {
+      invoices: { retrieve: vi.fn().mockRejectedValue(new Error("api down")) },
+    };
+
+    await expect(handleInvoicePaid(ctx)).rejects.toThrow(/invoice payments retrieve failed/);
+    expect(grantCycle).not.toHaveBeenCalled();
+  });
+
   // ── billing_reason=subscription_update (immediate tier upgrade proration) ──
   // Payment-gating audit 2026-07-15: these invoices must grant ONLY the pending
   // delta (applyImmediateUpgradeGrant) — never the full monthly grantCycle,
