@@ -954,6 +954,142 @@ export async function handlePrepaidHoursGrant(ctx: EventContext): Promise<void> 
   await markEvent(ctx, "processed");
 }
 
+// ── Fix #2: subscription refund → revoke unused sessions + cancel the plan ───
+//
+// A FULLY-refunded subscription invoice charge means the student's money was
+// returned, so per owner decision we take back their UNUSED sessions and cancel
+// the subscription ("we're done here"). Attended sessions are untouched:
+// `sessions_used` and the confirmed bookings are history; we only flip the
+// still-`active` grants to `cancelled` so their remaining capacity can no longer
+// be booked or debited (both selectActivePackage and the confirm-time deduct
+// trigger filter status='active').
+//
+// Scope guards:
+//   • Only subscription charges (charge.invoice present) — prepaid one-time
+//     charges carry no invoice and are handled by the reconcile path.
+//   • Only FULL refunds (charge.refunded) — a partial refund leaves sessions +
+//     plan intact and is logged.
+//
+// Redelivery-safe: charge.refunded re-delivers the cumulative refunds list, and
+// every step converges to the same end state — the payment flip is by-PI, the
+// revoke carries `WHERE status='active'`, the mirror flip carries
+// `WHERE status != 'canceled'`, and the Stripe cancel treats an already-cancelled
+// subscription as success.
+export async function revokeAndCancelOnSubscriptionRefund(
+  ctx: EventContext,
+  charge: Stripe.Charge,
+): Promise<void> {
+  if (!charge.refunded) {
+    // Partial refund — owner decision is full-refund-only. Leave everything
+    // intact; surface it so a partial refund is never silently a no-op.
+    logInfo("stripe-webhook: partial refund — subscription sessions + plan left intact", {
+      tag: "billing",
+      charge_id: charge.id,
+      amount: charge.amount,
+      amount_refunded: charge.amount_refunded,
+    });
+    return;
+  }
+
+  const piId = typeof charge.payment_intent === "string" ? charge.payment_intent : null;
+  if (!piId) return;
+
+  // Route locally by the charge's payment intent — dahlia charges carry no
+  // invoice link. The subscription cycle grant records the PI on
+  // `stripe_payment_intent_id` (and, unlike prepaid lots, a `subscription_id`);
+  // prepaid one-off refunds are handled by the reconcile path above.
+  const { data: grant, error: grantErr } = await ctx.admin
+    .from("student_packages")
+    .select("subscription_id")
+    .eq("stripe_payment_intent_id", piId)
+    .not("subscription_id", "is", null)
+    .limit(1)
+    .maybeSingle<{ subscription_id: string | null }>();
+  if (grantErr) {
+    throw new WebhookTransientError(`refund: subscription grant lookup failed: ${grantErr.message}`);
+  }
+  if (!grant?.subscription_id) return; // not a subscription charge we granted
+  const subscriptionId = grant.subscription_id;
+
+  // 1. Flip the payment to refunded (idempotent on the PI; piId is non-null here).
+  //    Independent of the mirror: a fully-refunded charge must reconcile locally
+  //    even when the subscription can't be mapped to a Stripe id.
+  const { error: payErr } = await ctx.admin
+    .from("payments")
+    .update({ status: "refunded" })
+    .eq("stripe_payment_intent", piId);
+  if (payErr) throw new WebhookTransientError(`refund: payment flip failed: ${payErr.message}`);
+
+  // 2. Revoke UNUSED capacity: flip this subscription's still-active grants to
+  //    'cancelled'. sessions_used + confirmed bookings (attended lessons) are
+  //    untouched. WHERE status='active' makes this a no-op on redelivery.
+  const { error: revokeErr } = await ctx.admin
+    .from("student_packages")
+    .update({ status: "cancelled" })
+    .eq("subscription_id", subscriptionId)
+    .eq("status", "active");
+  if (revokeErr) throw new WebhookTransientError(`refund: session revoke failed: ${revokeErr.message}`);
+
+  // 3. Cancel the subscription in Stripe. Needs the mirror's stripe_subscription_id;
+  //    if the mirror can't be mapped, local records are ALREADY reconciled above —
+  //    log and stop rather than silently drop the reversal.
+  const { data: mirror, error: mirrorErr } = await ctx.admin
+    .from("subscriptions")
+    .select("stripe_subscription_id, status")
+    .eq("id", subscriptionId)
+    .maybeSingle<{ stripe_subscription_id: string; status: string }>();
+  if (mirrorErr) {
+    throw new WebhookTransientError(`refund: subscription mirror lookup failed: ${mirrorErr.message}`);
+  }
+  if (!mirror?.stripe_subscription_id) {
+    logError("stripe-webhook: refunded subscription grant has no mirror — reconciled locally, not cancelled at Stripe", new Error("no mirror"), {
+      tag: "billing",
+      subscription_id: subscriptionId,
+      charge_id: charge.id,
+    });
+    return;
+  }
+  const stripeSubId = mirror.stripe_subscription_id;
+
+  //    Idempotent: an already-cancelled sub (e.g. the admin cancelled in the
+  //    dashboard first) is treated as success, never a permanent 500.
+  try {
+    await ctx.stripe.subscriptions.cancel(stripeSubId);
+  } catch (err) {
+    const code = (err as { code?: string; statusCode?: number })?.code;
+    const status = (err as { statusCode?: number })?.statusCode;
+    const alreadyGone =
+      code === "resource_missing" ||
+      status === 404 ||
+      /no such subscription|already canceled/i.test(err instanceof Error ? err.message : "");
+    if (!alreadyGone) {
+      throw new WebhookTransientError(
+        `refund: stripe subscription cancel failed: ${err instanceof Error ? err.message : "unknown"}`,
+      );
+    }
+    logInfo("stripe-webhook: refund cancel — subscription already cancelled at Stripe", {
+      tag: "billing",
+      stripe_subscription_id: stripeSubId,
+    });
+  }
+
+  // 4. Reflect the cancellation on the mirror immediately (the async
+  //    customer.subscription.deleted will also land, idempotently).
+  const { error: subFlipErr } = await ctx.admin
+    .from("subscriptions")
+    .update({ status: "canceled" })
+    .eq("id", subscriptionId)
+    .neq("status", "canceled");
+  if (subFlipErr) throw new WebhookTransientError(`refund: mirror status flip failed: ${subFlipErr.message}`);
+
+  logInfo("stripe-webhook: subscription refund processed — sessions revoked + plan cancelled", {
+    tag: "billing",
+    subscription_id: subscriptionId,
+    stripe_subscription_id: stripeSubId,
+    charge_id: charge.id,
+  });
+}
+
 // ── charge.refunded → finalize admin refund saga OR reconcile external (spec 038 R8/H5) ──
 //
 // Two paths in one handler:
@@ -1046,6 +1182,12 @@ export async function handleChargeRefunded(ctx: EventContext): Promise<void> {
       }
     }
   }
+
+  // ── Fix #2: subscription-side revocation (student) ────────────────────────
+  // A full refund of a subscription invoice charge revokes the student's unused
+  // sessions and cancels the plan. No-op for prepaid/one-off charges (no invoice)
+  // and for partial refunds. Fail-closed: throws → dispatch 500s → Stripe retries.
+  await revokeAndCancelOnSubscriptionRefund(ctx, charge);
 
   // ── Spec 040 FR-013/014: teacher clawback (Connect ledger) ────────────────
   // After the student-side prepaid path, reverse the teacher's share of each
