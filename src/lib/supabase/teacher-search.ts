@@ -33,7 +33,9 @@ export const TeacherSearchParamsSchema = z.object({
   specialty: z.string().max(100).optional(),
   price_min: z.coerce.number().nonnegative().optional(),
   price_max: z.coerce.number().nonnegative().optional(),
-  page:      z.coerce.number().int().min(1).default(1),
+  // .max(1000): eng-review 2026-07-19 — unbounded page numbers turn into huge
+  // OFFSETs in the RPC; nobody paginates past ~1000 pages of 12 legitimately.
+  page:      z.coerce.number().int().min(1).max(1000).default(1),
   limit:     z.coerce.number().int().min(1).max(50).default(12),
 }).refine(
   (v) => v.price_min === undefined || v.price_max === undefined || v.price_min <= v.price_max,
