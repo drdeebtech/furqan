@@ -67,7 +67,7 @@ export default async function StudentProgressPage() {
     // Total study hours — direct sessions join, no row-count cap so all
     // completed sessions are counted regardless of session volume.
     supabase.from("sessions")
-      .select("actual_duration, bookings!inner(student_id, status, scheduled_at)")
+      .select("actual_duration, bookings!sessions_booking_id_fkey!inner(student_id, status, scheduled_at)")
       .eq("bookings.student_id", user.id)
       .eq("bookings.status", "completed")
       .order("id", { ascending: false })

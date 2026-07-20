@@ -29,7 +29,11 @@ const updateSettingBase = routeAction<{ key: string; value: string }, { message:
       .from("platform_settings")
       .select("value")
       .eq("key", key)
-      .single<{ value: string | null }>();
+      // maybeSingle(): a key with no row yet is the NORMAL case when an admin
+      // enables a flag for the first time (the upsert below creates it). .single()
+      // returns HTTP 406 + PGRST116, which createObservedFetch reports to Sentry —
+      // `previous?.value ?? null` already handles the miss (Sentry FURQAN-4J).
+      .maybeSingle<{ value: string | null }>();
 
     const { error } = await supabase
       .from("platform_settings")
