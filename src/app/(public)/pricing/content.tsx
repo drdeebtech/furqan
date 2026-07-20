@@ -60,6 +60,25 @@ const formatUsd = (n: number) =>
     maximumFractionDigits: 2,
   }).format(n);
 
+/*
+ * Where a plan CTA points, by who is asking.
+ *
+ * Signed OUT → /register carries the plan into the signup form
+ *   (register/page.tsx reads ?plan=, register-form.tsx forwards it).
+ * Signed IN  → /subscribe is the real checkout entry. Sending an authenticated
+ *   student to /register is a dead end: proxy.ts redirects them off every auth
+ *   route to /<role>/dashboard WITHOUT the query string, so the plan they just
+ *   chose is silently discarded and they land somewhere unrelated.
+ *
+ * /subscribe handles the signed-out case too (it bounces to /login preserving
+ * the plan), but the login page's "register" link drops it — so a brand-new
+ * visitor must still be sent to /register directly.
+ */
+export function planHref(planCode: string, isAuthenticated: boolean): string {
+  const code = encodeURIComponent(planCode);
+  return isAuthenticated ? `/subscribe?plan=${code}` : `/register?plan=${code}`;
+}
+
 function sessionLabel(plan: Plan, t: (ar: string, en: string) => string): string {
   const n = plan.monthly_credit_count;
   if (plan.plan_code.startsWith("hifz_individual")) {
@@ -71,9 +90,11 @@ function sessionLabel(plan: Plan, t: (ar: string, en: string) => string): string
 function PlanCard({
   plan,
   t,
+  isAuthenticated,
 }: {
   plan: Plan;
   t: (ar: string, en: string) => string;
+  isAuthenticated: boolean;
 }) {
   return (
     // No tier is singled out. The old "الأكثر طلباً / Most popular" badge sat on
@@ -95,7 +116,7 @@ function PlanCard({
           </p>
         </div>
         <Link
-          href={`/register?plan=${plan.plan_code}`}
+          href={planHref(plan.plan_code, isAuthenticated)}
           className="glass-gold glass-pill inline-flex min-h-[44px] items-center justify-center px-5 py-3 text-sm font-semibold text-background transition-colors hover:bg-gold-hover focus-ring"
         >
           {t("ابدأ الآن", "Get started")}
@@ -108,11 +129,12 @@ function PlanCard({
 function Tier({
   tier,
   t,
+  isAuthenticated,
 }: {
   tier: PlanTier;
   t: (ar: string, en: string) => string;
+  isAuthenticated: boolean;
 }) {
-
   return (
     <div className="glass-card p-8">
       <div className="mb-6 flex items-start gap-4">
@@ -131,7 +153,7 @@ function Tier({
         className={`grid items-end gap-4 ${tier.plans.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
       >
         {tier.plans.map((plan) => (
-          <PlanCard key={plan.id} plan={plan} t={t} />
+          <PlanCard key={plan.id} plan={plan} t={t} isAuthenticated={isAuthenticated} />
         ))}
       </div>
 
@@ -473,11 +495,14 @@ export function PricingContent({
   faqs,
   prepaid,
   paypalEnabled,
+  isAuthenticated = false,
 }: {
   plans: Plan[];
   faqs: Faq[];
   prepaid: PrepaidConfig | null;
   paypalEnabled?: boolean;
+  /** Resolved server-side. Decides where a plan CTA points — see planHref(). */
+  isAuthenticated?: boolean;
 }) {
   const { t } = useLang();
   const { hidePrices } = useFeatureFlags();
@@ -615,7 +640,9 @@ export function PricingContent({
           ) : (
             tiers
               .filter((tier) => tier.plans.length > 0)
-              .map((tier) => <Tier key={tier.labelEn} tier={tier} t={t} />)
+              .map((tier) => (
+                <Tier key={tier.labelEn} tier={tier} t={t} isAuthenticated={isAuthenticated} />
+              ))
           )}
 
           {/* Spec 038 — "Pay as you go" prepaid-hours card. Rendered only when

@@ -60,6 +60,18 @@ function parseBound(raw: string | null, fallback: number): number {
 export default async function PricingPage() {
   const supabase = await createClient();
 
+  // Where a plan CTA should point depends on WHO is asking. A signed-out
+  // visitor needs to create an account first (/register carries the plan into
+  // the signup form); a signed-in student must NOT be sent to a registration
+  // page — the proxy bounces them off /register to their dashboard and the
+  // chosen plan is silently discarded, so they land nowhere useful having lost
+  // their choice. /subscribe is the real checkout entry and already handles the
+  // signed-in case directly.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const isAuthenticated = Boolean(user);
+
   // G2: /pricing is the CANONICAL FAQ surface — policy-driven entries from
   // src/lib/copy/policies.ts plus the admin-managed site_faqs rows (the same
   // rows /contact renders), so admin edits appear here with no code change.
@@ -142,6 +154,7 @@ export default async function PricingPage() {
         faqs={faqRows}
         prepaid={prepaid}
         paypalEnabled={paypalEnabled}
+        isAuthenticated={isAuthenticated}
       />
     </>
   );
