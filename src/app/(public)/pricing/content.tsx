@@ -198,9 +198,13 @@ function Tier({
           {tier.icon}
         </div>
         <div>
-          <h2 className="font-display text-2xl font-bold">
+          {/* h3, not h2: the section already owns the sr-only h2 ("الخطط
+              والأسعار"). The track chooser above is an h3 too, so the chooser
+              and each tier are siblings under that h2 — screen-reader order was
+              previously h2 → h3 → h2, which reads as a level jumping backwards. */}
+          <h3 className="font-display text-2xl font-bold">
             {t(tier.labelAr, tier.labelEn)}
-          </h2>
+          </h3>
           <p className="mt-1 text-sm text-muted">{t(tier.descAr, tier.descEn)}</p>
         </div>
       </div>
