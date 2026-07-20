@@ -1,7 +1,7 @@
 # furqan.today — Product Marketing Context (source of truth)
 
 > Auto-read by CRO/marketing skills. Keep factual. Prices/policies cite specs + code; if you
-> change a plan or policy, update this file in the same PR. Last verified: 2026-07-06.
+> change a plan or policy, update this file in the same PR. Last verified: 2026-07-20.
 
 ## Product
 
@@ -24,22 +24,32 @@ Rule: a student holds **at most one active hifz product** at a time (group OR in
 
 All `recurring_monthly`, **USD only**, 60-min sessions, active. Middle tier of each track = "الأكثر طلباً / Most popular".
 
-| Track | plan_code | Price/mo | Credits/mo |
-|---|---|---|---|
-| Group | `hifz_group_4` | **$12** | 4 sessions |
-| Group | `hifz_group_6` | **$15** | 6 sessions |
-| Group | `hifz_group_8` | **$20** | 8 sessions |
-| Individual | `hifz_individual_4h` | **$40** | 4 sessions (sold as "hours") |
-| Individual | `hifz_individual_6h` | **$60** | 6 sessions |
-| Individual | `hifz_individual_8h` | **$80** | 8 sessions |
+| Track | plan_code | Price/mo | Credits/mo | Per session |
+|---|---|---|---|---|
+| Group | `hifz_group_4` | **$12** | 4 sessions | $3.00 |
+| Group | `hifz_group_6` | **$15** | 6 sessions | $2.50 |
+| Group | `hifz_group_8` | **$18** | 8 sessions | $2.25 |
+| Individual | `hifz_individual_4h` | **$44** | 4 sessions (sold as "hours") | $11.00 |
+| Individual | `hifz_individual_6h` | **$60** | 6 sessions | $10.00 |
+| Individual | `hifz_individual_8h` | **$72** | 8 sessions | $9.00 |
 
-Individual basis = **$10/session-hour** (`hifz_individual_hourly_rate_usd=10`). Group prices are settings too.
+**Per-session price falls as the tier grows, in both tracks** — that is the point of the ladder, and it is
+asserted in the DB, not just written here (migration `20260817000000_hifz_price_ladder.sql`). Every
+individual tier also undercuts the $14/hr pay-as-you-go rate, so subscribing is always the cheaper way
+to buy the same hour. Set 2026-07-20; before this the ladder was flat ($10.00/session at every
+individual tier) and group actually got *more* expensive at the margin.
+
+⚠️ There is **no single "individual hourly rate" any more** — price is per tier. The settings keys
+`hifz_individual_hourly_rate_usd` and `hifz_group_{4,6,8}_price_usd` are **dead** (declared in
+`src/lib/settings.ts`, read by nothing) and now disagree with the real prices. `subscription_plans.price_cents`
+is the only source of truth; `packages.price_usd` is a derived mirror. Delete the dead keys in a
+contract-phase PR.
 ⚠️ Individual is sold as "N hours/month" but modeled as **discrete 60-min sessions** (bundles of 4/6/8), not continuous hours — keep copy honest.
 
 ### Pay as you go — prepaid hours (spec 038; supersedes "hourly not directly purchasable", decision #42)
 
 A **third** purchase option alongside monthly plans and teacher hourly rates: a student buys a bundle of **60-minute individual-session hours** as a one-time Stripe payment and draws them down as they book — no subscription.
-- Rate `prepaid_hours_rate_usd` (**$10/hr** seed); presets `prepaid_hours_preset_sizes` (**[5,10,20]**) + a clamped custom amount (`prepaid_hours_custom_min`/`_max`, **1–100**). Amount is **server-computed** — the client never sends price.
+- Rate `prepaid_hours_rate_usd` (**$14/hr**, raised from $10 on 2026-07-20); presets `prepaid_hours_preset_sizes` (**[5,10,20]**) + a clamped custom amount (`prepaid_hours_custom_min`/`_max`, **1–100**). Amount is **server-computed** — the client never sends price. This is deliberately **above** every subscription tier's per-session price: pay-as-you-go is priced as the flexibility premium, which is what makes subscribing the cheaper way to buy the same hour. Existing lots are unaffected — `rate_paid_usd` is frozen per lot at purchase (R8), so the change only prices new purchases.
 - Stored as an immutable `student_packages` lot (`product_type='prepaid_hours'`), one per purchase; balance = `sessions_remaining`; append-only `prepaid_hours_events` ledger.
 - **Expiry** `prepaid_hours_expiry_months` (**12mo** seed) — copy never hardcodes the window; the wallet shows the exact per-lot date.
 - **Drawdown** is subscription-first by default (R2); the student may pick **"use my hours"** per booking (`bookings.use_prepaid_hours`), which charges prepaid **only** (or fails closed — never a silent subscription charge). 60-min unit only.
