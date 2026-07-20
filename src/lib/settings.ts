@@ -19,6 +19,12 @@ export const ALLOWED_SETTING_KEYS = [
   "courses_enabled",
   "paid_courses_enabled",
   "paypal_purchase_enabled",
+  // Spec 038 — pay-as-you-go prepaid hours. Gates the PrepaidCard on /pricing
+  // (server-side); without it BOTH the card's card-payment and PayPal buttons
+  // are unreachable, so the whole prepaid rail is invisible regardless of
+  // paypal_purchase_enabled. Was never in this allowlist, so it had no admin
+  // toggle and no way to be turned on short of raw SQL.
+  "prepaid_hours_purchase_enabled",
   "hifz_individual_hourly_rate_usd",
   "hifz_group_4_price_usd",
   "hifz_group_6_price_usd",

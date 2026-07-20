@@ -232,6 +232,12 @@ export default async function AdminSettingsPage() {
             description={t("تفعيل مسار الدفع المسبق عبر PayPal — يتطلب أيضاً ضبط متغيرات PAYPAL_* في البيئة", "Prepaid PayPal payment rail — also requires PAYPAL_* env vars set")}
             initialValue={settingsMap["paypal_purchase_enabled"] === "true"}
           />
+          <FeatureToggle
+            settingKey="prepaid_hours_purchase_enabled"
+            label={t("تفعيل شراء الساعات المدفوعة مسبقاً", "Enable Prepaid Hours Purchase")}
+            description={t("إظهار بطاقة شراء الساعات في صفحة الأسعار. بدونها يختفي المسار كاملاً بما في ذلك زر PayPal.", "Show the buy-hours card on /pricing. Without it the whole prepaid rail is hidden — including the PayPal button.")}
+            initialValue={settingsMap["prepaid_hours_purchase_enabled"] === "true"}
+          />
         </div>
       </div>
 
