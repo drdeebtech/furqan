@@ -9,7 +9,7 @@ import {
   PREPAID_DEFAULT_CUSTOM_MIN as DEFAULT_CUSTOM_MIN,
   PREPAID_DEFAULT_CUSTOM_MAX as DEFAULT_CUSTOM_MAX,
 } from "@/lib/domains/billing/prepaid-defaults";
-import { PricingContent, type Faq, type PrepaidConfig } from "./content";
+import { PricingContent, type Faq, type PrepaidConfig, type Track } from "./content";
 
 export const metadata: Metadata = {
   title: "الأسعار — اشتراكات حفظ القرآن",
@@ -61,8 +61,19 @@ function parseBound(raw: string | null, fallback: number): number {
   return Math.floor(n);
 }
 
-export default async function PricingPage() {
+/** Validate `?track=` at the boundary — anything unrecognised means "show all". */
+function parseTrack(raw: string | string[] | undefined): Track | null {
+  const v = Array.isArray(raw) ? raw[0] : raw;
+  return v === "group" || v === "private" ? v : null;
+}
+
+export default async function PricingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ track?: string | string[] }>;
+}) {
   const supabase = await createClient();
+  const track = parseTrack((await searchParams).track);
 
   // Where a plan CTA should point depends on WHO is asking. A signed-out
   // visitor needs to create an account first (/register carries the plan into
@@ -171,6 +182,7 @@ export default async function PricingPage() {
         prepaid={prepaid}
         paypalEnabled={paypalEnabled}
         isAuthenticated={treatAsAuthenticated}
+        track={track}
       />
     </>
   );

@@ -17,7 +17,11 @@ interface Plan {
   price_cents: number;
 }
 
+/** The one real product decision: shared teacher time, or private. */
+export type Track = "group" | "private";
+
 interface PlanTier {
+  key: Track;
   plans: Plan[];
   labelAr: string;
   labelEn: string;
@@ -87,15 +91,49 @@ function sessionLabel(plan: Plan, t: (ar: string, en: string) => string): string
   return t(`${n} جلسات / شهر`, `${n} sessions / month`);
 }
 
+/**
+ * What one session (group) or one hour (individual) actually costs on a plan.
+ *
+ * This is the number the 2026-07-20 price ladder exists to move, and until now
+ * it was invisible: the page showed $44/$60/$72 with no hint that the per-hour
+ * price falls from $11.00 to $9.00 across them. A student comparing tiers had
+ * to do the division themselves, so the volume discount did no selling.
+ */
+export function perUnitCents(plan: Plan): number {
+  return plan.monthly_credit_count > 0
+    ? plan.price_cents / plan.monthly_credit_count
+    : plan.price_cents;
+}
+
+function unitLabel(plan: Plan, t: (ar: string, en: string) => string): string {
+  return plan.plan_code.startsWith("hifz_individual")
+    ? t("للساعة", "per hour")
+    : t("للحصة", "per session");
+}
+
+/**
+ * Saving against the SMALLEST tier of the same track — the honest baseline,
+ * because that is the alternative a student is actually choosing between.
+ * Derived from live prices, never hardcoded, so it cannot go stale the way a
+ * written "save 20%" would.
+ */
+export function savingPct(plan: Plan, entryPerUnitCents: number): number {
+  if (entryPerUnitCents <= 0) return 0;
+  return Math.round((1 - perUnitCents(plan) / entryPerUnitCents) * 100);
+}
+
 function PlanCard({
   plan,
   t,
   isAuthenticated,
+  entryPerUnitCents,
 }: {
   plan: Plan;
   t: (ar: string, en: string) => string;
   isAuthenticated: boolean;
+  entryPerUnitCents: number;
 }) {
+  const saving = savingPct(plan, entryPerUnitCents);
   return (
     // No tier is singled out. The old "الأكثر طلباً / Most popular" badge sat on
     // the middle tier, but Stripe is pre-cutover and there are no subscribers —
@@ -113,6 +151,17 @@ function PlanCard({
           <p className="font-display mt-1 text-3xl font-bold" dir="ltr">
             {formatPrice(plan.price_cents)}
             <span className="text-base font-normal text-muted"> / {t("شهر", "mo")}</span>
+          </p>
+          {/* The ladder, made visible. */}
+          <p className="mt-1 text-sm font-semibold text-gold-ink">
+            <span dir="ltr">{formatUsd(perUnitCents(plan) / 100)}</span>{" "}
+            {unitLabel(plan, t)}
+          </p>
+          {/* Reserve the line even when empty so the three cards stay aligned. */}
+          <p className="mt-0.5 min-h-[1.25rem] text-xs text-muted">
+            {saving > 0
+              ? t(`توفّر ${saving}٪ عن الباقة الأصغر`, `Save ${saving}% vs the smallest plan`)
+              : ""}
           </p>
         </div>
         <Link
@@ -135,6 +184,13 @@ function Tier({
   t: (ar: string, en: string) => string;
   isAuthenticated: boolean;
 }) {
+  // Baseline = the tier with the FEWEST credits, i.e. the highest per-unit
+  // price. Every other tier's saving is measured against it.
+  const entryPerUnitCents = tier.plans.reduce(
+    (max, p) => Math.max(max, perUnitCents(p)),
+    0,
+  );
+
   return (
     <div className="glass-card p-8">
       <div className="mb-6 flex items-start gap-4">
@@ -153,7 +209,13 @@ function Tier({
         className={`grid items-end gap-4 ${tier.plans.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
       >
         {tier.plans.map((plan) => (
-          <PlanCard key={plan.id} plan={plan} t={t} isAuthenticated={isAuthenticated} />
+          <PlanCard
+            key={plan.id}
+            plan={plan}
+            t={t}
+            isAuthenticated={isAuthenticated}
+            entryPerUnitCents={entryPerUnitCents}
+          />
         ))}
       </div>
 
@@ -165,6 +227,107 @@ function Tier({
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * Step 1: the only real product decision — shared teacher time, or private.
+ *
+ * Selection lives in the URL (`/pricing?track=private`), NOT in client state.
+ * Three reasons, in order of importance:
+ *   1. It works with JavaScript disabled or still loading — these are plain
+ *      links, so the page is usable the moment the HTML arrives.
+ *   2. The choice is shareable and linkable: a teacher can send a parent
+ *      straight to the group plans.
+ *   3. It is the documented pattern for an active tab (URL as state).
+ *
+ * Group is NOT presented as a rung on the same ladder as private hours. Group
+ * costs $2.25–$3.00 a session because the teacher's time is SHARED; putting
+ * that beside a $14 private hour would invite a comparison that isn't true.
+ */
+function TrackChooser({
+  tiers,
+  active,
+  t,
+}: {
+  tiers: PlanTier[];
+  active: Track | null;
+  t: (ar: string, en: string) => string;
+}) {
+  const cheapest = (tier: PlanTier) =>
+    tier.plans.reduce((min, p) => Math.min(min, perUnitCents(p)), Infinity);
+
+  const copy: Record<Track, { descAr: string; descEn: string; forAr: string; forEn: string }> = {
+    group: {
+      descAr: "تحفظ مع مجموعة صغيرة. المعلّم نفسه، والتكلفة موزّعة.",
+      descEn: "Memorise alongside a small group. Same teacher, cost shared.",
+      forAr: "الأنسب لأقل تكلفة",
+      forEn: "Best for lowest cost",
+    },
+    private: {
+      descAr: "أنت والمعلّم فقط. منهج على مقاسك وتصحيح فوري.",
+      descEn: "Just you and the teacher. Tailored plan, immediate correction.",
+      forAr: "الأنسب لأسرع تقدّم",
+      forEn: "Best for fastest progress",
+    },
+  };
+
+  return (
+    <div>
+      <h3 className="text-center font-display text-lg font-bold">
+        {t("هل تفضّل التعلّم في مجموعة أم بمفردك؟", "Group, or one-to-one?")}
+      </h3>
+      <p className="mt-1 text-center text-sm text-muted">
+        {t(
+          "هذا هو الاختيار الحقيقي. بعده تختار عدد الحصص فقط.",
+          "That's the real choice. After it, you only pick how many sessions.",
+        )}
+      </p>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        {tiers.map((tier) => {
+          const selected = active === tier.key;
+          const from = cheapest(tier);
+          const sample = tier.plans[0];
+          return (
+            <Link
+              key={tier.key}
+              href={selected ? "/pricing" : `/pricing?track=${tier.key}`}
+              aria-current={selected ? "true" : undefined}
+              className={[
+                "glass-card flex flex-col gap-2 p-6 transition-shadow duration-200 hover:shadow-gold/10 hover:shadow-lg focus-ring",
+                selected ? "border-gold/50 ring-1 ring-gold/30" : "",
+              ].join(" ")}
+            >
+              <span className="flex items-baseline justify-between gap-3">
+                <span className="font-display text-xl font-bold">
+                  {t(tier.labelAr, tier.labelEn)}
+                </span>
+                <span className="shrink-0 text-xs text-muted">
+                  {t("من", "from")}{" "}
+                  <span dir="ltr" className="text-base font-semibold text-gold-ink">
+                    {Number.isFinite(from) ? formatUsd(from / 100) : "—"}
+                  </span>{" "}
+                  {sample ? unitLabel(sample, t) : ""}
+                </span>
+              </span>
+              <span className="text-sm text-muted">
+                {t(copy[tier.key].descAr, copy[tier.key].descEn)}
+              </span>
+              <span className="mt-1 inline-flex items-center gap-1.5 text-xs text-gold-ink">
+                <CheckCircle size={13} aria-hidden="true" className="shrink-0" />
+                {t(copy[tier.key].forAr, copy[tier.key].forEn)}
+              </span>
+              <span className="mt-2 text-xs font-semibold text-gold">
+                {selected
+                  ? t("عرض الكل", "Show both")
+                  : t("اعرض الباقات ←", "See plans →")}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -496,6 +659,7 @@ export function PricingContent({
   prepaid,
   paypalEnabled,
   isAuthenticated = false,
+  track = null,
 }: {
   plans: Plan[];
   faqs: Faq[];
@@ -503,6 +667,8 @@ export function PricingContent({
   paypalEnabled?: boolean;
   /** Resolved server-side. Decides where a plan CTA points — see planHref(). */
   isAuthenticated?: boolean;
+  /** From `?track=` — narrows the plans shown. null = show both. */
+  track?: Track | null;
 }) {
   const { t } = useLang();
   const { hidePrices } = useFeatureFlags();
@@ -514,6 +680,7 @@ export function PricingContent({
 
   const tiers: PlanTier[] = [
     {
+      key: "group",
       plans: groupPlans,
       labelAr: "حلقة جماعية",
       labelEn: "Group Hifz",
@@ -523,6 +690,7 @@ export function PricingContent({
       features: GROUP_FEATURES,
     },
     {
+      key: "private",
       plans: individualPlans,
       labelAr: "جلسة فردية",
       labelEn: "Individual Hifz",
@@ -532,6 +700,12 @@ export function PricingContent({
       features: INDIVIDUAL_FEATURES,
     },
   ];
+
+  const availableTiers = tiers.filter((tier) => tier.plans.length > 0);
+  // An unknown ?track= value shows everything rather than an empty page.
+  const visibleTiers = track
+    ? availableTiers.filter((tier) => tier.key === track)
+    : availableTiers;
 
   return (
     <div>
@@ -638,11 +812,19 @@ export function PricingContent({
               </p>
             </div>
           ) : (
-            tiers
-              .filter((tier) => tier.plans.length > 0)
-              .map((tier) => (
+            <>
+              {/* Step 1 — choose the product. Nothing is hidden by default:
+                  with no ?track= both tracks still render below, so a visitor
+                  who ignores the chooser (or a crawler) sees every plan. */}
+              {availableTiers.length > 1 && (
+                <TrackChooser tiers={availableTiers} active={track} t={t} />
+              )}
+
+              {/* Step 2 — how many sessions. */}
+              {visibleTiers.map((tier) => (
                 <Tier key={tier.labelEn} tier={tier} t={t} isAuthenticated={isAuthenticated} />
-              ))
+              ))}
+            </>
           )}
 
           {/* Spec 038 — "Pay as you go" prepaid-hours card. Rendered only when
