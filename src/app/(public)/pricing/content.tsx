@@ -166,7 +166,7 @@ function PlanCard({
         </div>
         <Link
           href={planHref(plan.plan_code, isAuthenticated)}
-          className="glass-gold glass-pill inline-flex min-h-[44px] items-center justify-center px-5 py-3 text-sm font-semibold text-background transition-colors hover:bg-gold-hover focus-ring"
+          className="glass-gold glass-pill mt-auto inline-flex min-h-[44px] items-center justify-center px-5 py-3 text-sm font-semibold text-background transition-colors hover:bg-gold-hover focus-ring"
         >
           {t("ابدأ الآن", "Get started")}
         </Link>
@@ -205,8 +205,12 @@ function Tier({
         </div>
       </div>
 
+      {/* items-stretch (not items-end): the entry tier has no "save X%" line,
+          so measured heights were 194/210/210 and items-end pushed its top 16px
+          down, leaving the three cards visibly staggered. Stretching lets h-full
+          equalise them; the CTA is pinned to the bottom with mt-auto. */}
       <div
-        className={`grid items-end gap-4 ${tier.plans.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
+        className={`grid items-stretch gap-4 ${tier.plans.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
       >
         {tier.plans.map((plan) => (
           <PlanCard
@@ -300,11 +304,18 @@ function TrackChooser({
                 selected ? "border-gold/50 ring-1 ring-gold/30" : "",
               ].join(" ")}
             >
-              <span className="flex items-baseline justify-between gap-3">
+              {/* flex-wrap is defensive, not a fix for an observed break: at
+                  1280px the title (76px) and price (94px) sit comfortably in a
+                  430px row. .glass-card is overflow:hidden, so if these ever do
+                  collide — a narrow phone, a longer translation — the text
+                  would be clipped outright rather than reflowing. Wrapping
+                  costs nothing and removes that failure mode. NOT verified at
+                  mobile width: agent-browser 0.32.3 has no viewport command. */}
+              <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                 <span className="font-display text-xl font-bold">
                   {t(tier.labelAr, tier.labelEn)}
                 </span>
-                <span className="shrink-0 text-xs text-muted">
+                <span className="text-xs text-muted">
                   {t("من", "from")}{" "}
                   <span dir="ltr" className="text-base font-semibold text-gold-ink">
                     {Number.isFinite(from) ? formatUsd(from / 100) : "—"}
