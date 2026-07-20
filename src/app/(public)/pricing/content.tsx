@@ -83,12 +83,36 @@ export function planHref(planCode: string, isAuthenticated: boolean): string {
   return isAuthenticated ? `/subscribe?plan=${code}` : `/register?plan=${code}`;
 }
 
+/**
+ * Arabic counted-noun agreement. A number does not just sit in front of a noun
+ * in Arabic the way it does in English — the noun's form changes with the count:
+ *
+ *   1        → singular   (ساعة واحدة)
+ *   2        → dual       (ساعتان)
+ *   3–10     → plural     (أربع ساعات)   ← "جمع قلة"
+ *   11+      → singular   (أربع عشرة ساعة) ← tamyīz takes the singular
+ *
+ * The individual track previously hardcoded the singular, so every card read
+ * "4 ساعة / شهر" — literally "4 hour" — while the group track two rows above
+ * correctly said "4 جلسات". All live plans are 4/6/8, i.e. the 3–10 band, so
+ * the visible bug was the missing plural; the full table is here so the next
+ * credit count added doesn't reintroduce it.
+ */
+export function arabicCounted(n: number, singular: string, dual: string, plural: string): string {
+  if (n === 1) return singular;
+  if (n === 2) return dual;
+  if (n >= 3 && n <= 10) return plural;
+  return singular;
+}
+
 function sessionLabel(plan: Plan, t: (ar: string, en: string) => string): string {
   const n = plan.monthly_credit_count;
   if (plan.plan_code.startsWith("hifz_individual")) {
-    return t(`${n} ساعة / شهر`, `${n} hours / month`);
+    const noun = arabicCounted(n, "ساعة", "ساعتان", "ساعات");
+    return t(`${n} ${noun} / شهر`, `${n} ${n === 1 ? "hour" : "hours"} / month`);
   }
-  return t(`${n} جلسات / شهر`, `${n} sessions / month`);
+  const noun = arabicCounted(n, "جلسة", "جلستان", "جلسات");
+  return t(`${n} ${noun} / شهر`, `${n} ${n === 1 ? "session" : "sessions"} / month`);
 }
 
 /**
@@ -822,6 +846,9 @@ export function PricingContent({
               </Link>
             </div>
           ) : plans.length === 0 ? (
+            /* Same failure from the visitor's seat as the hidePrices branch
+               above, so it gets the same way out. Previously this was a dead
+               end: no plans, no CTA, nowhere to go. */
             <div className="glass-card p-12 text-center">
               <p className="text-muted">
                 {t(
@@ -829,6 +856,12 @@ export function PricingContent({
                   "No plans available at the moment.",
                 )}
               </p>
+              <Link
+                href="/contact"
+                className="glass glass-pill mt-4 inline-block px-6 py-3 text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background focus-ring"
+              >
+                {t("تواصل معنا", "Contact us")}
+              </Link>
             </div>
           ) : (
             <>
