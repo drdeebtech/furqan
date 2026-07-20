@@ -191,8 +191,12 @@ function Tier({
     0,
   );
 
+  // Not a .glass-card: each PlanCard inside is already one, and a card holding
+  // cards stacks two translucent surfaces — the inner glass tints against the
+  // outer instead of the page, muddying both. The tier is a grouping, not an
+  // object, so it gets spacing and a heading rather than its own surface.
   return (
-    <div className="glass-card p-8">
+    <section className="py-2">
       <div className="mb-6 flex items-start gap-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-surface text-muted">
           {tier.icon}
@@ -235,7 +239,7 @@ function Tier({
           </li>
         ))}
       </ul>
-    </div>
+    </section>
   );
 }
 
