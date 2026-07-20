@@ -71,25 +71,19 @@ function sessionLabel(plan: Plan, t: (ar: string, en: string) => string): string
 function PlanCard({
   plan,
   t,
-  highlight,
 }: {
   plan: Plan;
   t: (ar: string, en: string) => string;
-  highlight: boolean;
 }) {
   return (
-    // Wrapper provides positioning context for the badge WITHOUT overflow:hidden,
-    // so the badge isn't clipped by glass-card's overflow:hidden backdrop-filter boundary.
-    <div className={`relative ${highlight ? "pt-3" : ""}`}>
-      {highlight && (
-        <span className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-gold/50 bg-surface px-3 py-0.5 text-xs font-semibold text-foreground">
-          {t("الأكثر طلباً", "Most popular")}
-        </span>
-      )}
+    // No tier is singled out. The old "الأكثر طلباً / Most popular" badge sat on
+    // the middle tier, but Stripe is pre-cutover and there are no subscribers —
+    // it was a popularity claim over a population of zero. Restore it only from
+    // real subscription counts. (Note that with the 2026-07-20 price ladder the
+    // LARGEST tier is now the best per-session value, not the middle one.)
+    <div className="relative">
       <div
-        className={`glass-card flex flex-col gap-4 p-6 transition-shadow duration-200 hover:shadow-gold/10 hover:shadow-lg h-full ${
-          highlight ? "border-gold/40 ring-1 ring-gold/30" : ""
-        }`}
+        className="glass-card flex flex-col gap-4 p-6 transition-shadow duration-200 hover:shadow-gold/10 hover:shadow-lg h-full"
       >
         <div>
           <p className="text-xs font-medium text-muted">
@@ -118,7 +112,6 @@ function Tier({
   tier: PlanTier;
   t: (ar: string, en: string) => string;
 }) {
-  const middle = Math.floor(tier.plans.length / 2);
 
   return (
     <div className="glass-card p-8">
@@ -137,8 +130,8 @@ function Tier({
       <div
         className={`grid items-end gap-4 ${tier.plans.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
       >
-        {tier.plans.map((plan, i) => (
-          <PlanCard key={plan.id} plan={plan} t={t} highlight={i === middle} />
+        {tier.plans.map((plan) => (
+          <PlanCard key={plan.id} plan={plan} t={t} />
         ))}
       </div>
 

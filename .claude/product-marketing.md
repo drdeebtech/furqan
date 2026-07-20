@@ -22,7 +22,7 @@ Rule: a student holds **at most one active hifz product** at a time (group OR in
 
 > Prices are authoritative as live-page content. "Authoritative" here means the three sources agree — it does **not** mean go-live-ready: Stripe cutover and refund-ownership are still open (see "DO NOT market as live yet" below).
 
-All `recurring_monthly`, **USD only**, 60-min sessions, active. Middle tier of each track = "الأكثر طلباً / Most popular".
+All `recurring_monthly`, **USD only**, 60-min sessions, active. **No tier carries a "most popular" badge** — it was removed 2026-07-20 because Stripe is pre-cutover and there are no subscribers, so it claimed popularity over a population of zero. Bring it back only from real subscription counts; note the *largest* tier is now the best per-session value, not the middle.
 
 | Track | plan_code | Price/mo | Credits/mo | Per session |
 |---|---|---|---|---|
