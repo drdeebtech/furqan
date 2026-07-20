@@ -32,6 +32,8 @@ describe("TeacherSearchParamsSchema", () => {
   });
 
   it("caps page at 1000 (unbounded pages become huge OFFSETs)", () => {
+    // 1001 pins the cap exactly (999999 alone would still pass a cap of 5000).
+    expect(TeacherSearchParamsSchema.safeParse({ page: "1001" }).success).toBe(false);
     expect(TeacherSearchParamsSchema.safeParse({ page: "999999" }).success).toBe(false);
     expect(TeacherSearchParamsSchema.safeParse({ page: "1000" }).success).toBe(true);
   });
