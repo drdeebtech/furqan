@@ -14,7 +14,8 @@
 --  [5] the audited admin requeue resets the counters and makes it claimable;
 --      a replay returns not_found;
 --  [6] the failure write is lease-fenced (wrong claimed_at ⇒ false, no change);
---  [7] lockdown on both new/replaced functions.
+--  [6b] the 2-arg deploy-window wrapper is GONE (contract phase, 20260816);
+--  [7] lockdown on the surviving 3-arg function + the requeue.
 --
 -- ids are hex-only (uuid): teacher S uses 'f' tokens ('walk failure').
 
@@ -241,48 +242,29 @@ BEGIN
 END $$;
 
 -- ════════════════════════════════════════════════════════════════════════
--- [6b] Deploy-window compatibility: the legacy 2-arg form still exists but
---      DELEGATES — an old app instance's failure write gets the full FR-011
---      contract (counter + backoff + placeholder error), never a lost lease.
+-- [6b] Contract phase (20260816000000): the 2-arg deploy-window wrapper is
+--      GONE, and only it — the 3-arg form must survive. to_regprocedure
+--      returns NULL for a missing function instead of RAISEing, so absence is
+--      assertable without aborting the walk.
 -- ════════════════════════════════════════════════════════════════════════
 DO $$
-DECLARE v_claimed timestamptz; ok boolean; e record;
 BEGIN
-  -- [6] left the entry leased ('processing'); reuse its live lease token.
-  SELECT te.claimed_at INTO v_claimed FROM teacher_earning_entries te
-   WHERE te.id='00000000-0000-4000-9000-0000000000f1';
-  IF v_claimed IS NULL THEN RAISE EXCEPTION '[6b] expected a live lease from [6]'; END IF;
-
-  ok := connect_sweep_record_transfer_failed(
-          '00000000-0000-4000-9000-0000000000f1', v_claimed);
-  IF NOT ok THEN RAISE EXCEPTION '[6b] legacy wrapper write must hit'; END IF;
-
-  SELECT * INTO e FROM teacher_earning_entries WHERE id='00000000-0000-4000-9000-0000000000f1';
-  IF e.status <> 'pending' THEN RAISE EXCEPTION '[6b] wrapper must return the entry to pending'; END IF;
-  IF e.attempt_count <> 1 THEN RAISE EXCEPTION '[6b] wrapper must count the attempt, got %', e.attempt_count; END IF;
-  IF e.last_error_detail <> 'unknown error (legacy 2-arg caller)' THEN
-    RAISE EXCEPTION '[6b] wrapper must record the placeholder error, got %', e.last_error_detail;
+  IF to_regprocedure('connect_sweep_record_transfer_failed(uuid, timestamptz)') IS NOT NULL THEN
+    RAISE EXCEPTION '[6b] the legacy 2-arg wrapper must have been dropped (contract phase)';
   END IF;
-  IF e.next_attempt_at IS DISTINCT FROM now() + interval '15 minutes' THEN
-    RAISE EXCEPTION '[6b] wrapper must schedule the backoff, got %', e.next_attempt_at;
+  IF to_regprocedure('connect_sweep_record_transfer_failed(uuid, timestamptz, text)') IS NULL THEN
+    RAISE EXCEPTION '[6b] the 3-arg record_transfer_failed must still exist';
   END IF;
 END $$;
 
 -- ════════════════════════════════════════════════════════════════════════
--- [7] Lockdown (both signatures + the requeue).
+-- [7] Lockdown (the surviving 3-arg signature + the requeue).
 -- ════════════════════════════════════════════════════════════════════════
 DO $$
 BEGIN
   IF has_function_privilege('anon', 'connect_sweep_record_transfer_failed(uuid, timestamptz, text)', 'EXECUTE')
   OR has_function_privilege('authenticated', 'connect_sweep_record_transfer_failed(uuid, timestamptz, text)', 'EXECUTE') THEN
     RAISE EXCEPTION '[lockdown] record_transfer_failed must not be client-executable';
-  END IF;
-  IF has_function_privilege('anon', 'connect_sweep_record_transfer_failed(uuid, timestamptz)', 'EXECUTE')
-  OR has_function_privilege('authenticated', 'connect_sweep_record_transfer_failed(uuid, timestamptz)', 'EXECUTE') THEN
-    RAISE EXCEPTION '[lockdown] the legacy wrapper must not be client-executable';
-  END IF;
-  IF NOT has_function_privilege('service_role', 'connect_sweep_record_transfer_failed(uuid, timestamptz)', 'EXECUTE') THEN
-    RAISE EXCEPTION '[lockdown] service_role MUST have EXECUTE on the legacy wrapper';
   END IF;
   IF NOT has_function_privilege('service_role', 'connect_sweep_record_transfer_failed(uuid, timestamptz, text)', 'EXECUTE') THEN
     RAISE EXCEPTION '[lockdown] service_role MUST have EXECUTE on record_transfer_failed';
