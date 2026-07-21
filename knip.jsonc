@@ -41,15 +41,28 @@
 
     // --- Test entry points ---------------------------------------------------
     "e2e/**/*.spec.ts",
-    "src/**/*.test.{ts,tsx}"
+    "src/**/*.test.{ts,tsx}",
+
+    // --- Server actions ------------------------------------------------------
+    // Invoked by React across the server/client boundary, not by an import knip
+    // can follow, so they read as unused. changeUserRole, updateSessionNotes and
+    // markConversationAsRead were all flagged; deleting any of them silently
+    // breaks a working feature.
+    "src/**/actions.{ts,tsx}",
+    "src/lib/actions/**/*.{ts,tsx}"
   ],
 
   "ignore": [
-    // Raw Supabase codegen. Its exports are consumed through type inference, so
-    // knip cannot see the usage. src/types/database.ts is deliberately NOT
-    // ignored: it is a hand-corrected layer (see specs/026) and regressions
-    // there matter.
+    // Raw Supabase codegen. Exports consumed through type inference, invisible
+    // to knip.
     "src/types/supabase.generated.ts",
+
+    // The hand-corrected types layer (specs/026). 60 of its type aliases read as
+    // unused because they are consumed through inference, not named imports.
+    // Ignored for REPORTING only. This file is load-bearing and must never be
+    // collapsed, blind-regenerated, or diffed against supabase.generated.ts:
+    // doing so has already been proven to drop corrections and break the build.
+    "src/types/database.ts",
 
     // Claude Code harness hooks, invoked via settings.json, not by import.
     // IGNORED rather than listed as entry: they import their own tooling
