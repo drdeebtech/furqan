@@ -4,7 +4,7 @@ import type { Database } from "@/types/supabase.generated";
 
 vi.mock("server-only", () => ({}));
 
-import { finalizeAttendance, computeEffectiveEndDate, BookingNotFoundError, FinalizeAttendanceError } from "./finalize";
+import { finalizeAttendance, computeEffectiveEndDate, BookingNotFoundError } from "./finalize";
 
 describe("finalizeAttendance", () => {
   const mockAdmin = {

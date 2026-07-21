@@ -80,7 +80,7 @@ export function OnboardingWizard({
   const [step, setStep] = useState<Step>(1);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const { t, dir, lang } = useLang();
+  const { t, dir } = useLang();
   const router = useRouter();
 
   const backArrow = dir === "rtl" ? <ArrowRight size={14} aria-hidden="true" /> : <ArrowLeft size={14} aria-hidden="true" />;

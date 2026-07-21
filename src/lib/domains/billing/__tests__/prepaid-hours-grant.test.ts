@@ -36,7 +36,7 @@ vi.mock("@/lib/posthog-server", () => ({
   getPostHogClient: () => ({ capture: vi.fn() }),
 }));
 
-import { handlePrepaidHoursGrant, markEvent } from "../webhook-handlers";
+import { handlePrepaidHoursGrant } from "../webhook-handlers";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
