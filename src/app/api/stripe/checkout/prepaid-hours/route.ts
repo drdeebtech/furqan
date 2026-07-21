@@ -8,6 +8,11 @@ import { UnauthenticatedError, ForbiddenError } from "@/lib/auth/errors";
 import { logError, logInfo } from "@/lib/logger";
 import { getSetting, isFeatureEnabled } from "@/lib/settings";
 import {
+  PREPAID_DEFAULT_RATE_USD as DEFAULT_RATE_USD,
+  PREPAID_DEFAULT_CUSTOM_MIN as DEFAULT_CUSTOM_MIN,
+  PREPAID_DEFAULT_CUSTOM_MAX as DEFAULT_CUSTOM_MAX,
+} from "@/lib/domains/billing/prepaid-defaults";
+import {
   PAYMENTS_UNAVAILABLE_MESSAGE,
   PAYMENTS_UNAVAILABLE_STATUS,
 } from "@/lib/payments/provider-unavailable";
@@ -50,9 +55,9 @@ type PrepaidCheckout = z.infer<typeof PrepaidCheckoutSchema>;
 // All wallet money knobs are DATA (platform_settings, seeded in Phase 1), never
 // hardcoded (NFR-001). Missing/blank/non-finite → seeded default.
 
-const DEFAULT_RATE_USD = 10;
-const DEFAULT_CUSTOM_MIN = 1;
-const DEFAULT_CUSTOM_MAX = 100;
+// Defaults are imported from @/lib/domains/billing/prepaid-defaults. This is
+// the CHARGE path — amountCents = hours × rateUsd × 100 — so a stale local copy
+// bills the wrong amount.
 
 async function readRateUsd(): Promise<number> {
   const raw = await getSetting("prepaid_hours_rate_usd");

@@ -95,11 +95,17 @@ with seed(id, role_v, full_name, full_name_ar, country, hourly) as (
     ('22222222-0000-4000-8000-000000000004'::uuid, 'student', 'Fatima Ali',    'فاطمة علي',      'CA', null),
     ('22222222-0000-4000-8000-000000000005'::uuid, 'student', 'Zaid Hassan',   'زيد حسن',       'MY', null)
 )
-insert into public.profiles (id, role, full_name, full_name_ar, country, hourly_rate_usd, is_active)
-select s.id, s.role_v::user_role, s.full_name, s.full_name_ar, s.country, s.hourly, true
+-- `roles` MUST be written alongside `role`: profiles carries
+-- CHECK (role = ANY(roles)) (constraint profiles_active_role_in_set). Without
+-- it the column defaults to {student} while role says 'teacher', so every
+-- teacher row was rejected and a fresh `supabase db reset` produced a database
+-- with ZERO teachers — the student booking funnel dead-ends at step 1.
+insert into public.profiles (id, role, roles, full_name, full_name_ar, country, hourly_rate_usd, is_active)
+select s.id, s.role_v::user_role, array[s.role_v::user_role], s.full_name, s.full_name_ar, s.country, s.hourly, true
 from seed s
 on conflict (id) do update set
   role = excluded.role,
+  roles = excluded.roles,
   full_name = excluded.full_name,
   full_name_ar = excluded.full_name_ar,
   country = excluded.country,

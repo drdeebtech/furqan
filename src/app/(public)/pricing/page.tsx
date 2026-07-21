@@ -4,7 +4,13 @@ import { BreadcrumbSchema } from "@/components/seo/structured-data";
 import { BASE_URL } from "@/lib/constants";
 import { logError } from "@/lib/logger";
 import { getSettings } from "@/lib/settings";
+import {
+  PREPAID_DEFAULT_RATE_USD as DEFAULT_RATE_USD,
+  PREPAID_DEFAULT_CUSTOM_MIN as DEFAULT_CUSTOM_MIN,
+  PREPAID_DEFAULT_CUSTOM_MAX as DEFAULT_CUSTOM_MAX,
+} from "@/lib/domains/billing/prepaid-defaults";
 import { PricingContent, type Faq, type PrepaidConfig } from "./content";
+import { parseTrack } from "./track";
 
 export const metadata: Metadata = {
   title: "الأسعار — اشتراكات حفظ القرآن",
@@ -21,10 +27,9 @@ export const metadata: Metadata = {
 // entire pay-as-you-go surface is hidden). All money knobs are DATA
 // (platform_settings), parsed defensively: blank/non-finite → seeded default.
 
-const DEFAULT_RATE_USD = 10;
+// Rate/bounds defaults are shared with both checkout routes so the price shown
+// here can never disagree with the price charged.
 const DEFAULT_PRESETS = [5, 10, 20];
-const DEFAULT_CUSTOM_MIN = 1;
-const DEFAULT_CUSTOM_MAX = 100;
 
 function parseRate(raw: string | null): number {
   if (raw === null || raw === undefined || raw.trim() === "") return DEFAULT_RATE_USD;
@@ -57,8 +62,37 @@ function parseBound(raw: string | null, fallback: number): number {
   return Math.floor(n);
 }
 
-export default async function PricingPage() {
+export default async function PricingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ track?: string | string[] }>;
+}) {
   const supabase = await createClient();
+  const track = parseTrack((await searchParams).track);
+
+  // Where a plan CTA should point depends on WHO is asking. A signed-out
+  // visitor needs to create an account first (/register carries the plan into
+  // the signup form); a signed-in student must NOT be sent to a registration
+  // page — the proxy bounces them off /register to their dashboard and the
+  // chosen plan is silently discarded, so they land nowhere useful having lost
+  // their choice. /subscribe is the real checkout entry and already handles the
+  // signed-in case directly.
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  // Route to /register ONLY when we positively know the visitor is signed out.
+  // A transient auth-lookup failure must not be read as "signed out": that
+  // would send a real, signed-in student to /register and reinstate exactly the
+  // plan-losing bug this fixes. So on error we fail toward /subscribe, which is
+  // safe for BOTH audiences — it bounces an anonymous visitor to /login
+  // carrying ?plan=, whereas /register destroys the plan for a signed-in one.
+  // Uncertainty therefore costs a signed-out visitor one extra hop; the
+  // alternative costs a signed-in student their choice, silently.
+  const treatAsAuthenticated = Boolean(user) || Boolean(authError);
+  if (authError) {
+    logError("pricing: auth lookup failed, routing CTAs to checkout", authError, {
+      tag: "pricing",
+    });
+  }
 
   // G2: /pricing is the CANONICAL FAQ surface — policy-driven entries from
   // src/lib/copy/policies.ts plus the admin-managed site_faqs rows (the same
@@ -142,6 +176,8 @@ export default async function PricingPage() {
         faqs={faqRows}
         prepaid={prepaid}
         paypalEnabled={paypalEnabled}
+        isAuthenticated={treatAsAuthenticated}
+        track={track}
       />
     </>
   );

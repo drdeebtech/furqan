@@ -17,7 +17,10 @@ interface Plan {
   price_cents: number;
 }
 
+import { selectVisibleTracks, type Track } from "./track";
+
 interface PlanTier {
+  key: Track;
   plans: Plan[];
   labelAr: string;
   labelEn: string;
@@ -60,36 +63,109 @@ const formatUsd = (n: number) =>
     maximumFractionDigits: 2,
   }).format(n);
 
-function sessionLabel(plan: Plan, t: (ar: string, en: string) => string): string {
+/*
+ * Where a plan CTA points, by who is asking.
+ *
+ * Signed OUT → /register carries the plan into the signup form
+ *   (register/page.tsx reads ?plan=, register-form.tsx forwards it).
+ * Signed IN  → /subscribe is the real checkout entry. Sending an authenticated
+ *   student to /register is a dead end: proxy.ts redirects them off every auth
+ *   route to /<role>/dashboard WITHOUT the query string, so the plan they just
+ *   chose is silently discarded and they land somewhere unrelated.
+ *
+ * /subscribe handles the signed-out case too (it bounces to /login preserving
+ * the plan), but the login page's "register" link drops it — so a brand-new
+ * visitor must still be sent to /register directly.
+ */
+export function planHref(planCode: string, isAuthenticated: boolean): string {
+  const code = encodeURIComponent(planCode);
+  return isAuthenticated ? `/subscribe?plan=${code}` : `/register?plan=${code}`;
+}
+
+/**
+ * Arabic counted-noun agreement. A number does not just sit in front of a noun
+ * in Arabic the way it does in English — the noun's form changes with the count:
+ *
+ *   1        → singular   (ساعة واحدة)
+ *   2        → dual       (ساعتان)
+ *   3–10     → plural     (أربع ساعات)   ← "جمع قلة"
+ *   11+      → singular   (أربع عشرة ساعة) ← tamyīz takes the singular
+ *
+ * The individual track previously hardcoded the singular, so every card read
+ * "4 ساعة / شهر" — literally "4 hour" — while the group track two rows above
+ * correctly said "4 جلسات". All live plans are 4/6/8, i.e. the 3–10 band, so
+ * the visible bug was the missing plural; the full table is here so the next
+ * credit count added doesn't reintroduce it.
+ */
+export function arabicCounted(n: number, singular: string, dual: string, plural: string): string {
+  if (n === 1) return singular;
+  if (n === 2) return dual;
+  if (n >= 3 && n <= 10) return plural;
+  return singular;
+}
+
+export function sessionLabel(plan: Plan, t: (ar: string, en: string) => string): string {
   const n = plan.monthly_credit_count;
   if (plan.plan_code.startsWith("hifz_individual")) {
-    return t(`${n} ساعة / شهر`, `${n} hours / month`);
+    const noun = arabicCounted(n, "ساعة", "ساعتان", "ساعات");
+    return t(`${n} ${noun} / شهر`, `${n} ${n === 1 ? "hour" : "hours"} / month`);
   }
-  return t(`${n} جلسات / شهر`, `${n} sessions / month`);
+  const noun = arabicCounted(n, "جلسة", "جلستان", "جلسات");
+  return t(`${n} ${noun} / شهر`, `${n} ${n === 1 ? "session" : "sessions"} / month`);
+}
+
+/**
+ * What one session (group) or one hour (individual) actually costs on a plan.
+ *
+ * This is the number the 2026-07-20 price ladder exists to move, and until now
+ * it was invisible: the page showed $44/$60/$72 with no hint that the per-hour
+ * price falls from $11.00 to $9.00 across them. A student comparing tiers had
+ * to do the division themselves, so the volume discount did no selling.
+ */
+export function perUnitCents(plan: Plan): number {
+  return plan.monthly_credit_count > 0
+    ? plan.price_cents / plan.monthly_credit_count
+    : plan.price_cents;
+}
+
+export function unitLabel(plan: Plan, t: (ar: string, en: string) => string): string {
+  return plan.plan_code.startsWith("hifz_individual")
+    ? t("للساعة", "per hour")
+    : t("للحصة", "per session");
+}
+
+/**
+ * Saving against the SMALLEST tier of the same track — the honest baseline,
+ * because that is the alternative a student is actually choosing between.
+ * Derived from live prices, never hardcoded, so it cannot go stale the way a
+ * written "save 20%" would.
+ */
+export function savingPct(plan: Plan, entryPerUnitCents: number): number {
+  if (entryPerUnitCents <= 0) return 0;
+  return Math.round((1 - perUnitCents(plan) / entryPerUnitCents) * 100);
 }
 
 function PlanCard({
   plan,
   t,
-  highlight,
+  isAuthenticated,
+  entryPerUnitCents,
 }: {
   plan: Plan;
   t: (ar: string, en: string) => string;
-  highlight: boolean;
+  isAuthenticated: boolean;
+  entryPerUnitCents: number;
 }) {
+  const saving = savingPct(plan, entryPerUnitCents);
   return (
-    // Wrapper provides positioning context for the badge WITHOUT overflow:hidden,
-    // so the badge isn't clipped by glass-card's overflow:hidden backdrop-filter boundary.
-    <div className={`relative ${highlight ? "pt-3" : ""}`}>
-      {highlight && (
-        <span className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-gold/50 bg-surface px-3 py-0.5 text-xs font-semibold text-foreground">
-          {t("الأكثر طلباً", "Most popular")}
-        </span>
-      )}
+    // No tier is singled out. The old "الأكثر طلباً / Most popular" badge sat on
+    // the middle tier, but Stripe is pre-cutover and there are no subscribers —
+    // it was a popularity claim over a population of zero. Restore it only from
+    // real subscription counts. (Note that with the 2026-07-20 price ladder the
+    // LARGEST tier is now the best per-session value, not the middle one.)
+    <div className="relative">
       <div
-        className={`glass-card flex flex-col gap-4 p-6 transition-shadow duration-200 hover:shadow-gold/10 hover:shadow-lg h-full ${
-          highlight ? "border-gold/40 ring-1 ring-gold/30" : ""
-        }`}
+        className="glass-card flex flex-col gap-4 p-6 transition-shadow duration-200 hover:shadow-gold/10 hover:shadow-lg h-full"
       >
         <div>
           <p className="text-xs font-medium text-muted">
@@ -99,10 +175,21 @@ function PlanCard({
             {formatPrice(plan.price_cents)}
             <span className="text-base font-normal text-muted"> / {t("شهر", "mo")}</span>
           </p>
+          {/* The ladder, made visible. */}
+          <p className="mt-1 text-sm font-semibold text-gold-ink">
+            <span dir="ltr">{formatUsd(perUnitCents(plan) / 100)}</span>{" "}
+            {unitLabel(plan, t)}
+          </p>
+          {/* Reserve the line even when empty so the three cards stay aligned. */}
+          <p className="mt-0.5 min-h-[1.25rem] text-xs text-muted">
+            {saving > 0
+              ? t(`توفّر ${saving}٪ عن الباقة الأصغر`, `Save ${saving}% vs the smallest plan`)
+              : ""}
+          </p>
         </div>
         <Link
-          href={`/register?plan=${plan.plan_code}`}
-          className="glass-gold glass-pill inline-flex min-h-[44px] items-center justify-center px-5 py-3 text-sm font-semibold text-background transition-colors hover:bg-gold-hover focus-ring"
+          href={planHref(plan.plan_code, isAuthenticated)}
+          className="glass-gold glass-pill mt-auto inline-flex min-h-[44px] items-center justify-center px-5 py-3 text-sm font-semibold text-background transition-colors hover:bg-gold-hover focus-ring"
         >
           {t("ابدأ الآن", "Get started")}
         </Link>
@@ -114,31 +201,56 @@ function PlanCard({
 function Tier({
   tier,
   t,
+  isAuthenticated,
 }: {
   tier: PlanTier;
   t: (ar: string, en: string) => string;
+  isAuthenticated: boolean;
 }) {
-  const middle = Math.floor(tier.plans.length / 2);
+  // Baseline = the tier with the FEWEST credits, i.e. the highest per-unit
+  // price. Every other tier's saving is measured against it.
+  const entryPerUnitCents = tier.plans.reduce(
+    (max, p) => Math.max(max, perUnitCents(p)),
+    0,
+  );
 
+  // Not a .glass-card: each PlanCard inside is already one, and a card holding
+  // cards stacks two translucent surfaces — the inner glass tints against the
+  // outer instead of the page, muddying both. The tier is a grouping, not an
+  // object, so it gets spacing and a heading rather than its own surface.
   return (
-    <div className="glass-card p-8">
+    <section className="py-2">
       <div className="mb-6 flex items-start gap-4">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-surface text-muted">
           {tier.icon}
         </div>
         <div>
-          <h2 className="font-display text-2xl font-bold">
+          {/* h3, not h2: the section already owns the sr-only h2 ("الخطط
+              والأسعار"). The track chooser above is an h3 too, so the chooser
+              and each tier are siblings under that h2 — screen-reader order was
+              previously h2 → h3 → h2, which reads as a level jumping backwards. */}
+          <h3 className="font-display text-2xl font-bold">
             {t(tier.labelAr, tier.labelEn)}
-          </h2>
+          </h3>
           <p className="mt-1 text-sm text-muted">{t(tier.descAr, tier.descEn)}</p>
         </div>
       </div>
 
+      {/* items-stretch (not items-end): the entry tier has no "save X%" line,
+          so measured heights were 194/210/210 and items-end pushed its top 16px
+          down, leaving the three cards visibly staggered. Stretching lets h-full
+          equalise them; the CTA is pinned to the bottom with mt-auto. */}
       <div
-        className={`grid items-end gap-4 ${tier.plans.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
+        className={`grid items-stretch gap-4 ${tier.plans.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
       >
-        {tier.plans.map((plan, i) => (
-          <PlanCard key={plan.id} plan={plan} t={t} highlight={i === middle} />
+        {tier.plans.map((plan) => (
+          <PlanCard
+            key={plan.id}
+            plan={plan}
+            t={t}
+            isAuthenticated={isAuthenticated}
+            entryPerUnitCents={entryPerUnitCents}
+          />
         ))}
       </div>
 
@@ -150,6 +262,114 @@ function Tier({
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+/**
+ * Step 1: the only real product decision — shared teacher time, or private.
+ *
+ * Selection lives in the URL (`/pricing?track=private`), NOT in client state.
+ * Three reasons, in order of importance:
+ *   1. It works with JavaScript disabled or still loading — these are plain
+ *      links, so the page is usable the moment the HTML arrives.
+ *   2. The choice is shareable and linkable: a teacher can send a parent
+ *      straight to the group plans.
+ *   3. It is the documented pattern for an active tab (URL as state).
+ *
+ * Group is NOT presented as a rung on the same ladder as private hours. Group
+ * costs $2.25–$3.00 a session because the teacher's time is SHARED; putting
+ * that beside a $14 private hour would invite a comparison that isn't true.
+ */
+function TrackChooser({
+  tiers,
+  active,
+  t,
+}: {
+  tiers: PlanTier[];
+  active: Track | null;
+  t: (ar: string, en: string) => string;
+}) {
+  const cheapest = (tier: PlanTier) =>
+    tier.plans.reduce((min, p) => Math.min(min, perUnitCents(p)), Infinity);
+
+  const copy: Record<Track, { descAr: string; descEn: string; forAr: string; forEn: string }> = {
+    group: {
+      descAr: "تحفظ مع مجموعة صغيرة. المعلّم نفسه، والتكلفة موزّعة.",
+      descEn: "Memorise alongside a small group. Same teacher, cost shared.",
+      forAr: "الأنسب لأقل تكلفة",
+      forEn: "Best for lowest cost",
+    },
+    private: {
+      descAr: "أنت والمعلّم فقط. منهج على مقاسك وتصحيح فوري.",
+      descEn: "Just you and the teacher. Tailored plan, immediate correction.",
+      forAr: "الأنسب لأسرع تقدّم",
+      forEn: "Best for fastest progress",
+    },
+  };
+
+  return (
+    <div>
+      <h3 className="text-center font-display text-lg font-bold">
+        {t("هل تفضّل التعلّم في مجموعة أم بمفردك؟", "Group, or one-to-one?")}
+      </h3>
+      <p className="mt-1 text-center text-sm text-muted">
+        {t(
+          "هذا هو الاختيار الحقيقي. بعده تختار عدد الحصص فقط.",
+          "That's the real choice. After it, you only pick how many sessions.",
+        )}
+      </p>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        {tiers.map((tier) => {
+          const selected = active === tier.key;
+          const from = cheapest(tier);
+          const sample = tier.plans[0];
+          return (
+            <Link
+              key={tier.key}
+              href={selected ? "/pricing" : `/pricing?track=${tier.key}`}
+              aria-current={selected ? "true" : undefined}
+              className={[
+                "glass-card flex flex-col gap-2 p-6 transition-shadow duration-200 hover:shadow-gold/10 hover:shadow-lg focus-ring",
+                selected ? "border-gold/50 ring-1 ring-gold/30" : "",
+              ].join(" ")}
+            >
+              {/* flex-wrap is defensive, not a fix for an observed break: at
+                  1280px the title (76px) and price (94px) sit comfortably in a
+                  430px row. .glass-card is overflow:hidden, so if these ever do
+                  collide — a narrow phone, a longer translation — the text
+                  would be clipped outright rather than reflowing. Wrapping
+                  costs nothing and removes that failure mode. NOT verified at
+                  mobile width: agent-browser 0.32.3 has no viewport command. */}
+              <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <span className="font-display text-xl font-bold">
+                  {t(tier.labelAr, tier.labelEn)}
+                </span>
+                <span className="text-xs text-muted">
+                  {t("من", "from")}{" "}
+                  <span dir="ltr" className="text-base font-semibold text-gold-ink">
+                    {Number.isFinite(from) ? formatUsd(from / 100) : "—"}
+                  </span>{" "}
+                  {sample ? unitLabel(sample, t) : ""}
+                </span>
+              </span>
+              <span className="text-sm text-muted">
+                {t(copy[tier.key].descAr, copy[tier.key].descEn)}
+              </span>
+              <span className="mt-1 inline-flex items-center gap-1.5 text-xs text-gold-ink">
+                <CheckCircle size={13} aria-hidden="true" className="shrink-0" />
+                {t(copy[tier.key].forAr, copy[tier.key].forEn)}
+              </span>
+              <span className="mt-2 text-xs font-semibold text-gold">
+                {selected
+                  ? t("عرض الكل", "Show both")
+                  : t("اعرض الباقات ←", "See plans →")}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -480,11 +700,17 @@ export function PricingContent({
   faqs,
   prepaid,
   paypalEnabled,
+  isAuthenticated = false,
+  track = null,
 }: {
   plans: Plan[];
   faqs: Faq[];
   prepaid: PrepaidConfig | null;
   paypalEnabled?: boolean;
+  /** Resolved server-side. Decides where a plan CTA points — see planHref(). */
+  isAuthenticated?: boolean;
+  /** From `?track=` — narrows the plans shown. null = show both. */
+  track?: Track | null;
 }) {
   const { t } = useLang();
   const { hidePrices } = useFeatureFlags();
@@ -496,6 +722,7 @@ export function PricingContent({
 
   const tiers: PlanTier[] = [
     {
+      key: "group",
       plans: groupPlans,
       labelAr: "حلقة جماعية",
       labelEn: "Group Hifz",
@@ -505,6 +732,7 @@ export function PricingContent({
       features: GROUP_FEATURES,
     },
     {
+      key: "private",
       plans: individualPlans,
       labelAr: "جلسة فردية",
       labelEn: "Individual Hifz",
@@ -514,6 +742,12 @@ export function PricingContent({
       features: INDIVIDUAL_FEATURES,
     },
   ];
+
+  // Filtering lives in ./track so it can be unit-tested directly. An unknown
+  // ?track= value has already been normalised to null by parseTrack, which
+  // means "show everything" rather than an empty page.
+  const availableTiers = selectVisibleTracks(tiers, null);
+  const visibleTiers = selectVisibleTracks(tiers, track);
 
   return (
     <div>
@@ -611,6 +845,9 @@ export function PricingContent({
               </Link>
             </div>
           ) : plans.length === 0 ? (
+            /* Same failure from the visitor's seat as the hidePrices branch
+               above, so it gets the same way out. Previously this was a dead
+               end: no plans, no CTA, nowhere to go. */
             <div className="glass-card p-12 text-center">
               <p className="text-muted">
                 {t(
@@ -618,11 +855,27 @@ export function PricingContent({
                   "No plans available at the moment.",
                 )}
               </p>
+              <Link
+                href="/contact"
+                className="glass glass-pill mt-4 inline-block px-6 py-3 text-sm font-medium text-gold transition-colors hover:bg-gold hover:text-background focus-ring"
+              >
+                {t("تواصل معنا", "Contact us")}
+              </Link>
             </div>
           ) : (
-            tiers
-              .filter((tier) => tier.plans.length > 0)
-              .map((tier) => <Tier key={tier.labelEn} tier={tier} t={t} />)
+            <>
+              {/* Step 1 — choose the product. Nothing is hidden by default:
+                  with no ?track= both tracks still render below, so a visitor
+                  who ignores the chooser (or a crawler) sees every plan. */}
+              {availableTiers.length > 1 && (
+                <TrackChooser tiers={availableTiers} active={track} t={t} />
+              )}
+
+              {/* Step 2 — how many sessions. */}
+              {visibleTiers.map((tier) => (
+                <Tier key={tier.labelEn} tier={tier} t={t} isAuthenticated={isAuthenticated} />
+              ))}
+            </>
           )}
 
           {/* Spec 038 — "Pay as you go" prepaid-hours card. Rendered only when
